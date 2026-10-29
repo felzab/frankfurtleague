@@ -23,7 +23,6 @@ from app.api.registrierungen.services import (
     registrierung_ist_bestaetigt,
     undecided_erasure_is_due,
 )
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.teams.crud import pull_team_names
 from app.core.collections import Collection
@@ -38,7 +37,6 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.logging import fl_logger
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
@@ -85,7 +83,6 @@ async def _redact(*, aktionen_collection: AktionenCollection, ids: Sequence[Any]
     "/{saison_id}",
     response_model=FLRegistrierungSweepResponse,
     summary="Run one season's registration retention clocks",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def sweep_registrierungen(
     saison_id: str,
@@ -361,71 +358,69 @@ async def sweep_registrierungen(
     erinnerungen: list[FLRegistrierungSweepErinnerung] = []
     ohne_entscheidung, redacted_undecided = 0, 0
     unbestaetigt, redacted_unconfirmed = 0, 0
-    # The pass's last transaction below stamps the day on the seasons, which the cache serves.
-    with dropping_the_saison_cache():
-        # The season's end takes every row the two clocks in the other arm read, so a link minted
-        # for one of them would be a credential nobody can spend.
-        if season_has_ended(saison_status=saison_status):
-            passed_at_the_end: list[Any] = []
-            # Its own loop rather than `app/core/transactions.py :: drain`, which stops only at a short
-            # page: this clock also stops at the first page owing somebody a message.
-            while True:
-                # Accepted: this commit going unanswered erases a page and loses whom it owed a
-                # message.
-                pages, passed = await run_isolated(
-                    db=db,
-                    # Without the rows passed over, as `drain` reads its pages.
-                    batch=Batch(passed=passed_at_the_end),
-                    attempt=lambda session, batch: session.with_transaction(erase_the_undecided, batch),
-                    moved=lambda page: page[1],
-                    owes=True,
-                    what="Registration",
-                    clock="season's end",
-                )
-                passed_at_the_end.extend(passed)
-                for notizen, erased, redacted, _ in pages:
-                    benachrichtigt.extend(notizen)
-                    ohne_entscheidung += erased
-                    redacted_undecided += redacted
-                # Every half of a page taken apart reads under the page and so ends the call, having
-                # stamped the day; where none committed, nothing is owed and the day is stamped alone.
-                if not pages:
-                    async with transaction_session(db) as session:
-                        await session.with_transaction(stamp_the_run)
-                if all(last for *_, last in pages):
-                    break
-            fehlgeschlagen += len(passed_at_the_end)
-        else:
-            unbestaetigt, redacted_unconfirmed, passed = await drain(
+    # The season's end takes every row the two clocks in the other arm read, so a link minted
+    # for one of them would be a credential nobody can spend.
+    if season_has_ended(saison_status=saison_status):
+        passed_at_the_end: list[Any] = []
+        # Its own loop rather than `app/core/transactions.py :: drain`, which stops only at a short
+        # page: this clock also stops at the first page owing somebody a message.
+        while True:
+            # Accepted: this commit going unanswered erases a page and loses whom it owed a
+            # message.
+            pages, passed = await run_isolated(
                 db=db,
-                page_of=lambda session, batch: session.with_transaction(erase_the_unconfirmed, batch),
-                page=SWEEP_PAGE,
-                what="Registration",
-                clock="deadline",
-            )
-            fehlgeschlagen += len(passed)
-
-            share = Batch(share=REMINDERS_PER_PASS)
-            reminded, passed = await run_isolated(
-                db=db,
-                batch=share,
-                attempt=lambda session, batch: session.with_transaction(remind, batch),
-                moved=len,
+                # Without the rows passed over, as `drain` reads its pages.
+                batch=Batch(passed=passed_at_the_end),
+                attempt=lambda session, batch: session.with_transaction(erase_the_undecided, batch),
+                moved=lambda page: page[1],
                 owes=True,
                 what="Registration",
-                clock="reminder",
+                clock="season's end",
             )
-            fehlgeschlagen += len(passed)
-            # Every half that committed stamped the day; where none did, nothing is owed and it is stamped alone.
-            if not reminded:
+            passed_at_the_end.extend(passed)
+            for notizen, erased, redacted, _ in pages:
+                benachrichtigt.extend(notizen)
+                ohne_entscheidung += erased
+                redacted_undecided += redacted
+            # Every half of a page taken apart reads under the page and so ends the call, having
+            # stamped the day; where none committed, nothing is owed and the day is stamped alone.
+            if not pages:
                 async with transaction_session(db) as session:
                     await session.with_transaction(stamp_the_run)
-            erinnerungen = [erinnerung for answered in reminded for erinnerung in answered]
+            if all(last for *_, last in pages):
+                break
+        fehlgeschlagen += len(passed_at_the_end)
+    else:
+        unbestaetigt, redacted_unconfirmed, passed = await drain(
+            db=db,
+            page_of=lambda session, batch: session.with_transaction(erase_the_unconfirmed, batch),
+            page=SWEEP_PAGE,
+            what="Registration",
+            clock="deadline",
+        )
+        fehlgeschlagen += len(passed)
 
-            # After the commit, so a retried transaction writes no second line. A count and never an id:
-            # a line naming the registration would tie it to the ban for as long as the log is kept.
-            if share.withheld:
-                fl_logger.info(f"Reminders withheld from barred addresses in season {saison_id}: {share.withheld} registration(s)")
+        share = Batch(share=REMINDERS_PER_PASS)
+        reminded, passed = await run_isolated(
+            db=db,
+            batch=share,
+            attempt=lambda session, batch: session.with_transaction(remind, batch),
+            moved=len,
+            owes=True,
+            what="Registration",
+            clock="reminder",
+        )
+        fehlgeschlagen += len(passed)
+        # Every half that committed stamped the day; where none did, nothing is owed and it is stamped alone.
+        if not reminded:
+            async with transaction_session(db) as session:
+                await session.with_transaction(stamp_the_run)
+        erinnerungen = [erinnerung for answered in reminded for erinnerung in answered]
+
+        # After the commit, so a retried transaction writes no second line. A count and never an id:
+        # a line naming the registration would tie it to the ban for as long as the log is kept.
+        if share.withheld:
+            fl_logger.info("registrierungen.reminders_withheld", extra={"saison_id": saison_id, "registrierungen": share.withheld})
 
     return FLRegistrierungSweepResponse(
         saison_id=saison_id,

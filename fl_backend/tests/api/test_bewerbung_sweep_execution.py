@@ -26,7 +26,6 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungZustellungEreignisPayload,
 )
 from app.api.bewerbungen.services import (
-    BEWERBUNG_TOKEN_UNKNOWN,
     SWEEP_PAGE,
     build_erinnerung_filter,
     compose_confirmation_update,
@@ -44,12 +43,12 @@ from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zu
 from app.api.saisons.admin_router import activate_saison
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import delete_many_from_db, patch_one_in_db
-from app.core.exception_handlers import DATABASE_FAILED, STORED_DATA_INVALID
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
-from app.core.logging import FL_LOGGER_NAME
+from app.core.exceptions import APIError, DocumentNotFoundError
+from app.core.logging import FL_LOGGER_NAME, JSONFormatter
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.core.transactions import StalledPage
 from app.main import create_app
@@ -137,7 +136,7 @@ def application(bewerbung_id: ObjectId, *, saison_id: str = SAISON_ID, **overrid
         kontakte=kontakte(),
         eingereicht_am=MAILED_ON_THE_MARK,
         bestaetigungsfrist="2026-04-12",
-        schule=documents.neue_schule_document(SCHOOL_NAME, "ZX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
+        schule=documents.neue_schule_document(SCHOOL_NAME, "ZXX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
     )
 
     return {**stored, **overrides}
@@ -171,7 +170,7 @@ def season(saison_id: str, status: str) -> dict[str, Any]:
 
 
 def junction_row() -> dict[str, Any]:
-    return saison_team_document(SAISON_ID, CLUB_OID, CLUB_NAME, "AD", _id=JUNCTION_OID, trikot_farbe="blau", kontakte=kontakte())
+    return saison_team_document(SAISON_ID, CLUB_OID, CLUB_NAME, "ADX", _id=JUNCTION_OID, trikot_farbe="blau", kontakte=kontakte())
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -189,7 +188,7 @@ def on_a_league(url: str, body: Body, *, next_status: str | None = "future", sta
             if next_status is not None:
                 seasons.append(season(NEXT_SAISON_ID, next_status))
             await database[Collection.SAISONS].insert_many(seasons)
-            await database[Collection.TEAMS].insert_one(team_document(CLUB_OID, CLUB_NAME, "AD", website_url=None, schulform="gymnasium_g9"))
+            await database[Collection.TEAMS].insert_one(team_document(CLUB_OID, CLUB_NAME, "ADX", website_url=None, schulform="gymnasium_g9"))
             await database[Collection.SAISON_TEAMS].insert_one(junction_row())
             await database[Collection.BEWERBUNGEN].insert_many(the_corpus())
             # One recorded write per row, so every one has a log image holding its people.
@@ -414,7 +413,7 @@ class TestTheReminderClock:
             # own copy -- the one a re-send writing a single entry leaves open.
             tot = []
             for gone in (erinnert, f"{REMIND_OID}-trainer", f"{REMIND_OID}-ansprechperson"):
-                with pytest.raises(WriteRefusalException) as conflict:
+                with pytest.raises(APIError) as conflict:
                     await ansicht(database, gone)
                 tot.append(conflict.value.error_code)
 
@@ -437,7 +436,7 @@ class TestTheReminderClock:
 
         tot, zustand, fremd_zustand, frisch_token, document = on_a_league(mongo_replica_set_url, body)
 
-        assert tot == [BEWERBUNG_TOKEN_UNKNOWN] * 3
+        assert tot == [Code.BEWERBUNG_TOKEN_UNKNOWN] * 3
         assert (zustand, fremd_zustand) == ("gueltig", "gueltig")
         assert document is not None
         # One mint answering both, each entry written back as the first mint writes it: `token_hash`
@@ -752,11 +751,12 @@ class TestABarredMailboxIsNotChased:
         assert stellvertretung["token_hash"] == first_hashes(str(REMIND_OID))["stellvertretung"]
         assert second == []
 
-        withheld = [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()]
+        withheld = [record for record in caplog.records if record.getMessage() == "bewerbungen.reminders_withheld"]
         # A count, never an id: a line naming the application would tie it to the ban. One per pass,
         # each having asked the ban afresh.
-        assert withheld == [f"Reminders withheld from barred addresses in season {SAISON_ID}: 1 mailbox(es)"] * 2
-        assert not any("bramblewick" in record.getMessage() or str(REMIND_OID) in record.getMessage() for record in caplog.records)
+        assert [(getattr(record, "saison_id", None), getattr(record, "mailboxes", None)) for record in withheld] == [(SAISON_ID, 1)] * 2
+        lines = [JSONFormatter().format(record) for record in caplog.records]
+        assert not any("bramblewick" in line or str(REMIND_OID) in line for line in lines)
 
     def test_a_barred_application_takes_no_place_in_the_share(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch):
         """Skipped before the share is cut: it stays due, so taken first it would fill the share on every pass."""
@@ -1251,9 +1251,9 @@ class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
 class TestASeasonNobodyHas:
     def test_either_call_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await sweep(database, client, saison_id="1999")
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await erase(database, client, [DELETE_OID], saison_id="1999")
 
             return await database[Collection.BEWERBUNGEN].count_documents({}), await erasure_rows(database)
@@ -1310,11 +1310,18 @@ REFUSED_DEADLINE = (
 )
 
 
-def passed_over(caplog: pytest.LogCaptureFixture) -> list[tuple[str, str | None, str]]:
+def passed_over(caplog: pytest.LogCaptureFixture) -> list[tuple[Any, ...]]:
     return [
-        (record.levelname, getattr(record, "error_code", None), record.getMessage())
+        (
+            record.levelname,
+            getattr(record, "error_code", None),
+            getattr(record, "what", None),
+            getattr(record, "row_id", None),
+            getattr(record, "clock", None),
+            getattr(record, "diagnosis", None),
+        )
         for record in caplog.records
-        if "passed over" in record.getMessage()
+        if record.getMessage() == "transactions.row_passed_over"
     ]
 
 
@@ -1342,9 +1349,7 @@ class TestOneRowHoldsBackNoOther:
         # The decline clock after it ran too.
         assert counts == (1, 1, 1)
         assert (refused is not None, other) == (True, None)
-        assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Application {REMIND_OID} was passed over by the season's end clock: {REFUSED_TRACE_ID}")
-        ]
+        assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(REMIND_OID), "season's end", f"{REFUSED_TRACE_ID}")]
 
     def test_a_refused_erasure_by_the_decline_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1361,9 +1366,7 @@ class TestOneRowHoldsBackNoOther:
         assert (refused is not None, other) == (True, None)
         # The clocks after it ran: the drive at the fork found the reminder unstamped and the call raising every pass.
         assert (reminded(answer), [loeschung.bewerbung_id for loeschung in answer.loeschungen]) == ({REMIND_OID}, [DELETE_OID])
-        assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Application {DECLINED_OID} was passed over by the decline clock: {REFUSED_TRACE_ID}")
-        ]
+        assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(DECLINED_OID), "decline", f"{REFUSED_TRACE_ID}")]
 
     def test_a_refused_erasure_by_the_acceptance_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1384,9 +1387,7 @@ class TestOneRowHoldsBackNoOther:
 
         assert counts == (1, 1, 1)
         assert (refused is not None, other) == (True, None)
-        assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Application {ACCEPTED_OID} was passed over by the acceptance clock: {REFUSED_TRACE_ID}")
-        ]
+        assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(ACCEPTED_OID), "acceptance", f"{REFUSED_TRACE_ID}")]
 
     def test_a_refused_contact_block(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1403,7 +1404,7 @@ class TestOneRowHoldsBackNoOther:
         assert (answer.kontaktbloecke_geleert, answer.fehlgeschlagen, reminded(answer)) == (1, 1, {REMIND_OID})
         assert blocks == [(JUNCTION_OID, True), (SECOND_JUNCTION_OID, False)]
         assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Season team {JUNCTION_OID} was passed over by the contact block clock: {REFUSED_TRACE_ID}")
+            ("ERROR", Code.DATABASE_FAILED, "Season team", str(JUNCTION_OID), "contact block", f"{REFUSED_TRACE_ID}")
         ]
 
     def test_a_candidate_the_answer_cannot_carry(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -1422,9 +1423,7 @@ class TestOneRowHoldsBackNoOther:
             {REMIND_OID},
             1,
         )
-        assert passed_over(caplog) == [
-            ("ERROR", STORED_DATA_INVALID, f"Application {SECOND_OID} was passed over by the deletion clock: {REFUSED_DEADLINE}")
-        ]
+        assert passed_over(caplog) == [("ERROR", Code.STORED_DATA_INVALID, "Application", str(SECOND_OID), "deletion", f"{REFUSED_DEADLINE}")]
 
     def test_a_reminder_the_answer_cannot_carry(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A deadline the answer's model refuses before any stamp is written, so the row is passed over and nothing taken apart."""
@@ -1441,9 +1440,7 @@ class TestOneRowHoldsBackNoOther:
             answered, count, stamps = on_a_league(mongo_replica_set_url, body)
 
         assert (answered, count, stamps) == ({REMIND_OID}, 1, [None, None, None])
-        assert passed_over(caplog) == [
-            ("ERROR", STORED_DATA_INVALID, f"Application {SECOND_OID} was passed over by the reminder clock: {REFUSED_DEADLINE}")
-        ]
+        assert passed_over(caplog) == [("ERROR", Code.STORED_DATA_INVALID, "Application", str(SECOND_OID), "reminder", f"{REFUSED_DEADLINE}")]
 
     def test_a_refused_reminder_stamp(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """An application stored before a field it now requires: the reminder's stamp is refused under strict validation.
@@ -1468,9 +1465,9 @@ class TestOneRowHoldsBackNoOther:
 
         assert (answered, count, stamps) == ({REMIND_OID}, 1, [None, None, None])
         refusal = "OperationFailure, code 121: [{'loc': 'trikot', 'type': 'required', 'msg': 'property is missing'}]"
-        assert passed_over(caplog) == [("ERROR", DATABASE_FAILED, f"Application {SECOND_OID} was passed over by the reminder clock: {refusal}")]
-        assert [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()] == [
-            f"Reminders withheld from barred addresses in season {SAISON_ID}: 2 mailbox(es)"
+        assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(SECOND_OID), "reminder", f"{refusal}")]
+        assert [getattr(record, "mailboxes", None) for record in caplog.records if record.getMessage() == "bewerbungen.reminders_withheld"] == [
+            2
         ]
 
     def test_a_pass_whose_every_reminder_fails_records_its_day_and_counts_them(self, mongo_replica_set_url: str):
@@ -1508,9 +1505,7 @@ class TestOneRowHoldsBackNoOther:
         assert (stamped, stamps) == ((1, 1), [TODAY, None])
         # `OperationFailure` rather than `WriteError`: the stamp is a `findAndModify`, which answers a refusal as a command error.
         refusal = "OperationFailure, code 121: [{'loc': 'trikot', 'type': 'required', 'msg': 'property is missing'}]"
-        assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Application {SECOND_OID} was passed over by the announcement clock: {refusal}")
-        ]
+        assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(SECOND_OID), "announcement", f"{refusal}")]
 
     def test_a_refused_erasure_of_the_announced(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1525,9 +1520,7 @@ class TestOneRowHoldsBackNoOther:
             erased, refused, other = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert (erased, refused is not None, other) == ((1, 1), True, None)
-        assert passed_over(caplog) == [
-            ("ERROR", DATABASE_FAILED, f"Application {DELETE_OID} was passed over by the fourteen-day clock: {REFUSED_TRACE_ID}")
-        ]
+        assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(DELETE_OID), "fourteen-day", f"{REFUSED_TRACE_ID}")]
 
 
 @functools.cache
@@ -2175,8 +2168,8 @@ class TestTheReportStripStandsApart:
         assert (response.kontaktbloecke_geleert, response.fehlgeschlagen, junction["kontakte"]) == (1, 1, None)
         assert confirmation["antwort"]["begruendung"] is None, "the confirmations' strip fell with the reports'"
         assert report["bericht"]["bemerkungen"] == refused["bericht"]["bemerkungen"], "the failed strip left a write behind"
-        assert [(level, message.split(":")[0]) for level, _, message in passed_over(caplog)] == [
-            ("ERROR", f"Season {SAISON_ID} was passed over by the report strip clock")
+        assert [(level, what, row_id, clock) for level, _, what, row_id, clock, _ in passed_over(caplog)] == [
+            ("ERROR", "Season", SAISON_ID, "report strip")
         ]
 
 
@@ -2258,8 +2251,8 @@ class TestTheSeasonsEndStripsItsConfirmations:
         response, junction = on_a_league(mongo_replica_set_url, body, status="past", next_status="past", mutates_schema=True)
 
         assert (response.kontaktbloecke_geleert, response.fehlgeschlagen, junction["kontakte"]) == (1, 1, None)
-        assert [(level, message.split(":")[0]) for level, _, message in passed_over(caplog)] == [
-            ("ERROR", f"Season {SAISON_ID} was passed over by the confirmation strip clock")
+        assert [(level, what, row_id, clock) for level, _, what, row_id, clock, _ in passed_over(caplog)] == [
+            ("ERROR", "Season", SAISON_ID, "confirmation strip")
         ]
 
     def test_an_administrators_settle_reason_goes_and_their_answer_gains_no_holder(self, mongo_replica_set_url: str):

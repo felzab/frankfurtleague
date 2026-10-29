@@ -11,10 +11,11 @@ import pytest
 from fastapi import Depends
 from httpx2 import ASGITransport, AsyncClient
 
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.security import ACTOR_HEADER, PERSON_ACTOR_BINDERS, PERSON_BARRED
+from app.core.security import PERSON_ACTOR_BINDERS
 from app.main import create_app
-from tests.actor_tokens import actor_token
+from tests.actor_tokens import actor_headers
 from tests.config import TEST_BASE_URL
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document
@@ -50,7 +51,7 @@ def answered(url: str, email: str, *, bis: str) -> tuple[int, Any]:
             app.add_api_route(PROBE, _probe, methods=["GET"], dependencies=[Depends(PERSON_ACTOR_BINDERS["spieler"])])
             app.state.db_client = client
             async with AsyncClient(transport=ASGITransport(app=app, raise_app_exceptions=False), base_url=TEST_BASE_URL) as http:
-                response = await http.get(PROBE, headers={ACTOR_HEADER: actor_token(email, lane="person")})
+                response = await http.get(PROBE, headers=actor_headers(email, lane="person"))
 
             return response.status_code, response.json()
 
@@ -60,7 +61,7 @@ def answered(url: str, email: str, *, bis: str) -> tuple[int, Any]:
 def test_a_person_a_standing_ban_holds_is_refused(mongo_url: str):
     status, body = answered(mongo_url, BARRED.upper(), bis="2031")
 
-    assert (status, body["error_code"]) == (403, PERSON_BARRED)
+    assert (status, body["error_code"]) == (403, Code.PERSON_BARRED)
 
 
 def test_a_person_no_ban_holds_is_served(mongo_url: str):

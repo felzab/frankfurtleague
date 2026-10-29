@@ -1,11 +1,11 @@
 import pytest
 
 from app.api.saisons.services import (
-    ACTIVATE_TARGET_PAST,
     find_activation_refusal,
     unplayed_spiel_nrs,
 )
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielListAdapter
+from app.core.codes import Code
 
 
 def season(*spiele: dict) -> list:
@@ -78,4 +78,4 @@ class TestAFinishedSeasonIsNeverPromotedBack:
         refusal = find_activation_refusal(undated_spieltage=0, target_status="past", target_fixtures=60, outgoing_unplayed=[3, 7])
 
         assert refusal is not None
-        assert refusal.error_code == ACTIVATE_TARGET_PAST
+        assert refusal.error_code == Code.ACTIVATE_TARGET_PAST

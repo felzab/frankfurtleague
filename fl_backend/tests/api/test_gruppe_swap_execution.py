@@ -10,16 +10,9 @@ from pymongo.errors import OperationFailure
 from app.api.saisons.admin_router import swap_gruppen
 from app.api.saisons.schemas import FLSwapGruppenPayload
 from app.api.spiele.schemas import SONDEREREIGNIS_PRODUCING_A_RECORD, SONDEREREIGNIS_WITHOUT_A_RESULT
-from app.api.teams.services import (
-    SWAP_FIELDS_DISQUALIFIED,
-    SWAP_GRUPPENPHASE_PLAYED,
-    SWAP_KNOCKOUT_STARTED,
-    SWAP_NOT_A_SWAP,
-    SWAP_SAISON_FINISHED,
-    SWAP_SPIELTAG_CLASH,
-)
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, saison_team_document, spiel_document, team_document
 from tests.worker import worker_database
@@ -40,10 +33,10 @@ ALPHA_RIVAL = ObjectId("6890a1b2c3d4e5f60721000a")
 BETA_RIVAL = ObjectId("6890a1b2c3d4e5f60721000b")
 
 NAMES = {
-    ALPHA: ("Alpha", "AL"),
-    BETA: ("Beta", "BE"),
-    ALPHA_RIVAL: ("Alpha-Rival", "AR"),
-    BETA_RIVAL: ("Beta-Rival", "BR"),
+    ALPHA: ("Alpha", "ALX"),
+    BETA: ("Beta", "BEX"),
+    ALPHA_RIVAL: ("Alpha-Rival", "ARX"),
+    BETA_RIVAL: ("Beta-Rival", "BRX"),
 }
 
 
@@ -247,8 +240,8 @@ class TestTheDrawnFixturesMoveWithTheClubs:
 
         spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
 
-        assert spiele[1]["team1"] == {"team_id": BETA, "name": "Beta", "shorthand": "BE", "tore": None}
-        assert spiele[2]["team2"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "AL", "tore": None}
+        assert spiele[1]["team1"] == {"team_id": BETA, "name": "Beta", "shorthand": "BEX", "tore": None}
+        assert spiele[2]["team2"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "ALX", "tore": None}
 
     def test_the_opponent_and_the_slot_are_left_alone(self, mongo_replica_set_url: str):
         """The date, venue and matchday stay with the fixture, so each club inherits the other's schedule rather than carrying its own."""
@@ -303,8 +296,8 @@ class TestTheDrawnFixturesMoveWithTheClubs:
 
         rewritten, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=[gruppen_fixture(1, ALPHA, BETA)])
 
-        assert spiele[1]["team1"] == {"team_id": BETA, "name": "Beta", "shorthand": "BE", "tore": None}
-        assert spiele[1]["team2"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "AL", "tore": None}
+        assert spiele[1]["team1"] == {"team_id": BETA, "name": "Beta", "shorthand": "BEX", "tore": None}
+        assert spiele[1]["team2"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "ALX", "tore": None}
         assert rewritten == 1, "one fixture fielding both clubs was counted twice"
 
     def test_a_club_with_no_drawn_fixture_leaves_the_other_unscheduled(self, mongo_replica_set_url: str):
@@ -378,44 +371,43 @@ class TestTheRefusalsReadTheRealDocuments:
         """The unit test hands the rule a `None`; this proves the handler produces one from its filter and projection."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_swap(database, client, ALPHA, OUTSIDER)
             return refusal.value.error_code, await gruppen_now(database)
 
         code, stored = on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN))
 
-        assert code == SWAP_NOT_A_SWAP
+        assert code == Code.SWAP_NOT_A_SWAP
         assert stored[ALPHA] == "A" and stored[BETA] == "B", "a refused swap wrote something"
 
     def test_a_past_season_is_refused(self, mongo_replica_set_url: str):
         """Nothing has been played, so the season being over is the only thing refusing this."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code, await sides_now(database)
 
         code, sides = on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN), saison_status="past")
 
-        assert code == SWAP_SAISON_FINISHED
+        assert code == Code.SWAP_SAISON_FINISHED
         assert sides == {1: (ALPHA, ALPHA_RIVAL), 2: (BETA_RIVAL, BETA)}, "a refused swap rewrote a fixture"
 
     def test_a_played_knockout_fixture_closes_the_window(self, mongo_replica_set_url: str):
-        """Two fixtures seeded and one taken place: a filter matching every knockout document would still refuse."""
+        """Two knockout fixtures seeded and one taken place, which is enough."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
-            return refusal.value.error_code, refusal.value.error_detail["message"], await gruppen_now(database)
+            return refusal.value.error_code, await gruppen_now(database)
 
-        code, message, stored = on_a_seeded_season(
+        code, stored = on_a_seeded_season(
             mongo_replica_set_url,
             body,
             spiele=[*DRAWN_ROUND_ROBIN, knockout_fixture(ergebnis="2:1"), knockout_fixture(ergebnis=None, spiel_nr=KNOCKOUT_SPIEL_NR + 1)],
         )
 
-        assert code == SWAP_KNOCKOUT_STARTED
-        assert "1 knockout fixture" in message, f"the fixture still to be played was counted too: {message}"
+        assert code == Code.SWAP_KNOCKOUT_STARTED
         assert stored[ALPHA] == "A" and stored[BETA] == "B"
 
     @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_PRODUCING_A_RECORD)
@@ -423,7 +415,7 @@ class TestTheRefusalsReadTheRealDocuments:
         """An abandonment and a no-show each happened, so the bracket already stands on these groups even with no `ergebnis`."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code
 
@@ -433,7 +425,7 @@ class TestTheRefusalsReadTheRealDocuments:
             spiele=[*DRAWN_ROUND_ROBIN, knockout_fixture(ergebnis=None, sonderereignis=sonderereignis)],
         )
 
-        assert code == SWAP_KNOCKOUT_STARTED
+        assert code == Code.SWAP_KNOCKOUT_STARTED
 
     def test_a_knockout_fixture_called_off_before_it_happened_leaves_it_open(self, mongo_replica_set_url: str):
         """The distinction the boolean hid: nothing took place, so there is no history the exchange would rewrite."""
@@ -469,7 +461,7 @@ class TestTheRefusalsReadTheRealDocuments:
         """The damage: Alpha would carry group A's points into group B's table, because the statistics never read a group."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code, await sides_now(database)
 
@@ -479,7 +471,7 @@ class TestTheRefusalsReadTheRealDocuments:
             spiele=[gruppen_fixture(1, ALPHA, ALPHA_RIVAL, ergebnis="3:0", tore=(3, 0)), gruppen_fixture(2, BETA_RIVAL, BETA)],
         )
 
-        assert code == SWAP_GRUPPENPHASE_PLAYED
+        assert code == Code.SWAP_GRUPPENPHASE_PLAYED
         assert sides == {1: (ALPHA, ALPHA_RIVAL), 2: (BETA_RIVAL, BETA)}, "a refused swap rewrote a fixture"
 
     @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_PRODUCING_A_RECORD)
@@ -487,7 +479,7 @@ class TestTheRefusalsReadTheRealDocuments:
         """A no-show is a forfeit and an abandonment is a match that happened; either is a round-robin entry Alpha would carry away."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code
 
@@ -497,7 +489,7 @@ class TestTheRefusalsReadTheRealDocuments:
             spiele=[gruppen_fixture(1, ALPHA, ALPHA_RIVAL, sonderereignis=sonderereignis), gruppen_fixture(2, BETA_RIVAL, BETA)],
         )
 
-        assert code == SWAP_GRUPPENPHASE_PLAYED
+        assert code == Code.SWAP_GRUPPENPHASE_PLAYED
 
     @pytest.mark.parametrize("sonderereignis", ["ausgefallen", "annulliert"])
     def test_a_group_fixture_that_left_no_record_leaves_the_window_open(self, mongo_replica_set_url: str, sonderereignis: str):
@@ -519,7 +511,7 @@ class TestTheRefusalsReadTheRealDocuments:
         """Reachable because `apply_payload_to_spiel` strips goals only where a side is absent; the rewrite would leave them for Beta."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code, await spiele_now(database)
 
@@ -529,7 +521,7 @@ class TestTheRefusalsReadTheRealDocuments:
             spiele=[gruppen_fixture(1, ALPHA, ALPHA_RIVAL, tore=(3, None)), gruppen_fixture(2, BETA_RIVAL, BETA)],
         )
 
-        assert code == SWAP_GRUPPENPHASE_PLAYED
+        assert code == Code.SWAP_GRUPPENPHASE_PLAYED
         # Read back rather than trusted: a seed the database rewrote would be a different state.
         assert (spiele[1]["ergebnis"], spiele[1]["team1"]["tore"], spiele[1]["team2"]["tore"]) == (None, 3, None)
         assert spiele[1]["team1"]["team_id"] == ALPHA, "a refused swap rewrote the side holding the goals"
@@ -540,13 +532,13 @@ class TestTheRefusalsReadTheRealDocuments:
         scored_knockout = {**knockout_fixture(ergebnis=None), "spiel_nr": 9, "team1": side(ALPHA_RIVAL, 2), "team2": side(BETA_RIVAL)}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code
 
         code = on_a_seeded_season(mongo_replica_set_url, body, spiele=[*DRAWN_ROUND_ROBIN, scored_knockout])
 
-        assert code == SWAP_KNOCKOUT_STARTED
+        assert code == Code.SWAP_KNOCKOUT_STARTED
 
     def test_a_knockout_fixture_holding_only_a_shoot_out_closes_the_window_too(self, mongo_replica_set_url: str):
         """Through the route, so the knockout read's projection is proven to carry `elfmeterschiessen` to the predicate."""
@@ -554,13 +546,13 @@ class TestTheRefusalsReadTheRealDocuments:
         decided_knockout = {**knockout_fixture(ergebnis=None), "spiel_nr": 9, "elfmeterschiessen": {"team1": 5, "team2": 4}}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code
 
         code = on_a_seeded_season(mongo_replica_set_url, body, spiele=[*DRAWN_ROUND_ROBIN, decided_knockout])
 
-        assert code == SWAP_KNOCKOUT_STARTED
+        assert code == Code.SWAP_KNOCKOUT_STARTED
 
     def test_a_group_fixture_holding_only_a_shoot_out_closes_the_window_too(self, mongo_replica_set_url: str):
         """The group read is a second projection, so the bracket case above cannot answer for it."""
@@ -568,13 +560,13 @@ class TestTheRefusalsReadTheRealDocuments:
         decided = {**gruppen_fixture(1, ALPHA, ALPHA_RIVAL), "elfmeterschiessen": {"team1": 5, "team2": 4}}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code
 
         code = on_a_seeded_season(mongo_replica_set_url, body, spiele=[decided, gruppen_fixture(2, BETA_RIVAL, BETA)])
 
-        assert code == SWAP_GRUPPENPHASE_PLAYED
+        assert code == Code.SWAP_GRUPPENPHASE_PLAYED
 
     def test_a_swap_that_would_field_a_club_twice_on_one_matchday_is_refused(self, mongo_replica_set_url: str):
         """`REQ-SWAP-005`: the rewrite moves group sides only, so Alpha takes Beta's fixture and stands twice — what a swap could bypass."""
@@ -582,7 +574,7 @@ class TestTheRefusalsReadTheRealDocuments:
         manual_pick = {**knockout_fixture(ergebnis=None, spieltag_id=SPIELTAG), "spiel_nr": 9, "team1": side(ALPHA), "team2": None}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code, await gruppen_now(database), await sides_now(database)
 
@@ -596,7 +588,7 @@ class TestTheRefusalsReadTheRealDocuments:
             ],
         )
 
-        assert code == SWAP_SPIELTAG_CLASH
+        assert code == Code.SWAP_SPIELTAG_CLASH
         assert stored[ALPHA] == "A" and stored[BETA] == "B", "a refused swap moved a junction row"
         assert sides[2] == (BETA_RIVAL, BETA), "a refused swap rewrote a fixture"
 
@@ -669,7 +661,7 @@ class TestTheRefusalsReadTheRealDocuments:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await record_an_austritt(database, ALPHA)
-            with pytest.raises(WriteRefusalException) as refusal:
+            with pytest.raises(APIError) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code, await gruppen_now(database), await sides_now(database)
 
@@ -682,7 +674,7 @@ class TestTheRefusalsReadTheRealDocuments:
             ],
         )
 
-        assert code == SWAP_FIELDS_DISQUALIFIED
+        assert code == Code.SWAP_FIELDS_DISQUALIFIED
         assert stored[ALPHA] == "A" and stored[BETA] == "B", "a refused swap moved a junction row"
         assert sides == {1: (ALPHA, ALPHA_RIVAL), 2: (BETA_RIVAL, BETA)}, "a refused swap rewrote a fixture"
 

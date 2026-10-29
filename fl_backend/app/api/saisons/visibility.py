@@ -1,9 +1,8 @@
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.saisons.cache import read_cached_saison, saison_cache_generation, store_cached_saison
 from app.api.saisons.services import WITHHELD_FROM_BASE_TIER
 from app.core.crud import pull_many_from_db
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 
@@ -14,22 +13,11 @@ async def saison_is_withheld(*, saisons_collection: AsyncCollection, saison_id: 
     one season resolves an id, so it asks here instead.
     """
 
-    saison_raw = read_cached_saison(saison_id)
+    found = await saisons_collection.find_one(filter={"_id": saison_id}, projection={"status": 1})
 
-    if saison_raw is None:
-        generation = saison_cache_generation()
-        found = await saisons_collection.find_one(filter={"_id": saison_id})
-        # A STORED status is the only thing that withholds, so an id naming no season is not
-        # withheld -- and every caller already answers a season it cannot resolve.
-        if found is None:
-            return False
-
-        # The whole document into the cache `pull_saison_id_and_rules` shares, never a projection:
-        # a season resolved here is one the next read of it would have fetched anyway.
-        saison_raw = dict(found)
-        store_cached_saison(saison_id, saison_raw, generation=generation)
-
-    return saison_raw["status"] == WITHHELD_FROM_BASE_TIER
+    # A STORED status is the only thing that withholds, so an id naming no season is not withheld --
+    # and every caller already answers a season it cannot resolve.
+    return found is not None and found["status"] == WITHHELD_FROM_BASE_TIER
 
 
 async def refuse_withheld_saison(*, saisons_collection: AsyncCollection, saison_id: str) -> None:
@@ -40,7 +28,7 @@ async def refuse_withheld_saison(*, saisons_collection: AsyncCollection, saison_
     """
 
     if await saison_is_withheld(saisons_collection=saisons_collection, saison_id=saison_id):
-        raise DocumentNotFoundException(filter={"_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundError()
 
 
 async def withheld_saison_ids(*, saisons_collection: AsyncCollection) -> list[str]:
@@ -50,8 +38,6 @@ async def withheld_saison_ids(*, saisons_collection: AsyncCollection) -> list[st
     to ask about, so it narrows on the whole set instead.
     """
 
-    # Uncached, where the per-id form above caches: the cache is keyed by season id, so it can hold
-    # no set -- and a miss there is a fresh read, where a missing set would read as an empty one.
     withheld = await pull_many_from_db(
         collection=saisons_collection,
         db_filter={"status": WITHHELD_FROM_BASE_TIER},

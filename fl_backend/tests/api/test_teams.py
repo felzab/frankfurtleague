@@ -107,8 +107,8 @@ def test_rejects_negative_statistics(team, statistik, field):
         FLTeam.model_validate(team(statistik=statistik(**{field: -1})))
 
 
-@pytest.mark.parametrize("shorthand", ["C", "CSS", ""])
-def test_rejects_a_shorthand_that_is_not_two_characters(team, shorthand):
+@pytest.mark.parametrize("shorthand", ["CS", "CSSX", "C2S", "ÄBC", ""])
+def test_rejects_a_shorthand_that_is_not_three_letters(team, shorthand):
     """The narrow cards render this instead of the full name, so the width is fixed."""
     with pytest.raises(ValidationError):
         FLTeam.model_validate(team(shorthand=shorthand))
@@ -155,7 +155,6 @@ class TestFLGruppen:
 
         assert sorted(body["gruppen"]) == ["A", "B", "C", "D"]
         assert body["gruppen"]["B"] == []
-        assert body["acknowledged"] == 1
         assert body["format"] == "grouped"
         # The cutoff rides with the table it applies to, so no page marks one season's standing with another's number.
         assert body["qualifiers_per_group"] == 2

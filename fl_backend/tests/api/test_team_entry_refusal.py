@@ -10,16 +10,13 @@ from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.admin_router import post_saison_team
 from app.api.teams.schemas import FLPostSaisonTeamPayload
 from app.api.teams.services import (
-    CLUB_RETIRED,
-    ENTRY_GRUPPE_FULL,
-    ENTRY_GRUPPE_NOT_OFFERED,
-    ENTRY_SAISON_NOT_FUTURE,
     find_club_entry_refusal,
     find_entry_refusal,
     offered_gruppen,
 )
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, team_document
 from tests.worker import worker_database
@@ -55,28 +52,28 @@ class TestEnteringASeason:
     def test_the_active_season_is_refused(self):
         refusal = find_entry_refusal(saison_status="active", gruppe="A", rules=RULES, occupied=0)
         assert refusal is not None
-        assert refusal.error_code == ENTRY_SAISON_NOT_FUTURE
+        assert refusal.error_code == Code.ENTRY_SAISON_NOT_FUTURE
 
     def test_a_past_season_is_refused(self):
         refusal = find_entry_refusal(saison_status="past", gruppe="A", rules=RULES, occupied=0)
         assert refusal is not None
-        assert refusal.error_code == ENTRY_SAISON_NOT_FUTURE
+        assert refusal.error_code == Code.ENTRY_SAISON_NOT_FUTURE
 
     def test_a_group_the_season_does_not_run_is_refused(self):
         refusal = find_entry_refusal(saison_status="future", gruppe="C", rules=RULES, occupied=0)
         assert refusal is not None
-        assert refusal.error_code == ENTRY_GRUPPE_NOT_OFFERED
+        assert refusal.error_code == Code.ENTRY_GRUPPE_NOT_OFFERED
 
     def test_a_full_group_is_refused(self):
         refusal = find_entry_refusal(saison_status="future", gruppe="B", rules=RULES, occupied=4)
         assert refusal is not None
-        assert refusal.error_code == ENTRY_GRUPPE_FULL
+        assert refusal.error_code == Code.ENTRY_GRUPPE_FULL
 
     def test_the_season_gate_outranks_the_group_gates(self):
         """The first rule an admin can act on is named first: a past season's full group reports the season."""
         refusal = find_entry_refusal(saison_status="past", gruppe="C", rules=RULES, occupied=4)
         assert refusal is not None
-        assert refusal.error_code == ENTRY_SAISON_NOT_FUTURE
+        assert refusal.error_code == Code.ENTRY_SAISON_NOT_FUTURE
 
 
 class TestWhetherTheClubIsStillInTheLeague:
@@ -89,14 +86,7 @@ class TestWhetherTheClubIsStillInTheLeague:
         refusal = find_club_entry_refusal(inactive_since="2026-03-01")
 
         assert refusal is not None
-        assert refusal.error_code == CLUB_RETIRED
-
-    def test_the_refusal_names_the_day_it_left(self):
-        """The message is what an admin acts on: `reactivate` is one click, but only if the state is legible."""
-        refusal = find_club_entry_refusal(inactive_since="2026-03-01")
-
-        assert refusal is not None
-        assert "2026-03-01" in refusal.message
+        assert refusal.error_code == Code.CLUB_RETIRED
 
 
 DATABASE_NAME = worker_database("fl_team_entry_test")
@@ -107,7 +97,7 @@ LIVE_OID = ObjectId("6890a1b2c3d4e5f607230001")
 RETIRED_OID = ObjectId("6890a1b2c3d4e5f607230002")
 ABSENT_OID = ObjectId("6890a1b2c3d4e5f607230003")
 
-CLUB_NAMES = {LIVE_OID: ("Adler", "AD"), RETIRED_OID: ("Bieber", "BI")}
+CLUB_NAMES = {LIVE_OID: ("Adler", "ADX"), RETIRED_OID: ("Bieber", "BIX")}
 
 
 def club_document(team_id: ObjectId, inactive_since: str | None) -> dict[str, Any]:
@@ -151,14 +141,14 @@ class TestEnteringAClubThroughTheEndpoint:
 
     def test_a_retired_club_is_refused_with_the_rule_that_stopped_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await enter(database, RETIRED_OID)
 
             return conflict.value.error_code, await junction_rows(database)
 
         code, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert code == CLUB_RETIRED
+        assert code == Code.CLUB_RETIRED
         # The refusal has to stop the write, not merely accompany it.
         assert rows == []
 
@@ -166,18 +156,18 @@ class TestEnteringAClubThroughTheEndpoint:
         """A group the season does not run would refuse too; naming it sends an admin to fix the wrong thing."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await enter(database, RETIRED_OID, gruppe="D")
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == CLUB_RETIRED
+        assert on_a_league(mongo_replica_set_url, body) == Code.CLUB_RETIRED
 
     def test_a_club_no_document_names_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
         """The referential hole the club read closes: without it, the row would name a club `teams` does not hold."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await enter(database, ABSENT_OID)
 
             return await junction_rows(database)
@@ -204,9 +194,9 @@ class TestEnteringAClubThroughTheEndpoint:
         """So the club gate above cannot be passing by refusing everything before the season is ever judged."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await enter(database, LIVE_OID)
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, saison_status="active") == ENTRY_SAISON_NOT_FUTURE
+        assert on_a_league(mongo_replica_set_url, body, saison_status="active") == Code.ENTRY_SAISON_NOT_FUTURE

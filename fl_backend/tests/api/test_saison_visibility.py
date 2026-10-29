@@ -9,7 +9,7 @@ from app.api.saisons.router import get_saison, get_saisons
 from app.api.saisons.schemas import FLSaisonsFilterParams
 from app.api.saisons.services import base_tier_status_term
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import saison_document
 from tests.worker import worker_database
@@ -97,7 +97,7 @@ class TestAPlannedSeasonIsWithheldFromTheBaseTier:
         """404 because the FILTER excludes it: a 403 would confirm that next season's draw exists."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundException) as refusal:
+            with pytest.raises(DocumentNotFoundError) as refusal:
                 await get_saison(saison_id=PLANNED, saisons_collection=database[Collection.SAISONS])
 
             return refusal.value

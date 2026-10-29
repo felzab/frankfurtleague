@@ -32,7 +32,7 @@ from app.api.teams.schemas import (
     FLTrikotFarbe,
     normalise_telefon,
 )
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.shared.schemas.bounds import (
     BEWERBUNG_KADER_GROESSE_MAX,
     BEWERBUNG_STUFENGROESSE_MAX,
@@ -124,7 +124,7 @@ def schule(**overrides: Any) -> dict[str, Any]:
     return {
         "team_name": "Zorbanax",
         "full_name": "Zorbanax-Gymnasium",
-        "shorthand": "ZX",
+        "shorthand": "ZXX",
         "schulform": "gymnasium_g9",
         "address": dict(ADDRESS),
         "website_url": "https://zorbanax.example.de",
@@ -518,13 +518,13 @@ class TestWhatTheSubmissionPayloadRefuses:
 
         assert len(FLBewerbungTrikot.model_validate(stored).vorhandener_satz) == BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH * 2
 
-    def test_a_padded_kuerzel_is_trimmed_to_fit_rather_than_refused(self):
-        """The strip runs before the width is counted, as it does on every payload string carrying a floor."""
+    def test_a_padded_lower_case_kuerzel_is_folded_to_fit_rather_than_refused(self):
+        """The strip and the upper-casing run before the pattern judges it, so the code is stored as every comparison reads it."""
 
-        parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(shorthand=" ZX ")))
+        parsed = FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(shorthand=" zXx ")))
 
         assert parsed.schule is not None
-        assert parsed.schule.shorthand == "ZX"
+        assert parsed.schule.shorthand == "ZXX"
 
 
 # Every ceiling this branch put on the PUBLIC payload, as (label, the field's path, the bound). One
@@ -949,7 +949,7 @@ class TestTheColoursASeasonHasAlreadyAssigned:
 
         response = asyncio.run(_colours_for(collection, bewerbung=dict(COLOUR_READ_WINDOW)))
 
-        assert set(response.model_dump()) == {"acknowledged", "saison_id", "vergeben"}
+        assert set(response.model_dump()) == {"saison_id", "vergeben"}
 
     @pytest.mark.parametrize(
         "bewerbung",
@@ -965,7 +965,7 @@ class TestTheColoursASeasonHasAlreadyAssigned:
 
         collection = _DistinctCollection(["rot"])
 
-        with pytest.raises(DocumentNotFoundException):
+        with pytest.raises(DocumentNotFoundError):
             asyncio.run(_colours_for(collection, bewerbung=bewerbung))
 
         assert collection.key == "the read never ran"
@@ -973,7 +973,7 @@ class TestTheColoursASeasonHasAlreadyAssigned:
     def test_a_season_that_has_ended_never_reaches_the_junction_while_its_window_still_runs(self):
         collection = _DistinctCollection(["rot"])
 
-        with pytest.raises(DocumentNotFoundException):
+        with pytest.raises(DocumentNotFoundError):
             asyncio.run(_colours_for(collection, bewerbung=dict(COLOUR_READ_WINDOW), status="past"))
 
         assert collection.key == "the read never ran"

@@ -28,12 +28,12 @@ from app.api.adresswechsel.sweep_router import (
 )
 from app.api.berechtigungen.services import BEANSPRUCHUNG_DAUER, VERSUCHE_HOECHSTENS
 from app.api.bewerbungen.services import hash_token
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.services import build_ghost_spieler
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
-from app.core.exception_handlers import DATABASE_FAILED, UNHANDLED_CRASH, UNKNOWN_OUTCOME
+from app.core.logging import JSONFormatter
 from app.shared.schemas.bounds import ADRESSWECHSEL_WARTEZEIT_TAGE
 from tests import documents
 from tests.bans import ban_list, ban_through_the_route
@@ -423,13 +423,16 @@ class TestOneChangeHoldsBackNoOther:
 
         assert counts == (1, 1, None)
         assert standing == [numbered(1)]
-        failures = [
-            (record.levelname, record.getMessage()) for record in caplog.records if getattr(record, "error_code", None) == UNHANDLED_CRASH
-        ]
+        [failure] = [record for record in caplog.records if getattr(record, "error_code", None) == Code.UNHANDLED_CRASH]
+        assert (failure.levelname, failure.getMessage()) == ("ERROR", "adresswechsel.sweep_row_failed")
+        assert (getattr(failure, "art", None), getattr(failure, "schritt", None), getattr(failure, "adresswechsel_id", None)) == (
+            "lapsed",
+            "end",
+            str(numbered(1)),
+        )
         # Located by the frame that raised it, and never by its message, which can quote a value.
-        [(level, line)] = failures
-        ended = rf"The lapsed address change {numbered(1)} saw no end: NotTheDatabases in find_one_and_update at .+\.py:\d+"
-        assert (level, re.fullmatch(ended, line) is not None) == ("ERROR", True), line
+        diagnosis = getattr(failure, "diagnosis", "")
+        assert re.fullmatch(r"NotTheDatabases in find_one_and_update at .+\.py:\d+", diagnosis) is not None, diagnosis
 
     def test_a_refused_end_is_passed_over_and_the_next_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A log image refusing the redaction's update. Remove the catch and the call fails."""
@@ -448,8 +451,11 @@ class TestOneChangeHoldsBackNoOther:
 
         assert counts == (1, 1)
         assert standing == [numbered(1)]
-        failures = [record.getMessage() for record in caplog.records if getattr(record, "error_code", None) == DATABASE_FAILED]
-        assert [str(numbered(1)) in message and pending(1) not in message for message in failures] == [True]
+        failures = [record for record in caplog.records if getattr(record, "error_code", None) == Code.DATABASE_FAILED]
+        assert [
+            getattr(record, "adresswechsel_id", None) == str(numbered(1)) and pending(1) not in JSONFormatter().format(record)
+            for record in failures
+        ] == [True]
 
     def test_a_share_of_failing_changes_holds_back_none_behind_it_in_the_pass(self, mongo_replica_set_url: str):
         """Restart each call at the lowest id and the same share fails every call, the last change never reached."""
@@ -514,13 +520,11 @@ class TestTheDeadlineStopsTheCall:
         assert counts == (1, 2, numbered(2))
         assert standing == [numbered(2), numbered(3)]
         lines = [
-            (record.levelname, record.getMessage())
+            (record.levelname, record.getMessage(), getattr(record, "adresswechsel_id", None), getattr(record, "unanswered", None))
             for record in caplog.records
-            if getattr(record, "error_code", None) in {DATABASE_FAILED, UNKNOWN_OUTCOME}
+            if getattr(record, "error_code", None) in {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
         ]
-        assert lines == [
-            ("WARNING", f"Database deadline passed at the lapsed address change {numbered(2)}: the call stops, and the rest stay due")
-        ]
+        assert lines == [("WARNING", "adresswechsel.sweep_cut", str(numbered(2)), None)]
 
     def test_a_change_dearer_than_the_budgets_row_moves_nothing_and_stays_due(self, mongo_replica_set_url: str):
         """Nothing bounds what one address holds, so a share can meet a change dearer than the one it is sized at.
@@ -609,8 +613,6 @@ class TestADueChangeCostsTheCommandsItsShareIsSizedAt:
 
                 return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
 
-            # One call first, so the running season the ban list asks is cached for both counted ones alike.
-            await counted(1)
             (_, few), (answer, twice) = await counted(FEW), await counted(2 * FEW)
 
             return answer, (twice.total() - few.total()) / FEW
@@ -646,7 +648,6 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Counter[str]]:
             for position in range(ADRESSWECHSEL_PER_PASS + 1):
                 await a_due_person(database, position)
-            invalidate_saison_cache()
 
             return await commands_by_name(mongo_replica_set_url, DATABASE_NAME, sweep)
 

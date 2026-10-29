@@ -9,7 +9,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.schemas import FLBewerbungZustellungAngenommenPayload, FLBewerbungZustellungEreignisPayload
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
@@ -55,7 +55,7 @@ def application(**overrides: Any) -> dict[str, Any]:
         kontakte=kontakte(),
         eingereicht_am=MAILED_ON,
         bestaetigungsfrist="2026-04-12",
-        schule=documents.neue_schule_document("Zorbanax", "ZX", full_name="Zorbanax-Gesamtschule", schulform="gesamtschule"),
+        schule=documents.neue_schule_document("Zorbanax", "ZXX", full_name="Zorbanax-Gesamtschule", schulform="gesamtschule"),
         link_prefix="first",
     )
 
@@ -280,7 +280,7 @@ class TestAnEventReachesTheSeatItWasSentTo:
         """An erased application is the ordinary case, so the caller maps this rather than retrying it at the provider's schedule."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentNotFoundException) as failure:
+            with pytest.raises(DocumentNotFoundError) as failure:
                 if call == "accept":
                     await accept(database, client, rollen=["trainer"], bewerbung_id=ABSENT_OID)
                 else:

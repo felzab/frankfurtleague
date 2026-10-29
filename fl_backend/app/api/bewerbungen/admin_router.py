@@ -42,7 +42,6 @@ from app.api.bewerbungen.services import (
     seat_named,
 )
 from app.api.einwilligung.services import find_fassung_refusal
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
@@ -59,8 +58,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.core.transactions import transaction_session
@@ -87,7 +85,6 @@ _KEIN_ENTSCHEIDER_GESPERRT: Final[frozenset[str]] = frozenset()
     f"{by_id('bewerbung_id')}/annehmen",
     response_model=FLAnnehmenBewerbungResponse,
     summary="Accept a Bewerbung and enter the school into the season",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def annehmen_bewerbung(
@@ -228,12 +225,10 @@ async def annehmen_bewerbung(
             trikot_farbe=annahme_data.trikot_farbe,
         )
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache.
-    with dropping_the_saison_cache():
-        # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges,
-        # so a retry after a write conflict judges the season as it stands then rather than as it stood.
-        async with transaction_session(db) as session:
-            accepted = await session.with_transaction(accept_and_enter_the_school)
+    # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges,
+    # so a retry after a write conflict judges the season as it stands then rather than as it stood.
+    async with transaction_session(db) as session:
+        accepted = await session.with_transaction(accept_and_enter_the_school)
 
     return accepted
 
@@ -242,7 +237,6 @@ async def annehmen_bewerbung(
     f"{by_id('bewerbung_id')}/ablehnen",
     response_model=FLAblehnenBewerbungResponse,
     summary="Decline a Bewerbung",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def ablehnen_bewerbung(
@@ -286,7 +280,6 @@ async def ablehnen_bewerbung(
     f"{by_id('bewerbung_id')}/einwilligung/{{seat}}/erneut",
     response_model=FLBewerbungEinwilligungErneutResponse,
     summary="Re-send one seat's confirmation link",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def erneut_einwilligung(
@@ -329,7 +322,7 @@ async def erneut_einwilligung(
     # application has, which is a miss and not a body fault.
     rolle = seat_named(seat)
     if rolle is None:
-        raise DocumentNotFoundException(filter={**db_filter, "seat": seat}, error_code=DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundError()
 
     def seats_judged_on(stored: Mapping[str, Any]) -> tuple[FLKontaktRolle, ...]:
         """Refuse, or answer every seat the fresh link will open: the pressed one and the mirror the confirmation also answers."""
@@ -379,7 +372,7 @@ async def erneut_einwilligung(
 
     try:
         matched = await mint_on(seats)
-    except DocumentNotFoundException:
+    except DocumentNotFoundError:
         # The judgement above was read outside the write's transaction, so a decision or an answer
         # landing between them leaves the filter matching nothing. Judged again rather than answered as
         # a miss, so the refusal names what moved.
@@ -398,7 +391,6 @@ async def erneut_einwilligung(
     f"{by_id('bewerbung_id')}/kontakte/{{seat}}/email",
     response_model=FLBewerbungKontaktEmailResponse,
     summary="Correct one contact person's email address and re-send their link",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def korrigiere_kontakt_email(
@@ -447,7 +439,7 @@ async def korrigiere_kontakt_email(
         # A 404 rather than a 422, as the re-send's is: the segment names no seat any application has.
         rolle = seat_named(seat)
         if rolle is None:
-            raise DocumentNotFoundException(filter={**db_filter, "seat": seat}, error_code=DOCUMENT_NOT_FOUND)
+            raise DocumentNotFoundError()
 
         kontakte, bestaetigungen = bewerbung_raw.get("kontakte"), bewerbung_raw.get("bestaetigungen")
         refuse(find_triage_refusal(status=str(bewerbung_raw["status"])))
@@ -507,7 +499,6 @@ async def korrigiere_kontakt_email(
     f"{by_id('bewerbung_id')}/kontakte/{{seat}}",
     response_model=FLBewerbungKontaktSitzResponse,
     summary="Seat another person where a contact person stepped out",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def besetze_kontakt_sitz(
@@ -555,7 +546,7 @@ async def besetze_kontakt_sitz(
         # A 404 rather than a 422, as the correction's is: the segment names no seat any application has.
         rolle = seat_named(seat)
         if rolle is None:
-            raise DocumentNotFoundException(filter={**db_filter, "seat": seat}, error_code=DOCUMENT_NOT_FOUND)
+            raise DocumentNotFoundError()
 
         kontakte, bestaetigungen = bewerbung_raw.get("kontakte"), bewerbung_raw.get("bestaetigungen")
         refuse(find_triage_refusal(status=str(bewerbung_raw["status"])))

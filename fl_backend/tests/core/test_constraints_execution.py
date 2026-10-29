@@ -26,7 +26,7 @@ from app.core.constraints import (
     UNIQUE_INDEXES,
     apply_constraints,
 )
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     adresswechsel_document,
@@ -118,7 +118,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         "teams": {
             "_id": TEAM_OID,
             "name": "Lessing",
-            "shorthand": "LE",
+            "shorthand": "LEX",
             "description": "",
             "full_name": "Lessing-Gymnasium",
             "website_url": "https://lessing-gymnasium.example.de",
@@ -136,7 +136,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "trikot_farbe": None,
             "kontakte": None,
             "name": "Lessing",
-            "shorthand": "LE",
+            "shorthand": "LEX",
         },
         "spieler": spieler_document(SPIELER_OID, "Max", "Mustermann"),
         "saison_spieler": {
@@ -151,8 +151,8 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "inactive_since": None,
         },
         "spiele": {
-            "team1": {"team_id": TEAM_OID, "name": "Lessing", "tore": 2, "shorthand": "LE"},
-            "team2": {"team_id": SPIELER_OID, "name": "Helmholtz", "tore": 1, "shorthand": "HE"},
+            "team1": {"team_id": TEAM_OID, "name": "Lessing", "tore": 2, "shorthand": "LEX"},
+            "team2": {"team_id": SPIELER_OID, "name": "Helmholtz", "tore": 1, "shorthand": "HEX"},
             "team1_quelle": None,
             "team2_quelle": None,
             "datum": "2026-03-15",
@@ -203,7 +203,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "schule": {
                 "team_name": "Lessing",
                 "full_name": "Lessing-Gymnasium",
-                "shorthand": "LE",
+                "shorthand": "LEX",
                 "schulform": "gymnasium_g9",
                 "address": dict(ADDRESS),
                 "website_url": "https://lessing-gymnasium.example.de",
@@ -328,8 +328,8 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 saison_id=SAISON_ID,
                 spiel_nr=1,
                 spieltag_id=SPIELTAG_OID,
-                team1={"team_id": TEAM_OID, "name": "Lessing", "shorthand": "LE", "tore": None},
-                team2={"team_id": OTHER_TEAM_OID, "name": "Helmholtz", "shorthand": "HE", "tore": None},
+                team1={"team_id": TEAM_OID, "name": "Lessing", "shorthand": "LEX", "tore": None},
+                team2={"team_id": OTHER_TEAM_OID, "name": "Helmholtz", "shorthand": "HEX", "tore": None},
                 datum="2026-03-15",
                 uhrzeit="18:00:00",
                 ort={"spielort_id": SPIELORT_OID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80},
@@ -1029,7 +1029,7 @@ async def sent_by(database: AsyncDatabase, read: Callable[[Any, AsyncClientSessi
 
     squad = _SentSquadReads(database[Collection.SAISON_SPIELER])
     async with database.client.start_session() as session:
-        with contextlib.suppress(WriteRefusalException):
+        with contextlib.suppress(APIError):
             await read(squad, session)
     [issued] = squad.sent
     return issued
@@ -1037,7 +1037,7 @@ async def sent_by(database: AsyncDatabase, read: Callable[[Any, AsyncClientSessi
 
 async def the_report_squads(database: AsyncDatabase) -> Issued:
     await database[Collection.SPIELE].insert_one(
-        valid_document("spiele", _id=SPIEL_OID, team2={"team_id": OTHER_TEAM_OID, "name": "Helmholtz", "tore": 1, "shorthand": "HE"})
+        valid_document("spiele", _id=SPIEL_OID, team2={"team_id": OTHER_TEAM_OID, "name": "Helmholtz", "tore": 1, "shorthand": "HEX"})
     )
 
     return await sent_by(

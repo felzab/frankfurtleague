@@ -15,7 +15,7 @@ from app.api.spieler.schemas import FLPatchSpielerPayload, FLPostSaisonSpielerPa
 from app.api.spieler.services import build_ghost_spieler, build_real_spieler_filter
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from tests import documents
 from tests.config import ADMINISTRATORS
@@ -50,7 +50,7 @@ def on_a_league(url: str, body: Body) -> Any:
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", rules=documents.rules_document()))
-            await database[Collection.SAISON_TEAMS].insert_one(documents.saison_team_document(SAISON_ID, TEAM_OID, "Zorbanax", "ZO"))
+            await database[Collection.SAISON_TEAMS].insert_one(documents.saison_team_document(SAISON_ID, TEAM_OID, "Zorbanax", "ZOX"))
             await database[Collection.SPIELER].insert_many(
                 [build_ghost_spieler(), documents.spieler_document(PERSON_OID, "Quillhilde", "Brackenmoor", inactive_since=RETIRED_ON)]
             )
@@ -118,7 +118,7 @@ def test_every_route_by_id_answers_not_found_for_the_sentinel_and_writes_nothing
     """Each route composes the exclusion itself, so one missing it is the defect no other case shows."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        with pytest.raises(DocumentNotFoundException):
+        with pytest.raises(DocumentNotFoundError):
             await press(database, client, route, GHOST_SPIELER_ID)
 
         return await stored(database, GHOST_SPIELER_ID), await database[Collection.SAISON_SPIELER].count_documents({})
@@ -143,7 +143,7 @@ def test_an_id_nobody_holds_gets_no_squad_row(mongo_replica_set_url: str):
     """A squad row naming nobody resolves to no person on any read of the squad, and nothing would ever remove it."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        with pytest.raises(DocumentNotFoundException):
+        with pytest.raises(DocumentNotFoundError):
             await press(database, client, "squad entry", ObjectId())
 
         return await database[Collection.SAISON_SPIELER].count_documents({})

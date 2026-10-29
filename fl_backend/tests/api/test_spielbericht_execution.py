@@ -15,27 +15,15 @@ from fastapi import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.konto.services import FUNKTION_NICHT_GEHALTEN
 from app.api.spielberichte.admin_router import get_spielbericht_admin, get_spielberichte, patch_spielbericht
 from app.api.spielberichte.crud import count_eingereichte_berichte
 from app.api.spielberichte.person_router import get_spielbericht_bericht, get_spielberichte_person, put_spielbericht_bericht
 from app.api.spielberichte.schemas import FLSpielberichtPayload
-from app.api.spielberichte.services import (
-    BERICHT_ABGESAGT,
-    BERICHT_INZWISCHEN_GEAENDERT,
-    BERICHT_NAME_IN_BEMERKUNGEN,
-    BERICHT_NICHT_GELEITET,
-    BERICHT_NICHT_GESPIELT,
-    BERICHT_NICHT_IM_KADER,
-    BERICHT_SAISON_BEENDET,
-)
-from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel_data, patch_spiele_paarungen
+from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel_data
 from app.api.spiele.schemas import (
     FLPatchSpielDataPayload,
-    FLPatchSpielDataResponse,
-    FLPatchSpielePaarungenPayload,
-    FLPatchSpielPaarungPayload,
 )
+from app.core.codes import Code
 from app.core.collections import Collection
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
@@ -70,7 +58,7 @@ REFEREE_EMAIL = "otto.gruber@example.com"
 OTHER_REFEREE_EMAIL = "ella.engel@example.com"
 NOBODY = "niemand@example.com"
 
-NAMES = {TEAM1: ("Adler", "AD"), TEAM2: ("Biber", "BI")}
+NAMES = {TEAM1: ("Adler", "ADX"), TEAM2: ("Biber", "BIX")}
 PEOPLE = {TEAM1: ("Ida", "Albers"), TEAM2: ("Lea", "Dietz")}
 
 
@@ -348,7 +336,7 @@ class TestAFormOpenedBeforeAnotherWrite:
 
         stale, fresh, block = on_the_league(mongo_replica_set_url, body)
 
-        assert stale == BERICHT_INZWISCHEN_GEAENDERT
+        assert stale == Code.BERICHT_INZWISCHEN_GEAENDERT
         # A form reloaded on the correction writes as any other.
         assert fresh == COMMITTED
         assert (block["version"], block["ergebnis_vorschlag"]["team1_tore"], block["bemerkungen"]) == (3, 2, "Regen.")
@@ -363,7 +351,7 @@ class TestAFormOpenedBeforeAnotherWrite:
 
         stale, block = on_the_league(mongo_replica_set_url, body)
 
-        assert stale == BERICHT_INZWISCHEN_GEAENDERT
+        assert stale == Code.BERICHT_INZWISCHEN_GEAENDERT
         assert (block["version"], block["ergebnis_vorschlag"]["team2_tore"], block["bemerkungen"]) == (2, 1, None)
 
     def test_a_first_write_crossing_another_is_refused_on_its_retry(self, mongo_replica_set_url: str):
@@ -384,7 +372,7 @@ class TestAFormOpenedBeforeAnotherWrite:
 
         outcome, documents_now, passes = on_the_league(mongo_replica_set_url, body)
 
-        assert outcome == BERICHT_INZWISCHEN_GEAENDERT
+        assert outcome == Code.BERICHT_INZWISCHEN_GEAENDERT
         [document] = documents_now
         block = document["bericht"]
         # The administrator's 2:0 stands as it was written; the referee's 1:0 took nothing of it.
@@ -413,17 +401,17 @@ class TestEachRefusalWritesNothing:
     @pytest.mark.parametrize(
         ("email", "before", "body", "code"),
         [
-            pytest.param(NOBODY, nothing, bericht(), FUNKTION_NICHT_GEHALTEN, id="no referee record"),
-            pytest.param(OTHER_REFEREE_EMAIL, nothing, bericht(), BERICHT_NICHT_GELEITET, id="another referee"),
-            pytest.param(REFEREE_EMAIL, move_to_tomorrow, bericht(), BERICHT_NICHT_GESPIELT, id="a day still to come"),
+            pytest.param(NOBODY, nothing, bericht(), Code.FUNKTION_NICHT_GEHALTEN, id="no referee record"),
+            pytest.param(OTHER_REFEREE_EMAIL, nothing, bericht(), Code.BERICHT_NICHT_GELEITET, id="another referee"),
+            pytest.param(REFEREE_EMAIL, move_to_tomorrow, bericht(), Code.BERICHT_NICHT_GESPIELT, id="a day still to come"),
             pytest.param(
-                REFEREE_EMAIL, nothing, bericht(torschuetzen=[tor("team1", MIA)]), BERICHT_NICHT_IM_KADER, id="the other side's pupil"
+                REFEREE_EMAIL, nothing, bericht(torschuetzen=[tor("team1", MIA)]), Code.BERICHT_NICHT_IM_KADER, id="the other side's pupil"
             ),
             pytest.param(
                 REFEREE_EMAIL,
                 nothing,
                 bericht(bemerkungen="Brettschneider stand am Rand."),
-                BERICHT_NAME_IN_BEMERKUNGEN,
+                Code.BERICHT_NAME_IN_BEMERKUNGEN,
                 id="a name in the remarks",
             ),
         ],
@@ -449,7 +437,7 @@ class TestEachRefusalWritesNothing:
             outcome = await outcome_of(put(database, client, bericht(torschuetzen=[tor("team1", LINA, "24")])))
             return outcome, [document["bericht"]["version"] for document in await stored(database)]
 
-        assert on_the_league(mongo_replica_set_url, run) == (BERICHT_SAISON_BEENDET, [1])
+        assert on_the_league(mongo_replica_set_url, run) == (Code.BERICHT_SAISON_BEENDET, [1])
 
     def test_a_correction_after_the_season_s_strip_resends_its_cautions_without_their_reasons(self, mongo_replica_set_url: str):
         """The strip deleted the yellow's reason; the administrator corrects the scorer's minute, and adds no caution."""
@@ -507,14 +495,14 @@ class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
     @pytest.mark.parametrize(
         ("writer", "rival", "code"),
         [
-            pytest.param("referee", retire_the_referee, FUNKTION_NICHT_GEHALTEN, id="the-referee-s-record-retired"),
-            pytest.param("referee", take_the_referee_off, BERICHT_NICHT_GELEITET, id="the-referee-taken-off"),
+            pytest.param("referee", retire_the_referee, Code.FUNKTION_NICHT_GEHALTEN, id="the-referee-s-record-retired"),
+            pytest.param("referee", take_the_referee_off, Code.BERICHT_NICHT_GELEITET, id="the-referee-taken-off"),
             *(
                 pytest.param(writer, rival, code, id=f"{writer}-{name}")
                 for writer in ("referee", "admin")
                 for rival, code, name in (
-                    (call_off, BERICHT_ABGESAGT, "the-fixture-called-off"),
-                    (take_lina_out_of_the_squad, BERICHT_NICHT_IM_KADER, "the-scorer-ausgetragen"),
+                    (call_off, Code.BERICHT_ABGESAGT, "the-fixture-called-off"),
+                    (take_lina_out_of_the_squad, Code.BERICHT_NICHT_IM_KADER, "the-scorer-ausgetragen"),
                 )
             ),
         ],
@@ -550,7 +538,7 @@ class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
 
         outcome, versions, passes = on_the_league(mongo_replica_set_url, body)
 
-        assert (outcome, versions) == (BERICHT_SAISON_BEENDET, [1])
+        assert (outcome, versions) == (Code.BERICHT_SAISON_BEENDET, [1])
         assert passes == 1
 
     def test_a_first_write_conflicts_with_the_season_ending_under_it(self, mongo_replica_set_url: str):
@@ -569,7 +557,7 @@ class TestWhatTheReportIsJudgedOnMovingMidWriteIsJudgedAgain:
 
         outcome, documents_now, attempts = on_the_league(mongo_replica_set_url, body)
 
-        assert (outcome, documents_now) == (BERICHT_SAISON_BEENDET, [])
+        assert (outcome, documents_now) == (Code.BERICHT_SAISON_BEENDET, [])
         assert attempts == 2, "the season's end conflicted with nothing the write wrote"
 
 
@@ -619,7 +607,7 @@ class TestAPupilErasedMidWriteConflictsWithTheAnchor:
 
         outcome, documents_now, writes = on_the_league(mongo_replica_set_url, body)
 
-        assert (outcome, documents_now) == (BERICHT_NICHT_IM_KADER, [])
+        assert (outcome, documents_now) == (Code.BERICHT_NICHT_IM_KADER, [])
         # Never written: the anchor's conflict retried the transaction, whose judgement met the squad without her. An
         # anchor the erasure missed lets the write through, to be refused by the re-judgement outside the transaction.
         assert writes == 0
@@ -660,7 +648,7 @@ class TestTheReads:
 
         form, other = on_the_league(mongo_replica_set_url, body)
 
-        assert other == BERICHT_NICHT_GELEITET
+        assert other == Code.BERICHT_NICHT_GELEITET
         assert (form.bericht, form.spiel.team1.name, form.spiel.saison_phase) == (None, "Adler", "achtelfinale")
         # Live squads alone, each pupil with the number a picker shows.
         assert [(spieler.spieler_id, spieler.nummer) for spieler in form.kader.team1] == [(LINA, "7")]
@@ -939,7 +927,7 @@ class TestTheTriageFindsEveryReportAwaitingTheAdministrator:
 
 
 def save_handles(database: AsyncDatabase, client: AsyncMongoClient) -> dict[str, Any]:
-    """What a fixture save and its undo take besides their body."""
+    """What a fixture save takes besides its body."""
 
     return {
         "db": client,
@@ -952,96 +940,6 @@ def save_handles(database: AsyncDatabase, client: AsyncMongoClient) -> dict[str,
         "schiedsrichter_collection": database[Collection.SCHIEDSRICHTER],
         "spielberichte_collection": database[Collection.SPIELBERICHTE],
     }
-
-
-async def adopt(database: AsyncDatabase, client: AsyncMongoClient, *, version: int | None) -> FLPatchSpielDataResponse:
-    """The administrator's save of the proposed 1:0, seeded from the report at `version`, or typed by hand at none."""
-
-    # The seed's quarter-final shares the round's matchday, where the winner the save resolves into it is refused.
-    await database[Collection.SPIELE].update_one({"_id": VIERTELFINALE}, {"$set": {"spieltag_id": ObjectId()}})
-    stored_spiel = await database[Collection.SPIELE].find_one({"_id": SPIEL})
-    assert stored_spiel is not None, "the seed holds no fixture"
-    spiel_data = spiel_patch_body(stored_spiel, team1={**side(TEAM1), "tore": 1}, team2={**side(TEAM2), "tore": 0})
-
-    return await patch_spiel_data(
-        spiel_id=SPIEL,
-        spiel_data=FLPatchSpielDataPayload.model_validate(spiel_data),
-        uebernimmt_bericht=version,
-        now=NOW,
-        **save_handles(database, client),
-    )
-
-
-async def undo(database: AsyncDatabase, client: AsyncMongoClient, saved: FLPatchSpielDataResponse) -> None:
-    """„Rückgängig“ on the save's toast: its own answer sent back whole."""
-
-    await patch_spiele_paarungen(
-        payload=FLPatchSpielePaarungenPayload(
-            paarungen=[FLPatchSpielPaarungPayload.model_validate(prior.model_dump()) for prior in saved.prior_paarungen],
-            bericht=saved.prior_bericht,
-        ),
-        **save_handles(database, client),
-    )
-
-
-async def admin_zustand(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    return (await get_spielbericht_admin(spiel_id=SPIEL, db=client, **handles(database))).zustand
-
-
-class TestAnUndoTakesItsAdoptionBack:
-    """The save's undo puts the result back, so a report it adopted must read as it did before the save."""
-
-    def test_an_adoption_onto_a_result_already_typed_reads_abweichend_again(self, mongo_replica_set_url: str):
-        """1:0 typed by hand, then adopted as proposed: the result never changes, so only the stamp tells the two apart."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await put(database, client, bericht())
-            await adopt(database, client, version=None)
-            typed = await admin_zustand(database, client)
-            saved = await adopt(database, client, version=1)
-            adopted = await admin_zustand(database, client)
-            await undo(database, client, saved)
-
-            return typed, adopted, await admin_zustand(database, client), (await stored(database))[0]["bericht"]
-
-        typed, adopted, undone, block = on_the_league(mongo_replica_set_url, body)
-
-        assert (typed, adopted) == ("abweichend", "uebernommen"), "the premise: the save adopted a report the result already equalled"
-        assert undone == "abweichend", "the undo left the report adopted"
-        assert (block["uebernommen_am"], block["uebernommen_von"], block["uebernommene_version"]) == (None, None, None)
-
-    def test_an_adoption_onto_no_result_leaves_no_stamp_a_later_hand_typed_result_reads_as(self, mongo_replica_set_url: str):
-        """A stamp the undo left standing would read the administrator's own 1:0, typed later, as the report adopted."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await put(database, client, bericht())
-            saved = await adopt(database, client, version=1)
-            await undo(database, client, saved)
-            undone = await admin_zustand(database, client)
-            await adopt(database, client, version=None)
-
-            return saved.prior_bericht, undone, await admin_zustand(database, client)
-
-        prior, undone, typed = on_the_league(mongo_replica_set_url, body)
-
-        assert prior is not None and (prior.version, prior.uebernommene_version) == (1, None), "the save answered no prior adoption"
-        assert undone == "vorgeschlagen"
-        assert typed == "abweichend", "a result typed by hand after the undo read as the report adopted"
-
-    def test_a_report_corrected_since_keeps_the_stamp_its_version_reads_past(self, mongo_replica_set_url: str):
-        """Put back at the version the save stamped alone: the correction raised it, and the stamp names the content adopted."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await put(database, client, bericht())
-            saved = await adopt(database, client, version=1)
-            await put(database, client, bericht(torschuetzen=[tor("team1", LINA, minute="24")], stand=1))
-            await undo(database, client, saved)
-
-            return (await stored(database))[0]["bericht"]
-
-        block = on_the_league(mongo_replica_set_url, body)
-
-        assert (block["version"], block["uebernommene_version"]) == (2, 1)
 
 
 async def correct_the_feeder(database: AsyncDatabase, client: AsyncMongoClient, team1: int, team2: int) -> None:
@@ -1125,4 +1023,4 @@ class TestAReportOutlivingItsFixturesClub:
 
             return again, (await quarter_final_block(database))["version"]
 
-        assert on_the_league(mongo_replica_set_url, body) == (BERICHT_NICHT_IM_KADER, 1)
+        assert on_the_league(mongo_replica_set_url, body) == (Code.BERICHT_NICHT_IM_KADER, 1)

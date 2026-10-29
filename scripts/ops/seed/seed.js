@@ -56,7 +56,7 @@ function address(strasse, hausnummer, plz, stadtteil) {
 const CLUBS = ["Ahorn", "Birke", "Eiche", "Linde", "Ulme", "Esche", "Kastanie", "Weide"].map((name, index) => ({
   _id: ObjectId(),
   name,
-  shorthand: name.slice(0, 2).toUpperCase(),
+  shorthand: name.slice(0, 3).toUpperCase(),
   description: "",
   full_name: `${name}-Gymnasium`,
   website_url: null,

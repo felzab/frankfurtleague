@@ -44,14 +44,14 @@ RETIRED_OID = ObjectId("6890a1b2c3d4e5f607950002")
 
 # Neither alphabetical nor reverse-alphabetical by `_id`, so a sort key swapped for the id fails.
 CLUBS = (
-    ("Zetteltal", "ZE", OPEN_OID),
-    ("Adlerhorst", "AD", ObjectId("6890a1b2c3d4e5f607950003")),
-    ("Mittelbach", "MI", ObjectId("6890a1b2c3d4e5f607950004")),
+    ("Zetteltal", "ZEX", OPEN_OID),
+    ("Adlerhorst", "ADX", ObjectId("6890a1b2c3d4e5f607950003")),
+    ("Mittelbach", "MIX", ObjectId("6890a1b2c3d4e5f607950004")),
 )
 
 # The season taking applications today, the one whose window has passed, and the one carrying none.
 # A club that has left, which the picker may not offer; its row still holds the season it left.
-RETIRED_CLUB = ("Verlassen", "VE", RETIRED_OID)
+RETIRED_CLUB = ("Verlassen", "VEX", RETIRED_OID)
 AUSTRITT: Mapping[str, Any] = {"type": "rueckzug", "grund": "keine Mannschaft", "datum": "2026-03-15"}
 
 OPEN_SAISON = "2026"
@@ -279,7 +279,7 @@ class TestTheWindowReads:
 
         response = answered(seeded_url, f"{PREFIX}/fenster/{WINDOWLESS_SAISON}")
 
-        assert set(response.json()) == {"acknowledged", "saison_id", "fenster"}
+        assert set(response.json()) == {"saison_id", "fenster"}
         stored = _saison(WINDOWLESS_SAISON, bewerbung=None)
         for withheld in (stored["status"], stored["start_date"], stored["rules"]["tiebreak_order"]):
             assert withheld not in response.text
@@ -289,7 +289,7 @@ class TestTheWindowReads:
 
         body = answered(seeded_url, f"{PREFIX}/fenster/{OPEN_SAISON}").json()
 
-        assert set(body) == {"acknowledged", "saison_id", "offen", "von", "bis", "laeuft", "saison_beendet"}
+        assert set(body) == {"saison_id", "offen", "von", "bis", "laeuft", "saison_beendet"}
 
 
 class TestTheAssignedColoursRead:
@@ -323,7 +323,7 @@ class TestTheAssignedColoursRead:
 
         body = answered(seeded_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}").json()
 
-        assert set(body) == {"acknowledged", "saison_id", "vergeben"}
+        assert set(body) == {"saison_id", "vergeben"}
 
     def test_a_season_read_that_would_404_still_serves_its_colours(self, seeded_url: str):
         """The finding this endpoint exists for: the rule withholds a `future` season's clubs whole."""

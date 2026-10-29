@@ -1,105 +1,46 @@
 """
-TESTS · actor tokens signed as the frontend's server signs them, under a pair made for this run
+TESTS · the session headers the frontend's server sends beside the admin key
 
-The pair is generated when the suite imports this module, so no signing key is ever committed, and
-`tests/config.py :: build_test_config` configures its public half exactly as a deployment would. What
-a token states is read from the table the frontend's suite mints against, never from the verifier's
-own constants, so a verifier that stops admitting the frontend's tokens refuses every signed case here.
+What `app/core/security.py :: get_session_actor` reads, stated as a session of either guard would
+state it: an administrator's by passkey, a person's by code.
 """
 
-import json
-import secrets
 import time
-from base64 import urlsafe_b64encode
 from collections.abc import Iterator, Mapping
-from pathlib import Path
-from typing import Any, Final
+from typing import Final, Literal
 
-import jwt
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from app.core.security import ACTOR_HEADER, AUTH_FACTOR_HEADER, AUTH_TIME_HEADER, PASSKEY_FACTOR, Factor, SessionActor, get_step_up_check
 
-from app.core.actor_token import ActorClaims, Lane, jwk_thumbprint
-from app.core.security import ACTOR_HEADER, get_step_up_check
+Lane = Literal["admin", "person"]
 
-ACTOR_TOKEN_CONTRACT_PATH: Final = Path(__file__).resolve().parent / "shared" / "actor_token_contract.json"
-ACTOR_TOKEN_CONTRACT: Final[Mapping[str, Any]] = json.loads(ACTOR_TOKEN_CONTRACT_PATH.read_bytes().decode("utf-8"))
+# How long before the request a session was made: inside every window a write asks for.
+SESSION_AGE_S: Final = 60
+
+SESSION_HEADERS: Final = (ACTOR_HEADER, AUTH_TIME_HEADER, AUTH_FACTOR_HEADER)
 
 
-def public_key_of(private_key: Ed25519PrivateKey) -> str:
-    """The public half as `ACTOR_TOKEN_PUBLIC_KEY` spells it: RFC 8037's `x`."""
-
-    raw = private_key.public_key().public_bytes(encoding=Encoding.Raw, format=PublicFormat.Raw)
-    return urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+def factor_of(lane: Lane) -> Factor:
+    return PASSKEY_FACTOR if lane == "admin" else "code"
 
 
-SIGNING_KEY = Ed25519PrivateKey.generate()
-ACTOR_TOKEN_PUBLIC_KEY = public_key_of(SIGNING_KEY)
-
-# A pair no configuration names: what a token signed by anyone but the frontend is signed under.
-FOREIGN_SIGNING_KEY = Ed25519PrivateKey.generate()
-
-# How long before its token a session was made: inside the administrator's window, and not the token's own instant.
-SESSION_AGE_S = 60
+def session_headers(email: str, *, auth_time: int, factor: Factor) -> dict[str, str]:
+    return {ACTOR_HEADER: email, AUTH_TIME_HEADER: str(auth_time), AUTH_FACTOR_HEADER: factor}
 
 
-def actor_claims(email: str, *, lane: Lane = "admin", signed_in_before_s: int = SESSION_AGE_S) -> dict[str, Any]:
-    """Every claim the contract requires, as a session of `lane`'s guard would carry them: an administrator's by passkey, a person's by code."""
+def actor_headers(email: str, *, lane: Lane = "admin", signed_in_before_s: int = SESSION_AGE_S, factor: Factor | None = None) -> dict[str, str]:
+    """The three headers of a session made `signed_in_before_s` ago, by `lane`'s factor unless `factor` names another."""
 
-    now = int(time.time())
-    admin_factor = ACTOR_TOKEN_CONTRACT["admin_factor"]
-    return {
-        "iss": ACTOR_TOKEN_CONTRACT["iss"],
-        "aud": ACTOR_TOKEN_CONTRACT["aud"],
-        "iat": now,
-        "exp": now + ACTOR_TOKEN_CONTRACT["lifetime_s"],
-        "jti": secrets.token_urlsafe(16),
-        "sub": f"user-{email}",
-        "email": email,
-        "sid": f"session-{email}",
-        "amr": [admin_factor] if lane == "admin" else [next(factor for factor in ACTOR_TOKEN_CONTRACT["factors"] if factor != admin_factor)],
-        "auth_time": now - signed_in_before_s,
-        "lane": lane,
-    }
+    return session_headers(email, auth_time=int(time.time()) - signed_in_before_s, factor=factor or factor_of(lane))
 
 
-def protected_header(private_key: Ed25519PrivateKey = SIGNING_KEY) -> dict[str, Any]:
-    """`alg` aside, which `jwt.encode` writes from its argument."""
+def verified_actor(email: str, *, signed_in_before_s: int = SESSION_AGE_S, factor: Factor = PASSKEY_FACTOR) -> SessionActor:
+    """An administrator's session as the binder reads it, for a handler called without a request."""
 
-    return {"typ": ACTOR_TOKEN_CONTRACT["typ"], "kid": jwk_thumbprint(public_key_of(private_key))}
-
-
-def sign(claims: Mapping[str, Any], *, private_key: Ed25519PrivateKey = SIGNING_KEY, header: Mapping[str, Any] | None = None) -> str:
-    return jwt.encode(
-        dict(claims),
-        private_key,
-        algorithm=ACTOR_TOKEN_CONTRACT["alg"],
-        headers=dict(protected_header(private_key) if header is None else header),
-    )
+    return SessionActor(email=email, auth_time=int(time.time()) - signed_in_before_s, factor=factor)
 
 
-def actor_token(email: str, *, lane: Lane = "admin", signed_in_before_s: int = SESSION_AGE_S) -> str:
-    return sign(actor_claims(email, lane=lane, signed_in_before_s=signed_in_before_s))
-
-
-def verified_actor(email: str, *, signed_in_before_s: int = SESSION_AGE_S) -> ActorClaims:
-    """An administrator's claims as the verifier yields them, for a handler called without a request."""
-
-    claims = actor_claims(email, signed_in_before_s=signed_in_before_s)
-    return ActorClaims(
-        sub=claims["sub"],
-        email=email,
-        sid=claims["sid"],
-        amr=tuple(claims["amr"]),
-        auth_time=claims["auth_time"],
-        iat=claims["iat"],
-        lane="admin",
-        jti=claims["jti"],
-    )
-
-
-# What a handler called without a request is handed: confirmed a minute before its token, inside every
-# window a write asks for, which is judged against the token's own `iat` and so never lapses.
+# What a handler called without a request is handed. Judged at the clock, so it stays inside the
+# enrolment window for the first minutes of a run and inside the step-up window for its first hours.
 FRESH_ADMIN_ACTOR = verified_actor("admin@example.com")
 
 # The check a handler stepping up some of its calls is handed, over that actor: it refuses none.
@@ -107,26 +48,34 @@ FRESH_STEP_UP_CHECK = get_step_up_check(FRESH_ADMIN_ACTOR)
 
 
 class SignedActor(Mapping[str, str]):
-    """`base` beside an `X-FL-Actor` signed when the header is read.
+    """`base` beside the session headers, stamped when they are read.
 
-    A token signed at import expires a minute into a suite whose cases were collected long before they run.
+    Stamped at the read, not at construction: a case collected long before it runs would otherwise
+    send a session older than its name says.
     """
 
     def __init__(
-        self, email: str, base: Mapping[str, str] | None = None, *, lane: Lane = "admin", signed_in_before_s: int = SESSION_AGE_S
+        self,
+        email: str,
+        base: Mapping[str, str] | None = None,
+        *,
+        lane: Lane = "admin",
+        signed_in_before_s: int = SESSION_AGE_S,
+        factor: Factor | None = None,
     ) -> None:
         self.email = email
         self.base = dict(base or {})
         self.lane: Lane = lane
         self.signed_in_before_s = signed_in_before_s
+        self.factor: Factor | None = factor
 
     def __getitem__(self, name: str) -> str:
-        if name != ACTOR_HEADER:
+        if name not in SESSION_HEADERS:
             return self.base[name]
-        return actor_token(self.email, lane=self.lane, signed_in_before_s=self.signed_in_before_s)
+        return actor_headers(self.email, lane=self.lane, signed_in_before_s=self.signed_in_before_s, factor=self.factor)[name]
 
     def __iter__(self) -> Iterator[str]:
-        return iter((*self.base, ACTOR_HEADER))
+        return iter((*self.base, *SESSION_HEADERS))
 
     def __len__(self) -> int:
-        return len(self.base) + 1
+        return len(self.base) + len(SESSION_HEADERS)

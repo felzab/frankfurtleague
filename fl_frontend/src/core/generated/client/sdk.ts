@@ -109,8 +109,6 @@ import type {
   FLPatchSchiedsrichterResponse,
   FLPatchSpielDataPayload,
   FLPatchSpielDataResponse,
-  FLPatchSpielePaarungenPayload,
-  FLPatchSpielePaarungenResponse,
   FLPatchSpielerPayload,
   FLPatchSpielortPayload,
   FLPatchSpielortResponse,
@@ -1451,7 +1449,7 @@ export const getBewerbungenGetKuerzelUrl = (shorthand: string,) => {
 }
 
 /**
- * Answer whether any club holds this two-letter code.
+ * Answer whether any club holds this three-letter code.
  *
  * Retired clubs COUNT and no club is named: `uniq_shorthand` spans the collection, and an answer
  * naming the holder would publish which schools have left (`READ-BEWERBUNG-001`).
@@ -5180,65 +5178,6 @@ export const spieleGetSpieleForAdmin = async (params?: SpieleGetSpieleForAdminPa
 
 
 
-export const getSpielePatchSpielePaarungenUrl = () => {
-
-
-  return `/api/v0/spiele/paarungen`
-}
-
-/**
- * Put every fixture one save moved back as it stood, in ONE transaction, and resolve the bracket again.
- *
- * **All of it lands or none of it does.** A refusal on any entry takes the entries already written
- * back with it, so a replay never leaves a season half restored — which it otherwise would, the
- * leading entry's resolution being what empties the scorelines the entries after it put back.
- *
- * **The list is replayed in the order it arrives and is never re-sorted**, that order being
- * `prior_paarungen`'s: a fixture is restored after whatever feeds it, or its occupant is refused as
- * a hand-set team on a slot its `quelle` maintains.
- *
- * Each entry carries the four fields a bracket resolution can rewrite, and beyond them only the
- * ones its `other_fields.replaced` names: the date, the venue, the referee, the note and both
- * `quelle`s are otherwise read from the stored document rather than from the request, so a value
- * somebody moved since that save survives. Every refusal, and the resolution itself, are
- * `PATCH /spiele/{spiel_id}`'s.
- *
- * `bericht` is the undone save's `prior_bericht`: the Spielbericht adoption that save stamped over is put back in
- * the same transaction, while the report still stands at the version stamped, so a report adopted by the save reads
- * as it did before it. A report corrected since keeps the stamp, its raised version reading past it already.
- *
- * `advanced_to` and `released_sides` report what the replay cost fixtures it was NOT asked to
- * restore; one it puts back afterwards is the order doing its work rather than a loss. No
- * `dry_run`: what these bodies would move is what the save they undo already reported.
- * @summary Restore the Paarungen one save moved
- */
-export const spielePatchSpielePaarungen = async (fLPatchSpielePaarungenPayload: FLPatchSpielePaarungenPayload, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLPatchSpielePaarungenResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-return adminKeyTransport<FLPatchSpielePaarungenResponse>(getSpielePatchSpielePaarungenUrl(),
-  {
-    ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLPatchSpielePaarungenPayload)
-  }
-);}
-
-
-
 export const getSpieleGetSpielUrl = (spielId: string,) => {
 
 
@@ -5276,15 +5215,11 @@ export const getSpielePatchSpielDataUrl = (spielId: string,
  * Update one Spiel and resolve the season's bracket.
  *
  * The payload is written wholesale: an omitted field is overwritten, and every name it carries is
- * composed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,
- * and every fixture this call changed arrives in `prior_paarungen` as it stood before it — this one
- * leading the list, and carrying the fields beyond its Paarung that this payload replaced.
+ * composed by the server. A result can fill or empty the slots below it, each named in `advanced_to`.
  *
  * With `uebernimmt_bericht`, the save also stamps the fixture's Spielbericht adopted at that version, in the same
  * transaction. A report corrected since that version, or written about other clubs than the save leaves on the
- * fixture, is left unstamped, and the save lands all the same: nothing is refused for it. A stamp answers the
- * adoption it replaced in `prior_bericht`, which the undo sends back; null where nothing was stamped. A `dry_run`
- * stamps nothing.
+ * fixture, is left unstamped, and the save lands all the same: nothing is refused for it. A `dry_run` stamps nothing.
  * @summary Update a Spiel
  */
 export const spielePatchSpielData = async (spielId: string,
@@ -5817,7 +5752,7 @@ export const getSpielerPatchSaisonSpielerUrl = (spielerId: string,
  * Update a player's squad entry for that season.
  *
  * Changing `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted
- * (`fl_backend/app/core/domain.py :: UNENFORCED`); a `rolle` another live row holds is not
+ * (`docs/domain.md`'s what the model permits on purpose); a `rolle` another live row holds is not
  * (`REQ-SQUAD-004`).
  * @summary Update a squad entry
  */

@@ -59,9 +59,9 @@ query carrying a `token`, an `email` or a `q` parameter
 and a mailed address travel there. nginx's error log is plain text, since the open-source build
 offers no other format, and it can repeat such a URL.
 
-**An error code reads `<AREA>-<SUBJECT>-<NNN>`.** A domain rule's code is declared at
-`fl_backend/app/core/domain.py :: RULES`, and `fl_backend/openapi.json` publishes every code an
-operation refuses with; the codes only a log line carries are spelled where they are raised.
+**An error code reads `<AREA>-<SUBJECT>-<NNN>`.** Every code a failure body carries is a
+member of `fl_backend/app/core/codes.py :: Code`, which `fl_backend/openapi.json` lists once as
+the failure body's `error_code`; the codes only a log line carries are spelled where they are raised.
 
 ## Where the logs are, and how long they stay
 

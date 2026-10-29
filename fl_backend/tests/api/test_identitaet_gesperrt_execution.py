@@ -10,9 +10,9 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.sperrliste.admin_router import delete_sperrliste_eintrag
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exception_handlers import PAYLOAD_REFUSED
 from app.main import create_app
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from tests.app_client import app_client
@@ -158,7 +158,7 @@ class TestTheAnswer:
         async def body(_database: AsyncDatabase, _client: AsyncMongoClient) -> Any:
             return (await ask(mongo_replica_set_url, GESPERRT)).json()
 
-        assert on_a_list(mongo_replica_set_url, body) == {"acknowledged": 1, "gesperrt": True}
+        assert on_a_list(mongo_replica_set_url, body) == {"gesperrt": True}
 
     def test_the_question_stores_nothing(self, mongo_replica_set_url: str):
         """Asked about a barred address, the case most likely to write something down: no log row and no ban row moves."""
@@ -200,6 +200,6 @@ class TestWhatThePayloadRefuses:
 
         response: Response = on_a_list(mongo_replica_set_url, body)
 
-        assert (response.status_code, response.json()["error_code"]) == (422, PAYLOAD_REFUSED)
+        assert (response.status_code, response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
         assert [field["path"] for field in response.json()["fields"]] == [["email"]]
         assert email is None or email == "" or email not in response.text

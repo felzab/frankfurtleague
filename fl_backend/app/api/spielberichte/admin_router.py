@@ -5,7 +5,6 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends, Query
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_current_saison_id
 from app.api.spielberichte.crud import (
     anchor_the_pupils_named,
@@ -45,7 +44,6 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.core.transactions import transaction_session
@@ -71,7 +69,6 @@ def _admin_ansicht(
     "",
     response_model=FLSpielberichteSaisonResponse,
     summary="Every report of a season and the state it reads in",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_spielberichte(
     spielberichte_collection: SpielberichteCollection,
@@ -99,7 +96,6 @@ async def get_spielberichte(
     f"{by_id('spiel_id')}/admin",
     response_model=FLSpielberichtAdminResponse,
     summary="One fixture's report, whole, for an administrator",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_spielbericht_admin(
     spiel_id: CustomRouteObjectId,
@@ -146,7 +142,6 @@ async def get_spielbericht_admin(
     by_id("spiel_id"),
     response_model=FLSpielberichtAdminResponse,
     summary="Write one fixture's report as an administrator",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
     # It overwrites the referee's account of the match, and nothing undoes it.
     dependencies=[Depends(verify_step_up)],
 )
@@ -236,7 +231,5 @@ async def patch_spielbericht(
         # The report as written, in the shape of the panel's read; no client reads it, the page reading again after the save.
         return _admin_ansicht(lage, kader_offen=True, genannt=genannt, dokument=dokument)
 
-    # A first write anchors the season, a season write the cache serves.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            return await session.with_transaction(write_the_report)
+    async with transaction_session(db) as session:
+        return await session.with_transaction(write_the_report)

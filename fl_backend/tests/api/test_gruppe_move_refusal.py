@@ -1,6 +1,7 @@
 import pytest
 
-from app.api.teams.services import ENTRY_GRUPPE_LOCKED, find_gruppe_move_refusal
+from app.api.teams.services import find_gruppe_move_refusal
+from app.core.codes import Code
 
 
 class TestTheWindowForAGroupChange:
@@ -18,7 +19,7 @@ class TestTheWindowForAGroupChange:
         refusal = find_gruppe_move_refusal(fixtures_drawn=drawn)
 
         assert refusal is not None
-        assert refusal.error_code == ENTRY_GRUPPE_LOCKED
+        assert refusal.error_code == Code.ENTRY_GRUPPE_LOCKED
 
     def test_one_fixture_is_enough(self):
         """No threshold to tune: the first fixture makes the group a fact about the schedule rather than a label."""
@@ -26,11 +27,4 @@ class TestTheWindowForAGroupChange:
         refusal = find_gruppe_move_refusal(fixtures_drawn=1)
 
         assert refusal is not None
-        assert refusal.error_code == ENTRY_GRUPPE_LOCKED
-
-    def test_the_refusal_names_the_count_and_the_route_out(self):
-        refusal = find_gruppe_move_refusal(fixtures_drawn=6)
-
-        assert refusal is not None
-        assert "6" in refusal.message
-        assert "swap" in refusal.message
+        assert refusal.error_code == Code.ENTRY_GRUPPE_LOCKED

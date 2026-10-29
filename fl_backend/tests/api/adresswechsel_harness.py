@@ -5,7 +5,6 @@ Each route is called as its handler, every collection it takes by its own name o
 what it changes: the address, the instant, the actor.
 """
 
-import dataclasses
 import inspect
 import time
 from collections.abc import Awaitable, Callable, Mapping
@@ -38,10 +37,9 @@ from app.api.adresswechsel.sweep_router import sweep_adresswechsel
 from app.api.konto.router import delete_adresswechsel as stop_on_the_account_page
 from app.api.konto.router import get_adresswechsel, post_adresswechsel, post_adresswechsel_freigabe
 from app.api.konto.schemas import FLKontoAdresswechselFreigabePayload, FLKontoAdresswechselPayload
-from app.core.actor_token import PASSKEY_FACTOR
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
-from app.core.security import StepUpCheck, get_person_confirmation_check
+from app.core.exceptions import APIError
+from app.core.security import PASSKEY_FACTOR, StepUpCheck, get_person_confirmation_check
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import ADRESSWECHSEL_WARTEZEIT_TAGE
 from tests import documents
@@ -125,7 +123,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
     await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
     await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
     await database[Collection.TEAMS].insert_many(
-        [documents.team_document(TEAM_OID, "Zorbanax", "ZO"), documents.team_document(SECOND_TEAM_OID, "Quellbrunn", "QB")]
+        [documents.team_document(TEAM_OID, "Zorbanax", "ZOX"), documents.team_document(SECOND_TEAM_OID, "Quellbrunn", "QBX")]
     )
     pupils = [documents.spieler_document(OTHER_OID, "Jonte", "Wirbelauer", email=OTHER_EMAIL)]
     if pupil:
@@ -160,7 +158,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 SAISON_ID,
                 TEAM_OID,
                 "Zorbanax",
-                "ZO",
+                "ZOX",
                 kontakte=documents.kontakte_document(
                     ansprechperson=_seat(EMAIL, confirmed=True), stellvertretung=_seat(EMAIL, confirmed=False)
                 ),
@@ -253,7 +251,7 @@ async def granted(database: AsyncDatabase, adresse: str = EMAIL, *, verwaltung: 
 def person_check(*, factor: str | None) -> StepUpCheck:
     """The person's step-up check over a sign-in a minute old, by passkey or, with `factor` None, by code."""
 
-    actor = dataclasses.replace(verified_actor(EMAIL), lane="person", amr=() if factor is None else (factor,))
+    actor = verified_actor(EMAIL, factor=PASSKEY_FACTOR if factor == PASSKEY_FACTOR else "code")
     return get_person_confirmation_check(actor)
 
 
@@ -349,7 +347,7 @@ def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any = None
 
 
 async def refused_code(call: Awaitable[Any]) -> str:
-    with pytest.raises(WriteRefusalException) as refused:
+    with pytest.raises(APIError) as refused:
         await call
 
     return refused.value.error_code

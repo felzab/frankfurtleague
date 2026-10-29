@@ -135,7 +135,7 @@ def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str,
         saison_id,
         team_id,
         name,
-        name[:2].upper(),
+        name[:3].upper(),
         _id=row_id,
         kontakte={
             **{slot: None for slot in KONTAKT_ROLLEN},
@@ -197,7 +197,7 @@ async def _seed(database: AsyncDatabase) -> None:
         [_saison(PAST_SAISON, "past"), _saison(ACTIVE_SAISON, "active"), _saison(FUTURE_SAISON, "future")]
     )
     await database[Collection.TEAMS].insert_many(
-        [_club(TEAM_A_OID, CLUB_NAME_A_NOW, "HE"), _club(TEAM_B_OID, ROW_NAME_B, "LE"), _club(TEAM_C_OID, "Krautzberg", "KR")]
+        [_club(TEAM_A_OID, CLUB_NAME_A_NOW, "HEX"), _club(TEAM_B_OID, ROW_NAME_B, "LEX"), _club(TEAM_C_OID, "Krautzberg", "KRX")]
     )
     await database[Collection.SAISON_TEAMS].insert_many(
         [
@@ -435,7 +435,6 @@ def test_the_mounted_route_serves_the_three_kinds_the_corpus_holds(mongo_replica
 
     assert response.status_code == 200
     assert response.json() == {
-        "acknowledged": 1,
         "sitze": [
             {
                 "saison_id": PAST_SAISON,
@@ -477,7 +476,6 @@ def test_the_mounted_route_flags_a_mailbox_whose_every_record_awaits_its_confirm
 
     assert response.status_code == 200
     assert response.json() == {
-        "acknowledged": 1,
         "sitze": [],
         "spieler": [],
         "schiedsrichter": [],
@@ -497,7 +495,6 @@ def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(mongo_r
 
     assert response.status_code == 200
     assert response.json() == {
-        "acknowledged": 1,
         "sitze": [],
         "spieler": [],
         "schiedsrichter": [],

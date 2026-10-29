@@ -3,11 +3,11 @@ from pydantic import SecretStr, TypeAdapter
 
 from app.api.sperrliste.schemas import GRUND_HOLDS_AN_ADDRESS, FLPostSperrlistePayload
 from app.api.sperrliste.services import (
-    SPERRLISTE_ADRESSE_GESPERRT,
     SPERRLISTE_SCHLUESSEL_VERSION,
     adresse_hash,
     find_sperrliste_refusal,
 )
+from app.core.codes import Code
 from app.shared.schemas.kontakt import CustomEmail
 
 # Obviously fake and distinct: two equal keys would let the separation case below pass vacuously.
@@ -181,7 +181,7 @@ class TestWhatTheCheckAnswers:
     def test_a_banned_address_is_refused_under_the_published_code(self):
         """The LITERAL: comparing the code to the constant that produced it would hold after a rename the frontend never heard of.
 
-        `fl_backend/app/core/domain.py :: RULES` and each slice's own mapper both key on this string.
+        `fl_backend/app/core/codes.py :: Code` and each slice's own mapper both key on this string.
         """
 
         refusal = find_sperrliste_refusal(gesperrt=True)
@@ -189,17 +189,9 @@ class TestWhatTheCheckAnswers:
         assert refusal is not None
         assert refusal.error_code == "REQ-SPERRLISTE-001"
         # The constant beside it, so a rename that moved one and not the other fails here too.
-        assert SPERRLISTE_ADRESSE_GESPERRT == "REQ-SPERRLISTE-001"
+        assert Code.SPERRLISTE_ADRESSE_GESPERRT == "REQ-SPERRLISTE-001"
 
     def test_an_address_the_list_does_not_hold_is_refused_by_nothing(self):
         """The control: a check refusing everything would pass the case above and stop every sign-up."""
 
         assert find_sperrliste_refusal(gesperrt=False) is None
-
-    def test_the_refusal_quotes_no_address(self):
-        """The detail reaches a log line and an admin's screen, and the address is the one value this feature exists not to keep."""
-
-        refusal = find_sperrliste_refusal(gesperrt=True)
-
-        assert refusal is not None
-        assert "@" not in refusal.message

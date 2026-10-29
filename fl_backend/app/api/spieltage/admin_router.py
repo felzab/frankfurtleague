@@ -6,7 +6,6 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieltage.schemas import (
@@ -31,7 +30,6 @@ from app.api.spieltage.services import (
 from app.core.config import API_VERSION
 from app.core.crud import anchor_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import DBClient, SaisonsCollection, SpieleCollection, SpieltageCollection
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
 from app.core.transactions import transaction_session
@@ -49,7 +47,6 @@ router = APIRouter(
     "/list/admin",
     response_model=FLSpieltageListResponse,
     summary="Spieltage for the admin surfaces",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_spieltage_for_admin(
     spieltage_collection: SpieltageCollection,
@@ -91,7 +88,6 @@ async def get_spieltage_for_admin(
     f"{by_id('spieltag_id')}/admin",
     response_model=FLSpieltageSingleResponse,
     summary="One Spieltag for the admin editor",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_spieltag_for_admin(
     spieltag_id: CustomRouteObjectId,
@@ -119,7 +115,6 @@ async def _refuse_an_out_of_order_beginn(
     saisons_collection: AsyncCollection,
     stored_raw: Mapping[str, Any],
     beginn: str,
-    ende: str,
     # REQUIRED: the anchor below is what closes the race, so forgetting the session has to be a
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
@@ -153,7 +148,6 @@ async def _refuse_an_out_of_order_beginn(
     refuse(
         find_spieltag_order_refusal(
             beginn=beginn,
-            ende=ende,
             # The read its neighbours go through as well, so what an undated row means is decided in
             # one place rather than at each side of the comparison.
             stored_beginn=dated_beginn(stored_raw),
@@ -167,7 +161,6 @@ async def _refuse_an_out_of_order_beginn(
     by_id("spieltag_id"),
     response_model=FLSpieltagWriteResponse,
     summary="Re-date a Spieltag",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def patch_spieltag(
     spieltag_id: CustomRouteObjectId,
@@ -216,7 +209,6 @@ async def patch_spieltag(
             saisons_collection=saisons_collection,
             stored_raw=stored_raw,
             beginn=spieltag_data.beginn,
-            ende=spieltag_data.ende,
             session=session,
         )
 
@@ -230,13 +222,11 @@ async def patch_spieltag(
 
         return updated_raw, rules
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache.
-    with dropping_the_saison_cache():
-        # One transaction over the span and the season write inside `_refuse_an_out_of_order_beginn`,
-        # which is what makes two matchdays of one phase contend. `with_transaction` is safe to retry,
-        # the callback re-reading its neighbours.
-        async with transaction_session(db) as session:
-            updated_raw, rules = await session.with_transaction(redate_the_matchday)
+    # One transaction over the span and the season write inside `_refuse_an_out_of_order_beginn`,
+    # which is what makes two matchdays of one phase contend. `with_transaction` is safe to retry,
+    # the callback re-reading its neighbours.
+    async with transaction_session(db) as session:
+        updated_raw, rules = await session.with_transaction(redate_the_matchday)
 
     return FLSpieltagWriteResponse(
         spieltag_id=spieltag_id,

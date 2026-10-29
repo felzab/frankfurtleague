@@ -9,7 +9,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.identitaet.crud import funktionen_of
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.konto.services import find_eigener_eintrag_refusal
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.spielberichte.crud import (
     anchor_the_pupils_named,
@@ -52,7 +51,6 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.drosselung import gedrosselt
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
@@ -163,7 +161,6 @@ async def get_spielberichte_person(
     BERICHT_PATH,
     response_model=FLSpielberichtSchiedsrichterResponse,
     summary="One fixture's report as its referee reads it",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_spielbericht_bericht(
     spiel_id: CustomRouteObjectId,
@@ -233,8 +230,6 @@ async def get_spielbericht_bericht(
     summary="Write one fixture's report as its referee",
     responses={
         201: {"model": FLSpielberichtSchiedsrichterResponse, "description": "The report did not stand before, and this write created it"},
-        404: DOCUMENT_NOT_FOUND_RESPONSE,
-        409: DUPLICATE_KEY_RESPONSE,
     },
     dependencies=[Depends(gedrosselt)],
 )
@@ -351,10 +346,8 @@ async def put_spielbericht_bericht(
 
         return FLSpielberichtSchiedsrichterResponse.model_validate(ansicht), angelegt
 
-    # A first write anchors the season, a season write the cache serves.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            answer, angelegt = await session.with_transaction(write_the_report)
+    async with transaction_session(db) as session:
+        answer, angelegt = await session.with_transaction(write_the_report)
 
     # RFC 9110's PUT: a write creating the report says so.
     if angelegt:

@@ -14,25 +14,17 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import build_schluessel_filter, hash_token
-from app.api.einladungen.services import EINLADUNG_UNBEKANNT
 from app.api.registrierungen.person_router import aufnehmen
 from app.api.registrierungen.public_router import post_einladung_ansicht, post_registrierung
 from app.api.registrierungen.schemas import FLEinladungAnsichtPayload, FLPostRegistrierungPayload, FLRegistrierungAufnehmenPayload
 from app.api.registrierungen.services import (
-    REGISTRIERUNG_ADRESSE_GESPERRT,
-    REGISTRIERUNG_FENSTER_GESCHLOSSEN,
-    REGISTRIERUNG_KADER_VOLL,
-    REGISTRIERUNG_SCHLUESSEL_ABWEICHEND,
-    REGISTRIERUNG_SCHON_AUFGENOMMEN,
-    REGISTRIERUNG_STUFE_NICHT_ERLAUBT,
-    REGISTRIERUNG_TEAM_NICHT_EINGETRAGEN,
     compose_confirmation_update,
 )
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from app.main import create_app
 from app.shared.folding import canonical_address
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
@@ -101,7 +93,7 @@ RULES: Mapping[str, Any] = documents.rules_document(
 
 def club_document(team_id: ObjectId, name: str) -> dict[str, Any]:
     # `full_name` passed rather than defaulted: the invite's read answers it (`TEAM_FULL_NAME`).
-    return documents.team_document(team_id, name, name[:2].upper(), full_name=f"{name}-Gesamtschule", schulform="gesamtschule")
+    return documents.team_document(team_id, name, name[:3].upper(), full_name=f"{name}-Gesamtschule", schulform="gesamtschule")
 
 
 def einladung_document(
@@ -144,7 +136,7 @@ def saison_document(saison_id: str, status: str, registrierung: Any) -> dict[str
 
 
 def junction_document(saison_id: str, team_id: ObjectId, name: str) -> dict[str, Any]:
-    return documents.saison_team_document(saison_id, team_id, name, name[:2].upper())
+    return documents.saison_team_document(saison_id, team_id, name, name[:3].upper())
 
 
 # Composed by the production helper rather than spelled: a hand-written bound that drifted from it
@@ -173,10 +165,6 @@ def on_a_league(
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # A case calling this twice reseeds the league inside one test, where the conftest's
-            # `uncached_saisons` drops nothing: the season the first call cached would judge the second.
-            invalidate_saison_cache()
-
             await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, registrierung))
             await database[Collection.TEAMS].insert_many([club_document(TEAM_OID, TEAM_NAME), club_document(OTHER_TEAM_OID, OTHER_TEAM_NAME)])
             await database[Collection.SAISON_TEAMS].insert_one(junction_document(SAISON_ID, TEAM_OID, TEAM_NAME))
@@ -459,7 +447,7 @@ def replayed_after_the_admission(url: str, **overrides: Any) -> tuple[str, int, 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         first = await register(database, client, schluessel=SCHLUESSEL)
         await admit_as_the_team(database, client, first.registrierung_id)
-        with pytest.raises(WriteRefusalException) as refused:
+        with pytest.raises(APIError) as refused:
             await register(database, client, schluessel=SCHLUESSEL, **overrides)
 
         return refused.value.error_code, len(await rows_of(database)), await database[Collection.SAISON_SPIELER].count_documents({})
@@ -533,14 +521,14 @@ class TestTheSubmissionKey:
             await register(database, client, schluessel=SCHLUESSEL)
             await database[Collection.SPERRLISTE].insert_one(documents.ban_document(PUPIL_EMAIL, bis=STANDING))
             before = (await rows_of(database))[0]
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await register(database, client, schluessel=SCHLUESSEL)
 
             return refused.value.error_code, before, await rows_of(database)
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_ADRESSE_GESPERRT
+        assert code == Code.REGISTRIERUNG_ADRESSE_GESPERRT
         assert after == [before]
 
     @pytest.mark.parametrize(
@@ -557,20 +545,20 @@ class TestTheSubmissionKey:
             await database[Collection.SPERRLISTE].insert_one(documents.ban_document(banned, bis=STANDING))
             try:
                 return (await register(database, client, schluessel=SCHLUESSEL)).email
-            except WriteRefusalException as refusal:
+            except APIError as refusal:
                 return refusal.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == (REGISTRIERUNG_ADRESSE_GESPERRT if refused else MOVED_TO)
+        assert on_a_league(mongo_replica_set_url, body) == (Code.REGISTRIERUNG_ADRESSE_GESPERRT if refused else MOVED_TO)
 
     def test_the_same_key_over_other_details_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await register(database, client, schluessel=SCHLUESSEL)
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await register(database, client, schluessel=SCHLUESSEL, nummer="18")
 
             return refused.value.error_code, len(await rows_of(database))
 
-        assert on_a_league(mongo_replica_set_url, body) == (REGISTRIERUNG_SCHLUESSEL_ABWEICHEND, 1)
+        assert on_a_league(mongo_replica_set_url, body) == (Code.REGISTRIERUNG_SCHLUESSEL_ABWEICHEND, 1)
 
     @pytest.mark.parametrize("moved", LINK_MAY_BE_OUT)
     def test_a_replay_hands_no_link_once_one_may_be_out(self, mongo_replica_set_url: str, moved: Mapping[str, Any]):
@@ -611,10 +599,10 @@ class TestTheSubmissionKey:
         Without the carry, the replay would store the admitted pupil's second registration.
         """
 
-        assert replayed_after_the_admission(mongo_replica_set_url) == (REGISTRIERUNG_SCHON_AUFGENOMMEN, 0, 1)
+        assert replayed_after_the_admission(mongo_replica_set_url) == (Code.REGISTRIERUNG_SCHON_AUFGENOMMEN, 0, 1)
 
     def test_a_replay_after_the_admission_over_other_details_is_refused_as_one(self, mongo_replica_set_url: str):
-        assert replayed_after_the_admission(mongo_replica_set_url, nummer="18") == (REGISTRIERUNG_SCHLUESSEL_ABWEICHEND, 0, 1)
+        assert replayed_after_the_admission(mongo_replica_set_url, nummer="18") == (Code.REGISTRIERUNG_SCHLUESSEL_ABWEICHEND, 0, 1)
 
     def test_registrations_stored_before_the_key_neither_collide_nor_move(self, mongo_replica_set_url: str):
         """The partial filter: two rows carrying no key would otherwise both index as null and collide."""
@@ -765,87 +753,87 @@ class TestWhatASubmissionIsRefused:
 
     def test_a_revoked_link_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await register(database, client, token=REVOKED_TOKEN)
 
             return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body) == (EINLADUNG_UNBEKANNT, 0)
+        assert on_a_league(mongo_replica_set_url, body) == (Code.EINLADUNG_UNBEKANNT, 0)
 
     def test_a_link_no_row_holds_is_refused_with_the_same_code(self, mongo_replica_set_url: str):
         """ONE answer for unknown and for revoked: nothing tells a stranger's guess from a replaced link."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await register(database, client, token="notatokenanybodyeverminted1234567890abcdef")
 
             return refused.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == EINLADUNG_UNBEKANNT
+        assert on_a_league(mongo_replica_set_url, body) == Code.EINLADUNG_UNBEKANNT
 
     def test_a_shut_window_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await register(database, client)
 
             return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
 
         outcome = on_a_league(mongo_replica_set_url, body, registrierung={**OPEN_WINDOW, "offen": False})
 
-        assert outcome == (REGISTRIERUNG_FENSTER_GESCHLOSSEN, 0)
+        assert outcome == (Code.REGISTRIERUNG_FENSTER_GESCHLOSSEN, 0)
 
     def test_a_link_opened_after_the_windows_last_day_is_refused(self, mongo_replica_set_url: str):
         """The invite carries no expiry of its own: the window is what it stops opening at."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await register(database, client)
 
             return refused.value.error_code
 
         outcome = on_a_league(mongo_replica_set_url, body, registrierung={**OPEN_WINDOW, "bis": "2026-03-31"})
 
-        assert outcome == REGISTRIERUNG_FENSTER_GESCHLOSSEN
+        assert outcome == Code.REGISTRIERUNG_FENSTER_GESCHLOSSEN
 
     def test_a_season_that_has_ended_is_refused_while_its_dates_still_run(self, mongo_replica_set_url: str):
         """The window's dates run and its flag is on: only the season's status closes it, as minting the link already does."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await register(database, client)
 
             return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body, saison_status="past") == (REGISTRIERUNG_FENSTER_GESCHLOSSEN, 0)
+        assert on_a_league(mongo_replica_set_url, body, saison_status="past") == (Code.REGISTRIERUNG_FENSTER_GESCHLOSSEN, 0)
 
     def test_a_team_the_season_does_not_hold_is_refused(self, mongo_replica_set_url: str):
         """The second club's own live link, for a club with no junction row: the invite opens and the write refuses."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await register(database, client, token=OTHER_TOKEN)
 
             return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body) == (REGISTRIERUNG_TEAM_NICHT_EINGETRAGEN, 0)
+        assert on_a_league(mongo_replica_set_url, body) == (Code.REGISTRIERUNG_TEAM_NICHT_EINGETRAGEN, 0)
 
     def test_a_stufe_the_season_does_not_offer_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await register(database, client, stufe="E1")
 
             return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body) == (REGISTRIERUNG_STUFE_NICHT_ERLAUBT, 0)
+        assert on_a_league(mongo_replica_set_url, body) == (Code.REGISTRIERUNG_STUFE_NICHT_ERLAUBT, 0)
 
     def test_a_full_squad_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await register(database, client)
 
             return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body, squad=RULES["max_kadergroesse"]) == (REGISTRIERUNG_KADER_VOLL, 0)
+        assert on_a_league(mongo_replica_set_url, body, squad=RULES["max_kadergroesse"]) == (Code.REGISTRIERUNG_KADER_VOLL, 0)
 
     def test_a_retired_squad_row_gives_its_place_back(self, mongo_replica_set_url: str):
         """Counted as the squad editor counts: a player who left the squad is not holding a place."""
@@ -875,24 +863,24 @@ class TestWhatASubmissionIsRefused:
 
     def test_a_banned_address_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await register(database, client, email=BANNED_EMAIL)
 
             return refused.value.error_code, await database[Collection.REGISTRIERUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == (REGISTRIERUNG_ADRESSE_GESPERRT, 0)
+        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == (Code.REGISTRIERUNG_ADRESSE_GESPERRT, 0)
 
     def test_a_banned_address_is_refused_however_the_pupil_spells_it(self, mongo_replica_set_url: str):
         """One canonical form decides, so a ban is not lifted by typing the address in another case."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await register(database, client, email=BANNED_EMAIL.upper())
 
             return refused.value.error_code
 
         assert canonical_address(BANNED_EMAIL.upper()) == canonical_address(BANNED_EMAIL)
-        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == REGISTRIERUNG_ADRESSE_GESPERRT
+        assert on_a_league(mongo_replica_set_url, body, banned=BANNED_EMAIL) == Code.REGISTRIERUNG_ADRESSE_GESPERRT
 
     def test_an_address_no_row_holds_registers(self, mongo_replica_set_url: str):
         """The other arm of the ban check, so a check refusing everybody would fail here rather than pass quietly."""
@@ -916,7 +904,7 @@ class TestWhichSeasonABanIsCountedFrom:
         """The bound lies between the two seasons: counted from the invite's, this ban would have lapsed."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await register(database, client, token=SPAETERE_TOKEN, email=BANNED_EMAIL)
 
             return refused.value.error_code
@@ -926,7 +914,7 @@ class TestWhichSeasonABanIsCountedFrom:
         )
 
         assert SAISON_ID < SPAETERE_SAISON_ID
-        assert outcome == REGISTRIERUNG_ADRESSE_GESPERRT
+        assert outcome == Code.REGISTRIERUNG_ADRESSE_GESPERRT
 
     def test_a_lapsed_ban_refuses_nobody(self, mongo_replica_set_url: str):
         """The other arm, so a check ignoring the bound would pass this case as well as the one above."""
@@ -942,14 +930,14 @@ class TestWhichSeasonABanIsCountedFrom:
         """One `future` season and nothing that ever ran: the reference read answers nothing, and a ban still bars."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await register(database, client, email=BANNED_EMAIL)
 
             return refused.value.error_code
 
         outcome = on_a_league(mongo_replica_set_url, body, saison_status="future", banned=BANNED_EMAIL, banned_bis="2025")
 
-        assert outcome == REGISTRIERUNG_ADRESSE_GESPERRT
+        assert outcome == Code.REGISTRIERUNG_ADRESSE_GESPERRT
 
 
 class TestWhatTheInvitesOwnReadAnswers:
@@ -995,12 +983,12 @@ class TestWhatTheInvitesOwnReadAnswers:
 
     def test_a_revoked_link_is_refused(self, mongo_replica_set_url: str):
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(WriteRefusalException) as refused:
+            with pytest.raises(APIError) as refused:
                 await ansicht(database, token=REVOKED_TOKEN)
 
             return refused.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, run) == EINLADUNG_UNBEKANNT
+        assert on_a_league(mongo_replica_set_url, run) == Code.EINLADUNG_UNBEKANNT
 
     def test_the_squad_has_room_until_the_cap_is_reached(self, mongo_replica_set_url: str):
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> bool:

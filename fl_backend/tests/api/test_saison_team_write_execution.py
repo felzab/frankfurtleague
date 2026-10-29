@@ -7,9 +7,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.teams.admin_router import patch_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamPayload
-from app.api.teams.services import ENTRY_GRUPPE_FULL, ENTRY_GRUPPE_LOCKED, ENTRY_GRUPPE_NOT_OFFERED
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import APIError, DocumentNotFoundError
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import bestaetigte_kenntnisnahme, rules_document, saison_document, saison_team_document, spiel_document, team_document
 from tests.worker import worker_database
@@ -26,7 +26,7 @@ BIEBER = ObjectId("6890a1b2c3d4e5f607250002")
 CRONBERG = ObjectId("6890a1b2c3d4e5f607250003")
 ABSENT = ObjectId("6890a1b2c3d4e5f607250009")
 
-CLUB_NAMES = {ADLER: ("Adler", "AD"), BIEBER: ("Bieber", "BI"), CRONBERG: ("Cronberg", "CR")}
+CLUB_NAMES = {ADLER: ("Adler", "ADX"), BIEBER: ("Bieber", "BIX"), CRONBERG: ("Cronberg", "CRX")}
 
 # Two groups of two: "C" is a group the season does not run, and one extra row fills a group.
 NUMBER_OF_GROUPS = 2
@@ -37,7 +37,7 @@ RULES = rules_document(number_of_groups=NUMBER_OF_GROUPS, teams_per_group=TEAMS_
 
 # The season's copy of the identity is deliberately NOT the club's current one: the echo reads the
 # junction row, so a value taken from `teams` instead would show up as the club's name here.
-PLAYED_AS = {ADLER: ("Adler-Schule", "AS"), BIEBER: ("Bieber", "BI"), CRONBERG: ("Cronberg", "CR")}
+PLAYED_AS = {ADLER: ("Adler-Schule", "ASX"), BIEBER: ("Bieber", "BIX"), CRONBERG: ("Cronberg", "CRX")}
 
 EXIT = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-04-01"}
 
@@ -66,7 +66,7 @@ def fixture_document(team_id: ObjectId) -> dict[str, Any]:
         saison_id=SAISON_ID,
         spiel_nr=1,
         spieltag_id=SPIELTAG_OID,
-        team1={"team_id": team_id, "name": "Adler-Schule", "shorthand": "AS", "tore": None},
+        team1={"team_id": team_id, "name": "Adler-Schule", "shorthand": "ASX", "tore": None},
     )
 
 
@@ -200,44 +200,44 @@ class TestMovingAClubBetweenGroups:
         """`REQ-ENTER`'s move lock through the route: the group phase is a round robin, so a move after the draw strands every fixture."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await call_patch(database, gruppe="B")
 
             return conflict.value.error_code, await stored_row(database)
 
         code, row = on_a_season(mongo_replica_set_url, body, saison_status="active", spiele=[fixture_document(ADLER)])
 
-        assert code == ENTRY_GRUPPE_LOCKED
+        assert code == Code.ENTRY_GRUPPE_LOCKED
         assert row["gruppe"] == "A"
 
     def test_a_full_destination_refuses_it(self, mongo_replica_set_url: str):
         """The entry gate reached through the move: a group at its cap cannot take one more however the club arrives."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await call_patch(database, gruppe="B")
 
             return conflict.value.error_code, await stored_row(database)
 
         code, row = on_a_season(mongo_replica_set_url, body, junctions=[junction_document(CRONBERG, "B")])
 
-        assert code == ENTRY_GRUPPE_FULL
+        assert code == Code.ENTRY_GRUPPE_FULL
         assert row["gruppe"] == "A"
 
     def test_a_group_the_season_does_not_run_refuses_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(WriteRefusalException) as conflict:
+            with pytest.raises(APIError) as conflict:
                 await call_patch(database, gruppe=UNOFFERED_GRUPPE)
 
             return conflict.value.error_code
 
-        assert on_a_season(mongo_replica_set_url, body) == ENTRY_GRUPPE_NOT_OFFERED
+        assert on_a_season(mongo_replica_set_url, body) == Code.ENTRY_GRUPPE_NOT_OFFERED
 
     def test_a_row_no_document_names_is_a_404(self, mongo_replica_set_url: str):
         """Read before anything is judged, so an unknown club is a missing row rather than a refusal about a group."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentNotFoundException):
+            with pytest.raises(DocumentNotFoundError):
                 await call_patch(database, ABSENT, gruppe="B")
 
             return await database[Collection.SAISON_TEAMS].count_documents({})

@@ -1,5 +1,4 @@
-import re
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final
 
@@ -12,35 +11,23 @@ from pymongo.errors import DuplicateKeyError, PyMongoError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.routing import Match
 
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.crud import a_write_may_stand
-from app.core.exceptions import DUPLICATE_KEY, APIError
+from app.core.exceptions import APIError
 from app.core.logging import fl_logger, trace_id_var
 from app.core.middlewares import record_error_code
 
 NO_DATA_TEXT = "//- No Data -//"
 
-PAYLOAD_REFUSED = Code.PAYLOAD_REFUSED
-# A body no field could be read from: malformed syntax, RFC 9110's 400, never a refused payload's 422.
-BODY_UNREADABLE = Code.BODY_UNREADABLE
-STORED_DATA_INVALID = Code.STORED_DATA_INVALID
-UNHANDLED_CRASH = Code.UNHANDLED_CRASH
-DATABASE_FAILED = Code.DATABASE_FAILED
 # FastAPI's error type for a body that is not JSON at all, reported before any field is read.
 UNDECODABLE_BODY = "json_invalid"
-# A write that may stand: its own code, because a page told "failed" sends the person to repeat a
-# write that is already there.
-UNKNOWN_OUTCOME = Code.UNKNOWN_OUTCOME
 
-# The routing layer's own refusals, raised before any handler runs.
-NO_ROUTE = Code.NO_ROUTE
-METHOD_NOT_SERVED = Code.METHOD_NOT_SERVED
 # Every status the router and FastAPI's request parsing raise. FastAPI's one 400 is a body it could
 # not parse, and a status outside these is a server fault the catch-all answers.
 ROUTING_CODES: Final[Mapping[int, Code]] = {
-    HTTPStatus.BAD_REQUEST: BODY_UNREADABLE,
-    HTTPStatus.NOT_FOUND: NO_ROUTE,
-    HTTPStatus.METHOD_NOT_ALLOWED: METHOD_NOT_SERVED,
+    HTTPStatus.BAD_REQUEST: Code.BODY_UNREADABLE,
+    HTTPStatus.NOT_FOUND: Code.NO_ROUTE,
+    HTTPStatus.METHOD_NOT_ALLOWED: Code.METHOD_NOT_SERVED,
 }
 
 
@@ -108,17 +95,17 @@ def served_methods(request: Request) -> list[str]:
 async def pydantic_validation_exception_handler(request: Request, exc: ValidationError):
     # A server-side model failing on server-side data; a request payload raises
     # `RequestValidationError` instead. 500, not 422.
-    fl_logger.error("http.stored_data_invalid", extra={"error_code": STORED_DATA_INVALID, "rejected": rejected_fields_of(exc.errors())})
+    fl_logger.error("http.stored_data_invalid", extra={"error_code": Code.STORED_DATA_INVALID, "rejected": rejected_fields_of(exc.errors())})
 
-    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, STORED_DATA_INVALID)
+    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, Code.STORED_DATA_INVALID)
 
 
 async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = exc.errors()
     if any(error["type"] == UNDECODABLE_BODY for error in errors):
-        return error_response(status.HTTP_400_BAD_REQUEST, BODY_UNREADABLE)
+        return error_response(status.HTTP_400_BAD_REQUEST, Code.BODY_UNREADABLE)
 
-    return error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, PAYLOAD_REFUSED, fields=refused_fields_of(errors))
+    return error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, Code.PAYLOAD_REFUSED, fields=refused_fields_of(errors))
 
 
 def refused_fields_of(errors: Sequence[Any]) -> list[dict[str, Any]]:
@@ -151,24 +138,7 @@ def rejected_fields_of(errors: Sequence[Any]) -> list[dict[str, str]]:
 async def duplicate_key_exception_handler(request: Request, exc: DuplicateKeyError):
     """A unique index refused the write. 409, not a 500, and the index's name is never returned: it names a collection and its fields."""
 
-    return error_response(status.HTTP_409_CONFLICT, DUPLICATE_KEY)
-
-
-# Session 2: the sweep moves its two tests off this and deletes it with `refused_index_of`.
-_INDEX_NAME = re.compile(r"index: (\S+) dup key")
-
-
-# Session 2: the sweep moves its two tests off this and deletes it with `_INDEX_NAME`.
-def refused_index_of(exc: DuplicateKeyError) -> str | None:
-    """The name of the unique index that refused, and nothing else of the server's report.
-
-    `errmsg` embeds the duplicate key as a document -- the field AND the value that collided -- so
-    it is parsed for the one token the line may carry rather than logged.
-    """
-
-    match = _INDEX_NAME.search((exc.details or {}).get("errmsg", ""))
-
-    return match.group(1) if match else None
+    return error_response(status.HTTP_409_CONFLICT, Code.DUPLICATE_KEY)
 
 
 # Every failure status an operation answers; the 405 of a method no operation serves is none of them.
@@ -192,35 +162,12 @@ FAILURE_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
     int(status): {"$ref": FAILURE_RESPONSE_REF.format(status=int(status))} for status in FAILURE_STATUSES
 }
 
-# Session 2: the sweep removes every route's own `responses=` and deletes this.
-DUPLICATE_KEY_RESPONSE: Final = FAILURE_RESPONSES[HTTPStatus.CONFLICT]
-# Session 2: the sweep removes every route's own `responses=` and deletes this.
-DOCUMENT_NOT_FOUND_RESPONSE: Final = FAILURE_RESPONSES[HTTPStatus.NOT_FOUND]
-
-
-# Session 2: the sweep removes every declaration of these three and deletes them.
-def stores_nothing() -> None:
-    """Declared by an operation storing nothing whatever its method; nothing reads the declaration."""
-
-
-# Session 2: the sweep removes every declaration of these three and deletes them.
-STORES_NOTHING_WHEN: dict[Callable[..., Any], str] = {}
-
-
-# Session 2: the sweep removes every declaration of these three and deletes them.
-def stores_nothing_when[Dependency: Callable[..., Any]](flag: str) -> Callable[[Dependency], Dependency]:
-    def register(dependency: Dependency) -> Dependency:
-        STORES_NOTHING_WHEN[dependency] = flag
-        return dependency
-
-    return register
-
 
 async def db_exception_handler(request: Request, exc: PyMongoError):
     # Judged on what the request SENT, never on its method: a write route the deadline cut in its
     # actor check has written nothing, and a write outside a transaction carries no label.
     unknown = exc.has_error_label("UnknownTransactionCommitResult") or (exc.timeout and a_write_may_stand())
-    error_code = UNKNOWN_OUTCOME if unknown else DATABASE_FAILED
+    error_code = Code.UNKNOWN_OUTCOME if unknown else Code.DATABASE_FAILED
 
     # Never `str(exc)`, which quotes the document the server refused -- `consideredValue` under a
     # validator, the whole `op` under a bulk write -- and a traceback renders it a second time.
@@ -285,9 +232,9 @@ def _dotted(path: str, name: Any) -> str:
 
 async def global_catch_all_exception_handler(request: Request, exc: Exception):
     # The stack is uvicorn's own line, which follows this one; `str(exc)` can quote a value, so only the type travels.
-    fl_logger.error("http.unhandled", extra={"error_code": UNHANDLED_CRASH, "exception": type(exc).__name__})
+    fl_logger.error("http.unhandled", extra={"error_code": Code.UNHANDLED_CRASH, "exception": type(exc).__name__})
 
-    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, UNHANDLED_CRASH)
+    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, Code.UNHANDLED_CRASH)
 
 
 def register_exception_handlers(app: FastAPI):

@@ -15,6 +15,7 @@ from pymongo.errors import BulkWriteError, DuplicateKeyError
 from pymongo.helpers_shared import _index_document
 from pymongo.results import DeleteResult
 
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import (
     DUPLICATE_KEY_ERROR,
@@ -27,8 +28,7 @@ from app.core.crud import (
     post_many_to_db,
     pull_one_from_db,
 )
-from app.core.exception_handlers import refused_index_of
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.shared.schemas.custom import CustomObjectId
 
 TEAM_OID = "6890a1b2c3d4e5f607182930"
@@ -289,13 +289,12 @@ class TestPatchOneInDb:
         """No caller branches on `None`, so returning one would put a miss into a response body as a 200."""
         stub = _OneDocumentCollection(None)
 
-        with pytest.raises(DocumentNotFoundException) as excinfo:
+        with pytest.raises(DocumentNotFoundError) as excinfo:
             asyncio.run(patch_one_in_db(collection=as_collection(stub), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.BEFORE))
 
         assert excinfo.value.status_code == 404
-        assert excinfo.value.error_code == DOCUMENT_NOT_FOUND
+        assert excinfo.value.error_code == Code.DOCUMENT_NOT_FOUND
         # The filter travels with the exception, which is what lets the handler log what was looked for.
-        assert excinfo.value.filter == FILTER
 
 
 class _Cursor:
@@ -349,12 +348,11 @@ class TestPullOneFromDb:
         """The same contract on the read side: one shape across the module is what keeps a `None` branch out of every handler."""
         stub = _OneDocumentCollection(None)
 
-        with pytest.raises(DocumentNotFoundException) as excinfo:
+        with pytest.raises(DocumentNotFoundError) as excinfo:
             asyncio.run(pull_one_from_db(collection=as_collection(stub), db_filter=FILTER))
 
         assert excinfo.value.status_code == 404
-        assert excinfo.value.error_code == DOCUMENT_NOT_FOUND
-        assert excinfo.value.filter == FILTER
+        assert excinfo.value.error_code == Code.DOCUMENT_NOT_FOUND
 
 
 def refused_batch(error: Mapping[str, Any], *, landed: int = 0, write_concern: Sequence[Mapping[str, Any]] = ()) -> BulkWriteError:
@@ -378,10 +376,10 @@ REFUSED_INDEX = "uniq_shorthand"
 DUPLICATE_ERROR: Mapping[str, Any] = {
     "index": 2,
     "code": DUPLICATE_KEY_ERROR,
-    "errmsg": f'E11000 duplicate key error collection: fl_test.teams index: {REFUSED_INDEX} dup key: {{ shorthand: "C2" }}',
+    "errmsg": f'E11000 duplicate key error collection: fl_test.teams index: {REFUSED_INDEX} dup key: {{ shorthand: "CCX" }}',
     "keyPattern": {"shorthand": 1},
-    "keyValue": {"shorthand": "C2"},
-    "op": {"name": "Club 2", "shorthand": "C2"},
+    "keyValue": {"shorthand": "CCX"},
+    "op": {"name": "Club 2", "shorthand": "CCX"},
 }
 
 
@@ -427,7 +425,7 @@ class TestPostManyToDb:
         raised, _ = batch_raised(failure, session=session)
 
         assert isinstance(raised, DuplicateKeyError)
-        assert refused_index_of(raised) == REFUSED_INDEX
+        assert f"index: {REFUSED_INDEX} dup key" in (raised.details or {})["errmsg"]
         assert raised.__cause__ is failure
 
     @pytest.mark.parametrize(

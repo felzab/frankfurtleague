@@ -167,16 +167,16 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_many([saison_document(PAST_SAISON, "past"), saison_document(ACTIVE_SAISON, "active")])
     await database[Collection.SAISON_TEAMS].insert_many(
         [
-            _row(*SITZ_AKTIV_ROW, "SA", trainer=_seat(SITZ_AKTIV), ansprechperson=_seat(GESPERRT)),
-            _row(*SITZ_VERGANGEN_ROW, "SV", trainer=_seat(SITZ_VERGANGEN)),
+            _row(*SITZ_AKTIV_ROW, "SAX", trainer=_seat(SITZ_AKTIV), ansprechperson=_seat(GESPERRT)),
+            _row(*SITZ_VERGANGEN_ROW, "SVX", trainer=_seat(SITZ_VERGANGEN)),
             _row(
                 *SITZ_AUSGETRETEN_ROW,
-                "SW",
+                "SWX",
                 austritt=dict(AUSTRITT),
                 trainer=_seat(SITZ_AUSGETRETEN),
                 ansprechperson=_seat(SITZ_AUSGETRETEN_OFFEN, bestaetigt_am=None),
             ),
-            _row(TEAM_OIDS[3], ACTIVE_SAISON, "SO", trainer=_seat(SITZ_OFFEN, bestaetigt_am=None)),
+            _row(TEAM_OIDS[3], ACTIVE_SAISON, "SOX", trainer=_seat(SITZ_OFFEN, bestaetigt_am=None)),
         ]
     )
     await database[Collection.BEWERBUNGEN].insert_many(
@@ -430,4 +430,4 @@ def test_the_mounted_route_answers_the_four_flags_and_nothing_else(mongo_replica
     response = asyncio.run(_answered())
 
     assert response.status_code == 200
-    assert response.json() == {"acknowledged": 1, "unbestaetigt": False, "konto": True, "gesperrt": False, "verwaltung": None}
+    assert response.json() == {"unbestaetigt": False, "konto": True, "gesperrt": False, "verwaltung": None}

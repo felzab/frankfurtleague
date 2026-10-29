@@ -10,7 +10,6 @@ from app.api.berechtigungen.services import lebendige
 from app.api.identitaet.crud import resolve_subject
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.services import eigene_namen, find_name_im_grund_refusal
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import read_sperrliste_page
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
@@ -41,7 +40,6 @@ from app.core.dependencies import (
     SperrlisteCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.core.transactions import transaction_session
@@ -114,7 +112,6 @@ async def get_sperrliste(sperrliste_collection: SperrlisteCollection, sperrliste
     response_model=FLPostSperrlisteResponse,
     status_code=201,
     summary="Ban an email address",
-    responses={409: DUPLICATE_KEY_RESPONSE},
     # The frontend signs the address out and mails it once this answers, and nothing undoes either.
     dependencies=[Depends(verify_step_up)],
 )
@@ -217,10 +214,8 @@ async def post_sperrliste_eintrag(
         # reads no bound. No route leaves one: the activation that lapses a ban removes it.
         return await post_one_to_db(collection=sperrliste_collection, document=document, session=session), gesperrt_bis_saison_id
 
-    # Whatever field the anchor's own write moved: every season write drops the cache.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            post_operation, gesperrt_bis_saison_id = await session.with_transaction(judge_and_ban)
+    async with transaction_session(db) as session:
+        post_operation, gesperrt_bis_saison_id = await session.with_transaction(judge_and_ban)
 
     return FLPostSperrlisteResponse(
         created_id=post_operation.inserted_id,
@@ -232,7 +227,6 @@ async def post_sperrliste_eintrag(
     by_id("sperrliste_id"),
     response_model=FLSperrlisteWriteResponse,
     summary="Lift a ban",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
     dependencies=[Depends(verify_step_up)],
 )
 async def delete_sperrliste_eintrag(

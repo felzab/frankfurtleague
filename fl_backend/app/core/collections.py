@@ -16,7 +16,7 @@ class Collection(StrEnum):
     #: The season-to-player junction, carrying everything a squad list shows.
     SAISON_SPIELER = "saison_spieler"
     #: Fixtures, one per match; the consistency boundary is the season
-    #: (`fl_backend/app/core/domain.py :: AGGREGATES`).
+    #: (`docs/domain.md`'s what is held true together).
     SPIELE = "spiele"
     #: Matchdays: named blocks of a season's fixtures, though the name itself is derived.
     SPIELTAGE = "spieltage"

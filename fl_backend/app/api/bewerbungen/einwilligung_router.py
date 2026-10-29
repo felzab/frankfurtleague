@@ -70,7 +70,6 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exception_handlers import stores_nothing
 from app.core.journal import Journal, JournalLine
 from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, loeschung_journal_hash, verify_access_base
@@ -147,7 +146,6 @@ async def _saison_ansicht(
     "/ansicht",
     response_model=FLBewerbungEinwilligungAnsichtResponse,
     summary="What one confirmation link opens",
-    dependencies=[Depends(stores_nothing)],
 )
 async def get_einwilligung_ansicht(
     ansicht_data: Annotated[FLBewerbungEinwilligungAnsichtPayload, Body()],

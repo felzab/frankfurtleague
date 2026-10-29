@@ -5,20 +5,12 @@ from types import MappingProxyType
 from typing import Any, Final
 
 from app.api.einwilligung.schemas import FLEinwilligungFassung
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN, Fassung, Seite
 from app.shared.einwilligung_nachweis import ist_erteilt
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
-
-# One code for every write that
-# stamps a label, so a page's form maps one refusal however many writes share its page.
-FASSUNG_UNZULAESSIG = Code.FASSUNG_UNZULAESSIG
-
-# One code for every write taking a person's media consent, the account presses and the contact
-# confirmation alike, so each page maps one refusal.
-SELBST_MEDIEN_ALTER = Code.SELBST_MEDIEN_ALTER
 
 # The reader's own facts inside the words, spelled `{name}` in every label.
 _PLATZHALTER: Final = re.compile(r"\{([A-Za-z]+)\}")
@@ -51,9 +43,8 @@ def find_fassung_refusal(
 
     if abgewiesen:
         return WriteRefusal(
-            error_code=FASSUNG_UNZULAESSIG,
+            error_code=Code.FASSUNG_UNZULAESSIG,
             status=HTTPStatus.CONFLICT,
-            message=f"the consent wording named on {', '.join(abgewiesen)} is not one this page stores now; reload the page and submit again",
         )
 
     return None
@@ -92,18 +83,14 @@ def find_selbst_medien_refusal(*, gespeichert: Any, medien: bool, geburtsdatum: 
         return None
 
     return WriteRefusal(
-        error_code=SELBST_MEDIEN_ALTER,
+        error_code=Code.SELBST_MEDIEN_ALTER,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         fields=(("medien",),),
-        message=(
-            f"a consent to publishing photographs, video and interviews is given from {MEDIEN_MIN_AGE_YEARS} years of age only, "
-            "judged on the birthdate the record holds once this write lands"
-        ),
     )
 
 
 def served_fassung(text_version: str, fassung: Fassung) -> FLEinwilligungFassung:
-    """One label as the words read serves it, and as `fl_backend/einwilligung.json` records it."""
+    """One label as the words read serves it."""
 
     texts = (*fassung.absaetze, fassung.schalter, *fassung.bedienelemente.values())
 

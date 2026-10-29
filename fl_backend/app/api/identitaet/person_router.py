@@ -42,7 +42,6 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.recording import log_stamp
 from app.core.security import (
     PERSON_ACTOR_BINDERS,
@@ -65,7 +64,6 @@ router = APIRouter(
     "/erasure",
     response_model=FLErasureResponse,
     summary="Erase every record the signed-in address holds",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def erase_selbst(
     identifier: KontaktIdentifier,

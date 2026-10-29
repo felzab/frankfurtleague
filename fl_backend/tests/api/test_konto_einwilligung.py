@@ -20,12 +20,11 @@ from pydantic import BaseModel, ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token, mindestalter_for
-from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
-from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
 from app.api.konto.schemas import FLKontoBewerbungSitzEinwilligung, FLKontoSitzEinwilligung, FLSitzBestaetigt
-from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, ERTEILUNG_NICHT_ZUGELASSEN, KONTO_SEITE_SCHIEDSRICHTER
+from app.api.konto.services import KONTO_SEITE_SCHIEDSRICHTER
 from app.api.registrierungen.schemas import FLRegistrierungEinwilligung
 from app.api.registrierungen.services import compose_ablehnung_update
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -189,7 +188,7 @@ def _kontakte(**seats: Any) -> dict[str, Any]:
 async def _seed(database: AsyncDatabase) -> None:
     # The clubs as they are called today, apart from each season row's copy, so the `{schule}` fill is seen to be the club's.
     await database[Collection.TEAMS].insert_many(
-        [team_document(TEAM_A_OID, "Helmholtz-Gymnasium Frankfurt", "HE"), team_document(TEAM_B_OID, "Lessing-Gymnasium", "LE")]
+        [team_document(TEAM_A_OID, "Helmholtz-Gymnasium Frankfurt", "HEX"), team_document(TEAM_B_OID, "Lessing-Gymnasium", "LEX")]
     )
     await database[Collection.SAISONS].insert_many([saison_document(PAST_SAISON, "past"), saison_document(ACTIVE_SAISON, "active")])
     await database[Collection.SAISON_TEAMS].insert_many(
@@ -199,7 +198,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 PAST_SAISON,
                 TEAM_A_OID,
                 ROW_NAME_A_PAST,
-                "HE",
+                "HEX",
                 kontakte=_kontakte(
                     trainer=_seat(REFEREE_STORED, medien=True),
                     ansprechperson=_seat(REFEREE_STORED, medien=True),
@@ -210,12 +209,12 @@ async def _seed(database: AsyncDatabase) -> None:
                 ACTIVE_SAISON,
                 TEAM_B_OID,
                 ROW_NAME_B,
-                "LE",
+                "LEX",
                 kontakte=_kontakte(trainer=_seat(BYSTANDER, medien=True), stellvertretung=_seat(REFEREE_STORED, medien=True)),
             ),
             # Awaiting its person's confirmation: nothing on it to change yet.
             saison_team_document(
-                ACTIVE_SAISON, TEAM_A_OID, ROW_NAME_A_ACTIVE, "HE", kontakte=_kontakte(trainer=_seat(REFEREE_STORED, bestaetigt_am=None))
+                ACTIVE_SAISON, TEAM_A_OID, ROW_NAME_A_ACTIVE, "HEX", kontakte=_kontakte(trainer=_seat(REFEREE_STORED, bestaetigt_am=None))
             ),
         ]
     )
@@ -321,7 +320,7 @@ class TestTheOwnRecords:
 
         response = served(mongo_replica_set_url, steps)
 
-        assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, Code.FUNKTION_NICHT_GEHALTEN)
 
 
 @pytest.mark.db
@@ -358,7 +357,7 @@ class TestTheTwoChoices:
 
         response, before, after = served(mongo_replica_set_url, steps)
 
-        assert (response.status_code, response.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
+        assert (response.status_code, response.json()["error_code"]) == (409, Code.EINWILLIGUNG_STAND_VERALTET)
         assert after == before
 
     def test_a_press_moving_neither_choice_writes_nothing(self, mongo_replica_set_url: str):
@@ -406,7 +405,7 @@ class TestARecordNotHeld:
 
         response, before, after = served(mongo_replica_set_url, steps)
 
-        assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, Code.FUNKTION_NICHT_GEHALTEN)
         assert after == before
 
     def test_a_grant_on_a_retired_row_is_refused_where_its_withdrawal_is_taken(self, mongo_replica_set_url: str):
@@ -426,7 +425,7 @@ class TestARecordNotHeld:
         withdrawn, granted, after = served(mongo_replica_set_url, steps)
 
         assert withdrawn.status_code == 200, withdrawn.text
-        assert (granted.status_code, granted.json()["error_code"]) == (403, ERTEILUNG_NICHT_ZUGELASSEN)
+        assert (granted.status_code, granted.json()["error_code"]) == (403, Code.ERTEILUNG_NICHT_ZUGELASSEN)
         assert (after[RETIRED_OID]["einwilligung"]["umfang"], after[RETIRED_OID]["einwilligung"]["medien"]) == ("intern", False)
 
 
@@ -450,7 +449,7 @@ class TestThePressesOrder:
         withdrawn, stale, before, after = served(mongo_replica_set_url, steps)
 
         assert withdrawn.status_code == 200, withdrawn.text
-        assert (stale.status_code, stale.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
+        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.EINWILLIGUNG_STAND_VERALTET)
         assert after == before
 
 
@@ -546,7 +545,7 @@ class TestTheMediaAge:
 
         response, before, after = served(mongo_replica_set_url, steps)
 
-        assert (response.status_code, response.json()["error_code"]) == (422, SELBST_MEDIEN_ALTER)
+        assert (response.status_code, response.json()["error_code"]) == (422, Code.SELBST_MEDIEN_ALTER)
         assert after == before
 
 
@@ -564,7 +563,7 @@ class TestTheLabelTheControlStamps:
 
         response, before, after = served(mongo_replica_set_url, steps)
 
-        assert (response.status_code, response.json()["error_code"]) == (409, FASSUNG_UNZULAESSIG)
+        assert (response.status_code, response.json()["error_code"]) == (409, Code.FASSUNG_UNZULAESSIG)
         assert after == before
 
 
@@ -730,7 +729,7 @@ class TestTheSeatsMediaChoice:
 
         assert withdrawn.status_code == 200, withdrawn.text
         assert sorted(withdrawn.json()["rollen"]) == ["ansprechperson", "trainer"]
-        assert (granted.status_code, granted.json()["error_code"]) == (403, ERTEILUNG_NICHT_ZUGELASSEN)
+        assert (granted.status_code, granted.json()["error_code"]) == (403, Code.ERTEILUNG_NICHT_ZUGELASSEN)
         for slot in ("trainer", "ansprechperson"):
             seat = after[(TEAM_A_OID, PAST_SAISON)][slot]["einwilligung"]
             assert (seat["medien"], seat[NACHWEIS]) == (False, {"umfang": SEAT_BELEG, "medien": SEAT_WITHDRAWAL})
@@ -741,7 +740,7 @@ class TestTheSeatsMediaChoice:
     ):
         response, before, after = served(mongo_replica_set_url, _seat_press(email, team_id, ACTIVE_SAISON, False))
 
-        assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, Code.FUNKTION_NICHT_GEHALTEN)
         assert after == before
 
     def test_a_grant_below_the_media_age_is_refused_and_unwritten(self, mongo_replica_set_url: str):
@@ -756,7 +755,7 @@ class TestTheSeatsMediaChoice:
             _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, True, before=young_and_off, stand=_seated_stand(1, medien=False)),
         )
 
-        assert (response.status_code, response.json()["error_code"]) == (422, SELBST_MEDIEN_ALTER)
+        assert (response.status_code, response.json()["error_code"]) == (422, Code.SELBST_MEDIEN_ALTER)
         assert after == before
 
     def test_a_press_from_a_page_served_older_evidence_is_refused_and_unwritten(self, mongo_replica_set_url: str):
@@ -772,7 +771,7 @@ class TestTheSeatsMediaChoice:
             mongo_replica_set_url, _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, True, before=withdrawn_elsewhere)
         )
 
-        assert (response.status_code, response.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
+        assert (response.status_code, response.json()["error_code"]) == (409, Code.EINWILLIGUNG_STAND_VERALTET)
         assert after == before
 
     def test_a_press_moving_no_seat_writes_nothing(self, mongo_replica_set_url: str):
@@ -791,7 +790,7 @@ class TestTheSeatsMediaChoice:
     def test_the_seat_confirmations_label_is_no_version_of_the_control(self, mongo_replica_set_url: str):
         response, before, after = served(mongo_replica_set_url, _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, False, label=SEAT_LABEL))
 
-        assert (response.status_code, response.json()["error_code"]) == (409, FASSUNG_UNZULAESSIG)
+        assert (response.status_code, response.json()["error_code"]) == (409, Code.FASSUNG_UNZULAESSIG)
         assert after == before
 
 
@@ -846,7 +845,7 @@ class TestTheSeatsWhatsAppChoice:
         withdrawn, granted, before, after = served(mongo_replica_set_url, steps)
 
         assert withdrawn.status_code == 200, withdrawn.text
-        assert (granted.status_code, granted.json()["error_code"]) == (403, ERTEILUNG_NICHT_ZUGELASSEN)
+        assert (granted.status_code, granted.json()["error_code"]) == (403, Code.ERTEILUNG_NICHT_ZUGELASSEN)
         assert after == before
 
     def test_a_live_re_grant_is_taken_and_counted_as_the_contact_persons(self, mongo_replica_set_url: str):
@@ -912,7 +911,7 @@ class TestTheSeatsWhatsAppChoice:
         first, stale, before, after = served(mongo_replica_set_url, steps)
 
         assert first.status_code == 200, first.text
-        assert (stale.status_code, stale.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
+        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.EINWILLIGUNG_STAND_VERALTET)
         assert after == before
 
 
@@ -943,7 +942,7 @@ async def _both_homes(database: AsyncDatabase) -> None:
             eingereicht_am="2025-01-10",
             bestaetigungsfrist="2025-01-24",
             team_id=TEAM_A_OID,
-            schule=neue_schule_document(BEWERBUNG_SCHULE, "HW"),
+            schule=neue_schule_document(BEWERBUNG_SCHULE, "HWX"),
             link_prefix=BEWERBUNG_LINK,
         )
     )
@@ -997,7 +996,7 @@ def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[
         kontakte=kontakte,
         eingereicht_am="2026-09-01",
         bestaetigungsfrist="2026-09-15",
-        schule=neue_schule_document(PENDING_SCHULE, "GW"),
+        schule=neue_schule_document(PENDING_SCHULE, "GWX"),
     )
 
 
@@ -1081,7 +1080,6 @@ class TestAPendingApplicationsSeats:
 
         assert response.status_code == 200, response.text
         assert response.json() == {
-            "acknowledged": 1,
             "bewerbung_id": str(PENDING_OID),
             "rollen": ["trainer", "ansprechperson"],
             "umfang": "kontaktdaten",
@@ -1125,7 +1123,7 @@ class TestAPendingApplicationsSeats:
 
         response, before, after = served(mongo_replica_set_url, steps)
 
-        assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, Code.FUNKTION_NICHT_GEHALTEN)
         assert after == before
 
     @pytest.mark.parametrize(
@@ -1146,7 +1144,7 @@ class TestAPendingApplicationsSeats:
 
         response, before, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
 
-        assert (response.status_code, response.json()["error_code"]) == (403, ERTEILUNG_NICHT_ZUGELASSEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, Code.ERTEILUNG_NICHT_ZUGELASSEN)
         assert (after, counted) == (before, 0)
 
     def test_a_whatsapp_withdrawal_reaches_every_seat_the_person_holds_there(self, mongo_replica_set_url: str):
@@ -1186,7 +1184,7 @@ class TestAPendingApplicationsSeats:
         first, again, before, after = served(mongo_replica_set_url, steps)
 
         assert first.status_code == 200, first.text
-        assert (again.status_code, again.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
+        assert (again.status_code, again.json()["error_code"]) == (409, Code.EINWILLIGUNG_STAND_VERALTET)
         assert after == before
 
 
@@ -1281,7 +1279,6 @@ class TestAPendingRegistration:
         assert response.status_code == 200, response.text
         einwilligung = after[REGISTRIERUNG_OWN]["einwilligung"]
         assert response.json() == {
-            "acknowledged": 1,
             "registrierung_id": str(REGISTRIERUNG_OWN),
             # As the read model serves the stored block, every declared field spelled.
             "einwilligung": FLRegistrierungEinwilligung.model_validate(einwilligung).model_dump(mode="json"),
@@ -1315,7 +1312,7 @@ class TestAPendingRegistration:
 
         response, before, after, counted = served(mongo_replica_set_url, steps, now=COUNTED_NOW)
 
-        assert (response.status_code, response.json()["error_code"]) == (403, ERTEILUNG_NICHT_ZUGELASSEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, Code.ERTEILUNG_NICHT_ZUGELASSEN)
         assert (after, counted) == (before, 0)
 
     @pytest.mark.parametrize(
@@ -1334,7 +1331,7 @@ class TestAPendingRegistration:
 
         response, before, after = served(mongo_replica_set_url, steps)
 
-        assert (response.status_code, response.json()["error_code"]) == (403, FUNKTION_NICHT_GEHALTEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, Code.FUNKTION_NICHT_GEHALTEN)
         assert after == before
 
     def test_a_press_from_a_page_served_older_evidence_is_refused_and_unwritten(self, mongo_replica_set_url: str):
@@ -1351,7 +1348,7 @@ class TestAPendingRegistration:
         first, again, before, after = served(mongo_replica_set_url, steps)
 
         assert first.status_code == 200, first.text
-        assert (again.status_code, again.json()["error_code"]) == (409, EINWILLIGUNG_STAND_VERALTET)
+        assert (again.status_code, again.json()["error_code"]) == (409, Code.EINWILLIGUNG_STAND_VERALTET)
         assert after == before
 
     def test_a_label_naming_no_version_of_the_pupils_control_is_refused(self, mongo_replica_set_url: str):
@@ -1364,7 +1361,7 @@ class TestAPendingRegistration:
 
         response, before, after = served(mongo_replica_set_url, steps)
 
-        assert (response.status_code, response.json()["error_code"]) == (409, FASSUNG_UNZULAESSIG)
+        assert (response.status_code, response.json()["error_code"]) == (409, Code.FASSUNG_UNZULAESSIG)
         assert after == before
 
     def test_the_read_lists_the_confirmed_pending_registrations_and_no_other(self, mongo_replica_set_url: str):

@@ -19,7 +19,7 @@ from app.api.teams.admin_router import get_team_memberships
 from app.api.teams.router import get_team, get_teams
 from app.api.teams.schemas import FLTeamsFilterParams, FLTeamSingleFilterParams
 from app.core.collections import Collection
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from tests import documents
 from tests.config import ADMINISTRATORS
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
@@ -66,11 +66,11 @@ def saison_document(saison_id: str) -> dict[str, Any]:
 def team_document() -> dict[str, Any]:
     """One club, entered in all three seasons: the same id has to read differently per season."""
 
-    return documents.team_document(TEAM_OID, "Helmholtz", "HG", full_name="Helmholtz-Gymnasium")
+    return documents.team_document(TEAM_OID, "Helmholtz", "HGX", full_name="Helmholtz-Gymnasium")
 
 
 def junction_row(saison_id: str) -> dict[str, Any]:
-    return documents.saison_team_document(saison_id, TEAM_OID, "Helmholtz", "HG", gruppe="A")
+    return documents.saison_team_document(saison_id, TEAM_OID, "Helmholtz", "HGX", gruppe="A")
 
 
 def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:
@@ -103,7 +103,7 @@ def spiel_document(saison_id: str) -> dict[str, Any]:
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=an_id("3", saison_id),
-        team1={"team_id": TEAM_OID, "name": "Helmholtz", "shorthand": "HG", "tore": None},
+        team1={"team_id": TEAM_OID, "name": "Helmholtz", "shorthand": "HGX", "tore": None},
         datum=f"{saison_id}-03-15",
         uhrzeit="14:00:00",
     )
@@ -156,11 +156,11 @@ def on_a_league(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-def raised_by(url: str, body: Body) -> DocumentNotFoundException:
+def raised_by(url: str, body: Body) -> DocumentNotFoundError:
     """The refusal a read answered with, so a test asserts on its status rather than only that it refused."""
 
-    async def _catching(database: AsyncDatabase) -> DocumentNotFoundException:
-        with pytest.raises(DocumentNotFoundException) as refusal:
+    async def _catching(database: AsyncDatabase) -> DocumentNotFoundError:
+        with pytest.raises(DocumentNotFoundError) as refusal:
             await body(database)
 
         return refusal.value

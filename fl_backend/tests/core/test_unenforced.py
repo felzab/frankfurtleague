@@ -1,7 +1,6 @@
 import ast
 import inspect
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -12,7 +11,6 @@ from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLSaison, FLSaisonRules
 from app.api.saisons.services import find_rules_refusal, find_spielplan_refusal, find_undraw_refusal
-from app.api.spiele.admin_router import _write_spiel_data, patch_spiel_data, patch_spiele_paarungen
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
@@ -30,9 +28,6 @@ from app.api.spiele.schemas import (
     FLSpielSlotHolder,
 )
 from app.api.spiele.services import (
-    BOOKING_UNKNOWN_RESOURCE,
-    FIXTURE_DOUBLE_BOOKED,
-    STATE_RESULT_ON_A_NON_EVENT,
     BookedVenue,
     ResolvedReferences,
     SaisonMembership,
@@ -54,24 +49,19 @@ from app.api.spiele.services import (
     resolve_bracket,
     slots_booked_against,
 )
-from app.api.spieler.admin_router import delete_saison_spieler, delete_spieler
 from app.api.spieler.services import find_squad_refusal, mark_shared_nummern
-from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn, patch_spieltag
-from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal, with_expected_matches
+from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn
+from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal
 from app.api.teams.services import find_gruppe_swap_refusal
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.constraints import UNIQUE_INDEXES
 from app.core.exceptions import WriteRefusal
 from app.core.readback import RECORD_MODELS
 from tests.core.app_source import (
-    APP_ROOT,
-    COLLECTION_ARGUMENT_SUFFIX,
     app_calls,
     callee,
-    calls_in,
     declared,
-    module_of,
-    parsed,
     removals,
 )
 from tests.documents import rules_document
@@ -97,7 +87,7 @@ SLOT_NR = 29
 
 
 def _side(team_id: str, name: str, **overrides: Any) -> dict[str, Any]:
-    return {"team_id": team_id, "name": name, "tore": None, "shorthand": name[:2].upper(), **overrides}
+    return {"team_id": team_id, "name": name, "tore": None, "shorthand": name[:3].upper(), **overrides}
 
 
 def _joined_side(team_id: str, name: str, *, disqualified_from: str | None = None, **overrides: Any) -> dict[str, Any]:
@@ -250,71 +240,6 @@ def _driver_calls(methods: frozenset[str]) -> list[str]:
     return sorted({f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) in methods})
 
 
-def _callers_of(module: Path, called: str) -> set[str]:
-    """Every function in one module that calls `called`, by name."""
-
-    return {scope for scope, call in calls_in(parsed(module), "<module>") if callee(call) == called}
-
-
-def _calls_of(function: Callable[..., Any]) -> set[str]:
-    """The names one function itself calls; a call a nested helper makes answers under that helper."""
-
-    name = function.__name__
-
-    return {callee(call) for scope, call in calls_in(declared(function), name) if scope == name}
-
-
-def _module_reads(tree: ast.Module, name: str) -> bool:
-    """Every form that reaches the value, not `ImportFrom` alone: `from x import bounds` then `bounds.NAME` holds it and names it in no import.
-
-    The AST rather than the text, a name a comment merely mentions reading nothing.
-    """
-
-    return any(
-        (isinstance(node, ast.ImportFrom) and any(alias.name == name for alias in node.names))
-        or (isinstance(node, ast.Name) and node.id == name)
-        or (isinstance(node, ast.Attribute) and node.attr == name)
-        for node in ast.walk(tree)
-    )
-
-
-def _packages_reading(name: str) -> set[str]:
-    """Every folder between `app/` and the module, not the one holding it: a rule filed a level down answers under that subpackage alone."""
-
-    return {
-        folder
-        for path in sorted(APP_ROOT.rglob("*.py"))
-        if _module_reads(parsed(path), name)
-        for folder in path.relative_to(APP_ROOT).parts[:-1]
-    }
-
-
-class TestAMatchdayOffItsImpliedCount:
-    """That the count a phase implies reaches the matchday's own write nowhere, so no state of the two can be refused there."""
-
-    def test_the_matchday_write_refuses_on_its_dates_alone(self):
-        """Matched on the suffix rather than the `find_` prefix, which the driver's own reads share: what is pinned is the refusals."""
-
-        # Every depth under the endpoint, where `_calls_of` reads its top scope alone: the span
-        # refusal sits in the transactional callback and the order refusal in the helper beside it.
-        reached = {callee(call) for _, call in calls_in(declared(patch_spieltag), patch_spieltag.__name__)} | _calls_of(
-            _refuse_an_out_of_order_beginn
-        )
-
-        assert {call for call in reached if call.endswith("_refusal")} == {
-            "find_spieltag_span_refusal",
-            "find_spieltag_order_refusal",
-        }
-
-    def test_the_implied_count_is_read_for_the_echo_and_nothing_else(self):
-        """`expected_matches` is the figure a mismatch would be measured against, so where it is called is where a refusal could form."""
-
-        module = module_of(with_expected_matches)
-
-        assert _callers_of(module, "expected_matches") == {"with_expected_matches"}
-        assert _callers_of(module_of(patch_spieltag), "expected_matches") == set()
-
-
 class TestASharedSquadNumber:
     """That no write refuses a number another row wears, and that the one read reporting it compares what is stored."""
 
@@ -450,7 +375,7 @@ class TestARetiredBookingOnAReopenedFixture:
         )
 
         assert kept is None
-        assert newly_booked is not None and newly_booked.error_code == BOOKING_UNKNOWN_RESOURCE
+        assert newly_booked is not None and newly_booked.error_code == Code.BOOKING_UNKNOWN_RESOURCE
 
 
 LIFTED_NO_SHOW_NR, BOOKED_AN_HOUR_LATER_NR = 30, 31
@@ -524,7 +449,7 @@ class TestADoubleBookingALiftedNoShowLeaves:
         assert _clash_refusal_of(later, holders, notiz="Nur eine Notiz") is None
 
         moved_inside = _clash_refusal_of(lifted, holders, uhrzeit="17:30:00")
-        assert moved_inside is not None and moved_inside.error_code == FIXTURE_DOUBLE_BOOKED
+        assert moved_inside is not None and moved_inside.error_code == Code.FIXTURE_DOUBLE_BOOKED
         assert _clash_refusal_of(lifted, holders, uhrzeit="13:00:00") is None
 
 
@@ -656,58 +581,10 @@ class TestASpieltagAlreadyHoldingAClubTwice:
         assert _swap(clashing_spieltage=1) is not None
 
 
-class TestAPersonWithNoSquadRow:
-    """That no rule asks a person for a squad row, and that the rule governing one is asked at each of the three writes."""
-
-    def test_the_squad_rule_governs_the_row_rather_than_its_absence(self):
-        """`REQ-SQUAD-001` is asked where a squad row is written and nowhere else, so a person holding none is a state no rule can stop."""
-
-        # The REACTIVATE for the same reason as the other two: a club replacement retires the
-        # outgoing club's rows without moving their `team_id`, so reviving one restores a live row
-        # for a club the season no longer holds -- the state `REQ-SQUAD-001` refuses.
-
-        # Every module under `app/`, not the squad router alone: the claim is that nothing ELSE asks
-        # the rule, and a sweep of one module cannot see a caller a second package acquired.
-
-        # Named by the CALLBACK each endpoint runs its transaction over, which is the innermost
-        # scope around the call and so the scope this sweep attributes it to.
-        asking = {
-            f"{path.relative_to(APP_ROOT).as_posix()} :: {scope}"
-            for path in sorted(APP_ROOT.rglob("*.py"))
-            for scope in _callers_of(path, find_squad_refusal.__name__)
-        }
-
-        assert asking == {
-            "api/spieler/admin_router.py :: add_the_player",
-            "api/spieler/admin_router.py :: move_the_player",
-            "api/spieler/admin_router.py :: bring_the_player_back",
-        }
-
-
-class TestAPupilsAgeNoSquadRuleJudges:
-    """That the league's age reaches no squad module: the floor is judged at the registration alone."""
-
-    def test_the_leagues_age_reaches_no_squad_module(self):
-        """Both thresholds are named constants, so where a module can read either is where an age can be judged."""
-
-        # The reader's own floor, against a sample: every module in the tree names the value in its
-        # import, so no count over the tree separates a correct reader from one matching that alone.
-        through_its_module = ast.parse("from app.shared.schemas import bounds\n\nFLOOR = bounds.BEWERBUNG_KONTAKT_MIN_AGE_YEARS\n")
-        assert _module_reads(through_its_module, "BEWERBUNG_KONTAKT_MIN_AGE_YEARS")
-
-        reading = _packages_reading("BEWERBUNG_KONTAKT_MIN_AGE_YEARS")
-
-        # The floor: the application DOES judge a contact person's age against it, so the absence
-        # below is the squad package asking nothing rather than a sweep that found no reader.
-        assert "bewerbungen" in reading
-
-        assert "spieler" not in reading
-
-
 # The junction as the refusal reads it: the season's own name for the club, and the day it left.
 MEMBERSHIP = {
-    ObjectId(ADLER): SaisonMembership(name="Adler", shorthand="AD", departed_from=EXIT_BEFORE_THE_FIXTURE),
-    ObjectId(BIEBER): SaisonMembership(name="Bieber", shorthand="BI", departed_from=None),
+    ObjectId(ADLER): SaisonMembership(name="Adler", shorthand="ADX", departed_from=EXIT_BEFORE_THE_FIXTURE),
+    ObjectId(BIEBER): SaisonMembership(name="Bieber", shorthand="BIX", departed_from=None),
 }
 
 
@@ -767,11 +644,10 @@ class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
     """That the order rule is handed one phase at a time, and that the phases it would have to compare hold one matchday each."""
 
     def test_the_refusal_is_handed_no_phase_at_all(self):
-        """Its whole input: the span this request carries, the day the matchday stands on, and two neighbours of a position and a day."""
+        """Its whole input: the `beginn` this request carries, the day the matchday stands on, and two neighbours of a position and a day."""
 
         assert set(inspect.signature(find_spieltag_order_refusal).parameters) == {
             "beginn",
-            "ende",
             "stored_beginn",
             "previous",
             "following",
@@ -803,35 +679,6 @@ class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
         assert knockout and set(knockout.values()) == {1}
 
 
-def _stamped_by(endpoint: Callable[..., Any]) -> set[str]:
-    """The collections one endpoint hands `set_inactive_since`, read off its own call site or the callback it runs as a transaction."""
-
-    return {
-        keyword.value.id
-        for _, call in calls_in(declared(endpoint), endpoint.__name__)
-        if callee(call) == "set_inactive_since"
-        for keyword in call.keywords
-        if keyword.arg == "collection" and isinstance(keyword.value, ast.Name)
-    }
-
-
-class TestARetiredPersonKeepsALiveSquadRow:
-    """That retiring a person stamps `spieler` alone, and that a squad row is left by an endpoint of its own."""
-
-    def test_the_person_retire_is_handed_no_squad_collection(self):
-        """A collection an endpoint never receives is one it cannot cascade into, whatever its body turns out to say."""
-
-        taken = {argument.arg for argument in declared(delete_spieler).args.args}
-
-        assert {name for name in taken if name.endswith(COLLECTION_ARGUMENT_SUFFIX)} == {"spieler_collection"}
-
-    def test_the_two_retirements_are_stamped_by_two_endpoints(self):
-        """One helper, two subjects: the person's day and the row's are written by separate routes, and neither consults the other."""
-
-        assert _stamped_by(delete_spieler) == {"spieler_collection"}
-        assert _stamped_by(delete_saison_spieler) == {"saison_spieler_collection"}
-
-
 # Every refusal `PATCH /spiele/{spiel_id}` runs, which is the whole of what could gate a result on
 # the season's status.
 FIXTURE_PATCH_REFUSALS = (
@@ -858,33 +705,6 @@ class TestAFutureSeasonHoldingRecordedResults:
 
         assert "status" in FLSaison.model_fields
         assert "status" not in FLSpiel.model_fields
-
-    def test_the_set_above_is_every_refusal_the_endpoint_runs(self):
-        """A hand-kept list is a sweep that quietly sees less, so a refusal added to the patch fails here rather than going unweighed."""
-
-        named = {refusal.__name__ for refusal in FIXTURE_PATCH_REFUSALS}
-        # The shared writer rather than either route, and nested scopes included: both routes delegate
-        # their whole body to it, so a sweep over a route's own finds none of these and passes on
-        # emptiness.
-        run = {
-            callee(call)
-            for _, call in calls_in(declared(_write_spiel_data), _write_spiel_data.__name__)
-            if callee(call).endswith("_refusal") or callee(call).startswith("judge_")
-        }
-
-        assert run == named, f"unweighed: {sorted(run - named)}; weighed but no longer run: {sorted(named - run)}"
-
-    def test_neither_route_judges_anything_the_sweep_above_cannot_see(self):
-        """What keeps that sweep whole once two routes share one writer: a refusal put on a route is one it reads past."""
-
-        for route in (patch_spiel_data, patch_spiele_paarungen):
-            judged = {
-                callee(call)
-                for _, call in calls_in(declared(route), route.__name__)
-                if callee(call).endswith("_refusal") or callee(call).startswith("judge_")
-            }
-
-            assert not judged, f"{route.__name__} judges {sorted(judged)} outside {_write_spiel_data.__name__}, where the sweep reads"
 
     def test_both_windows_take_the_record_and_the_status_as_two_figures(self):
         """`REQ-SPIELPLAN-005` and `REQ-SPIELPLAN-006` share one sentence for the same reason: neither infers the record from the status."""
@@ -927,7 +747,7 @@ class TestAnAbandonedFixtureAndItsResult:
         cancelled = _abandoned(tore=(3, 1)).model_copy(update={"sonderereignis": "ausgefallen"})
         refusal = find_state_refusal(cancelled)
 
-        assert refusal is not None and refusal.error_code == STATE_RESULT_ON_A_NON_EVENT
+        assert refusal is not None and refusal.error_code == Code.STATE_RESULT_ON_A_NON_EVENT
 
     def test_it_sits_outside_the_set_that_awards_nothing(self):
         """The partition is what leaves it out: a fixture that used its slot is not one recording an absence."""

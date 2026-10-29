@@ -63,7 +63,6 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
@@ -96,7 +95,6 @@ _NICHT_BESTAETIGBAR = frozenset({"ersetzte_gesperrt", "vergeben", "nicht_gedeckt
     "/ansicht",
     response_model=FLAdresswechselAnsichtResponse,
     summary="What one address link opens",
-    dependencies=[Depends(stores_nothing)],
 )
 async def get_adresswechsel_ansicht(
     ansicht_data: Annotated[FLAdresswechselAnsichtPayload, Body()],
@@ -198,7 +196,6 @@ async def get_adresswechsel_ansicht(
     summary="Confirm or decline a pending address",
     # `uniq_spieler_email` and `uniq_berechtigung_adresse` are published by the duplicate-key trace and stay unreached: the
     # in-session reads of another pupil and of the new address's grant include every row either index holds.
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_adresswechsel_antwort(
     antwort_data: Annotated[FLAdresswechselAntwortPayload, Body()],
@@ -351,7 +348,6 @@ async def post_adresswechsel_antwort(
     "/stopp",
     response_model=FLAdresswechselStoppResponse,
     summary="Stop a pending address change",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def post_adresswechsel_stopp(
     stopp_data: Annotated[FLAdresswechselStoppPayload, Body()],

@@ -26,8 +26,6 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungTermin,
 )
 from app.api.spielbestaetigungen.services import (
-    ANSETZUNG_BEANTWORTET,
-    ANSETZUNG_GESCHLOSSEN,
     MITTEILUNG_VERSUCHE_HOECHSTENS,
     build_token_filter,
     compose_antwort_update,
@@ -50,10 +48,10 @@ from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.spiele.services import ANSETZUNG_BESTAETIGT, build_spiele_pipeline
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exception_handlers import DATABASE_FAILED, UNKNOWN_OUTCOME
-from app.core.exceptions import WriteRefusalException
-from app.core.logging import FL_LOGGER_NAME
+from app.core.exceptions import APIError
+from app.core.logging import FL_LOGGER_NAME, JSONFormatter
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -88,7 +86,7 @@ ALPHA = ObjectId("6890a1b2c3d4e5f607750001")
 BETA = ObjectId("6890a1b2c3d4e5f607750002")
 # A club no season row names, so a fixture fielding it is one the pass cannot answer.
 GAMMA = ObjectId("6890a1b2c3d4e5f607750003")
-NAMES = {ALPHA: ("Alpha", "AL"), BETA: ("Beta", "BE"), GAMMA: ("Gamma", "GA")}
+NAMES = {ALPHA: ("Alpha", "ALX"), BETA: ("Beta", "BEX"), GAMMA: ("Gamma", "GAX")}
 SPIELTAG = ObjectId("6890a1b2c3d4e5f6077500a1")
 PAST_SPIELTAG = ObjectId("6890a1b2c3d4e5f6077500a2")
 SPIELORT = ObjectId("6890a1b2c3d4e5f6077500b1")
@@ -326,7 +324,7 @@ async def refusal_of(database: AsyncDatabase, client: AsyncMongoClient, token: s
 
     try:
         await antworten(database, client, token)
-    except WriteRefusalException as refusal:
+    except APIError as refusal:
         return refusal.error_code
 
     return None
@@ -720,7 +718,7 @@ class TestAMovedFixtureAsksAgain:
         assert (answered["antwort"]["art"], answered["antwort"]["von"]["rolle"]) == ("zugesagt", "trainer")
         assert next(row for row in closed if row["_id"] == answered_id)["antwort"] == answered["antwort"]
         assert [row["antwort"] for row in closed if row["_id"] != answered_id] == [None, None]
-        assert refusals == [ANSETZUNG_BEANTWORTET, ANSETZUNG_GESCHLOSSEN]
+        assert refusals == [Code.ANSETZUNG_BEANTWORTET, Code.ANSETZUNG_GESCHLOSSEN]
         assert {row["ansetzung"]["uhrzeit"] for row in standing} == {"19:00:00"}
         assert len(standing) == 3
         assert second.geschlossen == 3
@@ -1383,8 +1381,14 @@ async def a_pass_failing(database: AsyncDatabase, client: AsyncMongoClient, **co
     return answer, (await database[Collection.SAISONS].find_one({"_id": SAISON_ID}) or {}).get("spiel_sweep_gelaufen_am")
 
 
-def warnings_of(caplog: pytest.LogCaptureFixture) -> list[tuple[Any, str]]:
-    return [(getattr(record, "error_code", None), record.getMessage()) for record in caplog.records if record.levelname == "WARNING"]
+def warnings_of(caplog: pytest.LogCaptureFixture) -> list[tuple[Any, str, Any]]:
+    """Each warning's code, event and clock."""
+
+    return [
+        (getattr(record, "error_code", None), record.getMessage(), getattr(record, "clock", None))
+        for record in caplog.records
+        if record.levelname == "WARNING"
+    ]
 
 
 class TestALaterStepFailingAnswersWhatCommitted:
@@ -1399,7 +1403,7 @@ class TestALaterStepFailingAnswersWhatCommitted:
 
         assert (len(answer.neue_ansetzungen), answer.anfragen, answer.erinnerungen) == (2, [], [])
         assert stamped == days_after(day=FIRST_REMINDER, days=-1)
-        assert [code for code, _ in warnings_of(caplog)] == [DATABASE_FAILED]
+        assert [code for code, _, _ in warnings_of(caplog)] == [Code.DATABASE_FAILED]
 
     def test_a_commit_whose_answer_was_lost_names_what_may_stand(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """The mint's rows may stand holding links nobody was mailed: logged as an unknown outcome, never as an ordinary failure."""
@@ -1412,13 +1416,9 @@ class TestALaterStepFailingAnswersWhatCommitted:
             answer, _ = on_a_league(mongo_replica_set_url, body, spiele=EVERY_MESSAGE)
 
         assert (len(answer.neue_ansetzungen), answer.anfragen) == (2, [])
-        assert warnings_of(caplog) == [
-            (
-                UNKNOWN_OUTCOME,
-                f"The mint clock's commit went unanswered after the call committed messages it owes: the rows minted for fixture(s) {SPIEL} "
-                "may have been written with nobody told, the call answers what else committed, and the rest stay due",
-            )
-        ]
+        assert warnings_of(caplog) == [(Code.UNKNOWN_OUTCOME, "spielbestaetigungen.clock_commit_unanswered", "mint")]
+        [warning] = [record for record in caplog.records if record.levelname == "WARNING"]
+        assert getattr(warning, "may_stand", None) == f"the rows minted for fixture(s) {SPIEL}"
 
     def test_the_runs_stamp_failing_alone_answers_the_notices(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Every reminder refused, so the day is stamped in a transaction of its own after the notices and requests committed."""
@@ -1441,7 +1441,7 @@ class TestALaterStepFailingAnswersWhatCommitted:
 
         assert (len(answer.neue_ansetzungen), len(answer.anfragen), answer.erinnerungen, answer.fehlgeschlagen) == (2, 2, [], 2)
         assert stamped == days_after(day=FIRST_REMINDER, days=-1)
-        assert [message.split(" (")[0] for _, message in warnings_of(caplog)] == ["The run stamp clock stopped at a failure"]
+        assert [(message, clock) for _, message, clock in warnings_of(caplog)] == [("spielbestaetigungen.clock_stopped", "run stamp")]
 
 
 class TestOneRowHoldsBackNoOther:
@@ -1658,7 +1658,7 @@ class TestEverySeasonSizedReadSendsOneGetMore:
             return ObjectId(f"6890a1b2c3d4e5f6071{position:05d}")
 
         def club_side(position: int) -> dict[str, Any]:
-            return {"team_id": club(position), "name": f"Verein {position}", "shorthand": "VE", "tore": None}
+            return {"team_id": club(position), "name": f"Verein {position}", "shorthand": "VEX", "tore": None}
 
         def seats(position: int) -> dict[str, Any]:
             return {
@@ -1716,7 +1716,7 @@ class TestEverySeasonSizedReadSendsOneGetMore:
             for spiel in refereed_alone
         ]
         junctions = [
-            documents.saison_team_document(SAISON_ID, club(position), f"Verein {position}", "VE", kontakte=seats(position))
+            documents.saison_team_document(SAISON_ID, club(position), f"Verein {position}", "VEX", kontakte=seats(position))
             for position in range(2 * count)
         ]
 
@@ -1792,12 +1792,20 @@ class TestAnEmptiedEntryFilledBesideAHandoverIsMintedForTheNewHolder:
         interleaved.assert_landed_inside(serially=1)
 
 
-def withheld_lines(caplog: pytest.LogCaptureFixture) -> list[str]:
-    return [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()]
+def withheld_lines(caplog: pytest.LogCaptureFixture) -> list[tuple[Any, Any, Any]]:
+    """Each pass's count of the seats it left unminted and unreminded, by season."""
+
+    return [
+        (getattr(record, "saison_id", None), getattr(record, "unminted", None), getattr(record, "unreminded", None))
+        for record in caplog.records
+        if record.getMessage() == "spielbestaetigungen.links_withheld"
+    ]
 
 
 def no_line_names(caplog: pytest.LogCaptureFixture, *names: Any) -> bool:
-    return not any(str(name) in record.getMessage() for record in caplog.records for name in names)
+    """Read off each line as written, its fields included, which is where an id or an address would sit."""
+
+    return not any(str(name) in JSONFormatter().format(record) for record in caplog.records for name in names)
 
 
 class TestEachPassCountsTheSeatsABanKeptFromALink:
@@ -1830,10 +1838,7 @@ class TestEachPassCountsTheSeatsABanKeptFromALink:
         interleaved, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
 
         interleaved.assert_landed_inside(serially=1)
-        assert (
-            withheld_lines(caplog)
-            == [f"Links withheld from barred addresses in season {SAISON_ID}: 1 seat(s) unminted, 0 seat(s) unreminded"] * 2
-        )
+        assert withheld_lines(caplog) == [(SAISON_ID, 1, 0)] * 2
         assert no_line_names(caplog, barred, BETA, *[row["_id"] for row in stored])
 
     def test_the_reminder_counts_a_seat_barred_since_its_link_went(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
@@ -1852,10 +1857,7 @@ class TestEachPassCountsTheSeatsABanKeptFromALink:
 
         # The premise: each pass reminded the barred seat's row, its other seats.
         assert [sorted(anfrage.seite for anfrage in answer.erinnerungen) for answer in reminded] == [["team1", "team2"]] * 2
-        assert (
-            withheld_lines(caplog)
-            == [f"Links withheld from barred addresses in season {SAISON_ID}: 0 seat(s) unminted, 1 seat(s) unreminded"] * 2
-        )
+        assert withheld_lines(caplog) == [(SAISON_ID, 0, 1)] * 2
         assert no_line_names(caplog, barred, BETA, *[row["_id"] for row in stored])
 
 

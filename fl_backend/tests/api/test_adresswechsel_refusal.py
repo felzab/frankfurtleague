@@ -24,11 +24,11 @@ from app.api.adresswechsel.schemas import (
 )
 from app.api.adresswechsel.services import ist_abgelaufen, maskierte_adresse, neu_zustand
 from app.api.berechtigungen.services import genehmigung_steht, genehmigung_verwehrt
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.constraints import SUPPORT_INDEXES, UNIQUE_INDEXES
 from app.core.recording import ERASED_ACTOR_MARKER
-from app.core.security import WRONG_SYSTEM_KEY
 from app.shared.folding import canonical_address
 from app.shared.schemas.responses import BaseAPIResponse
 from tests.config import BASE_AUTH
@@ -117,7 +117,7 @@ class TestTheSystemsReadOfTheNewAddress:
             f"/api/v{API_VERSION}/adresswechsel/sweep/adresse", headers=BASE_AUTH, json={"token": "t" * 43}
         )
 
-        assert (response.status_code, response.json()["error_code"]) == (401, WRONG_SYSTEM_KEY)
+        assert (response.status_code, response.json()["error_code"]) == (401, Code.WRONG_SYSTEM_KEY)
 
 
 NOW = datetime(2026, 4, 1, 10, 0, tzinfo=UTC)

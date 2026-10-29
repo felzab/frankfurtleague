@@ -15,11 +15,11 @@ from bson import ObjectId
 from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbung_filter, mindestalter_for, saison_schule
 from app.api.einwilligung.services import find_fassung_refusal, medien_angeboten
 from app.api.identitaet.schemas import FLSubjektSitz
-from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN, eigene_sitze, holds_a_seat, ist_eigene_registrierung
+from app.api.identitaet.services import eigene_sitze, holds_a_seat, ist_eigene_registrierung
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
 from app.api.teams.schemas import KONTAKT_ROLLEN
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.core.journal import JournalLine
@@ -34,9 +34,6 @@ KONTO_SEITE_KONTAKT: Final[Seite] = "konto_kontakt"
 
 # The place `find_fassung_refusal` names in its message: each PATCH stamps one label.
 _FASSUNG_ORT: Final = "einwilligung"
-
-EINWILLIGUNG_STAND_VERALTET: Final = Code.EINWILLIGUNG_STAND_VERALTET
-ERTEILUNG_NICHT_ZUGELASSEN: Final = Code.ERTEILUNG_NICHT_ZUGELASSEN
 
 
 def erteilt_etwas(*, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungWahl, Any]) -> bool:
@@ -140,9 +137,8 @@ def find_erteilung_refusal(*, zugelassen: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=ERTEILUNG_NICHT_ZUGELASSEN,
+        error_code=Code.ERTEILUNG_NICHT_ZUGELASSEN,
         status=HTTPStatus.FORBIDDEN,
-        message="this record takes a withdrawal alone: no grant is admitted on it here",
     )
 
 
@@ -157,9 +153,8 @@ def find_eigener_eintrag_refusal(*, gehalten: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=FUNKTION_NICHT_GEHALTEN,
+        error_code=Code.FUNKTION_NICHT_GEHALTEN,
         status=HTTPStatus.FORBIDDEN,
-        message="the signed-in person holds no confirmed record here that this operation may read or change",
     )
 
 
@@ -174,9 +169,8 @@ def find_nachweis_stand_refusal(*, erwartet: Mapping[str, Any], bloecke: Sequenc
         return None
 
     return WriteRefusal(
-        error_code=EINWILLIGUNG_STAND_VERALTET,
+        error_code=Code.EINWILLIGUNG_STAND_VERALTET,
         status=HTTPStatus.CONFLICT,
-        message="this consent has moved since the page was served; reload it and press again",
     )
 
 

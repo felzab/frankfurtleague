@@ -28,7 +28,7 @@ from app.api.spiele.schemas import (
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLKontaktRolle
 from app.api.teams.services import has_taken_place, seats_changing_holder
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -132,14 +132,6 @@ def seat_holding(*, spielbestaetigung_raw: Mapping[str, Any], token_hash: str) -
 
 # --- The LINK's view and answer.
 
-ANSETZUNG_TOKEN_UNKNOWN = Code.ANSETZUNG_TOKEN_UNKNOWN
-ANSETZUNG_BEANTWORTET = Code.ANSETZUNG_BEANTWORTET
-ANSETZUNG_FRIST_VORBEI = Code.ANSETZUNG_FRIST_VORBEI
-ANSETZUNG_GEAENDERT = Code.ANSETZUNG_GEAENDERT
-ANSETZUNG_ENTSCHIEDEN = Code.ANSETZUNG_ENTSCHIEDEN
-ANSETZUNG_VORSCHLAG_VERGANGEN = Code.ANSETZUNG_VORSCHLAG_VERGANGEN
-ANSETZUNG_GESCHLOSSEN = Code.ANSETZUNG_GESCHLOSSEN
-ANSETZUNG_GESPERRT = Code.ANSETZUNG_GESPERRT
 
 # A row closed, or due to close, for one of these is about an Ansetzung the fixture has left, which the
 # page tells apart from a deadline that ran out.
@@ -275,9 +267,8 @@ def find_unknown_link_refusal(*, seat: FLKontaktRolle | None) -> WriteRefusal | 
         return None
 
     return WriteRefusal(
-        error_code=ANSETZUNG_TOKEN_UNKNOWN,
+        error_code=Code.ANSETZUNG_TOKEN_UNKNOWN,
         status=HTTPStatus.NOT_FOUND,
-        message="this link opens no fixture confirmation; it may have been replaced when its seat changed hands",
     )
 
 
@@ -288,45 +279,26 @@ def find_gesperrt_link_refusal(*, gesperrt: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=ANSETZUNG_GESPERRT,
+        error_code=Code.ANSETZUNG_GESPERRT,
         status=HTTPStatus.FORBIDDEN,
-        message="the email address this link was sent to is on the ban list, so it answers nothing",
     )
 
 
-def _is_referees(spielbestaetigung_raw: Mapping[str, Any]) -> bool:
-    """Whose row: each message below is worded for the reader it reaches, a club's link or a referee signed in."""
-
-    return bool((spielbestaetigung_raw.get("partei") or {}).get("art") == "schiedsrichter")
-
-
-def first_press_refusal(*, schiedsrichter: bool) -> WriteRefusal:
+def first_press_refusal() -> WriteRefusal:
     """`REQ-ANSETZUNG-002`, built here alone: by the spent-link judgement and by the answer whose filtered write matched nothing."""
 
     return WriteRefusal(
-        error_code=ANSETZUNG_BEANTWORTET,
+        error_code=Code.ANSETZUNG_BEANTWORTET,
         status=HTTPStatus.GONE,
-        # The league's Zusage answers a referee's row too, so the sentence names both answerers.
-        message=(
-            "this booking has already been answered, by you or by the league on your behalf"
-            if schiedsrichter
-            else "this club has already answered about this fixture, from this link or another of its seats"
-        ),
     )
 
 
-def ansetzung_verlassen_refusal(*, schiedsrichter: bool) -> WriteRefusal:
+def ansetzung_verlassen_refusal() -> WriteRefusal:
     """`REQ-ANSETZUNG-004`, built here alone: by the spent-link judgement and by a referee's decline whose fixture write matched nothing."""
 
     return WriteRefusal(
-        error_code=ANSETZUNG_GEAENDERT,
+        error_code=Code.ANSETZUNG_GEAENDERT,
         status=HTTPStatus.GONE,
-        # Never "asked afresh" to a referee: the fixture may book somebody else now, or nobody.
-        message=(
-            "the fixture's date, time, ground, sides or referee changed since this booking asked about it, so it takes no answer"
-            if schiedsrichter
-            else "the fixture's date, time, ground, sides or referee changed since this row asked about it; the new Ansetzung is asked afresh"
-        ),
     )
 
 
@@ -336,51 +308,37 @@ def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: A
     An answered row whose Ansetzung moved answers `-002` and reads `ungueltig`: the page re-reads the view on `-002`.
     """
 
-    schiedsrichter = _is_referees(spielbestaetigung_raw)
-
     if spielbestaetigung_raw.get("antwort") is not None:
-        return first_press_refusal(schiedsrichter=schiedsrichter)
+        return first_press_refusal()
 
     if spielbestaetigung_raw.get("geschlossen") is not None:
         return WriteRefusal(
-            error_code=ANSETZUNG_GESCHLOSSEN,
+            error_code=Code.ANSETZUNG_GESCHLOSSEN,
             status=HTTPStatus.GONE,
-            message=(
-                "this booking was closed before you answered; a fresh request is a new row on your panel"
-                if schiedsrichter
-                else "this confirmation was closed before anybody answered; a fresh request is a new link"
-            ),
         )
 
     grund = _grund_now(spielbestaetigung_raw=spielbestaetigung_raw, lage=lage, today=today)
 
     if grund in GRUENDE_UNGUELTIG:
-        return ansetzung_verlassen_refusal(schiedsrichter=schiedsrichter)
+        return ansetzung_verlassen_refusal()
 
     # A day gone by unplayed is a deadline gone by too, the deadline lying before the day: late rather than decided.
     if grund is not None and grund != "spiel_vergangen":
         return WriteRefusal(
-            error_code=ANSETZUNG_ENTSCHIEDEN,
+            error_code=Code.ANSETZUNG_ENTSCHIEDEN,
             status=HTTPStatus.GONE,
-            message=(
-                "this fixture has been decided, called off or lost a club since this booking asked about it"
-                if schiedsrichter
-                else "this fixture has been decided, called off or lost a club since this link was sent"
-            ),
         )
 
     if grund is not None:
         return WriteRefusal(
-            error_code=ANSETZUNG_FRIST_VORBEI,
+            error_code=Code.ANSETZUNG_FRIST_VORBEI,
             status=HTTPStatus.GONE,
-            message="this fixture's day has passed, and the date is the administrator's now",
         )
 
     if _past_frist(spielbestaetigung_raw=spielbestaetigung_raw, today=today):
         return WriteRefusal(
-            error_code=ANSETZUNG_FRIST_VORBEI,
+            error_code=Code.ANSETZUNG_FRIST_VORBEI,
             status=HTTPStatus.GONE,
-            message=f"this confirmation's deadline {spielbestaetigung_raw['frist']} has passed, and the date is the administrator's now",
         )
 
     return None
@@ -393,9 +351,8 @@ def find_vorschlag_vergangen_refusal(*, vorschlag: FLSpielbestaetigungTermin, to
         return None
 
     return WriteRefusal(
-        error_code=ANSETZUNG_VORSCHLAG_VERGANGEN,
+        error_code=Code.ANSETZUNG_VORSCHLAG_VERGANGEN,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        message=f"the proposed date {vorschlag.datum} lies before today",
         # The date box the form holds the proposal in, so it is marked where the reader typed the day.
         fields=(("vorschlag", "datum"),),
     )
@@ -545,8 +502,6 @@ def compose_antwort_update(
 # --- The ADMINISTRATOR's settle and discard. Each check judges the row read in-session and its write's filter
 # says the same again; a party's answer committing between the two conflicts with the write, whose retry refuses.
 
-ANSETZUNG_NICHT_EINTRAGBAR = Code.ANSETZUNG_NICHT_EINTRAGBAR
-ANSETZUNG_NICHT_VERWERFBAR = Code.ANSETZUNG_NICHT_VERWERFBAR
 
 # Exactly what the season-wide read serves: every stored field but the hashes and the holder
 # (`tests/core/test_constraints.py :: STORED_BUT_NOT_SERVED`), kept off the wire from the driver up.
@@ -557,9 +512,8 @@ def eintragen_refusal() -> WriteRefusal:
     """`REQ-ANSETZUNG-013`, built here alone: by the check on the row read and by the settle whose filtered write matched nothing."""
 
     return WriteRefusal(
-        error_code=ANSETZUNG_NICHT_EINTRAGBAR,
+        error_code=Code.ANSETZUNG_NICHT_EINTRAGBAR,
         status=HTTPStatus.CONFLICT,
-        message="this confirmation is already answered or closed, so it takes no administrator's answer",
     )
 
 
@@ -591,9 +545,8 @@ def verwerfen_refusal() -> WriteRefusal:
     """`REQ-ANSETZUNG-014`, built here alone: by the check on the row read and by the discard whose filtered write matched nothing."""
 
     return WriteRefusal(
-        error_code=ANSETZUNG_NICHT_VERWERFBAR,
+        error_code=Code.ANSETZUNG_NICHT_VERWERFBAR,
         status=HTTPStatus.CONFLICT,
-        message="only an open club decline carrying a proposed date, about the fixture's current Ansetzung, can be discarded",
     )
 
 
@@ -634,7 +587,6 @@ def find_verwerfen_refusal(*, spielbestaetigung_raw: Mapping[str, Any], spiel: M
 
 # --- A REFEREE'S OWN ROWS: the panel's read and the referee's answer, signed in rather than by a link.
 
-ANSETZUNG_FREMDE_ZEILE = Code.ANSETZUNG_FREMDE_ZEILE
 
 # The close a referee's own decline writes in its transaction: outside `GRUENDE_UNGUELTIG`, so the row reads as
 # their decline, and outside `GRUENDE_ANSWERED_FOR_THE_STAND`, so a re-booking is asked afresh.
@@ -649,9 +601,8 @@ def find_fremde_zeile_refusal(*, spielbestaetigung_raw: Mapping[str, Any] | None
         return None
 
     return WriteRefusal(
-        error_code=ANSETZUNG_FREMDE_ZEILE,
+        error_code=Code.ANSETZUNG_FREMDE_ZEILE,
         status=HTTPStatus.FORBIDDEN,
-        message="this confirmation names none of the referee records the signed-in address holds",
     )
 
 

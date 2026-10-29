@@ -11,7 +11,6 @@ from pymongo.errors import PyMongoError
 
 from app.api.bewerbungen.services import SWEEP_PAGE, group_seats_by_mailbox, mint_token, seat_is_unreachable
 from app.api.registrierungen.services import link_is_unreachable
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, anchor_the_referees_told, anchor_the_seats_minted
 from app.api.spielbestaetigungen.schemas import (
@@ -66,6 +65,7 @@ from app.api.spielbestaetigungen.services import (
     void_notice_held,
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_many_to_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
@@ -77,7 +77,6 @@ from app.core.dependencies import (
     SpieleCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
 from app.core.logging import fl_logger
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, Batch, diagnosis_of, refuse_a_stalled_page, run_isolated, transaction_session
@@ -349,7 +348,6 @@ async def get_spiel_sweep_saisons(saisons_collection: SaisonsCollection) -> FLSp
     "/{saison_id}",
     response_model=FLSpielbestaetigungSweepResponse,
     summary="Run one season's fixture confirmation pass",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def sweep_spielbestaetigungen(
     saison_id: str,
@@ -941,18 +939,14 @@ async def sweep_spielbestaetigungen(
                 raise
             # The label, as `app/core/transactions.py :: _log_stopped` reads it: a lost answer may hide a commit.
             if isinstance(stop, PyMongoError) and stop.has_error_label(UNKNOWN_COMMIT_RESULT):
+                # Those rows may have been written with nobody told; the call answers what else committed.
                 fl_logger.warning(
-                    f"The {clock} clock's commit went unanswered after the call committed messages it owes: {may_stand()} may have "
-                    "been written with nobody told, the call answers what else committed, and the rest stay due",
-                    extra={"error_code": UNKNOWN_OUTCOME},
+                    "spielbestaetigungen.clock_commit_unanswered",
+                    extra={"error_code": Code.UNKNOWN_OUTCOME, "clock": clock, "may_stand": may_stand()},
                 )
                 return None
             code, diagnosis = diagnosis_of(stop)
-            fl_logger.warning(
-                f"The {clock} clock stopped at a failure ({diagnosis}) after the call committed messages it owes: "
-                "the call answers what committed, and the rest stay due",
-                extra={"error_code": code},
-            )
+            fl_logger.warning("spielbestaetigungen.clock_stopped", extra={"error_code": code, "clock": clock, "diagnosis": diagnosis})
             return None
 
     def taken_by(batch: Batch, noun: str) -> Callable[[], str]:
@@ -1025,40 +1019,38 @@ async def sweep_spielbestaetigungen(
             inserted=[row_id for answered in minted[0] for row_id in answered.inserted],
             fresh={row_id: seats for answered in minted[0] for row_id, seats in answered.fresh.items()},
         )
-        # The run's day is a season write, which the cache serves.
-        with dropping_the_saison_cache():
-            reminded = await after_what_is_owed(
-                lambda: run_isolated(
-                    db=db,
-                    batch=reminder_share,
-                    attempt=lambda session, batch: session.with_transaction(remind, batch),
-                    moved=len,
-                    owes=True,
-                    what=WHAT,
-                    clock="reminder",
-                ),
+        reminded = await after_what_is_owed(
+            lambda: run_isolated(
+                db=db,
+                batch=reminder_share,
+                attempt=lambda session, batch: session.with_transaction(remind, batch),
+                moved=len,
+                owes=True,
+                what=WHAT,
                 clock="reminder",
-                may_stand=taken_by(reminder_share, "reminders of confirmation(s)"),
-            )
-            if reminded is not None:
-                fehlgeschlagen += len(reminded[1])
-                # A team row's message beside whether its first request was recorded as sent: a reminder of one that may
-                # never have arrived would point at a link nobody holds, so it goes out worded as the request.
-                owed_now = [owed for answered in reminded[0] for _, owed in answered]
-                erinnerungen = [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepAnfrage) and owed.marked]
-                anfragen += [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepAnfrage) and not owed.marked]
-                einteilungen += [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepEinteilung)]
-                # Every attempt that committed stamped the day; where none did, it is stamped alone, under the same
-                # contract as every step after a message is owed.
-                if not reminded[0]:
-                    await after_what_is_owed(stamp_alone, clock="run stamp", may_stand=lambda: f"season {saison_id}'s day")
+            ),
+            clock="reminder",
+            may_stand=taken_by(reminder_share, "reminders of confirmation(s)"),
+        )
+        if reminded is not None:
+            fehlgeschlagen += len(reminded[1])
+            # A team row's message beside whether its first request was recorded as sent: a reminder of one that may
+            # never have arrived would point at a link nobody holds, so it goes out worded as the request.
+            owed_now = [owed for answered in reminded[0] for _, owed in answered]
+            erinnerungen = [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepAnfrage) and owed.marked]
+            anfragen += [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepAnfrage) and not owed.marked]
+            einteilungen += [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepEinteilung)]
+            # Every attempt that committed stamped the day; where none did, it is stamped alone, under the same
+            # contract as every step after a message is owed.
+            if not reminded[0]:
+                await after_what_is_owed(stamp_alone, clock="run stamp", may_stand=lambda: f"season {saison_id}'s day")
 
     # After the commits, so a retried transaction writes no second line. A count and never an id: a line
     # naming the row would tie its club to the ban for as long as the log is kept.
     if mint_share.withheld or reminder_share.withheld:
         fl_logger.info(
-            f"Links withheld from barred addresses in season {saison_id}: {mint_share.withheld} seat(s) unminted, "
-            f"{reminder_share.withheld} seat(s) unreminded"
+            "spielbestaetigungen.links_withheld",
+            extra={"saison_id": saison_id, "unminted": mint_share.withheld, "unreminded": reminder_share.withheld},
         )
 
     return FLSpielbestaetigungSweepResponse(
@@ -1082,7 +1074,6 @@ async def sweep_spielbestaetigungen(
     "/{saison_id}/angefragt",
     response_model=FLSpielbestaetigungSweepAngefragtResponse,
     summary="Stamp the confirmations whose first message went out",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def angefragt_spielbestaetigungen(
     saison_id: str,
@@ -1145,7 +1136,6 @@ async def angefragt_spielbestaetigungen(
     "/{saison_id}/mitgeteilt",
     response_model=FLSpielbestaetigungSweepMitgeteiltResponse,
     summary="Stamp the confirmations whose notice went out",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def mitgeteilt_spielbestaetigungen(
     saison_id: str,

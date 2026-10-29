@@ -54,7 +54,7 @@ def entered_for(groups: int, teams: int) -> tuple[EnteredTeam, ...]:
             team_id=ObjectId(f"6890a1b2c3d4e5f6072{index:05d}"),
             gruppe=gruppe,
             name=f"{gruppe}{seat + 1}-Schule",
-            shorthand=f"{index:02d}",
+            shorthand=f"T{chr(65 + index // 26)}{chr(65 + index % 26)}",
         )
         for index, (seat, gruppe) in enumerate(product(range(teams), GRUPPEN[:groups]))
     )
@@ -130,7 +130,7 @@ class TestTheDrawnWiringIsWiringTheWritePathAccepts:
         season = season_of(shape)
 
         refused = [
-            (raw["spiel_nr"], refusal.message)
+            (raw["spiel_nr"], refusal.error_code)
             for raw in drawn(shape).spiele
             if (refusal := find_wiring_refusal(raw["_id"], payload_of(raw), with_the_slot_cleared(season, raw["_id"]), number_of_groups=groups))
             is not None

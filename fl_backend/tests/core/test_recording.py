@@ -16,7 +16,7 @@ from pymongo.results import InsertManyResult, InsertOneResult, UpdateResult
 from app.api.aktionen.schemas import FLAktionRecord
 from app.core.collections import Collection
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
-from app.core.exceptions import DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import trace_id_var
 from app.core.recording import Actor, _stringify_filter, actor_var, build_image_redactions, log_stamp, record_write, request_var
 
@@ -25,14 +25,14 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607500001")
 CREATED_OID = ObjectId("6890a1b2c3d4e5f607500002")
 
 # The two images share no value, so a row holding the wrong one cannot pass by resembling the right one.
-BEFORE_DOCUMENT: Mapping[str, Any] = {"_id": TEAM_OID, "name": "Lessing", "shorthand": "LE"}
-AFTER_DOCUMENT: Mapping[str, Any] = {"_id": TEAM_OID, "name": "Lessing-Gymnasium", "shorthand": "LG"}
+BEFORE_DOCUMENT: Mapping[str, Any] = {"_id": TEAM_OID, "name": "Lessing", "shorthand": "LEX"}
+AFTER_DOCUMENT: Mapping[str, Any] = {"_id": TEAM_OID, "name": "Lessing-Gymnasium", "shorthand": "LGX"}
 
-CREATED_DOCUMENT: Mapping[str, Any] = {"_id": CREATED_OID, "name": "Carl-Schurz", "shorthand": "CS"}
+CREATED_DOCUMENT: Mapping[str, Any] = {"_id": CREATED_OID, "name": "Carl-Schurz", "shorthand": "CSX"}
 
 # More than two, so a row per document rather than per call is unmistakable, and none of them
 # carries an `_id`: a generated fixture leaves those to the driver.
-CREATED_DOCUMENTS: Sequence[Mapping[str, Any]] = [{"name": f"Club {index}", "shorthand": f"C{index}"} for index in range(5)]
+CREATED_DOCUMENTS: Sequence[Mapping[str, Any]] = [{"name": f"Club {index}", "shorthand": f"CL{chr(65 + index)}"} for index in range(5)]
 
 FILTER: Mapping[str, Any] = {"saison_id": "2026", "team_id": TEAM_OID}
 UPDATE: Mapping[str, Any] = {"$set": {"name": "Lessing-Gymnasium"}}
@@ -177,7 +177,7 @@ class TestWhatEachWriteRecords:
         """A row for a write that never landed is a restore the page would offer over a document nobody touched."""
         target, log = build(before=None, after=None)
 
-        with pytest.raises(DocumentNotFoundException):
+        with pytest.raises(DocumentNotFoundError):
             asyncio.run(
                 patch_one_in_db(collection=as_collection(target), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.AFTER)
             )

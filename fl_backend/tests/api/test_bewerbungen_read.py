@@ -42,7 +42,7 @@ def bewerbung_document(
     status: str = "eingereicht",
     saison_id: str = SAISON_ID,
     *,
-    shorthand: str = "SG",
+    shorthand: str = "SGX",
     eingereicht_am: str = "2026-02-01",
     team_id: ObjectId | None = None,
 ) -> dict[str, Any]:
@@ -309,7 +309,7 @@ DUBLETTEN_DATABASE = worker_database("fl_bewerbungen_dubletten_test")
 # The two ends of the queue, with the cap's worth of rows between them.
 NEUESTE = 9001
 AELTESTE = 9002
-KUERZEL_PAAR = f"{SAISON_ID} kuerzel GG"
+KUERZEL_PAAR = f"{SAISON_ID} kuerzel GGX"
 
 
 def straddling_archive() -> list[dict[str, Any]]:
@@ -326,8 +326,8 @@ def straddling_archive() -> list[dict[str, Any]]:
 
     return [
         *filler,
-        bewerbung_document(NEUESTE, eingereicht_am="2026-02-28", shorthand="gg"),
-        bewerbung_document(AELTESTE, eingereicht_am="2026-02-01", shorthand="GG"),
+        bewerbung_document(NEUESTE, eingereicht_am="2026-02-28", shorthand="ggx"),
+        bewerbung_document(AELTESTE, eingereicht_am="2026-02-01", shorthand="GGX"),
     ]
 
 
@@ -485,7 +485,7 @@ class TestTheCollisionIsAskedOverTheWholeQueue:
     def test_the_answer_carries_the_keys_the_pass_found(self):
         """Read off the ANSWER: the fold's own cases below build cells by hand, which a router dropping the field would still satisfy."""
 
-        collection = _ArchiveCollection([bewerbung_document(1, shorthand="gg"), bewerbung_document(2, shorthand="GG")])
+        collection = _ArchiveCollection([bewerbung_document(1, shorthand="ggx"), bewerbung_document(2, shorthand="GGX")])
 
         assert run_list(collection).dubletten_schluessel == [KUERZEL_PAAR]
 
@@ -497,14 +497,14 @@ class TestWhatCountsAsOneCollisionKey:
         """Why the fold cannot move into the pipeline: MongoDB parts `gg` from `GG`, leaving two cells of one."""
 
         cells = [
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "gg"}, "anzahl": 1},
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": " GG "}, "anzahl": 1},
+            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "ggx"}, "anzahl": 1},
+            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": " GGX "}, "anzahl": 1},
         ]
 
         assert dubletten_schluessel_of(cells) == [KUERZEL_PAAR]
 
     def test_a_key_one_application_holds_is_named_by_nothing(self):
-        cells = [{"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GG"}, "anzahl": 1}]
+        cells = [{"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GGX"}, "anzahl": 1}]
 
         assert dubletten_schluessel_of(cells) == []
 
@@ -517,8 +517,8 @@ class TestWhatCountsAsOneCollisionKey:
 
     def test_the_season_parts_two_cells_sharing_a_kuerzel(self):
         cells = [
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GG"}, "anzahl": 1},
-            {"_id": {"saison_id": "2025", "team_id": None, "shorthand": "GG"}, "anzahl": 1},
+            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GGX"}, "anzahl": 1},
+            {"_id": {"saison_id": "2025", "team_id": None, "shorthand": "GGX"}, "anzahl": 1},
         ]
 
         assert dubletten_schluessel_of(cells) == []
@@ -527,8 +527,8 @@ class TestWhatCountsAsOneCollisionKey:
         """`GG` as a club id is nothing a school could propose, and the words in the key are what keep them apart."""
 
         cells = [
-            {"_id": {"saison_id": SAISON_ID, "team_id": "GG", "shorthand": None}, "anzahl": 1},
-            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GG"}, "anzahl": 1},
+            {"_id": {"saison_id": SAISON_ID, "team_id": "GGX", "shorthand": None}, "anzahl": 1},
+            {"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": "GGX"}, "anzahl": 1},
         ]
 
         assert dubletten_schluessel_of(cells) == []

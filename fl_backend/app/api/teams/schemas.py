@@ -28,7 +28,6 @@ from app.shared.schemas.bounds import (
     TEAM_DESCRIPTION_MAX_LENGTH,
     TEAM_FULL_NAME_MAX_LENGTH,
     TEAM_NAME_MAX_LENGTH,
-    TEAM_SHORTHAND_LENGTH,
     TEAM_WEBSITE_URL_MAX_LENGTH,
 )
 from app.shared.schemas.custom import (
@@ -39,6 +38,7 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomOptionalDateString,
     CustomOptionalExternalUrl,
+    CustomShorthand,
     parse_empty_string_to_none,
     validate_external_url,
 )
@@ -477,7 +477,7 @@ class FLTeamStatistik(BaseModel):
 # base itself publishes no OpenAPI component.
 class _TeamWritable(BaseModel):
     name: CustomNonEmptyString
-    shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
+    shorthand: CustomShorthand
     # Capped so the public page and the editor's textarea agree on what fits; the bound stays out of
     # the database validator.
     description: str = Field(max_length=TEAM_DESCRIPTION_MAX_LENGTH)
@@ -529,7 +529,7 @@ class FLGruppenTeam(BaseModel):
 
     id: CustomObjectId
     name: CustomNonEmptyString
-    shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
+    shorthand: CustomShorthand
     statistik: FLTeamStatistik
     # The TYPE alone: a row marks that a club is out, and the club's own page publishes the reason
     # and the date.
@@ -603,9 +603,7 @@ class _TeamPayload(_TeamWritable):
     full_name: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_FULL_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)
     ]
-    # Redeclared for that reason too: the width is a floor as well as a ceiling, and what it holds
-    # is the whole of what a league table row names the club by.
-    shorthand: Annotated[str, StringConstraints(strip_whitespace=True, min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)]
+    shorthand: CustomShorthand
     # Stripped on the WRITE side too: `validate_external_url` leaves surrounding whitespace on the
     # value, so a pasted URL would be stored with it. Composed from `str` as the application's twin
     # is, so the ceiling is judged BEFORE the host regex runs.
@@ -815,7 +813,7 @@ class FLSaisonTeamResponse(BaseAPIResponse):
     # The season's own copy of the club's identity, on no payload: it is seeded from the club at
     # entry and rewritten by the rename fan-out, so a client supplying it could only be stale.
     name: CustomNonEmptyString
-    shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
+    shorthand: CustomShorthand
 
 
 class FLKontaktMint(BaseModel):
@@ -900,7 +898,7 @@ class FLReplaceSaisonTeamResponse(BaseAPIResponse):
     kontakte: FLSaisonTeamKontakte | None
     # Reseeded from the incoming club, exactly as entry seeds them.
     name: CustomNonEmptyString
-    shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
+    shorthand: CustomShorthand
     # Reported rather than assumed, as `FLPatchTeamResponse` reports its own.
     fanned_out_to_spiele: int
     # Reported for the same reason, and separately: the outgoing club's squad leaves the season with

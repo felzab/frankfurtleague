@@ -11,7 +11,7 @@ carries no consent record, so no count of consent records includes it, and no re
 served model requires a forename, so each read excludes the sentinel by its id.
 
 Its own module because the referee routers, the fixture reads and the pupil filters all reach these
-ids, and because `app/core/domain.py` is a declaration no write path imports.
+ids.
 """
 
 from typing import Final

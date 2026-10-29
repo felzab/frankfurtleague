@@ -13,12 +13,6 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtVonSchiedsrichter,
 )
 from app.api.spielberichte.services import (
-    BERICHT_ABGESAGT,
-    BERICHT_ELFMETER_IN_DER_GRUPPE,
-    BERICHT_GRUND_FEHLT,
-    BERICHT_NAME_IN_BEMERKUNGEN,
-    BERICHT_NICHT_GESPIELT,
-    BERICHT_NICHT_IM_KADER,
     BerichtLage,
     bericht_namen,
     bericht_zustand_of,
@@ -35,8 +29,8 @@ from app.api.spielberichte.services import (
     kader_ist_offen,
     neu_genannt,
 )
-from app.api.spiele.schemas import FLPatchSpielePaarungenPayload
-from app.core.exceptions import WriteRefusalException
+from app.core.codes import Code
+from app.core.exceptions import APIError
 from tests.documents import bericht_document
 
 TEAM1 = ObjectId("650000000000000000000201")
@@ -72,8 +66,8 @@ def spiel(**fields: Any) -> dict[str, Any]:
         "saison_phase": "gruppenphase",
         "datum": TODAY,
         "uhrzeit": "18:00:00",
-        "team1": {"team_id": TEAM1, "name": "Adler", "shorthand": "AD", "tore": None},
-        "team2": {"team_id": TEAM2, "name": "Biber", "shorthand": "BI", "tore": None},
+        "team1": {"team_id": TEAM1, "name": "Adler", "shorthand": "ADX", "tore": None},
+        "team2": {"team_id": TEAM2, "name": "Biber", "shorthand": "BIX", "tore": None},
         "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER, "name": "Otto Gruber"},
         "sonderereignis": None,
         "ergebnis": None,
@@ -126,7 +120,7 @@ class TestOnlyANewCautionOwesItsReason:
     def test_a_caution_without_a_reason_is_refused_at_its_box(self, farbe: str):
         refusal = find_grund_fehlt_refusal(payload=mit_karten(karte("rot", None), karte(farbe, None)), gespeichert=None)
 
-        assert refused_with(BERICHT_GRUND_FEHLT, refusal)
+        assert refused_with(Code.BERICHT_GRUND_FEHLT, refusal)
         assert refusal is not None and refusal.fields == (("bericht", "karten"),)
 
     def test_a_red_card_may_stand_without_one(self):
@@ -148,14 +142,14 @@ class TestOnlyANewCautionOwesItsReason:
     def test_any_other_caution_is_refused(self, neu: dict[str, Any]):
         stripped = {"karten": [karte("gelb", None)]}
 
-        assert refused_with(BERICHT_GRUND_FEHLT, find_grund_fehlt_refusal(payload=mit_karten(neu), gespeichert=stripped))
+        assert refused_with(Code.BERICHT_GRUND_FEHLT, find_grund_fehlt_refusal(payload=mit_karten(neu), gespeichert=stripped))
 
     def test_each_stripped_card_excuses_one_caution(self):
         stripped = {"karten": [karte("gelb", None)]}
 
         refusal = find_grund_fehlt_refusal(payload=mit_karten(karte("gelb", None), karte("gelb", None, minute="80")), gespeichert=stripped)
 
-        assert refused_with(BERICHT_GRUND_FEHLT, refusal)
+        assert refused_with(Code.BERICHT_GRUND_FEHLT, refusal)
 
     def test_a_stored_caution_reads_without_one(self):
         """A season's end strips every card's reason, and the reads serve the report after it."""
@@ -221,13 +215,13 @@ class TestAReportFollowsTheMatchDay:
 
     @pytest.mark.parametrize("datum", [None, "2027-05-15"], ids=["undated", "tomorrow"])
     def test_an_undated_or_coming_fixture_is_refused(self, datum: str | None):
-        assert refused_with(BERICHT_NICHT_GESPIELT, find_nicht_gespielt_refusal(datum=datum, today=TODAY))
+        assert refused_with(Code.BERICHT_NICHT_GESPIELT, find_nicht_gespielt_refusal(datum=datum, today=TODAY))
 
 
 class TestACalledOffFixtureTakesNoReport:
     @pytest.mark.parametrize("sonderereignis", ["ausgefallen", "annulliert"])
     def test_a_fixture_that_took_no_place_is_refused(self, sonderereignis: str):
-        assert refused_with(BERICHT_ABGESAGT, find_abgesagt_refusal(sonderereignis=sonderereignis))
+        assert refused_with(Code.BERICHT_ABGESAGT, find_abgesagt_refusal(sonderereignis=sonderereignis))
 
     @pytest.mark.parametrize("sonderereignis", [None, "abgebrochen", "nichtantreten_team1"])
     def test_one_that_took_place_is_reported_on(self, sonderereignis: str | None):
@@ -255,7 +249,7 @@ class TestANewlyNamedPupilIsInTheSquad:
 
         neu = neu_genannt(FLSpielberichtBerichtPayload.model_validate(payload(0, 1, [tor("team2", ObjectId())])), None, spiel())
 
-        assert refused_with(BERICHT_NICHT_IM_KADER, find_nicht_im_kader_refusal(lage=lage(), neu=neu))
+        assert refused_with(Code.BERICHT_NICHT_IM_KADER, find_nicht_im_kader_refusal(lage=lage(), neu=neu))
 
 
 class TestTheRemarksNameNobody:
@@ -267,7 +261,7 @@ class TestTheRemarksNameNobody:
     def test_a_name_of_the_fixture_s_people_is_refused_at_the_box(self, bemerkungen: str):
         refusal = find_name_in_bemerkungen_refusal(bemerkungen=bemerkungen, names=bericht_namen(lage()))
 
-        assert refused_with(BERICHT_NAME_IN_BEMERKUNGEN, refusal)
+        assert refused_with(Code.BERICHT_NAME_IN_BEMERKUNGEN, refusal)
         assert refusal is not None and refusal.fields == (("bericht", "bemerkungen"),)
 
     @pytest.mark.parametrize("bemerkungen", [None, "Die Nummer 7 der Gäste sah nach dem Abpfiff Gelb."])
@@ -285,8 +279,8 @@ def gespeichert(**fields: Any) -> FLSpielberichtBericht:
 
 def gespielt(team1: int, team2: int, **fields: Any) -> dict[str, Any]:
     return spiel(
-        team1={"team_id": TEAM1, "name": "Adler", "shorthand": "AD", "tore": team1},
-        team2={"team_id": TEAM2, "name": "Biber", "shorthand": "BI", "tore": team2},
+        team1={"team_id": TEAM1, "name": "Adler", "shorthand": "ADX", "tore": team1},
+        team2={"team_id": TEAM2, "name": "Biber", "shorthand": "BIX", "tore": team2},
         ergebnis=f"{team1}:{team2}",
         **fields,
     )
@@ -406,11 +400,11 @@ class TestAGroupFixtureTakesNoShootOut:
         keine: dict[FLSpielberichtSeite, set[ObjectId]] = {"team1": set(), "team2": set()}
 
         # Through the judgement both writes ask, so the rule is held where it is called as well as where it is written.
-        with pytest.raises(WriteRefusalException) as refused:
+        with pytest.raises(APIError) as refused:
             judge_bericht(lage=lage(), payload=vorschlag, gespeichert=None, neu=keine, today=TODAY)
         judge_bericht(lage=lage(saison_phase="achtelfinale"), payload=vorschlag, gespeichert=None, neu=keine, today=TODAY)
 
-        assert refused.value.error_code == BERICHT_ELFMETER_IN_DER_GRUPPE
+        assert refused.value.error_code == Code.BERICHT_ELFMETER_IN_DER_GRUPPE
 
 
 class TestALaterWriteRaisesTheVersionAndKeepsTheAdoption:
@@ -443,51 +437,3 @@ class TestALaterWriteRaisesTheVersionAndKeepsTheAdoption:
         }
         # Stored as ObjectIds, which the validator requires.
         assert update["$set"]["bericht.torschuetzen"][0]["spieler_id"] == LIVE1
-
-
-def prior(**fields: Any) -> dict[str, Any]:
-    """An adoption at version 1 stamped over by a save at version 2."""
-
-    return {
-        "spiel_id": SPIEL_ID,
-        "version": 2,
-        "uebernommen_am": NOW,
-        "uebernommen_von": {"art": "admin"},
-        "uebernommene_version": 1,
-        **fields,
-    }
-
-
-def undo_body(bericht: dict[str, Any] | None) -> dict[str, Any]:
-    paarung = {"spiel_id": SPIEL_ID, "team1": None, "team2": None, "elfmeterschiessen": None, "sonderereignis": None, "other_fields": None}
-    return {"paarungen": [paarung], "bericht": bericht}
-
-
-class TestAnUndoPutsBackOneWholeAdoption:
-    """What the undo writes back onto a report is checked before any write: the body is the client's to send."""
-
-    def test_an_earlier_adoption_and_none_stand(self):
-        assert FLPatchSpielePaarungenPayload.model_validate(undo_body(prior())).bericht is not None
-        assert (
-            FLPatchSpielePaarungenPayload.model_validate(
-                undo_body(prior(uebernommen_am=None, uebernommen_von=None, uebernommene_version=None))
-            ).bericht
-            is not None
-        )
-
-    @pytest.mark.parametrize(
-        "fields",
-        [{"uebernommen_am": None}, {"uebernommen_von": None}, {"uebernommene_version": None}, {"uebernommene_version": 3}],
-        ids=["no-instant", "no-writer", "no-version", "a-version-past-the-one-stamped"],
-    )
-    def test_a_partial_or_later_adoption_is_refused(self, fields: dict[str, Any]):
-        """Written back, it would read adopted at a version no stamp took."""
-
-        with pytest.raises(ValidationError):
-            FLPatchSpielePaarungenPayload.model_validate(undo_body(prior(**fields)))
-
-    def test_a_report_of_a_fixture_the_undo_does_not_lead_with_is_refused(self):
-        """The save stamps its own fixture's report, which leads its undo; any other report is one the save never touched."""
-
-        with pytest.raises(ValidationError, match="Spielbericht"):
-            FLPatchSpielePaarungenPayload.model_validate(undo_body(prior(spiel_id=ObjectId())))

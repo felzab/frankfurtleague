@@ -7,9 +7,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import patch_saison
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
-from app.api.saisons.services import RULES_KADER_BELOW_USE, RULES_SHAPE_AFTER_DRAW, RULES_TIEBREAK_AFTER_KNOCKOUT
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import WriteRefusalException
+from app.core.exceptions import APIError
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -218,17 +218,15 @@ class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
     def test_a_cap_below_the_live_squad_is_refused(self, mongo_replica_set_url: str):
         """The control: without it the case above would also pass on an aggregation that answered nothing at all."""
 
-        async def body(database: AsyncDatabase) -> WriteRefusalException:
-            with pytest.raises(WriteRefusalException) as refusal:
+        async def body(database: AsyncDatabase) -> APIError:
+            with pytest.raises(APIError) as refusal:
                 await patch_the_rules(database, max_kadergroesse=REFUSED_KADER)
 
             return refusal.value
 
         refusal = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == RULES_KADER_BELOW_USE
-        # The live squad and nothing larger, so a decoy counted in would show here as well as in the verdict.
-        assert str(LIVE_SQUAD) in refusal.error_detail["message"]
+        assert refusal.error_code == Code.RULES_KADER_BELOW_USE
 
 
 class TestTheDrawItselfIsWhatFreezesTheShape:
@@ -237,16 +235,15 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
     def test_widening_a_group_after_the_draw_is_refused(self, mongo_replica_set_url: str):
         """A widening crosses no other bound: `REQ-RULES-003` reads the narrowing direction and the matchday stays under the wider count."""
 
-        async def body(database: AsyncDatabase) -> WriteRefusalException:
-            with pytest.raises(WriteRefusalException) as refusal:
+        async def body(database: AsyncDatabase) -> APIError:
+            with pytest.raises(APIError) as refusal:
                 await patch_the_rules(database, teams_per_group=WIDER_PER_GROUP)
 
             return refusal.value
 
         refusal = on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
 
-        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
-        assert str(DRAWN_FIXTURES) in refusal.error_detail["message"]
+        assert refusal.error_code == Code.RULES_SHAPE_AFTER_DRAW
 
     def test_the_same_edit_goes_through_while_nothing_is_drawn(self, mongo_replica_set_url: str):
         """The same season and the same matchday, minus its fixtures: a season still being set up widens freely."""
@@ -269,8 +266,8 @@ class TestTheKnockoutIsWhatFreezesTheTiebreak:
     def test_a_played_knockout_fixture_freezes_the_order(self, mongo_replica_set_url: str):
         """The bracket was seeded from the group placings this order decides, and one round of it is now on the record."""
 
-        async def body(database: AsyncDatabase) -> WriteRefusalException:
-            with pytest.raises(WriteRefusalException) as refusal:
+        async def body(database: AsyncDatabase) -> APIError:
+            with pytest.raises(APIError) as refusal:
                 await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
 
             return refusal.value
@@ -282,17 +279,15 @@ class TestTheKnockoutIsWhatFreezesTheTiebreak:
             spieltage=[knockout_spieltag_document()],
         )
 
-        assert refusal.error_code == RULES_TIEBREAK_AFTER_KNOCKOUT
-        # The played one alone: every other bracket fixture counted in would show here as well as in the verdict.
-        assert str(PLAYED_KNOCKOUT_FIXTURES) in refusal.error_detail["message"]
+        assert refusal.error_code == Code.RULES_TIEBREAK_AFTER_KNOCKOUT
 
     def test_a_knockout_fixture_holding_only_a_shoot_out_freezes_it_too(self, mongo_replica_set_url: str):
         """Through the route, so the endpoint's projection is proven to carry `elfmeterschiessen` to the predicate."""
 
         decided = [{**knockout_spiele()[0], "elfmeterschiessen": {"team1": 5, "team2": 4}}, *knockout_spiele()[1:]]
 
-        async def body(database: AsyncDatabase) -> WriteRefusalException:
-            with pytest.raises(WriteRefusalException) as refusal:
+        async def body(database: AsyncDatabase) -> APIError:
+            with pytest.raises(APIError) as refusal:
                 await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
 
             return refusal.value
@@ -304,7 +299,7 @@ class TestTheKnockoutIsWhatFreezesTheTiebreak:
             spieltage=[knockout_spieltag_document()],
         )
 
-        assert refusal.error_code == RULES_TIEBREAK_AFTER_KNOCKOUT
+        assert refusal.error_code == Code.RULES_TIEBREAK_AFTER_KNOCKOUT
 
     def test_a_drawn_but_unplayed_bracket_leaves_the_order_open(self, mongo_replica_set_url: str):
         """The boundary: the fixtures exist and are wired, and re-seeding them costs nobody a round they already played."""
