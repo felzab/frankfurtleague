@@ -40,8 +40,8 @@ export const FLSelbstErasureAnsichtResponseSchema = z.custom<FLSelbstErasureAnsi
 
 // Redesign: the objects below go with their last importers, which compose them: `fl_frontend/src/features/funktionen/
 // schemas.ts` extends the erasure's rows and reads the grant's tier, `fl_frontend/src/core/funktionen.test.ts` reads a
-// seat's season states, and `fl_frontend/src/test-support/einwilligungDocument.ts` holds the registry's words. Each
-// `satisfies` the generated type, so a backend change that moves one fails the type check here.
+// seat's season states. Each `satisfies` the generated type, so a backend change that moves one fails the type check
+// here.
 
 export const FLSubjektSitzSchema = z.object({
   saison_id: z.string(),
@@ -61,17 +61,6 @@ export const FLSubjektResponseSchema = z.object({
   berechtigt_seit: z.string().nullable(),
   inhaber_seit: z.string().nullable(),
 }) satisfies z.ZodType<FLSubjektResponse>;
-
-export const FLEinwilligungFassungSchema = z.object({
-  text_version: z.string(),
-  seite: z.string(),
-  gilt_ab: z.string(),
-  absaetze: z.array(z.string()),
-  schalter: z.string(),
-  bedienelemente: z.record(z.string(), z.string()),
-  absaetze_nach_schluessel: z.record(z.string(), z.string()).nullable(),
-  platzhalter: z.array(z.string()),
-}) satisfies z.ZodType<FLEinwilligungFassung>;
 
 export const FLSelbstErasureSpielerSchema = z.object({
   vorname: z.string(),

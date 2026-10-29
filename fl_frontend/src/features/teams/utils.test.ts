@@ -1,4 +1,4 @@
-import { publishedLaufendeFassung } from "@/test-support/einwilligungDocument.ts";
+import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { side, spielFields } from "@/test-support/fixtures.ts";
 import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
 import { assert, describe, expect, it } from "vitest";
@@ -791,7 +791,7 @@ describe("what a new Kenntnisnahme cites", () => {
      wording, so a record citing nothing, or citing a value somebody keyed in, claims acknowledgement of a
      text the league cannot identify. */
   it("stamps the label it is handed, the one the backend runs", () => {
-    const laufend = publishedLaufendeFassung("bewerbung").text_version;
+    const laufend = laufendeFassung("bewerbung").text_version;
     const frisch = buildEmptyKontaktperson(laufend).einwilligung;
 
     expect(frisch.text_version, "a new Kenntnisnahme cites a version the league did not stamp").toBe(laufend);

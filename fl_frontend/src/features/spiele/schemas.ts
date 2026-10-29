@@ -42,7 +42,7 @@ export type FLSpielTeamFieldPayload = z.infer<typeof FLSpielTeamFieldPayloadSche
  */
 export const FLSpielTeamFieldSchema = FLSpielTeamFieldPayloadSchema.extend({
   name: z.string().nonempty(),
-  shorthand: z.string().length(2),
+  shorthand: z.string(),
 });
 export type FLSpielTeamField = z.infer<typeof FLSpielTeamFieldSchema>;
 

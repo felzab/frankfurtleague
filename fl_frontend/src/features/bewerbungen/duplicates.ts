@@ -33,9 +33,8 @@ type Kandidat = Pick<FLBewerbung, "id" | "saison_id" | "status" | "team_id" | "s
 function dublettenSchluessel(bewerbung: Kandidat): { art: BewerbungDublette; key: string } | null {
   if (bewerbung.team_id !== null) return { art: "team", key: `${bewerbung.saison_id} team ${bewerbung.team_id}` };
 
-  // Folded, which `uniq_shorthand` is not: that index compares two-letter codes byte for byte, so
-  // `gg` beside `GG` would enter the league as two clubs, and the queue asks about it first.
-  const kuerzel = bewerbung.schule === null ? "" : bewerbung.schule.shorthand.trim().toUpperCase();
+  // As stored: the backend strips and upper-cases a code on arrival, so two spellings of one code are one value.
+  const kuerzel = bewerbung.schule === null ? "" : bewerbung.schule.shorthand;
 
   return kuerzel === "" ? null : { art: "kuerzel", key: `${bewerbung.saison_id} kuerzel ${kuerzel}` };
 }

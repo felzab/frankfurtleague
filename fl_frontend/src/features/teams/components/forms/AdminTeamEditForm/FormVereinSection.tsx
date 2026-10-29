@@ -8,6 +8,7 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { ListBox } from "@heroui/react/list-box";
 
+import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
 import { DescriptionEditModal } from "@/features/teams/components/modals/DescriptionEditModal";
 import {
@@ -102,9 +103,9 @@ export function FormVereinSection({
           <TextField
             name="shorthand"
             value={draft.shorthand}
-            onChange={(next) => onChange({ ...draft, shorthand: next.toUpperCase() })}
+            onChange={(next) => onChange({ ...draft, shorthand: next })}
             onBlur={() => onFieldLeft(["shorthand"])}
-            maxLength={2}>
+            maxLength={KUERZEL_LAENGE}>
             <FieldLabel<TeamFieldPath> path="shorthand">Kürzel</FieldLabel>
             <Input className={`${FIELD_INPUT_CLASSES} font-extrabold tracking-widest uppercase`} />
             <FieldError className={FIELD_ERROR_CLASSES} />

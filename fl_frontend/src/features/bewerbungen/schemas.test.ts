@@ -1,4 +1,4 @@
-import { publishedLaufendeFassung } from "@/test-support/einwilligungDocument.ts";
+import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { renderMarkup, textOf } from "@/test-support/renderMarkup.ts";
 import { assert, describe, expect, it } from "vitest";
 
@@ -29,7 +29,7 @@ import { bewerbungPayload, buildEmptyBewerbungDraft } from "./utils.ts";
 import type { BewerbungFormDraft, BewerbungKontaktpersonDraft, BewerbungSchuleDraft } from "./types.ts";
 
 /** The label the application form runs, off the registry the backend generated. */
-const FORM_LABEL = publishedLaufendeFassung("bewerbung").text_version;
+const FORM_LABEL = laufendeFassung("bewerbung").text_version;
 
 /** A whole person, so every case below fails for the one rule it names and no other. */
 const person = (vorname: string, overrides: Partial<BewerbungKontaktpersonDraft> = {}): BewerbungKontaktpersonDraft => ({
@@ -45,7 +45,7 @@ const person = (vorname: string, overrides: Partial<BewerbungKontaktpersonDraft>
 const schule = (overrides: Partial<BewerbungSchuleDraft> = {}): BewerbungSchuleDraft => ({
   team_name: "Goethe",
   full_name: "Goethe-Gymnasium",
-  shorthand: "GG",
+  shorthand: "GOE",
   schulform: "gymnasium_g9",
   address: { strasse: "Feldweg", hausnummer: "12", plz: "60327", stadtteil: "Gallus", stadt: "Frankfurt" },
   website_url: "https://gg.de",
@@ -381,8 +381,8 @@ const SINGLE_LINE_BROKEN = SINGLE_LINE_CHARS.map(([was, character]) => [was, `Go
 const SINGLE_LINE_INTACT = "Goethe Startgeld: 500 Euro";
 
 describe("what a new school has to state", () => {
-  it("refuses a Kürzel that is not exactly two characters", () => {
-    expect(refusedPaths(validDraft({ schule: schule({ shorthand: "GGY" }) }))).toStrictEqual(["schule.shorthand"]);
+  it("refuses a Kürzel that is not exactly three letters", () => {
+    expect(refusedPaths(validDraft({ schule: schule({ shorthand: "GOET" }) }))).toStrictEqual(["schule.shorthand"]);
   });
 
   /* `trim` leaves an interior break, and every surface that sets one value to the line reads it as a

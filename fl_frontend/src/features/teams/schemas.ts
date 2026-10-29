@@ -277,7 +277,7 @@ export const FLTeamSchema = z.object({
 
   // Out of THIS season. Joined from the junction on every read, so it cannot go stale.
   austritt: FLAustrittSchema.nullable(),
-  shorthand: z.string().length(KUERZEL_LAENGE),
+  shorthand: z.string(),
   description: z.string().max(DESCRIPTION_MAX_LENGTH),
   full_name: z.string().nonempty(),
   // Rendered straight into an href on a public page -- see ExternalUrlSchema for why not z.url().
@@ -300,7 +300,7 @@ export type FLTeam = z.infer<typeof FLTeamSchema>;
 export const FLGruppenTeamSchema = z.object({
   id: CustomObjectIdStringSchema,
   name: z.string().nonempty(),
-  shorthand: z.string().length(KUERZEL_LAENGE),
+  shorthand: z.string(),
   statistik: FLTeamStatistikSchema,
   // The record's TYPE alone, reusing the enum rather than restating it: a row marks that a club is
   // out of the season, and the club's own page publishes the reason and the date.
@@ -425,7 +425,7 @@ export const FLTeamRecordSchema = z.object({
   id: CustomObjectIdStringSchema,
 
   name: z.string().nonempty(),
-  shorthand: z.string().length(KUERZEL_LAENGE),
+  shorthand: z.string(),
   description: z.string().max(DESCRIPTION_MAX_LENGTH),
   full_name: z.string().nonempty(),
   website_url: OptionalExternalUrlSchema,
@@ -577,7 +577,7 @@ export const FLSaisonTeamResponseSchema = BaseAPIResponseSchema.extend({
   // and rewritten by a rename only while the season is not `past`, so a client's copy could only be
   // stale.
   name: z.string().nonempty(),
-  shorthand: z.string().length(KUERZEL_LAENGE),
+  shorthand: z.string(),
 });
 export type FLSaisonTeamResponse = z.infer<typeof FLSaisonTeamResponseSchema>;
 
@@ -596,7 +596,7 @@ export const FLReplaceSaisonTeamResponseSchema = BaseAPIResponseSchema.extend({
   kontakte: FLSaisonTeamKontakteSchema.nullable(),
   // Reseeded from the incoming club, exactly as entry seeds them.
   name: z.string().nonempty(),
-  shorthand: z.string().length(KUERZEL_LAENGE),
+  shorthand: z.string(),
   // Reported rather than assumed, as the rename's count is: this fan-out is the half of the endpoint
   // that fails silently.
   fanned_out_to_spiele: z.int().nonnegative(),

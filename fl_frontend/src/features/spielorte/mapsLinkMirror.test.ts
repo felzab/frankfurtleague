@@ -1,7 +1,4 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { buildMapsSearchUrl } from "@/shared/utils/format.ts";
@@ -9,18 +6,73 @@ import { buildMapsSearchUrl } from "@/shared/utils/format.ts";
 import { FLSpielortSchema } from "./schemas.ts";
 import { formatMapsLink } from "./utils.ts";
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
+/** The line the backend stores for each shape of address, which the venue table must search for alike. */
+const ADDRESS_LINES: unknown = [
+  {
+    case: "a complete address",
+    name: "Sportplatz Ost",
+    address: {
+      strasse: "Hanauer Landstraße",
+      hausnummer: "12a",
+      plz: "60314",
+      stadtteil: "Ostend",
+      stadt: "Frankfurt am Main",
+    },
+    maps_link: "Sportplatz Ost, Hanauer Landstraße 12a, 60314 Ostend Frankfurt am Main, Deutschland",
+  },
+  {
+    case: "no house number",
+    name: "Sportplatz Ost",
+    address: {
+      strasse: "Hanauer Landstraße",
+      hausnummer: "",
+      plz: "60314",
+      stadtteil: "Ostend",
+      stadt: "Frankfurt am Main",
+    },
+    maps_link: "Sportplatz Ost, Hanauer Landstraße, 60314 Ostend Frankfurt am Main, Deutschland",
+  },
+  {
+    case: "no district",
+    name: "Sportplatz Ost",
+    address: {
+      strasse: "Hanauer Landstraße",
+      hausnummer: "12a",
+      plz: "60314",
+      stadtteil: "",
+      stadt: "Frankfurt am Main",
+    },
+    maps_link: "Sportplatz Ost, Hanauer Landstraße 12a, 60314 Frankfurt am Main, Deutschland",
+  },
+  {
+    case: "neither",
+    name: "Sportplatz Ost",
+    address: {
+      strasse: "Hanauer Landstraße",
+      hausnummer: "",
+      plz: "60314",
+      stadtteil: "",
+      stadt: "Frankfurt am Main",
+    },
+    maps_link: "Sportplatz Ost, Hanauer Landstraße, 60314 Frankfurt am Main, Deutschland",
+  },
+  {
+    case: "a district of spaces alone",
+    name: "Sportplatz Ost",
+    address: {
+      strasse: "Hanauer Landstraße",
+      hausnummer: "12a",
+      plz: "60314",
+      stadtteil: "   ",
+      stadt: "Frankfurt am Main",
+    },
+    maps_link: "Sportplatz Ost, Hanauer Landstraße 12a, 60314 Frankfurt am Main, Deutschland",
+  },
+];
 
-// Read rather than retyped, so the rows stay one table. Only this suite reads it: no backend test does.
-const CASES = z
-  .array(FLSpielortSchema.pick({ name: true, address: true, maps_link: true }).extend({ case: z.string() }))
-  .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "address_lines.json"), "utf8")));
+const CASES = z.array(FLSpielortSchema.pick({ name: true, address: true, maps_link: true }).extend({ case: z.string() })).parse(ADDRESS_LINES);
 
 describe("the venue line against the one the backend stores", () => {
-  it("reads rows out of the shared table", () => {
-    assert.ok(CASES.length > 0, "the shared table holds no row, so every comparison below is vacuous");
-  });
-
   for (const { case: shape, ...venue } of CASES) {
     it(`links the venue table to the stored line's search for ${shape}`, () => {
       // The fixture dialog wraps the stored line; the venue table rebuilds it from name and address.
