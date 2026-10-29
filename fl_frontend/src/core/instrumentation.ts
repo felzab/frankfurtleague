@@ -42,8 +42,9 @@ export async function onRequestError(err: Error, request: unknown, context: Next
   const requestId = traceIdOf((request ?? {}) as NextRequestInfo);
   const fetchId = cause.traceId || webErr.traceId;
 
-  logger.error("Next.js Server Component Crash", err, {
-    error_code: "FE-RSC-001",
+  // The name and the join keys, never the stack: Next prints the error itself beside this hook.
+  logger.error("system.request_crashed", undefined, {
+    name: err.name,
     trace_id: requestId,
     fetch_trace_id: fetchId !== requestId ? fetchId : undefined,
     digest: context.digest,

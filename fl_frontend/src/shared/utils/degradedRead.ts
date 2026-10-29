@@ -2,15 +2,7 @@ import "server-only";
 
 import { unstable_rethrow } from "next/navigation";
 
-import {
-  APIBadStatusError,
-  APIMalformedDataError,
-  APINetworkError,
-  ApiUnsentError,
-  isContractBreak,
-  requestOf,
-  UnreadGrantError,
-} from "@/core/errors";
+import { APINetworkError, ApiUnsentError, isContractBreak, loggedByBackend, requestOf, UnreadGrantError } from "@/core/errors";
 import { logger } from "@/core/logging";
 
 import { isRuleRefusal } from "./actionError";
@@ -20,21 +12,18 @@ import { isRuleRefusal } from "./actionError";
  * else, a narrowing bug or a rotated key's protocol refusal included, would leave a plausible panel standing unlogged.
  */
 export function explainsItself(error: unknown): boolean {
-  // An unread grant is the guard's own read failing, which the guard logged as it refused (`FE-AUTH-010`).
+  // An unread grant is the guard's own read failing, which the guard logged as it refused.
   return error instanceof APINetworkError || error instanceof ApiUnsentError || error instanceof UnreadGrantError || isRuleRefusal(error);
 }
 
+// A failure the backend answered is its own line's, so it is written once.
 function logReadFailure(message: string, error: unknown): void {
-  const typed =
-    error instanceof APIBadStatusError ||
-    error instanceof APINetworkError ||
-    error instanceof APIMalformedDataError ||
-    error instanceof ApiUnsentError;
+  if (loggedByBackend(error)) return;
+
   // A `"use cache"` fill's throw arrives as a plain `Error` carrying Next's digest, which joins this line to the line
   // a production build writes of the original.
   const digest: unknown = error instanceof Error ? Reflect.get(error, "digest") : undefined;
   logger.error(message, error, {
-    error_code: typed ? error.code : "FE-RSC-001",
     // The failed call's own trace, which the backend's line carries; the logger falls back to the request's scope.
     ...requestOf(error),
     digest: typeof digest === "string" ? digest : undefined,
@@ -50,7 +39,7 @@ export function nullUnlessContractBreak(error: unknown): null {
   // A `redirect()` or `notFound()` the read threw is a navigation, never a failed read.
   unstable_rethrow(error);
   if (isContractBreak(error)) throw error;
-  if (!explainsItself(error)) logReadFailure("A page's read failed and its panel stands", error);
+  if (!explainsItself(error)) logReadFailure("read.page_failed", error);
 
   return null;
 }
@@ -63,8 +52,8 @@ export function nullUnlessContractBreak(error: unknown): null {
 export function nullAfterLoggingUnexplained(error: unknown): null {
   // A `redirect()` or `notFound()` the read threw is a navigation, never a failed read.
   unstable_rethrow(error);
-  if (isContractBreak(error)) logger.error("Contract break absorbed by an admin readout", error, { error_code: "FE-RSC-001" });
-  else if (!explainsItself(error)) logReadFailure("An admin readout's read failed and its editor stands", error);
+  if (isContractBreak(error)) logger.error("read.contract_break_absorbed", error);
+  else if (!explainsItself(error)) logReadFailure("read.readout_failed", error);
 
   return null;
 }

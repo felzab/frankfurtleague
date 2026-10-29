@@ -334,7 +334,7 @@ describe("the sign-in store's client bounds every operation it sends", () => {
     const outcome = await relay.hang(() => settledWithin(OPERATION_BOUND, "the hung read", () => readServedSession(headers)));
 
     assert.ok(isAPIError(outcome) && outcome.status === "INTERNAL_SERVER_ERROR", `the hung read settled with ${String(outcome)}`);
-    expect(logged).toStrictEqual([{ event: "auth.library_failed", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }]);
+    expect(logged).toStrictEqual([{ event: "auth.library_failed", name: MongoOperationTimeoutError.name }]);
   });
 
   /* A code's sign-in runs the adapter's own transaction to consume its row, and the commit's own
@@ -361,7 +361,7 @@ describe("the sign-in store's client bounds every operation it sends", () => {
     assert.ok(outcome instanceof MongoOperationTimeoutError, `the hung commit settled with ${String(outcome)}`);
     // The abort the hang swallowed too: the one line saying the server may hold the transaction, the
     // commit's own failure being its caller's to log.
-    expect(logged).toStrictEqual([{ event: "auth.transaction_left_open", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }]);
+    expect(logged).toStrictEqual([{ event: "auth.transaction_left_open", name: MongoOperationTimeoutError.name }]);
   });
 
   /* A passkey removal runs from a server action, outside every endpoint, where the library writes this

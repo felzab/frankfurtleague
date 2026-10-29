@@ -81,7 +81,6 @@ async function sweepLoeschung(): Promise<void> {
   logPass(bisher, bisher.fehlgeschlagen);
   // The error's name and the call's facts, never a person: this line is written for a pass that deleted nobody.
   logger.error("loeschung.sweep_failed", undefined, {
-    error_code: "FE-SWEEP-001",
     name: fehler instanceof Error ? fehler.name : undefined,
     ...requestOf(fehler),
   });
@@ -93,5 +92,5 @@ async function sweepLoeschung(): Promise<void> {
  */
 function logPass(felder: Record<string, unknown>, offen: number): void {
   if (offen === 0) logger.info("loeschung.sweep_pass", felder);
-  else logger.warn("loeschung.sweep_pass", { error_code: "FE-SWEEP-001", ...felder });
+  else logger.warn("loeschung.sweep_pass", felder);
 }

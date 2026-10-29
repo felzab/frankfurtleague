@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
   if (!signedByProvider(roh, headers)) {
     // 400 rather than 503: a forgery is not worth thirty-two hours of retries, and neither is a
     // timestamp outside the verifier's tolerance. Nothing of the body reaches the line.
-    logger.warn("mail.zustellung_unsigniert", { error_code: "FE-MAIL-003" });
+    logger.warn("mail.zustellung_unsigniert");
     return KEINE_SIGNATUR();
   }
 
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       ereignis = JSON.parse(roh);
     } catch {
       // Signed and unreadable is the provider changing shape, which no retry repairs.
-      logger.error("mail.zustellung_unlesbar", undefined, { error_code: "FE-MAIL-003" });
+      logger.error("mail.zustellung_unlesbar");
       return ANGEWENDET([]);
     }
 
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
     if (meldung.ziel === "unplatzierbar") {
       // Never the raw kind: one that failed the set is a value the provider echoed back from
       // whatever it was handed.
-      logger.warn("mail.zustellung_unplatzierbar", { error_code: "FE-MAIL-006", grund: meldung.grund, ziel: meldung.art ?? undefined });
+      logger.warn("mail.zustellung_unplatzierbar", { grund: meldung.grund, ziel: meldung.art ?? undefined });
       return ANGEWENDET([]);
     }
 
@@ -130,7 +130,6 @@ export async function POST(request: NextRequest) {
 
       // Never the tag block, the address or the provider's prose.
       logger.error("mail.zustellung_ungeschrieben", undefined, {
-        error_code: "FE-MAIL-003",
         name: error instanceof Error ? error.name : undefined,
         status: error instanceof APIBadStatusError ? error.statusCode : undefined,
       });

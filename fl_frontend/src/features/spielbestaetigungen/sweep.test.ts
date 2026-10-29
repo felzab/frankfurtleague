@@ -328,7 +328,7 @@ describe("which first requests the pass stamps", () => {
 
     await runSpielSweep();
 
-    const spielleitung = { error_code: "FE-MAIL-002", operation: "spielbestaetigungSweep" };
+    const spielleitung = { operation: "spielbestaetigungSweep" };
     expect(passLines().filter(({ level }) => level === "error")).toStrictEqual([
       { level: "error", event: "spielbestaetigung.spielleitung_failed", fields: { ...spielleitung, name: "MailSendError" } },
       { level: "error", event: "spielbestaetigung.spielleitung_failed", fields: { ...spielleitung, name: "APINetworkError" } },
@@ -660,7 +660,7 @@ describe("what one pass mails", () => {
     expect(passLines()[0]).toStrictEqual({
       level: "error",
       event: "spielbestaetigung.sweep_failed",
-      fields: { error_code: "FE-SWEEP-004", name: "Error", saison_id: "2627" },
+      fields: { name: "Error", saison_id: "2627" },
     });
   });
 
@@ -708,7 +708,7 @@ describe("the pass's lines", () => {
       {
         level: "warn",
         event: "spielbestaetigung.sweep_pass",
-        fields: { error_code: "FE-SWEEP-004", geschlossen: 0, angefragt: 0, erinnert: 0, mitgeteilt: 0, aufgegeben: 0, fehlgeschlagen: 3 },
+        fields: { geschlossen: 0, angefragt: 0, erinnert: 0, mitgeteilt: 0, aufgegeben: 0, fehlgeschlagen: 3 },
       },
     ]);
   });
@@ -728,12 +728,12 @@ describe("the pass's lines", () => {
       ...aufgegeben.map((notice) => ({
         level: "warn",
         event: "spielbestaetigung.mitteilung_aufgegeben",
-        fields: { error_code: "FE-SWEEP-004", saison_id: "2627", ...notice },
+        fields: { saison_id: "2627", ...notice },
       })),
       {
         level: "warn",
         event: "spielbestaetigung.sweep_pass",
-        fields: { error_code: "FE-SWEEP-004", geschlossen: 0, angefragt: 0, erinnert: 0, mitgeteilt: 2, aufgegeben: 2, fehlgeschlagen: 0 },
+        fields: { geschlossen: 0, angefragt: 0, erinnert: 0, mitgeteilt: 2, aufgegeben: 2, fehlgeschlagen: 0 },
       },
     ]);
     expect(mitgeteilt()).toStrictEqual([id(11), id(12)]);
@@ -751,7 +751,7 @@ describe("the pass's lines", () => {
     expect(passLines()[0]).toStrictEqual({
       level: "error",
       event: "spielbestaetigung.sweep_failed",
-      fields: { error_code: "FE-SWEEP-004", name: "Error", saison_id: "2627" },
+      fields: { name: "Error", saison_id: "2627" },
     });
     assert.ok(
       apiCalls().some(({ endpoint }) => endpoint === PASS("2728")),

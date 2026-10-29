@@ -172,7 +172,7 @@ function logPass(
   offen: number,
 ): void {
   if (offen === 0) logger.info(event, felder);
-  else logger.warn(event, { error_code: "FE-SWEEP-001", ...felder });
+  else logger.warn(event, felder);
 }
 
 /**
@@ -298,7 +298,6 @@ async function mailRegistrierungNotiz(notiz: FLRegistrierungSweepBenachrichtigun
     if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
     // Name only, never the error: its message can carry the address.
     logger.error("registrierung.saisonende_notiz_failed", undefined, {
-      error_code: "FE-MAIL-002",
       name: error instanceof Error ? error.name : undefined,
       operation: SWEEP_OPERATION,
     });
@@ -393,7 +392,6 @@ async function mailLoeschung(loeschung: FLBewerbungSweepLoeschung): Promise<bool
 /** The half, the season and the error's name, never a person: this line is written for a season nobody swept. */
 function logSweepFailure(event: SweepFailure, error: unknown, saisonId: string | undefined): void {
   logger.error(event, undefined, {
-    error_code: "FE-SWEEP-001",
     name: error instanceof Error ? error.name : undefined,
     ...requestOf(error),
     saison_id: saisonId,

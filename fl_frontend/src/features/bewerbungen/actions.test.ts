@@ -54,10 +54,10 @@ const ORIGIN = "http://localhost:3000";
 const logged: unknown[][] = [];
 const record = (...args: unknown[]): void => void logged.push(args);
 /** The fields of each line the acceptance's read of the colliding application wrote. */
-const collisionReadLines = (): { error_code?: unknown }[] =>
+const collisionReadLines = (): { name?: unknown }[] =>
   logged
     .filter(([message]) => message === "An application's collision read failed and its refusal takes the shared words")
-    .map(([, , meta]) => meta as { error_code?: unknown });
+    .map(([, , meta]) => meta as { name?: unknown });
 const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: ORIGIN } };
 const LOGGER_DOUBLE = { logger: { debug: record, info: record, warn: record, error: record } };
 
@@ -222,7 +222,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
     readWith(() => Promise.reject(new TypeError("Cannot read properties of undefined (reading 'bewerbung')")));
 
     expect(errorOf(await annehmenBewerbungAction(ANNAHME))).toBe(toActionErrorResult(collision).error);
-    expect(collisionReadLines().map((meta) => meta.error_code)).toStrictEqual(["FE-ACT-001"]);
+    expect(collisionReadLines().map((meta) => meta.name)).toStrictEqual(["TypeError"]);
   });
 
   /* The loop above pins that it is answered, this what it says. Which of the school's fields

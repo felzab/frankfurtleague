@@ -205,7 +205,6 @@ async function writeToSink(message: OutboundMail, traceId: string): Promise<stri
     // The errno token, never the thrown message, which carries the path: the line says which failure
     // to fix without naming a directory the developer is about to be told to open anyway.
     logger.error("mail.sink_failed", undefined, {
-      error_code: "FE-MAIL-005",
       error_name: errnoCode(error) ?? (error instanceof Error ? error.name : "unknown"),
       trace_id: traceId,
     });
@@ -291,7 +290,6 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey, absender
     // Subject, tags and the file's name, never the recipient or a body: enough to say WHICH message
     // stayed behind and where to read it, and the logging rule keeps the person off the line.
     logger.error("mail.withheld", undefined, {
-      error_code: "FE-MAIL-004",
       app_env: frontend_config.APP_ENV,
       subject: subject,
       tags: tags,
@@ -320,7 +318,6 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey, absender
   // either line.
   const logNetwork = (failure: APINetworkError) => {
     logger.error("mail.send_failed", undefined, {
-      error_code: failure.code,
       is_timeout: failure.isTimeout,
       trace_id: traceId,
     });
@@ -391,7 +388,6 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey, absender
   /** The line a refusal nobody will retry leaves. `failNetwork` writes its own, so this one is the provider's alone. */
   const logRefusal = (refusal: MailSendError) => {
     logger.error("mail.send_failed", undefined, {
-      error_code: refusal.code,
       status: refusal.statusCode,
       provider_error_name: refusal.providerErrorName,
       trace_id: traceId,
@@ -401,8 +397,7 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey, absender
   try {
     // Refused unsent once the request's deadline is spent.
     if (bound.signal.aborted) {
-      // `FE-NET-001`, the code a send that never reached the provider logs under.
-      logger.error("mail.send_failed", undefined, { error_code: "FE-NET-001", is_timeout: true, trace_id: traceId });
+      logger.error("mail.send_failed", undefined, { is_timeout: true, trace_id: traceId });
       throw new MailUnsentError();
     }
 
@@ -440,7 +435,6 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey, absender
         if (!repeatable || attemptNumber >= MAIL_ATTEMPTS || bound.signal.aborted) giveUp(error);
 
         logger.warn("mail.send_retried", {
-          error_code: error instanceof MailSendError || error instanceof APINetworkError ? error.code : undefined,
           status: error instanceof MailSendError ? error.statusCode : undefined,
           provider_error_name: error instanceof MailSendError ? error.providerErrorName : undefined,
           trace_id: traceId,

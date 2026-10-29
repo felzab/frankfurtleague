@@ -116,8 +116,8 @@ describe("a change taking effect, as its caller's server finishes it", () => {
     expect(mail.sent.map(({ to }) => to)).toStrictEqual([BISHER]);
   });
 
-  /* The new address signs in to the account it holds; the old one waits for the account sweep, logged under its own code. */
-  it("leaves both accounts where the new address holds one of its own, logging FE-AUTH-013", async () => {
+  /* The new address signs in to the account it holds; the old one waits for the account sweep, logged under its own event. */
+  it("leaves both accounts where the new address holds one of its own, logging why", async () => {
     await sessionByCode(auth, store, BISHER);
     await sessionByCode(auth, store, NEU);
     const [alt, neu] = [kontoAn(BISHER)?.id, kontoAn(NEU)?.id];
@@ -126,10 +126,8 @@ describe("a change taking effect, as its caller's server finishes it", () => {
 
     expect([kontoAn(BISHER)?.id, kontoAn(NEU)?.id]).toStrictEqual([alt, neu]);
     expect(
-      logged
-        .filter(({ event }) => event === "adresswechsel.konto_nicht_umgezogen")
-        .map(({ level, meta }) => [level, meta?.error_code, meta?.grund]),
-    ).toStrictEqual([["warn", "FE-AUTH-013", "belegt"]]);
+      logged.filter(({ event }) => event === "adresswechsel.konto_nicht_umgezogen").map(({ level, meta }) => [level, meta?.grund]),
+    ).toStrictEqual([["warn", "belegt"]]);
     expect(mail.sent.map(({ to }) => to)).toStrictEqual([BISHER]);
   });
 
@@ -142,9 +140,7 @@ describe("a change taking effect, as its caller's server finishes it", () => {
 
     expect(erledigt).toBe(false);
     expect(mail.sent).toStrictEqual([]);
-    expect(
-      logged.filter(({ event }) => event === "adresswechsel.konto_nicht_umgezogen").map(({ level, meta }) => [level, meta?.error_code]),
-    ).toStrictEqual([["error", "FE-AUTH-013"]]);
+    expect(logged.filter(({ event }) => event === "adresswechsel.konto_nicht_umgezogen").map(({ level }) => level)).toStrictEqual(["error"]);
   });
 
   it("answers a sent notice as done with, and a send that never left as not", async () => {

@@ -217,7 +217,6 @@ function asStepUpCaller(served: { user: { email: string }; session: object }, ve
 /** Logged where the grant was asked for, as the send gate's own failure is: the error's name alone. */
 function logUnreadVerwaltung(failed: unknown): void {
   logger.error("auth.verwaltung_unread", undefined, {
-    error_code: "FE-AUTH-010",
     name: failed instanceof Error ? failed.name : "unknown",
   });
 }
@@ -480,7 +479,6 @@ async function endReplacedSession(
     // Logged and left: the new session is committed, and failing the sign-in now would strand it
     // without its cookie while the replaced one stayed alive anyway.
     logger.error("auth.session_rotation_failed", undefined, {
-      error_code: "FE-AUTH-006",
       name: failed instanceof Error ? failed.name : "unknown",
     });
   }
@@ -616,7 +614,6 @@ async function unlessUnsettled(settle: () => Promise<void>): Promise<void> {
     await settle();
   } catch (failed) {
     logger.warn("auth.code_attempt_unsettled", {
-      error_code: "FE-AUTH-009",
       name: failed instanceof Error ? failed.name : "unknown",
     });
   }
@@ -735,7 +732,6 @@ async function notify(message: PasskeyEmail, email: string): Promise<void> {
 
     // Name only, as the code's own send writes one: a failure here routinely carries the address.
     logger.error("auth.passkey_notice_failed", undefined, {
-      error_code: "FE-AUTH-004",
       name: failed instanceof Error ? failed.name : "unknown",
     });
   }
@@ -1028,11 +1024,11 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // A second row for a credential the index holds: one authenticator enrolled twice at once without signing in, or
         // a credential another account holds. Set-ups of one authenticator at once conflict in a transaction retried to a 404.
         if (message.startsWith(REGISTRATION_FAILED) && isDuplicateCredential(raised)) {
-          logger.warn("auth.passkey_enrolment_conflict", { error_code: "FE-AUTH-005" });
+          logger.warn("auth.passkey_enrolment_conflict");
           return;
         }
 
-        logger.error(event, undefined, { error_code: "FE-AUTH-003", name: raised?.name ?? "unknown" });
+        logger.error(event, undefined, { name: raised?.name ?? "unknown" });
       },
     },
 
@@ -1064,7 +1060,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // The total read ahead of the plugin as well, so a full hour voids no held code; writing nothing
         // and naming nobody, it answers members and strangers alike. The counted row comes past the gate.
         if (recipient !== null && (await mailTotalReached(ctx.context))) {
-          logger.warn("auth.code_mail_total_capped", { error_code: "FE-AUTH-008" });
+          logger.warn("auth.code_mail_total_capped");
           return ctx.json({ success: true });
         }
 
@@ -1215,7 +1211,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
             ctx === undefined ||
             (await withinBound(ctx.context, MAIL_TOTAL_IDENTIFIER, CODE_MAIL_TOTAL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS)) === null
           ) {
-            logger.warn("auth.code_mail_total_capped", { error_code: "FE-AUTH-008" });
+            logger.warn("auth.code_mail_total_capped");
             return;
           }
 
@@ -1237,7 +1233,6 @@ const authOptions = (origin: URL, client: MongoClient) =>
             // Name only: a failure on this path routinely carries the submitted address, and
             // `fl_frontend/src/core/logging.ts` writes its message and stack, an address alone scrubbed.
             logger.error("auth.code_send_failed", undefined, {
-              error_code: "FE-AUTH-002",
               name: failed instanceof Error ? failed.name : "unknown",
             });
           }
@@ -1524,7 +1519,7 @@ async function readLibrarySession(requestHeaders: Headers, slide: boolean): Prom
     return read === null ? null : projected(read);
   } catch (failed) {
     // The library's word for a row ended between its read and its refresh, which is no session at all;
-    // every other throw is the store's, worded `INTERNAL_SERVER_ERROR` and logged as `FE-AUTH-003`.
+    // every other throw is the store's, worded `INTERNAL_SERVER_ERROR` and logged through the library's `logger` above.
     if (isAPIError(failed) && failed.status === "UNAUTHORIZED") return null;
     throw failed;
   }
@@ -1849,7 +1844,6 @@ async function deleteEndedSessions(adapter: Pick<DBTransactionAdapter, "deleteMa
   } catch (failed) {
     // Logged and left: the rows stand served by no lane, and the landing deletes each its browser brings back.
     logger.error("auth.ended_sessions_not_deleted", undefined, {
-      error_code: "FE-AUTH-006",
       name: failed instanceof Error ? failed.name : "unknown",
     });
   }

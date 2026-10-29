@@ -111,13 +111,12 @@ async function meldeAngenommen(auftrag: ZielAuftrag, nachrichtId: string, operat
     // Discarded, a `false` reads exactly like a recorded send, and at this commit it is the answer
     // for every record whose carrier no writer has created.
     if (!angewendet) {
-      logger.warn("zustellung.angenommen_nicht_angewendet", { error_code: "FE-MAIL-006", ziel: auftrag.ziel, operation: operation });
+      logger.warn("zustellung.angenommen_nicht_angewendet", { ziel: auftrag.ziel, operation: operation });
     }
   } catch (error) {
     // Never thrown on: the message HAS gone, and a caller told otherwise would report a send that
     // happened as one that did not. Name only, never the error.
     logger.error("zustellung.angenommen_ungemeldet", undefined, {
-      error_code: "FE-MAIL-003",
       name: error instanceof Error ? error.name : undefined,
       operation: operation,
     });
@@ -156,7 +155,6 @@ async function meldeAbgewiesen(auftrag: ZielAuftrag, reason: unknown, operation:
     // Never thrown on: the person's page is answered from the fan-out's own result, and the next
     // send repairs the record. Name only, never the error.
     logger.error("zustellung.abweisung_ungemeldet", undefined, {
-      error_code: "FE-MAIL-003",
       name: error instanceof Error ? error.name : undefined,
       operation: operation,
     });
@@ -239,7 +237,6 @@ export async function sendZielMail({
     // Name only, never the error: `fl_frontend/src/core/logging.ts` writes a
     // message and a stack, and the address stays off the stream.
     logger.error("zustellung.mail_failed", undefined, {
-      error_code: "FE-MAIL-002",
       name: result.reason instanceof Error ? result.reason.name : undefined,
       operation: operation,
     });

@@ -387,9 +387,7 @@ describe("what a pass leaves for the next", () => {
     expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
     assert.ok(
       lines.some(
-        (line) =>
-          line.event === "berechtigung.notice_failed" &&
-          JSON.stringify(line.fields) === JSON.stringify({ error_code: "FE-MAIL-009", name: "APINetworkError" }),
+        (line) => line.event === "berechtigung.notice_failed" && JSON.stringify(line.fields) === JSON.stringify({ name: "APINetworkError" }),
       ),
       "the lost send left no line, or one carrying more than its name",
     );
@@ -477,7 +475,7 @@ describe("what a pass leaves for the next", () => {
     expect(mail.sent, "a given-up row was mailed").toStrictEqual([]);
     expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [AUFGEGEBEN] }]);
     expect(lines.filter((line) => line.event === "berechtigung.notice_abandoned").map((line) => [line.level, line.fields])).toStrictEqual([
-      ["ERROR", { error_code: "FE-MAIL-011", art: "erteilt", nicht_erreicht: 1 }],
+      ["ERROR", { art: "erteilt", nicht_erreicht: 1 }],
     ]);
   });
 
@@ -491,7 +489,7 @@ describe("what a pass leaves for the next", () => {
 
     expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
     expect(lines.map((line) => [line.level, line.event, line.fields])).toStrictEqual([
-      ["ERROR", "berechtigung.notice_failed", { error_code: "FE-MAIL-009", name: "MailRecipientError" }],
+      ["ERROR", "berechtigung.notice_failed", { name: "MailRecipientError" }],
     ]);
   });
 
@@ -532,9 +530,7 @@ describe("what a pass leaves for the next", () => {
 
     await runBerechtigungenAbgleich();
 
-    expect(lines.map((line) => [line.event, line.fields])).toStrictEqual([
-      ["berechtigung.abgleich_failed", { error_code: "FE-SWEEP-002", name: "Error" }],
-    ]);
+    expect(lines.map((line) => [line.event, line.fields])).toStrictEqual([["berechtigung.abgleich_failed", { name: "Error" }]]);
   });
 
   /* A refusal of the whole claim and a crash read alike by their name alone: the status and code tell them apart,
@@ -554,10 +550,7 @@ describe("what a pass leaves for the next", () => {
     await runBerechtigungenAbgleich();
 
     expect(lines.map((line) => [line.event, line.fields])).toStrictEqual([
-      [
-        "berechtigung.abgleich_failed",
-        { error_code: "FE-SWEEP-002", name: "APIBadStatusError", status: 503, server_error_code: "DB-FAIL-001", trace_id: "t".repeat(32) },
-      ],
+      ["berechtigung.abgleich_failed", { name: "APIBadStatusError", status: 503, server_error_code: "DB-FAIL-001", trace_id: "t".repeat(32) }],
     ]);
   });
 
@@ -570,9 +563,7 @@ describe("what a pass leaves for the next", () => {
     await runBerechtigungenAbgleich();
 
     assert.ok(mail.sent.length > 0, "nothing was mailed, so no stamp was asked for");
-    expect(lines.map((line) => [line.event, line.fields])).toStrictEqual([
-      ["berechtigung.stempel_failed", { error_code: "FE-SWEEP-002", name: "TypeError" }],
-    ]);
+    expect(lines.map((line) => [line.event, line.fields])).toStrictEqual([["berechtigung.stempel_failed", { name: "TypeError" }]]);
   });
 
   /* Once for a count that stands, not every five minutes while nobody repairs the row; again once it rises. */
@@ -583,8 +574,8 @@ describe("what a pass leaves for the next", () => {
     }
 
     expect(lines.map((line) => [line.level, line.event, line.fields])).toStrictEqual([
-      ["WARN", "berechtigung.abgleich_uebersprungen", { error_code: "FE-SWEEP-002", anzahl: 2 }],
-      ["WARN", "berechtigung.abgleich_uebersprungen", { error_code: "FE-SWEEP-002", anzahl: 3 }],
+      ["WARN", "berechtigung.abgleich_uebersprungen", { anzahl: 2 }],
+      ["WARN", "berechtigung.abgleich_uebersprungen", { anzahl: 3 }],
     ]);
   });
 });

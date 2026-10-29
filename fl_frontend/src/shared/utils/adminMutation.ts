@@ -125,7 +125,7 @@ async function runGuarded<S, T extends { success: boolean }>(
 
     // Whatever the action made of it: part of the write may stand.
     if (writeOutcomeUnknown()) {
-      logger.error(`${guard.lane} mutation of unknown outcome: ${mutationName}`, undefined, { error_code: "FE-NET-001" });
+      logger.error("mutation.outcome_unknown", undefined, { lane: guard.lane, mutation: mutationName });
 
       return { forbidden: false, answer: outcomeUnknown(guard.wording), wrote: wrote, tags: tags, endsOwnSession: endsOwnSession };
     }

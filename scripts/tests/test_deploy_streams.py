@@ -1151,7 +1151,7 @@ def _lib_array(name: str) -> list[str]:
 
 def test_settings_the_frontend_refuses_stop_the_run_with_nothing_recreated() -> None:
     """Exit 3 is the boot's own refusal; its CRITICAL line is what names the setting, so it is printed."""
-    said = '{"level":"CRITICAL","error_code":"FE-BOOT-004","files":"auth_secret"}'
+    said = '{"level":"CRITICAL","message":"system.files_refused","files":"auth_secret"}'
     code, output, _ = _run(FRONTEND_BOOT, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS=said)
 
     assert code == 2, output

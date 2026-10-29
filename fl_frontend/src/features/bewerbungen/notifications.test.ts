@@ -474,20 +474,17 @@ describe("a fan-out that cannot reach everyone", () => {
     assert.ok(!JSON.stringify(logged[0]).includes("zweite@schule.de"), "the recipient travels on the log line");
   });
 
-  /* Every frontend failure line carries one, and this one is not
-     `FE-MAIL-001`: that is `sendMail`'s own line for the same refusal, under the same trace id. */
-  it("carries its own error code and the error's name, and no error object", async () => {
+  it("carries the error's name, and no error object", async () => {
     reset();
     outcomes.set("erste@schule.de", "refused");
 
     await sendBewerbungMail({ operation: "ablehnenBewerbungAction", recipients: [empfaenger("erste@schule.de")], buildMail: buildMail });
 
-    expect(logged[0]?.meta.error_code).toBe("FE-MAIL-002");
     expect(logged[0]?.meta.name, "the line no longer names the error class").toBe("MailSendError");
     expect(logged[0]?.error, "the error object reaches the stream, and its message and stack with it").toBe(undefined);
   });
 
-  /* The mailer's own line records a filed message (`FE-MAIL-004`), and
+  /* The mailer's own line records a filed message (`mail.withheld`), and
      a second, failing one per address would read every local decision as a failed send. */
   it("lists a withheld send apart and logs no failure for it", async () => {
     reset();
@@ -627,7 +624,6 @@ describe("a message that cannot be composed costs no other recipient theirs", ()
 
     const failedLines = logged.filter((eintrag) => eintrag.message === "bewerbung.mail_failed");
     expect(failedLines.length).toBe(1);
-    expect(failedLines[0]?.meta.error_code).toBe("FE-MAIL-002");
     /* The address stays off the stream, as it does for a refused send. */
     assert.ok(!JSON.stringify(failedLines[0]).includes("erste@schule.de"));
   });
@@ -761,7 +757,7 @@ describe("what an accepted send records about itself", () => {
 
     expect(outcome).toStrictEqual({ delivered: ["erika@schule.de"], unreachable: [], withheld: [], ungewiss: [], gesperrt: 0 });
     const unreportedLine = logged.find((eintrag) => eintrag.message === "bewerbung.zustellung_ungemeldet");
-    expect(unreportedLine?.meta.error_code).toBe("FE-MAIL-003");
+    assert.ok(unreportedLine !== undefined, "the unrecorded delivery wrote no line");
     assert.ok(!JSON.stringify(unreportedLine).includes("erika@schule.de"), "the recipient travels on the log line");
   });
 });

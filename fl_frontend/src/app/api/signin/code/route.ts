@@ -71,7 +71,7 @@ async function alreadySignedIn(requestHeaders: Headers, email: string): Promise<
     served = await readAdmittedSession(requestHeaders);
   } catch (failed) {
     // The NAME alone: a failure on this path may carry the address the code was typed for.
-    logger.error("auth.signed_in_unread", undefined, { error_code: "FE-AUTH-002", name: failed instanceof Error ? failed.name : "unknown" });
+    logger.error("auth.signed_in_unread", undefined, { name: failed instanceof Error ? failed.name : "unknown" });
     return null;
   }
   if (served === null || asSignInIdentifier(served.user.email) !== email) return false;
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
     // throw, whose 500 the page words as an answer that was not this application's. The NAME alone,
     // for `alreadySignedIn`'s reason.
     if (!isAPIError(error)) {
-      logger.error("auth.code_check_failed", undefined, { error_code: "FE-AUTH-002", name: error instanceof Error ? error.name : "unknown" });
+      logger.error("auth.code_check_failed", undefined, { name: error instanceof Error ? error.name : "unknown" });
       return refused(VERSUCHE_ES_ERNEUT_SATZ);
     }
 

@@ -150,7 +150,7 @@ describe("a pass meeting a failure", () => {
 
     expect(deleteCalls).toStrictEqual(zweiter);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
-      { event: "konto.referenzen_failed", fields: { error_code: "FE-SWEEP-003", name: "TypeError", anzahl: REFERENZEN_ADRESSEN_MAX } },
+      { event: "konto.referenzen_failed", fields: { name: "TypeError", anzahl: REFERENZEN_ADRESSEN_MAX } },
     ]);
   });
 
@@ -167,7 +167,7 @@ describe("a pass meeting a failure", () => {
         level: "ERROR",
         event: "konto.delete_failed",
         error: undefined,
-        fields: { error_code: "FE-SWEEP-003", name: "TypeError", anzahl: undefined },
+        fields: { name: "TypeError", anzahl: undefined },
       },
     ]);
   });
@@ -183,7 +183,7 @@ describe("a pass meeting a failure", () => {
 
     expect(deleteCalls).toStrictEqual(["a@schule.de", "c@schule.de"]);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
-      { event: "konto.delete_failed", fields: { error_code: "FE-SWEEP-003", name: "TypeError", anzahl: undefined } },
+      { event: "konto.delete_failed", fields: { name: "TypeError", anzahl: undefined } },
     ]);
   });
 
@@ -200,7 +200,7 @@ describe("a pass meeting a failure", () => {
         level: "ERROR",
         event: "konto.sweep_failed",
         error: undefined,
-        fields: { error_code: "FE-SWEEP-003", name: "TypeError", anzahl: undefined },
+        fields: { name: "TypeError", anzahl: undefined },
       },
     ]);
     assert.ok(!JSON.stringify(lines).includes("@"), "a line carries an address");
@@ -230,7 +230,6 @@ describe("a pass meeting a failure", () => {
       {
         event: "konto.referenzen_failed",
         fields: {
-          error_code: "FE-SWEEP-003",
           name: "APIBadStatusError",
           status: 409,
           server_error_code: "REQ-REFERENZEN-001",
@@ -242,7 +241,7 @@ describe("a pass meeting a failure", () => {
   });
 
   /* No status: the backend never answered, so the trace is all that finds the request in its log, if it
-     arrived there at all (`FE-SWEEP-003`). */
+     arrived there at all. */
   it("names an unanswered call's trace on its failure line", async () => {
     accounts = ["a@schule.de"];
     referenzen = () => {
@@ -260,7 +259,7 @@ describe("a pass meeting a failure", () => {
 
     expect(deleteCalls).toStrictEqual([]);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
-      { event: "konto.referenzen_failed", fields: { error_code: "FE-SWEEP-003", name: "APINetworkError", trace_id: TRACE_ID, anzahl: 1 } },
+      { event: "konto.referenzen_failed", fields: { name: "APINetworkError", trace_id: TRACE_ID, anzahl: 1 } },
     ]);
   });
 
@@ -284,7 +283,7 @@ describe("a pass meeting a failure", () => {
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
       {
         event: "konto.referenzen_failed",
-        fields: { error_code: "FE-SWEEP-003", name: "APIMalformedDataError", status: 200, trace_id: TRACE_ID, anzahl: 1 },
+        fields: { name: "APIMalformedDataError", status: 200, trace_id: TRACE_ID, anzahl: 1 },
       },
     ]);
   });
@@ -345,7 +344,7 @@ describe("the line a completed pass writes", () => {
       level: "WARN",
       event: "konto.sweep_completed",
       error: undefined,
-      fields: { error_code: "FE-SWEEP-003", gelistet: 5, unreferenziert: 4, geloescht: 1, bereits_geloescht: 1, fehlgeschlagen: 1 },
+      fields: { gelistet: 5, unreferenziert: 4, geloescht: 1, bereits_geloescht: 1, fehlgeschlagen: 1 },
     });
   });
 });

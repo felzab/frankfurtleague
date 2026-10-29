@@ -683,7 +683,7 @@ describe("the deletion the activation runs", () => {
         "the deletion that did land left the squad pages naming its pupils",
       );
       expect(loggedLines.filter(({ message: line }) => line === "loeschung.umstellung_failed")).toStrictEqual([
-        { level: "error", message: "loeschung.umstellung_failed", meta: { error_code: "FE-SWEEP-001", name: fehler().name, ...anfrage } },
+        { level: "error", message: "loeschung.umstellung_failed", meta: { name: fehler().name, ...anfrage } },
       ]);
     });
   }

@@ -91,7 +91,7 @@ export async function handlePublicRequest<T extends { success: boolean }>(
     }
 
     if (writeOutcomeUnknown()) {
-      logger.error(`Public route of unknown outcome: ${routeName}`, undefined, { error_code: "FE-NET-001" });
+      logger.error("route.outcome_unknown", undefined, { route: routeName });
       answer = outcomeUnknown();
     }
 

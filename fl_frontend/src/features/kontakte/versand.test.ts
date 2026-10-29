@@ -378,9 +378,7 @@ describe("the contacts save that takes a mailbox off the row", () => {
     const res = await patchSaisonTeamKontakteAction(PAYLOAD);
 
     expect(res.success && res.message).toBe("Kontakte gespeichert");
-    expect(
-      loggedLines.filter(({ message }) => message === "kontakt.abgang_failed").map(({ meta }) => (meta as { error_code?: string }).error_code),
-    ).toStrictEqual(["FE-MAIL-002"]);
+    expect(loggedLines.filter(({ message }) => message === "kontakt.abgang_failed").map(({ level }) => level)).toStrictEqual(["error"]);
   });
 });
 

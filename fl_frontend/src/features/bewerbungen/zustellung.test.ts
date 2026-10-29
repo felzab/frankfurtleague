@@ -497,7 +497,7 @@ describe("POST /api/mail/zustellung", () => {
     expect(calls).toStrictEqual([]);
     expect(zielCalls).toStrictEqual([]);
     expect(logs.length).toBe(1);
-    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-006");
+    expect(logs[0]?.message).toBe("mail.zustellung_unplatzierbar");
     expect(logs[0]?.meta?.["grund"]).toBe("ziel_id_unlesbar");
     expect(logs[0]?.meta?.["ziel"]).toBe("schiedsrichter");
   });
@@ -715,7 +715,7 @@ describe("POST /api/mail/zustellung", () => {
       heldSecret = webhookSecret;
     }
     expect(calls).toStrictEqual([]);
-    expect(logs.map(({ message, meta }) => [message, meta?.error_code])).toStrictEqual([["mail.zustellung_unsigniert", "FE-MAIL-003"]]);
+    expect(logs.map(({ message }) => message)).toStrictEqual(["mail.zustellung_unsigniert"]);
   });
 
   it("answers 400 with any one of the three signing headers missing", async () => {
@@ -766,9 +766,7 @@ describe("POST /api/mail/zustellung", () => {
     const { status } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
 
     expect(status).toBe(200);
-    expect(logs.map(({ level, message, meta }) => [level, message, meta?.["error_code"]])).toStrictEqual([
-      ["error", "mail.zustellung_ungeschrieben", "FE-MAIL-003"],
-    ]);
+    expect(logs.map(({ level, message }) => [level, message])).toStrictEqual([["error", "mail.zustellung_ungeschrieben"]]);
   });
 
   it("answers 200 and writes the same line where the tagged event's record no longer exists", async () => {
@@ -781,9 +779,7 @@ describe("POST /api/mail/zustellung", () => {
     const { status } = await answerTo(signed(JSON.stringify(tagged)));
 
     expect(status).toBe(200);
-    expect(logs.map(({ level, message, meta }) => [level, message, meta?.["error_code"]])).toStrictEqual([
-      ["error", "mail.zustellung_ungeschrieben", "FE-MAIL-003"],
-    ]);
+    expect(logs.map(({ level, message }) => [level, message])).toStrictEqual([["error", "mail.zustellung_ungeschrieben"]]);
   });
 
   /* Only the event's own answer settles it: a route the API does not serve mid-deploy, a credential or a
@@ -887,6 +883,5 @@ describe("POST /api/mail/zustellung", () => {
     const written = inspect(logs, { depth: null });
     assert.ok(!written.includes(ADDRESS), "an address reached the stream");
     assert.ok(!written.includes(BEWERBUNG_ID), "an application id reached the stream");
-    for (const line of logs) expect(line.meta?.["error_code"]).toBe("FE-MAIL-003");
   });
 });

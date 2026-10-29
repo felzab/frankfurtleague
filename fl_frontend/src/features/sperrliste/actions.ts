@@ -51,7 +51,6 @@ async function abmelden(email: string): Promise<Abmeldung> {
   } catch (failed) {
     // The NAME alone, as the notice's own failure is logged: the address must reach no line.
     logger.error("sperrliste.sessions_not_ended", undefined, {
-      error_code: "FE-AUTH-006",
       name: failed instanceof Error ? failed.name : "unknown",
     });
     return { konto: null, satz: ANMELDUNGEN_NICHT_BEENDET };
@@ -84,7 +83,6 @@ async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId
     // The NAME alone: a failure on this path routinely carries the address, and
     // `fl_frontend/src/core/logging.ts` writes its message and stack, an address alone scrubbed.
     logger.error("sperrliste.notice_failed", undefined, {
-      error_code: "FE-MAIL-008",
       name: failed instanceof Error ? failed.name : "unknown",
     });
     // A connection broken after the send left may be a message the provider accepted, as the fan-outs

@@ -226,7 +226,6 @@ describe("one pass of the pupils' deletion", () => {
         level: "warn",
         event: "loeschung.sweep_pass",
         fields: {
-          error_code: "FE-SWEEP-001",
           abgeschlossene_saison_id: "2526",
           spieler: 1,
           saison_spieler: 1,
@@ -253,7 +252,6 @@ describe("one pass of the pupils' deletion", () => {
         level: "warn",
         event: "loeschung.sweep_pass",
         fields: {
-          error_code: "FE-SWEEP-001",
           abgeschlossene_saison_id: "2526",
           spieler: 3,
           saison_spieler: 3,
@@ -262,7 +260,7 @@ describe("one pass of the pupils' deletion", () => {
           fehlgeschlagen: 2,
         },
       },
-      { level: "error", event: "loeschung.sweep_failed", fields: { error_code: "FE-SWEEP-001", name: "Error" } },
+      { level: "error", event: "loeschung.sweep_failed", fields: { name: "Error" } },
     ]);
   });
 
@@ -284,7 +282,7 @@ describe("one pass of the pupils' deletion", () => {
           event: "loeschung.sweep_pass",
           fields: { abgeschlossene_saison_id: "2526", spieler: 4, saison_spieler: 4, registrierungen: 0, uebersprungen: 0, fehlgeschlagen: 0 },
         },
-        { level: "error", event: "loeschung.sweep_failed", fields: { error_code: "FE-SWEEP-001", name: "ContractBreakError" } },
+        { level: "error", event: "loeschung.sweep_failed", fields: { name: "ContractBreakError" } },
       ]);
     });
   }

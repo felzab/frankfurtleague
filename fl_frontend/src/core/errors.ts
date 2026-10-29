@@ -74,10 +74,9 @@ export class PersonReadWithoutSubjectError extends Error {
 /**
  * A write the request's deadline refused before it was sent, too little being left to wait out its answer
  * (`fl_frontend/src/core/api.ts :: WRITE_NEEDS_MS`): it changed nothing, as `fl_frontend/src/core/mail.ts ::
- * MailUnsentError` says of a message. `FE-NET-001`, a call the network never answered.
+ * MailUnsentError` says of a message.
  */
 export class ApiUnsentError extends Error {
-  readonly code = "FE-NET-001";
   override name = "ApiUnsentError";
 
   constructor(method: string) {
@@ -86,7 +85,6 @@ export class ApiUnsentError extends Error {
 }
 
 export class APIBadStatusError extends Error {
-  readonly code = "FE-API-001";
   traceId: string;
   statusCode: number;
   serverErrorCode?: string;
@@ -161,7 +159,6 @@ export function isRecordMissing(error: unknown): boolean {
 }
 
 export class APIMalformedDataError extends Error {
-  readonly code = "FE-API-002";
   traceId: string;
   statusCode: number;
   url: string;
@@ -217,7 +214,6 @@ export function isContractBreak(error: unknown): boolean {
 }
 
 export class APINetworkError extends Error {
-  readonly code = "FE-NET-001";
   traceId: string;
   url: string;
   isTimeout: boolean;
@@ -252,6 +248,14 @@ export class APINetworkError extends Error {
 }
 
 /**
+ * Whether the backend answered the call with a failure of its own, which its line records: a refusal on the access
+ * line, a 5xx with its stack. The frontend logs only what the backend never answered or answered unreadably.
+ */
+export function loggedByBackend(error: unknown): boolean {
+  return error instanceof APIBadStatusError && error.serverErrorCode !== undefined;
+}
+
+/**
  * What a failed call says of its request, for a sweep's line, and nothing of a person: the status and code
  * tell a refusal from a crash, and the trace joins the backend's own line.
  */
@@ -279,7 +283,6 @@ const TRANSIENT_PROVIDER_ERRORS: ReadonlySet<string> = new Set([
 ]);
 
 export class MailSendError extends Error {
-  readonly code = "FE-MAIL-001";
   traceId: string;
   statusCode: number;
   providerErrorName?: string;
