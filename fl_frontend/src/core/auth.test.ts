@@ -3842,3 +3842,25 @@ describe("an account deleted for its address, and the list of every account", ()
     expect(addresses.filter((email) => !listed.has(email))).toStrictEqual([]);
   });
 });
+
+/* Who signed in is recorded nowhere else, and the edge's line the trace joins holds where from: the two lines carry the
+   account's id and the trace, and never the address typed. */
+describe("the sign-in's own lines", () => {
+  const TRACE = "5".repeat(32);
+  const TRACED = { ...ORIGIN, traceparent: `00-${TRACE}-${"6".repeat(16)}-01` };
+
+  it("writes a sign-in by its account and factor, and a refused code by its trace, never the address", async () => {
+    informed.length = 0;
+    await signInByCode(auth, ADMIN_EMAIL, TRACED);
+    const userId = store.session.at(-1)?.userId;
+    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
+    await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: wrongFor(otp) }, headers: new Headers(TRACED) }).catch(() => undefined);
+
+    const lines = informed.filter(({ message }) => message === "auth.signed_in" || message === "auth.code_refused");
+    expect(lines.map(({ message, meta }) => [message, meta])).toStrictEqual([
+      ["auth.signed_in", { user_id: userId, factor: "code", trace_id: TRACE }],
+      ["auth.code_refused", { trace_id: TRACE }],
+    ]);
+    assert.ok(userId !== undefined && !JSON.stringify(lines).includes(ADMIN_EMAIL), "the address reached a sign-in line");
+  });
+});

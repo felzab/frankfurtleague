@@ -44,6 +44,7 @@ import {
 import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "./signInCode";
 import { lookUpAnmeldung, lookUpSubjekt, mayReceiveSignIn, signInVerdictOf } from "./signInGate";
 import { HOUR_MS } from "./timeUnits";
+import { readTraceparent, TRACEPARENT_HEADER } from "./trace";
 import { versandAusfallOf } from "./versandAusfall";
 import { madeSince, verwaltungOf } from "./verwaltung";
 
@@ -608,6 +609,14 @@ export async function forgiveCodeAttempt(body: object): Promise<void> {
   await unlessUnsettled(() => adapter.delete({ model: "verification", where: [{ field: "id", value: own }] }).then(() => undefined));
 }
 
+/**
+ * The edge's trace off the request a sign-in arrived on, whose access line holds the address it came from: a sign-in
+ * runs under no request scope of this application's, through the library's route or the code route's in-process call.
+ */
+function signInTrace(ctx: GenericEndpointContext): string | undefined {
+  return readTraceparent(new Headers(ctx.headers ?? ctx.request?.headers).get(TRACEPARENT_HEADER));
+}
+
 /** A count left standing expires on its own, so a bookkeeping failure never fails the sign-in it follows. */
 async function unlessUnsettled(settle: () => Promise<void>): Promise<void> {
   try {
@@ -981,6 +990,12 @@ const authOptions = (origin: URL, client: MongoClient) =>
             if (!ctx) return;
             await endReplacedSession(ctx, session);
             await unlessUnsettled(() => clearCodeFailures(ctx.context, session.userId));
+            // Every factor's sign-in passes here, and the line names the account by its id alone, never its address.
+            logger.info("auth.signed_in", {
+              user_id: session.userId,
+              factor: SESSION_FACTOR_BY_PATH.get(ctx.path),
+              trace_id: signInTrace(ctx),
+            });
           },
         },
         update: {
@@ -1148,6 +1163,10 @@ const authOptions = (origin: URL, client: MongoClient) =>
         if (ctx.path === CODE_SIGN_IN_PATH && typeof ctx.body === "object" && ctx.body !== null) {
           const own = attemptRows.get(ctx.body);
           await unlessUnsettled(() => settleCodeAttempt(ctx.context, own, ctx.context.returned));
+          // The code refused, never a mint refusing past a right one, and by trace alone: the address stays off the line.
+          if (isAPIError(ctx.context.returned) && !refusedAtMint(ctx.context.returned)) {
+            logger.info("auth.code_refused", { trace_id: signInTrace(ctx) });
+          }
         }
 
         const offered: unknown = ctx.context.returned;
