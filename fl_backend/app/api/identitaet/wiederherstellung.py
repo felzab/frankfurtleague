@@ -19,9 +19,8 @@ import json
 import sys
 from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any, Final, Literal, TextIO
-from zoneinfo import ZoneInfo
 
 from bson import decode, encode
 from pydantic import SecretStr
@@ -52,6 +51,8 @@ from app.api.spielbestaetigungen.crud import redact_seat_entries_in_images
 from app.api.spielbestaetigungen.services import build_contact_reason_images_filter, build_contact_reasons_filter, kontakte_ohne, seat_void_of
 from app.api.teams.crud import void_moved_seats
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.core import clock
+from app.core.clock import GERMANY as _GERMANY
 from app.core.collections import Collection
 
 # Outside any request, as the constraints CLI is, so the environment's settings rather than an application's.
@@ -74,9 +75,6 @@ REPLAY_METHOD: Final = "REPLAY"
 # The erasure page as the sidemenu names it (`fl_frontend/src/features/admin/constants.ts :: LOESCHUNG_EINTRAG`), where
 # the listing sends an operator. This image holds no frontend source to read it from, so a mirror case holds the two.
 LOESCHUNG_SEITE: Final = "Löschung auf Anfrage"
-
-# The day a Widerspruch records is the German one its person declined on (`app/core/dependencies.py :: get_german_date_str`).
-_GERMANY: Final = ZoneInfo("Europe/Berlin")
 
 # Where each record keeps the address its person signed in or was written to under.
 _PERSON_ADDRESS: Final[Mapping[Collection, Callable[[Mapping[str, Any]], Any]]] = {
@@ -817,7 +815,7 @@ def _main() -> int:
                 client=client,
                 database=client[config.db_base_name],
                 schluessel=config.sperrliste_schluessel,
-                now=datetime.now(UTC),
+                now=clock.now(),
                 out=sys.stdout,
             )
         except PyMongoError as failure:

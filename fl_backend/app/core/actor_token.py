@@ -9,13 +9,13 @@ fixed phrase the log may carry; `app/core/security.py` turns it into the respons
 import hashlib
 import json
 import re
-import time
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from dataclasses import dataclass
 from typing import Any, Final, Literal, Self, get_args
 
 import jwt
 
+from app.core import clock
 from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, PERSON_WINDOW_DAYS
 
 # Fixed strings rather than configuration: one issuer and one audience exist, and a value an
@@ -175,7 +175,7 @@ def _claims_of(payload: dict[str, Any], lane: Lane) -> ActorClaims:
     # would otherwise pass for a day.
     if payload["exp"] - payload["iat"] > ACTOR_TOKEN_LIFETIME_S:
         raise ActorTokenRefusal("lifetime too long")
-    if payload["auth_time"] > time.time() + CLOCK_LEEWAY_S:
+    if payload["auth_time"] > clock.now().timestamp() + CLOCK_LEEWAY_S:
         raise ActorTokenRefusal("auth_time in the future")
     # Which guard minted it: a person's session may never act on the admin tier, whatever it holds.
     if payload["lane"] != lane:

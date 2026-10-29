@@ -131,6 +131,9 @@ ignore = ["B008"]
 # `scripts/ruff.toml` extends this file, and the gate's tooling there reads its own environment by
 # design: every entry in the banned list guards the backend alone.
 "../scripts/**" = ["TID251"]
+# Every entry guards the application, and a test reads both freely: it stages stored instants against
+# the wall clock it runs under, and it builds settings from the environment to judge them.
+"tests/**" = ["TID251"]
 
 # A handler reading the environment's settings answers with those whatever the app was built with,
 # and the dependency walk in `tests/core/test_config.py` never sees a call inside a body.
@@ -140,6 +143,13 @@ ignore = ["B008"]
 "app.core.config.get_config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
 "os.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
 "os.getenv".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
+# The wall clock, read in `app/core/clock.py` alone, so every rule judging "now" or "today" reads one
+# instant in one zone.
+"datetime.datetime.now".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
+"datetime.date.today".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
+"datetime.datetime.today".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
+"datetime.datetime.utcnow".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
+"time.time".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
 
 [tool.ruff.format]
 quote-style = "double"
