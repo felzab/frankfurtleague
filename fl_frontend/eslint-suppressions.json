@@ -445,11 +445,6 @@
       "count": 2
     }
   },
-  "src/core/actorToken.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/core/auth.ts": {
     "no-restricted-syntax": {
       "count": 13
