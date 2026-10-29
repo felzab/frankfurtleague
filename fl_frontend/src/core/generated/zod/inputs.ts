@@ -588,9 +588,7 @@ export const bewerbungenPostBewerbungBodySchuleOneFullNameMax = 120;
 
 
 export const bewerbungenPostBewerbungBodySchuleOneFullNameRegExp = new RegExp('^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$');
-export const bewerbungenPostBewerbungBodySchuleOneShorthandMin = 2;
-export const bewerbungenPostBewerbungBodySchuleOneShorthandMax = 2;
-
+export const bewerbungenPostBewerbungBodySchuleOneShorthandRegExp = new RegExp('^\\s*[A-Za-z]{3}\\s*$');
 export const bewerbungenPostBewerbungBodySchuleOneTeamNameMax = 60;
 
 
@@ -657,7 +655,7 @@ export const BewerbungenPostBewerbungBody = zod.object({
 }).describe('The school\'s address, with the Stadtteil REQUIRED.\n\nIts own subclass rather than a change to `FLAddressPayload`, which an admin address shares: a\nvenue can genuinely lack a district, and a Frankfurt school does not.'),
   "full_name": zod.string().min(1).max(bewerbungenPostBewerbungBodySchuleOneFullNameMax).regex(bewerbungenPostBewerbungBodySchuleOneFullNameRegExp),
   "schulform": zod.enum(['gymnasium_g8', 'gymnasium_g9', 'gesamtschule', 'privatschule_g8', 'privatschule_g9', 'oberstufengymnasium']),
-  "shorthand": zod.string().min(bewerbungenPostBewerbungBodySchuleOneShorthandMin).max(bewerbungenPostBewerbungBodySchuleOneShorthandMax),
+  "shorthand": zod.string().regex(bewerbungenPostBewerbungBodySchuleOneShorthandRegExp),
   "team_name": zod.string().min(1).max(bewerbungenPostBewerbungBodySchuleOneTeamNameMax).regex(bewerbungenPostBewerbungBodySchuleOneTeamNameRegExp),
   "website_url": zod.union([zod.string().max(bewerbungenPostBewerbungBodySchuleOneWebsiteUrlOneMax),zod.null()])
 }).describe('The club a new school proposes, bounded and stripped for the write side.\n\nA subclass rather than a second declaration, as `FLKontaktpersonPayload` is: the field set is the\nstored block\'s, and two spellings of it would drift on every field they share.'),zod.null()]),
@@ -699,6 +697,7 @@ export const BewerbungenPostBewerbungBody = zod.object({
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
 export const bewerbungenPostEinwilligungBodyGeburtsdatumOneRegExp = new RegExp('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$');
+export const bewerbungenPostEinwilligungBodyGeburtsdatumThreeRegExp = new RegExp('^\\s*$');
 export const bewerbungenPostEinwilligungBodyTextVersionMax = 64;
 
 export const bewerbungenPostEinwilligungBodyTokenMax = 128;
@@ -707,7 +706,7 @@ export const bewerbungenPostEinwilligungBodyTokenMax = 128;
 
 export const BewerbungenPostEinwilligungBody = zod.object({
   "antwort": zod.enum(['erteilt', 'abgelehnt']),
-  "geburtsdatum": zod.union([zod.string().regex(bewerbungenPostEinwilligungBodyGeburtsdatumOneRegExp),zod.null()]),
+  "geburtsdatum": zod.union([zod.string().regex(bewerbungenPostEinwilligungBodyGeburtsdatumOneRegExp),zod.null(),zod.string().regex(bewerbungenPostEinwilligungBodyGeburtsdatumThreeRegExp)]),
   "medien": zod.boolean(),
   "text_version": zod.string().min(1).max(bewerbungenPostEinwilligungBodyTextVersionMax),
   "token": zod.string().min(1).max(bewerbungenPostEinwilligungBodyTokenMax),
@@ -759,7 +758,7 @@ export const BewerbungenGetFensterParams = zod.object({
 
 
 /**
- * Answer whether any club holds this two-letter code.
+ * Answer whether any club holds this three-letter code.
  *
  * Retired clubs COUNT and no club is named: `uniq_shorthand` spans the collection, and an answer
  * naming the holder would publish which schools have left (`READ-BEWERBUNG-001`).
@@ -1606,6 +1605,7 @@ export const RegistrierungenPostRegistrierungBody = zod.object({
  * @summary Confirm one registration and record the pupil's consent
  */
 export const registrierungenPostBestaetigungBodyGeburtsdatumOneRegExp = new RegExp('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$');
+export const registrierungenPostBestaetigungBodyGeburtsdatumThreeRegExp = new RegExp('^\\s*$');
 export const registrierungenPostBestaetigungBodyTextVersionMax = 64;
 
 export const registrierungenPostBestaetigungBodyTokenMax = 128;
@@ -1613,7 +1613,7 @@ export const registrierungenPostBestaetigungBodyTokenMax = 128;
 
 
 export const RegistrierungenPostBestaetigungBody = zod.object({
-  "geburtsdatum": zod.union([zod.string().regex(registrierungenPostBestaetigungBodyGeburtsdatumOneRegExp),zod.null()]),
+  "geburtsdatum": zod.union([zod.string().regex(registrierungenPostBestaetigungBodyGeburtsdatumOneRegExp),zod.null(),zod.string().regex(registrierungenPostBestaetigungBodyGeburtsdatumThreeRegExp)]),
   "medien": zod.union([zod.boolean(),zod.null()]),
   "text_version": zod.string().min(1).max(registrierungenPostBestaetigungBodyTextVersionMax),
   "token": zod.string().min(1).max(registrierungenPostBestaetigungBodyTokenMax),
@@ -2237,6 +2237,7 @@ export const schiedsrichterPostSchiedsrichterBodyDefaultPaymentMin = 0;
 export const schiedsrichterPostSchiedsrichterBodyKontaktEmailMax = 254;
 
 export const schiedsrichterPostSchiedsrichterBodyKontaktTelefonOneRegExp = new RegExp('^([+]?[ 0-9\\-().]{2,19}[0-9])$');
+export const schiedsrichterPostSchiedsrichterBodyKontaktTelefonThreeRegExp = new RegExp('^\\s*$');
 export const schiedsrichterPostSchiedsrichterBodyNameMax = 80;
 
 
@@ -2247,7 +2248,7 @@ export const SchiedsrichterPostSchiedsrichterBody = zod.object({
   "default_payment": zod.int().min(schiedsrichterPostSchiedsrichterBodyDefaultPaymentMin),
   "kontakt": zod.object({
   "email": zod.string().max(schiedsrichterPostSchiedsrichterBodyKontaktEmailMax),
-  "telefon": zod.union([zod.string().regex(schiedsrichterPostSchiedsrichterBodyKontaktTelefonOneRegExp),zod.null()])
+  "telefon": zod.union([zod.string().regex(schiedsrichterPostSchiedsrichterBodyKontaktTelefonOneRegExp),zod.null(),zod.string().regex(schiedsrichterPostSchiedsrichterBodyKontaktTelefonThreeRegExp)])
 }),
   "name": zod.string().min(1).max(schiedsrichterPostSchiedsrichterBodyNameMax).regex(schiedsrichterPostSchiedsrichterBodyNameRegExp),
   "schule": zod.union([zod.string(),zod.null()])
@@ -2420,6 +2421,7 @@ export const schiedsrichterPatchSchiedsrichterBodyDefaultPaymentMin = 0;
 export const schiedsrichterPatchSchiedsrichterBodyKontaktEmailMax = 254;
 
 export const schiedsrichterPatchSchiedsrichterBodyKontaktTelefonOneRegExp = new RegExp('^([+]?[ 0-9\\-().]{2,19}[0-9])$');
+export const schiedsrichterPatchSchiedsrichterBodyKontaktTelefonThreeRegExp = new RegExp('^\\s*$');
 export const schiedsrichterPatchSchiedsrichterBodyNameMax = 80;
 
 
@@ -2430,7 +2432,7 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
   "default_payment": zod.int().min(schiedsrichterPatchSchiedsrichterBodyDefaultPaymentMin),
   "kontakt": zod.object({
   "email": zod.string().max(schiedsrichterPatchSchiedsrichterBodyKontaktEmailMax),
-  "telefon": zod.union([zod.string().regex(schiedsrichterPatchSchiedsrichterBodyKontaktTelefonOneRegExp),zod.null()])
+  "telefon": zod.union([zod.string().regex(schiedsrichterPatchSchiedsrichterBodyKontaktTelefonOneRegExp),zod.null(),zod.string().regex(schiedsrichterPatchSchiedsrichterBodyKontaktTelefonThreeRegExp)])
 }),
   "name": zod.string().min(1).max(schiedsrichterPatchSchiedsrichterBodyNameMax).regex(schiedsrichterPatchSchiedsrichterBodyNameRegExp),
   "schule": zod.union([zod.string(),zod.null()])
@@ -3123,130 +3125,6 @@ export const SpieleGetSpieleForAdminQueryParams = zod.object({
 
 
 /**
- * Put every fixture one save moved back as it stood, in ONE transaction, and resolve the bracket again.
- *
- * **All of it lands or none of it does.** A refusal on any entry takes the entries already written
- * back with it, so a replay never leaves a season half restored — which it otherwise would, the
- * leading entry's resolution being what empties the scorelines the entries after it put back.
- *
- * **The list is replayed in the order it arrives and is never re-sorted**, that order being
- * `prior_paarungen`'s: a fixture is restored after whatever feeds it, or its occupant is refused as
- * a hand-set team on a slot its `quelle` maintains.
- *
- * Each entry carries the four fields a bracket resolution can rewrite, and beyond them only the
- * ones its `other_fields.replaced` names: the date, the venue, the referee, the note and both
- * `quelle`s are otherwise read from the stored document rather than from the request, so a value
- * somebody moved since that save survives. Every refusal, and the resolution itself, are
- * `PATCH /spiele/{spiel_id}`'s.
- *
- * `bericht` is the undone save's `prior_bericht`: the Spielbericht adoption that save stamped over is put back in
- * the same transaction, while the report still stands at the version stamped, so a report adopted by the save reads
- * as it did before it. A report corrected since keeps the stamp, its raised version reading past it already.
- *
- * `advanced_to` and `released_sides` report what the replay cost fixtures it was NOT asked to
- * restore; one it puts back afterwards is the order doing its work rather than a loss. No
- * `dry_run`: what these bodies would move is what the save they undo already reported.
- * @summary Restore the Paarungen one save moved
- */
-export const spielePatchSpielePaarungenBodyBerichtOneSpielIdRegExp = new RegExp('^[0-9a-fA-F]{24}$');
-
-
-export const spielePatchSpielePaarungenBodyPaarungenItemElfmeterschiessenOneTeam1Min = 0;
-
-export const spielePatchSpielePaarungenBodyPaarungenItemElfmeterschiessenOneTeam2Min = 0;
-
-export const spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneDatumOneRegExp = new RegExp('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$');
-export const spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneNotizOneMax = 4096;
-
-export const spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneOrtOneMietpreisMin = 0;
-
-export const spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneOrtOneSpielortIdRegExp = new RegExp('^[0-9a-fA-F]{24}$');
-
-export const spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneSchiedsrichterOnePaymentMin = 0;
-
-export const spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneSchiedsrichterOneSchiedsrichterIdRegExp = new RegExp('^[0-9a-fA-F]{24}$');
-export const spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneTeam1QuelleOneOnePlatzExclusiveMin = 0;
-
-export const spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneTeam1QuelleOneTwoSpielNrExclusiveMin = 0;
-
-export const spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneTeam2QuelleOneOnePlatzExclusiveMin = 0;
-
-export const spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneTeam2QuelleOneTwoSpielNrExclusiveMin = 0;
-
-export const spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneUhrzeitOneRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$');
-export const spielePatchSpielePaarungenBodyPaarungenItemSpielIdRegExp = new RegExp('^[0-9a-fA-F]{24}$');
-export const spielePatchSpielePaarungenBodyPaarungenItemTeam1OneTeamIdRegExp = new RegExp('^[0-9a-fA-F]{24}$');
-export const spielePatchSpielePaarungenBodyPaarungenItemTeam1OneToreOneMin = 0;
-
-export const spielePatchSpielePaarungenBodyPaarungenItemTeam2OneTeamIdRegExp = new RegExp('^[0-9a-fA-F]{24}$');
-export const spielePatchSpielePaarungenBodyPaarungenItemTeam2OneToreOneMin = 0;
-
-export const spielePatchSpielePaarungenBodyPaarungenMax = 1024;
-
-
-
-export const SpielePatchSpielePaarungenBody = zod.object({
-  "bericht": zod.union([zod.object({
-  "spiel_id": zod.string().regex(spielePatchSpielePaarungenBodyBerichtOneSpielIdRegExp),
-  "uebernommen_am": zod.union([zod.iso.datetime({"offset":true}),zod.null()]),
-  "uebernommen_von": zod.union([zod.object({
-  "art": zod.literal("admin").meta({ title: 'Art' })
-}),zod.null()]),
-  "uebernommene_version": zod.union([zod.int().min(1),zod.null()]),
-  "version": zod.int().min(1)
-}).describe('A Spielbericht\'s adoption as it stood before a save stamped it at `version`: what an undo of that save puts back.\n\nLax, as `FLSpielPriorOrt` is, for its reason: a response reaches it too.'),zod.null()]),
-  "paarungen": zod.array(zod.object({
-  "elfmeterschiessen": zod.union([zod.object({
-  "team1": zod.int().min(spielePatchSpielePaarungenBodyPaarungenItemElfmeterschiessenOneTeam1Min),
-  "team2": zod.int().min(spielePatchSpielePaarungenBodyPaarungenItemElfmeterschiessenOneTeam2Min)
-}).describe('The penalty shoot-out that settled a knockout fixture whose goals finished level.\n\nNo `sieger`: a stored one could contradict the counts, and the `$expr` barring it is outside the\ndatabase validators\' ratified scope.'),zod.null()]),
-  "other_fields": zod.union([zod.object({
-  "datum": zod.union([zod.string().regex(spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneDatumOneRegExp),zod.null()]),
-  "notiz": zod.union([zod.string().max(spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneNotizOneMax),zod.null()]),
-  "ort": zod.union([zod.object({
-  "mietpreis": zod.int().min(spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneOrtOneMietpreisMin),
-  "spielort_id": zod.string().regex(spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneOrtOneSpielortIdRegExp)
-}).describe('The venue a restore names: which ground, and what that fixture agreed to pay for it.\n\nLax where `FLSpielOrtFieldPayload` forbids, because a RESPONSE reaches this one,\nwhich is also why the two cannot be one class.'),zod.null()]),
-  "replaced": zod.array(zod.enum(['team1_quelle', 'team2_quelle', 'datum', 'uhrzeit', 'ort', 'schiedsrichter', 'notiz'])).min(1),
-  "schiedsrichter": zod.union([zod.object({
-  "payment": zod.int().min(spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneSchiedsrichterOnePaymentMin),
-  "schiedsrichter_id": zod.string().regex(spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneSchiedsrichterOneSchiedsrichterIdRegExp)
-}).describe('The referee a restore names, and the fee that fixture agreed; lax and re-declared for `FLSpielPriorOrt`\'s reasons.'),zod.null()]),
-  "team1_quelle": zod.union([zod.union([zod.object({
-  "gruppe": zod.enum(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P']),
-  "platz": zod.int().gt(spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneTeam1QuelleOneOnePlatzExclusiveMin),
-  "type": zod.literal("gruppe").meta({ title: 'Type' })
-}).describe('A slot fed by the group phase: the team finishing `platz` in `gruppe`.'),zod.object({
-  "ausgang": zod.enum(['sieger', 'verlierer']),
-  "spiel_nr": zod.int().gt(spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneTeam1QuelleOneTwoSpielNrExclusiveMin),
-  "type": zod.literal("spiel").meta({ title: 'Type' })
-}).describe('A slot fed by an earlier fixture: the side that came out of match `spiel_nr` as `ausgang`.')]),zod.null()]),
-  "team2_quelle": zod.union([zod.union([zod.object({
-  "gruppe": zod.enum(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P']),
-  "platz": zod.int().gt(spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneTeam2QuelleOneOnePlatzExclusiveMin),
-  "type": zod.literal("gruppe").meta({ title: 'Type' })
-}).describe('A slot fed by the group phase: the team finishing `platz` in `gruppe`.'),zod.object({
-  "ausgang": zod.enum(['sieger', 'verlierer']),
-  "spiel_nr": zod.int().gt(spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneTeam2QuelleOneTwoSpielNrExclusiveMin),
-  "type": zod.literal("spiel").meta({ title: 'Type' })
-}).describe('A slot fed by an earlier fixture: the side that came out of match `spiel_nr` as `ausgang`.')]),zod.null()]),
-  "uhrzeit": zod.union([zod.string().regex(spielePatchSpielePaarungenBodyPaarungenItemOtherFieldsOneUhrzeitOneRegExp),zod.null()])
-}).describe('One fixture\'s fields as they stood outside its Paarung, and which of them a write REPLACED.\n\n`replaced` rather than omitted keys: a response cannot omit one, and each field\'s `null` is a\nvalue a restore may write.'),zod.null()]),
-  "sonderereignis": zod.union([zod.enum(['ausgefallen', 'nichtantreten_team1', 'nichtantreten_team2', 'abgebrochen', 'annulliert']),zod.null()]),
-  "spiel_id": zod.string().regex(spielePatchSpielePaarungenBodyPaarungenItemSpielIdRegExp),
-  "team1": zod.union([zod.object({
-  "team_id": zod.string().regex(spielePatchSpielePaarungenBodyPaarungenItemTeam1OneTeamIdRegExp),
-  "tore": zod.union([zod.int().min(spielePatchSpielePaarungenBodyPaarungenItemTeam1OneToreOneMin),zod.null()])
-}).describe('One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the server composes them from the season\'s `saison_teams` row.\nA submitted copy is IGNORED rather than refused, as\nthe rule allows.'),zod.null()]),
-  "team2": zod.union([zod.object({
-  "team_id": zod.string().regex(spielePatchSpielePaarungenBodyPaarungenItemTeam2OneTeamIdRegExp),
-  "tore": zod.union([zod.int().min(spielePatchSpielePaarungenBodyPaarungenItemTeam2OneToreOneMin),zod.null()])
-}).describe('One side of a fixture as the admin PATCH SUBMITS it.\n\nNo name and no shorthand: the server composes them from the season\'s `saison_teams` row.\nA submitted copy is IGNORED rather than refused, as\nthe rule allows.'),zod.null()])
-}).describe('One fixture of a replay: its Paarung and the fields this entry names beyond it, leaving every other field as stored.\n\nIts own route rather than a mode on the wholesale patch, where naming a field is what OVERWRITES it.')).min(1).max(spielePatchSpielePaarungenBodyPaarungenMax)
-}).describe('Restore every fixture one save moved, in the order the report named them, and the report adoption it stamped.')
-
-
-/**
  * Return one match by its id.
  *
  * The season is read to gate it and for nothing else: the match carries its own `saison_id`, and
@@ -3265,15 +3143,11 @@ export const SpieleGetSpielParams = zod.object({
  * Update one Spiel and resolve the season's bracket.
  *
  * The payload is written wholesale: an omitted field is overwritten, and every name it carries is
- * composed by the server. A result can fill or empty the slots below it, each named in `advanced_to`,
- * and every fixture this call changed arrives in `prior_paarungen` as it stood before it — this one
- * leading the list, and carrying the fields beyond its Paarung that this payload replaced.
+ * composed by the server. A result can fill or empty the slots below it, each named in `advanced_to`.
  *
  * With `uebernimmt_bericht`, the save also stamps the fixture's Spielbericht adopted at that version, in the same
  * transaction. A report corrected since that version, or written about other clubs than the save leaves on the
- * fixture, is left unstamped, and the save lands all the same: nothing is refused for it. A stamp answers the
- * adoption it replaced in `prior_bericht`, which the undo sends back; null where nothing was stamped. A `dry_run`
- * stamps nothing.
+ * fixture, is left unstamped, and the save lands all the same: nothing is refused for it. A `dry_run` stamps nothing.
  * @summary Update a Spiel
  */
 export const spielePatchSpielDataPathSpielIdRegExp = new RegExp('^[0-9a-fA-F]{24}$');
@@ -3292,6 +3166,7 @@ export const SpielePatchSpielDataQueryParams = zod.object({
 })
 
 export const spielePatchSpielDataBodyDatumOneRegExp = new RegExp('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$');
+export const spielePatchSpielDataBodyDatumThreeRegExp = new RegExp('^\\s*$');
 export const spielePatchSpielDataBodyElfmeterschiessenOneTeam1Min = 0;
 
 export const spielePatchSpielDataBodyElfmeterschiessenOneTeam2Min = 0;
@@ -3320,10 +3195,11 @@ export const spielePatchSpielDataBodyTeam2QuelleOneOnePlatzExclusiveMin = 0;
 export const spielePatchSpielDataBodyTeam2QuelleOneTwoSpielNrExclusiveMin = 0;
 
 export const spielePatchSpielDataBodyUhrzeitOneRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$');
+export const spielePatchSpielDataBodyUhrzeitThreeRegExp = new RegExp('^\\s*$');
 
 
 export const SpielePatchSpielDataBody = zod.object({
-  "datum": zod.union([zod.string().regex(spielePatchSpielDataBodyDatumOneRegExp),zod.null()]),
+  "datum": zod.union([zod.string().regex(spielePatchSpielDataBodyDatumOneRegExp),zod.null(),zod.string().regex(spielePatchSpielDataBodyDatumThreeRegExp)]),
   "elfmeterschiessen": zod.union([zod.object({
   "team1": zod.int().min(spielePatchSpielDataBodyElfmeterschiessenOneTeam1Min),
   "team2": zod.int().min(spielePatchSpielDataBodyElfmeterschiessenOneTeam2Min)
@@ -3365,7 +3241,7 @@ export const SpielePatchSpielDataBody = zod.object({
   "spiel_nr": zod.int().gt(spielePatchSpielDataBodyTeam2QuelleOneTwoSpielNrExclusiveMin),
   "type": zod.literal("spiel").meta({ title: 'Type' })
 }).describe('A slot fed by an earlier fixture: the side that came out of match `spiel_nr` as `ausgang`.')]),zod.null()]),
-  "uhrzeit": zod.union([zod.string().regex(spielePatchSpielDataBodyUhrzeitOneRegExp),zod.null()])
+  "uhrzeit": zod.union([zod.string().regex(spielePatchSpielDataBodyUhrzeitOneRegExp),zod.null(),zod.string().regex(spielePatchSpielDataBodyUhrzeitThreeRegExp)])
 })
 
 
@@ -3655,7 +3531,7 @@ export const SpielerDeleteSaisonSpielerParams = zod.object({
  * Update a player's squad entry for that season.
  *
  * Changing `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted
- * (`fl_backend/app/core/domain.py :: UNENFORCED`); a `rolle` another live row holds is not
+ * (`docs/domain.md`'s what the model permits on purpose); a `rolle` another live row holds is not
  * (`REQ-SQUAD-004`).
  * @summary Update a squad entry
  */
@@ -3986,9 +3862,7 @@ export const teamsPostTeamBodyNameMax = 60;
 
 
 export const teamsPostTeamBodyNameRegExp = new RegExp('^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$');
-export const teamsPostTeamBodyShorthandMin = 2;
-export const teamsPostTeamBodyShorthandMax = 2;
-
+export const teamsPostTeamBodyShorthandRegExp = new RegExp('^\\s*[A-Za-z]{3}\\s*$');
 export const teamsPostTeamBodyWebsiteUrlOneMax = 300;
 
 
@@ -4005,7 +3879,7 @@ export const TeamsPostTeamBody = zod.object({
   "full_name": zod.string().min(1).max(teamsPostTeamBodyFullNameMax).regex(teamsPostTeamBodyFullNameRegExp),
   "name": zod.string().min(1).max(teamsPostTeamBodyNameMax).regex(teamsPostTeamBodyNameRegExp),
   "schulform": zod.union([zod.enum(['gymnasium_g8', 'gymnasium_g9', 'gesamtschule', 'privatschule_g8', 'privatschule_g9', 'oberstufengymnasium']),zod.null()]),
-  "shorthand": zod.string().min(teamsPostTeamBodyShorthandMin).max(teamsPostTeamBodyShorthandMax),
+  "shorthand": zod.string().regex(teamsPostTeamBodyShorthandRegExp),
   "website_url": zod.union([zod.string().max(teamsPostTeamBodyWebsiteUrlOneMax),zod.null()])
 })
 
@@ -4111,9 +3985,7 @@ export const teamsPatchTeamBodyNameMax = 60;
 
 
 export const teamsPatchTeamBodyNameRegExp = new RegExp('^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$');
-export const teamsPatchTeamBodyShorthandMin = 2;
-export const teamsPatchTeamBodyShorthandMax = 2;
-
+export const teamsPatchTeamBodyShorthandRegExp = new RegExp('^\\s*[A-Za-z]{3}\\s*$');
 export const teamsPatchTeamBodyWebsiteUrlOneMax = 300;
 
 
@@ -4130,7 +4002,7 @@ export const TeamsPatchTeamBody = zod.object({
   "full_name": zod.string().min(1).max(teamsPatchTeamBodyFullNameMax).regex(teamsPatchTeamBodyFullNameRegExp),
   "name": zod.string().min(1).max(teamsPatchTeamBodyNameMax).regex(teamsPatchTeamBodyNameRegExp),
   "schulform": zod.union([zod.enum(['gymnasium_g8', 'gymnasium_g9', 'gesamtschule', 'privatschule_g8', 'privatschule_g9', 'oberstufengymnasium']),zod.null()]),
-  "shorthand": zod.string().min(teamsPatchTeamBodyShorthandMin).max(teamsPatchTeamBodyShorthandMax),
+  "shorthand": zod.string().regex(teamsPatchTeamBodyShorthandRegExp),
   "website_url": zod.union([zod.string().max(teamsPatchTeamBodyWebsiteUrlOneMax),zod.null()])
 })
 
