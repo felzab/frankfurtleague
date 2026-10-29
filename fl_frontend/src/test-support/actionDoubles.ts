@@ -234,7 +234,7 @@ async function administratorOf({ session, served }: SignInAnswers): Promise<unkn
     const { setRequestActor } = await import("@/core/requestScope.ts");
     const { asSignInIdentifier } = await import("@/core/emailAddress.ts");
     // A token nobody verifies: the backend these suites reach is doubled.
-    setRequestActor({ email: asSignInIdentifier(session.user.email), lane: "admin", token: "doubled-actor-token-not-a-credential" });
+    setRequestActor({ email: asSignInIdentifier(session.user.email), lane: "admin", authTime: 0, factor: "passkey" });
   }
 
   // Served in the real guard's shape: the admin shell reads the step-up window off the row.
@@ -310,7 +310,7 @@ const subjectLookup = (answers: Pick<SignInAnswers, "subject" | "subjectReads">)
     // refused by the client; imported at the call, for `administratorOf`'s reason.
     if (answers.subject !== null && !(answers.subject instanceof Error)) {
       const { setRequestActor } = await import("@/core/requestScope.ts");
-      setRequestActor({ email: answers.subject.email, lane: "person", token: "doubled-person-token-not-a-credential" });
+      setRequestActor({ email: answers.subject.email, lane: "person", authTime: 0, factor: "code" });
     }
 
     return answering(answers.subject);

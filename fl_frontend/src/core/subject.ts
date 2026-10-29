@@ -2,8 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
-import { mintRequestActor } from "./actorToken";
-import { isAdminSession, isWithinPersonLifetime, readRequestSession } from "./auth";
+import { isAdminSession, isWithinPersonLifetime, readRequestSession, requestActorOf } from "./auth";
 import { asSignInIdentifier } from "./emailAddress";
 import { setRequestActor } from "./requestScope";
 import { lookUpSubjekt } from "./signInGate";
@@ -38,7 +37,7 @@ type SubjectRecords = {
 export type SubjectSession = { readonly email: string; readonly admin: boolean; readonly subjekt: SubjectRecords };
 
 // React's `cache`, never `"use cache"`, which would hand one request's session to another: a layout,
-// a guard and a page of one render pass share one session read, one lookup and one signed actor.
+// a guard and a page of one render pass share one session read, one lookup and one actor.
 const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; actor: RequestActor } | null> => {
   const served = await readRequestSession();
   // Both figures here as well as at `getAdminSession`: a lane that skips them is a lane in which
@@ -60,9 +59,9 @@ const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; a
   // missed, is no session here.
   if (subjekt.gesperrt) return null;
 
-  // Minted here rather than at the write: a person's route refuses a request carrying no signed
-  // actor of this lane (`fl_backend/app/core/security.py :: person_actor_binder`).
-  const actor = await mintRequestActor(served, "person");
+  // Built here rather than at the write: a person's route refuses a request naming no session
+  // (`fl_backend/app/core/security.py :: person_actor_binder`).
+  const actor = requestActorOf(served, "person");
   if (actor === null) return null;
 
   // Off the lookup this guard already made, so the verdict costs no second read.

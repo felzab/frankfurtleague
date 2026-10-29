@@ -1,5 +1,4 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
-import { ACTOR_KEY_FILE } from "@/test-support/authDoubles.ts";
 import { doubleSendMail } from "@/test-support/mailDouble.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -126,7 +125,6 @@ const CONFIG_DOUBLE = {
   frontend_config: {
     AUTH_URL: "http://localhost:3000",
     // The boot reads the signing key before it arms anything.
-    ACTOR_SIGNING_KEY_FILE: ACTOR_KEY_FILE,
     get BEWERBUNG_SWEEP() {
       return sweepSwitch;
     },

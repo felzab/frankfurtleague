@@ -1,8 +1,3 @@
-import { generateKeyPairSync } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-
 import { doubleSendMail } from "@/test-support/mailDouble.ts";
 import { answerAt, deepFrozen, NO_RECORDS, SITZ } from "@/test-support/subjectFixtures.ts";
 import { memoryAdapter } from "better-auth/adapters/memory";
@@ -32,18 +27,6 @@ export const overriding =
 
 export const ADMIN_EMAIL = "vorstand@example.org";
 
-/**
- * The pair the actor is signed with wherever a suite boots or runs a guard, made for the run: a key
- * file kept in the tree would be a signing key anybody could read.
- */
-export const ACTOR_KEY_PAIR = generateKeyPairSync("ed25519");
-
-const ACTOR_KEY_DIRECTORY = mkdtempSync(path.join(tmpdir(), "fl-actor-key-"));
-/** `ACTOR_KEY_PAIR`'s private half, as the compose secret holds one: "PKCS#8" PEM. */
-export const ACTOR_KEY_FILE = path.join(ACTOR_KEY_DIRECTORY, "signing-key.pem");
-writeFileSync(ACTOR_KEY_FILE, ACTOR_KEY_PAIR.privateKey.export({ type: "pkcs8", format: "pem" }));
-afterAll(() => rmSync(ACTOR_KEY_DIRECTORY, { recursive: true, force: true }));
-
 /** What a request arriving at the served origin carries, matched to the config double's `AUTH_URL`. */
 export const ORIGIN = { host: "localhost:3000", "x-forwarded-proto": "http" } as const;
 
@@ -63,7 +46,6 @@ export function configDouble(overrides: Readonly<Record<string, unknown>> = {}, 
   const config = {
     ...GATE_BACKEND_CONFIG,
     AUTH_URL: `http://${ORIGIN.host}`,
-    ACTOR_SIGNING_KEY_FILE: ACTOR_KEY_FILE,
     ...overrides,
   };
   // An override of `undefined` takes the name out, as an unset variable is absent from the real config.

@@ -171,10 +171,6 @@ const environment = {
     return protocol === "https:" || hostname === "localhost" || hostname === "127.0.0.1";
   }, "AUTH_URL must use https:// unless it points at localhost"),
 
-  // A path, never the key: an environment value shows in `docker inspect`, and a mounted secret file
-  // in neither that nor this schema's refusals. Defaulted to where the compose secret mounts.
-  ACTOR_SIGNING_KEY_FILE: z.string().min(1).default("/run/secrets/fl_actor_signing_key"),
-
   // Defaulted so no server .env is touched to arm the retention sweep, and an enum rather than
   // `z.coerce.boolean()`, which reads the string "false" as true and settles before a default
   // could apply.
