@@ -1,7 +1,6 @@
 import ast
 import inspect
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -60,12 +59,9 @@ from app.core.constraints import UNIQUE_INDEXES
 from app.core.exceptions import WriteRefusal
 from app.core.readback import RECORD_MODELS
 from tests.core.app_source import (
-    APP_ROOT,
     app_calls,
     callee,
-    calls_in,
     declared,
-    parsed,
     removals,
 )
 from tests.documents import rules_document
@@ -242,49 +238,6 @@ def _driver_calls(methods: frozenset[str]) -> list[str]:
     """Where the application calls one of `methods`, each as its module and the function holding the call."""
 
     return sorted({f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) in methods})
-
-
-def _callers_of(module: Path, called: str) -> set[str]:
-    """Every function in one module that calls `called`, by name."""
-
-    return {scope for scope, call in calls_in(parsed(module), "<module>") if callee(call) == called}
-
-
-def _calls_of(function: Callable[..., Any]) -> set[str]:
-    """The names one function itself calls; a call a nested helper makes answers under that helper."""
-
-    name = function.__name__
-
-    return {callee(call) for scope, call in calls_in(declared(function), name) if scope == name}
-
-
-def _module_reads(tree: ast.Module, name: str) -> bool:
-    """Every form that reaches the value, not `ImportFrom` alone: `from x import bounds` then `bounds.NAME` holds it and names it in no import.
-
-    The AST rather than the text, a name a comment merely mentions reading nothing.
-    """
-
-    return any(
-        (isinstance(node, ast.ImportFrom) and any(alias.name == name for alias in node.names))
-        or (isinstance(node, ast.Name) and node.id == name)
-        or (isinstance(node, ast.Attribute) and node.attr == name)
-        for node in ast.walk(tree)
-    )
-
-
-def _packages_reading(name: str) -> set[str]:
-    """Every folder between `app/` and the module, not the one holding it: a rule filed a level down answers under that subpackage alone."""
-
-    return {
-        folder
-        for path in sorted(APP_ROOT.rglob("*.py"))
-        if _module_reads(parsed(path), name)
-        for folder in path.relative_to(APP_ROOT).parts[:-1]
-    }
-
-
-class TestAMatchdayOffItsImpliedCount:
-    """That the count a phase implies reaches the matchday's own write nowhere, so no state of the two can be refused there."""
 
 
 class TestASharedSquadNumber:
@@ -628,14 +581,6 @@ class TestASpieltagAlreadyHoldingAClubTwice:
         assert _swap(clashing_spieltage=1) is not None
 
 
-class TestAPersonWithNoSquadRow:
-    """That no rule asks a person for a squad row, and that the rule governing one is asked at each of the three writes."""
-
-
-class TestAPupilsAgeNoSquadRuleJudges:
-    """That the league's age reaches no squad module: the floor is judged at the registration alone."""
-
-
 # The junction as the refusal reads it: the season's own name for the club, and the day it left.
 MEMBERSHIP = {
     ObjectId(ADLER): SaisonMembership(name="Adler", shorthand="ADX", departed_from=EXIT_BEFORE_THE_FIXTURE),
@@ -732,22 +677,6 @@ class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
 
         assert counts["gruppenphase"] > 1
         assert knockout and set(knockout.values()) == {1}
-
-
-def _stamped_by(endpoint: Callable[..., Any]) -> set[str]:
-    """The collections one endpoint hands `set_inactive_since`, read off its own call site or the callback it runs as a transaction."""
-
-    return {
-        keyword.value.id
-        for _, call in calls_in(declared(endpoint), endpoint.__name__)
-        if callee(call) == "set_inactive_since"
-        for keyword in call.keywords
-        if keyword.arg == "collection" and isinstance(keyword.value, ast.Name)
-    }
-
-
-class TestARetiredPersonKeepsALiveSquadRow:
-    """That retiring a person stamps `spieler` alone, and that a squad row is left by an endpoint of its own."""
 
 
 # Every refusal `PATCH /spiele/{spiel_id}` runs, which is the whole of what could gate a result on

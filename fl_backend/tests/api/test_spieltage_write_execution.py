@@ -53,11 +53,6 @@ BEFORE_THE_MIDDLE = "2026-06-22"
 BEFORE_THE_FIRST_BEGINN = "2026-06-15"
 BEFORE_THE_FIRST_ENDE = "2026-06-16"
 
-# Below both, for a phase already dated backwards: the step is what the rule judges, so a stored day
-# under the position below it is a floor and only a move past that floor is refused.
-BELOW_THE_BACKWARDS_PAIR = "2026-06-10"
-# A later end for a row held at that floor, so an accepted write moves a field the echo can show.
-WIDENED_ENDE = "2026-06-19"
 
 # The other season's own days, so no row carries a span reaching across two seasons.
 OTHER_SAISON_BEGINN = "2025-06-25"

@@ -41,7 +41,6 @@ SAISON_RULES = FLSaisonRules(
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
     erlaubte_stufen=["E1"],
 )
-IMPLIED_MATCHDAYS = 6
 
 # Fixed rather than generated: a failing squad-filter assertion points at the same value every run.
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607182930")

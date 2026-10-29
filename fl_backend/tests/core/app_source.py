@@ -77,10 +77,6 @@ DRIVER_WRITES = frozenset(
 # its dependencies this way.
 COLLECTION_ARGUMENT_SUFFIX = "_collection"
 
-# A session parameter is recognised by its ANNOTATION and never by its name: `figures_session` and
-# `status_session` are sessions, and a `session` on something else is not one.
-SESSION_TYPE_MODULE = "pymongo.asynchronous.client_session"
-
 
 @functools.cache
 def parsed(file: Path) -> ast.Module:
