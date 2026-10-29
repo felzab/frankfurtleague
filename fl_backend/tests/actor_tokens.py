@@ -9,7 +9,16 @@ import time
 from collections.abc import Iterator, Mapping
 from typing import Final, Literal
 
-from app.core.security import ACTOR_HEADER, AUTH_FACTOR_HEADER, AUTH_TIME_HEADER, PASSKEY_FACTOR, Factor, SessionActor, get_step_up_check
+from app.core.security import (
+    ACTOR_HEADER,
+    AUTH_FACTOR_HEADER,
+    AUTH_TIME_HEADER,
+    PASSKEY_FACTOR,
+    Factor,
+    SessionActor,
+    actor_header_value,
+    get_step_up_check,
+)
 
 Lane = Literal["admin", "person"]
 
@@ -24,7 +33,8 @@ def factor_of(lane: Lane) -> Factor:
 
 
 def session_headers(email: str, *, auth_time: int, factor: Factor) -> dict[str, str]:
-    return {ACTOR_HEADER: email, AUTH_TIME_HEADER: str(auth_time), AUTH_FACTOR_HEADER: factor}
+    # Encoded as the frontend sends it, so an address beyond ASCII reaches the binder as one would in production.
+    return {ACTOR_HEADER: actor_header_value(email), AUTH_TIME_HEADER: str(auth_time), AUTH_FACTOR_HEADER: factor}
 
 
 def actor_headers(email: str, *, lane: Lane = "admin", signed_in_before_s: int = SESSION_AGE_S, factor: Factor | None = None) -> dict[str, str]:

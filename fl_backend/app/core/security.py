@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPStatus
 from typing import Annotated, Any, Final, Literal, get_args
+from urllib.parse import quote, unquote
 
 from bson import ObjectId
 from fastapi import Depends, Request, Security
@@ -107,21 +108,45 @@ ACTOR_REFUSAL_HEADERS: Final = {"WWW-Authenticate": ACTOR_TOKEN_CHALLENGE}
 
 @dataclass(frozen=True, kw_only=True)
 class SessionActor:
-    # The sign-in identifier as the header spells it; every reader folds it before keying on it.
+    # The sign-in identifier as the header spells it once decoded; every reader folds it before keying on it.
     email: str
     # When the session was made, in whole seconds since the epoch.
     auth_time: int
     factor: Factor
 
 
+# What ECMAScript's `encodeURIComponent` leaves unescaped beyond the letters, digits and `_.-~` `quote` always keeps.
+_URI_COMPONENT_SAFE: Final = "!'()*"
+
+
+def actor_header_value(email: str) -> str:
+    """The address as `X-FL-Actor` carries it: UTF-8, percent-encoded as `encodeURIComponent` spells it.
+
+    A field value is ASCII (RFC 9110 §5.5), and the frontend's fetch takes only a ByteString, so an address beyond
+    ASCII travels encoded (`fl_frontend/src/core/api.ts :: sendToBackend`).
+    """
+
+    return quote(email, safe=_URI_COMPONENT_SAFE)
+
+
+def _decoded_actor(value: str) -> str | None:
+    """The address `value` encodes, or `None` where it is not the one spelling `actor_header_value` gives that address."""
+
+    email = unquote(value)
+    # The round trip refuses every other spelling: a value sent unencoded, which would read `%41` as `A` and name
+    # someone else; a malformed or lower-case escape; an escape of no UTF-8, which decodes to U+FFFD; and a byte past
+    # ASCII, which Starlette decodes as Latin-1.
+    return email if actor_header_value(email) == value else None
+
+
 def get_session_actor(request: Request) -> SessionActor:
     """The three headers as one session, 400 where any is missing or unreadable: such a request names nobody."""
 
-    email = request.headers.get(ACTOR_HEADER, "")
+    email = _decoded_actor(request.headers.get(ACTOR_HEADER, ""))
     auth_time = request.headers.get(AUTH_TIME_HEADER, "")
     factor = request.headers.get(AUTH_FACTOR_HEADER, "")
     # ASCII digits alone: `int` also takes a sign, spaces, underscores and other scripts' digits.
-    if email == "" or not (auth_time.isascii() and auth_time.isdigit()) or factor not in FACTORS:
+    if not email or not (auth_time.isascii() and auth_time.isdigit()) or factor not in FACTORS:
         raise APIError(HTTPStatus.BAD_REQUEST, Code.MISSING_ACTOR)
     return SessionActor(email=email, auth_time=int(auth_time), factor=factor)
 
