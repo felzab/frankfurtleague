@@ -75,8 +75,8 @@ class TestResolveTraceId:
         """Mirrored entry for entry by `fl_frontend/src/core/trace.test.ts`: a hop admitting what the other refuses admits injected text."""
         resolved = resolve_trace_id(hostile)
 
-        assert resolved != TRACE
-        assert resolved != hostile
+        # Nothing the header carried, an all-zero id included: a fresh mint shares no 32 characters with it.
+        assert resolved not in (hostile or "")
         assert re.fullmatch(r"[a-f0-9]{32}", resolved)
 
 
