@@ -1,14 +1,11 @@
-import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn, unpublishedOn } from "@/test-support/publishedRefusals.ts";
+import { answerShown, DUPLICATE_KEY, refusalCodes, refused } from "@/test-support/refusals.ts";
 import { describe, expect, it } from "vitest";
 
 import { mapAnsichtRefusal, mapSperreRefusal } from "./refusals.ts";
 
-const CREATE_OPERATION = "POST /sperrliste";
-const ANSICHT_OPERATION = "POST /identitaet/erasure/ansicht";
-
 const ON_THE_BOX = { fieldErrors: { email: "Diese Adresse ist schon gesperrt." } };
 
-const refusedWith = (statusCode: number, serverErrorCode: string) => refusedOn(CREATE_OPERATION, serverErrorCode, statusCode);
+const refusedWith = (statusCode: number, serverErrorCode: string) => refused(serverErrorCode, statusCode);
 
 describe("the address a unique index already holds", () => {
   /* `uniq_sperrliste_adresse_hash` is this collection's only unique index, so the 409 it raises is
@@ -21,14 +18,8 @@ describe("the address a unique index already holds", () => {
 
   /* The rules restated, so a code retired from the endpoint fails here rather than leaving a dead arm behind. */
   it("answers every refusal the create publishes", () => {
-    expect(publishedRefusals(CREATE_OPERATION).filter((code) => code !== DUPLICATE_KEY)).toStrictEqual([
-      "REQ-SPERRLISTE-001",
-      "REQ-SPERRLISTE-002",
-      "REQ-SPERRLISTE-003",
-      "REQ-SPERRLISTE-004",
-    ]);
-    for (const code of publishedRefusals(CREATE_OPERATION)) {
-      expect(answerShown(CREATE_OPERATION, code, mapSperreRefusal), `${code} reaches the admin as an unhandled conflict`).not.toBe(null);
+    for (const code of refusalCodes("DB-COMMON-002", "REQ-SPERRLISTE-001", "REQ-SPERRLISTE-002", "REQ-SPERRLISTE-003", "REQ-SPERRLISTE-004")) {
+      expect(answerShown(code, mapSperreRefusal), `${code} reaches the admin as an unhandled conflict`).not.toBe(null);
     }
   });
 
@@ -52,7 +43,7 @@ describe("the address a unique index already holds", () => {
   /* The typed reason is what the rule refuses, so the sentence lands under its box, the box itself the way out: the rule
      names no word and refuses a common word equal to a name with it. */
   it("lands a name of the address's records in the reason on the reason box", () => {
-    expect(mapSperreRefusal(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-004"))).toStrictEqual({
+    expect(mapSperreRefusal(refused("REQ-SPERRLISTE-004"))).toStrictEqual({
       fieldErrors: { grund: "Der Grund enthält ein Wort, das einem Namen der Person gleicht." },
     });
   });
@@ -66,7 +57,7 @@ describe("the address a unique index already holds", () => {
     expect(mapSperreRefusal(refusedWith(422, DUPLICATE_KEY))).toStrictEqual(mapSperreRefusal(refusedWith(409, DUPLICATE_KEY)));
     /* A row another administrator has already lifted is `DB-COMMON-001`, which
        `fl_frontend/src/shared/utils/actionError.ts` words as the reload it is. */
-    expect(mapSperreRefusal(unpublishedOn(CREATE_OPERATION, "DB-COMMON-001", 404))).toBe(null);
+    expect(mapSperreRefusal(refused("DB-COMMON-001", 404))).toBe(null);
   });
 
   it("leaves an error that never came from the API alone", () => {
@@ -86,15 +77,13 @@ describe("the list read ahead of the ban", () => {
      box, whether the read foresees the refusal or the ban answers it. */
   it("lands the reader's own address and an owner's on the address box in the ban's words", () => {
     for (const code of ["REQ-PURGE-003", "REQ-PURGE-005"]) {
-      expect(mapAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)), code).toStrictEqual(
-        mapSperreRefusal(refusedWith(409, "REQ-SPERRLISTE-003")),
-      );
+      expect(mapAnsichtRefusal(refused(code)), code).toStrictEqual(mapSperreRefusal(refusedWith(409, "REQ-SPERRLISTE-003")));
     }
   });
 
   /* The rest are the shared reader's, so a rule the read gains fails here rather than reading as a field it never names. */
   it("words no other refusal the read publishes", () => {
-    const worded = publishedRefusals(ANSICHT_OPERATION).filter((code) => mapAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)) !== null);
+    const worded = refusalCodes("REQ-PURGE-003", "REQ-PURGE-005").filter((code) => mapAnsichtRefusal(refused(code)) !== null);
 
     expect(worded).toStrictEqual(["REQ-PURGE-003", "REQ-PURGE-005"]);
   });

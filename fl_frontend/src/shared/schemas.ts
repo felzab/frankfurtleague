@@ -2,11 +2,11 @@ import { z } from "zod";
 
 import { hasAsciiLocalPart, isDeliverableAddress, isSpecialUseAddress, KONTAKT_EMAIL_MAX_LENGTH } from "@/core/emailAddress";
 
+import type * as wire from "@/core/generated/client/types";
+
 // Each schema mirrors a constraint in `fl_backend/app/shared/schemas/custom.py`,
 // `fl_backend/app/shared/schemas/addresses.py` or, for an email address,
 // `fl_backend/app/shared/schemas/kontakt.py :: CustomEmail`; on a WRITE, looser makes the message a lie.
-
-// A pattern is outside `fl_frontend/src/core/apiContract.test.ts`.
 
 // The final digit sits outside the class, so no accepted value is punctuation and spaces alone
 // (`fl_backend/app/shared/schemas/custom.py :: PHONE_REGEX`).
@@ -109,8 +109,8 @@ export const FLAddressSchema = z.object({
   plz: z.string().regex(PLZ_REGEX, { error: "Die PLZ muss genau 5 Ziffern haben." }),
   stadtteil: z.string(),
   stadt: z.string().nonempty({ error: "Bitte gib eine Stadt ein." }),
-});
-export type FLAddress = z.infer<typeof FLAddressSchema>;
+}) satisfies z.ZodType<wire.FLAddress>;
+export type FLAddress = wire.FLAddress;
 
 /**
  * The address ceilings, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Every frontend enforcement point reads
@@ -150,8 +150,8 @@ export const FLAddressPayloadSchema = FLAddressSchema.extend({
     .max(ADDRESS_HAUSNUMMER_MAX_LENGTH, {
       error: `Die Hausnummer darf höchstens ${String(ADDRESS_HAUSNUMMER_MAX_LENGTH)} Zeichen lang sein.`,
     }),
-});
-export type FLAddressPayload = z.infer<typeof FLAddressPayloadSchema>;
+}) satisfies z.ZodType<wire.FLAddressPayload>;
+export type FLAddressPayload = wire.FLAddressPayload;
 
 /**
  * Re-exported from `core`, where `isDeliverableAddress` holds the same ceiling: applied here so an
@@ -213,8 +213,8 @@ export const FLKontaktSchema = z.object({
   // Judged on the payload alone: an address stored under an older rule would fail the whole referee
   // list's parse.
   email: z.string().nullable(),
-});
-export type FLKontakt = z.infer<typeof FLKontaktSchema>;
+}) satisfies z.ZodType<wire.FLKontakt>;
+export type FLKontakt = wire.FLKontakt;
 
 /** What the two referee payloads embed: the write is where the address rule applies and a refusal reaches a box. */
 export const FLKontaktPayloadSchema = FLKontaktSchema.extend({
@@ -228,7 +228,7 @@ export const FLKontaktPayloadSchema = FLKontaktSchema.extend({
   // Required where the telephone is not: an administrator enters a referee, and the address is how
   // that person learns of it.
   email: KontaktEmailSchema,
-});
+}) satisfies z.ZodType<wire.FLKontaktPayload>;
 
 /**
  * Mirrors `FLBewerbungZustellstand`, which every kind of link records. **Orthogonal to `Stand`**, which is
@@ -237,8 +237,8 @@ export const FLKontaktPayloadSchema = FLKontaktSchema.extend({
  */
 export const FLBewerbungZustellstandSchema = z.enum(["angenommen", "zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"], {
   error: "Diesen Zustellstand gibt es nicht.",
-});
-export type FLBewerbungZustellstand = z.infer<typeof FLBewerbungZustellstandSchema>;
+}) satisfies z.ZodType<wire.FLBewerbungZustellungStand>;
+export type FLBewerbungZustellstand = wire.FLBewerbungZustellungStand;
 
 /** Mirrors `FLBewerbungZustellung` — what became of the last message sent to one seat. */
 export const FLBewerbungZustellungSchema = z.object({
@@ -250,5 +250,5 @@ export const FLBewerbungZustellungSchema = z.object({
   grund: z.string().nullable(),
   // Not `CustomDateStringSchema`: an instant, and the key an out-of-order event is judged against.
   am: z.string(),
-});
-export type FLBewerbungZustellung = z.infer<typeof FLBewerbungZustellungSchema>;
+}) satisfies z.ZodType<wire.FLBewerbungZustellung>;
+export type FLBewerbungZustellung = wire.FLBewerbungZustellung;

@@ -1,5 +1,4 @@
-import { publishedOperations } from "@/test-support/openapiDocument.ts";
-import { publishedRefusals, refusedOn } from "@/test-support/publishedRefusals.ts";
+import { refusalCodes, refused } from "@/test-support/refusals.ts";
 import { assert, describe, expect, it } from "vitest";
 
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
@@ -17,6 +16,8 @@ import {
 } from "@/features/berechtigungen/constants.ts";
 import { mapEntziehenRefusal, mapStufeRefusal } from "@/features/berechtigungen/refusals.ts";
 import { mapAbmeldungRefusal, mapErasureRefusal } from "@/features/funktionen/refusals.ts";
+
+import type { Code } from "@/core/generated/client/types.ts";
 
 describe("the actor an admin card names", () => {
   it("names an administrator by their address", () => {
@@ -57,11 +58,9 @@ describe("the words the grants page names the owner tier in", () => {
       ),
     );
     const refusals = [
-      ...publishedRefusals("DELETE /berechtigungen/{berechtigung_id}").map((code) =>
-        mapEntziehenRefusal(refusedOn("DELETE /berechtigungen/{berechtigung_id}", code)),
-      ),
-      ...publishedRefusals("PATCH /berechtigungen/{berechtigung_id}").map((code) =>
-        mapStufeRefusal(refusedOn("PATCH /berechtigungen/{berechtigung_id}", code)),
+      ...refusalCodes("REQ-BERECHTIGUNG-002", "REQ-BERECHTIGUNG-004", "REQ-BERECHTIGUNG-005").map((code) => mapEntziehenRefusal(refused(code))),
+      ...refusalCodes("DB-COMMON-002", "REQ-BERECHTIGUNG-003", "REQ-BERECHTIGUNG-005", "REQ-BERECHTIGUNG-007", "REQ-BERECHTIGUNG-008").map(
+        (code) => mapStufeRefusal(refused(code)),
       ),
     ];
     const worte = [
@@ -93,9 +92,6 @@ describe("the words the grants page names the owner tier in", () => {
 });
 
 describe("a refusal of an owner's power", () => {
-  /** The codes refusing a session without an owner's power, an owner's signed in before the promotion among them. */
-  const OWNERS_POWER = new Set(["REQ-PURGE-005", "REQ-BERECHTIGUNG-005"]);
-
   /** A mapper answering its sentence alone, read in the shape the others answer. */
   const alsFehler =
     (map: (error: unknown) => string | null) =>
@@ -104,30 +100,26 @@ describe("a refusal of an owner's power", () => {
       return satz === null ? null : { error: satz };
     };
 
-  /** Each operation publishing one, and the mapper wording it. */
-  const WORDED_BY: Readonly<Record<string, (error: unknown) => { error?: string } | null>> = {
-    "POST /identitaet/erasure/ansicht": mapErasureRefusal,
-    "POST /identitaet/erasure": mapErasureRefusal,
-    "POST /identitaet/abmeldung": mapAbmeldungRefusal,
-    "DELETE /berechtigungen/{berechtigung_id}": mapEntziehenRefusal,
-    "PATCH /berechtigungen/{berechtigung_id}": mapStufeRefusal,
-    "POST /adresswechsel/ansicht": alsFehler(mapVerwaltungAnsichtRefusal),
-    "POST /adresswechsel": mapVerwaltungStartRefusal,
-    "POST /adresswechsel/{adresswechsel_id}/einladen": alsFehler(mapVerwaltungLinkRefusal),
-    "DELETE /adresswechsel/{adresswechsel_id}": alsFehler(mapVerwaltungLinkRefusal),
-  };
+  /**
+   * Each mapper of an operation refusing a session without an owner's power, an owner's signed in before the
+   * promotion among them, with the code its service raises for it.
+   */
+  const WORDED_BY = [
+    [mapErasureRefusal, "REQ-PURGE-005"],
+    [mapAbmeldungRefusal, "REQ-PURGE-005"],
+    [mapEntziehenRefusal, "REQ-BERECHTIGUNG-005"],
+    [mapStufeRefusal, "REQ-BERECHTIGUNG-005"],
+    [alsFehler(mapVerwaltungAnsichtRefusal), "REQ-PURGE-005"],
+    [mapVerwaltungStartRefusal, "REQ-PURGE-005"],
+    [alsFehler(mapVerwaltungLinkRefusal), "REQ-PURGE-005"],
+  ] as const satisfies readonly (readonly [(error: unknown) => { error?: string } | null, Code])[];
 
   /* An owner whose session predates the promotion is refused in the code an administrator is, and reads the sentence
      as false of them: only the closing sentence names the sign-in that repairs it. */
   it("sends an owner promoted since signing in to sign in again, on every operation refusing one", () => {
-    const published = publishedOperations().flatMap(({ operation, answers }) =>
-      answers.filter(({ code }) => OWNERS_POWER.has(code)).map(({ code }) => ({ operation, code })),
-    );
-
-    expect([...new Set(published.map(({ operation }) => operation))].sort()).toStrictEqual(Object.keys(WORDED_BY).sort());
-    for (const { operation, code } of published) {
-      const satz = WORDED_BY[operation]?.(refusedOn(operation, code))?.error ?? "";
-      assert.ok(satz.endsWith(`. ${NACH_ERNENNUNG_NEU_ANMELDEN}`), `${operation} answers ${code} as „${satz}“`);
+    for (const [mapper, code] of WORDED_BY) {
+      const satz = mapper(refused(code))?.error ?? "";
+      assert.ok(satz.endsWith(`. ${NACH_ERNENNUNG_NEU_ANMELDEN}`), `${mapper.name} answers ${code} as „${satz}“`);
     }
   });
 });

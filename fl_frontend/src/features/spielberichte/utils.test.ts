@@ -1,4 +1,4 @@
-import { refusedOn } from "@/test-support/publishedRefusals.ts";
+import { refused } from "@/test-support/refusals.ts";
 import { describe, expect, it } from "vitest";
 
 import { berichtChip, mapSpielberichtRefusal } from "./utils.ts";
@@ -34,8 +34,8 @@ describe("what an administrator's card says of its report", () => {
 describe("a write composed on a report that has changed since", () => {
   /* The reload draws the form anew, so each reader is told to enter the change again, and who else writes the report. */
   it("tells each reader to reload and enter the change again, naming the other writer", () => {
-    const schiedsrichter = mapSpielberichtRefusal(refusedOn("PUT /spielberichte/{spiel_id}/bericht", "REQ-BERICHT-006"), "schiedsrichter");
-    const admin = mapSpielberichtRefusal(refusedOn("PATCH /spielberichte/{spiel_id}", "REQ-BERICHT-006"), "admin");
+    const schiedsrichter = mapSpielberichtRefusal(refused("REQ-BERICHT-006"), "schiedsrichter");
+    const admin = mapSpielberichtRefusal(refused("REQ-BERICHT-006"), "admin");
 
     for (const answer of [schiedsrichter, admin]) {
       expect(answer?.error ?? "").toMatch(
@@ -51,7 +51,7 @@ describe("a referee's write on a fixture called off since the page opened", () =
   /* A report may stand from before the call-off, so the refusal says the fixture takes none, never that none exists, and
      sends the referee to the reload that shows the fixture as it is. */
   it("says the fixture takes no report, and how to see it as it stands", () => {
-    const answer = mapSpielberichtRefusal(refusedOn("PUT /spielberichte/{spiel_id}/bericht", "REQ-BERICHT-004"), "schiedsrichter");
+    const answer = mapSpielberichtRefusal(refused("REQ-BERICHT-004"), "schiedsrichter");
 
     expect(answer?.error).toBe(
       "Dieses Spiel ist inzwischen als ausgefallen oder annulliert eingetragen und nimmt keinen Spielbericht an. Lade die Seite neu.",

@@ -67,12 +67,12 @@ outside a request ([`../ops/runbooks.md`](../ops/runbooks.md#20-after-a-hand-edi
 operation sent through `fl_frontend/src/core/transport.ts` with the key tier its `security` names,
 and Zod schemas for request bodies and parameters alone. Every module opens with
 `import 'server-only'`, so a client component may import a type from it with `import type` and
-nothing else. A change to the backend's routes or models regenerates both, from the repository root:
-`uv run --directory fl_backend --frozen python -m app.openapi_document`, then `pnpm exec orval` in
-`fl_frontend`, committing what moves; the gate's db scope fails a tree where either is stale. The
-slices' hand-written Zod schemas in `schemas.ts` still mirror the Pydantic models for the calls made
-through `fl_frontend/src/core/api.ts :: apiClient`, and a disagreement between the two is the first
-thing to check when behaviour looks impossible.
+nothing else. A change to the backend's routes or models regenerates both with `pnpm run contract`
+in `fl_frontend`, which exports the document and then runs Orval, committing what moves; the gate's
+db scope runs the same script and fails a tree where either is stale. The slices' hand-written Zod
+schemas in `schemas.ts` only name the answer's type for the calls made through
+`fl_frontend/src/core/api.ts :: apiClient`, which parses no answer, so a disagreement between one
+and the generated types is the first thing to check when behaviour looks impossible.
 
 ## Rendering
 

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { spielbestaetigungFields } from "@/test-support/fixtures.ts";
-import { publishedRefusals, refusedOn, unpublishedOn } from "@/test-support/publishedRefusals.ts";
+import { refusalCodes, refused } from "@/test-support/refusals.ts";
 import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -16,30 +16,26 @@ import { grundZumEnde, laufUeberfaellig, mapAnsetzungAnsichtRefusal, mapAnsetzun
 
 import type { BestaetigungsSpiel } from "./utils.ts";
 
-/** The link's read, and the answer the page posts; a status named below is one the case moves a code to. */
-const ANSICHT_OPERATION = "POST /spielbestaetigungen/ansicht";
-const ANTWORT_OPERATION = "POST /spielbestaetigungen";
-
 describe("mapAnsetzungAnsichtRefusal", () => {
   /* The read refuses an unknown token alone; a spent link answers its own `zustand` in a 200. Fail-closed,
      so a code nobody planned still renders the panel that names nothing of a fixture. */
   it("calls the link void on every refusal the read publishes, and on a rule's code nobody planned", () => {
-    for (const code of publishedRefusals(ANSICHT_OPERATION)) {
-      expect(mapAnsetzungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)), code).toBe("ungueltig");
+    for (const code of refusalCodes("REQ-ANSETZUNG-001")) {
+      expect(mapAnsetzungAnsichtRefusal(refused(code)), code).toBe("ungueltig");
     }
-    expect(mapAnsetzungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "REQ-SOMETHING-NEW", 409))).toBe("ungueltig");
+    expect(mapAnsetzungAnsichtRefusal(refused("REQ-SOMETHING-NEW", 409))).toBe("ungueltig");
   });
 
   /* A malformed or over-long token never reaches a row, and the page has already dropped it from the
      address bar: the state inviting a reload would open the dead link anyway. */
   it("calls a token the backend will not parse void rather than offering a reload", () => {
-    expect(mapAnsetzungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-VAL-001"))).toBe("ungueltig");
+    expect(mapAnsetzungAnsichtRefusal(refused("REQ-VAL-001"))).toBe("ungueltig");
   });
 
   /* A failed read is the page's own state: the dead-link panel on a 500 would call a live link void on
      a day the backend was unreachable. */
   it("leaves anything that is not a refusal to the page's own state", () => {
-    expect(mapAnsetzungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, "", 500))).toBe(null);
+    expect(mapAnsetzungAnsichtRefusal(refused("", 500))).toBe(null);
     expect(mapAnsetzungAnsichtRefusal(new Error("socket hang up"))).toBe(null);
   });
 
@@ -48,13 +44,13 @@ describe("mapAnsetzungAnsichtRefusal", () => {
      call every live link void. */
   it("leaves the protocol's refusals to the page's own state, never the dead-link panel", () => {
     for (const code of ["REQ-AUTH-001", "REQ-AUTH-002", "REQ-VAL-002"]) {
-      expect(mapAnsetzungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)), code).toBe(null);
+      expect(mapAnsetzungAnsichtRefusal(refused(code)), code).toBe(null);
     }
     for (const [code, status] of [
       ["REQ-ROUTE-001", 404],
       ["REQ-ROUTE-002", 405],
     ] as const) {
-      expect(mapAnsetzungAnsichtRefusal(unpublishedOn(ANSICHT_OPERATION, code, status)), code).toBe(null);
+      expect(mapAnsetzungAnsichtRefusal(refused(code, status)), code).toBe(null);
     }
   });
 });
@@ -64,7 +60,7 @@ describe("mapAnsetzungRefusal on a body the API refused", () => {
      reader's reload would land on the dead link, so only the mail's link reopens the form. */
   it("sends the club back to the mail's link", () => {
     for (const code of ["REQ-VAL-001", "REQ-VAL-002"]) {
-      expect(mapAnsetzungRefusal(refusedOn(ANTWORT_OPERATION, code)), code).toStrictEqual({ error: ANTWORT_NEU_OEFFNEN });
+      expect(mapAnsetzungRefusal(refused(code)), code).toStrictEqual({ error: ANTWORT_NEU_OEFFNEN });
     }
   });
 

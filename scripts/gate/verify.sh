@@ -521,8 +521,7 @@ CONTRACT_PATHS=(fl_backend/openapi.json fl_frontend/src/core/generated)
 # finding. Each generator rewrites only files whose committed copy is then stale. An untracked file is
 # one a generation added, which `git diff` alone would pass. A generator that fails reaches no verdict.
 contract_check() {
-  uv run --directory fl_backend --frozen python -m app.openapi_document || return 3
-  ( cd fl_frontend && pnpm exec orval ) || return 3
+  ( cd fl_frontend && pnpm run contract ) || return 3
   local untracked
   untracked="$(git ls-files --others --exclude-standard -- "${CONTRACT_PATHS[@]}")"
   if [[ -n "$untracked" ]]; then printf 'Written by the generation and not committed:\n%s\n' "$untracked"; return 1; fi
@@ -535,7 +534,7 @@ scope_db() {
   # This scope because it alone has both the backend's virtualenv and the frontend's install.
   step "db · the contract and its generated client match the code they are built from"
   check "The committed contract no longer matches the code it is generated from; the diff above names each file.
-Fix with:  uv run --directory fl_backend --frozen python -m app.openapi_document && (cd fl_frontend && pnpm exec orval)  -- then commit both." \
+Fix with:  (cd fl_frontend && pnpm run contract)  -- then commit both." \
     contract_check \
     && ok "the contract and the client are current"
 

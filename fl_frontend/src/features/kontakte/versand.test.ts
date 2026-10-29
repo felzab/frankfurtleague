@@ -49,12 +49,9 @@ const { einladeKontaktAction, patchSaisonTeamKontakteAction } = await import("./
 const { describeLinkMail } = await import("@/features/schiedsrichter/notifications.ts");
 const { kontaktBestaetigungsLink } = await import("@/core/kontaktLink.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
-const { refusedOn } = await import("@/test-support/publishedRefusals.ts");
+const { refused } = await import("@/test-support/refusals.ts");
 const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 const { outcomeUnknown } = await import("@/shared/utils/actionError.ts");
-
-const SAVE_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte";
-const RESEND_OPERATION = "POST /teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen";
 
 /** A number per person: two seats sharing one are refused as one person entered twice. */
 const TELEFON: Record<string, string> = { Anna: "069 501", Bernd: "069 502", Clara: "069 503" };
@@ -234,7 +231,7 @@ describe("the contacts save that seats new people", () => {
   /* The backend refuses the save whole, storing nobody: the administrator is told at the save, in
      a sentence naming no address and no seat, since the refusal names neither. */
   it("answers a save seating a barred address with the ban, mailing nobody", async () => {
-    save = () => refusedOn(SAVE_OPERATION, "REQ-KONTAKT-003");
+    save = () => refused("REQ-KONTAKT-003");
 
     const res = await patchSaisonTeamKontakteAction(PAYLOAD);
 
@@ -387,7 +384,7 @@ describe("the re-send beside an unconfirmed seat", () => {
     ["REQ-KONTAKT-005", /Saison ist vorbei oder das Team ist ausgetreten\. Lade die Seite neu, um den aktuellen Stand zu sehen\./],
   ] as const) {
     it(`words ${code} beside the seat, and mails nothing`, async () => {
-      resend = () => refusedOn(RESEND_OPERATION, code);
+      resend = () => refused(code);
 
       const res = await einladeKontaktAction({ team_id: TEAM_ID, saison_id: "2627", rolle: "stellvertretung" });
 

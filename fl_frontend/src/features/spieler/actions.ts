@@ -3,8 +3,7 @@
 import z from "zod";
 
 import { runAdminMutation } from "@/shared/utils/adminMutation";
-import { partlyRestored, refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
-import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
+import { partlyRestored, refusedReplay, restored, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { RETIREMENT_KEEPS_SQUAD_ROWS } from "./constants";
@@ -49,10 +48,6 @@ export async function patchSpielerAction(
     }
 
     const patchOperation = await patchSpieler(validated.data);
-    if (!patchOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Spielerdaten wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return {
       success: true,
       spieler: patchOperation,
@@ -72,10 +67,6 @@ export async function deleteSpielerAction(
     }
 
     const deleteOperation = await deleteSpieler(validated.data);
-    if (!deleteOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spieler wurde nicht stillgelegt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return {
       success: true,
       spieler: deleteOperation,
@@ -95,10 +86,6 @@ export async function reactivateSpielerAction(
     }
 
     const reactivateOperation = await reactivateSpieler(validated.data);
-    if (!reactivateOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Spieler wurde nicht reaktiviert", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     return {
       success: true,
       spieler: reactivateOperation,
@@ -241,23 +228,14 @@ export async function undoAdminSpielerEditAction(rawPayload: z.input<typeof Spie
 
     if (person !== undefined) {
       // No replay catch: the register declares no refusal against the season-independent person row.
-      const operation = await patchSpieler(person);
-      if (!operation.acknowledged) return unclearReplay("Die Rücknahme wurde abgebrochen. Prüfe die Spielerdaten.");
+      await patchSpieler(person);
     }
 
     if (saison !== undefined) {
-      let operation;
       try {
-        operation = await patchSaisonSpieler(saison);
+        await patchSaisonSpieler(saison);
       } catch (error) {
         return person === undefined ? refusedReplay(error, SQUAD_REPLAY_REFUSALS) : partlyRestored(error, SQUAD_REPLAY_REFUSALS, SQUAD_HALF);
-      }
-
-      if (!operation.acknowledged) {
-        // The first half may already be restored; reported rather than papered over.
-        return unclearReplay(
-          person === undefined ? "Die Rücknahme wurde abgebrochen. Prüfe den Kadereintrag." : `${PERSON_HALF_RESTORED} Prüfe den Kadereintrag.`,
-        );
       }
     }
 

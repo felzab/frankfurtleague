@@ -163,10 +163,6 @@ export async function annehmenBewerbungAction(
       throw error;
     }
 
-    if (!annahmeOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Bewerbung wurde nicht angenommen", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     const zustellung = await notifyBewerbung({
       operation: "annehmenBewerbungAction",
       betreff: "Zusage",
@@ -231,10 +227,6 @@ export async function ablehnenBewerbungAction(
       const refusal = mapTriageRefusal(error, null);
       if (refusal) return refusalResult(refusal);
       throw error;
-    }
-
-    if (!absageOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Bewerbung wurde nicht abgelehnt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // No tag moves, unlike the acceptance: this moves the application's own `status` and
@@ -395,10 +387,6 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
       throw error;
     }
 
-    if (!erneutOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Link wurde nicht neu verschickt", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     // No tag moves, as on the decline: this moves the application's own confirmation block
     // and its deadline, and no cached read holds an application — both triage reads are uncached.
 
@@ -460,10 +448,6 @@ export async function kontaktEmailKorrigierenAction(
       throw error;
     }
 
-    if (!korrekturOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Adresse wurde nicht geändert", repair: VERSUCHE_ES_ERNEUT }) };
-    }
-
     // No tag moves, as on the decline: this moves the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
 
@@ -515,10 +499,6 @@ export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSit
       const refusal = mapKontaktSitzRefusal(error);
       if (refusal) return refusalResult(refusal);
       throw error;
-    }
-
-    if (!sitzOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Die Rolle wurde nicht neu besetzt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // No tag moves, for the correction's reason: this writes the application's own contact block and
