@@ -10,11 +10,9 @@ from fastapi import FastAPI
 from httpx2 import Response
 from pymongo import MongoClient
 
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exception_handlers import DATABASE_FAILED
-from app.core.exceptions import DOCUMENT_NOT_FOUND
-from app.core.security import WRONG_ADMIN_KEY, WRONG_BASE_KEY
 from app.main import create_app
 from tests import documents
 from tests.app_client import app_client
@@ -25,12 +23,12 @@ from .conftest import unwritten
 
 # Which guard refused, and so which route answered: `verify_access_base` guards the public router
 # and `verify_access_admin` the admin one, and no key satisfies both.
-BASE_GUARD_REFUSED = WRONG_BASE_KEY
-ADMIN_GUARD_REFUSED = WRONG_ADMIN_KEY
+BASE_GUARD_REFUSED = Code.WRONG_BASE_KEY
+ADMIN_GUARD_REFUSED = Code.WRONG_ADMIN_KEY
 
 # Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure,
 # the harness's own included.
-UNREACHED_DATABASE = DATABASE_FAILED
+UNREACHED_DATABASE = Code.DATABASE_FAILED
 
 SAISON_ID = "2026"
 
@@ -189,4 +187,4 @@ def test_an_id_naming_no_fixture_is_a_404(seeded_url: str):
     )
 
     assert response.status_code == 404
-    assert response.json()["error_code"] == DOCUMENT_NOT_FOUND
+    assert response.json()["error_code"] == Code.DOCUMENT_NOT_FOUND

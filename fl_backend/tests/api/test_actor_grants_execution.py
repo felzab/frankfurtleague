@@ -11,8 +11,8 @@ import asyncio
 import pytest
 from pymongo import MongoClient
 
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.security import ACTOR_NOT_ADMIN
 from app.main import create_app
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
@@ -48,7 +48,7 @@ def answered(url: str, actor: str) -> tuple[int, str | None]:
 
 
 def test_an_actor_holding_no_grant_is_refused_by_the_real_read(mongo_replica_set_url: str):
-    assert answered(mongo_replica_set_url, "schueler@example.com") == (403, ACTOR_NOT_ADMIN)
+    assert answered(mongo_replica_set_url, "schueler@example.com") == (403, Code.ACTOR_NOT_ADMIN)
 
 
 def test_an_actor_holding_a_grant_passes_the_real_read(mongo_replica_set_url: str):

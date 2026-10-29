@@ -15,12 +15,9 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.client_session_shared import _EmptyServerSession
 from pymongo.errors import OperationFailure, PyMongoError
 
+from app.core.codes import Code
 from app.core.exception_handlers import (
-    DATABASE_FAILED,
     NO_DATA_TEXT,
-    STORED_DATA_INVALID,
-    UNHANDLED_CRASH,
-    UNKNOWN_OUTCOME,
     refused_properties_of,
     rejected_fields_of,
 )
@@ -52,7 +49,7 @@ def _log_left_open(cause: str) -> None:
     # Never raised: the request answers the failure that brought it here.
     fl_logger.error(
         f"A transaction this request opened may stand open on the server until its lifetime limit: {cause}",
-        extra={"error_code": DATABASE_FAILED},
+        extra={"error_code": Code.DATABASE_FAILED},
     )
 
 
@@ -264,16 +261,16 @@ def diagnosis_of(failure: Exception) -> tuple[str, str]:
 
     if isinstance(failure, PyMongoError):
         return (
-            DATABASE_FAILED,
+            Code.DATABASE_FAILED,
             f"{type(failure).__name__}, code {getattr(failure, 'code', None)}: {refused_properties_of(failure) or NO_DATA_TEXT}",
         )
     if isinstance(failure, ValidationError):
-        return STORED_DATA_INVALID, f"{type(failure).__name__}: {rejected_fields_of(failure.errors()) or NO_DATA_TEXT}"
+        return Code.STORED_DATA_INVALID, f"{type(failure).__name__}: {rejected_fields_of(failure.errors()) or NO_DATA_TEXT}"
 
     # The innermost frame rather than the message, which can quote the value the code met.
     frames = traceback.extract_tb(failure.__traceback__)
     where = f"{frames[-1].name} at {frames[-1].filename}:{frames[-1].lineno}" if frames else NO_DATA_TEXT
-    return UNHANDLED_CRASH, f"{type(failure).__name__} in {where}"
+    return Code.UNHANDLED_CRASH, f"{type(failure).__name__} in {where}"
 
 
 def log_passed(*, what: str, row_id: Any, clock: str, failure: Exception) -> None:
@@ -368,7 +365,7 @@ async def isolate[T](
         fl_logger.warning(
             f"The request's deadline holds no further attempt taking the {clock} clock's rows apart: the call answers what committed, "
             "and the rest stay due",
-            extra={"error_code": DATABASE_FAILED},
+            extra={"error_code": Code.DATABASE_FAILED},
         )
 
     return committed, passed
@@ -389,12 +386,12 @@ def _log_stopped(stop: Exception, *, what: str, clock: str, cut: Sequence[Any]) 
         fl_logger.warning(
             f"Database deadline passed taking the {clock} clock's rows apart, the commit of {what} {', '.join(map(str, cut))} "
             "unanswered: those may have been written with nobody told, the call answers what else committed, and the rest stay due",
-            extra={"error_code": UNKNOWN_OUTCOME},
+            extra={"error_code": Code.UNKNOWN_OUTCOME},
         )
     else:
         fl_logger.warning(
             f"Database deadline passed taking the {clock} clock's rows apart: the call answers what committed, and the rest stay due",
-            extra={"error_code": DATABASE_FAILED},
+            extra={"error_code": Code.DATABASE_FAILED},
         )
 
 

@@ -7,11 +7,6 @@ from bson import ObjectId
 from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, verein_fields
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungTermin
 from app.api.spielbestaetigungen.services import (
-    ANSETZUNG_BEANTWORTET,
-    ANSETZUNG_ENTSCHIEDEN,
-    ANSETZUNG_FRIST_VORBEI,
-    ANSETZUNG_GEAENDERT,
-    ANSETZUNG_GESCHLOSSEN,
     AnsetzungLage,
     ansetzung_stand_of,
     ansicht_ansetzung_of,
@@ -27,6 +22,7 @@ from app.api.spielbestaetigungen.services import (
     zustand_of,
 )
 from app.api.spiele.schemas import FLSpiel
+from app.core.codes import Code
 
 TEAM1 = ObjectId("650000000000000000000101")
 TEAM2 = ObjectId("650000000000000000000102")
@@ -120,34 +116,40 @@ class TestASpentLinkMeetsTheCodeThatNamesWhy:
     @pytest.mark.parametrize(
         ("row", "situation", "today", "code"),
         [
-            pytest.param({"antwort": ANSWERED}, {}, TODAY, ANSETZUNG_BEANTWORTET, id="answered"),
-            pytest.param({}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, TODAY, ANSETZUNG_GEAENDERT, id="moved"),
-            pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, ANSETZUNG_ENTSCHIEDEN, id="a-result"),
-            pytest.param({}, {"spiel_overrides": {"sonderereignis": "ausgefallen"}}, TODAY, ANSETZUNG_ENTSCHIEDEN, id="called-off"),
+            pytest.param({"antwort": ANSWERED}, {}, TODAY, Code.ANSETZUNG_BEANTWORTET, id="answered"),
+            pytest.param({}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, TODAY, Code.ANSETZUNG_GEAENDERT, id="moved"),
+            pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, Code.ANSETZUNG_ENTSCHIEDEN, id="a-result"),
+            pytest.param({}, {"spiel_overrides": {"sonderereignis": "ausgefallen"}}, TODAY, Code.ANSETZUNG_ENTSCHIEDEN, id="called-off"),
             pytest.param(
                 {"antwort": ANSWERED, "geschlossen": {"am": TODAY, "grund": "ansetzung_geaendert"}},
                 {"spiel_overrides": {"uhrzeit": "19:00:00"}},
                 "2027-05-08",
-                ANSETZUNG_BEANTWORTET,
+                Code.ANSETZUNG_BEANTWORTET,
                 id="answered-ahead-of-closed-late-and-moved",
             ),
             pytest.param(
                 {"geschlossen": {"am": TODAY, "grund": "ansetzung_geaendert"}},
                 {"spiel_overrides": {"uhrzeit": "19:00:00"}},
                 "2027-05-08",
-                ANSETZUNG_GESCHLOSSEN,
+                Code.ANSETZUNG_GESCHLOSSEN,
                 id="closed-ahead-of-late-and-moved",
             ),
             # What the close would shut the row for, ahead of the deadline, as the view ranks them.
-            pytest.param({}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, "2027-05-08", ANSETZUNG_GEAENDERT, id="moved-ahead-of-late"),
-            pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, "2027-05-08", ANSETZUNG_ENTSCHIEDEN, id="decided-ahead-of-late"),
+            pytest.param({}, {"spiel_overrides": {"uhrzeit": "19:00:00"}}, "2027-05-08", Code.ANSETZUNG_GEAENDERT, id="moved-ahead-of-late"),
+            pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, "2027-05-08", Code.ANSETZUNG_ENTSCHIEDEN, id="decided-ahead-of-late"),
             # The close's own order: a decided fixture is owed no notice that it moved.
             pytest.param(
-                {}, {"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}}, TODAY, ANSETZUNG_ENTSCHIEDEN, id="decided-ahead-of-moved"
+                {},
+                {"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}},
+                TODAY,
+                Code.ANSETZUNG_ENTSCHIEDEN,
+                id="decided-ahead-of-moved",
             ),
             # Its day gone by unplayed, the close's last reason, is a deadline gone by too and answers as one.
-            pytest.param({}, {}, AFTER_THE_DAY, ANSETZUNG_FRIST_VORBEI, id="the-day-passed"),
-            pytest.param({}, {"spiel_overrides": {"ergebnis": "2:1"}}, AFTER_THE_DAY, ANSETZUNG_ENTSCHIEDEN, id="decided-ahead-of-the-day"),
+            pytest.param({}, {}, AFTER_THE_DAY, Code.ANSETZUNG_FRIST_VORBEI, id="the-day-passed"),
+            pytest.param(
+                {}, {"spiel_overrides": {"ergebnis": "2:1"}}, AFTER_THE_DAY, Code.ANSETZUNG_ENTSCHIEDEN, id="decided-ahead-of-the-day"
+            ),
         ],
     )
     def test_the_first_reason_in_order_answers(self, row: dict[str, Any], situation: dict[str, Any], today: str, code: str):
@@ -160,9 +162,9 @@ class TestASpentLinkMeetsTheCodeThatNamesWhy:
             refusal = find_spent_link_refusal(spielbestaetigung_raw=zeile(**row), lage=lage(**situation), today=today)
             return None if refusal is None else refusal.error_code
 
-        assert code_of({"geschlossen": {"am": TODAY, "grund": "verworfen"}}, {}) == ANSETZUNG_GESCHLOSSEN
-        assert code_of({}, {}, today="2027-05-08") == ANSETZUNG_FRIST_VORBEI
-        assert code_of({}, {"austritt": DATUM}) == ANSETZUNG_ENTSCHIEDEN
+        assert code_of({"geschlossen": {"am": TODAY, "grund": "verworfen"}}, {}) == Code.ANSETZUNG_GESCHLOSSEN
+        assert code_of({}, {}, today="2027-05-08") == Code.ANSETZUNG_FRIST_VORBEI
+        assert code_of({}, {"austritt": DATUM}) == Code.ANSETZUNG_ENTSCHIEDEN
 
     def test_an_open_row_about_the_fixture_as_it_stands_answers_on_its_deadline_day(self):
         """The deadline's own day still answers, and a club leaving AFTER the fixture's day decides nothing about it."""
@@ -329,7 +331,12 @@ SITUATIONS = [
 ]
 
 # The page a refused answer's code sends the reader to (`fl_frontend/src/features/spielbestaetigungen/utils.ts`).
-STATE_OF_CODE = {None: "gueltig", ANSETZUNG_GEAENDERT: "ungueltig", ANSETZUNG_ENTSCHIEDEN: "abgelaufen", ANSETZUNG_FRIST_VORBEI: "abgelaufen"}
+STATE_OF_CODE = {
+    None: "gueltig",
+    Code.ANSETZUNG_GEAENDERT: "ungueltig",
+    Code.ANSETZUNG_ENTSCHIEDEN: "abgelaufen",
+    Code.ANSETZUNG_FRIST_VORBEI: "abgelaufen",
+}
 
 
 def called_off(situation: dict[str, Any]) -> bool:

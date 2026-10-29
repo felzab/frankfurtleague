@@ -7,7 +7,7 @@ from app.api.saisons.schedule import expected_matches
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import PHASE_ORDER, PHASE_RANK
 from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
 
@@ -79,11 +79,6 @@ def nachnominierung_laeuft(*, beginn: Any, today: str) -> bool:
     return isinstance(beginn, str) and beginn <= today
 
 
-SPIELTAG_OUTSIDE_SAISON = Code.SPIELTAG_OUTSIDE_SAISON
-# `REQ-DATE-001`'s mirror: shrinking the span is the other way to break the same containment.
-SPIELTAG_SPAN_BELOW_FIXTURES = Code.SPIELTAG_SPAN_BELOW_FIXTURES
-
-
 def find_spieltag_span_refusal(
     *,
     beginn: str,
@@ -99,7 +94,7 @@ def find_spieltag_span_refusal(
 
     if beginn < saison_start or ende > saison_end:
         return WriteRefusal(
-            error_code=SPIELTAG_OUTSIDE_SAISON,
+            error_code=Code.SPIELTAG_OUTSIDE_SAISON,
             status=HTTPStatus.CONFLICT,
             message=f"the matchday runs {beginn} to {ende} and its season runs {saison_start} to {saison_end}; "
             "a matchday is a block of that season's fixtures",
@@ -108,19 +103,13 @@ def find_spieltag_span_refusal(
     outside = sorted(datum for datum in fixture_dates if datum < beginn or datum > ende)
     if outside:
         return WriteRefusal(
-            error_code=SPIELTAG_SPAN_BELOW_FIXTURES,
+            error_code=Code.SPIELTAG_SPAN_BELOW_FIXTURES,
             status=HTTPStatus.CONFLICT,
             message=f"{len(outside)} of the matchday's fixtures fall outside {beginn} to {ende} (first: {outside[0]}); "
             "widen the span or move those fixtures",
         )
 
     return None
-
-
-# `position` and `beginn` order a phase independently, so nothing else stops a season from showing
-# its matchdays in one order and dating them in another. `ende` is left free: it is the escape a
-# postponement takes, and the message names it.
-SPIELTAG_BEGINN_OUT_OF_ORDER = Code.SPIELTAG_BEGINN_OUT_OF_ORDER
 
 
 @dataclass(frozen=True)
@@ -183,7 +172,7 @@ def find_spieltag_order_refusal(
         )
 
         return WriteRefusal(
-            error_code=SPIELTAG_BEGINN_OUT_OF_ORDER,
+            error_code=Code.SPIELTAG_BEGINN_OUT_OF_ORDER,
             status=HTTPStatus.CONFLICT,
             # Below the floor the goal is reachable at fixture level alone: the predecessor's own
             # matches move into the later days, and no `beginn` moves at all.
@@ -202,7 +191,7 @@ def find_spieltag_order_refusal(
         )
 
         return WriteRefusal(
-            error_code=SPIELTAG_BEGINN_OUT_OF_ORDER,
+            error_code=Code.SPIELTAG_BEGINN_OUT_OF_ORDER,
             status=HTTPStatus.CONFLICT,
             message=f"this matchday begins {beginn} and position {following.position} of its phase begins {following.beginn}; "
             f"{opening} and save that with this `ende` of {ende}, which already runs past that day, "

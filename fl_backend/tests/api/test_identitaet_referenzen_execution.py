@@ -8,8 +8,8 @@ from bson import ObjectId
 from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.services import KEIN_INHABER
 from app.api.spieler.services import build_ghost_spieler
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -314,5 +314,5 @@ class TestALeagueWithoutAnOwner:
 
         status, body = on_the_seed_loop(_run())
 
-        assert (status, body["error_code"]) == (409, KEIN_INHABER), body
+        assert (status, body["error_code"]) == (409, Code.KEIN_INHABER), body
         assert "unreferenziert" not in body

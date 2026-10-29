@@ -40,7 +40,8 @@ from app.api.spiele.schemas import (
     FLSpielSchiedsrichterFieldPublic,
     unplayed_filter,
 )
-from app.api.spiele.services import BOOKING_UNKNOWN_RESOURCE, BookedReferee, ResolvedReferences, find_booking_refusal
+from app.api.spiele.services import BookedReferee, ResolvedReferences, find_booking_refusal
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.constraints import SUPPORT_INDEXES, UNIQUE_INDEXES
 from app.core.crud import delete_many_from_db, patch_one_in_db
@@ -308,7 +309,7 @@ class TestTheGhostTakesNoNewFixture:
         refusal = booking_refusal(THE_GHOST, GHOST_SCHIEDSRICHTER_ID)
 
         assert refusal is not None
-        assert refusal.error_code == BOOKING_UNKNOWN_RESOURCE
+        assert refusal.error_code == Code.BOOKING_UNKNOWN_RESOURCE
 
     def test_the_refusal_names_no_null_where_there_is_no_name(self):
         """The message interpolates the row's name, so a nameless row would read „Schiedsrichter None retired on ...“."""

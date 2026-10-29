@@ -65,6 +65,7 @@ from app.api.spielbestaetigungen.services import (
     void_notice_held,
 )
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_many_to_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
@@ -76,7 +77,7 @@ from app.core.dependencies import (
     SpieleCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.logging import fl_logger
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, Batch, diagnosis_of, refuse_a_stalled_page, run_isolated, transaction_session
@@ -943,7 +944,7 @@ async def sweep_spielbestaetigungen(
                 fl_logger.warning(
                     f"The {clock} clock's commit went unanswered after the call committed messages it owes: {may_stand()} may have "
                     "been written with nobody told, the call answers what else committed, and the rest stay due",
-                    extra={"error_code": UNKNOWN_OUTCOME},
+                    extra={"error_code": Code.UNKNOWN_OUTCOME},
                 )
                 return None
             code, diagnosis = diagnosis_of(stop)

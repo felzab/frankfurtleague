@@ -27,7 +27,7 @@ from app.api.schiedsrichter.services import (
 )
 from app.api.spieler.services import build_real_spieler_filter, build_selbst_pupil_filter
 from app.api.teams.schemas import KONTAKT_ROLLEN
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
@@ -450,11 +450,6 @@ def grants_a_panel(saison_status: FLSaisonStatus) -> bool:
     return saison_status in ("active", "future")
 
 
-# The first refusal every person endpoint on a team's panel raises: who the caller is, so a 403
-# rather than a 409, whatever the team's own state.
-FUNKTION_NICHT_GEHALTEN = Code.FUNKTION_NICHT_GEHALTEN
-
-
 def holds_a_seat(sitze: Iterable[FLSubjektSitz], *, team_id: ObjectId, saison_id: str) -> bool:
     """Whether any of these seats, already narrowed to a season granting a panel, sits on this team in this season.
 
@@ -487,15 +482,10 @@ def find_funktion_refusal(*, sitze: Iterable[FLSubjektSitz], team_id: ObjectId, 
         return None
 
     return WriteRefusal(
-        error_code=FUNKTION_NICHT_GEHALTEN,
+        error_code=Code.FUNKTION_NICHT_GEHALTEN,
         status=HTTPStatus.FORBIDDEN,
         message="the signed-in person holds no seat on this team in this season, so its panel is not theirs to read or change",
     )
-
-
-# Refused rather than warned of: with no owner left nobody may make one or change a tier again, and only
-# a database paste could hand the administration on.
-LETZTER_INHABER_ERASURE = Code.LETZTER_INHABER_ERASURE
 
 
 def holds_an_owner_grant(identifier: str, grants: Iterable[Mapping[str, Any]]) -> bool:
@@ -515,15 +505,10 @@ def find_letzter_inhaber_erasure_refusal(*, identifier: str, grants: Iterable[Ma
         return None
 
     return WriteRefusal(
-        error_code=LETZTER_INHABER_ERASURE,
+        error_code=Code.LETZTER_INHABER_ERASURE,
         status=HTTPStatus.CONFLICT,
         message="the administration keeps at least one owner; make another administrator an owner before erasing yourself",
     )
-
-
-# 403 and not 409, `REQ-BERECHTIGUNG-005`'s precedent: the refusal is about who asks. An administrator's
-# own records go through their account page, or through an owner (`REQ-PURGE-005`).
-EIGENE_ADRESSE = Code.EIGENE_ADRESSE
 
 
 def ist_eigene_adresse(*, identifier: str, akteur: str) -> bool:
@@ -539,24 +524,17 @@ def find_eigene_adresse_refusal(*, identifier: str, akteur: str) -> WriteRefusal
         return None
 
     return WriteRefusal(
-        error_code=EIGENE_ADRESSE,
+        error_code=Code.EIGENE_ADRESSE,
         status=HTTPStatus.FORBIDDEN,
         message="an administrator does not act on their own address here; their own account page does, or an owner",
     )
 
-
-# 403 for who asks, as `REQ-PURGE-003`: without it an administrator ends another's grant, which a revoke
-# reserves to an owner (`REQ-BERECHTIGUNG-005`).
-VERWALTUNG_ADRESSE = Code.VERWALTUNG_ADRESSE
 
 # The erasure's and its reveal's: the one ends the grant, the other opens the holder's records.
 JEDE_VERWALTUNG: Final[frozenset[str]] = frozenset(get_args(FLVerwaltung))
 # The sign-out's: an ended session is repaired by signing in again, so only an owner's is held back.
 NUR_INHABER: Final[frozenset[str]] = frozenset({OWNER})
 
-# 403 for who asks, as `REQ-PURGE-005`: an erasure ends every change naming its address, and ending a grant holder's
-# change is a discard, which only an owner may make of it.
-FREMDER_ADRESSWECHSEL = Code.FREMDER_ADRESSWECHSEL
 
 # The tiers whose holder's pending change an erasure ends only for an actor holding an owner's power: every one, the set
 # the erasure's preview withholds from anyone else, as only an owner discards an administrator's change.
@@ -599,7 +577,7 @@ def find_verwaltung_adresse_refusal(
         return None
 
     return WriteRefusal(
-        error_code=VERWALTUNG_ADRESSE,
+        error_code=Code.VERWALTUNG_ADRESSE,
         status=HTTPStatus.FORBIDDEN,
         message="this address holds access to the administration; only an owner, signed in since becoming one, acts on it here",
     )
@@ -627,7 +605,7 @@ def find_fremder_adresswechsel_refusal(
         return None
 
     return WriteRefusal(
-        error_code=FREMDER_ADRESSWECHSEL,
+        error_code=Code.FREMDER_ADRESSWECHSEL,
         status=HTTPStatus.FORBIDDEN,
         message="erasing this address would end an administrator's pending address change, which only an owner ends",
     )
@@ -650,14 +628,6 @@ def adresswechsel_einsehbar_verwehrt(
 
     return None
 
-
-# 422 on the box, as the address the payload's own validator refuses there: the value typed is what is
-# refused, and the administrator rephrases it.
-NAME_IM_ANLASS = Code.NAME_IM_ANLASS
-
-# The ban's reason, by the same matcher and on its own box. Here rather than beside the
-# ban's other codes: `app/api/sperrliste/services.py` is imported by a module this one imports.
-NAME_IM_GRUND = Code.NAME_IM_GRUND
 
 # Exempt only before a later word of their field that is not one: alone, „der“ or „von“ would refuse most German
 # sentences, and a surname such as a referee's „Le“ ends its field.
@@ -770,7 +740,7 @@ def find_name_im_anlass_refusal(*, anlass: str, names: Iterable[str]) -> WriteRe
 
     # Naming none of them: the message reaches the refusal's log line.
     return WriteRefusal(
-        error_code=NAME_IM_ANLASS,
+        error_code=Code.NAME_IM_ANLASS,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         message="the request this erasure answers names the person, and every log row the erasure files would keep that name for a year",
         fields=(("anlass",),),
@@ -789,7 +759,7 @@ def find_name_im_grund_refusal(*, grund: str, names: Iterable[str]) -> WriteRefu
 
     # Naming none of them, as the erasure's own: the message reaches the refusal's log line.
     return WriteRefusal(
-        error_code=NAME_IM_GRUND,
+        error_code=Code.NAME_IM_GRUND,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         message="the reason for this ban names a person the address's records hold, and the ban keeps it past that person's erasure",
         fields=(("grund",),),
@@ -876,12 +846,6 @@ def unreferenced(identifiers: Iterable[str], *, referenced: Collection[str]) -> 
     return list(dict.fromkeys(identifier for identifier in identifiers if sign_in_identifier(identifier) not in referenced))
 
 
-# Refused rather than answered: a league always holds a live `owner`,
-# so grants holding none were read from an empty or foreign database, which would answer every address
-# unreferenced.
-KEIN_INHABER = Code.KEIN_INHABER
-
-
 def find_kein_inhaber_refusal(grant_rows: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
     """`REQ-REFERENZEN-001`: no live grant is an `owner`'s, live as every reader of a grant reads one."""
 
@@ -889,7 +853,7 @@ def find_kein_inhaber_refusal(grant_rows: Sequence[Mapping[str, Any]]) -> WriteR
         return None
 
     return WriteRefusal(
-        error_code=KEIN_INHABER,
+        error_code=Code.KEIN_INHABER,
         status=HTTPStatus.CONFLICT,
         message="the grants hold no live owner, so the database read is not the league's and no address is judged unreferenced",
     )

@@ -21,7 +21,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.crud import literal_pattern
 from app.core.dependencies import DrosselungCollection, get_germany_now
 from app.core.exceptions import DrosselungException
@@ -34,8 +34,6 @@ from app.shared.schemas.bounds import (
     DROSSELUNG_SCHIEDSRICHTER_PRO_TAG,
     DROSSELUNG_SPIELER_PRO_TAG,
 )
-
-DROSSELUNG_ERREICHT = Code.DROSSELUNG_ERREICHT
 
 # Keyed by the kind of person the route's binder fixed (`app/core/recording.py :: AktorFunktion`), so one
 # mailbox holding a seat and a pupil record keeps a count for each.
@@ -118,10 +116,10 @@ def get_drossel(
         if gezaehlt["n"] == ceiling + 1:
             fl_logger.warning(
                 f"A person reached their daily write ceiling: {gezaehlt_auf} {actor.pseudonym[:AKTEUR_PSEUDONYM_SHOWN]}",
-                extra={"error_code": DROSSELUNG_ERREICHT},
+                extra={"error_code": Code.DROSSELUNG_ERREICHT},
             )
 
-        raise DrosselungException(error_code=DROSSELUNG_ERREICHT, retry_after_s=sekunden_bis_tagesende(germany_now))
+        raise DrosselungException(error_code=Code.DROSSELUNG_ERREICHT, retry_after_s=sekunden_bis_tagesende(germany_now))
 
     return drosseln
 

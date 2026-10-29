@@ -19,21 +19,13 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.berechtigungen.schemas import FLBerechtigungAntragEndeArt, FLBerechtigungStand, FLGenehmigungVerwehrt, as_utc
 from app.api.berechtigungen.services import compose_postausgang, haelt_seit
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, erase_many_from_db, post_many_to_db, refuse
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException, WriteRefusal
+from app.core.exceptions import DocumentNotFoundException, WriteRefusal
 from app.core.journal import JournalLine
 from app.core.security import loeschung_journal_hash
 from app.shared.schemas.bounds import GENEHMIGUNG_TAGE
-
-BERECHTIGUNG_ANTRAG_OFFEN = Code.BERECHTIGUNG_ANTRAG_OFFEN
-# 403, as the address change's approval refusals: about who asks, and another administrator's press lifts it.
-BERECHTIGUNG_GENEHMIGUNG_VERWEHRT = Code.BERECHTIGUNG_GENEHMIGUNG_VERWEHRT
-BERECHTIGUNG_GENEHMIGUNG_INHABER = Code.BERECHTIGUNG_GENEHMIGUNG_INHABER
-BERECHTIGUNG_GENEHMIGUNG_JUENGER = Code.BERECHTIGUNG_GENEHMIGUNG_JUENGER
-# 409: the request's own state, which no approver lifts; a new request does.
-BERECHTIGUNG_ANTRAG_VERFALLEN = Code.BERECHTIGUNG_ANTRAG_VERFALLEN
 
 # The outbox kinds telling a requester how their request ended, each mailed to them alone.
 ANTRAG_ENDEN: Final = frozenset(get_args(FLBerechtigungAntragEndeArt))
@@ -119,7 +111,7 @@ async def pull_the_antrag(
         collection=berechtigungen_antraege_collection, pipeline=[{"$match": {"_id": antrag_id, **build_offen_filter(now)}}], session=session
     )
     if not found:
-        raise DocumentNotFoundException(filter={"_id": antrag_id}, error_code=DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundException(filter={"_id": antrag_id}, error_code=Code.DOCUMENT_NOT_FOUND)
 
     return found[0]
 
@@ -282,7 +274,7 @@ def find_antrag_offen_refusal(*, offen: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=BERECHTIGUNG_ANTRAG_OFFEN,
+        error_code=Code.BERECHTIGUNG_ANTRAG_OFFEN,
         status=HTTPStatus.CONFLICT,
         message="a request about this email address already waits on another administrator's approval",
     )
@@ -296,20 +288,20 @@ def find_genehmigung_verwehrt_refusal(*, verwehrt: FLGenehmigungVerwehrt | None)
 
     if verwehrt == "juenger":
         return WriteRefusal(
-            error_code=BERECHTIGUNG_GENEHMIGUNG_JUENGER,
+            error_code=Code.BERECHTIGUNG_GENEHMIGUNG_JUENGER,
             status=HTTPStatus.FORBIDDEN,
             message="a request is decided by an administrator who held their access since before it was made",
         )
 
     if verwehrt == "inhaber":
         return WriteRefusal(
-            error_code=BERECHTIGUNG_GENEHMIGUNG_INHABER,
+            error_code=Code.BERECHTIGUNG_GENEHMIGUNG_INHABER,
             status=HTTPStatus.FORBIDDEN,
             message="a request for an owner's access is decided by another owner, signed in since becoming one",
         )
 
     return WriteRefusal(
-        error_code=BERECHTIGUNG_GENEHMIGUNG_VERWEHRT,
+        error_code=Code.BERECHTIGUNG_GENEHMIGUNG_VERWEHRT,
         status=HTTPStatus.FORBIDDEN,
         message="a request is approved by an administrator other than the person it is about and the one who made it",
     )
@@ -322,7 +314,7 @@ def find_antrag_verfallen_refusal(*, steht: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=BERECHTIGUNG_ANTRAG_VERFALLEN,
+        error_code=Code.BERECHTIGUNG_ANTRAG_VERFALLEN,
         status=HTTPStatus.CONFLICT,
         message="the administrator who made this request has lost the access it asks for; refuse it, and ask again",
     )

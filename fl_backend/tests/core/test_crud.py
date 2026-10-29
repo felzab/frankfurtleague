@@ -15,6 +15,7 @@ from pymongo.errors import BulkWriteError, DuplicateKeyError
 from pymongo.helpers_shared import _index_document
 from pymongo.results import DeleteResult
 
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import (
     DUPLICATE_KEY_ERROR,
@@ -28,7 +29,7 @@ from app.core.crud import (
     pull_one_from_db,
 )
 from app.core.exception_handlers import refused_index_of
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException
 from app.shared.schemas.custom import CustomObjectId
 
 TEAM_OID = "6890a1b2c3d4e5f607182930"
@@ -293,7 +294,7 @@ class TestPatchOneInDb:
             asyncio.run(patch_one_in_db(collection=as_collection(stub), db_filter=FILTER, update=UPDATE, return_document=ReturnDocument.BEFORE))
 
         assert excinfo.value.status_code == 404
-        assert excinfo.value.error_code == DOCUMENT_NOT_FOUND
+        assert excinfo.value.error_code == Code.DOCUMENT_NOT_FOUND
         # The filter travels with the exception, which is what lets the handler log what was looked for.
         assert excinfo.value.filter == FILTER
 
@@ -353,7 +354,7 @@ class TestPullOneFromDb:
             asyncio.run(pull_one_from_db(collection=as_collection(stub), db_filter=FILTER))
 
         assert excinfo.value.status_code == 404
-        assert excinfo.value.error_code == DOCUMENT_NOT_FOUND
+        assert excinfo.value.error_code == Code.DOCUMENT_NOT_FOUND
         assert excinfo.value.filter == FILTER
 
 

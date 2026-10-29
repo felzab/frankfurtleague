@@ -23,23 +23,7 @@ from app.api.saisons.services import (
     DRAW_TWINS,
     DRAWN_HOLDING_ITS_SIDES,
     RECORDED_FACT_FIELDS,
-    RULES_BRACKET_IMPOSSIBLE,
-    RULES_BRACKET_IMPOSSIBLE_AS_STORED,
-    RULES_DRAW_OUTVALUES_WIN,
-    RULES_DRAW_OUTVALUES_WIN_AS_STORED,
-    RULES_FIXTURES_OVER_ONE_READ,
-    RULES_FIXTURES_OVER_ONE_READ_AS_STORED,
-    RULES_FORFEIT_DRAWS_A_KNOCKOUT,
-    RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED,
-    RULES_QUALIFIERS_ABOVE_GROUP,
-    RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED,
-    SAISON_SPAN_BELOW_SCHEDULE,
-    SAISON_SPAN_BELOW_SCHEDULE_AS_STORED,
     SHAPE_ONLY_CODES,
-    SPIELPLAN_ALREADY_DRAWN,
-    SPIELPLAN_GRUPPEN_OFF_RULES,
-    SPIELPLAN_MATCHDAYS_HELD,
-    SPIELPLAN_SAISON_FINISHED,
     as_the_draw_answers,
     find_rules_refusal,
     find_spielplan_refusal,
@@ -943,7 +927,7 @@ class TestASeasonHoldingMatchdays:
         refusal = refusal_for(spieltage_held=1)
 
         assert refusal is not None
-        assert refusal.error_code == SPIELPLAN_MATCHDAYS_HELD
+        assert refusal.error_code == Code.SPIELPLAN_MATCHDAYS_HELD
 
 
 class TestAFinishedSeason:
@@ -953,7 +937,7 @@ class TestAFinishedSeason:
         refusal = refusal_for(saison_status="past")
 
         assert refusal is not None
-        assert refusal.error_code == SPIELPLAN_SAISON_FINISHED
+        assert refusal.error_code == Code.SPIELPLAN_SAISON_FINISHED
         assert "past" in refusal.message
 
     def test_a_running_season_is_permitted(self):
@@ -977,7 +961,7 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
         refusal = refusal_for(occupancy={**FULL, "B": 4})
 
         assert refusal is not None
-        assert refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
+        assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES
 
     def test_a_group_holding_more_than_the_rules_ask_refuses_the_draw(self):
         """The other direction: a group past `teams_per_group` draws more fixtures than its matchdays account for."""
@@ -985,7 +969,7 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
         refusal = refusal_for(occupancy={**FULL, "A": 7})
 
         assert refusal is not None
-        assert refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
+        assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES
 
     def test_a_group_beyond_the_offered_ones_refuses_the_draw(self):
         """A club in a group the season does not run draws into no round robin at all.
@@ -998,7 +982,7 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
         refusal = refusal_for(occupancy={"A": 6, "B": 6, "C": 1}, rules=two_groups)
 
         assert refusal is not None
-        assert refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
+        assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES
 
     def test_an_offered_group_nobody_is_entered_into_is_named_as_holding_none(self):
         """A group nobody is entered into is absent from the map rather than present at 0.
@@ -1010,7 +994,7 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
         refusal = refusal_for(occupancy={"A": 6, "B": 6})
 
         assert refusal is not None
-        assert refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
+        assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES
         assert "gruppe C holds 0 of 6" in refusal.message
         assert "gruppe D holds 0 of 6" in refusal.message
 
@@ -1115,7 +1099,7 @@ class TestAConfirmedReplaceStepsPastWhatItDeletes:
         refusal = refusal_for(replace=True, fixtures_drawn=67, spieltage_held=8, occupancy={**FULL, "B": 4})
 
         assert refusal is not None
-        assert refusal.error_code == SPIELPLAN_GRUPPEN_OFF_RULES
+        assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES
 
 
 ADLER = "68f0a1b2c3d4e5f607600011"
@@ -1404,15 +1388,24 @@ class TestTheDrawAnswersStoredValuesUnderItsTwins:
     def test_a_draw_stating_no_shape_answers_every_shared_code_under_its_twin(self):
         """No shape overlays anything, so every rule the draw asks judges the season's stored rules or dates."""
 
-        assert on_the_draw(RULES_BRACKET_IMPOSSIBLE, shape_stated=False) == (RULES_BRACKET_IMPOSSIBLE_AS_STORED, HTTPStatus.CONFLICT)
-        assert on_the_draw(RULES_QUALIFIERS_ABOVE_GROUP, shape_stated=False) == (RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED, HTTPStatus.CONFLICT)
-        assert on_the_draw(RULES_DRAW_OUTVALUES_WIN, shape_stated=False) == (RULES_DRAW_OUTVALUES_WIN_AS_STORED, HTTPStatus.CONFLICT)
-        assert on_the_draw(RULES_FORFEIT_DRAWS_A_KNOCKOUT, shape_stated=False) == (
-            RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED,
+        assert on_the_draw(Code.RULES_BRACKET_IMPOSSIBLE, shape_stated=False) == (Code.RULES_BRACKET_IMPOSSIBLE_AS_STORED, HTTPStatus.CONFLICT)
+        assert on_the_draw(Code.RULES_QUALIFIERS_ABOVE_GROUP, shape_stated=False) == (
+            Code.RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED,
             HTTPStatus.CONFLICT,
         )
-        assert on_the_draw(RULES_FIXTURES_OVER_ONE_READ, shape_stated=False) == (RULES_FIXTURES_OVER_ONE_READ_AS_STORED, HTTPStatus.CONFLICT)
-        assert on_the_draw(SAISON_SPAN_BELOW_SCHEDULE, shape_stated=False) == (SAISON_SPAN_BELOW_SCHEDULE_AS_STORED, HTTPStatus.CONFLICT)
+        assert on_the_draw(Code.RULES_DRAW_OUTVALUES_WIN, shape_stated=False) == (Code.RULES_DRAW_OUTVALUES_WIN_AS_STORED, HTTPStatus.CONFLICT)
+        assert on_the_draw(Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT, shape_stated=False) == (
+            Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED,
+            HTTPStatus.CONFLICT,
+        )
+        assert on_the_draw(Code.RULES_FIXTURES_OVER_ONE_READ, shape_stated=False) == (
+            Code.RULES_FIXTURES_OVER_ONE_READ_AS_STORED,
+            HTTPStatus.CONFLICT,
+        )
+        assert on_the_draw(Code.SAISON_SPAN_BELOW_SCHEDULE, shape_stated=False) == (
+            Code.SAISON_SPAN_BELOW_SCHEDULE_AS_STORED,
+            HTTPStatus.CONFLICT,
+        )
 
     @pytest.mark.parametrize("code", sorted(SHAPE_ONLY_CODES))
     def test_a_stated_shape_keeps_the_shared_code_of_a_rule_reading_the_shape_alone(self, code: Code):
@@ -1427,11 +1420,11 @@ class TestTheDrawAnswersStoredValuesUnderItsTwins:
         assert on_the_draw(code, shape_stated=True) == (DRAW_TWINS[code], HTTPStatus.CONFLICT)
 
     def test_a_code_the_draw_shares_with_nothing_is_left_alone(self):
-        assert on_the_draw(SPIELPLAN_ALREADY_DRAWN, shape_stated=False) == (SPIELPLAN_ALREADY_DRAWN, HTTPStatus.UNPROCESSABLE_CONTENT)
+        assert on_the_draw(Code.SPIELPLAN_ALREADY_DRAWN, shape_stated=False) == (Code.SPIELPLAN_ALREADY_DRAWN, HTTPStatus.UNPROCESSABLE_CONTENT)
         assert as_the_draw_answers(None, shape_stated=False) is None
 
     def test_the_twin_keeps_the_shared_checks_detail(self):
-        answered = as_the_draw_answers(shared(RULES_DRAW_OUTVALUES_WIN), shape_stated=True)
+        answered = as_the_draw_answers(shared(Code.RULES_DRAW_OUTVALUES_WIN), shape_stated=True)
 
         assert answered is not None
         assert answered.message == "the shared check's detail"

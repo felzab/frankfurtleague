@@ -9,7 +9,6 @@ from bson import ObjectId
 from pydantic import ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.identitaet.schemas import FLErasureResponse
 from app.api.teams.admin_router import patch_saison_team_kontakte
 from app.api.teams.schemas import (
@@ -21,13 +20,13 @@ from app.api.teams.schemas import (
     FLTeamMembership,
 )
 from app.api.teams.services import (
-    KONTAKTE_MOVED_UNDER_THE_SAVE,
     compose_kontakte_herkunft,
     departing_holders,
     kontakte_stand_of,
     links_owed,
 )
 from app.core.adressanker import adressanker_id
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -538,7 +537,7 @@ class TestAnErasureLandingMidSaveIsNotUndone:
         erasure, refusal, stored = on_a_league(mongo_replica_set_url, body)
 
         assert erasure.kontakt_sitze == 1, "the interference emptied no seat, so the save had nothing to undo"
-        assert refusal.error_code == KONTAKTE_MOVED_UNDER_THE_SAVE
+        assert refusal.error_code == Code.KONTAKTE_MOVED_UNDER_THE_SAVE
         assert stored["kontakte"][ERASED_SEAT] is None, "the save put the person who asked to be forgotten back on the row"
 
     def test_the_same_save_lands_the_seat_where_no_erasure_interferes(self, mongo_replica_set_url: str):
@@ -569,7 +568,7 @@ class TestASaveComposedAgainstAnotherBlockIsRefused:
 
         refusal, stored, log = on_a_league(mongo_replica_set_url, body)
 
-        assert refusal.error_code == KONTAKTE_MOVED_UNDER_THE_SAVE
+        assert refusal.error_code == Code.KONTAKTE_MOVED_UNDER_THE_SAVE
         assert stored["kontakte"] == SEEDED_KONTAKTE
         assert log == []
 
@@ -1007,7 +1006,7 @@ class TestTheLabelASaveNames:
 
         refusal, stored, log = on_a_league(mongo_replica_set_url, body)
 
-        assert (refusal.error_code, refusal.status_code) == (FASSUNG_UNZULAESSIG, 409), id_of
+        assert (refusal.error_code, refusal.status_code) == (Code.FASSUNG_UNZULAESSIG, 409), id_of
         assert stored["kontakte"] == SEEDED_KONTAKTE
         assert log == []
 
@@ -1041,7 +1040,7 @@ class TestTheLabelASaveNames:
 
         code, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert code == FASSUNG_UNZULAESSIG
+        assert code == Code.FASSUNG_UNZULAESSIG
         assert stored["kontakte"] == as_stored(NEW_KONTAKTE)
 
 

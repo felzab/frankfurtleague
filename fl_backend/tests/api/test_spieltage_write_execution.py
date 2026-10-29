@@ -7,10 +7,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import patch_saison
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
-from app.api.saisons.services import SAISON_SPAN_BELOW_SPIELTAGE
 from app.api.spieltage.admin_router import patch_spieltag
 from app.api.spieltage.schemas import FLPatchSpieltagPayload
-from app.api.spieltage.services import SPIELTAG_BEGINN_OUT_OF_ORDER, SPIELTAG_SPAN_BELOW_FIXTURES
+from app.core.codes import Code
 from app.core.exceptions import WriteRefusalException
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
@@ -152,7 +151,7 @@ class TestASeasonKeepsCoveringTheMatchdaysItStores:
 
         refusal = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == SAISON_SPAN_BELOW_SPIELTAGE
+        assert refusal.error_code == Code.SAISON_SPAN_BELOW_SPIELTAGE
         assert SPIELTAG_BEGINN in refusal.error_detail["message"]
 
     def test_a_shrink_the_matchday_still_fits_goes_through(self, mongo_replica_set_url: str):
@@ -224,7 +223,7 @@ class TestAMatchdayKeepsCoveringItsFixtures:
 
         refusal = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == SPIELTAG_SPAN_BELOW_FIXTURES
+        assert refusal.error_code == Code.SPIELTAG_SPAN_BELOW_FIXTURES
         assert SPIELTAG_ENDE in refusal.error_detail["message"]
 
     def test_an_undated_fixture_constrains_nothing(self, mongo_replica_set_url: str):
@@ -278,7 +277,7 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 
         refusal, stored_beginn = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == SPIELTAG_BEGINN_OUT_OF_ORDER
+        assert refusal.error_code == Code.SPIELTAG_BEGINN_OUT_OF_ORDER
         assert NEIGHBOUR_BEGINN in refusal.error_detail["message"]
         # The refusal runs ahead of the write, so the matchday still holds the span it was seeded with.
         assert stored_beginn == SPIELTAG_BEGINN
@@ -296,7 +295,7 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 
         refusal = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == SPIELTAG_BEGINN_OUT_OF_ORDER
+        assert refusal.error_code == Code.SPIELTAG_BEGINN_OUT_OF_ORDER
         assert SPIELTAG_BEGINN in refusal.error_detail["message"]
 
     def test_another_phases_matchday_is_no_neighbour(self, mongo_replica_set_url: str):
@@ -325,7 +324,7 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 
         refusal = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == SPIELTAG_BEGINN_OUT_OF_ORDER
+        assert refusal.error_code == Code.SPIELTAG_BEGINN_OUT_OF_ORDER
         assert "position 3" in refusal.error_detail["message"]
 
     def test_an_undated_position_below_is_stepped_over_too(self, mongo_replica_set_url: str):
@@ -342,7 +341,7 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 
         refusal = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == SPIELTAG_BEGINN_OUT_OF_ORDER
+        assert refusal.error_code == Code.SPIELTAG_BEGINN_OUT_OF_ORDER
         assert "position 1" in refusal.error_detail["message"]
 
     def test_the_nearest_dated_position_below_is_what_judges_the_move(self, mongo_replica_set_url: str):
@@ -359,7 +358,7 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 
         refusal = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == SPIELTAG_BEGINN_OUT_OF_ORDER
+        assert refusal.error_code == Code.SPIELTAG_BEGINN_OUT_OF_ORDER
         # Position 1 begins earlier still and would permit this day, so naming the middle row is the
         # whole of what "nearest" means here.
         assert "position 2" in refusal.error_detail["message"]

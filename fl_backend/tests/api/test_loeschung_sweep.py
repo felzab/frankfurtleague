@@ -36,10 +36,10 @@ from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.admin_router import post_saison_spieler
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.spieler.services import build_ghost_spieler
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
-from app.core.exception_handlers import DATABASE_FAILED, STORED_DATA_INVALID, UNHANDLED_CRASH, UNKNOWN_OUTCOME
 from app.core.exceptions import DocumentNotFoundException
 from app.core.journal import JOURNAL_TOKEN
 from app.main import create_app
@@ -521,7 +521,7 @@ class TestAStoredAddressNoRequestMatchesIsPassedOver:
             answer, nach, standing = on_a_league(mongo_replica_set_url, body)
 
         assert (answer["spieler"], answer["uebersprungen"], answer["verbleibend"], nach, standing) == (1, 0, 1, None, 1)
-        warnings = [record.getMessage() for record in caplog.records if getattr(record, "error_code", None) == STORED_DATA_INVALID]
+        warnings = [record.getMessage() for record in caplog.records if getattr(record, "error_code", None) == Code.STORED_DATA_INVALID]
         assert [message.endswith(f": 1 ({numbered(1)})") for message in warnings] == [True]
         assert not [message for message in warnings if "thessaly" in message.lower()]
 
@@ -769,7 +769,7 @@ class TestOneRecordHoldsBackNobody:
         assert status == 200, answer
         assert (answer["spieler"], answer["fehlgeschlagen"], answer["verbleibend"]) == (1, 1, 1)
         assert standing == [numbered(1)]
-        failures = [record for record in caplog.records if getattr(record, "error_code", None) == DATABASE_FAILED]
+        failures = [record for record in caplog.records if getattr(record, "error_code", None) == Code.DATABASE_FAILED]
         assert [str(numbered(1)) in record.getMessage() and "WriteError" in record.getMessage() for record in failures] == [True]
         # Neither the address nor the name, which the line would keep past the erasure it reports.
         assert not [record for record in failures if address_of(1) in record.getMessage() or "Quintessa" in record.getMessage()]
@@ -807,7 +807,7 @@ class TestOneRecordHoldsBackNobody:
         assert (answer["spieler"], answer["fehlgeschlagen"], answer["verbleibend"], nach) == (1, 1, 1, None)
         assert standing == [numbered(1)]
         failures = [
-            (record.levelname, record.getMessage()) for record in caplog.records if getattr(record, "error_code", None) == UNHANDLED_CRASH
+            (record.levelname, record.getMessage()) for record in caplog.records if getattr(record, "error_code", None) == Code.UNHANDLED_CRASH
         ]
         # Located by the frame that raised it, and never by its message, which can quote a value.
         [(level, line)] = failures
@@ -864,7 +864,7 @@ class TestTheDeadlineStopsTheCall:
         lines = [
             (record.levelname, record.getMessage())
             for record in caplog.records
-            if getattr(record, "error_code", None) in {DATABASE_FAILED, UNKNOWN_OUTCOME}
+            if getattr(record, "error_code", None) in {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
         ]
         assert lines == [("WARNING", f"Database deadline passed at pupil {numbered(2)}: the call stops, and the rest stay due")]
 

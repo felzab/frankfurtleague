@@ -12,13 +12,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.teams.admin_router import replace_saison_team
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLReplaceSaisonTeamPayload
-from app.api.teams.services import (
-    CLUB_RETIRED,
-    REPLACE_INCOMING_ALREADY_ENTERED,
-    REPLACE_ONE_CLUB_ON_BOTH_ENDS,
-    REPLACE_OUTGOING_HAS_A_RECORD,
-    REPLACE_SAISON_FINISHED,
-)
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
@@ -657,7 +651,7 @@ class TestAClubThatHasPlayedIsNotReplaced:
             spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, ergebnis="2:1", tore=(2, 1)), gruppen_fixture(2, RIVAL, WITHDRAWN)],
         )
 
-        assert code == REPLACE_OUTGOING_HAS_A_RECORD
+        assert code == Code.REPLACE_OUTGOING_HAS_A_RECORD
         assert row is not None, "the junction row was handed over anyway"
         assert spiele[2]["team2"] == side(WITHDRAWN), "the fan-out ran before the refusal, or outside the transaction"
 
@@ -685,7 +679,7 @@ class TestAClubThatHasPlayedIsNotReplaced:
             spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, tore=(1, None))],
         )
 
-        assert code == REPLACE_OUTGOING_HAS_A_RECORD
+        assert code == Code.REPLACE_OUTGOING_HAS_A_RECORD
         assert row is not None
 
     def test_a_stored_shoot_out_refuses_it(self, mongo_replica_set_url: str):
@@ -695,7 +689,7 @@ class TestAClubThatHasPlayedIsNotReplaced:
 
         code, row, _ = on_a_seeded_season(mongo_replica_set_url, _refused, spiele=[decided])
 
-        assert code == REPLACE_OUTGOING_HAS_A_RECORD
+        assert code == Code.REPLACE_OUTGOING_HAS_A_RECORD
         assert row is not None
 
 
@@ -705,7 +699,7 @@ class TestTheSeasonGateOnTheRoute:
 
         code, row, spiele = on_a_seeded_season(mongo_replica_set_url, _refused, saison_status="past")
 
-        assert code == REPLACE_SAISON_FINISHED
+        assert code == Code.REPLACE_SAISON_FINISHED
         assert row is not None
         assert spiele[1]["team1"] == side(WITHDRAWN)
 
@@ -726,7 +720,7 @@ class TestWhoMayArrive:
 
         code, row, _ = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=ENTERED))
 
-        assert code == REPLACE_INCOMING_ALREADY_ENTERED
+        assert code == Code.REPLACE_INCOMING_ALREADY_ENTERED
         assert row is not None
 
     def test_one_club_named_on_both_ends_is_refused_as_the_payload(self, mongo_replica_set_url: str):
@@ -734,7 +728,7 @@ class TestWhoMayArrive:
 
         code, row, _ = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=WITHDRAWN))
 
-        assert code == REPLACE_ONE_CLUB_ON_BOTH_ENDS
+        assert code == Code.REPLACE_ONE_CLUB_ON_BOTH_ENDS
         assert row is not None
 
     def test_a_club_that_left_the_league_is_refused(self, mongo_replica_set_url: str):
@@ -742,7 +736,7 @@ class TestWhoMayArrive:
 
         code, _, _ = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=RETIRED))
 
-        assert code == CLUB_RETIRED
+        assert code == Code.CLUB_RETIRED
 
     def test_an_id_naming_no_club_is_a_404(self, mongo_replica_set_url: str):
         """Kills pointing the row at a club that is not there -- which is the phantom this endpoint exists to repair."""

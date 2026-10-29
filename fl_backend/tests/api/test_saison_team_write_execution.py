@@ -7,7 +7,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.teams.admin_router import patch_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamPayload
-from app.api.teams.services import ENTRY_GRUPPE_FULL, ENTRY_GRUPPE_LOCKED, ENTRY_GRUPPE_NOT_OFFERED
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.database import a_clean_database, on_the_seed_loop
@@ -207,7 +207,7 @@ class TestMovingAClubBetweenGroups:
 
         code, row = on_a_season(mongo_replica_set_url, body, saison_status="active", spiele=[fixture_document(ADLER)])
 
-        assert code == ENTRY_GRUPPE_LOCKED
+        assert code == Code.ENTRY_GRUPPE_LOCKED
         assert row["gruppe"] == "A"
 
     def test_a_full_destination_refuses_it(self, mongo_replica_set_url: str):
@@ -221,7 +221,7 @@ class TestMovingAClubBetweenGroups:
 
         code, row = on_a_season(mongo_replica_set_url, body, junctions=[junction_document(CRONBERG, "B")])
 
-        assert code == ENTRY_GRUPPE_FULL
+        assert code == Code.ENTRY_GRUPPE_FULL
         assert row["gruppe"] == "A"
 
     def test_a_group_the_season_does_not_run_refuses_it(self, mongo_replica_set_url: str):
@@ -231,7 +231,7 @@ class TestMovingAClubBetweenGroups:
 
             return conflict.value.error_code
 
-        assert on_a_season(mongo_replica_set_url, body) == ENTRY_GRUPPE_NOT_OFFERED
+        assert on_a_season(mongo_replica_set_url, body) == Code.ENTRY_GRUPPE_NOT_OFFERED
 
     def test_a_row_no_document_names_is_a_404(self, mongo_replica_set_url: str):
         """Read before anything is judged, so an unknown club is a missing row rather than a refusal about a group."""

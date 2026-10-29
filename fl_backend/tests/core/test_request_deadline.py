@@ -28,6 +28,7 @@ from pymongo.errors import (
 
 from app.api.bewerbungen.services import hash_token
 from app.core import middlewares
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -42,9 +43,6 @@ from app.core.crud import (
 )
 from app.core.db import collection_dependency
 from app.core.exception_handlers import (
-    DATABASE_FAILED,
-    UNHANDLED_CRASH,
-    UNKNOWN_OUTCOME,
     db_exception_handler,
 )
 from app.core.logging import fl_logger
@@ -70,7 +68,7 @@ SHORT_DEADLINE_S = 0.5
 # the stall's 60 s -- so an answer in time can only be the deadline's doing.
 ANSWERED_WITHIN_S = SHORT_DEADLINE_S + 10
 
-FAILED = DATABASE_FAILED
+FAILED = Code.DATABASE_FAILED
 
 CRUD_MODULE = "app/core/crud.py"
 
@@ -297,7 +295,7 @@ class TestATransactionPastTheRequestDeadlineCommitsNothing:
 
         transacted = _transacted(mongo_replica_set_url, cut)
 
-        assert (transacted.status, transacted.error_code, transacted.standing) == (500, UNKNOWN_OUTCOME, 0)
+        assert (transacted.status, transacted.error_code, transacted.standing) == (500, Code.UNKNOWN_OUTCOME, 0)
         # Nothing standing is not nothing held: an open transaction keeps its write from every reader
         # and from every rival writer, until MongoDB's lifetime limit aborts it a minute on.
         assert transacted.transactions_held == []
@@ -575,7 +573,7 @@ class TestADeadlineCuttingARequestThatStoresNothingIsAFailure:
 
         response = _raised_through_the_app(ValueError("not a database failure"))
 
-        assert (response.status_code, response.json()["error_code"]) == (500, UNHANDLED_CRASH)
+        assert (response.status_code, response.json()["error_code"]) == (500, Code.UNHANDLED_CRASH)
 
     @pytest.mark.parametrize("method", ["POST", "PATCH", "DELETE"])
     @pytest.mark.parametrize("error", DEADLINE_ERRORS)
@@ -602,12 +600,14 @@ class TestACommitOfUnknownOutcomeIsNotCalledFailed:
     def test_it_answers_its_own_code(self):
         response = _raised_through_the_app(UNKNOWN_COMMIT_OUTCOME)
 
-        assert (response.status_code, response.json()["error_code"]) == (500, UNKNOWN_OUTCOME)
+        assert (response.status_code, response.json()["error_code"]) == (500, Code.UNKNOWN_OUTCOME)
 
     def test_its_line_carries_the_same_code(self, caplog: pytest.LogCaptureFixture):
         _handled_directly(caplog, UNKNOWN_COMMIT_OUTCOME)
 
-        assert [getattr(record, "error_code", None) for record in caplog.records if getattr(record, "error_code", None)] == [UNKNOWN_OUTCOME]
+        assert [getattr(record, "error_code", None) for record in caplog.records if getattr(record, "error_code", None)] == [
+            Code.UNKNOWN_OUTCOME
+        ]
 
 
 class _NoDocuments:
@@ -682,7 +682,7 @@ class TestAWriteTheDeadlineCutIsNotCalledFailed:
 
         response = _written_through_the_app(helper, error)
 
-        assert (response.status_code, response.json()["error_code"]) == (500, UNKNOWN_OUTCOME)
+        assert (response.status_code, response.json()["error_code"]) == (500, Code.UNKNOWN_OUTCOME)
 
     def test_every_helper_reaching_the_driver_s_writes_is_driven(self):
         assert _crud_functions_reaching_a_driver_write() == set(WRITE_CALLS)
@@ -711,7 +711,7 @@ class TestAWriteTheDeadlineCutIsNotCalledFailed:
 
         response = _written_through_the_app("patch_many_in_db", NetworkTimeout("timed out"), "GET")
 
-        assert (response.status_code, response.json()["error_code"]) == (500, UNKNOWN_OUTCOME)
+        assert (response.status_code, response.json()["error_code"]) == (500, Code.UNKNOWN_OUTCOME)
 
     def test_a_write_failing_without_the_deadline_stays_failed(self):
         """The control: without it, a handler answering every sent write's database error unknown would pass the cases above."""

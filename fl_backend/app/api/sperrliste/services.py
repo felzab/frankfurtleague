@@ -13,19 +13,11 @@ from typing import Final
 
 from pydantic import SecretStr
 
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import canonical_address, sign_in_identifier
 from app.shared.schemas.bounds import SAISON_ID_LENGTH, SPERRE_DAUER_SAISONS
 from app.shared.sub_keys import derive_sub_key
-
-# One code over two readers: each slice words it for its own, an administrator being told plainly
-# what a visitor is told neutrally (`.claude/rules/cross-surface.md`).
-SPERRLISTE_ADRESSE_GESPERRT = Code.SPERRLISTE_ADRESSE_GESPERRT
-
-SPERRLISTE_KEINE_SAISON = Code.SPERRLISTE_KEINE_SAISON
-
-SPERRLISTE_VERWALTUNG = Code.SPERRLISTE_VERWALTUNG
 
 # One label per purpose: the same master keys the action log's pseudonyms
 # (`app/core/security.py :: AKTEUR_PSEUDONYM_VERSION`), and a mistake in one must not read the other.
@@ -89,7 +81,7 @@ def find_keine_saison_refusal(*, massgebliche_saison_id: str | None) -> WriteRef
         return None
 
     return WriteRefusal(
-        error_code=SPERRLISTE_KEINE_SAISON,
+        error_code=Code.SPERRLISTE_KEINE_SAISON,
         status=HTTPStatus.CONFLICT,
         message="a ban lapses after five seasons and no season is running, so there is no season to count them from",
     )
@@ -126,7 +118,7 @@ def find_verwaltung_refusal(*, gehasht: str, berechtigt: set[str]) -> WriteRefus
         return None
 
     return WriteRefusal(
-        error_code=SPERRLISTE_VERWALTUNG,
+        error_code=Code.SPERRLISTE_VERWALTUNG,
         status=HTTPStatus.CONFLICT,
         message="this email address holds access to the administration; revoke that access before banning it",
     )
@@ -142,7 +134,7 @@ def find_sperrliste_refusal(*, gesperrt: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=SPERRLISTE_ADRESSE_GESPERRT,
+        error_code=Code.SPERRLISTE_ADRESSE_GESPERRT,
         status=HTTPStatus.CONFLICT,
         message="this email address is already on the ban list; lift the entry that holds it rather than adding a second",
     )

@@ -34,6 +34,7 @@ from app.api.berechtigungen.services import BEANSPRUCHUNG_DAUER, VERSUCHE_HOECHS
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.lookup import RecordCollections, SubjektLookup
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, sperrliste_saison
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, pull_many_from_db, pull_one_from_db
@@ -58,7 +59,7 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import DATABASE_FAILED, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME, stores_nothing
+from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.exceptions import DocumentNotFoundException
 from app.core.journal import Journal
 from app.core.logging import fl_logger
@@ -382,7 +383,7 @@ async def sweep_adresswechsel(
                 fl_logger.warning(
                     f"Database deadline passed at the {welche} address change {row['_id']}"
                     f"{f', its {was} unanswered' if ungewiss else ''}: the call stops, and the rest stay due",
-                    extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
+                    extra={"error_code": Code.UNKNOWN_OUTCOME if ungewiss else Code.DATABASE_FAILED},
                 )
                 abgebrochen = True
                 break

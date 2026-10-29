@@ -18,7 +18,8 @@ from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.admin_router import get_sperrliste
 from app.api.sperrliste.crud import address_is_gesperrt
-from app.api.sperrliste.services import SPERRLISTE_KEINE_SAISON, adresse_hash
+from app.api.sperrliste.services import adresse_hash
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from tests import documents
@@ -224,7 +225,7 @@ class TestALeagueWithNoSeasonRunning:
             with pytest.raises(WriteRefusalException) as raised:
                 await ban(database, client)
 
-            assert raised.value.error_code == SPERRLISTE_KEINE_SAISON
+            assert raised.value.error_code == Code.SPERRLISTE_KEINE_SAISON
 
             return await database[Collection.SPERRLISTE].count_documents({})
 

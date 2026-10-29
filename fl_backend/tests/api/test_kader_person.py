@@ -19,16 +19,12 @@ from httpx2 import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
 from app.api.spieler.person_router import patch_kader_zeile
 from app.api.spieler.schemas import FLPatchKaderZeilePayload
-from app.api.spieler.services import KADER_STUFE_NICHT_ERLAUBT, SQUAD_ROLLE_TAKEN
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exception_handlers import PAYLOAD_REFUSED
-from app.core.exceptions import DOCUMENT_NOT_FOUND
-from app.core.security import PERSON_BARRED
 from app.main import create_app
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
@@ -317,7 +313,7 @@ class TestASeatNotHeld:
     ):
         answer, untouched = refused_and_untouched(mongo_replica_set_url, method, path(team_id, saison_id), email, body)
 
-        assert answer == (403, FUNKTION_NICHT_GEHALTEN)
+        assert answer == (403, Code.FUNKTION_NICHT_GEHALTEN)
         assert untouched
 
     def test_the_control_the_same_seat_reads_its_own_team(self, mongo_replica_set_url: str):
@@ -335,7 +331,7 @@ class TestAnotherTeamsPupil:
     def test_a_write_answers_not_found_and_writes_nothing(self, mongo_replica_set_url: str, method: str, body: Mapping[str, Any] | None):
         answer, untouched = refused_and_untouched(mongo_replica_set_url, method, row_url(B_PUPIL), ANSPRECH, body)
 
-        assert answer == (404, DOCUMENT_NOT_FOUND)
+        assert answer == (404, Code.DOCUMENT_NOT_FOUND)
         assert untouched
 
     def test_a_patch_is_not_found_before_any_rule_judges_the_other_team_s_row(self, mongo_replica_set_url: str):
@@ -346,7 +342,7 @@ class TestAnotherTeamsPupil:
 
         answer, untouched = refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(B_PUPIL), ANSPRECH, {**PAYLOAD, "stufe": "E1"})
 
-        assert answer == (404, DOCUMENT_NOT_FOUND)
+        assert answer == (404, Code.DOCUMENT_NOT_FOUND)
         assert untouched
 
 
@@ -368,7 +364,7 @@ class TestARowWhosePersonIsGone:
 
         answer, untouched = on_a_league(mongo_replica_set_url, run)
 
-        assert answer == (404, DOCUMENT_NOT_FOUND)
+        assert answer == (404, Code.DOCUMENT_NOT_FOUND)
         assert untouched
 
 
@@ -379,7 +375,7 @@ class TestAnAusgetragenRow:
     def test_a_write_answers_not_found_and_writes_nothing(self, mongo_replica_set_url: str, method: str, body: Mapping[str, Any] | None):
         answer, untouched = refused_and_untouched(mongo_replica_set_url, method, row_url(AUSGETRAGEN), ANSPRECH, body)
 
-        assert answer == (404, DOCUMENT_NOT_FOUND)
+        assert answer == (404, Code.DOCUMENT_NOT_FOUND)
         assert untouched
 
 
@@ -396,7 +392,7 @@ class TestABarredSeatHolder:
     ):
         answer, untouched = refused_and_untouched(mongo_replica_set_url, method, path, GESPERRT, body)
 
-        assert answer == (403, PERSON_BARRED)
+        assert answer == (403, Code.PERSON_BARRED)
         assert untouched
 
 
@@ -448,7 +444,7 @@ class TestAnEdit:
     def test_a_field_the_payload_does_not_declare_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, extra: Mapping[str, Any]):
         answer, untouched = refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(TEILT_DIE_SIEBEN), ANSPRECH, {**PAYLOAD, **extra})
 
-        assert answer == (422, PAYLOAD_REFUSED)
+        assert answer == (422, Code.PAYLOAD_REFUSED)
         assert untouched
 
 
@@ -460,7 +456,7 @@ class TestAStufeTheSeasonDoesNotOffer:
             mongo_replica_set_url, "PATCH", row_url(TEILT_DIE_SIEBEN), ANSPRECH, {**PAYLOAD, "stufe": "E1"}
         )
 
-        assert answer == (409, KADER_STUFE_NICHT_ERLAUBT)
+        assert answer == (409, Code.KADER_STUFE_NICHT_ERLAUBT)
         assert untouched
 
     @pytest.mark.parametrize("stufe", ["Q4", None], ids=["the stored one", "none"])
@@ -478,7 +474,7 @@ class TestTheCaptaincy:
             mongo_replica_set_url, "PATCH", row_url(TEILT_DIE_SIEBEN), ANSPRECH, {**PAYLOAD, "rolle": "kapitaen"}
         )
 
-        assert answer == (409, SQUAD_ROLLE_TAKEN)
+        assert answer == (409, Code.SQUAD_ROLLE_TAKEN)
         assert untouched
 
     def test_two_edits_naming_one_rolle_leave_one_holder(self, mongo_replica_set_url: str):
@@ -518,7 +514,7 @@ class TestTheCaptaincy:
         outcome, holders, passes = on_a_league(mongo_replica_set_url, run)
 
         assert passes >= 1, "the rival never ran, so the edit was raced by nobody"
-        assert (outcome, holders) == (SQUAD_ROLLE_TAKEN, 1), (
+        assert (outcome, holders) == (Code.SQUAD_ROLLE_TAKEN, 1), (
             f"the edit answered {outcome!r} ({COMMITTED!r} is no refusal), leaving {holders} holders"
         )
 

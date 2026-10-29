@@ -71,6 +71,7 @@ from app.api.teams.services import (
     fixtures_newly_fielding_a_departed_club,
     has_taken_place,
 )
+from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -102,8 +103,8 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import DATABASE_FAILED, DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
+from app.core.exceptions import DocumentNotFoundException
 from app.core.logging import fl_logger
 from app.core.security import (
     StepUpCheck,
@@ -196,7 +197,7 @@ async def _rewrite_gruppenphase_sides(
     # Raising here aborts the transaction rather than writing half an exchange.
     for team_id in team_ids:
         if team_id not in identity_of:
-            raise DocumentNotFoundException(filter={"_id": team_id}, error_code=DOCUMENT_NOT_FOUND)
+            raise DocumentNotFoundException(filter={"_id": team_id}, error_code=Code.DOCUMENT_NOT_FOUND)
 
     other_of = {team_ids[0]: team_ids[1], team_ids[1]: team_ids[0]}
 
@@ -1277,7 +1278,7 @@ async def _mail_one_team(
         fl_logger.error(
             f"The registration link for team {team['team_id']} in season {saison_id} was "
             f"{'minted or not, the commit unanswered' if ungewiss else 'not minted'}: {type(failure).__name__}",
-            extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
+            extra={"error_code": Code.UNKNOWN_OUTCOME if ungewiss else Code.DATABASE_FAILED},
         )
 
         return FLEinladungVersandZeile(

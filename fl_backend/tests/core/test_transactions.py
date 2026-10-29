@@ -22,14 +22,14 @@ from starlette.requests import Request
 from starlette.types import Message, Scope
 
 from app.core import security
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import WritesSent, writes_sent_var
-from app.core.exception_handlers import DATABASE_FAILED, STORED_DATA_INVALID, UNHANDLED_CRASH, UNKNOWN_OUTCOME
 from app.core.exceptions import ActorForbiddenException
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, PersonActor, actor_var
-from app.core.security import ACTOR_NOT_ADMIN, admin_judge, attribute_the_administrator, bind_actor, person_judge
+from app.core.security import admin_judge, attribute_the_administrator, bind_actor, person_judge
 from app.core.transactions import (
     ABORT_GRACE_S,
     UNJUDGED_KINDS,
@@ -244,20 +244,20 @@ class TestARowFailingAloneIsPassedOver:
         [
             pytest.param(
                 lambda: _FailedInTheCallback(A_STORED_VALUE),
-                UNHANDLED_CRASH,
+                Code.UNHANDLED_CRASH,
                 r"Row 1 was passed over by the test clock: _FailedInTheCallback in erase at .+test_transactions\.py:\d+",
                 id="not the database's, located by its innermost frame",
             ),
             pytest.param(
                 lambda: OperationFailure(A_STORED_VALUE, 121, {"errInfo": {"details": {"missingProperties": ["trace_id"]}}}),
-                DATABASE_FAILED,
+                Code.DATABASE_FAILED,
                 re.escape("Row 1 was passed over by the test clock: OperationFailure, code 121: ")
                 + re.escape("[{'loc': 'trace_id', 'type': 'required', 'msg': 'property is missing'}]"),
                 id="refused, with the properties the validator refused",
             ),
             pytest.param(
                 lambda: _refused_by_the_answer(),
-                STORED_DATA_INVALID,
+                Code.STORED_DATA_INVALID,
                 re.escape("Row 1 was passed over by the test clock: ValidationError: ")
                 + re.escape(
                     "[{'loc': 'geburtsdatum', 'type': 'string_pattern_mismatch', 'msg': \"String should match pattern '^[0-9]{4}$'\"}]"
@@ -340,7 +340,7 @@ class TestARowFailingAloneIsPassedOver:
         assert answered == ([(1, 1, 0)], [1])
         assert [(getattr(record, "error_code", None), record.getMessage()) for record in caplog.records if record.levelname == "WARNING"] == [
             (
-                UNKNOWN_OUTCOME,
+                Code.UNKNOWN_OUTCOME,
                 "Database deadline passed taking the test clock's rows apart, the commit of Row 2, 3 unanswered: those may have been "
                 "written with nobody told, the call answers what else committed, and the rest stay due",
             )
@@ -442,7 +442,7 @@ class TestARowFailingAloneIsPassedOver:
     def test_a_refusal_the_request_answers_is_raised_rather_than_halved(self):
         """A judge's, which every half meets too: halved, the call would answer 200 for an actor it refuses."""
 
-        refusal = ActorForbiddenException(error_code=ACTOR_NOT_ADMIN, message="refused", jti="jti")
+        refusal = ActorForbiddenException(error_code=Code.ACTOR_NOT_ADMIN, message="refused", jti="jti")
         rows = _Rows(PAGE + 1, lambda read: refusal)
 
         with pytest.raises(ActorForbiddenException):
@@ -538,7 +538,7 @@ class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
             answered = self._owing(rows, deadline_s=-1.0)
 
         assert (answered, rows.read) == (([(2, 2, 0)], []), [[0, 1, 2, 3], [0, 1]])
-        assert [(record.levelname, getattr(record, "error_code", None)) for record in caplog.records] == [("WARNING", DATABASE_FAILED)]
+        assert [(record.levelname, getattr(record, "error_code", None)) for record in caplog.records] == [("WARNING", Code.DATABASE_FAILED)]
 
     def test_the_same_isolation_inside_its_deadline_takes_every_half(self):
         """The control: with time left, the halves after the first are run, and the failing row alone is passed over."""
@@ -550,7 +550,7 @@ class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
     def test_a_failure_no_row_carries_after_a_committed_half_is_answered_rather_than_raised(self, caplog: pytest.LogCaptureFixture):
         """Raised, the call would answer an error in place of the messages the committed half owes."""
 
-        refusal = ActorForbiddenException(error_code=ACTOR_NOT_ADMIN, message="refused", jti="jti")
+        refusal = ActorForbiddenException(error_code=Code.ACTOR_NOT_ADMIN, message="refused", jti="jti")
 
         def raises(read: list[int]) -> Exception | None:
             if read == [0, 1, 2, 3]:
@@ -561,7 +561,7 @@ class TestAnIsolationOwingAMessageStopsWithinTheDeadline:
             answered = self._owing(_Rows(4, raises), deadline_s=None)
 
         assert answered == ([(2, 2, 0)], [])
-        assert [getattr(record, "error_code", None) for record in caplog.records] == [UNHANDLED_CRASH]
+        assert [getattr(record, "error_code", None) for record in caplog.records] == [Code.UNHANDLED_CRASH]
 
 
 def _run_judged(actor: Actor | PersonActor, judge: Any, *, attempts: int = 1, fails: bool = False, client: _Client | None = None) -> list[str]:
@@ -733,7 +733,7 @@ class TestAFailedSessionAbortsInsideItsGrace:
             sent = _aborts_sent(fails=True, deadline=time.monotonic() - ABORT_GRACE_S - 1)
 
         assert sent == []
-        assert [getattr(record, "error_code", None) for record in caplog.records] == [DATABASE_FAILED]
+        assert [getattr(record, "error_code", None) for record in caplog.records] == [Code.DATABASE_FAILED]
 
     def test_a_session_whose_work_finished_is_sent_no_abort(self):
         """A committed transaction answers an abort harmlessly, so only this case keeps one round trip off every write."""
@@ -768,7 +768,7 @@ class TestASessionNoCommandCarriedIsSentNoAbort:
         with caplog.at_level(logging.ERROR, logger=fl_logger.name):
             asyncio.run(run())
 
-        assert [record for record in caplog.records if getattr(record, "error_code", None) == DATABASE_FAILED] == []
+        assert [record for record in caplog.records if getattr(record, "error_code", None) == Code.DATABASE_FAILED] == []
 
 
 class _AnsweringSession(_TransactedSession):
@@ -944,7 +944,7 @@ class TestARefusedTransactionalWriteRaisesNoAlarm:
 
         # The control: the driver's abort, then this helper's; a helper sending nothing would also log nothing.
         assert aborts.answered == [None, NO_SUCH_TRANSACTION]
-        assert [record for record in caplog.records if getattr(record, "error_code", None) == DATABASE_FAILED] == []
+        assert [record for record in caplog.records if getattr(record, "error_code", None) == Code.DATABASE_FAILED] == []
 
 
 class _FailedAfterTheCommit(Exception):
@@ -981,7 +981,7 @@ class TestAFailureAfterTheCommitRaisesNoAlarm:
 
         # The control: this helper's abort, answered; a helper sending nothing would also log nothing.
         assert (aborts.answered, stored) == ([TRANSACTION_COMMITTED], 1)
-        assert [record for record in caplog.records if getattr(record, "error_code", None) == DATABASE_FAILED] == []
+        assert [record for record in caplog.records if getattr(record, "error_code", None) == Code.DATABASE_FAILED] == []
 
 
 JUDGE_DATABASE_NAME = worker_database("fl_transactions_judge_test")

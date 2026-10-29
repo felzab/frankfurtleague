@@ -8,7 +8,7 @@ from app.api.saisons.schemas import FLSaisonRules, FLSaisonStatus
 from app.api.spiele.schemas import MAX_QUALIFIERS, FLSaisonPhase, FLSpiel, is_unplayed
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import offered_gruppen
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -41,20 +41,6 @@ def base_tier_status_term(requested: FLSaisonStatus | None = None) -> dict[str, 
     # being overwritten by the term the caller asked for.
     return {"status": {"$eq": requested, "$ne": WITHHELD_FROM_BASE_TIER}}
 
-
-RULES_BRACKET_IMPOSSIBLE = Code.RULES_BRACKET_IMPOSSIBLE
-RULES_GROUPS_IN_USE = Code.RULES_GROUPS_IN_USE
-RULES_CAPACITY_BELOW_USE = Code.RULES_CAPACITY_BELOW_USE
-RULES_QUALIFIERS_BELOW_WIRING = Code.RULES_QUALIFIERS_BELOW_WIRING
-RULES_SAISON_FINISHED = Code.RULES_SAISON_FINISHED
-RULES_QUALIFIERS_ABOVE_GROUP = Code.RULES_QUALIFIERS_ABOVE_GROUP
-RULES_MATCHDAY_OVER_ITS_PHASE = Code.RULES_MATCHDAY_OVER_ITS_PHASE
-RULES_DRAW_OUTVALUES_WIN = Code.RULES_DRAW_OUTVALUES_WIN
-RULES_KADER_BELOW_USE = Code.RULES_KADER_BELOW_USE
-RULES_FORFEIT_DRAWS_A_KNOCKOUT = Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT
-RULES_SHAPE_AFTER_DRAW = Code.RULES_SHAPE_AFTER_DRAW
-RULES_TIEBREAK_AFTER_KNOCKOUT = Code.RULES_TIEBREAK_AFTER_KNOCKOUT
-RULES_FIXTURES_OVER_ONE_READ = Code.RULES_FIXTURES_OVER_ONE_READ
 
 # `erlaubte_stufen` stays editable because it bounds what a form offers, never what a stored squad
 # row holds.
@@ -120,7 +106,7 @@ def find_rules_refusal(
         changed = [field for field in FROZEN_RULES_FIELDS if getattr(stored, field) != getattr(proposed, field)]
         if changed:
             return WriteRefusal(
-                error_code=RULES_SAISON_FINISHED,
+                error_code=Code.RULES_SAISON_FINISHED,
                 status=HTTPStatus.CONFLICT,
                 message=f"season is past; {', '.join(changed)} cannot change because the league table is scored from rules on every read",
             )
@@ -170,7 +156,7 @@ def find_rules_refusal(
                 )
 
             return WriteRefusal(
-                error_code=RULES_SHAPE_AFTER_DRAW,
+                error_code=Code.RULES_SHAPE_AFTER_DRAW,
                 status=HTTPStatus.CONFLICT,
                 message=f"the season's {drawn_fixtures} fixtures are already drawn from these rules; {repair}",
             )
@@ -182,7 +168,7 @@ def find_rules_refusal(
         noun = "fixture has" if played_knockout_fixtures == 1 else "fixtures have"
 
         return WriteRefusal(
-            error_code=RULES_TIEBREAK_AFTER_KNOCKOUT,
+            error_code=Code.RULES_TIEBREAK_AFTER_KNOCKOUT,
             status=HTTPStatus.CONFLICT,
             message=f"{played_knockout_fixtures} knockout {noun} already left a record; the bracket was seeded from the group placings "
             f"{SEEDING_RULES_FIELD} decides, so re-ordering them now would re-seed a bracket that has been part-played",
@@ -195,7 +181,7 @@ def find_rules_refusal(
     # resubmits a stored violation unchanged, and shrinking an excess repairs it.
     if excess > 0 and (stored is None or excess > stored.qualifiers_per_group - stored.teams_per_group):
         return WriteRefusal(
-            error_code=RULES_QUALIFIERS_ABOVE_GROUP,
+            error_code=Code.RULES_QUALIFIERS_ABOVE_GROUP,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             message=f"{proposed.qualifiers_per_group} qualifier(s) per group from groups of {proposed.teams_per_group}; "
             "a group cannot send more teams into the bracket than it holds",
@@ -206,7 +192,7 @@ def find_rules_refusal(
     draw_excess = proposed.draw_points - proposed.win_points
     if draw_excess > 0 and (stored is None or draw_excess > stored.draw_points - stored.win_points):
         return WriteRefusal(
-            error_code=RULES_DRAW_OUTVALUES_WIN,
+            error_code=Code.RULES_DRAW_OUTVALUES_WIN,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             message=f"a draw would be worth {proposed.draw_points} against {proposed.win_points} for a win; "
             "no season can make drawing the better result",
@@ -218,7 +204,7 @@ def find_rules_refusal(
     # alone lets the dates-only edit through, `rules` being required on the patch.
     if not knockout_phases_for(qualifiers) and qualifiers != stored_qualifiers:
         return WriteRefusal(
-            error_code=RULES_BRACKET_IMPOSSIBLE,
+            error_code=Code.RULES_BRACKET_IMPOSSIBLE,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             message=f"{proposed.number_of_groups} group(s) x {proposed.qualifiers_per_group} qualifier(s) is {qualifiers}, "
             f"which is not a power of two between 2 and {MAX_QUALIFIERS}; a knockout bracket has no shape for it",
@@ -233,7 +219,7 @@ def find_rules_refusal(
     # the season.
     if fixtures > LIST_LIMIT_DEFAULT and (stored_fixtures is None or fixtures > stored_fixtures):
         return WriteRefusal(
-            error_code=RULES_FIXTURES_OVER_ONE_READ,
+            error_code=Code.RULES_FIXTURES_OVER_ONE_READ,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             message=f"{proposed.number_of_groups} group(s) of {proposed.teams_per_group}, {proposed.qualifiers_per_group} "
             f"qualifying from each, plays {fixtures} fixtures; one read of a season carries {LIST_LIMIT_DEFAULT}, and every "
@@ -245,7 +231,7 @@ def find_rules_refusal(
     # is refused.
     if _forfeit_draws_a_knockout(proposed) and (stored is None or not _forfeit_draws_a_knockout(stored)):
         return WriteRefusal(
-            error_code=RULES_FORFEIT_DRAWS_A_KNOCKOUT,
+            error_code=Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             message=f"a no-show would be awarded {proposed.forfeit_ergebnis.sieger_tore}:{proposed.forfeit_ergebnis.verlierer_tore} "
             "and this season plays a knockout round; a drawn forfeit leaves that round with nobody to advance",
@@ -259,7 +245,7 @@ def find_rules_refusal(
         stranded = sorted(gruppe for gruppe, held in occupancy_by_gruppe.items() if held > 0 and gruppe not in offered)
         if stranded:
             return WriteRefusal(
-                error_code=RULES_GROUPS_IN_USE,
+                error_code=Code.RULES_GROUPS_IN_USE,
                 status=HTTPStatus.CONFLICT,
                 message=f"gruppe {', '.join(stranded)} still holds teams; a season cannot stop running a group its teams are entered in",
             )
@@ -268,7 +254,7 @@ def find_rules_refusal(
         fullest = max(occupancy_by_gruppe.values(), default=0)
         if fullest > proposed.teams_per_group:
             return WriteRefusal(
-                error_code=RULES_CAPACITY_BELOW_USE,
+                error_code=Code.RULES_CAPACITY_BELOW_USE,
                 status=HTTPStatus.CONFLICT,
                 message=f"a group already holds {fullest} teams; teams_per_group cannot drop below the fullest group",
             )
@@ -277,7 +263,7 @@ def find_rules_refusal(
     # this edit's doing, and refusing it would bar the very edit that repairs the season.
     if proposed.max_kadergroesse < stored.max_kadergroesse and largest_squad > proposed.max_kadergroesse:
         return WriteRefusal(
-            error_code=RULES_KADER_BELOW_USE,
+            error_code=Code.RULES_KADER_BELOW_USE,
             status=HTTPStatus.CONFLICT,
             message=f"a squad already holds {largest_squad} players; max_kadergroesse cannot drop below the largest squad the season holds",
         )
@@ -286,7 +272,7 @@ def find_rules_refusal(
     # already under the wiring, and refusing that would leave the season unpatchable.
     if proposed.qualifiers_per_group < highest_wired_platz and proposed.qualifiers_per_group < stored.qualifiers_per_group:
         return WriteRefusal(
-            error_code=RULES_QUALIFIERS_BELOW_WIRING,
+            error_code=Code.RULES_QUALIFIERS_BELOW_WIRING,
             status=HTTPStatus.CONFLICT,
             message=f"a bracket slot names platz {highest_wired_platz}; qualifiers_per_group cannot drop below a placing already wired",
         )
@@ -299,18 +285,13 @@ def find_rules_refusal(
         # and refusing it would leave the season unpatchable.
         if attached > expected and expected < expected_matches(stored, phase):
             return WriteRefusal(
-                error_code=RULES_MATCHDAY_OVER_ITS_PHASE,
+                error_code=Code.RULES_MATCHDAY_OVER_ITS_PHASE,
                 status=HTTPStatus.CONFLICT,
                 message=f"a {phase} matchday holds {attached} fixtures and these rules account for {expected}; "
                 "the count follows from the rules, so lowering them would strand fixtures",
             )
 
     return None
-
-
-SAISON_SPAN_BELOW_SPIELTAGE = Code.SAISON_SPAN_BELOW_SPIELTAGE
-# DERIVED, never an arbitrary floor: no two matchdays share a day. A one-day MATCHDAY stays legal.
-SAISON_SPAN_BELOW_SCHEDULE = Code.SAISON_SPAN_BELOW_SCHEDULE
 
 
 def find_saison_span_refusal(
@@ -331,7 +312,7 @@ def find_saison_span_refusal(
     required_days = sum(entry.matchdays for entry in schedule_for(rules))
     if offered_days < required_days:
         return WriteRefusal(
-            error_code=SAISON_SPAN_BELOW_SCHEDULE,
+            error_code=Code.SAISON_SPAN_BELOW_SCHEDULE,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             message=f"the season runs {start_date} to {end_date}, which is {offered_days} day(s), and these rules "
             f"imply {required_days} matchday(s); two matchdays cannot share a day",
@@ -340,7 +321,7 @@ def find_saison_span_refusal(
     outside = sorted(span for span in spieltag_spans if span[0] < start_date or span[1] > end_date)
     if outside:
         return WriteRefusal(
-            error_code=SAISON_SPAN_BELOW_SPIELTAGE,
+            error_code=Code.SAISON_SPAN_BELOW_SPIELTAGE,
             status=HTTPStatus.CONFLICT,
             message=f"{len(outside)} of the season's matchdays fall outside {start_date} to {end_date} "
             f"(first: {outside[0][0]} to {outside[0][1]}); widen the span or move those matchdays",
@@ -349,27 +330,18 @@ def find_saison_span_refusal(
     return None
 
 
-# Each code the draw shares with a season write, and its twin: the draw judges the STORED rules and
-# dates beneath its shape, so a refusal reading a stored value is a conflict with state, a 409.
-RULES_BRACKET_IMPOSSIBLE_AS_STORED = Code.RULES_BRACKET_IMPOSSIBLE_AS_STORED
-RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED = Code.RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED
-RULES_DRAW_OUTVALUES_WIN_AS_STORED = Code.RULES_DRAW_OUTVALUES_WIN_AS_STORED
-RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED = Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED
-RULES_FIXTURES_OVER_ONE_READ_AS_STORED = Code.RULES_FIXTURES_OVER_ONE_READ_AS_STORED
-SAISON_SPAN_BELOW_SCHEDULE_AS_STORED = Code.SAISON_SPAN_BELOW_SCHEDULE_AS_STORED
-
 DRAW_TWINS: Mapping[Code, Code] = {
-    RULES_BRACKET_IMPOSSIBLE: RULES_BRACKET_IMPOSSIBLE_AS_STORED,
-    RULES_QUALIFIERS_ABOVE_GROUP: RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED,
-    RULES_DRAW_OUTVALUES_WIN: RULES_DRAW_OUTVALUES_WIN_AS_STORED,
-    RULES_FORFEIT_DRAWS_A_KNOCKOUT: RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED,
-    RULES_FIXTURES_OVER_ONE_READ: RULES_FIXTURES_OVER_ONE_READ_AS_STORED,
-    SAISON_SPAN_BELOW_SCHEDULE: SAISON_SPAN_BELOW_SCHEDULE_AS_STORED,
+    Code.RULES_BRACKET_IMPOSSIBLE: Code.RULES_BRACKET_IMPOSSIBLE_AS_STORED,
+    Code.RULES_QUALIFIERS_ABOVE_GROUP: Code.RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED,
+    Code.RULES_DRAW_OUTVALUES_WIN: Code.RULES_DRAW_OUTVALUES_WIN_AS_STORED,
+    Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT: Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED,
+    Code.RULES_FIXTURES_OVER_ONE_READ: Code.RULES_FIXTURES_OVER_ONE_READ_AS_STORED,
+    Code.SAISON_SPAN_BELOW_SCHEDULE: Code.SAISON_SPAN_BELOW_SCHEDULE_AS_STORED,
 }
 
 # The three that read nothing but the shape's own three numbers: a shape in the payload makes them
 # judge the payload, which keeps the shared 422.
-SHAPE_ONLY_CODES = frozenset({RULES_BRACKET_IMPOSSIBLE, RULES_QUALIFIERS_ABOVE_GROUP, RULES_FIXTURES_OVER_ONE_READ})
+SHAPE_ONLY_CODES = frozenset({Code.RULES_BRACKET_IMPOSSIBLE, Code.RULES_QUALIFIERS_ABOVE_GROUP, Code.RULES_FIXTURES_OVER_ONE_READ})
 
 
 def as_the_draw_answers(refusal: WriteRefusal | None, *, shape_stated: bool) -> WriteRefusal | None:
@@ -380,21 +352,6 @@ def as_the_draw_answers(refusal: WriteRefusal | None, *, shape_stated: bool) -> 
 
     return WriteRefusal(error_code=DRAW_TWINS[refusal.error_code], status=HTTPStatus.CONFLICT, message=refusal.message)
 
-
-# Activating demotes the incumbent to `past`, whose rules then freeze (`REQ-RULES-005`).
-ACTIVATE_SAISON_UNFINISHED = Code.ACTIVATE_SAISON_UNFINISHED
-
-# No escape, and no demotion endpoint beside it: both keep the state reachable, and this is the one
-# operation that can reopen a finished season's points, groups and table. A season closed by mistake
-# is repaired at the database.
-ACTIVATE_TARGET_PAST = Code.ACTIVATE_TARGET_PAST
-# The pair to `REQ-SPIELPLAN-003`: that one lets a running season still be drawn, and this one keeps
-# a season from going live undrawn in the first place.
-ACTIVATE_TARGET_UNDRAWN = Code.ACTIVATE_TARGET_UNDRAWN
-
-# Every matchday rather than the first alone: a season goes public with a whole calendar, and a
-# league running `active` with nothing dated enters every late addition as an ordinary one.
-ACTIVATE_SPIELTAGE_UNDATED = Code.ACTIVATE_SPIELTAGE_UNDATED
 
 # The refusal is also the log line, and a season's worth of numbers in it buries the message.
 _NAMED_UNPLAYED = 5
@@ -502,7 +459,7 @@ def find_activation_refusal(
     # they are promoting may not be promoted at all.
     if target_status == "past":
         return WriteRefusal(
-            error_code=ACTIVATE_TARGET_PAST,
+            error_code=Code.ACTIVATE_TARGET_PAST,
             status=HTTPStatus.CONFLICT,
             message="the target season is past, and its points, its groups and the table derived from them are the "
             "record of what happened; activating it would reopen all three",
@@ -510,7 +467,7 @@ def find_activation_refusal(
 
     if target_fixtures == 0:
         return WriteRefusal(
-            error_code=ACTIVATE_TARGET_UNDRAWN,
+            error_code=Code.ACTIVATE_TARGET_UNDRAWN,
             status=HTTPStatus.CONFLICT,
             message="the target season has no fixtures; draw its Spielplan first, or the league goes live with nothing to play",
         )
@@ -519,7 +476,7 @@ def find_activation_refusal(
     # date, so this refusal would name a repair the admin cannot make there.
     if undated_spieltage > 0:
         return WriteRefusal(
-            error_code=ACTIVATE_SPIELTAGE_UNDATED,
+            error_code=Code.ACTIVATE_SPIELTAGE_UNDATED,
             status=HTTPStatus.CONFLICT,
             message=f"{undated_spieltage} of the target season's matchdays carry no date; date every matchday before the season goes live",
         )
@@ -531,23 +488,11 @@ def find_activation_refusal(
     rest = f" and {len(outgoing_unplayed) - _NAMED_UNPLAYED} more" if len(outgoing_unplayed) > _NAMED_UNPLAYED else ""
 
     return WriteRefusal(
-        error_code=ACTIVATE_SAISON_UNFINISHED,
+        error_code=Code.ACTIVATE_SAISON_UNFINISHED,
         status=HTTPStatus.CONFLICT,
         message=f"the outgoing season has {len(outgoing_unplayed)} unplayed fixtures (spiel_nr {named}{rest}); "
         "enter their results or cancel them before closing the season",
     )
-
-
-SPIELPLAN_ALREADY_DRAWN = Code.SPIELPLAN_ALREADY_DRAWN
-SPIELPLAN_MATCHDAYS_HELD = Code.SPIELPLAN_MATCHDAYS_HELD
-SPIELPLAN_SAISON_FINISHED = Code.SPIELPLAN_SAISON_FINISHED
-# One code, because one repair reaches all three: every offered group holding exactly
-# `teams_per_group`, short or over, and no club standing outside them.
-SPIELPLAN_GRUPPEN_OFF_RULES = Code.SPIELPLAN_GRUPPEN_OFF_RULES
-
-# ONE code for both halves of the window -- `future`, and nothing recorded. They differ in kind:
-# `status` moves one way, what was entered can be cleared, so the MESSAGE names the repair.
-SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW = Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW
 
 
 # The one status a draw, a replace and an undraw run on, and the one nothing returns a season to
@@ -620,14 +565,14 @@ def find_spielplan_refusal(
         )
 
         return WriteRefusal(
-            error_code=SPIELPLAN_ALREADY_DRAWN,
+            error_code=Code.SPIELPLAN_ALREADY_DRAWN,
             status=HTTPStatus.CONFLICT,
             message=f"the season already holds a Spielplan ({held}); {remedy}",
         )
 
     if spieltage_held > 0 and not replace:
         return WriteRefusal(
-            error_code=SPIELPLAN_MATCHDAYS_HELD,
+            error_code=Code.SPIELPLAN_MATCHDAYS_HELD,
             status=HTTPStatus.CONFLICT,
             message=f"the season already holds {spieltage_held} matchday(s); the draw writes the whole list at once and merges with none",
         )
@@ -636,7 +581,7 @@ def find_spielplan_refusal(
     # for, and one flag meaning a replace here and a first draw there is the ambiguity this closes.
     if replace and not replace_is_offered:
         return WriteRefusal(
-            error_code=SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
+            error_code=Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
             status=HTTPStatus.CONFLICT,
             message="a replace deletes every matchday and fixture the season holds, and "
             + _outside_the_planning_window(saison_status=saison_status, recorded_fixtures=recorded_fixtures),
@@ -647,7 +592,7 @@ def find_spielplan_refusal(
     # REPLACE is `future`-only, above.
     if saison_status == "past":
         return WriteRefusal(
-            error_code=SPIELPLAN_SAISON_FINISHED,
+            error_code=Code.SPIELPLAN_SAISON_FINISHED,
             status=HTTPStatus.CONFLICT,
             message=f"season is {saison_status}; its table is the record of what happened, and a draw would reopen it",
         )
@@ -673,22 +618,13 @@ def find_spielplan_refusal(
 
     if off_size:
         return WriteRefusal(
-            error_code=SPIELPLAN_GRUPPEN_OFF_RULES,
+            error_code=Code.SPIELPLAN_GRUPPEN_OFF_RULES,
             status=HTTPStatus.CONFLICT,
             message=f"{', '.join(off_size)}; every group plays the same round robin, so a group off its size draws a different "
             "number of fixtures and a club outside the offered groups draws none",
         )
 
     return None
-
-
-# A code of its own, never `REQ-SPIELPLAN-005`'s: a rule resolves to ONE `implemented_by`, and that
-# one already names `find_spielplan_refusal`.
-SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW = Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
-
-
-# A code of its own beside the window's: a report is no field of a fixture, and the window's sentence counts fixtures.
-SPIELPLAN_BERICHTE_EINGEREICHT = Code.SPIELPLAN_BERICHTE_EINGEREICHT
 
 
 def find_berichte_refusal(*, berichte: int) -> WriteRefusal | None:
@@ -698,7 +634,7 @@ def find_berichte_refusal(*, berichte: int) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=SPIELPLAN_BERICHTE_EINGEREICHT,
+        error_code=Code.SPIELPLAN_BERICHTE_EINGEREICHT,
         status=HTTPStatus.CONFLICT,
         message=f"the season holds {berichte} submitted match report(s), which removing its fixtures would delete; a report "
         "is the league's record of a match, so its Spielplan is neither replaced nor removed while one stands",
@@ -716,7 +652,7 @@ def find_undraw_refusal(*, saison_status: str, recorded_fixtures: int) -> WriteR
         return None
 
     return WriteRefusal(
-        error_code=SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW,
+        error_code=Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW,
         status=HTTPStatus.CONFLICT,
         message="removing a Spielplan deletes every matchday and fixture the season holds, and "
         + _outside_the_planning_window(saison_status=saison_status, recorded_fixtures=recorded_fixtures),

@@ -32,11 +32,6 @@ from app.api.berechtigungen.admin_router import (
 )
 from app.api.berechtigungen.antraege import (
     ANTRAG_ENDEN,
-    BERECHTIGUNG_ANTRAG_OFFEN,
-    BERECHTIGUNG_ANTRAG_VERFALLEN,
-    BERECHTIGUNG_GENEHMIGUNG_INHABER,
-    BERECHTIGUNG_GENEHMIGUNG_JUENGER,
-    BERECHTIGUNG_GENEHMIGUNG_VERWEHRT,
     antrag_line,
     compose_antrag,
     end_the_antraege_about_in_session,
@@ -44,10 +39,10 @@ from app.api.berechtigungen.antraege import (
 )
 from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
 from app.api.berechtigungen.schemas import FLPatchBerechtigungPayload, FLPostBerechtigungPayload
-from app.api.berechtigungen.services import BERECHTIGUNG_GESPERRT, BERECHTIGUNG_VORHANDEN
 from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich
 from app.api.identitaet.wiederherstellung import Window, plan_replay
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import WritesSent, writes_sent_var
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
@@ -488,7 +483,7 @@ class TestOneRequestPerAddress:
             await asked_for(database, client)
             return await outcome(ask(database, client, als=BERND)), len(await antraege(database))
 
-        assert on_a_league(mongo_replica_set_url, body) == (BERECHTIGUNG_ANTRAG_OFFEN, 1)
+        assert on_a_league(mongo_replica_set_url, body) == (Code.BERECHTIGUNG_ANTRAG_OFFEN, 1)
 
     def test_a_promotion_whose_request_waits_is_refused_even_alone(self, mongo_replica_set_url: str):
         """Asked while another owner stood, then that owner demoted: the lone owner decides the request first."""
@@ -498,7 +493,7 @@ class TestOneRequestPerAddress:
             await tier(database, client, ANNA_ID, "administration")
             return await outcome(tier(database, client, BERND_ID)), (await tiers(database))[BERND]
 
-        assert on_a_league(mongo_replica_set_url, body, grants=TWO_OWNERS) == (BERECHTIGUNG_ANTRAG_OFFEN, "administration")
+        assert on_a_league(mongo_replica_set_url, body, grants=TWO_OWNERS) == (Code.BERECHTIGUNG_ANTRAG_OFFEN, "administration")
 
     def test_two_requests_crossing_leave_one(self, mongo_replica_set_url: str):
         """The rival commits between the first request's read of the grants and its first write; the first is judged again."""
@@ -512,7 +507,7 @@ class TestOneRequestPerAddress:
             racing.assert_landed_inside(serially=1)
             return racing.rival_outcome, first, [row["genehmigung"]["gestartet_von"] for row in await antraege(database)]
 
-        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, BERECHTIGUNG_ANTRAG_OFFEN, [BERND])
+        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, Code.BERECHTIGUNG_ANTRAG_OFFEN, [BERND])
 
     def test_the_index_holds_one_row_per_address_beneath_the_route(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
@@ -551,8 +546,8 @@ class TestWhoMayDecide:
     @pytest.mark.parametrize(
         ("als", "refused"),
         [
-            pytest.param(ANNA, BERECHTIGUNG_GENEHMIGUNG_VERWEHRT, id="the requester"),
-            pytest.param(CARLA, BERECHTIGUNG_GENEHMIGUNG_JUENGER, id="an administrator granted after the request"),
+            pytest.param(ANNA, Code.BERECHTIGUNG_GENEHMIGUNG_VERWEHRT, id="the requester"),
+            pytest.param(CARLA, Code.BERECHTIGUNG_GENEHMIGUNG_JUENGER, id="an administrator granted after the request"),
         ],
     )
     def test_a_grants_approval_is_refused_and_writes_nothing(self, mongo_replica_set_url: str, als: str, refused: str):
@@ -575,9 +570,9 @@ class TestWhoMayDecide:
     @pytest.mark.parametrize(
         ("als", "refused"),
         [
-            pytest.param(BERND, BERECHTIGUNG_GENEHMIGUNG_VERWEHRT, id="the administrator it is about"),
-            pytest.param(CARLA, BERECHTIGUNG_GENEHMIGUNG_INHABER, id="an administrator who is no owner"),
-            pytest.param(OWNER, BERECHTIGUNG_GENEHMIGUNG_VERWEHRT, id="an owner asking for it"),
+            pytest.param(BERND, Code.BERECHTIGUNG_GENEHMIGUNG_VERWEHRT, id="the administrator it is about"),
+            pytest.param(CARLA, Code.BERECHTIGUNG_GENEHMIGUNG_INHABER, id="an administrator who is no owner"),
+            pytest.param(OWNER, Code.BERECHTIGUNG_GENEHMIGUNG_VERWEHRT, id="an owner asking for it"),
         ],
     )
     def test_a_promotions_approval_is_refused_and_writes_nothing(self, mongo_replica_set_url: str, als: str, refused: str):
@@ -630,8 +625,8 @@ class TestWhoMayDecide:
 
         grants = [*TWO_OWNERS, grant_document(CARLA_ID, CARLA, "administration")]
         assert on_a_league(mongo_replica_set_url, body, grants=grants) == (
-            BERECHTIGUNG_GENEHMIGUNG_VERWEHRT,
-            BERECHTIGUNG_GENEHMIGUNG_INHABER,
+            Code.BERECHTIGUNG_GENEHMIGUNG_VERWEHRT,
+            Code.BERECHTIGUNG_GENEHMIGUNG_INHABER,
             1,
         )
 
@@ -640,7 +635,7 @@ class TestWhoMayDecide:
             antrag_id = await asked_for(database, client, now=since(ASKED_AN_HOUR_AGO))
             return await outcome(refuse(database, client, antrag_id, als=CARLA, now=since(60))), len(await antraege(database))
 
-        assert on_a_league(mongo_replica_set_url, body, grants=WITH_CARLA_SINCE_HALF_AN_HOUR) == (BERECHTIGUNG_GENEHMIGUNG_JUENGER, 1)
+        assert on_a_league(mongo_replica_set_url, body, grants=WITH_CARLA_SINCE_HALF_AN_HOUR) == (Code.BERECHTIGUNG_GENEHMIGUNG_JUENGER, 1)
 
 
 class TestARequestOutlivesNoRequester:
@@ -654,7 +649,7 @@ class TestARequestOutlivesNoRequester:
             return served.steht, await outcome(approve(database, client, antrag_id, als=BERND)), NEU in await tiers(database)
 
         grants = [*THREE, grant_document(CARLA_ID, CARLA, "administration")]
-        assert on_a_league(mongo_replica_set_url, body, grants=grants) == (False, BERECHTIGUNG_ANTRAG_VERFALLEN, False)
+        assert on_a_league(mongo_replica_set_url, body, grants=grants) == (False, Code.BERECHTIGUNG_ANTRAG_VERFALLEN, False)
 
     def test_a_demoted_owners_promotion_is_approved_by_nobody(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -663,7 +658,7 @@ class TestARequestOutlivesNoRequester:
             await tier(database, client, OWNER_ID, "administration", als=ANNA)
             return await outcome(approve(database, client, antrag["_id"], als=ANNA)), (await tiers(database))[BERND]
 
-        assert on_a_league(mongo_replica_set_url, body, grants=TWO_OWNERS) == (BERECHTIGUNG_ANTRAG_VERFALLEN, "administration")
+        assert on_a_league(mongo_replica_set_url, body, grants=TWO_OWNERS) == (Code.BERECHTIGUNG_ANTRAG_VERFALLEN, "administration")
 
     def test_a_barred_requesters_grant_is_approved_by_nobody(self, mongo_replica_set_url: str):
         """Barred in the database, the one way a grant holder's address reaches the list."""
@@ -673,7 +668,7 @@ class TestARequestOutlivesNoRequester:
             await database[Collection.SPERRLISTE].insert_one(ban_document(ANNA, bis=STANDING))
             return await outcome(approve(database, client, antrag_id, als=BERND))
 
-        assert on_a_league(mongo_replica_set_url, body) == BERECHTIGUNG_ANTRAG_VERFALLEN
+        assert on_a_league(mongo_replica_set_url, body) == Code.BERECHTIGUNG_ANTRAG_VERFALLEN
 
 
 class TestTheApprovalJudgesTheAddressAgain:
@@ -689,7 +684,7 @@ class TestTheApprovalJudgesTheAddressAgain:
             approved = await outcome(approve(database, client, antrag_id, als=BERND))
             return (served.adresse, served.gesperrt), approved, NEU in await tiers(database), len(await antraege(database))
 
-        assert on_a_league(mongo_replica_set_url, body) == ((None, True), BERECHTIGUNG_GESPERRT, False, 1)
+        assert on_a_league(mongo_replica_set_url, body) == ((None, True), Code.BERECHTIGUNG_GESPERRT, False, 1)
 
     def test_an_administrator_barred_since_is_promoted_by_nobody(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -698,7 +693,7 @@ class TestTheApprovalJudgesTheAddressAgain:
             await database[Collection.SPERRLISTE].insert_one(ban_document(BERND, bis=STANDING))
             return await outcome(approve(database, client, antrag["_id"], als=ANNA)), (await tiers(database))[BERND]
 
-        assert on_a_league(mongo_replica_set_url, body, grants=TWO_OWNERS) == (BERECHTIGUNG_GESPERRT, "administration")
+        assert on_a_league(mongo_replica_set_url, body, grants=TWO_OWNERS) == (Code.BERECHTIGUNG_GESPERRT, "administration")
 
     def test_an_address_granted_since_in_the_database_is_granted_no_second_time(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -707,7 +702,7 @@ class TestTheApprovalJudgesTheAddressAgain:
             approved = await outcome(approve(database, client, antrag_id, als=BERND))
             return approved, await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": NEU})
 
-        assert on_a_league(mongo_replica_set_url, body) == (BERECHTIGUNG_VORHANDEN, 1)
+        assert on_a_league(mongo_replica_set_url, body) == (Code.BERECHTIGUNG_VORHANDEN, 1)
 
 
 Racer = Callable[[AsyncDatabase, AsyncMongoClient, ObjectId], Awaitable[Any]]
@@ -770,7 +765,7 @@ class TestTheRacesEndInOneState:
     def test_the_requesters_revoke_beside_an_approval_leaves_no_grant(self, mongo_replica_set_url: str):
         """Refused rather than removed: the request stands for an administrator to refuse, as one its requester left does."""
 
-        assert raced(mongo_replica_set_url, annas_grant_revoked) == (COMMITTED, BERECHTIGUNG_ANTRAG_VERFALLEN, [], 1)
+        assert raced(mongo_replica_set_url, annas_grant_revoked) == (COMMITTED, Code.BERECHTIGUNG_ANTRAG_VERFALLEN, [], 1)
 
 
 class TestTheRefusalIsJournalled:
@@ -805,7 +800,7 @@ class TestTheRefusalIsJournalled:
                 await approve(database, client, antrag["_id"], als=ANNA)
             return refused, lines
 
-        assert on_a_league(mongo_replica_set_url, body, grants=TWO_OWNERS) == (BERECHTIGUNG_GENEHMIGUNG_VERWEHRT, [])
+        assert on_a_league(mongo_replica_set_url, body, grants=TWO_OWNERS) == (Code.BERECHTIGUNG_GENEHMIGUNG_VERWEHRT, [])
 
     def test_the_replay_removes_the_request_a_restore_brought_back_and_leaves_a_lapsed_one(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture

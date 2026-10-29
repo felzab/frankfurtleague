@@ -23,7 +23,8 @@ from app.api.schiedsrichter.admin_router import einladen_schiedsrichter, patch_s
 from app.api.schiedsrichter.bestaetigung_router import post_bestaetigung
 from app.api.schiedsrichter.router import get_schiedsrichter_by_id
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterBestaetigungPayload
-from app.api.schiedsrichter.services import BESTAETIGUNG_FELD, SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL
+from app.api.schiedsrichter.services import BESTAETIGUNG_FELD
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -188,7 +189,7 @@ class TestTheSaveOnAConfirmedReferee:
 
         code, before, row = on_a_league(mongo_replica_set_url, body)
 
-        assert code == SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL
+        assert code == Code.SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL
         assert row == before
 
     def test_a_save_keeping_it_with_its_domain_respelled_lands_and_leaves_a_pending_change_standing(self, mongo_replica_set_url: str):

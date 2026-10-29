@@ -89,6 +89,7 @@ from app.api.teams.services import (
     voids_a_live_link,
 )
 from app.core.adressanker import anchor_the_addresses
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -122,7 +123,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException
 from app.core.recording import build_redaction_filter, log_stamp
 from app.core.routing import by_id
 from app.core.security import (
@@ -1007,7 +1008,7 @@ async def einladen_kontakt(
     # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any row has.
     rolle = seat_named(seat)
     if rolle is None:
-        raise DocumentNotFoundException(filter={**db_filter, "seat": seat}, error_code=DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundException(filter={**db_filter, "seat": seat}, error_code=Code.DOCUMENT_NOT_FOUND)
 
     # Outside the callback, for `post_einladung`'s reason.
     raw_token, token_hash = mint_token()

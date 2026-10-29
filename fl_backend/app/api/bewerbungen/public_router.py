@@ -45,6 +45,7 @@ from app.api.einwilligung.services import find_fassung_refusal
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, hashes_gesperrt, sperrliste_saison
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.adressanker import anchor_the_addresses
+from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
@@ -57,7 +58,7 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import fold_shorthand
@@ -155,7 +156,7 @@ async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str 
     bewerbung = recorded_window(bewerbung=open_seasons[0]["bewerbung"]) if open_seasons else None
 
     if bewerbung is None:
-        raise DocumentNotFoundException(filter=db_filter, error_code=DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundException(filter=db_filter, error_code=Code.DOCUMENT_NOT_FOUND)
 
     return _fenster(saison_id=str(open_seasons[0]["_id"]), saison_status=open_seasons[0]["status"], bewerbung=bewerbung, today=today)
 
@@ -249,7 +250,7 @@ async def get_trikotfarben(
     # `saison_nimmt_bewerbungen_an`, the judgement `/fenster` and the submission already take: one
     # spelling of "this season is taking applications", so a second cannot drift from it.
     if not saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today):
-        raise DocumentNotFoundException(filter={"_id": saison_id}, error_code=DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundException(filter={"_id": saison_id}, error_code=Code.DOCUMENT_NOT_FOUND)
 
     # `distinct`, never a document read: what leaves the database is the field's values, so no
     # projection or response model stands between a club's row and this body.

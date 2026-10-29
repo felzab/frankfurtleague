@@ -30,9 +30,6 @@ from app.api.spiele.schemas import (
     FLSpielSlotHolder,
 )
 from app.api.spiele.services import (
-    BOOKING_UNKNOWN_RESOURCE,
-    FIXTURE_DOUBLE_BOOKED,
-    STATE_RESULT_ON_A_NON_EVENT,
     BookedVenue,
     ResolvedReferences,
     SaisonMembership,
@@ -59,6 +56,7 @@ from app.api.spieler.services import find_squad_refusal, mark_shared_nummern
 from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn, patch_spieltag
 from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal, with_expected_matches
 from app.api.teams.services import find_gruppe_swap_refusal
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.constraints import UNIQUE_INDEXES
 from app.core.exceptions import WriteRefusal
@@ -450,7 +448,7 @@ class TestARetiredBookingOnAReopenedFixture:
         )
 
         assert kept is None
-        assert newly_booked is not None and newly_booked.error_code == BOOKING_UNKNOWN_RESOURCE
+        assert newly_booked is not None and newly_booked.error_code == Code.BOOKING_UNKNOWN_RESOURCE
 
 
 LIFTED_NO_SHOW_NR, BOOKED_AN_HOUR_LATER_NR = 30, 31
@@ -524,7 +522,7 @@ class TestADoubleBookingALiftedNoShowLeaves:
         assert _clash_refusal_of(later, holders, notiz="Nur eine Notiz") is None
 
         moved_inside = _clash_refusal_of(lifted, holders, uhrzeit="17:30:00")
-        assert moved_inside is not None and moved_inside.error_code == FIXTURE_DOUBLE_BOOKED
+        assert moved_inside is not None and moved_inside.error_code == Code.FIXTURE_DOUBLE_BOOKED
         assert _clash_refusal_of(lifted, holders, uhrzeit="13:00:00") is None
 
 
@@ -914,7 +912,7 @@ class TestAnAbandonedFixtureAndItsResult:
         cancelled = _abandoned(tore=(3, 1)).model_copy(update={"sonderereignis": "ausgefallen"})
         refusal = find_state_refusal(cancelled)
 
-        assert refusal is not None and refusal.error_code == STATE_RESULT_ON_A_NON_EVENT
+        assert refusal is not None and refusal.error_code == Code.STATE_RESULT_ON_A_NON_EVENT
 
     def test_it_sits_outside_the_set_that_awards_nothing(self):
         """The partition is what leaves it out: a fixture that used its slot is not one recording an absence."""

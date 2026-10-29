@@ -10,14 +10,11 @@ from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.admin_router import post_saison_team
 from app.api.teams.schemas import FLPostSaisonTeamPayload
 from app.api.teams.services import (
-    CLUB_RETIRED,
-    ENTRY_GRUPPE_FULL,
-    ENTRY_GRUPPE_NOT_OFFERED,
-    ENTRY_SAISON_NOT_FUTURE,
     find_club_entry_refusal,
     find_entry_refusal,
     offered_gruppen,
 )
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.database import a_clean_database, on_the_seed_loop
@@ -55,28 +52,28 @@ class TestEnteringASeason:
     def test_the_active_season_is_refused(self):
         refusal = find_entry_refusal(saison_status="active", gruppe="A", rules=RULES, occupied=0)
         assert refusal is not None
-        assert refusal.error_code == ENTRY_SAISON_NOT_FUTURE
+        assert refusal.error_code == Code.ENTRY_SAISON_NOT_FUTURE
 
     def test_a_past_season_is_refused(self):
         refusal = find_entry_refusal(saison_status="past", gruppe="A", rules=RULES, occupied=0)
         assert refusal is not None
-        assert refusal.error_code == ENTRY_SAISON_NOT_FUTURE
+        assert refusal.error_code == Code.ENTRY_SAISON_NOT_FUTURE
 
     def test_a_group_the_season_does_not_run_is_refused(self):
         refusal = find_entry_refusal(saison_status="future", gruppe="C", rules=RULES, occupied=0)
         assert refusal is not None
-        assert refusal.error_code == ENTRY_GRUPPE_NOT_OFFERED
+        assert refusal.error_code == Code.ENTRY_GRUPPE_NOT_OFFERED
 
     def test_a_full_group_is_refused(self):
         refusal = find_entry_refusal(saison_status="future", gruppe="B", rules=RULES, occupied=4)
         assert refusal is not None
-        assert refusal.error_code == ENTRY_GRUPPE_FULL
+        assert refusal.error_code == Code.ENTRY_GRUPPE_FULL
 
     def test_the_season_gate_outranks_the_group_gates(self):
         """The first rule an admin can act on is named first: a past season's full group reports the season."""
         refusal = find_entry_refusal(saison_status="past", gruppe="C", rules=RULES, occupied=4)
         assert refusal is not None
-        assert refusal.error_code == ENTRY_SAISON_NOT_FUTURE
+        assert refusal.error_code == Code.ENTRY_SAISON_NOT_FUTURE
 
 
 class TestWhetherTheClubIsStillInTheLeague:
@@ -89,7 +86,7 @@ class TestWhetherTheClubIsStillInTheLeague:
         refusal = find_club_entry_refusal(inactive_since="2026-03-01")
 
         assert refusal is not None
-        assert refusal.error_code == CLUB_RETIRED
+        assert refusal.error_code == Code.CLUB_RETIRED
 
     def test_the_refusal_names_the_day_it_left(self):
         """The message is what an admin acts on: `reactivate` is one click, but only if the state is legible."""
@@ -158,7 +155,7 @@ class TestEnteringAClubThroughTheEndpoint:
 
         code, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert code == CLUB_RETIRED
+        assert code == Code.CLUB_RETIRED
         # The refusal has to stop the write, not merely accompany it.
         assert rows == []
 
@@ -171,7 +168,7 @@ class TestEnteringAClubThroughTheEndpoint:
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == CLUB_RETIRED
+        assert on_a_league(mongo_replica_set_url, body) == Code.CLUB_RETIRED
 
     def test_a_club_no_document_names_is_a_404_and_writes_nothing(self, mongo_replica_set_url: str):
         """The referential hole the club read closes: without it, the row would name a club `teams` does not hold."""
@@ -209,4 +206,4 @@ class TestEnteringAClubThroughTheEndpoint:
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, saison_status="active") == ENTRY_SAISON_NOT_FUTURE
+        assert on_a_league(mongo_replica_set_url, body, saison_status="active") == Code.ENTRY_SAISON_NOT_FUTURE

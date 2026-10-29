@@ -25,13 +25,13 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
-from app.api.konto.services import EINWILLIGUNG_STAND_VERALTET, KONTO_SEITE_KONTAKT, KONTO_SEITE_SCHIEDSRICHTER, KONTO_SEITE_SPIELER
+from app.api.konto.services import KONTO_SEITE_KONTAKT, KONTO_SEITE_SCHIEDSRICHTER, KONTO_SEITE_SPIELER
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.db import collection_dependency, get_database
-from app.core.drosselung import DROSSELUNG_ERREICHT, TAGESBUDGETS, ZAEHLER_BUDGETS, Zaehler, get_drossel
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DrosselungException
+from app.core.drosselung import TAGESBUDGETS, ZAEHLER_BUDGETS, Zaehler, get_drossel
+from app.core.exceptions import DrosselungException
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import AktorFunktion, PersonActor, actor_var
 from app.core.security import akteur_pseudonym
@@ -253,7 +253,7 @@ async def counts(database: AsyncDatabase) -> dict[str, int]:
 
 
 def refused_until_midnight(response: Response) -> bool:
-    return answered(response) == (429, DROSSELUNG_ERREICHT) and response.headers.get("retry-after") == str(SECONDS_TO_MIDNIGHT)
+    return answered(response) == (429, Code.DROSSELUNG_ERREICHT) and response.headers.get("retry-after") == str(SECONDS_TO_MIDNIGHT)
 
 
 class TestTheCeilingUnderConcurrency:
@@ -285,8 +285,8 @@ class TestTheCeilingUnderConcurrency:
             answers, stored = seeded(mongo_replica_set_url, steps)
 
         assert Counter(answered(response) for response in answers) == {
-            (404, DOCUMENT_NOT_FOUND): self.LEFT,
-            (429, DROSSELUNG_ERREICHT): self.LEFT,
+            (404, Code.DOCUMENT_NOT_FOUND): self.LEFT,
+            (429, Code.DROSSELUNG_ERREICHT): self.LEFT,
         }
         assert all(refused_until_midnight(response) for response in answers if response.status_code == 429)
         assert stored == {count_id("kontakt", PERSON): ceiling + self.LEFT}
@@ -417,7 +417,7 @@ class TestAnExhaustedCount:
         own, other_person, other_funktion, stored = seeded(mongo_replica_set_url, steps)
 
         assert refused_until_midnight(own)
-        assert answered(other_person) == (404, DOCUMENT_NOT_FOUND)
+        assert answered(other_person) == (404, Code.DOCUMENT_NOT_FOUND)
         assert other_funktion.status_code == 200, other_funktion.text
         assert stored == {
             count_id("kontakt", PERSON): TAGESBUDGETS["kontakt"] + 1,
@@ -437,7 +437,7 @@ class TestAnExhaustedCount:
         today, tomorrow, fresh = seeded(mongo_replica_set_url, steps)
 
         assert refused_until_midnight(today)
-        assert answered(tomorrow) == (404, DOCUMENT_NOT_FOUND)
+        assert answered(tomorrow) == (404, Code.DOCUMENT_NOT_FOUND)
         # Its own row, expiring at the midnight ending the day it counts.
         assert (fresh["n"], fresh["ablauf"]) == (1, NEXT_MIDNIGHT_UTC)
 
@@ -606,15 +606,15 @@ class TestAConsentPress:
 REFUSED_GRANTS = [
     pytest.param(
         lambda consent: {**consent.press(True), "nachweis_stand": {**consent.young_stand, "medien": "2026-03-01T10:00:00+00:00"}},
-        (409, EINWILLIGUNG_STAND_VERALTET),
+        (409, Code.EINWILLIGUNG_STAND_VERALTET),
         id="a stale page",
     ),
     pytest.param(
         lambda consent: {**consent.press(True, consent.young_stand), "text_version": "2000-01-unbekannt"},
-        (409, FASSUNG_UNZULAESSIG),
+        (409, Code.FASSUNG_UNZULAESSIG),
         id="an unknown label",
     ),
-    pytest.param(lambda consent: consent.press(True, consent.young_stand), (422, SELBST_MEDIEN_ALTER), id="under the media age"),
+    pytest.param(lambda consent: consent.press(True, consent.young_stand), (422, Code.SELBST_MEDIEN_ALTER), id="under the media age"),
 ]
 
 

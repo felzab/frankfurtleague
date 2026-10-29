@@ -18,12 +18,12 @@ from app.api.saisons.schemas import (
     FLSaisonRules,
     FLUndrawSpielplanResponse,
 )
-from app.api.saisons.services import RULES_SHAPE_AFTER_DRAW, SPIELPLAN_BERICHTE_EINGEREICHT, SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.teams.admin_router import post_saison_team
 from app.api.teams.schemas import FLGruppenNames, FLPostSaisonTeamPayload, FLSaisonTeamResponse
-from app.api.teams.services import ENTRY_GRUPPE_FULL, offered_gruppen
+from app.api.teams.services import offered_gruppen
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from app.core.logging import trace_id_var
@@ -638,7 +638,7 @@ class TestASubmittedReportKeepsTheSpielplan:
 
         drawn, outcome, counts, berichte = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert outcome == SPIELPLAN_BERICHTE_EINGEREICHT
+        assert outcome == Code.SPIELPLAN_BERICHTE_EINGEREICHT
         assert (counts, berichte) == ((drawn.spieltage, drawn.spiele), 1)
 
     def test_a_report_whose_fixture_is_gone_refuses_nothing(self, mongo_replica_set_url: str):
@@ -670,7 +670,7 @@ class TestASubmittedReportKeepsTheSpielplan:
 
         drawn, outcome, counts, passes = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert (outcome, counts) == (SPIELPLAN_BERICHTE_EINGEREICHT, (drawn.spieltage, drawn.spiele))
+        assert (outcome, counts) == (Code.SPIELPLAN_BERICHTE_EINGEREICHT, (drawn.spieltage, drawn.spiele))
         # Once: the insert conflicts with nothing, so no retry met it.
         assert passes == 1
 
@@ -723,7 +723,7 @@ class TestTheWindowIsReachedThroughTheRoute:
 
         refused = an_undraw_refused_on(mongo_replica_set_url, status=status)
 
-        assert refused.error_code == SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
+        assert refused.error_code == Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
         assert status in refused.message
         assert (refused.spieltage, refused.spiele) == (refused.drawn.spieltage, refused.drawn.spiele)
         assert refused.watermark is not None
@@ -734,7 +734,7 @@ class TestTheWindowIsReachedThroughTheRoute:
 
         refused = an_undraw_refused_on(mongo_replica_set_url, record=record)
 
-        assert refused.error_code == SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
+        assert refused.error_code == Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
         assert "1 fixture(s)" in refused.message
         assert (refused.spieltage, refused.spiele) == (refused.drawn.spieltage, refused.drawn.spiele)
 
@@ -859,7 +859,7 @@ class TestABracketSlotSeededByHandKeepsTheWholeSpielplan:
 
         seeded = a_bracket_slot_seeded_by_hand(mongo_replica_set_url)
 
-        assert seeded.error_code == SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
+        assert seeded.error_code == Code.SPIELPLAN_UNDRAW_OUTSIDE_ITS_WINDOW
         assert "1 fixture(s)" in seeded.message
 
     def test_the_season_keeps_every_matchday_and_every_fixture(self, mongo_replica_set_url: str):
@@ -949,8 +949,8 @@ class TestWhatAnUndrawReopens:
 
         reopened = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert reopened.patch_refused == RULES_SHAPE_AFTER_DRAW
-        assert reopened.entry_refused == ENTRY_GRUPPE_FULL
+        assert reopened.patch_refused == Code.RULES_SHAPE_AFTER_DRAW
+        assert reopened.entry_refused == Code.ENTRY_GRUPPE_FULL
         # Read off the stored document the patch echoes, so a rule refused after the write cannot pass this.
         assert reopened.widened.updated_document.rules.teams_per_group == WIDER_PER_GROUP
         assert (reopened.entered.team_id, reopened.entered.gruppe) == (NEWCOMER_OID, "A")

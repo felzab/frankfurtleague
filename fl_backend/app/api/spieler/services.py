@@ -5,7 +5,7 @@ from typing import Any, NamedTuple
 
 from app.api.adresswechsel.services import LIVE_KEYED_TERMS
 from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerRolle
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
@@ -269,16 +269,6 @@ def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
     ]
 
 
-# The same dangling reference `REQ-ELIGIBILITY-002` refuses on the match side.
-SQUAD_TEAM_NOT_IN_SAISON = Code.SQUAD_TEAM_NOT_IN_SAISON
-
-SQUAD_FULL = Code.SQUAD_FULL
-
-# One code for both roles, as `REQ-BOOKING-001` covers a venue and a referee: this is one rule read
-# against two values rather than two failure modes.
-SQUAD_ROLLE_TAKEN = Code.SQUAD_ROLLE_TAKEN
-
-
 def build_live_squad_filter(*, saison_id: str, team_id: CustomObjectId, excluding_spieler_id: CustomObjectId) -> Mapping[str, Any]:
     """Which rows count towards `max_kadergroesse`.
 
@@ -303,7 +293,7 @@ def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
 
     if not team_in_saison:
         return WriteRefusal(
-            error_code=SQUAD_TEAM_NOT_IN_SAISON,
+            error_code=Code.SQUAD_TEAM_NOT_IN_SAISON,
             status=HTTPStatus.CONFLICT,
             message="the named team holds no saison_teams row for this season; a squad entry needs the club to be entered first",
         )
@@ -322,7 +312,7 @@ def find_squad_capacity_refusal(*, squad_size: int, max_kadergroesse: int) -> Wr
         noun = "player" if max_kadergroesse == 1 else "players"
 
         return WriteRefusal(
-            error_code=SQUAD_FULL,
+            error_code=Code.SQUAD_FULL,
             status=HTTPStatus.CONFLICT,
             message=f"the squad is full ({squad_size}/{max_kadergroesse} {noun}); a season's rules cap how many players a team may field in it",
         )
@@ -361,7 +351,7 @@ def find_squad_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> Wr
         return None
 
     return WriteRefusal(
-        error_code=SQUAD_ROLLE_TAKEN,
+        error_code=Code.SQUAD_ROLLE_TAKEN,
         status=HTTPStatus.CONFLICT,
         message=f"another live squad row in this team already holds '{rolle}' for this season; a squad holds each role once",
     )
@@ -429,11 +419,6 @@ def mark_shared_nummern(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any
     return [{**row, "nummer_doppelt": row.get("inactive_since") is None and row.get("nummer") in shared} for row in rows]
 
 
-# A representative's edit is held to the season's list, where the administrator's form is trusted to
-# offer it.
-KADER_STUFE_NICHT_ERLAUBT = Code.KADER_STUFE_NICHT_ERLAUBT
-
-
 def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, erlaubte_stufen: Sequence[str]) -> WriteRefusal | None:
     """`REQ-SQUAD-005`: the edit writes a Stufe the season's rules do not offer.
 
@@ -445,7 +430,7 @@ def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, erl
         return None
 
     return WriteRefusal(
-        error_code=KADER_STUFE_NICHT_ERLAUBT,
+        error_code=Code.KADER_STUFE_NICHT_ERLAUBT,
         status=HTTPStatus.CONFLICT,
         message="this season's rules do not offer that Stufe; pick one of the season's erlaubte_stufen",
     )

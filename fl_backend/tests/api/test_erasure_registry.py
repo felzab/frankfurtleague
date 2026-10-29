@@ -17,7 +17,7 @@ from pymongo.errors import NetworkTimeout
 
 from app.api.identitaet.crud import ErasureJournal, Subject, resolve_subject
 from app.api.identitaet.schemas import FLErasure
-from app.core.exception_handlers import DATABASE_FAILED
+from app.core.codes import Code
 from app.core.journal import JOURNAL_TOKEN
 from tests.config import build_test_config
 
@@ -69,7 +69,7 @@ def test_a_committed_erasure_whose_grant_warning_fails_answers_and_journals(capl
 
     assert answer == A_GRANT_TAKEN
     assert [message for message in messages if message.startswith(JOURNAL_TOKEN)] != []
-    assert [getattr(record, "error_code", None) for record in caplog.records].count(DATABASE_FAILED) == 1
+    assert [getattr(record, "error_code", None) for record in caplog.records].count(Code.DATABASE_FAILED) == 1
     assert [message for message in messages if IDENTIFIER in message] == []
 
 

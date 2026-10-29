@@ -4,10 +4,10 @@ from typing import Any
 import pytest
 
 from app.api.bewerbungen.services import (
-    BEWERBUNG_KONTAKT_EMAIL_TAKEN,
     find_kontakt_email_refusal,
     find_new_club_refusal,
 )
+from app.core.codes import Code
 from tests.documents import kontaktperson_document
 
 # Every one of these is stored happily and refused by `FLTeam`, which reads the clubs list. The
@@ -58,4 +58,4 @@ class TestCorrectingOneContactAddress:
 
         refusal = find_kontakt_email_refusal(kontakte=seats, seats=("ansprechperson",), email="STELLAN@example.com")
 
-        assert refusal is not None and refusal.error_code == BEWERBUNG_KONTAKT_EMAIL_TAKEN
+        assert refusal is not None and refusal.error_code == Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN

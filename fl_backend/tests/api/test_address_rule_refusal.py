@@ -13,8 +13,8 @@ from pydantic.warnings import UnsupportedFieldAttributeWarning
 
 import app
 from app.api.identitaet.schemas import FLAbmeldungPayload, FLErasureAnsichtPayload, FLErasurePayload
+from app.core.codes import Code
 from app.core.config import API_VERSION
-from app.core.exception_handlers import DATABASE_FAILED, PAYLOAD_REFUSED, UNKNOWN_OUTCOME
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
@@ -49,7 +49,7 @@ UNICODE_DOMAIN_STORED = "anna@xn--mller-kva.de"
 # The control's answer: a well-formed request that got past validation and reached the database. The
 # refusal's is `REQ-VAL-001`, and a keying crash answers `SRV-FAIL-001`. Either database code, since
 # which one a cut write answers is `app/core/exception_handlers.py :: db_exception_handler`'s question.
-UNREACHED_DATABASE = {DATABASE_FAILED, UNKNOWN_OUTCOME}
+UNREACHED_DATABASE = {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
 
 ADMIN_HEADERS = SignedActor("admin@frankfurtleague.de", ADMIN_KEY)
 
@@ -110,7 +110,7 @@ class TestEveryKeyingRouteRefusesALocalPartBeyondAscii:
 
         response = answered(route, UMLAUT_LOCAL_PART)
 
-        assert (response.status_code, response.json()["error_code"]) == (422, PAYLOAD_REFUSED)
+        assert (response.status_code, response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
 
     @pytest.mark.parametrize("route", list(ROUTES))
     def test_an_address_above_ascii_in_its_domain_alone_reaches_the_database(self, route: str):
@@ -260,7 +260,7 @@ class TestAStringNoDatabaseStoresIsRefusedAtTheBox:
     def test_a_lone_surrogate_is_refused(self, route: str):
         response = posted_raw(route, "a\\ud800@schule.de")
 
-        assert (response.status_code, response.json()["error_code"]) == (422, PAYLOAD_REFUSED)
+        assert (response.status_code, response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
 
     @pytest.mark.parametrize("route", list(FREE_STRING_ROUTES))
     def test_the_same_body_spelled_plainly_reaches_the_database(self, route: str):

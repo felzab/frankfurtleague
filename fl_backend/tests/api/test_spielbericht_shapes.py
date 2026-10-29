@@ -13,12 +13,6 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtVonSchiedsrichter,
 )
 from app.api.spielberichte.services import (
-    BERICHT_ABGESAGT,
-    BERICHT_ELFMETER_IN_DER_GRUPPE,
-    BERICHT_GRUND_FEHLT,
-    BERICHT_NAME_IN_BEMERKUNGEN,
-    BERICHT_NICHT_GESPIELT,
-    BERICHT_NICHT_IM_KADER,
     BerichtLage,
     bericht_namen,
     bericht_zustand_of,
@@ -35,6 +29,7 @@ from app.api.spielberichte.services import (
     kader_ist_offen,
     neu_genannt,
 )
+from app.core.codes import Code
 from app.core.exceptions import WriteRefusalException
 from tests.documents import bericht_document
 
@@ -125,7 +120,7 @@ class TestOnlyANewCautionOwesItsReason:
     def test_a_caution_without_a_reason_is_refused_at_its_box(self, farbe: str):
         refusal = find_grund_fehlt_refusal(payload=mit_karten(karte("rot", None), karte(farbe, None)), gespeichert=None)
 
-        assert refused_with(BERICHT_GRUND_FEHLT, refusal)
+        assert refused_with(Code.BERICHT_GRUND_FEHLT, refusal)
         assert refusal is not None and refusal.fields == (("bericht", "karten"),)
 
     def test_a_red_card_may_stand_without_one(self):
@@ -147,14 +142,14 @@ class TestOnlyANewCautionOwesItsReason:
     def test_any_other_caution_is_refused(self, neu: dict[str, Any]):
         stripped = {"karten": [karte("gelb", None)]}
 
-        assert refused_with(BERICHT_GRUND_FEHLT, find_grund_fehlt_refusal(payload=mit_karten(neu), gespeichert=stripped))
+        assert refused_with(Code.BERICHT_GRUND_FEHLT, find_grund_fehlt_refusal(payload=mit_karten(neu), gespeichert=stripped))
 
     def test_each_stripped_card_excuses_one_caution(self):
         stripped = {"karten": [karte("gelb", None)]}
 
         refusal = find_grund_fehlt_refusal(payload=mit_karten(karte("gelb", None), karte("gelb", None, minute="80")), gespeichert=stripped)
 
-        assert refused_with(BERICHT_GRUND_FEHLT, refusal)
+        assert refused_with(Code.BERICHT_GRUND_FEHLT, refusal)
 
     def test_a_stored_caution_reads_without_one(self):
         """A season's end strips every card's reason, and the reads serve the report after it."""
@@ -220,13 +215,13 @@ class TestAReportFollowsTheMatchDay:
 
     @pytest.mark.parametrize("datum", [None, "2027-05-15"], ids=["undated", "tomorrow"])
     def test_an_undated_or_coming_fixture_is_refused(self, datum: str | None):
-        assert refused_with(BERICHT_NICHT_GESPIELT, find_nicht_gespielt_refusal(datum=datum, today=TODAY))
+        assert refused_with(Code.BERICHT_NICHT_GESPIELT, find_nicht_gespielt_refusal(datum=datum, today=TODAY))
 
 
 class TestACalledOffFixtureTakesNoReport:
     @pytest.mark.parametrize("sonderereignis", ["ausgefallen", "annulliert"])
     def test_a_fixture_that_took_no_place_is_refused(self, sonderereignis: str):
-        assert refused_with(BERICHT_ABGESAGT, find_abgesagt_refusal(sonderereignis=sonderereignis))
+        assert refused_with(Code.BERICHT_ABGESAGT, find_abgesagt_refusal(sonderereignis=sonderereignis))
 
     @pytest.mark.parametrize("sonderereignis", [None, "abgebrochen", "nichtantreten_team1"])
     def test_one_that_took_place_is_reported_on(self, sonderereignis: str | None):
@@ -254,7 +249,7 @@ class TestANewlyNamedPupilIsInTheSquad:
 
         neu = neu_genannt(FLSpielberichtBerichtPayload.model_validate(payload(0, 1, [tor("team2", ObjectId())])), None, spiel())
 
-        assert refused_with(BERICHT_NICHT_IM_KADER, find_nicht_im_kader_refusal(lage=lage(), neu=neu))
+        assert refused_with(Code.BERICHT_NICHT_IM_KADER, find_nicht_im_kader_refusal(lage=lage(), neu=neu))
 
 
 class TestTheRemarksNameNobody:
@@ -266,7 +261,7 @@ class TestTheRemarksNameNobody:
     def test_a_name_of_the_fixture_s_people_is_refused_at_the_box(self, bemerkungen: str):
         refusal = find_name_in_bemerkungen_refusal(bemerkungen=bemerkungen, names=bericht_namen(lage()))
 
-        assert refused_with(BERICHT_NAME_IN_BEMERKUNGEN, refusal)
+        assert refused_with(Code.BERICHT_NAME_IN_BEMERKUNGEN, refusal)
         assert refusal is not None and refusal.fields == (("bericht", "bemerkungen"),)
 
     @pytest.mark.parametrize("bemerkungen", [None, "Die Nummer 7 der Gäste sah nach dem Abpfiff Gelb."])
@@ -409,7 +404,7 @@ class TestAGroupFixtureTakesNoShootOut:
             judge_bericht(lage=lage(), payload=vorschlag, gespeichert=None, neu=keine, today=TODAY)
         judge_bericht(lage=lage(saison_phase="achtelfinale"), payload=vorschlag, gespeichert=None, neu=keine, today=TODAY)
 
-        assert refused.value.error_code == BERICHT_ELFMETER_IN_DER_GRUPPE
+        assert refused.value.error_code == Code.BERICHT_ELFMETER_IN_DER_GRUPPE
 
 
 class TestALaterWriteRaisesTheVersionAndKeepsTheAdoption:

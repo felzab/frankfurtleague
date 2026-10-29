@@ -1,10 +1,10 @@
 from app.api.spieltage.services import (
-    SPIELTAG_BEGINN_OUT_OF_ORDER,
     DatedNeighbour,
     dated_beginn,
     dated_neighbour,
     find_spieltag_order_refusal,
 )
+from app.core.codes import Code
 
 
 class TestAMatchdayNeverBeginsBeforeItsPredecessor:
@@ -39,7 +39,7 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
         refusal = self.order(beginn="2026-05-04", previous="2026-05-05")
 
         assert refusal is not None
-        assert refusal.error_code == SPIELTAG_BEGINN_OUT_OF_ORDER
+        assert refusal.error_code == Code.SPIELTAG_BEGINN_OUT_OF_ORDER
 
     def test_the_following_position_is_judged_too(self):
         """Moving one matchday breaks the pair on either side of it, and a rule watching one side would miss half of them."""
@@ -47,7 +47,7 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
         refusal = self.order(beginn="2026-05-21", following="2026-05-20")
 
         assert refusal is not None
-        assert refusal.error_code == SPIELTAG_BEGINN_OUT_OF_ORDER
+        assert refusal.error_code == Code.SPIELTAG_BEGINN_OUT_OF_ORDER
 
     def test_two_matchdays_may_begin_on_one_day(self):
         """Only BEFORE is refused: two matchdays of a phase sharing a start date contradict no ordering."""
@@ -76,8 +76,8 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
         towards_the_predecessor = self.order(beginn="2026-05-08", stored="2026-05-10", previous="2026-05-20")
         away_from_the_follower = self.order(beginn="2026-05-12", stored="2026-05-10", following="2026-05-05")
 
-        assert towards_the_predecessor is not None and towards_the_predecessor.error_code == SPIELTAG_BEGINN_OUT_OF_ORDER
-        assert away_from_the_follower is not None and away_from_the_follower.error_code == SPIELTAG_BEGINN_OUT_OF_ORDER
+        assert towards_the_predecessor is not None and towards_the_predecessor.error_code == Code.SPIELTAG_BEGINN_OUT_OF_ORDER
+        assert away_from_the_follower is not None and away_from_the_follower.error_code == Code.SPIELTAG_BEGINN_OUT_OF_ORDER
 
     def test_a_step_away_from_the_stored_violation_passes(self):
         """A partial repair still leaves the pair backwards, and refusing it would demand the whole distance in one edit."""

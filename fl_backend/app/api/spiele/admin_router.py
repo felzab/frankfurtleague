@@ -58,6 +58,7 @@ from app.api.spiele.services import (
     judge_spieltag_occupancy,
     stored_in_slice,
 )
+from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
@@ -75,7 +76,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, stores_nothing_when
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
 from app.core.transactions import transaction_session
@@ -265,7 +266,7 @@ async def get_spiel_for_admin(spiel_id: CustomRouteObjectId, spiele_collection: 
         limit=1,
     )
     if not spiele_raw:
-        raise DocumentNotFoundException(filter={"_id": spiel_id}, error_code=DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundException(filter={"_id": spiel_id}, error_code=Code.DOCUMENT_NOT_FOUND)
 
     return FLSpieleAdminSingleResponse(spiel=FLSpielJoinedAdmin.model_validate(spiele_raw[0]))
 

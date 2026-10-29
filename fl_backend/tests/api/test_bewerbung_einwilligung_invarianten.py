@@ -10,7 +10,6 @@ from app.api.bewerbungen.schemas import (
     refuse_age_outside_the_bounds,
 )
 from app.api.bewerbungen.services import (
-    BEWERBUNG_TOKEN_DECIDED,
     ausstehende_seats,
     compose_bestaetigungen,
     compose_decline_update,
@@ -23,6 +22,7 @@ from app.api.bewerbungen.services import (
 )
 from app.api.kontakte.services import build_clearing_update
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.core.codes import Code
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
 )
@@ -144,7 +144,7 @@ class TestWhatALinkAnswers:
         refusal = find_expired_token_refusal(bestaetigungsfrist=YESTERDAY, status="angenommen", today=TODAY)
 
         assert refusal is not None
-        assert refusal.error_code == BEWERBUNG_TOKEN_DECIDED
+        assert refusal.error_code == Code.BEWERBUNG_TOKEN_DECIDED
 
     def test_a_closed_season_rows_link_to_an_emptied_seat_opens_nobody(self):
         """Told apart, the page would tell a guess that someone once sat there, and offer a press the single use refuses."""

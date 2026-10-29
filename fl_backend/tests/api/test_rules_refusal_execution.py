@@ -7,7 +7,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import patch_saison
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLSaisonRules
-from app.api.saisons.services import RULES_KADER_BELOW_USE, RULES_SHAPE_AFTER_DRAW, RULES_TIEBREAK_AFTER_KNOCKOUT
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from tests import documents
@@ -226,7 +226,7 @@ class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
 
         refusal = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == RULES_KADER_BELOW_USE
+        assert refusal.error_code == Code.RULES_KADER_BELOW_USE
         # The live squad and nothing larger, so a decoy counted in would show here as well as in the verdict.
         assert str(LIVE_SQUAD) in refusal.error_detail["message"]
 
@@ -245,7 +245,7 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
 
         refusal = on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
 
-        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
+        assert refusal.error_code == Code.RULES_SHAPE_AFTER_DRAW
         assert str(DRAWN_FIXTURES) in refusal.error_detail["message"]
 
     def test_the_same_edit_goes_through_while_nothing_is_drawn(self, mongo_replica_set_url: str):
@@ -282,7 +282,7 @@ class TestTheKnockoutIsWhatFreezesTheTiebreak:
             spieltage=[knockout_spieltag_document()],
         )
 
-        assert refusal.error_code == RULES_TIEBREAK_AFTER_KNOCKOUT
+        assert refusal.error_code == Code.RULES_TIEBREAK_AFTER_KNOCKOUT
         # The played one alone: every other bracket fixture counted in would show here as well as in the verdict.
         assert str(PLAYED_KNOCKOUT_FIXTURES) in refusal.error_detail["message"]
 
@@ -304,7 +304,7 @@ class TestTheKnockoutIsWhatFreezesTheTiebreak:
             spieltage=[knockout_spieltag_document()],
         )
 
-        assert refusal.error_code == RULES_TIEBREAK_AFTER_KNOCKOUT
+        assert refusal.error_code == Code.RULES_TIEBREAK_AFTER_KNOCKOUT
 
     def test_a_drawn_but_unplayed_bracket_leaves_the_order_open(self, mongo_replica_set_url: str):
         """The boundary: the fixtures exist and are wired, and re-seeding them costs nobody a round they already played."""

@@ -11,9 +11,6 @@ from pymongo.errors import DuplicateKeyError, OperationFailure
 from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.schemas import FLEinladungVersandPayload
 from app.api.einladungen.services import (
-    EINLADUNG_SAISON_VORBEI,
-    EINLADUNG_TEAM_NICHT_EINGETRAGEN,
-    EINLADUNG_UNBEKANNT,
     WITHOUT_TOKEN_HASH,
     find_live_einladung_filter,
     find_unknown_einladung_refusal,
@@ -21,6 +18,7 @@ from app.api.einladungen.services import (
 from app.api.saisons.admin_router import post_einladungen_versand, preview_einladungen_versand
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import delete_einladung, get_einladung, post_einladung
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
@@ -336,7 +334,7 @@ class TestReissuingALink:
         guessed = find_unknown_einladung_refusal(einladung_raw=unknown)
 
         assert replaced is not None
-        assert replaced.error_code == EINLADUNG_UNBEKANNT
+        assert replaced.error_code == Code.EINLADUNG_UNBEKANNT
         assert replaced == guessed
 
     def test_the_live_link_opens(self, mongo_replica_set_url: str):
@@ -484,7 +482,7 @@ class TestWhatAMintRefuses:
 
         code, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert code == EINLADUNG_TEAM_NICHT_EINGETRAGEN
+        assert code == Code.EINLADUNG_TEAM_NICHT_EINGETRAGEN
         assert stored == 0
 
     def test_a_season_that_has_ended_is_refused(self, mongo_replica_set_url: str):
@@ -498,7 +496,7 @@ class TestWhatAMintRefuses:
 
         code, stored = on_a_league(mongo_replica_set_url, body, saison_status="past")
 
-        assert code == EINLADUNG_SAISON_VORBEI
+        assert code == Code.EINLADUNG_SAISON_VORBEI
         assert stored == 0
 
     def test_the_ended_season_is_reported_before_the_junction(self, mongo_replica_set_url: str):
@@ -510,7 +508,7 @@ class TestWhatAMintRefuses:
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, saison_status="past", teams=(TWO_SEATS,)) == EINLADUNG_SAISON_VORBEI
+        assert on_a_league(mongo_replica_set_url, body, saison_status="past", teams=(TWO_SEATS,)) == Code.EINLADUNG_SAISON_VORBEI
 
     def test_a_season_no_document_names_is_a_404(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
@@ -952,7 +950,7 @@ class TestTheSeasonWidePress:
 
         code, live = on_a_league(mongo_replica_set_url, body, saison_status="past")
 
-        assert code == EINLADUNG_SAISON_VORBEI
+        assert code == Code.EINLADUNG_SAISON_VORBEI
         # The seeded invitation is untouched, so the refusal stopped the whole press rather than part of it.
         assert live == 1
 

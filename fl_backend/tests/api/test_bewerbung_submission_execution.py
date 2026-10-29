@@ -17,13 +17,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.public_router import post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
 from app.api.bewerbungen.services import (
-    BEWERBUNG_ADRESSE_GESPERRT,
-    BEWERBUNG_FENSTER_GESCHLOSSEN,
-    BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED,
-    BEWERBUNG_PICKED_CLUB_UNUSABLE,
-    BEWERBUNG_SCHLUESSEL_ABWEICHEND,
-    BEWERBUNG_SHORTHAND_TAKEN,
-    BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
     bestaetigungsfrist_from,
     build_schluessel_filter,
     compose_bestaetigungen,
@@ -32,12 +25,11 @@ from app.api.bewerbungen.services import (
     hash_token,
 )
 from app.api.einwilligung import services as einwilligung_services
-from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.kontakte.services import build_clearing_update
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exception_handlers import PAYLOAD_REFUSED
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.recording import PUBLIC_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
@@ -513,7 +505,7 @@ class TestTheSubmissionKey:
 
             return refused.value.error_code, await database[Collection.BEWERBUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body) == (BEWERBUNG_SCHLUESSEL_ABWEICHEND, 1)
+        assert on_a_league(mongo_replica_set_url, body) == (Code.BEWERBUNG_SCHLUESSEL_ABWEICHEND, 1)
 
     @pytest.mark.parametrize("moved", LINK_MAY_BE_OUT)
     def test_a_replay_hands_no_link_once_one_may_be_out(self, mongo_replica_set_url: str, moved: Mapping[str, Any]):
@@ -586,7 +578,7 @@ class TestTheSubmissionKey:
         stored, code = on_a_league(mongo_replica_set_url, body)
 
         assert "idempotenz_fingerabdruck" not in stored
-        assert code == BEWERBUNG_SCHLUESSEL_ABWEICHEND
+        assert code == Code.BEWERBUNG_SCHLUESSEL_ABWEICHEND
 
     def test_applications_stored_without_a_key_neither_collide_nor_move(self, mongo_replica_set_url: str):
         """The partial filter: two keyless presses' rows would otherwise both index as null and collide."""
@@ -689,12 +681,12 @@ class TestTheRefusalsTheWritePathAnswers:
         ],
     )
     def test_a_season_taking_no_applications_refuses(self, mongo_replica_set_url: str, bewerbung: Any):
-        assert refused(mongo_replica_set_url, bewerbung=bewerbung).error_code == BEWERBUNG_FENSTER_GESCHLOSSEN
+        assert refused(mongo_replica_set_url, bewerbung=bewerbung).error_code == Code.BEWERBUNG_FENSTER_GESCHLOSSEN
 
     def test_a_season_that_has_ended_refuses_while_its_window_still_runs(self, mongo_replica_set_url: str):
         """The payload names the season, so a `past` one whose stored window still runs is reachable by the form's own request."""
 
-        assert refused(mongo_replica_set_url, saison_status="past").error_code == BEWERBUNG_FENSTER_GESCHLOSSEN
+        assert refused(mongo_replica_set_url, saison_status="past").error_code == Code.BEWERBUNG_FENSTER_GESCHLOSSEN
 
     def test_a_season_no_document_names_is_a_404(self, mongo_replica_set_url: str):
         """A 404 rather than `REQ-BEWERBUNG-004`: nothing was refused, the season the body names does not exist."""
@@ -715,7 +707,7 @@ class TestTheRefusalsTheWritePathAnswers:
     def test_a_submission_naming_no_single_applicant_refuses(self, mongo_replica_set_url: str, team_id: Any, schule: Any):
         failure = refused(mongo_replica_set_url, team_id=team_id, schule=schule)
 
-        assert failure.error_code == BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED
+        assert failure.error_code == Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED
 
     @pytest.mark.parametrize(
         "team_id",
@@ -727,22 +719,22 @@ class TestTheRefusalsTheWritePathAnswers:
     def test_a_club_the_list_does_not_offer_refuses(self, mongo_replica_set_url: str, team_id: str):
         """The same code for both, so a client sending an id it was never given learns nothing about which."""
 
-        assert refused(mongo_replica_set_url, team_id=team_id).error_code == BEWERBUNG_PICKED_CLUB_UNUSABLE
+        assert refused(mongo_replica_set_url, team_id=team_id).error_code == Code.BEWERBUNG_PICKED_CLUB_UNUSABLE
 
     def test_a_club_already_playing_the_season_refuses(self, mongo_replica_set_url: str):
-        assert refused(mongo_replica_set_url, team_id=str(ENTERED_OID)).error_code == BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED
+        assert refused(mongo_replica_set_url, team_id=str(ENTERED_OID)).error_code == Code.BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED
 
     def test_a_first_press_naming_an_earlier_wording_refuses(self, mongo_replica_set_url: str):
         """The replay case's control: the same body under a key nothing stores is judged, and stores nothing."""
 
-        assert refused(mongo_replica_set_url, kontakte=kontakte_labelled(EARLIER_FASSUNG)).error_code == FASSUNG_UNZULAESSIG
+        assert refused(mongo_replica_set_url, kontakte=kontakte_labelled(EARLIER_FASSUNG)).error_code == Code.FASSUNG_UNZULAESSIG
 
     def test_a_new_school_proposing_a_taken_kuerzel_refuses(self, mongo_replica_set_url: str):
         """Asked of a NEW school alone; `uniq_shorthand` is what would otherwise fail at acceptance."""
 
         failure = refused(mongo_replica_set_url, team_id=None, schule=schule_block(shorthand=EXISTING_SHORTHAND))
 
-        assert failure.error_code == BEWERBUNG_SHORTHAND_TAKEN
+        assert failure.error_code == Code.BEWERBUNG_SHORTHAND_TAKEN
 
     def test_a_picked_club_is_not_refused_for_holding_its_own_kuerzel(self, mongo_replica_set_url: str):
         """The control for the case above: a shorthand check reaching both branches would make applying impossible."""
@@ -880,7 +872,7 @@ class TestASubmissionMadeOverTheWire:
         shared = dict(KONTAKTE["ansprechperson"], telefon=KONTAKTE["trainer"]["telefon"])
         submitted = through_the_app(mongo_replica_set_url, payload(kontakte={**KONTAKTE, "ansprechperson": shared}))
 
-        assert (submitted.response.status_code, submitted.response.json()["error_code"]) == (422, PAYLOAD_REFUSED)
+        assert (submitted.response.status_code, submitted.response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
         assert submitted.stored == 0
 
     @pytest.mark.parametrize(
@@ -914,7 +906,7 @@ class TestASubmissionMadeOverTheWire:
         submitted = through_the_app(mongo_replica_set_url, payload(team_id=str(UNKNOWN_OID)))
 
         assert submitted.response.status_code == 409
-        assert submitted.response.json()["error_code"] == BEWERBUNG_PICKED_CLUB_UNUSABLE
+        assert submitted.response.json()["error_code"] == Code.BEWERBUNG_PICKED_CLUB_UNUSABLE
 
 
 # The validator refuses what the models refuse: `gute_spieler` is non-nullable on every side, not
@@ -965,7 +957,7 @@ class TestAKuerzelARetiredClubStillHolds:
 
         failure = refused(mongo_replica_set_url, team_id=None, schule=schule_block(shorthand=RETIRED_SHORTHAND))
 
-        assert failure.error_code == BEWERBUNG_SHORTHAND_TAKEN
+        assert failure.error_code == Code.BEWERBUNG_SHORTHAND_TAKEN
 
     def test_a_kuerzel_no_club_holds_is_still_accepted(self, mongo_replica_set_url: str):
         """The control: a lookup matching everything would refuse this too, and applying would be impossible."""
@@ -995,7 +987,7 @@ class TestABannedContactAddress:
 
             return failure.value.error_code, await database[Collection.BEWERBUNGEN].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, body) == (BEWERBUNG_ADRESSE_GESPERRT, 0)
+        assert on_a_league(mongo_replica_set_url, body) == (Code.BEWERBUNG_ADRESSE_GESPERRT, 0)
 
     def test_a_replay_after_an_address_was_banned_is_refused_and_mints_nothing(self, mongo_replica_set_url: str):
         """The first press left nothing on record, the one state a replay mints in.
@@ -1014,5 +1006,5 @@ class TestABannedContactAddress:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_ADRESSE_GESPERRT
+        assert code == Code.BEWERBUNG_ADRESSE_GESPERRT
         assert after == [before]

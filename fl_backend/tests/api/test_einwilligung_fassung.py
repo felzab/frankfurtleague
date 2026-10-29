@@ -7,9 +7,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.einwilligung.router import get_fassung
-from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, find_fassung_refusal
+from app.api.einwilligung.services import find_fassung_refusal
+from app.core.codes import Code
 from app.core.config import API_VERSION
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
 from tests.config import BASE_AUTH
 from tests.core.app_source import application
@@ -39,7 +40,7 @@ class TestTheLabelAWriteStamps:
         refusal = find_fassung_refusal(seite="bewerbung", genannt={"trainer": LAUFENDE_FASSUNGEN["bewerbung"], "ansprechperson": label})
 
         assert refusal is not None
-        assert refusal.error_code == FASSUNG_UNZULAESSIG
+        assert refusal.error_code == Code.FASSUNG_UNZULAESSIG
         assert "ansprechperson" in refusal.message
         assert "trainer" not in refusal.message, "a place naming the running label is named as refused"
 
@@ -61,7 +62,7 @@ class TestTheLabelAWriteStamps:
         refusal = find_fassung_refusal(seite="bewerbung", genannt={"ansprechperson": FRUEHERE}, gehalten={"trainer": FRUEHERE})
 
         assert refusal is not None
-        assert refusal.error_code == FASSUNG_UNZULAESSIG
+        assert refusal.error_code == Code.FASSUNG_UNZULAESSIG
 
     def test_a_withdrawal_may_name_any_version_of_its_page_and_nothing_else(self):
         """A page loaded before a deploy may still take a consent back; it may not name another page's words."""
@@ -69,7 +70,7 @@ class TestTheLabelAWriteStamps:
         assert find_fassung_refusal(seite="bewerbung", genannt={"trainer": FRUEHERE}, jede_fassung=True) is None
         for label in (ANDERE_SEITE, "2026-07"):
             refusal = find_fassung_refusal(seite="bewerbung", genannt={"trainer": label}, jede_fassung=True)
-            assert refusal is not None and refusal.error_code == FASSUNG_UNZULAESSIG, label
+            assert refusal is not None and refusal.error_code == Code.FASSUNG_UNZULAESSIG, label
 
 
 def as_registered(label: str) -> dict[str, Any]:
@@ -101,7 +102,7 @@ class TestTheWordsRead:
         with pytest.raises(DocumentNotFoundException) as missed:
             asyncio.run(get_fassung(label))
 
-        assert missed.value.error_code == DOCUMENT_NOT_FOUND
+        assert missed.value.error_code == Code.DOCUMENT_NOT_FOUND
 
     def test_the_slots_are_every_name_the_words_leave_open(self):
         served = asyncio.run(get_fassung("2026-09-bestaetigungsseite-6")).fassung
@@ -127,7 +128,7 @@ class TestTheReadsOverHttp:
         response = CLIENT.get(f"{PREFIX}/fassungen/2026-07", headers=BASE_AUTH)
 
         assert response.status_code == HTTPStatus.NOT_FOUND
-        assert response.json()["error_code"] == DOCUMENT_NOT_FOUND
+        assert response.json()["error_code"] == Code.DOCUMENT_NOT_FOUND
         assert set(response.json()) == {"error_code", "trace_id"}
 
     def test_the_pages_are_answered_with_their_running_labels(self):
