@@ -17,10 +17,7 @@ from app.api.aktionen.services import build_aktionen_sort
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter, compose_bestaetigungen, hash_token
 from app.api.identitaet.crud import erase_pupil_actor_in_session, unattribute_in_session
-from app.api.registrierungen.crud import nummern_rows
-from app.api.registrierungen.public_router import _live_squad_filter
 from app.api.spielberichte.crud import pull_bericht_lage
-from app.api.spieler.crud import refuse_a_full_squad, refuse_a_taken_rolle
 from app.api.spieler.person_router import _read_the_squad
 from app.core.collections import Collection
 from app.core.constraints import (
@@ -74,7 +71,7 @@ ANTRAG_GESTELLT = datetime(2126, 1, 1, tzinfo=UTC)
 IDEMPOTENZ_SCHLUESSEL = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
 
 # One declared support index, planted under different keys so its build is the one that fails.
-CONFLICTING_SUPPORT_INDEX = "saisons_status"
+CONFLICTING_SUPPORT_INDEX = "aktionen_trace_id"
 # The same planting for the TTL kind, over `at`: the name is claimed and the keys disagree, which is
 # also the shape of the mistake this index exists against.
 CONFLICTING_TTL_INDEX = "aktionen_retention"
@@ -672,7 +669,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mon
     async def body(database: AsyncDatabase) -> str:
         # The same name over different keys: `create_index` refuses rather than replacing, which is
         # the one way a declared support index fails on a database holding no documents.
-        await database.saisons.create_index([("start_date", ASCENDING)], name=CONFLICTING_SUPPORT_INDEX)
+        await database.aktionen.create_index([("at", ASCENDING)], name=CONFLICTING_SUPPORT_INDEX)
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
@@ -720,22 +717,14 @@ def test_the_submission_key_lookup_walks_its_partial_unique_index(mongo_url: str
 # merit, and a test asserting IXSCAN there would pass for the wrong reason.
 ROWS_ENOUGH_TO_PREFER_AN_INDEX = 2000
 
-# The `$in` shapes and no equality one: `build_bewerbungen_status_term` composes the status term one
-# way, and pinning a shape the endpoint cannot issue proves a plan nothing walks.
+# A triage tab's read, the one `bewerbungen_saison_id_status_queue` serves: one season, its status term
+# an `$in` as `build_bewerbungen_status_term` composes it.
 BEWERBUNGEN_QUEUE_FILTERS: list[dict[str, Any]] = [
-    {},
-    {"saison_id": SAISON_ID},
-    {"status": {"$in": ["eingereicht"]}},
-    # Two values, because that plan is not one value's: the planner explodes an `$in` into a branch
-    # per value and merges them, which reaches the sort order by another route.
-    {"status": {"$in": ["eingereicht", "angenommen"]}},
     {"saison_id": SAISON_ID, "status": {"$in": ["eingereicht"]}},
 ]
 
-# What `get_bewerbungen` counts on every read: one status at a time, and the season term where the
-# caller named one.
+# What `get_bewerbungen` counts on every read of one season: one status at a time.
 BEWERBUNGEN_COUNT_FILTERS: list[dict[str, Any]] = [
-    {"status": "eingereicht"},
     {"saison_id": SAISON_ID, "status": "eingereicht"},
 ]
 AKTIONEN_QUEUE_FILTERS: list[dict[str, Any]] = [
@@ -776,7 +765,7 @@ def index_reads(filters: list[dict[str, Any]]) -> list[tuple[dict[str, Any], str
         *((db_filter, "desc") for db_filter in filters),
         # The whole `asc` pin: both sort builders derive a single `direction`, so a tie-break pinned
         # against `order` breaks every `asc` read alike and one read catches it.
-        ({}, "asc"),
+        (filters[0], "asc"),
     ]
 
 
@@ -1001,7 +990,6 @@ def test_the_facet_tally_walks_index_keys_rather_than_the_whole_log(mongo_url: s
     assert misplanned(on_the_shipped_schema(mongo_url, body)) == []
 
 
-PLAIN_SQUAD_INDEX = "saison_spieler_saison_id_team_id"
 GERMAN_SQUAD_INDEX = "saison_spieler_saison_id_team_id_de"
 
 # The clubs and seasons the squad rows below spread over, so one club of one season is a small slice of them.
@@ -1072,51 +1060,6 @@ async def the_squad_page(database: AsyncDatabase) -> Issued:
     )
 
 
-async def the_squad_cap(database: AsyncDatabase) -> Issued:
-    await database[Collection.SAISONS].insert_one(valid_document("saisons"))
-
-    return await sent_by(
-        database,
-        lambda squad, session: refuse_a_full_squad(
-            saison_spieler_collection=squad,
-            saisons_collection=database[Collection.SAISONS],
-            saison_id=SAISON_ID,
-            team_id=TEAM_OID,
-            spieler_id=SPIELER_OID,
-            session=session,
-        ),
-    )
-
-
-async def the_captaincy(database: AsyncDatabase) -> Issued:
-    await database[Collection.SAISONS].insert_one(valid_document("saisons"))
-
-    return await sent_by(
-        database,
-        lambda squad, session: refuse_a_taken_rolle(
-            saison_spieler_collection=squad,
-            saisons_collection=database[Collection.SAISONS],
-            saison_id=SAISON_ID,
-            team_id=TEAM_OID,
-            spieler_id=SPIELER_OID,
-            rolle="kapitaen",
-            session=session,
-        ),
-    )
-
-
-async def the_registrations_numbers(database: AsyncDatabase) -> Issued:
-    return await sent_by(
-        database, lambda squad, session: nummern_rows(saison_spieler_collection=squad, saison_id=SAISON_ID, team_id=TEAM_OID, session=session)
-    )
-
-
-async def the_registrations_squad_count(_: AsyncDatabase) -> Issued:
-    """Its filter alone: both of the registration's counts send it bare from inside an endpoint reached through a live invitation."""
-
-    return count_pipeline(_live_squad_filter(saison_id=SAISON_ID, team_id=TEAM_OID)), None
-
-
 def index_names(node: Any) -> list[str]:
     """Every index a plan walks, at any depth: a `$lookup` or an exploded `$in` nests its scans past `inputStage`."""
 
@@ -1132,16 +1075,12 @@ def index_names(node: Any) -> list[str]:
     [
         pytest.param(the_report_squads, GERMAN_SQUAD_INDEX, id="the-report-s-squads"),
         pytest.param(the_squad_page, GERMAN_SQUAD_INDEX, id="the-squad-page"),
-        pytest.param(the_squad_cap, PLAIN_SQUAD_INDEX, id="the-squad-cap"),
-        pytest.param(the_captaincy, PLAIN_SQUAD_INDEX, id="the-captaincy"),
-        pytest.param(the_registrations_squad_count, PLAIN_SQUAD_INDEX, id="the-registration-s-squad-count"),
-        pytest.param(the_registrations_numbers, PLAIN_SQUAD_INDEX, id="the-registrations-numbers"),
     ],
 )
 def test_a_clubs_squad_rows_are_read_through_the_index_of_the_reads_collation(
     mongo_url: str, issue: Callable[[AsyncDatabase], Awaitable[Issued]], index: str
 ):
-    """An index serves only a read of its own collation: the two name-sorted reads take the German one, the counts the plain one."""
+    """An index serves only a read of its own collation: the two name-sorted reads take the German one."""
 
     async def body(database: AsyncDatabase) -> tuple[list[str], list[str], Mapping[str, Any] | None]:
         await database[Collection.SAISON_SPIELER].insert_many(

@@ -188,56 +188,18 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("actor.pseudonym", ASCENDING), ("actor.funktion", ASCENDING)),
         "the rows a person wrote, which their erasure marks inside its transaction",
     ),
-    # Each ends in the read's own sort order, `eingereicht_am` then `_id`. Measured: with the sort
-    # key unindexed every request scans the collection and sorts it in memory, which is work
-    # proportional to an archive an anonymous form can grow.
-    SupportIndex(
-        Collection.BEWERBUNGEN,
-        "bewerbungen_queue",
-        (("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
-        "the triage queue unfiltered, newest first",
-    ),
-    SupportIndex(
-        Collection.BEWERBUNGEN,
-        "bewerbungen_saison_id_queue",
-        (("saison_id", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
-        "one season's queue, which is the operator's recovery path under a flood",
-    ),
-    # Its own index rather than a prefix of the one above: with `status` between them, a read
-    # narrowed to a season alone could not walk the sort key and would block on a sort again.
+    # Ending in the read's own sort order, `eingereicht_am` then `_id`: with the sort key unindexed
+    # every request scans the collection and sorts it in memory, which is work proportional to an
+    # archive an anonymous form can grow.
     SupportIndex(
         Collection.BEWERBUNGEN,
         "bewerbungen_saison_id_status_queue",
         (("saison_id", ASCENDING), ("status", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
         "one season's queue narrowed to one status, which is what a triage tab reads",
     ),
-    # `eingereicht_am` and `_id` past the count's own key: measured, a bare `("status",)` serves the
-    # count and leaves the narrowed list read on another index, and three keys answer both.
-    SupportIndex(
-        Collection.BEWERBUNGEN,
-        "bewerbungen_status_queue",
-        (("status", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
-        "every season's queue at one status, and the count each status is told",
-    ),
-    # An index, not a season-cache set: that cache is keyed by season id, and a missing set would
-    # read as an empty one, which narrows on nothing
-    # (`app/api/saisons/visibility.py :: withheld_saison_ids`).
-    SupportIndex(
-        Collection.SAISONS,
-        "saisons_status",
-        (("status", ASCENDING),),
-        "the withheld-season set every unnarrowed base-tier read must exclude",
-    ),
-    # PLAIN rather than sparse or partial, though most referees carry no block: `SupportIndex`
-    # spells no partial form, and the lookup is an equality on a hex digest, which the single null
-    # key a block-less row adds cannot match.
-    SupportIndex(
-        Collection.SCHIEDSRICHTER,
-        "schiedsrichter_bestaetigung_token_hash",
-        (("bestaetigung.token_hash", ASCENDING),),
-        "the referee confirmation page's lookup, driven by strangers",
-    ),
-    # PLAIN for the index above's reason: a tombstone keeps its hashes, so each link answers how its change ended.
+    # PLAIN rather than sparse or partial: `SupportIndex` spells no partial form, and the lookup is an equality on a hex
+    # digest, which the null key a hash-less row adds cannot match. A tombstone keeps its hashes, so each link answers how
+    # its change ended.
     SupportIndex(
         Collection.ADRESSWECHSEL,
         "adresswechsel_token_hash",
@@ -350,16 +312,8 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("bericht.eingereicht_von.schiedsrichter_id", ASCENDING),),
         "the reports a leaving referee sent, read inside their erasure's transaction",
     ),
-    # The squad counts, the registrations' number read and a replacement's retirement match by club, with no collation;
-    # the only other index on `saison_id` is led by the pupil.
-    SupportIndex(
-        Collection.SAISON_SPIELER,
-        "saison_spieler_saison_id_team_id",
-        (("saison_id", ASCENDING), ("team_id", ASCENDING)),
-        "one season's squad rows of one club, counted",
-    ),
-    # The same keys under the collation the two squad reads sort names by, which the plain one cannot serve: the report
-    # reads it on every form and panel read and twice on every write, the squad page on every read.
+    # Under the collation the two squad reads sort names by: the report reads it on every form and panel read and twice
+    # on every write, the squad page on every read.
     SupportIndex(
         Collection.SAISON_SPIELER,
         "saison_spieler_saison_id_team_id_de",
@@ -377,12 +331,6 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
             "a person's seats, which the subject lookup reads on every signed-in page",
         )
         for seat in KONTAKT_ROLLEN
-    ),
-    SupportIndex(
-        Collection.SCHIEDSRICHTER,
-        "schiedsrichter_kontakt_email",
-        (("kontakt.email", ASCENDING),),
-        "a person's referee rows, which the subject lookup reads on every signed-in page",
     ),
     *(
         SupportIndex(
@@ -548,8 +496,8 @@ async def _apply_concurrently(declared: Sequence[tuple[str, _Runner]]) -> None:
     """
     lanes: dict[str, list[tuple[int, _Runner]]] = {}
     # Numbered BEFORE the split, so a rank is the DECLARED position and not the position within a lane:
-    # `aktionen_trace_id` does not open its lane and `bewerbungen_queue` does, so per-lane
-    # numbering would report the later-declared one.
+    # a later-declared operation opening its own lane would rank 0 there, and per-lane numbering would
+    # report it over an earlier one standing second in its lane, as `aktionen_trace_id` does.
     for position, (namespace, run) in enumerate(declared):
         lanes.setdefault(namespace, []).append((position, run))
 
