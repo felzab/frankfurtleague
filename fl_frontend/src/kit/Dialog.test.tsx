@@ -56,7 +56,7 @@ function EditorHoldingDialog({
   save,
   create,
 }: {
-  save: (change: EditorSave<Spielort>) => Promise<ActionAnswer>;
+  save: (change: EditorSave<Spielort>) => Promise<ActionAnswer<string>>;
   create: (formData: FormData) => Promise<ActionAnswer>;
 }) {
   const editor = useEditor({ id: "ort-1", fingerprint: "f1", values: { name: "Riedberg" } }, save);
@@ -172,7 +172,7 @@ describe("the kit's dialog", () => {
   });
 
   it("opened inside an editor's section, runs its own act and never the editor's save", async () => {
-    const save = vi.fn(async (): Promise<ActionAnswer> => ({ ok: true, value: undefined }));
+    const save = vi.fn(async (): Promise<ActionAnswer<string>> => ({ ok: true, value: "f2" }));
     const create = vi.fn(async (_formData: FormData): Promise<ActionAnswer> => DONE);
     render(
       <EditorHoldingDialog

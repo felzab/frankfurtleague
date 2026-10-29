@@ -26,7 +26,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),
 }));
 
-function SpielortEditor({ save }: { save: (change: EditorSave<Spielort>) => Promise<ActionAnswer> }) {
+function SpielortEditor({ save }: { save: (change: EditorSave<Spielort>) => Promise<ActionAnswer<string>> }) {
   const editor = useEditor({ id: "ort-1", fingerprint: "f1", values: { name: "Riedberg" } }, save);
   return (
     <EditorPage
@@ -55,7 +55,7 @@ function SpielortEditor({ save }: { save: (change: EditorSave<Spielort>) => Prom
 
 describe("the editor template's save", () => {
   it("keeps back a field its own rule refuses, pointing the status line at it", async () => {
-    const save = vi.fn(async (): Promise<ActionAnswer> => ({ ok: true, value: undefined }));
+    const save = vi.fn(async (): Promise<ActionAnswer<string>> => ({ ok: true, value: "f2" }));
     render(<SpielortEditor save={save} />);
 
     await userEvent.clear(screen.getByRole("textbox"));
@@ -67,7 +67,7 @@ describe("the editor template's save", () => {
   });
 
   it("sends the changed fields from the bar outside the form", async () => {
-    const save = vi.fn(async (): Promise<ActionAnswer> => ({ ok: true, value: undefined }));
+    const save = vi.fn(async (): Promise<ActionAnswer<string>> => ({ ok: true, value: "f2" }));
     render(<SpielortEditor save={save} />);
 
     await userEvent.type(screen.getByRole("textbox"), " Nord");
@@ -91,7 +91,7 @@ function Framed({ editor, children }: { editor: boolean; children: ReactNode }) 
   );
 }
 
-const saved = async (): Promise<ActionAnswer> => ({ ok: true, value: undefined });
+const saved = async (): Promise<ActionAnswer<string>> => ({ ok: true, value: "f2" });
 
 describe("the editor template's way back", () => {
   // The server draws the band and the bar as hydration finds them: a page declaring itself an editor only on
