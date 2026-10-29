@@ -3,11 +3,11 @@ from pydantic import SecretStr, TypeAdapter
 
 from app.api.sperrliste.schemas import GRUND_HOLDS_AN_ADDRESS, FLPostSperrlistePayload
 from app.api.sperrliste.services import (
-    SPERRLISTE_ADRESSE_GESPERRT,
     SPERRLISTE_SCHLUESSEL_VERSION,
     adresse_hash,
     find_sperrliste_refusal,
 )
+from app.core.codes import Code
 from app.shared.schemas.kontakt import CustomEmail
 
 # Obviously fake and distinct: two equal keys would let the separation case below pass vacuously.
@@ -189,7 +189,7 @@ class TestWhatTheCheckAnswers:
         assert refusal is not None
         assert refusal.error_code == "REQ-SPERRLISTE-001"
         # The constant beside it, so a rename that moved one and not the other fails here too.
-        assert SPERRLISTE_ADRESSE_GESPERRT == "REQ-SPERRLISTE-001"
+        assert Code.SPERRLISTE_ADRESSE_GESPERRT == "REQ-SPERRLISTE-001"
 
     def test_an_address_the_list_does_not_hold_is_refused_by_nothing(self):
         """The control: a check refusing everything would pass the case above and stop every sign-up."""

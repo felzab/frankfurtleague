@@ -12,7 +12,6 @@ from pydantic import ValidationError
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spieler.admin_router import _as_single
 from app.api.spieler.router import get_spieler, get_spieler_by_id
 from app.api.spieler.schemas import (
@@ -27,9 +26,10 @@ from app.api.spieler.schemas import (
     FLSpielerSortOptions,
 )
 from app.api.spieler.services import build_real_spieler_filter, build_spieler_memberships_pipeline, build_spieler_pipeline, public_initial
+from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import eigene_einwilligung_document, saison_spieler_document, spieler_document
 from tests.openapi_document import build_document
@@ -402,7 +402,7 @@ class TestTheSeasonASquadIsReadFor:
                 )
             )
 
-        assert refused.value.error_code == DOCUMENT_NOT_FOUND
+        assert refused.value.error_code == Code.DOCUMENT_NOT_FOUND
 
 
 class TestTheInitial:
@@ -919,7 +919,6 @@ class TestTheOrderIsNoOracleForAWithheldName:
         """Each row's served forename, in the answer's order: `None` is the withheld row, the corpus holding one."""
 
         async def body(database: AsyncDatabase) -> Any:
-            invalidate_saison_cache()
             response = await get_spieler(
                 spieler_collection=database.spieler,
                 saisons_collection=database.saisons,

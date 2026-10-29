@@ -18,20 +18,14 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.codes import Code
 from app.core.exception_handlers import (
-    BODY_UNREADABLE,
-    DATABASE_FAILED,
-    PAYLOAD_REFUSED,
     ROUTING_CODES,
-    STORED_DATA_INVALID,
-    UNHANDLED_CRASH,
     db_exception_handler,
     pydantic_validation_exception_handler,
     register_exception_handlers,
 )
-from app.core.exceptions import NO_DATABASE_CLIENT, APIError
+from app.core.exceptions import APIError
 from app.core.logging import JSONFormatter, TraceContextFilter
 from app.core.middlewares import TracedApp
-from app.core.security import MISSING_TOKEN, WRONG_BASE_KEY
 from app.main import create_app
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from tests.config import BASE_AUTH, build_test_config
@@ -130,19 +124,19 @@ class TestFailureBodies:
 
         assert response.status_code == 401
         body = response.json()
-        assert body["error_code"] == MISSING_TOKEN
+        assert body["error_code"] == Code.MISSING_TOKEN
         assert re.fullmatch(r"[a-f0-9]{32}", body["trace_id"])
         assert response.headers["WWW-Authenticate"] == "Bearer"
 
     def test_a_wrong_key_is_distinguishable_by_code(self):
         response = client().get("/api/v0/spiele", headers={"Authorization": "Bearer wrong"})
 
-        assert (response.status_code, response.json()["error_code"]) == (401, WRONG_BASE_KEY)
+        assert (response.status_code, response.json()["error_code"]) == (401, Code.WRONG_BASE_KEY)
 
     def test_an_unavailable_database_is_503_with_its_code(self):
         response = client().get("/api/v0/spiele", headers=BASE_AUTH)
 
-        assert (response.status_code, response.json()["error_code"]) == (503, NO_DATABASE_CLIENT)
+        assert (response.status_code, response.json()["error_code"]) == (503, Code.NO_DATABASE_CLIENT)
 
     def test_the_body_and_the_headers_carry_nothing_but_the_code_the_id_and_the_challenge(self):
         """`error_response` forwards `exc.headers` as well as the body, so either is a channel a message could leak through."""
@@ -159,7 +153,7 @@ def refused(body: object) -> dict[str, Any]:
 
     response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post("/nested", json=body)
 
-    assert (response.status_code, response.json()["error_code"]) == (422, PAYLOAD_REFUSED)
+    assert (response.status_code, response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
     return response.json()
 
 
@@ -192,7 +186,7 @@ class TestTheRefusedFieldsReachTheCaller:
         )
 
         assert response.status_code == 400
-        assert set(response.json()) == {"error_code", "trace_id"} and response.json()["error_code"] == BODY_UNREADABLE
+        assert set(response.json()) == {"error_code", "trace_id"} and response.json()["error_code"] == Code.BODY_UNREADABLE
 
 
 class TestARefusalIsAnsweredAtTheStatusItsCheckChose:
@@ -233,7 +227,7 @@ class TestTheAccessLineCarriesTheRefusal:
     """A refusal writes no line of its own, so the access line is the one record of which code a request answered."""
 
     def test_a_refusal_s_code_rides_its_access_line(self, caplog):
-        assert access_codes(caplog, lambda: client().get("/api/v0/spiele")) == [MISSING_TOKEN]
+        assert access_codes(caplog, lambda: client().get("/api/v0/spiele")) == [Code.MISSING_TOKEN]
 
     def test_a_success_s_access_line_carries_no_code(self, caplog):
         assert access_codes(caplog, lambda: client().get("/")) == [None]
@@ -373,7 +367,7 @@ class TestAServerFaultsLineWithholdsTheValue:
 
         document = logged_document(caplog)
         assert REJECTED_NAME not in document and REJECTED_MARKUP not in document
-        assert "vorname" in document and "string_pattern_mismatch" in document and STORED_DATA_INVALID in document
+        assert "vorname" in document and "string_pattern_mismatch" in document and Code.STORED_DATA_INVALID in document
 
     def test_a_validator_s_refusal_names_its_property_and_never_its_value(self, caplog):
         document = database_crash_document(caplog, WriteError("Document failed validation", 121, REFUSED_DOCUMENT_REPORT))
@@ -383,7 +377,7 @@ class TestAServerFaultsLineWithholdsTheValue:
         assert "consideredValue" not in document
         # The dotted path, not the leaf, and the second rule in the same report.
         assert "einwilligung.umfang" in document and "value was not found in enum" in document and "nachname" in document
-        assert DATABASE_FAILED in document
+        assert Code.DATABASE_FAILED in document
 
     def test_the_walk_never_descends_into_the_refused_value(self, caplog):
         """Catches widening the report keys walked to the ones a refused value sits under."""
@@ -510,7 +504,7 @@ class TestACrashIsAnsweredInsideItsRequest:
     def test_the_failure_body_quotes_the_request_s_trace_id(self, caplog):
         response, _ = _crashed(caplog, "/crash")
 
-        assert (response.status_code, response.json()) == (500, {"error_code": UNHANDLED_CRASH, "trace_id": "c0ffee00" * 4})
+        assert (response.status_code, response.json()) == (500, {"error_code": Code.UNHANDLED_CRASH, "trace_id": "c0ffee00" * 4})
 
     @pytest.mark.parametrize(("path", "status"), CRASHES)
     def test_the_crash_line_carries_the_access_line_s_ids(self, caplog, path: str, status: int):
@@ -518,7 +512,9 @@ class TestACrashIsAnsweredInsideItsRequest:
         access = [(record.status, record.trace_id) for record in records if getattr(record, "method", None) is not None]
         # Never the access line, which carries the same code once the failure body records it.
         crashes = [
-            (record.trace_id,) for record in records if getattr(record, "error_code", None) == UNHANDLED_CRASH and not hasattr(record, "method")
+            (record.trace_id,)
+            for record in records
+            if getattr(record, "error_code", None) == Code.UNHANDLED_CRASH and not hasattr(record, "method")
         ]
 
         assert [line[:2] for line in access] == [(status, "c0ffee00" * 4)]

@@ -95,7 +95,7 @@ BEWERBUNG_KADER_GROESSE_MAX: Final = 200
 # COHORT rather than `int32`: no German school graduates a thousand pupils in one year.
 BEWERBUNG_STUFENGROESSE_MAX: Final = 999
 
-TEAM_SHORTHAND_LENGTH: Final = 2
+TEAM_SHORTHAND_LENGTH: Final = 3
 
 SAISON_ID_LENGTH: Final = 4
 

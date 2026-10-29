@@ -17,6 +17,8 @@ from pydantic import (
 from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import CoreSchema, core_schema
 
+from app.shared.schemas.bounds import TEAM_SHORTHAND_LENGTH
+
 DATE_REGEX = r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
 
 TIME_REGEX = r"^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
@@ -106,6 +108,18 @@ def parse_empty_string_to_none(value: Any) -> Any:
 
 
 CustomOptionalString = Annotated[str | None, BeforeValidator(parse_empty_string_to_none)]
+
+
+def fold_shorthand(value: Any) -> Any:
+    return value.strip().upper() if isinstance(value, str) else value
+
+
+SHORTHAND_PATTERN = rf"^[A-Z]{{{TEAM_SHORTHAND_LENGTH}}}$"
+
+# Folded before the pattern judges it, on every model carrying a club's code: `uniq_shorthand` and
+# every comparison of codes are byte for byte, so `abc` and `ABC` would otherwise be two clubs. The
+# fold sits outermost, after the constraint, so it runs first and the document still publishes the pattern.
+CustomShorthand = Annotated[str, StringConstraints(pattern=SHORTHAND_PATTERN), BeforeValidator(fold_shorthand)]
 
 # An alias rather than a repeated `Field`, so a field cannot be added with the bound left off.
 CustomNonEmptyString = Annotated[str, StringConstraints(min_length=1)]

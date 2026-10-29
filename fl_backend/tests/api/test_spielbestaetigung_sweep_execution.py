@@ -26,8 +26,6 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungTermin,
 )
 from app.api.spielbestaetigungen.services import (
-    ANSETZUNG_BEANTWORTET,
-    ANSETZUNG_GESCHLOSSEN,
     MITTEILUNG_VERSUCHE_HOECHSTENS,
     build_token_filter,
     compose_antwort_update,
@@ -50,8 +48,8 @@ from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.spiele.services import ANSETZUNG_BESTAETIGT, build_spiele_pipeline
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exception_handlers import DATABASE_FAILED, UNKNOWN_OUTCOME
 from app.core.exceptions import WriteRefusalException
 from app.core.logging import FL_LOGGER_NAME
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -88,7 +86,7 @@ ALPHA = ObjectId("6890a1b2c3d4e5f607750001")
 BETA = ObjectId("6890a1b2c3d4e5f607750002")
 # A club no season row names, so a fixture fielding it is one the pass cannot answer.
 GAMMA = ObjectId("6890a1b2c3d4e5f607750003")
-NAMES = {ALPHA: ("Alpha", "AL"), BETA: ("Beta", "BE"), GAMMA: ("Gamma", "GA")}
+NAMES = {ALPHA: ("Alpha", "ALX"), BETA: ("Beta", "BEX"), GAMMA: ("Gamma", "GAX")}
 SPIELTAG = ObjectId("6890a1b2c3d4e5f6077500a1")
 PAST_SPIELTAG = ObjectId("6890a1b2c3d4e5f6077500a2")
 SPIELORT = ObjectId("6890a1b2c3d4e5f6077500b1")
@@ -720,7 +718,7 @@ class TestAMovedFixtureAsksAgain:
         assert (answered["antwort"]["art"], answered["antwort"]["von"]["rolle"]) == ("zugesagt", "trainer")
         assert next(row for row in closed if row["_id"] == answered_id)["antwort"] == answered["antwort"]
         assert [row["antwort"] for row in closed if row["_id"] != answered_id] == [None, None]
-        assert refusals == [ANSETZUNG_BEANTWORTET, ANSETZUNG_GESCHLOSSEN]
+        assert refusals == [Code.ANSETZUNG_BEANTWORTET, Code.ANSETZUNG_GESCHLOSSEN]
         assert {row["ansetzung"]["uhrzeit"] for row in standing} == {"19:00:00"}
         assert len(standing) == 3
         assert second.geschlossen == 3
@@ -1399,7 +1397,7 @@ class TestALaterStepFailingAnswersWhatCommitted:
 
         assert (len(answer.neue_ansetzungen), answer.anfragen, answer.erinnerungen) == (2, [], [])
         assert stamped == days_after(day=FIRST_REMINDER, days=-1)
-        assert [code for code, _ in warnings_of(caplog)] == [DATABASE_FAILED]
+        assert [code for code, _ in warnings_of(caplog)] == [Code.DATABASE_FAILED]
 
     def test_a_commit_whose_answer_was_lost_names_what_may_stand(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """The mint's rows may stand holding links nobody was mailed: logged as an unknown outcome, never as an ordinary failure."""
@@ -1414,7 +1412,7 @@ class TestALaterStepFailingAnswersWhatCommitted:
         assert (len(answer.neue_ansetzungen), answer.anfragen) == (2, [])
         assert warnings_of(caplog) == [
             (
-                UNKNOWN_OUTCOME,
+                Code.UNKNOWN_OUTCOME,
                 f"The mint clock's commit went unanswered after the call committed messages it owes: the rows minted for fixture(s) {SPIEL} "
                 "may have been written with nobody told, the call answers what else committed, and the rest stay due",
             )
@@ -1658,7 +1656,7 @@ class TestEverySeasonSizedReadSendsOneGetMore:
             return ObjectId(f"6890a1b2c3d4e5f6071{position:05d}")
 
         def club_side(position: int) -> dict[str, Any]:
-            return {"team_id": club(position), "name": f"Verein {position}", "shorthand": "VE", "tore": None}
+            return {"team_id": club(position), "name": f"Verein {position}", "shorthand": "VEX", "tore": None}
 
         def seats(position: int) -> dict[str, Any]:
             return {
@@ -1716,7 +1714,7 @@ class TestEverySeasonSizedReadSendsOneGetMore:
             for spiel in refereed_alone
         ]
         junctions = [
-            documents.saison_team_document(SAISON_ID, club(position), f"Verein {position}", "VE", kontakte=seats(position))
+            documents.saison_team_document(SAISON_ID, club(position), f"Verein {position}", "VEX", kontakte=seats(position))
             for position in range(2 * count)
         ]
 

@@ -11,8 +11,9 @@ import pytest
 from fastapi import Depends
 from httpx2 import ASGITransport, AsyncClient
 
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.security import PERSON_ACTOR_BINDERS, PERSON_BARRED
+from app.core.security import PERSON_ACTOR_BINDERS
 from app.main import create_app
 from tests.actor_tokens import actor_headers
 from tests.config import TEST_BASE_URL
@@ -60,7 +61,7 @@ def answered(url: str, email: str, *, bis: str) -> tuple[int, Any]:
 def test_a_person_a_standing_ban_holds_is_refused(mongo_url: str):
     status, body = answered(mongo_url, BARRED.upper(), bis="2031")
 
-    assert (status, body["error_code"]) == (403, PERSON_BARRED)
+    assert (status, body["error_code"]) == (403, Code.PERSON_BARRED)
 
 
 def test_a_person_no_ban_holds_is_served(mongo_url: str):

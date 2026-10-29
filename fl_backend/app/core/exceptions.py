@@ -5,12 +5,7 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Any
 
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
-
-# Named once, because a literal repeated across files is one a rename leaves behind.
-DOCUMENT_NOT_FOUND = Code.DOCUMENT_NOT_FOUND
-DUPLICATE_KEY = Code.DUPLICATE_KEY
-NO_DATABASE_CLIENT = Code.NO_DATABASE_CLIENT
+from app.core.codes import Code
 
 # The path inside the body a 422 judged, as a `REQ-VAL-001` names its own, so a form can mark the field.
 FieldPath = tuple[str | int, ...]

@@ -22,9 +22,10 @@ from app.api.adresswechsel.services import compose_record
 from app.api.bewerbungen.services import hash_token
 from app.api.schiedsrichter.services import compose_bestaetigung
 from app.api.teams.schemas import kontakte_stand_of
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.security import CONFIRMATION_REQUIRED, ENROLMENT_WINDOW_S, PASSKEY_FACTOR, STEP_UP_WINDOW_S
+from app.core.security import ENROLMENT_WINDOW_S, PASSKEY_FACTOR, STEP_UP_WINDOW_S
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests.actor_tokens import SignedActor
@@ -76,7 +77,7 @@ def on_a_season(url: str, body: Body, *, seed: Callable[[AsyncDatabase], Awaitab
             await database[Collection.SAISONS].insert_one(
                 saison_document(SAISON_ID, "active", rules=rules_document(number_of_groups=2), registrierung=dict(REGISTRIERUNG))
             )
-            await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_ID, "Adler", "AD", kontakte=None))
+            await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, TEAM_ID, "Adler", "ADX", kontakte=None))
             await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             if seed is not None:
                 await seed(database)
@@ -87,7 +88,7 @@ def on_a_season(url: str, body: Body, *, seed: Callable[[AsyncDatabase], Awaitab
 
 
 def refused(response: Any) -> bool:
-    return (response.status_code, response.json().get("error_code")) == (401, CONFIRMATION_REQUIRED)
+    return (response.status_code, response.json().get("error_code")) == (401, Code.CONFIRMATION_REQUIRED)
 
 
 async def a_live_link(database: AsyncDatabase) -> None:

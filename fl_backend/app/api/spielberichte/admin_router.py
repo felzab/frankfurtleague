@@ -5,7 +5,6 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends, Query
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_current_saison_id
 from app.api.spielberichte.crud import (
     anchor_the_pupils_named,
@@ -236,7 +235,5 @@ async def patch_spielbericht(
         # The report as written, in the shape of the panel's read; no client reads it, the page reading again after the save.
         return _admin_ansicht(lage, kader_offen=True, genannt=genannt, dokument=dokument)
 
-    # A first write anchors the season, a season write the cache serves.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            return await session.with_transaction(write_the_report)
+    async with transaction_session(db) as session:
+        return await session.with_transaction(write_the_report)

@@ -31,7 +31,6 @@ from app.api.berechtigungen.antraege import compose_antrag
 from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung, compose_widerruf_update
 from app.api.identitaet.crud import ERASURE_STEPS, JEDE_PERSONENGRUPPE, erase_everything
-from app.api.identitaet.services import LETZTER_INHABER_ERASURE
 from app.api.registrierungen.person_router import aufnehmen
 from app.api.registrierungen.schemas import FLRegistrierungAufnehmenPayload
 from app.api.registrierungen.services import compose_ablehnung_update
@@ -39,6 +38,7 @@ from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.crud import erase_person_in_session
 from app.api.spieler.services import build_ghost_spieler
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import delete_many_from_db, patch_one_in_db
@@ -374,14 +374,14 @@ async def their_confirmations(database: AsyncDatabase) -> None:
 async def a_person_holding_everything(database: AsyncDatabase) -> None:
     await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
     await database[Collection.TEAMS].insert_many(
-        [team_document(HOME_TEAM_OID, "Heim-Schule", "HS"), team_document(OTHER_TEAM_OID, "Gast-Schule", "GS")]
+        [team_document(HOME_TEAM_OID, "Heim-Schule", "HSX"), team_document(OTHER_TEAM_OID, "Gast-Schule", "GSX")]
     )
     await database[Collection.SAISON_TEAMS].insert_one(
         saison_team_document(
             SAISON_ID,
             HOME_TEAM_OID,
             "Heim-Schule",
-            "HS",
+            "HSX",
             kontakte=kontakte_document(
                 ansprechperson=their_seat(),
                 stellvertretung=kontaktperson_document("Quillhilde", bestaetigt_am="2126-03-21"),
@@ -401,7 +401,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             ),
             eingereicht_am="2126-03-10",
             bestaetigungsfrist="2126-04-10",
-            schule=neue_schule_document("Neue", "NE"),
+            schule=neue_schule_document("Neue", "NEX"),
             idempotenz_fingerabdruck=THEIR_DIGEST,
         )
     )
@@ -412,7 +412,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             "eingereicht",
             kontakte=kontakte_document(ansprechperson=their_seat()),
             eingereicht_am="2126-02-10",
-            schule=neue_schule_document("Alte", "AL"),
+            schule=neue_schule_document("Alte", "ALX"),
             idempotenz_fingerabdruck=THEIR_BLOCKLESS_DIGEST,
         )
     )
@@ -610,7 +610,7 @@ async def a_mailbox_sharing_their_local_part(database: AsyncDatabase) -> None:
             SAISON_ID,
             OTHER_TEAM_OID,
             "Gast-Schule",
-            "GS",
+            "GSX",
             _id=ELSEWHERE_SEAT_ROW_OID,
             kontakte=kontakte_document(
                 ansprechperson=kontaktperson_document("Quendolin", bestaetigt_am="2126-03-21", nachname="Anderswo", email=ELSEWHERE)
@@ -706,7 +706,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
             "abgelehnt",
             kontakte=kontakte_document(),
             eingereicht_am="2126-03-01",
-            schule=neue_schule_document("Abgelehnt", "AB"),
+            schule=neue_schule_document("Abgelehnt", "ABX"),
             entscheidung={"getroffen_am": "2126-03-10", "von": IDENTIFIER, "grund": "Keine Halle"},
         )
     )
@@ -1212,7 +1212,7 @@ class TestTheLastOwner:
         with caplog.at_level(logging.INFO):
             outcome, untouched = on_a_league(mongo_replica_set_url, body)
 
-        assert (outcome, untouched) == (LETZTER_INHABER_ERASURE, True)
+        assert (outcome, untouched) == (Code.LETZTER_INHABER_ERASURE, True)
         assert not [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
 
     def test_a_barred_second_owner_is_no_owner_to_leave_behind(self, mongo_replica_set_url: str):
@@ -1227,7 +1227,7 @@ class TestTheLastOwner:
 
             return await outcome_of(erased_by_the_handler(database, client))
 
-        assert on_a_league(mongo_replica_set_url, body) == LETZTER_INHABER_ERASURE
+        assert on_a_league(mongo_replica_set_url, body) == Code.LETZTER_INHABER_ERASURE
 
     def test_one_of_two_owners_goes_and_the_other_stands(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1257,7 +1257,7 @@ class TestTheLastOwner:
 
         grants, outcome, rival, owners = on_a_league(mongo_replica_set_url, body)
 
-        assert (rival, outcome, owners) == ([COMMITTED], LETZTER_INHABER_ERASURE, 1)
+        assert (rival, outcome, owners) == ([COMMITTED], Code.LETZTER_INHABER_ERASURE, 1)
         # The premise last: a read, the rival, the anchor's read meeting the conflict, then the retry's read and its anchor's.
         grants.assert_landed_inside(serially=2)
 
@@ -1398,13 +1398,13 @@ async def an_admittable_registration(database: AsyncDatabase) -> None:
     """The person holds nothing but a registration their team's seat holder can admit: the admission is what makes them a pupil."""
 
     await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
-    await database[Collection.TEAMS].insert_one(team_document(HOME_TEAM_OID, "Heim-Schule", "HS"))
+    await database[Collection.TEAMS].insert_one(team_document(HOME_TEAM_OID, "Heim-Schule", "HSX"))
     await database[Collection.SAISON_TEAMS].insert_one(
         saison_team_document(
             SAISON_ID,
             HOME_TEAM_OID,
             "Heim-Schule",
-            "HS",
+            "HSX",
             kontakte=kontakte_document(ansprechperson=kontaktperson_document("Anna", bestaetigt_am="2126-03-21")),
         )
     )
@@ -1495,7 +1495,7 @@ class TestAPersonHoldingNoFunktion:
                         "eingereicht",
                         kontakte=kontakte_document(trainer=their_seat(), ansprechperson=kontaktperson_document("Quillhilde")),
                         eingereicht_am="2126-03-10",
-                        schule=neue_schule_document("Neue", "NE"),
+                        schule=neue_schule_document("Neue", "NEX"),
                     )
                 )
             else:
@@ -1592,4 +1592,4 @@ class TestThePreview:
         status, foretold, pressed = on_a_league(mongo_replica_set_url, body)
 
         assert (status, foretold) == (200, letzter_inhaber)
-        assert pressed == (LETZTER_INHABER_ERASURE if letzter_inhaber else COMMITTED)
+        assert pressed == (Code.LETZTER_INHABER_ERASURE if letzter_inhaber else COMMITTED)

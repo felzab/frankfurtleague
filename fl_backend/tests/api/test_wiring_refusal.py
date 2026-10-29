@@ -5,7 +5,8 @@ import pytest
 from bson import ObjectId
 
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLSpielListAdapter
-from app.api.spiele.services import WIRING_GRUPPE_NOT_RUN, WIRING_SEED_PAST_THE_OPENING_ROUND, WIRING_UNSUPPORTED, find_wiring_refusal
+from app.api.spiele.services import find_wiring_refusal
+from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from tests.payloads import spiel_patch_body
 
@@ -237,16 +238,16 @@ def stored_as(season_docs: list[dict[str, Any]], nr: int, **wiring: Any) -> list
 # Each shape as a fixture stores it, with a SECOND value out of the same rule beside it. A hand
 # edit reaches all six and two saves racing reach the duplicate; no write path repairs any.
 STORED_SHAPES: dict[str, tuple[int, dict[str, Any], dict[str, Any], str]] = {
-    "group-fixture": (1, {"team1_quelle": sieger(2)}, {"team1_quelle": sieger(25)}, WIRING_UNSUPPORTED),
-    "dangling-feeder": (30, {"team1_quelle": sieger(27)}, {"team1_quelle": sieger(28)}, WIRING_UNSUPPORTED),
-    "gruppenphase-feeder": (30, {"team1_quelle": sieger(1)}, {"team1_quelle": sieger(2)}, WIRING_UNSUPPORTED),
-    "same-round-feeder": (29, {"team1_quelle": sieger(30)}, {"team1_quelle": sieger(31)}, WIRING_UNSUPPORTED),
-    "outcome-already-used": (30, {"team1_quelle": sieger(25)}, {"team1_quelle": sieger(26)}, WIRING_UNSUPPORTED),
+    "group-fixture": (1, {"team1_quelle": sieger(2)}, {"team1_quelle": sieger(25)}, Code.WIRING_UNSUPPORTED),
+    "dangling-feeder": (30, {"team1_quelle": sieger(27)}, {"team1_quelle": sieger(28)}, Code.WIRING_UNSUPPORTED),
+    "gruppenphase-feeder": (30, {"team1_quelle": sieger(1)}, {"team1_quelle": sieger(2)}, Code.WIRING_UNSUPPORTED),
+    "same-round-feeder": (29, {"team1_quelle": sieger(30)}, {"team1_quelle": sieger(31)}, Code.WIRING_UNSUPPORTED),
+    "outcome-already-used": (30, {"team1_quelle": sieger(25)}, {"team1_quelle": sieger(26)}, Code.WIRING_UNSUPPORTED),
     "seed-past-the-opening-round": (
         30,
         {"team1_quelle": gruppenplatz("C", 1)},
         {"team1_quelle": gruppenplatz("D", 1)},
-        WIRING_SEED_PAST_THE_OPENING_ROUND,
+        Code.WIRING_SEED_PAST_THE_OPENING_ROUND,
     ),
 }
 
@@ -311,13 +312,13 @@ class TestEveryRefusalCarriesItsCode:
         refusal = refusal_for(season, nr, **overrides)
 
         assert refusal is not None
-        assert refusal.error_code == WIRING_UNSUPPORTED
+        assert refusal.error_code == Code.WIRING_UNSUPPORTED
 
     def test_the_maintained_side_refusal_answers_it_too(self, season, spiel_team_field):
         refusal = refusal_for(season, 29, team1=spiel_team_field())
 
         assert refusal is not None
-        assert refusal.error_code == WIRING_UNSUPPORTED
+        assert refusal.error_code == Code.WIRING_UNSUPPORTED
 
     def test_the_seeding_refusal_carries_a_code_of_its_own(self, season):
         """Its repair is the opposite of the shared code's reload.
@@ -329,10 +330,10 @@ class TestEveryRefusalCarriesItsCode:
         refusal = refusal_for(season, 30, team1_quelle=gruppenplatz("C", 1))
 
         assert refusal is not None
-        assert refusal.error_code == WIRING_SEED_PAST_THE_OPENING_ROUND
+        assert refusal.error_code == Code.WIRING_SEED_PAST_THE_OPENING_ROUND
         # Not implied by the equality above: one constant spelled as the other passes that and
         # rejoins the two rules on the wire.
-        assert refusal.error_code != WIRING_UNSUPPORTED
+        assert refusal.error_code != Code.WIRING_UNSUPPORTED
 
     def test_a_group_the_season_does_not_run_carries_a_third_code(self, season):
         """Fixture 25 is the opening round, so only the group's existence separates this from the seeding refusal."""
@@ -340,6 +341,6 @@ class TestEveryRefusalCarriesItsCode:
         refusal = refusal_for(season, 25, number_of_groups=2, team1_quelle=gruppenplatz("C", 1))
 
         assert refusal is not None
-        assert refusal.error_code == WIRING_GRUPPE_NOT_RUN
-        assert refusal.error_code != WIRING_UNSUPPORTED
-        assert refusal.error_code != WIRING_SEED_PAST_THE_OPENING_ROUND
+        assert refusal.error_code == Code.WIRING_GRUPPE_NOT_RUN
+        assert refusal.error_code != Code.WIRING_UNSUPPORTED
+        assert refusal.error_code != Code.WIRING_SEED_PAST_THE_OPENING_ROUND

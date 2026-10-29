@@ -13,7 +13,7 @@ from app.api.spieler.admin_router import (
     reactivate_saison_spieler,
 )
 from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload
-from app.api.spieler.services import SQUAD_FULL, SQUAD_ROLLE_TAKEN, SQUAD_TEAM_NOT_IN_SAISON
+from app.core.codes import Code
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import EINWILLIGUNG, rules_document, saison_document, saison_spieler_document, saison_team_document, spieler_document
@@ -71,8 +71,8 @@ def on_a_database(url: str, body: Body, *, constrained: bool = True) -> Any:
             # season's own name and shorthand are required on the row and read by nothing here.
             await database.saison_teams.insert_many(
                 [
-                    saison_team_document(SAISON_ID, HOME_TEAM_OID, "Adler", "AD"),
-                    saison_team_document(SAISON_ID, AWAY_TEAM_OID, "Bieber", "BI", gruppe="B"),
+                    saison_team_document(SAISON_ID, HOME_TEAM_OID, "Adler", "ADX"),
+                    saison_team_document(SAISON_ID, AWAY_TEAM_OID, "Bieber", "BIX", gruppe="B"),
                 ]
             )
             # The one person `enter` names: the create reads them, and an id nobody holds is a 404 there.
@@ -191,7 +191,7 @@ class TestTheSquadCapOnEveryWritePath:
 
         refusal = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == SQUAD_FULL
+        assert refusal.error_code == Code.SQUAD_FULL
 
     def test_entering_a_squad_with_room_goes_through(self, mongo_replica_set_url: str):
         """The floor under the case above, or that refusal could be a blanket one."""
@@ -228,7 +228,7 @@ class TestTheSquadCapOnEveryWritePath:
 
         refusal = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == SQUAD_FULL
+        assert refusal.error_code == Code.SQUAD_FULL
 
     def test_transferring_into_a_squad_with_room_goes_through(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
@@ -268,7 +268,7 @@ class TestTheSquadCapOnEveryWritePath:
 
         refusal = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == SQUAD_FULL
+        assert refusal.error_code == Code.SQUAD_FULL
 
     def test_reactivating_into_a_squad_with_room_goes_through(self, mongo_replica_set_url: str):
         """And it keeps the number the retired row carried, which is why reviving is not a re-create."""
@@ -299,7 +299,7 @@ class TestTheOneRolePerSquadOnEveryWritePath:
 
             return excinfo.value
 
-        assert on_a_database(mongo_replica_set_url, body).error_code == SQUAD_ROLLE_TAKEN
+        assert on_a_database(mongo_replica_set_url, body).error_code == Code.SQUAD_ROLLE_TAKEN
 
     def test_entering_a_squad_whose_other_role_is_taken_goes_through(self, mongo_replica_set_url: str):
         """The floor under the case above: the rule is per role, so a squad with a Kapitaen still has its Co-Kapitaen to give."""
@@ -342,7 +342,7 @@ class TestTheOneRolePerSquadOnEveryWritePath:
 
             return excinfo.value
 
-        assert on_a_database(mongo_replica_set_url, body).error_code == SQUAD_ROLLE_TAKEN
+        assert on_a_database(mongo_replica_set_url, body).error_code == Code.SQUAD_ROLLE_TAKEN
 
     def test_an_edit_that_keeps_the_role_where_it_is_passes(self, mongo_replica_set_url: str):
         """The over-breadth trap: counting the writing player's own row would refuse a captain changing their shirt."""
@@ -379,7 +379,7 @@ class TestTheOneRolePerSquadOnEveryWritePath:
 
             return excinfo.value
 
-        assert on_a_database(mongo_replica_set_url, body).error_code == SQUAD_ROLLE_TAKEN
+        assert on_a_database(mongo_replica_set_url, body).error_code == Code.SQUAD_ROLLE_TAKEN
 
     def test_reactivating_a_roleless_row_asks_nothing(self, mongo_replica_set_url: str):
         """A row holding no role competes with nobody, so the rule must not stand between it and its return."""
@@ -413,7 +413,7 @@ class TestReactivatingIntoASeasonTheClubHasLeft:
 
         refusal, stored = on_a_database(mongo_replica_set_url, body)
 
-        assert refusal.error_code == SQUAD_TEAM_NOT_IN_SAISON
+        assert refusal.error_code == Code.SQUAD_TEAM_NOT_IN_SAISON
         # The second half kills a refusal asked after the write, which reports a state it has already created.
         assert stored["inactive_since"] == "2026-03-01"
 
@@ -445,7 +445,7 @@ class TestReactivatingIntoASeasonTheClubHasLeft:
 
             return excinfo.value
 
-        assert on_a_database(mongo_replica_set_url, body).error_code == SQUAD_TEAM_NOT_IN_SAISON
+        assert on_a_database(mongo_replica_set_url, body).error_code == Code.SQUAD_TEAM_NOT_IN_SAISON
 
 
 class TestTheMarkerTheCreateStored:

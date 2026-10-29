@@ -6,7 +6,6 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieltage.schemas import (
@@ -230,13 +229,11 @@ async def patch_spieltag(
 
         return updated_raw, rules
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache.
-    with dropping_the_saison_cache():
-        # One transaction over the span and the season write inside `_refuse_an_out_of_order_beginn`,
-        # which is what makes two matchdays of one phase contend. `with_transaction` is safe to retry,
-        # the callback re-reading its neighbours.
-        async with transaction_session(db) as session:
-            updated_raw, rules = await session.with_transaction(redate_the_matchday)
+    # One transaction over the span and the season write inside `_refuse_an_out_of_order_beginn`,
+    # which is what makes two matchdays of one phase contend. `with_transaction` is safe to retry,
+    # the callback re-reading its neighbours.
+    async with transaction_session(db) as session:
+        updated_raw, rules = await session.with_transaction(redate_the_matchday)
 
     return FLSpieltagWriteResponse(
         spieltag_id=spieltag_id,

@@ -12,7 +12,7 @@ from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLSaison, FLSaisonRules
 from app.api.saisons.services import find_rules_refusal, find_spielplan_refusal, find_undraw_refusal
-from app.api.spiele.admin_router import _write_spiel_data, patch_spiel_data, patch_spiele_paarungen
+from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
@@ -30,9 +30,6 @@ from app.api.spiele.schemas import (
     FLSpielSlotHolder,
 )
 from app.api.spiele.services import (
-    BOOKING_UNKNOWN_RESOURCE,
-    FIXTURE_DOUBLE_BOOKED,
-    STATE_RESULT_ON_A_NON_EVENT,
     BookedVenue,
     ResolvedReferences,
     SaisonMembership,
@@ -59,6 +56,7 @@ from app.api.spieler.services import find_squad_refusal, mark_shared_nummern
 from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn, patch_spieltag
 from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal, with_expected_matches
 from app.api.teams.services import find_gruppe_swap_refusal
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.constraints import UNIQUE_INDEXES
 from app.core.exceptions import WriteRefusal
@@ -97,7 +95,7 @@ SLOT_NR = 29
 
 
 def _side(team_id: str, name: str, **overrides: Any) -> dict[str, Any]:
-    return {"team_id": team_id, "name": name, "tore": None, "shorthand": name[:2].upper(), **overrides}
+    return {"team_id": team_id, "name": name, "tore": None, "shorthand": name[:3].upper(), **overrides}
 
 
 def _joined_side(team_id: str, name: str, *, disqualified_from: str | None = None, **overrides: Any) -> dict[str, Any]:
@@ -450,7 +448,7 @@ class TestARetiredBookingOnAReopenedFixture:
         )
 
         assert kept is None
-        assert newly_booked is not None and newly_booked.error_code == BOOKING_UNKNOWN_RESOURCE
+        assert newly_booked is not None and newly_booked.error_code == Code.BOOKING_UNKNOWN_RESOURCE
 
 
 LIFTED_NO_SHOW_NR, BOOKED_AN_HOUR_LATER_NR = 30, 31
@@ -524,7 +522,7 @@ class TestADoubleBookingALiftedNoShowLeaves:
         assert _clash_refusal_of(later, holders, notiz="Nur eine Notiz") is None
 
         moved_inside = _clash_refusal_of(lifted, holders, uhrzeit="17:30:00")
-        assert moved_inside is not None and moved_inside.error_code == FIXTURE_DOUBLE_BOOKED
+        assert moved_inside is not None and moved_inside.error_code == Code.FIXTURE_DOUBLE_BOOKED
         assert _clash_refusal_of(lifted, holders, uhrzeit="13:00:00") is None
 
 
@@ -706,8 +704,8 @@ class TestAPupilsAgeNoSquadRuleJudges:
 
 # The junction as the refusal reads it: the season's own name for the club, and the day it left.
 MEMBERSHIP = {
-    ObjectId(ADLER): SaisonMembership(name="Adler", shorthand="AD", departed_from=EXIT_BEFORE_THE_FIXTURE),
-    ObjectId(BIEBER): SaisonMembership(name="Bieber", shorthand="BI", departed_from=None),
+    ObjectId(ADLER): SaisonMembership(name="Adler", shorthand="ADX", departed_from=EXIT_BEFORE_THE_FIXTURE),
+    ObjectId(BIEBER): SaisonMembership(name="Bieber", shorthand="BIX", departed_from=None),
 }
 
 
@@ -863,28 +861,15 @@ class TestAFutureSeasonHoldingRecordedResults:
         """A hand-kept list is a sweep that quietly sees less, so a refusal added to the patch fails here rather than going unweighed."""
 
         named = {refusal.__name__ for refusal in FIXTURE_PATCH_REFUSALS}
-        # The shared writer rather than either route, and nested scopes included: both routes delegate
-        # their whole body to it, so a sweep over a route's own finds none of these and passes on
-        # emptiness.
+        # Nested scopes included: the route judges inside `judge`, so a sweep over its own top scope
+        # finds none of these and passes on emptiness.
         run = {
             callee(call)
-            for _, call in calls_in(declared(_write_spiel_data), _write_spiel_data.__name__)
+            for _, call in calls_in(declared(patch_spiel_data), patch_spiel_data.__name__)
             if callee(call).endswith("_refusal") or callee(call).startswith("judge_")
         }
 
         assert run == named, f"unweighed: {sorted(run - named)}; weighed but no longer run: {sorted(named - run)}"
-
-    def test_neither_route_judges_anything_the_sweep_above_cannot_see(self):
-        """What keeps that sweep whole once two routes share one writer: a refusal put on a route is one it reads past."""
-
-        for route in (patch_spiel_data, patch_spiele_paarungen):
-            judged = {
-                callee(call)
-                for _, call in calls_in(declared(route), route.__name__)
-                if callee(call).endswith("_refusal") or callee(call).startswith("judge_")
-            }
-
-            assert not judged, f"{route.__name__} judges {sorted(judged)} outside {_write_spiel_data.__name__}, where the sweep reads"
 
     def test_both_windows_take_the_record_and_the_status_as_two_figures(self):
         """`REQ-SPIELPLAN-005` and `REQ-SPIELPLAN-006` share one sentence for the same reason: neither infers the record from the status."""
@@ -927,7 +912,7 @@ class TestAnAbandonedFixtureAndItsResult:
         cancelled = _abandoned(tore=(3, 1)).model_copy(update={"sonderereignis": "ausgefallen"})
         refusal = find_state_refusal(cancelled)
 
-        assert refusal is not None and refusal.error_code == STATE_RESULT_ON_A_NON_EVENT
+        assert refusal is not None and refusal.error_code == Code.STATE_RESULT_ON_A_NON_EVENT
 
     def test_it_sits_outside_the_set_that_awards_nothing(self):
         """The partition is what leaves it out: a fixture that used its slot is not one recording an absence."""

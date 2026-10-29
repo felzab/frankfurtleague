@@ -55,7 +55,7 @@ def application(**overrides: Any) -> dict[str, Any]:
         kontakte=kontakte(),
         eingereicht_am=MAILED_ON,
         bestaetigungsfrist="2026-04-12",
-        schule=documents.neue_schule_document("Zorbanax", "ZX", full_name="Zorbanax-Gesamtschule", schulform="gesamtschule"),
+        schule=documents.neue_schule_document("Zorbanax", "ZXX", full_name="Zorbanax-Gesamtschule", schulform="gesamtschule"),
         link_prefix="first",
     )
 

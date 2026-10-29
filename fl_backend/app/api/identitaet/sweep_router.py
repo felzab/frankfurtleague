@@ -11,8 +11,8 @@ from pymongo.errors import PyMongoError
 from app.api.identitaet.crud import erase_if_still_due, faellige_seite, saison_statuses
 from app.api.identitaet.schemas import FLErasure, FLLoeschungLaufParams, FLLoeschungLaufResponse
 from app.api.identitaet.services import abgeschlossene_saison_id, ohne_passende_adresse
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup
+from app.core.codes import Code
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.dependencies import (
     AdressankerCollection,
@@ -39,7 +39,7 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import DATABASE_FAILED, DUPLICATE_KEY_RESPONSE, STORED_DATA_INVALID, UNKNOWN_OUTCOME
+from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.logging import fl_logger
 from app.core.recording import log_stamp
 from app.core.security import bind_system_actor, verify_access_system
@@ -208,7 +208,7 @@ async def post_loeschung_lauf(
         fl_logger.warning(
             f"Pupils left out of the deletion, their stored address empty, unfolded or refused by the address rule: "
             f"{len(ohne_adresse)} ({', '.join(str(spieler_id) for spieler_id in ohne_adresse)})",
-            extra={"error_code": STORED_DATA_INVALID},
+            extra={"error_code": Code.STORED_DATA_INVALID},
         )
 
     # One instant for every redaction this call makes, as one erasure's steps share one.
@@ -218,79 +218,77 @@ async def post_loeschung_lauf(
     geloescht, uebersprungen, fehlgeschlagen = 0, 0, 0
     erreicht: Any = None
     abgebrochen = False
-    # Each pupil's transaction anchors any planned season its kept set leaves out, a season write the cache serves.
-    with dropping_the_saison_cache():
-        for row in share:
-            erreicht = row["_id"]
-            if row["_id"] in ohne_adresse:
-                continue
+    for row in share:
+        erreicht = row["_id"]
+        if row["_id"] in ohne_adresse:
+            continue
 
-            # Caught outside the person's session, as `app/api/saisons/admin_router.py :: _mail_one_team` catches
-            # a team's: a failure the session never saw leaves its transaction open.
-            try:
-                erased = await _erase_one(
-                    row["_id"],
-                    saisons_collection=saisons_collection,
-                    spieler_collection=spieler_collection,
-                    saison_spieler_collection=saison_spieler_collection,
-                    saison_teams_collection=saison_teams_collection,
-                    bewerbungen_collection=bewerbungen_collection,
-                    schiedsrichter_collection=schiedsrichter_collection,
-                    spiele_collection=spiele_collection,
-                    spielbestaetigungen_collection=spielbestaetigungen_collection,
-                    spielberichte_collection=spielberichte_collection,
-                    registrierungen_collection=registrierungen_collection,
-                    drosselung_collection=drosselung_collection,
-                    aktionen_collection=aktionen_collection,
-                    berechtigungen_collection=berechtigungen_collection,
-                    berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-                    berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
-                    einladungen_collection=einladungen_collection,
-                    sperrliste_collection=sperrliste_collection,
-                    adressanker_collection=adressanker_collection,
-                    adresswechsel_collection=adresswechsel_collection,
-                    adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
-                    berechtigungen_antraege_collection=berechtigungen_antraege_collection,
-                    sperrliste=sperrliste,
-                    db=db,
-                    schluessel=config.sperrliste_schluessel,
-                    stamp=stamp,
-                    now=germany_now,
+        # Caught outside the person's session, as `app/api/saisons/admin_router.py :: _mail_one_team` catches
+        # a team's: a failure the session never saw leaves its transaction open.
+        try:
+            erased = await _erase_one(
+                row["_id"],
+                saisons_collection=saisons_collection,
+                spieler_collection=spieler_collection,
+                saison_spieler_collection=saison_spieler_collection,
+                saison_teams_collection=saison_teams_collection,
+                bewerbungen_collection=bewerbungen_collection,
+                schiedsrichter_collection=schiedsrichter_collection,
+                spiele_collection=spiele_collection,
+                spielbestaetigungen_collection=spielbestaetigungen_collection,
+                spielberichte_collection=spielberichte_collection,
+                registrierungen_collection=registrierungen_collection,
+                drosselung_collection=drosselung_collection,
+                aktionen_collection=aktionen_collection,
+                berechtigungen_collection=berechtigungen_collection,
+                berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
+                berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                einladungen_collection=einladungen_collection,
+                sperrliste_collection=sperrliste_collection,
+                adressanker_collection=adressanker_collection,
+                adresswechsel_collection=adresswechsel_collection,
+                adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+                berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+                sperrliste=sperrliste,
+                db=db,
+                schluessel=config.sperrliste_schluessel,
+                stamp=stamp,
+                now=germany_now,
+            )
+        # Any class, or the next pass stops at this pupil again and holds back everyone behind them;
+        # not `BaseException`, so a cancellation still ends the call.
+        except Exception as failure:
+            # The only branch an unanswered commit reaches: `with_transaction` retries one until the deadline and
+            # raises it as a timeout keeping the label.
+            if isinstance(failure, PyMongoError) and failure.timeout:
+                ungewiss = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
+                # Below the handler's ERROR: no record is at fault, and every later pupil would fail the same way.
+                fl_logger.warning(
+                    f"Database deadline passed at pupil {row['_id']}"
+                    f"{', its erasure unanswered' if ungewiss else ''}: the call stops, and the rest stay due",
+                    extra={"error_code": Code.UNKNOWN_OUTCOME if ungewiss else Code.DATABASE_FAILED},
                 )
-            # Any class, or the next pass stops at this pupil again and holds back everyone behind them;
-            # not `BaseException`, so a cancellation still ends the call.
-            except Exception as failure:
-                # The only branch an unanswered commit reaches: `with_transaction` retries one until the deadline and
-                # raises it as a timeout keeping the label.
-                if isinstance(failure, PyMongoError) and failure.timeout:
-                    ungewiss = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
-                    # Below the handler's ERROR: no record is at fault, and every later pupil would fail the same way.
-                    fl_logger.warning(
-                        f"Database deadline passed at pupil {row['_id']}"
-                        f"{', its erasure unanswered' if ungewiss else ''}: the call stops, and the rest stay due",
-                        extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
-                    )
-                    abgebrochen = True
-                    break
+                abgebrochen = True
+                break
 
-                # The id and what locates the failure, never a value: a line naming the pupil would outlive the erasure it reports.
-                code, diagnosis = diagnosis_of(failure)
-                fl_logger.error(f"Pupil {row['_id']} was not erased: {diagnosis}", extra={"error_code": code})
-                fehlgeschlagen += 1
-                continue
+            # The id and what locates the failure, never a value: a line naming the pupil would outlive the erasure it reports.
+            code, diagnosis = diagnosis_of(failure)
+            fl_logger.error(f"Pupil {row['_id']} was not erased: {diagnosis}", extra={"error_code": code})
+            fehlgeschlagen += 1
+            continue
 
-            # The one skip: judged again in its own transaction, a pupil another call deleted first reads as gone, since a
-            # rival committing after the snapshot sends the attempt round rather than leaving a step a row to miss.
-            if erased is None:
-                uebersprungen += 1
-                continue
+        # The one skip: judged again in its own transaction, a pupil another call deleted first reads as gone, since a
+        # rival committing after the snapshot sends the attempt round rather than leaving a step a row to miss.
+        if erased is None:
+            uebersprungen += 1
+            continue
 
-            # No journal line, unlike a request's erasure: the rule deletes these pupils again after a restore,
-            # where a replay would erase the whole address.
-            geloescht += 1
-            spieler += erased.spieler
-            saison_spieler += erased.saison_spieler
-            registrierungen += erased.registrierungen
+        # No journal line, unlike a request's erasure: the rule deletes these pupils again after a restore,
+        # where a replay would erase the whole address.
+        geloescht += 1
+        spieler += erased.spieler
+        saison_spieler += erased.saison_spieler
+        registrierungen += erased.registrierungen
 
     return FLLoeschungLaufResponse(
         abgeschlossene_saison_id=abgeschlossene_saison_id(statuses),

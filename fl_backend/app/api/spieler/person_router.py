@@ -8,11 +8,11 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.identitaet.crud import refuse_without_a_seat
 from app.api.identitaet.lookup import SubjektLookup
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieler.crud import refuse_a_taken_rolle
 from app.api.spieler.schemas import FLKaderResponse, FLKaderZeile, FLKaderZeileResponse, FLPatchKaderZeilePayload, FLSpielerStufe
 from app.api.spieler.services import build_kader_pipeline, find_kader_stufe_refusal, mark_shared_nummern
+from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, patch_one_in_db, pull_one_from_db, refuse, set_inactive_since
 from app.core.dependencies import (
@@ -23,7 +23,7 @@ from app.core.dependencies import (
 )
 from app.core.drosselung import gedrosselt
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
@@ -90,7 +90,7 @@ async def _the_row_as_written(
     # filter answers a row it misses; raised inside the transaction, the write it follows is undone.
     if zeile is None:
         raise DocumentNotFoundException(
-            filter={"spieler_id": spieler_id, "saison_id": saison_id, "team_id": team_id}, error_code=DOCUMENT_NOT_FOUND
+            filter={"spieler_id": spieler_id, "saison_id": saison_id, "team_id": team_id}, error_code=Code.DOCUMENT_NOT_FOUND
         )
 
     return FLKaderZeileResponse.model_validate(zeile.model_dump())
@@ -204,10 +204,8 @@ async def patch_kader_zeile(
             saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, spieler_id=spieler_id, session=session
         )
 
-    # The captaincy's anchor writes the season, and every season write drops the cache.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            return await session.with_transaction(edit_the_row)
+    async with transaction_session(db) as session:
+        return await session.with_transaction(edit_the_row)
 
 
 @router.delete(

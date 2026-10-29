@@ -20,25 +20,9 @@ from app.api.berechtigungen.schemas import (
     as_utc,
 )
 from app.api.sperrliste.services import withheld_actor
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import is_stored_identifier, sign_in_identifier
-
-BERECHTIGUNG_VORHANDEN = Code.BERECHTIGUNG_VORHANDEN
-
-# A revoke never removes an `owner` row: an owner is demoted by another owner, or steps down, first, so the tier stays
-# out of an administrator's reach; only an erasure and an address change's move remove one.
-BERECHTIGUNG_INHABER = Code.BERECHTIGUNG_INHABER
-
-BERECHTIGUNG_GESPERRT = Code.BERECHTIGUNG_GESPERRT
-
-BERECHTIGUNG_MINDESTZAHL = Code.BERECHTIGUNG_MINDESTZAHL
-
-# 403 and not 409: the refusal is about who asks, and granting the asker `owner` is what lifts it.
-BERECHTIGUNG_NUR_INHABER = Code.BERECHTIGUNG_NUR_INHABER
-
-# 409: the grants' state, and promoting another owner first is what lifts it.
-BERECHTIGUNG_LETZTER_INHABER = Code.BERECHTIGUNG_LETZTER_INHABER
 
 # An `owner` grant counts among the two, being a row no route can remove: a floor one `owner` alone
 # met would leave nobody to act while that one person is unreachable.
@@ -157,7 +141,7 @@ def find_vorhanden_refusal(*, adresse: str, grants: Sequence[Mapping[str, Any]])
         return None
 
     return WriteRefusal(
-        error_code=BERECHTIGUNG_VORHANDEN,
+        error_code=Code.BERECHTIGUNG_VORHANDEN,
         status=HTTPStatus.CONFLICT,
         message="this email address already holds access to the administration",
     )
@@ -189,7 +173,7 @@ def find_nur_inhaber_refusal(
         return None
 
     return WriteRefusal(
-        error_code=BERECHTIGUNG_NUR_INHABER,
+        error_code=Code.BERECHTIGUNG_NUR_INHABER,
         status=HTTPStatus.FORBIDDEN,
         message="only an owner, signed in since becoming one, revokes access to the administration or changes its tier",
     )
@@ -205,7 +189,7 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=BERECHTIGUNG_GESPERRT,
+        error_code=Code.BERECHTIGUNG_GESPERRT,
         status=HTTPStatus.CONFLICT,
         message="this email address is on the ban list; lift the ban before granting it access to the administration",
     )
@@ -218,7 +202,7 @@ def find_inhaber_refusal(*, grant: Mapping[str, Any]) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=BERECHTIGUNG_INHABER,
+        error_code=Code.BERECHTIGUNG_INHABER,
         status=HTTPStatus.CONFLICT,
         message="an owner's access is not revoked; make them an administrator first",
     )
@@ -235,7 +219,7 @@ def find_mindestzahl_refusal(*, remaining: int) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=BERECHTIGUNG_MINDESTZAHL,
+        error_code=Code.BERECHTIGUNG_MINDESTZAHL,
         status=HTTPStatus.CONFLICT,
         message=f"the administration keeps at least {MINDESTZAHL} people with access; grant another before revoking this one",
     )
@@ -252,7 +236,7 @@ def find_letzter_inhaber_refusal(*, remaining_owners: int) -> WriteRefusal | Non
         return None
 
     return WriteRefusal(
-        error_code=BERECHTIGUNG_LETZTER_INHABER,
+        error_code=Code.BERECHTIGUNG_LETZTER_INHABER,
         status=HTTPStatus.CONFLICT,
         message="the administration keeps at least one owner; make another person an owner first",
     )

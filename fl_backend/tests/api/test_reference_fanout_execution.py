@@ -56,8 +56,8 @@ REFEREE_NAMES = {
 }
 
 CLUB_NAMES = {
-    TEAM_OID: ("Carl-Schurz", "CS"),
-    OTHER_TEAM_OID: ("Lessing", "LE"),
+    TEAM_OID: ("Carl-Schurz", "CSX"),
+    OTHER_TEAM_OID: ("Lessing", "LEX"),
     THIRD_TEAM_OID: ("Wöhler", "WÖ"),
 }
 
@@ -66,7 +66,7 @@ RENAMED_VENUE = "Sportplatz Nord"
 RENAMED_REFEREE = "Anna Körner"
 RENAMED_CLUB = "Carl-Schurz-Gymnasium"
 # Both writable copies change, so a pass writing one field and not the other shows on the fixtures.
-RENAMED_SHORTHAND = "CG"
+RENAMED_SHORTHAND = "CGX"
 
 KONTAKT = {"telefon": "+49 69 1234567", "email": "kontakt@example.com"}
 

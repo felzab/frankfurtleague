@@ -1,4 +1,5 @@
-from app.api.teams.services import RETIRE_BLOCKED, find_retire_refusal
+from app.api.teams.services import find_retire_refusal
+from app.core.codes import Code
 
 
 class TestRetiringAClub:
@@ -29,4 +30,4 @@ class TestRetiringAClub:
         refusal = find_retire_refusal(["active"])
 
         assert refusal is not None
-        assert refusal.error_code == RETIRE_BLOCKED
+        assert refusal.error_code == Code.RETIRE_BLOCKED

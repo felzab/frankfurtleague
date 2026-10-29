@@ -67,8 +67,7 @@ nothing a reader sees, records what it replaced or removed on the action log (`A
 
 **The domain's relations are [`../domain.md`](../domain.md)'s**, and each write enforces the
 rules it is refused under where it writes. The league table is computed from the matches on each
-read of `GET /teams` and stored nowhere. The one cache kept here is a process-local read of
-season documents with a TTL (`fl_backend/app/api/saisons/cache.py`), dropped whole on the write path.
+read of `GET /teams` and stored nowhere.
 
 ## Errors
 

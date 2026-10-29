@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends
 
 from app.api.einwilligung.schemas import FLEinwilligungFassungResponse, FLEinwilligungSeitenResponse
 from app.api.einwilligung.services import served_fassung
+from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException
 from app.core.security import verify_access_base
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
 
@@ -30,7 +31,7 @@ async def get_fassung(text_version: str) -> FLEinwilligungFassungResponse:
 
     fassung = FASSUNGEN.get(text_version)
     if fassung is None:
-        raise DocumentNotFoundException(filter={"text_version": text_version}, error_code=DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundException(filter={"text_version": text_version}, error_code=Code.DOCUMENT_NOT_FOUND)
 
     return FLEinwilligungFassungResponse(fassung=served_fassung(text_version, fassung))
 

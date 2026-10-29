@@ -10,7 +10,7 @@ from fastapi.dependencies.models import Dependant
 from httpx2 import Response
 from pydantic import TypeAdapter
 
-from app.core.exception_handlers import DATABASE_FAILED, NO_ROUTE, PAYLOAD_REFUSED
+from app.core.codes import Code
 from app.core.routing import CONVERTOR_NAME, OBJECT_ID_REGEX, ObjectIdConvertor
 from app.main import create_app
 from tests.app_client import app_client
@@ -26,7 +26,7 @@ NON_HEX_ID = "z" * 24
 
 # Named rather than compared with `!=`: a control asserting only "not 404" passes on any failure,
 # the harness's own included.
-UNREACHED_DATABASE = DATABASE_FAILED
+UNREACHED_DATABASE = Code.DATABASE_FAILED
 
 
 def answered(path: str, *, params: Mapping[str, Any] | None = None) -> Response:
@@ -48,7 +48,7 @@ def test_a_malformed_path_id_is_a_404(spiel_id: str):
     """A path identifies, so an id naming nothing is a 404 — decided by the `objectid` convertor before a handler runs."""
     response = answered(f"/api/v0/spiele/{spiel_id}")
 
-    assert (response.status_code, response.json()["error_code"]) == (404, NO_ROUTE)
+    assert (response.status_code, response.json()["error_code"]) == (404, Code.NO_ROUTE)
 
 
 def test_a_well_formed_path_id_reaches_the_database():
@@ -67,7 +67,7 @@ def test_a_malformed_query_id_is_a_422(team_id: str):
     response = answered("/api/v0/spieler", params={"team_id": team_id})
 
     assert response.status_code == 422
-    assert response.json()["error_code"] == PAYLOAD_REFUSED
+    assert response.json()["error_code"] == Code.PAYLOAD_REFUSED
 
 
 def test_a_well_formed_query_id_reaches_the_database():

@@ -12,7 +12,6 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
-from app.api.identitaet.services import FUNKTION_NICHT_GEHALTEN
 from app.api.konto.services import compose_person_move
 from app.api.registrierungen.crud import person_at_the_address
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht, post_bestaetigung
@@ -27,17 +26,11 @@ from app.api.registrierungen.schemas import (
 )
 from app.api.registrierungen.selbst_router import patch_einwilligung as patch_registrierung_einwilligung
 from app.api.registrierungen.services import (
-    REGISTRIERUNG_ADRESSE_GESPERRT,
-    REGISTRIERUNG_PERSON_FEHLT,
-    REGISTRIERUNG_PERSON_NICHT_BENANNT,
-    REGISTRIERUNG_SCHON_IM_KADER,
-    REGISTRIERUNG_STUFE_NICHT_ERLAUBT,
-    REGISTRIERUNG_UNBESTAETIGT,
     compose_confirmation_update,
 )
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
-from app.api.spieler.services import SQUAD_FULL, build_ghost_spieler
+from app.api.spieler.services import build_ghost_spieler
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
@@ -131,11 +124,9 @@ def on_a_league(
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            invalidate_saison_cache()
-
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", rules=dict(RULES)))
             await database[Collection.TEAMS].insert_many(
-                [documents.team_document(TEAM_OID, "Zorbanax", "ZO"), documents.team_document(OTHER_TEAM_OID, "Quillhilde", "QU")]
+                [documents.team_document(TEAM_OID, "Zorbanax", "ZOX"), documents.team_document(OTHER_TEAM_OID, "Quillhilde", "QUX")]
             )
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
@@ -143,12 +134,12 @@ def on_a_league(
                         SAISON_ID,
                         TEAM_OID,
                         "Zorbanax",
-                        "ZO",
+                        "ZOX",
                         kontakte=kontakte(
                             ansprechperson="Anna", trainer="Theo", stellvertretung="Stella", bestaetigt=stellvertretung_bestaetigt
                         ),
                     ),
-                    documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, "Quillhilde", "QU", kontakte=kontakte(ansprechperson="Otto")),
+                    documents.saison_team_document(SAISON_ID, OTHER_TEAM_OID, "Quillhilde", "QUX", kontakte=kontakte(ansprechperson="Otto")),
                 ]
             )
             await database[Collection.SAISONS].insert_many(
@@ -160,9 +151,9 @@ def on_a_league(
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
                     documents.saison_team_document(
-                        NEXT_SAISON_ID, TEAM_OID, "Zorbanax", "ZO", kontakte=kontakte(ansprechperson="Anna", trainer="Nora")
+                        NEXT_SAISON_ID, TEAM_OID, "Zorbanax", "ZOX", kontakte=kontakte(ansprechperson="Anna", trainer="Nora")
                     ),
-                    documents.saison_team_document(PAST_SAISON_ID, TEAM_OID, "Zorbanax", "ZO", kontakte=kontakte(ansprechperson="Paula")),
+                    documents.saison_team_document(PAST_SAISON_ID, TEAM_OID, "Zorbanax", "ZOX", kontakte=kontakte(ansprechperson="Paula")),
                 ]
             )
 
@@ -524,7 +515,7 @@ class TestTheStufe:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_STUFE_NICHT_ERLAUBT
+        assert code == Code.REGISTRIERUNG_STUFE_NICHT_ERLAUBT
         assert after == before
 
     def test_a_stufe_still_offered_is_admitted_before_and_after_the_boundary(self, mongo_replica_set_url: str):
@@ -545,7 +536,7 @@ class TestTheSquadCap:
 
         code, before, after = on_a_league(mongo_replica_set_url, body, squad=3)
 
-        assert code == SQUAD_FULL
+        assert code == Code.SQUAD_FULL
         assert after == before
 
     def test_a_rival_admission_landing_inside_takes_the_last_place(self, mongo_replica_set_url: str):
@@ -573,7 +564,7 @@ class TestTheSquadCap:
 
         outcome, live, still_pending = on_a_league(mongo_replica_set_url, body, squad=2)
 
-        assert outcome == SQUAD_FULL
+        assert outcome == Code.SQUAD_FULL
         assert (live, still_pending) == (3, 1)
 
 
@@ -599,7 +590,7 @@ class TestAnUnconfirmedRegistration:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_UNBESTAETIGT
+        assert code == Code.REGISTRIERUNG_UNBESTAETIGT
         assert after == before
 
 
@@ -615,7 +606,7 @@ class TestABarredAddress:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_ADRESSE_GESPERRT
+        assert code == Code.REGISTRIERUNG_ADRESSE_GESPERRT
         assert after == before
 
     def test_a_ban_entered_between_the_read_and_the_press_is_refused(self, mongo_replica_set_url: str):
@@ -629,7 +620,7 @@ class TestABarredAddress:
         aufnehmbar, code, stored = on_a_league(mongo_replica_set_url, body)
 
         assert aufnehmbar is True
-        assert code == REGISTRIERUNG_ADRESSE_GESPERRT
+        assert code == Code.REGISTRIERUNG_ADRESSE_GESPERRT
         assert stored == []
 
 
@@ -656,7 +647,7 @@ class TestThePersonAnAdmissionNames:
         person, code, untouched, answer, stored = on_a_league(mongo_replica_set_url, body)
 
         assert person is not None and (person.spieler_id, person.weicht_ab) == (stored_id, True)
-        assert (code, untouched) == (REGISTRIERUNG_PERSON_NICHT_BENANNT, True)
+        assert (code, untouched) == (Code.REGISTRIERUNG_PERSON_NICHT_BENANNT, True)
         # No second person: the yes overwrites the stored name and birthdate with the confirmed ones.
         assert answer.spieler_id == stored_id
         assert [(row["_id"], row["vorname"], row["geburtsdatum"]) for row in stored] == [(stored_id, "Thessaly", GEBURTSDATUM)]
@@ -813,7 +804,7 @@ class TestThePersonAnAdmissionNames:
 
             return await refused(admit(database, client, registrierung_id, spieler_id=other_id))
 
-        assert on_a_league(mongo_replica_set_url, body) == REGISTRIERUNG_PERSON_NICHT_BENANNT
+        assert on_a_league(mongo_replica_set_url, body) == Code.REGISTRIERUNG_PERSON_NICHT_BENANNT
 
     def test_a_body_naming_anyone_where_the_address_resolves_to_nobody_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         """A person holding another address is never admitted into: a yes would hand their record to whoever holds the registering mailbox."""
@@ -830,7 +821,7 @@ class TestThePersonAnAdmissionNames:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_PERSON_NICHT_BENANNT
+        assert code == Code.REGISTRIERUNG_PERSON_NICHT_BENANNT
         assert after == before
 
 
@@ -853,7 +844,7 @@ class TestTheSentinelIsNobodyToAdmit:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_PERSON_NICHT_BENANNT
+        assert code == Code.REGISTRIERUNG_PERSON_NICHT_BENANNT
         assert after == before
 
     def test_it_holding_the_registrations_address_and_a_confirmed_record_is_still_refused(self, mongo_replica_set_url: str):
@@ -870,7 +861,7 @@ class TestTheSentinelIsNobodyToAdmit:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_PERSON_NICHT_BENANNT
+        assert code == Code.REGISTRIERUNG_PERSON_NICHT_BENANNT
         assert after == before
 
     def test_the_confirmation_page_resolves_the_address_to_a_person_and_never_to_it(self, mongo_replica_set_url: str):
@@ -939,7 +930,7 @@ class TestAReturningRegistration:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_PERSON_FEHLT
+        assert code == Code.REGISTRIERUNG_PERSON_FEHLT
         assert after == before
 
     def test_its_person_erased_before_the_admission_takes_the_registration_with_them(self, mongo_replica_set_url: str):
@@ -1090,7 +1081,7 @@ class TestAPersonAlreadyInASquad:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == REGISTRIERUNG_SCHON_IM_KADER
+        assert code == Code.REGISTRIERUNG_SCHON_IM_KADER
         assert after == before
 
 
@@ -1170,7 +1161,7 @@ class TestEverySeatActsAlike:
 
         code, before, after = on_a_league(mongo_replica_set_url, body, stellvertretung_bestaetigt=stellvertretung_bestaetigt)
 
-        assert code == FUNKTION_NICHT_GEHALTEN
+        assert code == Code.FUNKTION_NICHT_GEHALTEN
         assert after == before
 
 

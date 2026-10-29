@@ -10,8 +10,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.einwilligung_router import post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
-from app.api.bewerbungen.services import BEWERBUNG_KONTAKT_ALTER, compose_bestaetigungen, hash_token
+from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
 from app.api.teams.schemas import KONTAKT_ROLLEN
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -64,7 +65,7 @@ def bewerbung_document(**overrides: Any) -> dict[str, Any]:
         kontakte=paired_kontakte(),
         eingereicht_am="2026-03-20",
         bestaetigungsfrist="2026-04-03",
-        schule=documents.neue_schule_document(SCHOOL_NAME, "ZX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
+        schule=documents.neue_schule_document(SCHOOL_NAME, "ZXX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
         link_prefix=RAW_PREFIX,
     )
 
@@ -192,7 +193,7 @@ class TestTheFloorIsThePersons:
 
         code, document, rows = on_a_league(mongo_replica_set_url, body, documents=[paired])
 
-        assert code == BEWERBUNG_KONTAKT_ALTER
+        assert code == Code.BEWERBUNG_KONTAKT_ALTER
         assert document == paired
         assert rows == []
 

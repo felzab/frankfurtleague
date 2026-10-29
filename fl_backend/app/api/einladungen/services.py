@@ -12,16 +12,9 @@ from typing import Any, NamedTuple
 from app.api.bewerbungen.services import seat_named
 from app.api.einladungen.schemas import FLEinladungEmpfaenger, FLEinladungVersandGrund
 from app.api.teams.schemas import KONTAKT_ROLLEN
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-
-EINLADUNG_TEAM_NICHT_EINGETRAGEN = Code.EINLADUNG_TEAM_NICHT_EINGETRAGEN
-EINLADUNG_SAISON_VORBEI = Code.EINLADUNG_SAISON_VORBEI
-# One code for a link nobody minted and one an administrator replaced, for the reason
-# `REQ-BEWERBUNG-009` gives: nothing tells a stranger's guess from a spent link, and naming which
-# would say more than the guess knew.
-EINLADUNG_UNBEKANNT = Code.EINLADUNG_UNBEKANNT
 
 # An exclusion rather than an inclusion list, as `app/api/bewerbungen/services.py ::
 # WITHOUT_TOKEN_HASHES` is: what it subtracts is the whole credential, where a list of everything
@@ -41,7 +34,7 @@ def find_team_in_saison_refusal(*, entered: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=EINLADUNG_TEAM_NICHT_EINGETRAGEN,
+        error_code=Code.EINLADUNG_TEAM_NICHT_EINGETRAGEN,
         status=HTTPStatus.NOT_FOUND,
         message="this team is not entered in that season, so there is nothing for a registration link to open",
     )
@@ -58,7 +51,7 @@ def find_saison_vorbei_refusal(*, saison_status: Any) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=EINLADUNG_SAISON_VORBEI,
+        error_code=Code.EINLADUNG_SAISON_VORBEI,
         status=HTTPStatus.CONFLICT,
         message="this season has ended, and a registration link for it would open nothing",
     )
@@ -75,7 +68,7 @@ def find_unknown_einladung_refusal(*, einladung_raw: Mapping[str, Any] | None) -
         return None
 
     return WriteRefusal(
-        error_code=EINLADUNG_UNBEKANNT,
+        error_code=Code.EINLADUNG_UNBEKANNT,
         status=HTTPStatus.NOT_FOUND,
         message="this registration link opens nothing: no invitation matches it, or the one it was minted for has been replaced",
     )

@@ -230,8 +230,8 @@ class TestTheSeasonsOwnIdentity:
         club = league.database.teams.find_one({"_id": league.team_oids["Helmholtz"]})
         projected = {row["name"]: row for row in rows(league)}
 
-        assert club is not None and club["shorthand"] == "HG"
-        assert projected["Helmholtz"]["shorthand"] == "HE"
+        assert club is not None and club["shorthand"] == "HGX"
+        assert projected["Helmholtz"]["shorthand"] == "HEX"
 
     def test_a_club_never_renamed_reads_the_same_either_way(self, league: SeededLeague):
         """So the two assertions above cannot be passing because the projection lost the field entirely."""
@@ -239,8 +239,8 @@ class TestTheSeasonsOwnIdentity:
         club = league.database.teams.find_one({"_id": league.team_oids["Bock"]})
         projected = {row["name"]: row for row in rows(league)}
 
-        assert club is not None and (club["name"], club["shorthand"]) == ("Bock", "BO")
-        assert projected["Bock"]["shorthand"] == "BO"
+        assert club is not None and (club["name"], club["shorthand"]) == ("Bock", "BOX")
+        assert projected["Bock"]["shorthand"] == "BOX"
 
 
 def test_a_stored_statistik_on_the_junction_is_ignored(league: SeededLeague):

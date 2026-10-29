@@ -12,7 +12,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure, PyMongoError
 
 from app.api.saisons.admin_router import generate_spielplan, patch_saison, undraw_spielplan
-from app.api.saisons.cache import read_cached_saison, saison_cache_generation, store_cached_saison
 from app.api.saisons.schedule import group_matchdays, total_group_matches
 from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
@@ -23,24 +22,13 @@ from app.api.saisons.schemas import (
     FLSpielplanShape,
     FLUndrawSpielplanResponse,
 )
-from app.api.saisons.services import (
-    RULES_BRACKET_IMPOSSIBLE,
-    RULES_BRACKET_IMPOSSIBLE_AS_STORED,
-    RULES_SHAPE_AFTER_DRAW,
-    SAISON_SPAN_BELOW_SCHEDULE_AS_STORED,
-    SPIELPLAN_ALREADY_DRAWN,
-    SPIELPLAN_BERICHTE_EINGEREICHT,
-    SPIELPLAN_GRUPPEN_OFF_RULES,
-    SPIELPLAN_MATCHDAYS_HELD,
-    SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW,
-    SPIELPLAN_SAISON_FINISHED,
-)
 from app.api.spielberichte.admin_router import patch_spielbericht
 from app.api.spielberichte.schemas import FLSpielberichtBerichtPayload, FLSpielberichtPayload
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpiel
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.spieltage.services import with_expected_matches
 from app.api.teams.services import offered_gruppen
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exception_handlers import refused_index_of
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
@@ -132,7 +120,7 @@ def entry_rows(
                 saison_id,
                 ObjectId(f"6890a1b2c3d4e5f6075{index + offset:05d}"),
                 f"{gruppe}{seat + 1}-Schule",
-                f"{gruppe}{seat + 1}",
+                f"{gruppe}S{chr(65 + seat)}",
                 _id=ObjectId(f"6890a1b2c3d4e5f6074{index + offset:05d}"),
                 gruppe=gruppe,
             )
@@ -635,21 +623,21 @@ class TestEachRefusalIsReachedThroughTheRoute:
     @pytest.mark.parametrize(
         ("code", "seed"),
         [
-            pytest.param(SPIELPLAN_ALREADY_DRAWN, Seed(spiele=[a_stored_fixture()]), id="a season already holding a fixture"),
-            pytest.param(SPIELPLAN_MATCHDAYS_HELD, Seed(spieltage=[a_stored_matchday()]), id="a season already holding a matchday"),
-            pytest.param(SPIELPLAN_SAISON_FINISHED, Seed(saison=saison_document(status="past")), id="a season already finished"),
-            pytest.param(SPIELPLAN_GRUPPEN_OFF_RULES, Seed(entered=entry_rows(short_gruppe="D")), id="a group short of a club"),
+            pytest.param(Code.SPIELPLAN_ALREADY_DRAWN, Seed(spiele=[a_stored_fixture()]), id="a season already holding a fixture"),
+            pytest.param(Code.SPIELPLAN_MATCHDAYS_HELD, Seed(spieltage=[a_stored_matchday()]), id="a season already holding a matchday"),
+            pytest.param(Code.SPIELPLAN_SAISON_FINISHED, Seed(saison=saison_document(status="past")), id="a season already finished"),
+            pytest.param(Code.SPIELPLAN_GRUPPEN_OFF_RULES, Seed(entered=entry_rows(short_gruppe="D")), id="a group short of a club"),
             # The other half of `REQ-SPIELPLAN-004`: these clubs stand in groups the season does not
             # offer, so the draw would put them in no round robin at all.
             pytest.param(
-                SPIELPLAN_GRUPPEN_OFF_RULES,
+                Code.SPIELPLAN_GRUPPEN_OFF_RULES,
                 Seed(saison=saison_document(rules=rules_document(groups=2)), entered=entry_rows(groups=4)),
                 id="clubs in a group the season does not offer",
             ),
             # `find_rules_refusal`, the OTHER call, the groups matching the rules so nothing above answers
             # first: six qualifiers make no bracket, and with no shape stated the draw twin answers.
             pytest.param(
-                RULES_BRACKET_IMPOSSIBLE_AS_STORED,
+                Code.RULES_BRACKET_IMPOSSIBLE_AS_STORED,
                 Seed(saison=saison_document(rules=rules_document(groups=2, qualifiers=3)), entered=entry_rows(groups=2)),
                 id="rules whose product is no bracket",
             ),
@@ -704,7 +692,6 @@ class AbortedDraw:
     spiele: int
     watermark: Any
     log: int
-    cached: dict[str, Any] | None
 
 
 class TestAFailedDrawLeavesNothingBehind:
@@ -721,7 +708,6 @@ class TestAFailedDrawLeavesNothingBehind:
         self, mongo_replica_set_url: str, narrowed: Collection, refused_field: str
     ):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> AbortedDraw:
-            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
             await database.command("collMod", str(narrowed), validator=NARROWED_VALIDATORS[narrowed], validationLevel="strict")
 
             with pytest.raises(OperationFailure) as failure:
@@ -737,7 +723,6 @@ class TestAFailedDrawLeavesNothingBehind:
                 spiele=spiele,
                 watermark=await watermark_now(database),
                 log=await database[Collection.AKTIONEN].count_documents({}),
-                cached=read_cached_saison(SAISON_ID),
             )
 
         aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
@@ -752,9 +737,6 @@ class TestAFailedDrawLeavesNothingBehind:
         # `record_write` runs in-session, so the log is part of what the abort takes back rather than
         # a standing record of writes that never happened.
         assert aborted.log == 0, "the action log kept a row for a write that was rolled back"
-        # Dropped however the draw ended: from here a refusal and a commit whose answer was lost look
-        # alike, and the second may have landed (`app/api/saisons/cache.py :: dropping_the_saison_cache`).
-        assert aborted.cached is None
 
 
 # Planted beside the shipped indexes: two matchdays of one phase share this key, so the draw's own
@@ -814,39 +796,13 @@ class TestASecondDrawIsRefusedByTheWatermarkItLeft:
 
         first, refused, counts = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert refused.error_code == SPIELPLAN_ALREADY_DRAWN
+        assert refused.error_code == Code.SPIELPLAN_ALREADY_DRAWN
         message = refused.error_detail["message"]
         assert TODAY in message
         assert f"{first.spiele} fixtures across {first.spieltage} matchdays" in message
         assert "this endpoint did not write" not in message
         # Nothing doubled: the second call is refused before it writes.
         assert counts == (first.spieltage, first.spiele)
-
-
-class TestTheSeasonCacheIsDroppedHoweverTheDrawEnds:
-    """A draw that raised may still have landed, so no outcome leaves the cached season standing."""
-
-    def test_a_committed_draw_drops_it(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
-            await call_draw(database, client)
-
-            return read_cached_saison(SAISON_ID)
-
-        assert on_a_seeded_saison(mongo_replica_set_url, body) is None
-
-    def test_a_refused_draw_drops_it_too(self, mongo_replica_set_url: str):
-        """The drop costs the next reader one query, and a drop only after a clean commit keeps a season a lost answer may have changed."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
-
-            with pytest.raises(WriteRefusalException):
-                await call_draw(database, client)
-
-            return read_cached_saison(SAISON_ID)
-
-        assert on_a_seeded_saison(mongo_replica_set_url, body, seed=Seed(saison=saison_document(status="past"))) is None
 
 
 # The replace's own day, so a watermark the first draw left behind reads as one rather than passing
@@ -949,8 +905,8 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=ObjectId(),
-        team1={"team_id": home, "name": "Alpha", "shorthand": "AL", "tore": None},
-        team2={"team_id": ObjectId(), "name": "Beta", "shorthand": "BE", "tore": None},
+        team1={"team_id": home, "name": "Alpha", "shorthand": "ALX", "tore": None},
+        team2={"team_id": ObjectId(), "name": "Beta", "shorthand": "BEX", "tore": None},
         datum="2026-05-01",
         uhrzeit="18:00:00",
     )
@@ -1012,7 +968,7 @@ class TestASubmittedReportKeepsTheSpielplanFromAReplace:
 
         drawn, outcome, watermark = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert outcome == SPIELPLAN_BERICHTE_EINGEREICHT
+        assert outcome == Code.SPIELPLAN_BERICHTE_EINGEREICHT
         assert watermark is not None and watermark["generiert_am"] == drawn.generiert_am
 
     def test_a_report_submitted_mid_replace_is_counted_again_outside_it(self, mongo_replica_set_url: str):
@@ -1026,7 +982,7 @@ class TestASubmittedReportKeepsTheSpielplanFromAReplace:
 
         drawn, outcome, watermark, passes = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert outcome == SPIELPLAN_BERICHTE_EINGEREICHT
+        assert outcome == Code.SPIELPLAN_BERICHTE_EINGEREICHT
         assert watermark is not None and watermark["generiert_am"] == drawn.generiert_am
         assert passes == 1
 
@@ -1429,7 +1385,6 @@ class TestAnAbortedReplaceLeavesTheSeasonStanding:
                 spiele=spiele,
                 watermark=await watermark_now(database),
                 log=await database[Collection.AKTIONEN].count_documents({}),
-                cached=read_cached_saison(SAISON_ID),
             )
 
         aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
@@ -1461,7 +1416,7 @@ class TestTheReplaceWindowIsReachedThroughTheRoute:
 
         drawn, standing, refused, surviving, watermark = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert refused.error_code == SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW
+        assert refused.error_code == Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW
         assert surviving == standing
         assert watermark == {"generiert_am": TODAY, "spieltage": drawn.spieltage, "spiele": drawn.spiele}
 
@@ -1481,7 +1436,7 @@ class TestTheReplaceWindowIsReachedThroughTheRoute:
 
         refused, standing, surviving = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert refused.error_code == SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW
+        assert refused.error_code == Code.SPIELPLAN_REPLACE_OUTSIDE_ITS_WINDOW
         assert "1 fixture(s)" in refused.error_detail["message"]
         assert surviving == standing
 
@@ -1506,7 +1461,7 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
 
         refused, rules = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert refused.error_code == RULES_SHAPE_AFTER_DRAW
+        assert refused.error_code == Code.RULES_SHAPE_AFTER_DRAW
         # Read back, not inferred from the refusal: a rule raised after the write would refuse and store.
         assert rules["teams_per_group"] == TEAMS_PER_GROUP
 
@@ -1525,7 +1480,7 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
 
         refused, rules = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert refused.error_code == RULES_SHAPE_AFTER_DRAW
+        assert refused.error_code == Code.RULES_SHAPE_AFTER_DRAW
         assert rules["teams_per_group"] == TEAMS_PER_GROUP
 
     def test_the_rest_of_the_rules_still_go_through_on_a_drawn_season(self, mongo_replica_set_url: str):
@@ -1710,13 +1665,13 @@ class TestAShapeTheSeasonCannotBeDrawnFromIsRefused:
         ("code", "shape", "why"),
         [
             pytest.param(
-                SPIELPLAN_GRUPPEN_OFF_RULES,
+                Code.SPIELPLAN_GRUPPEN_OFF_RULES,
                 a_shape(groups=SHORT_GROUPS),
                 "sixteen clubs stand in four groups, and two of those groups would be offered nothing to play in",
                 id="a shape that strands clubs",
             ),
             pytest.param(
-                RULES_BRACKET_IMPOSSIBLE,
+                Code.RULES_BRACKET_IMPOSSIBLE,
                 a_shape(qualifiers=3),
                 "four groups by three qualifiers is twelve, which halves to no final",
                 id="a shape that reaches no bracket",
@@ -1795,7 +1750,7 @@ class TestASeasonIsNeverDrawnMoreMatchdaysThanItHasDays:
         refused, rules, counts, watermark = on_a_seeded_saison(mongo_replica_set_url, body, seed=a_tight_seed())
 
         # The draw twin: the span weighed is the stored one, which a season patch can widen.
-        assert refused.error_code == SAISON_SPAN_BELOW_SCHEDULE_AS_STORED
+        assert refused.error_code == Code.SAISON_SPAN_BELOW_SCHEDULE_AS_STORED
         assert counts == (0, 0), "a refused draw wrote a schedule the season has no room for"
         # Read back rather than inferred from the refusal: the shape stored beside no fixtures would
         # come back `REQ-DATE-005` on the next patch of any rule at all.

@@ -227,7 +227,7 @@ def _joined_side(team_id: str, name: str, austritt: dict[str, Any] | None = None
     return {
         "team_id": team_id,
         "name": name,
-        "shorthand": name[:2].upper(),
+        "shorthand": name[:3].upper(),
         "tore": None,
         "austritt": austritt,
         "austritt_type": None if austritt is None else austritt["type"],

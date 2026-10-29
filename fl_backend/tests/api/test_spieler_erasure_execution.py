@@ -71,7 +71,7 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
                 [
                     saison_team_document(saison_id, team_id, name, short, gruppe=gruppe)
                     for saison_id in (SAISON_ID, FORMER_SAISON_ID)
-                    for team_id, gruppe, name, short in ((HOME_TEAM_OID, "A", "Heim-Schule", "HS"), (AWAY_TEAM_OID, "B", "Gast-Schule", "GS"))
+                    for team_id, gruppe, name, short in ((HOME_TEAM_OID, "A", "Heim-Schule", "HSX"), (AWAY_TEAM_OID, "B", "Gast-Schule", "GSX"))
                 ]
             )
 

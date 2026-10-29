@@ -32,15 +32,6 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungZustellungEreignisPayload,
 )
 from app.api.bewerbungen.services import (
-    BEWERBUNG_ALREADY_DECIDED,
-    BEWERBUNG_KONTAKT_EMAIL_TAKEN,
-    BEWERBUNG_KONTAKT_GESPERRT,
-    BEWERBUNG_KONTAKTE_UNCONFIRMED,
-    BEWERBUNG_SCHULE_UNUSABLE,
-    BEWERBUNG_SEAT_ALREADY_ANSWERED,
-    BEWERBUNG_SITZ_ANDERS_BESETZT,
-    BEWERBUNG_SUBJECT_UNRESOLVED,
-    BEWERBUNG_TOKEN_UNKNOWN,
     bestaetigungsfrist_from,
     bewerbung_kontakt_seite,
     compose_bestaetigungen,
@@ -49,14 +40,13 @@ from app.api.bewerbungen.services import (
     seat_zustellung,
 )
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
-from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import post_team
 from app.api.teams.schemas import FLPostTeamPayload
-from app.api.teams.services import CLUB_RETIRED, ENTRY_GRUPPE_FULL, ENTRY_SAISON_NOT_FUTURE
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exceptions import DUPLICATE_KEY, DocumentNotFoundException, WriteRefusalException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
@@ -105,11 +95,11 @@ UNUSABLE_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920007")
 # An XSS sink once React renders it into the club page's href, and a value `FLTeam` refuses on read.
 UNUSABLE_URL = "javascript:alert(1)"
 
-EXISTING_NAME, EXISTING_SHORTHAND = "Adler", "AD"
-RETIRED_NAME, RETIRED_SHORTHAND = "Bieber", "BI"
+EXISTING_NAME, EXISTING_SHORTHAND = "Adler", "ADX"
+RETIRED_NAME, RETIRED_SHORTHAND = "Bieber", "BIX"
 
 # The club the new school proposes. Its two letters are free, unlike `CLASHING_BEWERBUNG`'s.
-NEW_SCHOOL_NAME, NEW_SCHOOL_SHORTHAND = "Zorbanax", "ZX"
+NEW_SCHOOL_NAME, NEW_SCHOOL_SHORTHAND = "Zorbanax", "ZXX"
 
 # Two groups of two, so one seeded pair fills `A` and `REQ-ENTER-003` is reachable without twenty rows.
 RULES: Mapping[str, Any] = rules_document(number_of_groups=2, teams_per_group=2)
@@ -434,7 +424,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
 
         code, clubs, rows, status = on_a_league(mongo_replica_set_url, body, occupied=RULES["teams_per_group"])
 
-        assert code == ENTRY_GRUPPE_FULL
+        assert code == Code.ENTRY_GRUPPE_FULL
         assert (clubs, rows, status) == (SEEDED_CLUBS, RULES["teams_per_group"], "eingereicht")
 
     def test_the_group_beside_the_full_one_still_takes_the_school(self, mongo_replica_set_url: str):
@@ -458,7 +448,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
 
         code, rows, status = on_a_league(mongo_replica_set_url, body)
 
-        assert code == CLUB_RETIRED
+        assert code == Code.CLUB_RETIRED
         assert (rows, status) == ([], "eingereicht")
 
     # A group the season does not run and a group already full: the two faults `find_entry_refusal`
@@ -476,7 +466,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, occupied=occupied) == CLUB_RETIRED
+        assert on_a_league(mongo_replica_set_url, body, occupied=occupied) == Code.CLUB_RETIRED
 
     def test_the_full_group_is_reported_before_the_club_is_written(self, mongo_replica_set_url: str):
         """The order pinned on a WRITE that fails differently: the rollback hides an early insert.
@@ -491,7 +481,7 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, occupied=RULES["teams_per_group"]) == ENTRY_GRUPPE_FULL
+        assert on_a_league(mongo_replica_set_url, body, occupied=RULES["teams_per_group"]) == Code.ENTRY_GRUPPE_FULL
 
     @pytest.mark.parametrize("saison_status", ["active", "past"])
     def test_a_season_that_is_not_future_is_refused(self, mongo_replica_set_url: str, saison_status: str):
@@ -510,13 +500,13 @@ class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
 
         code, clubs, rows, status = on_a_league(mongo_replica_set_url, body, saison_status=saison_status)
 
-        assert code == ENTRY_SAISON_NOT_FUTURE
+        assert code == Code.ENTRY_SAISON_NOT_FUTURE
         assert (clubs, rows, status) == (SEEDED_CLUBS, [], "eingereicht")
 
 
 # The two shapes `REQ-BEWERBUNG-002` refuses, each stored as a hand edit could leave it.
 UNRESOLVED = [
-    pytest.param(BOTH_BEWERBUNG, EXISTING_OID, schule_block("Doppelt", "DP"), id="both a club and a school"),
+    pytest.param(BOTH_BEWERBUNG, EXISTING_OID, schule_block("Doppelt", "DPX"), id="both a club and a school"),
     pytest.param(NEITHER_BEWERBUNG, None, None, id="neither a club nor a school"),
 ]
 
@@ -549,7 +539,7 @@ class TestAnApplicationResolvingToNoOneClub:
 
         code, clubs, rows, status = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_SUBJECT_UNRESOLVED
+        assert code == Code.BEWERBUNG_SUBJECT_UNRESOLVED
         assert (clubs, rows, status) == (SEEDED_CLUBS, [], "eingereicht")
 
 
@@ -606,7 +596,7 @@ class TestAcceptanceWaitsForEverySeat:
 
         code, detail, rows, status = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_KONTAKTE_UNCONFIRMED
+        assert code == Code.BEWERBUNG_KONTAKTE_UNCONFIRMED
         assert "ansprechperson" in str(detail)
         assert (rows, status) == ([], "eingereicht")
 
@@ -644,7 +634,7 @@ async def seed_the_unusable_school(database: AsyncDatabase) -> Mapping[str, Any]
     """
 
     await database[Collection.BEWERBUNGEN].insert_one(
-        bewerbung_document(UNUSABLE_BEWERBUNG, schule={**schule_block("Skriptsam", "SK"), "website_url": UNUSABLE_URL})
+        bewerbung_document(UNUSABLE_BEWERBUNG, schule={**schule_block("Skriptsam", "SKX"), "website_url": UNUSABLE_URL})
     )
 
     return await stored_bewerbung(database, UNUSABLE_BEWERBUNG)
@@ -676,7 +666,7 @@ class TestASchoolNoClubCanBeCreatedFrom:
         code, stored_url, clubs, rows, status = on_a_league(mongo_replica_set_url, body)
 
         assert stored_url == UNUSABLE_URL, "the validator refused the value, so the refusal below proves nothing"
-        assert code == BEWERBUNG_SCHULE_UNUSABLE
+        assert code == Code.BEWERBUNG_SCHULE_UNUSABLE
         assert (clubs, rows, status) == (SEEDED_CLUBS, [], "eingereicht")
 
     def test_the_school_is_judged_before_the_group_it_asked_for(self, mongo_replica_set_url: str):
@@ -690,7 +680,7 @@ class TestASchoolNoClubCanBeCreatedFrom:
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, occupied=RULES["teams_per_group"]) == BEWERBUNG_SCHULE_UNUSABLE
+        assert on_a_league(mongo_replica_set_url, body, occupied=RULES["teams_per_group"]) == Code.BEWERBUNG_SCHULE_UNUSABLE
 
 
 @pytest.mark.db
@@ -752,7 +742,7 @@ class TestADuplicateShorthandIsAConflictAndNotHalfAClub:
 
         status_code, payload, clubs, rows, status = on_a_league(mongo_replica_set_url, body)
 
-        assert (status_code, payload["error_code"]) == (409, DUPLICATE_KEY)
+        assert (status_code, payload["error_code"]) == (409, Code.DUPLICATE_KEY)
         assert (clubs, rows, status) == (SEEDED_CLUBS, [], "eingereicht")
 
 
@@ -971,7 +961,7 @@ class TestADecisionIsNotTakenTwice:
 
         code, after_first, after_second, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_ALREADY_DECIDED
+        assert code == Code.BEWERBUNG_ALREADY_DECIDED
         assert after_second == after_first, "the refused second decision still changed the application"
         assert (after_second["status"], len(rows)) == (expected_status, expected_rows)
 
@@ -1028,7 +1018,7 @@ class TestTwoDeclinesAtOnce:
 
         code, after_first, after_second = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_ALREADY_DECIDED
+        assert code == Code.BEWERBUNG_ALREADY_DECIDED
         assert after_second == after_first, "the losing decline overwrote the reason and the name the first one stored"
         assert after_first["entscheidung"]["grund"] == GRUND
 
@@ -1146,7 +1136,7 @@ class TestTheAcceptanceJudgesWhatItReadsInsideTheTransaction:
 # submitted: `bewerbungen` types `website_url` as a bare string.
 DIRTY_URL_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000d")
 DIRTY_URL = "https://wirbelknoten\t.example.de/\rpfad"
-DIRTY_URL_NAME, DIRTY_URL_SHORTHAND = "Wirbelknoten", "WK"
+DIRTY_URL_NAME, DIRTY_URL_SHORTHAND = "Wirbelknoten", "WKX"
 
 
 def without_the_id(document: Mapping[str, Any]) -> dict[str, Any]:
@@ -1232,7 +1222,7 @@ class TestADeclineLandingInsideAnAcceptance:
 
         code, after_decline, after_acceptance, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_ALREADY_DECIDED
+        assert code == Code.BEWERBUNG_ALREADY_DECIDED
         assert after_acceptance == after_decline, "the acceptance overwrote the decision the applicants were sent"
         assert rows == [], "the school was entered into the season its own application was declined for"
 
@@ -1464,7 +1454,7 @@ class TestCorrectingOneContactAddress:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_KONTAKT_EMAIL_TAKEN
+        assert code == Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN
         assert after == before
 
     def test_a_seat_that_has_already_answered_takes_no_correction(self, mongo_replica_set_url: str):
@@ -1480,7 +1470,7 @@ class TestCorrectingOneContactAddress:
 
         code, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
         assert stored["kontakte"]["trainer"]["email"] != CORRECTED_EMAIL
 
     def test_a_decided_application_takes_no_correction(self, mongo_replica_set_url: str):
@@ -1495,7 +1485,7 @@ class TestCorrectingOneContactAddress:
 
         code, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_ALREADY_DECIDED
+        assert code == Code.BEWERBUNG_ALREADY_DECIDED
         assert stored["kontakte"]["ansprechperson"]["email"] != CORRECTED_EMAIL
 
     def test_a_path_naming_no_seat_is_a_404(self, mongo_replica_set_url: str):
@@ -1523,7 +1513,7 @@ class TestCorrectingOneContactAddress:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
         assert after == before
 
 
@@ -1657,7 +1647,7 @@ class TestAResendRacingAnAnswer:
 
         code, landed, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
         assert after == landed
 
     def test_a_correction_landing_after_the_read_is_where_the_fresh_link_goes(self, mongo_replica_set_url: str):
@@ -1722,7 +1712,7 @@ class TestAResendRacingAnAnswer:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_KONTAKT_GESPERRT
+        assert code == Code.BEWERBUNG_KONTAKT_GESPERRT
         assert after == before
 
     def test_a_person_holding_two_seats_is_answered_for_both(self, mongo_replica_set_url: str):
@@ -1755,7 +1745,7 @@ class TestAResendRacingAnAnswer:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
         assert after == before
 
 
@@ -1923,7 +1913,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         code, reseated, after = on_a_league(mongo_replica_set_url, body)
 
         assert reseated["kontakte"]["ansprechperson"]["email"] == RESEAT_PERSON["email"], "the reseat this case races never landed"
-        assert code == BEWERBUNG_SITZ_ANDERS_BESETZT
+        assert code == Code.BEWERBUNG_SITZ_ANDERS_BESETZT
         assert after == reseated
 
     def test_a_correction_composed_against_the_person_seated_since_lands(self, mongo_replica_set_url: str):
@@ -1950,7 +1940,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
 
             return refused.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == BEWERBUNG_TOKEN_UNKNOWN
+        assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_TOKEN_UNKNOWN
 
     def test_one_person_holding_two_seats_is_seated_in_both_from_one_press(self, mongo_replica_set_url: str):
         """The pair comes off `trainer_ist_zugleich`, surviving the emptying that hides it from `paired_seat`.
@@ -1984,7 +1974,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
         assert after == before
 
     def test_a_seat_erased_at_its_persons_request_takes_nobody_else(self, mongo_replica_set_url: str):
@@ -2003,7 +1993,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         code, emptied, after = on_a_league(mongo_replica_set_url, body)
 
         assert emptied["bestaetigungen"]["stellvertretung"] is None, "the erasure left bookkeeping the refusal would read as a Widerspruch"
-        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
         assert after == emptied
 
     def test_an_address_another_contact_person_holds_is_refused(self, mongo_replica_set_url: str):
@@ -2020,7 +2010,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_KONTAKT_EMAIL_TAKEN
+        assert code == Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN
         assert after == before
 
     def test_a_decided_application_takes_no_reseat(self, mongo_replica_set_url: str):
@@ -2038,7 +2028,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_ALREADY_DECIDED
+        assert code == Code.BEWERBUNG_ALREADY_DECIDED
         assert after == before
 
     def test_a_path_naming_no_seat_is_a_404(self, mongo_replica_set_url: str):
@@ -2067,7 +2057,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
         assert before["kontakte"]["ansprechperson"] is None, "the seeded pair does not diverge, so nothing here is about the mirror"
-        assert code == BEWERBUNG_SEAT_ALREADY_ANSWERED
+        assert code == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
         assert after["kontakte"]["trainer"] == before["kontakte"]["trainer"]
         assert after == before
 
@@ -2111,7 +2101,7 @@ class TestTheLabelAReseatNames:
 
         refusal, emptied, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert (refusal.error_code, refusal.status_code) == (FASSUNG_UNZULAESSIG, 409)
+        assert (refusal.error_code, refusal.status_code) == (Code.FASSUNG_UNZULAESSIG, 409)
         assert stored == emptied
 
 
@@ -2132,7 +2122,7 @@ class TestABannedContactAddress:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_KONTAKT_GESPERRT
+        assert code == Code.BEWERBUNG_KONTAKT_GESPERRT
         assert after == before
 
     def test_a_resend_to_an_address_the_ban_list_does_not_hold_still_mints(self, mongo_replica_set_url: str):
@@ -2171,7 +2161,7 @@ class TestABannedContactAddress:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_KONTAKT_GESPERRT
+        assert code == Code.BEWERBUNG_KONTAKT_GESPERRT
         assert after == before
 
     def test_a_reseat_naming_a_banned_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
@@ -2186,5 +2176,5 @@ class TestABannedContactAddress:
 
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert code == BEWERBUNG_KONTAKT_GESPERRT
+        assert code == Code.BEWERBUNG_KONTAKT_GESPERRT
         assert after == before

@@ -113,7 +113,7 @@ def _junction(
         saison_id,
         team_id,
         name,
-        name[:2].upper(),
+        name[:3].upper(),
         _id=row_id,
         austritt=austritt,
         kontakte={**{slot: None for slot in KONTAKT_ROLLEN}, **slots, "trainer_ist_zugleich": zugleich},

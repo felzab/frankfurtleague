@@ -73,12 +73,12 @@ from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
 from app.api.spieler.services import build_spieler_filter
 from app.core.adressanker import anchor_the_addresses
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.concurrency import gather_cancelling
 from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_many_in_db, refuse
 from app.core.db import warn_about_the_grants
 from app.core.drosselung import erase_counts_in_session
-from app.core.exception_handlers import DATABASE_FAILED
 from app.core.journal import JournalLine, lost_its_answer
 from app.core.logging import fl_logger, journal_logger
 from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR_EMAIL
@@ -872,7 +872,7 @@ class ErasureJournal[Erased: FLErasure]:
         try:
             await warn_about_the_grants(self._berechtigungen_collection)
         except PyMongoError as failure:
-            fl_logger.error(f"The grants went unchecked after an erasure: {type(failure).__name__}", extra={"error_code": DATABASE_FAILED})
+            fl_logger.error(f"The grants went unchecked after an erasure: {type(failure).__name__}", extra={"error_code": Code.DATABASE_FAILED})
 
 
 async def unreferenced_of(

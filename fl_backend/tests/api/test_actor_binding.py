@@ -22,21 +22,16 @@ from pymongo.asynchronous.collection import AsyncCollection
 from starlette.requests import Request
 
 from app.api.sperrliste.services import adresse_hash
+from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import ACTOR_TOKEN_CHALLENGE, NO_DATABASE_CLIENT
+from app.core.exceptions import ACTOR_TOKEN_CHALLENGE
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, AktorFunktion, PersonActor, actor_var, record_write, request_var
 from app.core.security import (
-    ACTOR_NOT_ADMIN,
-    ACTOR_TOKEN_REFUSED,
     AUTH_TIME_HEADER,
-    CONFIRMATION_REQUIRED,
     ENROLMENT_WINDOW_S,
-    MISSING_ACTOR,
     PASSKEY_FACTOR,
     PERSON_ACTOR_BINDERS,
-    PERSON_BARRED,
     STEP_UP_WINDOW_S,
-    WRONG_ADMIN_KEY,
     BanLookup,
     Factor,
     GrantLookup,
@@ -75,7 +70,7 @@ NOT_AN_ADMINISTRATOR = "schueler@example.com"
 
 # Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure,
 # the harness's own included.
-UNREACHED_DATABASE = NO_DATABASE_CLIENT
+UNREACHED_DATABASE = Code.NO_DATABASE_CLIENT
 
 
 # The mounted operations, keyed as Starlette spells them, and the methods that record nothing:
@@ -115,7 +110,7 @@ def test_a_request_without_the_admin_key_sets_no_actor():
 
     response = client().delete(WRITE_PATH, headers={**BASE_AUTH, **actor_headers(ACTOR)})
 
-    assert answer(response) == (401, WRONG_ADMIN_KEY)
+    assert answer(response) == (401, Code.WRONG_ADMIN_KEY)
 
 
 @pytest.mark.parametrize(
@@ -134,7 +129,7 @@ def test_a_request_naming_no_session_is_refused_before_the_grant_read(headers: M
     sent = {**ADMIN_KEY} if not headers else {**ADMIN_KEY, **actor_headers(ACTOR), **headers}
     response = TestClient(create_app(CONFIG), raise_server_exceptions=False).get(READ_PATH, headers=sent)
 
-    assert answer(response) == (400, MISSING_ACTOR)
+    assert answer(response) == (400, Code.MISSING_ACTOR)
 
 
 class TestTheAdministratorsSession:
@@ -155,21 +150,21 @@ class TestTheAdministratorsSession:
 
         response = client().delete(WRITE_PATH, headers=headers)
 
-        assert answer(response) == (401, ACTOR_TOKEN_REFUSED)
+        assert answer(response) == (401, Code.ACTOR_TOKEN_REFUSED)
         assert response.headers["www-authenticate"] == ACTOR_TOKEN_CHALLENGE
 
     @pytest.mark.parametrize(("method", "path"), [("delete", WRITE_PATH), ("get", READ_PATH)], ids=("a write", "a read"))
     def test_an_address_off_the_list_is_refused(self, method: str, path: str):
         response = getattr(client(), method)(path, headers=SignedActor(NOT_AN_ADMINISTRATOR, ADMIN_KEY))
 
-        assert answer(response) == (403, ACTOR_NOT_ADMIN)
+        assert answer(response) == (403, Code.ACTOR_NOT_ADMIN)
         assert "www-authenticate" not in response.headers
 
     @pytest.mark.parametrize(
         ("granted_after_s", "expected"),
         [
             pytest.param(0.999, (503, UNREACHED_DATABASE), id="later inside the sign-in's second"),
-            pytest.param(1, (401, ACTOR_TOKEN_REFUSED), id="the second after the sign-in"),
+            pytest.param(1, (401, Code.ACTOR_TOKEN_REFUSED), id="the second after the sign-in"),
         ],
     )
     def test_a_session_signed_in_before_its_grant_is_refused_to_the_second(self, granted_after_s: float, expected: tuple[int, str]):
@@ -251,14 +246,14 @@ class TestTheStepUp:
     def test_a_grant_write_from_an_older_sign_in_is_refused(self, method: str, path: str):
         response = getattr(client(), method)(path, headers=signed_in_before(ENROLMENT_WINDOW_S + 1))
 
-        assert answer(response) == (401, CONFIRMATION_REQUIRED)
+        assert answer(response) == (401, Code.CONFIRMATION_REQUIRED)
         assert response.headers["www-authenticate"] == challenge(ENROLMENT_WINDOW_S)
 
     @pytest.mark.parametrize(("method", "path"), STEP_UP_WRITES)
     def test_a_step_up_write_from_an_older_sign_in_is_refused(self, method: str, path: str):
         response = getattr(client(), method)(url_of(path), headers=signed_in_before(STEP_UP_WINDOW_S + 1))
 
-        assert answer(response) == (401, CONFIRMATION_REQUIRED)
+        assert answer(response) == (401, Code.CONFIRMATION_REQUIRED)
         assert response.headers["www-authenticate"] == challenge(STEP_UP_WINDOW_S)
 
     @pytest.mark.parametrize(
@@ -468,18 +463,18 @@ class TestThePersonsSession:
     def test_a_barred_person_is_refused_before_the_route_runs(self, email: str):
         response = person_client().get(PERSON_PROBE, headers=as_person(email))
 
-        assert answer(response) == (403, PERSON_BARRED)
+        assert answer(response) == (403, Code.PERSON_BARRED)
         assert BARRED_PERSON not in response.text.lower()
 
     def test_a_session_past_the_person_s_window_is_refused(self):
         response = person_client().get(PERSON_PROBE, headers=as_person(age_s=PERSON_WINDOW_DAYS * 86400 + 60))
 
-        assert answer(response) == (401, ACTOR_TOKEN_REFUSED)
+        assert answer(response) == (401, Code.ACTOR_TOKEN_REFUSED)
 
     def test_a_request_naming_nobody_is_refused_before_the_ban_read_opens_the_database(self):
         """No database and the real read: a 503 here would mean the list was asked before the session was read."""
 
-        assert answer(person_client(barred=None).get(PERSON_PROBE)) == (400, MISSING_ACTOR)
+        assert answer(person_client(barred=None).get(PERSON_PROBE)) == (400, Code.MISSING_ACTOR)
 
 
 # The person's own address change, started or approved, held to the enrolment window by either factor.
@@ -494,7 +489,7 @@ class TestTheAddressChangeAsksAFreshSignIn:
     def test_an_older_sign_in_is_refused(self, path: str, body: Any):
         response = person_client().post(path, json=body, headers={**ADMIN_KEY, **as_person(age_s=ENROLMENT_WINDOW_S + 1)})
 
-        assert answer(response) == (401, CONFIRMATION_REQUIRED)
+        assert answer(response) == (401, Code.CONFIRMATION_REQUIRED)
         assert response.headers["www-authenticate"] == challenge(ENROLMENT_WINDOW_S)
 
     @pytest.mark.parametrize("factor", ["code", PASSKEY_FACTOR])

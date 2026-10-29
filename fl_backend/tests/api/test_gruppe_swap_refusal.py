@@ -3,12 +3,11 @@ from http import HTTPStatus
 from bson import ObjectId
 
 from app.api.teams.services import (
-    SWAP_NOT_A_SWAP,
-    SWAP_ONE_CLUB_TWICE,
     find_gruppe_swap_refusal,
     find_swap_pair_refusal,
     fixtures_newly_fielding_a_departed_club,
 )
+from app.core.codes import Code
 
 OID = ObjectId("6890a1b2c3d4e5f60fff0001")
 
@@ -24,7 +23,7 @@ class TestOneClubNamedTwice:
 
         assert refusal is not None
         assert (refusal.error_code, refusal.status, refusal.fields) == (
-            SWAP_ONE_CLUB_TWICE,
+            Code.SWAP_ONE_CLUB_TWICE,
             HTTPStatus.UNPROCESSABLE_CONTENT,
             (("team1_id",), ("team2_id",)),
         )
@@ -45,7 +44,7 @@ class TestWhatCountsAsASwap:
         )
 
         assert refusal is not None
-        assert refusal.error_code == SWAP_NOT_A_SWAP
+        assert refusal.error_code == Code.SWAP_NOT_A_SWAP
 
 
 # The shape `pull_many_from_db` hands the handler.

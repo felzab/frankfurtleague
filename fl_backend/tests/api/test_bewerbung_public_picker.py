@@ -13,7 +13,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from app.core.security import MISSING_TOKEN
+from app.core.codes import Code
 
 from .test_bewerbung_public_read import (
     ADDRESS,
@@ -84,9 +84,10 @@ class TestTheKuerzelCheck:
     @pytest.mark.parametrize(
         ("shorthand", "vergeben"),
         [
-            pytest.param("ZE", True, id="a live club's"),
-            pytest.param("VE", True, id="a RETIRED club's, which `uniq_shorthand` still holds"),
-            pytest.param("QQ", False, id="one nobody holds"),
+            pytest.param("ZEX", True, id="a live club's"),
+            pytest.param("zex", True, id="a live club's asked in lower case, folded as a submission folds it"),
+            pytest.param("VEX", True, id="a RETIRED club's, which `uniq_shorthand` still holds"),
+            pytest.param("QQX", False, id="one nobody holds"),
         ],
     )
     def test_a_taken_kuerzel_answers_taken(self, seeded_url: str, shorthand: str, vergeben: bool):
@@ -111,7 +112,7 @@ PUBLIC_PATHS = [
     f"{PREFIX}/fenster",
     f"{PREFIX}/fenster/{OPEN_SAISON}",
     f"{PREFIX}/schulen",
-    f"{PREFIX}/kuerzel/ZE",
+    f"{PREFIX}/kuerzel/ZEX",
     f"{PREFIX}/trikotfarben/{OPEN_SAISON}",
 ]
 
@@ -133,7 +134,7 @@ class TestTheTierTheseReadsAreServedAt:
         response = answered(seeded_url, path, headers={})
 
         assert response.status_code == 401
-        assert response.json()["error_code"] == MISSING_TOKEN
+        assert response.json()["error_code"] == Code.MISSING_TOKEN
 
     def test_the_admin_list_at_this_prefix_still_refuses_the_base_key(self, seeded_url: str):
         """The control: a base-tier router joining an admin prefix must not have widened the two routers already there."""

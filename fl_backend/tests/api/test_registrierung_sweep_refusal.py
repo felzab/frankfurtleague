@@ -1,17 +1,12 @@
-from __future__ import annotations
-
-import asyncio
 from collections.abc import Mapping
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import pytest
 
 from app.api.bewerbungen.services import ZUSTELLUNG_ABGEWIESEN, hash_token, latest_decision_due
 from app.api.registrierungen import sweep_router
 from app.api.registrierungen.services import (
-    REGISTRIERUNG_SWEEP_FELD,
     bestaetigung_erasure_is_due,
     build_decline_filter,
     build_erinnerung_filter,
@@ -21,11 +16,8 @@ from app.api.registrierungen.services import (
     erinnerung_is_due,
     link_is_unreachable,
 )
-from app.api.saisons.crud import pull_current_saison
-from app.core.collections import Collection
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_ERINNERUNG_TAGE
-from tests.bans import ban_list
 from tests.documents import eigene_einwilligung_document
 
 TODAY = "2026-04-01"
@@ -38,9 +30,6 @@ MAILED_A_DAY_SHORT = "2026-03-30"
 MAILED_A_DAY_PAST = "2026-03-28"
 
 FIRST_HASH = hash_token("first")
-
-# The instant the log rows of the one pass driven below are stamped with.
-_NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 
 def einwilligung() -> dict[str, Any]:
@@ -284,147 +273,6 @@ class TestWhatEachClockReads:
         """The reads; the removals are held to the season by `tests/api/test_registrierung_sweep_execution.py :: TestTheDeadlineClock`."""
 
         assert CLOCK_FILTERS[clock]["saison_id"] == SAISON_ID
-
-
-class _Cursor:
-    """`pull_many_from_db`'s own chain -- `find(...).limit(n).to_list(length=n)` -- over a list this test holds."""
-
-    def __init__(self, rows: list[dict[str, Any]]) -> None:
-        self.rows = rows
-
-    def limit(self, limit: int) -> _Cursor:
-        return _Cursor(self.rows[:limit])
-
-    def sort(self, keys: list[tuple[str, int]]) -> _Cursor:
-        """Ascending keys alone, which is every order the pass asks for; a missing path sorts first, as the server's does."""
-
-        def value(row: Mapping[str, Any], path: str) -> tuple[bool, str]:
-            found: Any = row
-            for part in path.split("."):
-                found = found.get(part) if isinstance(found, Mapping) else None
-            return (found is not None, str(found))
-
-        assert all(direction == 1 for _, direction in keys)
-        return _Cursor(sorted(self.rows, key=lambda row: [value(row, path) for path, _ in keys]))
-
-    async def to_list(self, length: int) -> list[dict[str, Any]]:
-        return self.rows[:length]
-
-
-class _Result:
-    def __init__(self, modified_count: int) -> None:
-        self.modified_count = modified_count
-
-
-class _Deleted:
-    def __init__(self, deleted_count: int) -> None:
-        self.deleted_count = deleted_count
-
-
-def _matches(row: Mapping[str, Any], filter: Mapping[str, Any]) -> bool:
-    """A filter's PLAIN equality terms only.
-
-    A dotted path and an operator are passed over: the predicate decides every row here, and a
-    matcher guessing at `$nin` would be a second database nobody wrote.
-    """
-
-    for key, value in filter.items():
-        if key == "_id" and isinstance(value, Mapping):
-            if row["_id"] not in value.get("$in", []):
-                return False
-        elif "." not in key and not isinstance(value, Mapping) and row.get(key) != value:
-            return False
-
-    return True
-
-
-class _Collection:
-    """One collection of the pass, over documents this test holds: `session` is accepted and ignored everywhere."""
-
-    def __init__(self, name: str, rows: list[dict[str, Any]], database: Mapping[str, Any], *, answers_reads: bool = True) -> None:
-        self.name = name
-        self.rows = rows
-        self.database = database
-        self.answers_reads = answers_reads
-
-    async def find_one(self, filter: Mapping[str, Any], projection: Any = None, session: Any = None) -> dict[str, Any] | None:
-        for row in self.rows:
-            if _matches(row, filter):
-                return dict(row)
-        return None
-
-    def find(self, filter: Mapping[str, Any], projection: Any = None, collation: Any = None, session: Any = None) -> _Cursor:
-        if not self.answers_reads:
-            return _Cursor([])
-
-        return _Cursor([dict(row) for row in self.rows if _matches(row, filter)])
-
-    async def update_many(self, filter: Mapping[str, Any], update: Mapping[str, Any], session: Any = None) -> _Result:
-        written = update["$set"]
-        touched = [row for row in self.rows if _matches(row, filter)]
-        for row in touched:
-            row.update(written)
-        return _Result(len(touched))
-
-    async def delete_many(self, filter: Mapping[str, Any], session: Any = None) -> _Deleted:
-        taken = [row for row in self.rows if _matches(row, filter)]
-        for row in taken:
-            self.rows.remove(row)
-        return _Deleted(len(taken))
-
-    async def insert_one(self, document: Mapping[str, Any], session: Any = None) -> None:
-        self.rows.append(dict(document))
-
-
-class _Session:
-    async def with_transaction(self, callback: Any) -> Any:
-        return await callback(self)
-
-
-class _Db:
-    def start_session(self) -> _Db:
-        return self
-
-    async def __aenter__(self) -> _Session:
-        return _Session()
-
-    async def __aexit__(self, *_: Any) -> None:
-        return None
-
-
-class TestTheStampDropsTheCachedSeason:
-    def test_a_cached_season_read_after_the_pass_carries_the_day(self):
-        """A season write that leaves the cache standing serves the old document for a whole TTL.
-
-        Driven over doubles: the drop leaves no trace on the wire.
-        """
-
-        stored = [{"_id": SAISON_ID, "status": "active", "rules": {}}]
-        aktionen = _Collection("aktionen", [], {})
-        database: dict[str, Any] = {"aktionen": aktionen}
-        saisons = _Collection("saisons", stored, database)
-        registrierungen = _Collection("registrierungen", [], database)
-
-        async def drive() -> tuple[Mapping[str, Any], Mapping[str, Any]]:
-            before = await pull_current_saison(saisons_collection=saisons)  # pyright: ignore[reportArgumentType]
-            await sweep_router.sweep_registrierungen(
-                saison_id=SAISON_ID,
-                registrierungen_collection=registrierungen,  # pyright: ignore[reportArgumentType]
-                saisons_collection=saisons,  # pyright: ignore[reportArgumentType]
-                teams_collection=_Collection("teams", [], database),  # pyright: ignore[reportArgumentType]
-                aktionen_collection=aktionen,  # pyright: ignore[reportArgumentType]
-                sperrliste=ban_list({Collection.SPERRLISTE: _Collection("sperrliste", [], database), Collection.SAISONS: saisons}),
-                db=_Db(),  # pyright: ignore[reportArgumentType]
-                today=TODAY,
-                germany_now=_NOW,
-            )
-
-            return before, await pull_current_saison(saisons_collection=saisons)  # pyright: ignore[reportArgumentType]
-
-        before, after = asyncio.run(drive())
-
-        assert before.get(REGISTRIERUNG_SWEEP_FELD) is None
-        assert after[REGISTRIERUNG_SWEEP_FELD] == TODAY, "the second read was answered from the cache, which the stamp should have dropped"
 
 
 # The reminder's three commands a row -- the update, its read-back and its log row -- pinned on the wire by

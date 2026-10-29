@@ -18,7 +18,7 @@ from app.api.bewerbungen.schemas import (
 from app.api.kontakte.services import rows_seating
 from app.api.sperrliste.services import withheld_actor
 from app.api.teams.schemas import KONTAKT_ROLLEN, FLKontaktEingetragenVon, FLPostTeamPayload, FLTrikotFarbe
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
@@ -32,29 +32,6 @@ from app.shared.schemas.bounds import (
     SAISON_ID_LENGTH,
     VERTRETUNG_MIN_AGE_YEARS,
 )
-
-BEWERBUNG_ALREADY_DECIDED = Code.BEWERBUNG_ALREADY_DECIDED
-BEWERBUNG_SUBJECT_UNRESOLVED = Code.BEWERBUNG_SUBJECT_UNRESOLVED
-BEWERBUNG_SCHULE_UNUSABLE = Code.BEWERBUNG_SCHULE_UNUSABLE
-BEWERBUNG_FENSTER_GESCHLOSSEN = Code.BEWERBUNG_FENSTER_GESCHLOSSEN
-BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED = Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED
-BEWERBUNG_PICKED_CLUB_UNUSABLE = Code.BEWERBUNG_PICKED_CLUB_UNUSABLE
-BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED = Code.BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED
-BEWERBUNG_SHORTHAND_TAKEN = Code.BEWERBUNG_SHORTHAND_TAKEN
-BEWERBUNG_TOKEN_UNKNOWN = Code.BEWERBUNG_TOKEN_UNKNOWN
-# A decision is final, so the link is spent for good; a deadline a re-send restarts is not, so it
-# is a code of its own at the state's status.
-BEWERBUNG_TOKEN_DECIDED = Code.BEWERBUNG_TOKEN_DECIDED
-BEWERBUNG_SEAT_ALREADY_ANSWERED = Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
-BEWERBUNG_KONTAKT_ALTER = Code.BEWERBUNG_KONTAKT_ALTER
-BEWERBUNG_KONTAKTE_UNCONFIRMED = Code.BEWERBUNG_KONTAKTE_UNCONFIRMED
-BEWERBUNG_KONTAKT_EMAIL_TAKEN = Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN
-BEWERBUNG_SCHLUESSEL_ABWEICHEND = Code.BEWERBUNG_SCHLUESSEL_ABWEICHEND
-BEWERBUNG_TOKEN_PAST_DEADLINE = Code.BEWERBUNG_TOKEN_PAST_DEADLINE
-BEWERBUNG_ADRESSE_GESPERRT = Code.BEWERBUNG_ADRESSE_GESPERRT
-BEWERBUNG_KONTAKT_GESPERRT = Code.BEWERBUNG_KONTAKT_GESPERRT
-BEWERBUNG_EINWILLIGUNG_GESPERRT = Code.BEWERBUNG_EINWILLIGUNG_GESPERRT
-BEWERBUNG_SITZ_ANDERS_BESETZT = Code.BEWERBUNG_SITZ_ANDERS_BESETZT
 
 # `bewerbung: null` and no key are both the closed window, never an error (`FLSaison.bewerbung`
 # defaults).
@@ -70,7 +47,7 @@ def find_triage_refusal(*, status: str) -> WriteRefusal | None:
 
     if status != "eingereicht":
         return WriteRefusal(
-            error_code=BEWERBUNG_ALREADY_DECIDED,
+            error_code=Code.BEWERBUNG_ALREADY_DECIDED,
             status=HTTPStatus.CONFLICT,
             message=f"this application is already {status}; a decision is taken once, and the record of it stands",
         )
@@ -88,7 +65,7 @@ def find_acceptance_subject_refusal(*, team_id: Any | None, schule: Mapping[str,
     if (team_id is None) == (schule is None):
         named = "both an existing club and a new school" if team_id is not None else "neither an existing club nor a new school"
         return WriteRefusal(
-            error_code=BEWERBUNG_SUBJECT_UNRESOLVED,
+            error_code=Code.BEWERBUNG_SUBJECT_UNRESOLVED,
             status=HTTPStatus.CONFLICT,
             message=f"this application names {named}; exactly one of the two says what acceptance would enter into the season",
         )
@@ -158,7 +135,7 @@ def find_new_club_refusal(*, club_document: Mapping[str, Any]) -> WriteRefusal |
         field = ".".join(str(part) for part in first["loc"]) or "schule"
 
         return WriteRefusal(
-            error_code=BEWERBUNG_SCHULE_UNUSABLE,
+            error_code=Code.BEWERBUNG_SCHULE_UNUSABLE,
             status=HTTPStatus.CONFLICT,
             message=f"this school's {field} is not one a club can be created from: {first['msg']}",
         )
@@ -223,7 +200,7 @@ def find_window_refusal(*, saison_status: Any, bewerbung: Any, today: str) -> Wr
         return None
 
     return WriteRefusal(
-        error_code=BEWERBUNG_FENSTER_GESCHLOSSEN,
+        error_code=Code.BEWERBUNG_FENSTER_GESCHLOSSEN,
         status=HTTPStatus.CONFLICT,
         message="this season is not accepting applications today; the application window is closed",
     )
@@ -239,7 +216,7 @@ def find_submission_subject_refusal(*, team_id: Any | None, schule: Any | None) 
     if (team_id is None) == (schule is None):
         named = "both an existing club and a new school" if team_id is not None else "neither an existing club nor a new school"
         return WriteRefusal(
-            error_code=BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
+            error_code=Code.BEWERBUNG_SUBMISSION_SUBJECT_UNRESOLVED,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("team_id",), ("schule",)),
             message=f"this submission names {named}; exactly one of the two says which school is applying",
@@ -257,7 +234,7 @@ def find_picked_club_refusal(*, team_raw: Mapping[str, Any] | None) -> WriteRefu
 
     if team_raw is None or team_raw.get("inactive_since") is not None:
         return WriteRefusal(
-            error_code=BEWERBUNG_PICKED_CLUB_UNUSABLE,
+            error_code=Code.BEWERBUNG_PICKED_CLUB_UNUSABLE,
             status=HTTPStatus.CONFLICT,
             message=(
                 "the club this submission names is not one the league offers; reload the list and pick again, "
@@ -277,7 +254,7 @@ def find_already_entered_refusal(*, entered: bool) -> WriteRefusal | None:
 
     if entered:
         return WriteRefusal(
-            error_code=BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED,
+            error_code=Code.BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED,
             status=HTTPStatus.CONFLICT,
             message="this club already plays the season this submission applies for",
         )
@@ -294,7 +271,7 @@ def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
 
     if taken:
         return WriteRefusal(
-            error_code=BEWERBUNG_SHORTHAND_TAKEN,
+            error_code=Code.BEWERBUNG_SHORTHAND_TAKEN,
             status=HTTPStatus.CONFLICT,
             message="the shorthand this submission proposes already belongs to a club; choose another",
         )
@@ -338,7 +315,7 @@ def find_abweichender_fingerabdruck_refusal(*, gespeichert: Any, fingerabdruck: 
         return None
 
     return WriteRefusal(
-        error_code=BEWERBUNG_SCHLUESSEL_ABWEICHEND,
+        error_code=Code.BEWERBUNG_SCHLUESSEL_ABWEICHEND,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         message="this submission key already carries an application sent with other details; the first one stands as it was sent",
     )
@@ -595,7 +572,7 @@ def find_unknown_token_refusal(*, seat: FLKontaktRolle | None) -> WriteRefusal |
 
     if seat is None:
         return WriteRefusal(
-            error_code=BEWERBUNG_TOKEN_UNKNOWN,
+            error_code=Code.BEWERBUNG_TOKEN_UNKNOWN,
             status=HTTPStatus.NOT_FOUND,
             message="this link opens no seat of any application; it may have been replaced by a newer one, or the application is gone",
         )
@@ -637,7 +614,7 @@ def find_expired_token_refusal(*, bestaetigungsfrist: Any, status: Any, today: s
 
     if _is_decided(status):
         return WriteRefusal(
-            error_code=BEWERBUNG_TOKEN_DECIDED,
+            error_code=Code.BEWERBUNG_TOKEN_DECIDED,
             status=HTTPStatus.GONE,
             message="this link has expired: the application has been decided",
         )
@@ -646,7 +623,7 @@ def find_expired_token_refusal(*, bestaetigungsfrist: Any, status: Any, today: s
     # other seat's link answers again (`compose_erneut_update`): a conflict with state, not a spent link.
     if _deadline_passed(bestaetigungsfrist=bestaetigungsfrist, today=today):
         return WriteRefusal(
-            error_code=BEWERBUNG_TOKEN_PAST_DEADLINE,
+            error_code=Code.BEWERBUNG_TOKEN_PAST_DEADLINE,
             status=HTTPStatus.CONFLICT,
             message="the application's confirmation deadline has passed; a fresh link from the administration reopens it",
         )
@@ -683,7 +660,7 @@ def find_already_answered_refusal(*, kontakte: Any, bestaetigungen: Any, seat: s
 
     if seat_is_answered(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=seat):
         return WriteRefusal(
-            error_code=BEWERBUNG_SEAT_ALREADY_ANSWERED,
+            error_code=Code.BEWERBUNG_SEAT_ALREADY_ANSWERED,
             status=HTTPStatus.CONFLICT,
             message=f"the seat '{seat}' has already been answered, or has nothing left to confirm; an answer is given once",
         )
@@ -702,7 +679,7 @@ def find_alter_refusal(*, geburtsdatum: str, today: str, mindestalter: int) -> W
         refuse_age_outside_the_bounds(geburtsdatum=geburtsdatum, today=today, mindestalter=mindestalter)
     except ValueError as too_young_or_too_old:
         return WriteRefusal(
-            error_code=BEWERBUNG_KONTAKT_ALTER,
+            error_code=Code.BEWERBUNG_KONTAKT_ALTER,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
             message=str(too_young_or_too_old),
@@ -813,10 +790,6 @@ def saison_zustand_of(*, row: Mapping[str, Any], seat: str, today: str, gesperrt
     return zustand
 
 
-# The season row's own code, beside the application's 409 for its shared deadline (`REQ-BEWERBUNG-017`).
-KONTAKT_LINK_ABGELAUFEN = Code.KONTAKT_LINK_ABGELAUFEN
-
-
 def find_saison_frist_refusal(*, frist: Any, today: str) -> WriteRefusal | None:
     """Why a season row's link takes no answer past its own deadline, or `None`.
 
@@ -827,13 +800,10 @@ def find_saison_frist_refusal(*, frist: Any, today: str) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=KONTAKT_LINK_ABGELAUFEN,
+        error_code=Code.KONTAKT_LINK_ABGELAUFEN,
         status=HTTPStatus.GONE,
         message="this link's confirmation deadline has passed; only a new link from the administration can confirm the seat",
     )
-
-
-KONTAKT_SAISON_VORBEI = Code.KONTAKT_SAISON_VORBEI
 
 
 def find_saison_vorbei_einwilligung_refusal(*, saison_status: Any, austritt: Any) -> WriteRefusal | None:
@@ -847,7 +817,7 @@ def find_saison_vorbei_einwilligung_refusal(*, saison_status: Any, austritt: Any
         return None
 
     return WriteRefusal(
-        error_code=KONTAKT_SAISON_VORBEI,
+        error_code=Code.KONTAKT_SAISON_VORBEI,
         status=HTTPStatus.GONE,
         message="this link's season has ended or its team has left it, so it confirms nothing; a Widerspruch is still taken",
     )
@@ -894,7 +864,7 @@ def find_unconfirmed_kontakte_refusal(*, kontakte: Any) -> WriteRefusal | None:
     outstanding = ausstehende_seats(kontakte=kontakte)
     if outstanding:
         return WriteRefusal(
-            error_code=BEWERBUNG_KONTAKTE_UNCONFIRMED,
+            error_code=Code.BEWERBUNG_KONTAKTE_UNCONFIRMED,
             status=HTTPStatus.CONFLICT,
             message=f"acceptance waits for every contact person to confirm their own seat; still outstanding: {', '.join(outstanding)}",
         )
@@ -1143,7 +1113,7 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
     # NEUTRAL and naming no seat, as the registration's refusal is: a stranger learns nothing about a
     # list, and 403 because what fails is who is applying rather than the season's state.
     return WriteRefusal(
-        error_code=BEWERBUNG_ADRESSE_GESPERRT,
+        error_code=Code.BEWERBUNG_ADRESSE_GESPERRT,
         status=HTTPStatus.FORBIDDEN,
         message="one of the email addresses this application names cannot be used; use another, or ask the league",
     )
@@ -1160,7 +1130,7 @@ def find_kontakt_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=BEWERBUNG_KONTAKT_GESPERRT,
+        error_code=Code.BEWERBUNG_KONTAKT_GESPERRT,
         status=HTTPStatus.CONFLICT,
         message="this email address is on the ban list, so no confirmation link may be sent to it; lift the entry first",
     )
@@ -1178,7 +1148,7 @@ def find_einwilligung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None
     # 403 and named plainly, where the form's is neutral: whoever holds the mailed token holds that
     # mailbox, as a sign-in code's holder does, and the ban's own mail has told them.
     return WriteRefusal(
-        error_code=BEWERBUNG_EINWILLIGUNG_GESPERRT,
+        error_code=Code.BEWERBUNG_EINWILLIGUNG_GESPERRT,
         status=HTTPStatus.FORBIDDEN,
         message="the email address this link was sent to is on the ban list, so it confirms nothing; a Widerspruch is still taken",
     )
@@ -1201,7 +1171,7 @@ def find_kontakt_email_refusal(*, kontakte: Any, seats: Sequence[str], email: st
 
     if sign_in_identifier(email) in held:
         return WriteRefusal(
-            error_code=BEWERBUNG_KONTAKT_EMAIL_TAKEN,
+            error_code=Code.BEWERBUNG_KONTAKT_EMAIL_TAKEN,
             status=HTTPStatus.CONFLICT,
             message="another contact person on this application is reached at this address; two different people share no mailbox",
         )
@@ -1224,7 +1194,7 @@ def find_sitz_inhaber_refusal(*, kontakte: Any, seat: str, bisherige_email: str)
         return None
 
     return WriteRefusal(
-        error_code=BEWERBUNG_SITZ_ANDERS_BESETZT,
+        error_code=Code.BEWERBUNG_SITZ_ANDERS_BESETZT,
         status=HTTPStatus.CONFLICT,
         message="the seat no longer holds the address this correction was composed against; re-read the application and correct it again",
     )
@@ -1269,7 +1239,7 @@ def find_reseat_refusal(*, bestaetigungen: Any, seats: Sequence[str]) -> WriteRe
     for seat in seats:
         if not seat_awaits_a_replacement(bestaetigungen=bestaetigungen, seat=seat):
             return WriteRefusal(
-                error_code=BEWERBUNG_SEAT_ALREADY_ANSWERED,
+                error_code=Code.BEWERBUNG_SEAT_ALREADY_ANSWERED,
                 status=HTTPStatus.CONFLICT,
                 message=f"the seat '{seat}' takes no other person; only a seat whose own holder stepped out of it is seated again",
             )

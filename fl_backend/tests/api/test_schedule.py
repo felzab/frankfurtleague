@@ -12,8 +12,9 @@ from app.api.saisons.schedule import (
     total_group_matches,
 )
 from app.api.saisons.schemas import FLSaison, FLSaisonRules
-from app.api.saisons.services import RULES_FIXTURES_OVER_ONE_READ, find_rules_refusal, total_season_fixtures, with_schedule
+from app.api.saisons.services import find_rules_refusal, total_season_fixtures, with_schedule
 from app.api.spiele.schemas import KNOCKOUT_PHASES, MAX_QUALIFIERS, PHASE_ORDER, PHASE_RANK, FLSaisonPhase
+from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests.documents import rules_document
@@ -208,7 +209,7 @@ class TestTheLargestLegalSeasonFitsInOneRead:
         refusal = refusal_for(widest_legal_rules())
 
         assert refusal is not None
-        assert refusal.error_code == RULES_FIXTURES_OVER_ONE_READ
+        assert refusal.error_code == Code.RULES_FIXTURES_OVER_ONE_READ
 
     def test_the_widest_season_is_a_shape_a_season_can_actually_be_saved_in(self):
         """Guards the case above: a product the bracket refuses would answer with `REQ-RULES-001` and prove nothing about this one."""

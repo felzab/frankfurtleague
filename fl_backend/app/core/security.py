@@ -20,7 +20,7 @@ from app.api.berechtigungen.services import signed_in_since
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, get_ban_list
 from app.core import clock
 from app.core.adressanker import anchor_the_addresses
-from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import BackendConfig, get_app_config
 from app.core.crud import a_write_may_stand
@@ -31,13 +31,6 @@ from app.core.transactions import ActorJudge, actor_judge_var
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, ENROLMENT_WINDOW_MINUTES, PERSON_WINDOW_DAYS, STEP_UP_WINDOW_HOURS
 from app.shared.sub_keys import derive_sub_key
-
-# Named once, as `app/core/exceptions.py` names its codes, so a test asserts the core's code rather
-# than a copy a rename leaves behind.
-MISSING_TOKEN = Code.MISSING_TOKEN
-WRONG_BASE_KEY = Code.WRONG_BASE_KEY
-WRONG_SYSTEM_KEY = Code.WRONG_SYSTEM_KEY
-WRONG_ADMIN_KEY = Code.WRONG_ADMIN_KEY
 
 # RFC 9110's 401 carries a challenge naming the scheme the key is presented under.
 BEARER_CHALLENGE: Final = {"WWW-Authenticate": "Bearer"}
@@ -64,7 +57,7 @@ def verify_api_key(select_key: KeySelector, error_code: Code, *, scheme_name: st
         config: Annotated[BackendConfig, Depends(get_app_config)],
     ) -> str:
         if credentials is None:
-            raise APIError(HTTPStatus.UNAUTHORIZED, MISSING_TOKEN, headers=BEARER_CHALLENGE)
+            raise APIError(HTTPStatus.UNAUTHORIZED, Code.MISSING_TOKEN, headers=BEARER_CHALLENGE)
         if not secrets.compare_digest(credentials.credentials, select_key(config).get_secret_value()):
             raise APIError(HTTPStatus.UNAUTHORIZED, error_code, headers=BEARER_CHALLENGE)
         return credentials.credentials
@@ -74,9 +67,9 @@ def verify_api_key(select_key: KeySelector, error_code: Code, *, scheme_name: st
 
 # Module-level objects, so a router declares the same callable every time and a test can compare
 # guards by identity (`fl_backend/tests/api/test_admin_guard.py`).
-verify_access_base = verify_api_key(lambda config: config.internal_api_key_base, error_code=WRONG_BASE_KEY, scheme_name="BaseKey")
-verify_access_system = verify_api_key(lambda config: config.internal_api_key_system, error_code=WRONG_SYSTEM_KEY, scheme_name="SystemKey")
-verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admin, error_code=WRONG_ADMIN_KEY, scheme_name="AdminKey")
+verify_access_base = verify_api_key(lambda config: config.internal_api_key_base, error_code=Code.WRONG_BASE_KEY, scheme_name="BaseKey")
+verify_access_system = verify_api_key(lambda config: config.internal_api_key_system, error_code=Code.WRONG_SYSTEM_KEY, scheme_name="SystemKey")
+verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admin, error_code=Code.WRONG_ADMIN_KEY, scheme_name="AdminKey")
 
 
 def get_actor_email() -> str:
@@ -107,11 +100,6 @@ Factor = Literal["passkey", "code"]
 FACTORS: Final[tuple[Factor, ...]] = get_args(Factor)
 PASSKEY_FACTOR: Final = "passkey"
 
-MISSING_ACTOR = Code.MISSING_ACTOR
-ACTOR_NOT_ADMIN = Code.ACTOR_NOT_ADMIN
-ACTOR_TOKEN_REFUSED = Code.ACTOR_TOKEN_REFUSED
-PERSON_BARRED = Code.PERSON_BARRED
-CONFIRMATION_REQUIRED = Code.CONFIRMATION_REQUIRED
 
 # The actor's own scheme on every 401 the session's facts earn, beside the tier key's `Bearer`.
 ACTOR_REFUSAL_HEADERS: Final = {"WWW-Authenticate": ACTOR_TOKEN_CHALLENGE}
@@ -134,7 +122,7 @@ def get_session_actor(request: Request) -> SessionActor:
     factor = request.headers.get(AUTH_FACTOR_HEADER, "")
     # ASCII digits alone: `int` also takes a sign, spaces, underscores and other scripts' digits.
     if email == "" or not (auth_time.isascii() and auth_time.isdigit()) or factor not in FACTORS:
-        raise APIError(HTTPStatus.BAD_REQUEST, MISSING_ACTOR)
+        raise APIError(HTTPStatus.BAD_REQUEST, Code.MISSING_ACTOR)
     return SessionActor(email=email, auth_time=int(auth_time), factor=factor)
 
 
@@ -145,7 +133,7 @@ def session_age_s(actor: SessionActor) -> int:
 
 
 def refused_session() -> APIError:
-    return APIError(HTTPStatus.UNAUTHORIZED, ACTOR_TOKEN_REFUSED, headers=ACTOR_REFUSAL_HEADERS)
+    return APIError(HTTPStatus.UNAUTHORIZED, Code.ACTOR_TOKEN_REFUSED, headers=ACTOR_REFUSAL_HEADERS)
 
 
 def verify_admin_actor(actor: Annotated[SessionActor, Depends(get_session_actor)]) -> SessionActor:
@@ -194,7 +182,7 @@ async def verify_actor_is_admin(
     # panel. Either tier admits: `owner` holds every power `administration` does.
     seit = await grant_since(sign_in_identifier(actor.email))
     if seit is None:
-        raise APIError(HTTPStatus.FORBIDDEN, ACTOR_NOT_ADMIN)
+        raise APIError(HTTPStatus.FORBIDDEN, Code.ACTOR_NOT_ADMIN)
 
     if not signed_in_since(actor.auth_time, seit):
         raise refused_session()
@@ -271,7 +259,7 @@ def confirmation_required(window_s: int) -> APIError:
 
     # RFC 9470 §3's error and parameter, under the actor's own scheme.
     challenge = f'{ACTOR_TOKEN_CHALLENGE} error="insufficient_user_authentication", max_age="{window_s}"'
-    return APIError(HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED, headers={"WWW-Authenticate": challenge})
+    return APIError(HTTPStatus.UNAUTHORIZED, Code.CONFIRMATION_REQUIRED, headers={"WWW-Authenticate": challenge})
 
 
 def verify_recent_confirmation(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> None:
@@ -357,7 +345,7 @@ async def verify_person_is_unbarred(
     """Refuse a person the ban list holds, read per request: the frontend's guard misses a ban entered since."""
 
     if await is_gesperrt(sign_in_identifier(actor.email)):
-        raise APIError(HTTPStatus.FORBIDDEN, PERSON_BARRED)
+        raise APIError(HTTPStatus.FORBIDDEN, Code.PERSON_BARRED)
 
     return actor
 

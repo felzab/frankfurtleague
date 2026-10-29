@@ -11,9 +11,10 @@ from pymongo import MongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.spiele.admin_router import get_spiele_action_required
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException
 from app.main import create_app
 from tests import documents
 from tests.app_client import app_client
@@ -55,8 +56,8 @@ def spiel_document(
     `(spieltag_id, team_id)` and needs no second document.
     """
 
-    home = _side(both_sides or HOME, "Alpha", "AL")
-    away = _side(both_sides or AWAY, "Beta", "BE")
+    home = _side(both_sides or HOME, "Alpha", "ALX")
+    away = _side(both_sides or AWAY, "Beta", "BEX")
 
     return documents.spiel_document(
         spiel_id=spiel_id,
@@ -209,4 +210,4 @@ class TestNamingNoSeasonWithNoneActive:
                 )
             )
 
-        assert refused.value.error_code == DOCUMENT_NOT_FOUND
+        assert refused.value.error_code == Code.DOCUMENT_NOT_FOUND

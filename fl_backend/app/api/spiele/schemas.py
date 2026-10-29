@@ -5,14 +5,12 @@ from typing import Annotated, Any, Final, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, model_validator
 
-from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.teams.schemas import FLAustritt, FLAustrittType, FLGruppenNames
 from app.shared.schemas.bounds import (
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
     SPIEL_NOTIZ_MAX_LENGTH,
-    TEAM_SHORTHAND_LENGTH,
 )
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -21,6 +19,7 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomOptionalDateString,
     CustomOptionalTimeString,
+    CustomShorthand,
     CustomSpielNr,
     CustomTimeString,
 )
@@ -156,7 +155,7 @@ class FLSpielTeamField(FLSpielTeamFieldPayload):
     """
 
     name: str = Field(min_length=1)
-    shorthand: str = Field(min_length=TEAM_SHORTHAND_LENGTH, max_length=TEAM_SHORTHAND_LENGTH)
+    shorthand: CustomShorthand
 
 
 class FLSpielTeamFieldJoined(FLSpielTeamField):
@@ -545,210 +544,6 @@ class FLPatchSpielDataPayload(BaseModel):
 SPIEL_PATCH_WRITTEN_FIELDS: Final = frozenset(FLPatchSpielDataPayload.model_fields) - {"schiedsrichter_stand"}
 
 
-# Every wholesale-payload field outside the Paarung, named once: the report and the restore read this
-# list, so a field one end can move is a field the other reads.
-FLSpielRestorableField = Literal["team1_quelle", "team2_quelle", "datum", "uhrzeit", "ort", "schiedsrichter", "notiz"]
-
-
-class FLSpielPriorOrt(_SpielOrtBooking):
-    """The venue a restore names: which ground, and what that fixture agreed to pay for it.
-
-    Lax where `FLSpielOrtFieldPayload` forbids, because a RESPONSE reaches this one,
-    which is also why the two cannot be one class.
-    """
-
-    # Declared again rather than shared with the payload's, as the rule has every
-    # model holding this figure declare it.
-    mietpreis: int = Field(ge=0)
-
-
-class FLSpielPriorSchiedsrichter(_SpielSchiedsrichterBooking):
-    """The referee a restore names, and the fee that fixture agreed; lax and re-declared for `FLSpielPriorOrt`'s reasons."""
-
-    payment: int = Field(ge=0)
-
-
-def other_fields_of(spiel: FLSpiel) -> dict[FLSpielRestorableField, Any]:
-    """One fixture's fields outside the Paarung, as a restore names them.
-
-    ONE spelling for the restore's completion and for the report's comparison: read apart, the two
-    could disagree about whether a write replaced a field.
-    """
-
-    return {
-        "team1_quelle": spiel.team1_quelle,
-        "team2_quelle": spiel.team2_quelle,
-        "datum": spiel.datum,
-        "uhrzeit": spiel.uhrzeit,
-        # Composed names left behind, so a venue renamed since is not read as a field this write
-        # replaced. The rent stays: it is what THIS fixture pays.
-        "ort": None if spiel.ort is None else FLSpielPriorOrt(spielort_id=spiel.ort.spielort_id, mietpreis=spiel.ort.mietpreis),
-        "schiedsrichter": (
-            None
-            if spiel.schiedsrichter is None
-            else FLSpielPriorSchiedsrichter(schiedsrichter_id=spiel.schiedsrichter.schiedsrichter_id, payment=spiel.schiedsrichter.payment)
-        ),
-        "notiz": spiel.notiz,
-    }
-
-
-class FLSpielPriorOtherFields(BaseModel):
-    """One fixture's fields as they stood outside its Paarung, and which of them a write REPLACED.
-
-    `replaced` rather than omitted keys: a response cannot omit one, and each field's `null` is a
-    value a restore may write.
-    """
-
-    # Never empty: a write that replaced nothing here carries no report at all, so the null and the
-    # empty list would be two spellings of one answer.
-    replaced: list[FLSpielRestorableField] = Field(min_length=1)
-
-    team1_quelle: FLSpielQuelle | None
-    team2_quelle: FLSpielQuelle | None
-    datum: CustomOptionalDateString
-    uhrzeit: CustomOptionalTimeString
-    ort: FLSpielPriorOrt | None
-    schiedsrichter: FLSpielPriorSchiedsrichter | None
-    notiz: str | None = Field(max_length=SPIEL_NOTIZ_MAX_LENGTH)
-
-
-# Private, so the request and the report below state these four fields once and neither publishes a
-# component of its own for them.
-class _SpielPaarung(BaseModel):
-    """The whole of what a bracket resolution can rewrite on a fixture it was not asked about."""
-
-    team1: FLSpielTeamFieldPayload | None
-    team2: FLSpielTeamFieldPayload | None
-
-    # Named rather than derived from the goals: a rewrite clears the record along with the scoreline
-    # that needed it, so putting a level score back does not bring the record back with it.
-    elfmeterschiessen: FLSpielElfmeterschiessen | None
-
-    # The STORED event rather than the cleared one: only a no-show is ever cleared, so a fixture that
-    # was abandoned keeps its event through the rewrite and has to be re-sent unchanged.
-    sonderereignis: FLSonderereignis | None
-
-
-# A second private base rather than four more fields on the one above, which states what a bracket
-# resolution reaches and is read for exactly that.
-class _SpielRestore(_SpielPaarung):
-    """A Paarung beside the fields outside it one write replaced: the whole of what an undo of that write puts back."""
-
-    other_fields: FLSpielPriorOtherFields | None
-
-
-class FLPatchSpielPaarungPayload(_SpielRestore):
-    """One fixture of a replay: its Paarung and the fields this entry names beyond it, leaving every other field as stored.
-
-    Its own route rather than a mode on the wholesale patch, where naming a field is what OVERWRITES it.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    # On the BODY where every other patch takes its target from the path (RFC 5789): the route
-    # addresses the list, so nothing but the entry can say which fixture it restores.
-    spiel_id: CustomObjectId
-
-    def completed_with(self, stored: FLSpiel) -> FLPatchSpielDataPayload:
-        """This request as the wholesale payload, the document answering what it does not restore.
-
-        Completed rather than written field by field, so the refusals, the composed `ergebnis` and
-        the resolution run on the one shape they were written for.
-        """
-
-        beyond = other_fields_of(stored)
-        if self.other_fields is not None:
-            # `replaced` alone: a field the undone write left standing is read off the document, so a
-            # value moved between that write and this restore is not reverted.
-            beyond |= {field: getattr(self.other_fields, field) for field in self.other_fields.replaced}
-
-        ort, schiedsrichter = beyond.pop("ort"), beyond.pop("schiedsrichter")
-
-        return FLPatchSpielDataPayload(
-            sonderereignis=self.sonderereignis,
-            team1=self.team1,
-            team2=self.team2,
-            elfmeterschiessen=self.elfmeterschiessen,
-            # Re-shaped rather than passed on: the wholesale payload's booking blocks forbid a key
-            # they do not declare, which is what keeps a composed name off a save.
-            ort=None if ort is None else FLSpielOrtFieldPayload(spielort_id=ort.spielort_id, mietpreis=ort.mietpreis),
-            schiedsrichter=(
-                None
-                if schiedsrichter is None
-                else FLSpielSchiedsrichterFieldPayload(schiedsrichter_id=schiedsrichter.schiedsrichter_id, payment=schiedsrichter.payment)
-            ),
-            # The document's own referee: a restore of the referee the undone save replaced is that save's decision undone.
-            schiedsrichter_stand=None if stored.schiedsrichter is None else stored.schiedsrichter.schiedsrichter_id,
-            **beyond,
-        )
-
-
-class FLSpielPriorBerichtVon(BaseModel):
-    art: Literal["admin"]
-
-
-class FLSpielPriorBericht(BaseModel):
-    """A Spielbericht's adoption as it stood before a save stamped it at `version`: what an undo of that save puts back.
-
-    Lax, as `FLSpielPriorOrt` is, for its reason: a response reaches it too.
-    """
-
-    spiel_id: CustomObjectId
-    version: int = Field(ge=1)
-    uebernommen_am: FLUtcInstant | None
-    uebernommen_von: FLSpielPriorBerichtVon | None
-    uebernommene_version: Annotated[int, Field(ge=1)] | None
-
-    @model_validator(mode="after")
-    def an_earlier_adoption_or_none(self) -> FLSpielPriorBericht:
-        """The three stand together, as one stamp writes them, and name no version past the one stamped over them."""
-
-        gesetzt = {self.uebernommen_am is None, self.uebernommen_von is None, self.uebernommene_version is None}
-        if len(gesetzt) != 1:
-            raise ValueError("Eine Übernahme nennt Zeitpunkt, Urheber und Stand zusammen oder keins davon.")
-        if self.uebernommene_version is not None and self.uebernommene_version > self.version:
-            raise ValueError("Eine frühere Übernahme liegt nicht hinter dem Stand, den die Übernahme ersetzt hat.")
-
-        return self
-
-
-class FLPatchSpielePaarungenPayload(BaseModel):
-    """Restore every fixture one save moved, in the order the report named them, and the report adoption it stamped."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    # The floor: a save's report leads with the fixture it named, so an empty list is a body no save
-    # produced. The ceiling is the season read's, no legitimate replay naming more fixtures than one
-    # season can hold.
-    paarungen: list[FLPatchSpielPaarungPayload] = Field(min_length=1, max_length=LIST_LIMIT_DEFAULT)
-
-    # The save's `prior_bericht`, null where it stamped nothing. Required: an undo forgetting it leaves the report adopted
-    # on a result the undo took back.
-    bericht: FLSpielPriorBericht | None
-
-    @model_validator(mode="after")
-    def one_entry_per_fixture(self) -> FLPatchSpielePaarungenPayload:
-        """A fixture named twice is restored twice, and its first restore's collateral then reads as the replay's own doing.
-
-        `fl_backend/app/api/spiele/crud.py :: report_prior_paarungen` reports each fixture once.
-        """
-
-        named = [entry.spiel_id for entry in self.paarungen]
-        if len(set(named)) != len(named):
-            raise ValueError("Eine Rücknahme nennt jedes Spiel genau einmal.")
-
-        return self
-
-    @model_validator(mode="after")
-    def the_report_of_a_restored_fixture(self) -> FLPatchSpielePaarungenPayload:
-        """The adoption a save stamped is its own fixture's, which leads the list its undo replays."""
-
-        if self.bericht is not None and self.bericht.spiel_id != self.paarungen[0].spiel_id:
-            raise ValueError("Eine Rücknahme stellt nur den Spielbericht des Spiels zurück, das sie zuerst nennt.")
-
-        return self
-
-
 # The stored and the served shapes both extend THIS rather than one extending the other: they differ
 # in OPPOSITE directions, the stored one adding the two money fields and the served one each side's
 # joined season state.
@@ -929,15 +724,6 @@ class FLSpielReleasedSide(_VoidedResult):
     team_name: str = Field(min_length=1)
 
 
-class FLSpielPriorPaarung(_SpielRestore):
-    """One fixture this write changed, as it stood before it -- the body `PATCH /spiele/paarungen` takes back.
-
-    One entry per FIXTURE and never per rewrite, so a fixture both reports name is restored once.
-    """
-
-    spiel_id: CustomObjectId
-
-
 class FLPatchSpielDataResponse(BaseAPIResponse):
     """What `patch_spiel_data` returns: every fixture it moved, and what that cost.
 
@@ -946,30 +732,4 @@ class FLPatchSpielDataResponse(BaseAPIResponse):
 
     advanced_to: list[FLSpielAdvancement] = Field(default_factory=list)
     released_sides: list[FLSpielReleasedSide] = Field(default_factory=list)
-    bracket_faults: list[FLBracketFault] = Field(default_factory=list)
-
-    # The lists above are what an admin READS; this is what an undo SENDS -- a fixture both of them
-    # name is restored once, and neither reports the sides.
-    # ORDER-BEARING: the fixture the request named leads it.
-    prior_paarungen: list[FLSpielPriorPaarung] = Field(default_factory=list)
-
-    # What the undo sends back of the report this save stamped adopted; null where it stamped none.
-    prior_bericht: FLSpielPriorBericht | None = None
-
-
-class FLPatchSpielePaarungenResponse(BaseAPIResponse):
-    """What a whole replay cost beyond the fixtures it was asked to restore, and the season's faults once it had.
-
-    No `prior_paarungen`: a restore this reports would be an undo of an undo, which no surface offers
-    (`fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo`).
-    """
-
-    # A fixture the replay itself puts back after this rewrite is left out of both: it is the
-    # mechanism the order exists for rather than something an admin
-    # lost.
-    advanced_to: list[FLSpielAdvancement] = Field(default_factory=list)
-    released_sides: list[FLSpielReleasedSide] = Field(default_factory=list)
-
-    # The LAST entry's, never a union: an earlier entry's faults describe a season the replay has
-    # since moved past, and only the committed one is a fault an admin can act on.
     bracket_faults: list[FLBracketFault] = Field(default_factory=list)

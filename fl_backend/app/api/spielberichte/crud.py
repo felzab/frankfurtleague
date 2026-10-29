@@ -38,7 +38,6 @@ from app.api.spielberichte.services import (
     seiten_of,
     team_id_of,
 )
-from app.api.spiele.schemas import FLSpielPriorBericht
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -52,14 +51,6 @@ from app.core.crud import (
 )
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.custom import CustomObjectId
-
-# What an adopting save replaces, and its undo puts back.
-ADOPTION_FIELDS: Mapping[str, int] = {
-    "_id": 0,
-    "bericht.uebernommen_am": 1,
-    "bericht.uebernommen_von": 1,
-    "bericht.uebernommene_version": 1,
-}
 
 # The seat holders' two names alone: what the remarks are judged against.
 VEREIN_FIELDS: Mapping[str, int] = {
@@ -325,55 +316,20 @@ async def stamp_the_adoption(
     now: datetime,
     # REQUIRED: the fixture save's own, so a save that does not commit takes its stamp back with it.
     session: AsyncClientSession,
-) -> FLSpielPriorBericht | None:
+) -> None:
     """Stamp the report adopted at `version`, matching it only while it still stands there.
 
-    Answers the adoption it replaced, for the save's undo to put back; `None` where it stamped nothing.
+    A fan-out rather than `patch_one_in_db`, whose miss would raise and take the fixture's save with it.
     """
-
-    db_filter = {"spiel_id": spiel_id, "bericht.version": version, **{f"bericht.seiten.{seite}": seiten[seite] for seite in SEITEN}}
-    # Read in the save's transaction, so the write below meets the image read or conflicts; a miss writes nothing,
-    # where `patch_one_in_db`'s would raise and take the fixture's save with it.
-    vorher = await spielberichte_collection.find_one(db_filter, projection=dict(ADOPTION_FIELDS), session=session)
-    if vorher is None:
-        return None
 
     await patch_many_in_db(
         collection=spielberichte_collection,
-        db_filter=db_filter,
+        db_filter={"spiel_id": spiel_id, "bericht.version": version, **{f"bericht.seiten.{seite}": seiten[seite] for seite in SEITEN}},
         update={
             "$set": {
                 "bericht.uebernommen_am": now,
                 "bericht.uebernommen_von": {"art": "admin"},
                 "bericht.uebernommene_version": version,
-            }
-        },
-        session=session,
-    )
-
-    return FLSpielPriorBericht.model_validate({"spiel_id": spiel_id, "version": version, **vorher["bericht"]})
-
-
-async def restore_the_adoption(
-    *,
-    spielberichte_collection: AsyncCollection,
-    prior: FLSpielPriorBericht,
-    # REQUIRED: the undo's own, so the report and the result it adopted come back together or not at all.
-    session: AsyncClientSession,
-) -> None:
-    """Put back the adoption a save stamped over, while the report still stands at the version stamped.
-
-    A report corrected since keeps the stamp, which its raised version already reads past.
-    """
-
-    await patch_many_in_db(
-        collection=spielberichte_collection,
-        db_filter={"spiel_id": prior.spiel_id, "bericht.version": prior.version},
-        update={
-            "$set": {
-                "bericht.uebernommen_am": prior.uebernommen_am,
-                "bericht.uebernommen_von": None if prior.uebernommen_von is None else prior.uebernommen_von.model_dump(),
-                "bericht.uebernommene_version": prior.uebernommene_version,
             }
         },
         session=session,

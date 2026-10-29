@@ -73,7 +73,7 @@ async def seed(database: AsyncDatabase) -> None:
         ]
     )
     await database[Collection.TEAMS].insert_many(
-        [documents.team_document(TEAM_OID, "Zorbanax", "ZO"), documents.team_document(OTHER_TEAM_OID, "Quillhilde", "QU")]
+        [documents.team_document(TEAM_OID, "Zorbanax", "ZOX"), documents.team_document(OTHER_TEAM_OID, "Quillhilde", "QUX")]
     )
     await database[Collection.SAISON_TEAMS].insert_many(
         [
@@ -81,7 +81,7 @@ async def seed(database: AsyncDatabase) -> None:
                 SAISON_ID,
                 TEAM_OID,
                 "Zorbanax",
-                "ZO",
+                "ZOX",
                 kontakte={
                     "trainer": documents.kontaktperson_document("Theo", bestaetigt_am="2026-03-21"),
                     "ansprechperson": documents.kontaktperson_document("Anna"),
@@ -93,7 +93,7 @@ async def seed(database: AsyncDatabase) -> None:
                 PAST_SAISON_ID,
                 TEAM_OID,
                 "Zorbanax",
-                "ZO",
+                "ZOX",
                 kontakte={
                     "trainer": None,
                     "ansprechperson": documents.kontaktperson_document("Paula", bestaetigt_am="2025-03-21"),
@@ -105,7 +105,7 @@ async def seed(database: AsyncDatabase) -> None:
                 NEXT_SAISON_ID,
                 TEAM_OID,
                 "Zorbanax",
-                "ZO",
+                "ZOX",
                 kontakte={
                     "trainer": None,
                     "ansprechperson": documents.kontaktperson_document("Nora", bestaetigt_am="2026-03-21"),
@@ -117,7 +117,7 @@ async def seed(database: AsyncDatabase) -> None:
                 SAISON_ID,
                 OTHER_TEAM_OID,
                 "Quillhilde",
-                "QU",
+                "QUX",
                 kontakte={
                     "trainer": None,
                     "ansprechperson": documents.kontaktperson_document("Otto", bestaetigt_am="2026-03-21"),

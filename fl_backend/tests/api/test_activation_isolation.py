@@ -15,15 +15,9 @@ from app.api.saisons.schemas import (
     FLPatchSaisonResponse,
     FLSaisonRules,
 )
-from app.api.saisons.services import (
-    ACTIVATE_SAISON_UNFINISHED,
-    ACTIVATE_TARGET_PAST,
-    ACTIVATE_TARGET_UNDRAWN,
-    RULES_SAISON_FINISHED,
-    RULES_TIEBREAK_AFTER_KNOCKOUT,
-)
 from app.api.spiele.schemas import KNOCKOUT_PHASES, SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.api.teams.services import offered_gruppen
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
@@ -84,7 +78,7 @@ def entry_rows(saison_id: str) -> list[dict[str, Any]]:
             # after year. Only the junction row is the season's own.
             ObjectId(f"6890a1b2c3d4e5f6079{index:05d}"),
             f"{gruppe}{seat + 1}-Schule",
-            f"{gruppe}{seat + 1}",
+            f"{gruppe}S{chr(65 + seat)}",
             _id=ObjectId(f"6890a1b2c3d4e5f60{ENTRY_BLOCK[saison_id]}7{index:05d}"),
             gruppe=gruppe,
         )
@@ -340,7 +334,7 @@ class TestADrawLandingMidRolloverIsJudgedAgain:
         # `REQ-ACTIVATE-001` reads the outgoing season's fixtures, and it held none when this request
         # first judged, so only a second judgement can refuse. The statuses ride along, naming the
         # `past` season a landed rollover left unplayed.
-        assert (outcome, statuses) == (ACTIVATE_SAISON_UNFINISHED, {OUTGOING: "active", TARGET: "future"})
+        assert (outcome, statuses) == (Code.ACTIVATE_SAISON_UNFINISHED, {OUTGOING: "active", TARGET: "future"})
         assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
 
         assert unplayed > 0, "the interfering draw left the outgoing season nothing to play, so the rule above had nothing to refuse"
@@ -371,7 +365,7 @@ class TestAnUndrawLandingMidRolloverIsJudgedAgain:
         )
 
         # Paired as above: a rollover that lands names the league it left going live with nothing to play.
-        assert (outcome, statuses) == (ACTIVATE_TARGET_UNDRAWN, {TARGET: "future"})
+        assert (outcome, statuses) == (Code.ACTIVATE_TARGET_UNDRAWN, {TARGET: "future"})
         assert season_reads == 2, f"{season_reads} judgements: {MISCOUNTED_JUDGEMENTS}"
 
         # The count's own floor: one reading no fixture would answer none below whatever the undraw did.
@@ -402,7 +396,7 @@ class TestTwoFirstActivationsRacing:
 
         # The index answers the promotion with a write conflict, and the retry finds the rival
         # running with its whole Spielplan still to play. Unindexed, both commit.
-        assert (outcome, statuses) == (ACTIVATE_SAISON_UNFINISHED, {TARGET: "future", RIVAL: "active"})
+        assert (outcome, statuses) == (Code.ACTIVATE_SAISON_UNFINISHED, {TARGET: "future", RIVAL: "active"})
         # A rival promoted before this rollover began refuses it at its first judgement, index or none.
         assert season_reads == 2, (
             f"{season_reads} judgements: one is a rival promoted before this rollover began, a third a retry that conflicted again"
@@ -441,7 +435,7 @@ class TestARivalRolloverLandingMidReactivationIsJudgedAgain:
         # Unrefused, the endpoint answers 200 echoing `active` over a database reading `past` -- and
         # `REQ-ACTIVATE-002` never promotes a `past` season back, so the admin acts on a state nobody
         # can restore.
-        assert (outcome, statuses) == (ACTIVATE_TARGET_PAST, {TARGET: "past", RIVAL: "active"})
+        assert (outcome, statuses) == (Code.ACTIVATE_TARGET_PAST, {TARGET: "past", RIVAL: "active"})
 
         # The judgement, the promotion's echo, and the re-judgement: one entry into the callback, so
         # what refused is the read outside the session rather than a retry.
@@ -522,7 +516,7 @@ class TestAKnockoutResultLandingMidPatchIsJudgedAgain:
 
         # `REQ-RULES-012` weighs the knockout fixtures holding a record, and there were none when
         # this request first judged: the refusal can only come from the re-judgement after the write.
-        assert refusal.error_code == RULES_TIEBREAK_AFTER_KNOCKOUT
+        assert refusal.error_code == Code.RULES_TIEBREAK_AFTER_KNOCKOUT
         # TWO, and neither is a retry: the judgement's read, then the echo read the write itself
         # makes -- the rival touched `spiele` alone, so nothing conflicted.
         assert season_reads == 2, (
@@ -575,7 +569,7 @@ class TestARolloverLandingMidPatchIsJudgedAgain:
 
         # `REQ-RULES-005` weighs the season's own `status`, and it was `active` when this request
         # first judged: the refusal can only come from a read made after the rollover committed.
-        assert refusal.error_code == RULES_SAISON_FINISHED
+        assert refusal.error_code == Code.RULES_SAISON_FINISHED
         assert (promoted.updated_document.id, statuses) == (RIVAL, {TARGET: "past", RIVAL: "active"})
 
         # TWO: the judgement's read and the retry's. The write conflicted rather than echoing, and a

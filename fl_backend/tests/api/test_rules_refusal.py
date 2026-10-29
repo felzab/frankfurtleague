@@ -6,18 +6,6 @@ import pytest
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.saisons.services import (
     FROZEN_RULES_FIELDS,
-    RULES_BRACKET_IMPOSSIBLE,
-    RULES_CAPACITY_BELOW_USE,
-    RULES_DRAW_OUTVALUES_WIN,
-    RULES_FORFEIT_DRAWS_A_KNOCKOUT,
-    RULES_GROUPS_IN_USE,
-    RULES_KADER_BELOW_USE,
-    RULES_MATCHDAY_OVER_ITS_PHASE,
-    RULES_QUALIFIERS_ABOVE_GROUP,
-    RULES_QUALIFIERS_BELOW_WIRING,
-    RULES_SAISON_FINISHED,
-    RULES_SHAPE_AFTER_DRAW,
-    RULES_TIEBREAK_AFTER_KNOCKOUT,
     SEEDING_RULES_FIELD,
     SHAPE_RULES_FIELDS,
     find_rules_refusal,
@@ -25,6 +13,7 @@ from app.api.saisons.services import (
 )
 from app.api.spiele.schemas import FLSaisonPhase
 from app.api.teams.schemas import FLGruppenNames
+from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 
 
@@ -112,7 +101,7 @@ class TestTheBracketMustHaveAShape:
         refusal = judge(proposed=rules(groups=groups, qualifiers=qualifiers, per_group=8))
 
         assert refusal is not None
-        assert refusal.error_code == RULES_BRACKET_IMPOSSIBLE
+        assert refusal.error_code == Code.RULES_BRACKET_IMPOSSIBLE
 
     def test_refuses_a_field_larger_than_the_phase_set_can_hold(self):
         """The message names `MAX_QUALIFIERS` rather than a constant, so adding a phase moves the bound and the wording together."""
@@ -120,7 +109,7 @@ class TestTheBracketMustHaveAShape:
         refusal = judge(proposed=rules(groups=4, per_group=8, qualifiers=8))
 
         assert refusal is not None
-        assert refusal.error_code == RULES_BRACKET_IMPOSSIBLE
+        assert refusal.error_code == Code.RULES_BRACKET_IMPOSSIBLE
 
     def test_permits_resubmitting_an_illegal_product_unchanged(self):
         """`rules` is required on the patch, so a season stored with 4 x 3 would otherwise be unpatchable, dates included."""
@@ -135,7 +124,7 @@ class TestTheBracketMustHaveAShape:
         refusal = judge(stored=rules(groups=4, qualifiers=3, per_group=8), proposed=rules(groups=4, qualifiers=5, per_group=8))
 
         assert refusal is not None
-        assert refusal.error_code == RULES_BRACKET_IMPOSSIBLE
+        assert refusal.error_code == Code.RULES_BRACKET_IMPOSSIBLE
 
     def test_applies_on_a_create_where_there_is_nothing_to_strand(self):
         """`stored=None` is the create: with no earlier product to match, an illegal one is always this step's doing."""
@@ -149,7 +138,7 @@ class TestTheBracketMustHaveAShape:
         )
 
         assert refusal is not None
-        assert refusal.error_code == RULES_BRACKET_IMPOSSIBLE
+        assert refusal.error_code == Code.RULES_BRACKET_IMPOSSIBLE
 
     def test_a_create_is_refused_by_nothing_else(self):
         assert (
@@ -176,7 +165,7 @@ class TestADrawIsNeverWorthMoreThanAWin:
         refusal = judge(proposed=rules(win=3, draw=4))
 
         assert refusal is not None
-        assert refusal.error_code == RULES_DRAW_OUTVALUES_WIN
+        assert refusal.error_code == Code.RULES_DRAW_OUTVALUES_WIN
 
     def test_the_refusal_names_both_numbers(self):
         refusal = judge(proposed=rules(win=3, draw=4))
@@ -203,7 +192,7 @@ class TestADrawIsNeverWorthMoreThanAWin:
         refusal = judge(stored=rules(win=1, draw=2), proposed=rules(win=1, draw=3))
 
         assert refusal is not None
-        assert refusal.error_code == RULES_DRAW_OUTVALUES_WIN
+        assert refusal.error_code == Code.RULES_DRAW_OUTVALUES_WIN
 
     def test_it_applies_on_a_create(self):
         """`stored=None` is the create: with no earlier pair to compare against, an inverted one is always this step's doing."""
@@ -217,7 +206,7 @@ class TestADrawIsNeverWorthMoreThanAWin:
         )
 
         assert refusal is not None
-        assert refusal.error_code == RULES_DRAW_OUTVALUES_WIN
+        assert refusal.error_code == Code.RULES_DRAW_OUTVALUES_WIN
 
 
 class TestADrawnForfeitCannotDecideAKnockout:
@@ -237,7 +226,7 @@ class TestADrawnForfeitCannotDecideAKnockout:
         refusal = judge(proposed=rules(forfeit=(0, 0)))
 
         assert refusal is not None
-        assert refusal.error_code == RULES_FORFEIT_DRAWS_A_KNOCKOUT
+        assert refusal.error_code == Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT
 
     def test_the_refusal_names_the_award(self):
         """Any level pair, not 0:0 alone: what strands the bracket is the two numbers matching."""
@@ -245,7 +234,7 @@ class TestADrawnForfeitCannotDecideAKnockout:
         refusal = judge(proposed=rules(forfeit=(2, 2)))
 
         assert refusal is not None
-        assert refusal.error_code == RULES_FORFEIT_DRAWS_A_KNOCKOUT
+        assert refusal.error_code == Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT
         assert "2:2" in refusal.message
 
     def test_a_season_playing_no_knockout_round_may_regulate_a_level_award(self):
@@ -259,7 +248,7 @@ class TestADrawnForfeitCannotDecideAKnockout:
         refusal = judge(stored=rules(groups=3, qualifiers=1, forfeit=(0, 0)), proposed=rules(groups=4, qualifiers=2, forfeit=(0, 0)))
 
         assert refusal is not None
-        assert refusal.error_code == RULES_FORFEIT_DRAWS_A_KNOCKOUT
+        assert refusal.error_code == Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT
 
     def test_permits_resubmitting_a_stored_pairing_unchanged(self):
         """`rules` is required on the patch, so refusing this would leave a season stored that way unpatchable.
@@ -288,7 +277,7 @@ class TestADrawnForfeitCannotDecideAKnockout:
         )
 
         assert refusal is not None
-        assert refusal.error_code == RULES_FORFEIT_DRAWS_A_KNOCKOUT
+        assert refusal.error_code == Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT
 
 
 class TestNarrowingTheGroupCount:
@@ -302,7 +291,7 @@ class TestNarrowingTheGroupCount:
         )
 
         assert refusal is not None
-        assert refusal.error_code == RULES_GROUPS_IN_USE
+        assert refusal.error_code == Code.RULES_GROUPS_IN_USE
         assert "C, D" in refusal.message
 
     def test_permits_dropping_a_group_nobody_is_in(self):
@@ -322,7 +311,7 @@ class TestNarrowingTheGroupCount:
         refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), occupancy={"D": 1})
 
         assert refusal is not None
-        assert refusal.error_code == RULES_GROUPS_IN_USE
+        assert refusal.error_code == Code.RULES_GROUPS_IN_USE
 
 
 class TestNarrowingTheCapacity:
@@ -332,7 +321,7 @@ class TestNarrowingTheCapacity:
         refusal = judge(stored=rules(per_group=6), proposed=rules(per_group=4), occupancy={"A": 6, "B": 2})
 
         assert refusal is not None
-        assert refusal.error_code == RULES_CAPACITY_BELOW_USE
+        assert refusal.error_code == Code.RULES_CAPACITY_BELOW_USE
         assert "6" in refusal.message
 
     def test_permits_a_capacity_that_still_fits(self):
@@ -357,7 +346,7 @@ class TestNarrowingTheSquadCap:
         refusal = judge(stored=rules(kader=25), proposed=rules(kader=15), largest_squad=20)
 
         assert refusal is not None
-        assert refusal.error_code == RULES_KADER_BELOW_USE
+        assert refusal.error_code == Code.RULES_KADER_BELOW_USE
         assert "20" in refusal.message
 
     def test_permits_widening_the_cap(self):
@@ -399,7 +388,7 @@ class TestNarrowingTheQualifiers:
         refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=4, qualifiers=1), platz=2)
 
         assert refusal is not None
-        assert refusal.error_code == RULES_QUALIFIERS_BELOW_WIRING
+        assert refusal.error_code == Code.RULES_QUALIFIERS_BELOW_WIRING
 
     def test_permits_a_count_that_still_covers_the_wiring(self):
         assert judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=4, qualifiers=2), platz=2) is None
@@ -428,7 +417,7 @@ class TestAFinishedSeasonFreezes:
         refusal = judge(status="past", stored=rules(), proposed=rules(**changed))
 
         assert refusal is not None
-        assert refusal.error_code == RULES_SAISON_FINISHED
+        assert refusal.error_code == Code.RULES_SAISON_FINISHED
         assert field in refusal.message
 
     @pytest.mark.parametrize(
@@ -468,7 +457,7 @@ class TestAFinishedSeasonFreezes:
         )
 
         assert refusal is not None
-        assert refusal.error_code == RULES_SAISON_FINISHED
+        assert refusal.error_code == Code.RULES_SAISON_FINISHED
 
 
 # The season the class below patches, as its fixtures were drawn: 4 groups of 4 over 3 matchdays.
@@ -508,7 +497,7 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
         refusal = judge(stored=rules(), proposed=rules(**changed), drawn=DRAWN_FIXTURES)
 
         assert refusal is not None
-        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
+        assert refusal.error_code == Code.RULES_SHAPE_AFTER_DRAW
         assert label in refusal.message
 
     def test_widening_a_group_is_refused_though_no_bound_is_crossed(self):
@@ -521,7 +510,7 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
         refusal = judge(stored=rules(per_group=4), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
 
         assert refusal is not None
-        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
+        assert refusal.error_code == Code.RULES_SHAPE_AFTER_DRAW
 
     @pytest.mark.parametrize(
         ("label", "changed"),
@@ -555,7 +544,7 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
         refusal = judge(status=status, stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
 
         assert refusal is not None
-        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
+        assert refusal.error_code == Code.RULES_SHAPE_AFTER_DRAW
 
     def test_the_refusal_names_drawing_the_season_again(self):
         """Inside the planning window: naming the shape unchangeable where the draw is open sends an admin looking for nothing."""
@@ -634,7 +623,7 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
         refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=4, qualifiers=1), platz=2, drawn=DRAWN_FIXTURES)
 
         assert refusal is not None
-        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
+        assert refusal.error_code == Code.RULES_SHAPE_AFTER_DRAW
 
     def test_a_finished_season_is_reported_as_finished_first(self):
         """Both freezes cover `qualifiers_per_group`, and `REQ-RULES-005` also explains why the points beside it will not move."""
@@ -642,7 +631,7 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
         refusal = judge(status="past", stored=rules(), proposed=rules(qualifiers=1), drawn=DRAWN_FIXTURES)
 
         assert refusal is not None
-        assert refusal.error_code == RULES_SAISON_FINISHED
+        assert refusal.error_code == Code.RULES_SAISON_FINISHED
 
 
 # Every window state the repair has to survive. The verdict is asserted against `find_undraw_refusal`
@@ -686,7 +675,7 @@ class TestTheShapeRefusalRecommendsNoRepairTheSpielplanRefuses:
         refusal = judge(status=status, recorded=recorded, stored=rules(), proposed=rules(per_group=6), drawn=DRAWN_FIXTURES)
 
         assert refusal is not None
-        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
+        assert refusal.error_code == Code.RULES_SHAPE_AFTER_DRAW
         assert (UNDRAW_FIRST in refusal.message) is undraw_runs
 
     @pytest.mark.parametrize(("status", "recorded", "redraw_runs"), REDRAW_WINDOW_CASES, ids=REDRAW_WINDOW_IDS)
@@ -696,7 +685,7 @@ class TestTheShapeRefusalRecommendsNoRepairTheSpielplanRefuses:
         refusal = judge(status=status, recorded=recorded, stored=rules(), proposed=rules(qualifiers=4), drawn=DRAWN_FIXTURES)
 
         assert refusal is not None
-        assert refusal.error_code == RULES_SHAPE_AFTER_DRAW
+        assert refusal.error_code == Code.RULES_SHAPE_AFTER_DRAW
         assert (DRAW_AGAIN in refusal.message) is redraw_runs
 
     @pytest.mark.parametrize(("status", "recorded"), WINDOW_STATES, ids=WINDOW_IDS)
@@ -753,7 +742,7 @@ class TestAStartedKnockoutFreezesTheTiebreak:
         )
 
         assert refusal is not None
-        assert refusal.error_code == RULES_TIEBREAK_AFTER_KNOCKOUT
+        assert refusal.error_code == Code.RULES_TIEBREAK_AFTER_KNOCKOUT
 
     def test_permits_the_same_move_while_no_knockout_fixture_has_been_played(self):
         """The boundary: a drawn bracket whose fixtures are all still open re-seeds cleanly, so nothing is retroactive yet."""
@@ -810,7 +799,7 @@ class TestAStartedKnockoutFreezesTheTiebreak:
         )
 
         assert refusal is not None
-        assert refusal.error_code == RULES_SAISON_FINISHED
+        assert refusal.error_code == Code.RULES_SAISON_FINISHED
 
 
 class TestNarrowingBelowAMatchdaysFixtures:
@@ -827,7 +816,7 @@ class TestNarrowingBelowAMatchdaysFixtures:
         refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=2, qualifiers=4), attached={"gruppenphase": 8})
 
         assert refusal is not None
-        assert refusal.error_code == RULES_MATCHDAY_OVER_ITS_PHASE
+        assert refusal.error_code == Code.RULES_MATCHDAY_OVER_ITS_PHASE
 
     def test_shortening_the_ladder_strands_a_knockout_matchday(self):
         """4 groups by 1 qualifier leaves a Viertelfinale matchday in a phase expecting 0, which is why every phase is checked."""
@@ -835,7 +824,7 @@ class TestNarrowingBelowAMatchdaysFixtures:
         refusal = judge(stored=rules(groups=4, qualifiers=2), proposed=rules(groups=4, qualifiers=1), attached={"viertelfinale": 4})
 
         assert refusal is not None
-        assert refusal.error_code == RULES_MATCHDAY_OVER_ITS_PHASE
+        assert refusal.error_code == Code.RULES_MATCHDAY_OVER_ITS_PHASE
 
     def test_widening_is_always_accepted(self):
         """More matches expected than are attached is a season still being set up, which is legal."""
@@ -871,7 +860,7 @@ class TestNarrowingBelowAMatchdaysFixtures:
         )
 
         assert refusal is not None
-        assert refusal.error_code == RULES_GROUPS_IN_USE
+        assert refusal.error_code == Code.RULES_GROUPS_IN_USE
 
 
 class TestAGroupCannotQualifyMoreThanItHolds:
@@ -889,7 +878,7 @@ class TestAGroupCannotQualifyMoreThanItHolds:
         refusal = judge(proposed=rules(qualifiers=8, per_group=4))
 
         assert refusal is not None
-        assert refusal.error_code == RULES_QUALIFIERS_ABOVE_GROUP
+        assert refusal.error_code == Code.RULES_QUALIFIERS_ABOVE_GROUP
 
     def test_permits_resubmitting_an_existing_excess_unchanged(self):
         """`rules` is required on the patch, so a stored excess comes back with a dates-only edit and must not refuse it."""
@@ -909,7 +898,7 @@ class TestAGroupCannotQualifyMoreThanItHolds:
         refusal = judge(stored=rules(groups=2, qualifiers=4, per_group=2), proposed=rules(groups=2, qualifiers=8, per_group=2))
 
         assert refusal is not None
-        assert refusal.error_code == RULES_QUALIFIERS_ABOVE_GROUP
+        assert refusal.error_code == Code.RULES_QUALIFIERS_ABOVE_GROUP
 
     def test_it_applies_on_a_create(self):
         refusal = find_rules_refusal(
@@ -921,7 +910,7 @@ class TestAGroupCannotQualifyMoreThanItHolds:
         )
 
         assert refusal is not None
-        assert refusal.error_code == RULES_QUALIFIERS_ABOVE_GROUP
+        assert refusal.error_code == Code.RULES_QUALIFIERS_ABOVE_GROUP
 
     def test_it_is_reported_before_the_bracket_rule(self):
         """This one names two fields the admin typed; the bracket rule's answer is a property of their product."""
@@ -929,7 +918,7 @@ class TestAGroupCannotQualifyMoreThanItHolds:
         refusal = judge(proposed=rules(groups=4, qualifiers=5, per_group=4))
 
         assert refusal is not None
-        assert refusal.error_code == RULES_QUALIFIERS_ABOVE_GROUP
+        assert refusal.error_code == Code.RULES_QUALIFIERS_ABOVE_GROUP
 
     def test_the_refusal_names_both_numbers(self):
         refusal = judge(proposed=rules(qualifiers=8, per_group=4))

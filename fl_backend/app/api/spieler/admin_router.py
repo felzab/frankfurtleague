@@ -6,7 +6,6 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.adresswechsel.crud import verwehrte_adressen
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.spieler.crud import (
     pull_a_person_to_enter,
     refuse_a_full_squad,
@@ -309,13 +308,11 @@ async def post_saison_spieler(
 
         return document
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache.
-    with dropping_the_saison_cache():
-        # One transaction over the row and the season write inside `refuse_a_full_squad`, which is what
-        # makes two writers into one squad contend, and a re-date of matchday 1 contend with the marker
-        # (`app/api/spieltage/admin_router.py :: _refuse_an_out_of_order_beginn` writes the same season).
-        async with transaction_session(db) as session:
-            entered = await session.with_transaction(add_the_player)
+    # One transaction over the row and the season write inside `refuse_a_full_squad`, which is what
+    # makes two writers into one squad contend, and a re-date of matchday 1 contend with the marker
+    # (`app/api/spieltage/admin_router.py :: _refuse_an_out_of_order_beginn` writes the same season).
+    async with transaction_session(db) as session:
+        entered = await session.with_transaction(add_the_player)
 
     return _as_junction(entered)
 
@@ -390,10 +387,8 @@ async def patch_saison_spieler(
             return_document=ReturnDocument.AFTER,
         )
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            moved = await session.with_transaction(move_the_player)
+    async with transaction_session(db) as session:
+        moved = await session.with_transaction(move_the_player)
 
     return _as_junction(moved)
 
@@ -503,9 +498,7 @@ async def reactivate_saison_spieler(
             session=session,
         )
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            revived = await session.with_transaction(bring_the_player_back)
+    async with transaction_session(db) as session:
+        revived = await session.with_transaction(bring_the_player_back)
 
     return _as_junction(revived)

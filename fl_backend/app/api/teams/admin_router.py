@@ -25,7 +25,6 @@ from app.api.einwilligung.services import find_fassung_refusal
 from app.api.kontakte.crud import clear_seats, redact_seats_in_documents
 from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, contact_block_image_edits, seated_people
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
@@ -90,6 +89,7 @@ from app.api.teams.services import (
     voids_a_live_link,
 )
 from app.core.adressanker import anchor_the_addresses
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -123,7 +123,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException
 from app.core.recording import build_redaction_filter, log_stamp
 from app.core.routing import by_id
 from app.core.security import (
@@ -509,13 +509,11 @@ async def post_saison_team(
 
         return document
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache.
-    with dropping_the_saison_cache():
-        # One transaction over the entry and the season write inside `refuse_a_full_gruppe`, which is
-        # what makes two entrants contend. `with_transaction` is safe to retry, the callback re-reading
-        # everything it judges.
-        async with transaction_session(db) as session:
-            entered = await session.with_transaction(enter_the_club)
+    # One transaction over the entry and the season write inside `refuse_a_full_gruppe`, which is
+    # what makes two entrants contend. `with_transaction` is safe to retry, the callback re-reading
+    # everything it judges.
+    async with transaction_session(db) as session:
+        entered = await session.with_transaction(enter_the_club)
 
     return FLSaisonTeamResponse(
         saison_id=saison_team_data.saison_id,
@@ -595,12 +593,10 @@ async def patch_saison_team(
 
         return existing_raw, updated_raw
 
-    # Whatever field the refusal helper's own write moved: every season write drops the cache.
-    with dropping_the_saison_cache():
-        # One transaction, because a group change makes two writes: this row and the season the group's
-        # count is scoped by. `with_transaction` is safe to retry, the callback re-reading both.
-        async with transaction_session(db) as session:
-            existing_raw, updated_raw = await session.with_transaction(move_the_club)
+    # One transaction, because a group change makes two writes: this row and the season the group's
+    # count is scoped by. `with_transaction` is safe to retry, the callback re-reading both.
+    async with transaction_session(db) as session:
+        existing_raw, updated_raw = await session.with_transaction(move_the_club)
 
     # `kontakte` below is the one field read off the AFTER image, no payload carrying the block. A
     # block in a shape this model cannot describe refuses, a keyword being validated like any other value.
@@ -1012,7 +1008,7 @@ async def einladen_kontakt(
     # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any row has.
     rolle = seat_named(seat)
     if rolle is None:
-        raise DocumentNotFoundException(filter={**db_filter, "seat": seat}, error_code=DOCUMENT_NOT_FOUND)
+        raise DocumentNotFoundException(filter={**db_filter, "seat": seat}, error_code=Code.DOCUMENT_NOT_FOUND)
 
     # Outside the callback, for `post_einladung`'s reason.
     raw_token, token_hash = mint_token()

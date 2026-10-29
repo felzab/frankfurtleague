@@ -25,14 +25,9 @@ from app.api.spiele.schemas import (
     FLSpielListAdapter,
 )
 from app.api.spiele.services import (
-    BOOKING_UNCONFIRMED_REFEREE,
-    BOOKING_UNKNOWN_RESOURCE,
-    ELIGIBILITY_DISQUALIFIED,
-    FIXTURE_DOUBLE_BOOKED,
-    FIXTURE_OUTSIDE_SPIELTAG,
-    STATE_RESULT_ON_A_NON_EVENT,
     judge_spieltag_occupancy,
 )
+from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
@@ -59,7 +54,7 @@ BETA = ObjectId("6890a1b2c3d4e5f607220002")
 GAMMA = ObjectId("6890a1b2c3d4e5f607220003")
 DELTA = ObjectId("6890a1b2c3d4e5f607220004")
 
-NAMES = {ALPHA: ("Alpha", "AL"), BETA: ("Beta", "BE"), GAMMA: ("Gamma", "GA"), DELTA: ("Delta", "DE")}
+NAMES = {ALPHA: ("Alpha", "ALX"), BETA: ("Beta", "BEX"), GAMMA: ("Gamma", "GAX"), DELTA: ("Delta", "DEX")}
 
 SPIELTAG_GRUPPE = ObjectId("6890a1b2c3d4e5f6072200a1")
 SPIELTAG_VIERTELFINALE = ObjectId("6890a1b2c3d4e5f6072200a2")
@@ -499,7 +494,7 @@ class TestTheBookingReadAsksWhoUsedTheGround:
 
         answered = on_a_seeded_season(mongo_replica_set_url, body, spiele=one_venue_twice(sonderereignis=sonderereignis))
 
-        assert (answered == FIXTURE_DOUBLE_BOOKED) is refused
+        assert (answered == Code.FIXTURE_DOUBLE_BOOKED) is refused
 
 
 def an_unbooked_spieltag() -> list[dict[str, Any]]:
@@ -526,7 +521,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
 
         code, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
 
-        assert code == BOOKING_UNKNOWN_RESOURCE
+        assert code == Code.BOOKING_UNKNOWN_RESOURCE
         # The whole save is taken back, so the booking does not land without the rule that judges it.
         assert spiele[GRUPPE_FILLING_NR]["ort"] is None
 
@@ -542,7 +537,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
 
             return refused.value.error_code
 
-        assert on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag()) == BOOKING_UNKNOWN_RESOURCE
+        assert on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag()) == Code.BOOKING_UNKNOWN_RESOURCE
 
     def test_booking_a_referee_whose_person_has_not_confirmed_is_refused(self, mongo_replica_set_url: str):
         """The confirmation is read off the referee's own record in the save's transaction, never off the payload."""
@@ -556,7 +551,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
 
             return refused.value.error_code, (await spiele_now(database))[GRUPPE_FILLING_NR]["schiedsrichter"]
 
-        assert on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag()) == (BOOKING_UNCONFIRMED_REFEREE, None)
+        assert on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag()) == (Code.BOOKING_UNCONFIRMED_REFEREE, None)
 
     @pytest.mark.parametrize("dry_run", [pytest.param(True, id="preview"), pytest.param(False, id="save")])
     @pytest.mark.parametrize(
@@ -580,7 +575,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         held, filling = an_unbooked_spieltag()
         code, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=[held, {**filling, **kept, "sonderereignis": "ausgefallen"}])
 
-        assert (code, spiele[GRUPPE_FILLING_NR]["sonderereignis"]) == (BOOKING_UNKNOWN_RESOURCE, "ausgefallen")
+        assert (code, spiele[GRUPPE_FILLING_NR]["sonderereignis"]) == (Code.BOOKING_UNKNOWN_RESOURCE, "ausgefallen")
 
     def test_a_live_venue_is_stored_under_the_name_the_venue_carries(self, mongo_replica_set_url: str):
         """The composition end to end: the ground and the rent are the payload's, the name and the link the venue's."""
@@ -669,7 +664,7 @@ class TestAHandEditedFixtureOfAnotherSeasonAnswersTheRefusal:
 
         answered = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
 
-        assert answered == (ValidationError if raises else BOOKING_UNKNOWN_RESOURCE)
+        assert answered == (ValidationError if raises else Code.BOOKING_UNKNOWN_RESOURCE)
 
 
 class TestASavedSideIsNamedByTheSeason:
@@ -677,7 +672,7 @@ class TestASavedSideIsNamedByTheSeason:
         """A club renamed while the season runs: the fixture's copy is rewritten from the junction on the next save of it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SAISON_TEAMS].update_one({"team_id": GAMMA}, {"$set": {"name": "Gamma-Schule", "shorthand": "GS"}})
+            await database[Collection.SAISON_TEAMS].update_one({"team_id": GAMMA}, {"$set": {"name": "Gamma-Schule", "shorthand": "GSX"}})
             spiel_data = await payload_for(database, GRUPPE_FILLING)
             await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
@@ -685,7 +680,7 @@ class TestASavedSideIsNamedByTheSeason:
 
         spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
 
-        assert spiele[GRUPPE_FILLING_NR]["team1"] == {"team_id": GAMMA, "name": "Gamma-Schule", "shorthand": "GS", "tore": None}
+        assert spiele[GRUPPE_FILLING_NR]["team1"] == {"team_id": GAMMA, "name": "Gamma-Schule", "shorthand": "GSX", "tore": None}
         # Composed from its OWN row, which the rename above did not touch: the change followed the
         # junction rather than one name reaching every side.
         assert spiele[GRUPPE_FILLING_NR]["team2"] == side(DELTA)
@@ -705,7 +700,7 @@ class TestTheStateRefusalIsReachedThroughTheRoute:
 
         refused, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=bracket_season())
 
-        assert refused.error_code == STATE_RESULT_ON_A_NON_EVENT
+        assert refused.error_code == Code.STATE_RESULT_ON_A_NON_EVENT
         # The whole save is taken back, so the event does not land without the refusal that judges it.
         assert spiele[VIERTELFINALE_NR]["sonderereignis"] is None
 
@@ -728,10 +723,10 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
     @pytest.mark.parametrize(
         ("datum", "error_code"),
         [
-            pytest.param(GAMMA_DEPARTED_FROM, ELIGIBILITY_DISQUALIFIED, id="moved onto the exit"),
+            pytest.param(GAMMA_DEPARTED_FROM, Code.ELIGIBILITY_DISQUALIFIED, id="moved onto the exit"),
             # The control: one day earlier the same save clears this rule and is refused by the NEXT
             # one, so the refusal above is about the exit rather than about any date at all.
-            pytest.param(A_DAY_SHORT_OF_THE_EXIT, FIXTURE_OUTSIDE_SPIELTAG, id="moved a day short of it"),
+            pytest.param(A_DAY_SHORT_OF_THE_EXIT, Code.FIXTURE_OUTSIDE_SPIELTAG, id="moved a day short of it"),
         ],
     )
     def test_a_fixture_re_dated_past_its_own_occupants_exit_is_judged_as_a_newly_fielded_club_is(
@@ -770,7 +765,7 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
 
         refused = on_a_seeded_season(mongo_replica_set_url, body, spiele=an_unbooked_spieltag())
 
-        assert refused.error_code == ELIGIBILITY_DISQUALIFIED
+        assert refused.error_code == Code.ELIGIBILITY_DISQUALIFIED
         assert "Gamma-Schule" in refused.error_detail["message"]
 
 
@@ -788,7 +783,7 @@ class TestASavedResultCarriesThroughTheBracket:
 
         assert spiele[VIERTELFINALE_NR]["ergebnis"] == "3:1"
 
-        assert spiele[HALBFINALE_NR]["team1"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "AL", "tore": None}
+        assert spiele[HALBFINALE_NR]["team1"] == {"team_id": ALPHA, "name": "Alpha", "shorthand": "ALX", "tore": None}
         assert spiele[HALBFINALE_NR]["ergebnis"] is None
         # The stale shoot-out is the damage: the bracket would name a winner the goals no longer support.
         assert spiele[HALBFINALE_NR]["elfmeterschiessen"] is None, "the shoot-out outlived the side that won it"
@@ -1425,7 +1420,7 @@ class TestOnlyALandedSaveStamps:
         refusal, spiele_after, before, after = on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
 
         # The premise first: the save was refused, or the preview ran, and neither wrote the fixture.
-        assert (refusal, spiele_after[VIERTELFINALE_NR]["ergebnis"]) == (None if dry_run else FIXTURE_OUTSIDE_SPIELTAG, "1:3")
+        assert (refusal, spiele_after[VIERTELFINALE_NR]["ergebnis"]) == (None if dry_run else Code.FIXTURE_OUTSIDE_SPIELTAG, "1:3")
         assert after[VIERTELFINALE] == before[VIERTELFINALE]
 
 

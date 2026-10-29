@@ -5,33 +5,27 @@ import pytest
 from bson import ObjectId
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
-from app.api.saisons.services import SAISON_SPAN_BELOW_SCHEDULE, SAISON_SPAN_BELOW_SPIELTAGE, find_saison_span_refusal
-from app.api.schiedsrichter.services import REFEREE_STILL_ASSIGNED, find_referee_retire_refusal
+from app.api.saisons.services import find_saison_span_refusal
+from app.api.schiedsrichter.services import find_referee_retire_refusal
 from app.api.spiele.schemas import unplayed_filter
 from app.api.spiele.services import (
     CLASH_BUFFER_MINUTES,
-    FIXTURE_DOUBLE_BOOKED,
-    FIXTURE_OUTSIDE_SPIELTAG,
     BookedSlot,
     find_clash_refusal,
     find_fixture_date_refusal,
 )
 from app.api.spieler.services import (
-    SQUAD_FULL,
-    SQUAD_ROLLE_TAKEN,
-    SQUAD_TEAM_NOT_IN_SAISON,
     build_live_rolle_filter,
     build_live_squad_filter,
     find_squad_capacity_refusal,
     find_squad_refusal,
     find_squad_rolle_refusal,
 )
-from app.api.spielorte.services import VENUE_STILL_BOOKED, build_unplayed_booking_filter, find_venue_retire_refusal
+from app.api.spielorte.services import build_unplayed_booking_filter, find_venue_retire_refusal
 from app.api.spieltage.services import (
-    SPIELTAG_OUTSIDE_SAISON,
-    SPIELTAG_SPAN_BELOW_FIXTURES,
     find_spieltag_span_refusal,
 )
+from app.core.codes import Code
 
 SPAN = {"saison_start": "2026-03-01", "saison_end": "2026-09-30"}
 
@@ -69,7 +63,7 @@ class TestAFixtureSitsInsideItsMatchday:
         refusal = find_fixture_date_refusal(datum=datum, spieltag_beginn="2026-03-07", spieltag_ende="2026-03-08")
 
         assert refusal is not None
-        assert refusal.error_code == FIXTURE_OUTSIDE_SPIELTAG
+        assert refusal.error_code == Code.FIXTURE_OUTSIDE_SPIELTAG
 
     def test_an_undated_fixture_passes(self):
         """An undated fixture contradicts no span — the opposite reading from the disqualification rule, which refuses by default."""
@@ -97,13 +91,13 @@ class TestAMatchdaySitsInsideItsSeason:
         refusal = find_spieltag_span_refusal(beginn="2026-02-28", ende="2026-03-08", fixture_dates=[], **SPAN)
 
         assert refusal is not None
-        assert refusal.error_code == SPIELTAG_OUTSIDE_SAISON
+        assert refusal.error_code == Code.SPIELTAG_OUTSIDE_SAISON
 
     def test_an_end_after_the_season_is_refused(self):
         refusal = find_spieltag_span_refusal(beginn="2026-09-29", ende="2026-10-01", fixture_dates=[], **SPAN)
 
         assert refusal is not None
-        assert refusal.error_code == SPIELTAG_OUTSIDE_SAISON
+        assert refusal.error_code == Code.SPIELTAG_OUTSIDE_SAISON
 
     def test_it_applies_to_a_matchday_with_no_fixtures(self):
         """A property of the two documents alone, so a create is held to it before any fixture exists."""
@@ -111,7 +105,7 @@ class TestAMatchdaySitsInsideItsSeason:
         refusal = find_spieltag_span_refusal(beginn="2026-01-01", ende="2026-01-02", fixture_dates=[], **SPAN)
 
         assert refusal is not None
-        assert refusal.error_code == SPIELTAG_OUTSIDE_SAISON
+        assert refusal.error_code == Code.SPIELTAG_OUTSIDE_SAISON
 
 
 class TestASeasonKeepsCoveringItsMatchdays:
@@ -137,7 +131,7 @@ class TestASeasonKeepsCoveringItsMatchdays:
         )
 
         assert refusal is not None
-        assert refusal.error_code == SAISON_SPAN_BELOW_SPIELTAGE
+        assert refusal.error_code == Code.SAISON_SPAN_BELOW_SPIELTAGE
 
     def test_a_matchday_starting_before_the_season_is_refused(self):
         """Both edges count: a matchday reaching out at the front is as stranded as one at the back."""
@@ -150,7 +144,7 @@ class TestASeasonKeepsCoveringItsMatchdays:
         )
 
         assert refusal is not None
-        assert refusal.error_code == SAISON_SPAN_BELOW_SPIELTAGE
+        assert refusal.error_code == Code.SAISON_SPAN_BELOW_SPIELTAGE
 
     def test_matchdays_on_the_seasons_first_and_last_days_are_covered(self):
         """Both edges are inclusive, as the matchday's own containment reads them."""
@@ -204,13 +198,13 @@ class TestASeasonIsLongEnoughForItsSchedule:
         refusal = find_saison_span_refusal(start_date="2026-03-01", end_date="2026-03-05", rules=SAISON_RULES, spieltag_spans=[])
 
         assert refusal is not None
-        assert refusal.error_code == SAISON_SPAN_BELOW_SCHEDULE
+        assert refusal.error_code == Code.SAISON_SPAN_BELOW_SCHEDULE
 
     def test_a_one_day_season_is_refused(self):
         refusal = find_saison_span_refusal(start_date="2026-03-01", end_date="2026-03-01", rules=SAISON_RULES, spieltag_spans=[])
 
         assert refusal is not None
-        assert refusal.error_code == SAISON_SPAN_BELOW_SCHEDULE
+        assert refusal.error_code == Code.SAISON_SPAN_BELOW_SCHEDULE
 
     def test_the_refusal_names_both_numbers(self):
         """The repair is a choice — widen the span or narrow the rules — so both sides have to be named."""
@@ -241,7 +235,7 @@ class TestASeasonIsLongEnoughForItsSchedule:
 
         refusal = find_saison_span_refusal(start_date="2026-03-01", end_date="2026-03-06", rules=wider, spieltag_spans=[])
         assert refusal is not None
-        assert refusal.error_code == SAISON_SPAN_BELOW_SCHEDULE
+        assert refusal.error_code == Code.SAISON_SPAN_BELOW_SCHEDULE
 
     def test_the_live_seasons_span_is_unaffected(self):
         """The span the league is actually playing, which these rules must not refuse."""
@@ -259,7 +253,7 @@ class TestAMatchdayKeepsCoveringItsFixtures:
         refusal = find_spieltag_span_refusal(beginn="2026-03-07", ende="2026-03-08", fixture_dates=["2026-03-20"], **SPAN)
 
         assert refusal is not None
-        assert refusal.error_code == SPIELTAG_SPAN_BELOW_FIXTURES
+        assert refusal.error_code == Code.SPIELTAG_SPAN_BELOW_FIXTURES
 
     def test_the_refusal_counts_them_and_names_the_first(self):
         refusal = find_spieltag_span_refusal(
@@ -279,7 +273,7 @@ class TestAMatchdayKeepsCoveringItsFixtures:
         refusal = find_spieltag_span_refusal(beginn="2026-01-01", ende="2026-01-02", fixture_dates=["2026-03-20"], **SPAN)
 
         assert refusal is not None
-        assert refusal.error_code == SPIELTAG_OUTSIDE_SAISON
+        assert refusal.error_code == Code.SPIELTAG_OUTSIDE_SAISON
 
 
 OTHER_SAISON = "2025"
@@ -314,7 +308,7 @@ class TestOneVenueAndOneRefereeAtATime:
         refusal = find_clash_refusal(datum="2026-03-07", uhrzeit=uhrzeit, booked=[self.slot("18:00:00")])
 
         assert refusal is not None
-        assert refusal.error_code == FIXTURE_DOUBLE_BOOKED
+        assert refusal.error_code == Code.FIXTURE_DOUBLE_BOOKED
 
     def test_it_works_in_both_directions(self):
         """A booking earlier and a booking later are the same clash — the comparison is absolute."""
@@ -322,7 +316,7 @@ class TestOneVenueAndOneRefereeAtATime:
         refusal = find_clash_refusal(datum="2026-03-07", uhrzeit="16:00:00", booked=[self.slot("18:00:00")])
 
         assert refusal is not None
-        assert refusal.error_code == FIXTURE_DOUBLE_BOOKED
+        assert refusal.error_code == Code.FIXTURE_DOUBLE_BOOKED
 
     @pytest.mark.parametrize(("datum", "uhrzeit"), [(None, "18:00:00"), ("2026-03-07", None)])
     def test_an_unscheduled_fixture_cannot_clash(self, datum, uhrzeit):
@@ -355,13 +349,13 @@ class TestRetiringAVenueOrAReferee:
         venue = find_venue_retire_refusal(upcoming_spiel_nrs=[3])
         referee = find_referee_retire_refusal(upcoming_spiel_nrs=[3])
 
-        assert venue is not None and venue.error_code == VENUE_STILL_BOOKED
-        assert referee is not None and referee.error_code == REFEREE_STILL_ASSIGNED
+        assert venue is not None and venue.error_code == Code.VENUE_STILL_BOOKED
+        assert referee is not None and referee.error_code == Code.REFEREE_STILL_ASSIGNED
 
     def test_the_two_codes_are_distinct(self):
         """Different advice — move the fixture, against reassign it — so different codes."""
 
-        assert VENUE_STILL_BOOKED != REFEREE_STILL_ASSIGNED
+        assert Code.VENUE_STILL_BOOKED != Code.REFEREE_STILL_ASSIGNED
 
     def test_a_long_list_is_summarised(self):
         refusal = find_venue_retire_refusal(upcoming_spiel_nrs=list(range(1, 12)))
@@ -389,7 +383,7 @@ class TestASquadEntry:
         refusal = find_squad_refusal(team_in_saison=False)
 
         assert refusal is not None
-        assert refusal.error_code == SQUAD_TEAM_NOT_IN_SAISON
+        assert refusal.error_code == Code.SQUAD_TEAM_NOT_IN_SAISON
 
 
 class TestASquadCap:
@@ -404,7 +398,7 @@ class TestASquadCap:
         refusal = find_squad_capacity_refusal(squad_size=18, max_kadergroesse=18)
 
         assert refusal is not None
-        assert refusal.error_code == SQUAD_FULL
+        assert refusal.error_code == Code.SQUAD_FULL
 
     def test_a_squad_over_the_cap_is_refused(self):
         """Reachable without a bug: narrowing a season's rules leaves the squads already entered under the old bound."""
@@ -412,7 +406,7 @@ class TestASquadCap:
         refusal = find_squad_capacity_refusal(squad_size=25, max_kadergroesse=18)
 
         assert refusal is not None
-        assert refusal.error_code == SQUAD_FULL
+        assert refusal.error_code == Code.SQUAD_FULL
 
     def test_the_message_names_both_figures(self):
         """The admin's next action is either to retire a row or to raise the season's rule, and neither is choosable without both numbers."""
@@ -471,7 +465,7 @@ class TestASquadRolle:
         refusal = find_squad_rolle_refusal(rolle=rolle, taken=True)
 
         assert refusal is not None
-        assert refusal.error_code == SQUAD_ROLLE_TAKEN
+        assert refusal.error_code == Code.SQUAD_ROLLE_TAKEN
 
     def test_the_message_names_the_role_that_was_refused(self):
         """The two roles are refused by one code, so the log line is the only place saying which was asked for."""

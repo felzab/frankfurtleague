@@ -66,11 +66,11 @@ def saison_document(saison_id: str) -> dict[str, Any]:
 def team_document() -> dict[str, Any]:
     """One club, entered in all three seasons: the same id has to read differently per season."""
 
-    return documents.team_document(TEAM_OID, "Helmholtz", "HG", full_name="Helmholtz-Gymnasium")
+    return documents.team_document(TEAM_OID, "Helmholtz", "HGX", full_name="Helmholtz-Gymnasium")
 
 
 def junction_row(saison_id: str) -> dict[str, Any]:
-    return documents.saison_team_document(saison_id, TEAM_OID, "Helmholtz", "HG", gruppe="A")
+    return documents.saison_team_document(saison_id, TEAM_OID, "Helmholtz", "HGX", gruppe="A")
 
 
 def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:
@@ -103,7 +103,7 @@ def spiel_document(saison_id: str) -> dict[str, Any]:
         saison_id=saison_id,
         spiel_nr=1,
         spieltag_id=an_id("3", saison_id),
-        team1={"team_id": TEAM_OID, "name": "Helmholtz", "shorthand": "HG", "tore": None},
+        team1={"team_id": TEAM_OID, "name": "Helmholtz", "shorthand": "HGX", "tore": None},
         datum=f"{saison_id}-03-15",
         uhrzeit="14:00:00",
     )

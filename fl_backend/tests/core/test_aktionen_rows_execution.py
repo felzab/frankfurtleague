@@ -31,7 +31,7 @@ RECORDED_AT = "2026-03-15T18:00:00+00:00"
 
 
 def team_document() -> dict[str, Any]:
-    return documents.team_document(TEAM_OID, SEEDED_NAME, "LE", full_name="Lessing-Gymnasium", address={**documents.ADDRESS, "stadt": STADT})
+    return documents.team_document(TEAM_OID, SEEDED_NAME, "LEX", full_name="Lessing-Gymnasium", address={**documents.ADDRESS, "stadt": STADT})
 
 
 def bulk_team_document(shorthand: str) -> dict[str, Any]:
@@ -71,11 +71,11 @@ def test_the_rows_every_real_write_builds_are_the_stored_shape(mongo_replica_set
             # A dotted key, which is what every reference fan-out matches on and what the row then stores.
             await patch_many_in_db(collection=teams, db_filter={"address.stadt": STADT}, update={"$set": {"description": "x"}}, session=session)
             # Ids left to the driver, and distinct shorthands so `uniq_shorthand` admits the pair.
-            await post_many_to_db(collection=teams, documents=[bulk_team_document(code) for code in ("HE", "CS")], session=session)
+            await post_many_to_db(collection=teams, documents=[bulk_team_document(code) for code in ("HEX", "CSX")], session=session)
             # The removals last, each taking one of the pair above: the writes before them still match
             # the documents their own counts are asserted on.
-            await delete_many_from_db(collection=teams, db_filter={"shorthand": "HE"}, session=session)
-            await erase_many_from_db(collection=teams, db_filter={"shorthand": "CS"}, session=session)
+            await delete_many_from_db(collection=teams, db_filter={"shorthand": "HEX"}, session=session)
+            await erase_many_from_db(collection=teams, db_filter={"shorthand": "CSX"}, session=session)
 
         # All six inside one, as a multi-write router runs it: the removals require a session, and a
         # retry is safe only because every write here carries it -- an abort takes back what a replay redoes.
@@ -111,14 +111,14 @@ def test_the_rows_every_real_write_builds_are_the_stored_shape(mongo_replica_set
     assert rows[3]["document_id"] is None and rows[3]["before"] is None and rows[3]["db_filter"] is None
     # An array from one removal of one document: what makes it a list is the call taking a set, never
     # how many the set held.
-    assert [image["shorthand"] for image in rows[4]["before"]] == ["HE"]
-    assert rows[4]["db_filter"] == {"shorthand": "HE"} and rows[4]["modified_count"] == 1
+    assert [image["shorthand"] for image in rows[4]["before"]] == ["HEX"]
+    assert rows[4]["db_filter"] == {"shorthand": "HEX"} and rows[4]["modified_count"] == 1
     # The removed ids beside the images, which is what lets an erasure's `(collection, document_id)`
     # filter select this row.
     assert rows[4]["document_id"] == [image["_id"] for image in rows[4]["before"]]
     # The erasure's whole record: what it matched and how many it took, and none of what it erased.
     assert rows[5]["before"] is None
-    assert rows[5]["db_filter"] == {"shorthand": "CS"} and rows[5]["modified_count"] == 1
+    assert rows[5]["db_filter"] == {"shorthand": "CSX"} and rows[5]["modified_count"] == 1
 
 
 def test_a_removals_row_is_selected_by_an_erasure_shaped_redaction(mongo_replica_set_url: str):
@@ -132,15 +132,15 @@ def test_a_removals_row_is_selected_by_an_erasure_shaped_redaction(mongo_replica
         teams = database[Collection.TEAMS]
 
         async def remove_two_sets(session: AsyncClientSession) -> None:
-            await post_many_to_db(collection=teams, documents=[bulk_team_document(code) for code in ("HE", "CS")], session=session)
+            await post_many_to_db(collection=teams, documents=[bulk_team_document(code) for code in ("HEX", "CSX")], session=session)
             # Two removals, so the redaction below has a row it must reach and one it must not.
-            await delete_many_from_db(collection=teams, db_filter={"shorthand": "HE"}, session=session)
-            await delete_many_from_db(collection=teams, db_filter={"shorthand": "CS"}, session=session)
+            await delete_many_from_db(collection=teams, db_filter={"shorthand": "HEX"}, session=session)
+            await delete_many_from_db(collection=teams, db_filter={"shorthand": "CSX"}, session=session)
 
         async with client.start_session() as session:
             await session.with_transaction(remove_two_sets)
 
-        target_row = await database[Collection.AKTIONEN].find_one({"db_filter.shorthand": "HE"})
+        target_row = await database[Collection.AKTIONEN].find_one({"db_filter.shorthand": "HEX"})
         assert target_row is not None
         redacted = await patch_many_in_db(
             collection=database[Collection.AKTIONEN],
@@ -155,4 +155,4 @@ def test_a_removals_row_is_selected_by_an_erasure_shaped_redaction(mongo_replica
     assert modified == 1
     assert rows[0]["before"] is None and rows[0]["redacted_at"] == RECORDED_AT
     # The sibling removal's floor: a filter matching on `collection` alone would have swept it too.
-    assert [image["shorthand"] for image in rows[1]["before"]] == ["CS"] and rows[1]["redacted_at"] is None
+    assert [image["shorthand"] for image in rows[1]["before"]] == ["CSX"] and rows[1]["redacted_at"] is None

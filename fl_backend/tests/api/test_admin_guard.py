@@ -9,9 +9,9 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from app.api.spieler import schemas as spieler_schemas
+from app.core.codes import Code
 from app.core.exception_handlers import stores_nothing
 from app.core.security import (
-    MISSING_TOKEN,
     PERSON_ACTOR_BINDERS,
     bind_actor,
     verify_access_admin,
@@ -27,7 +27,7 @@ from .conftest import MINIMUM_EXPECTED_MUTATIONS
 # Module level because pytest resolves parametrisation during collection, before a fixture could run.
 APP = application()
 
-MISSING_BEARER_TOKEN = MISSING_TOKEN
+MISSING_BEARER_TOKEN = Code.MISSING_TOKEN
 
 HTTP_METHODS = frozenset({"get", "post", "patch", "delete", "put", "head", "options", "trace"})
 
