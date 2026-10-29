@@ -74,7 +74,9 @@ than a status class, and `fl_backend/app/core/codes.py :: Code` is every code's 
 response each status refers to, and never per operation. The status
 follows RFC 9110: 409 where the target's current state refuses the request, 422 where the payload
 contradicts itself, 404 where what it names does not exist, 403 only where the caller's own
-authority or standing does. The handlers are `fl_backend/app/core/exception_handlers.py`.
+authority or standing does. Every refusal is one `APIError(status, code)`
+(`fl_backend/app/core/exceptions.py`), and the handlers are
+`fl_backend/app/core/exception_handlers.py`.
 
 ## Time
 

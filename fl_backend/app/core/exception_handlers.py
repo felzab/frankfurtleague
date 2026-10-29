@@ -14,7 +14,7 @@ from starlette.routing import Match
 
 from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.crud import a_write_may_stand
-from app.core.exceptions import DUPLICATE_KEY, BaseAPIException
+from app.core.exceptions import DUPLICATE_KEY, APIError
 from app.core.logging import fl_logger, trace_id_var
 
 NO_DATA_TEXT = "//- No Data -//"
@@ -36,7 +36,7 @@ NO_ROUTE = Code.NO_ROUTE
 METHOD_NOT_SERVED = Code.METHOD_NOT_SERVED
 # Every status the router and FastAPI's request parsing raise. FastAPI's one 400 is a body it could
 # not parse, and a status outside these is a server fault the catch-all answers.
-ROUTING_CODES: Final[Mapping[int, str]] = {
+ROUTING_CODES: Final[Mapping[int, Code]] = {
     HTTPStatus.BAD_REQUEST: BODY_UNREADABLE,
     HTTPStatus.NOT_FOUND: NO_ROUTE,
     HTTPStatus.METHOD_NOT_ALLOWED: METHOD_NOT_SERVED,
@@ -45,7 +45,7 @@ ROUTING_CODES: Final[Mapping[int, str]] = {
 
 def error_response(
     status_code: int,
-    error_code: str,
+    error_code: Code,
     headers: Mapping[str, str] | None = None,
     *,
     fields: list[dict[str, Any]] | None = None,
@@ -58,13 +58,17 @@ def error_response(
     return JSONResponse(status_code=status_code, content=content, headers=headers)
 
 
-async def base_api_exception_handler(request: Request, exc: BaseAPIException):
-    fl_logger.warning(
-        f"API Exception ({exc.status_code}): {exc.error_detail['message']}",
-        extra={"error_code": exc.error_code, "jti": exc.jti},
+async def api_error_handler(request: Request, exc: APIError):
+    fl_logger.warning(f"Refusal ({exc.status_code})", extra={"error_code": exc.error_code})
+    # A 422 alone publishes `fields`, the refusal's own code as each one's `kind` where a `REQ-VAL-001`
+    # carries pydantic's error type.
+    fields = (
+        [{"in": "body", "path": list(path), "kind": exc.error_code} for path in exc.fields]
+        if exc.status_code == HTTPStatus.UNPROCESSABLE_CONTENT
+        else None
     )
 
-    return error_response(exc.status_code, exc.error_code, headers=exc.headers, fields=exc.fields)
+    return error_response(exc.status_code, exc.error_code, headers=exc.headers, fields=fields)
 
 
 async def routing_exception_handler(request: Request, exc: StarletteHTTPException):
@@ -301,14 +305,15 @@ async def global_catch_all_exception_handler(request: Request, exc: Exception):
 
 
 def register_exception_handlers(app: FastAPI):
-    app.add_exception_handler(BaseAPIException, base_api_exception_handler)  # type: ignore
-    # The base `BaseAPIException` extends: the most specific class in a raise's MRO wins, so this takes
-    # only Starlette's own, which the router raises before any route runs.
-    app.add_exception_handler(StarletteHTTPException, routing_exception_handler)  # type: ignore
-    app.add_exception_handler(RequestValidationError, request_validation_exception_handler)  # type: ignore
-    app.add_exception_handler(ValidationError, pydantic_validation_exception_handler)  # type: ignore
+    # Through FastAPI's decorator, whose signature takes a handler of any exception type, where
+    # Starlette's `add_exception_handler` types every handler as taking `Exception` itself.
+    app.exception_handler(APIError)(api_error_handler)
+    # Starlette's own, which the router raises before any route runs.
+    app.exception_handler(StarletteHTTPException)(routing_exception_handler)
+    app.exception_handler(RequestValidationError)(request_validation_exception_handler)
+    app.exception_handler(ValidationError)(pydantic_validation_exception_handler)
     # Starlette resolves a handler by walking `type(exc).__mro__`, so this subclass wins over the
     # line below by being more specific, not by being registered first.
-    app.add_exception_handler(DuplicateKeyError, duplicate_key_exception_handler)  # type: ignore
-    app.add_exception_handler(PyMongoError, db_exception_handler)  # type: ignore
-    app.add_exception_handler(Exception, global_catch_all_exception_handler)
+    app.exception_handler(DuplicateKeyError)(duplicate_key_exception_handler)
+    app.exception_handler(PyMongoError)(db_exception_handler)
+    app.exception_handler(Exception)(global_catch_all_exception_handler)

@@ -4,6 +4,7 @@ import secrets
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
 from datetime import datetime
+from http import HTTPStatus
 from typing import Annotated, Final, get_args
 
 from bson import ObjectId
@@ -35,8 +36,8 @@ from app.core.exceptions import (
     ActorConfirmationRequiredException,
     ActorForbiddenException,
     ActorTokenRefusedException,
+    APIError,
     MalformedRequestException,
-    RequestAuthorizationException,
 )
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, AktorFunktion, PersonActor, actor_var, request_var
 from app.core.transactions import ActorJudge, actor_judge_var
@@ -54,13 +55,15 @@ WRONG_ADMIN_KEY = Code.WRONG_ADMIN_KEY
 # `auto_error=False` so a missing header reaches `get_token` and answers `MISSING_TOKEN`; FastAPI's
 # own 403 would carry none of the error-code contract.
 bearer_scheme = HTTPBearer(auto_error=False)
+# RFC 9110's 401 carries a challenge naming the scheme the key is presented under.
+BEARER_CHALLENGE: Final = {"WWW-Authenticate": "Bearer"}
 
 
 def get_token(
     credentials: HTTPAuthorizationCredentials = Security(bearer_scheme),
 ) -> str:
     if credentials is None:
-        raise RequestAuthorizationException(error_code=MISSING_TOKEN)
+        raise APIError(HTTPStatus.UNAUTHORIZED, MISSING_TOKEN, headers=BEARER_CHALLENGE)
 
     return credentials.credentials
 
@@ -70,7 +73,7 @@ def get_token(
 KeySelector = Callable[[BackendConfig], SecretStr]
 
 
-def verify_api_key(select_key: KeySelector, error_code: str) -> Callable:
+def verify_api_key(select_key: KeySelector, error_code: Code) -> Callable:
     """Build a guard that compares the bearer token against one configured key.
 
     The key is selected PER REQUEST: capturing its value here would read the environment at import
@@ -82,7 +85,7 @@ def verify_api_key(select_key: KeySelector, error_code: str) -> Callable:
         config: Annotated[BackendConfig, Depends(get_app_config)],
     ) -> str:
         if not secrets.compare_digest(token, select_key(config).get_secret_value()):
-            raise RequestAuthorizationException(error_code=error_code)
+            raise APIError(HTTPStatus.UNAUTHORIZED, error_code, headers=BEARER_CHALLENGE)
         return token
 
     return dependency
