@@ -22,7 +22,7 @@ import { MONGO_DB_NAME } from "./authIndexes";
 import { authSecret, frontend_config } from "./config";
 import { signInStore } from "./db";
 import { asSignInIdentifier } from "./emailAddress";
-import { BRAND_NAME } from "./emailShell";
+import { BRAND_NAME, renderMail } from "./emailShell";
 import { RolledBackError } from "./errors";
 import { KONTO_HREF } from "./kontoHref";
 import { buildLoeschungEmail, LOESCHUNG_LINK_GUELTIG_STUNDEN } from "./loeschungEmail";
@@ -50,7 +50,7 @@ import { madeSince, verwaltungOf } from "./verwaltung";
 import type { Passkey } from "@better-auth/passkey";
 import type { AuthContext, BetterAuthOptions, DBTransactionAdapter, GenericEndpointContext } from "better-auth";
 import type { MongoClient } from "mongodb";
-import type { PasskeyEmail } from "./passkeyEmail";
+import type { Mail } from "./emailShell";
 import type { RequestActor } from "./requestScope";
 import type { Lifetime } from "./sessionLifetimes";
 import type { AnmeldungRecords } from "./signInGate";
@@ -721,9 +721,9 @@ const DISABLED_PATHS: readonly string[] = [
  * A failed send leaves the change standing: a passkey row rolled back for an unreachable mailbox is
  * a lockout the reader never asked for.
  */
-async function notify(message: PasskeyEmail, email: string): Promise<void> {
+async function notify(message: Mail, email: string): Promise<void> {
   try {
-    await sendMail({ to: email, ...message });
+    await sendMail({ to: email, ...renderMail(message) });
   } catch (failed) {
     // Filed by a deployment that mails nothing, or kept from a barred address, each recorded by the
     // mailer's own line.
@@ -813,7 +813,7 @@ const userOptions = {
 async function sendDeletionLink({ user, token }: { user: { email: string }; token: string }): Promise<void> {
   try {
     // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`.
-    await sendMail({ to: user.email, ...buildLoeschungEmail({ origin: frontend_config.AUTH_URL, token: token }) });
+    await sendMail({ to: user.email, ...renderMail(buildLoeschungEmail({ origin: frontend_config.AUTH_URL, token: token })) });
   } catch (failed) {
     // Filed by a deployment that mails nothing, or kept from a barred address, each recorded by the
     // mailer's own line.
@@ -1217,7 +1217,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
 
           // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is
           // not production must not mail production links.
-          const message = buildCodeEmail(otp, frontend_config.AUTH_URL);
+          const message = renderMail(buildCodeEmail(otp, frontend_config.AUTH_URL));
 
           try {
             // Tagged so the delivery webhook can tell this lane from the application flow's and put

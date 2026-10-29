@@ -2,6 +2,7 @@ import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
 import { doubleSendMail } from "@/test-support/mailDouble.ts";
 import { assert, describe, expect, it, vi } from "vitest";
 
+import type { Mail } from "@/core/emailShell.ts";
 import type { MailOutcome } from "@/test-support/mailDouble.ts";
 import type { FLKontaktperson } from "../teams/schemas.ts";
 import type { BewerbungSeats } from "./notifications.ts";
@@ -63,16 +64,18 @@ const {
   zustellungIdempotenzSchluessel,
 } = await import("./notifications.ts");
 const { buildBewerbungBestaetigungEmail } = await import("../../core/bewerbungEmail.ts");
+const { renderMail } = await import("../../core/emailShell.ts");
 const { kontaktBestaetigungsLink } = await import("@/core/kontaktLink.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { requestOutcomeUnknown, runWithRequestScope } = await import("@/core/requestScope");
 
 /** One message composed per recipient, its per-reader half interpolated: two readers handed one text is what this proves against. */
-const buildMail = (rollenText: string) => ({
-  art: "bewerbung_zusage" as const,
-  subject: "Zusage: Frankfurt League, Saison 2627",
-  html: `<p>${rollenText}</p>`,
-  text: `Zusage für ${rollenText}`,
+const buildMail = (rollenText: string): Mail => ({
+  art: "mitteilung",
+  betreff: "Willkommen in der Saison 2627",
+  origin: "https://example.com",
+  vorname: "",
+  absaetze: [[`Zusage für ${rollenText}`]],
 });
 
 /** An address as a fan-out takes it. The seat wording is immaterial to every test but the ones reading it. */
@@ -193,7 +196,7 @@ describe("who a decision is sent to", () => {
       buildMail: buildMail,
     });
 
-    expect(sent.map((mail) => mail.text)).toStrictEqual([
+    expect(sent.map((mail) => /Zusage für [^\n]*/.exec(mail.text)?.[0])).toStrictEqual([
       "Zusage für Ansprechperson",
       "Zusage für Stellvertretung",
       "Zusage für Trainerin oder Trainer",
@@ -287,13 +290,15 @@ describe("which mailbox is sent which link", () => {
 
     expect(gepaart?.seats).toStrictEqual([{ vorname: "Mira", rolleText: "Stellvertretung und Trainerin oder Trainer", link: ownLink2 }]);
 
-    const mail = buildBewerbungBestaetigungEmail({
-      saisonId: "2627",
-      origin: origin,
-      schule: "Lessing-Kolleg",
-      seats: gepaart?.seats ?? [{ vorname: "Mira", rolleText: "Stellvertretung", link: ownLink2 }],
-      fristText: "30.09.2026",
-    });
+    const mail = renderMail(
+      buildBewerbungBestaetigungEmail({
+        saisonId: "2627",
+        origin: origin,
+        schule: "Lessing-Kolleg",
+        seats: gepaart?.seats ?? [{ vorname: "Mira", rolleText: "Stellvertretung", link: ownLink2 }],
+        fristText: "30.09.2026",
+      }),
+    );
 
     // Both branches: a reader whose client draws no HTML meets the same one link in the text.
     for (const half of [mail.html, mail.text]) {

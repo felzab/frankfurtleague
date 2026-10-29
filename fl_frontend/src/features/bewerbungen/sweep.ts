@@ -5,12 +5,8 @@ import { frontend_config } from "@/core/config";
 import { ContractBreakError, requestOf } from "@/core/errors";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
-import { sendMail } from "@/core/mail";
-import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
-import { buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } from "@/core/registrierungEmail";
-import { SAISONENDE_NOTIZ, SAISONENDE_TAG } from "@/core/saisonendeTag";
+import { buildRegistrierungErinnerungEmail } from "@/core/registrierungEmail";
 import { HOUR_MS } from "@/core/timeUnits";
-import { versandAusfallOf } from "@/core/versandAusfall";
 import { postAdresswechselSweep } from "@/features/adresswechsel/mutations";
 import { runAdresswechselPostausgang } from "@/features/adresswechsel/postausgang";
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants";
@@ -24,7 +20,7 @@ import { rollenText, rolleText, sendBewerbungLinkMail, sendBewerbungMail } from 
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
 import type { FLAdresswechselSweepResponse } from "@/features/adresswechsel/schemas";
-import type { FLRegistrierungSweepBenachrichtigung, FLRegistrierungSweepErinnerung } from "@/features/registrierungen/schemas";
+import type { FLRegistrierungSweepErinnerung } from "@/features/registrierungen/schemas";
 import type { BewerbungEmpfaenger, BewerbungLinkEmpfaenger } from "./notifications";
 import type { FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung } from "./schemas";
 
@@ -231,19 +227,13 @@ async function sweepBewerbungen(saisonId: string, uebergangen: Uebergangen): Pro
 
 /** The registration's clocks, one season at a time: the erasures are done before this answers, and what comes back is what to mail. */
 async function sweepRegistrierungen(saisonId: string, uebergangen: Uebergangen): Promise<void> {
-  const { erinnerungen, benachrichtigt, fehlgeschlagen } = await postRegistrierungSweep(saisonId);
+  const { erinnerungen, fehlgeschlagen } = await postRegistrierungSweep(saisonId);
   uebergangen.registrierung += fehlgeschlagen;
 
   // Stamped by the call above and mailed here, as the application's reminder is: a failed send costs
   // one pupil one reminder, where mailing first would re-send every hour until the address worked.
   for (const erinnerung of erinnerungen) {
     await mailRegistrierungErinnerung(erinnerung);
-  }
-
-  // AFTER the erasure, which the call above already made: a notice cannot prolong a row nobody
-  // decided, so this message reports rather than asks, and a failed one costs one pupil one notice.
-  for (const notiz of benachrichtigt) {
-    await mailRegistrierungNotiz(notiz);
   }
 }
 
@@ -270,38 +260,6 @@ async function mailRegistrierungErinnerung(erinnerung: FLRegistrierungSweepErinn
         fristTage: REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
       }),
   });
-}
-
-/**
- * The one note a pupil gets about their erased registration, on a lane no record holds: its row is gone, so a send
- * or a delivery reported against it is answered as a missing record (`fl_backend/app/api/zustellung/router.py`).
- */
-async function mailRegistrierungNotiz(notiz: FLRegistrierungSweepBenachrichtigung): Promise<void> {
-  try {
-    await sendMail({
-      to: notiz.email,
-      ...buildRegistrierungSaisonendeEmail({
-        vorname: notiz.vorname,
-        teamName: notiz.team,
-        saisonId: notiz.saison_id,
-        origin: frontend_config.AUTH_URL,
-      }),
-      // A non-delivery is then a line an operator reads (`fl_frontend/src/app/api/mail/zustellung/route.ts`).
-      tags: { [SAISONENDE_TAG]: SAISONENDE_NOTIZ },
-      // The day as the key's tag: this body carries no link and cannot change inside the provider's
-      // window, so a pass that mailed and then failed composes the identical message an hour later.
-      idempotencyKey: mailIdempotencyKey(["loeschung", "registrierung", notiz.registrierung_id, getGermanTodayStr()], notiz.email),
-    });
-  } catch (error) {
-    // A withheld or a barred note is the mailer's own line, as on every lane.
-    const ausfall = versandAusfallOf(error);
-    if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
-    // Name only, never the error: its message can carry the address.
-    logger.error("registrierung.saisonende_notiz_failed", undefined, {
-      name: error instanceof Error ? error.name : undefined,
-      operation: SWEEP_OPERATION,
-    });
-  }
 }
 
 /** One message to one mailbox, carrying one link per PERSON it holds -- a mirrored pair is one link naming both seats. */

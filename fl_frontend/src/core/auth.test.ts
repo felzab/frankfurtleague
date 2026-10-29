@@ -240,6 +240,7 @@ const {
   requestAccountDeletion,
 } = await import("./auth.ts");
 const { buildCodeEmail, CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
+const { renderMail } = await import("./emailShell.ts");
 const { holdsOwnersTier } = await import("./verwaltung.ts");
 const { getSubjectSession } = await import("./subject.ts");
 const { proxy } = await import("../proxy.ts");
@@ -2587,7 +2588,7 @@ describe("what the code costs an address holding nothing", () => {
   });
 
   it("states that same figure in the rendered message, which is the copy a reader acts on", () => {
-    const { text, html } = buildCodeEmail("123456", "http://localhost:3000");
+    const { text, html } = renderMail(buildCodeEmail("123456", "http://localhost:3000"));
 
     assert.ok(text.includes(`${String(CODE_VALIDITY_MINUTES)} Minuten`));
     assert.ok(html.includes(`${String(CODE_VALIDITY_MINUTES)} Minuten`));

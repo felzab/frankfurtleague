@@ -577,29 +577,6 @@ describe("POST /api/mail/zustellung", () => {
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
   });
 
-  /* A pupil's season-end note goes after their registration is erased, so a pupil it missed is a line or nothing. */
-  it("writes one line for a season-end note that did not arrive, and none for one that did", async () => {
-    const notiz = (type: string) => eventFor(type, { bounce: { type: "Permanent", subType: "Suppressed" }, tags: { saisonende: "notiz" } });
-
-    const zugestellt = await answerTo(signed(JSON.stringify(notiz("email.delivered"))));
-    expect(logs.length, "a delivered note wrote a line").toBe(0);
-
-    const { status, body } = await answerTo(signed(JSON.stringify(notiz("email.bounced"))));
-
-    expect(zugestellt.status).toBe(200);
-    expect(status).toBe(200);
-    expect(body).toStrictEqual({ angewendet: [] });
-    expect(calls, "the note's lane reached the application's endpoint").toStrictEqual([]);
-    expect(zielCalls, "the note's lane reached the generic endpoint").toStrictEqual([]);
-    expect(logs.length).toBe(1);
-    expect(logs[0]?.level).toBe("warn");
-    expect(logs[0]?.message).toBe("mail.saisonendenotiz_nicht_zugestellt");
-    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-013");
-    expect(logs[0]?.meta?.["stand"]).toBe("unzustellbar");
-    expect(logs[0]?.meta?.["nachricht_id"]).toBe(MESSAGE_ID);
-    assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
-  });
-
   /* A referee's fixture row holds no seat, so a booking or a move notice that missed them is a line or nothing:
      read as the application's fall-through it would be dropped as untagged. */
   it("writes one line for a referee's fixture message that did not arrive, and none for one that did", async () => {
@@ -620,31 +597,6 @@ describe("POST /api/mail/zustellung", () => {
     expect(logs[0]?.level).toBe("warn");
     expect(logs[0]?.message).toBe("mail.spielleitung_nicht_zugestellt");
     expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-014");
-    expect(logs[0]?.meta?.["stand"]).toBe("unzustellbar");
-    expect(logs[0]?.meta?.["nachricht_id"]).toBe(MESSAGE_ID);
-    assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
-  });
-
-  /* The seat a contacts save took a mailbox off holds its next person's delivery record, or none, so a leaving
-     notice that missed its reader is a line or nothing. */
-  it("writes one line for a leaving notice that did not arrive, and none for one that did", async () => {
-    const hinweis = (type: string) =>
-      eventFor(type, { bounce: { type: "Permanent", subType: "Suppressed" }, tags: { kontakt_abgang: "hinweis" } });
-
-    const zugestellt = await answerTo(signed(JSON.stringify(hinweis("email.delivered"))));
-    expect(logs.length, "a delivered notice wrote a line").toBe(0);
-
-    const { status, body } = await answerTo(signed(JSON.stringify(hinweis("email.bounced"))));
-
-    expect(zugestellt.status).toBe(200);
-    expect(status).toBe(200);
-    expect(body).toStrictEqual({ angewendet: [] });
-    expect(calls, "the leaving notice's lane reached the application's endpoint").toStrictEqual([]);
-    expect(zielCalls, "the leaving notice's lane reached the generic endpoint").toStrictEqual([]);
-    expect(logs.length).toBe(1);
-    expect(logs[0]?.level).toBe("warn");
-    expect(logs[0]?.message).toBe("mail.kontakt_abgang_nicht_zugestellt");
-    expect(logs[0]?.meta?.["error_code"]).toBe("FE-MAIL-015");
     expect(logs[0]?.meta?.["stand"]).toBe("unzustellbar");
     expect(logs[0]?.meta?.["nachricht_id"]).toBe(MESSAGE_ID);
     assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");

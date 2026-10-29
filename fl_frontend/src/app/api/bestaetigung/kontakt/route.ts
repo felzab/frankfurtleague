@@ -1,4 +1,4 @@
-import { buildBewerbungVollstaendigEmail, buildBewerbungWiderspruchEmail } from "@/core/bewerbungEmail";
+import { buildBewerbungWiderspruchEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
 import { logger } from "@/core/logging";
 import { postEinwilligung } from "@/features/bewerbungen/mutations";
@@ -31,8 +31,7 @@ async function ansichtFuerToken(token: string): Promise<EinwilligungAnsicht | nu
  * pressed the button cannot repair a mailbox that is not theirs.
  */
 async function notifyAnsprechperson(antwort: FLBewerbungEinwilligungAntwortResponse): Promise<void> {
-  const vollstaendig = antwort.ergebnis === "bestaetigt" && antwort.ausstehend.length === 0;
-  if (!vollstaendig && antwort.ergebnis !== "abgelehnt") return;
+  if (antwort.ergebnis !== "abgelehnt") return;
 
   if (antwort.ansprechperson_email === null) {
     // The seat this would have addressed is the seat that just emptied itself. Neither the address
@@ -49,22 +48,20 @@ async function notifyAnsprechperson(antwort: FLBewerbungEinwilligungAntwortRespo
     operation: "postEinwilligung",
     // The token is spent by the time this runs, so the same body cannot be composed twice: the key
     // guards nothing here and would refuse a genuine second answer from the paired seat.
-    auftrag: { bewerbungId: antwort.bewerbung_id, anlass: vollstaendig ? "vollstaendig" : "widerspruch" },
+    auftrag: { bewerbungId: antwort.bewerbung_id, anlass: "widerspruch" },
     recipients: [
       { address: antwort.ansprechperson_email, rollen: antwort.ansprechperson_rollen, rollenText: rollenText(antwort.ansprechperson_rollen) },
     ],
     buildMail: (rollen) =>
-      vollstaendig
-        ? buildBewerbungVollstaendigEmail({ saisonId: antwort.saison_id, origin: origin, rollenText: rollen })
-        : buildBewerbungWiderspruchEmail({
-            saisonId: antwort.saison_id,
-            origin: origin,
-            rollenText: rollen,
-            // Named off the answer rather than a second read: the decline emptied the slot this
-            // came from, and nothing left in the record can say whose entry was refused.
-            abgelehnt: { vorname: antwort.vorname, rolleText: rolleText(antwort.rolle) },
-            fristText: formatSpielDatum(antwort.bestaetigungsfrist),
-          }),
+      buildBewerbungWiderspruchEmail({
+        saisonId: antwort.saison_id,
+        origin: origin,
+        rollenText: rollen,
+        // Named off the answer rather than a second read: the decline emptied the slot this
+        // came from, and nothing left in the record can say whose entry was refused.
+        abgelehnt: { vorname: antwort.vorname, rolleText: rolleText(antwort.rolle) },
+        fristText: formatSpielDatum(antwort.bestaetigungsfrist),
+      }),
   });
 }
 

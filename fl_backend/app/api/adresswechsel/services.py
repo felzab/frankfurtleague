@@ -15,9 +15,9 @@ from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import Any, Final, Literal, get_args
-from zoneinfo import ZoneInfo
 
 from app.api.berechtigungen.schemas import FLAdresswechselWeg, FLGenehmigungVerwehrt
+from app.core.clock import GERMANY as _GERMANY
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_TAGE, GENEHMIGUNG_TAGE
@@ -49,8 +49,6 @@ LIVE_TERMS: Final[Mapping[str, Any]] = {"beendet": {"$type": "null"}}
 
 # A `$lookup` joining on the address carries these beside its key, for `build_address_filter`'s reason.
 LIVE_KEYED_TERMS: Final[Mapping[str, Any]] = {"adresse": {"$type": "string"}, **LIVE_TERMS}
-
-_GERMANY: Final = ZoneInfo("Europe/Berlin")
 
 
 def als_utc(moment: Any) -> datetime | None:

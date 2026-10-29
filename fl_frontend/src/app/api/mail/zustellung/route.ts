@@ -40,13 +40,9 @@ const OHNE_EINTRAG = {
   anmeldung: { ereignis: "mail.anmeldecode_nicht_zugestellt", error_code: "FE-MAIL-007" },
   // The grants' notice, whose outbox row is gone once stamped: a holder the notice missed.
   berechtigung: { ereignis: "mail.berechtigungshinweis_nicht_zugestellt", error_code: "FE-MAIL-010" },
-  // The pupils' season-end note, whose registration is erased before it goes: a pupil it missed.
-  saisonende: { ereignis: "mail.saisonendenotiz_nicht_zugestellt", error_code: "FE-MAIL-013" },
   // Every message to a referee about a fixture, whatever
   // `fl_frontend/src/features/spielbestaetigungen/sweep.ts :: mailSpielleitung` sends: their row holds no seat to record one on.
   spielleitung: { ereignis: "mail.spielleitung_nicht_zugestellt", error_code: "FE-MAIL-014" },
-  // The notice to a mailbox a write took a contact seat or its link from: nobody it went to holds a seat to record it on.
-  kontakt_abgang: { ereignis: "mail.kontakt_abgang_nicht_zugestellt", error_code: "FE-MAIL-015" },
 } as const satisfies Record<Extract<ZustellMeldung, { nachricht_id: string }>["ziel"], { ereignis: string; error_code: string }>;
 
 function signedByProvider(roh: string, headers: Record<string, string>): boolean {
