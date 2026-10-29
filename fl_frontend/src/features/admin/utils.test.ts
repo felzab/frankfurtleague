@@ -264,7 +264,7 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
     expect(kategorien([geschlossen, verlegt, zeile({ ansetzung: { ...ANSETZUNG, datum: "2026-08-04" } })])).toStrictEqual([]);
   });
 
-  // Each a reason `grund_to_end` shuts the row on at the next pass, which the shared table holds row by row.
+  // Each a reason `grund_to_end` shuts the row on at the next pass, which `spielbestaetigungen/utils.test.ts` holds row by row.
   it("counts no row the next pass ends: the fixture decided, its day gone, or a club gone by it", () => {
     const ueberfaellig = zeile({ frist: "2026-07-29" });
     const ausgeschieden: FLBracketFault = {

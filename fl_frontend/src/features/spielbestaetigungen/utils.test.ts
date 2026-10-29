@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 import { spielbestaetigungFields } from "@/test-support/fixtures.ts";
 import { refusalCodes, refused } from "@/test-support/refusals.ts";
 import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
@@ -109,7 +106,7 @@ describe("laufUeberfaellig", () => {
     expect(laufUeberfaellig({ ...FAELLIG, gelaufenAm: "2026-10-19" })).toBe(false);
   });
 
-  // The pass's last asking day is three weeks out; the shared table holds `wirdAngefragt` to the pass row by row.
+  // The pass's last asking day is three weeks out; `banners.test.ts` holds `wirdAngefragt` to the pass row by row.
   it("warns for a fixture as far out as the pass asks, and for none past it", () => {
     expect(laufUeberfaellig({ ...FAELLIG, spiel: { ...GEFRAGT, datum: "2026-11-10" } })).toBe(true);
     expect(laufUeberfaellig({ ...FAELLIG, spiel: { ...GEFRAGT, datum: "2026-11-11" } })).toBe(false);
@@ -132,7 +129,320 @@ describe("laufUeberfaellig", () => {
   });
 });
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
+/** Why the next pass shuts a row, one thing moved per row from a fixture it leaves standing. */
+const GRUND_TO_END_ROWS: unknown = [
+  {
+    fall: "a club's open row about the fixture as it stands",
+    zeile: {},
+    anders: {},
+    grund: null,
+  },
+  {
+    fall: "the booked referee's open row",
+    zeile: {
+      partei: "schiedsrichter",
+    },
+    anders: {},
+    grund: null,
+  },
+  {
+    fall: "the referee's row once another is booked",
+    zeile: {
+      partei: "schiedsrichter",
+    },
+    anders: {
+      schiedsrichter: "anderer",
+    },
+    grund: "schiedsrichter_gewechselt",
+  },
+  {
+    fall: "the referee's row once the slot is emptied",
+    zeile: {
+      partei: "schiedsrichter",
+    },
+    anders: {
+      schiedsrichter: null,
+    },
+    grund: "schiedsrichter_gewechselt",
+  },
+  {
+    fall: "a club's row once another referee is booked",
+    zeile: {},
+    anders: {
+      schiedsrichter: "anderer",
+    },
+    grund: null,
+  },
+  {
+    fall: "a lone goal count",
+    zeile: {},
+    anders: {
+      tore: 2,
+    },
+    grund: "spiel_entschieden",
+  },
+  {
+    fall: "a lone shoot-out",
+    zeile: {},
+    anders: {
+      elfmeterschiessen: {
+        team1: 4,
+        team2: 3,
+      },
+    },
+    grund: "spiel_entschieden",
+  },
+  {
+    fall: "a no-show entered before the day",
+    zeile: {},
+    anders: {
+      sonderereignis: "nichtantreten_team1",
+    },
+    grund: "abgesagt",
+  },
+  {
+    fall: "a no-show entered on the day",
+    zeile: {},
+    anders: {
+      tage: 0,
+      sonderereignis: "nichtantreten_team2",
+    },
+    grund: "spiel_entschieden",
+  },
+  {
+    fall: "a no-show entered before the fixture's day as it stands, the row about a day gone by",
+    zeile: {},
+    anders: {
+      tage: -1,
+      datum_tage: 3,
+      sonderereignis: "nichtantreten_team1",
+    },
+    grund: "abgesagt",
+  },
+  {
+    fall: "abandoned",
+    zeile: {},
+    anders: {
+      sonderereignis: "abgebrochen",
+    },
+    grund: "spiel_entschieden",
+  },
+  {
+    fall: "called off",
+    zeile: {},
+    anders: {
+      sonderereignis: "ausgefallen",
+    },
+    grund: "abgesagt",
+  },
+  {
+    fall: "annulled",
+    zeile: {},
+    anders: {
+      sonderereignis: "annulliert",
+    },
+    grund: "abgesagt",
+  },
+  {
+    fall: "the second club gone before the day",
+    zeile: {},
+    anders: {
+      austritt_tage: 1,
+    },
+    grund: "austritt",
+  },
+  {
+    fall: "the second club gone on the day",
+    zeile: {},
+    anders: {
+      austritt_tage: 3,
+    },
+    grund: "austritt",
+  },
+  {
+    fall: "the second club gone after the day",
+    zeile: {},
+    anders: {
+      austritt_tage: 4,
+    },
+    grund: null,
+  },
+  {
+    fall: "moved a day on",
+    zeile: {},
+    anders: {
+      datum_tage: 4,
+    },
+    grund: "ansetzung_geaendert",
+  },
+  {
+    fall: "a new kick-off",
+    zeile: {},
+    anders: {
+      uhrzeit: "19:00:00",
+    },
+    grund: "ansetzung_geaendert",
+  },
+  {
+    fall: "a new ground",
+    zeile: {},
+    anders: {
+      spielort: "anderer",
+    },
+    grund: "ansetzung_geaendert",
+  },
+  {
+    fall: "the second side replaced",
+    zeile: {},
+    anders: {
+      team2: "anderer",
+    },
+    grund: "ansetzung_geaendert",
+  },
+  {
+    fall: "the date taken away",
+    zeile: {},
+    anders: {
+      datum_tage: null,
+    },
+    grund: "ansetzung_geaendert",
+  },
+  {
+    fall: "the date taken away from a club gone before the row's day",
+    zeile: {},
+    anders: {
+      datum_tage: null,
+      austritt_tage: 2,
+    },
+    grund: "austritt",
+  },
+  {
+    fall: "the referee's row of a fixture called off and its referee swapped",
+    zeile: {
+      partei: "schiedsrichter",
+    },
+    anders: {
+      sonderereignis: "ausgefallen",
+      schiedsrichter: "anderer",
+    },
+    grund: "abgesagt",
+  },
+  {
+    fall: "the referee's row of a fixture moved and its referee swapped",
+    zeile: {
+      partei: "schiedsrichter",
+    },
+    anders: {
+      datum_tage: 4,
+      schiedsrichter: "anderer",
+    },
+    grund: "schiedsrichter_gewechselt",
+  },
+  {
+    fall: "a fixture on today",
+    zeile: {},
+    anders: {
+      tage: 0,
+    },
+    grund: null,
+  },
+  {
+    fall: "a fixture whose day went by unplayed",
+    zeile: {},
+    anders: {
+      tage: -1,
+    },
+    grund: "spiel_vergangen",
+  },
+  {
+    fall: "a row whose day went by, its fixture moved ahead",
+    zeile: {},
+    anders: {
+      tage: -1,
+      datum_tage: 3,
+    },
+    grund: "ansetzung_geaendert",
+  },
+  {
+    fall: "a discard as the fixture stands",
+    zeile: {
+      verworfen: true,
+    },
+    anders: {},
+    grund: null,
+  },
+  {
+    fall: "a discard, the fixture moved",
+    zeile: {
+      verworfen: true,
+    },
+    anders: {
+      datum_tage: 4,
+    },
+    grund: null,
+  },
+  {
+    fall: "a discard, the fixture's referee swapped",
+    zeile: {
+      verworfen: true,
+    },
+    anders: {
+      schiedsrichter: "anderer",
+    },
+    grund: null,
+  },
+  {
+    fall: "a discard, the fixture called off",
+    zeile: {
+      verworfen: true,
+    },
+    anders: {
+      sonderereignis: "ausgefallen",
+    },
+    grund: "abgesagt",
+  },
+  {
+    fall: "a discard, the fixture decided",
+    zeile: {
+      verworfen: true,
+    },
+    anders: {
+      tore: 2,
+    },
+    grund: "spiel_entschieden",
+  },
+  {
+    fall: "a discard, the second club gone by the day",
+    zeile: {
+      verworfen: true,
+    },
+    anders: {
+      austritt_tage: 1,
+    },
+    grund: "austritt",
+  },
+  {
+    fall: "a discard whose day went by",
+    zeile: {
+      verworfen: true,
+    },
+    anders: {
+      tage: -1,
+    },
+    grund: "spiel_vergangen",
+  },
+  {
+    fall: "a discard whose day went by, its fixture moved ahead",
+    zeile: {
+      verworfen: true,
+    },
+    anders: {
+      tage: -1,
+      datum_tage: 3,
+    },
+    grund: "spiel_vergangen",
+  },
+];
 
 /**
  * The rows both tiers run, each moving a row about a fixture set in full three days out. Strict, so a row moving
@@ -158,7 +468,7 @@ const GRUND_TO_END = z
       grund: FLSpielbestaetigungGrundSchema.nullable(),
     }),
   )
-  .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "grund_to_end.json"), "utf8")));
+  .parse(GRUND_TO_END_ROWS);
 
 describe("grundZumEnde", () => {
   const HEUTE = "2026-04-01";
@@ -167,8 +477,8 @@ describe("grundZumEnde", () => {
   const SCHIEDSRICHTER = ["6890a1b2c3d4e5f6077600c1", "6890a1b2c3d4e5f6077600c2"] as const;
   const SPIELORT = "6890a1b2c3d4e5f6077600b1";
 
-  /* Read rather than retyped: the backend's `grund_to_end` answers the same rows in its own suite, so a closing reason
-     one tier gains alone fails at the other. */
+  /* The closing reasons of `fl_backend/app/api/spielbestaetigungen/services.py :: grund_to_end`, which this reader
+     spells again for the page. */
   for (const { fall, zeile, anders, grund } of GRUND_TO_END) {
     it(`ends a row where the pass does: ${fall}`, () => {
       const datum = tagNach(anders.tage ?? 3);

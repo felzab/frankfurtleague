@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -74,7 +71,143 @@ const build = (overrides: Partial<Parameters<typeof buildSpielBanners>[0]> = {})
 
 const ids = (banners: readonly SpielBanner[]): string[] => banners.map((banner) => banner.id);
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..", "..", "..", "..");
+/** Whether the hourly pass asks about a fixture, one condition moved per row from a fixture it asks about. */
+const ANFRAGE_IS_DUE_ROWS: unknown = [
+  {
+    fall: "a fixture set in full, three days out",
+    anders: {},
+    gefragt: true,
+  },
+  {
+    fall: "tomorrow",
+    anders: {
+      tage: 1,
+    },
+    gefragt: true,
+  },
+  {
+    fall: "the last day the pass asks about",
+    anders: {
+      tage: 21,
+    },
+    gefragt: true,
+  },
+  {
+    fall: "a day past the last the pass asks about",
+    anders: {
+      tage: 22,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "today",
+    anders: {
+      tage: 0,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "yesterday",
+    anders: {
+      tage: -1,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "no date",
+    anders: {
+      tage: null,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "no kick-off",
+    anders: {
+      uhrzeit: null,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "no ground",
+    anders: {
+      spielort: null,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "no first side",
+    anders: {
+      team1: null,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "no second side",
+    anders: {
+      team2: null,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "a lone goal count",
+    anders: {
+      tore: 2,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "a lone shoot-out",
+    anders: {
+      elfmeterschiessen: {
+        team1: 4,
+        team2: 3,
+      },
+    },
+    gefragt: false,
+  },
+  {
+    fall: "called off",
+    anders: {
+      sonderereignis: "ausgefallen",
+    },
+    gefragt: false,
+  },
+  {
+    fall: "a no-show",
+    anders: {
+      sonderereignis: "nichtantreten_team1",
+    },
+    gefragt: false,
+  },
+  {
+    fall: "abandoned",
+    anders: {
+      sonderereignis: "abgebrochen",
+    },
+    gefragt: false,
+  },
+  {
+    fall: "the second club gone before the day",
+    anders: {
+      austritt_tage: 1,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "the second club gone on the day",
+    anders: {
+      austritt_tage: 3,
+    },
+    gefragt: false,
+  },
+  {
+    fall: "the second club gone after the day",
+    anders: {
+      austritt_tage: 4,
+    },
+    gefragt: true,
+  },
+];
 
 /**
  * The rows both tiers run, each moving one thing of a fixture set in full three days out. Strict, so a row moving
@@ -98,7 +231,7 @@ const ANFRAGE_IS_DUE = z
       gefragt: z.boolean(),
     }),
   )
-  .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "anfrage_is_due.json"), "utf8")));
+  .parse(ANFRAGE_IS_DUE_ROWS);
 
 /** One row's fixture: set in full three days out, one thing moved. */
 const zeilenAnsetzung = (anders: (typeof ANFRAGE_IS_DUE)[number]["anders"]): SpielBannerAnsetzung => ({
@@ -538,7 +671,7 @@ describe("buildSpielBanners", () => {
     assert.ok(!sofort({ ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(30)), isSpielSweepOn: false }));
   });
 
-  /* The pass visits the running season alone, which the shared table below cannot say: it holds a fixture's own fields. */
+  /* The pass visits the running season alone, which the table below cannot say: it holds a fixture's own fields. */
   it("raises nothing for a re-dated fixture of a season not yet running", () => {
     assert.ok(!sofort({ ansetzung: angesetzt(tagNach(3)), storedAnsetzung: angesetzt(tagNach(30)), isActiveSaison: false }));
   });
@@ -569,8 +702,8 @@ describe("buildSpielBanners", () => {
 });
 
 describe("wirdAngefragt", () => {
-  /* Read rather than retyped: the backend's predicate answers the same rows in its own suite, so a condition one tier
-     gains alone fails at the other. */
+  /* The editor's warning speaks of a request the pass would send, so it reads the pass's own conditions
+     (`fl_backend/app/api/spielbestaetigungen/services.py :: anfrage_is_due`). */
   for (const { fall, anders, gefragt } of ANFRAGE_IS_DUE) {
     it(`asks about a fixture exactly where the pass does: ${fall}`, () => {
       expect(
