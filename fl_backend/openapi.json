@@ -128,6 +128,9 @@
             "type": "string"
           }
         },
+        "required": [
+          "status"
+        ],
         "title": "CheckIsLiveResponse",
         "type": "object"
       },
@@ -3442,6 +3445,7 @@
           }
         },
         "required": [
+          "quelle",
           "ergebnis",
           "ausstehend",
           "geburtsdatum",
@@ -6842,7 +6846,9 @@
           "saison_id",
           "spieltage",
           "spiele",
-          "generiert_am"
+          "generiert_am",
+          "removed_spieltage",
+          "removed_spiele"
         ],
         "title": "FLGenerateSpielplanResponse",
         "type": "object"
@@ -9098,7 +9104,8 @@
         },
         "required": [
           "updated_document",
-          "fanned_out_to_spiele"
+          "fanned_out_to_spiele",
+          "bestaetigung"
         ],
         "title": "FLPatchSchiedsrichterResponse",
         "type": "object"
@@ -9360,6 +9367,11 @@
             "type": "array"
           }
         },
+        "required": [
+          "advanced_to",
+          "released_sides",
+          "bracket_faults"
+        ],
         "title": "FLPatchSpielDataResponse",
         "type": "object"
       },
@@ -12126,6 +12138,7 @@
           }
         },
         "required": [
+          "quelle",
           "ergebnis",
           "geburtsdatum",
           "whatsapp",
@@ -12468,6 +12481,7 @@
           }
         },
         "required": [
+          "format",
           "saisons"
         ],
         "title": "FLSaisonsListResponse",
@@ -12486,6 +12500,7 @@
           }
         },
         "required": [
+          "format",
           "saison"
         ],
         "title": "FLSaisonsSingleResponse",
@@ -12827,7 +12842,8 @@
           }
         },
         "required": [
-          "updated_document"
+          "updated_document",
+          "bestaetigung"
         ],
         "title": "FLSchiedsrichterReactivateResponse",
         "type": "object"
@@ -17053,6 +17069,7 @@
         },
         "required": [
           "spiele",
+          "bracket_faults",
           "spielberichte"
         ],
         "title": "FLSpieleActionRequiredResponse",
@@ -18884,6 +18901,7 @@
           }
         },
         "required": [
+          "format",
           "gruppen",
           "qualifiers_per_group"
         ],
@@ -18907,6 +18925,7 @@
           }
         },
         "required": [
+          "format",
           "teams"
         ],
         "title": "FLTeamsListResponse",
@@ -18943,6 +18962,7 @@
           }
         },
         "required": [
+          "format",
           "team"
         ],
         "title": "FLTeamsSingleResponse",
