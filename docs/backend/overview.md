@@ -5,7 +5,7 @@
 A FastAPI application over MongoDB. **No browser reaches a route here that reads or writes application
 data**: the edge forwards one path to this service, the liveness probe, which takes no key and touches
 no database. Every other caller is the Next.js container over the Docker network, which is why
-authentication is shared API keys plus a signed token naming the person acting, rather than user
+authentication is shared API keys plus headers naming the person acting, rather than user
 sessions, and why this service sets no cache headers of its own.
 
 ## How it is organised
@@ -32,7 +32,7 @@ name makes the operation's id in `openapi.json`.
 being written in the wrong file. `fl_backend/app/core/security.py` holds the guards:
 
 - **`base`** — the public pages' reads, and the forms a visitor submits.
-- **`admin`** — every other read and write. An administrator's router also checks the actor token's
+- **`admin`** — every other read and write. An administrator's router also checks the actor's
   address against a stored grant (`Berechtigung`) on every request; a signed-in person's router binds
   the record that admits them (their `Funktion`) instead.
 - **`system`** — the frontend process's own calls: the retention sweeps, the mail delivery events and
@@ -41,9 +41,10 @@ being written in the wrong file. `fl_backend/app/core/security.py` holds the gua
 Each guard presents its key as a bearer scheme of its own, `BaseKey`, `AdminKey` or `SystemKey`, so
 an operation's `security` in `openapi.json` names the tier it takes.
 
-The actor token travels in the `X-FL-Actor` header: the frontend signs it for the person behind a
-request, and the backend verifies it against `ACTOR_TOKEN_PUBLIC_KEY`
-(`fl_backend/app/core/actor_token.py`). **`system/router.py` holds the two routes with no guard**:
+The actor travels as three headers on an admin-key call, `X-FL-Actor`, `X-FL-Auth-Time` and
+`X-FL-Auth-Factor`: the address, when its session was made, and by which factor
+(`fl_backend/app/core/security.py :: get_session_actor`). The admin key and the private network are
+what make them believed. **`system/router.py` holds the two routes with no guard**:
 `/system/is_live`, both the container healthcheck and the public uptime probe, since a probe that
 needs a secret fails for the wrong reasons, and the service's root `/`.
 
