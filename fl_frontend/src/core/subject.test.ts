@@ -27,10 +27,9 @@ const UNFOLDED_EMAIL = `Anna.Mueller@Schule${String.fromCodePoint(0xff61)}DE`;
 const FOLDED_EMAIL = "anna.mueller@schule.de";
 
 const API_ORIGIN = "http://backend.test";
-const API_VERSION = 0;
 
 const CONFIG_DOUBLE = configDouble(
-  { API_URL: API_ORIGIN, API_VERSION: API_VERSION },
+  { API_URL: API_ORIGIN },
   { internalApiKeyBase: () => "fabricated-base-not-a-credential", internalApiKeyAdmin: () => "fabricated-admin-not-a-credential" },
 );
 
@@ -375,7 +374,7 @@ describe("the request the seam makes", () => {
     const call = lastSent();
 
     expect(call.method).toBe("POST");
-    expect(new URL(call.url).href).toBe(`${API_ORIGIN}/api/v${API_VERSION}/identitaet/subjekt`);
+    expect(new URL(call.url).href).toBe(`${API_ORIGIN}/api/v0/identitaet/subjekt`);
     // An address on a path or a query reaches the edge's access line, which nothing downstream
     // un-logs.
     assert.ok(!call.url.toLowerCase().includes("schule"), `the address reached the url: ${call.url}`);
@@ -419,14 +418,6 @@ describe("the request the seam makes", () => {
     await expect((() => getSubjectSession())()).rejects.toSatisfy(
       (error: unknown) => error instanceof APINetworkError && error.isTimeout && error.readOnly,
     );
-  });
-
-  it("throws where the answer is a body the mirror refuses", async () => {
-    const { cookie } = await signIn(PERSON_EMAIL);
-    arriveAs(cookie);
-    nextAnswer = new Response(JSON.stringify({ acknowledged: 1 }), { status: 200, headers: { "content-type": "application/json" } });
-
-    await expect((() => getSubjectSession())()).rejects.toThrow();
   });
 });
 

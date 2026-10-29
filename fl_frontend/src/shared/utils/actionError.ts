@@ -1,12 +1,4 @@
-import {
-  APIBadStatusError,
-  APIMalformedDataError,
-  APINetworkError,
-  isRecordMissing,
-  isRefusalCode,
-  mayHaveWritten,
-  RolledBackError,
-} from "@/core/errors";
+import { APIBadStatusError, APINetworkError, isRecordMissing, isRefusalCode, mayHaveWritten, RolledBackError } from "@/core/errors";
 
 import { buildRefusal, LADE_DIE_SEITE_NEU, UNKNOWN_REFUSAL, VERSUCHE_ES_ERNEUT_SATZ } from "./refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "./validation";
@@ -387,13 +379,6 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest, wor
         ? wording.close("Der Server hat zu lange nicht geantwortet.", VERSUCHE_ES_ERNEUT_SATZ)
         : wording.close("Der Server ist gerade nicht erreichbar.", "Versuche es später erneut."),
     };
-  }
-
-  if (error instanceof APIMalformedDataError) {
-    // A 2xx whose body failed its schema: the write landed, and only its answer is unreadable.
-    if (mayHaveWritten(error)) return outcomeUnknown(wording);
-
-    return { success: false, error: wording.close("Die Daten kamen fehlerhaft an.", VERSUCHE_ES_ERNEUT_SATZ) };
   }
 
   // This application's own throw carries no request, so the one its caller answers stands in: thrown

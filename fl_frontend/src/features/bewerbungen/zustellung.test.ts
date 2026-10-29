@@ -70,7 +70,7 @@ const {
   ZUSTELLUNG_QUEUE_TINT,
   zustellungTags,
 } = await import("./zustellung.ts");
-const { APIBadStatusError, APINetworkError, ApiUnsentError } = await import("@/core/errors.ts");
+const { APIBadStatusError, APINetworkError } = await import("@/core/errors.ts");
 const { refusedOn } = await import("@/test-support/publishedRefusals.ts");
 const { POST } = await import("@/app/api/mail/zustellung/route.ts");
 const { NextRequest } = await import("next/server");
@@ -775,18 +775,6 @@ describe("POST /api/mail/zustellung", () => {
         traceId: "t".repeat(32),
         isTimeout: false,
       });
-    };
-
-    const { status, body } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
-
-    expect(status).toBe(503);
-    expect(body).toStrictEqual({ error: "backend" });
-  });
-
-  /* Kept from the backend by the request's deadline rather than by the network, and as unwritten. */
-  it("answers 503 where the deadline refused the write before it was sent", async () => {
-    zustellungAnswer = () => {
-      throw new ApiUnsentError("POST");
     };
 
     const { status, body } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));

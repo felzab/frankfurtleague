@@ -7,7 +7,7 @@ import {
 } from "@/test-support/einwilligungDocument.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { APIBadStatusError, APIMalformedDataError } from "@/core/errors.ts";
+import { APIBadStatusError } from "@/core/errors.ts";
 
 import {
   gekeyteFassung,
@@ -121,27 +121,6 @@ describe("the words read", () => {
     await getEinwilligungFassung("2026-07");
 
     expect(lifetimes).toStrictEqual(["max", "max"]);
-  });
-
-  /* Answered inside the cached scope and thrown outside it: a production build redacts a cached
-     function's throw to a digest, which every page would read as a failed read. */
-  it("throws words off their schema as a contract break, kept only briefly", async () => {
-    const malformed = new APIMalformedDataError({
-      message: "API returned malformed data.",
-      url: "http://backend/api/v0/einwilligung/fassungen/x",
-      statusCode: 200,
-      endpoint: "/einwilligung/fassungen/x",
-      method: "GET",
-      readOnly: true,
-      traceId: "0",
-    });
-    api.answerWith(() => Promise.reject(malformed));
-
-    await expect(getEinwilligungFassung("2026-10-spielerseite-5")).rejects.toMatchObject({
-      name: "ContractBreakError",
-      message: expect.stringMatching(/2026-10-spielerseite-5/),
-    });
-    expect(lifetimes, "a malformed answer is kept as long as words are, or declared twice").toStrictEqual(["seconds"]);
   });
 
   // Only the record-missing code is an unknown label: a 404 carrying none is a route nothing served.

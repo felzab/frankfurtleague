@@ -2,7 +2,7 @@ import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
 import { doubleSendMail } from "@/test-support/mailDouble.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
+import { APIBadStatusError, APINetworkError } from "@/core/errors.ts";
 
 import type { SentMail } from "@/test-support/mailDouble.ts";
 
@@ -679,31 +679,6 @@ describe("the line a failed call files", () => {
 
     expect(lines.filter(({ level }) => level === "error").map(({ fields }) => fields)).toStrictEqual([
       { name: "APINetworkError", trace_id: "4bf92f3577b34da6a3ce929d0e0e4736", saison_id: undefined },
-    ]);
-  });
-
-  it("names a malformed answer's status and trace on its failure line", async () => {
-    answerWith(() => {
-      throw new APIMalformedDataError({
-        message: "The backend's answer did not match its schema.",
-        url: "http://backend:8000/api/v0/bewerbungen/sweep",
-        endpoint: "/bewerbungen/sweep",
-        method: "GET",
-        readOnly: true,
-        statusCode: 200,
-        traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
-      });
-    });
-
-    await runBewerbungSweep();
-
-    expect(lines.filter(({ level }) => level === "error").map(({ fields }) => fields)).toStrictEqual([
-      {
-        name: "APIMalformedDataError",
-        status: 200,
-        trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
-        saison_id: undefined,
-      },
     ]);
   });
 });

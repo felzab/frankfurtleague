@@ -24,12 +24,8 @@ services:
     # Named here, where the local file leaves the built image unnamed, so the journeys' CI job can
     # tag the image the images job built under the one name `up --no-build` looks for.
     image: frankfurtleague-e2e-frontend
-    # The developer's `fl_frontend/.env` stays the local stack's: the one setting it holds that the
-    # local file does not override is written here.
+    # The developer's `fl_frontend/.env` stays the local stack's.
     env_file: !reset null
-    environment:
-      # `fl_backend/app/core/config.py :: API_VERSION`, which the base file's backend healthcheck spells too.
-      - API_VERSION=0
     # The mail sink inside `.tmp-e2e/`, so the journeys read this stack's codes and never the local stack's.
     volumes: !override
       - ./.tmp-e2e/mail:/app/.tmp-mail

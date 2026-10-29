@@ -159,7 +159,6 @@ const environment = {
     const authUrl = process.env.AUTH_URL;
     return !authUrl || new URL(raw).origin !== new URL(authUrl).origin;
   }, "API_URL must reach the backend directly, not through the public origin AUTH_URL names"),
-  API_VERSION: z.coerce.number().int(),
 
   // A stray http:// here ships a session cookie in plaintext: `fl_frontend/src/core/auth.ts` reads this
   // value's SCHEME and gives the cookie the `__Host-` name prefix and the `secure` attribute together

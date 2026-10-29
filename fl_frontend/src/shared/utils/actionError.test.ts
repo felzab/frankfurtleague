@@ -6,7 +6,7 @@ import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
 import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, isRefusalCode, RolledBackError } from "@/core/errors.ts";
+import { APIBadStatusError, APINetworkError, isRefusalCode, RolledBackError } from "@/core/errors.ts";
 
 import {
   EDGE_REFUSAL_BODY,
@@ -251,22 +251,6 @@ describe("toActionErrorResult", () => {
         expect(result.outcome, `${method}, timed out: ${String(isTimeout)}`).toBe("unknown");
       }
     }
-  });
-
-  it("maps a read's malformed data onto its own message", () => {
-    for (const sent of READS) {
-      const result = toActionErrorResult(new APIMalformedDataError({ ...base, ...sent, message: "m", statusCode: 200 }));
-
-      expect(result.error, sent.method).toMatch(/fehlerhaft/);
-      expect(result.outcome, sent.method).toBe(undefined);
-    }
-  });
-
-  // A 2xx says the write landed, and only its answer is unreadable: "try again" repeats it.
-  it("says a write whose answer failed its schema is of unknown outcome", () => {
-    const result = toActionErrorResult(new APIMalformedDataError({ ...write, message: "m", statusCode: 200 }));
-
-    expect(result.outcome).toBe("unknown");
   });
 
   // An error of this application's own code carries no request: the one its caller answered decides.
