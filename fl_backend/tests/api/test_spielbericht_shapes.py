@@ -35,7 +35,6 @@ from app.api.spielberichte.services import (
     kader_ist_offen,
     neu_genannt,
 )
-from app.api.spiele.schemas import FLPatchSpielePaarungenPayload
 from app.core.exceptions import WriteRefusalException
 from tests.documents import bericht_document
 
@@ -443,51 +442,3 @@ class TestALaterWriteRaisesTheVersionAndKeepsTheAdoption:
         }
         # Stored as ObjectIds, which the validator requires.
         assert update["$set"]["bericht.torschuetzen"][0]["spieler_id"] == LIVE1
-
-
-def prior(**fields: Any) -> dict[str, Any]:
-    """An adoption at version 1 stamped over by a save at version 2."""
-
-    return {
-        "spiel_id": SPIEL_ID,
-        "version": 2,
-        "uebernommen_am": NOW,
-        "uebernommen_von": {"art": "admin"},
-        "uebernommene_version": 1,
-        **fields,
-    }
-
-
-def undo_body(bericht: dict[str, Any] | None) -> dict[str, Any]:
-    paarung = {"spiel_id": SPIEL_ID, "team1": None, "team2": None, "elfmeterschiessen": None, "sonderereignis": None, "other_fields": None}
-    return {"paarungen": [paarung], "bericht": bericht}
-
-
-class TestAnUndoPutsBackOneWholeAdoption:
-    """What the undo writes back onto a report is checked before any write: the body is the client's to send."""
-
-    def test_an_earlier_adoption_and_none_stand(self):
-        assert FLPatchSpielePaarungenPayload.model_validate(undo_body(prior())).bericht is not None
-        assert (
-            FLPatchSpielePaarungenPayload.model_validate(
-                undo_body(prior(uebernommen_am=None, uebernommen_von=None, uebernommene_version=None))
-            ).bericht
-            is not None
-        )
-
-    @pytest.mark.parametrize(
-        "fields",
-        [{"uebernommen_am": None}, {"uebernommen_von": None}, {"uebernommene_version": None}, {"uebernommene_version": 3}],
-        ids=["no-instant", "no-writer", "no-version", "a-version-past-the-one-stamped"],
-    )
-    def test_a_partial_or_later_adoption_is_refused(self, fields: dict[str, Any]):
-        """Written back, it would read adopted at a version no stamp took."""
-
-        with pytest.raises(ValidationError):
-            FLPatchSpielePaarungenPayload.model_validate(undo_body(prior(**fields)))
-
-    def test_a_report_of_a_fixture_the_undo_does_not_lead_with_is_refused(self):
-        """The save stamps its own fixture's report, which leads its undo; any other report is one the save never touched."""
-
-        with pytest.raises(ValidationError, match="Spielbericht"):
-            FLPatchSpielePaarungenPayload.model_validate(undo_body(prior(spiel_id=ObjectId())))

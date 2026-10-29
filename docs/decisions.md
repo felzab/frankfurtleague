@@ -33,16 +33,14 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **cache** — Cache an admin-scoped API read
 - **build** — Enable the React Compiler
 - **forms** — Judge a typed field between keystrokes; return the editor to a dialog
-- **spiele** — Guess a voided result rather than dry-running it; scope the undo offer to the
-  destructive save
+- **spiele** — Guess a voided result rather than dry-running it
 - **admin** — Hide a triage tab on a zero count; order sections off anything but the label table
 - **finalrunden** — Write from `/bereich/admin/finalrunden`; render its wiring as cards
 - **admin** — Give a shell page a second `h1`; make a sidemenu `hint` optional
-- **undo** — Send an undo through anything but its slice's server action
 - **saisons** — Fetch the season list inside `resolveSaisonId` when `?saison_id=` is absent; drop
   `resolveSaisonId`'s redirect or `SaisonSelector`'s fallback
 - **auth** — Carry a return destination on the sign-in redirect without the allowlist first
-- **forms** — Confirm a clean save; raise the dialog on `info`; drop the undo when the dialog appears
+- **forms** — Confirm a clean save; raise the dialog on `info`
 - **swap** — Make the club editor the swap's home; grade a swap pair separately in each component
 - **heroui** — Import HeroUI's CSS as one entry point, or out of HeroUI's order
 - **toast** — Add a new `.toast*` rule to a stylesheet rather than building the appearance in

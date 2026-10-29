@@ -12,7 +12,7 @@ from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLSaison, FLSaisonRules
 from app.api.saisons.services import find_rules_refusal, find_spielplan_refusal, find_undraw_refusal
-from app.api.spiele.admin_router import _write_spiel_data, patch_spiel_data, patch_spiele_paarungen
+from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_WITHOUT_A_RESULT,
@@ -869,28 +869,15 @@ class TestAFutureSeasonHoldingRecordedResults:
         """A hand-kept list is a sweep that quietly sees less, so a refusal added to the patch fails here rather than going unweighed."""
 
         named = {refusal.__name__ for refusal in FIXTURE_PATCH_REFUSALS}
-        # The shared writer rather than either route, and nested scopes included: both routes delegate
-        # their whole body to it, so a sweep over a route's own finds none of these and passes on
-        # emptiness.
+        # Nested scopes included: the route judges inside `judge`, so a sweep over its own top scope
+        # finds none of these and passes on emptiness.
         run = {
             callee(call)
-            for _, call in calls_in(declared(_write_spiel_data), _write_spiel_data.__name__)
+            for _, call in calls_in(declared(patch_spiel_data), patch_spiel_data.__name__)
             if callee(call).endswith("_refusal") or callee(call).startswith("judge_")
         }
 
         assert run == named, f"unweighed: {sorted(run - named)}; weighed but no longer run: {sorted(named - run)}"
-
-    def test_neither_route_judges_anything_the_sweep_above_cannot_see(self):
-        """What keeps that sweep whole once two routes share one writer: a refusal put on a route is one it reads past."""
-
-        for route in (patch_spiel_data, patch_spiele_paarungen):
-            judged = {
-                callee(call)
-                for _, call in calls_in(declared(route), route.__name__)
-                if callee(call).endswith("_refusal") or callee(call).startswith("judge_")
-            }
-
-            assert not judged, f"{route.__name__} judges {sorted(judged)} outside {_write_spiel_data.__name__}, where the sweep reads"
 
     def test_both_windows_take_the_record_and_the_status_as_two_figures(self):
         """`REQ-SPIELPLAN-005` and `REQ-SPIELPLAN-006` share one sentence for the same reason: neither infers the record from the status."""

@@ -2,21 +2,12 @@ from collections.abc import Callable, Mapping
 from typing import Any, get_args
 
 import pytest
-from bson import ObjectId
 
-from app.api.spiele.crud import report_advancement, report_prior_paarungen
 from app.api.spiele.schemas import (
-    SPIEL_PATCH_WRITTEN_FIELDS,
     FLBracketFaultQuelle,
     FLBracketFaultSlot,
-    FLPatchSpielPaarungPayload,
     FLSonderereignis,
-    FLSpiel,
     FLSpielListAdapter,
-    FLSpielPriorOtherFields,
-    FLSpielPriorPaarung,
-    FLSpielReleasedSide,
-    FLSpielRestorableField,
 )
 from app.api.spiele.services import find_gruppen_not_run, resolve_bracket
 from app.api.teams.schemas import FLGruppenNames
@@ -61,52 +52,6 @@ def faults(documents: list[dict[str, Any]], standings: Standings | None = None) 
     resolution = resolve_bracket(FLSpielListAdapter.validate_python(documents), standings or {})
 
     return [(fault.spiel_nr, fault.reason) for fault in resolution.bracket_faults]
-
-
-def stored_at(documents: list[dict[str, Any]], spiel_nr: int) -> FLSpiel:
-    return next(spiel for spiel in FLSpielListAdapter.validate_python(documents) if spiel.spiel_nr == spiel_nr)
-
-
-def priors(
-    documents: list[dict[str, Any]],
-    released: list[FLSpielReleasedSide] | None = None,
-    edited: int = 25,
-    wrote: Mapping[str, Any] | None = None,
-) -> list[FLSpielPriorPaarung]:
-    """Every fixture the resolution moves, off the slice it was judged on -- `documents` being both.
-
-    `wrote` is what the save put on the fixture it named, and the releases are handed in because no
-    resolution produces one.
-    """
-
-    season = FLSpielListAdapter.validate_python(documents)
-    resolution = resolve_bracket(season, {})
-
-    return report_prior_paarungen(
-        ObjectId(MATCH_ID.format(edited)),
-        season,
-        stored_at(documents, edited).model_copy(update=dict(wrote or {})),
-        [report_advancement(advancement) for advancement in resolution.advancements],
-        released or [],
-    )
-
-
-def restore_of(prior: FLSpielPriorPaarung) -> FLPatchSpielPaarungPayload:
-    """The report as one entry of the body sent back -- the round trip the wire makes, field for field."""
-
-    return FLPatchSpielPaarungPayload(**prior.model_dump())
-
-
-def a_release_of(spiel_nr: int, ergebnis: str | None = None) -> FLSpielReleasedSide:
-    return FLSpielReleasedSide(
-        spiel_id=ObjectId(MATCH_ID.format(spiel_nr)),
-        spiel_nr=spiel_nr,
-        side="team1",
-        team_name="Team 1",
-        voided_ergebnis=ergebnis,
-        voided_elfmeterschiessen=None,
-        voided_sonderereignis=None,
-    )
 
 
 @pytest.fixture
@@ -747,148 +692,3 @@ class TestReportingAFault:
         ]
 
         assert faults(spiele) == []
-
-
-class TestPuttingBackWhatTheResolutionDestroyed:
-    """The undo's whole input. `TestNamingWhatWasVoided`'s report says what went; this one says what it takes to put it back."""
-
-    def moved_by_a_corrected_feeder(self, fixture_at: FixtureFactory, side: SideFactory, **overrides: Any) -> list[dict[str, Any]]:
-        """Spiel 29 holds seed 1 while its source hands it seed 2, which is the disagreement a resolution rewrites."""
-
-        return [
-            fixture_at(25, team1=side(1, 1), team2=side(2, 3), ergebnis="1:3"),
-            fixture_at(29, team1=side(1, 2), team2=side(3, 0), ergebnis="2:0", quelle1=sieger(25), **overrides),
-        ]
-
-    def test_a_replaced_occupant_is_named_with_the_goals_it_scored(self, fixture_at: FixtureFactory, side: SideFactory):
-        """Both sides, never the one that moved: the rewrite takes the counterpart's goals with the scoreline."""
-
-        _, prior = priors(self.moved_by_a_corrected_feeder(fixture_at, side))
-
-        assert str(prior.spiel_id) == MATCH_ID.format(29)
-        assert prior.team1 is not None and prior.team2 is not None
-        assert (str(prior.team1.team_id), prior.team1.tore) == (BRACKET_TEAM_ID.format(1), 2)
-        assert (str(prior.team2.team_id), prior.team2.tore) == (BRACKET_TEAM_ID.format(3), 0)
-
-    def test_an_event_the_rewrite_leaves_standing_travels_back_all_the_same(self, fixture_at: FixtureFactory, side: SideFactory):
-        """`voided_sonderereignis` is null here, so a restore built from that field alone would clear an abandonment nobody touched."""
-
-        _, prior = priors(self.moved_by_a_corrected_feeder(fixture_at, side, sonderereignis="abgebrochen"))
-
-        assert prior.sonderereignis == "abgebrochen"
-
-    def test_a_shoot_out_travels_back_beside_the_goals_that_needed_it(self, fixture_at: FixtureFactory, side: SideFactory):
-        spiele = self.moved_by_a_corrected_feeder(fixture_at, side)
-        spiele[1] |= {"team2": side(3, 2), "ergebnis": "2:2", "elfmeterschiessen": {"team1": 4, "team2": 3}}
-
-        _, prior = priors(spiele)
-
-        assert prior.elfmeterschiessen is not None
-        assert (prior.elfmeterschiessen.team1, prior.elfmeterschiessen.team2) == (4, 3)
-
-    def test_a_fixture_both_reports_name_is_reported_once(self, fixture_at: FixtureFactory, side: SideFactory):
-        """A release is written before the resolution reads, so two entries would restore the fixture twice and the later one would win."""
-
-        reported = priors(self.moved_by_a_corrected_feeder(fixture_at, side), [a_release_of(29, ergebnis="2:0")])
-
-        assert [str(prior.spiel_id) for prior in reported] == [MATCH_ID.format(25), MATCH_ID.format(29)]
-
-    def test_a_released_fixture_keeps_the_booking_it_was_holding(self, fixture_at: FixtureFactory, side: SideFactory):
-        """A rewrite takes nothing off a booking, so the report names one only where `other_fields` does."""
-
-        spiele = self.moved_by_a_corrected_feeder(fixture_at, side)
-        held = stored_at(spiele, 29).schiedsrichter
-        assert held is not None
-
-        _, moved = priors(spiele, [a_release_of(29, ergebnis="2:0")])
-
-        assert moved.other_fields is None, "a fixture the write only released names no field beyond its Paarung"
-
-    def test_a_slice_missing_a_moved_fixture_is_refused(self, fixture_at: FixtureFactory, side: SideFactory):
-        """A restore silently short of one fixture is the failure this refusal exists for -- the rule's reading."""
-
-        with pytest.raises(ValueError, match="does not hold every fixture"):
-            priors(self.moved_by_a_corrected_feeder(fixture_at, side), [a_release_of(31)])
-
-    def test_the_fixture_the_request_named_leads_the_report_and_appears_once(self, fixture_at: FixtureFactory, side: SideFactory):
-        """Restoring it runs the resolution that refills the moved slots, so an entry after those would be written over."""
-
-        reported = priors(self.moved_by_a_corrected_feeder(fixture_at, side), [a_release_of(29, ergebnis="2:0")], edited=29)
-
-        assert [str(prior.spiel_id) for prior in reported] == [MATCH_ID.format(29)]
-
-    def test_a_write_that_moved_nothing_beyond_the_paarung_names_nothing_beyond_it(self, fixture_at: FixtureFactory, side: SideFactory):
-        """The null is what tells a reader to leave those fields alone; an empty list would read as the same answer twice."""
-
-        named, moved = priors(self.moved_by_a_corrected_feeder(fixture_at, side))
-
-        assert (named.other_fields, moved.other_fields) == (None, None)
-
-    def test_only_the_field_the_write_replaced_is_named_and_it_carries_the_replaced_value(self, fixture_at: FixtureFactory, side: SideFactory):
-        """The window this entry closes: a payload naming a field nobody moved reverts whoever moved it after the save."""
-
-        spiele = self.moved_by_a_corrected_feeder(fixture_at, side)
-        spiele[0] |= {"notiz": "Kunstrasen"}
-
-        named, _ = priors(spiele, wrote={"notiz": "Platz getauscht"})
-
-        assert named.other_fields is not None
-        assert named.other_fields.replaced == ["notiz"]
-        assert named.other_fields.notiz == "Kunstrasen"
-
-    def test_a_venue_renamed_since_the_save_is_no_field_this_write_replaced(self, fixture_at: FixtureFactory, side: SideFactory):
-        """The comparison reads the ids and the money a payload names: a composed name moving would restore a booking nobody changed."""
-
-        spiele = self.moved_by_a_corrected_feeder(fixture_at, side)
-        stored = stored_at(spiele, 25)
-        assert stored.ort is not None
-
-        named, _ = priors(spiele, wrote={"ort": stored.ort.model_copy(update={"name": "Halle Süd"})})
-
-        assert named.other_fields is None
-
-    def test_completing_a_restore_writes_what_the_report_names_and_leaves_what_it_does_not(self, fixture_at: FixtureFactory, side: SideFactory):
-        """The narrowing itself, on the fixture the request named: a value moved after the save survives its undo."""
-
-        spiele = self.moved_by_a_corrected_feeder(fixture_at, side)
-        spiele[0] |= {"notiz": "Kunstrasen"}
-        named, _ = priors(spiele, wrote={"notiz": "Platz getauscht"})
-
-        # The fixture as the save left it, plus a date somebody moved since — a field that save never touched.
-        now = stored_at(spiele, 25).model_copy(update={"notiz": "Platz getauscht", "datum": "2026-04-02"})
-
-        payload = restore_of(named).completed_with(now)
-
-        assert payload.notiz == "Kunstrasen"
-        assert payload.datum == "2026-04-02"
-
-    def test_completing_a_restore_leaves_every_field_the_rewrite_never_reached(self, fixture_at: FixtureFactory, side: SideFactory):
-        """The narrowing on a MOVED fixture, which names no field beyond its Paarung: a note added after the save survives."""
-
-        spiele = self.moved_by_a_corrected_feeder(fixture_at, side)
-        _, prior = priors(spiele)
-
-        stored = stored_at(spiele, 29)
-        # The fixture as the save left it, plus a note written since: the slot emptied, the scoreline gone.
-        now = stored.model_copy(update={"team1": None, "ergebnis": None, "notiz": "Platz getauscht"})
-
-        payload = restore_of(prior).completed_with(now)
-
-        assert payload.team1 is not None and str(payload.team1.team_id) == BRACKET_TEAM_ID.format(1)
-        assert payload.notiz == "Platz getauscht"
-        assert (payload.datum, payload.uhrzeit) == (now.datum, now.uhrzeit)
-        assert payload.team1_quelle == now.team1_quelle
-        assert now.ort is not None and payload.ort is not None and payload.ort.mietpreis == now.ort.mietpreis
-        assert now.schiedsrichter is not None and payload.schiedsrichter is not None
-        assert payload.schiedsrichter.payment == now.schiedsrichter.payment
-
-    def test_the_two_halves_name_every_field_the_wholesale_payload_takes(self):
-        """A field added to that payload and to neither half here is written by a save and put back by no undo."""
-
-        # `spiel_id` off both sides: the wholesale payload takes its target from the path, and a
-        # replay entry names its own, so neither is a field a save writes.
-        paarung = set(FLPatchSpielPaarungPayload.model_fields) - {"other_fields", "spiel_id"}
-        beyond = set(get_args(FLSpielRestorableField))
-
-        assert SPIEL_PATCH_WRITTEN_FIELDS == paarung | beyond
-        assert set(FLSpielPriorOtherFields.model_fields) - {"replaced"} == beyond
