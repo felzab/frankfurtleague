@@ -8,7 +8,6 @@ import { useFormAction } from "@/kit/useFormAction";
 import { authClient } from "@/core/authClient";
 import { COPY } from "@/core/copy";
 import { TURNSTILE_FIELD } from "@/core/turnstileToken";
-import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useTurnstile } from "@/shared/hooks/useTurnstile";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { postPublicForm } from "@/shared/utils/publicSubmit";
@@ -43,15 +42,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
       const submitted = new FormData();
       submitted.set("email", address);
       submitted.set(TURNSTILE_FIELD, anfrage.token);
-      const state = await handleSignIn(undefined, submitted);
-
-      // `null` is the action's initial state alone, which no send answers.
-      if (state === null) return { ok: false, reason: COPY.shared.fehler.unerwartet };
-      if (state.success) return { ok: true, value: state.submittedEmail ?? address };
-      // A malformed address is the field's: the one message the kit's field shows for it.
-      if (hasFieldErrors(state.fieldErrors))
-        return { ok: false, fieldErrors: { email: COPY.shared.feld.format(COPY.shared.feld.beispielAdresse) } };
-      return { ok: false, reason: signInAnswer(state.error) };
+      return handleSignIn(submitted);
     },
     { resetOnLeave: false },
   );
