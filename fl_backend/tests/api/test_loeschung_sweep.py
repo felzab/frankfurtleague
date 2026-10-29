@@ -215,7 +215,7 @@ def refusing_its_redaction(spieler_id: ObjectId) -> dict[str, Any]:
 
 
 def counts(answer: Any) -> dict[str, Any]:
-    return answer.model_dump(exclude={"acknowledged", "nach"})
+    return answer.model_dump(exclude={"nach"})
 
 
 # Past any population a case seeds, so the read names every due pupil at once.

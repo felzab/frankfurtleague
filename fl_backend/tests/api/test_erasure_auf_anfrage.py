@@ -299,7 +299,6 @@ async def their_requests_open(database: AsyncDatabase) -> None:
 # Every record the seed's person holds, as the page links each: compared whole, so every key at every depth is asserted.
 # The seed's requests opened by `their_requests_open`.
 EXPECTED_ANSICHT = {
-    "acknowledged": 1,
     "spieler": [
         {
             "spieler_id": str(PUPIL_OID),
@@ -369,7 +368,7 @@ class TestTheRegistryRunsWhole:
         assert pupil is not None and pupil["inactive_since"] is None
         assert all(held[value] for value in THEIR_VALUES), held
         assert response.status_code == 200, response.json()
-        assert {key: value for key, value in response.json().items() if key != "acknowledged"} == {
+        assert response.json() == {
             "spieler": 1,
             "saison_spieler": 1,
             "schiedsrichter": 1,
@@ -1046,7 +1045,7 @@ class TestTheSignOut:
         response, before, after, served = on_a_league(mongo_replica_set_url, body)
         filed = [row for row in after[Collection.AKTIONEN] if row not in before[Collection.AKTIONEN]]
 
-        assert (response.status_code, response.json()) == (200, {"acknowledged": 1})
+        assert (response.status_code, response.json()) == (200, {})
         # The actor's grant takes its anchor's count, which any judged write adds and nobody reads.
         assert unanchored(after, besides=Collection.AKTIONEN) == unanchored(before, besides=Collection.AKTIONEN)
         assert [{key: row[key] for key in ROW_KEYS} for row in filed] == [

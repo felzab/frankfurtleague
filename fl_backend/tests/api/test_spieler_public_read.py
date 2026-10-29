@@ -171,7 +171,7 @@ class TestTheSinglePlayerShape:
 
     def test_it_serves_an_allow_list_of_what_the_surface_needs(self):
         """Derived from what a caller of THIS path needs, never the stored person less whatever looked sensitive."""
-        assert set(FLSpielerSingleResponse.model_fields) == {"acknowledged", "spieler_id", "vorname", "nachname"}
+        assert set(FLSpielerSingleResponse.model_fields) == {"spieler_id", "vorname", "nachname"}
 
     def test_the_leaving_date_is_not_on_it(self):
         """Nothing public renders a pupil's leaving date, and a field no surface needs is a field no surface is given."""
@@ -547,7 +547,6 @@ class TestTheBaseTierReadExecuted:
     def test_the_one_player_read_carries_no_leaving_date(self, seeded_url: str):
         """Against the RETIRED person, so a date really is stored and its absence from the wire is the redaction."""
         assert self._read_one(seeded_url, "Weber") == {
-            "acknowledged": 1,
             "spieler_id": str(SPIELER_OIDS["Weber"]),
             "vorname": "Jonas",
             "nachname": "W.",
@@ -822,7 +821,6 @@ class TestThePublicationGate:
         row = MASKED_SQUAD[case]
 
         assert self._read_one(masked_url, case) == {
-            "acknowledged": 1,
             "spieler_id": str(row.oid),
             "vorname": row.served_vorname,
             "nachname": row.served_nachname,

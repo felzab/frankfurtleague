@@ -249,7 +249,7 @@ class TestThePersonsStart:
             return sorted(minted.model_dump()), (await change(database, minted.id))["email"]
 
         assert on_a_person(mongo_replica_set_url, body) == (
-            ["acknowledged", "bisherige_email", "email", "genehmiger_anzahl", "gueltig_bis", "id", "stopp_token", "token", "vorname"],
+            ["bisherige_email", "email", "genehmiger_anzahl", "gueltig_bis", "id", "stopp_token", "token", "vorname"],
             NEW_EMAIL,
         )
 
@@ -557,7 +557,7 @@ class TestTheSystemsReadOfTheNewAddress:
         status, answered, written = on_a_person(mongo_replica_set_url, body)
 
         assert (status, answered["email"]) == (200, NEW_EMAIL)
-        assert "/adresswechsel/sweep/adresse -> 200" in written, (
+        assert f'"path": "/api/v{API_VERSION}/adresswechsel/sweep/adresse", "status": 200' in written, (
             "the request's own line was not captured, so the absence below holds of nothing"
         )
         assert NEW_EMAIL not in written.lower()

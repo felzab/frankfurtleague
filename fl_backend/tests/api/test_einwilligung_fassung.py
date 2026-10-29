@@ -120,7 +120,7 @@ class TestTheReadsOverHttp:
             response = CLIENT.get(f"{PREFIX}/fassungen/{label}", headers=BASE_AUTH)
 
             assert response.status_code == HTTPStatus.OK, label
-            assert response.json() == {"acknowledged": 1, "fassung": as_registered(label)}, label
+            assert response.json() == {"fassung": as_registered(label)}, label
 
     def test_a_label_the_registry_does_not_hold_is_the_not_found_body(self):
         response = CLIENT.get(f"{PREFIX}/fassungen/2026-07", headers=BASE_AUTH)
@@ -133,4 +133,4 @@ class TestTheReadsOverHttp:
         response = CLIENT.get(f"{PREFIX}/seiten", headers=BASE_AUTH)
 
         assert response.status_code == HTTPStatus.OK
-        assert response.json() == {"acknowledged": 1, "laufende_fassungen": dict(LAUFENDE_FASSUNGEN)}
+        assert response.json() == {"laufende_fassungen": dict(LAUFENDE_FASSUNGEN)}

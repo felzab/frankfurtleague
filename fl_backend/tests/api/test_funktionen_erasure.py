@@ -850,7 +850,7 @@ class TestNothingOfTheirsIsLeftAnywhere:
 
         answer = on_a_league(mongo_replica_set_url, body)
 
-        assert {key: value for key, value in answer.items() if key != "acknowledged"} == {
+        assert answer == {
             "spieler": 1,
             "saison_spieler": 1,
             "schiedsrichter": 1,

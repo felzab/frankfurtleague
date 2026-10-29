@@ -300,7 +300,6 @@ class TestWhatASubmissionStores:
         response = on_a_league(mongo_replica_set_url, lambda database: submit(database))
 
         assert set(response.model_dump()) == {
-            "acknowledged",
             "created_id",
             "saison_id",
             "eingereicht_am",

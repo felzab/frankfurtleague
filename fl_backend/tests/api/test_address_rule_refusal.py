@@ -15,6 +15,7 @@ import app
 from app.api.identitaet.schemas import FLAbmeldungPayload, FLErasureAnsichtPayload, FLErasurePayload
 from app.core.codes import Code
 from app.core.config import API_VERSION
+from app.shared.folding import league_address
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
@@ -135,13 +136,35 @@ def _every_model(root: type[BaseModel]) -> Iterator[type[BaseModel]]:
         yield from _every_model(model)
 
 
-def _publishes_an_address(schema: Mapping[str, Any]) -> bool:
-    # A nullable field publishes its type as one arm of `anyOf`.
-    return any(arm.get("format") == "email" for arm in [schema, *schema.get("anyOf", [])])
+# The two validators an address type runs: the league's rule, and pydantic's own, which a field typed
+# `EmailStr` alone runs without the rule -- the field this sweep is here to find. By name for the
+# second, `EmailStr` being an `Annotated` alias to the checker.
+EMAIL_STR_VALIDATOR = "EmailStr._validate"
+
+# A nested model is a field of its own, swept as that model's.
+NESTED_SCHEMAS = frozenset({"model", "dataclass", "typed-dict", "definition-ref", "definitions"})
+
+
+def _validates_an_address(schema: Any) -> bool:
+    """Whether a field's core schema runs an address validator, a nullable or a union arm included."""
+
+    if isinstance(schema, Mapping):
+        if schema.get("type") in NESTED_SCHEMAS:
+            return False
+        function = schema.get("function")
+        if isinstance(function, Mapping):
+            validator = function.get("function")
+            if validator is league_address or getattr(validator, "__qualname__", "") == EMAIL_STR_VALIDATOR:
+                return True
+        return any(_validates_an_address(value) for value in schema.values())
+    if isinstance(schema, list):
+        return any(_validates_an_address(value) for value in schema)
+
+    return False
 
 
 def _address_fields() -> dict[str, TypeAdapter[Any]]:
-    """Every field of every model under `app/` publishing itself as an address, found by that contract rather than by the rule under test."""
+    """Every field of every model under `app/` validated as an address, by the league's rule or by `EmailStr` without it."""
 
     for name in _every_module():
         importlib.import_module(name)
@@ -156,7 +179,7 @@ def _address_fields() -> dict[str, TypeAdapter[Any]]:
             with warnings.catch_warnings(action="ignore", category=UnsupportedFieldAttributeWarning):
                 # A field's type read at run time, which no type expression spells, so the checker takes it as `Any`.
                 adapter = TypeAdapter(cast(Any, Annotated[field.annotation, field]))
-            if _publishes_an_address(adapter.json_schema()):
+            if _validates_an_address(adapter.core_schema):
                 fields[f"{model.__module__}.{model.__qualname__}.{field_name}"] = adapter
 
     return fields

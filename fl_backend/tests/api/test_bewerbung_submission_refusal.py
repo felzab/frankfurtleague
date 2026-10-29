@@ -949,7 +949,7 @@ class TestTheColoursASeasonHasAlreadyAssigned:
 
         response = asyncio.run(_colours_for(collection, bewerbung=dict(COLOUR_READ_WINDOW)))
 
-        assert set(response.model_dump()) == {"acknowledged", "saison_id", "vergeben"}
+        assert set(response.model_dump()) == {"saison_id", "vergeben"}
 
     @pytest.mark.parametrize(
         "bewerbung",

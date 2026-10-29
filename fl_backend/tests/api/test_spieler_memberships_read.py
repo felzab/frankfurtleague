@@ -117,7 +117,6 @@ class TestTheResponseModel:
     def test_a_player_with_no_squad_row_is_valid(self):
         response = FLSpielerMembershipsResponse.model_validate(
             {
-                "acknowledged": 1,
                 "spieler": [
                     {
                         "_id": str(SPIELER_OIDS["Ohne"]),

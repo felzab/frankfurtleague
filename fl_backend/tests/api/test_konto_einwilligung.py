@@ -1080,7 +1080,6 @@ class TestAPendingApplicationsSeats:
 
         assert response.status_code == 200, response.text
         assert response.json() == {
-            "acknowledged": 1,
             "bewerbung_id": str(PENDING_OID),
             "rollen": ["trainer", "ansprechperson"],
             "umfang": "kontaktdaten",
@@ -1280,7 +1279,6 @@ class TestAPendingRegistration:
         assert response.status_code == 200, response.text
         einwilligung = after[REGISTRIERUNG_OWN]["einwilligung"]
         assert response.json() == {
-            "acknowledged": 1,
             "registrierung_id": str(REGISTRIERUNG_OWN),
             # As the read model serves the stored block, every declared field spelled.
             "einwilligung": FLRegistrierungEinwilligung.model_validate(einwilligung).model_dump(mode="json"),
