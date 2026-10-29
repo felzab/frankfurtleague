@@ -1,5 +1,8 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  // Generated from `fl_backend/openapi.json` by `orval.config.ts`: an export for every operation and component, which
+  // a caller takes as it needs (https://knip.dev/guides/handling-issues).
+  "entry": ["src/core/generated/**/*.ts"],
   // One directory up, where knip does not look: without it the two Prettier plugins read as unused.
   "prettier": {
     "config": ["../.prettierrc.json"]
