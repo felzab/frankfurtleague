@@ -112,7 +112,7 @@ describe("the re-send the editor's panel presses", () => {
       "the re-send never minted, so what it moves is judged on nothing",
     ).toBe(true);
 
-    expect(cacheCalls).toStrictEqual([{ name: "refresh", args: [] }]);
+    expect(cacheCalls.filter(({ name }) => name === "refresh")).toStrictEqual([{ name: "refresh", args: [] }]);
   });
 
   /* The row is read before the mint, so a save landing between the two moved the mailbox this link

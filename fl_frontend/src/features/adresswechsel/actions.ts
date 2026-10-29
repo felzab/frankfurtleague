@@ -50,9 +50,6 @@ import type {
 /** What the tool's two link writes answer: each message's outcome. */
 export type AdresswechselGesendet = ActionResult<{ versand: LinkVersand | null; hinweis: HinweisVersand | null }>;
 
-// No write here moves a cache tag: no cached read holds an address, a pending one least of all, and the records a
-// change moves are served on admin reads alone, which are never cached.
-
 /** What the address holds and the change pending at it, read when the administrator asks: a person's records are never browsed. */
 export async function readAdresswechselAnsichtAction(
   rawPayload: FLAdresswechselVerwaltungAnsichtPayload,

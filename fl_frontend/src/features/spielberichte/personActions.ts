@@ -16,7 +16,7 @@ import type z from "zod";
 
 /**
  * The booked referee's report. It claims the referee's own record rather than a seat, and the backend
- * judges the booking; no cache tag moves, the report being read uncached wherever it is read.
+ * judges the booking.
  */
 export async function putSpielberichtAction(spielId: string, rawPayload: z.input<typeof FLSpielberichtPayloadSchema>): Promise<ActionResult> {
   return runPersonRecordMutation("putSpielberichtAction", async () => {

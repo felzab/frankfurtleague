@@ -79,7 +79,6 @@ vi.mock("@/shared/utils/adminMutation", () => ({
     return stand.unklar ? { success: false, error: "Ob gespeichert wurde, ist unklar.", outcome: "unknown" } : answer;
   },
   FORBIDDEN_BY_REFUSAL: { signIn: "abgelaufen", noGrant: "kein Zugang", grantGone: "kein Zugang", unread: "ungelesen" },
-  invalidatesOnWrite: () => undefined,
 }));
 
 const refusal = (serverErrorCode: string) =>

@@ -2,7 +2,7 @@
 
 import z from "zod";
 
-import { invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
+import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { partlyRestored, refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -38,11 +38,6 @@ import type {
 } from "./schemas";
 import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerPersonPayloadDraft } from "./types";
 
-/** Base tag only, for the reason `fl_frontend/src/features/spieler/queries.ts :: getSpieler` gives. */
-function invalidateSpieler(): void {
-  invalidatesOnWrite("spieler");
-}
-
 export async function patchSpielerAction(
   rawPayload: SpielerPersonPayloadDraft,
 ): Promise<ActionResult<{ spieler?: FLSpielerAdminSingleResponse }>> {
@@ -53,7 +48,6 @@ export async function patchSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSpieler();
     const patchOperation = await patchSpieler(validated.data);
     if (!patchOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Die Spielerdaten wurden nicht gespeichert", repair: VERSUCHE_ES_ERNEUT }) };
@@ -77,7 +71,6 @@ export async function deleteSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSpieler();
     const deleteOperation = await deleteSpieler(validated.data);
     if (!deleteOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Der Spieler wurde nicht stillgelegt", repair: VERSUCHE_ES_ERNEUT }) };
@@ -101,7 +94,6 @@ export async function reactivateSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSpieler();
     const reactivateOperation = await reactivateSpieler(validated.data);
     if (!reactivateOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Der Spieler wurde nicht reaktiviert", repair: VERSUCHE_ES_ERNEUT }) };
@@ -126,7 +118,6 @@ export async function postSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSpieler();
     let saisonSpieler;
     try {
       saisonSpieler = await postSaisonSpieler(validated.data);
@@ -158,7 +149,6 @@ export async function patchSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSpieler();
     let saisonSpieler;
     try {
       saisonSpieler = await patchSaisonSpieler(validated.data);
@@ -187,7 +177,6 @@ export async function deleteSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSpieler();
     const deleteOperation = await deleteSaisonSpieler(validated.data);
 
     return {
@@ -210,7 +199,6 @@ export async function reactivateSaisonSpielerAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSpieler();
     // Reviving a row takes a squad slot like any other write, so the cap refuses it too
     // (`REQ-SQUAD-003`) — and the shared fallback would name no reason.
     let reactivateOperation;
@@ -251,7 +239,6 @@ export async function undoAdminSpielerEditAction(rawPayload: z.input<typeof Spie
     if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
     const { person, saison } = validated.data;
 
-    invalidateSpieler();
     if (person !== undefined) {
       // No replay catch: the register declares no refusal against the season-independent person row.
       const operation = await patchSpieler(person);

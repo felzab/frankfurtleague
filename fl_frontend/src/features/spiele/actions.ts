@@ -1,14 +1,14 @@
 "use server";
 
 import { FLSpielberichtBerichtSchema } from "@/features/spielberichte/schemas";
-import { invalidatesOnWrite, runAdminMutation } from "@/shared/utils/adminMutation";
+import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { refusedReplay, restored, runAdminUndo, unclearReplay, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { patchAdminSpielData, patchAdminSpielePaarungen, previewAdminSpielData } from "./mutations";
 import { mapSpielRefusal, PAARUNGEN_REPLAY_REFUSALS } from "./refusals";
-import { FLPatchSpielDataPayloadSchema, FLPatchSpielePaarungenPayloadSchema, FLSpielSchema } from "./schemas";
+import { FLPatchSpielDataPayloadSchema, FLPatchSpielePaarungenPayloadSchema } from "./schemas";
 import { describeMovedSpiele, formatSpielUpdateMessage } from "./utils";
 
 import type { ActionResult, QueryResult } from "@/shared/types/types";
@@ -35,11 +35,7 @@ type SavedFixtures = MovedFixtures & {
   priorBericht?: FLSpielPriorBericht | null;
 };
 
-export async function patchAdminSpielDataAction(
-  rawPayload: unknown,
-  rawSaisonId: unknown,
-  rawUebernimmtBericht: unknown,
-): Promise<ActionResult<SavedFixtures>> {
+export async function patchAdminSpielDataAction(rawPayload: unknown, rawUebernimmtBericht: unknown): Promise<ActionResult<SavedFixtures>> {
   return runAdminMutation("patchAdminSpielDataAction", async () => {
     const validated = FLPatchSpielDataPayloadSchema.safeParse(rawPayload);
 
@@ -50,15 +46,6 @@ export async function patchAdminSpielDataAction(
         fieldErrors: toFieldErrors(validated.error),
       };
     }
-
-    // Not redundant with the granular tags below: the default read path sends no `saison_id`, so
-    // the commonest entries carry only these and a season-only invalidation leaves them stale.
-    invalidatesOnWrite("spiele", "teams");
-
-    // From the loaded spiel, never the patch body — the backend's payload does not declare
-    // `saison_id` and Pydantic drops it. A failed parse costs a stale cache, never the edit.
-    const saisonId = FLSpielSchema.shape.saison_id.safeParse(rawSaisonId);
-    if (saisonId.success) invalidatesOnWrite(`spiele:saison_id:${saisonId.data}`, `teams:saison_id:${saisonId.data}`);
 
     // A failed parse costs the adoption, never the edit: the report reads not adopted, and adopting it again repairs that.
     const uebernimmtBericht = FLSpielberichtBerichtSchema.shape.version.nullable().safeParse(rawUebernimmtBericht);
@@ -97,8 +84,7 @@ export async function patchAdminSpielDataAction(
 
 /**
  * The save's own answer without the write: `dry_run=true` applies the payload in memory through the
- * same code the save uses. **No `invalidatesOnWrite` here, ever** — nothing changed, so it would evict every
- * cached match list on every keystroke.
+ * same code the save uses. Its call is sent as changing nothing, so the spine clears no cached read on a keystroke.
  */
 export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<QueryResult<MovedFixtures>> {
   return runAdminMutation("previewAdminSpielDataAction", async () => {
@@ -130,18 +116,16 @@ export async function previewAdminSpielDataAction(rawPayload: unknown): Promise<
 
 /**
  * The save's own report, never one built from the page's props, which would revert a field another
- * writer moved while the editor stood open; and the season keying the cached reads, which the endpoint
- * derives for itself.
+ * writer moved while the editor stood open.
  */
-const SpielUndoSchema = FLPatchSpielePaarungenPayloadSchema.extend({ saison_id: FLSpielSchema.shape.saison_id });
+const SpielUndoSchema = FLPatchSpielePaarungenPayloadSchema;
 
 export async function undoAdminSpielEditAction(rawPayload: z.input<typeof SpielUndoSchema>): Promise<UndoOutcome> {
   return runAdminUndo("undoAdminSpielEditAction", async () => {
     const validated = SpielUndoSchema.safeParse(rawPayload);
     if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
 
-    const { saison_id, paarungen, bericht } = validated.data;
-    invalidatesOnWrite("spiele", "teams", `spiele:saison_id:${saison_id}`, `teams:saison_id:${saison_id}`);
+    const { paarungen, bericht } = validated.data;
     let operation;
     try {
       operation = await patchAdminSpielePaarungen({ paarungen, bericht });

@@ -1,7 +1,7 @@
 "use server";
 
 import { mapEigeneEinwilligungRefusal, MedienMindestalterSchema, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
-import { invalidatesOnWrite, refusalResult } from "@/shared/utils/adminMutation";
+import { refusalResult } from "@/shared/utils/adminMutation";
 import { runPersonMutation, runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -14,14 +14,6 @@ import type { ActionResult } from "@/shared/types/types";
 import type z from "zod";
 import type { FLEinwilligungStand, FLKaderZeileKeyPayload, FLKaderZeileResponse, FLPatchKaderZeilePayload } from "./schemas";
 
-/**
- * The public squad read is cached for days and joins every squad row, so a seat holder's edit drops its
- * base tag as the administrator's does (`fl_frontend/src/features/spieler/queries.ts :: getSpieler`).
- */
-function invalidateSpieler(): void {
-  invalidatesOnWrite("spieler");
-}
-
 /** A seat holder's edit of one live squad row: number, position, level and captaincy, nothing else. */
 export async function patchKaderZeileAction(
   rawPayload: FLPatchKaderZeilePayload,
@@ -33,7 +25,6 @@ export async function patchKaderZeileAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSpieler();
     let kaderZeile;
     try {
       kaderZeile = await patchKaderZeile(validated.data);
@@ -58,7 +49,6 @@ export async function deleteKaderZeileAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    invalidateSpieler();
     const kaderZeile = await deleteKaderZeile(validated.data);
 
     return { success: true, kader_zeile: kaderZeile, message: KADER_AUSTRAGEN_FOLGE };
@@ -82,9 +72,6 @@ export async function patchSpielerEinwilligungAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: validated.success ? undefined : toFieldErrors(validated.error) };
     }
 
-    // The consent is an input of the public squad read (`READ-PUPIL-003`), cached for days: a withdrawal
-    // that drops no tag keeps the name published until it expires.
-    invalidateSpieler();
     let antwort;
     try {
       antwort = await patchSpielerSelbstEinwilligung(validated.data);

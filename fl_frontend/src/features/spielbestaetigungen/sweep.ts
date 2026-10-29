@@ -6,7 +6,6 @@ import { requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
-import { revalidateOverLoopback } from "@/core/revalidation";
 import {
   buildSpielAbgesagtEmail,
   buildSpielAnfrageEmail,
@@ -87,7 +86,8 @@ export function armSpielSweep(): void {
 let laeuft = false;
 
 /**
- * One pass over every season the listing answers, then the fixtures cache's drop.
+ * One pass over every season the listing answers. The fixture pages show what it closed within the `minutes`
+ * lifetime their cached read keeps.
  *
  * Settles rather than throws: nothing awaits this, so a rejection would surface as an unhandled one
  * an hour after the tick that caused it.
@@ -103,8 +103,6 @@ export async function runSpielSweep(): Promise<void> {
   try {
     await sweepAlleSaisons();
   } finally {
-    // On every armed pass, one whose listing failed included.
-    await revalidateOverLoopback(["spiele"]);
     laeuft = false;
   }
 }
