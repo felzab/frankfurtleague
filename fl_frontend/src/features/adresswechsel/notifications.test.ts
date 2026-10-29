@@ -233,7 +233,7 @@ describe("the notice a change sends the address in force", () => {
   it("ends as unclear where its send broke off unanswered, leaving the request's outcome unmarked", async () => {
     mail.answerWith(({ to }) => (to === BISHER ? "lost" : { accepted: "56761188-7520-42d8-8898-ff6fc54ce618" }));
 
-    const [versand, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
+    const [versand, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32) }, async () => {
       const ended = await sendeWechsel();
       return [ended, requestOutcomeUnknown()] as const;
     });

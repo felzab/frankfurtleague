@@ -38,7 +38,7 @@ const MUTATIONS_DOUBLE = {
   },
 };
 
-// The error argument is CAPTURED, never discarded: `fl_frontend/src/core/logFormat.ts :: serializeError`
+// The error argument is CAPTURED, never discarded: `fl_frontend/src/core/logging.ts`
 // writes an error's message and stack, so a double that drops it cannot see an address reaching the
 // stream through one.
 const LOGGING_DOUBLE = {
@@ -318,7 +318,7 @@ describe("one fan-out about a record", () => {
   it("counts a send that broke off unanswered as of unknown outcome, never unreachable, and marks the request", async () => {
     outcomes.set(ADDRESS, "lost");
 
-    const [settled, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
+    const [settled, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32) }, async () => {
       const outcome = await sendZielMail({
         operation: "schiedsrichter.einladung",
         auftrag: auftrag,
@@ -339,7 +339,7 @@ describe("one fan-out about a record", () => {
   it("counts a send refused before it left as unreachable, never unclear, and records nothing", async () => {
     outcomes.set(ADDRESS, "unsent");
 
-    const [settled, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
+    const [settled, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32) }, async () => {
       const outcome = await sendZielMail({
         operation: "schiedsrichter.einladung",
         auftrag: auftrag,

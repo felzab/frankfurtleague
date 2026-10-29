@@ -236,7 +236,7 @@ export async function sendZielMail({
     // The submit is where a refused address is learnt at all: no message was minted, so no delivery
     // event will ever carry this to the record the clocks read.
     if (versandIstAbgewiesen(result.reason)) gemeldet.push(meldeAbgewiesen(auftrag, result.reason, operation));
-    // Name only, never the error: `fl_frontend/src/core/logFormat.ts :: serializeError` writes a
+    // Name only, never the error: `fl_frontend/src/core/logging.ts` writes a
     // message and a stack, and the address stays off the stream.
     logger.error("zustellung.mail_failed", undefined, {
       error_code: "FE-MAIL-002",

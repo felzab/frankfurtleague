@@ -3355,7 +3355,7 @@ describe("which spelling of an administrator a write is attributed to", () => {
     held.email = ADMIN_EMAIL.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61));
     arriveAs(cookie);
 
-    const actor = await runWithRequestScope({ traceId: `${"0".repeat(31)}1`, spanId: `${"0".repeat(15)}1` }, async () => {
+    const actor = await runWithRequestScope({ traceId: `${"0".repeat(31)}1` }, async () => {
       assert.ok(await getAdminSession(), "the guard refused the session, so no actor was set at all");
 
       return getRequestActor();
@@ -3373,7 +3373,7 @@ describe("which spelling of an administrator a write is attributed to", () => {
     madeByPasskey(store, row);
     arriveAs(cookie);
 
-    const actor = await runWithRequestScope({ traceId: `${"0".repeat(31)}1`, spanId: `${"0".repeat(15)}1` }, async () => {
+    const actor = await runWithRequestScope({ traceId: `${"0".repeat(31)}1` }, async () => {
       assert.ok(await getAdminSession(), "the guard refused the session, so no actor was set at all");
 
       return getRequestActor();
@@ -3463,7 +3463,6 @@ async function asPerson<T>(email: string, run: () => Promise<T>): Promise<T> {
   return runWithRequestScope(
     {
       traceId: `${"0".repeat(31)}3`,
-      spanId: `${"0".repeat(15)}3`,
       // A token nobody verifies: the backend these cases reach is the erasure each case hands in.
       actor: { email: email, lane: "person", token: "doubled-person-token-not-a-credential" },
     },

@@ -33,7 +33,7 @@ const MUTATIONS_DOUBLE = {
   },
 };
 
-// The error argument is CAPTURED, never discarded: `fl_frontend/src/core/logFormat.ts :: serializeError`
+// The error argument is CAPTURED, never discarded: `fl_frontend/src/core/logging.ts`
 // writes an error's message and stack, so a double that drops it cannot see an address reaching the
 // stream through one.
 const LOGGING_DOUBLE = {
@@ -406,7 +406,7 @@ describe("a fan-out that cannot reach everyone", () => {
     reset();
     outcomes.set("zweite@schule.de", "lost");
 
-    const [outcome, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
+    const [outcome, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32) }, async () => {
       const settled = await sendBewerbungMail({
         operation: "annehmenBewerbungAction",
         recipients: ["erste@schule.de", "zweite@schule.de"].map((address) => empfaenger(address)),
@@ -426,7 +426,7 @@ describe("a fan-out that cannot reach everyone", () => {
     reset();
     outcomes.set("zweite@schule.de", "unsent");
 
-    const [outcome, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
+    const [outcome, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32) }, async () => {
       const settled = await sendBewerbungMail({
         operation: "annehmenBewerbungAction",
         recipients: ["erste@schule.de", "zweite@schule.de"].map((address) => empfaenger(address)),

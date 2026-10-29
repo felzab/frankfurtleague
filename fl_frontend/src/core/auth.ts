@@ -1022,7 +1022,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
         const event = LIBRARY_EVENTS.find(([opening]) => message.startsWith(opening))?.[1] ?? LIBRARY_EVENT_UNKNOWN;
 
         // `args` is dropped whole: it carries the error object itself, which
-        // `fl_frontend/src/core/logFormat.ts :: serializeError` writes with its message and stack.
+        // `fl_frontend/src/core/logging.ts` writes with its message and stack.
         const raised = args.find((argument) => argument instanceof Error);
 
         // A second row for a credential the index holds: one authenticator enrolled twice at once without signing in, or
@@ -1235,7 +1235,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
             if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
 
             // Name only: a failure on this path routinely carries the submitted address, and
-            // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and stack in full.
+            // `fl_frontend/src/core/logging.ts` writes its message and stack, an address alone scrubbed.
             logger.error("auth.code_send_failed", undefined, {
               error_code: "FE-AUTH-002",
               name: failed instanceof Error ? failed.name : "unknown",

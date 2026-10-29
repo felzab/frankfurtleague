@@ -16,9 +16,9 @@ import {
   UnattributedAdminCallError,
 } from "./errors";
 import { logger } from "./logging";
-import { boundCall, getRequestActor, getRequestSpanId, getRequestTraceId, requestTimeLeft } from "./requestScope";
+import { boundCall, getRequestActor, getRequestTraceId, requestTimeLeft } from "./requestScope";
 import { FLRefusedPayloadBodySchema } from "./schemas";
-import { ACTOR_HEADER, formatTraceparent, mintSpanId, mintTraceId, TRACEPARENT_HEADER } from "./trace";
+import { ACTOR_HEADER, formatTraceparent, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
 import type { SentRequest } from "./errors";
 
@@ -140,7 +140,6 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   // the ids reach the header and the errors, never the returned value.
   const scopedTraceId = getRequestTraceId();
   const traceId = scopedTraceId ?? mintTraceId();
-  const spanId = getRequestSpanId() ?? mintSpanId();
 
   const { authType = BASE_FETCH_AUTH_TYPE, timeoutMs = BASE_FETCH_TIMEOUT_MS, params, cacheFill, readOnly, ...customOptions } = options;
 
@@ -151,7 +150,6 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
     logger.info("cache fill", {
       cache_fill: { name: cacheFill.name, args: JSON.stringify(cacheFill.args) },
       trace_id: traceId,
-      span_id: spanId,
     });
   }
 
@@ -163,9 +161,8 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   // make the call.
   new Headers(customOptions.headers).forEach((value, key) => headers.set(key, value));
 
-  // This hop's own span, the edge's trace: the backend reads the trace id off it and mints a span
-  // of its own.
-  headers.set(TRACEPARENT_HEADER, formatTraceparent({ traceId: traceId, spanId: spanId }));
+  // The edge's trace, which the backend reads off it and writes on its own lines.
+  headers.set(TRACEPARENT_HEADER, formatTraceparent(traceId));
   // Admin tier alone: a base or system call is the app acting as itself, and an actor on one would
   // attribute a machine read to a person. Omitted rather than sent empty, so an unattributed call
   // reads as one everywhere it is inspected.

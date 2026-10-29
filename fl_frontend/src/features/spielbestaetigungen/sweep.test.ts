@@ -138,7 +138,6 @@ const CONFIG_DOUBLE = {
     throw new Error("the doubled config refuses no environment");
   },
   frontend_config: {
-    LOG_FORMAT: "console",
     AUTH_URL: "http://localhost:3000",
     // The boot reads the signing key before it arms anything.
     ACTOR_SIGNING_KEY_FILE: ACTOR_KEY_FILE,

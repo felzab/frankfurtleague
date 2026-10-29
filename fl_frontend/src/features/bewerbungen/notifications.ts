@@ -371,7 +371,7 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
       // No failure line: the mailer's own records a filed message, and a deployment that mails nothing failed nothing.
       return;
     }
-    // Name only, never the error: `fl_frontend/src/core/logFormat.ts :: serializeError` writes a
+    // Name only, never the error: `fl_frontend/src/core/logging.ts` writes a
     // message and a stack, and the address stays off the stream.
     logger.error("bewerbung.mail_failed", undefined, {
       error_code: "FE-MAIL-002",

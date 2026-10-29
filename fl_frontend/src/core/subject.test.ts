@@ -157,7 +157,7 @@ function ageRow(row: SessionRow, { created = 0, idle = 0 }: { created?: number; 
 
 /** The guard inside a request scope, which is where `setRequestActor` has a store to write into. */
 async function guardInScope(): Promise<{ answer: Awaited<ReturnType<typeof getSubjectSession>>; actor: RequestActor | undefined }> {
-  return runWithRequestScope({ traceId: "0".repeat(31) + "1", spanId: "0".repeat(15) + "1" }, async () => {
+  return runWithRequestScope({ traceId: "0".repeat(31) + "1" }, async () => {
     const answer = await getSubjectSession();
 
     return { answer: answer, actor: getRequestActor() };
@@ -595,7 +595,7 @@ describe("the guard across one render pass", () => {
     const readsBefore = headerReads();
 
     assert.ok(await getAdminSession(), "the guard refused, so the scope below is asked about nothing");
-    const actor = await runWithRequestScope({ traceId: "0".repeat(31) + "1", spanId: "0".repeat(15) + "1" }, async () => {
+    const actor = await runWithRequestScope({ traceId: "0".repeat(31) + "1" }, async () => {
       await getAdminSession();
       return getRequestActor();
     });
@@ -612,7 +612,7 @@ describe("the guard across one render pass", () => {
     const readsBefore = headerReads();
     const sentBefore = sent.length;
 
-    const answers = await runWithRequestScope({ traceId: "0".repeat(31) + "1", spanId: "0".repeat(15) + "1" }, () =>
+    const answers = await runWithRequestScope({ traceId: "0".repeat(31) + "1" }, () =>
       Promise.all([getSubjectSession(), getSubjectSession(), getSubjectSession()]),
     );
 
@@ -636,7 +636,7 @@ describe("the guard across one render pass", () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
 
-    const [first, second] = await runWithRequestScope({ traceId: "0".repeat(31) + "1", spanId: "0".repeat(15) + "1" }, () =>
+    const [first, second] = await runWithRequestScope({ traceId: "0".repeat(31) + "1" }, () =>
       Promise.all([getSubjectSession(), getSubjectSession()]),
     );
 

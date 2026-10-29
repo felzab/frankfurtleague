@@ -18,7 +18,7 @@ const record =
   (event: string, ...rest: unknown[]): void =>
     void lines.push({ level, event, fields: rest.at(-1) });
 const LOGGING_DOUBLE = { logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") } };
-const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: "http://localhost:3000", LOG_FORMAT: "console" } };
+const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: "http://localhost:3000" } };
 
 vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
 vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);

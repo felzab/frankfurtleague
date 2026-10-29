@@ -82,7 +82,7 @@ async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId
     if (ausfall === "zurueckgehalten") return ZURUECKGEHALTEN;
 
     // The NAME alone: a failure on this path routinely carries the address, and
-    // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and a stack in full.
+    // `fl_frontend/src/core/logging.ts` writes its message and stack, an address alone scrubbed.
     logger.error("sperrliste.notice_failed", undefined, {
       error_code: "FE-MAIL-008",
       name: failed instanceof Error ? failed.name : "unknown",

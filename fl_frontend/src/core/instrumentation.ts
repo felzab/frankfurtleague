@@ -30,7 +30,7 @@ function traceIdOf(request: NextRequestInfo): string | undefined {
 
   const raw = headers instanceof Headers ? headers.get(TRACEPARENT_HEADER) : headers[TRACEPARENT_HEADER];
   const value = Array.isArray(raw) ? raw[0] : (raw ?? undefined);
-  return readTraceparent(value)?.traceId;
+  return readTraceparent(value);
 }
 
 export async function onRequestError(err: Error, request: unknown, context: NextRequestContext) {

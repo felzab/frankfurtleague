@@ -78,7 +78,7 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
         await sendSignInCode(email, requestHeaders);
       } catch (failed) {
         // Name only: an error on this path routinely carries the submitted address, and
-        // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and stack in full.
+        // `fl_frontend/src/core/logging.ts` writes its message and stack, an address alone scrubbed.
         logger.error("auth.sign_in_failed", undefined, {
           error_code: "FE-AUTH-002",
           name: failed instanceof Error ? failed.name : "unknown",

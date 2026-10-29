@@ -1,44 +1,43 @@
-import { frontend_config } from "./config";
-import { formatLogLine } from "./logFormat";
-import { getRequestSpanId, getRequestTraceId } from "./requestScope";
-import { mintSpanId } from "./trace";
+import { now } from "./clock";
+import { getRequestTraceId } from "./requestScope";
 
-import type { LogLevel, LogMeta } from "./logFormat";
+type Level = "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
 
-export type { LogMeta } from "./logFormat";
+export type LogMeta = Record<string, unknown>;
 
-// The backend's numbering, so `LOG_LEVEL` means the same thing on both services and a reader
-// setting it once does not have to learn two scales.
-const SEVERITY: Record<LogLevel, number> = { DEBUG: 10, INFO: 20, WARNING: 30, ERROR: 40, CRITICAL: 50 };
+// An address anywhere in a line: a store's duplicate-key refusal quotes the stored one in its message and
+// stack, and a failure on the sign-in or the mail path carries the submitted one. The domain ends in
+// letters, so a package store's `name@1.2.3` in a stack frame's path is left standing.
+const ADDRESS = /[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}/gi;
+
+/** Every string scrubbed of an address, and an error written as its name, message and stack. */
+function scrubbed(_key: string, value: unknown): unknown {
+  if (typeof value === "string") return value.replaceAll(ADDRESS, "<address>");
+  return value instanceof Error ? { name: value.name, message: value.message, stack: value.stack } : value;
+}
+
+function log(level: Level, message: string, { trace_id, error, ...fields }: LogMeta = {}): void {
+  // `SYSTEM` outside every request, so a reader can rely on the key being there.
+  const entry = {
+    timestamp: now().toISOString(),
+    level,
+    service: "fl_frontend",
+    trace_id: trace_id ?? getRequestTraceId() ?? "SYSTEM",
+    message,
+    ...fields,
+    error,
+  };
+
+  // The runtime's own flag: a production build, the image's or the local stack's, writes JSON; `next dev` a
+  // plain line, with the stack on the lines after it.
+  if (process.env.NODE_ENV === "production") process.stdout.write(`${JSON.stringify(entry, scrubbed)}\n`);
+  else console.log(`${level} ${message} ${JSON.stringify(fields, scrubbed)}`, error instanceof Error ? scrubbed("", error.stack) : "");
+}
 
 export const logger = {
   debug: (message: string, meta?: LogMeta) => log("DEBUG", message, meta),
   info: (message: string, meta?: LogMeta) => log("INFO", message, meta),
   warn: (message: string, meta?: LogMeta) => log("WARNING", message, meta),
-  error: (message: string, error?: unknown, meta?: LogMeta) => log("ERROR", message, { error, ...meta }),
+  error: (message: string, error?: unknown, meta?: LogMeta) => log("ERROR", message, { ...meta, error }),
+  critical: (message: string, meta?: LogMeta) => log("CRITICAL", message, meta),
 };
-
-function log(level: LogLevel, message: string, meta?: LogMeta) {
-  // Under `SKIP_ENV_VALIDATION` the level is whatever the environment held, so this comparison is
-  // false and nothing is suppressed. Only the builder stage, typegen and the test runner set it;
-  // the runner image never does.
-  if (SEVERITY[level] < SEVERITY[frontend_config.LOG_LEVEL]) return;
-
-  const traceId = meta?.trace_id ?? getRequestTraceId();
-  // A caller naming a trace outside any scope gets a span minted beside it: a real trace under the
-  // sentinel span would file this hop's work under no hop.
-  const spanId = meta?.span_id ?? getRequestSpanId() ?? (traceId === undefined ? undefined : mintSpanId());
-  const withScope: LogMeta = { ...meta, trace_id: traceId, span_id: spanId };
-  const line = formatLogLine(frontend_config.LOG_FORMAT, level, message, withScope);
-
-  if (frontend_config.LOG_FORMAT === "json") {
-    // Straight to stdout: one stream, ordered.
-    process.stdout.write(line + "\n");
-    return;
-  }
-
-  if (level === "ERROR") console.error(line);
-  else if (level === "WARNING") console.warn(line);
-  else if (level === "DEBUG") console.debug(line);
-  else console.log(line);
-}
