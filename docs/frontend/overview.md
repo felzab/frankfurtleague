@@ -56,9 +56,17 @@ since a label's words never change. **The administration's reads are not cached*
 for at most the `minutes` lifetime**: the clear lives in the spines, and nothing clears the tag from
 outside a request ([`../ops/runbooks.md`](../ops/runbooks.md#20-after-a-hand-edit-in-mongodb)).
 
-**Backend and frontend models are hand-mirrored**: Pydantic on one side, Zod on the other, with no
-generation step. A disagreement between them is the first thing to check when behaviour looks
-impossible.
+**The backend's contract is generated** into `fl_frontend/src/core/generated/` from
+`fl_backend/openapi.json` by `fl_frontend/orval.config.ts`: the wire types, one SDK function per
+operation sent through `fl_frontend/src/core/transport.ts` with the key tier its `security` names,
+and Zod schemas for request bodies and parameters alone. Every module opens with
+`import 'server-only'`, so a client component may import a type from it with `import type` and
+nothing else. A change to the backend's routes or models regenerates both, from the repository root:
+`uv run --directory fl_backend --frozen python -m app.openapi_document`, then `pnpm exec orval` in
+`fl_frontend`, committing what moves; the gate's db scope fails a tree where either is stale. The
+slices' hand-written Zod schemas in `schemas.ts` still mirror the Pydantic models for the calls made
+through `fl_frontend/src/core/api.ts :: apiClient`, and a disagreement between the two is the first
+thing to check when behaviour looks impossible.
 
 ## Rendering
 
