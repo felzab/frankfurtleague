@@ -25,7 +25,7 @@ from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
-from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.holds import HeldCollection
 from tests.worker import worker_database
@@ -461,26 +461,6 @@ class TestTheRuleOfOneLiveInvitation:
             return await live_count(database, TWO_SEATS), await database[Collection.EINLADUNGEN].count_documents({"team_id": TWO_SEATS})
 
         assert on_a_league(mongo_replica_set_url, body) == (1, 2)
-
-    def test_a_row_carrying_no_revocation_key_at_all_is_refused_before_the_index_sees_it(self, mongo_replica_set_url: str):
-        """Why the validator requires the key: `$type: "null"` indexes no row that lacks it, so two such rows would both be live.
-
-        The refusal is the VALIDATOR's, which is what puts that question beyond any stored row.
-        """
-
-        async def body(database: AsyncDatabase) -> Any:
-            row = einladung_row(TWO_SEATS, versand={})
-            del row["widerrufen_am"]
-
-            with pytest.raises(OperationFailure) as refused:
-                await database[Collection.EINLADUNGEN].insert_one(row)
-
-            return refused.value.code, await database[Collection.EINLADUNGEN].count_documents({"team_id": TWO_SEATS})
-
-        code, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert code == DOCUMENT_VALIDATION_FAILED
-        assert stored == 0
 
     def test_two_teams_hold_a_live_invitation_each(self, mongo_replica_set_url: str):
         """The control: a rule keyed on the season alone would refuse the second team of every season."""

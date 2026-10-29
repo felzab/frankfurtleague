@@ -228,6 +228,30 @@ class FLBewerbung(BaseModel):
     bestaetigungen: FLBewerbungBestaetigungen
 
 
+class FLBewerbungBestaetigungRecord(FLBewerbungBestaetigung):
+    """One seat's bookkeeping as `bewerbungen` stores it: its link's hash, and the one a reminder replaced."""
+
+    token_hash: str
+    token_hash_zuvor: str | None = None
+
+
+class FLBewerbungBestaetigungenRecord(FLBewerbungBestaetigungen):
+    trainer: FLBewerbungBestaetigungRecord | None
+    ansprechperson: FLBewerbungBestaetigungRecord | None
+    stellvertretung: FLBewerbungBestaetigungRecord | None
+
+
+class FLBewerbungRecord(FLBewerbung):
+    """One application as `bewerbungen` stores it: its decision before any administrator is withheld, and what no read serves."""
+
+    entscheidung: FLBewerbungEntscheidung | None
+    bestaetigungen: FLBewerbungBestaetigungenRecord
+    # The retention sweep's announcement, and the submission's replay key and digest.
+    loeschung_angekuendigt_am: str | None = None
+    idempotenz_schluessel: str | None = None
+    idempotenz_fingerabdruck: str | None = None
+
+
 FLBewerbungListAdapter = TypeAdapter(list[FLBewerbung])
 
 

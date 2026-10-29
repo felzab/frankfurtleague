@@ -7,7 +7,7 @@ from bson import ObjectId
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.spiele.schemas import SONDEREREIGNIS_COUNTED_AS_ABSAGE, FLSpiel
 from app.api.spieler.schemas import FLSpielerStufe
-from app.api.teams.schemas import FLAustrittType, FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
+from app.api.teams.schemas import FLAustrittType, FLSaisonTeamRecord, FLTeamsFilterParams, FLTeamStatistik, FLTeamStatistikScope
 from app.api.teams.services import (
     ABSAGE_AS_NAME,
     ABSAGE_COUNT_NAME,
@@ -16,8 +16,6 @@ from app.api.teams.services import (
     _counted_goals,
     build_team_pipeline,
 )
-from app.core.collections import Collection
-from app.core.constraints import COLLECTION_VALIDATORS
 
 # Typed as the `Literal` list `FLSaisonRules` declares: a bare `list[str]` is invariant against it.
 STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
@@ -313,7 +311,7 @@ class TestTheJunctionJoinWithholdsTheRestOfTheRow:
     def test_the_row_really_holds_more_than_that(self):
         """Non-vacuity: the case above would hold just as well over a junction with nothing worth withholding on it."""
 
-        stored = set(COLLECTION_VALIDATORS[Collection.SAISON_TEAMS]["$jsonSchema"]["properties"])
+        stored = set(FLSaisonTeamRecord.model_fields)
 
         assert "kontakte" in stored
         assert "kontakte" not in inner_projection(build())

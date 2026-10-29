@@ -16,7 +16,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
-from bson import ObjectId, decode, encode
+from bson import ObjectId
 from fastapi import FastAPI
 from httpx2 import AsyncClient
 from pymongo import AsyncMongoClient
@@ -30,7 +30,6 @@ from app.api.spielbestaetigungen.services import halter_of
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.dependencies import get_germany_now
 from app.core.drosselung import build_counts_filter
 from app.core.journal import JOURNAL_TOKEN, JournalLine, parse_line
@@ -797,48 +796,6 @@ class TestAnErasedPersonsPseudonym:
             assert "@" not in output
             assert PSEUDONYM not in output
             assert loeschung_journal_hash(PERSON, schluessel=KEY) not in output
-
-
-def _without(value: Any, member: str) -> Any:
-    """`value` as a build before `member` would have declared it: in none of its lists."""
-
-    if isinstance(value, dict):
-        return {key: _without(item, member) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_without(item, member) for item in value if item != member]
-    return value
-
-
-class TestAValidatorOlderThanThisBuild:
-    def test_it_refuses_the_run_before_anything_is_judged_or_written(self, mongo_replica_set_url: str):
-        """As a restore can leave it: the snapshot's log validator, which refuses the row an erasure's replay writes."""
-        withdrawal = JournalLine(
-            person_hash=loeschung_journal_hash(PERSON, schluessel=KEY),
-            art="widerruf",
-            collection=Collection.SPIELER,
-            record_id=PUPIL_OID,
-            am=AM,
-            text_version=LAUFENDE_FASSUNGEN["konto_spieler"],
-            wahlen={"medien": False},
-        )
-        day = _day_file(("2126-10-03T10:00:01+00:00", withdrawal.text()))
-        declared = decode(encode(COLLECTION_VALIDATORS[Collection.AKTIONEN]))
-        older = _without(declared, "pseudonyme")
-
-        async def steps(_http: AsyncClient, database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database.command(
-                {"collMod": Collection.AKTIONEN, "validator": older, "validationLevel": "strict", "validationAction": "error"}
-            )
-            before = await _record(database, Collection.SPIELER, PUPIL_OID)
-            code, output = await _listed(day, client, database, apply=True)
-            return code, output, before, await _record(database, Collection.SPIELER, PUPIL_OID)
-
-        code, output, before, after = served(mongo_replica_set_url, steps, mutates_schema=True)
-
-        assert older != declared, "this build's log validator names no `pseudonyme`, so the case plants nothing"
-        assert (code, after) == (2, before)
-        assert "The validators on aktionen are not this build's, so no line was judged" in output
-        assert "python -m app.core.constraints --apply" in output
 
 
 def _their_answered_confirmation() -> dict[str, Any]:

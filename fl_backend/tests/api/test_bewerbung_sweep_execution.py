@@ -177,11 +177,14 @@ def junction_row() -> dict[str, Any]:
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, next_status: str | None = "future", status: str = "active") -> Any:
-    """The SHIPPED validators, with a history on every row so the redaction has images to empty."""
+def on_a_league(url: str, body: Body, *, next_status: str | None = "future", status: str = "active", mutates_schema: bool = False) -> Any:
+    """The SHIPPED indexes, with a history on every row so the redaction has images to empty.
+
+    `mutates_schema` for a body that installs a validator through `refuse_writes_breaking`.
+    """
 
     async def _run() -> Any:
-        async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+        async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             seasons = [season(SAISON_ID, status), season(OTHER_SAISON_ID, "past")]
             if next_status is not None:
                 seasons.append(season(NEXT_SAISON_ID, next_status))
@@ -1265,8 +1268,14 @@ SECOND_JUNCTION_OID = ObjectId("6890a1b2c3d4e5f607960022")
 DECLINED = {"status": "abgelehnt", "entscheidung": {"getroffen_am": "2026-02-15", "von": "admin", "grund": "kein Platz"}}
 
 
+async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:
+    """How this suite forces one row's write to fail mid-pass: a `$jsonSchema` the planted row breaks and every other row keeps."""
+
+    await database.command("collMod", str(collection), validator={"$jsonSchema": dict(schema)}, validationLevel="strict")
+
+
 def refusing_its_redaction(collection: Collection, row: Mapping[str, Any]) -> dict[str, Any]:
-    """A log image missing the `trace_id` its validator requires, so the redaction's update is refused: any row a write is refused on."""
+    """A log image missing its `trace_id`, so the redaction's update is refused: any row a write is refused on."""
 
     return {
         "at": "2026-01-01T00:00:00+00:00",
@@ -1287,10 +1296,11 @@ def refusing_its_redaction(collection: Collection, row: Mapping[str, Any]) -> di
 async def refuse_the_redaction_of(database: AsyncDatabase, collection: Collection, row_id: ObjectId) -> None:
     row = await database[collection].find_one({"_id": row_id})
     assert row is not None
-    await database[Collection.AKTIONEN].insert_one(refusing_its_redaction(collection, row), bypass_document_validation=True)
+    await database[Collection.AKTIONEN].insert_one(refusing_its_redaction(collection, row))
+    await refuse_writes_breaking(database, Collection.AKTIONEN, {"required": ["trace_id"]})
 
 
-# What the planted log image's refusal reads as on a passed-over line: the property its validator requires.
+# What the planted log image's refusal reads as on a passed-over line: the property the installed validator requires.
 REFUSED_TRACE_ID = "WriteError, code 121: [{'loc': 'trace_id', 'type': 'required', 'msg': 'property is missing'}]"
 
 # A hand-edited deadline as the answer's model refuses it: the field and the rule, never the value.
@@ -1327,7 +1337,7 @@ class TestOneRowHoldsBackNoOther:
             )
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            counts, refused, other = on_a_league(mongo_replica_set_url, body, status="past")
+            counts, refused, other = on_a_league(mongo_replica_set_url, body, status="past", mutates_schema=True)
 
         # The decline clock after it ran too.
         assert counts == (1, 1, 1)
@@ -1345,7 +1355,7 @@ class TestOneRowHoldsBackNoOther:
             return answer, await stored(database, DECLINED_OID), await stored(database, SECOND_OID)
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            answer, refused, other = on_a_league(mongo_replica_set_url, body)
+            answer, refused, other = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert (answer.abgelehnte_geloescht, answer.fehlgeschlagen) == (1, 1)
         assert (refused is not None, other) == (True, None)
@@ -1370,7 +1380,7 @@ class TestOneRowHoldsBackNoOther:
             )
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            counts, refused, other = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+            counts, refused, other = on_a_league(mongo_replica_set_url, body, status="past", next_status="past", mutates_schema=True)
 
         assert counts == (1, 1, 1)
         assert (refused is not None, other) == (True, None)
@@ -1388,7 +1398,7 @@ class TestOneRowHoldsBackNoOther:
             return answer, [(block["_id"], block["kontakte"] is not None) for block in blocks]
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            answer, blocks = on_a_league(mongo_replica_set_url, body, status="future", next_status="past")
+            answer, blocks = on_a_league(mongo_replica_set_url, body, status="future", next_status="past", mutates_schema=True)
 
         assert (answer.kontaktbloecke_geleert, answer.fehlgeschlagen, reminded(answer)) == (1, 1, {REMIND_OID})
         assert blocks == [(JUNCTION_OID, True), (SECOND_JUNCTION_OID, False)]
@@ -1436,14 +1446,15 @@ class TestOneRowHoldsBackNoOther:
         ]
 
     def test_a_refused_reminder_stamp(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """An application stored before a field its validator requires: the reminder's stamp is refused under strict validation.
+        """An application stored before a field it now requires: the reminder's stamp is refused under strict validation.
 
         Both carry a barred mailbox, which the share leaves out: its count stays the whole page's once the share is taken apart.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             invalid = {key: value for key, value in application(SECOND_OID).items() if key != "trikot"}
-            await database[Collection.BEWERBUNGEN].insert_one(invalid, bypass_document_validation=True)
+            await database[Collection.BEWERBUNGEN].insert_one(invalid)
+            await refuse_writes_breaking(database, Collection.BEWERBUNGEN, {"required": ["trikot"]})
             await database[Collection.SPERRLISTE].insert_one(ban_document("bramblewick@example.com", bis=STANDING))
             # Inside: the level outside is whatever an earlier test on this worker left.
             with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
@@ -1453,7 +1464,7 @@ class TestOneRowHoldsBackNoOther:
 
             return reminded(answer), answer.fehlgeschlagen, [seat["erinnert_am"] for seat in refused["bestaetigungen"].values()]
 
-        answered, count, stamps = on_a_league(mongo_replica_set_url, body)
+        answered, count, stamps = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert (answered, count, stamps) == ({REMIND_OID}, 1, [None, None, None])
         refusal = "OperationFailure, code 121: [{'loc': 'trikot', 'type': 'required', 'msg': 'property is missing'}]"
@@ -1466,7 +1477,8 @@ class TestOneRowHoldsBackNoOther:
         """Every stamp refused, so no half commits and the day is stamped alone: the count is all that tells this pass from a clean one."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BEWERBUNGEN].update_many({}, {"$unset": {"trikot": ""}}, bypass_document_validation=True)
+            await database[Collection.BEWERBUNGEN].update_many({}, {"$unset": {"trikot": ""}})
+            await refuse_writes_breaking(database, Collection.BEWERBUNGEN, {"required": ["trikot"]})
             answer = await sweep(database, client)
 
             return (
@@ -1475,14 +1487,15 @@ class TestOneRowHoldsBackNoOther:
                 (await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])).sweep_gelaufen_am,
             )
 
-        assert on_a_league(mongo_replica_set_url, body) == ([], 1, TODAY)
+        assert on_a_league(mongo_replica_set_url, body, mutates_schema=True) == ([], 1, TODAY)
 
     def test_a_refused_announcement(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """An application stored before a field its validator requires: the stamp's update is refused under strict validation."""
+        """An application stored before a field it now requires: the stamp's update is refused under strict validation."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             invalid = {key: value for key, value in application(SECOND_OID, bestaetigungsfrist=YESTERDAY).items() if key != "trikot"}
-            await database[Collection.BEWERBUNGEN].insert_one(invalid, bypass_document_validation=True)
+            await database[Collection.BEWERBUNGEN].insert_one(invalid)
+            await refuse_writes_breaking(database, Collection.BEWERBUNGEN, {"required": ["trikot"]})
             answer = await announce(database, client, [DELETE_OID, SECOND_OID])
 
             return (answer.angekuendigt, answer.fehlgeschlagen), [
@@ -1490,7 +1503,7 @@ class TestOneRowHoldsBackNoOther:
             ]
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            stamped, stamps = on_a_league(mongo_replica_set_url, body)
+            stamped, stamps = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert (stamped, stamps) == ((1, 1), [TODAY, None])
         # `OperationFailure` rather than `WriteError`: the stamp is a `findAndModify`, which answers a refusal as a command error.
@@ -1509,7 +1522,7 @@ class TestOneRowHoldsBackNoOther:
             return (answer.geloescht, answer.fehlgeschlagen), await stored(database, DELETE_OID), await stored(database, SECOND_OID)
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            erased, refused, other = on_a_league(mongo_replica_set_url, body)
+            erased, refused, other = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert (erased, refused is not None, other) == ((1, 1), True, None)
         assert passed_over(caplog) == [
@@ -2136,14 +2149,15 @@ class TestTheReportStripStandsApart:
     def test_a_strip_failing_holds_back_neither_the_confirmations_nor_a_block_and_is_passed_over_under_the_season(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
     ):
-        """A report the validator refuses once stripped: the report strip alone meets it, in its own transaction."""
+        """A report the installed validator refuses once stripped: the report strip alone meets it, in its own transaction."""
 
         refused = a_report(SAISON_ID)
         del refused["bericht"]["seiten"]
         declined = a_declined_confirmation(CLUB_OID, SAISON_ID)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELBERICHTE].insert_one(refused, bypass_document_validation=True)
+            await database[Collection.SPIELBERICHTE].insert_one(refused)
+            await refuse_writes_breaking(database, Collection.SPIELBERICHTE, {"properties": {"bericht": {"required": ["seiten"]}}})
             await database[Collection.SPIELBESTAETIGUNGEN].insert_one(declined)
             with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
                 response = await sweep(database, client)
@@ -2154,7 +2168,9 @@ class TestTheReportStripStandsApart:
                 await database[Collection.SPIELBERICHTE].find_one({"_id": refused["_id"]}),
             )
 
-        response, junction, confirmation, report = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+        response, junction, confirmation, report = on_a_league(
+            mongo_replica_set_url, body, status="past", next_status="past", mutates_schema=True
+        )
 
         assert (response.kontaktbloecke_geleert, response.fehlgeschlagen, junction["kontakte"]) == (1, 1, None)
         assert confirmation["antwort"]["begruendung"] is None, "the confirmations' strip fell with the reports'"
@@ -2228,17 +2244,18 @@ class TestTheSeasonsEndStripsItsConfirmations:
     def test_a_strip_failing_holds_back_no_block_and_is_passed_over_under_the_season(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
     ):
-        """A replaced club's row the validator refuses, which no block clearing writes: the strip alone meets it."""
+        """A replaced club's row the installed validator refuses, which no block clearing writes: the strip alone meets it."""
 
         refused = {key: value for key, value in a_declined_confirmation(REPLACED_CLUB_OID, SAISON_ID).items() if key != "frist"}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(refused, bypass_document_validation=True)
+            await database[Collection.SPIELBESTAETIGUNGEN].insert_one(refused)
+            await refuse_writes_breaking(database, Collection.SPIELBESTAETIGUNGEN, {"required": ["frist"]})
             with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
                 response = await sweep(database, client)
             return response, await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID})
 
-        response, junction = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
+        response, junction = on_a_league(mongo_replica_set_url, body, status="past", next_status="past", mutates_schema=True)
 
         assert (response.kontaktbloecke_geleert, response.fehlgeschlagen, junction["kontakte"]) == (1, 1, None)
         assert [(level, message.split(":")[0]) for level, _, message in passed_over(caplog)] == [

@@ -6,7 +6,6 @@ from pydantic import BaseModel, ValidationError
 
 from app.api.bewerbungen.services import hash_token, mint_token
 from app.api.schiedsrichter.schemas import (
-    FLSchiedsrichterBestaetigung,
     FLSchiedsrichterBestaetigungAnsichtPayload,
     FLSchiedsrichterBestaetigungAnsichtResponse,
     FLSchiedsrichterBestaetigungPayload,
@@ -32,7 +31,6 @@ from app.api.schiedsrichter.services import (
 from app.api.spieler.schemas import FLEinwilligung
 from app.api.zustellung.services import ZIEL_PFADE
 from app.core.collections import Collection
-from app.core.constraints import _SCHIEDSRICHTER_BESTAETIGUNG, COLLECTION_VALIDATORS
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
 )
@@ -55,14 +53,6 @@ def confirmed(*, bestaetigt_am: str = TODAY) -> dict[str, Any]:
 
 
 class TestTheStoredBlock:
-    def test_the_model_declares_every_key_the_validator_requires_but_the_hash(self):
-        required = set(_SCHIEDSRICHTER_BESTAETIGUNG["required"])
-
-        assert required - set(FLSchiedsrichterBestaetigung.model_fields) == {"token_hash"}
-
-    def test_the_mint_composes_every_key_the_validator_requires(self):
-        assert set(_SCHIEDSRICHTER_BESTAETIGUNG["required"]) <= set(LIVE_BLOCK)
-
     def test_the_carrier_key_is_the_one_the_delivery_register_files_a_report_under(self):
         """Parted, a bounce would be written at a path no link is stored at and every report would apply to nothing."""
 
@@ -75,7 +65,6 @@ class TestTheStoredBlock:
 
     def test_a_fresh_mint_chases_nobody_and_carries_no_delivery_state(self):
         assert LIVE_BLOCK["erinnert_am"] is None
-        assert "zustellung" in _SCHIEDSRICHTER_BESTAETIGUNG["properties"]
         assert "zustellung" not in LIVE_BLOCK
 
     def test_the_lookup_is_the_hash_alone(self):
@@ -118,15 +107,6 @@ class TestTheRecordTheConfirmationWrites:
         record = compose_einwilligung(umfang="intern", medien=False, text_version="v1", today=TODAY)
 
         assert record["datum"] == record["bestaetigt_am"] == TODAY
-
-    def test_the_record_carries_every_key_the_validator_requires(self):
-        declared = COLLECTION_VALIDATORS[Collection.SCHIEDSRICHTER]["$jsonSchema"]["properties"][EINWILLIGUNG_FELD]
-
-        update = compose_confirmation_update(
-            geburtsdatum=AN_ADULTS_BIRTHDATE, umfang="intern", medien=False, text_version="v1", today=TODAY, am=CONFIRMED_AT
-        )
-
-        assert set(declared["required"]) <= set(update["$set"][EINWILLIGUNG_FELD])
 
 
 class TestWhatALeakedLinkLearns:
@@ -254,7 +234,6 @@ class TestTheAgeThisConsentAsks:
 class TestTheDeadlineIsStoredRatherThanDerived:
     def test_the_block_holds_it_so_a_raised_bound_moves_no_link_already_sent(self):
         assert LIVE_BLOCK["frist"] != LIVE_BLOCK["verschickt_am"]
-        assert "frist" in _SCHIEDSRICHTER_BESTAETIGUNG["required"]
 
 
 class TestTheScopeIsOneSetOfValues:

@@ -13,8 +13,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertManyResult, InsertOneResult, UpdateResult
 
+from app.api.aktionen.schemas import FLAktionRecord
 from app.core.collections import Collection
-from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
 from app.core.exceptions import DocumentNotFoundException
 from app.core.logging import trace_id_var
@@ -336,35 +336,21 @@ class TestWhoAndWhenARowIsAttributedTo:
         assert log.inserted[0]["redacted_at"] is None
 
 
-class TestTheRowAndTheValidatorAgree:
-    def test_a_recorded_row_carries_every_required_field_and_nothing_undeclared(self):
-        """Row and `$jsonSchema` are hand-written from one shape, so without this a row short of a field is refused first in production."""
+class TestTheRowIsTheStoredShape:
+    def test_a_recorded_row_reads_back_through_the_record_model(self):
+        """Row and record are hand-written from one shape, so without this a row short of a field fails the log page's read first."""
         target, log = build()
 
         asyncio.run(record_write(collection=as_collection(target), operation="insert", document_id=TEAM_OID))
 
-        schema = COLLECTION_VALIDATORS[Collection.AKTIONEN]["$jsonSchema"]
-        written = set(log.inserted[0])
-
-        # `_id` is the driver's to add, and the one required field no row arrives carrying.
-        assert set(schema["required"]) - {"_id"} <= written
-        # Containment rather than equality: `at_date` and `anlass` are written and out of `required`,
-        # the rows already in the log carrying neither.
-        assert written <= set(schema["properties"])
-
-    def test_the_recorded_collection_name_is_one_the_validator_admits(self):
-        target, log = build()
-
-        asyncio.run(record_write(collection=as_collection(target), operation="insert", document_id=TEAM_OID))
-
-        declared = COLLECTION_VALIDATORS[Collection.AKTIONEN]["$jsonSchema"]["properties"]["collection"]["enum"]
-        assert log.inserted[0]["collection"] in declared
+        # `_id` is the driver's to add, and the one field no row arrives carrying.
+        FLAktionRecord.model_validate({"_id": ObjectId(), **log.inserted[0]}, extra="forbid")
 
 
 class TestStringifyFilter:
     def test_every_value_is_rendered_as_text(self):
         # A boolean is in the sample deliberately: `False` renders as text a reader could otherwise
-        # mistake for a stored string, and the validator admits only strings.
+        # mistake for a stored string, and the record model admits only strings.
         rendered = _stringify_filter({"team_id": TEAM_OID, "spiel_nr": 1, "ist_nachnominiert": False, "saison_id": "2026"})
 
         assert rendered == {"team_id": str(TEAM_OID), "spiel_nr": "1", "ist_nachnominiert": "False", "saison_id": "2026"}

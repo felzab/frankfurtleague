@@ -189,8 +189,14 @@ async def a_pass(database: AsyncDatabase, client: AsyncMongoClient, **replaced: 
     return answers
 
 
+async def refuse_writes_breaking(database: AsyncDatabase, collection: Collection, schema: Mapping[str, Any]) -> None:
+    """How this suite forces one row's write to fail mid-pass: a `$jsonSchema` the planted row breaks and every other row keeps."""
+
+    await database.command("collMod", str(collection), validator={"$jsonSchema": dict(schema)}, validationLevel="strict")
+
+
 def refusing_its_redaction(spieler_id: ObjectId) -> dict[str, Any]:
-    """A log image missing the `trace_id` its validator requires, so the redaction's update is refused: any row a write is refused on."""
+    """A log image missing its `trace_id`, so the redaction's update is refused: any row a write is refused on."""
 
     return {
         "at": "2025-01-01T00:00:00+00:00",
@@ -749,7 +755,8 @@ class TestOneRecordHoldsBackNobody:
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             await seeded(database, a_due_pupil(1), a_due_pupil(2))
-            await database[Collection.AKTIONEN].insert_one(refusing_its_redaction(numbered(1)), bypass_document_validation=True)
+            await database[Collection.AKTIONEN].insert_one(refusing_its_redaction(numbered(1)))
+            await refuse_writes_breaking(database, Collection.AKTIONEN, {"required": ["trace_id"]})
 
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
                 response = await http.post(PATH, headers=SYSTEM_AUTH)
@@ -757,7 +764,7 @@ class TestOneRecordHoldsBackNobody:
             return response.status_code, response.json(), await database[Collection.SPIELER].distinct("_id", {"email": {"$type": "string"}})
 
         with caplog.at_level(logging.ERROR):
-            status, answer, standing = on_a_league(mongo_replica_set_url, body)
+            status, answer, standing = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert status == 200, answer
         assert (answer["spieler"], answer["fehlgeschlagen"], answer["verbleibend"]) == (1, 1, 1)
@@ -900,16 +907,15 @@ class TestEachCallTakesAShare:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(database, *(a_due_pupil(position) for position in [*failing, last]))
-            await database[Collection.AKTIONEN].insert_many(
-                [refusing_its_redaction(numbered(position)) for position in failing], bypass_document_validation=True
-            )
+            await database[Collection.AKTIONEN].insert_many([refusing_its_redaction(numbered(position)) for position in failing])
+            await refuse_writes_breaking(database, Collection.AKTIONEN, {"required": ["trace_id"]})
             answers = await a_pass(database, client)
 
             return [(answer.spieler, answer.fehlgeschlagen) for answer in answers], await database[Collection.SPIELER].count_documents(
                 {"_id": numbered(last)}
             )
 
-        answers, standing = on_a_league(mongo_replica_set_url, body)
+        answers, standing = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert answers == [(0, LOESCHUNGEN_PER_PASS), (1, 0)]
         assert standing == 0

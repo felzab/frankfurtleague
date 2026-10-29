@@ -23,8 +23,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.core.codes import Code  # Session 2: the sweep moves every use onto Code and deletes these aliases.
 from app.core.crud import literal_pattern
-from app.core.db import get_drosselung_collection
-from app.core.dependencies import get_germany_now
+from app.core.dependencies import DrosselungCollection, get_germany_now
 from app.core.exceptions import DrosselungException
 from app.core.logging import fl_logger
 from app.core.recording import AktorFunktion, PersonActor, actor_var
@@ -79,7 +78,7 @@ def _count_prefix(zaehler: Zaehler, pseudonym: str) -> str:
 
 
 def get_drossel(
-    drosselung_collection: Annotated[AsyncCollection, Depends(get_drosselung_collection)],
+    drosselung_collection: DrosselungCollection,
     germany_now: Annotated[datetime, Depends(get_germany_now)],
 ) -> Drosseln:
     """The count of one write against the bound person's ceiling, called where a write counts."""

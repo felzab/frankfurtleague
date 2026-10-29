@@ -13,7 +13,6 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.crud import pull_massgebliche_saison_id
@@ -25,7 +24,7 @@ from app.core.exceptions import WriteRefusalException
 from tests import documents
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
-from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -280,29 +279,6 @@ class TestTheBoundaryTheCheckReads:
             return await is_gesperrt(database, against=FIRST_CLEAR), await database[Collection.SPERRLISTE].count_documents({})
 
         assert on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body) == (False, 1)
-
-    def test_a_row_carrying_no_lapse_season_at_all_is_refused_before_the_check_reads_it(self, mongo_replica_set_url: str):
-        """The conforming twin below stores, so the refusal is the missing key's rather than anything else in the row.
-
-        Why the key is required at all stands at it in `fl_backend/app/core/constraints.py`.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, int]:
-            await ban(database, client)
-            keyless = documents.ban_document(OTHER, bis=LAST_COVERED)
-            del keyless["gesperrt_bis_saison_id"]
-
-            with pytest.raises(OperationFailure) as refused:
-                await database[Collection.SPERRLISTE].insert_one(keyless)
-
-            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(OTHER, bis=LAST_COVERED))
-
-            return refused.value.code, await database[Collection.SPERRLISTE].count_documents({})
-
-        code, stored = on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body)
-
-        assert code == DOCUMENT_VALIDATION_FAILED
-        assert stored == 2
 
 
 class TestTheSweepAtAnActivation:

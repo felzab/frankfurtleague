@@ -4,7 +4,6 @@ from typing import Any
 import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import OperationFailure
 
 from app.api.spieler.admin_router import (
     get_spieler_nachnominierung,
@@ -16,7 +15,7 @@ from app.api.spieler.admin_router import (
 from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload
 from app.api.spieler.services import SQUAD_FULL, SQUAD_ROLLE_TAKEN, SQUAD_TEAM_NOT_IN_SAISON
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
-from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import EINWILLIGUNG, rules_document, saison_document, saison_spieler_document, saison_team_document, spieler_document
 from tests.worker import worker_database
 
@@ -157,7 +156,7 @@ class TestTheConsentRecordSurvivesTheOneWriteThatCouldReachIt:
 
 
 class TestThePersonsBirthdate:
-    """The two things a stored date has to survive: a later name write, and the shipped validator."""
+    """What a stored date has to survive: a later name write."""
 
     def test_correcting_a_name_leaves_the_date_standing(self, mongo_replica_set_url: str):
         """Restated rather than untouched: the patch payload requires the field, so a name correction carries the date it read."""
@@ -176,32 +175,6 @@ class TestThePersonsBirthdate:
 
         assert stored["vorname"] == "Maximilian"
         assert stored["geburtsdatum"] == GEBURTSDATUM
-
-    def test_the_database_refuses_a_date_that_is_no_string(self, mongo_replica_set_url: str):
-        """The half no model can prove: without the `$jsonSchema` property this field could hold any BSON type with the suite still green."""
-
-        async def refusal_code_for(database: AsyncDatabase, spieler_number: int, geburtsdatum: Any) -> int | None:
-            document = {
-                "_id": spieler_id_for(spieler_number),
-                "vorname": "Max",
-                "nachname": "Mustermann",
-                "einwilligung": dict(EINWILLIGUNG),
-                "inactive_since": None,
-                "geburtsdatum": geburtsdatum,
-            }
-            try:
-                await database.spieler.insert_one(document)
-            except OperationFailure as failure:
-                return failure.code
-            return None
-
-        async def body(database: AsyncDatabase) -> Any:
-            # A year as an int is what a hand-edit or an unvalidated import writes.
-            return await refusal_code_for(database, 94, GEBURTSDATUM), await refusal_code_for(database, 95, 2008)
-
-        # The floor is the first half: that code is every `$jsonSchema` refusal alike, so a document
-        # differing from it only in this field is what makes the second half this field's answer.
-        assert on_a_database(mongo_replica_set_url, body) == (None, DOCUMENT_VALIDATION_FAILED)
 
 
 class TestTheSquadCapOnEveryWritePath:
