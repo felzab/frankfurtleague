@@ -58,10 +58,6 @@ ENV SKIP_ENV_VALIDATION=true
 # manifest or lockfile written after it.
 COPY --exclude=package.json --exclude=pnpm-lock.yaml --exclude=pnpm-workspace.yaml* . .
 
-# Emitted rather than kept by hand: a tracked copy of the schema's names would be a second artefact
-# to keep current, and this one cannot disagree with the schema the same image was built from.
-RUN pnpm run environment-names environment-names.json
-
 RUN --mount=type=cache,id=next-cache,target=/app/.next/cache \
     pnpm run build
 
@@ -85,13 +81,6 @@ RUN mkdir .next && chown nextjs:nodejs .next
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# Root-owned, as public/ is: only the deploy's preflight reads these
-# (`scripts/ops/deploy.sh :: check_frontend_env_names`), and the running app has no business rewriting them.
-
-# The mode is spelled rather than left to the builder's umask: the reader runs as the host's user, not
-# root, so a 0600 pair would answer the advisory on every deploy, never the refusal.
-COPY --from=builder --chmod=644 /app/environment-names.json /app/scripts/check-environment-names.mjs ./
 
 USER nextjs
 EXPOSE 3000

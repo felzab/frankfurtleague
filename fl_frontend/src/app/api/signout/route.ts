@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
       // Anything else may have come after the row was deleted, so neither answer above is true of it. The NAME
       // alone: a failure on this path may carry the session's own token.
-      logger.error("auth.sign_out_failed", undefined, { error_code: "FE-ACT-001", name: error instanceof Error ? error.name : "unknown" });
+      logger.error("auth.sign_out_failed", undefined, { name: error instanceof Error ? error.name : "unknown" });
       return outcomeUnknown();
     }
   });

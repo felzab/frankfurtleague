@@ -19,7 +19,6 @@ export async function getSpiele(filters: FLSpieleFilterParams = {}): Promise<FLS
 
   return apiClient("/spiele", FLSpieleListResponseSchema, {
     params: filters,
-    cacheFill: { name: "getSpiele", args: filters },
   });
 }
 

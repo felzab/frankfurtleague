@@ -47,7 +47,7 @@ const TOO_MANY_REQUESTS = 429;
 
 /** Logged once per submission let through unjudged; never the token, which passes the check until spent. */
 function unjudged(meta: LogMeta): null {
-  logger.error("turnstile.unjudged", undefined, { error_code: "FE-TURNSTILE-001", ...meta });
+  logger.error("turnstile.unjudged", undefined, meta);
 
   return null;
 }
@@ -99,13 +99,12 @@ export async function turnstileRefusal(token: string | null): Promise<string | n
 
     if (answer === null) return null;
     if ("refusedStatus" in answer) {
-      logger.error("turnstile.request_refused", undefined, { error_code: "FE-TURNSTILE-002", status: answer.refusedStatus });
+      logger.error("turnstile.request_refused", undefined, { status: answer.refusedStatus });
       return PRUEFUNG_GESTOERT;
     }
     if (answer.passed) return null;
     if (answer.codes.some((code) => OURS.has(code))) {
       logger.error("turnstile.request_refused", undefined, {
-        error_code: "FE-TURNSTILE-002",
         codes: answer.codes.join(", "),
         status: answer.status,
       });

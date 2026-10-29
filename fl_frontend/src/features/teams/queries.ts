@@ -19,7 +19,6 @@ export async function getTeams(filters: FLPublicTeamsFilterParams = {}): Promise
 
   return apiClient<FLTeamsResponse>("/teams", FLTeamsResponseSchema, {
     params: filters,
-    cacheFill: { name: "getTeams", args: filters },
   });
 }
 
@@ -36,7 +35,6 @@ export async function getTeam(teamId: string, filters: FLTeamSingleFilterParams 
 
   return apiClient<FLTeamsSingleResponse>(`/teams/${teamId}`, FLTeamsSingleResponseSchema, {
     params: filters,
-    cacheFill: { name: "getTeam", args: { teamId: teamId, filters: filters } },
   }).catch((error: unknown) => {
     // A 404 is "no such team" OR "no junction row for this season": the join is strict.
     if (isRecordMissing(error)) return null;

@@ -301,7 +301,6 @@ async function meldeAngenommen(
     // Never thrown on: the message HAS gone, and a caller told otherwise would report a send that
     // happened as one that did not. Name only, never the error.
     logger.error("bewerbung.zustellung_ungemeldet", undefined, {
-      error_code: "FE-MAIL-003",
       name: error instanceof Error ? error.name : undefined,
       operation: operation,
     });
@@ -373,10 +372,9 @@ async function settleFanOut<T extends { address: string; rollen: readonly Bewerb
       // No failure line: the mailer's own records a filed message, and a deployment that mails nothing failed nothing.
       return;
     }
-    // Name only, never the error: `fl_frontend/src/core/logFormat.ts :: serializeError` writes a
+    // Name only, never the error: `fl_frontend/src/core/logging.ts` writes a
     // message and a stack, and the address stays off the stream.
     logger.error("bewerbung.mail_failed", undefined, {
-      error_code: "FE-MAIL-002",
       name: result.reason instanceof Error ? result.reason.name : undefined,
       operation: operation,
     });

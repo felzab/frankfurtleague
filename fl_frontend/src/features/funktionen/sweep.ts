@@ -108,7 +108,7 @@ async function sweepAlleKonten(): Promise<void> {
   // Every completed pass, nothing being stored: this line is how "has it run" is answered.
   // A warning where a failure kept accounts, so a level above INFO still shows a pass that judged none.
   if (zaehlung.fehlgeschlagen === 0) logger.info("konto.sweep_completed", zaehlung);
-  else logger.warn("konto.sweep_completed", { error_code: "FE-SWEEP-003", ...zaehlung });
+  else logger.warn("konto.sweep_completed", zaehlung);
 }
 
 /** One account, deleted only where the read answers its address unreferenced again, alone. */
@@ -134,7 +134,6 @@ function logKontoFailure(
   anzahl?: number,
 ): void {
   logger.error(event, undefined, {
-    error_code: "FE-SWEEP-003",
     name: error instanceof Error ? error.name : undefined,
     ...requestOf(error),
     anzahl: anzahl,

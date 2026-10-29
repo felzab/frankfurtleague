@@ -39,7 +39,7 @@ const MUTATIONS_DOUBLE = {
   },
 };
 
-// The error argument is CAPTURED, never discarded: `fl_frontend/src/core/logFormat.ts :: serializeError`
+// The error argument is CAPTURED, never discarded: `fl_frontend/src/core/logging.ts`
 // writes an error's message and stack, so a double that drops it cannot see an address reaching the
 // stream through one.
 const LOGGING_DOUBLE = {
@@ -271,7 +271,7 @@ describe("one fan-out about a record", () => {
 
     expect(delivered, "the message went, whatever the record did").toStrictEqual([ADDRESS]);
     expect(logged.length).toBe(1);
-    expect(logged[0]?.meta["error_code"]).toBe("FE-MAIL-006");
+    expect(logged[0]?.message).toBe("zustellung.angenommen_nicht_angewendet");
     expect(logged[0]?.meta["ziel"]).toBe("schiedsrichter");
     expect(logged[0]?.meta["operation"]).toBe("schiedsrichter.einladung");
     assert.ok(!inspect(logged, { depth: null }).includes(ADDRESS), "an address reached the stream");
@@ -320,7 +320,7 @@ describe("one fan-out about a record", () => {
   it("counts a send that broke off unanswered as of unknown outcome, never unreachable, and marks the request", async () => {
     outcomes.set(ADDRESS, "lost");
 
-    const [settled, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
+    const [settled, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32) }, async () => {
       const outcome = await sendZielMail({
         operation: "schiedsrichter.einladung",
         auftrag: auftrag,
@@ -341,7 +341,7 @@ describe("one fan-out about a record", () => {
   it("counts a send refused before it left as unreachable, never unclear, and records nothing", async () => {
     outcomes.set(ADDRESS, "unsent");
 
-    const [settled, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
+    const [settled, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32) }, async () => {
       const outcome = await sendZielMail({
         operation: "schiedsrichter.einladung",
         auftrag: auftrag,
@@ -390,7 +390,7 @@ describe("one fan-out about a record", () => {
     });
 
     expect([delivered, unreachable]).toStrictEqual([[ADDRESS], []]);
-    expect(logged.at(-1)?.meta["error_code"]).toBe("FE-MAIL-003");
+    expect(logged.at(-1)?.message).toBe("zustellung.angenommen_ungemeldet");
   });
 
   /* A send refused at submit time mints no message, so nothing else ever tells the clocks about that
@@ -473,7 +473,7 @@ describe("one fan-out about a record", () => {
     });
 
     expect([delivered, unreachable]).toStrictEqual([[], [ADDRESS]]);
-    expect(logged.at(-1)?.meta["error_code"]).toBe("FE-MAIL-003");
+    expect(logged.at(-1)?.message).toBe("zustellung.abweisung_ungemeldet");
   });
 
   /* Asserted over the whole call, the error argument included, so a
@@ -493,7 +493,6 @@ describe("one fan-out about a record", () => {
     const written = inspect(logged, { depth: null });
     assert.ok(!written.includes(ADDRESS), "an address reached the stream");
     assert.ok(!written.includes(SECOND_ADDRESS), "an address reached the stream");
-    for (const line of logged) assert.ok(String(line.meta["error_code"]).startsWith("FE-MAIL-"), "a line carried no mail error code");
   });
 });
 

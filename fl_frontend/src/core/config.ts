@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import { BootRefusal } from "./bootRefusal";
-import { formatLogLine, LOG_THRESHOLDS } from "./logFormat";
+import { logger } from "./logging";
 
 // The class `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS` pins: printable ASCII
 // without the space, which `secrets.compare_digest` there reads.
@@ -83,24 +83,17 @@ function readSecretFiles(directory: string): { values: Partial<Record<SecretKey,
   return { values, unreadable };
 }
 
-/** One refusal's line, the sentence the backend prints for the same refusal and its log line's `error_code`. */
+/** One refusal's line: its event, the sentence the backend prints for the same refusal, and what it names. */
 interface Refusal {
+  event: string;
   sentence: string;
-  error_code: string;
   field: "variables" | "files";
   names: readonly string[];
 }
 
-/** Each refusal's CRITICAL line, in the stream's own format, and then the one error that ends the boot. */
+/** Each refusal's CRITICAL line, and then the one error that ends the boot. */
 function refuse(refusals: readonly Refusal[]): never {
-  // Read off the raw variable, which may itself be the invalid one, so anything but `json` falls
-  // to the console shape.
-  const format = process.env.LOG_FORMAT?.toLowerCase() === "json" ? "json" : "console";
-  for (const { sentence, error_code, field, names } of refusals) {
-    // The formatter rather than the logger: `logging.ts` imports this module, and importing it back
-    // would close the cycle.
-    process.stdout.write(formatLogLine(format, "CRITICAL", sentence, { error_code, [field]: names.join(", ") }) + "\n");
-  }
+  for (const { event, field, names } of refusals) logger.critical(event, { [field]: names.join(", ") });
 
   throw new BootRefusal(refusals.map(({ sentence, names }) => `${sentence}: ${names.join(", ")}`).join("; "));
 }
@@ -113,16 +106,16 @@ export function refuseInvalidEnvironment(names: readonly string[]): never {
   // The class the backend's boot refusals take, and its sentences.
   refuse([
     ...(variables.length > 0
-      ? [{ sentence: "Invalid environment variables", error_code: "FE-BOOT-001", field: "variables", names: variables } as const]
+      ? [{ event: "system.variables_refused", sentence: "Invalid environment variables", field: "variables", names: variables } as const]
       : []),
     ...(files.length > 0
-      ? [{ sentence: "Invalid secret files", error_code: "FE-BOOT-004", field: "files", names: files.sort() } as const]
+      ? [{ event: "system.files_refused", sentence: "Invalid secret files", field: "files", names: files.sort() } as const]
       : []),
   ]);
 }
 
 function refuseUnreadableSecretFiles(unreadable: readonly string[]): never {
-  refuse([{ sentence: "Unreadable secret files", error_code: "FE-BOOT-004", field: "files", names: unreadable }]);
+  refuse([{ event: "system.files_unreadable", sentence: "Unreadable secret files", field: "files", names: unreadable }]);
 }
 
 // Names only: an issue's message, or its `input` under `reportInput`, can quote a rejected value,
@@ -136,8 +129,8 @@ function failingVariableNames(issues: readonly z.core.$ZodIssueBase[]): string[]
 const APP_ENVIRONMENTS = ["production", "local"] as const;
 
 // The credentials `production` demands and no other deployment holds, refused at boot on the
-// production host alone. Files only: the deploy asks production for them by file, and for no
-// variable beyond `REQUIRED_ENVIRONMENT_NAMES`.
+// production host alone. Files only: the deploy asks production for them by file, never by a
+// variable.
 const PRODUCTION_ONLY_REQUIRED = ["AUTH_RESEND_KEY", "RESEND_WEBHOOK_SECRET", "TURNSTILE_SECRET_KEY"] as const satisfies readonly SecretKey[];
 
 // Mirrored from https://developers.cloudflare.com/turnstile/troubleshooting/testing/, read 2026-10-04,
@@ -150,8 +143,9 @@ const TURNSTILE_TEST_KEY = /^\dx0+[A-Z]{2}$/;
  */
 const TURNSTILE_TEST_SECRET_KEY = "1x0000000000000000000000000000000AA";
 
-// Bound to names rather than written inside the call, so the preflight's sets can be read off the
-// schema itself: a hand-kept copy of those names would be a second artefact to keep current.
+// A name without a default refuses the boot where it is misspelled or missing, and the deploy's preflight
+// boots before anything is recreated, so no shipped value serves in its place. Bound to a name rather
+// than written inside the call: the validation reads each variable off its keys.
 const environment = {
   // Declared, never inferred: `AUTH_URL`'s refinement below records that the local stack sets a
   // production host too, and an origin test would call a staging box production. `mail.ts` sends on
@@ -180,21 +174,6 @@ const environment = {
   // A path, never the key: an environment value shows in `docker inspect`, and a mounted secret file
   // in neither that nor this schema's refusals. Defaulted to where the compose secret mounts.
   ACTOR_SIGNING_KEY_FILE: z.string().min(1).default("/run/secrets/fl_actor_signing_key"),
-
-  // An enum over a normalised value, not a bare string: the json branch is selected by exact
-  // comparison, so a capitalised one would fall through to colourised output in production.
-  LOG_FORMAT: z
-    .string()
-    .transform((value) => value.toLowerCase())
-    .pipe(z.enum(["console", "json"])),
-
-  // Defaulted so no server .env is touched to keep INFO the floor, and upper-cased before the
-  // enum because the level words are the ones that appear on a log line.
-  LOG_LEVEL: z
-    .string()
-    .transform((value) => value.toUpperCase())
-    .pipe(z.enum(LOG_THRESHOLDS))
-    .default("INFO"),
 
   // Defaulted so no server .env is touched to arm the retention sweep, and an enum rather than
   // `z.coerce.boolean()`, which reads the string "false" as true and settles before a default
@@ -332,24 +311,3 @@ export const turnstileSecretKey = (): string => validated.TURNSTILE_SECRET_KEY ?
 
 /** The deployment the deploy's or the local stack's preflight names, set by that preflight alone: the boot judges it and ends. */
 export const bootCheck = (): string | undefined => process.env.BOOT_CHECK;
-
-/**
- * `scripts/ops/deploy.sh :: check_frontend_env_names` refuses a deploy whose environment file carries a name
- * outside this set: nothing in this schema reads one, so it reads as omitted and the shipped default
- * serves production.
- */
-export const DECLARED_ENVIRONMENT_NAMES: readonly string[] = Object.keys(environment).sort();
-
-// Asked of the schema rather than read off its shape: `.optional()` and `.default()` are two
-// spellings of one answer, and Zod publishes no introspection that gives it.
-const required = (declarations: Record<string, z.ZodType>): string[] =>
-  Object.entries(declarations)
-    .filter(([, declaration]) => !declaration.safeParse(undefined).success)
-    .map(([name]) => name);
-
-/**
- * The same preflight refuses a file that omits one of these. A name the file never declares reaches
- * the schema as `undefined`, so the container is recreated and then refuses to boot behind an edge
- * already answering 502.
- */
-export const REQUIRED_ENVIRONMENT_NAMES: readonly string[] = required(environment).sort();

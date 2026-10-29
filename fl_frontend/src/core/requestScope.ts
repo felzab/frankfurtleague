@@ -2,8 +2,6 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import { cache } from "react";
 
-import { mintSpanId } from "./trace";
-
 // Under `nginx/shared/site.conf :: proxy_read_timeout` by the proxy's session read before this scope
 // opens. Next streams an action's answer once it returns, the re-render following in chunks, and nginx
 // times each gap between reads, not the response.
@@ -26,9 +24,6 @@ export type RequestActor = { readonly email: string; readonly lane: ActorLane; r
 
 interface RequestScope {
   traceId: string;
-  // This service's own span, minted per request: each hop mints one locally and only the trace id
-  // travels end to end.
-  spanId: string;
   // Absent on a public read, and on an admin one until its session resolves.
   actor?: RequestActor;
   // On `performance.now()`'s clock rather than `Date.now()`'s, which a wall-clock step moves.
@@ -52,7 +47,7 @@ const storage = new AsyncLocalStorage<RequestScope>();
 // its request.
 const scopeOfThisRender = cache((): { scope?: RequestScope } => ({}));
 
-export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "spanId" | "actor">, fn: () => Promise<T>): Promise<T> {
+export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "actor">, fn: () => Promise<T>): Promise<T> {
   // One request, one scope: a slice's read opens one inside the action awaiting it, and a scope of its
   // own there would restart the deadline and drop the actor the guard recorded.
   if (storage.getStore() !== undefined) return fn();
@@ -95,7 +90,6 @@ export function oncePerRequest<T>(fn: () => Promise<T>): () => Promise<T> {
 export function runBehindTheResponse(traceId: string, work: () => Promise<void>): Promise<void> {
   const scope: RequestScope = {
     traceId,
-    spanId: mintSpanId(),
     deadlineAt: performance.now() + AFTER_RESPONSE_DEADLINE_MS,
     outcomeUnknown: false,
     writeSent: false,
@@ -210,10 +204,6 @@ export function requestEndsOwnSession(): boolean {
 
 export function getRequestTraceId(): string | undefined {
   return storage.getStore()?.traceId;
-}
-
-export function getRequestSpanId(): string | undefined {
-  return storage.getStore()?.spanId;
 }
 
 export function getRequestActor(): RequestActor | undefined {

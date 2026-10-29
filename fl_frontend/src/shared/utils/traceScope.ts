@@ -4,7 +4,7 @@
 import { headers } from "next/headers";
 
 import { runWithRequestScope } from "@/core/requestScope";
-import { mintSpanId, mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "@/core/trace";
+import { mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "@/core/trace";
 
 /**
  * Runs `fn` under the trace the edge opened for this request. **`headers()` is allowed to throw here**, naming a
@@ -13,7 +13,5 @@ import { mintSpanId, mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "@/
 export async function runWithIncomingTrace<T>(fn: () => Promise<T>): Promise<T> {
   const incoming = readTraceparent((await headers()).get(TRACEPARENT_HEADER));
 
-  // The incoming span is the edge's and is never adopted: a span names one hop's work, so reusing
-  // it would make two hops' lines indistinguishable.
-  return runWithRequestScope({ traceId: incoming?.traceId ?? mintTraceId(), spanId: mintSpanId() }, fn);
+  return runWithRequestScope({ traceId: incoming ?? mintTraceId() }, fn);
 }

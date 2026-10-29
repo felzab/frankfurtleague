@@ -98,11 +98,10 @@ export async function adresswechselWirksam({
   if (traegt) {
     try {
       const umzug = await carryAccount(bisherige, mitteilung.email);
-      if (umzug === "belegt") logger.warn("adresswechsel.konto_nicht_umgezogen", { error_code: "FE-AUTH-013", grund: "belegt", operation });
+      if (umzug === "belegt") logger.warn("adresswechsel.konto_nicht_umgezogen", { grund: "belegt", operation });
     } catch (error) {
       // Name only, never the error, which carries an address.
       logger.error("adresswechsel.konto_nicht_umgezogen", undefined, {
-        error_code: "FE-AUTH-013",
         name: error instanceof Error ? error.name : undefined,
         operation: operation,
       });
@@ -149,7 +148,6 @@ async function sendeHinweis(adresse: string, mail: Mail, ereignis: string, opera
     if (ausfall === "gesperrt" || ausfall === "zurueckgehalten") return ausfall;
     // Name only, never the error, which carries the address.
     logger.error(ereignis, undefined, {
-      error_code: "FE-MAIL-002",
       name: error instanceof Error ? error.name : undefined,
       operation: operation,
     });

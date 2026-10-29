@@ -33,7 +33,6 @@ async function leseEinwilligungFassung(textVersion: string): Promise<GeleseneFas
   try {
     const antwort = await apiClient(`/einwilligung/fassungen/${encodeURIComponent(textVersion)}`, FLEinwilligungFassungResponseSchema, {
       authType: "base",
-      cacheFill: { name: "getEinwilligungFassung", args: textVersion },
     });
     // The longest life: a label's words never change, so no change outside a save can reach them.
     cacheLife("max");

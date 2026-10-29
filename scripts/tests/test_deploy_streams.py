@@ -1151,7 +1151,7 @@ def _lib_array(name: str) -> list[str]:
 
 def test_settings_the_frontend_refuses_stop_the_run_with_nothing_recreated() -> None:
     """Exit 3 is the boot's own refusal; its CRITICAL line is what names the setting, so it is printed."""
-    said = '{"level":"CRITICAL","error_code":"FE-BOOT-004","files":"auth_secret"}'
+    said = '{"level":"CRITICAL","message":"system.files_refused","files":"auth_secret"}'
     code, output, _ = _run(FRONTEND_BOOT, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS=said)
 
     assert code == 2, output
@@ -1225,7 +1225,7 @@ def test_the_settings_program_answers_3_naming_what_it_refuses_and_never_a_value
 @pytest.mark.parametrize(
     ("script", "after", "before"),
     [
-        (DEPLOY, "\ncheck_frontend_env_names\n", 'step "Recreating the application containers"'),
+        (DEPLOY, "\ncheck_env_names\n", 'step "Recreating the application containers"'),
         (LOCAL, 'ok "images built"', 'section "start"'),
     ],
 )
@@ -1485,44 +1485,6 @@ def test_the_dry_run_runs_on_the_deploy_s_platform_alone() -> None:
     assert code == 2, output
     assert "This script targets linux" in output, output
     assert calls == [], calls
-
-
-# Each printable ASCII character, a tab, `ö` and a byte-order mark first, inside and last in a value;
-# each printable ASCII character first in and inside a name; then the other shapes, NUL and
-# one-reader line breaks among them.
-PARITY_LINES: Final = (
-    [
-        f"PARITY_{n}={value}"
-        for n, value in enumerate(
-            value for c in [chr(code) for code in range(0x20, 0x7F)] + ["\t", "ö", "\ufeff"] for value in (f"{c}b", f"a{c}b", f"a{c}")
-        )
-    ]
-    + [line for c in [chr(code) for code in range(0x20, 0x7F)] for line in (f"{c}N=1", f"N{c}N=1")]
-    + ["", " \t", "\f", "\v", "\u00a0", "\u2028", "# a comment", "  # indented", "BARE", "export E=1", "C: 1", "C:1", "1N=x"]
-    + ["A.B=x", "E=", "R=1\r", "R=1\r\r", "# a\rB=1", "# a\u2028B=1", "# a\u2029B=1", "PARITY_NUL=a\x00b", "# a\x00b", "\x00"]
-)
-
-
-def test_the_frontend_reader_refuses_exactly_the_lines_the_preflight_refuses() -> None:
-    """`check-environment-names.mjs :: STRICT_LINE` spells `_lib.sh :: ENV_LINE_RE` again; both are driven over one file here."""
-    checker = (REPO_ROOT / "fl_frontend" / "scripts" / "check-environment-names.mjs").as_uri()
-    reader = f"import {{ scanNames }} from '{checker}'; import {{ readFileSync }} from 'node:fs';"
-    reader += " for (const n of scanNames(readFileSync(process.argv[1], 'utf8')).unreadable) console.log(`node ${n}`);"
-    text = "\ufeffFIRST=1\n" + "\n".join(PARITY_LINES) + "\n"
-    body = (
-        f"{_written('fl_backend/.env', text)}env_lines fl_backend/.env\n"
-        'for i in "${!ENV_LINE_NUMBER[@]}"; do (( ENV_LINE_KEPT[i] )) || printf \'shell %s\\n\' "${ENV_LINE_NUMBER[i]}"; done\n'
-        f"node --input-type=module -e {shlex.quote(reader)} fl_backend/.env\n"
-    )
-    code, output, _ = _run(body)
-    shell = re.findall(r"^shell (\d+)$", output, re.MULTILINE)
-    node = re.findall(r"^node (\d+)$", output, re.MULTILINE)
-
-    assert code == 0, output
-    # Both verdicts present, so an empty side cannot agree by reading nothing: the marked first line
-    # refused, the empty value kept.
-    assert "1" in shell and str(PARITY_LINES.index("E=") + 2) not in shell, output
-    assert shell == node, output
 
 
 def test_a_file_holding_no_credential_line_passes_in_silence() -> None:

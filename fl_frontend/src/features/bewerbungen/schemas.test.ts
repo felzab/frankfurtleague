@@ -736,7 +736,7 @@ describe("what the two delivery writes may put on the wire", () => {
   });
 
   /* Past the ceiling the endpoint answers 422, and neither caller retries: the acceptance's is caught
-     and logged as `FE-MAIL-003`, and the event's route answers the provider 200 so it stops resending. */
+     and logged, and the event's route answers the provider 200 so it stops resending. */
   for (const [was, meldung] of [
     ["the acceptance", accepted],
     ["the event", ereignis],

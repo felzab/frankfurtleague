@@ -124,7 +124,6 @@ const CONFIG_DOUBLE = {
     throw new Error("the doubled config refuses no environment");
   },
   frontend_config: {
-    LOG_FORMAT: "console",
     AUTH_URL: "http://localhost:3000",
     // The boot reads the signing key before it arms anything.
     ACTOR_SIGNING_KEY_FILE: ACTOR_KEY_FILE,
@@ -655,7 +654,6 @@ describe("the line a failed call files", () => {
 
     expect(lines.filter(({ level }) => level === "error").map(({ fields }) => fields)).toStrictEqual([
       {
-        error_code: "FE-SWEEP-001",
         name: "APIBadStatusError",
         status: 500,
         server_error_code: "DB-FAIL-001",
@@ -666,7 +664,7 @@ describe("the line a failed call files", () => {
   });
 
   /* No status: the backend never answered, so the trace is all that finds the request in its log, if it
-     arrived there at all (`FE-SWEEP-001`). */
+     arrived there at all. */
   it("names an unanswered call's trace on its failure line", async () => {
     answerWith(() => {
       throw new APINetworkError({
@@ -682,7 +680,7 @@ describe("the line a failed call files", () => {
     await runBewerbungSweep();
 
     expect(lines.filter(({ level }) => level === "error").map(({ fields }) => fields)).toStrictEqual([
-      { error_code: "FE-SWEEP-001", name: "APINetworkError", trace_id: "4bf92f3577b34da6a3ce929d0e0e4736", saison_id: undefined },
+      { name: "APINetworkError", trace_id: "4bf92f3577b34da6a3ce929d0e0e4736", saison_id: undefined },
     ]);
   });
 
@@ -703,7 +701,6 @@ describe("the line a failed call files", () => {
 
     expect(lines.filter(({ level }) => level === "error").map(({ fields }) => fields)).toStrictEqual([
       {
-        error_code: "FE-SWEEP-001",
         name: "APIMalformedDataError",
         status: 200,
         trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
@@ -987,8 +984,8 @@ describe("the line each season half files for a pass", () => {
     await runBewerbungSweep();
 
     expect(seasonLines()).toStrictEqual([
-      { level: "warn", event: "bewerbung.sweep_pass", fields: { error_code: "FE-SWEEP-001", fehlgeschlagen: 7 } },
-      { level: "warn", event: "registrierung.sweep_pass", fields: { error_code: "FE-SWEEP-001", fehlgeschlagen: 8 } },
+      { level: "warn", event: "bewerbung.sweep_pass", fields: { fehlgeschlagen: 7 } },
+      { level: "warn", event: "registrierung.sweep_pass", fields: { fehlgeschlagen: 8 } },
     ]);
   });
 
@@ -1002,7 +999,7 @@ describe("the line each season half files for a pass", () => {
     expect(seasonLines()[0]).toStrictEqual({
       level: "warn",
       event: "bewerbung.sweep_pass",
-      fields: { error_code: "FE-SWEEP-001", fehlgeschlagen: 1 },
+      fields: { fehlgeschlagen: 1 },
     });
   });
 });
@@ -1090,7 +1087,7 @@ describe("the half after the season loop", () => {
         {
           level: "warn",
           event: "adresswechsel.sweep_pass",
-          fields: { error_code: "FE-SWEEP-001", entfernt: 1, wirksam: 0, verworfen: 0, verbleibend: 42 },
+          fields: { entfernt: 1, wirksam: 0, verworfen: 0, verbleibend: 42 },
         },
       ],
     );
@@ -1109,7 +1106,7 @@ describe("the half after the season loop", () => {
         {
           level: "warn",
           event: "adresswechsel.sweep_pass",
-          fields: { error_code: "FE-SWEEP-001", entfernt: 5, wirksam: 0, verworfen: 0, verbleibend: 1 },
+          fields: { entfernt: 5, wirksam: 0, verworfen: 0, verbleibend: 1 },
         },
       ],
     );
@@ -1132,7 +1129,7 @@ describe("the half after the season loop", () => {
         {
           level: "error",
           event: "adresswechsel.sweep_failed",
-          fields: { error_code: "FE-SWEEP-001", name: "ContractBreakError", saison_id: undefined },
+          fields: { name: "ContractBreakError", saison_id: undefined },
         },
       ]);
     });
@@ -1153,7 +1150,7 @@ describe("the half after the season loop", () => {
         {
           level: "error",
           event: "adresswechsel.sweep_failed",
-          fields: { error_code: "FE-SWEEP-001", name: "Error", saison_id: undefined },
+          fields: { name: "Error", saison_id: undefined },
         },
       ],
     );
@@ -1255,7 +1252,7 @@ describe("the half after the season loop", () => {
     assert.deepEqual(stamps, [{ beanspruchung: "claim-1", ids: [`${"e".repeat(23)}1`] }]);
   });
 
-  /* Given up by the backend's count: stamped unsent, and the line names its kind and no address (`FE-MAIL-016`). */
+  /* Given up by the backend's count: stamped unsent, and the line names its kind and no address. */
   it("stamps an abandoned notice unsent, logging its kind and never its address", async () => {
     owed = [{ ...wirksamFuer(`${"e".repeat(23)}1`, "alt-1@schule.de", "neu-1@schule.de"), aufgegeben: true }];
 
@@ -1268,7 +1265,7 @@ describe("the half after the season loop", () => {
     assert.deepEqual(stamps, [{ beanspruchung: "claim-1", ids: [`${"e".repeat(23)}1`] }]);
     assert.deepEqual(
       lines.filter(({ event }) => event === "adresswechsel.notice_abandoned"),
-      [{ level: "error", event: "adresswechsel.notice_abandoned", fields: { error_code: "FE-MAIL-016", art: "wirksam" } }],
+      [{ level: "error", event: "adresswechsel.notice_abandoned", fields: { art: "wirksam" } }],
     );
   });
 });

@@ -19,7 +19,6 @@ export async function getSaisons(filters: FLSaisonsFilterParams = {}): Promise<F
 
   return apiClient<FLSaisonsListResponse>("/saisons", FLSaisonsListResponseSchema, {
     params: filters,
-    cacheFill: { name: "getSaisons", args: filters },
   });
 }
 
@@ -55,9 +54,7 @@ export async function getCurrentSaisonOrNull(): Promise<FLSaisonsSingleResponse 
   cacheTag(SITE_CACHE_TAG);
   cacheLife("minutes");
 
-  return apiClient<FLSaisonsSingleResponse>("/saisons/current", FLSaisonsSingleResponseSchema, {
-    cacheFill: { name: "getCurrentSaisonOrNull", args: {} },
-  }).catch((error: unknown) => {
+  return apiClient<FLSaisonsSingleResponse>("/saisons/current", FLSaisonsSingleResponseSchema).catch((error: unknown) => {
     // Inside the cache scope: an error thrown out of one reaches the caller redacted to a digest,
     // so a catch at the call site cannot recognise it
     // (`fl_frontend/src/features/teams/queries.ts :: getTeam`).

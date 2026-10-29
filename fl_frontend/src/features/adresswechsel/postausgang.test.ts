@@ -89,9 +89,7 @@ describe("the address change's outbox drain", () => {
 
     await runAdresswechselPostausgang();
 
-    expect(lines.map((line) => [line.event, line.fields])).toStrictEqual([
-      ["adresswechsel.postausgang_failed", { error_code: "FE-SWEEP-005", name: "Error" }],
-    ]);
+    expect(lines.map((line) => [line.event, line.fields])).toStrictEqual([["adresswechsel.postausgang_failed", { name: "Error" }]]);
   });
 
   /* The status and code tell a refusal from a crash, and the trace finds the backend's own line. */
@@ -114,7 +112,7 @@ describe("the address change's outbox drain", () => {
     expect(lines.map((line) => [line.event, line.fields])).toStrictEqual([
       [
         "adresswechsel.postausgang_failed",
-        { error_code: "FE-SWEEP-005", name: "APIBadStatusError", status: 503, server_error_code: "DB-FAIL-001", trace_id: "t".repeat(32) },
+        { name: "APIBadStatusError", status: 503, server_error_code: "DB-FAIL-001", trace_id: "t".repeat(32) },
       ],
     ]);
   });
@@ -128,9 +126,7 @@ describe("the address change's outbox drain", () => {
 
     expect(delivered).toStrictEqual(["neu@schule.de"]);
     expect(claimed(), "a page whose stamp failed was followed by another claim").toBe(1);
-    expect(lines.map((line) => [line.event, line.fields])).toStrictEqual([
-      ["adresswechsel.stempel_failed", { error_code: "FE-SWEEP-005", name: "TypeError" }],
-    ]);
+    expect(lines.map((line) => [line.event, line.fields])).toStrictEqual([["adresswechsel.stempel_failed", { name: "TypeError" }]]);
   });
 });
 

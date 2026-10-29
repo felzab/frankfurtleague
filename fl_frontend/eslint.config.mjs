@@ -406,15 +406,6 @@ const TRANSITION_REWRAP = syntax(
 /** Every read of `name` off a module's namespace: a member, or a destructured key. */
 const readsOff = (name) => [`MemberExpression[property.name=${name}]`, `ObjectPattern > Property[key.name=${name}]`].join(", ");
 
-/**
- * `fl_frontend/src/core/logFormat.ts :: serializeError` writes an error's message and stack, and a
- * failure on the sign-in or the mail path routinely carries the submitted address.
- */
-const LOGGED_ERROR = syntax(
-  'CallExpression[callee.object.name="logger"][callee.property.name="error"] > :not(Identifier[name="undefined"]).arguments:nth-child(2)',
-  "Hand `logger.error` `undefined` for the error on this path: its message and stack carry the submitted address.",
-);
-
 /** The names the image's builder stage sets, which a module may read while it loads. */
 const PROVIDED_WHILE_BUILDING = "CI|NEXT_RUNTIME|NEXT_TELEMETRY_DISABLED|NODE_ENV|NODE_VERSION|PATH|PNPM_HOME|SKIP_ENV_VALIDATION";
 
@@ -438,15 +429,6 @@ const LOAD_TIME_ENVIRONMENT = [
 const syntaxBan = (entry, reach, options) => ban("no-restricted-syntax", entry, reach, options);
 
 const SOURCE_BANS = [
-  syntaxBan(LOGGED_ERROR, SOURCE, {
-    allow: [
-      // Next's hook for a crash no code caught, whose stack is the only account of it.
-      "src/core/instrumentation.ts",
-      // A backend read's failure absorbed by a page, the error being the read's own answer, never a submitted form: its
-      // logging helper is private, and an action's or a route's failure logs through `actionFailure.ts`, under this ban.
-      "src/shared/utils/degradedRead.ts",
-    ],
-  }),
   syntaxBan(ENVIRONMENT_READ, SOURCE, { allow: ["src/core/config.ts"] }),
   syntaxBan(ACTION_STATE_BAN, SOURCE, { allow: ["src/kit/useFormAction.ts"] }),
   syntaxBan(
