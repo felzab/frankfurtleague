@@ -139,8 +139,12 @@ async def lifespan(app: FastAPI):
             )
             raise
         fl_logger.info(
-            f"Database indexes applied: {constraints.unique_indexes} unique, {constraints.support_indexes} support "
-            f"and {constraints.ttl_indexes} TTL."
+            "db.indexes_applied",
+            extra={
+                "unique_indexes": constraints.unique_indexes,
+                "support_indexes": constraints.support_indexes,
+                "ttl_indexes": constraints.ttl_indexes,
+            },
         )
 
         await warn_about_the_grants(app.state.db_client[config.db_base_name][Collection.BERECHTIGUNGEN])
