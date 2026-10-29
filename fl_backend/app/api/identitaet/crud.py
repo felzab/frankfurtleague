@@ -872,7 +872,7 @@ class ErasureJournal[Erased: FLErasure]:
         try:
             await warn_about_the_grants(self._berechtigungen_collection)
         except PyMongoError as failure:
-            fl_logger.error(f"The grants went unchecked after an erasure: {type(failure).__name__}", extra={"error_code": Code.DATABASE_FAILED})
+            fl_logger.error("identitaet.grants_unchecked", extra={"error_code": Code.DATABASE_FAILED, "exception": type(failure).__name__})
 
 
 async def unreferenced_of(

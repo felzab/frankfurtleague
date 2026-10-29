@@ -939,18 +939,14 @@ async def sweep_spielbestaetigungen(
                 raise
             # The label, as `app/core/transactions.py :: _log_stopped` reads it: a lost answer may hide a commit.
             if isinstance(stop, PyMongoError) and stop.has_error_label(UNKNOWN_COMMIT_RESULT):
+                # Those rows may have been written with nobody told; the call answers what else committed.
                 fl_logger.warning(
-                    f"The {clock} clock's commit went unanswered after the call committed messages it owes: {may_stand()} may have "
-                    "been written with nobody told, the call answers what else committed, and the rest stay due",
-                    extra={"error_code": Code.UNKNOWN_OUTCOME},
+                    "spielbestaetigungen.clock_commit_unanswered",
+                    extra={"error_code": Code.UNKNOWN_OUTCOME, "clock": clock, "may_stand": may_stand()},
                 )
                 return None
             code, diagnosis = diagnosis_of(stop)
-            fl_logger.warning(
-                f"The {clock} clock stopped at a failure ({diagnosis}) after the call committed messages it owes: "
-                "the call answers what committed, and the rest stay due",
-                extra={"error_code": code},
-            )
+            fl_logger.warning("spielbestaetigungen.clock_stopped", extra={"error_code": code, "clock": clock, "diagnosis": diagnosis})
             return None
 
     def taken_by(batch: Batch, noun: str) -> Callable[[], str]:
@@ -1053,8 +1049,8 @@ async def sweep_spielbestaetigungen(
     # naming the row would tie its club to the ban for as long as the log is kept.
     if mint_share.withheld or reminder_share.withheld:
         fl_logger.info(
-            f"Links withheld from barred addresses in season {saison_id}: {mint_share.withheld} seat(s) unminted, "
-            f"{reminder_share.withheld} seat(s) unreminded"
+            "spielbestaetigungen.links_withheld",
+            extra={"saison_id": saison_id, "unminted": mint_share.withheld, "unreminded": reminder_share.withheld},
         )
 
     return FLSpielbestaetigungSweepResponse(

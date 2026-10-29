@@ -379,16 +379,24 @@ async def sweep_adresswechsel(
                 ungewiss = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
                 # Below the handler's ERROR: no record is at fault, and every later change would fail the same way.
                 fl_logger.warning(
-                    f"Database deadline passed at the {welche} address change {row['_id']}"
-                    f"{f', its {was} unanswered' if ungewiss else ''}: the call stops, and the rest stay due",
-                    extra={"error_code": Code.UNKNOWN_OUTCOME if ungewiss else Code.DATABASE_FAILED},
+                    "adresswechsel.sweep_cut",
+                    extra={
+                        "error_code": Code.UNKNOWN_OUTCOME if ungewiss else Code.DATABASE_FAILED,
+                        "art": welche,
+                        "adresswechsel_id": str(row["_id"]),
+                        # The step whose commit went out unanswered, null where none did.
+                        "unanswered": was if ungewiss else None,
+                    },
                 )
                 abgebrochen = True
                 break
 
             # The id and what locates the failure, never an address this pass handles.
             code, diagnosis = diagnosis_of(failure)
-            fl_logger.error(f"The {welche} address change {row['_id']} saw no {was}: {diagnosis}", extra={"error_code": code})
+            fl_logger.error(
+                "adresswechsel.sweep_row_failed",
+                extra={"error_code": code, "art": welche, "schritt": was, "adresswechsel_id": str(row["_id"]), "diagnosis": diagnosis},
+            )
             continue
 
         if not row["faellig"]:

@@ -687,7 +687,7 @@ async def sweep_saison(
     # After the commit, so a retried transaction writes no second line. A count and never an id: a
     # line naming the application would tie it to the ban for as long as the log is kept.
     if share.withheld:
-        fl_logger.info(f"Reminders withheld from barred addresses in season {saison_id}: {share.withheld} mailbox(es)")
+        fl_logger.info("bewerbungen.reminders_withheld", extra={"saison_id": saison_id, "mailboxes": share.withheld})
 
     return FLBewerbungSweepResponse(
         saison_id=saison_id,

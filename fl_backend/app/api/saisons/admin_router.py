@@ -1261,9 +1261,13 @@ async def _mail_one_team(
         # row says unknown rather than failed.
         ungewiss = failure.has_error_label("UnknownTransactionCommitResult")
         fl_logger.error(
-            f"The registration link for team {team['team_id']} in season {saison_id} was "
-            f"{'minted or not, the commit unanswered' if ungewiss else 'not minted'}: {type(failure).__name__}",
-            extra={"error_code": Code.UNKNOWN_OUTCOME if ungewiss else Code.DATABASE_FAILED},
+            "saisons.einladung_unminted",
+            extra={
+                "error_code": Code.UNKNOWN_OUTCOME if ungewiss else Code.DATABASE_FAILED,
+                "team_id": str(team["team_id"]),
+                "saison_id": saison_id,
+                "exception": type(failure).__name__,
+            },
         )
 
         return FLEinladungVersandZeile(

@@ -420,7 +420,7 @@ async def sweep_registrierungen(
         # After the commit, so a retried transaction writes no second line. A count and never an id:
         # a line naming the registration would tie it to the ban for as long as the log is kept.
         if share.withheld:
-            fl_logger.info(f"Reminders withheld from barred addresses in season {saison_id}: {share.withheld} registration(s)")
+            fl_logger.info("registrierungen.reminders_withheld", extra={"saison_id": saison_id, "registrierungen": share.withheld})
 
     return FLRegistrierungSweepResponse(
         saison_id=saison_id,
