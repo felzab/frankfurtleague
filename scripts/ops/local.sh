@@ -356,14 +356,14 @@ run_made_up_seed() {
     mongosh --quiet "mongodb://127.0.0.1:27017/${1}?directConnection=true" --file "$SEED_TARGET"
 }
 
-# The backend's own audit over what the seed wrote: every validator, every unique index, the
-# relations no validator holds and every value a whole-list read refuses. It writes nothing.
+# The backend's read-back over what the seed wrote: every document through its record model. It
+# writes nothing.
 judge_made_up_seed() {
   local rc=0
-  quietly docker compose exec -T backend python -m app.core.constraints --check || rc=$?
+  quietly docker compose exec -T backend python -m app.core.readback || rc=$?
   case "$rc" in
-    0) ok "every rule the backend holds its data to passes" ;;
-    1) die "the made-up seed breaks a rule the backend holds its data to, and the report above names it:
+    0) ok "every document the seed wrote reads back through its model" ;;
+    1) die "the made-up seed holds a document its model refuses, and the lines above name it:
 correct scripts/ops/seed/seed.js. The frontend and nginx have not been started." ;;
     *) refuse "the backend could not judge the seed (exit ${rc}); its own account is above.
 The frontend and nginx have not been started." ;;

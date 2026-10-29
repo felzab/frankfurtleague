@@ -344,7 +344,7 @@ jobs:
           base="$(docker compose exec -T backend sh -c 'printf %s "$DB_BASE_NAME"')"
           docker compose exec -T mongo sh -c 'cat > /tmp/made-up-seed.js' < scripts/ops/seed/seed.js
           docker compose exec -T mongo mongosh --quiet "mongodb://127.0.0.1:27017/${base}?directConnection=true" --file /tmp/made-up-seed.js
-          docker compose exec -T backend python -m app.core.constraints --check
+          docker compose exec -T backend python -m app.core.readback
       - name: Start the stack
         run: docker compose up -d --no-build --force-recreate --wait --wait-timeout 240
       - name: Run the journeys

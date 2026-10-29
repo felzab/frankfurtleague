@@ -642,8 +642,8 @@ application database and leaving `auth` as it is. It needs no login and reads no
 
 **A seed is in place before anything renders a page**, so no empty read is cached for the days the
 reference reads hold a value. The copy is restored before the application services exist. The
-made-up seed is loaded after the backend's boot has given every collection its validator, so each
-insert is judged as it lands, and `python -m app.core.constraints --check` then judges the whole;
+made-up seed is loaded after the backend's boot has built every index, and
+`python -m app.core.readback` then reads every document it wrote back through its record model;
 only then do the frontend and nginx start, the backend recreated with them.
 
 **`./scripts/ops/local.sh --e2e` starts the end-to-end stack instead** (`docker-compose.e2e.yml`,
