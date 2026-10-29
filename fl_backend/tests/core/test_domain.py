@@ -318,21 +318,6 @@ def test_the_document_publishes_every_protocol_family_and_no_other():
     assert build_document()[PROTOCOL_FAMILIES_EXTENSION] == sorted({refusal_family(code) for code in PROTOCOL_CODES})
 
 
-def test_every_collection_is_declared_once():
-    """`db.py`'s accessors and `Collection` would otherwise drift, and a new one could reach only one."""
-
-    declared = {collection.value for collection in Collection}
-    accessed = {
-        line.split("Collection.")[1].split("]")[0]
-        for line in (APP_ROOT / "core" / "db.py").read_text(encoding="utf-8").splitlines()
-        if "return db[Collection." in line
-    }
-
-    assert {getattr(Collection, member).value for member in accessed} == declared, (
-        "a collection has no DI accessor, or one names a member nothing declares"
-    )
-
-
 DOMAIN_PAGE = BACKEND_ROOT.parent / "docs" / "domain.md"
 ENTITY_SECTION = "## The entities, and what holds them together"
 

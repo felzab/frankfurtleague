@@ -1,3 +1,5 @@
+import functools
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import NamedTuple
 
@@ -169,147 +171,11 @@ async def get_database(
     return request.app.state.db_client[config.db_base_name]
 
 
-async def get_spiele_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELE]
+@functools.cache
+def collection_dependency(collection: Collection) -> Callable[..., Awaitable[AsyncCollection]]:
+    """The one dependency per collection, the same object on every call, so an override and FastAPI's per-request cache both key on it."""
 
+    async def get_collection(db: AsyncDatabase = Depends(get_database)) -> AsyncCollection:
+        return db[collection]
 
-async def get_spieler_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELER]
-
-
-async def get_spieltage_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELTAGE]
-
-
-async def get_teams_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.TEAMS]
-
-
-async def get_saisons_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SAISONS]
-
-
-async def get_spielorte_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELORTE]
-
-
-async def get_schiedsrichter_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SCHIEDSRICHTER]
-
-
-# The two junctions. A READ reaches them by name inside a `$lookup`; a write opens them directly,
-# there being nothing to join.
-async def get_saison_teams_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SAISON_TEAMS]
-
-
-async def get_aktionen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.AKTIONEN]
-
-
-async def get_saison_spieler_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SAISON_SPIELER]
-
-
-async def get_bewerbungen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.BEWERBUNGEN]
-
-
-async def get_sperrliste_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPERRLISTE]
-
-
-async def get_einladungen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.EINLADUNGEN]
-
-
-async def get_registrierungen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.REGISTRIERUNGEN]
-
-
-async def get_berechtigungen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.BERECHTIGUNGEN]
-
-
-async def get_berechtigungen_angekuendigt_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.BERECHTIGUNGEN_ANGEKUENDIGT]
-
-
-async def get_berechtigungen_postausgang_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.BERECHTIGUNGEN_POSTAUSGANG]
-
-
-async def get_drosselung_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.DROSSELUNG]
-
-
-async def get_adressanker_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.ADRESSANKER]
-
-
-async def get_spielbestaetigungen_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELBESTAETIGUNGEN]
-
-
-async def get_spielberichte_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.SPIELBERICHTE]
-
-
-async def get_adresswechsel_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.ADRESSWECHSEL]
-
-
-async def get_adresswechsel_postausgang_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.ADRESSWECHSEL_POSTAUSGANG]
-
-
-async def get_berechtigungen_antraege_collection(
-    db: AsyncDatabase = Depends(get_database),
-) -> AsyncCollection:
-    return db[Collection.BERECHTIGUNGEN_ANTRAEGE]
+    return get_collection

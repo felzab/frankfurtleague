@@ -29,7 +29,7 @@ from app.core.adressanker import anchor_the_addresses
 from app.core.collections import Collection
 from app.core.config import BackendConfig, get_app_config
 from app.core.crud import a_write_may_stand
-from app.core.db import get_berechtigungen_collection
+from app.core.dependencies import BerechtigungenCollection
 from app.core.exceptions import (
     ActorConfirmationRequiredException,
     ActorForbiddenException,
@@ -163,9 +163,7 @@ def verify_person_actor(
 GrantLookup = Callable[[str], Awaitable[datetime | None]]
 
 
-def get_grant_lookup(
-    berechtigungen_collection: Annotated[AsyncCollection, Depends(get_berechtigungen_collection)], sperrliste: SperrlisteLookup
-) -> GrantLookup:
+def get_grant_lookup(berechtigungen_collection: BerechtigungenCollection, sperrliste: SperrlisteLookup) -> GrantLookup:
     """The actor check's read: a live grant, and no ban on its address."""
 
     async def grant_since(identifier: str) -> datetime | None:

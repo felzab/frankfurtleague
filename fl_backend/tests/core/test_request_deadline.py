@@ -40,7 +40,7 @@ from app.core.crud import (
     post_many_to_db,
     post_one_to_db,
 )
-from app.core.db import get_einladungen_collection
+from app.core.db import collection_dependency
 from app.core.exception_handlers import (
     DATABASE_FAILED,
     STORES_NOTHING_WHEN,
@@ -433,7 +433,7 @@ def _pressed(url: str, stand_in: Callable[[AsyncCollection], Any], *, seed_links
             served = create_app(config)
             # The tier's shared client: closing it belongs to `tests/database.py :: _release`.
             served.state.db_client = client
-            served.dependency_overrides[get_einladungen_collection] = lambda: stand_in(database[Collection.EINLADUNGEN])
+            served.dependency_overrides[collection_dependency(Collection.EINLADUNGEN)] = lambda: stand_in(database[Collection.EINLADUNGEN])
 
             transport = ASGITransport(app=served, raise_app_exceptions=False)
             async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:

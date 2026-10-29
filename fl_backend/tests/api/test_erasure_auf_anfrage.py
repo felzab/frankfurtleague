@@ -42,7 +42,7 @@ from app.api.spieler.services import build_ghost_spieler
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD, ANCHOR_WRITTEN_AT, patch_one_in_db
-from app.core.db import DEAD_GRANT, get_aktionen_collection, get_spieler_collection
+from app.core.db import DEAD_GRANT, collection_dependency
 from app.core.exception_handlers import DATABASE_FAILED, PAYLOAD_REFUSED, UNKNOWN_OUTCOME
 from app.core.journal import JOURNAL_TOKEN
 from app.core.recording import Actor
@@ -538,7 +538,7 @@ class TestAGrantHoldersAddress:
                     racing.append(PupilsReadMeetingARival(served.state.db_client[DATABASE_NAME][Collection.SPIELER], grant))
                     return cast(AsyncCollection, racing[-1])
 
-                served.dependency_overrides[get_spieler_collection] = pupils
+                served.dependency_overrides[collection_dependency(Collection.SPIELER)] = pupils
                 response = await http.post(PATH, json=erasure_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
 
             return (
@@ -913,7 +913,7 @@ class TestAnAdministratorRevokedMidRequest:
                     racing.append(PupilsMeetingARival(served.state.db_client[DATABASE_NAME][Collection.SPIELER], revoke if revoked else nobody))
                     return cast(AsyncCollection, racing[-1])
 
-                served.dependency_overrides[get_spieler_collection] = pupils
+                served.dependency_overrides[collection_dependency(Collection.SPIELER)] = pupils
                 response = await http.post(PATH, json=erasure_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
 
             return response, held, await where_held(database, *THEIR_VALUES)
@@ -955,7 +955,7 @@ class TestANameARivalWritesMidRequest:
                     racing.append(PupilsMeetingARival(served.state.db_client[DATABASE_NAME][Collection.SPIELER], rename))
                     return cast(AsyncCollection, racing[-1])
 
-                served.dependency_overrides[get_spieler_collection] = pupils
+                served.dependency_overrides[collection_dependency(Collection.SPIELER)] = pupils
                 response = await http.post(
                     PATH, json=erasure_of(anlass=f"Mail {ANOTHER_SURNAME} vom 30.03.2026"), headers=SignedActor(OPERATOR, ADMIN_KEY)
                 )
@@ -1100,7 +1100,7 @@ class TestTheSignOut:
                     racing.append(TheSignOutsRowMeetingARival(served.state.db_client[DATABASE_NAME][Collection.AKTIONEN], promote))
                     return cast(AsyncCollection, racing[-1])
 
-                served.dependency_overrides[get_aktionen_collection] = log
+                served.dependency_overrides[collection_dependency(Collection.AKTIONEN)] = log
                 response = await http.post(ABMELDUNG_PATH, json=ansicht_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
 
             return response, await filed_by(database, ABMELDUNG_PATH)

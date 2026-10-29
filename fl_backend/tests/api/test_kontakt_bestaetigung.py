@@ -46,7 +46,7 @@ from app.api.teams.services import (
 )
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.db import get_sperrliste_collection
+from app.core.db import collection_dependency
 from app.core.exceptions import ActorConfirmationRequiredException, DocumentNotFoundException, WriteRefusalException
 from app.core.recording import log_stamp
 from app.core.security import CONFIRMATION_REQUIRED, STEP_UP_WINDOW_S, get_step_up_check
@@ -381,7 +381,7 @@ def save_racing_a_ban(url: str, *, rival: bool) -> tuple[int, str | None, int]:
                 return cast(AsyncCollection, interleaved)
 
             # Only the request's ban list: the judge reads its own.
-            served.dependency_overrides[get_sperrliste_collection] = wrapped_ban_list
+            served.dependency_overrides[collection_dependency(Collection.SPERRLISTE)] = wrapped_ban_list
             answered = await http.patch(
                 f"/api/v{API_VERSION}/teams/{TEAM_OID}/saisons/{SAISON_ID}/kontakte",
                 json={"kontakte": THREE, "kontakte_stand": kontakte_stand_of(None)},
