@@ -19,8 +19,8 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import type { FLEinwilligung } from "@/features/spieler/schemas";
 
 /**
- * **No control and no draft field**: `fl_backend/app/core/domain.py` declares this field immutable,
- * so a picker here would offer a write no payload carries.
+ * **No control and no draft field**: `fl_backend/app/api/spieler/schemas.py :: FLPatchSpielerPayload` carries no
+ * consent, which only the person's own writes grant, so a picker here would offer a write no payload carries.
  */
 export function FormEinwilligungSection({
   einwilligung,

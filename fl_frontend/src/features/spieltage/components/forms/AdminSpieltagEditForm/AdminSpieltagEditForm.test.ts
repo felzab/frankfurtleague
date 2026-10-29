@@ -145,7 +145,7 @@ describe("the one date a final's Spieltag is given", () => {
     unmount();
   });
 
-  /* `fl_backend/app/core/domain.py :: UNENFORCED` names this page as where a matchday off its implied
+  /* `docs/domain.md`'s „What the model permits on purpose“ names this page as where a matchday off its implied
      count is seen at all, and only the editor page's own fixture read fills the number it is seen by. */
   it("reports the count gap from the row's own fixture count", () => {
     const unmount = renderEditor(spieltag("halbfinale", "Halbfinale", { anzahl_spiele: 2, spieleAngelegt: 1 }));
