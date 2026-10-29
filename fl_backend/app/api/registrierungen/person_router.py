@@ -39,7 +39,6 @@ from app.api.registrierungen.services import (
     person_weicht_ab,
     registrierung_ist_bestaetigt,
 )
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spieler.crud import refuse_a_full_squad
 from app.api.spieltage.crud import nachnominierung_laeuft_in
@@ -332,9 +331,8 @@ async def aufnehmen(
         )
 
     # The squad cap's own write moved the season.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            return await session.with_transaction(admit_the_pupil)
+    async with transaction_session(db) as session:
+        return await session.with_transaction(admit_the_pupil)
 
 
 @router.post(

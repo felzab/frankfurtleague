@@ -25,7 +25,6 @@ from app.api.bewerbungen.services import (
     hash_token,
 )
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG, SELBST_MEDIEN_ALTER
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.api.teams.services import compose_bestaetigungen_mit, compose_kontakt_bestaetigung
@@ -991,7 +990,6 @@ LAPSED = f"{int(SAISON_ID) - 1}"
 async def ban_under_a_running_season(database: AsyncDatabase, address: str, *, bis: str) -> None:
     """A ban's bound is read against the running season only where one runs; with none, every row bars."""
     await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
-    invalidate_saison_cache()
     await database[Collection.SPERRLISTE].insert_one(ban_document(address, bis=bis))
 
 

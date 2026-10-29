@@ -12,7 +12,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import hash_token
 from app.api.einwilligung import services as einwilligung_services
 from app.api.einwilligung.services import FASSUNG_UNZULAESSIG
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.schiedsrichter.admin_router import (
     delete_schiedsrichter,
     einladen_schiedsrichter,
@@ -311,9 +310,6 @@ class TestTheCreateIsTheInvitation:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client, email=BANNED_EMAIL)
             await database[Collection.SAISONS].delete_many({})
-            # The ban's own write cached the season it counted from, which would answer the create.
-            invalidate_saison_cache()
-
             with pytest.raises(WriteRefusalException) as refused:
                 await create(database, client, email=BANNED_EMAIL)
 

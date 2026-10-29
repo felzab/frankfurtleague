@@ -28,7 +28,6 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_TEAM_NICHT_EINGETRAGEN,
     compose_confirmation_update,
 )
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -173,10 +172,6 @@ def on_a_league(
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # A case calling this twice reseeds the league inside one test, where the conftest's
-            # `uncached_saisons` drops nothing: the season the first call cached would judge the second.
-            invalidate_saison_cache()
-
             await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, registrierung))
             await database[Collection.TEAMS].insert_many([club_document(TEAM_OID, TEAM_NAME), club_document(OTHER_TEAM_OID, OTHER_TEAM_NAME)])
             await database[Collection.SAISON_TEAMS].insert_one(junction_document(SAISON_ID, TEAM_OID, TEAM_NAME))

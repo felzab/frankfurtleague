@@ -35,7 +35,6 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_UNBESTAETIGT,
     compose_confirmation_update,
 )
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.spieler.services import SQUAD_FULL, build_ghost_spieler
 from app.core.collections import Collection
@@ -131,8 +130,6 @@ def on_a_league(
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            invalidate_saison_cache()
-
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active", rules=dict(RULES)))
             await database[Collection.TEAMS].insert_many(
                 [documents.team_document(TEAM_OID, "Zorbanax", "ZO"), documents.team_document(OTHER_TEAM_OID, "Quillhilde", "QU")]

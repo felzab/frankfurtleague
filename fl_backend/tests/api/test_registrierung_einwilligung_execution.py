@@ -27,7 +27,6 @@ from app.api.registrierungen.services import (
     SEITE_WIEDERKEHREND,
     compose_bestaetigung,
 )
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
@@ -780,7 +779,6 @@ class TestALinkToABarredAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
-            invalidate_saison_cache()
             await ban(database, FOLDED_EMAIL, bis=f"{int(SAISON_ID) - 1}")
 
             return await answer(database, client, RAW)
@@ -853,7 +851,6 @@ class TestTheViewOfALinkToABarredAddress:
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
-            invalidate_saison_cache()
             await ban(database, FOLDED_EMAIL, bis=f"{int(SAISON_ID) - 1}")
 
             return (await ansicht(database, RAW)).zustand

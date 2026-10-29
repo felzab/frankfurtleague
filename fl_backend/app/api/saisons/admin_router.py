@@ -29,7 +29,6 @@ from app.api.einladungen.services import (
 from app.api.identitaet.crud import faellige_anzahl, saison_statuses
 from app.api.identitaet.schemas import FLLoeschungVorschauResponse
 from app.api.identitaet.services import geschlossen_durch, statuses_after_activating
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
@@ -296,10 +295,8 @@ async def post_saison(
             session=session,
         )
 
-    # Nothing cached is wrong yet; dropped anyway, so the rule stays "every season write drops it".
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            post_operation = await session.with_transaction(enter_the_season)
+    async with transaction_session(db) as session:
+        post_operation = await session.with_transaction(enter_the_season)
 
     return FLPostSaisonResponse(
         created_id=str(post_operation.inserted_id),
@@ -490,9 +487,8 @@ async def patch_saison(
     # `with_transaction`, not a bare `start_transaction`: a draw and an undraw write `saisons` too,
     # so one landing under a `$set` that changes something conflicts, and the retry judges the
     # season as that rival left it.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            patched = await session.with_transaction(judge_and_write_the_rules)
+    async with transaction_session(db) as session:
+        patched = await session.with_transaction(judge_and_write_the_rules)
 
     return patched
 
@@ -631,9 +627,8 @@ async def activate_saison(
     # `with_transaction`, not a bare `start_transaction`: a draw filling the outgoing season or an
     # undraw emptying the target writes a season this one writes too, so it conflicts and the
     # retry judges the league again rather than closing it blind.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            rolled_over = await session.with_transaction(judge_and_roll_the_league_over)
+    async with transaction_session(db) as session:
+        rolled_over = await session.with_transaction(judge_and_roll_the_league_over)
 
     return rolled_over
 
@@ -1024,9 +1019,8 @@ async def generate_spielplan(
 
     # `with_transaction`, not a bare `start_transaction`, and a retry is safe because the draw
     # generates its own ids and wires by `spiel_nr`, never by one.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            drawn_response = await session.with_transaction(draw_the_whole_season)
+    async with transaction_session(db) as session:
+        drawn_response = await session.with_transaction(draw_the_whole_season)
 
     return drawn_response
 
@@ -1137,9 +1131,8 @@ async def undraw_spielplan(
 
     # `with_transaction`, not a bare `start_transaction`, and a retry is safe because the undraw
     # removes a set by filter rather than by any id it read.
-    with dropping_the_saison_cache():
-        async with transaction_session(db) as session:
-            undrawn = await session.with_transaction(undraw_the_whole_season)
+    async with transaction_session(db) as session:
+        undrawn = await session.with_transaction(undraw_the_whole_season)
 
     return undrawn
 

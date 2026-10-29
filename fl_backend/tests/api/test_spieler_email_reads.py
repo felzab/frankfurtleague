@@ -21,7 +21,6 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungAufnehmenPayload,
     FLRegistrierungBestaetigungAnsichtPayload,
 )
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spieler.schemas import FLSpielerSelbstEinwilligungPayload
 from app.api.spieler.selbst_router import get_selbst, patch_einwilligung
 from app.core.collections import Collection
@@ -270,7 +269,6 @@ def plans_reading_addresses(url: str, reader: Reader) -> tuple[Any, ObjectId, li
 
     async def _run() -> tuple[Any, ObjectId, list[str]]:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            invalidate_saison_cache()
             registrierung_id = await seed(database)
             answer, plans = await plans_of_sent_reads(
                 url,

@@ -21,7 +21,7 @@ COMMANDS_A_DUE_PERSON = 54
 # `fl_backend/tests/api/test_adresswechsel_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
 OTHER_COMMANDS = 1
 
-# The running season a page holding a due change asks once, where the season cache holds none, pinned on the wire by
+# The running season a page holding a due change asks once, pinned on the wire by
 # `fl_backend/tests/api/test_adresswechsel_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
 SEASON_READ = 1
 

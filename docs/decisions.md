@@ -10,7 +10,6 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 ## The whole project
 
 - **table** — Store or cache team statistics; hardcode 3/1/0; score or sort on `sonderereignis`
-- **saisons** — Cache a season projection; remove its write-path drop or its TTL
 - **structure** — Add a barrel file, an unrequired default export, a second nesting level below a
   slice's `components/<category>/`
 - **images** — Merge the two images into one package; make either package private

@@ -12,7 +12,6 @@ from pydantic import ValidationError
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.spieler.admin_router import _as_single
 from app.api.spieler.router import get_spieler, get_spieler_by_id
 from app.api.spieler.schemas import (
@@ -919,7 +918,6 @@ class TestTheOrderIsNoOracleForAWithheldName:
         """Each row's served forename, in the answer's order: `None` is the withheld row, the corpus holding one."""
 
         async def body(database: AsyncDatabase) -> Any:
-            invalidate_saison_cache()
             response = await get_spieler(
                 spieler_collection=database.spieler,
                 saisons_collection=database.saisons,

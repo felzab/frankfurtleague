@@ -45,7 +45,6 @@ from app.api.bewerbungen.services import (
     vorname_of,
 )
 from app.api.kontakte.services import contact_block_image_edits
-from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spielberichte.crud import strip_the_seasons_reports
 from app.api.spielbestaetigungen.crud import strip_the_seasons_confirmations
@@ -583,50 +582,48 @@ async def sweep_saison(
     angenommene, geleert, redacted_accepted = 0, 0, 0
     # A gate alone, each erasing transaction judging the season again: an activation since this read keeps its rows.
     if season_after_has_ended(later_saison_status=later_saison_status):
-        # Each transaction anchors a planned season, a season write the cache serves.
-        with dropping_the_saison_cache():
-            angenommene, redacted_accepted, passed = await drain(
-                db=db,
-                page_of=lambda session, batch: session.with_transaction(erase_accepted, batch),
-                page=SWEEP_PAGE,
-                what="Application",
-                clock="acceptance",
-            )
-            fehlgeschlagen += len(passed)
+        angenommene, redacted_accepted, passed = await drain(
+            db=db,
+            page_of=lambda session, batch: session.with_transaction(erase_accepted, batch),
+            page=SWEEP_PAGE,
+            what="Application",
+            clock="acceptance",
+        )
+        fehlgeschlagen += len(passed)
 
-            cleared, passed = await run_isolated(
-                db=db,
-                batch=Batch(share=BLOCKS_CLEARED_PER_PASS),
-                attempt=lambda session, batch: session.with_transaction(clear_the_blocks, batch),
-                moved=lambda blocks: blocks[0],
-                owes=False,
-                what="Season team",
-                clock="contact block",
-            )
-            fehlgeschlagen += len(passed)
+        cleared, passed = await run_isolated(
+            db=db,
+            batch=Batch(share=BLOCKS_CLEARED_PER_PASS),
+            attempt=lambda session, batch: session.with_transaction(clear_the_blocks, batch),
+            moved=lambda blocks: blocks[0],
+            owes=False,
+            what="Season team",
+            clock="contact block",
+        )
+        fehlgeschlagen += len(passed)
 
-            # Each strip answers the log rows it redacted, which `redigierte_aktionen` counts with every other clock's.
-            stripped_confirmations, passed = await run_isolated(
-                db=db,
-                batch=Batch(),
-                attempt=lambda session, batch: session.with_transaction(strip_the_confirmations, batch),
-                moved=lambda _: 0,
-                owes=False,
-                what="Season",
-                clock="confirmation strip",
-            )
-            fehlgeschlagen += len(passed)
+        # Each strip answers the log rows it redacted, which `redigierte_aktionen` counts with every other clock's.
+        stripped_confirmations, passed = await run_isolated(
+            db=db,
+            batch=Batch(),
+            attempt=lambda session, batch: session.with_transaction(strip_the_confirmations, batch),
+            moved=lambda _: 0,
+            owes=False,
+            what="Season",
+            clock="confirmation strip",
+        )
+        fehlgeschlagen += len(passed)
 
-            stripped_reports, passed = await run_isolated(
-                db=db,
-                batch=Batch(),
-                attempt=lambda session, batch: session.with_transaction(strip_the_reports, batch),
-                moved=lambda _: 0,
-                owes=False,
-                what="Season",
-                clock="report strip",
-            )
-            fehlgeschlagen += len(passed)
+        stripped_reports, passed = await run_isolated(
+            db=db,
+            batch=Batch(),
+            attempt=lambda session, batch: session.with_transaction(strip_the_reports, batch),
+            moved=lambda _: 0,
+            owes=False,
+            what="Season",
+            clock="report strip",
+        )
+        fehlgeschlagen += len(passed)
         geleert = sum(blocks for blocks, _ in cleared)
         redacted_accepted += sum(redacted for _, redacted in cleared) + sum(stripped_confirmations) + sum(stripped_reports)
 
@@ -671,23 +668,21 @@ async def sweep_saison(
             continue
         loeschungen.append(loeschung)
 
-    # The run's day is a season write, which the cache serves.
-    with dropping_the_saison_cache():
-        share = Batch(share=REMINDERS_PER_PASS)
-        reminded, passed = await run_isolated(
-            db=db,
-            batch=share,
-            attempt=lambda session, batch: session.with_transaction(remind, batch),
-            moved=lambda answered: len({erinnerung.bewerbung_id for erinnerung in answered}),
-            owes=True,
-            what="Application",
-            clock="reminder",
-        )
-        fehlgeschlagen += len(passed)
-        # Every half that committed stamped the day; where none did, nothing is owed and it is stamped alone.
-        if not reminded:
-            async with transaction_session(db) as session:
-                await session.with_transaction(stamp_the_run)
+    share = Batch(share=REMINDERS_PER_PASS)
+    reminded, passed = await run_isolated(
+        db=db,
+        batch=share,
+        attempt=lambda session, batch: session.with_transaction(remind, batch),
+        moved=lambda answered: len({erinnerung.bewerbung_id for erinnerung in answered}),
+        owes=True,
+        what="Application",
+        clock="reminder",
+    )
+    fehlgeschlagen += len(passed)
+    # Every half that committed stamped the day; where none did, nothing is owed and it is stamped alone.
+    if not reminded:
+        async with transaction_session(db) as session:
+            await session.with_transaction(stamp_the_run)
 
     erinnerungen = [erinnerung for answered in reminded for erinnerung in answered]
 
