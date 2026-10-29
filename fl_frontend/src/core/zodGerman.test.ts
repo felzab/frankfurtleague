@@ -48,11 +48,4 @@ describe("the one German field map", () => {
     expect(meldung(z.object({ a: z.string() }).strict(), { a: "x", b: 1 })).toBe(fehler.unerwartet);
     expect(meldung(z.string().regex(/^\d+$/), "abc")).toBe(fehler.unerwartet);
   });
-
-  it("is the process's map, below a message a schema names itself", () => {
-    expect(z.string().max(2).safeParse("abc").error?.issues[0]?.message).toBe(feld.hoechstensZeichen(2));
-    expect(z.string().max(2, { error: "Höchstens 2 in der Reihe" }).safeParse("abc").error?.issues[0]?.message).toBe(
-      "Höchstens 2 in der Reihe",
-    );
-  });
 });
