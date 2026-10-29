@@ -105,7 +105,7 @@ describe("the admin lane", () => {
 
   it("strips every text as the backend does, parses it, runs the body and clears the site's tag", async () => {
     const posted = new FormData();
-    posted.set("name", " Nord　");
+    posted.set("name", "\u00a0Nord\u3000");
     posted.set("plz", " 60438\n");
 
     expect(await anlegen()(posted)).toStrictEqual({ ok: true, value: undefined });
@@ -114,8 +114,8 @@ describe("the admin lane", () => {
 
   it("keeps a character the backend's strip keeps", async () => {
     // U+FEFF is no White_Space, which JavaScript's `trim` would drop and Pydantic keeps.
-    await anlegen()({ name: "﻿Nord", plz: "60438" });
-    expect(stand.steps[1]).toBe(`body {"name":"﻿Nord","plz":"60438"}`);
+    await anlegen()({ name: "\ufeffNord", plz: "60438" });
+    expect(stand.steps[1]).toBe(`body {"name":"\ufeffNord","plz":"60438"}`);
   });
 
   it("places a value its schema refuses on its box in the German map's words, sending nothing", async () => {
