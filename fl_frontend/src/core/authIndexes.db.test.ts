@@ -1,3 +1,4 @@
+import { NEXT_CACHE_DOUBLE } from "@/test-support/actionDoubles.ts";
 import {
   ADMIN_EMAIL,
   configDouble,
@@ -74,7 +75,7 @@ const { sent } = registerAuthDoubles({
   specifiers: {
     "next/headers": { headers: () => Promise.resolve(requestHeaders) },
     // What the account page's spine calls once an action has written, which throws outside a server action.
-    "next/cache": { refresh: () => undefined },
+    "next/cache": NEXT_CACHE_DOUBLE,
   },
 });
 
