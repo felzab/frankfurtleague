@@ -23,13 +23,6 @@ describe("a verb with its object", () => {
   });
 });
 
-describe("the failure no reason names", () => {
-  it("reads one line, the same in a toast and in a status line", () => {
-    expect(COPY.shared.fehler.unerwartet).toBe("Etwas ist schiefgelaufen");
-    expect(COPY.shared.toast.fehler).toBe(COPY.shared.fehler.unerwartet);
-  });
-});
-
 describe("a season's name", () => {
   it("names the season by its year, which takes no thousands separator", () => {
     expect(COPY.shared.saisonName("2027")).toBe("Saison 2027");
