@@ -421,6 +421,22 @@ export const COPY = katalog({
     },
   },
 
+  /** The mail shell's own lines; each mail's sentences are its template's until its area's session rewrites them. */
+  mail: {
+    /** The one greeting: the first name where it is known. */
+    gruss: (vorname: string) => (vorname === "" ? "Hallo," : `Hallo ${vorname},`),
+    /** Under the button, above its link printed to copy. */
+    knopfLink: "Falls der Knopf nicht geht, öffne diesen Link:",
+    /** The Art. 21 DSGVO objection, set apart from the rest as Art. 21 (4) asks, on a first contact alone. */
+    widerspruch: `Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ${KONTAKT_EMAIL} genügt.`,
+    /** The mail's last line, by its kind: what a reader the mail was not meant for does. */
+    nichtDu: {
+      anmeldung: "Du hast keinen Code angefordert? Dann ignoriere diese E-Mail.",
+      sicherheit: "Warst du das nicht? Dann antworte sofort auf diese E-Mail.",
+      erstkontakt: "Du weißt nichts davon? Dann antworte auf diese E-Mail, und wir löschen deine Angaben.",
+    },
+  },
+
   /** The league's own name, which ends every tab title, and what an installed app calls itself. */
   marke: {
     name: "Frankfurt League",
