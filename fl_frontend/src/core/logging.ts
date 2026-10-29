@@ -12,7 +12,7 @@ const ADDRESS = /[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}/gi;
 
 /** Every string scrubbed of an address, and an error written as its name, message and stack. */
 function scrubbed(_key: string, value: unknown): unknown {
-  if (typeof value === "string") return value.replaceAll(ADDRESS, "<address>");
+  if (typeof value === "string") return value.replaceAll(ADDRESS, "[address]");
   return value instanceof Error ? { name: value.name, message: value.message, stack: value.stack } : value;
 }
 
