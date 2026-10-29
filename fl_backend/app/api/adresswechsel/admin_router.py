@@ -87,7 +87,6 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import stores_nothing
 from app.core.exceptions import DocumentNotFoundException
 from app.core.journal import Journal
 from app.core.recording import log_stamp
@@ -185,7 +184,6 @@ def _bestand(bestand: Bestand) -> FLAdresswechselVerwaltungBestand:
     "/ansicht",
     response_model=FLAdresswechselVerwaltungAnsichtResponse,
     summary="Show what an address holds that a change moves, and its live change",
-    dependencies=[Depends(stores_nothing)],
 )
 async def get_adresswechsel_verwaltung_ansicht(
     ansicht_data: Annotated[FLAdresswechselVerwaltungAnsichtPayload, Body()],

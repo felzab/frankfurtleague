@@ -60,7 +60,6 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import stores_nothing
 from app.core.recording import act_row, anlass_var, log_stamp
 from app.core.security import (
     bind_actor,
@@ -84,7 +83,6 @@ router = APIRouter(
     "/erasure/ansicht",
     response_model=FLErasureAnsichtResponse,
     summary="Show what an erasure of an address would remove",
-    dependencies=[Depends(stores_nothing)],
 )
 async def get_erasure_ansicht_auf_anfrage(
     ansicht_data: Annotated[FLErasureAnsichtPayload, Body()],

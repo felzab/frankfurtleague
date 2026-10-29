@@ -1,5 +1,5 @@
 import re
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final
 
@@ -179,24 +179,6 @@ FAILURE_RESPONSE_REF: Final = "#/components/responses/{status}"
 FAILURE_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
     int(status): {"$ref": FAILURE_RESPONSE_REF.format(status=int(status))} for status in FAILURE_STATUSES
 }
-
-
-# Session 2: the sweep removes every declaration of these three and deletes them.
-def stores_nothing() -> None:
-    """Declared by an operation storing nothing whatever its method; nothing reads the declaration."""
-
-
-# Session 2: the sweep removes every declaration of these three and deletes them.
-STORES_NOTHING_WHEN: dict[Callable[..., Any], str] = {}
-
-
-# Session 2: the sweep removes every declaration of these three and deletes them.
-def stores_nothing_when[Dependency: Callable[..., Any]](flag: str) -> Callable[[Dependency], Dependency]:
-    def register(dependency: Dependency) -> Dependency:
-        STORES_NOTHING_WHEN[dependency] = flag
-        return dependency
-
-    return register
 
 
 async def db_exception_handler(request: Request, exc: PyMongoError):

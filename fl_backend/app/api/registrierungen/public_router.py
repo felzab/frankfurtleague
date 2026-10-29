@@ -46,7 +46,6 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import stores_nothing
 from app.core.exceptions import DocumentNotFoundException
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
@@ -100,7 +99,6 @@ async def _open_einladung(*, einladungen_collection: Any, token: str, session: A
     "/einladung/ansicht",
     response_model=FLEinladungAnsichtResponse,
     summary="What a registration link opens",
-    dependencies=[Depends(stores_nothing)],
 )
 async def post_einladung_ansicht(
     ansicht_data: Annotated[FLEinladungAnsichtPayload, Body()],

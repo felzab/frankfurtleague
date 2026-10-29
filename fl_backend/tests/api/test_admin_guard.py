@@ -10,7 +10,6 @@ from fastapi.testclient import TestClient
 
 from app.api.spieler import schemas as spieler_schemas
 from app.core.codes import Code
-from app.core.exception_handlers import stores_nothing
 from app.core.security import (
     PERSON_ACTOR_BINDERS,
     bind_actor,
@@ -325,12 +324,12 @@ def _opens_a_judged_transaction(endpoint: Callable[..., Any]) -> bool:
     return False
 
 
+# The admin-tier reads served over POST, the address they ask about travelling in a body rather than an access
+# line. Named, because nothing a route declares tells such a read from a write.
+ADMIN_TIER_READS_OVER_POST = frozenset({("/api/v0/adresswechsel/ansicht", "post"), ("/api/v0/identitaet/erasure/ansicht", "post")})
+
 # Derived from the guard and the method, as `ADMIN_TIER_OPERATIONS` is, so a write router added later is swept unlisted.
-ADMIN_TIER_WRITES = [
-    operation
-    for operation in ADMIN_TIER_OPERATIONS
-    if operation[1] != "get" and stores_nothing not in [dependency.call for dependency in ROUTES_BY_OPERATION[operation].dependant.dependencies]
-]
+ADMIN_TIER_WRITES = [operation for operation in ADMIN_TIER_OPERATIONS if operation[1] != "get" and operation not in ADMIN_TIER_READS_OVER_POST]
 
 
 @pytest.mark.parametrize(("path", "method"), ADMIN_TIER_WRITES, ids=lambda value: value)

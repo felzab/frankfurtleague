@@ -75,7 +75,6 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.exception_handlers import stores_nothing_when
 from app.core.exceptions import DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
@@ -268,7 +267,6 @@ async def get_spiel_for_admin(spiel_id: CustomRouteObjectId, spiele_collection: 
     return FLSpieleAdminSingleResponse(spiel=FLSpielJoinedAdmin.model_validate(spiele_raw[0]))
 
 
-@stores_nothing_when("dry_run")
 async def previewing(
     dry_run: Annotated[bool, Query(description="Report what this payload would move and destroy, and write nothing")] = False,
 ) -> bool:

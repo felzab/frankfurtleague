@@ -59,7 +59,6 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import stores_nothing
 from app.core.exceptions import DocumentNotFoundException
 from app.core.journal import Journal
 from app.core.logging import fl_logger
@@ -517,7 +516,6 @@ async def post_adresswechsel_zugestellt(
     "/adresse",
     response_model=FLAdresswechselAdresseResponse,
     summary="Say which address a live change would move to",
-    dependencies=[Depends(stores_nothing)],
 )
 async def get_adresswechsel_adresse(
     adresse_data: Annotated[FLAdresswechselAdressePayload, Body()],

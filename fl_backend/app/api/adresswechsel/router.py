@@ -63,7 +63,6 @@ from app.core.dependencies import (
     SpielerCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import stores_nothing
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
@@ -96,7 +95,6 @@ _NICHT_BESTAETIGBAR = frozenset({"ersetzte_gesperrt", "vergeben", "nicht_gedeckt
     "/ansicht",
     response_model=FLAdresswechselAnsichtResponse,
     summary="What one address link opens",
-    dependencies=[Depends(stores_nothing)],
 )
 async def get_adresswechsel_ansicht(
     ansicht_data: Annotated[FLAdresswechselAnsichtPayload, Body()],
