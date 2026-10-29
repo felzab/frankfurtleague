@@ -1488,16 +1488,26 @@ def _log(*lines: tuple[str, str]) -> bytes:
     return ("\n".join(stamped) + "\n").encode("utf-8")
 
 
+MIRROR_CASE: Final = (
+    "src/core/apiContract.test.ts > every shape is paired or recorded > "
+    "pairs every published component with a Zod mirror, or records why none exists"
+)
 FAILED_RUN: Final = _log(
     ("docs", "##[error]a row in `## 2. Invariants` is neither an invariant nor a header: '| I_NEW_A_1 | x' (OUT-4)"),
     ("docs", "##[error]a tracked file holds U+FEFF: scripts/tests/test_x.py (invisible)"),
     ("docs", "^[[31m   \u2717^[[0m  The documentation gate failed. Each finding above opens with what it judged"),
     ("docs", "##[error]Process completed with exit code 1."),
-    ("frontend-units (1)", "      \u2716 a suite holding the failure (5.1ms)"),
-    ("frontend-units (1)", "      \u2716 failing tests:"),
-    ("frontend-units (1)", "      test at src/core/apiContract.test.ts:366:3"),
-    ("frontend-units (1)", "      \u2716 pairs every published component with a Zod mirror (2.629853ms)"),
-    ("frontend-units (1)", "##[error]frontend unit tests failed."),
+    # Vitest's summary as the gate replays it, Vitest's raised annotation repeating the case's error, and the
+    # gate's verdict, which raises none of its own. The frame is a real job's log; no run on Actions has
+    # failed a Vitest case, so Vitest's own lines are copied from a planted local run under CI=true
+    # GITHUB_ACTIONS=true.
+    ("frontend-units", "      \u23af\u23af\u23af\u23af\u23af\u23af\u23af Failed Tests 1 \u23af\u23af\u23af\u23af\u23af\u23af\u23af"),
+    ("frontend-units", f"       FAIL  |unit| {MIRROR_CASE}"),
+    ("frontend-units", "      AssertionError: These backend components have no Zod mirror and no recorded reason:"),
+    ("frontend-units", "        SpielRead"),
+    ("frontend-units", "##[error]AssertionError: These backend components have no Zod mirror and no recorded reason:"),
+    ("frontend-units", "^[[31m   \u2717^[[0m  frontend unit tests failed.   ^[[2m58s^[[0m"),
+    ("frontend-units", "##[error]Process completed with exit code 1."),
     # An expected pytest failure and its unit's verdict, then a second unit's verdict with no line of its own.
     ("backend", "      FAILED tests/api/test_konto.py::test_a_read - AssertionError: 2 != 3"),
     ("backend", "##[error]backend pytest failed."),
@@ -1515,7 +1525,7 @@ EXPECTED_RED: Final = (
     "| `against a budget of` | 1 | the budget | a measurement | x | RED |\n"
     "| `test_konto.py::test_a_read` | 1 | a lane | a lane | x | RED |\n"
     "| `compaction hook:` | 1 | the hook | a lane | x | RED |\n"
-    "| `apiContract.test.ts :: pairs` | | mirrors | a lane | y | CLEARED z |\n"
+    "| `apiContract.test.ts > every shape` | | mirrors | a lane | y | CLEARED z |\n"
     "| `refusalCoverage` | | mapper | a lane | y | RED |\n\n## Next\n"
 )
 
@@ -1531,7 +1541,7 @@ def test_ci_names_every_finding_of_every_failed_job_expected_or_new() -> None:
     assert flagged
     assert new == [
         "a tracked file holds U+FEFF: scripts/tests/test_x.py (invisible)",
-        "src/core/apiContract.test.ts :: pairs every published component with a Zod mirror",
+        MIRROR_CASE,
         "pyright found type errors in fl_backend.",
         "src/features/funktionen/team.test.ts(189,27): error TS2304: Cannot find name 'APIBadStatusError'.",
         "the compose model drifted.",
@@ -1806,14 +1816,14 @@ def test_a_read_writes_cleared_on_each_red_row_its_run_passed(tmp_path: Path) ->
 def test_expect_writes_a_red_row_per_new_line_that_the_next_read_expects(tmp_path: Path) -> None:
     """Rows were written by heredoc scripts, one matching a detail line the read never takes, so the next run read NEW again."""
     root, sha = _pushed(tmp_path)
-    log = _log(("frontend-units (1)", "##[error]`db` | a pipe took 155 s"), ("docs", "##[error]`is neither an invariant nor a header` here"))
+    log = _log(("frontend-units", "##[error]`db` | a pipe took 155 s"), ("docs", "##[error]`is neither an invariant nor a header` here"))
     env = _gh(tmp_path, {"status": "completed", "conclusion": "failure", "workflowName": "verify", "headSha": sha}, log)
     register = tmp_path / "REGISTER-s.md"
     register.write_bytes(EXPECTED_RED.encode("utf-8"))
     done = _run("ci", "expect", str(register), "123", "--cleared-by", "S9's fix", cwd=root, env=env)
     assert done.returncode == 0, done.stderr
     assert done.stdout.splitlines() == [
-        f"| ``db` \\| a pipe took 155 s` | 1 | `frontend-units (1)` job: NEW in run 123 | S9's fix | {sha[:9]} | RED |"
+        f"| ``db` \\| a pipe took 155 s` | 1 | `frontend-units` job: NEW in run 123 | S9's fix | {sha[:9]} | RED |"
     ]
     assert not ci.report(log.decode(), register.read_bytes().decode()).flagged
 

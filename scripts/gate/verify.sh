@@ -41,11 +41,16 @@ done
 # Every scope reads the tree and writes only its own caches, so they run together and the run costs
 # the longest rather than the sum. Each run's output is captured and replayed in the written order.
 RUNS_DIR=""
+# The runs not yet reaped. A reaped run's group id is free for the system to reuse, so it is never
+# signalled again.
 declare -A PID=()
-# Ctrl-C reaches every run's process group already; a run killed otherwise is stopped here.
+# Every process a run started, its tools among them, gets the SIGINT a terminal's Ctrl-C hands a lone
+# run: a run's shell signalled alone defers its trap until its tool ends, and the tool hears nothing.
+# Waited on, so no run outlives the gate.
 stop_runs() {
   local pid
-  for pid in "${PID[@]}"; do kill "$pid" 2>/dev/null || true; done
+  for pid in "${PID[@]}"; do kill -INT -- "-${pid}" 2>/dev/null || true; done
+  for pid in "${PID[@]}"; do wait "$pid" 2>/dev/null || true; done
   if [[ -n "$RUNS_DIR" ]]; then rm -rf "$RUNS_DIR" || true; fi
 }
 
@@ -61,10 +66,18 @@ if (( ${#SELECTED[@]} > 1 )); then
     pnpm_config_store_dir="$(cd fl_frontend && pnpm store path)"
   fi
 
+  # Job control while the runs start, and only then: each run leads a process group of its own, which
+  # `stop_runs` signals whole, and takes SIGINT and SIGQUIT as a lone run does, where bash would start
+  # it with both ignored and a non-interactive shell can never trap a signal ignored on entry. A
+  # terminal's Ctrl-C reaches this script alone, and its exit hands the signal on through `stop_runs`.
+  # Stdin is the empty file a run had without job control, never the terminal, which a background
+  # group reading it would stop on.
+  set -m
   for scope in "${SELECTED[@]}"; do
-    "$BASH" "$SELF" "--${scope}" > "${RUNS_DIR}/${scope}.log" 2>&1 &
+    "$BASH" "$SELF" "--${scope}" < /dev/null > "${RUNS_DIR}/${scope}.log" 2>&1 &
     PID[$scope]=$!
   done
+  set +m
 
   info "running side by side: $(IFS=' '; printf '%s' "${SELECTED[*]}")"
   declare -A STATUS=()
@@ -73,6 +86,7 @@ if (( ${#SELECTED[@]} > 1 )); then
     rc=0
     wait "${PID[$scope]}" || rc=$?
     STATUS[$scope]=$rc
+    unset 'PID[$scope]'
   done
   spinner_stop
   for scope in "${SELECTED[@]}"; do cat "${RUNS_DIR}/${scope}.log"; done
@@ -537,7 +551,9 @@ build_images() {
   local -A build_pid=()
   logs="$(mktemp -d)"
   for image in frontend backend; do
-    docker build -f "fl_${image}/Dockerfile" -t "${IMAGES_TAG}:${image}" "fl_${image}" > "${logs}/${image}" 2>&1 &
+    # Bash starts an `&` command of a script with SIGINT and SIGQUIT ignored, which would leave a build
+    # running past a Ctrl-C and tagging an image after `cleanup_images` ran: reset in the subshell.
+    ( trap - INT QUIT; exec docker build -f "fl_${image}/Dockerfile" -t "${IMAGES_TAG}:${image}" "fl_${image}" ) > "${logs}/${image}" 2>&1 &
     build_pid[$image]=$!
   done
   for image in frontend backend; do

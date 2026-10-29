@@ -57,10 +57,6 @@ RELAY_RE: Final = re.compile(r"^A scope job failed\b")
 VERDICT_RE: Final = re.compile(r"^\s*✗\s+(?P<text>.+?)(?:\s+(?:\d+m\s*)?[\d.]+m?s)?$")
 PYTEST_RE: Final = re.compile(r"^\s*(?P<text>(?:FAILED|ERROR) \S+::\S.*)$")
 TSC_RE: Final = re.compile(r"^\s*(?P<text>\S+\(\d+,\d+\): error TS\d+: .+)$")
-# node:test lists each failing test once more under `✖ failing tests:`, after `test at <path>:<line>:<column>`.
-NODE_SECTION_RE: Final = re.compile(r"^\s*✖ failing tests:\s*$")
-NODE_AT_RE: Final = re.compile(r"^\s*test at (?P<path>\S+?):\d+:\d+\s*$")
-NODE_FAIL_RE: Final = re.compile(r"^\s*✖ (?P<name>.+?)(?: \([\d.]+m?s\))?\s*$")
 # Vitest's summary names each failing case, or a file that failed as a whole, once under `Failed
 # Tests`/`Failed Suites`: ` FAIL `, the project as `|unit|` or, coloured, ` unit `, then the file and
 # the case's ancestors joined by ` > `; a whole file's path follows in `[ ]`. The error's first line
@@ -109,7 +105,6 @@ def _text(line: str) -> tuple[str, str] | None:
 def read(log: str) -> dict[str, Job]:
     """Each failed job's findings in the order printed, its verdict lines, and whether it pointed at the scope jobs."""
     jobs: dict[str, Job] = {}
-    node_at: dict[str, str] = {}
     # Per job: whether a Vitest case waits for its error's first line, and every such line read, by
     # which that case's own annotation is known as no finding of its own.
     vitest_waits: dict[str, bool] = {}
@@ -131,14 +126,7 @@ def read(log: str) -> dict[str, Job]:
         repeated = ANNOTATION_RE.match(text)
         if repeated and repeated["text"].strip() in vitest_errors.get(name, ()):
             continue
-        if NODE_SECTION_RE.match(text):
-            node_at[name] = ""
-        elif (at := NODE_AT_RE.match(text)) and name in node_at:
-            node_at[name] = at["path"]
-        elif (failed := NODE_FAIL_RE.match(text)) and node_at.get(name):
-            job.found.append(Line(f"{node_at[name]} :: {failed['name']}", annotation=False))
-            node_at[name] = ""
-        elif annotation := ANNOTATION_RE.match(text):
+        if annotation := ANNOTATION_RE.match(text):
             if RELAY_RE.match(annotation["text"]):
                 job.relay = True
             elif not EXIT_RE.match(annotation["text"]):

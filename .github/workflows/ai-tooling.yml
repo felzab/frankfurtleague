@@ -14,6 +14,11 @@ defaults:
   run:
     shell: bash
 
+# Same bound as `.github/workflows/verify.yml`, for the reason written there: the default 10 minutes
+# equals this job's timeout, so a stuck restore of the uv cache would cancel the job.
+env:
+  SEGMENT_DOWNLOAD_TIMEOUT_MINS: 2
+
 concurrency:
   group: ai-tooling-${{ github.ref }}
   cancel-in-progress: true
