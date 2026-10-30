@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from bson import ObjectId
 
-from app.api.bewerbungen.services import find_saison_frist_refusal, hash_token
+from app.api.bewerbungen.services import find_saison_frist_refusal
 from app.api.postausgang.schemas import FLPostausgangEreignisPayload, FLPostausgangZustellStand
 from app.api.postausgang.services import enqueue_mails
 from app.api.postausgang.system_router import post_ereignis
@@ -16,6 +16,7 @@ from app.api.teams.services import build_team_saisons_pipeline, compose_kontakt_
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db
 from app.shared.schemas.literals import FLKontaktRolle
+from app.shared.tokens import hash_token
 from tests.config import ADMINISTRATORS
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, saison_team_document, team_document

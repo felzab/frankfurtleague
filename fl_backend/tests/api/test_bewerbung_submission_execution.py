@@ -16,13 +16,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.public_router import get_einwilligung_ansicht, post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
-from app.api.bewerbungen.services import (
-    bestaetigungsfrist_from,
-    build_schluessel_filter,
-    compose_decline_update,
-    compose_kontakte,
-    hash_token,
-)
+from app.api.bewerbungen.services import bestaetigungsfrist_from, build_schluessel_filter, compose_decline_update, compose_kontakte
 from app.api.einwilligung import services as einwilligung_services
 from app.api.kontakte.services import build_clearing_update
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
@@ -36,6 +30,7 @@ from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE
+from app.shared.tokens import hash_token
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import BASE_AUTH, build_test_config

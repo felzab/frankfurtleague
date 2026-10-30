@@ -12,7 +12,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.admin_router import erneut_einwilligung, get_bewerbung, get_bewerbungen
 from app.api.bewerbungen.public_router import get_einwilligung_ansicht, post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload, FLBewerbungenFilterParams
-from app.api.bewerbungen.services import hash_token
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -21,6 +20,7 @@ from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config

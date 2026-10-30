@@ -26,7 +26,6 @@ from pymongo.errors import (
     WaitQueueTimeoutError,
 )
 
-from app.api.bewerbungen.services import hash_token
 from app.core import middlewares
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -40,6 +39,7 @@ from app.core.logging import fl_logger
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import ABORT_GRACE_S, transaction_session
 from app.main import create_app
+from app.shared.tokens import hash_token
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite

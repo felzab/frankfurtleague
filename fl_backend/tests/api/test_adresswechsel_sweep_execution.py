@@ -26,7 +26,6 @@ from app.api.adresswechsel.system_router import (
     post_adresswechsel_umzuege_erledigt,
     sweep_adresswechsel,
 )
-from app.api.bewerbungen.services import hash_token
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
@@ -34,6 +33,7 @@ from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
 from app.core.logging import JSONFormatter
 from app.shared.schemas.bounds import ADRESSWECHSEL_WARTEZEIT_TAGE
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite

@@ -19,7 +19,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.public_router import post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAbgelehnt
-from app.api.bewerbungen.services import hash_token
 from app.api.bewerbungen.system_router import sweep_saison
 from app.api.identitaet.services import build_loeschung_seat_pipeline
 from app.api.identitaet.wiederherstellung import Read, Window, replay_line
@@ -37,6 +36,7 @@ from app.core.transactions import transaction_session
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list

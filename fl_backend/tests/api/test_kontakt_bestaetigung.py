@@ -21,11 +21,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.public_router import get_einwilligung_ansicht, post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
-from app.api.bewerbungen.services import (
-    SEAT_MIN_AGE_YEARS,
-    bestaetigungsfrist_from,
-    hash_token,
-)
+from app.api.bewerbungen.services import SEAT_MIN_AGE_YEARS, bestaetigungsfrist_from
 from app.api.identitaet.crud import funktionen_of
 from app.api.saisons.admin_router import activate_saison
 from app.api.teams.admin_router import einladen_kontakt, patch_saison_team_kontakte, replace_saison_team
@@ -41,6 +37,7 @@ from app.core.recording import log_stamp
 from app.core.security import STEP_UP_WINDOW_S, SessionActor
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bestaetigung import FLTokenPayload
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.actor_tokens import fresh_admin_actor, verified_actor
 from tests.bans import ban_list, ban_through_the_route

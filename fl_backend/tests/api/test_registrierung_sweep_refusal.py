@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from app.api.bewerbungen.services import hash_token, latest_decision_due
+from app.api.bewerbungen.services import latest_decision_due
 from app.api.registrierungen import system_router
 from app.api.registrierungen.services import (
     bestaetigung_loeschung_is_due,
@@ -17,6 +17,7 @@ from app.api.registrierungen.services import (
 )
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_ERINNERUNG_TAGE
+from app.shared.tokens import hash_token
 from tests.documents import eigene_einwilligung_document
 
 TODAY = "2026-04-01"

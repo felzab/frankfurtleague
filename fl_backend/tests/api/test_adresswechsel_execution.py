@@ -30,7 +30,6 @@ from app.api.adresswechsel.system_router import get_adresswechsel_adresse
 from app.api.berechtigungen.admin_router import delete_antrag, get_berechtigungen
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.berechtigungen.crud import live_unbarred_grant_since
-from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung
 from app.api.identitaet.admin_router import get_loeschung_ansicht, post_loeschung
 from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
@@ -55,6 +54,7 @@ from app.core.transactions import transaction_session
 from app.main import create_app
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import ADRESSWECHSEL_NACHLAUF_TAGE
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client
 from tests.bans import ban_list, ban_through_the_route

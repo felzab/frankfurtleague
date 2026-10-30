@@ -11,7 +11,6 @@ from fastapi import FastAPI
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import hash_token
 from app.api.konto.services import compose_person_move
 from app.api.registrierungen.person_router import ablehnen, aufnehmen, get_offene_registrierungen
 from app.api.registrierungen.person_router import patch_einwilligung as patch_registrierung_einwilligung
@@ -37,6 +36,7 @@ from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.einwilligung import FLKontoEinwilligungPayload
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client

@@ -13,7 +13,7 @@ from app.api.adresswechsel.crud import verwehrte_adressen
 from app.api.adresswechsel.services import build_addresses_filter
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.bewerbungen.services import mint_token, seat_adressen, seat_named
+from app.api.bewerbungen.services import seat_adressen, seat_named
 from app.api.einladungen.crud import einladung_bezug, owed_einladung_mails
 from app.api.einladungen.schemas import (
     FLEinladung,
@@ -147,6 +147,7 @@ from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.schemas.responses import FLCreatedResponse
+from app.shared.tokens import mint_token
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/teams",

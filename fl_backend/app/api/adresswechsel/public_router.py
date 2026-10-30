@@ -35,7 +35,6 @@ from app.api.adresswechsel.services import (
     ist_abgelaufen,
     neu_zustand,
 )
-from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.sperrliste.lookup import SperrlisteLookup, sperrliste_saison
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -63,6 +62,7 @@ from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.bestaetigung import FLTokenPayload
+from app.shared.tokens import hash_token
 
 # The token is the whole credential, so these endpoints are base-tier and bind the public actor.
 router = APIRouter(

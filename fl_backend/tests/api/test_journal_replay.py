@@ -24,7 +24,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.adresswechsel.admin_router import delete_adresswechsel as discard_the_change
 from app.api.adresswechsel.services import als_utc
-from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.wiederherstellung import REPLAY_METHOD, Read, Window, plan_replay, replay_line, run_replay
 from app.api.spielbestaetigungen.services import halter_of
 from app.api.teams.services import compose_kontakt_bestaetigung
@@ -38,6 +37,7 @@ from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from app.shared.einwilligung_nachweis import nachweis_stand_of
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client

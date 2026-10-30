@@ -57,7 +57,6 @@ from app.api.bewerbungen.services import (
     find_submission_subject_refusal,
     find_unknown_token_refusal,
     find_window_refusal,
-    hash_token,
     mindestalter_for,
     objection_is_announced,
     owed_at_submission,
@@ -110,6 +109,7 @@ from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from app.shared.schemas.custom import fold_shorthand
 from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.tokens import hash_token
 
 # Base-tier at the prefix the admin and person routers share: a member of the public applies here,
 # and nothing served below reaches a stored application (`READ-BEWERBUNG-001`). The confirmation

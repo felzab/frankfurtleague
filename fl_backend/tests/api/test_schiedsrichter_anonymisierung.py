@@ -10,7 +10,6 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
-from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.schemas import FLLoeschungResponse
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.schiedsrichter.admin_router import (
@@ -51,6 +50,7 @@ from app.core.recording import build_redaction_filter
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
+from app.shared.tokens import hash_token
 from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list
 from tests.config import ADMINISTRATORS

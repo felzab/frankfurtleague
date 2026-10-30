@@ -7,9 +7,9 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import OperationFailure
 
-from app.api.bewerbungen.services import hash_token
 from app.api.saisons.admin_router import _mail_one_team
 from app.core.collections import Collection
+from app.shared.tokens import hash_token
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document
 from tests.postausgang import MAIL_NOW

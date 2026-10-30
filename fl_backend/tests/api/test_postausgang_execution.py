@@ -15,7 +15,6 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import hash_token
 from app.api.postausgang.crud import read_the_newest
 from app.api.postausgang.schemas import (
     FLAnmeldecodeDaten,
@@ -45,6 +44,7 @@ from app.api.postausgang.services import (
 from app.api.postausgang.system_router import post_anmeldung, post_ausgabe, post_ereignis, post_ergebnis
 from app.core.collections import Collection
 from app.core.transactions import transaction_session
+from app.shared.tokens import hash_token
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document

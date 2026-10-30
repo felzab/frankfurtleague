@@ -24,7 +24,6 @@ from fastapi import FastAPI
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.crud import faellige_seite, saison_statuses
 from app.api.identitaet.schemas import FLLoeschungSweepParams
 from app.api.identitaet.system_router import LOESCHUNGEN_PER_PASS, sweep_loeschung
@@ -44,6 +43,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import JOURNAL_TOKEN
 from app.core.logging import JSONFormatter
 from app.main import create_app
+from app.shared.tokens import hash_token
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import SYSTEM_AUTH

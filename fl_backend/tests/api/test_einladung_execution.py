@@ -8,7 +8,6 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
-from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.crud import owed_einladung_mails
 from app.api.einladungen.schemas import FLEinladungEmpfaenger, FLEinladungMailPayload, FLEinladungVersandPayload
 from app.api.einladungen.services import (
@@ -23,6 +22,7 @@ from app.api.teams.admin_router import delete_einladung, get_einladung, post_ein
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
+from app.shared.tokens import hash_token
 from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop

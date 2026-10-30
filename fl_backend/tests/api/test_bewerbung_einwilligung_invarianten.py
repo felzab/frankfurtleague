@@ -14,7 +14,6 @@ from app.api.bewerbungen.services import (
     ausstehende_seats,
     compose_decline_update,
     find_expired_token_refusal,
-    hash_token,
     paired_seat,
     saison_kontakt_seite,
     seat_opens_nobody,
@@ -27,6 +26,7 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
 )
 from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.tokens import hash_token
 from tests.documents import kontaktperson_document, minted_bestaetigungen
 
 TODAY = "2026-04-01"

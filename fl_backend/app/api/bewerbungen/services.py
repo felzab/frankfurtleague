@@ -1,6 +1,5 @@
 import hashlib
 import json
-import secrets
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from datetime import date, timedelta
 from http import HTTPStatus
@@ -253,8 +252,7 @@ def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
     return None
 
 
-# --- The SUBMISSION KEY, which the registration's
-# submission takes from here as it takes `mint_token`.
+# --- The SUBMISSION KEY, which the registration's submission takes from here.
 
 
 def payload_fingerabdruck(payload: BaseModel) -> str:
@@ -357,24 +355,6 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
 
 KONTAKT_UMFANG = "kontaktdaten"
 KONTAKT_UMFANG_WHATSAPP = "kontaktdaten_whatsapp"
-
-
-def hash_token(raw: str) -> str:
-    """The form the database holds a token in.
-
-    UNKEYED: 256 random bits have no dictionary to search, and a pepper would cost a backend
-    environment name reaching the server, CI and the local stack.
-    """
-
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
-
-def mint_token() -> tuple[str, str]:
-    """A raw token and its hash. The raw one goes to the response and the inbox, and nowhere else."""
-
-    raw = secrets.token_urlsafe(32)
-
-    return raw, hash_token(raw)
 
 
 def days_after(*, day: str, days: int) -> str:

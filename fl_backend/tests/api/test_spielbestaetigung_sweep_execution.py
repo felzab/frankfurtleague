@@ -10,7 +10,7 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import SWEEP_PAGE, days_after, hash_token
+from app.api.bewerbungen.services import SWEEP_PAGE, days_after
 from app.api.postausgang.schemas import FLPostausgangZustellung
 from app.api.spielbestaetigungen.person_router import post_schiedsrichter_antwort
 from app.api.spielbestaetigungen.public_router import post_spielbestaetigung
@@ -45,6 +45,7 @@ from app.core.exceptions import APIError
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.actor_tokens import fresh_admin_actor
 from tests.api import test_spielbestaetigung_sweep_refusal as budget

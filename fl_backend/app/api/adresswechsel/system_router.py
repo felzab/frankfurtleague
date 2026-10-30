@@ -28,7 +28,6 @@ from app.api.adresswechsel.services import (
     build_parked_terms,
     ist_abgelaufen,
 )
-from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.lookup import RecordCollections, SubjektLookup
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, sperrliste_saison
 from app.core.codes import Code
@@ -61,6 +60,7 @@ from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from app.shared.tokens import hash_token
 
 # System tier and the system actor: the clock ends a lapsed change and makes a due one take effect, and no administrator
 # pressed anything.

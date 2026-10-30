@@ -30,12 +30,7 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungKontaktEmailPayload,
     FLBewerbungKontaktSitzPayload,
 )
-from app.api.bewerbungen.services import (
-    bestaetigungsfrist_from,
-    bewerbung_kontakt_seite,
-    compose_new_club,
-    hash_token,
-)
+from app.api.bewerbungen.services import bestaetigungsfrist_from, bewerbung_kontakt_seite, compose_new_club
 from app.api.postausgang.crud import lagen_of
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import post_team
@@ -48,6 +43,7 @@ from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client

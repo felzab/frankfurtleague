@@ -7,7 +7,6 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.services import mint_token
 from app.api.postausgang.schemas import (
     FLPostausgangAnmeldungPayload,
     FLPostausgangAnmeldungResponse,
@@ -36,6 +35,7 @@ from app.core.crud import patch_many_in_db, pull_many_from_db
 from app.core.dependencies import DB, DBClient, PostausgangCollection, get_germany_now
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import transaction_session
+from app.shared.tokens import mint_token
 
 # System tier and the system actor: the drain, the sign-in library and the provider's callback hold no session.
 router = APIRouter(
