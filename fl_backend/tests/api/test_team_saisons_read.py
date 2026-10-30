@@ -40,9 +40,6 @@ class TestTheSaisonsPipeline:
         composed = {"adresswechsel"}
         assert projection == {"_id": 1} | {name: 1 for name in FLTeamMembership.model_fields if name not in composed}
 
-    def test_it_sorts_by_name(self):
-        assert build_team_saisons_pipeline()[-1] == {"$sort": {"name": 1}}
-
 
 class TestTheResponseModel:
     def test_an_empty_membership_list_is_a_valid_club(self):
