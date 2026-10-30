@@ -21,11 +21,10 @@ import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
 import type { AdminRefusal, getAdminSession } from "@/core/auth";
 import type { StepUpDemand } from "@/shared/components/ui/stepUp";
 import type { ActionFailure } from "@/shared/types/types";
-import type { Wording } from "./actionError";
 import type { FieldErrors } from "./validation";
 
 /** A grant the backend did not answer: nothing ran, and a sign-in would meet the same unread grant. */
-export const BERECHTIGUNG_UNGELESEN = "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen.";
+const BERECHTIGUNG_UNGELESEN = "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen.";
 
 /** What an admin write answers where the guard could not read the grant. */
 const BERECHTIGUNG_UNGELESEN_ERNEUT = `${BERECHTIGUNG_UNGELESEN} ${VERSUCHE_ES_ERNEUT_SATZ}`;
@@ -84,11 +83,8 @@ export function refusalResult(refusal: { error?: string; fieldErrors?: FieldErro
   return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
 }
 
-/**
- * Which caller a spine admits, what its log lines are filed under, and `wording` where its press cannot
- * pass again, which the shared reader's defaults offer.
- */
-type Guard<S> = { readonly lane: string; readonly resolve: () => Promise<S | null>; readonly wording?: Wording };
+/** Which caller a spine admits, and what its log lines are filed under. */
+type Guard<S> = { readonly lane: string; readonly resolve: () => Promise<S | null> };
 
 /**
  * Seeds the request scope with the edge-minted trace id, and converts a thrown API error into the caller's result
@@ -115,7 +111,7 @@ async function runGuarded<S, T extends { success: boolean }>(
       logActionFailure(`${guard.lane} mutation failed: ${mutationName}`, error);
 
       // Judged by what this request sent, a server action being a POST whatever it does.
-      answer = answerThrow(error, guard.wording);
+      answer = answerThrow(error);
     }
 
     // Read once the body has settled and inside this scope, which closes with the callback.
@@ -126,7 +122,7 @@ async function runGuarded<S, T extends { success: boolean }>(
     if (writeOutcomeUnknown()) {
       logger.error("mutation.outcome_unknown", undefined, { lane: guard.lane, mutation: mutationName });
 
-      return { forbidden: false, answer: outcomeUnknown(guard.wording), wrote: wrote, endsOwnSession: endsOwnSession };
+      return { forbidden: false, answer: outcomeUnknown(), wrote: wrote, endsOwnSession: endsOwnSession };
     }
 
     return { forbidden: false, answer: answer, wrote: wrote, endsOwnSession: endsOwnSession };
@@ -179,7 +175,7 @@ function judgingGuard(): { readonly guard: Guard<AdminSession>; readonly verdict
 }
 
 /** Each reason the guard turns an admin write away for, in the words of its remedy; a record, so a reason added to the guard is worded here. */
-export const FORBIDDEN_BY_REFUSAL: Readonly<Record<AdminRefusal, string>> = {
+const FORBIDDEN_BY_REFUSAL: Readonly<Record<AdminRefusal, string>> = {
   signIn: ANMELDUNG_ABGELAUFEN,
   // One sentence for an address holding no grant, whether it was revoked or never held: no sign-in repairs either.
   noGrant: ZUGANG_WEG,
@@ -193,10 +189,6 @@ type AdminBody<T> = (session: AdminSession) => Promise<T>;
 /** What an action declares about its write beside its body: `stepUp` for a step-up write, and which window it is held to. */
 type AdminWrite = {
   readonly stepUp: StepUpDemand;
-  /** What a caller the guard turns away is told, where the write closes on more than the remedy: an undo says the change stands. */
-  readonly turnedAway?: (reason: AdminRefusal) => string;
-  /** The shared reader's sentences, where the press cannot pass again as a save's can. */
-  readonly wording?: Wording;
 };
 
 /** A server action's spine. A write declaring `stepUp` is refused ahead of its body from a session past the step-up window. */
@@ -210,14 +202,13 @@ export async function runAdminMutation<T extends { success: boolean }>(
   mutationName: string,
   ...rest: [AdminBody<T>] | [AdminWrite, AdminBody<T>]
 ): Promise<T | ActionFailure> {
-  const [{ stepUp, turnedAway = (reason: AdminRefusal) => FORBIDDEN_BY_REFUSAL[reason], wording }, fn] =
-    rest.length === 1 ? [{ stepUp: false }, rest[0]] : rest;
+  const [{ stepUp }, fn] = rest.length === 1 ? [{ stepUp: false }, rest[0]] : rest;
   const { guard, verdict } = judgingGuard();
   // The refusal in the words naming its remedy: no grant, and a grant the backend left unread, are
   // repaired by no sign-in.
-  const forbidden = () => Promise.resolve(turnedAway(verdict.refused));
+  const forbidden = () => Promise.resolve(FORBIDDEN_BY_REFUSAL[verdict.refused]);
 
-  return runGuardedMutation(mutationName, { ...guard, forbidden, wording }, async (session) => {
+  return runGuardedMutation(mutationName, { ...guard, forbidden }, async (session) => {
     // Ahead of the body, so a stale session's step-up write reaches neither its payload nor the backend.
     const unconfirmed = stepUp === false ? null : refuseUnconfirmed(session, stepUp);
     if (unconfirmed !== null) return unconfirmed;
