@@ -649,7 +649,7 @@ class TestTheTwoContactRules:
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonTeamKontaktePayload.model_validate(self.block(trainer_ist_zugleich="ansprechperson"))
 
-        assert "denen des Trainers" in str(failure.value)
+        assert "the Trainer also holds" in str(failure.value)
 
     @pytest.mark.parametrize(
         "emptied",
@@ -666,7 +666,7 @@ class TestTheTwoContactRules:
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonTeamKontaktePayload.model_validate(self.block(ansprechperson={**person("Jonas"), "email": "IDA@example.com"}))
 
-        assert "E-Mail-Adressen" in str(failure.value)
+        assert [error["type"] for error in failure.value.errors()] == ["kontakt_email_twice"]
 
     def test_an_empty_seat_shares_nothing(self):
         """Two empty seats are not two people at one address."""
