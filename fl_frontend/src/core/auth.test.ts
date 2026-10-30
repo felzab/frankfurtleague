@@ -969,7 +969,7 @@ describe("a passkey session made before its grant", () => {
     assert.ok(await getAdminSession(), "a session made at the instant of its grant was refused");
   });
 
-  /* Stricter than the backend, never looser: `fl_backend/app/core/security.py :: verify_actor_is_admin`
+  /* Stricter than the backend, never looser: `fl_backend/app/api/berechtigungen/guard.py :: verify_actor_is_admin`
      compares whole seconds and admits the same row, so the page refuses what a request would be served. */
   it("is refused inside the second its grant falls in, which the backend's whole seconds admit", async () => {
     const { created, granted } = await aPasskeySessionGranted(999, { onASecond: true });

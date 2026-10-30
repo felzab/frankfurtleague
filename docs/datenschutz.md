@@ -529,7 +529,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   `actor.email` would sit outside the redaction above, an exception taken for administrators and
   for the reason administrators give, so a person's actor carries none: the binder every router of
   `fl_backend/app/main.py :: PERSON_ROUTERS` declares
-  (`fl_backend/app/core/security.py :: person_actor_binder`) records a stable pseudonym, a keyed hash
+  (`fl_backend/app/api/sperrliste/guard.py :: person_actor_binder`) records a stable pseudonym, a keyed hash
   of the folded address as the ban list takes one, and the kind of person the write was made as,
   and the log refuses a person's row carrying an address. Ruled
   2026-09-21. **The person's erasure reaches the pseudonym**: this controller holds the key that
