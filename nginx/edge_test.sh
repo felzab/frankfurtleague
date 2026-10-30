@@ -16,7 +16,7 @@
 # - No visitor is named in the container's own streams.
 # - Each upstream is found by name as nginx serves, and the capabilities the model grants are enough
 #   to start it.
-# - `docs/ops/spec.md` §1.3's server-action and link-page pairs.
+# - `docs/ops/spec.md` §1.3's server-action, link-page and account-page pairs.
 #
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
 #   ./nginx/edge_test.sh --help
@@ -770,6 +770,14 @@ done
 spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/bestaetigung/spiel?token=${TOK}"
 spent_request link-head -A "$LINK_MARKER" --head "${BASE}/bestaetigung/spiel?token=${TOK}"
 
+# The account page's pair, on JSON posts the action pair's key leaves out, so only `konto` can refuse.
+# Its burst read off the file, flooded past with five more for the refill the run takes.
+KONTO_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=konto burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
+[[ -n "$KONTO_BURST" ]] || refuse "nginx/shared/site.conf declares no konto burst this test can read."
+for _ in $(seq 1 $(( KONTO_BURST + 5 ))); do
+  action_request konto-flood -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/bereich/konto"
+done
+
 mapfile -t -O "$ACTION_SENT" ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
 expect_action() { # $1 label, $2 the status every transfer of it must answer, or "some:<status>"
   local label="$1" wanted="$2" _j _status found=0 all=1 answered=""
@@ -940,6 +948,7 @@ expect_action link-json some:429
 grade_spent link-json
 expect_action link-head some:429
 grade_spent link-head head
+expect_action konto-flood some:429
 
 # A refusal's error line repeats the request line, live token included, so `limit_req_log_level` keeps
 # it below the log's own level. Read once every kept refusal's access line is written, which comes
@@ -1319,6 +1328,7 @@ ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers
 ${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor, an empty
 Next-Action handed to no one, server
 actions metered on their own pair and nothing else metered by it, refused in plain text an action reads, every link page
-metered on every request under every spelling, its load refused with the edge's own page and no token reaching the error log, the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker,
+metered on every request under every spelling, its load refused with the edge's own page and no token reaching the error log, the
+account page's posts metered on its own pair, the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker,
 every upstream named through a variable and found through Docker's DNS alone, holding an answer ${RESOLVER_VALID}s, both edges reaching a backend recreated at a new address
 without a reload, and each upstream's redirect naming itself handed back as the visitor's origin"
