@@ -1,6 +1,6 @@
 """Read every stored document back through its record model, and name each one that model refuses.
 
-Read-only, for after a migration paste: `python -m app.core.readback` in the backend's container.
+Read-only, for after a migration paste: `python -m app.readback` in the backend's container.
 It prints a document's id and the location of each error, never a value, and exits 0 when every
 document validates, 1 when any is refused, and 2 when the database could not be read.
 """

@@ -55,7 +55,7 @@ needs a secret fails for the wrong reasons, and the service's root `/`.
 **The application refuses to start unless MongoDB answers and its indexes build**
 (`fl_backend/app/core/db.py :: lifespan`, `fl_backend/app/core/constraints.py`). Nothing in the
 database refuses a document's shape: each collection's record model states it
-(`fl_backend/app/core/readback.py :: RECORD_MODELS`), and `python -m app.core.readback` reads every
+(`fl_backend/app/readback.py :: RECORD_MODELS`), and `python -m app.readback` reads every
 stored document back through it after a migration paste.
 
 **Every write that records a domain fact goes through the helpers in

@@ -426,7 +426,7 @@ where the row carries the stamp the expiry reads.\
 ### `inactive_since` — the day something left
 
 **Is:** a nullable `YYYY-MM-DD` string on `teams`, `spieler`, `saison_spieler`, `spielorte` and `schiedsrichter`, where null means current.\
-**In code:** the record model of each of those collections (`fl_backend/app/core/readback.py :: RECORD_MODELS`), which requires the field.\
+**In code:** the record model of each of those collections (`fl_backend/app/readback.py :: RECORD_MODELS`), which requires the field.\
 **Trap:** a date and never a boolean, and on no payload — `DELETE` stamps it, `reactivate` clears it, and the ghost every erased referee's fixtures point at carries it permanently, so no picker offers the ghost — so creating never revives a retired row and a natural-key collision comes back 409; the one other write clearing it is a team's admission of a pupil's registration, which clears the stamp on the person it admits into and rewrites that person's retired squad row of the season rather than writing a second; leaving one season is an `austritt`, a different thing. The German verb pair is fixed: _stilllegen_ retires the entity across the whole league, _austragen_ takes one `saison_spieler` row out of one season's squad — each stamps this field on its own collection, and a name or a sentence about a squad row takes the second verb, never the first (`fl_backend/app/api/teams/schemas.py :: FLReplaceSaisonTeamResponse` counts `ausgetragene_squad_rows`). An erasure stamps it on no person's row: it removes the person and their squad rows outright whether or not this field is set, retirement being no step in front of it.
 
 ### `Statistik` — the derived league-table figures

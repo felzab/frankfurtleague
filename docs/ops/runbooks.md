@@ -201,14 +201,14 @@ the machine is outside the repository. What it does tell you:
 
 ## 2. Before deploying a change to a stored shape or an index
 
-**What a stored document may hold is its record model** — the model `fl_backend/app/core/readback.py ::
+**What a stored document may hold is its record model** — the model `fl_backend/app/readback.py ::
 RECORD_MODELS` maps its collection to — and nothing in the database refuses a document of another
 shape: the boot builds the indexes alone (`fl_backend/app/core/constraints.py`). So a change to a
 stored shape lands with the Playground paste that moves every stored document into it, and the
 read-back command is what says they all moved:
 
 ```bash
-docker compose -f docker-compose.yml exec -T backend python -m app.core.readback
+docker compose -f docker-compose.yml exec -T backend python -m app.readback
 ```
 
 On the server, from the checkout. It reads every document through its record model, writes nothing,

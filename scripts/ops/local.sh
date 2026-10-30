@@ -351,7 +351,7 @@ run_made_up_seed() {
 # writes nothing.
 judge_made_up_seed() {
   local rc=0
-  quietly docker compose exec -T backend python -m app.core.readback || rc=$?
+  quietly docker compose exec -T backend python -m app.readback || rc=$?
   case "$rc" in
     0) ok "every document the seed wrote reads back through its model" ;;
     1) die "the made-up seed holds a document its model refuses, and the lines above name it:
