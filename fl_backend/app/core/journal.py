@@ -30,7 +30,7 @@ from app.shared.schemas.custom import parse_object_id
 
 # What every line opens with: a token rather than a sentence, so the host's export matches a line by it whatever
 # follows (`scripts/ops/export_journal.sh :: JOURNAL_TOKEN`).
-JOURNAL_TOKEN: Final = "loeschung-journal"
+JOURNAL_TOKEN: Final = "erasure-journal"
 
 # An erasure, which an administrator runs again on its page, and each act the replay writes again. An end that told
 # somebody has an art of its own: the replay tells them again from the art alone.
