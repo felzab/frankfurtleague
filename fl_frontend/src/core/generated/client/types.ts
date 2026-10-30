@@ -2515,7 +2515,7 @@ export interface FLBewerbungZustellungResponse {
  */
 export interface FLBewerbungenListResponse {
   anzahl_je_saisonbezug: Partial<Record<"diese_saison" | "andere_saison", number>>;
-  anzahl_je_status: Partial<Record<"eingereicht" | "angenommen" | "abgelehnt", number>>;
+  anzahl_je_status: Partial<Record<FLBewerbungStatus, number>>;
   bewerbungen: FLBewerbung[];
   dubletten_schluessel: string[];
   vollstaendig: boolean;

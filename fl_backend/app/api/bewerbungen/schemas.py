@@ -54,7 +54,7 @@ from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # `eingereicht` is the only state a submission arrives in; the other two are the triage's, and
 # `app/api/bewerbungen/admin_router.py` is the only writer of either.
-FLBewerbungStatus = Literal["eingereicht", "angenommen", "abgelehnt"]
+type FLBewerbungStatus = Literal["eingereicht", "angenommen", "abgelehnt"]
 
 # Which seasons a read covers, RELATIVE to the `saison_id` beside it and never a season of its own:
 # the triage bar asks about the season an administrator came here about, and no stored field carries
