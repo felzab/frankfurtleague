@@ -20,7 +20,6 @@ from app.core.dependencies import (
     SaisonSpielerCollection,
     get_german_date_str,
 )
-from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
 from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
@@ -82,12 +81,7 @@ async def _the_row_as_written(
     """Read back inside the write's own transaction, so the shirt marker is the squad's after this write and before any other."""
 
     kader = await _read_the_squad(saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, session=session)
-    zeile = next((zeile for zeile in kader if zeile.spieler_id == spieler_id), None)
-
-    # A row whose person is gone, a hand edit the squad read drops, is answered as the live-row
-    # filter answers a row it misses; raised inside the transaction, the write it follows is undone.
-    if zeile is None:
-        raise DocumentNotFoundError()
+    [zeile] = [zeile for zeile in kader if zeile.spieler_id == spieler_id]
 
     return FLKaderZeileResponse.model_validate(zeile.model_dump())
 

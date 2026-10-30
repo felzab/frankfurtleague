@@ -380,7 +380,7 @@ def proposal_payload(stored: FLSpiel, vorschlag: FLSpielbestaetigungTermin) -> F
                 schiedsrichter_id=stored.schiedsrichter.schiedsrichter_id, payment=stored.schiedsrichter.payment
             )
         ),
-        # No judge reads the note, and a hand-written one past the payload's bound would refuse a proposal for a field it never names.
+        # No judge reads the note.
         notiz=None,
         schiedsrichter_stand=None if stored.schiedsrichter is None else stored.schiedsrichter.schiedsrichter_id,
     )
@@ -489,7 +489,7 @@ def compose_antwort_update(
             "antwort": {
                 "art": antwort,
                 "am": today,
-                # Never served (`tests/core/test_constraints.py :: STORED_BUT_NOT_SERVED`).
+                # Never served: the holder's digest is kept for that person's erasure alone.
                 "von": {"art": "kontakt", "rolle": seat, "halter": None if adresse is None else halter_of(adresse, schluessel=schluessel)},
                 "vorschlag": None if vorschlag is None else {"datum": vorschlag.datum, "uhrzeit": vorschlag.uhrzeit},
                 "begruendung": begruendung,
@@ -502,8 +502,8 @@ def compose_antwort_update(
 # says the same again; a party's answer committing between the two conflicts with the write, whose retry refuses.
 
 
-# Exactly what the season-wide read serves: every stored field but the hashes and the holder
-# (`tests/core/test_constraints.py :: STORED_BUT_NOT_SERVED`), kept off the wire from the driver up.
+# Exactly what the season-wide read serves: every stored field but the hashes and the holder, kept off
+# the wire from the driver up.
 ADMIN_FIELDS: Mapping[str, int] = {**{f"kontakte.{seat}.token_hashes": 0 for seat in KONTAKT_ROLLEN}, "antwort.von.halter": 0}
 
 
@@ -621,8 +621,7 @@ def compose_schiedsrichter_antwort_update(*, antwort: FLSpielbestaetigungAntwort
 def build_eigene_zeilen_filter(*, saison_ids: Sequence[str], schiedsrichter_ids: Sequence[Any]) -> dict[str, Any]:
     """These referees' rows in these seasons, open, answered or closed, walked through the referee-leading index.
 
-    The season-leading one would walk every fixture's rows of the season
-    (`tests/api/test_spielbestaetigung_execution.py :: TestARefereesOwnRowsAreReadThroughTheirIndex`).
+    The season-leading one would walk every fixture's rows of the season.
     """
 
     return {"saison_id": {"$in": list(saison_ids)}, **build_referee_rows_filter(schiedsrichter_ids)}
