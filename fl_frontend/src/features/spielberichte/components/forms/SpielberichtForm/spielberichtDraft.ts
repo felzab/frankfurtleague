@@ -12,10 +12,11 @@ import type {
   FLSpielberichtBerichtPayload,
   FLSpielberichtPayload,
   FLSpielberichtSpieler,
+  FLSpielSeite,
 } from "@/core/generated/client/types";
 import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLSpielberichtSeite, FLSpielberichtSonderereignis } from "../../../schemas";
+import type { FLSpielberichtSonderereignis } from "../../../schemas";
 import type { SpielberichtAnsicht } from "../../../types";
 
 /** One pupil a picker offers, labelled as the squad lists them. */
@@ -26,11 +27,11 @@ export type SpielberichtKontext = {
   readonly team1Name: string;
   readonly team2Name: string;
   readonly saisonPhase: FLSaisonPhase;
-  readonly kader: Readonly<Record<FLSpielberichtSeite, readonly KaderOption[]>>;
+  readonly kader: Readonly<Record<FLSpielSeite, readonly KaderOption[]>>;
   /** The pupils the stored block names outside both live squads, so an older entry keeps its name. */
   readonly genannt: readonly KaderOption[];
   /** The sides fielding another club than the report's last write found there. */
-  readonly seitenGeaendert: ReadonlySet<FLSpielberichtSeite>;
+  readonly seitenGeaendert: ReadonlySet<FLSpielSeite>;
 };
 
 /**
@@ -41,7 +42,7 @@ export const UNBEKANNT = "unbekannt";
 
 export type TorschuetzeDraft = {
   readonly key: number;
-  readonly seite: FLSpielberichtSeite | null;
+  readonly seite: FLSpielSeite | null;
   readonly spieler: string;
   readonly minute: string;
   readonly eigentor: boolean;
@@ -49,7 +50,7 @@ export type TorschuetzeDraft = {
 
 export type KarteDraft = {
   readonly key: number;
-  readonly seite: FLSpielberichtSeite | null;
+  readonly seite: FLSpielSeite | null;
   readonly spieler: string;
   readonly minute: string;
   readonly farbe: FLKartenFarbe | null;
@@ -128,7 +129,7 @@ export function eroeffnungOf(stored: FLSpielberichtBerichtPayload | null, kontex
   if (kontext.seitenGeaendert.size === 0)
     return { gespeichert: block, entwurf: block, geleert: { torschuetzen: new Set(), karten: new Set() } };
 
-  const veraltet = (seite: FLSpielberichtSeite | null, spieler: string): boolean =>
+  const veraltet = (seite: FLSpielSeite | null, spieler: string): boolean =>
     seite !== null &&
     kontext.seitenGeaendert.has(seite) &&
     spieler !== "" &&
@@ -185,12 +186,12 @@ export function wirePayloadOf(draft: SpielberichtDraft, stand: number | null): F
       ergebnis_vorschlag: form.bericht.ergebnis_vorschlag as FLSpielberichtBerichtPayload["ergebnis_vorschlag"],
       torschuetzen: form.bericht.torschuetzen.map((eintrag) => ({
         ...eintrag,
-        seite: eintrag.seite as FLSpielberichtSeite,
+        seite: eintrag.seite as FLSpielSeite,
         spieler_id: eintrag.spieler_id === UNBEKANNT ? null : eintrag.spieler_id,
       })),
       karten: form.bericht.karten.map((karte) => ({
         ...karte,
-        seite: karte.seite as FLSpielberichtSeite,
+        seite: karte.seite as FLSpielSeite,
         farbe: karte.farbe as FLKartenFarbe,
       })),
     },
@@ -229,9 +230,8 @@ const minuteText = (minute: string): string => (minute === "" ? OFFEN : `${minut
 function descriptorsFor(
   kontext: SpielberichtKontext,
 ): readonly (FLFieldDescriptor<SpielberichtDraft, SpielberichtFieldGroup> & { path: SpielberichtFieldPath })[] {
-  const teamName = (seite: FLSpielberichtSeite | null): string =>
-    seite === null ? OFFEN : seite === "team1" ? kontext.team1Name : kontext.team2Name;
-  const personName = (seite: FLSpielberichtSeite | null, spieler: string): string => {
+  const teamName = (seite: FLSpielSeite | null): string => (seite === null ? OFFEN : seite === "team1" ? kontext.team1Name : kontext.team2Name);
+  const personName = (seite: FLSpielSeite | null, spieler: string): string => {
     if (spieler === UNBEKANNT) return TORSCHUETZE_UNBEKANNT_LABEL;
     if (spieler === "") return OFFEN;
     const kader = seite === null ? [] : kontext.kader[seite];

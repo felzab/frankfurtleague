@@ -6,6 +6,8 @@ import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
 import { SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH, SPIELBERICHT_EINTRAEGE_MAX } from "./constants";
 
+import type { FLSpielSeite } from "@/core/generated/client/types";
+
 // `fl_backend/app/api/spielberichte/schemas.py :: MINUTE_PATTERN`, which the form judges in its own words before the
 // action sends the report.
 const MINUTE_REGEX = /^[0-9]{1,3}(\+[0-9]{1,2})?$/;
@@ -32,8 +34,7 @@ const FLKartenGrundSchema = z.enum(
   { error: "Bitte wähle einen Grund." },
 );
 
-const FLSpielberichtSeiteSchema = z.enum(["team1", "team2"], { error: "Bitte wähle das Team." });
-export type FLSpielberichtSeite = z.infer<typeof FLSpielberichtSeiteSchema>;
+const FLSpielSeiteSchema = z.enum(["team1", "team2"], { error: "Bitte wähle das Team." });
 
 /**
  * The three events a match that took place can end in. A no-show's goals are the league's to compose, and a fixture
@@ -58,11 +59,11 @@ const FLSpielberichtVorschlagSchema = z.object({
  * refuses an untouched picker in its own words before the action parses the wire's shape.
  */
 const torschuetze = <T extends z.ZodType<string | null>>(spieler: T) =>
-  z.object({ seite: FLSpielberichtSeiteSchema, spieler_id: spieler, minute: minute, eigentor: z.boolean() });
+  z.object({ seite: FLSpielSeiteSchema, spieler_id: spieler, minute: minute, eigentor: z.boolean() });
 
 const karte = <T extends z.ZodType<string>>(spieler: T) =>
   z.object({
-    seite: FLSpielberichtSeiteSchema,
+    seite: FLSpielSeiteSchema,
     spieler_id: spieler,
     minute: minute,
     farbe: FLKartenFarbeSchema,
@@ -103,7 +104,7 @@ const isNoShow = (sonderereignis: FLSpielberichtSonderereignis | null): boolean 
   sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2";
 
 /** Whether an entry credits `seite`: its own side without an own goal, the other side with one. */
-export const credits = (eintrag: { seite: FLSpielberichtSeite; eigentor: boolean }, seite: FLSpielberichtSeite): boolean =>
+export const credits = (eintrag: { seite: FLSpielSeite; eigentor: boolean }, seite: FLSpielSeite): boolean =>
   (eintrag.seite === seite) !== eintrag.eigentor;
 
 // Each rule the backend's `every_goal_has_one_entry` raises, in its words, placed on the field that repairs it.
