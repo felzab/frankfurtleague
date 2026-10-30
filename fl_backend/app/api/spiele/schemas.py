@@ -26,7 +26,7 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.responses import BaseAPIResponse
 
 FLSaisonPhase = Literal["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]
-FLSpielStatus = Literal["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"]
+type FLSpielStatus = Literal["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"]
 
 # What happened to a fixture beyond being played. Nullable rather than total: `null` is "nothing to
 # say", so no read site spells an ordinary fixture out. Distinct from `FLSpielStatus`, which is
@@ -333,6 +333,10 @@ class FLSpielElfmeterschiessen(BaseModel):
         return self
 
 
+# A fixture's two bookings: its venue and its referee.
+type FLBookingResource = Literal["ort", "schiedsrichter"]
+
+
 # Private, so the variants name the faulted fixture once: a base no endpoint names publishes no
 # OpenAPI component.
 class _BracketFault(BaseModel):
@@ -426,7 +430,7 @@ class FLBracketFaultBooking(_BracketFault):
     """
 
     reason: Literal["retired_booking"]
-    booking: Literal["ort", "schiedsrichter"]
+    booking: FLBookingResource
     # The retired row itself, beside its name as an occupant fault carries `team_id` beside one: a
     # reader tells the ghost from a referee by comparing this and never by the null below.
     booking_id: CustomObjectId
@@ -446,7 +450,7 @@ class FLBracketFaultClash(_BracketFault):
     # The faulted fixture's own season beside the other's: the read spans every season and `spiel_nr`
     # is unique within one, so a reader names the other season only where the two differ.
     saison_id: str
-    booking: Literal["ort", "schiedsrichter"]
+    booking: FLBookingResource
     name: str | None
     other_spiel_id: CustomObjectId
     other_saison_id: str

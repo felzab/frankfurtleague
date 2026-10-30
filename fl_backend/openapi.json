@@ -4943,16 +4943,18 @@
         "title": "FLBewerbungenListResponse",
         "type": "object"
       },
+      "FLBookingResource": {
+        "enum": [
+          "ort",
+          "schiedsrichter"
+        ],
+        "type": "string"
+      },
       "FLBracketFaultBooking": {
         "description": "A fixture still to be played booked onto a retired venue or referee.\n\nNothing is taken off: only a person chooses between reactivating the row and booking another.",
         "properties": {
           "booking": {
-            "enum": [
-              "ort",
-              "schiedsrichter"
-            ],
-            "title": "Booking",
-            "type": "string"
+            "$ref": "#/components/schemas/FLBookingResource"
           },
           "booking_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -5007,12 +5009,7 @@
         "description": "A venue or referee claimed less than `REQ-CLASH-001`'s buffer from another fixture's claim, one entry per claim.\n\nIt names the fixture that refusal names, so the report and a save's 409 point at one match.",
         "properties": {
           "booking": {
-            "enum": [
-              "ort",
-              "schiedsrichter"
-            ],
-            "title": "Booking",
-            "type": "string"
+            "$ref": "#/components/schemas/FLBookingResource"
           },
           "name": {
             "anyOf": [
@@ -7260,6 +7257,29 @@
         ],
         "title": "FLKaderZeileResponse",
         "type": "object"
+      },
+      "FLKartenFarbe": {
+        "enum": [
+          "gelb",
+          "gelb_rot",
+          "rot"
+        ],
+        "type": "string"
+      },
+      "FLKartenGrund": {
+        "enum": [
+          "foulspiel",
+          "unsportlichkeit",
+          "handspiel",
+          "meckern",
+          "spielverzoegerung",
+          "wiederholtes_foulspiel",
+          "grobes_foulspiel",
+          "taetlichkeit",
+          "beleidigung",
+          "notbremse"
+        ],
+        "type": "string"
       },
       "FLKontakt": {
         "properties": {
@@ -14338,6 +14358,16 @@
         "title": "FLSpielSchiedsrichterFieldPublic",
         "type": "object"
       },
+      "FLSpielStatus": {
+        "enum": [
+          "ausstehend",
+          "vergangen",
+          "heute",
+          "abgesagt",
+          "unbekannt"
+        ],
+        "type": "string"
+      },
       "FLSpielTeamFieldJoined": {
         "description": "One side as a BASE-TIER read serves it, produced only by `build_spiele_pipeline`.\n\nNarrower than the junction row: every public surface listing a fixture carries this side, and\nonly a club's own page renders the free text a withdrawal names.",
         "properties": {
@@ -14462,20 +14492,12 @@
           "zustand": {
             "anyOf": [
               {
-                "enum": [
-                  "vorgeschlagen",
-                  "uebernommen",
-                  "abweichend",
-                  "abgesagt",
-                  "teams_geaendert"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielberichtZustand"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Zustand"
+            ]
           }
         },
         "required": [
@@ -14681,36 +14703,17 @@
         "description": "One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons.",
         "properties": {
           "farbe": {
-            "enum": [
-              "gelb",
-              "gelb_rot",
-              "rot"
-            ],
-            "title": "Farbe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKartenFarbe"
           },
           "grund": {
             "anyOf": [
               {
-                "enum": [
-                  "foulspiel",
-                  "unsportlichkeit",
-                  "handspiel",
-                  "meckern",
-                  "spielverzoegerung",
-                  "wiederholtes_foulspiel",
-                  "grobes_foulspiel",
-                  "taetlichkeit",
-                  "beleidigung",
-                  "notbremse"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLKartenGrund"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Grund"
+            ]
           },
           "minute": {
             "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
@@ -14746,36 +14749,17 @@
         "description": "One card as a write sends it.\n\nA caution's reason is judged against the stored block, never here: a correction after the strip resends the\ncautions whose reasons it stripped (`app/api/spielberichte/services.py :: find_grund_fehlt_refusal`).",
         "properties": {
           "farbe": {
-            "enum": [
-              "gelb",
-              "gelb_rot",
-              "rot"
-            ],
-            "title": "Farbe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKartenFarbe"
           },
           "grund": {
             "anyOf": [
               {
-                "enum": [
-                  "foulspiel",
-                  "unsportlichkeit",
-                  "handspiel",
-                  "meckern",
-                  "spielverzoegerung",
-                  "wiederholtes_foulspiel",
-                  "grobes_foulspiel",
-                  "taetlichkeit",
-                  "beleidigung",
-                  "notbremse"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLKartenGrund"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Grund"
+            ]
           },
           "minute": {
             "pattern": "^[0-9]{1,3}(\\+[0-9]{1,2})?$",
@@ -15392,6 +15376,16 @@
         "title": "FLSpielberichtVorschlag",
         "type": "object"
       },
+      "FLSpielberichtZustand": {
+        "enum": [
+          "vorgeschlagen",
+          "uebernommen",
+          "abweichend",
+          "abgesagt",
+          "teams_geaendert"
+        ],
+        "type": "string"
+      },
       "FLSpielberichtZustandEintrag": {
         "description": "One fixture's report as the triage reads it: its state and what it proposes.",
         "properties": {
@@ -15404,15 +15398,7 @@
             "type": "string"
           },
           "zustand": {
-            "enum": [
-              "vorgeschlagen",
-              "uebernommen",
-              "abweichend",
-              "abgesagt",
-              "teams_geaendert"
-            ],
-            "title": "Zustand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielberichtZustand"
           }
         },
         "required": [
@@ -28934,14 +28920,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "ausstehend",
-                    "vergangen",
-                    "heute",
-                    "abgesagt",
-                    "unbekannt"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLSpielStatus"
                 },
                 {
                   "type": "null"
@@ -29213,14 +29192,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "ausstehend",
-                    "vergangen",
-                    "heute",
-                    "abgesagt",
-                    "unbekannt"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLSpielStatus"
                 },
                 {
                   "type": "null"

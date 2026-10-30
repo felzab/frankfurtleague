@@ -34,11 +34,11 @@ CustomSpielberichtBemerkungen = Annotated[
 
 FLSpielberichtSeite = Literal["team1", "team2"]
 
-FLKartenFarbe = Literal["gelb", "gelb_rot", "rot"]
+type FLKartenFarbe = Literal["gelb", "gelb_rot", "rot"]
 
 # Why a card was shown, from a closed list: a characterisation of a named pupil's conduct, so served on the
 # administrator's and the referee's reads alone.
-FLKartenGrund = Literal[
+type FLKartenGrund = Literal[
     "foulspiel",
     "unsportlichkeit",
     "handspiel",
@@ -57,7 +57,7 @@ FLSpielberichtSonderereignis = Literal["abgebrochen", "nichtantreten_team1", "ni
 
 # Derived on every read from the report and the fixture, and stored nowhere. `abgesagt` is a report on a fixture called
 # off or struck out since it was sent: the match took no place, so nothing awaits the administrator.
-FLSpielberichtZustand = Literal["vorgeschlagen", "uebernommen", "abweichend", "abgesagt", "teams_geaendert"]
+type FLSpielberichtZustand = Literal["vorgeschlagen", "uebernommen", "abweichend", "abgesagt", "teams_geaendert"]
 
 
 class FLSpielberichtVorschlag(BaseModel):

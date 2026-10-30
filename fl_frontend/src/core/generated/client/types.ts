@@ -2523,9 +2523,9 @@ export interface FLBewerbungenListResponse {
   vollstaendig: boolean;
 }
 
-export type FLBracketFaultBookingBooking = (typeof FLBracketFaultBookingBooking)[keyof typeof FLBracketFaultBookingBooking];
+export type FLBookingResource = (typeof FLBookingResource)[keyof typeof FLBookingResource];
 
-export const FLBracketFaultBookingBooking = {
+export const FLBookingResource = {
   ort: "ort",
   schiedsrichter: "schiedsrichter",
 } as const;
@@ -2536,7 +2536,7 @@ export const FLBracketFaultBookingBooking = {
  * Nothing is taken off: only a person chooses between reactivating the row and booking another.
  */
 export interface FLBracketFaultBooking {
-  booking: FLBracketFaultBookingBooking;
+  booking: FLBookingResource;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   booking_id: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -2549,20 +2549,13 @@ export interface FLBracketFaultBooking {
   spiel_nr: number;
 }
 
-export type FLBracketFaultClashBooking = (typeof FLBracketFaultClashBooking)[keyof typeof FLBracketFaultClashBooking];
-
-export const FLBracketFaultClashBooking = {
-  ort: "ort",
-  schiedsrichter: "schiedsrichter",
-} as const;
-
 /**
  * A venue or referee claimed less than `REQ-CLASH-001`'s buffer from another fixture's claim, one entry per claim.
  *
  * It names the fixture that refusal names, so the report and a save's 409 point at one match.
  */
 export interface FLBracketFaultClash {
-  booking: FLBracketFaultClashBooking;
+  booking: FLBookingResource;
   name: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   other_datum: string;
@@ -3541,6 +3534,29 @@ export interface FLKaderZeileResponse {
   /** @minLength 1 */
   vorname: string;
 }
+
+export type FLKartenFarbe = (typeof FLKartenFarbe)[keyof typeof FLKartenFarbe];
+
+export const FLKartenFarbe = {
+  gelb: "gelb",
+  gelb_rot: "gelb_rot",
+  rot: "rot",
+} as const;
+
+export type FLKartenGrund = (typeof FLKartenGrund)[keyof typeof FLKartenGrund];
+
+export const FLKartenGrund = {
+  foulspiel: "foulspiel",
+  unsportlichkeit: "unsportlichkeit",
+  handspiel: "handspiel",
+  meckern: "meckern",
+  spielverzoegerung: "spielverzoegerung",
+  wiederholtes_foulspiel: "wiederholtes_foulspiel",
+  grobes_foulspiel: "grobes_foulspiel",
+  taetlichkeit: "taetlichkeit",
+  beleidigung: "beleidigung",
+  notbremse: "notbremse",
+} as const;
 
 export interface FLKontakt {
   email: string | null;
@@ -6178,23 +6194,22 @@ export interface FLSpielJoinedAdmin {
   uhrzeit: string | null;
 }
 
+export type FLSpielStatus = (typeof FLSpielStatus)[keyof typeof FLSpielStatus];
+
+export const FLSpielStatus = {
+  ausstehend: "ausstehend",
+  vergangen: "vergangen",
+  heute: "heute",
+  abgesagt: "abgesagt",
+  unbekannt: "unbekannt",
+} as const;
+
 export type FLSpielberichtAdminResponseSeitenGeaendertItem =
   (typeof FLSpielberichtAdminResponseSeitenGeaendertItem)[keyof typeof FLSpielberichtAdminResponseSeitenGeaendertItem];
 
 export const FLSpielberichtAdminResponseSeitenGeaendertItem = {
   team1: "team1",
   team2: "team2",
-} as const;
-
-export type FLSpielberichtAdminResponseZustand =
-  (typeof FLSpielberichtAdminResponseZustand)[keyof typeof FLSpielberichtAdminResponseZustand] | null;
-
-export const FLSpielberichtAdminResponseZustand = {
-  vorgeschlagen: "vorgeschlagen",
-  uebernommen: "uebernommen",
-  abweichend: "abweichend",
-  abgesagt: "abgesagt",
-  teams_geaendert: "teams_geaendert",
 } as const;
 
 export interface FLSpielberichtVonSchiedsrichter {
@@ -6233,29 +6248,6 @@ export interface FLSpielberichtVorschlag {
   team2_tore: number | null;
 }
 
-export type FLSpielberichtKarteFarbe = (typeof FLSpielberichtKarteFarbe)[keyof typeof FLSpielberichtKarteFarbe];
-
-export const FLSpielberichtKarteFarbe = {
-  gelb: "gelb",
-  gelb_rot: "gelb_rot",
-  rot: "rot",
-} as const;
-
-export type FLSpielberichtKarteGrund = (typeof FLSpielberichtKarteGrund)[keyof typeof FLSpielberichtKarteGrund] | null;
-
-export const FLSpielberichtKarteGrund = {
-  foulspiel: "foulspiel",
-  unsportlichkeit: "unsportlichkeit",
-  handspiel: "handspiel",
-  meckern: "meckern",
-  spielverzoegerung: "spielverzoegerung",
-  wiederholtes_foulspiel: "wiederholtes_foulspiel",
-  grobes_foulspiel: "grobes_foulspiel",
-  taetlichkeit: "taetlichkeit",
-  beleidigung: "beleidigung",
-  notbremse: "notbremse",
-} as const;
-
 export type FLSpielberichtKarteSeite = (typeof FLSpielberichtKarteSeite)[keyof typeof FLSpielberichtKarteSeite];
 
 export const FLSpielberichtKarteSeite = {
@@ -6267,8 +6259,8 @@ export const FLSpielberichtKarteSeite = {
  * One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons.
  */
 export interface FLSpielberichtKarte {
-  farbe: FLSpielberichtKarteFarbe;
-  grund: FLSpielberichtKarteGrund;
+  farbe: FLKartenFarbe;
+  grund: FLKartenGrund | null;
   /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
   seite: FLSpielberichtKarteSeite;
@@ -6391,6 +6383,16 @@ export interface FLSpielberichtSpiel {
   uhrzeit: string | null;
 }
 
+export type FLSpielberichtZustand = (typeof FLSpielberichtZustand)[keyof typeof FLSpielberichtZustand];
+
+export const FLSpielberichtZustand = {
+  vorgeschlagen: "vorgeschlagen",
+  uebernommen: "uebernommen",
+  abweichend: "abweichend",
+  abgesagt: "abgesagt",
+  teams_geaendert: "teams_geaendert",
+} as const;
+
 /**
  * The administrator's panel, with the state the report reads in, null exactly where no block stands.
  *
@@ -6402,31 +6404,8 @@ export interface FLSpielberichtAdminResponse {
   kader: FLSpielberichtKader;
   seiten_geaendert: FLSpielberichtAdminResponseSeitenGeaendertItem[];
   spiel: FLSpielberichtSpiel;
-  zustand: FLSpielberichtAdminResponseZustand;
+  zustand: FLSpielberichtZustand | null;
 }
-
-export type FLSpielberichtKartePayloadFarbe = (typeof FLSpielberichtKartePayloadFarbe)[keyof typeof FLSpielberichtKartePayloadFarbe];
-
-export const FLSpielberichtKartePayloadFarbe = {
-  gelb: "gelb",
-  gelb_rot: "gelb_rot",
-  rot: "rot",
-} as const;
-
-export type FLSpielberichtKartePayloadGrund = (typeof FLSpielberichtKartePayloadGrund)[keyof typeof FLSpielberichtKartePayloadGrund] | null;
-
-export const FLSpielberichtKartePayloadGrund = {
-  foulspiel: "foulspiel",
-  unsportlichkeit: "unsportlichkeit",
-  handspiel: "handspiel",
-  meckern: "meckern",
-  spielverzoegerung: "spielverzoegerung",
-  wiederholtes_foulspiel: "wiederholtes_foulspiel",
-  grobes_foulspiel: "grobes_foulspiel",
-  taetlichkeit: "taetlichkeit",
-  beleidigung: "beleidigung",
-  notbremse: "notbremse",
-} as const;
 
 export type FLSpielberichtKartePayloadSeite = (typeof FLSpielberichtKartePayloadSeite)[keyof typeof FLSpielberichtKartePayloadSeite];
 
@@ -6442,8 +6421,8 @@ export const FLSpielberichtKartePayloadSeite = {
  * cautions whose reasons it stripped (`app/api/spielberichte/services.py :: find_grund_fehlt_refusal`).
  */
 export interface FLSpielberichtKartePayload {
-  farbe: FLSpielberichtKartePayloadFarbe;
-  grund: FLSpielberichtKartePayloadGrund;
+  farbe: FLKartenFarbe;
+  grund: FLKartenGrund | null;
   /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
   seite: FLSpielberichtKartePayloadSeite;
@@ -6515,17 +6494,6 @@ export interface FLSpielberichtSchiedsrichterResponse {
   spiel: FLSpielberichtSpiel;
 }
 
-export type FLSpielberichtZustandEintragZustand =
-  (typeof FLSpielberichtZustandEintragZustand)[keyof typeof FLSpielberichtZustandEintragZustand];
-
-export const FLSpielberichtZustandEintragZustand = {
-  vorgeschlagen: "vorgeschlagen",
-  uebernommen: "uebernommen",
-  abweichend: "abweichend",
-  abgesagt: "abgesagt",
-  teams_geaendert: "teams_geaendert",
-} as const;
-
 /**
  * One fixture's report as the triage reads it: its state and what it proposes.
  */
@@ -6533,7 +6501,7 @@ export interface FLSpielberichtZustandEintrag {
   ergebnis_vorschlag: FLSpielberichtVorschlag;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
-  zustand: FLSpielberichtZustandEintragZustand;
+  zustand: FLSpielberichtZustand;
 }
 
 /**
@@ -8243,7 +8211,7 @@ export type SpielbestaetigungenGetSpielbestaetigungenParams = {
 export type SpieleGetSpieleParams = {
   saison_id?: string | null;
   saison_phase?: "playoffs" | "gruppenphase" | "achtelfinale" | "viertelfinale" | "halbfinale" | "finale" | null;
-  spiel_status?: SpieleGetSpieleSpielStatus;
+  spiel_status?: FLSpielStatus | null;
   team_id?: string | null;
   /**
    * @minimum 1
@@ -8253,16 +8221,6 @@ export type SpieleGetSpieleParams = {
   sort_by?: SpieleGetSpieleSortBy;
   order?: SpieleGetSpieleOrder;
 };
-
-export type SpieleGetSpieleSpielStatus = (typeof SpieleGetSpieleSpielStatus)[keyof typeof SpieleGetSpieleSpielStatus] | null;
-
-export const SpieleGetSpieleSpielStatus = {
-  ausstehend: "ausstehend",
-  vergangen: "vergangen",
-  heute: "heute",
-  abgesagt: "abgesagt",
-  unbekannt: "unbekannt",
-} as const;
 
 export type SpieleGetSpieleSortBy = (typeof SpieleGetSpieleSortBy)[keyof typeof SpieleGetSpieleSortBy];
 
@@ -8287,7 +8245,7 @@ export type SpieleGetSpieleActionRequiredParams = {
 export type SpieleGetSpieleForAdminParams = {
   saison_id?: string | null;
   saison_phase?: "playoffs" | "gruppenphase" | "achtelfinale" | "viertelfinale" | "halbfinale" | "finale" | null;
-  spiel_status?: SpieleGetSpieleForAdminSpielStatus;
+  spiel_status?: FLSpielStatus | null;
   team_id?: string | null;
   /**
    * @minimum 1
@@ -8297,17 +8255,6 @@ export type SpieleGetSpieleForAdminParams = {
   sort_by?: SpieleGetSpieleForAdminSortBy;
   order?: SpieleGetSpieleForAdminOrder;
 };
-
-export type SpieleGetSpieleForAdminSpielStatus =
-  (typeof SpieleGetSpieleForAdminSpielStatus)[keyof typeof SpieleGetSpieleForAdminSpielStatus] | null;
-
-export const SpieleGetSpieleForAdminSpielStatus = {
-  ausstehend: "ausstehend",
-  vergangen: "vergangen",
-  heute: "heute",
-  abgesagt: "abgesagt",
-  unbekannt: "unbekannt",
-} as const;
 
 export type SpieleGetSpieleForAdminSortBy = (typeof SpieleGetSpieleForAdminSortBy)[keyof typeof SpieleGetSpieleForAdminSortBy];
 
