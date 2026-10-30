@@ -33,7 +33,6 @@ type FLSpielStatus = Literal["ausstehend", "vergangen", "heute", "abgesagt", "un
 # has a different right answer per consumer.
 
 # Two sides of ONE partition -- did the fixture use up its slot, or does it record a non-event?
-# Held complementary by `tests/api/test_spiele.py :: test_the_slot_partition_is_exhaustive`.
 SONDEREREIGNIS_KEEPING_ITS_SLOT: tuple[FLSonderereignis | None, ...] = (None, "abgebrochen")
 SONDEREREIGNIS_RECORDING_AN_ABSENCE: tuple[FLSonderereignis, ...] = (
     "ausgefallen",
@@ -102,8 +101,7 @@ def records_an_absence(*, side: str, sonderereignis: FLSonderereignis | None, sa
 def is_unplayed(*, ergebnis: str | None, sonderereignis: FLSonderereignis | None) -> bool:
     """Whether a fixture is still to be played, which every retirement, the rollover and `REQ-BOOKING-001` ask alike.
 
-    `unplayed_filter` is the same partition asked of stored fixtures, and
-    `tests/api/test_spiele.py :: test_the_unplayed_filter_selects_what_the_predicate_answers` holds the two together.
+    `unplayed_filter` is the same partition asked of stored fixtures.
     """
 
     # An ABANDONED fixture with no result still owes one, because a replay may follow; the two

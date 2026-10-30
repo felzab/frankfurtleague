@@ -252,7 +252,7 @@ def _referee_lookup() -> Mapping[str, Any]:
             "let": {"schiedsrichter_id": {"$ifNull": ["$schiedsrichter.schiedsrichter_id", None]}},
             "pipeline": [
                 {"$match": {"$expr": {"$eq": ["$_id", "$$schiedsrichter_id"]}}},
-                # The pupils' predicate itself, never a third spelling of it (`fl_backend/tests/api/test_name_is_public_mirror.py`).
+                # The pupils' predicate itself, never a third spelling of it.
                 {"$project": {"_id": 0, NAME_IS_PUBLIC_KEY: NAME_IS_PUBLIC}},
             ],
             "as": SCHIEDSRICHTER_AS_NAME,

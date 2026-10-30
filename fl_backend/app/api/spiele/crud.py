@@ -443,8 +443,7 @@ def _stored_side(side: FLSpielTeamField | None) -> Mapping[str, Any] | None:
     if side is None:
         return None
 
-    # `keep_oid` keeps `team_id` an ObjectId: as a string the `spiele` validator rejects the write,
-    # and the transaction takes the admin's own edit down with it.
+    # `keep_oid` keeps `team_id` an ObjectId: stored as a string, it would match no lookup by id.
     return side.model_dump(context={"keep_oid": True}, include=set(FLSpielTeamField.model_fields))
 
 
@@ -548,9 +547,8 @@ def _other_side(side: FLSpielSeite) -> FLSpielSeite:
 def apply_release_to_spiel(spiel: FLSpiel, release: SpieltagRelease) -> FLSpiel:
     """One fixture with the released side emptied.
 
-    The PREVIEW's model; the write spells the same rule as a `$set`, held to it by
-    `tests/api/test_spiele_write_execution.py`. The side left behind loses its goals too, scored
-    against the team being removed.
+    The PREVIEW's model; the write spells the same rule as a `$set`. The side left behind loses its
+    goals too, scored against the team being removed.
     """
 
     other = _other_side(release.side)
