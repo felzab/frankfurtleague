@@ -35,7 +35,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { BESTAETIGUNGSLINK_TITEL } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
-import type { FLBestaetigung, FLEinwilligung } from "@/core/generated/client/types";
+import type { FLBestaetigung, FLEinwilligung, FLPostausgangLage } from "@/core/generated/client/types";
 
 /**
  * The re-send's accessible name, its link named for this panel as the address change's panel names its
@@ -47,14 +47,22 @@ const BESTAETIGUNG_ERNEUT = benannt("Link erneut senden", "Bestätigung");
 const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.";
 
 /** What the last link reached, where one has gone out at all. */
-function LinkStand({ bestaetigung, offenUndAbgelaufen }: { bestaetigung: FLBestaetigung; offenUndAbgelaufen: boolean }) {
+function LinkStand({
+  bestaetigung,
+  offenUndAbgelaufen,
+  zustellung,
+}: {
+  bestaetigung: FLBestaetigung;
+  offenUndAbgelaufen: boolean;
+  zustellung: FLPostausgangLage | null;
+}) {
   return (
     <dl className={FIELD_PAIR_CLASSES}>
       <LinkStandAngaben
         verschicktAm={bestaetigung.verschickt_am}
         frist={bestaetigung.frist}
         istAbgelaufen={offenUndAbgelaufen}
-        zustellung={bestaetigung.zustellung}
+        zustellung={zustellung}
         vorZustellung={
           // A state rather than a gap: nothing reminds a referee, so „Keine Erinnerung“ is the fact
           // rather than a day that went missing.
@@ -121,6 +129,7 @@ export function FormBestaetigungSection({
   isRetired,
   bestaetigung,
   istAbgelaufen,
+  zustellung,
   einwilligung,
   istFassungBekannt,
   geburtsdatum,
@@ -133,6 +142,8 @@ export function FormBestaetigungSection({
   bestaetigung: FLBestaetigung | null;
   /** The read's judgement of the link's deadline, never this browser's day. */
   istAbgelaufen: boolean;
+  /** What became of the last confirmation mail, off the Postausgang; null where none was owed. */
+  zustellung: FLPostausgangLage | null;
   einwilligung: FLEinwilligung | null;
   /** Whether the registry holds the stored label, resolved by the page through the words read. */
   istFassungBekannt: boolean | null;
@@ -212,6 +223,7 @@ export function FormBestaetigungSection({
             // A date an administrator reads as a deadline says nothing once it is past, and the
             // answer („einen neuen schicken“) is the control in this same panel; an answered link's says nothing at all.
             offenUndAbgelaufen={!istBestaetigt && istAbgelaufen}
+            zustellung={zustellung}
           />
         )}
 

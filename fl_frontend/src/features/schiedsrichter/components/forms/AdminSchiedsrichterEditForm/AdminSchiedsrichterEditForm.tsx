@@ -29,7 +29,7 @@ import { FormHonorarSection } from "./FormHonorarSection";
 import { FormKontaktSection } from "./FormKontaktSection";
 import { FormPersonSection } from "./FormPersonSection";
 
-import type { FLBestaetigung, FLEinwilligung, FLKontakt } from "@/core/generated/client/types";
+import type { FLBestaetigung, FLEinwilligung, FLKontakt, FLPostausgangLage } from "@/core/generated/client/types";
 import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
 import type { FLPatchSchiedsrichterPayload, FLSchiedsrichterPayloadDraft } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterDraftFields, SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
@@ -55,6 +55,8 @@ type AdminSchiedsrichterEditFormProps = {
     adresswechsel_einsehbar_verwehrt: EinsehbarVerwehrt | null;
     /** Whether the link's deadline has passed, as the read judged it rather than this browser's day. */
     abgelaufen: { bestaetigung: boolean };
+    /** What became of the last confirmation mail the referee was owed, read off the Postausgang. */
+    zustellung: FLPostausgangLage | null;
   };
   /** Whether the registry holds the stored label, which no record of the row says. */
   istFassungBekannt: boolean | null;
@@ -250,6 +252,7 @@ export function AdminSchiedsrichterEditForm({ schiedsrichter, istFassungBekannt,
             isRetired={isRetired}
             bestaetigung={schiedsrichter.bestaetigung}
             istAbgelaufen={schiedsrichter.abgelaufen.bestaetigung}
+            zustellung={schiedsrichter.zustellung}
             einwilligung={schiedsrichter.einwilligung}
             istFassungBekannt={istFassungBekannt}
             geburtsdatum={schiedsrichter.geburtsdatum}
