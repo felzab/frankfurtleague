@@ -29,8 +29,8 @@ const preis = z.preprocess(
 /** What the editor's boxes send, each held to the match write's own published rule for it. */
 const SpielSpeichern = z.object({
   id: SpielePatchSpielParams.shape.spiel_id,
-  // The fixture's version as the editor read it, which the editor holds as text.
-  fingerprint: z.preprocess((wert) => (typeof wert === "string" && /^\d+$/.test(wert) ? Number(wert) : wert), versionShape),
+  // The fixture's version as the editor read it.
+  version: versionShape,
   changes: z
     .object({
       datum: shape.datum,
@@ -115,7 +115,7 @@ export const spielSpeichern = action({
     eligibility_disqualified: true,
   },
   examples: { "changes.mietpreis": COPY.verwaltung.spielort.mietpreisBeispiel },
-  run: async ({ id, fingerprint, changes }): Promise<ActionAnswer<string>> => {
+  run: async ({ id, version, changes }): Promise<ActionAnswer<number>> => {
     // Read for the fields the editor does not show, which the wholesale write sends as stored.
     const gelesen = await getAdminSpiel(id);
     if (gelesen === null) return { ok: false, reason: COPY.shared.fehler.veraltet };
@@ -123,11 +123,11 @@ export const spielSpeichern = action({
     const payload = payloadOf(gelesen.spiel, changes);
     if ("ok" in payload) return payload;
 
-    const geschrieben = await spielePatchSpiel(id, { ...payload, version: fingerprint });
+    const geschrieben = await spielePatchSpiel(id, { ...payload, version });
 
     // What the write did to other fixtures, a later round's occupant or result among them, in today's editor's words.
     const folgen = describeMovedSpiele(geschrieben.advanced_to, geschrieben.bracket_faults, geschrieben.released_sides);
-    const value = String(geschrieben.version);
+    const value = geschrieben.version;
     return folgen === undefined ? { ok: true, value } : { ok: true, value, note: COPY.verwaltung.spiel.gespeichertMitFolgen(folgen) };
   },
 });

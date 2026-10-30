@@ -26,8 +26,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),
 }));
 
-function SpielortEditor({ save }: { save: (change: EditorSave<Spielort>) => Promise<ActionAnswer<string>> }) {
-  const editor = useEditor({ id: "ort-1", fingerprint: "f1", values: { name: "Riedberg" } }, save);
+function SpielortEditor({ save }: { save: (change: EditorSave<Spielort>) => Promise<ActionAnswer<number>> }) {
+  const editor = useEditor({ id: "ort-1", version: 1, values: { name: "Riedberg" } }, save);
   return (
     <EditorPage
       title={{ record: "Riedberg" }}
@@ -55,7 +55,7 @@ function SpielortEditor({ save }: { save: (change: EditorSave<Spielort>) => Prom
 
 describe("the editor template's save", () => {
   it("keeps back a field its own rule refuses, pointing the status line at it", async () => {
-    const save = vi.fn(async (): Promise<ActionAnswer<string>> => ({ ok: true, value: "f2" }));
+    const save = vi.fn(async (): Promise<ActionAnswer<number>> => ({ ok: true, value: 2 }));
     render(<SpielortEditor save={save} />);
 
     await userEvent.clear(screen.getByRole("textbox"));
@@ -67,14 +67,14 @@ describe("the editor template's save", () => {
   });
 
   it("sends the changed fields from the bar outside the form", async () => {
-    const save = vi.fn(async (): Promise<ActionAnswer<string>> => ({ ok: true, value: "f2" }));
+    const save = vi.fn(async (): Promise<ActionAnswer<number>> => ({ ok: true, value: 2 }));
     render(<SpielortEditor save={save} />);
 
     await userEvent.type(screen.getByRole("textbox"), " Nord");
     expect(screen.getByText(COPY.vorlage.aenderungenOffen(1))).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: COPY.shared.verb.speichern }));
 
-    await waitFor(() => expect(save).toHaveBeenCalledWith({ id: "ort-1", fingerprint: "f1", changes: { name: "Riedberg Nord" } }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ id: "ort-1", version: 1, changes: { name: "Riedberg Nord" } }));
   });
 });
 
@@ -91,7 +91,7 @@ function Framed({ editor, children }: { editor: boolean; children: ReactNode }) 
   );
 }
 
-const saved = async (): Promise<ActionAnswer<string>> => ({ ok: true, value: "f2" });
+const saved = async (): Promise<ActionAnswer<number>> => ({ ok: true, value: 2 });
 
 describe("the editor template's way back", () => {
   // The server draws the band and the bar as hydration finds them: a page declaring itself an editor only on

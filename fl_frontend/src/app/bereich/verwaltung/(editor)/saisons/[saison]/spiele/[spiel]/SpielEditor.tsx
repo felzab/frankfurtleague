@@ -43,7 +43,7 @@ export function SpielEditor({
 }: {
   title: PageTitle;
   record: EditorRecord<SpielWerte>;
-  save: (change: EditorSave<SpielWerte>) => Promise<ActionAnswer<string>>;
+  save: (change: EditorSave<SpielWerte>) => Promise<ActionAnswer<number>>;
   /** The venues to choose from, each with the price a match there costs unless set otherwise. */
   spielorte: ReadonlyArray<{ option: Option; mietpreis: number }>;
   /** „Keines“ first, then each event, an event this fixture cannot take disabled with its reason. */
