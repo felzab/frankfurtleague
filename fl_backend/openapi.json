@@ -6555,6 +6555,11 @@
               }
             ]
           },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
           "vorname": {
             "minLength": 1,
             "title": "Vorname",
@@ -6571,110 +6576,10 @@
           "rolle",
           "ist_nachnominiert",
           "inactive_since",
-          "nummer_doppelt"
+          "nummer_doppelt",
+          "version"
         ],
         "title": "FLKaderZeile",
-        "type": "object"
-      },
-      "FLKaderZeileResponse": {
-        "description": "The row as a representative's edit or austragen left it, its shirt marker judged against the squad after the write.",
-        "properties": {
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
-          },
-          "ist_nachnominiert": {
-            "title": "Ist Nachnominiert",
-            "type": "boolean"
-          },
-          "nachname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nachname"
-          },
-          "nummer": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nummer"
-          },
-          "nummer_doppelt": {
-            "title": "Nummer Doppelt",
-            "type": "boolean"
-          },
-          "position": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerPosition"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "rolle": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerRolle"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "spieler_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spieler Id",
-            "type": "string"
-          },
-          "stufe": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerStufe"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "vorname": {
-            "minLength": 1,
-            "title": "Vorname",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spieler_id",
-          "vorname",
-          "nachname",
-          "nummer",
-          "position",
-          "stufe",
-          "rolle",
-          "ist_nachnominiert",
-          "inactive_since",
-          "nummer_doppelt"
-        ],
-        "title": "FLKaderZeileResponse",
         "type": "object"
       },
       "FLKartenFarbe": {
@@ -8086,6 +7991,17 @@
                 "type": "null"
               }
             ]
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8217,6 +8133,17 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8401,6 +8328,17 @@
               }
             ],
             "title": "Schule"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8681,6 +8619,17 @@
             ],
             "title": "Nachname"
           },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
           "vorname": {
             "maxLength": 80,
             "minLength": 1,
@@ -8712,6 +8661,17 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -10846,6 +10806,11 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
             "type": "string"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -10857,7 +10822,8 @@
           "spieler_id",
           "saison_id",
           "ist_nachnominiert",
-          "inactive_since"
+          "inactive_since",
+          "version"
         ],
         "title": "FLSaisonSpielerResponse",
         "type": "object"
@@ -11464,6 +11430,11 @@
               }
             ],
             "title": "Schule"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -11472,7 +11443,11 @@
           "schule",
           "default_payment",
           "id",
-          "inactive_since"
+          "inactive_since",
+          "bestaetigung",
+          "einwilligung",
+          "geburtsdatum",
+          "version"
         ],
         "title": "FLSchiedsrichter",
         "type": "object"
@@ -11699,7 +11674,8 @@
           "name",
           "schule",
           "kontakt",
-          "honorar"
+          "honorar",
+          "geburtsdatum"
         ],
         "title": "FLSchiedsrichterSelbst",
         "type": "object"
@@ -14317,31 +14293,12 @@
           "beantwortet_von": {
             "anyOf": [
               {
-                "discriminator": {
-                  "mapping": {
-                    "admin": "#/components/schemas/FLVonAdmin",
-                    "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
-                    "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-                  },
-                  "propertyName": "art"
-                },
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
-                  },
-                  {
-                    "$ref": "#/components/schemas/FLVonAdmin"
-                  },
-                  {
-                    "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-                  }
-                ]
+                "$ref": "#/components/schemas/FLSpielbestaetigungVon"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Beantwortet Von"
+            ]
           },
           "frist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -14412,26 +14369,7 @@
             "title": "Begruendung"
           },
           "von": {
-            "discriminator": {
-              "mapping": {
-                "admin": "#/components/schemas/FLVonAdmin",
-                "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
-                "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-              },
-              "propertyName": "art"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
-              },
-              {
-                "$ref": "#/components/schemas/FLVonAdmin"
-              },
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-              }
-            ],
-            "title": "Von"
+            "$ref": "#/components/schemas/FLSpielbestaetigungVon"
           },
           "vorschlag": {
             "anyOf": [
@@ -14513,26 +14451,7 @@
         "description": "What the answer recorded: its way, its role, and the answering club's own proposal, which no view of the link serves.\n\nSo a page shows that proposal from this response, never from a re-read. No receipt is mailed off it.",
         "properties": {
           "beantwortet_von": {
-            "discriminator": {
-              "mapping": {
-                "admin": "#/components/schemas/FLVonAdmin",
-                "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
-                "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-              },
-              "propertyName": "art"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
-              },
-              {
-                "$ref": "#/components/schemas/FLVonAdmin"
-              },
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-              }
-            ],
-            "title": "Beantwortet Von"
+            "$ref": "#/components/schemas/FLSpielbestaetigungVon"
           },
           "vorschlag": {
             "anyOf": [
@@ -14813,6 +14732,9 @@
             ]
           }
         },
+        "required": [
+          "zustellung"
+        ],
         "title": "FLSpielbestaetigungSitz",
         "type": "object"
       },
@@ -15440,6 +15362,27 @@
         "title": "FLSpielbestaetigungTermin",
         "type": "object"
       },
+      "FLSpielbestaetigungVon": {
+        "discriminator": {
+          "mapping": {
+            "admin": "#/components/schemas/FLVonAdmin",
+            "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
+            "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
+          },
+          "propertyName": "art"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
+          },
+          {
+            "$ref": "#/components/schemas/FLVonAdmin"
+          },
+          {
+            "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
+          }
+        ]
+      },
       "FLSpielbestaetigungVonKontakt": {
         "description": "The seat whose link was pressed, never the person: two seats one person holds share a link, and the first seat in order is recorded.",
         "properties": {
@@ -15667,6 +15610,11 @@
             "title": "Spieler Id",
             "type": "string"
           },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
           "vorname": {
             "minLength": 1,
             "title": "Vorname",
@@ -15677,7 +15625,8 @@
           "spieler_id",
           "vorname",
           "nachname",
-          "inactive_since"
+          "inactive_since",
+          "version"
         ],
         "title": "FLSpielerAdminSingleResponse",
         "type": "object"
@@ -15811,6 +15760,11 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
             "type": "string"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -15821,7 +15775,8 @@
           "rolle",
           "ist_nachnominiert",
           "saison_id",
-          "inactive_since"
+          "inactive_since",
+          "version"
         ],
         "title": "FLSpielerMembership",
         "type": "object"
@@ -15920,7 +15875,9 @@
         },
         "required": [
           "vorname",
-          "nachname"
+          "nachname",
+          "nummer",
+          "position"
         ],
         "title": "FLSpielerPublic",
         "type": "object"
@@ -16225,6 +16182,11 @@
             ],
             "title": "Nachname"
           },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
           "vorname": {
             "minLength": 1,
             "title": "Vorname",
@@ -16240,6 +16202,7 @@
           "einwilligung",
           "email",
           "adresswechsel_id",
+          "version",
           "adresswechsel_einsehbar_verwehrt",
           "memberships"
         ],
@@ -16282,6 +16245,11 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -16290,7 +16258,8 @@
           "default_mietpreis",
           "id",
           "maps_link",
-          "inactive_since"
+          "inactive_since",
+          "version"
         ],
         "title": "FLSpielort",
         "type": "object"
@@ -28181,7 +28150,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLKaderZeileResponse"
+                  "$ref": "#/components/schemas/FLKaderZeile"
                 }
               }
             },
@@ -28287,7 +28256,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLKaderZeileResponse"
+                  "$ref": "#/components/schemas/FLKaderZeile"
                 }
               }
             },

@@ -232,23 +232,19 @@ def vorname_of(name: Any) -> str | None:
     return parts[0] if parts else None
 
 
-def link_is_over(*, frist: Any, today: str) -> bool:
-    """Whether the deadline has passed. A block carrying no readable deadline is over: nothing can say it is still running."""
+def link_is_over(*, frist: str, today: str) -> bool:
+    """Whether the deadline has passed: its own day still takes the answer."""
 
-    return not isinstance(frist, str) or frist < today
-
-
-def frist_abgelaufen(block: Any, *, today: str) -> bool:
-    """Whether a link block a row holds has passed its deadline: `link_is_over` over a block that exists."""
-
-    return isinstance(block, Mapping) and link_is_over(frist=block.get("frist"), today=today)
+    return frist < today
 
 
-def frist_of(bestaetigung: Any) -> Any:
-    return bestaetigung.get("frist") if isinstance(bestaetigung, Mapping) else None
+def frist_abgelaufen(block: Mapping[str, Any] | None, *, today: str) -> bool:
+    """Whether the link a referee holds has passed its deadline; false where they hold none."""
+
+    return block is not None and link_is_over(frist=block["frist"], today=today)
 
 
-def zustand_of(*, einwilligung: Any, bestaetigung: Any, today: str, gesperrt: bool) -> FLBestaetigungZustand:
+def zustand_of(*, einwilligung: Any, bestaetigung: Mapping[str, Any], today: str, gesperrt: bool) -> FLBestaetigungZustand:
     """What a reopened link shows: the ban first, then a stamp over the deadline.
 
     A person who answered on the last valid day is shown that they did.
@@ -260,7 +256,7 @@ def zustand_of(*, einwilligung: Any, bestaetigung: Any, today: str, gesperrt: bo
     if is_confirmed(einwilligung=einwilligung):
         return "bestaetigt"
 
-    return "abgelaufen" if link_is_over(frist=frist_of(bestaetigung), today=today) else "gueltig"
+    return "abgelaufen" if link_is_over(frist=bestaetigung["frist"], today=today) else "gueltig"
 
 
 def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
@@ -279,7 +275,7 @@ def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
     )
 
 
-def find_expired_token_refusal(*, frist: Any, today: str) -> WriteRefusal | None:
+def find_expired_token_refusal(*, frist: str, today: str) -> WriteRefusal | None:
     """Why this link is over, or `None`."""
 
     if not link_is_over(frist=frist, today=today):

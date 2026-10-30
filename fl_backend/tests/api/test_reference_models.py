@@ -354,8 +354,8 @@ class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
 class TestSaisonSpielerRow:
     """`saison_spieler`'s declared shape. It validates no stored document — see the class docstring for why it may not."""
 
-    def test_declares_exactly_the_ten_stored_keys(self):
-        """Compared as a set against the validator's `properties`: a model naming an eleventh key would store one nothing reads."""
+    def test_declares_exactly_the_stored_keys(self):
+        """Compared as a set against what the writes store: a model naming another key would declare one nothing writes."""
 
         # Named as STORED, so `id` reads `_id`; an alias that is not a plain string names no single key.
         stored = {
@@ -374,6 +374,7 @@ class TestSaisonSpielerRow:
             "position",
             "nummer",
             "inactive_since",
+            "version",
         }
 
     def test_a_number_is_a_string_and_not_an_int(self, saison_spieler):
@@ -403,7 +404,7 @@ class TestASquadNumberOnTheWritePath:
     def body(self, stored: dict[str, Any], payload_model: type[BaseModel]) -> dict[str, Any]:
         """The stored row projected onto the payload, which carries neither `_id` nor the ids the path names."""
 
-        return {field: stored[field] for field in payload_model.model_fields}
+        return {field: stored[field] for field in payload_model.model_fields if field in stored}
 
     @pytest.mark.parametrize("payload_model", PAYLOADS)
     @pytest.mark.parametrize("nummer", ["7", "07", "1234"])

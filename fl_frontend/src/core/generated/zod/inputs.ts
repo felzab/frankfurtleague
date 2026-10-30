@@ -2364,6 +2364,7 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
   }),
   name: zod.string().min(1).max(schiedsrichterPatchSchiedsrichterBodyNameMax).regex(schiedsrichterPatchSchiedsrichterBodyNameRegExp),
   schule: zod.union([zod.string(), zod.null()]),
+  version: zod.union([zod.int(), zod.null()]).optional(),
 });
 
 /**
@@ -3402,6 +3403,7 @@ export const SpielerPatchKaderZeileBody = zod
     position: zod.union([zod.enum(["Tor", "Abwehr", "Mittelfeld", "Angriff"]), zod.null()]),
     rolle: zod.union([zod.enum(["kapitaen", "co_kapitaen"]), zod.null()]),
     stufe: zod.union([zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"]), zod.null()]),
+    version: zod.union([zod.int(), zod.null()]).optional(),
   })
   .describe(
     "What a team's seat holder may change on a live squad row, WHOLESALE for `FLPatchSpielerPayload`'s reason.\n\nNever `_SaisonSpielerPayload`'s child, which carries `team_id`: a representative moves no pupil\nto another team, and `extra=\"forbid\"` refuses that key.",
@@ -3506,6 +3508,7 @@ export const SpielerPatchSpielerBody = zod
       zod.string().min(1).max(spielerPatchSpielerBodyNachnameOneMax).regex(spielerPatchSpielerBodyNachnameOneRegExp),
       zod.null(),
     ]),
+    version: zod.union([zod.int(), zod.null()]).optional(),
     vorname: zod.string().min(1).max(spielerPatchSpielerBodyVornameMax).regex(spielerPatchSpielerBodyVornameRegExp),
   })
   .describe(
@@ -3596,6 +3599,7 @@ export const SpielerPatchSaisonSpielerBody = zod
     rolle: zod.union([zod.enum(["kapitaen", "co_kapitaen"]), zod.null()]),
     stufe: zod.union([zod.enum(["E1", "E2", "Q1", "Q2", "Q3", "Q4"]), zod.null()]),
     team_id: zod.string().regex(spielerPatchSaisonSpielerBodyTeamIdRegExp),
+    version: zod.union([zod.int(), zod.null()]).optional(),
   })
   .describe(
     "Replaces the squad row WHOLESALE — see `FLPatchSpielerPayload` for why nothing has a default.\n\n`team_id` is editable here: a mid-season transfer is a change to the junction row.",
@@ -3724,6 +3728,7 @@ export const SpielortePatchSpielortBody = zod.object({
   }),
   default_mietpreis: zod.int().min(spielortePatchSpielortBodyDefaultMietpreisMin),
   name: zod.string().min(1),
+  version: zod.union([zod.int(), zod.null()]).optional(),
 });
 
 /**
