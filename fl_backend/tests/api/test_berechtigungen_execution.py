@@ -29,12 +29,14 @@ from app.api.berechtigungen.admin_router import (
     post_antrag_genehmigung,
     post_berechtigung,
 )
+from app.api.berechtigungen.crud import owe_in_session
 from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
 from app.api.berechtigungen.schemas import (
     FLBerechtigungStand,
     FLPatchBerechtigungPayload,
     FLPostBerechtigungPayload,
 )
+from app.api.berechtigungen.services import compose_mitteilung
 from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich
 from app.api.sperrliste.admin_router import delete_sperrliste_eintrag
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
@@ -481,6 +483,41 @@ class TestWhatAGrantStoresAndOwes:
             return await addresses(database)
 
         assert on_a_league(mongo_replica_set_url, body) == sorted([OWNER, ANNA, BERND])
+
+
+class TestAReplayOwesNothingTwice:
+    def test_a_write_retried_under_its_own_instant_owes_each_recipient_one_row(self, mongo_replica_set_url: str):
+        """A transaction retried after a conflict runs its enqueue again under the instant it was first handed."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
+            mitteilung = compose_mitteilung(
+                berechtigung_id=ANNA_ID,
+                art="geaendert",
+                jetzt=FLBerechtigungStand(adresse=ANNA, verwaltung="owner"),
+                vorher=FLBerechtigungStand(adresse=ANNA, verwaltung="administration"),
+                geaendert_von=OWNER,
+                now=NOW,
+                gesperrt=(),
+            )
+
+            async def owe(session: AsyncClientSession) -> None:
+                await owe_in_session(
+                    [mitteilung],
+                    postausgang_collection=database[Collection.POSTAUSGANG],
+                    berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+                    now=NOW,
+                    session=session,
+                )
+
+            for _ in range(2):
+                async with client.start_session() as session:
+                    await session.with_transaction(owe)
+
+            return await database[Collection.POSTAUSGANG].count_documents({}), len({str(row["an"]) for row in await _open_rows(database)})
+
+        rows, recipients = on_a_league(mongo_replica_set_url, body)
+
+        assert (rows, recipients) == (3, 3)
 
 
 class TestTheNoticeMovesWithItsChange:
