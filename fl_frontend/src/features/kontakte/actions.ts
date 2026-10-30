@@ -15,11 +15,11 @@ import { mapEinladenRefusal, mapKontakteRefusal } from "./refusals";
 import { FLKontaktEinladenPayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 import { mitLaufenderFassung } from "./utils";
 
-import type { FLSaisonTeamKontakte } from "@/core/generated/client/types";
+import type { FLKontaktRolle, FLSaisonTeamKontakte } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
 import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { KontaktVersand } from "./notifications";
-import type { FLKontaktEinladenPayload, FLPatchSaisonTeamKontaktePayload } from "./schemas";
+import type { FLPatchSaisonTeamKontaktePayload } from "./schemas";
 
 /**
  * The three seats one club holds for one season, written whole. The season's competition facts stay
@@ -105,7 +105,11 @@ export async function patchSaisonTeamKontakteAction(
  * A fresh link for one unconfirmed seat, the seat's earlier one opening nothing afterwards. **Always a
  * step-up write**: every call mints a bearer link.
  */
-export async function einladeKontaktAction(rawPayload: FLKontaktEinladenPayload): Promise<ActionResult<{ versand: LinkVersand }>> {
+export async function einladeKontaktAction(rawPayload: {
+  team_id: string;
+  saison_id: string;
+  rolle: FLKontaktRolle;
+}): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("einladeKontaktAction", { stepUp: true }, async () => {
     const validated = FLKontaktEinladenPayloadSchema.safeParse(rawPayload);
 

@@ -8,7 +8,7 @@ import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { textLink } from "@/shared/components/ui/textLink";
 import { FOCUS_HEADING, focusSection } from "@/shared/utils/focusAfterWrite";
 
-import type { FLOffeneRegistrierung } from "@/features/registrierungen/schemas";
+import type { FLOffeneRegistrierung } from "@/core/generated/client/types";
 import type { Leserichtung } from "@/shared/utils/leserichtung";
 
 /** What a cut-short answer offers: which end of the queue is loaded, and the link to the other one. */

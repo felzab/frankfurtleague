@@ -1,6 +1,11 @@
 // Outside the view's "use client" module: the page reads the link on the server, where a client
 // module's exports arrive only as references to render, and calling one throws.
-import type { FLAdresswechselAnsichtResponse, FLAdresswechselBisherigZustand, FLAdresswechselEndeArt, FLAdresswechselWeg } from "./schemas";
+import type {
+  FLAdresswechselAnsichtBisherigZustand,
+  FLAdresswechselAnsichtResponse,
+  FLAdresswechselEndeArt,
+  FLAdresswechselWeg,
+} from "@/core/generated/client/types";
 
 /** The new mailbox's states besides an open link, and a token the read matched to nothing. */
 export type AdresswechselLinkZustand = "abgelaufen" | "ungueltig" | "gesperrt" | "nicht_bestaetigbar";
@@ -15,7 +20,7 @@ type NurAblehnbar = Extract<AdresswechselLinkZustand, "abgelaufen" | "nicht_best
 export type AdresswechselAnsicht =
   | { zustand: "gueltig"; gueltigBis: string; weg: FLAdresswechselWeg }
   | { zustand: "bestaetigt"; wirksamAb: string | null; genehmigungOffen: boolean; weg: FLAdresswechselWeg }
-  | { zustand: FLAdresswechselBisherigZustand; gueltigBis: string | null; wirksamAb: string | null; weg: FLAdresswechselWeg }
+  | { zustand: FLAdresswechselAnsichtBisherigZustand; gueltigBis: string | null; wirksamAb: string | null; weg: FLAdresswechselWeg }
   | { zustand: NurAblehnbar; weg: FLAdresswechselWeg }
   // Pressed, so the backend refuses the decline too: told apart from `abgelaufen`, whose link was never pressed.
   | { zustand: "genehmigung_abgelaufen"; weg: FLAdresswechselWeg }

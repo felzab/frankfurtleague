@@ -36,8 +36,8 @@ import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "../../constants";
 import { FLPostRegistrierungPayloadSchema } from "../../schemas";
 import { registrierungPayload } from "../../utils";
 
+import type { FLEinladungAnsichtResponse } from "@/core/generated/client/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
-import type { FLEinladungAnsichtResponse } from "../../schemas";
 import type { RegistrierungFormDraft } from "../../types";
 
 type RegistrierungAntwort = { success: true } | (PublicEnvelope & { success: false; zustand?: "ungueltig" });

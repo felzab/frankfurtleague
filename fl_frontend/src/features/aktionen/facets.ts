@@ -3,9 +3,8 @@ import { readFacetSelectionFromRoute } from "@/shared/utils/facets";
 import { AKTION_COLLECTION_LABELS, AKTION_HERKUNFT_LABELS, AKTION_OPERATION_LABELS } from "./constants";
 import { herkunftOfAktor } from "./utils";
 
+import type { FLAktion, FLAktionenListResponse } from "@/core/generated/client/types";
 import type { Facet, FacetCounts } from "@/shared/utils/facets";
-import type { FLAktionenListResponse } from "./schemas";
-import type { AdminAktionRow } from "./types";
 
 /**
  * Spelled as `fl_backend/app/api/aktionen/schemas.py :: FLAktionenFilterParams` spells its own terms,
@@ -21,7 +20,7 @@ const toOptions = (labels: Record<string, string>) => Object.entries(labels).map
 
 // Module scope is load-bearing: `AdminCrudView`'s memo and the react-aria collection behind it both
 // key on the array's identity.
-export const AKTIONEN_FACETS: readonly Facet<AdminAktionRow>[] = [
+export const AKTIONEN_FACETS: readonly Facet<FLAktion>[] = [
   {
     param: AKTIONEN_COLLECTION_PARAM,
     label: "Bereich",

@@ -32,7 +32,7 @@ import {
   mirrorBewerbungTrainer,
 } from "./utils.ts";
 
-import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas.ts";
+import type { FLBewerbung, FLBewerbungFensterResponse } from "@/core/generated/client/types.ts";
 import type { BewerbungKontakteDraft, BewerbungKontaktpersonDraft, EinwilligungAnsicht } from "./types.ts";
 
 /** The label the backend runs on the contact page, off the registry it generated. */

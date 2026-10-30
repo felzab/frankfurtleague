@@ -22,8 +22,8 @@ const mail = doubleSendMail();
 
 /** Whether `call` is the delivery report a sent message files, which the backend applies. */
 const reportsDelivery = ({ endpoint }: ApiCall): boolean => endpoint.startsWith("/zustellung/");
-const REPORTED = { acknowledged: 1, angewendet: true };
-const mint = doubleApiAnswers((call) => Promise.resolve(reportsDelivery(call) ? REPORTED : { acknowledged: 1 }));
+const REPORTED = { angewendet: true };
+const mint = doubleApiAnswers((call) => Promise.resolve(reportsDelivery(call) ? REPORTED : {}));
 /** Answers the write a case presses with `next`, a delivery report after it as the endpoint does. */
 const answerTheWrite = (next: () => Promise<unknown>): void =>
   mint.answerWith((call) => (reportsDelivery(call) ? Promise.resolve(REPORTED) : next()));
@@ -88,7 +88,6 @@ describe("the origin each press mints its invite link on", () => {
   it("is the configured one on the link the mint hands the panel", async () => {
     answerTheWrite(() =>
       Promise.resolve({
-        acknowledged: 1,
         saison_id: SAISON_ID,
         team_id: TEAM_ID,
         einladung_id: EINLADUNG_ID,
@@ -120,7 +119,6 @@ describe("the origin each press mints its invite link on", () => {
   it("is the configured one in the message the season-wide press mails", async () => {
     answerTheWrite(() =>
       Promise.resolve({
-        acknowledged: 1,
         saison_id: SAISON_ID,
         zeilen: [
           {

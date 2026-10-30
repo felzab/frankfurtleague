@@ -15,9 +15,8 @@ import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLTrikotFarbe } from "@/core/generated/client/types";
+import type { FLBewerbungFensterResponse, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { BewerbungFassung } from "@/features/bewerbungen/components/forms/BewerbungForm/FormKontaktpersonenSection";
-import type { FLBewerbungFensterResponse } from "@/features/bewerbungen/schemas";
 
 /** Where a school goes when this page cannot take its application, whatever closed it. */
 const ZUM_KONTAKT = { href: "/kontakt", label: KONTAKT_TITEL };

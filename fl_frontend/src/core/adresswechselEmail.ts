@@ -6,7 +6,7 @@ import { KONTAKT_EMAIL } from "./brand";
 import { BRAND_NAME, mailOrigin } from "./emailShell";
 import { formatZeitpunkt } from "./format";
 
-import type { AdresswechselWeg } from "./adresswechsel";
+import type { FLAdresswechselWeg } from "./generated/client/types";
 import type { Absatz, Mail } from "./emailShell";
 
 /** The one address page, both links' and every record's, under the segment `robots.ts` already turns crawlers back from. */
@@ -26,7 +26,7 @@ export interface AdresswechselLinkData {
   origin: string;
   /** The raw token. It is a bearer credential and is never taken apart here. */
   token: string;
-  weg: AdresswechselWeg;
+  weg: FLAdresswechselWeg;
   /** The instant the link lapses, as the mint's own transaction set it. */
   gueltigBis: string;
 }
@@ -67,14 +67,14 @@ export interface AdresswechselHinweisData {
   origin: string;
   /** The raw stop token, a bearer credential like the link's. */
   stoppToken: string;
-  weg: AdresswechselWeg;
+  weg: FLAdresswechselWeg;
   /** The approval's deadline, which only `freigabe`'s notice states: the stop link outlives it. */
   gueltigBis: string;
   vorname: string;
 }
 
 /** Why the address on file is told, per way the change was started. */
-function anlassAbsatz(weg: AdresswechselWeg, gueltigBis: string): Absatz {
+function anlassAbsatz(weg: FLAdresswechselWeg, gueltigBis: string): Absatz {
   switch (weg) {
     case "konto":
       return [

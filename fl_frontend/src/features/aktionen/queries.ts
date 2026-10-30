@@ -1,12 +1,11 @@
-import { apiClient } from "@/core/api";
+import { aktionenGetAktionen } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { parseLeserichtung } from "@/shared/utils/leserichtung";
 
 import { aktionenLogFacetTerms } from "./facets";
-import { FLAktionenListResponseSchema } from "./schemas";
 
+import type { FLAktionenListResponse } from "@/core/generated/client/types";
 import type { Leserichtung } from "@/shared/utils/leserichtung";
-import type { FLAktionenListResponse } from "./schemas";
 
 /** The single-row narrowings a row's own actions write, `null` where the URL names neither. */
 export type AktionenLogSubjekt = { dokumentId: string | null; vorgangId: string | null };
@@ -30,12 +29,7 @@ export const getAktionen = async (
     order?: Leserichtung;
   } = {},
 ): Promise<FLAktionenListResponse> => {
-  return runAdminRead(() =>
-    apiClient<FLAktionenListResponse>("/aktionen", FLAktionenListResponseSchema, {
-      authType: "admin",
-      params: filters,
-    }),
-  );
+  return runAdminRead(() => aktionenGetAktionen(filters));
 };
 
 /**

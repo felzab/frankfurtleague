@@ -21,14 +21,14 @@ import { textLink } from "@/shared/components/ui/textLink";
 import { formularZustand } from "../../utils";
 import { RegistrierungFormPanel } from "./RegistrierungFormPanel";
 
-import type { FLEinladungAnsichtResponse } from "../../schemas";
+import type { FLEinladungAnsichtResponse } from "@/core/generated/client/types";
 import type { RegistrierungStart } from "../../types";
 
 /**
  * Which state the page renders.
  *
- * Three of them close the form rather than offering it over a refusal, which
- * `.claude/rules/cross-surface.md`'s **saisons** clause bans.
+ * Three of them close the form rather than offering it over a refusal, which the **saisons**
+ * decision in `docs/decisions.md` bans.
  */
 type Stand = "gueltig" | "kader-voll" | "team-fehlt" | "geschlossen" | "ungueltig" | "unlesbar";
 

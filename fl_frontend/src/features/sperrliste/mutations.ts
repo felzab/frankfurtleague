@@ -1,21 +1,13 @@
-import { apiClient } from "@/core/api";
+import { sperrlisteDeleteSperrlisteEintrag, sperrlistePostSperrlisteEintrag } from "@/core/generated/client/sdk";
 
-import { FLPostSperrlisteResponseSchema, FLSperrlisteWriteResponseSchema } from "./schemas";
+import type { FLPostSperrlistePayload, FLPostSperrlisteResponse, FLSperrlisteWriteResponse } from "@/core/generated/client/types";
+import type { FLSperrlisteKeyPayload } from "./schemas";
 
-import type { FLPostSperrlistePayload, FLPostSperrlisteResponse, FLSperrlisteKeyPayload, FLSperrlisteWriteResponse } from "./schemas";
-
-export async function postSperre(postSperrePayload: FLPostSperrlistePayload): Promise<FLPostSperrlisteResponse> {
-  return apiClient<FLPostSperrlisteResponse>("/sperrliste", FLPostSperrlisteResponseSchema, {
-    method: "POST",
-    authType: "admin",
-    body: JSON.stringify(postSperrePayload),
-  });
+export async function postSperre(payload: FLPostSperrlistePayload): Promise<FLPostSperrlisteResponse> {
+  return sperrlistePostSperrlisteEintrag(payload);
 }
 
 // Hard, unlike every other DELETE in the admin: a ban holds nothing to retire, so the row goes.
 export async function deleteSperre({ id }: FLSperrlisteKeyPayload): Promise<FLSperrlisteWriteResponse> {
-  return apiClient<FLSperrlisteWriteResponse>(`/sperrliste/${id}`, FLSperrlisteWriteResponseSchema, {
-    method: "DELETE",
-    authType: "admin",
-  });
+  return sperrlisteDeleteSperrlisteEintrag(id);
 }

@@ -14,10 +14,10 @@ import {
   ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH,
 } from "./schemas";
 
+import type { FLBewerbung, FLBewerbungZustellungEreignisPayload, FLKontaktRolle } from "@/core/generated/client/types";
 import type { FLZustellungEreignisPayload, FLZustellungZiel } from "@/features/zustellung/schemas";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLBewerbungZustellstand } from "@/shared/schemas";
-import type { FLBewerbung, FLBewerbungZustellungEreignisPayload, FLKontaktRolle } from "./schemas";
 
 /**
  * Which message a delivery event is about, as it rides the send. Its own vocabulary rather than the

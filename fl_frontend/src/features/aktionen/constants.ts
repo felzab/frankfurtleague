@@ -1,5 +1,5 @@
+import type { FLAktion, FLAktorPerson } from "@/core/generated/client/types";
 import type { PillTone } from "@/shared/components/ui/badges";
-import type { FLAktion, FLAktor, FLAktorPerson } from "./schemas";
 
 // Its own module: every export of a `"use client"` view becomes a client reference.
 export const AKTIONEN_CRUD_COPY = {
@@ -81,7 +81,7 @@ export type AktionHerkunft = "person" | "system" | "public";
  * Which origin each actor kind is filed under. Exhaustive by type, so a kind the backend adds fails to
  * compile until somebody places it rather than falling in silently with the people who signed in.
  */
-export const AKTOR_HERKUNFT: Record<FLAktor["kind"], AktionHerkunft> = {
+export const AKTOR_HERKUNFT: Record<FLAktion["actor"]["kind"], AktionHerkunft> = {
   admin_session: "person",
   person_session: "person",
   system: "system",

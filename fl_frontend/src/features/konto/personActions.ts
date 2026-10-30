@@ -23,7 +23,7 @@ import { getLoeschungAnsicht } from "./queries";
 import { LETZTE_INHABERIN, mapLoeschungRefusal } from "./refusals";
 import { FLKontoAdresswechselFreigabePayloadSchema, FLKontoAdresswechselPayloadSchema } from "./schemas";
 
-import type { FLVerwaltung } from "@/features/berechtigungen/schemas";
+import type { FLVerwaltung } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
 import type { StepUpRequired } from "@/shared/utils/adminMutation";
 import type { LinkVersand } from "@/shared/utils/linkVersand";

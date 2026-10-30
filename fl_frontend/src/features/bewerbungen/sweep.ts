@@ -18,10 +18,13 @@ import { getBewerbungSweepSaisons, postBewerbungSweep, postBewerbungSweepAngekue
 import { rollenText, rolleText, sendBewerbungLinkMail, sendBewerbungMail } from "./notifications";
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
-import type { FLAdresswechselSweepResponse } from "@/features/adresswechsel/schemas";
-import type { FLRegistrierungSweepErinnerung } from "@/features/registrierungen/schemas";
+import type {
+  FLAdresswechselSweepResponse,
+  FLBewerbungSweepErinnerung,
+  FLBewerbungSweepLoeschung,
+  FLRegistrierungSweepErinnerung,
+} from "@/core/generated/client/types";
 import type { BewerbungEmpfaenger, BewerbungLinkEmpfaenger } from "./notifications";
-import type { FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung } from "./schemas";
 
 /** The action the mail fan-out logs a refused address under. */
 const SWEEP_OPERATION = "bewerbungSweep";

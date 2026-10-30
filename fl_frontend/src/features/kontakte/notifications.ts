@@ -7,9 +7,9 @@ import { describeLinkMail } from "@/features/schiedsrichter/notifications";
 import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
 import { formatSpielDatum } from "@/shared/utils/format";
 
+import type { FLKontaktMint } from "@/core/generated/client/types";
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
 import type { LinkVersand } from "@/shared/utils/linkVersand";
-import type { FLKontaktMint } from "./schemas";
 
 // Outside `actions.ts`, which is `"use server"` and whose every export is a callable endpoint: exported
 // there, this would mail a link to whatever address a caller hands it, past every guard.

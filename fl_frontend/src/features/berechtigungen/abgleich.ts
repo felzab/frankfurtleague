@@ -16,7 +16,7 @@ import { postBerechtigungenAbgleich, postBerechtigungenAngekuendigt } from "./mu
 
 import type { Urheber, Vorenthalten, Zugangsaenderung } from "@/core/berechtigungEmail";
 import type { Mail } from "@/core/emailShell";
-import type { FLBerechtigungAenderung } from "./schemas";
+import type { FLBerechtigungAenderung } from "@/core/generated/client/types";
 
 /**
  * Whether a pass is running, and whether a change arrived while it ran, per module instance: Next may

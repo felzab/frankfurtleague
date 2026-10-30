@@ -9,11 +9,15 @@ import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
 import { alterAusserhalb, BEWERBUNG_MAX_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
 
-import type { FLTrainerZugleich } from "@/core/generated/client/types";
+import type {
+  FLBewerbung,
+  FLBewerbungEinwilligungAnsichtResponse,
+  FLBewerbungFensterResponse,
+  FLTrainerZugleich,
+} from "@/core/generated/client/types";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { BewerbungHerkunft } from "./constants";
-import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas";
 import type {
   AdminBewerbungRow,
   BewerbungFormDraft,
@@ -21,7 +25,6 @@ import type {
   BewerbungKontaktpersonDraft,
   BewerbungSchuleDraft,
   EinwilligungAnsicht,
-  EinwilligungGeoeffnet,
   FensterZustand,
   KuerzelVerdikt,
   LinkZustand,
@@ -221,7 +224,7 @@ export type EinwilligungRefusal = {
   unplacedError?: string;
   zustand?: LinkZustand | "saison_vorbei";
   /** The view a closed season's page names its cause from, as the read after the refusal answered it. */
-  ansicht?: EinwilligungGeoeffnet;
+  ansicht?: FLBewerbungEinwilligungAnsichtResponse;
 };
 
 // A THUNK and never a resolved read: the codes naming one state alone answer without it, and a caller

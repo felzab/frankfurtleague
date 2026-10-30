@@ -15,7 +15,7 @@ import { AdminBewerbungAnnehmenSection } from "../forms/AdminBewerbungAnnehmenSe
 import { BewerbungAngabenPanel } from "./BewerbungAngabenPanel";
 import { BewerbungBestaetigungStrip } from "./BewerbungBestaetigungStrip";
 
-import type { FLBewerbung } from "@/features/bewerbungen/schemas";
+import type { FLBewerbung } from "@/core/generated/client/types";
 import type { MedienFragen } from "@/features/spieler/nachweis";
 import type { GruppeOffer } from "@/features/teams/types";
 import type { Neubesetzung } from "./BewerbungBestaetigungStrip";

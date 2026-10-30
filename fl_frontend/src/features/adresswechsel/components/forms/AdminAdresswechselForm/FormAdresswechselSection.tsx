@@ -31,9 +31,9 @@ import { KontaktEmailSchema } from "@/shared/schemas";
 import { unansweredRead } from "@/shared/utils/actionError";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
 
+import type { FLAdresswechselVerwaltungAnsichtPayload, FLAdresswechselVerwaltungBestand } from "@/core/generated/client/types";
 import type { AdresswechselEntwurf } from "@/features/adresswechsel/components/forms/AdresswechselBeantragen";
 import type { VerwaltungAnsichtGelesen } from "@/features/adresswechsel/queries";
-import type { FLAdresswechselVerwaltungAnsichtPayload, FLAdresswechselVerwaltungBestand } from "@/features/adresswechsel/schemas";
 
 const ANZEIGEN = "Anzeigen";
 const NEUE_ADRESSE_EINTRAGEN = "Neue Adresse eintragen";

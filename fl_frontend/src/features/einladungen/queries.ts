@@ -1,25 +1,17 @@
 import { cache } from "react";
 
-import { apiClient } from "@/core/api";
+import { saisonsPreviewEinladungenVersand, teamsGetEinladung } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import { FLEinladungResponseSchema, FLEinladungVersandVorschauResponseSchema } from "./schemas";
-
-import type { FLEinladungResponse, FLEinladungVersandVorschauResponse } from "./schemas";
+import type { FLEinladungResponse, FLEinladungVersandVorschauResponse } from "@/core/generated/client/types";
 
 /**
- * **Never `"use cache"` here** (`.claude/rules/frontend.md`'s **cache** clause): `laeuft` is judged
- * against today, so a cached answer would go on reporting an open window long after it shut.
+ * **Never `"use cache"` here**: `laeuft` is judged against today, so a cached answer would go on
+ * reporting an open window long after it shut.
  */
 // `cache` memoizes per RENDER PASS.
 export const getEinladung = cache(async (teamId: string, saisonId: string): Promise<FLEinladungResponse> =>
-  runAdminRead(() =>
-    apiClient<FLEinladungResponse>(
-      `/teams/${encodeURIComponent(teamId)}/saisons/${encodeURIComponent(saisonId)}/einladung`,
-      FLEinladungResponseSchema,
-      { authType: "admin" },
-    ),
-  ),
+  runAdminRead(() => teamsGetEinladung(encodeURIComponent(teamId), encodeURIComponent(saisonId))),
 );
 
 /**
@@ -27,11 +19,5 @@ export const getEinladung = cache(async (teamId: string, saisonId: string): Prom
  * with it true, so a list read without the value the press will carry describes a different press.
  */
 export async function getEinladungVersandVorschau(saisonId: string, erneut: boolean): Promise<FLEinladungVersandVorschauResponse> {
-  return runAdminRead(() =>
-    apiClient<FLEinladungVersandVorschauResponse>(
-      `/saisons/${encodeURIComponent(saisonId)}/einladungen/versand/vorschau?erneut=${erneut ? "true" : "false"}`,
-      FLEinladungVersandVorschauResponseSchema,
-      { authType: "admin" },
-    ),
-  );
+  return runAdminRead(() => saisonsPreviewEinladungenVersand(encodeURIComponent(saisonId), { erneut: erneut }));
 }

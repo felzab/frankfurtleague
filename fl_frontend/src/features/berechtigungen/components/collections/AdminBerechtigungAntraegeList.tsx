@@ -15,7 +15,7 @@ import { FOCUS_HEADING, focusRow, focusSection } from "@/shared/utils/focusAfter
 import { AdminBerechtigungAntragAblehnenPanel } from "../forms/AdminBerechtigungAntragAblehnenPanel";
 import { AdminBerechtigungAntragGenehmigenPanel } from "../forms/AdminBerechtigungAntragGenehmigenPanel";
 
-import type { FLBerechtigungAntragZeile } from "@/features/berechtigungen/schemas";
+import type { FLBerechtigungAntragZeile } from "@/core/generated/client/types";
 import type { ReactNode } from "react";
 
 /** The eyebrow naming the fact at the fact, as the grants' own cards carry it. */

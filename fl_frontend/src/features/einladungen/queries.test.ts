@@ -20,8 +20,8 @@ beforeEach(beginRenderPass);
 const { calls } = doubleApiAnswers(({ endpoint }) =>
   Promise.resolve(
     endpoint.includes("/vorschau")
-      ? { acknowledged: 1, saison_id: SAISON_ID, zeilen: [] }
-      : { acknowledged: 1, saison_id: SAISON_ID, team_id: TEAM_ID, einladung: null, laeuft: true },
+      ? { saison_id: SAISON_ID, zeilen: [] }
+      : { saison_id: SAISON_ID, team_id: TEAM_ID, einladung: null, laeuft: true },
   ),
 );
 
@@ -40,17 +40,15 @@ describe("the invite slice's reads", () => {
 
     const vorschau = `/saisons/${SAISON_ID}/einladungen/versand/vorschau`;
     expect(requestsOf(calls)).toStrictEqual([
-      { endpoint: `${vorschau}?erneut=false`, method: undefined, body: undefined },
-      { endpoint: `${vorschau}?erneut=true`, method: undefined, body: undefined },
+      { endpoint: `${vorschau}?erneut=false`, method: "GET", body: undefined },
+      { endpoint: `${vorschau}?erneut=true`, method: "GET", body: undefined },
     ]);
   });
 
   it("addresses one team's invite by both ids in the path", async () => {
     await getEinladung(TEAM_ID, SAISON_ID);
 
-    expect(requestsOf(calls)).toStrictEqual([
-      { endpoint: `/teams/${TEAM_ID}/saisons/${SAISON_ID}/einladung`, method: undefined, body: undefined },
-    ]);
+    expect(requestsOf(calls)).toStrictEqual([{ endpoint: `/teams/${TEAM_ID}/saisons/${SAISON_ID}/einladung`, method: "GET", body: undefined }]);
   });
 });
 

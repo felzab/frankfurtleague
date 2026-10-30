@@ -12,7 +12,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { handlePublicRequest, readAfterAnsweredWrite } from "@/shared/utils/publicRoute";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
-import type { FLBewerbungEinwilligungAntwortResponse } from "@/features/bewerbungen/schemas";
+import type { FLBewerbungEinwilligungAntwortResponse } from "@/core/generated/client/types";
 import type { EinwilligungAnsicht } from "@/features/bewerbungen/types";
 import type { NextRequest } from "next/server";
 

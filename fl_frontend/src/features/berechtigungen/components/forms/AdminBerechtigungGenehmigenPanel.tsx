@@ -18,7 +18,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
-import type { FLBerechtigungAdresswechsel } from "@/features/berechtigungen/schemas";
+import type { FLBerechtigungAdresswechsel } from "@/core/generated/client/types";
 
 const AENDERUNG_GENEHMIGEN = "Adressänderung genehmigen";
 

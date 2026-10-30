@@ -25,8 +25,8 @@ import { ExternalUrlSchema } from "@/shared/schemas";
 import { formatAddressFull, formatSpielDatum } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
+import type { FLBewerbung } from "@/core/generated/client/types";
 import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand";
-import type { FLBewerbung } from "@/features/bewerbungen/schemas";
 import type { MedienFragen } from "@/features/spieler/nachweis";
 import type { ReactNode } from "react";
 

@@ -1,6 +1,11 @@
 import type { GekeyteFassung, SpielerAbsatzSchluessel, SpielerWiederkehrendAbsatzSchluessel } from "@/core/einwilligungSeiten";
-import type { FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schemas";
-import type { FLEinladungAnsichtResponse, FLEinwilligungUmfang, FLRegistrierungBestaetigungAnsichtResponse } from "./schemas";
+import type {
+  FLEinladungAnsichtResponse,
+  FLEinwilligungUmfang,
+  FLRegistrierungBestaetigungAnsichtResponse,
+  FLSpielerPosition,
+  FLSpielerStufe,
+} from "@/core/generated/client/types";
 
 /**
  * One pending registration on the administrator's list: what its card shows, and nothing else of the
@@ -54,14 +59,12 @@ export type RegistrierungFormDraft = {
  */
 export type SpielerLinkZustand = "bestaetigt" | "abgelaufen" | "ungueltig" | "gesperrt";
 
-/** A link still open, and so a registration the page can still be answered for. */
-export type SpielerBestaetigungGeoeffnet = FLRegistrierungBestaetigungAnsichtResponse;
-
-export type SpielerBestaetigungAnsicht = { zustand: "gueltig"; ansicht: SpielerBestaetigungGeoeffnet } | { zustand: SpielerLinkZustand };
+export type SpielerBestaetigungAnsicht =
+  { zustand: "gueltig"; ansicht: FLRegistrierungBestaetigungAnsichtResponse } | { zustand: SpielerLinkZustand };
 
 /** What the confirmation page opens on, the token riding only with a link a press can still spend. */
 export type SpielerBestaetigungStart =
-  { zustand: "gueltig"; ansicht: SpielerBestaetigungGeoeffnet; token: string } | { zustand: SpielerLinkZustand | "unlesbar" };
+  { zustand: "gueltig"; ansicht: FLRegistrierungBestaetigungAnsichtResponse; token: string } | { zustand: SpielerLinkZustand | "unlesbar" };
 
 /**
  * What a confirmed pupil's answer panel states: what this page asked and they sent, so nothing at all on the

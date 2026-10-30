@@ -1,14 +1,8 @@
+// Redesign: goes with its last importer.
 import z from "zod";
 
-import { BaseAPIResponseSchema } from "@/core/schemas";
-import { MedienMindestalterSchema } from "@/features/konto/einwilligung";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
-import {
-  FLEinwilligungStandSchema,
-  FLSpielerSelbstEinwilligungPayloadSchema,
-  LinkAntwortTextVersionSchema,
-  WAHL_UNBEKANNT,
-} from "@/features/spieler/schemas";
+import { FLSpielerSelbstEinwilligungPayloadSchema, LinkAntwortTextVersionSchema, WAHL_UNBEKANNT } from "@/features/spieler/schemas";
 import {
   EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
   KONTAKT_NAME_MAX_LENGTH,
@@ -21,7 +15,6 @@ import { kontaktePersonenRegeln } from "@/features/teams/kontaktePersonen";
 import {
   FLGruppenNamesSchema,
   FLKontaktKenntnisnahmeSchema,
-  FLSaisonTeamKontakteSchema,
   FLSchulformSchema,
   FLTrainerZugleichSchema,
   FLTrikotFarbeSchema,
@@ -33,9 +26,7 @@ import {
   einzeiligerName,
   ExternalUrlSchema,
   FLAddressPayloadSchema,
-  FLAddressSchema,
   FLBewerbungZustellstandSchema,
-  FLBewerbungZustellungSchema,
   KontaktEmailSchema,
   PersonNameSchema,
   PHONE_REGEX,
@@ -51,123 +42,13 @@ import {
   BEWERBUNG_TOKEN_MAX_LENGTH,
   BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
   BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
-  DELETIONS_LISTED_PER_PASS,
   KUERZEL_LAENGE,
 } from "./constants";
 import { geburtsdatumSpanne } from "./utils";
 
-import type { KontaktZeile } from "@/core/kontaktEmail";
-
 /**
- * Mirrors `FLBewerbungStatus`. `eingereicht` is the only state a submission arrives in; the other two
- * are the triage's, and the two triage endpoints are the only writers of either.
- */
-export const FLBewerbungStatusSchema = z.enum(["eingereicht", "angenommen", "abgelehnt"]);
-export type FLBewerbungStatus = z.infer<typeof FLBewerbungStatusSchema>;
-
-/**
- * Mirrors `FLBewerbungSchule` — the club a new school proposes, in the shape acceptance creates it in.
- * Null on an application that picked an existing club.
- */
-export const FLBewerbungSchuleSchema = z.object({
-  // The club's SHORT name beside `full_name`, not the school's own — which is why a block called
-  // `schule` holds a `team_name`.
-  team_name: z.string().nonempty(),
-  full_name: z.string().nonempty(),
-  shorthand: z.string(),
-  schulform: FLSchulformSchema.nullable(),
-  address: FLAddressSchema,
-  // A plain string, never `ExternalUrlSchema`: the API serves a stored value unchecked, and refusing
-  // one on read fails the whole list over the row an administrator needs in order to decline it.
-  website_url: z.string().nullable(),
-});
-export type FLBewerbungSchule = z.infer<typeof FLBewerbungSchuleSchema>;
-
-/**
- * Mirrors `FLBewerbungTrikot` — what the school already owns, and the colour it would like. Never
- * copied onto the team: the assignment is the administrator's, and two schools may wish for one colour.
- */
-export const FLBewerbungTrikotSchema = z.object({
-  vorhandener_satz: z.string(),
-  wunschfarbe: FLTrikotFarbeSchema,
-});
-export type FLBewerbungTrikot = z.infer<typeof FLBewerbungTrikotSchema>;
-
-/**
- * Mirrors `FLBewerbungKader` — the school's own estimate of its squad. Unbounded on read, as every
- * read field here is: a stored value outside a bound must still parse, or one row fails a whole list.
- */
-export const FLBewerbungKaderSchema = z.object({
-  voraussichtliche_groesse: z.int(),
-  gute_spieler: z.int(),
-});
-export type FLBewerbungKader = z.infer<typeof FLBewerbungKaderSchema>;
-
-/** Mirrors `FLBewerbungEntscheidungZeile` — who decided, when, and on a decline why. */
-export const FLBewerbungEntscheidungZeileSchema = z.object({
-  getroffen_am: CustomDateStringSchema,
-  // Null exactly where `von_gesperrt` holds, as the grants list withholds a barred actor.
-  von: z.string().nullable(),
-  von_gesperrt: z.boolean(),
-  // Null on an acceptance: what an acceptance did is the club and the junction row it wrote.
-  grund: z.string().nullable(),
-});
-export type FLBewerbungEntscheidungZeile = z.infer<typeof FLBewerbungEntscheidungZeileSchema>;
-
-/**
- * Mirrors one seat's confirmation history. No `token_hash`: the credential is written as a raw
- * document key and read only by the confirm query, so no read model carries it and neither may this.
- */
-export const FLBewerbungBestaetigungSchema = z.object({
-  verschickt_am: CustomDateStringSchema,
-  erinnert_am: CustomDateStringSchema.nullable(),
-  abgelehnt_am: CustomDateStringSchema.nullable(),
-  // Null on a seat no message has been accepted for, every fresh entry among them: an absent state
-  // is "nothing is known", never "delivered".
-  zustellung: FLBewerbungZustellungSchema.nullable(),
-});
-export type FLBewerbungBestaetigung = z.infer<typeof FLBewerbungBestaetigungSchema>;
-
-/** Mirrors `FLBewerbungBestaetigungen`. A seat is null once an erasure has cleared what it held. */
-export const FLBewerbungBestaetigungenSchema = z.object({
-  ansprechperson: FLBewerbungBestaetigungSchema.nullable(),
-  stellvertretung: FLBewerbungBestaetigungSchema.nullable(),
-  trainer: FLBewerbungBestaetigungSchema.nullable(),
-});
-export type FLBewerbungBestaetigungen = z.infer<typeof FLBewerbungBestaetigungenSchema>;
-
-/**
- * Mirrors `FLBewerbung` — one school's application to play one season, as it is stored. What the
- * school typed stands, bar the triage's `status`, `entscheidung` and `team_id`, the correction's seat
- * `email`, and a seat its holder emptied, which a replacement fills.
- */
-export const FLBewerbungSchema = z.object({
-  id: CustomObjectIdStringSchema,
-  saison_id: z.string(),
-  eingereicht_am: CustomDateStringSchema,
-  status: FLBewerbungStatusSchema,
-  // The club the applicant PICKED, null where they proposed a new school. Acceptance writes the
-  // created club's id back here, so a decided application always names one.
-  team_id: CustomObjectIdStringSchema.nullable(),
-  schule: FLBewerbungSchuleSchema.nullable(),
-  // The junction's own three seats, imported rather than restated: an application's three people
-  // BECOME the junction's three at acceptance.
-  kontakte: FLSaisonTeamKontakteSchema,
-  trikot: FLBewerbungTrikotSchema,
-  kader: FLBewerbungKaderSchema,
-  stufengroesse: z.int(),
-  // A FREE STRING and never a club id: a school may name an applicant the league has not accepted,
-  // so nothing here resolves against the roster.
-  wunschgegner: z.string().nullable(),
-  entscheidung: FLBewerbungEntscheidungZeileSchema.nullable(),
-  bestaetigungen: FLBewerbungBestaetigungenSchema,
-  bestaetigungsfrist: CustomDateStringSchema,
-});
-export type FLBewerbung = z.infer<typeof FLBewerbungSchema>;
-
-/**
- * Mirrors `FLAnnehmenBewerbungPayload`. No `saison_id`: the application names its own season, so a
- * payload carrying one could only disagree with it.
+ * The acceptance's input. No `saison_id`: the application names its own season, so a payload carrying
+ * one could only disagree with it.
  */
 export const FLAnnehmenBewerbungPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
@@ -175,12 +56,10 @@ export const FLAnnehmenBewerbungPayloadSchema = z.object({
   // Assigned rather than read off `trikot.wunschfarbe`: a wish is not an assignment.
   trikot_farbe: FLTrikotFarbeSchema.nullable(),
 });
-export type FLAnnehmenBewerbungPayload = z.infer<typeof FLAnnehmenBewerbungPayloadSchema>;
 
 /**
- * Mirrors `FLAblehnenBewerbungPayload`. Its own declaration and never shared with the acceptance's:
- * the two are not inverses, and a payload reaching both would let a value typed for one arrive at
- * the other.
+ * The decline's input. Its own declaration and never shared with the acceptance's: the two are not
+ * inverses, and a payload reaching both would let a value typed for one arrive at the other.
  */
 export const FLAblehnenBewerbungPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
@@ -194,155 +73,12 @@ export const FLAblehnenBewerbungPayloadSchema = z.object({
     .nonempty({ error: "Bitte gib einen Grund für die Absage an." })
     .max(BEWERBUNG_GRUND_MAX_LENGTH, { error: `Der Grund darf höchstens ${String(BEWERBUNG_GRUND_MAX_LENGTH)} Zeichen lang sein.` }),
 });
-export type FLAblehnenBewerbungPayload = z.infer<typeof FLAblehnenBewerbungPayloadSchema>;
-
-export const FLBewerbungenListResponseSchema = BaseAPIResponseSchema.extend({
-  bewerbungen: z.array(FLBewerbungSchema),
-  /** False where the endpoint's cap cut the answer short, which every count taken over the rows is then blind to. */
-  vollstaendig: z.boolean(),
-  /**
-   * How many applications each state holds, counted by the server over everything but the status the request
-   * narrowed on — so the triage bar can offer a state whose rows this answer does not carry.
-   */
-  anzahl_je_status: z.record(FLBewerbungStatusSchema, z.number().int().nonnegative()),
-  /**
-   * The same for the season relation, counted over everything but that relation — so the bar can offer the way
-   * out of the season the read narrowed to.
-   */
-  anzahl_je_saisonbezug: z.record(z.enum(["diese_saison", "andere_saison"]), z.number().int().nonnegative()),
-  /**
-   * Which collision keys two or more OPEN applications share, counted by the server over the whole
-   * queue — the only place a pair the read's cap parted is visible.
-   */
-  dubletten_schluessel: z.array(z.string()),
-});
-export type FLBewerbungenListResponse = z.infer<typeof FLBewerbungenListResponseSchema>;
-
-export const FLBewerbungSingleResponseSchema = BaseAPIResponseSchema.extend({
-  bewerbung: FLBewerbungSchema,
-  // The backend's judgement of the confirmation deadline today, so the editor reads no day of its own.
-  bestaetigungsfrist_abgelaufen: z.boolean(),
-});
-export type FLBewerbungSingleResponse = z.infer<typeof FLBewerbungSingleResponseSchema>;
-
-/** Mirrors `FLAnnehmenBewerbungResponse` — the application as the acceptance left it, plus what it wrote beyond it. */
-export const FLAnnehmenBewerbungResponseSchema = BaseAPIResponseSchema.extend({
-  updated_document: FLBewerbungSchema,
-  // The club now standing in the season: the one the applicant picked, or the one this acceptance
-  // created. Echoed because a created club has an id the caller has no other way to learn.
-  team_id: CustomObjectIdStringSchema,
-  // Whether this acceptance created that club. Comparing the application's own `team_id` cannot tell
-  // the two apart — acceptance writes the created id back onto it.
-  created_team: z.boolean(),
-  saison_id: z.string(),
-  gruppe: FLGruppenNamesSchema,
-  trikot_farbe: FLTrikotFarbeSchema.nullable(),
-});
-export type FLAnnehmenBewerbungResponse = z.infer<typeof FLAnnehmenBewerbungResponseSchema>;
-
-export const FLAblehnenBewerbungResponseSchema = BaseAPIResponseSchema.extend({
-  updated_document: FLBewerbungSchema,
-});
-export type FLAblehnenBewerbungResponse = z.infer<typeof FLAblehnenBewerbungResponseSchema>;
 
 /**
- * Mirrors `FLBewerbungFensterResponse` — one season's window and whether that season has ended, and nothing else of it.
- * The backend withholds a `future` season from the base tier, and a season taking
- * applications IS one.
+ * The public form submits WHAT was acknowledged and that it was; the server composes the stored record
+ * around it, so no visitor can claim an administrative transcription or backdate a Kenntnisnahme.
  */
-export const FLBewerbungFensterResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: z.string(),
-  offen: z.boolean(),
-  von: CustomDateStringSchema,
-  bis: CustomDateStringSchema,
-  // The whole judgement — `offen` AND today inside the span — computed server-side, so no client
-  // re-derives it against a clock the server does not share.
-  laeuft: z.boolean(),
-  saison_beendet: z.boolean(),
-});
-export type FLBewerbungFensterResponse = z.infer<typeof FLBewerbungFensterResponseSchema>;
-
-/**
- * Mirrors `FLBewerbungKeinFensterResponse` — the id of a season that records no application window,
- * and the answer that it records none. The backend narrows to that one bit here.
- */
-export const FLBewerbungKeinFensterResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: z.string(),
-  // The key the window member has not got, so the union parts on a field rather than on which
-  // member a parser tries first.
-  fenster: z.null(),
-});
-export type FLBewerbungKeinFensterResponse = z.infer<typeof FLBewerbungKeinFensterResponseSchema>;
-
-/**
- * Mirrors `FLBewerbungSchuleOption` — one club as the public form offers it, and nothing more.
- * Declared from nothing rather than picked off `FLTeamSchema`: an anonymous visitor reads this
- * (`READ-BEWERBUNG-001`).
- */
-export const FLBewerbungSchuleOptionSchema = z.object({
-  id: CustomObjectIdStringSchema,
-  name: z.string().nonempty(),
-});
-export type FLBewerbungSchuleOption = z.infer<typeof FLBewerbungSchuleOptionSchema>;
-
-/** Mirrors `FLBewerbungSchulenResponse` — the clubs a school may pick itself out of, name-sorted. */
-export const FLBewerbungSchulenResponseSchema = BaseAPIResponseSchema.extend({
-  schulen: z.array(FLBewerbungSchuleOptionSchema),
-});
-export type FLBewerbungSchulenResponse = z.infer<typeof FLBewerbungSchulenResponseSchema>;
-
-/**
- * Mirrors `FLBewerbungKuerzelResponse` — ONE neutral answer. It never separates an active club from
- * a retired one and names no club: the check is open to anybody, and either would be a read of the
- * league's roster nobody asked it for.
- */
-export const FLBewerbungKuerzelResponseSchema = BaseAPIResponseSchema.extend({
-  shorthand: z.string(),
-  vergeben: z.boolean(),
-});
-export type FLBewerbungKuerzelResponse = z.infer<typeof FLBewerbungKuerzelResponseSchema>;
-
-/**
- * Mirrors `FLBewerbungTrikotFarbenResponse` — which colours one season has ASSIGNED, naming no club
- * (`READ-BEWERBUNG-001`). The set is `saison_teams.trikot_farbe` and never an application's
- * `trikot.wunschfarbe`: a wish is no assignment.
- */
-export const FLBewerbungTrikotFarbenResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: z.string(),
-  // `vergeben` as the Kürzel read means it — taken. A list because JSON has no set; the endpoint is
-  // what makes it distinct and palette-ordered.
-  vergeben: z.array(FLTrikotFarbeSchema),
-});
-export type FLBewerbungTrikotFarbenResponse = z.infer<typeof FLBewerbungTrikotFarbenResponseSchema>;
-
-/**
- * Mirrors `FLBewerbungBestaetigungTokens` — one raw token per seat, answered to the route handler
- * that mails the links. It exists here, in the inbox and nowhere else: no log line and no read model.
- */
-export const FLBewerbungBestaetigungTokensSchema = z.object({
-  ansprechperson: z.string(),
-  stellvertretung: z.string(),
-  trainer: z.string(),
-});
-export type FLBewerbungBestaetigungTokens = z.infer<typeof FLBewerbungBestaetigungTokensSchema>;
-
-/** Mirrors `FLPostBewerbungResponse`. Nothing of the submission is echoed back into the page. */
-export const FLPostBewerbungResponseSchema = BaseAPIResponseSchema.extend({
-  created_id: CustomObjectIdStringSchema,
-  saison_id: z.string(),
-  eingereicht_am: CustomDateStringSchema,
-  // Null on a replay whose application needs no fresh links, and the handler then mails nothing.
-  bestaetigungen: FLBewerbungBestaetigungTokensSchema.nullable(),
-  bestaetigungsfrist: CustomDateStringSchema,
-});
-export type FLPostBewerbungResponse = z.infer<typeof FLPostBewerbungResponseSchema>;
-
-/**
- * Mirrors `FLBewerbungEinwilligungPayload`. The public form submits WHAT was acknowledged and that it
- * was; the server composes the stored record around it, so no visitor can claim an administrative
- * transcription or backdate a Kenntnisnahme.
- */
-export const FLBewerbungEinwilligungPayloadSchema = z.object({
+const FLBewerbungEinwilligungPayloadSchema = z.object({
   // Written by the form from the label the backend runs rather than typed: a label names one
   // frozen wording, so a later rewording never changes what a stored record claims.
   text_version: z
@@ -356,15 +92,11 @@ export const FLBewerbungEinwilligungPayloadSchema = z.object({
   // carrying `false` would record the absence as an answer.
   erteilt: z.literal(true, { error: "Ohne diese Kenntnisnahme können wir die Bewerbung nicht annehmen." }),
 });
-export type FLBewerbungEinwilligungPayload = z.infer<typeof FLBewerbungEinwilligungPayloadSchema>;
 
 const KADER_ZU_GROSS = `Bitte gib höchstens ${String(BEWERBUNG_KADER_GROESSE_MAX)} Spieler an.`;
 
-/**
- * Mirrors `FLBewerbungKontaktpersonPayload` — the four fields the applicant types, with the
- * Kenntnisnahme the form gathers for all three seats at once.
- */
-export const FLBewerbungKontaktpersonPayloadSchema = z.object({
+/** The four fields the applicant types for one seat, with the Kenntnisnahme the form gathers for all three at once. */
+const FLBewerbungKontaktpersonPayloadSchema = z.object({
   vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   email: KontaktEmailSchema,
@@ -373,11 +105,6 @@ export const FLBewerbungKontaktpersonPayloadSchema = z.object({
   // here so the API refuses one an older client still sends rather than storing an unchecked date.
   einwilligung: FLBewerbungEinwilligungPayloadSchema,
 });
-export type FLBewerbungKontaktpersonPayload = z.infer<typeof FLBewerbungKontaktpersonPayloadSchema>;
-
-// Re-exported where its callers have always read it; the rule's one home is
-// `fl_frontend/src/features/teams/kontaktePersonen.ts`.
-export { gleicheAdresse } from "@/features/teams/kontaktePersonen";
 
 /**
  * Asked instead of zod's default, which skips a refinement once any check in the block aborts — the consent switch
@@ -386,11 +113,10 @@ export { gleicheAdresse } from "@/features/teams/kontaktePersonen";
 const SITZE_LESBAR = z.object({ ansprechperson: z.object({}), stellvertretung: z.object({}), trainer: z.object({}) });
 
 /**
- * Mirrors `FLBewerbungKontaktePayload`. All three seats are REQUIRED and non-null, unlike the
- * junction's, whose nulls exist for an erasure: an application is what three reachable people
- * submitted.
+ * All three seats are REQUIRED and non-null, unlike the junction's, whose nulls exist for an erasure:
+ * an application is what three reachable people submitted.
  */
-export const FLBewerbungKontaktePayloadSchema = z
+const FLBewerbungKontaktePayloadSchema = z
   .object({
     trainer: FLBewerbungKontaktpersonPayloadSchema,
     ansprechperson: FLBewerbungKontaktpersonPayloadSchema,
@@ -407,14 +133,12 @@ export const FLBewerbungKontaktePayloadSchema = z
     }),
     { when: ({ value }) => SITZE_LESBAR.safeParse(value).success },
   );
-export type FLBewerbungKontaktePayload = z.infer<typeof FLBewerbungKontaktePayloadSchema>;
 
 /**
- * Mirrors `FLBewerbungAddressPayload` — `FLAddressPayload` with the district REQUIRED. The shared
- * model leaves it optional because a place can genuinely lack one; a Frankfurt school cannot, and
- * the district is what the league plans travel by.
+ * The shared address with the district REQUIRED. The shared model leaves it optional because a place
+ * can genuinely lack one; a Frankfurt school cannot, and the district is what the league plans travel by.
  */
-export const FLBewerbungAddressPayloadSchema = FLAddressPayloadSchema.extend({
+const FLBewerbungAddressPayloadSchema = FLAddressPayloadSchema.extend({
   stadtteil: z
     .string()
     .trim()
@@ -423,14 +147,13 @@ export const FLBewerbungAddressPayloadSchema = FLAddressPayloadSchema.extend({
       error: `Der Stadtteil darf höchstens ${String(ADDRESS_STADTTEIL_MAX_LENGTH)} Zeichen lang sein.`,
     }),
 });
-export type FLBewerbungAddressPayload = z.infer<typeof FLBewerbungAddressPayloadSchema>;
 
 /**
- * Mirrors `FLBewerbungSchulePayload` — a school the league does not hold yet, in the shape an
- * acceptance would create the club in. The bounds are the club editor's own, read from one place so
- * a school cannot submit what the admin form would refuse.
+ * A school the league does not hold yet, in the shape an acceptance would create the club in. The
+ * bounds are the club editor's own, read from one place so a school cannot submit what the admin form
+ * would refuse.
  */
-export const FLBewerbungSchulePayloadSchema = z.object({
+const FLBewerbungSchulePayloadSchema = z.object({
   team_name: einzeiligerName(
     z
       .string()
@@ -465,10 +188,9 @@ export const FLBewerbungSchulePayloadSchema = z.object({
     error: `Die Adresse darf höchstens ${String(TEAM_WEBSITE_URL_MAX_LENGTH)} Zeichen lang sein.`,
   }).nullable(),
 });
-export type FLBewerbungSchulePayload = z.infer<typeof FLBewerbungSchulePayloadSchema>;
 
-/** Mirrors `FLBewerbungTrikotPayload` — what the school already owns, and the colour it would like. */
-export const FLBewerbungTrikotPayloadSchema = z.object({
+/** What the school already owns, and the colour it would like. */
+const FLBewerbungTrikotPayloadSchema = z.object({
   vorhandener_satz: z
     .string()
     .trim()
@@ -477,10 +199,9 @@ export const FLBewerbungTrikotPayloadSchema = z.object({
     }),
   wunschfarbe: FLTrikotFarbeSchema,
 });
-export type FLBewerbungTrikotPayload = z.infer<typeof FLBewerbungTrikotPayloadSchema>;
 
-/** Mirrors `FLBewerbungKaderPayload` — the school's own estimate, which nothing later holds it to. */
-export const FLBewerbungKaderPayloadSchema = z
+/** The school's own estimate, which nothing later holds it to. */
+const FLBewerbungKaderPayloadSchema = z
   .object({
     // `z.number().int()` and never `z.int()`: that spelling answers `null` and `1.5` with one
     // `invalid_type`, so an emptied box and a typed fraction would both draw the empty box's message.
@@ -498,18 +219,16 @@ export const FLBewerbungKaderPayloadSchema = z
       .nonnegative({ error: "Bitte gib eine Zahl ab 0 ein." })
       .max(BEWERBUNG_KADER_GROESSE_MAX, { error: KADER_ZU_GROSS }),
   })
-  // Mirrors the model validator: a subset cannot outnumber the whole. Equal passes — a school may
+  // The backend's model validator: a subset cannot outnumber the whole. Equal passes — a school may
   // rate its whole squad. On `gute_spieler`, the box the applicant lowers.
   .refine((kader) => kader.gute_spieler <= kader.voraussichtliche_groesse, {
     error: "Die Anzahl der guten Spieler darf die voraussichtliche Kadergröße nicht überschreiten.",
     path: ["gute_spieler"],
   });
-export type FLBewerbungKaderPayload = z.infer<typeof FLBewerbungKaderPayloadSchema>;
 
 /**
- * Mirrors `FLPostBewerbungPayload` — the whole submission. `status`, `eingereicht_am` and
- * `entscheidung` are absent by design: the server sets all three, and a client that could name one
- * could submit an application already decided.
+ * The whole submission. `status`, `eingereicht_am` and `entscheidung` are absent by design: the server
+ * sets all three, and a client that could name one could submit an application already decided.
  */
 export const FLPostBewerbungPayloadSchema = z
   .object({
@@ -528,8 +247,8 @@ export const FLPostBewerbungPayloadSchema = z
       .int({ error: "Bitte gib eine ganze Zahl ein." })
       .min(1, { error: "Bitte gib eine Zahl ab 1 ein." })
       .max(BEWERBUNG_STUFENGROESSE_MAX, { error: `Bitte gib höchstens ${String(BEWERBUNG_STUFENGROESSE_MAX)} an.` }),
-    // The one OPTIONAL key on this payload, mirroring the backend's one default: a client that has
-    // not asked yet omits it. Line-bounded like `schule.team_name` and for its reason.
+    // The one OPTIONAL key on this payload, as the backend's one default: a client that has not asked
+    // yet omits it. Line-bounded like `schule.team_name` and for its reason.
     wunschgegner: einzeiligerName(
       z
         .string()
@@ -551,73 +270,21 @@ export const FLPostBewerbungPayloadSchema = z
     // unmarked until a second press. Only an object has both keys to read.
     when: ({ value }) => typeof value === "object" && value !== null,
   });
-export type FLPostBewerbungPayload = z.infer<typeof FLPostBewerbungPayloadSchema>;
 
 /** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
 const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link aus Deiner E-Mail erneut.";
 
-/**
- * Mirrors `fl_backend/app/api/bewerbungen/schemas.py :: CustomBewerbungToken`, both consent payloads
- * reading it from here. One sentence for the missing token and the over-long one: a visitor typed
- * neither, so the repair is the same link opened again.
- */
+/** The link's token. One sentence for the missing token and the over-long one: a visitor typed neither, so the repair is the same link opened again. */
 const einwilligungToken = z
   .string()
   .trim()
   .nonempty({ error: LINK_UNVOLLSTAENDIG })
   .max(BEWERBUNG_TOKEN_MAX_LENGTH, { error: LINK_UNVOLLSTAENDIG });
 
-// Mirrors `KONTAKT_ROLLEN`'s values as `FLTrainerZugleichSchema` mirrors its two: the wire names a
-// seat by this closed set.
+/** The wire names a seat by this closed set; an input naming another is refused before it is sent. */
 export const FLKontaktRolleSchema = z.enum(["ansprechperson", "stellvertretung", "trainer"], {
   error: "Diese Rolle gibt es in einer Bewerbung nicht.",
 });
-export type FLKontaktRolle = z.infer<typeof FLKontaktRolleSchema>;
-
-/**
- * The confirmation read's payload: the token, in a body and never in a query string. The token is
- * the credential, and a second URL carrying it is a second line the edge has to redact.
- */
-export const FLBewerbungEinwilligungAnsichtPayloadSchema = z.object({
-  token: einwilligungToken,
-});
-export type FLBewerbungEinwilligungAnsichtPayload = z.infer<typeof FLBewerbungEinwilligungAnsichtPayloadSchema>;
-
-/**
- * Mirrors `FLKontaktZeile` — the season row's state a link was minted on or is read against, which fixes
- * what its page takes. An ended season outranks a team that left it.
- */
-export const FLKontaktZeileSchema = z.enum(["offen", "saison_vorbei", "ausgetreten"] as const satisfies readonly KontaktZeile[]);
-
-/**
- * What a link is told before any press: school, season and seat, and nothing of the person. No
- * name travels: the link went to an address nobody has confirmed (`READ-BEWERBUNG-002`).
- */
-export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
-  // The link's own standing, answered rather than refused: a spent link stays readable, so only an
-  // unknown token has nothing to answer with and reaches the page as a 409.
-  zustand: z.enum(["gueltig", "bestaetigt", "abgelehnt", "abgelaufen", "saison_vorbei", "gesperrt"]),
-  // Which record the token opened: an application's seat, or a seat an administrator typed onto a
-  // team's season row, whose reader applied for nothing.
-  quelle: z.enum(["bewerbung", "saison"]),
-  // A season row's state, which names the one cause a closed row's page states; null on an application's link.
-  zeile: FLKontaktZeileSchema.nullable(),
-  saison_id: z.string(),
-  schule: z.string(),
-  rolle: FLKontaktRolleSchema,
-  // The second seat one answer on this link writes, where the same person holds two; null otherwise.
-  zugleich_rolle: FLKontaktRolleSchema.nullable(),
-  // The label whose words the page renders and whose name the answer sends back: the backend picks the
-  // applicant's page or the administration's by how the seat was filled, so no page of this side's choosing.
-  laufende_fassung: z.string(),
-  // The floor this link's person has to reach, over both their seats: the page bounds its date
-  // control and words its own sentences from this rather than from a constant of its own.
-  mindestalter: z.number().int(),
-  // The age the media switch is offered from, served for `mindestalter`'s reason: a copy of this
-  // side's own would offer the switch where the endpoint refuses the answer.
-  medien_mindestalter: MedienMindestalterSchema,
-});
-export type FLBewerbungEinwilligungAnsichtResponse = z.infer<typeof FLBewerbungEinwilligungAnsichtResponseSchema>;
 
 /**
  * One endpoint for both answers: one person, one press, one token spent. A confirmation's date is
@@ -642,13 +309,13 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
     })
     .superRefine((payload, ctx) => {
       if (payload.antwort !== "erteilt") {
-        // Mirrored because the endpoint refuses it: an objection carrying a date would record one for
-        // a seat that refused to be recorded at all.
+        // Refused here because the endpoint refuses it: an objection carrying a date would record one
+        // for a seat that refused to be recorded at all.
         if (payload.geburtsdatum !== null) {
           ctx.addIssue({ code: "custom", message: "Ein Widerspruch speichert kein Geburtsdatum.", path: ["geburtsdatum"] });
         }
 
-        // Mirrored for the date's reason: an objection empties the slot, so a scope sent with one is a
+        // For the date's reason: an objection empties the slot, so a scope sent with one is a
         // permission no record holds and the echo would report it back as stored.
         if (payload.whatsapp) {
           ctx.addIssue({ code: "custom", message: "Ein Widerspruch speichert keine WhatsApp-Einwilligung.", path: ["whatsapp"] });
@@ -673,91 +340,26 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
  * the seat's own floor is the page's to offer and the endpoint's to refuse.
  */
 export const FLBewerbungEinwilligungAntwortPayloadSchema = buildEinwilligungAntwortPayloadSchema(BEWERBUNG_MIN_ALTER);
-export type FLBewerbungEinwilligungAntwortPayload = z.infer<typeof FLBewerbungEinwilligungAntwortPayloadSchema>;
-
-/** The write's echo: what was stored for this seat, and which seats the application still waits on. */
-export const FLBewerbungEinwilligungAntwortResponseSchema = BaseAPIResponseSchema.extend({
-  quelle: z.literal("bewerbung"),
-  ergebnis: z.enum(["bestaetigt", "abgelehnt"]),
-  ausstehend: z.array(FLKontaktRolleSchema),
-  geburtsdatum: CustomDateStringSchema.nullable(),
-  whatsapp: z.boolean(),
-  medien: z.boolean(),
-  // Every field below is the route handler's alone:
-  // `fl_frontend/src/app/api/bestaetigung/kontakt/route.ts` composes the two outbound messages from
-  // them and answers the browser those above, so no contact person is handed another one's address.
-  bewerbung_id: CustomObjectIdStringSchema,
-  saison_id: z.string(),
-  rolle: FLKontaktRolleSchema,
-  vorname: z.string(),
-  bestaetigungsfrist: CustomDateStringSchema,
-  // Null exactly where that seat is empty, which is what an Ansprechperson's own decline leaves.
-  ansprechperson_email: z.string().nullable(),
-  ansprechperson_rollen: z.array(FLKontaktRolleSchema),
-});
-export type FLBewerbungEinwilligungAntwortResponse = z.infer<typeof FLBewerbungEinwilligungAntwortResponseSchema>;
-
-/**
- * Mirrors `FLSaisonTeamEinwilligungAntwortResponse` — a season row's seat answered: the echo alone.
- * No application stands behind it, so there is no Ansprechperson to tell and nothing to compose a message from.
- */
-export const FLSaisonTeamEinwilligungAntwortResponseSchema = BaseAPIResponseSchema.extend({
-  quelle: z.literal("saison"),
-  ergebnis: FLBewerbungEinwilligungAntwortResponseSchema.shape.ergebnis,
-  geburtsdatum: CustomDateStringSchema.nullable(),
-  whatsapp: z.boolean(),
-  medien: z.boolean(),
-});
-export type FLSaisonTeamEinwilligungAntwortResponse = z.infer<typeof FLSaisonTeamEinwilligungAntwortResponseSchema>;
-
-/** What one press on the confirmation page answers, by the record its token opened. Published inline, both members paired. */
-export const FLEinwilligungAntwortResponseSchema = z.discriminatedUnion("quelle", [
-  FLBewerbungEinwilligungAntwortResponseSchema,
-  FLSaisonTeamEinwilligungAntwortResponseSchema,
-]);
-export type FLEinwilligungAntwortResponse = z.infer<typeof FLEinwilligungAntwortResponseSchema>;
 
 /** Which application and which of its seats. Both travel in the path, so the request carries no body at all. */
 export const FLEinwilligungErneutPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   rolle: FLKontaktRolleSchema,
 });
-export type FLEinwilligungErneutPayload = z.infer<typeof FLEinwilligungErneutPayloadSchema>;
-
-/** The freshly minted token, which the caller turns into a link and mails. Nothing else may hold it. */
-export const FLBewerbungEinwilligungErneutResponseSchema = BaseAPIResponseSchema.extend({
-  token: z.string(),
-  rolle: FLKontaktRolleSchema,
-  email: z.string(),
-  rollen: z.array(FLKontaktRolleSchema),
-  bestaetigungsfrist: CustomDateStringSchema,
-});
-export type FLBewerbungEinwilligungErneutResponse = z.infer<typeof FLBewerbungEinwilligungErneutResponseSchema>;
 
 /**
- * Mirrors `SitzEinwilligungPayload`, which the backend publishes as this and as
- * `FLSaisonTeamPersonEinwilligungPayload`: a seat holder's two choices from the account page. A pending
- * application's seats take a withdrawal alone, which the backend judges; the page offers no grant there.
+ * A seat holder's two choices from the account page, one declaration the backend publishes for an
+ * application's seats and a season row's alike. A pending application's seats take a withdrawal alone,
+ * which the backend judges; the page offers no grant there.
  */
 export const FLBewerbungPersonEinwilligungPayloadSchema = FLSpielerSelbstEinwilligungPayloadSchema.extend({
   // Both choices on every press, so moving one never leaves the other judged by nothing.
   umfang: z.enum(FLKontaktKenntnisnahmeSchema.shape.umfang.options, { error: WAHL_UNBEKANNT }),
 });
-export type FLBewerbungPersonEinwilligungPayload = z.infer<typeof FLBewerbungPersonEinwilligungPayloadSchema>;
-
-/** Mirrors `FLBewerbungPersonEinwilligungResponse`: the application's seats the withdrawal reached. */
-export const FLBewerbungPersonEinwilligungResponseSchema = BaseAPIResponseSchema.extend({
-  bewerbung_id: CustomObjectIdStringSchema,
-  rollen: z.array(FLKontaktRolleSchema),
-  umfang: FLKontaktKenntnisnahmeSchema.shape.umfang,
-  medien: z.boolean(),
-  nachweis_stand: FLEinwilligungStandSchema,
-});
-export type FLBewerbungPersonEinwilligungResponse = z.infer<typeof FLBewerbungPersonEinwilligungResponseSchema>;
 
 /**
- * Mirrors `FLBewerbungKontaktEmailPayload` — the one field of a submitted application an
- * administrator may rewrite. `id` and `rolle` travel in the path, as the re-send's do.
+ * The one field of a submitted application an administrator may rewrite. `id` and `rolle` travel in
+ * the path, as the re-send's do.
  */
 export const FLBewerbungKontaktEmailPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
@@ -767,25 +369,10 @@ export const FLBewerbungKontaktEmailPayloadSchema = z.object({
   // person took since, which a fresh read would hand the address typed for the one who left (`REQ-BEWERBUNG-021`).
   bisherige_email: KontaktEmailSchema,
 });
-export type FLBewerbungKontaktEmailPayload = z.infer<typeof FLBewerbungKontaktEmailPayloadSchema>;
 
 /**
- * Mirrors `FLBewerbungKontaktEmailResponse`. **`rollen` and not the re-send's `rolle`**: one
- * correction moves every seat that mailbox holds, and the one message has to name all of them.
- */
-export const FLBewerbungKontaktEmailResponseSchema = BaseAPIResponseSchema.extend({
-  email: z.string(),
-  rollen: z.array(FLKontaktRolleSchema),
-  token: z.string(),
-  bestaetigungsfrist: CustomDateStringSchema,
-  abgang_email: z.string().nullable(),
-});
-export type FLBewerbungKontaktEmailResponse = z.infer<typeof FLBewerbungKontaktEmailResponseSchema>;
-
-/**
- * Mirrors `FLBewerbungKontaktSitzPayload` — the person seated where a contact person stepped out.
- * The four fields are restated rather than taken off `FLBewerbungKontaktpersonPayloadSchema`: that
- * one carries the Kenntnisnahme, which this person has given nobody.
+ * The person seated where a contact person stepped out. The four fields are restated rather than taken
+ * off the submission's seat: that one carries the Kenntnisnahme, which this person has given nobody.
  */
 export const FLBewerbungKontaktSitzPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
@@ -798,16 +385,6 @@ export const FLBewerbungKontaktSitzPayloadSchema = z.object({
   // own link is what asks them to answer it.
   text_version: FLBewerbungEinwilligungPayloadSchema.shape.text_version,
 });
-export type FLBewerbungKontaktSitzPayload = z.infer<typeof FLBewerbungKontaktSitzPayloadSchema>;
-
-/** Mirrors `FLBewerbungKontaktSitzResponse`. `rollen` for the correction's reason: one press fills every seat that person holds. */
-export const FLBewerbungKontaktSitzResponseSchema = BaseAPIResponseSchema.extend({
-  email: z.string(),
-  rollen: z.array(FLKontaktRolleSchema),
-  token: z.string(),
-  bestaetigungsfrist: CustomDateStringSchema,
-});
-export type FLBewerbungKontaktSitzResponse = z.infer<typeof FLBewerbungKontaktSitzResponseSchema>;
 
 /**
  * The ceilings the two delivery writes state at their shared base. Retyped here rather
@@ -817,12 +394,8 @@ export const ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH = 128;
 export const ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH = 64;
 export const ZUSTELLUNG_GRUND_MAX_LENGTH = 128;
 
-/**
- * What both delivery writes name, mirroring the one private base they share on the backend. Spelled
- * once for the reason the base exists: two copies would let the acceptance and the event judge one
- * provider's message differently.
- */
-const zustellungMeldungFields = {
+/** One event the provider sent about a message already recorded, as the webhook composes it. */
+export const FLBewerbungZustellungEreignisPayloadSchema = z.object({
   bewerbung_id: CustomObjectIdStringSchema,
   // Plural because one message answers a mirrored pair, and both seats' links stand or fall with it.
   rollen: z.array(FLKontaktRolleSchema).min(1),
@@ -831,8 +404,8 @@ const zustellungMeldungFields = {
   nachricht_id: z
     .string()
     .trim()
-    // German though no reader meets one: this server composes both writes, and a refusal reaches the
-    // log rather than a box. `fl_frontend/src/core/schemaGerman.test.ts` holds every payload to it.
+    // German though no reader meets one: this server composes the write, and a refusal reaches the
+    // log rather than a box.
     .min(1, { error: "Diese Meldung nennt keine Nachricht." })
     .max(ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH, { error: "Diese Nachrichten-ID ist zu lang." }),
   am: z
@@ -840,18 +413,6 @@ const zustellungMeldungFields = {
     .trim()
     .min(1, { error: "Diese Meldung nennt keinen Zeitpunkt." })
     .max(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH, { error: "Dieser Zeitpunkt ist zu lang." }),
-};
-
-/**
- * Mirrors `FLBewerbungZustellungAngenommenPayload` — one message the provider took, for every seat
- * it covered. No `stand`: this endpoint records `angenommen` and refuses to record anything else.
- */
-export const FLBewerbungZustellungAngenommenPayloadSchema = z.object(zustellungMeldungFields);
-export type FLBewerbungZustellungAngenommenPayload = z.infer<typeof FLBewerbungZustellungAngenommenPayloadSchema>;
-
-/** Mirrors `FLBewerbungZustellungEreignisPayload` — one event the provider sent about a message already recorded. */
-export const FLBewerbungZustellungEreignisPayloadSchema = z.object({
-  ...zustellungMeldungFields,
   // Without `angenommen`, which the acceptance endpoint alone writes: a webhook composing one would
   // be refused 422 and retried for thirty-two hours over a state no event of the provider's carries.
   stand: FLBewerbungZustellstandSchema.exclude(["angenommen"]),
@@ -859,107 +420,3 @@ export const FLBewerbungZustellungEreignisPayloadSchema = z.object({
   // `null` alike, so a message whose bounce carries no token is still a state about the mailbox.
   grund: einzeiligerName(z.string().trim().max(ZUSTELLUNG_GRUND_MAX_LENGTH, { error: "Dieser Grund ist zu lang." }), "Der Grund").nullable(),
 });
-export type FLBewerbungZustellungEreignisPayload = z.infer<typeof FLBewerbungZustellungEreignisPayloadSchema>;
-
-/** Which seats the write reached. An empty list is a superseded message or an event already answered, and is not a refusal. */
-export const FLBewerbungZustellungResponseSchema = BaseAPIResponseSchema.extend({
-  angewendet: z.array(FLKontaktRolleSchema),
-});
-export type FLBewerbungZustellungResponse = z.infer<typeof FLBewerbungZustellungResponseSchema>;
-
-/** One LINK a reminder carries. The token is raw and lives in that response and the message alone. */
-export const FLBewerbungSweepSeatSchema = z.object({
-  // Every seat one press of this link answers, which is two for a mirrored Trainer.
-  rollen: z.array(FLKontaktRolleSchema),
-  vorname: z.string(),
-  token: z.string(),
-});
-export type FLBewerbungSweepSeat = z.infer<typeof FLBewerbungSweepSeatSchema>;
-
-/** One mailbox of one application, with every seat it holds that reaches its own three-day mark today. */
-export const FLBewerbungSweepErinnerungSchema = z.object({
-  bewerbung_id: CustomObjectIdStringSchema,
-  saison_id: z.string(),
-  schule: z.string(),
-  // The seats' own deadline, which a reminder does not move; only an administrator's re-send does.
-  bestaetigungsfrist: CustomDateStringSchema,
-  email: z.string(),
-  seats: z.array(FLBewerbungSweepSeatSchema),
-});
-export type FLBewerbungSweepErinnerung = z.infer<typeof FLBewerbungSweepErinnerungSchema>;
-
-/** A seat the deletion notice lists as never confirmed; the name is null where a decline or an erasure emptied the slot. */
-export const FLBewerbungSweepAusstehendSchema = z.object({
-  rolle: FLKontaktRolleSchema,
-  vorname: z.string().nullable(),
-});
-export type FLBewerbungSweepAusstehend = z.infer<typeof FLBewerbungSweepAusstehendSchema>;
-
-/** One application past its deadline and still standing: the notice goes first, the erasure follows in a second call. */
-export const FLBewerbungSweepLoeschungSchema = z.object({
-  bewerbung_id: CustomObjectIdStringSchema,
-  saison_id: z.string(),
-  schule: z.string(),
-  bestaetigungsfrist: CustomDateStringSchema,
-  // The submitter's mailbox: the form asks that seat for the person who submits. Null where the slot
-  // is empty, and the caller then erases rather than keeping an application nobody can complete.
-  ansprechperson_email: z.string().nullable(),
-  // Every seat that same mailbox holds, so a submitter who is also the Trainer is addressed by both.
-  ansprechperson_rollen: z.array(FLKontaktRolleSchema),
-  ausstehend: z.array(FLBewerbungSweepAusstehendSchema),
-  // Whether the notice has already gone out. The caller mails only where this is false and erases
-  // wherever it is true, so an erasure that failed after a delivery repeats no message.
-  angekuendigt: z.boolean(),
-});
-export type FLBewerbungSweepLoeschung = z.infer<typeof FLBewerbungSweepLoeschungSchema>;
-
-/** One season's pass: the reminders already stamped, the deletions still to notify, and each silent clock's count. */
-export const FLBewerbungSweepResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: z.string(),
-  erinnerungen: z.array(FLBewerbungSweepErinnerungSchema),
-  loeschungen: z.array(FLBewerbungSweepLoeschungSchema),
-  abgelehnte_geloescht: z.int().nonnegative(),
-  angenommene_geloescht: z.int().nonnegative(),
-  ohne_entscheidung_geloescht: z.int().nonnegative(),
-  kontaktbloecke_geleert: z.int().nonnegative(),
-  redigierte_aktionen: z.int().nonnegative(),
-  fehlgeschlagen: z.int().nonnegative(),
-});
-export type FLBewerbungSweepResponse = z.infer<typeof FLBewerbungSweepResponseSchema>;
-
-/** Which candidates' notices the caller delivered. The backend re-judges them, so an id that has stopped qualifying is skipped. */
-export const FLBewerbungSweepAngekuendigtPayloadSchema = z.object({
-  bewerbung_ids: z.array(CustomObjectIdStringSchema).max(DELETIONS_LISTED_PER_PASS),
-});
-export type FLBewerbungSweepAngekuendigtPayload = z.infer<typeof FLBewerbungSweepAngekuendigtPayloadSchema>;
-
-export const FLBewerbungSweepAngekuendigtResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: z.string(),
-  angekuendigt: z.int().nonnegative(),
-  fehlgeschlagen: z.int().nonnegative(),
-});
-export type FLBewerbungSweepAngekuendigtResponse = z.infer<typeof FLBewerbungSweepAngekuendigtResponseSchema>;
-
-/** Which candidates to erase. The backend re-selects them, so an id that has stopped qualifying, or that was never announced, is skipped. */
-export const FLBewerbungSweepLoeschenPayloadSchema = z.object({
-  bewerbung_ids: z.array(CustomObjectIdStringSchema).max(DELETIONS_LISTED_PER_PASS),
-});
-export type FLBewerbungSweepLoeschenPayload = z.infer<typeof FLBewerbungSweepLoeschenPayloadSchema>;
-
-export const FLBewerbungSweepLoeschenResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: z.string(),
-  geloescht: z.int().nonnegative(),
-  redigierte_aktionen: z.int().nonnegative(),
-  fehlgeschlagen: z.int().nonnegative(),
-});
-export type FLBewerbungSweepLoeschenResponse = z.infer<typeof FLBewerbungSweepLoeschenResponseSchema>;
-
-/** Every season's id, and each pass's own day: the backend keeps a `future` one off the base tier. */
-export const FLBewerbungSweepSaisonsResponseSchema = BaseAPIResponseSchema.extend({
-  saison_ids: z.array(z.string()),
-  sweep_gelaufen_am: CustomDateStringSchema.nullable(),
-  // The registration pass's own day beside the application's: the two clocks run in one process and
-  // stop separately, so a fresh date beside a stale one is what names the pass that stopped.
-  registrierung_sweep_gelaufen_am: CustomDateStringSchema.nullable(),
-});
-export type FLBewerbungSweepSaisonsResponse = z.infer<typeof FLBewerbungSweepSaisonsResponseSchema>;

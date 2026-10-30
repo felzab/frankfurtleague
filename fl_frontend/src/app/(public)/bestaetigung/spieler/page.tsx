@@ -10,8 +10,8 @@ import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { openGraphFor } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
+import type { FLRegistrierungBestaetigungAnsichtResponseSeite } from "@/core/generated/client/types";
 import type { FLEinwilligungFassung } from "@/core/schemas";
-import type { FLRegistrierungSeite } from "@/features/registrierungen/schemas";
 import type { SpielerBestaetigungStart, SpielerSeitenFassung } from "@/features/registrierungen/types";
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
@@ -79,7 +79,7 @@ async function SpielerBestaetigungContent(props: NextPageProps) {
  * boundary logs.
  */
 function seitenFassung(
-  seite: FLRegistrierungSeite,
+  seite: FLRegistrierungBestaetigungAnsichtResponseSeite,
   neu: FLEinwilligungFassung | null,
   wiederkehrend: FLEinwilligungFassung | null,
 ): SpielerSeitenFassung | null {

@@ -9,7 +9,7 @@ import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 import { AdminBewerbungenList } from "../collections/AdminBewerbungenList";
 import { BewerbungenUnvollstaendigNotice } from "../ui/BewerbungenUnvollstaendigNotice";
 
-import type { FLBewerbungenListResponse } from "@/features/bewerbungen/schemas";
+import type { FLBewerbungenListResponse } from "@/core/generated/client/types";
 import type { AdminBewerbungRow } from "@/features/bewerbungen/types";
 import type { Leserichtung } from "@/shared/utils/leserichtung";
 import type { BewerbungenUnvollstaendig } from "../ui/BewerbungenUnvollstaendigNotice";

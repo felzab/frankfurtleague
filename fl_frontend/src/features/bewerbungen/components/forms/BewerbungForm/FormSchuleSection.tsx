@@ -251,8 +251,8 @@ export function FormSchuleSection({
             )}
           </div>
 
-          {/* The payload's own two numbers and never a second judgement: `.claude/rules/cross-surface.md`,
-              never offer in the form what the write path refuses. */}
+          {/* The payload's own two numbers and never a second judgement: the form never offers what the
+              write path refuses (`docs/decisions.md`, **saisons**). */}
           <NumberField
             name="stufengroesse"
             minValue={1}
