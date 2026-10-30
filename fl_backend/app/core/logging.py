@@ -16,7 +16,7 @@ from contextvars import ContextVar
 from datetime import UTC, datetime
 
 FL_LOGGER_NAME = "frankfurtleague"
-JOURNAL_LOGGER_SUFFIX = "loeschung"
+JOURNAL_LOGGER_SUFFIX = "erasure"
 
 # A sentinel rather than an absent field, so a reader can rely on the key on every line.
 NO_REQUEST_SENTINEL = "SYSTEM"
