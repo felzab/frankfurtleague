@@ -17,13 +17,13 @@ from app.api.bewerbungen.services import (
     hash_token,
 )
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.api.teams.services import compose_bestaetigungen_mit, compose_kontakt_bestaetigung
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config

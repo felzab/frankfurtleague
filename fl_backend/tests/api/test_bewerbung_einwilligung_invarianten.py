@@ -21,11 +21,11 @@ from app.api.bewerbungen.services import (
     zustand_of,
 )
 from app.api.kontakte.services import build_clearing_update
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.codes import Code
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
 )
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests.documents import kontaktperson_document
 
 TODAY = "2026-04-01"

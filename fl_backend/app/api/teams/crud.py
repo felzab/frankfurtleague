@@ -6,10 +6,10 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielbestaetigungen.services import SeatVoid, build_team_rows_filter, group_seat_voids
-from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import find_entry_refusal
 from app.core.crud import anchor_in_db, patch_many_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.literals import FLGruppenNames
 
 
 async def refuse_a_full_gruppe(

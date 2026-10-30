@@ -3,14 +3,7 @@ from typing import Annotated, Literal, Self
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 
 from app.api.berechtigungen.schemas import FLUtcInstant
-from app.api.spiele.schemas import (
-    SONDEREREIGNIS_NO_SHOW,
-    FLBracketFault,
-    FLSaisonPhase,
-    FLSonderereignis,
-    FLSpielElfmeterschiessen,
-    FLSpielJoinedAdmin,
-)
+from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLBracketFault, FLSpielElfmeterschiessen, FLSpielJoinedAdmin
 from app.shared.schemas.bounds import SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH, SPIELBERICHT_EINTRAEGE_MAX
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -19,6 +12,7 @@ from app.shared.schemas.custom import (
     CustomTimeString,
     parse_empty_string_to_none,
 )
+from app.shared.schemas.literals import FLSaisonPhase, FLSonderereignis
 from app.shared.schemas.responses import BaseAPIResponse
 
 # The minute as the DFB's report writes it: the played minute, and stoppage time after a plus, `45+2`.

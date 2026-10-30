@@ -18,12 +18,12 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtZustand,
 )
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielElfmeterschiessen
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import refuse
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 SEITEN: Final[tuple[FLSpielberichtSeite, ...]] = ("team1", "team2")
 

@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.codes import Code
+from app.shared.schemas.custom import CustomObjectId
 
 
 class BaseAPIResponse(BaseModel):
@@ -33,3 +34,9 @@ class FLRefusedField(BaseModel):
 
 class FLRefusedPayloadBody(FLFailureBody):
     fields: list[FLRefusedField]
+
+
+class FLCreatedResponse(BaseAPIResponse):
+    """The id a create minted, which the caller reads the new record by."""
+
+    created_id: CustomObjectId

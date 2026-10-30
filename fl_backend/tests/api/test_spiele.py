@@ -7,7 +7,6 @@ from app.api.spiele.schemas import (
     SONDEREREIGNIS_KEEPING_ITS_SLOT,
     SONDEREREIGNIS_RECORDING_AN_ABSENCE,
     FLPatchSpielDataPayload,
-    FLSonderereignis,
     FLSpiel,
     FLSpielElfmeterschiessen,
     FLSpielOrtFieldPayload,
@@ -19,6 +18,7 @@ from app.api.spiele.schemas import (
     unplayed_filter,
 )
 from app.core.collections import Collection
+from app.shared.schemas.literals import FLSonderereignis
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
@@ -92,7 +92,7 @@ def test_the_slot_partition_is_exhaustive():
     keeping = set(SONDEREREIGNIS_KEEPING_ITS_SLOT)
     absence = set(SONDEREREIGNIS_RECORDING_AN_ABSENCE)
     # `None` is a member of the universe, not the lack of one: an ordinary fixture keeps its slot.
-    universe = set(get_args(FLSonderereignis)) | {None}
+    universe = set(get_args(FLSonderereignis.__value__)) | {None}
 
     assert keeping & absence == set()
     assert keeping | absence == universe
@@ -116,7 +116,7 @@ def test_the_unplayed_filter_selects_what_the_predicate_answers(mongo_url: str):
     Unconstrained, because only the two fields the partition reads are stored.
     """
 
-    cases = [(ergebnis, sonderereignis) for ergebnis in (None, "1:0") for sonderereignis in (None, *get_args(FLSonderereignis))]
+    cases = [(ergebnis, sonderereignis) for ergebnis in (None, "1:0") for sonderereignis in (None, *get_args(FLSonderereignis.__value__))]
 
     async def selected() -> set[int]:
         async with a_clean_database(mongo_url, UNPLAYED_DATABASE_NAME, constraints=False) as (_, database):

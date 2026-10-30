@@ -27,7 +27,7 @@ from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.spielbestaetigungen.router import get_spielbestaetigung_ansicht
 from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAnsichtPayload
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
-from app.api.teams.schemas import KONTAKT_ROLLEN, FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
+from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, delete_many_from_db, patch_one_in_db
@@ -36,6 +36,7 @@ from app.core.journal import JournalLine
 from app.core.security import loeschung_journal_hash
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
