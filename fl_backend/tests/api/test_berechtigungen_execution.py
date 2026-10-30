@@ -50,11 +50,10 @@ from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD, WritesSent, writes_sent_var
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR, Actor, actor_var
-from app.core.security import PASSKEY_FACTOR, admin_judge, get_grant_lookup
-from app.core.transactions import actor_judge_var
+from app.core.security import PASSKEY_FACTOR, get_grant_lookup
 from app.main import create_app
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from tests.actor_tokens import SignedActor, session_headers, verified_actor
+from tests.actor_tokens import SignedActor, session_headers
 from tests.app_client import app_client
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import ADMIN_KEY, SYSTEM_AUTH
@@ -162,16 +161,15 @@ async def acting(actor: Any, call: Callable[[], Awaitable[Any]]) -> Any:
 
 
 async def administering(als: str, call: Callable[[], Awaitable[Any]]) -> Any:
-    """`call` as one request of the administrator: the actor and the judge `bind_actor` binds, and the record of what it sent.
+    """`call` as one request of the administrator: the actor `bind_actor` binds, and the record of what it sent.
 
-    The record as `app/core/middlewares.py :: TraceContextMiddleware` binds one, which the judge reads to leave a no-op unanchored.
+    The record as `app/core/middlewares.py :: TraceContextMiddleware` binds one.
     """
 
-    judge_token, sent_token = actor_judge_var.set(admin_judge(verified_actor(als), CONFIG)), writes_sent_var.set(WritesSent())
+    sent_token = writes_sent_var.set(WritesSent())
     try:
         return await acting(Actor(kind="admin_session", email=als), call)
     finally:
-        actor_judge_var.reset(judge_token)
         writes_sent_var.reset(sent_token)
 
 
@@ -648,22 +646,6 @@ class TestOnlyAnOwnerRevokes:
         # The unknown id is refused as the administrator's, never answered 404: who asks is judged first.
         assert on_a_league(mongo_replica_set_url, body) == (Code.BERECHTIGUNG_NUR_INHABER, Code.BERECHTIGUNG_NUR_INHABER, sorted([OWNER, ANNA]))
 
-    def test_an_owner_row_that_is_dead_revokes_nothing(self, mongo_replica_set_url: str):
-        """Folded and equal to its own actor, and refused by the address rule: an owner in name that the one reading reads as none.
-
-        So the actor's judge refuses it as no administrator at all, ahead of `REQ-BERECHTIGUNG-005`.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            with pytest.raises(APIError) as refused:
-                await revoke(database, client, BERND_ID, als=DEAD_OWNER)
-
-            return refused.value.error_code, await database[Collection.BERECHTIGUNGEN].count_documents({"_id": BERND_ID})
-
-        grants = [grant_document(OWNER_ID, DEAD_OWNER, "owner"), *the_three_grants()[1:]]
-
-        assert on_a_league(mongo_replica_set_url, body, grants=grants) == (Code.ACTOR_NOT_ADMIN, 1)
-
     def test_an_owner_demoted_after_the_first_read_revokes_nothing(self, mongo_replica_set_url: str):
         """The owner's own grant is judged on the read the retry makes inside the transaction, not on the one before it."""
 
@@ -679,35 +661,6 @@ class TestOnlyAnOwnerRevokes:
             return outcome, await addresses(database)
 
         assert on_a_league(mongo_replica_set_url, body) == (Code.BERECHTIGUNG_NUR_INHABER, sorted([OWNER, ANNA, BERND]))
-
-
-class TestAnActorRevokedMidRequest:
-    """`REQ-AUTH-006` from the actor's judge, which every transaction runs again after the retry its anchor's conflict forces.
-
-    `serially=0`: with the revoke committed first, the judge refuses before the write reads the list at all.
-    """
-
-    def test_a_grant_whose_actor_is_revoked_after_the_check_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, list[str]]:
-            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: revoke(database, client, ANNA_ID))
-            with pytest.raises(APIError) as refused:
-                await grant(database, client, als=ANNA, berechtigungen=racing)
-            racing.assert_landed_inside(serially=0)
-
-            return racing.rival_outcome, refused.value.error_code, await addresses(database)
-
-        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, Code.ACTOR_NOT_ADMIN, sorted([OWNER, BERND]))
-
-    def test_a_ban_whose_actor_is_revoked_after_the_check_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, int]:
-            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: revoke(database, client, ANNA_ID))
-            with pytest.raises(APIError) as refused:
-                await ban(database, client, als=ANNA, berechtigungen=racing)
-            racing.assert_landed_inside(serially=0)
-
-            return racing.rival_outcome, refused.value.error_code, await database[Collection.SPERRLISTE].count_documents({})
-
-        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, Code.ACTOR_NOT_ADMIN, 0)
 
 
 class TestTheOwnersRow:
@@ -944,14 +897,13 @@ class GrantsRunningARivalAfterTheFirstRead(InterleavedCollection):
 class TestTheAnchorClosesEachRace:
     """Each outcome equals a serial order of the pair.
 
-    Each administrator's judge anchors only their own grant row, so between two administrators only the list anchor
-    conflicts: with it gone, both commit.
+    Between two administrators only the list anchor conflicts: with it gone, both commit.
     """
 
     def test_two_revokes_that_each_leave_the_floor_do_not_both_commit(self, mongo_replica_set_url: str):
         """Three grants, two revokes: either alone leaves two, both together leave the `owner` grant alone.
 
-        One owner on both sides, the only revoker three grants allow, so its own anchor conflicts too.
+        One owner on both sides, the only revoker three grants allow.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, list[str]]:

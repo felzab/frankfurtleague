@@ -3,8 +3,7 @@ import contextvars
 import time
 import traceback
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping, Sequence
-from contextlib import AbstractAsyncContextManager, asynccontextmanager, nullcontext
-from contextvars import ContextVar
+from contextlib import asynccontextmanager
 from typing import Any, Final
 
 import anyio
@@ -24,7 +23,6 @@ from app.core.exception_handlers import (
 from app.core.exceptions import APIError
 from app.core.logging import fl_logger
 from app.core.middlewares import request_deadline_var
-from app.core.recording import actor_var
 
 # Shared by every abort a request sends past its deadline, or a loop of cut transactions waits out
 # one apiece; far above a round trip, and inside the page's margin.
@@ -89,58 +87,34 @@ async def _abort_on_the_server(session: AsyncClientSession) -> None:
             _log_left_open(f"its abort failed ({type(failure).__name__}, code {code})")
 
 
-# What a request's actor is judged by inside each attempt of every transaction it opens: entered in
-# the attempt's session before its callback, and left once the callback has returned.
-ActorJudge = Callable[[AsyncClientSession], AbstractAsyncContextManager[object]]
-
-# Bound beside `app/core/recording.py :: actor_var` by the binder that bound the actor, and reset with it.
-actor_judge_var: ContextVar[ActorJudge | None] = ContextVar("actor_judge", default=None)
-
-# The actor kinds no grant and no ban can judge. Named rather than the judged ones, so a kind added
-# later is refused until its binder binds a judge, never let through unjudged.
-UNJUDGED_KINDS: Final = frozenset({"system", "public"})
-
-
-def _unjudged(_session: AsyncClientSession) -> AbstractAsyncContextManager[object]:
-    return nullcontext()
-
-
+# Redesign: goes once every caller hands the driver's own `with_transaction` a callback closing over its arguments.
 class JudgedSession:
-    """What `transaction_session` yields: the driver's session, every transaction run on it judging the request's actor first.
+    """What `transaction_session` yields: the driver's session, whose `with_transaction` hands each callback extra arguments.
 
     Never handed to the driver as `session=`, which refuses it: each callback is handed the driver's own.
     """
 
-    def __init__(self, session: AsyncClientSession, judge: ActorJudge) -> None:
+    def __init__(self, session: AsyncClientSession) -> None:
         self._session = session
-        self._judge = judge
 
     async def with_transaction[T, *Arguments](
         self, callback: Callable[[AsyncClientSession, *Arguments], Awaitable[T]], *arguments: *Arguments
     ) -> T:
-        """`callback` in one transaction, the actor judged again in each attempt the driver retries."""
+        """`callback` in one transaction, handed the driver's session and `arguments` in each attempt the driver makes."""
 
-        async def judged(session: AsyncClientSession) -> T:
-            async with self._judge(session):
-                return await callback(session, *arguments)
+        async def attempt(session: AsyncClientSession) -> T:
+            return await callback(session, *arguments)
 
-        return await self._session.with_transaction(judged)
+        return await self._session.with_transaction(attempt)
 
 
 @asynccontextmanager
 async def transaction_session(client: AsyncMongoClient) -> AsyncIterator[JudgedSession]:
     """The session every transaction runs on: work failing inside it leaves the server no transaction."""
 
-    actor = actor_var.get()
-    judge = actor_judge_var.get()
-    # Refused rather than run unjudged: a binder that bound such an actor and no judge would let a
-    # revoked administrator or a barred person write.
-    if judge is None and actor.kind not in UNJUDGED_KINDS:
-        raise LookupError(f"a transaction of a `{actor.kind}` actor has no judge bound")
-
     async with client.start_session() as session:
         try:
-            yield JudgedSession(session, judge or _unjudged)
+            yield JudgedSession(session)
         # `BaseException`, as the driver's own abort catches it: a cancelled request leaves a
         # transaction open as surely as a failed one.
         except BaseException:
@@ -245,7 +219,7 @@ def carried_by_a_row(failure: Exception) -> bool:
     """Whether halving the rows can isolate a failure.
 
     A deadline meets every half too, a stalled page is the page's own, and a refusal the request
-    answers -- a judge's among them -- is the request's.
+    answers is the request's.
     """
 
     return not isinstance(failure, (StalledPage, APIError)) and not (isinstance(failure, PyMongoError) and failure.timeout)

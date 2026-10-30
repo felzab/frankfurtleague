@@ -64,7 +64,6 @@ from .test_funktionen_erasure import (
     BLOCKLESS_BEWERBUNG_OID,
     DECLINED_OID,
     GEBURTSDATUM,
-    GRANTED_BY_THEM_OID,
     HOME_TEAM_OID,
     IDENTIFIER,
     MOVING_PUPIL_CHANGE_OID,
@@ -865,65 +864,6 @@ class PupilsMeetingARival(InterleavedCollection):
         return await self._collection.delete_many(*args, **kwargs)
 
 
-class TheSignOutsRowMeetingARival(InterleavedCollection):
-    """The sign-out's one log row, a rival write to the grants committing first: inside the attempt, once per attempt."""
-
-    async def insert_one(self, *args: Any, **kwargs: Any) -> Any:
-        await self.run_the_rival()
-        return await self._collection.insert_one(*args, **kwargs)
-
-
-@pytest.mark.db
-class TestAnAdministratorRevokedMidRequest:
-    """On this route: the transaction's judge, never the check before the handler, meets the revoke."""
-
-    @pytest.mark.parametrize("revoked", [True, False], ids=["revoked inside the erasure", "the control, revoked by nobody"])
-    def test_the_erasure_erases_nobody_and_answers_that_they_administer_no_more(self, mongo_replica_set_url: str, revoked: bool):
-        """Remove the anchor in `app/core/security.py :: admin_judge` and the erasure commits: the attempt's read never sees the revoke."""
-
-        revokes: list[int] = []
-        racing: list[PupilsMeetingARival] = []
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            # The grant the person granted, which the erasure marks and every revoke anchors: without it the actor's
-            # own anchor is the one write meeting the revoke.
-            for granted in (Collection.BERECHTIGUNGEN, Collection.BERECHTIGUNGEN_ANGEKUENDIGT):
-                await database[granted].delete_one({"_id": GRANTED_BY_THEM_OID})
-            held = await where_held(database, *THEIR_VALUES)
-            served = _app()
-            async with app_client(mongo_replica_set_url, app=served, now=NOW) as http:
-
-                async def revoke() -> None:
-                    answered = await http.delete(
-                        f"/api/v{API_VERSION}/berechtigungen/{GRANT_ID_OF[OPERATOR]}", headers=SignedActor(OWNER, ADMIN_KEY)
-                    )
-                    revokes.append(answered.status_code)
-
-                async def nobody() -> None:
-                    return None
-
-                async def pupils() -> AsyncCollection:
-                    # The app's own client: the request's session belongs to it.
-                    racing.append(PupilsMeetingARival(served.state.db_client[DATABASE_NAME][Collection.SPIELER], revoke if revoked else nobody))
-                    return cast(AsyncCollection, racing[-1])
-
-                served.dependency_overrides[collection_dependency(Collection.SPIELER)] = pupils
-                response = await http.post(PATH, json=erasure_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
-
-            return response, held, await where_held(database, *THEIR_VALUES)
-
-        response, held, left = on_a_league(mongo_replica_set_url, body)
-
-        if revoked:
-            assert (response.status_code, response.json()["error_code"], revokes) == (403, Code.ACTOR_NOT_ADMIN, [200])
-            assert left == held
-            assert sum(collection.passes for collection in racing) == 1, (
-                "the retry reached the erasure again, so its judge admitted a revoked actor"
-            )
-        else:
-            assert (response.status_code, revokes, left) == (200, [], dict.fromkeys(THEIR_VALUES, []))
-
-
 @pytest.mark.db
 class TestANameARivalWritesMidRequest:
     """On a retry: a rename committing inside the erasure meets its delete, and the retry reads it."""
@@ -1046,8 +986,7 @@ class TestTheSignOut:
         filed = [row for row in after[Collection.AKTIONEN] if row not in before[Collection.AKTIONEN]]
 
         assert (response.status_code, response.json()) == (200, {})
-        # The actor's grant takes its anchor's count, which any judged write adds and nobody reads.
-        assert unanchored(after, besides=Collection.AKTIONEN) == unanchored(before, besides=Collection.AKTIONEN)
+        assert {**after, Collection.AKTIONEN: None} == {**before, Collection.AKTIONEN: None}
         assert [{key: row[key] for key in ROW_KEYS} for row in filed] == [
             {
                 "actor": {"kind": "admin_session", "email": OPERATOR},
@@ -1065,55 +1004,6 @@ class TestTheSignOut:
         assert IDENTIFIER not in str(filed).lower()
         # The log's own read serves it under the act's name.
         assert [aktion["collection"] for aktion in served["aktionen"]] == ["anmeldungen"]
-
-    def test_a_promotion_landing_inside_it_is_refused_by_its_retry(self, mongo_replica_set_url: str):
-        """The promotion anchors every grant, the actor's among them, which the sign-out's judge anchors last: the retry judges again.
-
-        Judged once ahead of the transaction instead, the row is filed and the caller ends an owner's sessions.
-        """
-
-        promotions: list[int] = []
-        racing: list[TheSignOutsRowMeetingARival] = []
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            # The seed's request asked for them before this grant, which would refuse the promotion beside it.
-            await database[Collection.BERECHTIGUNGEN_ANTRAEGE].delete_many({"adresse": IDENTIFIER})
-            served = _app()
-            async with app_client(mongo_replica_set_url, app=served, now=NOW) as http:
-
-                async def promote() -> None:
-                    answered = await http.patch(
-                        f"/api/v{API_VERSION}/berechtigungen/{THEIR_GRANT_OID}",
-                        json={"verwaltung": "owner"},
-                        headers=SignedActor(OWNER, ADMIN_KEY),
-                    )
-                    promotions.append(answered.status_code)
-
-                async def log() -> AsyncCollection:
-                    racing.append(TheSignOutsRowMeetingARival(served.state.db_client[DATABASE_NAME][Collection.AKTIONEN], promote))
-                    return cast(AsyncCollection, racing[-1])
-
-                served.dependency_overrides[collection_dependency(Collection.AKTIONEN)] = log
-                response = await http.post(ABMELDUNG_PATH, json=ansicht_of(), headers=SignedActor(OPERATOR, ADMIN_KEY))
-
-            return response, await filed_by(database, ABMELDUNG_PATH)
-
-        response, filed = on_a_league(mongo_replica_set_url, body)
-
-        assert (response.status_code, response.json().get("error_code"), promotions, filed) == (403, Code.VERWALTUNG_ADRESSE, [200], [])
-        # The premise last: the first attempt passed its judgement and reached the row, and the retry was refused before it.
-        assert sum(collection.passes for collection in racing) == 1
-
-
-def unanchored(collections: Mapping[str, list[Any]], *, besides: str) -> dict[str, list[Any]]:
-    """Every collection but `besides`, each grant without its anchor's count."""
-
-    return {
-        name: [{key: value for key, value in row.items() if key != ANCHOR_FIELD} for row in rows]
-        for name, rows in collections.items()
-        if name != besides
-    }
 
 
 # What a sign-out's row holds besides its clock and trace.

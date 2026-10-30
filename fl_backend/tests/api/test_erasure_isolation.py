@@ -8,7 +8,6 @@ its commit inside the erasure, after the erasure's first read, and asks the whol
 once the erasure has answered.
 """
 
-import functools
 import time
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
@@ -17,7 +16,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -36,22 +34,17 @@ from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLPostS
 from app.api.teams.admin_router import patch_saison_team, patch_saison_team_kontakte
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLPatchSaisonTeamPayload, kontakte_stand_of
 from app.core.collections import Collection
-from app.core.config import API_VERSION
-from app.core.security import akteur_pseudonym
-from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.folding import sign_in_identifier
-from tests.actor_tokens import FRESH_STEP_UP_CHECK, SignedActor
-from tests.app_client import app_client
+from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
-from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
+from tests.config import ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     bewerbung_document,
     kontakte_document,
     kontaktperson_document,
     neue_schule_document,
-    registrierung_document,
     saison_document,
     saison_team_document,
     schiedsrichter_document,
@@ -61,10 +54,8 @@ from tests.documents import (
 from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.records import record_collections
-from tests.whole_database import where_folded_to, where_held
+from tests.whole_database import where_folded_to
 from tests.worker import worker_database
-
-from .conftest import config_for
 
 pytestmark = pytest.mark.db
 
@@ -77,7 +68,6 @@ SAISON_ID = "2026"
 # Typed as a visitor types it, and the fold every record stores: the fold, never the spelling, says whose a record is.
 TYPED = "Zorbanax.Quillfeather@Example.org"
 IDENTIFIER = sign_in_identifier(TYPED)
-PSEUDONYM = akteur_pseudonym(IDENTIFIER, schluessel=config_for(DATABASE_NAME).sperrliste_schluessel)
 
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607e10001")
 EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607e10002")
@@ -86,7 +76,6 @@ BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607e10003")
 PUPIL_OID = ObjectId("6890a1b2c3d4e5f607e10004")
 PUPIL_EMAIL = "wraxlington@example.com"
 REFEREE_OID = ObjectId("6890a1b2c3d4e5f607e10005")
-REGISTRATION_OID = ObjectId("6890a1b2c3d4e5f607e10006")
 STEPPED_OUT_OID = ObjectId("6890a1b2c3d4e5f607e10007")
 
 OPEN_WINDOW = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
@@ -94,15 +83,7 @@ OPEN_WINDOW = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
 REFEREE_NAME = "Bernd Kraus"
 TELEFON = "+49 69 5550202"
 
-# An administrator holding no owner grant, whose erasure the floor of two refuses nothing.
-ADMINISTRATOR = ADMINISTRATORS[2]
-
 Rival = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
-
-
-@functools.cache
-def _app() -> FastAPI:
-    return create_app(config_for(DATABASE_NAME))
 
 
 class GrantsReadThenRival(InterleavedCollection):
@@ -447,102 +428,6 @@ class TestARecordWrittenInsideTheErasureGoesWithIt:
         assert (outcome, wrote) == (COMMITTED, True), "the writer or the erasure never committed, so this case proves nothing"
         assert held == [], f"{held} still hold the address the erasure answered for"
         assert getattr(answer, counted_as) == 1
-
-
-# The person lane: the erased address holds a seat on the club's row, from which it declines another pupil's registration.
-SEAT_PATH = f"/api/v{API_VERSION}/registrierungen/{REGISTRATION_OID}/ablehnen"
-
-
-async def a_seat_holder_with_a_registration_to_decide(database: AsyncDatabase) -> None:
-    await database[Collection.SAISON_TEAMS].update_one(
-        {"saison_id": SAISON_ID, "team_id": TEAM_OID},
-        {
-            "$set": {
-                "kontakte": kontakte_document(
-                    ansprechperson=kontaktperson_document("Zorbanax", bestaetigt_am="2026-03-21", nachname="Quillfeather", email=IDENTIFIER)
-                )
-            }
-        },
-    )
-    await database[Collection.REGISTRIERUNGEN].insert_one(
-        registrierung_document(
-            REGISTRATION_OID,
-            "quintessa@example.com",
-            saison_id=SAISON_ID,
-            team_id=TEAM_OID,
-            vorname="Quintessa",
-            nachname="Muster",
-            token="token-quintessa",
-            eingereicht_am="2026-03-25",
-            frist="2026-04-08",
-        )
-    )
-
-
-class TestAPersonsOwnWriteInsideTheirErasureGoesWithIt:
-    """The person's judge anchors their address after a write, as the administrator's anchors the grant."""
-
-    def test_the_decline_keeps_neither_their_address_nor_their_pseudonym(self, mongo_replica_set_url: str):
-        """Remove the anchor in `app/core/security.py :: person_judge` and the decision keeps the address in plain, the log the pseudonym."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await a_seat_holder_with_a_registration_to_decide(database)
-            statuses: list[int] = []
-
-            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
-
-                async def decline() -> None:
-                    answered = await http.post(SEAT_PATH, json={"grund": None}, headers=SignedActor(TYPED, ADMIN_KEY, lane="person"))
-                    statuses.append(answered.status_code)
-
-                grants = GrantsReadThenRival(database[Collection.BERECHTIGUNGEN], decline)
-                outcome = await outcome_of(erased(database, client, TYPED, germany_now=NOW, berechtigungen_collection=grants))
-
-            return outcome, statuses, await where_folded_to(database, IDENTIFIER), await where_held(database, PSEUDONYM)
-
-        outcome, statuses, held, pseudonymised = on_a_league(mongo_replica_set_url, body)
-
-        assert (outcome, statuses) == (COMMITTED, [200]), "the decline or the erasure never committed, so this case proves nothing"
-        assert held == [], f"{held} still hold the address the erasure answered for"
-        assert pseudonymised == {PSEUDONYM: []}, "the person's log row or day count outlives their erasure"
-
-
-class TestAnAdministratorsOwnWriteInsideTheirErasureGoesWithIt:
-    """Held by the administrator's judge, which anchors the actor's grant the erasure removes."""
-
-    def test_the_log_row_they_wrote_names_them_no_more(self, mongo_replica_set_url: str):
-        """Remove the anchor in `app/core/security.py :: admin_judge` and the venue's log row keeps the erased administrator's address."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
-            statuses: list[int] = []
-            venue = {
-                "name": "Sportplatz Ost",
-                "address": {
-                    "strasse": "Hanauer Landstraße",
-                    "hausnummer": "12a",
-                    "plz": "60314",
-                    "stadtteil": "Ostend",
-                    "stadt": "Frankfurt am Main",
-                },
-                "default_mietpreis": 80,
-            }
-
-            async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
-
-                async def create() -> None:
-                    answered = await http.post(f"/api/v{API_VERSION}/spielorte", json=venue, headers=SignedActor(ADMINISTRATOR, ADMIN_KEY))
-                    statuses.append(answered.status_code)
-
-                grants = GrantsReadThenRival(database[Collection.BERECHTIGUNGEN], create)
-                outcome = await outcome_of(erased(database, client, ADMINISTRATOR, germany_now=NOW, berechtigungen_collection=grants))
-
-            return outcome, statuses, await where_folded_to(database, ADMINISTRATOR)
-
-        outcome, statuses, held = on_a_league(mongo_replica_set_url, body)
-
-        assert (outcome, statuses) == (COMMITTED, [201]), "the venue or the erasure never committed, so this case proves nothing"
-        assert held == [], f"{held} still hold the address the erasure answered for"
 
 
 # The erased person in the club's trainer seat, and somebody a save seats beside them, each as the editor sends a seat.
