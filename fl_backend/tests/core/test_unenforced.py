@@ -186,7 +186,6 @@ def _on_create(proposed: FLSaisonRules):
     """A create, where `stored` is `None` and only the rules reading the payload alone can fire."""
 
     return find_rules_refusal(
-        saison_status="future",
         stored=None,
         proposed=proposed,
         occupancy_by_gruppe={},
@@ -202,8 +201,7 @@ def _swap(**overrides: Any):
             "team1_gruppe": "A",
             "team2_gruppe": "B",
             "saison_status": "active",
-            "played_knockout_fixtures": 0,
-            "played_gruppenphase_fixtures": 0,
+            "started": False,
             "clashing_spieltage": 0,
             "departed_fixtures": 0,
             **overrides,

@@ -219,6 +219,7 @@ async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> FLPatch
         spieltage_collection=database[Collection.SPIELTAGE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         db=database.client,
+        today=TODAY,
     )
 
 

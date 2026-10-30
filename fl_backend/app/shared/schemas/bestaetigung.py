@@ -4,6 +4,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
 
 from app.shared.schemas.bounds import BEWERBUNG_TOKEN_MAX_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomOptionalDateString
+from app.shared.schemas.responses import BaseReadModel
 from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # The raw token of a person's link. The ceiling counts what arrives and the strip runs after it, so the
@@ -24,7 +25,7 @@ class FLTokenPayload(BaseModel):
     token: CustomToken
 
 
-class FLBestaetigung(BaseModel):
+class FLBestaetigung(BaseReadModel):
     """One person's confirmation bookkeeping as an administrator reads it, and no token hash.
 
     The hash is a raw document key the confirmation query alone reads, so no read serves one.

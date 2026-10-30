@@ -42,13 +42,10 @@ def base_tier_status_term(requested: FLSaisonStatus | None = None) -> dict[str, 
     return {"status": {"$eq": requested, "$ne": WITHHELD_FROM_BASE_TIER}}
 
 
+# What a started season holds fixed: a league does not change its scoring or its seeding mid-season.
 # `erlaubte_stufen` stays editable because it bounds what a form offers, never what a stored squad
 # row holds.
 FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "qualifiers_per_group", "tiebreak_order")
-
-# The one `REQ-RULES-012` freezes, and a field rather than a tuple: the bracket is seeded from the
-# placings this order decides, and nothing else in `rules` re-sorts a group that is already ranked.
-SEEDING_RULES_FIELD = "tiebreak_order"
 
 # The three the fixtures were drawn from. A RAISE is what nothing else refuses: `anzahl_spiele` is
 # derived per matchday, so every matchday would then expect matches nobody drew, and
@@ -81,9 +78,29 @@ def _forfeit_draws_a_knockout(rules: FLSaisonRules) -> bool:
     return bool(knockout_phases_for(qualifier_count(rules))) and rules.forfeit_ergebnis.sieger_tore == rules.forfeit_ergebnis.verlierer_tore
 
 
+def find_rules_freeze_refusal(*, saison_status: str, started: bool, stored: FLSaisonRules, proposed: FLSaisonRules) -> WriteRefusal | None:
+    """Why this edit of a started season's rules must be refused, or `None`.
+
+    Judged before `find_rules_refusal`: no point naming a bound when the whole edit is refused anyway.
+    Compared by value, so a dates-only edit resubmitting the stored rules passes.
+    """
+
+    # `past` beside the start, so a finished season none of whose group fixtures carries a date stays
+    # frozen too.
+    if not (started or saison_status == "past"):
+        return None
+
+    if all(getattr(stored, field) == getattr(proposed, field) for field in FROZEN_RULES_FIELDS):
+        return None
+
+    return WriteRefusal(
+        error_code=Code.RULES_SAISON_FINISHED,
+        status=HTTPStatus.CONFLICT,
+    )
+
+
 def find_rules_refusal(
     *,
-    saison_status: str,
     # `None` on a create, whose whole rules object is the step.
     stored: FLSaisonRules | None,
     proposed: FLSaisonRules,
@@ -93,23 +110,11 @@ def find_rules_refusal(
     # The LARGEST count any single matchday of a phase holds, never the sum.
     attached_by_phase: Mapping[FLSaisonPhase, int] | None = None,
     drawn_fixtures: int = 0,
-    # Counted over `app/api/teams/services.py :: has_taken_place`, as `REQ-SWAP-002`'s window is.
-    played_knockout_fixtures: int = 0,
 ) -> WriteRefusal | None:
     """Why these rules must be refused, or `None`."""
 
-    # The freeze first: no point naming a bound when the whole edit is refused anyway.
-    if stored is not None and saison_status == "past":
-        changed = [field for field in FROZEN_RULES_FIELDS if getattr(stored, field) != getattr(proposed, field)]
-        if changed:
-            return WriteRefusal(
-                error_code=Code.RULES_SAISON_FINISHED,
-                status=HTTPStatus.CONFLICT,
-            )
-
-    # Early for the reason the first freeze is: where a number cannot change at all, naming what it
-    # may not drop past sends an admin to the wrong repair. Compared by value, so a resubmission
-    # passes.
+    # Early for the freeze's reason: where a number cannot change at all, naming what it may not drop
+    # past sends an admin to the wrong repair. Compared by value, so a resubmission passes.
 
     # ABSOLUTE, in every status and whatever is recorded: the shape and the fixtures drawn from it
     # are one fact, so this path never moves half of it. The whole of it moves on the draw, which
@@ -121,15 +126,6 @@ def find_rules_refusal(
                 error_code=Code.RULES_SHAPE_AFTER_DRAW,
                 status=HTTPStatus.CONFLICT,
             )
-
-    # Compared by value, so a dates-only edit resubmitting the stored order passes.
-    # After `REQ-RULES-011`, whose fields this one does not touch,
-    # so neither refusal can misdirect about the other's.
-    if stored is not None and played_knockout_fixtures > 0 and getattr(stored, SEEDING_RULES_FIELD) != getattr(proposed, SEEDING_RULES_FIELD):
-        return WriteRefusal(
-            error_code=Code.RULES_TIEBREAK_AFTER_KNOCKOUT,
-            status=HTTPStatus.CONFLICT,
-        )
 
     # Before the bracket rule, being narrower: it names two fields an admin can compare, where the
     # bracket's answer is a property of their product.

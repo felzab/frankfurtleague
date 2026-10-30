@@ -87,9 +87,6 @@ MAILED_ON_THE_MARK = "2026-03-29"
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 REDACTED_AT = "2026-04-01T10:30:00+00:00"
 
-# One pass an hour, as `fl_frontend/src/features/bewerbungen/sweep.ts :: SWEEP_INTERVAL_MS` sets it.
-PASSES_A_DAY = 24
-
 # Fixed rather than generated, so a failure names the same row every run.
 REMIND_OID = ObjectId("6890a1b2c3d4e5f607960001")
 DELETE_OID = ObjectId("6890a1b2c3d4e5f607960002")
@@ -1470,21 +1467,17 @@ class TestOneRowHoldsBackNoOther:
             2
         ]
 
-    def test_a_pass_whose_every_reminder_fails_records_its_day_and_counts_them(self, mongo_replica_set_url: str):
-        """Every stamp refused, so no half commits and the day is stamped alone: the count is all that tells this pass from a clean one."""
+    def test_a_pass_whose_every_reminder_fails_counts_them(self, mongo_replica_set_url: str):
+        """Every stamp refused, so no half commits: the count is all that tells this pass from a clean one."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].update_many({}, {"$unset": {"trikot": ""}})
             await refuse_writes_breaking(database, Collection.BEWERBUNGEN, {"required": ["trikot"]})
             answer = await sweep(database, client)
 
-            return (
-                answer.erinnerungen,
-                answer.fehlgeschlagen,
-                (await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])).sweep_gelaufen_am,
-            )
+            return answer.erinnerungen, answer.fehlgeschlagen
 
-        assert on_a_league(mongo_replica_set_url, body, mutates_schema=True) == ([], 1, TODAY)
+        assert on_a_league(mongo_replica_set_url, body, mutates_schema=True) == ([], 1)
 
     def test_a_refused_announcement(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """An application stored before a field it now requires: the stamp's update is refused under strict validation."""
@@ -1595,77 +1588,6 @@ class TestTheSeasonList:
         response = on_a_league(mongo_replica_set_url, body, next_status="future")
 
         assert response.saison_ids == [OTHER_SAISON_ID, SAISON_ID, NEXT_SAISON_ID]
-
-    def test_it_answers_the_day_the_last_pass_stored(self, mongo_replica_set_url: str):
-        """Null before any pass and the day after one, which is what parts an unarmed sweep from a quiet one."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            before = await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])
-            await sweep(database, client, saison_id=NEXT_SAISON_ID)
-            after = await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])
-
-            return before.sweep_gelaufen_am, after.sweep_gelaufen_am
-
-        assert on_a_league(mongo_replica_set_url, body) == (None, TODAY)
-
-    def test_the_read_stamps_nothing_of_its_own(self, mongo_replica_set_url: str):
-        """A read that stamped would answer `it ran` to the operator asking whether it had."""
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            before = await database[Collection.AKTIONEN].count_documents({})
-            response = await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])
-            after = await database[Collection.AKTIONEN].count_documents({})
-
-            return response.saison_ids, after - before
-
-        assert on_a_league(mongo_replica_set_url, body) == ([OTHER_SAISON_ID, SAISON_ID, NEXT_SAISON_ID], 0)
-
-
-class TestThePassRecordsTheDayItRan:
-    def test_a_pass_that_reminded_nobody_and_deleted_nothing_still_records_the_day(self, mongo_replica_set_url: str):
-        """Over the season holding no application at all, so the day is the whole of what the pass wrote."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            before = await database[Collection.AKTIONEN].count_documents({})
-            response = await sweep(database, client, saison_id=NEXT_SAISON_ID)
-            after = await database[Collection.AKTIONEN].count_documents({})
-            stamped = await database[Collection.SAISONS].find({}, {"sweep_gelaufen_am": 1}).sort("_id", 1).to_list(length=None)
-
-            return response, after - before, [row.get("sweep_gelaufen_am") for row in stamped]
-
-        response, appended, days = on_a_league(mongo_replica_set_url, body)
-
-        assert (response.erinnerungen, response.loeschungen) == ([], [])
-        assert (response.abgelehnte_geloescht, response.angenommene_geloescht, response.kontaktbloecke_geleert) == (0, 0, 0)
-        assert appended == 1
-        # Every season and not the one swept: one pass stamps them all, which is what makes the day
-        # the run's rather than the season's.
-        assert days == [TODAY, TODAY, TODAY]
-
-    def test_the_days_second_pass_appends_no_row_at_all(self, mongo_replica_set_url: str):
-        """The stamp reaches only a season not yet stamped today, and a fan-out that changed nothing logs nothing: one row a day."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await sweep(database, client, saison_id=NEXT_SAISON_ID)
-            after_first = await database[Collection.AKTIONEN].count_documents({})
-            await sweep(database, client, saison_id=NEXT_SAISON_ID)
-            after_second = await database[Collection.AKTIONEN].count_documents({})
-
-            return after_second - after_first
-
-        assert on_a_league(mongo_replica_set_url, body) == 0
-
-    def test_a_whole_days_passes_over_every_season_cost_one_row(self, mongo_replica_set_url: str):
-        """The arithmetic the shape stands on: a row per season per pass would bury the administrative history the page can reach."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            for _ in range(PASSES_A_DAY):
-                for saison_id in (OTHER_SAISON_ID, SAISON_ID, NEXT_SAISON_ID):
-                    await sweep(database, client, saison_id=saison_id)
-
-            return await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.SAISONS)})
-
-        assert on_a_league(mongo_replica_set_url, body) == 1
 
 
 def numbered(position: int) -> ObjectId:
@@ -1788,8 +1710,6 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
             async def counted(due: int) -> int:
                 await database[Collection.BEWERBUNGEN].delete_many({})
                 await database[Collection.BEWERBUNGEN].insert_many([application(numbered(position)) for position in range(due)])
-                # Stamped already, so the run's own stamp costs both runs the same guard read.
-                await database[Collection.SAISONS].update_many({}, {"$set": {"sweep_gelaufen_am": TODAY}})
 
                 return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
@@ -1821,7 +1741,6 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
             async def counted(rows: list[dict[str, Any]]) -> int:
                 await database[Collection.BEWERBUNGEN].delete_many({})
                 await database[Collection.BEWERBUNGEN].insert_many(rows)
-                await database[Collection.SAISONS].update_many({}, {"$set": {"sweep_gelaufen_am": TODAY}})
 
                 return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
@@ -1841,7 +1760,6 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
             async def counted(rows: list[dict[str, Any]]) -> int:
                 await database[Collection.BEWERBUNGEN].delete_many({})
                 await database[Collection.BEWERBUNGEN].insert_many(rows)
-                await database[Collection.SAISONS].update_many({}, {"$set": {"sweep_gelaufen_am": TODAY}})
 
                 return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
@@ -1861,7 +1779,6 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
                 await database[Collection.SAISON_TEAMS].insert_many(
                     [{**junction_row(), "_id": numbered(position), "team_id": numbered(position)} for position in range(due)]
                 )
-                await database[Collection.SAISONS].update_many({}, {"$set": {"sweep_gelaufen_am": TODAY}})
 
                 return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
