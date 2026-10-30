@@ -11,7 +11,7 @@ import { FormSpielortSection } from "./FormSpielortSection";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
-import type { FLSpielOrtFieldDraft, FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/schemas";
+import type { FLSpielOrtFieldDraft, FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/types";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { CalendarDate, Time } from "@internationalized/date";
 

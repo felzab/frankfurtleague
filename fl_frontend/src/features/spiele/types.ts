@@ -1,5 +1,68 @@
-import type { FLSaisonPhase } from "../saisons/schemas";
-import type { FLSpielStatus } from "./schemas";
+import type {
+  FLPatchSpielDataPayload,
+  FLPatchSpielDataResponse,
+  FLSpielJoined,
+  FLSpielOrtField,
+  FLSpielSchiedsrichterField,
+  FLSpielSchiedsrichterFieldPublic,
+  FLSpielTeamFieldJoined,
+} from "@/core/generated/client/types";
+
+/**
+ * A fixture of either tier, as every reader taking one types it: the referee's `name_is_public` is the base tier's
+ * alone and `schiedsrichter_id` the admin tier's, so each is optional here where its own read serves it.
+ */
+export type FLSpiel = Omit<FLSpielJoined, "schiedsrichter"> & {
+  schiedsrichter: (FLSpielSchiedsrichterFieldPublic & Partial<Pick<FLSpielSchiedsrichterField, "schiedsrichter_id">>) | null;
+};
+
+/** Where a knockout seat's club comes from: a group's placing or an earlier fixture's outcome. */
+export type FLSpielQuelle = NonNullable<FLSpielJoined["team1_quelle"]>;
+
+/** One wiring or booking fault the season carries, told apart by its `reason`. */
+export type FLBracketFault = FLPatchSpielDataResponse["bracket_faults"][number];
+
+/** One side as the document stores it, and as the editor's draft carries it: the pickers render the club by name. */
+export type FLSpielTeamField = Omit<FLSpielTeamFieldJoined, "austritt_type">;
+
+/**
+ * Wherever a joined `austritt` is neither read nor available: asking for it there makes a caller invent one, and an
+ * invented one is a wrong answer rather than a missing one.
+ */
+export type FLSpielWithStoredSides = Omit<FLSpiel, "team1" | "team2"> & {
+  team1: FLSpielTeamField | null;
+  team2: FLSpielTeamField | null;
+};
+
+/**
+ * An emptied currency field is `null` while the admin types and must not become 0. The write's schemas still reject
+ * `null`, so it fails with a message rather than saving a wrong number.
+ */
+export type FLSpielOrtFieldDraft = Omit<FLSpielOrtField, "mietpreis"> & { mietpreis: number | null };
+export type FLSpielSchiedsrichterFieldDraft = Omit<FLSpielSchiedsrichterField, "payment"> & { payment: number | null };
+
+/** `null` until entered: `0` is a real value here, since a side can miss every kick. */
+export type FLSpielElfmeterschiessenDraft = { team1: number | null; team2: number | null };
+
+/**
+ * The read counterpart to `FLPatchSpielDataPayloadDraft`, and admin-tier: a cleared money field is `null` while the
+ * admin types, and declaring otherwise takes a cast that type-checks while the value travels.
+ */
+export type FLSpielWithDraftFields = Omit<FLSpielWithStoredSides, "ort" | "schiedsrichter"> & {
+  ort: FLSpielOrtFieldDraft | null;
+  schiedsrichter: FLSpielSchiedsrichterFieldDraft | null;
+};
+
+/**
+ * What the old form's `buildPayload` returns, and why it needs no cast: a cast would launder the money and shoot-out
+ * fields into a shape forbidding `null`, so an empty field blocks the save with a message nothing rendered.
+ */
+export type FLPatchSpielDataPayloadDraft = Omit<FLPatchSpielDataPayload, "ort" | "schiedsrichter" | "elfmeterschiessen"> & {
+  spiel_id: string;
+  ort: FLSpielOrtFieldDraft | null;
+  schiedsrichter: FLSpielSchiedsrichterFieldDraft | null;
+  elfmeterschiessen: FLSpielElfmeterschiessenDraft | null;
+};
 
 /**
  * **Declared here rather than in `admin`, because it classifies a Spiel**: the edit page reads the
@@ -19,16 +82,3 @@ export type ActionRequiredCategory =
   | "schiedsrichter_missing"
   | "schiedsrichter_abgesagt"
   | "abgesagt";
-
-type FLSpieleSortingOptions = "datum" | "uhrzeit" | "spiel_nr" | "saison_phase";
-
-export type FLSpieleFilterParams = {
-  saison_id?: string;
-  saison_phase?: "playoffs" | FLSaisonPhase;
-  spiel_status?: FLSpielStatus;
-  team_id?: string;
-
-  limit?: number;
-  sort_by?: FLSpieleSortingOptions;
-  order?: "asc" | "desc";
-};

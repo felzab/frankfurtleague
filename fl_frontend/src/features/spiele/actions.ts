@@ -1,6 +1,6 @@
 "use server";
 
-import { FLSpielberichtBerichtSchema } from "@/features/spielberichte/schemas";
+import { SpielePatchSpielDataQueryParams } from "@/core/generated/zod/inputs";
 import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -33,13 +33,13 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawUebernim
     }
 
     // A failed parse costs the adoption, never the edit: the report reads not adopted, and adopting it again repairs that.
-    const uebernimmtBericht = FLSpielberichtBerichtSchema.shape.version.nullable().safeParse(rawUebernimmtBericht);
+    const uebernimmtBericht = SpielePatchSpielDataQueryParams.shape.uebernimmt_bericht.safeParse(rawUebernimmtBericht);
 
     // A refusal reaches the form rather than the error page: it is about what was submitted, and
     // the editor is where the wrong value still sits.
     let patch_operation;
     try {
-      patch_operation = await patchAdminSpielData(validated.data, uebernimmtBericht.success ? uebernimmtBericht.data : null);
+      patch_operation = await patchAdminSpielData(validated.data, uebernimmtBericht.success ? (uebernimmtBericht.data ?? null) : null);
     } catch (error) {
       const refusal = mapSpielRefusal(error);
       if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };

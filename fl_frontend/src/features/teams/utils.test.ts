@@ -3,7 +3,6 @@ import { side, spielFields } from "@/test-support/fixtures.ts";
 import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
 import { assert, describe, expect, it } from "vitest";
 
-import { FLSpielSchema } from "../spiele/schemas.ts";
 import { EINGETRAGEN_VON_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
 import { buildKontakteFacets, buildTeamFacets, KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung, TEAM_FACETS } from "./facets.ts";
 import { FLGruppenTeamSchema, FLTrikotFarbeSchema } from "./schemas.ts";
@@ -23,7 +22,7 @@ import {
 } from "./utils.ts";
 
 import type { FLSaisonPhase } from "../saisons/schemas.ts";
-import type { FLSpiel } from "../spiele/schemas.ts";
+import type { FLSpiel } from "../spiele/types.ts";
 import type { FLGruppenTeam, FLKontaktperson, FLSaisonTeamKontakte, FLTeamWithMemberships } from "./schemas.ts";
 
 const TEAM_ID = (seed: number) => `6890a1b2c3d4e5f6071900${String(seed).padStart(2, "0")}`;
@@ -154,10 +153,13 @@ describe("computePlatzByTeamId", () => {
 const SUBJECT = TEAM_ID(1);
 const OPPONENT = TEAM_ID(2);
 
-/** Parsed at construction, for `GRUPPEN_TEAM`'s reason: a drifted field fails where it is built. */
-const SPIEL: FLSpiel = FLSpielSchema.parse(
-  spielFields({ id: "6890a1b2c3d4e5f607190101", team1: side(SUBJECT), team2: side(OPPONENT), spiel_nr: 1, saison_id: "2026" }),
-);
+const SPIEL: FLSpiel = spielFields({
+  id: "6890a1b2c3d4e5f607190101",
+  team1: side(SUBJECT),
+  team2: side(OPPONENT),
+  spiel_nr: 1,
+  saison_id: "2026",
+});
 
 const fixture = ({
   phase,

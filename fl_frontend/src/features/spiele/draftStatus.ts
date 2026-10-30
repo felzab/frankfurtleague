@@ -4,23 +4,22 @@ import { formatEuro, formatSpielDatum, formatUhrzeit } from "@/shared/utils/form
 import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_NONE_LABEL } from "./constants";
 import { formatQuelle } from "./utils";
 
+import type { FLSonderereignis, FLSpielJoinedAdmin } from "@/core/generated/client/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type {
-  FLSonderereignis,
+  ActionRequiredCategory,
   FLSpiel,
-  FLSpielAdmin,
   FLSpielElfmeterschiessenDraft,
   FLSpielOrtFieldDraft,
   FLSpielQuelle,
   FLSpielSchiedsrichterFieldDraft,
   FLSpielTeamField,
   FLSpielWithDraftFields,
-} from "./schemas";
-import type { ActionRequiredCategory } from "./types";
+} from "./types";
 
 /**
  * A cleared currency field is `null` and an unpicked placing `NaN`, so a draft is not an
- * `FLSpielAdmin` — but that IS assignable to this, which lets one descriptor `read` serve stored and
+ * `FLSpielJoinedAdmin` — but that IS assignable to this, which lets one descriptor `read` serve stored and
  * draft both.
  */
 export type FLSpielDraftFields = {
@@ -397,7 +396,7 @@ export function deriveSpielDraftStatus({
   expectedCategories,
   fieldErrors,
 }: {
-  stored: FLSpielAdmin;
+  stored: FLSpielJoinedAdmin;
   draft: FLSpielDraftFields;
   // Required, never defaulted: an editor leaving its seed out disables the save of a report equal to the stored result.
   uebernimmtBericht: number | null;

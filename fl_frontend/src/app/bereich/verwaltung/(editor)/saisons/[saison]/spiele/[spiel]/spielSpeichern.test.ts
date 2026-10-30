@@ -7,13 +7,12 @@ import { spielStateKey } from "@/features/spiele/utils";
 import { spielSpeichern } from "./spielSpeichern";
 import { KEIN_SONDEREREIGNIS } from "./spielWerte";
 
-import type { Code, FLPatchSpielDataPayload, FLPatchSpielDataResponse } from "@/core/generated/client/types";
-import type { FLSpielAdmin } from "@/features/spiele/schemas";
+import type { Code, FLPatchSpielDataPayload, FLPatchSpielDataResponse, FLSpielJoinedAdmin } from "@/core/generated/client/types";
 
 const SPIEL_ID = "64b000000000000000000001";
 
 /** A knockout fixture with every field the editor does not show set, so a save dropping one is seen. */
-const GESPEICHERT: FLSpielAdmin = {
+const GESPEICHERT: FLSpielJoinedAdmin = {
   id: SPIEL_ID,
   spieltag_id: "64b000000000000000000002",
   team1: { team_id: "64b000000000000000000003", name: "Woehlerschule", shorthand: "WO", tore: 2, austritt_type: null },
@@ -35,7 +34,7 @@ const GESPEICHERT: FLSpielAdmin = {
 };
 
 /** The fixture once the write stored the new time. */
-const NACHHER: FLSpielAdmin = { ...GESPEICHERT, uhrzeit: "18:00:00" };
+const NACHHER: FLSpielJoinedAdmin = { ...GESPEICHERT, uhrzeit: "18:00:00" };
 
 /** The write's answer where it moved no other fixture. */
 const NICHTS_BEWEGT: FLPatchSpielDataResponse = {
@@ -163,7 +162,7 @@ describe("the match editor's save", () => {
   });
 
   it("drops a no-show's awarded goals with the no-show, so they never stand as a played result", async () => {
-    const nichtangetreten: FLSpielAdmin = {
+    const nichtangetreten: FLSpielJoinedAdmin = {
       ...GESPEICHERT,
       team1: { team_id: "64b000000000000000000003", name: "Woehlerschule", shorthand: "WO", tore: 3, austritt_type: null },
       team2: { team_id: "64b000000000000000000004", name: "Ernst-Reuter-Schule", shorthand: "ER", tore: 0, austritt_type: null },

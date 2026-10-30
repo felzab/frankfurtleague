@@ -2,7 +2,6 @@ import { side, spielbestaetigungFields, spielFields } from "@/test-support/fixtu
 import { assert, describe, expect, it } from "vitest";
 
 import { FLSpielbestaetigungSchema } from "../spielbestaetigungen/schemas.ts";
-import { FLSpielSchema } from "../spiele/schemas.ts";
 import {
   ACTION_REQUIRED_LABELS,
   bestaetigungNotizen,
@@ -11,26 +10,23 @@ import {
   saisonBestaetigungen,
 } from "./utils.ts";
 
-import type { FLSpielberichtZustand } from "@/features/spielberichte/schemas.ts";
+import type { FLSpielberichtZustand } from "@/core/generated/client/types";
 import type { SpielbestaetigungFields } from "@/test-support/fixtures.ts";
 import type { FLSpielbestaetigung } from "../spielbestaetigungen/schemas.ts";
-import type { FLBracketFault, FLSpiel } from "../spiele/schemas.ts";
+import type { FLBracketFault, FLSpiel } from "../spiele/types.ts";
 import type { FLActionUrgency } from "./utils.ts";
 
 const TODAY = "2026-07-30";
 
-/** Parsed at construction: a field the shared literal has fallen behind on fails where the fixture is built. */
-const SPIEL: FLSpiel = FLSpielSchema.parse(
-  spielFields({
-    team1: side("6890a1b2c3d4e5f607182932", { name: "Team A", shorthand: "TA", tore: 2 }),
-    team2: side("6890a1b2c3d4e5f607182933", { name: "Team B", shorthand: "TB", tore: 1 }),
-    datum: "2026-07-20",
-    uhrzeit: "18:00:00",
-    ort: { spielort_id: "6890a1b2c3d4e5f607182934", name: "Sportplatz Ost", maps_link: "x" },
-    schiedsrichter: { schiedsrichter_id: "6890a1b2c3d4e5f607182935", name: "Ref", name_is_public: true },
-    ergebnis: "2:1",
-  }),
-);
+const SPIEL: FLSpiel = spielFields({
+  team1: side("6890a1b2c3d4e5f607182932", { name: "Team A", shorthand: "TA", tore: 2 }),
+  team2: side("6890a1b2c3d4e5f607182933", { name: "Team B", shorthand: "TB", tore: 1 }),
+  datum: "2026-07-20",
+  uhrzeit: "18:00:00",
+  ort: { spielort_id: "6890a1b2c3d4e5f607182934", name: "Sportplatz Ost", maps_link: "x" },
+  schiedsrichter: { schiedsrichter_id: "6890a1b2c3d4e5f607182935", name: "Ref", name_is_public: true },
+  ergebnis: "2:1",
+});
 
 // Lands in no category, so each test knocks out one field and is unambiguous about the rule it
 // exercises.

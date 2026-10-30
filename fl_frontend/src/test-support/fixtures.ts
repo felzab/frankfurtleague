@@ -1,38 +1,20 @@
+import type {
+  FLSpielJoined,
+  FLSpielSchiedsrichterField,
+  FLSpielSchiedsrichterFieldPublic,
+  FLSpielTeamFieldJoined,
+} from "@/core/generated/client/types";
+
 /** One side of a fixture, as the joined read shape carries it. */
-export interface SpielSide {
-  team_id: string;
-  tore: number | null;
-  name: string;
-  shorthand: string;
-  austritt_type: string | null;
-}
+type SpielSide = FLSpielTeamFieldJoined;
 
 /**
- * Every field a fixture document carries.
- *
- * Typed structurally rather than off `FLSpielSchema`, which `shared` may not import:
- * the schema's parse stands at the call site and refuses the drift.
+ * Every field a fixture read carries, of either tier: the referee's id is the admin tier's alone. The shape of
+ * `fl_frontend/src/features/spiele/types.ts :: FLSpiel`, which `shared` may not import.
  */
-export interface SpielFields {
-  id: string;
-  spieltag_id: string;
-  team1: SpielSide | null;
-  team2: SpielSide | null;
-  team1_quelle: unknown;
-  team2_quelle: unknown;
-  datum: string | null;
-  uhrzeit: string | null;
-  ort: unknown;
-  schiedsrichter: unknown;
-  ergebnis: string | null;
-  elfmeterschiessen: unknown;
-  spiel_nr: number;
-  sonderereignis: string | null;
-  saison_phase: string;
-  saison_id: string;
-  notiz: string | null;
-  ansetzung_bestaetigt: boolean | null;
-}
+type SpielFields = Omit<FLSpielJoined, "schiedsrichter"> & {
+  schiedsrichter: (FLSpielSchiedsrichterFieldPublic & Partial<Pick<FLSpielSchiedsrichterField, "schiedsrichter_id">>) | null;
+};
 
 /** A club on one side of a fixture, scoring nothing and still in the league unless the caller says otherwise. */
 export function side(teamId: string, overrides: Partial<Omit<SpielSide, "team_id">> = {}): SpielSide {

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { berichtChip, mapSpielberichtRefusal } from "./utils.ts";
 
-import type { FLSpielberichtZustand } from "./schemas.ts";
+import type { FLSpielberichtZustand } from "@/core/generated/client/types.ts";
 
 const VORSCHLAG = { team1_tore: 3, team2_tore: 1, elfmeterschiessen: null, sonderereignis: null };
 

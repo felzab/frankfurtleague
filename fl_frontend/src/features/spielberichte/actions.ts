@@ -1,12 +1,12 @@
 "use server";
 
 import { frontend_config } from "@/core/config";
+import { spielberichtePatchSpielbericht } from "@/core/generated/client/sdk";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { SPIELBERICHT_GESCHLOSSEN_REFUSAL } from "./constants";
-import { patchAdminSpielbericht } from "./mutations";
 import { FLSpielberichtPayloadSchema } from "./schemas";
 import { mapSpielberichtRefusal } from "./utils";
 
@@ -32,7 +32,7 @@ export async function patchAdminSpielberichtAction(
     }
 
     try {
-      await patchAdminSpielbericht(id.data, validated.data);
+      await spielberichtePatchSpielbericht(id.data, validated.data);
     } catch (error) {
       const refusal = mapSpielberichtRefusal(error, "admin");
       if (refusal !== null) return refusalResult(refusal);

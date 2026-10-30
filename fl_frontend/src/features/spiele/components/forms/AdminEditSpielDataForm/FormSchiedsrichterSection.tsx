@@ -13,7 +13,7 @@ import { suppressEnterSubmit } from "./suppressEnterSubmit";
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
 import type { SpielFieldPath } from "@/features/spiele/draftStatus";
-import type { FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/schemas";
+import type { FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/types";
 
 /** A referee a fixture cannot be booked to until their own confirmation is stamped. */
 const NOCH_NICHT_BESTAETIGT = "Noch nicht bestätigt";

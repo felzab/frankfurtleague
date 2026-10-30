@@ -3,7 +3,7 @@ import { Chip } from "@heroui/react/chip";
 import { PHASE_LABELS } from "@/features/saisons/constants";
 import { PILL_RADIUS_CLASSES, PILL_TINT_CLASSES } from "@/shared/components/ui/badges";
 
-import type { FLSaisonPhase } from "@/features/saisons/schemas";
+import type { FLSaisonPhase } from "@/core/generated/client/types";
 
 // Module scope, as in `SpielStatusChip`: this map allocates an `<svg>` per phase.
 const PHASE_ICONS: Record<FLSaisonPhase, React.ReactElement> = {

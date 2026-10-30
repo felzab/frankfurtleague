@@ -3,7 +3,7 @@
 import { createContext, useContext, useMemo } from "react";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
-import type { FLSpiel } from "@/features/spiele/schemas";
+import type { FLSpiel } from "@/features/spiele/types";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
 import type { ReactNode } from "react";

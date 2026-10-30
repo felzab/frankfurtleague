@@ -2,10 +2,10 @@ import { cache, Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { COPY } from "@/core/copy";
+import { FLSonderereignis } from "@/core/generated/client/types";
+import { SpielePatchSpielDataBody, spielePatchSpielDataBodyNotizOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
-import { NOTIZ_MAX_LENGTH } from "@/features/spiele/constants";
 import { getAdminSpiel } from "@/features/spiele/queries";
-import { FLSonderereignisSchema, FLSpielOrtFieldPayloadSchema } from "@/features/spiele/schemas";
 import { spielStateKey } from "@/features/spiele/utils";
 import { getSpielorte } from "@/features/spielorte/queries";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
@@ -18,7 +18,7 @@ import { spielSpeichern } from "./spielSpeichern";
 import { KEIN_SONDEREREIGNIS, werteOf } from "./spielWerte";
 
 import type { Copy } from "@/core/copy";
-import type { FLSonderereignis, FLSpielAdmin } from "@/features/spiele/schemas";
+import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";
 import type { Option } from "@/kit/OptionList";
 import type { Metadata } from "next";
 
@@ -41,7 +41,7 @@ const lesen = cache(async (spiel: string) => {
 });
 
 /** A match is named by its two teams, as its own page is, and by its number while a side is still open. */
-const nameOf = (spiel: FLSpielAdmin) =>
+const nameOf = (spiel: FLSpielJoinedAdmin) =>
   spiel.team1 === null || spiel.team2 === null
     ? WORTE.nummer(spiel.spiel_nr)
     : ROUTES.verwaltungSpiel.titel(spiel.team1.name, spiel.team2.name);
@@ -75,7 +75,7 @@ async function Editor({ params }: Pick<Props, "params">) {
   const beideSeiten = gespeichert.team1 !== null && gespeichert.team2 !== null;
   const sonderereignisse: Option[] = [
     { id: KEIN_SONDEREREIGNIS, label: WORTE.keines },
-    ...FLSonderereignisSchema.options.map((ereignis): Option => {
+    ...Object.values(FLSonderereignis).map((ereignis): Option => {
       const label = SONDEREREIGNISSE[ereignis];
       const offen = !beideSeiten && (ereignis === "nichtantreten_team1" || ereignis === "nichtantreten_team2");
       return offen ? { id: ereignis, label, isDisabled: true, note: WORTE.beideSeitenNoetig } : { id: ereignis, label };
@@ -96,8 +96,8 @@ async function Editor({ params }: Pick<Props, "params">) {
         mietpreis: ort.default_mietpreis,
       }))}
       sonderereignisse={sonderereignisse}
-      notizHoechstens={NOTIZ_MAX_LENGTH}
-      mietpreisPflicht={!FLSpielOrtFieldPayloadSchema.shape.mietpreis.safeParse(null).success}
+      notizHoechstens={spielePatchSpielDataBodyNotizOneMax}
+      mietpreisPflicht={!SpielePatchSpielDataBody.shape.ort.options[0].shape.mietpreis.safeParse(null).success}
       spielortAnlegen={spielortAnlegen}
       spielortRegeln={SPIELORT_REGELN}
     />

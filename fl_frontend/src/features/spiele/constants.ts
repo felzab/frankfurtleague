@@ -1,4 +1,4 @@
-import type { FLSonderereignis, FLSpielStatus } from "./schemas";
+import type { FLSonderereignis, FLSpielStatus } from "@/core/generated/client/types";
 
 /**
  * The note's bound, mirroring the backend's `SPIEL_NOTIZ_MAX_LENGTH`

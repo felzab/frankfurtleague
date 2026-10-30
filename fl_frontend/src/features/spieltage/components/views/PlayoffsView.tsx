@@ -9,7 +9,7 @@ import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 
 import { orderRoundsByWiring, spieltagLabels } from "../../utils";
 
-import type { FLSpiel } from "@/features/spiele/schemas";
+import type { FLSpiel } from "@/features/spiele/types";
 import type { FLSpieltagWithSpiele } from "../../schemas";
 
 // A round's share of the scroller once the `gap-8` gutters are out, capped at 380px, so every round is on
