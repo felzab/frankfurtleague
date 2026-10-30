@@ -85,14 +85,14 @@ beforeEach(() => {
   stand.antwort = NICHTS_BEWEGT;
 });
 
-/** The version the editor was read at, as the editor holds it. */
-const FINGERPRINT = String(GESPEICHERT.version);
+/** The version the editor was read at. */
+const VERSION = GESPEICHERT.version;
 
 describe("the match editor's save", () => {
   it("sends the changes over every field the editor does not show, as stored, on the version it read, answering the new one", async () => {
-    const answer = await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { uhrzeit: "18:00:00" } });
+    const answer = await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { uhrzeit: "18:00:00" } });
 
-    expect(answer).toEqual({ ok: true, value: "4" });
+    expect(answer).toEqual({ ok: true, value: 4 });
     expect(stand.gesendet).toEqual([
       {
         datum: "2027-03-14",
@@ -126,11 +126,11 @@ describe("the match editor's save", () => {
       ],
     } satisfies FLPatchSpielDataResponse;
 
-    const answer = await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { sonderereignis: "nichtantreten_team1" } });
+    const answer = await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { sonderereignis: "nichtantreten_team1" } });
 
     expect(answer).toEqual({
       ok: true,
-      value: "4",
+      value: 4,
       note: COPY.verwaltung.spiel.gespeichertMitFolgen(
         "Die Paarung in Spiel 31 wurde ebenfalls aktualisiert. Das eingetragene Ergebnis in Spiel 31 wurde dabei gelöscht.",
       ),
@@ -140,14 +140,14 @@ describe("the match editor's save", () => {
   it("answers as stale a fixture gone since the editor read it, writing nothing", async () => {
     stand.gelesen = null;
 
-    const answer = await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { uhrzeit: "18:00:00" } });
+    const answer = await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { uhrzeit: "18:00:00" } });
 
     expect(answer).toEqual({ ok: false, reason: COPY.shared.fehler.veraltet });
     expect(stand.gesendet).toEqual([]);
   });
 
   it("drops the shoot-out with the event that ends the match's play, as today's editor does", async () => {
-    await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { sonderereignis: "nichtantreten_team2" } });
+    await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { sonderereignis: "nichtantreten_team2" } });
 
     expect(stand.gesendet).toMatchObject([{ sonderereignis: "nichtantreten_team2", elfmeterschiessen: null }]);
   });
@@ -161,12 +161,12 @@ describe("the match editor's save", () => {
       elfmeterschiessen: null,
       sonderereignis: "nichtantreten_team2",
     };
-    const fingerprint = String(nichtangetreten.version);
+    const { version } = nichtangetreten;
 
     stand.gelesen = nichtangetreten;
     for (const sonderereignis of [KEIN_SONDEREREIGNIS, "annulliert", "nichtantreten_team1"]) {
       // Each save is made on the no-show as stored.
-      await spielSpeichern({ id: SPIEL_ID, fingerprint, changes: { sonderereignis } });
+      await spielSpeichern({ id: SPIEL_ID, version, changes: { sonderereignis } });
     }
 
     expect(stand.gesendet).toMatchObject([
@@ -178,13 +178,13 @@ describe("the match editor's save", () => {
   });
 
   it("books no venue and no price where the venue is cleared", async () => {
-    await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { spielort: null, mietpreis: "" } });
+    await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { spielort: null, mietpreis: "" } });
 
     expect(stand.gesendet).toMatchObject([{ ort: null }]);
   });
 
   it("keeps back a price that is not a figure on its field, writing nothing", async () => {
-    const answer = await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { mietpreis: "60 Euro" } });
+    const answer = await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { mietpreis: "60 Euro" } });
 
     expect(answer).toEqual({
       ok: false,
@@ -194,14 +194,14 @@ describe("the match editor's save", () => {
   });
 
   it("asks for a price while a venue is chosen, writing nothing", async () => {
-    const answer = await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { mietpreis: "" } });
+    const answer = await spielSpeichern({ id: SPIEL_ID, version: VERSION, changes: { mietpreis: "" } });
 
     expect(answer).toEqual({ ok: false, fieldErrors: { "changes.mietpreis": COPY.shared.feld.pflichtfeld } });
     expect(stand.gesendet).toEqual([]);
   });
 
   it("places the write's refusal on the field that caused it, in the status line, or on the stale-page line", async () => {
-    const save = { id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { datum: "2027-05-01" } } as const;
+    const save = { id: SPIEL_ID, version: VERSION, changes: { datum: "2027-05-01" } } as const;
 
     stand.ablehnung = refusal("spiel_outside_spieltag");
     expect(await spielSpeichern(save)).toEqual({
@@ -217,8 +217,17 @@ describe("the match editor's save", () => {
       reason: COPY.shared.ablehnung["spiel_double_booked"],
     });
 
-    stand.ablehnung = refusal("booking_schiedsrichter_moved");
-    expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "booking_schiedsrichter_moved", reason: COPY.shared.fehler.veraltet });
+    // The editor sets no team, so a team's refusal means the fixture changed under it.
+    for (const code of [
+      "booking_schiedsrichter_moved",
+      "ergebnis_side_emptied",
+      "spieltag_occupied",
+      "spieltag_occupied_by_the_resolution",
+      "eligibility_team_not_in_saison",
+    ] as const) {
+      stand.ablehnung = refusal(code);
+      expect(await spielSpeichern(save), code).toEqual({ ok: false, errorCode: code, reason: COPY.shared.fehler.veraltet });
+    }
 
     // The fixture changed since the editor read it: the write refused the version it was sent.
     stand.ablehnung = refusal("version_stale");

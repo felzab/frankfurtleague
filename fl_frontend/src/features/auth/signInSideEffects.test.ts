@@ -13,7 +13,7 @@ import { assert, describe, expect, it, vi } from "vitest";
 
 import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
 
-import type { ActionAnswer } from "@/kit/useFormAction.ts";
+import type { ActionAnswer } from "@/core/action.ts";
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 import type { LookupFixture } from "@/test-support/subjectFixtures.ts";
 

@@ -4,21 +4,11 @@ import { startTransition, useActionState, useLayoutEffect, useRef, useState } fr
 import { unstable_rethrow, useRouter } from "next/navigation";
 
 import { COPY } from "@/core/copy";
-import { edgeRefusedSend } from "@/shared/utils/actionError";
 
+import { isEdgeRefusal } from "./edgeRefusal";
+
+import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { Code } from "@/core/generated/client/types";
-
-/**
- * What a server action answers a form, as `fl_frontend/src/core/action.ts` builds it: done, with what the page
- * needs next and, where the write did more than the form asked, the line saying so; or not done, with each
- * field's message by the field's `name`, the one line the status line shows, and the backend's code where the
- * backend refused. A refusal a person can cause from the screen brings its reason, a stale read the stale-page
- * line, an ended session the sign-in line, anything unexpected the shared failure line; a refusal for its
- * fields alone may leave the line to the form.
- */
-export type ActionAnswer<Value = undefined> =
-  { ok: true; value: Value; note?: Copy } | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy; errorCode?: Code };
 
 /**
  * Anything the action throws is answered with the stale-page line, and the page is read again: the press may
@@ -36,7 +26,7 @@ export function answering<Payload, Value>(
     } catch (thrown) {
       // A redirect or a not-found is how the action leads on; React hands it to Next's boundary.
       unstable_rethrow(thrown);
-      if (edgeRefusedSend(thrown) !== null) return { ok: false, reason: COPY.shared.fehler.zuVieleVersuche };
+      if (isEdgeRefusal(thrown)) return { ok: false, reason: COPY.shared.fehler.zuVieleVersuche };
       refresh();
       return { ok: false, reason: COPY.shared.fehler.veraltet };
     }

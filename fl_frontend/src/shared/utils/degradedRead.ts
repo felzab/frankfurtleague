@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer; a rebuilt page's failed read throws to the frame's one error page.
 import "server-only";
 
 import { unstable_rethrow } from "next/navigation";

@@ -1,4 +1,4 @@
-import { logger } from "@/core/logging";
+import { logger } from "./logging";
 
 /** Why a person was turned away: no session, no seat at the address, or not the Funktion a page speaks to. */
 export type Verweigerung = "keine_sitzung" | "kein_sitz" | "keine_funktion";

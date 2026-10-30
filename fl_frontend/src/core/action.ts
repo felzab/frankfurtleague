@@ -15,18 +15,32 @@ import { getSubjectSession } from "./subject";
 import { mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "./trace";
 import { turnstileRefusal } from "./turnstile";
 import { TURNSTILE_FIELD } from "./turnstileToken";
+import { logVerweigert } from "./verweigert";
 import { feldMeldung } from "./zodGerman";
 
-import type { ActionAnswer } from "@/kit/useFormAction";
 import type { z } from "zod";
 import type { AdminRefusal } from "./auth";
 import type { Copy } from "./copy";
 import type { Funktion } from "./funktionen";
-import type { Code } from "./generated/client/types";
+import type { Code, FLRefusedField } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
+
+/**
+ * What a server action answers a form, as `action` builds it and the kit's `useFormAction` reads it: done, with
+ * what the page needs next and, where the write did more than the form asked, the line saying so; or not done,
+ * with each field's message by the field's `name`, the one line the status line shows, and the backend's code
+ * where the backend refused. A refusal a person can cause from the screen brings its reason, a stale read the
+ * stale-page line, an ended session the sign-in line, anything unexpected the shared failure line; a refusal for
+ * its fields alone may leave the line to the form.
+ */
+export type ActionAnswer<Value = undefined> =
+  { ok: true; value: Value; note?: Copy } | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy; errorCode?: Code };
 
 /** A code the catalogue words in a person's own terms, `COPY.shared.ablehnung`'s keys. */
 type WordedCode = keyof typeof COPY.shared.ablehnung;
+
+/** A rule the catalogue words, by the kind a refused payload's field names it with, `COPY.shared.regel`'s keys. */
+type WordedRule = keyof typeof COPY.shared.regel;
 
 /** The dotted path of every leaf of an input, a list counting as one leaf: the key its box's message is answered by. */
 type Field<T, Above extends string = ""> = T extends readonly unknown[]
@@ -52,10 +66,12 @@ type Declared<Schema extends z.ZodType> = {
   /** The generated request schema, or a draft built from its fields, so every published bound holds the input. */
   readonly input: Schema;
   /**
-   * The codes this screen words in their own words, a person causing each knowingly from it: on the box it names,
-   * or, with `true`, as the status line's reason. Every other code answers a shared failure line.
+   * The codes and the rules this screen words in their own words, a person causing each knowingly from it: on the
+   * box it names, or, with `true`, as the status line's reason. A rule is placed by the screen, not by the refused
+   * field's path, which for a rule over several fields names their whole block. Every other code, and a refused
+   * payload breaking any rule the screen does not word, answers a shared failure line.
    */
-  readonly ownWords?: { readonly [C in WordedCode]?: Field<z.output<Schema>> | true };
+  readonly ownWords?: { readonly [C in WordedCode | WordedRule]?: Field<z.output<Schema>> | true };
   /** The example a box's „Format: …“ message names, by the box. */
   readonly examples?: { readonly [F in Field<z.output<Schema>>]?: Copy };
 };
@@ -99,7 +115,13 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "wiring_seed_past_the_opening_round",
   "wiring_gruppe_not_run",
   "funktion_nicht_gehalten",
-  // The input passed the API's own rules as this page knows them: the page is older than the API.
+  // A team's refusals, which a screen setting no team meets only where the fixture changed under it; a screen
+  // setting one words them as its own.
+  "ergebnis_side_emptied",
+  "spieltag_occupied",
+  "spieltag_occupied_by_the_resolution",
+  "eligibility_team_not_in_saison",
+  // A rule the screen does not word, its input holding every rule the API publishes: the page is older than the API.
   "payload_refused",
   "body_unreadable",
 ]);
@@ -116,9 +138,10 @@ const UNEXPECTED = { ok: false, reason: COPY.shared.fehler.unerwartet } as const
 
 const isWorded = (code: Code): code is Code & WordedCode => Object.hasOwn(COPY.shared.ablehnung, code);
 
-// The backend's own strip: Pydantic's `strip_whitespace` drops Unicode's White_Space characters from both ends, a
-// set JavaScript's `trim` widens by U+FEFF and Python's `str.strip` by U+001C to U+001F.
-const ENDS = /^\p{White_Space}+|\p{White_Space}+$/gu;
+// The backend's own strip, Python's `str.strip`: Unicode's White_Space and U+001C to U+001F, from both ends. A field
+// stripped by Pydantic's `strip_whitespace` keeps those four, which is safe, since the stripped text is what is sent.
+// Never JavaScript's `trim`, whose set adds U+FEFF, which the backend keeps.
+const ENDS = /^[\p{White_Space}\x1c-\x1f]+|[\p{White_Space}\x1c-\x1f]+$/gu;
 
 /** Every text in the input stripped as the backend strips it, so a bound is judged on what the backend stores. */
 function stripped(value: unknown): unknown {
@@ -177,8 +200,35 @@ function parsed<Schema extends z.ZodType>(
   return { answer: unplaced ? UNEXPECTED : { ok: false, fieldErrors } };
 }
 
+const isWordedRule = (kind: string): kind is WordedRule => Object.hasOwn(COPY.shared.regel, kind);
+
+/**
+ * A refused payload in this screen's words, each broken rule on the box the screen names for it, or `undefined` where
+ * the screen does not word every rule the payload broke.
+ */
+function brokenRules<Schema extends z.ZodType>(declared: Declared<Schema>, fields: readonly FLRefusedField[]): ActionAnswer<never> | undefined {
+  if (fields.length === 0) return undefined;
+  const fieldErrors: Record<string, Copy> = {};
+  let reason: Copy | undefined;
+  for (const { kind } of fields) {
+    const placed = isWordedRule(kind) ? declared.ownWords?.[kind] : undefined;
+    if (placed === undefined || !isWordedRule(kind)) return undefined;
+    // The first rule a box broke is the one it shows.
+    if (typeof placed === "string") fieldErrors[placed] ??= COPY.shared.regel[kind];
+    else reason ??= COPY.shared.regel[kind];
+  }
+  return {
+    ok: false,
+    errorCode: "payload_refused",
+    ...(Object.keys(fieldErrors).length > 0 ? { fieldErrors } : {}),
+    ...(reason === undefined ? {} : { reason }),
+  };
+}
+
 /** The backend's refusal in this screen's words where it words the code, else the shared line its kind answers. */
-function refused<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code): ActionAnswer<never> {
+function refused<Schema extends z.ZodType>(declared: Declared<Schema>, code: Code, fields: readonly FLRefusedField[]): ActionAnswer<never> {
+  const rules = code === "payload_refused" ? brokenRules(declared, fields) : undefined;
+  if (rules !== undefined) return rules;
   const placed = isWorded(code) ? declared.ownWords?.[code] : undefined;
   if (placed !== undefined && isWorded(code)) {
     const text = COPY.shared.ablehnung[code];
@@ -201,14 +251,9 @@ function logFailure(name: string, error: unknown): void {
   logger.error("action.failed", undefined, { action: name, name: error instanceof Error ? error.name : "unknown", ...requestOf(error) });
 }
 
-/** The bot check's refusal as the catalogue holds it, found by its words. */
-function checkRefusal(satz: string): Copy {
-  return Object.values(COPY.shared.pruefung).find((text) => text === satz) ?? COPY.shared.fehler.unerwartet;
-}
-
-/** A person turned away, by the operation and the reason, never an address. */
+/** A person turned away, logged as a page's turn-away is. */
 function turnedAwayPerson(operation: string, grund: "keine_sitzung" | "kein_sitz"): ActionAnswer<never> {
-  logger.info("funktion.verweigert", { operation, grund });
+  logVerweigert(operation, grund);
   return { ok: false, reason: grund === "keine_sitzung" ? COPY.shared.fehler.abgelaufen : COPY.shared.fehler.veraltet };
 }
 
@@ -243,7 +288,7 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
         // First, before the input is read at all: nothing an unverified sender posted is parsed.
         const token = raw instanceof FormData ? raw.get(TURNSTILE_FIELD) : (raw as Partial<Record<string, unknown>> | null)?.[TURNSTILE_FIELD];
         const refusal = await turnstileRefusal(typeof token === "string" ? token : null);
-        if (refusal !== null) return { ok: false, reason: checkRefusal(refusal) };
+        if (refusal !== null) return { ok: false, reason: refusal };
       }
       const read = parsed(lane, raw);
       return "answer" in read ? read.answer : body(lane, () => lane.run(read.input, undefined));
@@ -253,12 +298,13 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
 
 /**
  * The body and its call to the backend, answering the backend's refusal by its code and anything else as the
- * unexpected failure. The site's one cache tag is cleared whatever the body came to: a write may stand behind a
- * refusal, a throw or a lost answer, and every cached read carries the tag, so no write has to know which it moves.
- * The tag's clearing also renders the page again in the action's response.
+ * unexpected failure. An administrator's or a person's write clears the site's one cache tag whatever the body came
+ * to: a write may stand behind a refusal, a throw or a lost answer, and every cached read carries the tag, so no
+ * write has to know which it moves. The tag's clearing also renders the page again in the action's response. A
+ * public write, the sign-in's code, reaches no cached read, so it leaves every other visitor's pages cached.
  */
 async function body<Schema extends z.ZodType, Value>(
-  declared: Declared<Schema>,
+  lane: Lane<Schema, Value>,
   run: () => Promise<ActionAnswer<Value>>,
 ): Promise<ActionAnswer<Value>> {
   try {
@@ -267,12 +313,12 @@ async function body<Schema extends z.ZodType, Value>(
     // Next's redirect and not-found are how a body leads on, never a failure.
     unstable_rethrow(error);
     if (error instanceof APIBadStatusError && error.serverErrorCode !== undefined) {
-      return refused(declared, error.serverErrorCode);
+      return refused(lane, error.serverErrorCode, error.refusedFields);
     }
-    logFailure(declared.name, error);
+    logFailure(lane.name, error);
     return UNEXPECTED;
   } finally {
-    updateTag(SITE_CACHE_TAG);
+    if (lane.lane !== "public") updateTag(SITE_CACHE_TAG);
   }
 }
 

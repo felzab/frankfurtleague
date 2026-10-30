@@ -1,8 +1,8 @@
 import { COPY } from "@/core/copy";
 
+import type { ActionAnswer } from "@/core/action";
 import type { Copy, Verb } from "@/core/copy";
 import type { ReactNode } from "react";
-import type { ActionAnswer } from "./useFormAction";
 
 /**
  * What a dialog's act is, read by the dialog (`Dialog.tsx`) and by the list page drawing its trigger on the

@@ -1,3 +1,6 @@
+// Redesign: goes with its last importer.
+import { isEdgeRefusal } from "@/kit/edgeRefusal";
+
 import { APIBadStatusError, APINetworkError, isRecordMissing, isRefusalCode, mayHaveWritten, RolledBackError } from "@/core/errors";
 
 import { buildRefusal, LADE_DIE_SEITE_NEU, UNKNOWN_REFUSAL, VERSUCHE_ES_ERNEUT_SATZ } from "./refusal";
@@ -157,13 +160,6 @@ export function outcomeUnknown(): ActionFailure {
   return { ...OUTCOME_UNKNOWN };
 }
 
-/**
- * The body of every 429 the edge answers itself (`nginx/shared/site.conf :: @edge_refusal`), which Next hands
- * a rejected action as its error's message only under a content type of exactly `text/plain`: so ASCII,
- * sent with no charset.
- */
-export const EDGE_REFUSAL_BODY = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.";
-
 /** A press the edge's rate refused, which never reached Next: nothing was written, and the meter refills within the minute. */
 export const ZU_VIELE_VERSUCHE_NICHTS_GESPEICHERT =
   "Zu viele Versuche in kurzer Zeit. Die Änderung wurde nicht gespeichert. Warte einen Moment und versuche es dann erneut.";
@@ -173,10 +169,6 @@ export const ZU_VIELE_VERSUCHE_NICHTS_GESPEICHERT =
  * refills within the minute. The public forms' answer to the same refusal too.
  */
 export const ZU_VIELE_VERSUCHE = "Zu viele Versuche in kurzer Zeit. Warte einen Moment und versuche es dann erneut.";
-
-function isEdgeRefusal(error: unknown): boolean {
-  return error instanceof Error && error.message === EDGE_REFUSAL_BODY;
-}
 
 /**
  * A send's state where its action rejected with the edge's own refusal, which reached nothing past the
