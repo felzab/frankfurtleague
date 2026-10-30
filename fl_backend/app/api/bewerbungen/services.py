@@ -1580,8 +1580,8 @@ def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
     """
 
     # `set(stored)` is the shorthand this refuses: an unhashable BSON value would raise there, where
-    # this drops it. `app/core/constraints.py :: saison_teams.trikot_farbe` forbids one, so this holds
-    # the boundary rather than a case any test can reach.
+    # this drops it. The record model forbids one (`app/api/teams/schemas.py :: FLSaisonTeamRecord`), so this
+    # holds the boundary rather than a case any test can reach.
     held = {value for value in stored if isinstance(value, str)}
 
     # The form excludes what this returns, and a season may field at least as many teams as the palette

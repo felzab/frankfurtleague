@@ -87,8 +87,8 @@ def registrierungsfenster_laeuft(*, registrierung: Any, today: str) -> bool:
 
 
 # The partial filter `uniq_einladung_live` is built on, spelled as it is: the equality with `None`
-# does not imply it, so a read spelled that way scans every invite. The validator requires the key,
-# so the two select the same rows.
+# does not imply it, so a read spelled that way scans every invite. The record model requires the key
+# (`app/api/einladungen/schemas.py :: FLEinladungRecord`), so the two select the same rows.
 LIVE_EINLADUNG: Mapping[str, Any] = {"widerrufen_am": {"$type": "null"}}
 
 

@@ -369,7 +369,7 @@ class FLBewerbungSchulePayload(FLBewerbungSchule):
     ]
     shorthand: CustomShorthand
     # Required and NON-NULL here alone: the form offers the real Schulformen and no "keine
-    # Angabe". The stored field stays nullable, for `app/core/constraints.py :: teams.schulform`'s reason.
+    # Angabe". The stored field stays nullable (`app/api/teams/schemas.py :: _TeamWritable.schulform`).
     schulform: FLSchulform
     address: FLBewerbungAddressPayload
     # Constrained here where the read model leaves it a bare string: acceptance parses this block

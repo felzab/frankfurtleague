@@ -207,7 +207,7 @@ class TestTheReminderMark:
 class TestOneMessagePerMailbox:
     """Grouped as the first mail groups: one stored address, one message.
 
-    The keying is `fl_frontend/src/features/bewerbungen/notifications.ts :: collectSeats`.
+    The keying is `fl_backend/app/api/bewerbungen/services.py :: personen_mit_adresse`.
     """
 
     def test_one_person_holding_two_seats_gets_one_message_with_both(self):

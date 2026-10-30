@@ -179,8 +179,8 @@ PHONE_REGEX = r"^([+]?[ 0-9\-().]{2,19}[0-9])$"
 # On the WRITE payloads only: a read model refusing a stored name 500s the response for one bad row.
 PERSON_NAME_PATTERN = r"^\p{L}[\p{L}\-' ]*$"
 
-# Paired with `strip_whitespace`, which runs first and
-# takes no NUL, so padding is repaired and an interior character refused.
+# Judged on the text as it arrives, before `str.strip` takes the padding, so a line break is refused wherever it stands;
+# the frontend strips what `str.strip` strips, White_Space and U+001C to U+001F.
 SINGLE_LINE_PATTERN = r"^[^\x00\n\v\f\r\u0085\u2028\u2029]*$"
 
 # Byte-for-byte the regex zod uses for `z.regexes.domain`, because `ExternalUrlSchema` tests the

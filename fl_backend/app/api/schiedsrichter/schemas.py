@@ -42,8 +42,8 @@ class _SchiedsrichterPayload(_SchiedsrichterWritable):
     schule: CustomOptionalString = Field(max_length=SCHIEDSRICHTER_SCHULE_MAX_LENGTH)
 
 
-# One shape under two names, and they stay two: each endpoint publishes its own OpenAPI component,
-# which `fl_frontend/src/core/apiContract.test.ts` pairs with a Zod mirror by name.
+# One shape under two names, and they stay two: each endpoint publishes its own OpenAPI component, which
+# the generated client and its Zod schemas name it by.
 class FLPostSchiedsrichterPayload(_SchiedsrichterPayload):
     pass
 

@@ -797,7 +797,7 @@ def nummern_im_kader(rows: Iterable[Mapping[str, Any]]) -> frozenset[str]:
 
 
 def _person_fields(*, registrierung_raw: Mapping[str, Any], adresse: str) -> dict[str, Any]:
-    # Here and not in the `spieler` validator, which admits a null forename for the erased pupils'
+    # Here and not in the `spieler` record model, which admits a null forename for the erased pupils'
     # sentinel alone: every person the admission writes passes here, and the administrator's edit
     # requires one by its payload.
     if not person_name_key(registrierung_raw.get("vorname")):

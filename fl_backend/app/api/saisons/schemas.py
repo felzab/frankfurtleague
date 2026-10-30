@@ -239,7 +239,7 @@ class FLPostSaisonPayload(_SaisonPayload):
 
 
 # The patch shape IS `_SaisonPayload`, and stays a name of its own: a private base publishes no
-# OpenAPI component, and `fl_frontend/src/core/apiContract.test.ts` pairs the mirror by name.
+# OpenAPI component, and the generated client names the patch's body by it.
 class FLPatchSaisonPayload(_SaisonPayload):
     # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
     version: int | None = None

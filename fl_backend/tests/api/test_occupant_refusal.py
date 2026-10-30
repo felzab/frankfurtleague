@@ -1349,7 +1349,7 @@ class TestTheClubFieldedTwiceFault:
         assert [(fault.spiel_nr, fault.side) for fault in faults] == [(1, "team1"), (2, "team1")]
 
     def test_a_club_on_both_sides_of_one_fixture_is_the_same_fault(self, fixture_at):
-        """Counted in SIDES rather than in matches, exactly as `fl_backend/app/core/constraints.py :: report_relations` counts it."""
+        """Counted in SIDES rather than in matches: two sides naming one club are one fault."""
 
         faults = double_entries(fixture_at(1, "gruppenphase", SPIELTAG_ONE, team1=team(ADLER, "Adler"), team2=team(ADLER, "Adler")))
 

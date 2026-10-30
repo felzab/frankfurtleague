@@ -223,7 +223,7 @@ def _stringify_filter(db_filter: Mapping[str, Any]) -> dict[str, str]:
     """A filter's values rendered as text.
 
     Stored for the reader rather than for replay: a filter can hold an ObjectId, a regex or a nested
-    operator, and a validator admitting all of those admits anything at all.
+    operator, and a record model admitting all of those admits anything at all.
     """
 
     return {key: str(value) for key, value in db_filter.items()}

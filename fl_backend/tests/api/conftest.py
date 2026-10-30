@@ -46,7 +46,7 @@ SAISON_SHORTHANDS = {
     "Komplett": "KOX",
 }
 
-# A dict rather than a model: Pydantic could not express a row the validator rejects.
+# A dict rather than a model: Pydantic could not express a row its record model rejects.
 AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
 
 
@@ -174,8 +174,8 @@ def _spiel(
     }
 
 
-# Module level, so `test_corpus_shape.py` can hold the rows to the shipped validator without a
-# database: the collections these are written into carry none (`tests/conftest.py :: mongo_database`).
+# Module level, so `test_corpus_shape.py` can hold the rows to a rule no single document carries without a
+# database (`tests/conftest.py :: mongo_database`).
 TEAMS = [
     _team("Helmholtz", "HGX", name="Helmholtz-Gymnasium"),
     _team("Bock", "BOX"),
