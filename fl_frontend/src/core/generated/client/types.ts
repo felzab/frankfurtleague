@@ -708,6 +708,12 @@ export interface FLPostausgangZustellung {
  */
 export interface FLPostausgangLage {
   stand: FLPostausgangLageStand;
+  /**
+   * Whether the mail did not arrive: given up, or refused, suppressed or marked as spam by its recipient.
+   *
+   * The one judgement of it, which the backend's refusals and every page showing the seat read.
+   */
+  readonly unzustellbar: boolean;
   zustellung: FLPostausgangZustellung | null;
 }
 

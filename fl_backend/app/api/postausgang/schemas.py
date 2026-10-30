@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Annotated, Literal, Self, get_args
+from typing import Annotated, Final, Literal, Self, get_args
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, computed_field, model_validator
 
 from app.api.berechtigungen.schemas import FLBerechtigungMitteilungArt, FLBerechtigungStand, FLBerechtigungUrheber, FLBerechtigungVorenthalten
 from app.api.registrierungen.schemas import FLRegistrierungAblehnungsgrund
@@ -359,6 +359,10 @@ FLPostausgangStand = Literal["offen", "gesendet", "zurueckgehalten", "gesperrt",
 # What the provider reports about a message it accepted. `gesendet` is the row's own state and no event's.
 type FLPostausgangZustellStand = Literal["zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]
 
+# The reports a reader of a seat's delivery takes as the mail not having arrived: refused by the provider's suppression
+# list, bounced for good, or marked as spam.
+UNZUSTELLBAR: Final[frozenset[FLPostausgangZustellStand]] = frozenset({"unzustellbar", "unterdrueckt", "beschwerde"})
+
 # Wide over the 36 characters the provider's id spells today, and a ceiling all the same: the value arrives from outside
 # and is stored.
 CustomNachrichtId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]
@@ -401,6 +405,16 @@ class FLPostausgangLage(BaseReadModel):
 
     stand: FLPostausgangStand
     zustellung: FLPostausgangZustellung | None
+
+    @computed_field
+    @property
+    def unzustellbar(self) -> bool:
+        """Whether the mail did not arrive: given up, or refused, suppressed or marked as spam by its recipient.
+
+        The one judgement of it, which the backend's refusals and every page showing the seat read.
+        """
+
+        return self.stand == "aufgegeben" or (self.zustellung is not None and self.zustellung.stand in UNZUSTELLBAR)
 
 
 class FLPostausgangZeile(BaseModel):

@@ -44,19 +44,6 @@ export function zustellungChip(lage: FLPostausgangLage | null): Chip | null {
   return lage.zustellung === null ? STAND_CHIP[lage.stand] : EREIGNIS_CHIP[lage.zustellung.stand];
 }
 
-/**
- * The states no further message to that address beats, as `fl_backend/app/api/postausgang/services.py :: unzustellbar`
- * reads them. **`beschwerde` is one of them**: a person who marked the league as spam is the strongest case for never
- * writing to them again.
- */
-export function istUnzustellbar(lage: FLPostausgangLage | null): boolean {
-  if (lage === null) return false;
-  if (lage.stand === "aufgegeben") return true;
-
-  const stand = lage.zustellung?.stand;
-  return stand === "unzustellbar" || stand === "unterdrueckt" || stand === "beschwerde";
-}
-
 /** What the triage queue marks a row on. `danger` and never the duplicate mark's `warning`: this one cannot be waited out. */
 export const ZUSTELLUNG_QUEUE_LABEL = "Kontakt unerreichbar";
 export const ZUSTELLUNG_QUEUE_TINT = "danger";
@@ -66,5 +53,5 @@ export const ZUSTELLUNG_QUEUE_TINT = "danger";
  * the fact where their eye already is, rather than on a page they never open.
  */
 export function hatUnerreichbarenSitz({ bestaetigungen }: Pick<FLBewerbung, "bestaetigungen">): boolean {
-  return Object.values(bestaetigungen).some((verlauf) => istUnzustellbar(verlauf?.zustellung ?? null));
+  return Object.values(bestaetigungen).some((verlauf) => verlauf?.zustellung?.unzustellbar === true);
 }

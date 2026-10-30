@@ -58,10 +58,6 @@ ENDSTAND: Final[Mapping[FLPostausgangErgebnisArt, FLPostausgangStand]] = {
     "wiederholen": "aufgegeben",
 }
 
-# What a reader of a seat's delivery takes as the mail not having arrived: refused by the provider's suppression list,
-# bounced for good, or marked as spam -- or never sent at all.
-UNZUSTELLBAR: Final[frozenset[FLPostausgangZustellStand]] = frozenset({"unzustellbar", "unterdrueckt", "beschwerde"})
-
 # Each delivery state, and the states a row may hold for an event to move it there: never back from a later one, the
 # provider sending events in any order.
 FOLGT_AUF: Final[Mapping[FLPostausgangZustellStand, tuple[FLPostausgangZustellStand | None, ...]]] = {
@@ -170,11 +166,3 @@ def retry_update(*, now: datetime) -> Mapping[str, Any]:
     """A failed send handed back: no claim holds it, and no drain takes it before the wait has passed."""
 
     return {"$set": {"beanspruchung": None, "beansprucht_bis": now + WIEDERHOLUNG_NACH}}
-
-
-def unzustellbar(row: Mapping[str, Any]) -> bool:
-    """Whether a row's mail did not arrive, the judgement a seat's delivery state is read by."""
-
-    zustellung = row.get("zustellung")
-
-    return row.get("stand") == "aufgegeben" or (isinstance(zustellung, Mapping) and zustellung.get("stand") in UNZUSTELLBAR)

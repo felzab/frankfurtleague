@@ -12,7 +12,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.bewerbungen.services import SWEEP_PAGE
 from app.api.postausgang.crud import lagen_of
 from app.api.postausgang.schemas import FLPostausgangLage, FLSpielAnfrageDaten, FLSpielEinteilungDaten
-from app.api.postausgang.services import OwedMail, enqueue_mails, unzustellbar
+from app.api.postausgang.services import OwedMail, enqueue_mails
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, anchor_the_referees_told, anchor_the_seats_minted
 from app.api.spielbestaetigungen.schemas import (
@@ -667,7 +667,7 @@ async def sweep_spielbestaetigungen(
         )
 
         def reached(lage: FLPostausgangLage | None) -> bool:
-            return lage is None or not unzustellbar(lage.model_dump())
+            return lage is None or not lage.unzustellbar
 
         def reminder_of(row: Mapping[str, Any]) -> _Owed:
             spiel = spiele[row["spiel_id"]]

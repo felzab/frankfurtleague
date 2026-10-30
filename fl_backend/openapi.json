@@ -9643,6 +9643,12 @@
             "title": "Stand",
             "type": "string"
           },
+          "unzustellbar": {
+            "description": "Whether the mail did not arrive: given up, or refused, suppressed or marked as spam by its recipient.\n\nThe one judgement of it, which the backend's refusals and every page showing the seat read.",
+            "readOnly": true,
+            "title": "Unzustellbar",
+            "type": "boolean"
+          },
           "zustellung": {
             "anyOf": [
               {
@@ -9656,7 +9662,8 @@
         },
         "required": [
           "stand",
-          "zustellung"
+          "zustellung",
+          "unzustellbar"
         ],
         "title": "FLPostausgangLage",
         "type": "object"

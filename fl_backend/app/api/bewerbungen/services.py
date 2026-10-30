@@ -24,7 +24,7 @@ from app.api.postausgang.schemas import (
     FLPostausgangLage,
     FLPostausgangLink,
 )
-from app.api.postausgang.services import OwedMail, unzustellbar
+from app.api.postausgang.services import OwedMail
 from app.api.sperrliste.services import withheld_actor
 from app.api.teams.schemas import FLPostTeamPayload
 from app.core.codes import Code
@@ -1470,9 +1470,9 @@ def bewerbung_bezug(bewerbung_id: Any, seats: Sequence[FLKontaktRolle]) -> FLPos
 
 
 def lage_unzustellbar(lage: FLPostausgangLage | None) -> bool:
-    """`app/api/postausgang/services.py :: unzustellbar` of the last mail owed one seat, `False` where none was owed."""
+    """`app/api/postausgang/schemas.py :: FLPostausgangLage.unzustellbar` of the last mail owed one seat, `False` where none was owed."""
 
-    return lage is not None and unzustellbar(lage.model_dump())
+    return lage is not None and lage.unzustellbar
 
 
 def ausstehende_personen(*, kontakte: Any, seats: Sequence[str]) -> list[FLBewerbungPerson]:

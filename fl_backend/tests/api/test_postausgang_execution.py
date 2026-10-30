@@ -16,7 +16,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
-from app.api.postausgang.crud import read_the_newest
+from app.api.postausgang.crud import lage_of
 from app.api.postausgang.schemas import (
     FLAnmeldecodeDaten,
     FLPostausgangAnmeldungPayload,
@@ -38,7 +38,6 @@ from app.api.postausgang.services import (
     WIEDERHOLUNG_NACH,
     OwedMail,
     enqueue_mails,
-    unzustellbar,
 )
 from app.api.postausgang.system_router import post_anmeldung, post_ausgabe, post_ereignis, post_ergebnis
 from app.core.collections import Collection
@@ -365,12 +364,12 @@ class TestTheDeliveryEvent:
             first = await event("unzustellbar")
             await reported(database, answer.beanspruchung, row_id, "gesendet")
             applied = [first, await event("verzoegert"), await event("zugestellt"), await event("zugestellt", ObjectId())]
-            newest = await read_the_newest(postausgang_collection=database[Collection.POSTAUSGANG], bezug=BEZUG)
+            newest = await lage_of(postausgang_collection=database[Collection.POSTAUSGANG], bezug=BEZUG)
 
             return applied, newest, await stored(database, row_id)
 
         applied, newest, row = on_a_database(mongo_replica_set_url, body)
 
         assert applied == [True, False, False, False]
-        assert newest is not None and unzustellbar(newest)
+        assert newest is not None and newest.unzustellbar
         assert row["stand"] == "gesendet"

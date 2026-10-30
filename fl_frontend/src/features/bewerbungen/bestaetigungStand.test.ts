@@ -46,10 +46,10 @@ const OFFEN: FLBewerbungBestaetigung = {
 };
 const ABGELEHNT: FLBewerbungBestaetigung = { ...OFFEN, abgelehnt_am: "2026-09-04" };
 
-/** What the last mail to a seat reached, as the provider's events leave it on its Postausgang row. */
-const zugestellt = (stand: FLPostausgangZustellStand): FLBewerbungBestaetigung => ({
+/** What the last mail to a seat reached, as the provider's events leave it on its Postausgang row and the read judges it. */
+const zugestellt = (stand: FLPostausgangZustellStand, unzustellbar: boolean): FLBewerbungBestaetigung => ({
   ...OFFEN,
-  zustellung: { stand: "gesendet", zustellung: { stand: stand, grund: null, am: "2026-09-01T10:15:00.000Z" } },
+  zustellung: { stand: "gesendet", zustellung: { stand: stand, grund: null, am: "2026-09-01T10:15:00.000Z" }, unzustellbar: unzustellbar },
 });
 
 /** Three seats, each named by the state it is in, so a case says its own fixture. */
@@ -396,7 +396,7 @@ describe("what became of the last message to a seat", () => {
   it("stands beside the seat's own answer rather than inside it", () => {
     const confirmedAfterBounce = seatsOf({
       ansprechperson: person("Anna", "2026-09-02"),
-      bestaetigungen: { ansprechperson: zugestellt("unzustellbar"), stellvertretung: OFFEN, trainer: OFFEN },
+      bestaetigungen: { ansprechperson: zugestellt("unzustellbar", true), stellvertretung: OFFEN, trainer: OFFEN },
     });
 
     const seat2 = seatOf(standsOf2(confirmedAfterBounce), "ansprechperson");
@@ -487,10 +487,10 @@ describe("what the strip says of an incomplete application's deadline", () => {
      it on either side of the deadline. Only the Ansprechperson's seat holds it: the notice goes there. */
   it("promises no deletion while the Ansprechperson cannot be written to", () => {
     const heldOpen = standsOf2(
-      seatsOf({ bestaetigungen: { ansprechperson: zugestellt("unterdrueckt"), stellvertretung: OFFEN, trainer: OFFEN } }),
+      seatsOf({ bestaetigungen: { ansprechperson: zugestellt("unterdrueckt", true), stellvertretung: OFFEN, trainer: OFFEN } }),
     );
     const otherPerson = standsOf2(
-      seatsOf({ bestaetigungen: { ansprechperson: OFFEN, stellvertretung: zugestellt("unzustellbar"), trainer: OFFEN } }),
+      seatsOf({ bestaetigungen: { ansprechperson: OFFEN, stellvertretung: zugestellt("unzustellbar", true), trainer: OFFEN } }),
     );
 
     expect(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: heldOpen, istAbgelaufen: true })).toBe(
@@ -499,11 +499,13 @@ describe("what the strip says of an incomplete application's deadline", () => {
     expect(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: heldOpen, istAbgelaufen: false })).toBe(
       "Die Frist für die Bestätigungen läuft bis zum 07.09.2026. Gelöscht wird die Bewerbung danach nicht, solange die Ansprechperson per E-Mail nicht erreichbar ist.",
     );
-    // A delay is not a refusal: the provider may still carry the notice.
+    // A delay the read serves as reachable: the provider may still carry the notice.
     expect(
       loeschungsSatz({
         ...OFFEN_UND_FRIST,
-        staende: standsOf2(seatsOf({ bestaetigungen: { ansprechperson: zugestellt("verzoegert"), stellvertretung: OFFEN, trainer: OFFEN } })),
+        staende: standsOf2(
+          seatsOf({ bestaetigungen: { ansprechperson: zugestellt("verzoegert", false), stellvertretung: OFFEN, trainer: OFFEN } }),
+        ),
         istAbgelaufen: true,
       }) ?? "",
     ).toMatch(/nächsten stündlichen Prüfung/);
