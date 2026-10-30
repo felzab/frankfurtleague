@@ -544,7 +544,8 @@ itself** before `next dev` starts, over the shell and `fl_frontend/.env`, to the
 because `fl_frontend/.env` also reaches the frontend container, where a path written there would
 turn the frontend away from the secret's mount and its boot refuses.
 
-**A line naming a value `secrets/` holds, or the retired administrator list `ALLOWED_ADMIN_EMAILS`,
+**A line naming a value `secrets/` holds, the retired administrator list `ALLOWED_ADMIN_EMAILS` or a
+job switch the hourly scheduler replaced (`scripts/lib/_lib.sh :: RETIRED_ENV_NAMES`),
 refuses a deploy or a local start before its first compose call**, at exit 2, finding each
 such line in any letter case and any form compose reads a name in — `NAME=value`, the YAML-style
 `NAME: value` and a bare pass-through name — and giving it by number and the list's own spelling
@@ -1085,7 +1086,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | The deploy and the local stack refuse to start while a `.env` stands beside the compose file, printing none of it                                                        | `scripts/lib/_lib.sh :: refuse_compose_dotenv`, called by both scripts before any mode asks compose; `scripts/tests/test_deploy_streams.py`                                                                                                                                                    |
 | A stopped backend container lets every request it accepted end inside its bound, aborts included, before the engine kills it                                             | `fl_backend/Dockerfile :: CMD` and `docker-compose.yml`'s `stop_grace_period`; `fl_backend/tests/core/test_request_deadline.py :: TestAStoppedContainerOutlastsEveryRequest`                                                                                                                   |
 | A stopped frontend container lets every request it accepted, and the work behind each answer, end inside its bound before the engine kills it                            | unenforced — `docker-compose.yml`'s `stop_grace_period` is set against `fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS` and `:: AFTER_RESPONSE_DEADLINE_MS`, and no test reads the three together                                                                                 |
-| No package's `.env` names a secret file's value or `ALLOWED_ADMIN_EMAILS`, in any letter case or form compose reads a name in                                            | `scripts/lib/_lib.sh :: refuse_credential_lines`, called by a deploy and a local start before their first compose call; `scripts/tests/test_deploy_streams.py`                                                                                                                                 |
+| No package's `.env` names a secret file's value, `ALLOWED_ADMIN_EMAILS` or a retired job switch, in any letter case or form compose reads a name in                      | `scripts/lib/_lib.sh :: refuse_credential_lines`, called by a deploy and a local start before their first compose call; `scripts/tests/test_deploy_streams.py`                                                                                                                                 |
 
 ## 3. Violation → remedy
 

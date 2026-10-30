@@ -44,11 +44,11 @@ the machine is outside the repository. What it does tell you:
   `./secrets/` the stack mounts, and `./certs/` must all exist beside the compose file — preflight
   checks each before anything is pulled. What each secret file holds, who owns it and how it is
   made, is §16.
-- **A line naming a value a secret file holds, or `ALLOWED_ADMIN_EMAILS`, refuses the deploy at exit
-  2 before compose is asked anything**, giving each line by file, number and the name as the list
-  spells it, never by anything the line holds
+- **A line naming a value a secret file holds, `ALLOWED_ADMIN_EMAILS` or a job switch the hourly
+  scheduler replaced refuses the deploy at exit 2 before compose is asked anything**, giving each
+  line by file, number and the name as the list spells it, never by anything the line holds
   (`scripts/lib/_lib.sh :: refuse_credential_lines`): delete it, a credential being its file's (§16)
-  and the administrator list read by nothing.
+  and the administrator list and the switches read by nothing.
 - **A line of either `.env` that is not blank, a line opening with `#`, or `NAME=VALUE` refuses the
   deploy at exit 2 before compose is asked anything**, each line listed
   as `file:line` alone, never by anything the line holds. Rewrite it with nothing
