@@ -39,7 +39,6 @@ from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_o
 from app.api.identitaet.schemas import FLErasureAnsichtPayload, FLErasurePayload
 from app.api.identitaet.wiederherstellung import Read, Window, plan_replay, replay_line
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
-from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPayload
 from app.api.registrierungen.services import compose_ablehnung_update, erinnerung_is_due
 from app.api.schiedsrichter.router import get_schiedsrichter_by_id
 from app.api.spielbestaetigungen.services import halter_of
@@ -58,6 +57,7 @@ from app.core.recording import SYSTEM_ACTOR, Actor, PersonActor, actor_var, log_
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.core.transactions import transaction_session
 from app.main import create_app
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import ADRESSWECHSEL_NACHLAUF_TAGE
 from tests import documents
 from tests.app_client import app_client
@@ -2276,7 +2276,7 @@ class TestWhatTheEffectLeavesTheErasure:
         """An unanswered registration moves too, or its admission makes a second person; its link stayed in the replaced mailbox."""
 
         def ansicht(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            payload = FLRegistrierungBestaetigungAnsichtPayload(token=UNCONFIRMED_REG_LINK)
+            payload = FLTokenPayload(token=UNCONFIRMED_REG_LINK)
             return call(get_bestaetigung_ansicht, database, client, ansicht_data=payload, today=TODAY)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

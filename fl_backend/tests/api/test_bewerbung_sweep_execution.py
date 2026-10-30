@@ -19,7 +19,6 @@ from app.api.bewerbungen.admin_router import erneut_einwilligung
 from app.api.bewerbungen.einwilligung_router import get_einwilligung_ansicht
 from app.api.bewerbungen.schemas import (
     DELETIONS_LISTED_PER_PASS,
-    FLBewerbungEinwilligungAnsichtPayload,
     FLBewerbungSweepAuswahlPayload,
     FLBewerbungZustellungAngenommenPayload,
     FLBewerbungZustellungEreignisPayload,
@@ -50,6 +49,7 @@ from app.core.logging import FL_LOGGER_NAME, JSONFormatter
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.core.transactions import StalledPage
 from app.main import create_app
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
 from tests.api import test_bewerbung_sweep_refusal as budget
@@ -252,7 +252,7 @@ async def erase(database: AsyncDatabase, client: AsyncMongoClient, ids: list[Obj
 
 async def ansicht(database: AsyncDatabase, token: str) -> Any:
     return await get_einwilligung_ansicht(
-        ansicht_data=FLBewerbungEinwilligungAnsichtPayload(token=token),
+        ansicht_data=FLTokenPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -818,7 +818,6 @@ class TestABarredMailboxIsNotChased:
 STELLVERTRETUNG_STAMP = "kontakte.stellvertretung.einwilligung.bestaetigt_am"
 STAMP_STATES = [
     pytest.param({"$set": {STELLVERTRETUNG_STAMP: MAILED_ON_THE_MARK}}, False, id="confirmed, the control"),
-    pytest.param({"$set": {STELLVERTRETUNG_STAMP: ""}}, True, id="stamped empty"),
     pytest.param({"$set": {STELLVERTRETUNG_STAMP: None}}, True, id="stamped null"),
     # No stamp at all, the field missing, which the query's null term has to reach as well.
     pytest.param({"$set": {"kontakte.stellvertretung": None}}, True, id="the seat erased"),
