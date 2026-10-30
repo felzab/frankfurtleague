@@ -254,7 +254,7 @@ function EintragenSection({ zeile, name }: { zeile: FLSpielbestaetigung; name: s
   const [begruendung, setBegruendung] = useState("");
   /** The refusal the API answered with, which lands on this box. Cleared on the next keystroke. */
   const [antwortFehler, setAntwortFehler] = useState<string | null>(null);
-  /** The bound's verdict, published when the box is left and retracted by a keystroke alone (`.claude/rules/frontend.md`). */
+  /** The bound's verdict, published when the box is left and retracted by a keystroke alone: no typed field is judged between keystrokes. */
   const [laengeFehler, setLaengeFehler] = useState<string | null>(null);
 
   // The schema trims before it measures, and the trimmed value is what the write carries.
