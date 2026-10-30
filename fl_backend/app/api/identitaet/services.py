@@ -687,8 +687,8 @@ def referenced_addresses(
         # own fold: the set holds every address a record names, so a row read for another mailbox adds its own.
         *(row.get("email") for row in registrierung_rows if ist_eigene_registrierung(row, folded(row.get("email")) or "")),
         *(row.get("adresse") for row in grant_rows),
-        # An effect's notice owing its account's carry: swept before its drain, the account and its passkeys are gone.
-        *(row.get("bisherige_email") for row in carry_rows),
+        # An effect owing its account's carry: swept before it is carried, the account and its passkeys are gone.
+        *(row["umzug"]["von"] for row in carry_rows),
     )
 
     return frozenset(address for address in map(folded, stored) if address is not None)

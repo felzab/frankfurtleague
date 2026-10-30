@@ -397,8 +397,6 @@ async def a_grant_holders_change_awaiting_approval(database: AsyncDatabase) -> N
                 adresse=GRANT_HOLDER,
                 email="gisela.neu@example.com",
                 weg="freigabe",
-                token_hash=None,
-                stopp_hash=hash_token("stop-awaiting"),
                 grund=None,
                 genehmigung=None,
                 # Started now, the request's own clock being the real one: a past start would lapse before the press.

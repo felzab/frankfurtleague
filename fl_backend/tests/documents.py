@@ -510,17 +510,15 @@ def adresswechsel_document(
     weg: FLAdresswechselWeg = "konto",
     genehmigung: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """A live change's record as a start inserts it at noon of `day` in Germany, its stop link a hash nobody holds."""
+    """A live change's record as a start inserts it at noon of `day` in Germany, its links as their hand-outs minted them.
+
+    `token_hash` the new mailbox's, none where its link is not yet owed; the stop link a hash nobody holds.
+    """
 
     started = datetime.fromisoformat(f"{day}T12:00:00").replace(tzinfo=ZoneInfo("Europe/Berlin"))
 
-    return compose_record(
-        adresse=adresse,
-        email=email,
-        weg=weg,
-        token_hash=token_hash,
-        stopp_hash=hash_token(f"stop-{token_hash}"),
-        grund=None,
-        genehmigung=genehmigung,
-        now=started,
-    )
+    return {
+        **compose_record(adresse=adresse, email=email, weg=weg, grund=None, genehmigung=genehmigung, now=started),
+        "token_hashes": [] if token_hash is None else [token_hash],
+        "stopp": {"token_hashes": [hash_token(f"stop-{token_hash}")]},
+    }

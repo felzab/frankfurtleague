@@ -61,9 +61,11 @@ class FLSperrlisteZeile(FLSperrlisteEintrag):
 class FLPostSperrlistePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    # The one place an address reaches this slice. It is hashed at the endpoint and dropped there,
-    # so nothing below this line has a plain address to store, log or echo.
+    # The one place an address reaches this slice. It is hashed at the endpoint and kept nowhere but on the ban's own
+    # notice, so nothing below this line has a plain address to store, log or echo.
     email: CustomEmail
+    # Whether the address is told of its ban: only where it has a sign-in account, which the frontend's store alone knows.
+    benachrichtigen: bool
     # Stripped on the WRITE side alone, and single-line because the admin card renders it beside the author and the day.
     # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
     grund: Annotated[

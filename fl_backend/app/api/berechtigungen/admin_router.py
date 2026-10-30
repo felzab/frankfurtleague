@@ -17,11 +17,17 @@ from app.api.berechtigungen.antraege import (
     find_antrag_verfallen_refusal,
     find_genehmigung_verwehrt_refusal,
     pull_the_antrag,
-    queue_the_ending_in_session,
     read_the_antraege,
     remove_the_antrag_in_session,
 )
-from app.api.berechtigungen.crud import grant_in_session, pull_the_list_to_judge, read_berechtigungen, read_the_announced, revoke_in_session
+from app.api.berechtigungen.crud import (
+    grant_in_session,
+    owe_in_session,
+    pull_the_list_to_judge,
+    read_berechtigungen,
+    read_the_announced,
+    revoke_in_session,
+)
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.berechtigungen.schemas import (
     FLBerechtigung,
@@ -41,7 +47,7 @@ from app.api.berechtigungen.services import (
     OWNER,
     compare,
     compose_announced,
-    compose_postausgang,
+    compose_mitteilung,
     find_gesperrt_refusal,
     find_inhaber_refusal,
     find_letzter_inhaber_refusal,
@@ -56,8 +62,10 @@ from app.api.berechtigungen.services import (
     stand_of,
 )
 from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt
+from app.api.postausgang.schemas import FLPostausgangBezug
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
 from app.api.sperrliste.services import withheld_actor
+from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import VERSION_FIELD, aggregate_many_from_db, erase_many_from_db, patch_one_in_db, post_one_to_db, refuse
 from app.core.dependencies import (
@@ -65,8 +73,8 @@ from app.core.dependencies import (
     BerechtigungenAngekuendigtCollection,
     BerechtigungenAntraegeCollection,
     BerechtigungenCollection,
-    BerechtigungenPostausgangCollection,
     DBClient,
+    PostausgangCollection,
     get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
@@ -265,7 +273,7 @@ async def post_berechtigung(
     berechtigung_data: Annotated[FLPostBerechtigungPayload, Body()],
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    postausgang_collection: PostausgangCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
@@ -283,7 +291,7 @@ async def post_berechtigung(
     grant already holds the address (`REQ-BERECHTIGUNG-001`) -- a dead row of another spelling blocks nothing -- where the ban list
     holds it (`REQ-BERECHTIGUNG-003`), and where a request about it waits already (`REQ-BERECHTIGUNG-008`). The grant takes effect on
     the next request, for a session signed in after it alone -- an older one is refused `REQ-AUTH-007` on every admin-tier route -- and
-    its announcement is queued in the same transaction for `POST /berechtigungen/abgleich` to hand out. Like a revoke and a tier
+    its announcement is owed to every administrator in the same transaction. Like a revoke and a tier
     change, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES`, refused `REQ-AUTH-009` otherwise.
     """
 
@@ -293,7 +301,7 @@ async def post_berechtigung(
     gehasht = sperrliste.hash_of(str(berechtigung_data.email))
 
     async def judge_and_grant(session: AsyncClientSession) -> tuple[ObjectId, bool]:
-        """Anchor and read the list, ask the ban list, then write the request, or the grant, its announced row and its outbox row."""
+        """Anchor and read the list, ask the ban list, then write the request, or the grant and its announced row, owing its notice."""
 
         grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
         refuse(find_vorhanden_refusal(adresse=adresse, grants=grants))
@@ -304,7 +312,7 @@ async def post_berechtigung(
         await clear_the_address_in_session(
             berechtigungen_antraege_collection=berechtigungen_antraege_collection, adresse=adresse, now=now, session=session
         )
-        if await _genehmiger_exist(
+        if genehmiger := await _genehmiger(
             ADMINISTRATION,
             ausgenommen={adresse, akteur},
             grants=grants,
@@ -323,7 +331,9 @@ async def post_berechtigung(
                 adresse=adresse,
                 verwaltung=ADMINISTRATION,
                 gestartet_von=erteilt_von,
-                berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                genehmiger=genehmiger,
+                berechtigungen_collection=berechtigungen_collection,
+                postausgang_collection=postausgang_collection,
                 now=now,
                 session=session,
             )
@@ -337,7 +347,7 @@ async def post_berechtigung(
             gesperrt=frozenset(),
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            postausgang_collection=postausgang_collection,
             now=now,
             session=session,
         )
@@ -356,29 +366,37 @@ async def _queue_the_request(
     adresse: str,
     verwaltung: str,
     gestartet_von: str,
-    berechtigungen_postausgang_collection: AsyncCollection,
+    genehmiger: Sequence[str],
+    berechtigungen_collection: AsyncCollection,
+    postausgang_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
-    """Keyed by the request's id and read for its recipients when a pass claims it, so one decided by then asks nobody."""
+    """Owe the request to whoever could approve it now, about the request itself, so its decision settles what is still unsent."""
 
-    await post_one_to_db(
-        collection=berechtigungen_postausgang_collection,
-        document=compose_postausgang(
-            berechtigung_id=antrag_id,
-            art="beantragt",
-            jetzt=FLBerechtigungStand.model_validate({"adresse": adresse, "verwaltung": verwaltung}),
-            vorher=None,
-            geaendert_von=gestartet_von,
-            now=now,
-            # Neither address is barred: the request's own write refused a barred one, and a barred actor writes nothing.
-            gesperrt=frozenset(),
-        ),
+    await owe_in_session(
+        [
+            compose_mitteilung(
+                berechtigung_id=antrag_id,
+                art="beantragt",
+                jetzt=FLBerechtigungStand.model_validate({"adresse": adresse, "verwaltung": verwaltung}),
+                vorher=None,
+                geaendert_von=gestartet_von,
+                now=now,
+                # Neither address is barred: the request's own write refused a barred one, and a barred actor writes nothing.
+                gesperrt=frozenset(),
+            )
+        ],
+        postausgang_collection=postausgang_collection,
+        berechtigungen_collection=berechtigungen_collection,
+        now=now,
         session=session,
+        an=genehmiger,
+        bezug=FLPostausgangBezug(sammlung=Collection.BERECHTIGUNGEN_ANTRAEGE, id=antrag_id, sitz=None),
     )
 
 
-async def _genehmiger_exist(
+async def _genehmiger(
     verwaltung: str,
     *,
     ausgenommen: Set[str],
@@ -387,8 +405,8 @@ async def _genehmiger_exist(
     sperrliste: SperrlisteLookup,
     now: datetime,
     session: AsyncClientSession,
-) -> bool:
-    """Whether anybody but `ausgenommen` could approve an act on a grant of `verwaltung` asked now.
+) -> list[str]:
+    """Everybody but `ausgenommen` who could approve an act on a grant of `verwaltung` asked now.
 
     Judged on the grants the caller anchored, so a grant or a revoke beside it conflicts.
     """
@@ -396,7 +414,7 @@ async def _genehmiger_exist(
     announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
     barred = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in lebendige(grants)], session=session)
 
-    return bool(genehmiger_of(verwaltung=verwaltung, ausgenommen=ausgenommen, grants=grants, announced=announced, gesperrt=barred, vor=now))
+    return genehmiger_of(verwaltung=verwaltung, ausgenommen=ausgenommen, grants=grants, announced=announced, gesperrt=barred, vor=now)
 
 
 @router.delete(
@@ -409,7 +427,7 @@ async def delete_berechtigung(
     berechtigung_id: CustomRouteObjectId,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    postausgang_collection: PostausgangCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     entzogen_von: str = Depends(get_actor_email),
@@ -456,7 +474,7 @@ async def delete_berechtigung(
             gesperrt=barred,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            postausgang_collection=postausgang_collection,
             now=now,
             session=session,
         )
@@ -478,7 +496,7 @@ async def patch_berechtigung(
     berechtigung_data: Annotated[FLPatchBerechtigungPayload, Body()],
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    postausgang_collection: PostausgangCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
@@ -537,7 +555,7 @@ async def patch_berechtigung(
             await clear_the_address_in_session(
                 berechtigungen_antraege_collection=berechtigungen_antraege_collection, adresse=str(grant["adresse"]), now=now, session=session
             )
-            if await _genehmiger_exist(
+            if genehmiger := await _genehmiger(
                 OWNER,
                 ausgenommen={str(grant["adresse"]), akteur},
                 grants=grants,
@@ -558,7 +576,9 @@ async def patch_berechtigung(
                     adresse=str(grant["adresse"]),
                     verwaltung=OWNER,
                     gestartet_von=geaendert_von,
-                    berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                    genehmiger=genehmiger,
+                    berechtigungen_collection=berechtigungen_collection,
+                    postausgang_collection=postausgang_collection,
                     now=now,
                     session=session,
                 )
@@ -576,7 +596,7 @@ async def patch_berechtigung(
             geaendert_von=geaendert_von,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            postausgang_collection=postausgang_collection,
             now=now,
             session=session,
         )
@@ -600,7 +620,7 @@ async def _move_the_tier_in_session(
     geaendert_von: str,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    berechtigungen_postausgang_collection: AsyncCollection,
+    postausgang_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
@@ -610,14 +630,6 @@ async def _move_the_tier_in_session(
     announced = [record for record in records if record["_id"] == berechtigung_id]
     # A database edit to this row nobody was told of goes out first, as the revoke's does.
     pending = compare(grants=[grant], announced=announced)
-    for changed_id, art, jetzt, vorher in pending:
-        await post_one_to_db(
-            collection=berechtigungen_postausgang_collection,
-            document=compose_postausgang(
-                berechtigung_id=changed_id, art=art, jetzt=jetzt, vorher=vorher, geaendert_von=None, now=now, gesperrt=barred
-            ),
-            session=session,
-        )
 
     await patch_one_in_db(
         collection=berechtigungen_collection,
@@ -642,17 +654,25 @@ async def _move_the_tier_in_session(
 
     vorher = stand_of(grant)
     jetzt = vorher.model_copy(update={"verwaltung": verwaltung})
-    await post_one_to_db(
-        collection=berechtigungen_postausgang_collection,
-        document=compose_postausgang(
-            berechtigung_id=berechtigung_id,
-            art="geaendert",
-            jetzt=jetzt,
-            vorher=vorher,
-            geaendert_von=geaendert_von,
-            now=now,
-            gesperrt=barred,
-        ),
+    await owe_in_session(
+        [
+            *(
+                compose_mitteilung(berechtigung_id=changed_id, art=art, jetzt=was, vorher=before, geaendert_von=None, now=now, gesperrt=barred)
+                for changed_id, art, was, before in pending
+            ),
+            compose_mitteilung(
+                berechtigung_id=berechtigung_id,
+                art="geaendert",
+                jetzt=jetzt,
+                vorher=vorher,
+                geaendert_von=geaendert_von,
+                now=now,
+                gesperrt=barred,
+            ),
+        ],
+        postausgang_collection=postausgang_collection,
+        berechtigungen_collection=berechtigungen_collection,
+        now=now,
         session=session,
     )
     # The announced row is bookkeeping, so replaced with no image.
@@ -675,7 +695,7 @@ async def post_antrag_genehmigung(
     antrag_id: CustomRouteObjectId,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    postausgang_collection: PostausgangCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
@@ -725,8 +745,9 @@ async def post_antrag_genehmigung(
         # Removed by the write that reads it, so a second approval, a refusal or an erasure beside this one conflicts and finds none.
         await remove_the_antrag_in_session(
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
-            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            postausgang_collection=postausgang_collection,
             antrag_id=antrag_id,
+            now=now,
             session=session,
         )
 
@@ -740,7 +761,7 @@ async def post_antrag_genehmigung(
                 gesperrt=frozenset(),
                 berechtigungen_collection=berechtigungen_collection,
                 berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-                berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                postausgang_collection=postausgang_collection,
                 now=now,
                 session=session,
             )
@@ -762,7 +783,7 @@ async def post_antrag_genehmigung(
                 geaendert_von=operator,
                 berechtigungen_collection=berechtigungen_collection,
                 berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-                berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                postausgang_collection=postausgang_collection,
                 now=now,
                 session=session,
             )
@@ -786,7 +807,7 @@ async def delete_antrag(
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
-    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    postausgang_collection: PostausgangCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -829,20 +850,11 @@ async def delete_antrag(
 
         await remove_the_antrag_in_session(
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
-            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            postausgang_collection=postausgang_collection,
             antrag_id=antrag_id,
+            now=now,
             session=session,
         )
-        # A decider's refusal is news to its requester; their own withdrawal is not.
-        if not zurueckgezogen:
-            await queue_the_ending_in_session(
-                [antrag],
-                art="antrag_abgelehnt",
-                sperrliste=sperrliste,
-                berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
-                now=now,
-                session=session,
-            )
         journal.note(
             antrag_line(
                 antrag=antrag,

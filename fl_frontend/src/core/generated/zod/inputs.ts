@@ -3,15 +3,14 @@ import "server-only";
 import * as zod from "zod";
 
 /**
- * Start a change of the typed address for a person who says they cannot sign in, answering its raw links once, for the caller to mail.
+ * Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
  *
- * **Nothing moves here.** Without a `grund` the change asks the address on file first: the caller mails it the request
- * with its stop link, and nothing goes to the new mailbox until that address approves on its account page. With a
- * `grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the
- * address on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new
- * mailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never
- * this one's: `genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).
- * The address's live change ends replaced.
+ * **Nothing moves here.** Without a `grund` the change asks the address on file first: it is owed the request with its
+ * stop link, and nothing goes to the new mailbox until that address approves on its account page. With a `grund`,
+ * recording how the administrator established who asks, the new mailbox is owed its link and the address on file a
+ * notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new mailbox
+ * confirms. Where the address holds a grant, the change also waits on another administrator's approval, never this
+ * one's. No link is answered. The address's live change ends replaced.
  *
  * Refused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power
  * (`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds
@@ -74,7 +73,7 @@ export const AdresswechselGetAdresswechselVerwaltungAnsichtBody = zod
  * start with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this
  * transaction: every pupil row, confirmed referee row, confirmed contact seat, registration and grant the address on
  * file holds moves to the new one, asking no consent and writing none, and `wirksam` says so; its completion notice is
- * queued in this transaction for `POST /adresswechsel/sweep/postausgang`. A change that waits is confirmed alone,
+ * owed in this transaction, and so is its sign-in account's carry. A change that waits is confirmed alone,
  * answering `wirksam_ab` or `genehmigung_offen`.
  * Either answer spends the link, which keeps answering what became of the change.
  *
@@ -152,9 +151,9 @@ export const AdresswechselPostAdresswechselStoppBody = zod
  * holds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil
  * signing in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move
  * ends it discarded, and
- * `verworfen` counts it, its new address queued to be told it did not take effect and never why; otherwise
- * everything the replaced address holds moves, and `wirksam` counts it, its completion notice queued. The notices are
- * `POST /adresswechsel/sweep/postausgang`'s to claim, queued in each change's own transaction, so none rides on this answer.
+ * `verworfen` counts it, its new address owed a notice that it did not take effect and never why; otherwise
+ * everything the replaced address holds moves, and `wirksam` counts it, its completion notice owed. Each notice is owed
+ * in the Postausgang in its change's own transaction, so none rides on this answer.
  *
  * Each change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or
  * replaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `nach` the last
@@ -203,23 +202,17 @@ export const AdresswechselGetAdresswechselAdresseBody = zod
   .describe("Exactly one key: the new mailbox's link token, or the change an approval names.");
 
 /**
- * Remove each named notice the named claim still holds, and nothing else.
- *
- * A notice the claim does not hold -- unknown, removed already, or claimed since by another call after this claim
- * lapsed -- is left alone and counted in `ignoriert`. A repeated id counts once. One transaction, imageless: a row
- * names addresses, and the log keeps no image of its removal.
- * @summary Remove the delivered notices a claim holds
+ * Take the owed carry off each named change, counting the ones that owed one; an id owing none is left alone.
+ * @summary Take the carries done off their changes
  */
+export const adresswechselPostAdresswechselUmzuegeErledigtBodyIdsItemRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const adresswechselPostAdresswechselUmzuegeErledigtBodyIdsMax = 1024;
 
-export const adresswechselPostAdresswechselZugestelltBodyIdsItemRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const adresswechselPostAdresswechselZugestelltBodyIdsMax = 1024;
-
-export const AdresswechselPostAdresswechselZugestelltBody = zod.object({
-  beanspruchung: zod.string().min(1),
+export const AdresswechselPostAdresswechselUmzuegeErledigtBody = zod.object({
   ids: zod
-    .array(zod.string().regex(adresswechselPostAdresswechselZugestelltBodyIdsItemRegExp))
+    .array(zod.string().regex(adresswechselPostAdresswechselUmzuegeErledigtBodyIdsItemRegExp))
     .min(1)
-    .max(adresswechselPostAdresswechselZugestelltBodyIdsMax),
+    .max(adresswechselPostAdresswechselUmzuegeErledigtBodyIdsMax),
 });
 
 /**
@@ -241,12 +234,12 @@ export const AdresswechselDeleteAdresswechselParams = zod.object({
 });
 
 /**
- * Mint the new mailbox a fresh link for the change this id names, answering the raw token once, for the caller to mail.
+ * Owe the new mailbox a fresh link for the change this id names, in the same transaction.
  *
- * The previous link stops working at once and the delivery state of the message it went out in goes with it; the
- * deadline restarts now. The stop link stays, so the address on file is mailed nothing again. A lapsed link is no
- * refusal while the change stands, which is until the next hourly pass ends it. Acts
- * on the change the id names alone, so a page showing a change since replaced re-sends nothing.
+ * The previous link stops working once the fresh one is handed out; the deadline restarts now. The stop link stays, so
+ * the address on file is mailed nothing again. A lapsed link is no refusal while the change stands, which is until the
+ * next hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends
+ * nothing.
  *
  * Refused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), where the ban list holds the pending address
  * (`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), where an entry has come to name it,
@@ -326,7 +319,7 @@ export const AktionenGetAktionByIdParams = zod.object({
  * grant already holds the address (`REQ-BERECHTIGUNG-001`) -- a dead row of another spelling blocks nothing -- where the ban list
  * holds it (`REQ-BERECHTIGUNG-003`), and where a request about it waits already (`REQ-BERECHTIGUNG-008`). The grant takes effect on
  * the next request, for a session signed in after it alone -- an older one is refused `REQ-AUTH-007` on every admin-tier route -- and
- * its announcement is queued in the same transaction for `POST /berechtigungen/abgleich` to hand out. Like a revoke and a tier
+ * its announcement is owed to every administrator in the same transaction. Like a revoke and a tier
  * change, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES`, refused `REQ-AUTH-009` otherwise.
  * @summary Grant access to the administration
  */
@@ -334,22 +327,6 @@ export const berechtigungenPostBerechtigungBodyEmailMax = 254;
 
 export const BerechtigungenPostBerechtigungBody = zod.object({
   email: zod.string().max(berechtigungenPostBerechtigungBodyEmailMax),
-});
-
-/**
- * Remove from the queue each named change the named claim still holds, counting every other id once in `ignoriert`.
- * @summary Remove the announced changes a claim holds
- */
-
-export const berechtigungenPostBerechtigungenAngekuendigtBodyIdsItemRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const berechtigungenPostBerechtigungenAngekuendigtBodyIdsMax = 1024;
-
-export const BerechtigungenPostBerechtigungenAngekuendigtBody = zod.object({
-  beanspruchung: zod.string().min(1),
-  ids: zod
-    .array(zod.string().regex(berechtigungenPostBerechtigungenAngekuendigtBodyIdsItemRegExp))
-    .min(1)
-    .max(berechtigungenPostBerechtigungenAngekuendigtBodyIdsMax),
 });
 
 /**
@@ -1367,12 +1344,11 @@ export const IdentitaetGetSubjektBody = zod
   .describe("Which mailbox is asking, folded to the one spelling the join, the header and the log agree on.");
 
 /**
- * Start a change of the address the person signs in on, answering both raw links once, for the frontend's server to mail.
+ * Start a change of the address the person signs in on, its two mails owed in the same transaction and no link answered.
  *
- * The new mailbox is mailed its link, and the address on file a notice with a stop link; **everything the address holds
+ * The new mailbox is owed its link, and the address on file a notice with a stop link; **everything the address holds
  * as its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. Where it holds a
- * grant, the change also waits on another administrator's approval, an owner's for an owner's grant,
- * `genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`). The address's live
+ * grant, the change also waits on another administrator's approval, an owner's for an owner's grant. The address's live
  * change ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.
  * **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
  * answers alike whatever the new address holds.
@@ -1390,7 +1366,7 @@ export const KontoPostAdresswechselBody = zod.object({
 });
 
 /**
- * Approve the change `id` names, which an administrator started without a reason, minting the new mailbox's link once.
+ * Approve the change `id` names, which an administrator started without a reason, owing the new mailbox its link.
  *
  * **Nothing reaches the new mailbox before this press**. Nothing about the new address is
  * judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
@@ -2510,14 +2486,15 @@ export const SchiedsrichterReactivateSchiedsrichterParams = zod.object({
 });
 
 /**
- * Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.
+ * Ban an address from signing up. The address is hashed under the backend key; no row and no log line holds it but its notice's.
  *
  * Refused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is
  * running, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and
  * where the address is an administrator's (`REQ-SPERRLISTE-003`). The ban covers the
  * fifth season after the one running now — the last one it covers is answered as
- * `gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still queued
- * for the address loses the address in the same transaction.
+ * `gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still owed
+ * that names the address loses it in the same transaction, and where `benachrichtigen` is set the ban's
+ * own notice is owed to it there too, the one mail a ban does not stop.
  *
  * `grund` is served, mailed to the address and kept past that person's erasure.
  * @summary Ban an email address
@@ -2529,6 +2506,7 @@ export const sperrlistePostSperrlisteEintragBodyGrundMax = 500;
 export const sperrlistePostSperrlisteEintragBodyGrundRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 
 export const SperrlistePostSperrlisteEintragBody = zod.object({
+  benachrichtigen: zod.boolean(),
   email: zod.string().max(sperrlistePostSperrlisteEintragBodyEmailMax),
   grund: zod.string().min(1).max(sperrlistePostSperrlisteEintragBodyGrundMax).regex(sperrlistePostSperrlisteEintragBodyGrundRegExp),
 });

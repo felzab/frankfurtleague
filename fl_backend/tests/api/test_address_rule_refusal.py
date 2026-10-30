@@ -69,7 +69,12 @@ def _registration(email: str) -> dict[str, Any]:
 # and the headers its guards ask for: a guard refusing first would answer 401 and hide the judgement.
 ROUTES = {
     "POST /registrierungen": ("POST", "/registrierungen", BASE_AUTH, _registration),
-    "POST /sperrliste": ("POST", "/sperrliste", ADMIN_HEADERS, lambda email: {"email": email, "grund": "Falsche Angabe"}),
+    "POST /sperrliste": (
+        "POST",
+        "/sperrliste",
+        ADMIN_HEADERS,
+        lambda email: {"email": email, "grund": "Falsche Angabe", "benachrichtigen": False},
+    ),
     "POST /schiedsrichter": ("POST", "/schiedsrichter", ADMIN_HEADERS, _referee),
     "PATCH /schiedsrichter/{schiedsrichter_id}": ("PATCH", f"/schiedsrichter/{REFEREE_ID}", ADMIN_HEADERS, _referee),
 }

@@ -18,15 +18,14 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.adresswechsel.schemas import FLAdresswechselPostausgangResponse, FLAdresswechselSweepParams, FLAdresswechselZugestelltPayload
-from app.api.adresswechsel.services import compose_genehmigung, compose_postausgang, wirksam_ab_von
+from app.api.adresswechsel.schemas import FLAdresswechselSweepParams, FLAdresswechselUmzuegeErledigtPayload
+from app.api.adresswechsel.services import compose_genehmigung, wirksam_ab_von
 from app.api.adresswechsel.sweep_router import (
     ADRESSWECHSEL_PER_PASS,
-    post_adresswechsel_postausgang,
-    post_adresswechsel_zugestellt,
+    get_adresswechsel_umzuege,
+    post_adresswechsel_umzuege_erledigt,
     sweep_adresswechsel,
 )
-from app.api.berechtigungen.services import BEANSPRUCHUNG_DAUER, VERSUCHE_HOECHSTENS
 from app.api.bewerbungen.services import hash_token
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.services import build_ghost_spieler
@@ -168,11 +167,10 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any 
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-        berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
         einladungen_collection=database[Collection.EINLADUNGEN],
         sperrliste_collection=database[Collection.SPERRLISTE],
-        adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
         sperrliste=ban_list(database),
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
@@ -262,10 +260,8 @@ class TestADueChangeTakesEffect:
         answer, addresses, notices = on_a_league(mongo_replica_set_url, body)
 
         assert answer.wirksam == 1
-        assert notices == [
-            # The lost-mailbox way greets nobody.
-            {"art": "wirksam", "bisherige_email": on_file(1), "email": pending(1), "vorname": None, "weg": "wartezeit"}
-        ]
+        # The lost-mailbox way greets nobody.
+        assert notices == [{"art": "wirksam", "an": on_file(1), "vorname": None}]
         assert addresses == [pending(1)]
 
     @pytest.mark.parametrize("barred", ["on_file", "pending"])
@@ -285,7 +281,7 @@ class TestADueChangeTakesEffect:
         answer, ended, notices = on_a_league(mongo_replica_set_url, body)
 
         assert (answer.verworfen, answer.wirksam) == (1, 0)
-        assert notices == [{"art": "verworfen", "bisherige_email": None, "email": pending(1), "vorname": None, "weg": None}]
+        assert notices == [{"art": "verworfen", "an": pending(1)}]
         assert (ended["beendet"]["art"], ended["email"]) == ("verworfen", None)
 
     def test_a_change_finding_nothing_to_move_is_refused_alike(self, mongo_replica_set_url: str):
@@ -295,7 +291,7 @@ class TestADueChangeTakesEffect:
 
         answer, notices = on_a_league(mongo_replica_set_url, body)
 
-        assert (answer.verworfen, answer.wirksam, [notice["email"] for notice in notices]) == (1, 0, [pending(1)])
+        assert (answer.verworfen, answer.wirksam, [notice["an"] for notice in notices]) == (1, 0, [pending(1)])
 
 
 class WrittenAfterTheRead:
@@ -652,112 +648,32 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         assert names.total() - ADRESSWECHSEL_PER_PASS * COMMANDS_A_DUE_PERSON == OTHER_COMMANDS + SEASON_READ, names
 
 
-async def queue(database: AsyncDatabase, *positions: int) -> list[ObjectId]:
-    """One completion notice per position, queued a minute apart in that order, as the ends would have written them."""
+class TestTheOwedCarries:
+    """Owed by an effect on its ended record, listed until the frontend reports each carried."""
 
-    ids = []
-    for position in positions:
-        row = compose_postausgang(
-            art="wirksam",
-            email=pending(position),
-            now=NOW - timedelta(minutes=len(positions) - len(ids)),
-            bisherige_email=on_file(position),
-            vorname=None,
-            weg="wartezeit",
+    def test_each_is_listed_until_it_is_reported_carried_and_a_repeat_counts_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.ADRESSWECHSEL].insert_many(
+                [
+                    {**a_change(position, minted="2126-04-01"), "umzug": {"von": on_file(position), "nach": pending(position)}}
+                    for position in (1, 2)
+                ]
+            )
+            listed = (await get_adresswechsel_umzuege(adresswechsel_collection=database[Collection.ADRESSWECHSEL])).umzuege
+            payload = FLAdresswechselUmzuegeErledigtPayload(ids=[numbered(1)])
+            first = await post_adresswechsel_umzuege_erledigt(
+                erledigt_data=payload, adresswechsel_collection=database[Collection.ADRESSWECHSEL]
+            )
+            again = await post_adresswechsel_umzuege_erledigt(
+                erledigt_data=payload, adresswechsel_collection=database[Collection.ADRESSWECHSEL]
+            )
+            left = (await get_adresswechsel_umzuege(adresswechsel_collection=database[Collection.ADRESSWECHSEL])).umzuege
+
+            return [(row.id, row.von, row.nach) for row in listed], first.erledigt, again.erledigt, [row.id for row in left]
+
+        assert on_a_league(mongo_replica_set_url, body) == (
+            [(numbered(1), on_file(1), pending(1)), (numbered(2), on_file(2), pending(2))],
+            1,
+            0,
+            [numbered(2)],
         )
-        ids.append((await database[Collection.ADRESSWECHSEL_POSTAUSGANG].insert_one(row)).inserted_id)
-
-    return ids
-
-
-async def claimed(database: AsyncDatabase, client: AsyncMongoClient, *, now: datetime = NOW) -> FLAdresswechselPostausgangResponse:
-    return await post_adresswechsel_postausgang(
-        adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG], db=client, now=now
-    )
-
-
-async def stamped(database: AsyncDatabase, client: AsyncMongoClient, beanspruchung: str, ids: list[ObjectId]) -> tuple[int, int]:
-    answer = await post_adresswechsel_zugestellt(
-        zugestellt_data=FLAdresswechselZugestelltPayload(beanspruchung=beanspruchung, ids=ids),
-        adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
-        db=client,
-    )
-
-    return answer.zugestellt, answer.ignoriert
-
-
-class TestTheOutbox:
-    """The grants' outbox's contract: a lease per claim, a count per row, a stamp per claim."""
-
-    def test_a_claim_hands_out_oldest_first_and_a_second_inside_the_lease_gets_nothing(self, mongo_replica_set_url: str):
-        """Two overlapping passes never hold one notice; a pass that died leaves its notices to the pass after its lease."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            queued = await queue(database, 1, 2)
-            first = await claimed(database, client)
-            overlapping = await claimed(database, client, now=NOW + BEANSPRUCHUNG_DAUER - timedelta(seconds=1))
-            after = await claimed(database, client, now=NOW + BEANSPRUCHUNG_DAUER)
-
-            return queued, first, overlapping, after
-
-        queued, first, overlapping, after = on_a_league(mongo_replica_set_url, body)
-
-        assert [notice.id for notice in first.mitteilungen] == queued
-        assert [(notice.bisherige_email, notice.email, notice.aufgegeben) for notice in first.mitteilungen] == [
-            (on_file(1), pending(1), False),
-            (on_file(2), pending(2), False),
-        ]
-        assert (overlapping.mitteilungen, overlapping.beanspruchung) == ([], None)
-        assert [notice.id for notice in after.mitteilungen] == queued
-        assert after.beanspruchung not in (None, first.beanspruchung)
-
-    def test_the_stamp_removes_only_what_its_own_claim_holds_and_counts_a_repeat_once(self, mongo_replica_set_url: str):
-        """A lapsed claim's stamp, an unknown id and a repeated id are each left alone and counted, never refused."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            ids = await queue(database, 1, 2)
-            first = await claimed(database, client)
-            second = await claimed(database, client, now=NOW + BEANSPRUCHUNG_DAUER)
-            assert first.beanspruchung is not None and second.beanspruchung is not None
-
-            counts = [
-                await stamped(database, client, first.beanspruchung, ids),
-                await stamped(database, client, second.beanspruchung, [ids[0], ids[0], ObjectId()]),
-                await stamped(database, client, second.beanspruchung, ids),
-            ]
-
-            return counts, await owed(database)
-
-        counts, left = on_a_league(mongo_replica_set_url, body)
-
-        assert counts == [(0, 2), (1, 1), (1, 1)]
-        assert left == []
-
-    def test_a_notice_handed_out_its_last_time_is_answered_as_given_up_the_time_after(self, mongo_replica_set_url: str):
-        """The bound's last hand-out is delivered as any other; the claim after it tells the pass to stamp and send nothing."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[bool]:
-            await queue(database, 1)
-            await database[Collection.ADRESSWECHSEL_POSTAUSGANG].update_many({}, {"$set": {"versuche": VERSUCHE_HOECHSTENS - 1}})
-            last = await claimed(database, client)
-            after = await claimed(database, client, now=NOW + BEANSPRUCHUNG_DAUER)
-
-            return [notice.aufgegeben for notice in (*last.mitteilungen, *after.mitteilungen)]
-
-        assert on_a_league(mongo_replica_set_url, body) == [False, True]
-
-    def test_the_bookkeeping_leaves_the_log_no_address(self, mongo_replica_set_url: str):
-        """A notice names both addresses; neither its claim nor its stamp may keep them in the year-long log."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
-            ids = await queue(database, 1)
-            answer = await claimed(database, client)
-            assert answer.beanspruchung is not None
-            await stamped(database, client, answer.beanspruchung, ids)
-            rows = database[Collection.AKTIONEN].find({"collection": str(Collection.ADRESSWECHSEL_POSTAUSGANG)})
-
-            return [str(row) async for row in rows]
-
-        logged = on_a_league(mongo_replica_set_url, body)
-
-        assert all(on_file(1) not in row and pending(1) not in row for row in logged)

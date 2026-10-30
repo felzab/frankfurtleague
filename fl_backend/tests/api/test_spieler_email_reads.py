@@ -122,7 +122,7 @@ async def the_references_read(database: AsyncDatabase, client: AsyncMongoClient,
         [FOLDED_EMAIL],
         record_collections(database),
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-        adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
+        adresswechsel_collection=database[Collection.ADRESSWECHSEL],
     )
 
 
@@ -239,9 +239,8 @@ async def the_address_change_request(database: AsyncDatabase, client: AsyncMongo
         spieler_collection=database[Collection.SPIELER],
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-        berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
-        adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
         sperrliste=ban_list(database),
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,

@@ -772,7 +772,7 @@ class PupilsReadMeetingARival(InterleavedCollection):
 
 
 # Where a grant's creation names its address besides the grant: its announced row and its notice.
-THE_GRANTS_OWN_ROWS = frozenset({Collection.BERECHTIGUNGEN_ANGEKUENDIGT, Collection.BERECHTIGUNGEN_POSTAUSGANG})
+THE_GRANTS_OWN_ROWS = frozenset({Collection.BERECHTIGUNGEN_ANGEKUENDIGT, Collection.POSTAUSGANG})
 
 
 @pytest.mark.db
@@ -788,11 +788,13 @@ class TestAnotherAdministratorsAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, HAND_TYPED_GRANT_OID, "Von.Hand@Example.com", "administration")
             response = await posted(mongo_replica_set_url, PATH, erasure_of(ANOTHER_ADMINISTRATOR), by=OWNER)
-            notices = (
-                await database[Collection.BERECHTIGUNGEN_POSTAUSGANG]
-                .find({"berechtigung_id": GRANT_ID_OF[ANOTHER_ADMINISTRATOR]})
-                .to_list(None)
-            )
+            # One row per administrator a notice is owed to: the owner's copy, which every notice has.
+            notices = [
+                row["daten"]
+                async for row in database[Collection.POSTAUSGANG].find(
+                    {"schluessel": {"$regex": f"^berechtigung/{GRANT_ID_OF[ANOTHER_ADMINISTRATOR]}/"}, "an": OWNER}, sort=[("_id", 1)]
+                )
+            ]
 
             return response, await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": ANOTHER_ADMINISTRATOR}), notices
 
@@ -802,7 +804,7 @@ class TestAnotherAdministratorsAddress:
         assert (response.status_code, response.json()["berechtigungen"], left) == (200, 1, 0)
         # The end's notice names who ended the grant: the pressing owner, on the person's request. A pasted grant nobody
         # announced is announced first, by the database.
-        assert [(notice["art"], notice["geaendert_von"]) for notice in notices] == [("erteilt", None), ("entzogen", OWNER)]
+        assert [(notice["aenderung"], notice["geaendert_von"]) for notice in notices] == [("erteilt", None), ("entzogen", OWNER)]
         assert [getattr(record, "error_code", None) for record in caplog.records].count(DEAD_GRANT.error_code) == 1
 
 

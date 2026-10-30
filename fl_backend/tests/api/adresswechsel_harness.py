@@ -8,6 +8,7 @@ what it changes: the address, the instant, the actor.
 import inspect
 import time
 from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -35,6 +36,7 @@ from app.api.adresswechsel.sweep_router import sweep_adresswechsel
 from app.api.konto.router import delete_adresswechsel as stop_on_the_account_page
 from app.api.konto.router import get_adresswechsel, post_adresswechsel, post_adresswechsel_freigabe
 from app.api.konto.schemas import FLKontoAdresswechselFreigabePayload, FLKontoAdresswechselPayload
+from app.api.postausgang.router import post_ausgabe
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.core.security import PASSKEY_FACTOR, SessionActor
@@ -291,23 +293,78 @@ def read(database: AsyncDatabase, client: AsyncMongoClient, identifier: str = EM
     return call(get_adresswechsel, database, client, identifier=identifier, **given)
 
 
-def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = NEW_EMAIL, **given: Any) -> Awaitable[Any]:
-    return call(post_adresswechsel, database, client, adresswechsel_data=FLKontoAdresswechselPayload(email=email), **given)
+# The kinds whose hand-out mints a change's link, and which link each mints.
+_LINKS = {"adresswechsel_link": "token", "adresswechsel_hinweis": "stopp_token"}
 
 
-def approve_as_the_address(database: AsyncDatabase, client: AsyncMongoClient, adresswechsel_id: ObjectId, **given: Any) -> Awaitable[Any]:
-    return call(post_adresswechsel_freigabe, database, client, freigabe_data=FLKontoAdresswechselFreigabePayload(id=adresswechsel_id), **given)
+@dataclass(frozen=True)
+class Minted:
+    """A write's answer, and the raw links the Postausgang's hand-out minted for the mails it owed, as the drain receives them.
+
+    `None` where the write owed no such mail.
+    """
+
+    answer: Any
+    token: str | None
+    stopp_token: str | None
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.answer, name)
+
+
+async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: Any, *, now: datetime = NOW) -> Minted:
+    """The links owed at `now`, minted by the real hand-out and settled as sent; any other mail it claimed is left owed and free."""
+
+    # Claim after claim until one holds nothing, each holding its rows past the next: a page of older mail comes first.
+    mails = []
+    while (
+        claim := await post_ausgabe(
+            postausgang_collection=database[Collection.POSTAUSGANG], sperrliste=ban_list(database), db=database, db_client=client, now=now
+        )
+    ).mails:
+        mails += claim.mails
+    links = {_LINKS[mail.daten.art]: mail.token for mail in mails if mail.daten.art in _LINKS}
+    held = [mail.id for mail in mails if mail.daten.art in _LINKS]
+    others = [mail.id for mail in mails if mail.daten.art not in _LINKS]
+    if held:
+        await database[Collection.POSTAUSGANG].update_many({"_id": {"$in": held}}, {"$set": {"stand": "gesendet"}})
+    if others:
+        await database[Collection.POSTAUSGANG].update_many(
+            {"_id": {"$in": others}}, {"$set": {"beanspruchung": None, "beansprucht_bis": None}, "$inc": {"versuche": -1}}
+        )
+
+    return Minted(answer=answer, token=links.get("token"), stopp_token=links.get("stopp_token"))
+
+
+async def start(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = NEW_EMAIL, **given: Any) -> Minted:
+    answer = await call(post_adresswechsel, database, client, adresswechsel_data=FLKontoAdresswechselPayload(email=email), **given)
+    return await handed_out(database, client, answer, now=given.get("germany_now", NOW))
+
+
+async def approve_as_the_address(database: AsyncDatabase, client: AsyncMongoClient, adresswechsel_id: ObjectId, **given: Any) -> Minted:
+    payload = FLKontoAdresswechselFreigabePayload(id=adresswechsel_id)
+    return await handed_out(
+        database,
+        client,
+        await call(post_adresswechsel_freigabe, database, client, freigabe_data=payload, **given),
+        now=given.get("germany_now", NOW),
+    )
 
 
 def stop_here(database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> Awaitable[Any]:
     return call(stop_on_the_account_page, database, client, **given)
 
 
-def administrator_starts(
+async def administrator_starts(
     database: AsyncDatabase, client: AsyncMongoClient, *, grund: str | None, adresse: str = EMAIL, email: str = NEW_EMAIL, **given: Any
-) -> Awaitable[Any]:
+) -> Minted:
     payload = FLAdresswechselVerwaltungPayload.model_validate({"adresse": adresse, "email": email, "grund": grund})
-    return call(post_adresswechsel_verwaltung, database, client, adresswechsel_data=payload, **given)
+    return await handed_out(
+        database,
+        client,
+        await call(post_adresswechsel_verwaltung, database, client, adresswechsel_data=payload, **given),
+        now=given.get("germany_now", NOW),
+    )
 
 
 def tool_read(database: AsyncDatabase, client: AsyncMongoClient, *, operator: str = ADMIN, **key: Any) -> Awaitable[Any]:
@@ -315,8 +372,13 @@ def tool_read(database: AsyncDatabase, client: AsyncMongoClient, *, operator: st
     return call(get_adresswechsel_verwaltung_ansicht, database, client, ansicht_data=payload, operator=operator)
 
 
-def resend(database: AsyncDatabase, client: AsyncMongoClient, adresswechsel_id: ObjectId, **given: Any) -> Awaitable[Any]:
-    return call(einladen_adresswechsel, database, client, adresswechsel_id=adresswechsel_id, **given)
+async def resend(database: AsyncDatabase, client: AsyncMongoClient, adresswechsel_id: ObjectId, **given: Any) -> Minted:
+    return await handed_out(
+        database,
+        client,
+        await call(einladen_adresswechsel, database, client, adresswechsel_id=adresswechsel_id, **given),
+        now=given.get("germany_now", NOW),
+    )
 
 
 def discard(database: AsyncDatabase, client: AsyncMongoClient, adresswechsel_id: ObjectId, **given: Any) -> Awaitable[Any]:
@@ -327,17 +389,24 @@ def approve(database: AsyncDatabase, client: AsyncMongoClient, adresswechsel_id:
     return call(post_adresswechsel_genehmigung, database, client, adresswechsel_id=adresswechsel_id, **given)
 
 
-def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, antwort: str = "bestaetigt", **given: Any) -> Awaitable[Any]:
-    payload = FLAdresswechselAntwortPayload.model_validate({"token": token, "antwort": antwort})
+def _handed(token: str | None) -> str:
+    """A link a hand-out minted: `None` here is a case pressing a link the write never owed."""
+
+    assert token is not None, "no hand-out minted this link"
+    return token
+
+
+def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str | None, antwort: str = "bestaetigt", **given: Any) -> Awaitable[Any]:
+    payload = FLAdresswechselAntwortPayload.model_validate({"token": _handed(token), "antwort": antwort})
     return call(post_adresswechsel_antwort, database, client, antwort_data=payload, **given)
 
 
-def stop_by_link(database: AsyncDatabase, client: AsyncMongoClient, token: str, **given: Any) -> Awaitable[Any]:
-    return call(post_adresswechsel_stopp, database, client, stopp_data=FLTokenPayload(token=token), **given)
+def stop_by_link(database: AsyncDatabase, client: AsyncMongoClient, token: str | None, **given: Any) -> Awaitable[Any]:
+    return call(post_adresswechsel_stopp, database, client, stopp_data=FLTokenPayload(token=_handed(token)), **given)
 
 
-def view(database: AsyncDatabase, client: AsyncMongoClient, token: str, **given: Any) -> Awaitable[Any]:
-    return call(get_adresswechsel_ansicht, database, client, ansicht_data=FLTokenPayload(token=token), **given)
+def view(database: AsyncDatabase, client: AsyncMongoClient, token: str | None, **given: Any) -> Awaitable[Any]:
+    return call(get_adresswechsel_ansicht, database, client, ansicht_data=FLTokenPayload(token=_handed(token)), **given)
 
 
 def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any = None, **given: Any) -> Awaitable[Any]:
@@ -363,12 +432,27 @@ async def change(database: AsyncDatabase, adresswechsel_id: ObjectId) -> Mapping
 
 
 async def owed(database: AsyncDatabase) -> list[dict[str, Any]]:
-    """The notices the ends queued for the frontend's pass, in the order a claim hands them out."""
+    """The notices the ends owe, in the order the drain hands them out: their kind, their recipient and whom they greet."""
 
-    fields = ("art", "bisherige_email", "email", "vorname", "weg")
+    rows = database[Collection.POSTAUSGANG].find(
+        {"art": {"$in": ["adresswechsel_wirksam", "adresswechsel_verworfen"]}, "stand": "offen"}, sort=[("erfasst_am", 1), ("_id", 1)]
+    )
     return [
-        {field: row[field] for field in fields}
-        async for row in database[Collection.ADRESSWECHSEL_POSTAUSGANG].find({}, sort=[("erfasst_am", 1), ("_id", 1)])
+        {
+            "art": row["art"].removeprefix("adresswechsel_"),
+            "an": row["an"],
+            **({"vorname": row["daten"]["vorname"]} if "vorname" in row["daten"] else {}),
+        }
+        async for row in rows
+    ]
+
+
+async def carries(database: AsyncDatabase) -> list[tuple[str, str]]:
+    """The sign-in accounts the ended changes still owe to carry, from where to where, in the changes' order."""
+
+    return [
+        (row["umzug"]["von"], row["umzug"]["nach"])
+        async for row in database[Collection.ADRESSWECHSEL].find({"umzug": {"$type": "object"}}, sort=[("_id", 1)])
     ]
 
 

@@ -1,18 +1,19 @@
 """
-API · the grants' refusals, the one reading of a stored row, and the outbox's rows, apart from the handles they are asked of
+API · the grants' refusals, the one reading of a stored row, and the facts of their notices, apart from the handles they are asked of
 
 Each refusal takes what its caller read inside its own transaction, so a retry after a conflict
 judges the list afresh.
 """
 
 from collections.abc import Collection, Mapping, Sequence, Set
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime
 from http import HTTPStatus
 from typing import Any, Final
 
 from bson import ObjectId
 
-from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungPostausgangArt, FLBerechtigungStand, as_utc
+from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungMitteilungArt, FLBerechtigungStand, as_utc
 from app.api.sperrliste.services import withheld_actor
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
@@ -25,14 +26,6 @@ from app.shared.schemas.literals import FLGenehmigungVerwehrt
 MINDESTZAHL: Final = 2
 
 OWNER: Final = "owner"
-
-# How long a pass holds the rows it claimed. Longer than a pass mails for, so a second pass never
-# takes rows the first is still sending; short enough that a pass that died is replaced within two.
-BEANSPRUCHUNG_DAUER: Final = timedelta(minutes=10)
-
-# The claims that hand a notice out before the next gives it up: at the lease above, four hours
-# of passes none of which stamped it. Counted on the row, so a restart resets nothing.
-VERSUCHE_HOECHSTENS: Final = 24
 
 
 def lebendige_adresse(row: Mapping[str, Any]) -> str | None:
@@ -264,39 +257,46 @@ def withheld(stand: FLBerechtigungStand | None, gesperrt: Collection[str]) -> FL
     return stand.model_copy(update={"adresse": None})
 
 
-def compose_postausgang(
+@dataclass(frozen=True)
+class Mitteilung:
+    """One notice a grants write owes: the grant or request it is keyed by, and its facts (`FLBerechtigungDaten`)."""
+
+    berechtigung_id: ObjectId
+    daten: dict[str, Any]
+
+
+def compose_mitteilung(
     *,
     berechtigung_id: ObjectId,
-    art: FLBerechtigungPostausgangArt,
+    art: FLBerechtigungMitteilungArt,
     jetzt: FLBerechtigungStand | None,
     vorher: FLBerechtigungStand | None,
     geaendert_von: str | None,
     now: datetime,
     gesperrt: Collection[str],
-) -> dict[str, Any]:
-    """One outbox row, every barred address in it withheld as it is written; `geaendert_von` null is a change found in the database.
+) -> Mitteilung:
+    """One notice, every barred address in it withheld as it is written; `geaendert_von` null is a change found in the database.
 
-    The actor stored folded, the spelling a later ban matches pending rows by.
+    The actor stored folded, the spelling a later ban or erasure matches queued notices by.
     """
 
-    rows = (withheld(jetzt, gesperrt), withheld(vorher, gesperrt))
+    stands = (withheld(jetzt, gesperrt), withheld(vorher, gesperrt))
     actor = None if geaendert_von is None else sign_in_identifier(geaendert_von)
 
-    return {
-        "berechtigung_id": berechtigung_id,
-        "art": art,
-        "urheber": "datenbank" if geaendert_von is None else "anwendung",
-        "jetzt": None if rows[0] is None else rows[0].model_dump(),
-        "vorher": None if rows[1] is None else rows[1].model_dump(),
-        "geaendert_von": withheld_actor(actor, gesperrt),
-        "geaendert_am": None if geaendert_von is None else now,
-        # The grant's address alone: a null actor on an application's change already says it is barred.
-        "vorenthalten": "gesperrt" if any(stand is not None and stand.adresse is None for stand in rows) else None,
-        "erfasst_am": now,
-        "beansprucht_bis": None,
-        "beanspruchung": None,
-        "versuche": 0,
-    }
+    return Mitteilung(
+        berechtigung_id=berechtigung_id,
+        daten={
+            "art": "berechtigung",
+            "aenderung": art,
+            "urheber": "datenbank" if geaendert_von is None else "anwendung",
+            "jetzt": None if stands[0] is None else stands[0].model_dump(),
+            "vorher": None if stands[1] is None else stands[1].model_dump(),
+            "geaendert_von": withheld_actor(actor, gesperrt),
+            "geaendert_am": None if geaendert_von is None else now,
+            # The grant's address alone: a null actor on an application's change already says it is barred.
+            "vorenthalten": "gesperrt" if any(stand is not None and stand.adresse is None for stand in stands) else None,
+        },
+    )
 
 
 def compose_announced(*, berechtigung_id: ObjectId, stand: FLBerechtigungStand, now: datetime) -> dict[str, Any]:

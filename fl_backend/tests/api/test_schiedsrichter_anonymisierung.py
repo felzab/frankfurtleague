@@ -1039,9 +1039,9 @@ def test_the_redaction_writes_no_row_of_its_own(mongo_replica_set_url: str):
 
     before_count, after_count, self_recorded = on_a_league(mongo_replica_set_url, body)
 
-    # The ghost's insert, the fixtures' repoint, the removal, and the removal of the notice its address change still owed;
-    # the two redaction passes record nothing.
-    assert after_count == before_count + 4
+    # The ghost's insert, the fixtures' repoint, the removal, and its address change's ended record losing the carry it
+    # still owed and the hashes that linked its two addresses; the two redaction passes record nothing.
+    assert after_count == before_count + 5
     assert self_recorded == 0
 
 

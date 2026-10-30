@@ -42,15 +42,14 @@ from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     AdresswechselCollection,
-    AdresswechselPostausgangCollection,
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenAntraegeCollection,
     BerechtigungenCollection,
-    BerechtigungenPostausgangCollection,
     BewerbungenCollection,
     DBClient,
     EinladungenCollection,
+    PostausgangCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
@@ -76,7 +75,7 @@ _FIELDS: Mapping[str, int] = {
     "adresse": 1,
     "email": 1,
     "weg": 1,
-    "token_hash": 1,
+    "freigegeben_am": 1,
     "gueltig_bis": 1,
     "bestaetigt_am": 1,
     "wirksam_ab": 1,
@@ -101,7 +100,6 @@ async def get_adresswechsel_ansicht(
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
-    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     sperrliste: SperrlisteLookup,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAdresswechselAnsichtResponse:
@@ -123,10 +121,10 @@ async def get_adresswechsel_ansicht(
 
     token_hash = hash_token(ansicht_data.token)
     # `find_one` rather than `pull_one_from_db`: a miss is this endpoint's own refusal, never a 404.
-    record = await adresswechsel_collection.find_one({"token_hash": token_hash}, projection=dict(_FIELDS))
+    record = await adresswechsel_collection.find_one({"token_hashes": token_hash}, projection=dict(_FIELDS))
     seite: Literal["neu", "bisherig"] = "neu"
     if record is None:
-        record = await adresswechsel_collection.find_one({"stopp_hash": token_hash}, projection=dict(_FIELDS))
+        record = await adresswechsel_collection.find_one({"stopp.token_hashes": token_hash}, projection=dict(_FIELDS))
         seite = "bisherig"
     refuse(find_unbekannt_refusal(found=record is not None))
     assert record is not None
@@ -161,7 +159,7 @@ async def get_adresswechsel_ansicht(
             belegung=Belegung(
                 berechtigungen_collection=berechtigungen_collection,
                 berechtigungen_antraege_collection=berechtigungen_antraege_collection,
-                adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+                adresswechsel_collection=adresswechsel_collection,
                 now=germany_now,
             ),
             abgelaufen=False,
@@ -206,11 +204,10 @@ async def post_adresswechsel_antwort(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    postausgang_collection: PostausgangCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
-    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
     db: DBClient,
@@ -224,7 +221,7 @@ async def post_adresswechsel_antwort(
     start with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this
     transaction: every pupil row, confirmed referee row, confirmed contact seat, registration and grant the address on
     file holds moves to the new one, asking no consent and writing none, and `wirksam` says so; its completion notice is
-    queued in this transaction for `POST /adresswechsel/sweep/postausgang`. A change that waits is confirmed alone,
+    owed in this transaction, and so is its sign-in account's carry. A change that waits is confirmed alone,
     answering `wirksam_ab` or `genehmigung_offen`.
     Either answer spends the link, which keeps answering what became of the change.
 
@@ -251,7 +248,7 @@ async def post_adresswechsel_antwort(
     async def answer_for_the_mailbox(session: AsyncClientSession) -> FLAdresswechselAntwortResponse | None:
         """Judge, then write, everything judged read in-session, so a second press is refused by the spent link rather than writing twice."""
 
-        record = await adresswechsel_collection.find_one({"token_hash": token_hash}, session=session)
+        record = await adresswechsel_collection.find_one({"token_hashes": token_hash}, session=session)
         refuse(find_unbekannt_refusal(found=record is not None))
         assert record is not None
         refuse(find_beendet_refusal(offen=record.get("beendet") is None and record.get("bestaetigt_am") is None))
@@ -292,11 +289,10 @@ async def post_adresswechsel_antwort(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            postausgang_collection=postausgang_collection,
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
-            adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
             aktionen_collection=aktionen_collection,
             schluessel=config.sperrliste_schluessel,
             now=germany_now,
@@ -363,7 +359,7 @@ async def post_adresswechsel_stopp(
 
     @journal.attempted
     async def stop_the_change(session: AsyncClientSession) -> FLAdresswechselStoppResponse:
-        record = await adresswechsel_collection.find_one({"stopp_hash": stopp_hash}, {"email": 1, "beendet": 1}, session=session)
+        record = await adresswechsel_collection.find_one({"stopp.token_hashes": stopp_hash}, {"email": 1, "beendet": 1}, session=session)
         refuse(find_unbekannt_refusal(found=record is not None))
         assert record is not None
         refuse(find_beendet_refusal(offen=record.get("beendet") is None))

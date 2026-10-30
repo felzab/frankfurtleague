@@ -3,8 +3,7 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomStrippedNonEmptyString
+from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import FLAdresswechselEinsehbarVerwehrt, FLAdresswechselWeg, FLGenehmigungVerwehrt, FLVerwaltung
 from app.shared.schemas.responses import BaseAPIResponse
@@ -23,19 +22,15 @@ FLUtcInstant = Annotated[datetime, AfterValidator(as_utc)]
 # a database edit. An address changed in place is a removal and a grant, never `geaendert`.
 FLBerechtigungAenderungArt = Literal["erteilt", "entzogen", "geaendert"]
 
-# What else an outbox row tells: a request's end, for its requester: refused by an administrator, or ended by its
-# address's change.
-FLBerechtigungAntragEndeArt = Literal["antrag_abgelehnt", "antrag_beendet"]
-
-# What an outbox row tells: a change to a grant; or, no change of one yet, a grant or promotion asked for (`beantragt`)
-# or an address change moving a grant (`adresswechsel`, keyed by the change), each waiting on an approval.
-FLBerechtigungPostausgangArt = Literal[FLBerechtigungAenderungArt, Literal["beantragt", "adresswechsel"], FLBerechtigungAntragEndeArt]
+# What a grant's notice tells: a change to a grant, or, no change of one yet, a grant or promotion asked for, waiting on
+# an approval (`app/api/postausgang/schemas.py :: FLBerechtigungDaten`).
+FLBerechtigungMitteilungArt = Literal[FLBerechtigungAenderungArt, Literal["beantragt"]]
 
 # Who made a queued change: an administrator through the application, or an edit in the database.
 # Stated, since a null actor also stands for one whose address is withheld.
 FLBerechtigungUrheber = Literal["anwendung", "datenbank"]
 
-# Why a queued row's GRANT address is withheld: its holder barred, or erased. Never the actor's,
+# Why a queued notice's GRANT address is withheld: its holder barred, or erased. Never the actor's,
 # whose `geaendert_von` says it alone: null for a ban, `app/core/recording.py :: ERASED_ACTOR_MARKER`
 # for an erasure.
 FLBerechtigungVorenthalten = Literal["gesperrt", "geloescht"]
@@ -210,6 +205,11 @@ class FLBerechtigungAntragAbgelehntResponse(BaseAPIResponse):
     antrag_id: CustomObjectId
 
 
+class FLBerechtigungAbgleichResponse(BaseAPIResponse):
+    # The changes made in the database that this comparison found, each now owed to every administrator.
+    aenderungen: int = Field(ge=0)
+
+
 class FLBerechtigungStand(BaseModel):
     """One grant's address and tier at one moment."""
 
@@ -225,87 +225,3 @@ class FLBerechtigungAngekuendigt(BaseModel):
     adresse: CustomNonEmptyString
     verwaltung: FLVerwaltung
     angekuendigt_am: datetime
-
-
-class FLBerechtigungNachfolge(BaseModel):
-    """Per site, the folded address its grant address's person moved to since the row was queued."""
-
-    jetzt: str | None = Field(default=None)
-    vorher: str | None = Field(default=None)
-
-
-class FLBerechtigungPostausgangZeile(BaseModel):
-    """One outbox row as stored: a change still to be mailed, and the claim a pass holds it under."""
-
-    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    # The request's own id on a `beantragt` row, which has no grant yet: the claim finds by it whether the request still waits.
-    # A request's end is keyed by it too.
-    berechtigung_id: CustomObjectId
-    art: FLBerechtigungPostausgangArt
-    urheber: FLBerechtigungUrheber
-    jetzt: FLBerechtigungStand | None
-    vorher: FLBerechtigungStand | None
-    # The administrator whose write made the change, null for one found in the database and for one
-    # whose address a ban has withheld, `urheber` telling the two apart; the marker for one erased since.
-    # On a request's end, its requester.
-    geaendert_von: str | None
-    # Null where the change was found in the database, nobody knowing when that edit was made.
-    geaendert_am: datetime | None
-    vorenthalten: FLBerechtigungVorenthalten | None
-    erfasst_am: datetime
-    beansprucht_bis: datetime | None
-    beanspruchung: str | None
-    # How many claims have handed the row out; each claim raises it in its own transaction.
-    versuche: int = Field(ge=0)
-    # Absent until an address change moves a person a site names: their erasure at the new address withholds that site too.
-    nachfolge: FLBerechtigungNachfolge | None = Field(default=None)
-
-
-class FLBerechtigungAenderung(BaseModel):
-    """One claimed change to announce: what the grant is now, what everyone was last told, and who made it."""
-
-    id: CustomObjectId
-    berechtigung_id: CustomObjectId
-    art: FLBerechtigungPostausgangArt
-    urheber: FLBerechtigungUrheber
-    jetzt: FLBerechtigungStand | None
-    vorher: FLBerechtigungStand | None
-    # Null exactly where `urheber` is `datenbank` or `geaendert_von_gesperrt` is set; the marker where
-    # the person who made it has been erased.
-    geaendert_von: str | None
-    geaendert_von_gesperrt: bool
-    geaendert_am: FLUtcInstant | None
-    # Set where the grant's address is barred and withheld wherever it would stand; never for the
-    # actor, whose state `geaendert_von` and its own flag carry.
-    gesperrt: bool
-    # Set where the grant's address is withheld because its holder has been erased.
-    geloescht: bool
-    # Set where this claim is past the row's last hand-out: the pass mails nothing and stamps it.
-    aufgegeben: bool
-    # A request's recipients, in `empfaenger`'s place: whoever could approve it now, none once it is decided, lapsed
-    # or approved by nobody; its end's, the requester while they administer. Null on every change to a grant.
-    an: list[str] | None
-
-
-class FLBerechtigungAbgleichResponse(BaseAPIResponse):
-    # Null together, exactly where nothing was claimed.
-    beanspruchung: str | None
-    beansprucht_bis: FLUtcInstant | None
-    aenderungen: list[FLBerechtigungAenderung]
-    # Every live, unbarred holder now; a removed address is read off its change's `vorher`.
-    empfaenger: list[str]
-    uebersprungen: int = Field(ge=0)
-
-
-class FLBerechtigungAngekuendigtPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    beanspruchung: CustomStrippedNonEmptyString
-    # A repeated id is counted once rather than refused: a pass retrying its own stamp is not wrong.
-    ids: list[CustomObjectId] = Field(min_length=1, max_length=LIST_LIMIT_DEFAULT)
-
-
-class FLBerechtigungAngekuendigtResponse(BaseAPIResponse):
-    angekuendigt: int = Field(ge=0)
-    # Every distinct id this claim does not hold: unknown, stamped already, or claimed since by another pass.
-    ignoriert: int = Field(ge=0)

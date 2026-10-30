@@ -33,11 +33,11 @@ from app.api.adresswechsel.crud import (
     adresse_belegt,
     end_the_change_in_session,
     move_the_address_in_session,
-    queue_the_refusal_notice_in_session,
+    owe_the_refusal_notice_in_session,
     read_the_bestand,
 )
 from app.api.adresswechsel.services import deckt
-from app.api.berechtigungen.antraege import ist_offen, queue_the_ending_in_session, remove_the_antrag_in_session
+from app.api.berechtigungen.antraege import ist_offen, remove_the_antrag_in_session
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.services import genehmigung_steht
 from app.api.bewerbungen.services import compose_decline_update, compose_saison_decline_update, seat_adressen, seat_is_answered
@@ -386,11 +386,9 @@ async def _plan_adresswechsel(
             stamp=log_stamp(now),
             session=session,
         )
-        # The notice the end queued went with the restore.
+        # Owed again, under the key the end owed it by: a restored row of it, sent or not, is found rather than doubled.
         if line.art == "adresswechsel_verworfen_mitgeteilt":
-            await queue_the_refusal_notice_in_session(
-                record, adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG], now=now, session=session
-            )
+            await owe_the_refusal_notice_in_session(record, postausgang_collection=database[Collection.POSTAUSGANG], now=now, session=session)
         return stored
 
     return Plan("to replay", rewrite_the_ending)
@@ -412,27 +410,14 @@ async def _plan_antrag_ende(
         return Plan("left for review")
 
     async def rewrite_the_end(session: AsyncClientSession) -> Any:
-        # The request's notice the restore brought back goes with it, as the end took it.
+        # The request's notice the restore brought back is settled with it, as the end settled it.
         await remove_the_antrag_in_session(
             berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
-            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            postausgang_collection=database[Collection.POSTAUSGANG],
             antrag_id=antrag["_id"],
+            now=now,
             session=session,
         )
-        # The requester's notice went with the restore: told again as the end told them, a withdrawal telling nobody.
-        if line.art != "antrag_zurueckgezogen":
-            await queue_the_ending_in_session(
-                [antrag],
-                art="antrag_abgelehnt" if line.art == "antrag_abgelehnt" else "antrag_beendet",
-                sperrliste=BanList(
-                    sperrliste_collection=database[Collection.SPERRLISTE],
-                    saisons_collection=database[Collection.SAISONS],
-                    schluessel=schluessel,
-                ),
-                berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
-                now=now,
-                session=session,
-            )
 
     return Plan("to replay", rewrite_the_end)
 
@@ -502,7 +487,7 @@ async def _plan_adresswechsel_wirksam(
     belegung = Belegung(
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
-        adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
+        adresswechsel_collection=database[Collection.ADRESSWECHSEL],
         now=now,
     )
     if await adresse_belegt(str(record["email"]), records=records, belegung=belegung, session=session):
@@ -522,11 +507,10 @@ async def _plan_adresswechsel_wirksam(
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
             berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            postausgang_collection=database[Collection.POSTAUSGANG],
             berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
             einladungen_collection=database[Collection.EINLADUNGEN],
             sperrliste_collection=database[Collection.SPERRLISTE],
-            adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
             aktionen_collection=database[Collection.AKTIONEN],
             schluessel=schluessel,
             now=now,

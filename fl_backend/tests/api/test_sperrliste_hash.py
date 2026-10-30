@@ -147,7 +147,7 @@ class TestWhatTheReasonMayHold:
     """`grund` is served, copied whole into a removal's log image and outlives the person's erasure."""
 
     def _grund(self, grund: str) -> str:
-        return FLPostSperrlistePayload(email="admin@beispielschule.de", grund=grund).grund
+        return FLPostSperrlistePayload(email="admin@beispielschule.de", grund=grund, benachrichtigen=False).grund
 
     @pytest.mark.parametrize(
         "grund",

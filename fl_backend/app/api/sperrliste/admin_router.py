@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
@@ -5,9 +6,11 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
-from app.api.berechtigungen.crud import pull_the_list_to_judge, withhold_in_the_outbox
+from app.api.berechtigungen.crud import pull_the_list_to_judge, withhold_in_the_postausgang
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.berechtigungen.services import lebendige
+from app.api.postausgang.schemas import FLSperreDaten
+from app.api.postausgang.services import enqueue_mail
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import read_sperrliste_page
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
@@ -32,11 +35,12 @@ from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import anchor_in_db, delete_many_from_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     BerechtigungenCollection,
-    BerechtigungenPostausgangCollection,
     DBClient,
+    PostausgangCollection,
     SaisonsCollection,
     SperrlisteCollection,
     get_german_date_str,
+    get_germany_now,
 )
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_step_up
@@ -110,7 +114,7 @@ async def get_sperrliste(sperrliste_collection: SperrlisteCollection, sperrliste
     response_model=FLPostSperrlisteResponse,
     status_code=201,
     summary="Ban an email address",
-    # The frontend signs the address out and mails it once this answers, and nothing undoes either.
+    # The frontend signs the address out once this answers, and nothing undoes it.
     dependencies=[Depends(verify_step_up)],
 )
 async def post_sperrliste_eintrag(
@@ -118,22 +122,24 @@ async def post_sperrliste_eintrag(
     sperrliste_collection: SperrlisteCollection,
     saisons_collection: SaisonsCollection,
     berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    postausgang_collection: PostausgangCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     sperrliste: SperrlisteLookup,
     erstellt_von: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
+    now: datetime = Depends(get_germany_now),
 ) -> FLPostSperrlisteResponse:
     """
-    Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.
+    Ban an address from signing up. The address is hashed under the backend key; no row and no log line holds it but its notice's.
 
     Refused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is
     running, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and
     where the address is an administrator's (`REQ-SPERRLISTE-003`). The ban covers the
     fifth season after the one running now — the last one it covers is answered as
-    `gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still queued
-    for the address loses the address in the same transaction.
+    `gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still owed
+    that names the address loses it in the same transaction, and where `benachrichtigen` is set the ban's
+    own notice is owed to it there too, the one mail a ban does not stop.
 
     `grund` is served, mailed to the address and kept past that person's erasure.
     """
@@ -174,17 +180,23 @@ async def post_sperrliste_eintrag(
             "gesperrt_bis_saison_id": gesperrt_bis_saison_id,
         }
 
-        # Every notice still queued loses the address in this transaction, so neither the outbox nor a
-        # later stamp's log image holds it in plain.
-        await withhold_in_the_outbox(
-            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
-            adresse=identifier,
-            session=session,
-        )
+        # Every grant notice still owed loses the address in this transaction, so no other administrator is mailed it.
+        await withhold_in_the_postausgang(postausgang_collection=postausgang_collection, adresse=identifier, session=session)
 
         # A LAPSED row for this hash passes the check above and is refused HERE on the index, which
         # reads no bound. No route leaves one: the activation that lapses a ban removes it.
-        return await post_one_to_db(collection=sperrliste_collection, document=document, session=session), gesperrt_bis_saison_id
+        created = await post_one_to_db(collection=sperrliste_collection, document=document, session=session)
+        if sperrliste_data.benachrichtigen:
+            await enqueue_mail(
+                postausgang_collection=postausgang_collection,
+                session=session,
+                schluessel=f"sperre/{created.inserted_id}",
+                an=str(sperrliste_data.email),
+                daten=FLSperreDaten(art="sperre", grund=sperrliste_data.grund, gesperrt_bis_saison_id=gesperrt_bis_saison_id),
+                now=now,
+            )
+
+        return created, gesperrt_bis_saison_id
 
     async with transaction_session(db) as session:
         post_operation, gesperrt_bis_saison_id = await session.with_transaction(judge_and_ban)

@@ -18,23 +18,21 @@ import type {
   FLAdresswechselAntwortResponse,
   FLAdresswechselGenehmigungResponse,
   FLAdresswechselIdResponse,
-  FLAdresswechselPostausgangResponse,
   FLAdresswechselStoppResponse,
   FLAdresswechselSweepResponse,
+  FLAdresswechselUmzuegeErledigtPayload,
+  FLAdresswechselUmzuegeErledigtResponse,
+  FLAdresswechselUmzuegeResponse,
   FLAdresswechselVerwaltungAnsichtPayload,
   FLAdresswechselVerwaltungAnsichtResponse,
   FLAdresswechselVerwaltungMintResponse,
   FLAdresswechselVerwaltungPayload,
-  FLAdresswechselZugestelltPayload,
-  FLAdresswechselZugestelltResponse,
   FLAktionenListResponse,
   FLAktionSingleResponse,
   FLAnmeldungResponse,
   FLAnnehmenBewerbungPayload,
   FLAnnehmenBewerbungResponse,
   FLBerechtigungAbgleichResponse,
-  FLBerechtigungAngekuendigtPayload,
-  FLBerechtigungAngekuendigtResponse,
   FLBerechtigungAntragAbgelehntResponse,
   FLBerechtigungenListResponse,
   FLBerechtigungStufeResponse,
@@ -266,15 +264,14 @@ export const getAdresswechselPostAdresswechselVerwaltungUrl = () => {
 };
 
 /**
- * Start a change of the typed address for a person who says they cannot sign in, answering its raw links once, for the caller to mail.
+ * Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
  *
- * **Nothing moves here.** Without a `grund` the change asks the address on file first: the caller mails it the request
- * with its stop link, and nothing goes to the new mailbox until that address approves on its account page. With a
- * `grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the
- * address on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new
- * mailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never
- * this one's: `genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).
- * The address's live change ends replaced.
+ * **Nothing moves here.** Without a `grund` the change asks the address on file first: it is owed the request with its
+ * stop link, and nothing goes to the new mailbox until that address approves on its account page. With a `grund`,
+ * recording how the administrator established who asks, the new mailbox is owed its link and the address on file a
+ * notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new mailbox
+ * confirms. Where the address holds a grant, the change also waits on another administrator's approval, never this
+ * one's. No link is answered. The address's live change ends replaced.
  *
  * Refused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power
  * (`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds
@@ -357,7 +354,7 @@ export const getAdresswechselPostAdresswechselAntwortUrl = () => {
  * start with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this
  * transaction: every pupil row, confirmed referee row, confirmed contact seat, registration and grant the address on
  * file holds moves to the new one, asking no consent and writing none, and `wirksam` says so; its completion notice is
- * queued in this transaction for `POST /adresswechsel/sweep/postausgang`. A change that waits is confirmed alone,
+ * owed in this transaction, and so is its sign-in account's carry. A change that waits is confirmed alone,
  * answering `wirksam_ab` or `genehmigung_offen`.
  * Either answer spends the link, which keeps answering what became of the change.
  *
@@ -492,9 +489,9 @@ export const getAdresswechselSweepAdresswechselUrl = (params?: AdresswechselSwee
  * holds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil
  * signing in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move
  * ends it discarded, and
- * `verworfen` counts it, its new address queued to be told it did not take effect and never why; otherwise
- * everything the replaced address holds moves, and `wirksam` counts it, its completion notice queued. The notices are
- * `POST /adresswechsel/sweep/postausgang`'s to claim, queued in each change's own transaction, so none rides on this answer.
+ * `verworfen` counts it, its new address owed a notice that it did not take effect and never why; otherwise
+ * everything the replaced address holds moves, and `wirksam` counts it, its completion notice owed. Each notice is owed
+ * in the Postausgang in its change's own transaction, so none rides on this answer.
  *
  * Each change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or
  * replaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `nach` the last
@@ -553,46 +550,40 @@ export const adresswechselGetAdresswechselAdresse = async (
   });
 };
 
-export const getAdresswechselPostAdresswechselPostausgangUrl = () => {
-  return `/api/v0/adresswechsel/sweep/postausgang`;
+export const getAdresswechselGetAdresswechselUmzuegeUrl = () => {
+  return `/api/v0/adresswechsel/sweep/umzuege`;
 };
 
 /**
- * Claim, oldest first and a page at a time, every owed notice no claim holds or whose claim has lapsed, for ten minutes.
+ * List, oldest first and a page at a time, the ended changes still owing to carry a sign-in account to their new address.
  *
- * Each end owing a notice queued it in its own transaction: an effect its completion notice and its sign-in account's
- * carry, a due change the pass refused its new address's notice. A second call inside the lease is answered none of
- * them; the caller delivers each and hands the ids it delivered, with `beanspruchung`, to
- * `POST /adresswechsel/sweep/postausgang/zugestellt`, and where the lease lapses first the next call claims them again,
- * so a notice is delivered at least once. A notice handed out past the grants' attempt cap is answered `aufgegeben`:
- * the caller delivers nothing, logs it by id and stamps it. Server to server alone: the answer names addresses.
- * @summary Claim the notices the address changes' ends still owe
+ * Each effect owed its carry in its own transaction, so a lost answer loses none. The caller moves each account and
+ * hands the ids it moved to `POST /adresswechsel/sweep/umzuege/erledigt`; one it could not move is listed again by the
+ * next call. Moving one twice finds no account left, so no claim holds them. Server to server alone: the answer names
+ * addresses.
+ * @summary List the sign-in accounts the effects still owe to carry
  */
-export const adresswechselPostAdresswechselPostausgang = async (
+export const adresswechselGetAdresswechselUmzuege = async (
   options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLAdresswechselPostausgangResponse> => {
-  return systemKeyTransport<FLAdresswechselPostausgangResponse>(getAdresswechselPostAdresswechselPostausgangUrl(), {
+): Promise<FLAdresswechselUmzuegeResponse> => {
+  return systemKeyTransport<FLAdresswechselUmzuegeResponse>(getAdresswechselGetAdresswechselUmzuegeUrl(), {
     ...options,
-    method: "POST",
+    method: "GET",
   });
 };
 
-export const getAdresswechselPostAdresswechselZugestelltUrl = () => {
-  return `/api/v0/adresswechsel/sweep/postausgang/zugestellt`;
+export const getAdresswechselPostAdresswechselUmzuegeErledigtUrl = () => {
+  return `/api/v0/adresswechsel/sweep/umzuege/erledigt`;
 };
 
 /**
- * Remove each named notice the named claim still holds, and nothing else.
- *
- * A notice the claim does not hold -- unknown, removed already, or claimed since by another call after this claim
- * lapsed -- is left alone and counted in `ignoriert`. A repeated id counts once. One transaction, imageless: a row
- * names addresses, and the log keeps no image of its removal.
- * @summary Remove the delivered notices a claim holds
+ * Take the owed carry off each named change, counting the ones that owed one; an id owing none is left alone.
+ * @summary Take the carries done off their changes
  */
-export const adresswechselPostAdresswechselZugestellt = async (
-  fLAdresswechselZugestelltPayload: FLAdresswechselZugestelltPayload,
+export const adresswechselPostAdresswechselUmzuegeErledigt = async (
+  fLAdresswechselUmzuegeErledigtPayload: FLAdresswechselUmzuegeErledigtPayload,
   options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLAdresswechselZugestelltResponse> => {
+): Promise<FLAdresswechselUmzuegeErledigtResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -605,11 +596,11 @@ export const adresswechselPostAdresswechselZugestellt = async (
     }
     return headers;
   };
-  return systemKeyTransport<FLAdresswechselZugestelltResponse>(getAdresswechselPostAdresswechselZugestelltUrl(), {
+  return systemKeyTransport<FLAdresswechselUmzuegeErledigtResponse>(getAdresswechselPostAdresswechselUmzuegeErledigtUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAdresswechselZugestelltPayload),
+    body: JSON.stringify(fLAdresswechselUmzuegeErledigtPayload),
   });
 };
 
@@ -644,12 +635,12 @@ export const getAdresswechselEinladenAdresswechselUrl = (adresswechselId: string
 };
 
 /**
- * Mint the new mailbox a fresh link for the change this id names, answering the raw token once, for the caller to mail.
+ * Owe the new mailbox a fresh link for the change this id names, in the same transaction.
  *
- * The previous link stops working at once and the delivery state of the message it went out in goes with it; the
- * deadline restarts now. The stop link stays, so the address on file is mailed nothing again. A lapsed link is no
- * refusal while the change stands, which is until the next hourly pass ends it. Acts
- * on the change the id names alone, so a page showing a change since replaced re-sends nothing.
+ * The previous link stops working once the fresh one is handed out; the deadline restarts now. The stop link stays, so
+ * the address on file is mailed nothing again. A lapsed link is no refusal while the change stands, which is until the
+ * next hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends
+ * nothing.
  *
  * Refused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), where the ban list holds the pending address
  * (`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), where an entry has come to name it,
@@ -791,7 +782,7 @@ export const getBerechtigungenPostBerechtigungUrl = () => {
  * grant already holds the address (`REQ-BERECHTIGUNG-001`) -- a dead row of another spelling blocks nothing -- where the ban list
  * holds it (`REQ-BERECHTIGUNG-003`), and where a request about it waits already (`REQ-BERECHTIGUNG-008`). The grant takes effect on
  * the next request, for a session signed in after it alone -- an older one is refused `REQ-AUTH-007` on every admin-tier route -- and
- * its announcement is queued in the same transaction for `POST /berechtigungen/abgleich` to hand out. Like a revoke and a tier
+ * its announcement is owed to every administrator in the same transaction. Like a revoke and a tier
  * change, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES`, refused `REQ-AUTH-009` otherwise.
  * @summary Grant access to the administration
  */
@@ -824,12 +815,12 @@ export const getBerechtigungenPostBerechtigungenAbgleichUrl = () => {
 };
 
 /**
- * Queue the grants' changes made in the database, then claim, for ten minutes, the changes still to announce and who to tell.
+ * Compare the grants with what the administrators were last told, and owe each change made in the database to every one of them.
  *
- * A change found here names nobody (`urheber` is `datenbank`), and no barred or erased address is answered in plain. The caller
- * mails each change, a row's own `an` in place of `empfaenger` where it is set, and hands the ids it mailed to
- * `POST /berechtigungen/abgleich/angekuendigt`; a claim that lapses first is claimed again by the next call.
- * @summary Claim the grant changes still to be announced
+ * A change found here names nobody (`urheber` is `datenbank`), and no barred address is named in it. A write through the
+ * application owes its own notice in its own transaction, so only an edit in the database is found here, once: the record
+ * it is compared with moves in the same transaction.
+ * @summary Owe a notice of every change to the grants made in the database
  */
 export const berechtigungenPostBerechtigungenAbgleich = async (
   options?: Parameters<typeof systemKeyTransport>[1],
@@ -837,38 +828,6 @@ export const berechtigungenPostBerechtigungenAbgleich = async (
   return systemKeyTransport<FLBerechtigungAbgleichResponse>(getBerechtigungenPostBerechtigungenAbgleichUrl(), {
     ...options,
     method: "POST",
-  });
-};
-
-export const getBerechtigungenPostBerechtigungenAngekuendigtUrl = () => {
-  return `/api/v0/berechtigungen/abgleich/angekuendigt`;
-};
-
-/**
- * Remove from the queue each named change the named claim still holds, counting every other id once in `ignoriert`.
- * @summary Remove the announced changes a claim holds
- */
-export const berechtigungenPostBerechtigungenAngekuendigt = async (
-  fLBerechtigungAngekuendigtPayload: FLBerechtigungAngekuendigtPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLBerechtigungAngekuendigtResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return systemKeyTransport<FLBerechtigungAngekuendigtResponse>(getBerechtigungenPostBerechtigungenAngekuendigtUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBerechtigungAngekuendigtPayload),
   });
 };
 
@@ -2192,12 +2151,11 @@ export const getKontoPostAdresswechselUrl = () => {
 };
 
 /**
- * Start a change of the address the person signs in on, answering both raw links once, for the frontend's server to mail.
+ * Start a change of the address the person signs in on, its two mails owed in the same transaction and no link answered.
  *
- * The new mailbox is mailed its link, and the address on file a notice with a stop link; **everything the address holds
+ * The new mailbox is owed its link, and the address on file a notice with a stop link; **everything the address holds
  * as its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. Where it holds a
- * grant, the change also waits on another administrator's approval, an owner's for an owner's grant,
- * `genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`). The address's live
+ * grant, the change also waits on another administrator's approval, an owner's for an owner's grant. The address's live
  * change ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.
  * **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
  * answers alike whatever the new address holds.
@@ -2237,7 +2195,7 @@ export const getKontoPostAdresswechselFreigabeUrl = () => {
 };
 
 /**
- * Approve the change `id` names, which an administrator started without a reason, minting the new mailbox's link once.
+ * Approve the change `id` names, which an administrator started without a reason, owing the new mailbox its link.
  *
  * **Nothing reaches the new mailbox before this press**. Nothing about the new address is
  * judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
@@ -3614,14 +3572,15 @@ export const getSperrlistePostSperrlisteEintragUrl = () => {
 };
 
 /**
- * Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.
+ * Ban an address from signing up. The address is hashed under the backend key; no row and no log line holds it but its notice's.
  *
  * Refused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is
  * running, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and
  * where the address is an administrator's (`REQ-SPERRLISTE-003`). The ban covers the
  * fifth season after the one running now — the last one it covers is answered as
- * `gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still queued
- * for the address loses the address in the same transaction.
+ * `gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still owed
+ * that names the address loses it in the same transaction, and where `benachrichtigen` is set the ban's
+ * own notice is owed to it there too, the one mail a ban does not stop.
  *
  * `grund` is served, mailed to the address and kept past that person's erasure.
  * @summary Ban an email address

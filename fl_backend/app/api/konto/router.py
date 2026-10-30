@@ -11,7 +11,8 @@ from app.api.adresswechsel.crud import (
     end_the_change_in_session,
     ending_line,
     live_grant_of,
-    queue_the_approval_notice_in_session,
+    owe_the_hinweis_in_session,
+    owe_the_link_in_session,
     read_the_bestand,
     start_the_change_in_session,
 )
@@ -35,7 +36,6 @@ from app.api.adresswechsel.services import (
 )
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.services import genehmiger_of, lebendige
-from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.crud import funktionen_aus
 from app.api.identitaet.lookup import RecordCollections, SubjektLookup
 from app.api.identitaet.services import ist_eigener_schiedsrichter, ist_eigener_spieler, may_grant_on_schiedsrichter, may_grant_on_spieler
@@ -72,9 +72,9 @@ from app.core.dependencies import (
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
-    BerechtigungenPostausgangCollection,
     BewerbungenCollection,
     DBClient,
+    PostausgangCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
@@ -293,7 +293,7 @@ async def post_adresswechsel(
     adresswechsel_collection: AdresswechselCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    postausgang_collection: PostausgangCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
     db: DBClient,
@@ -302,12 +302,11 @@ async def post_adresswechsel(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLKontoAdresswechselMintResponse:
     """
-    Start a change of the address the person signs in on, answering both raw links once, for the frontend's server to mail.
+    Start a change of the address the person signs in on, its two mails owed in the same transaction and no link answered.
 
-    The new mailbox is mailed its link, and the address on file a notice with a stop link; **everything the address holds
+    The new mailbox is owed its link, and the address on file a notice with a stop link; **everything the address holds
     as its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. Where it holds a
-    grant, the change also waits on another administrator's approval, an owner's for an owner's grant,
-    `genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`). The address's live
+    grant, the change also waits on another administrator's approval, an owner's for an owner's grant. The address's live
     change ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.
     **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
     answers alike whatever the new address holds.
@@ -319,8 +318,6 @@ async def post_adresswechsel(
     """
 
     email = adresswechsel_data.email
-    raw_token, token_hash = mint_token()
-    raw_stopp, stopp_hash = mint_token()
     journal = Journal()
 
     @journal.attempted
@@ -329,7 +326,6 @@ async def post_adresswechsel(
         refuse(find_nichts_refusal(leer=bestand.leer))
         refuse(find_unveraendert_refusal(adresse=identifier, folded=sign_in_identifier(email)))
 
-        genehmiger: list[str] = []
         genehmigung = None
         if bestand.berechtigung is not None:
             # The change hands the grant over, so it asks the passkey a revoke does: this lane admits a sign-in by code.
@@ -348,8 +344,6 @@ async def post_adresswechsel(
             adresse=identifier,
             email=email,
             weg="konto",
-            token_hash=token_hash,
-            stopp_hash=stopp_hash,
             grund=None,
             genehmigung=genehmigung,
             now=germany_now,
@@ -363,25 +357,28 @@ async def post_adresswechsel(
             journal=journal,
             session=session,
         )
-        if genehmigung is not None:
-            await queue_the_approval_notice_in_session(
-                adresswechsel_id=adresswechsel_id,
-                gestartet_von=identifier,
-                berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
-                now=germany_now,
-                session=session,
-            )
-
-        return FLKontoAdresswechselMintResponse(
-            id=adresswechsel_id,
-            token=raw_token,
-            stopp_token=raw_stopp,
+        # The notice first and the link after, as the address on file is told before the new mailbox can answer.
+        await owe_the_hinweis_in_session(
+            adresswechsel_id=adresswechsel_id,
+            adresse=identifier,
+            weg="konto",
             gueltig_bis=record["gueltig_bis"],
-            email=email,
-            bisherige_email=identifier,
             vorname=bestand.vorname,
-            genehmiger_anzahl=len(genehmiger),
+            postausgang_collection=postausgang_collection,
+            now=germany_now,
+            session=session,
         )
+        await owe_the_link_in_session(
+            adresswechsel_id=adresswechsel_id,
+            email=email,
+            weg="konto",
+            gueltig_bis=record["gueltig_bis"],
+            postausgang_collection=postausgang_collection,
+            now=germany_now,
+            session=session,
+        )
+
+        return FLKontoAdresswechselMintResponse(id=adresswechsel_id, gueltig_bis=record["gueltig_bis"], email=email)
 
     async with journal:
         async with transaction_session(db) as session:
@@ -399,12 +396,13 @@ async def post_adresswechsel_freigabe(
     freigabe_data: Annotated[FLKontoAdresswechselFreigabePayload, Body()],
     adresswechsel_collection: AdresswechselCollection,
     berechtigungen_collection: BerechtigungenCollection,
+    postausgang_collection: PostausgangCollection,
     db: DBClient,
     actor: Annotated[SessionActor, Depends(verify_person_actor)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLKontoAdresswechselFreigabeResponse:
     """
-    Approve the change `id` names, which an administrator started without a reason, minting the new mailbox's link once.
+    Approve the change `id` names, which an administrator started without a reason, owing the new mailbox its link.
 
     **Nothing reaches the new mailbox before this press**. Nothing about the new address is
     judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
@@ -414,7 +412,6 @@ async def post_adresswechsel_freigabe(
     is no change of this address awaiting its approval; and `REQ-ADRESSWECHSEL-003` past the approval's deadline.
     """
 
-    raw_token, token_hash = mint_token()
     adresswechsel_id = freigabe_data.id
     db_filter = {"_id": adresswechsel_id, **build_address_filter(identifier), **build_awaiting_approval_terms()}
 
@@ -431,13 +428,27 @@ async def post_adresswechsel_freigabe(
         if await live_grant_of(identifier, berechtigungen_collection=berechtigungen_collection, session=session) is not None:
             verify_person_passkey_confirmation(actor)
 
-        return await patch_one_in_db(
+        approved = await patch_one_in_db(
             collection=adresswechsel_collection,
             db_filter={"_id": record["_id"], **LIVE_TERMS},
-            update=compose_link_update(token_hash=token_hash, now=germany_now, freigabe=True),
+            update=compose_link_update(now=germany_now, freigabe=True),
             session=session,
             return_document=ReturnDocument.AFTER,
         )
+        # Read back with no offset, as the driver reads every stored instant.
+        gueltig_bis = als_utc(approved["gueltig_bis"])
+        assert gueltig_bis is not None
+        await owe_the_link_in_session(
+            adresswechsel_id=approved["_id"],
+            email=str(approved["email"]),
+            weg=approved["weg"],
+            gueltig_bis=gueltig_bis,
+            postausgang_collection=postausgang_collection,
+            now=germany_now,
+            session=session,
+        )
+
+        return approved
 
     async with transaction_session(db) as session:
         record = await session.with_transaction(approve_the_change)
@@ -445,7 +456,7 @@ async def post_adresswechsel_freigabe(
     gueltig_bis = als_utc(record["gueltig_bis"])
     assert gueltig_bis is not None
 
-    return FLKontoAdresswechselFreigabeResponse(id=record["_id"], token=raw_token, gueltig_bis=gueltig_bis, email=record["email"])
+    return FLKontoAdresswechselFreigabeResponse(id=record["_id"], gueltig_bis=gueltig_bis, email=record["email"])
 
 
 @router.delete(

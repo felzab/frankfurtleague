@@ -17,7 +17,7 @@ from app.api.identitaet.schemas import (
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
 from app.core.config import API_VERSION
-from app.core.dependencies import AdresswechselPostausgangCollection, BerechtigungenCollection
+from app.core.dependencies import AdresswechselCollection, BerechtigungenCollection
 from app.core.security import bind_system_actor, verify_access_system
 from app.shared.folding import sign_in_identifier
 
@@ -132,7 +132,7 @@ async def get_referenzen(
     referenzen_data: Annotated[FLReferenzenPayload, Body()],
     records: SubjektLookup,
     berechtigungen_collection: BerechtigungenCollection,
-    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
+    adresswechsel_collection: AdresswechselCollection,
 ) -> FLReferenzenResponse:
     """Answer which of these sign-in addresses no league record references, each once and in the spelling it was asked in.
 
@@ -144,6 +144,6 @@ async def get_referenzen(
             referenzen_data.identifiers,
             records,
             berechtigungen_collection=berechtigungen_collection,
-            adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+            adresswechsel_collection=adresswechsel_collection,
         )
     )
