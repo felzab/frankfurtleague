@@ -2,6 +2,7 @@ from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
+from app.core.crud import Anchored
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.bounds import (
     LIST_LIMIT_DEFAULT,
@@ -107,7 +108,7 @@ class FLSpielerPublic(_SpielerPerson, BaseReadModel):
     position: FLSpielerPosition | None = None
 
 
-class FLSpielerRecord(_SpielerPerson):
+class FLSpielerRecord(_SpielerPerson, Anchored):
     """The person as `spieler` stores it, with none of the squad row's fields."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")

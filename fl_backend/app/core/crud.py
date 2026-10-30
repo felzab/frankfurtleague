@@ -18,7 +18,7 @@ from http import HTTPStatus
 from typing import Any, Final
 
 import bson
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -224,6 +224,15 @@ async def patch_many_in_db(
 # The one field every anchor advances: one rather than one per rule, so a further rule decided on the
 # same document takes it with no decision, and two writers contending on it is a retry.
 ANCHOR_FIELD: Final = "bounded_writes"
+
+
+class Anchored(BaseModel):
+    """The stored field of every collection `anchor_in_db` writes, which that collection's record model inherits.
+
+    Absent until the first anchor, and withheld from every answer: it changes nothing a reader sees.
+    """
+
+    anchors: int = Field(default=0, validation_alias=ANCHOR_FIELD, exclude=True)
 
 
 async def anchor_in_db(

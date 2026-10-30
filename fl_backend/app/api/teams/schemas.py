@@ -18,6 +18,7 @@ from pydantic import (
 )
 
 from app.api.postausgang.schemas import FLPostausgangLage
+from app.core.crud import Anchored
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
@@ -220,7 +221,7 @@ class FLSaisonTeamBestaetigungenRecord(FLSaisonTeamBestaetigungen):
     stellvertretung: FLSaisonTeamBestaetigungRecord | None
 
 
-class FLSaisonTeamRecord(BaseModel):
+class FLSaisonTeamRecord(Anchored):
     """One club's season as `saison_teams` stores it; no read serves the row whole."""
 
     id: CustomObjectId = Field(validation_alias="_id")
@@ -456,7 +457,7 @@ class FLTeam(_TeamWritable):
 FLTeamListAdapter = TypeAdapter(list[FLTeam])
 
 
-class FLTeamRecord(_TeamWritable, BaseReadModel):
+class FLTeamRecord(_TeamWritable, BaseReadModel, Anchored):
     """The club document as it is STORED, and what the write endpoints echo.
 
     The season-scoped fields would mean re-running the team pipeline, whose junction join is strict

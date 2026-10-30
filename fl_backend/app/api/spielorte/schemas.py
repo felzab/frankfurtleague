@@ -2,6 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
+from app.core.crud import Anchored
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomStrippedNonEmptyString
@@ -39,7 +40,7 @@ class FLPostSpielortPayload(_SpielortPayload):
     pass
 
 
-class FLSpielort(_SpielortWritable, BaseReadModel):
+class FLSpielort(_SpielortWritable, BaseReadModel, Anchored):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # Free text searched on Google Maps, not a URL, so there is no scheme to check. The copy a
     # fixture embeds is the public address surface, which is why `address` here need not be

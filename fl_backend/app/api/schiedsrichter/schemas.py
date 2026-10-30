@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from app.api.postausgang.schemas import FLPostausgangLage
 from app.api.spieler.schemas import FLEinwilligung
+from app.core.crud import Anchored
 from app.shared.schemas.bestaetigung import CustomToken, FLBestaetigung
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import (
@@ -87,7 +88,7 @@ class FLSchiedsrichterBestaetigungRecord(FLBestaetigung):
     token_hashes: list[str]
 
 
-class FLSchiedsrichterRecord(FLSchiedsrichter):
+class FLSchiedsrichterRecord(FLSchiedsrichter, Anchored):
     """A referee as `schiedsrichter` stores them."""
 
     bestaetigung: FLSchiedsrichterBestaetigungRecord | None = None

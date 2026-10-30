@@ -2,10 +2,12 @@ from typing import Annotated, Final, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
-# Imported rather than restated. Acyclic: no model of `teams` imports this file --
-# `teams/services.py` does, and no model there.
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.core import clock
+
+# Imported rather than restated. Acyclic: no model of `teams` imports this file --
+# `teams/services.py` does, and no model there.
+from app.core.crud import Anchored
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_reversed_span
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSortOrder, FLSpielerStufe
@@ -175,7 +177,7 @@ class FLSaison(_SaisonStored, BaseReadModel):
     schedule: tuple[FLSaisonPhaseSchedule, ...]
 
 
-class FLSaisonRecord(_SaisonStored):
+class FLSaisonRecord(_SaisonStored, Anchored):
     """A season as `saisons` stores it: no derived schedule."""
 
 
