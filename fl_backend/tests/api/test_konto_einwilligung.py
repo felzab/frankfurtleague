@@ -157,6 +157,10 @@ def _person(email: str) -> SignedActor:
     return SignedActor(email, ADMIN_KEY, lane="person")
 
 
+def _referee_path(schiedsrichter_id: ObjectId | str) -> str:
+    return f"/api/v{API_VERSION}/schiedsrichter/konto/{schiedsrichter_id}/einwilligung"
+
+
 # The instant each seeded seat's own confirmation was pressed, and the evidence it left on each choice.
 SEAT_ANSWERED_AM = "2026-09-03T08:00:00+00:00"
 SEAT_BELEG = {"am": SEAT_ANSWERED_AM, "text_version": SEAT_LABEL}
@@ -323,7 +327,7 @@ class TestTheTwoChoices:
     def test_moving_the_scope_moves_this_row_alone_writes_no_fixture_and_leaves_the_media_answer(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             before = await _records(database)
-            response = await http.patch(f"{PATH}/{REFEREE_OID}/einwilligung", json=_payload(umfang="intern"), headers=_person(IDENTIFIER))
+            response = await http.patch(_referee_path(REFEREE_OID), json=_payload(umfang="intern"), headers=_person(IDENTIFIER))
             return response, before, await _records(database), await database[Collection.SPIELE].find({}).to_list()
 
         response, before, after, spiele = served(mongo_replica_set_url, steps)
@@ -347,7 +351,7 @@ class TestTheTwoChoices:
                 {"_id": REFEREE_OID}, {"$set": {"einwilligung.nachweis.medien": {"am": AM, "text_version": _running_label()}}}
             )
             before = await _records(database)
-            response = await http.patch(f"{PATH}/{REFEREE_OID}/einwilligung", json=_payload(umfang="intern"), headers=_person(IDENTIFIER))
+            response = await http.patch(_referee_path(REFEREE_OID), json=_payload(umfang="intern"), headers=_person(IDENTIFIER))
             return response, before, await _records(database)
 
         response, before, after = served(mongo_replica_set_url, steps)
@@ -360,7 +364,7 @@ class TestTheTwoChoices:
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             before = await _records(database), await database[Collection.AKTIONEN].count_documents({})
-            response = await http.patch(f"{PATH}/{REFEREE_OID}/einwilligung", json=_payload(), headers=_person(IDENTIFIER))
+            response = await http.patch(_referee_path(REFEREE_OID), json=_payload(), headers=_person(IDENTIFIER))
             return response, before, (await _records(database), await database[Collection.AKTIONEN].count_documents({}))
 
         response, before, after = served(mongo_replica_set_url, steps)
@@ -370,7 +374,7 @@ class TestTheTwoChoices:
 
     def test_moving_the_media_answer_leaves_the_scope(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
-            response = await http.patch(f"{PATH}/{REFEREE_OID}/einwilligung", json=_payload(medien=True), headers=_person(IDENTIFIER))
+            response = await http.patch(_referee_path(REFEREE_OID), json=_payload(medien=True), headers=_person(IDENTIFIER))
             return response, await _records(database)
 
         response, after = served(mongo_replica_set_url, steps)
@@ -395,7 +399,7 @@ class TestARecordNotHeld:
     ):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             before = await _records(database)
-            response = await http.patch(f"{PATH}/{schiedsrichter_id}/einwilligung", json=_payload(umfang="intern"), headers=_person(email))
+            response = await http.patch(_referee_path(schiedsrichter_id), json=_payload(umfang="intern"), headers=_person(email))
             return response, before, await _records(database)
 
         response, before, after = served(mongo_replica_set_url, steps)
@@ -406,12 +410,12 @@ class TestARecordNotHeld:
     def test_a_grant_on_a_retired_row_is_refused_where_its_withdrawal_is_taken(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             withdrawn = await http.patch(
-                f"{PATH}/{RETIRED_OID}/einwilligung",
+                _referee_path(RETIRED_OID),
                 json=_payload(umfang="intern", medien=False, stand=RETIRED_STAND),
                 headers=_person(RETIRED),
             )
             granted = await http.patch(
-                f"{PATH}/{RETIRED_OID}/einwilligung",
+                _referee_path(RETIRED_OID),
                 json=_payload(umfang="kader_oeffentlich", medien=False, stand=withdrawn.json()["nachweis_stand"]),
                 headers=_person(RETIRED),
             )
@@ -432,13 +436,9 @@ class TestThePressesOrder:
         """The withdrawal moves the stand, so the page still showing the grant is stale before it is anything else."""
 
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
-            withdrawn = await http.patch(
-                f"{PATH}/{RETIRED_OID}/einwilligung", json=_payload(medien=False, stand=RETIRED_STAND), headers=_person(RETIRED)
-            )
+            withdrawn = await http.patch(_referee_path(RETIRED_OID), json=_payload(medien=False, stand=RETIRED_STAND), headers=_person(RETIRED))
             before = await _records(database)
-            stale = await http.patch(
-                f"{PATH}/{RETIRED_OID}/einwilligung", json=_payload(medien=True, stand=RETIRED_STAND), headers=_person(RETIRED)
-            )
+            stale = await http.patch(_referee_path(RETIRED_OID), json=_payload(medien=True, stand=RETIRED_STAND), headers=_person(RETIRED))
             return withdrawn, stale, before, await _records(database)
 
         withdrawn, stale, before, after = served(mongo_replica_set_url, steps)
@@ -497,7 +497,7 @@ class TestErteilbarIsTheGrantThePressTakes:
             for eintrag in body["schiedsrichter"]:
                 granted = await _withdrawn_then_granted(
                     http,
-                    f"{PATH}/{eintrag['schiedsrichter_id']}/einwilligung",
+                    _referee_path(eintrag["schiedsrichter_id"]),
                     lambda medien, stand, eintrag=eintrag: _payload(
                         umfang=eintrag["einwilligung"]["umfang"], medien=medien, stand=eintrag["nachweis_stand"] if stand is None else stand
                     ),
@@ -535,7 +535,7 @@ class TestTheMediaAge:
     def test_a_media_consent_below_the_floor_is_refused_and_unwritten(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             before = await _records(database)
-            response = await http.patch(f"{PATH}/{YOUNG_OID}/einwilligung", json=_payload(medien=True), headers=_person(YOUNG))
+            response = await http.patch(_referee_path(YOUNG_OID), json=_payload(medien=True), headers=_person(YOUNG))
             return response, before, await _records(database)
 
         response, before, after = served(mongo_replica_set_url, steps)
@@ -550,7 +550,7 @@ class TestTheLabelTheControlStamps:
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             before = await _records(database)
             response = await http.patch(
-                f"{PATH}/{REFEREE_OID}/einwilligung",
+                _referee_path(REFEREE_OID),
                 json=_payload(umfang="intern", text_version=CONFIRMATION_LABEL),
                 headers=_person(IDENTIFIER),
             )
