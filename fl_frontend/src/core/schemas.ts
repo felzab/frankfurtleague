@@ -16,25 +16,18 @@ export const BaseAPIResponseSchema = z.object({});
 
 export type FLRefusedField = wire.FLRefusedField;
 
-export type FLSubjektPayload = wire.FLSubjektPayload;
 export type FLSubjektSitz = wire.FLSubjektSitz;
 export type FLSubjektSpieler = wire.FLSubjektSpieler;
 export type FLSubjektSchiedsrichter = wire.FLSubjektSchiedsrichter;
 export type FLSubjektResponse = wire.FLSubjektResponse;
 
-export type FLAnmeldungResponse = wire.FLAnmeldungResponse;
-export const FLAnmeldungResponseSchema = z.custom<FLAnmeldungResponse>();
-
 export type FLGesperrtPayload = wire.FLGesperrtPayload;
 export const FLGesperrtResponseSchema = z.custom<wire.FLGesperrtResponse>();
 
 export type FLEinwilligungFassung = wire.FLEinwilligungFassung;
-export const FLEinwilligungFassungResponseSchema = z.custom<wire.FLEinwilligungFassungResponse>();
-export const FLEinwilligungSeitenResponseSchema = z.custom<wire.FLEinwilligungSeitenResponse>();
 
-// Redesign: the objects below go with their last importers: `fl_frontend/src/core/signInGate.ts` names the subject
-// read's answer by them, `fl_frontend/src/core/funktionen.test.ts` reads a seat's season states. Each `satisfies` the
-// generated type, so a backend change that moves one fails the type check here.
+// Redesign: the object below goes with its last importer, `fl_frontend/src/core/funktionen.test.ts`, which reads a
+// seat's season states. It `satisfies` the generated type, so a backend change that moves it fails the type check here.
 
 export const FLSubjektSitzSchema = z.object({
   saison_id: z.string(),
@@ -43,14 +36,3 @@ export const FLSubjektSitzSchema = z.object({
   team_name: z.string(),
   saison_status: z.enum(["past", "active", "future"]),
 }) satisfies z.ZodType<FLSubjektSitz>;
-
-export const FLSubjektResponseSchema = z.object({
-  sitze: z.array(FLSubjektSitzSchema),
-  spieler: z.array(z.object({ spieler_id: CustomObjectIdStringSchema })),
-  schiedsrichter: z.array(z.object({ schiedsrichter_id: CustomObjectIdStringSchema })),
-  unbestaetigt: z.boolean(),
-  gesperrt: z.boolean(),
-  verwaltung: z.enum(["owner", "administration"]).nullable(),
-  berechtigt_seit: z.string().nullable(),
-  inhaber_seit: z.string().nullable(),
-}) satisfies z.ZodType<FLSubjektResponse>;

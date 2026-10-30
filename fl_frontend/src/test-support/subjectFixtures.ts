@@ -35,7 +35,12 @@ export const NO_RECORDS: SubjectSession["subjekt"] = deepFrozen({
  */
 export type LookupFixture = Partial<SubjectSession["subjekt"]> & { readonly acknowledged?: 0 | 1; readonly konto: boolean };
 
-/** The path the sign-in gate reads, its own beside the subject read every guard takes. */
+/**
+ * The path the sign-in gate reads, its own beside the subject read every guard takes. Spelled rather than built by
+ * `getIdentitaetGetAnmeldungUrl`: a suite imports this module ahead of its own doubles, and the generated client
+ * loaded here would bind the real transport and config before them. A renamed path answers the gate the subject's
+ * shape, which no sign-in case passes.
+ */
 const GATE_ENDPOINT = "/identitaet/anmeldung";
 
 /** One table of fixtures answering the subject read and the gate alike, each in its read's shape. */

@@ -1,3 +1,4 @@
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
 import { EINWILLIGUNG_REGISTRY, einwilligungAnswer, fassungOf, laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,8 +21,8 @@ type Answer = (endpoint: string) => Promise<unknown>;
 const registry: Answer = (endpoint) => Promise.resolve(einwilligungAnswer(endpoint));
 let answering: Answer = registry;
 
-/** Every endpoint the client was asked for in this case, in order. */
-const calls: string[] = [];
+/** Every call the client was asked for in this case, in order. */
+const calls = doubleApiClient((call) => answering(call.endpoint));
 /** Every lifetime a cached read declared in this case, in order. */
 const lifetimes: unknown[] = [];
 
@@ -33,17 +34,15 @@ beforeEach(() => {
 
 const inert = (): undefined => undefined;
 
-// The client replaced at its module, each answer passed through the caller's schema as a real response
-// is; `next/cache` answered inert, so the cached read's own declarations run outside a Next build.
-vi.doMock("@/core/api.ts", () => ({
-  apiClient: async (endpoint: string, schema: { parse: (value: unknown) => unknown }) => {
-    calls.push(endpoint);
-    return schema.parse(await answering(endpoint));
-  },
-}));
+// `next/cache` answered inert, so the cached read's own declarations run outside a Next build.
 vi.doMock("next/cache", () => ({ cacheLife: (profile: unknown) => void lifetimes.push(profile), cacheTag: inert }));
 
-const api = { calls: calls, answerWith: (next: Answer) => void (answering = next) };
+const api = {
+  get calls(): string[] {
+    return calls.map(({ endpoint }) => endpoint);
+  },
+  answerWith: (next: Answer) => void (answering = next),
+};
 
 serveServerReact();
 

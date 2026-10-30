@@ -2,13 +2,12 @@ import "server-only";
 
 import { cache } from "react";
 
-import { apiClient } from "./api";
 import { asSignInIdentifier } from "./emailAddress";
 import { APIBadStatusError } from "./errors";
+import { identitaetGetAnmeldung, identitaetGetSubjekt } from "./generated/client/sdk";
 import { logger } from "./logging";
-import { FLAnmeldungResponseSchema, FLSubjektResponseSchema } from "./schemas";
 
-import type { FLAnmeldungResponse, FLSubjektPayload } from "./schemas";
+import type { FLAnmeldungResponse } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
 /** The code the backend answers a payload it refuses with: here, an address no rule of its own accepts. */
@@ -22,17 +21,11 @@ const PAYLOAD_REFUSED = "REQ-VAL-001";
  * failure; `fl_frontend/src/core/subject.ts :: getSubjectSession` lets it.
  */
 export const lookUpSubjekt = cache(async (email: string): Promise<SubjectSession["subjekt"]> => {
-  const payload: FLSubjektPayload = { email: email };
   // In the body and on no query parameter: a URL carrying an address reaches the edge's access
   // line, which nothing downstream un-logs.
-  const answer = await apiClient("/identitaet/subjekt", FLSubjektResponseSchema, {
-    method: "POST",
-    readOnly: true,
-    authType: "system",
-    body: JSON.stringify(payload),
-  });
+  const answer = await identitaetGetSubjekt({ email: email }, { readOnly: true });
 
-  // Field by field rather than the body: `apiClient` types the answer and parses nothing, so the body
+  // Field by field rather than the body: the generated call types the answer and parses nothing, so the body
   // would carry into the session whatever else the backend ever answered.
   return {
     sitze: answer.sitze,
@@ -53,16 +46,10 @@ export type AnmeldungRecords = FLAnmeldungResponse;
 // pays for the two collections `konto` reads beyond the subject's three.
 /** The gate's answer for one folded mailbox. Throws on every backend failure, which `mayReceiveSignIn` closes on. */
 export const lookUpAnmeldung = cache(async (email: string): Promise<AnmeldungRecords> => {
-  const payload: FLSubjektPayload = { email: email };
   // In the body, for `lookUpSubjekt`'s reason.
-  const answer = await apiClient("/identitaet/anmeldung", FLAnmeldungResponseSchema, {
-    method: "POST",
-    readOnly: true,
-    authType: "system",
-    body: JSON.stringify(payload),
-  });
+  const answer = await identitaetGetAnmeldung({ email: email }, { readOnly: true });
 
-  // Never the parsed body, for `lookUpSubjekt`'s reason.
+  // Field by field, for `lookUpSubjekt`'s reason.
   return { unbestaetigt: answer.unbestaetigt, konto: answer.konto, gesperrt: answer.gesperrt, verwaltung: answer.verwaltung };
 });
 

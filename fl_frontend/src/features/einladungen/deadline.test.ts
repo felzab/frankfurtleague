@@ -24,6 +24,9 @@ vi.doMock("@/core/config.ts", () => CONFIG);
 
 const { postEinladungVersandAction } = await import("./actions.ts");
 const { REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
+// The paths the press sends to, built as its calls build them, so a renamed path or operation reaches this double.
+const { getIdentitaetGetGesperrtUrl, getSaisonsPostEinladungenVersandUrl, getZustellungAngenommenZustellungUrl } =
+  await import("@/core/generated/client/sdk.ts");
 
 const SAISON_ID = "2627";
 
@@ -55,10 +58,10 @@ const mails: { signal: AbortSignal }[] = [];
 // Honours the signal as the real `fetch` does, so a message the deadline aborts ends as a real one would.
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
-  if (url.endsWith("/einladungen/versand")) return json(VERSAND);
-  if (url.endsWith("/zustellung/angenommen")) return json({ acknowledged: 1, angewendet: true });
+  if (url === `${API_URL}${getSaisonsPostEinladungenVersandUrl(SAISON_ID)}`) return json(VERSAND);
+  if (url === `${API_URL}${getZustellungAngenommenZustellungUrl()}`) return json({ acknowledged: 1, angewendet: true });
   // The mailer's gate, answered at once: no address of this press is barred, and its read spends no time.
-  if (url.endsWith("/identitaet/gesperrt")) return json({ acknowledged: 1, gesperrt: false });
+  if (url === `${API_URL}${getIdentitaetGetGesperrtUrl()}`) return json({ acknowledged: 1, gesperrt: false });
   // Every other call is the provider's, whose address `mail.ts` alone names.
   assert.ok(!url.startsWith(API_URL), `the press reached a backend route nothing here answers: ${url}`);
 
