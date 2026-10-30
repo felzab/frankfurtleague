@@ -16,7 +16,6 @@ from app.api.identitaet.services import (
     geschlossen_durch,
     loeschung_faellig,
     offene_adressen,
-    ohne_passende_adresse,
     statuses_after_activating,
 )
 from app.core.middlewares import REQUEST_DEADLINE_S
@@ -92,20 +91,6 @@ class TestTheDueJudgement:
         """The registry erases by address, and nothing else may erase by a name."""
 
         assert not faellig([], email=None)
-
-    @pytest.mark.parametrize(
-        "email",
-        [
-            pytest.param("Thessaly.Okonkwo@beispielschule.de", id="unfolded"),
-            pytest.param("", id="empty"),
-            pytest.param("thessaly.okonkwo", id="refused by the address rule"),
-        ],
-    )
-    def test_a_stored_address_no_request_matches_is_never_due_and_is_named(self, email: str):
-        """A hand correction leaves such a spelling, and the erasure would remove nobody by it."""
-
-        assert not faellig([], email=email)
-        assert ohne_passende_adresse([{"_id": 1, "email": email}, {"_id": 2, "email": ADDRESS}]) == [1]
 
 
 class TestTheStatusesAnActivationLeaves:

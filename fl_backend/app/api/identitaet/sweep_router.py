@@ -10,7 +10,7 @@ from pymongo.errors import PyMongoError
 
 from app.api.identitaet.crud import erase_if_still_due, faellige_seite, saison_statuses
 from app.api.identitaet.schemas import FLErasure, FLLoeschungLaufParams, FLLoeschungLaufResponse
-from app.api.identitaet.services import abgeschlossene_saison_id, ohne_passende_adresse
+from app.api.identitaet.services import abgeschlossene_saison_id
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup
 from app.core.codes import Code
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -155,9 +155,7 @@ async def post_loeschung_lauf(
     The rule, read from the seasons' stored statuses at each call: a pupil is due once they hold no squad row, live or retired,
     in the latest `past` season, in any season with a greater id or in the running one, and no registration still `eingereicht`
     at their address, compared as the sign-in folds it. While no season is `past` nobody is due, and `abgeschlossene_saison_id`
-    is null. A pupil holding no address is never due: nothing else erases by a name. A pupil whose stored address no request
-    matches, empty, unfolded or refused by the address rule, is passed over and named by id in a warning: a hand correction
-    left it so, and an erasure by another spelling would remove nobody.
+    is null. A pupil holding no address is never due: nothing else erases by a name.
 
     Each pupil is deleted in a transaction of their own, which first judges them again: one who has gained a squad row or a
     pending registration since this call read them, the two committing before that transaction writes included, or whom another
@@ -192,15 +190,6 @@ async def post_loeschung_lauf(
         registrierungen_collection=registrierungen_collection,
     )
     share = seite[:LOESCHUNGEN_PER_PASS]
-    ohne_adresse = ohne_passende_adresse(share)
-    if ohne_adresse:
-        # The ids alone, as every line of this run: the address is what the pupil's erasure exists to remove.
-        # Left out of the deletion: each one's stored address is empty, unfolded or refused by the address rule.
-        fl_logger.warning(
-            "identitaet.loeschung_unaddressed",
-            extra={"error_code": Code.STORED_DATA_INVALID, "spieler_ids": [str(spieler_id) for spieler_id in ohne_adresse]},
-        )
-
     # One instant for every redaction this call makes, as one erasure's steps share one.
     stamp = log_stamp(germany_now)
 
@@ -210,8 +199,6 @@ async def post_loeschung_lauf(
     abgebrochen = False
     for row in share:
         erreicht = row["_id"]
-        if row["_id"] in ohne_adresse:
-            continue
 
         # Caught outside the person's session, as `app/api/saisons/admin_router.py :: _mail_one_team` catches
         # a team's: a failure the session never saw leaves its transaction open.

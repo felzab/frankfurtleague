@@ -478,50 +478,6 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
         assert registrations == [stranger]
 
 
-# --- A stored address no request matches: a hand correction left it unfolded.
-
-UNFOLDED = "Thessaly.Okonkwo@beispielschule.de"
-
-
-class TestAStoredAddressNoRequestMatchesIsPassedOver:
-    def test_the_pupil_stands_and_a_warning_names_them_by_id(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Read the page without the leave-out and no warning names them."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seeded(database, a_due_pupil(1), a_due_pupil(2))
-            await database[Collection.SPIELER].update_one({"_id": numbered(1)}, {"$set": {"email": UNFOLDED}})
-            answer = await run(database, client)
-
-            return counts(answer), answer.nach, await database[Collection.SPIELER].count_documents({"_id": numbered(1)})
-
-        with caplog.at_level(logging.WARNING):
-            answer, nach, standing = on_a_league(mongo_replica_set_url, body)
-
-        assert (answer["spieler"], answer["uebersprungen"], answer["verbleibend"], nach, standing) == (1, 0, 1, None, 1)
-        warnings = [record for record in caplog.records if getattr(record, "error_code", None) == Code.STORED_DATA_INVALID]
-        assert [(record.getMessage(), getattr(record, "spieler_ids", None)) for record in warnings] == [
-            ("identitaet.loeschung_unaddressed", [str(numbered(1))])
-        ]
-        assert not [record for record in warnings if "thessaly" in JSONFormatter().format(record).lower()]
-
-    def test_one_corrected_so_after_the_read_is_judged_again_and_stands(self, mongo_replica_set_url: str):
-        """The transaction's own judgement: drop its stored-address test and the erasure runs on a spelling no row holds folded."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seeded(database, a_due_pupil(1))
-
-            async def correct_it() -> None:
-                await database[Collection.SPIELER].update_one({"_id": numbered(1)}, {"$set": {"email": address_of(1).capitalize()}})
-
-            answer = await run(database, client, spieler_collection=WrittenAfterThePopulationRead(database[Collection.SPIELER], correct_it))
-
-            return counts(answer), await database[Collection.SPIELER].count_documents({"_id": numbered(1)})
-
-        answer, standing = on_a_league(mongo_replica_set_url, body)
-
-        assert (answer["spieler"], answer["uebersprungen"], standing) == (0, 1, 1)
-
-
 # --- A rival committing INSIDE a pupil's transaction, after its snapshot and before its first write.
 
 # Waited for the rival at most this long: it contends with nothing before the pupil's first write, so

@@ -2000,9 +2000,7 @@ export const getIdentitaetPostLoeschungLaufUrl = (params?: IdentitaetPostLoeschu
  * The rule, read from the seasons' stored statuses at each call: a pupil is due once they hold no squad row, live or retired,
  * in the latest `past` season, in any season with a greater id or in the running one, and no registration still `eingereicht`
  * at their address, compared as the sign-in folds it. While no season is `past` nobody is due, and `abgeschlossene_saison_id`
- * is null. A pupil holding no address is never due: nothing else erases by a name. A pupil whose stored address no request
- * matches, empty, unfolded or refused by the address rule, is passed over and named by id in a warning: a hand correction
- * left it so, and an erasure by another spelling would remove nobody.
+ * is null. A pupil holding no address is never due: nothing else erases by a name.
  *
  * Each pupil is deleted in a transaction of their own, which first judges them again: one who has gained a squad row or a
  * pending registration since this call read them, the two committing before that transaction writes included, or whom another

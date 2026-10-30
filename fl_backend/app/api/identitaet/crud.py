@@ -993,7 +993,7 @@ async def erase_if_still_due(
 ) -> FLErasure | None:
     """Erase one pupil's own data where the rule holds in this transaction, or answer `None` where it does not.
 
-    The address is read off the row here and never handed in: a correction by hand moves it between two reads.
+    The address is read off the row here and never handed in: an address change moves it between two reads.
     """
 
     statuses = statuses_of(await aggregate_many_from_db(collection=saisons_collection, pipeline=[{"$project": {"status": 1}}], session=session))
