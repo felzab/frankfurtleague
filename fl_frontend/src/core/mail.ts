@@ -13,7 +13,6 @@ import { renderMail } from "./emailShell";
 import { APINetworkError, MailSendError } from "./errors";
 import { postausgangPostAusgabe, postausgangPostErgebnis } from "./generated/client/sdk";
 import { logger } from "./logging";
-import { mayReceiveMail } from "./mailGate";
 import { mailFor, POSTAUSGANG_TAG } from "./mailKinds";
 import { boundCall, getRequestTraceId, recordWriteSent } from "./requestScope";
 import { mintTraceId } from "./trace";
@@ -59,7 +58,7 @@ const SINK_NAME_ATTEMPTS = 20;
 
 const SINK_SLUG_MAX = 40;
 
-export interface OutboundMail {
+interface OutboundMail {
   to: string;
   subject: string;
   html: string;
@@ -68,30 +67,28 @@ export interface OutboundMail {
   von: MailVon;
   /**
    * Rides the send and comes back on every delivery event about it, which is what routes one back to
-   * the record it belongs to. Each name and value must be ASCII letters, digits, `_` or `-`.
+   * the row it was sent from. Each name and value must be ASCII letters, digits, `_` or `-`.
    */
-  tags?: Record<string, string>;
+  tags: Record<string, string>;
   /**
    * Collapses a repeat of the same send inside the provider's 24-hour window, answering the original
    * id rather than sending again. A key reused with a DIFFERENT body is refused rather than ignored.
    */
-  idempotencyKey?: string;
+  idempotencyKey: string;
 }
 
 /**
  * `null` where an accepted answer carried no id: the message went out, and no later delivery event
  * can be joined to it.
  */
-export type MailAccepted = { id: string | null };
+type MailAccepted = { id: string | null };
 
 /**
  * Raised where the deployment does not mail. Not a `MailSendError` and not in `errors.ts`: nothing
  * here reached a provider, so there is no status to carry and no retry decision to read off one.
  */
-export class MailWithheldError extends Error {
+class MailWithheldError extends Error {
   constructor() {
-    // No recipient and no body in the message: this reaches `settleFanOut`, which logs an error's
-    // `name`.
     super("This deployment does not send mail.");
 
     this.name = "MailWithheldError";
@@ -99,22 +96,10 @@ export class MailWithheldError extends Error {
 }
 
 /**
- * Never merged with `MailWithheldError`: a withheld message is this deployment's to explain, a barred
- * one the address's, which no caller names.
- */
-export class MailBarredError extends Error {
-  constructor() {
-    super("The recipient is on the ban list.");
-
-    this.name = "MailBarredError";
-  }
-}
-
-/**
  * Raised where the recipient is not one bare mailbox, or its domain has no ASCII form. Beside
  * `MailWithheldError` rather than in `errors.ts` for its reason, and carrying no address for the same one.
  */
-export class MailRecipientError extends Error {
+class MailRecipientError extends Error {
   constructor() {
     super("The recipient is not one mailbox with an ASCII domain.");
 
@@ -123,9 +108,8 @@ export class MailRecipientError extends Error {
 }
 
 /**
- * Nothing reached the provider: the request's deadline ran out first, or the ban list went unread,
- * each writing a line of its own. Not an `APINetworkError`, which a fan-out reads as a message that
- * may have gone.
+ * Nothing reached the provider: the request's deadline ran out first, which writes a line of its own. Not an
+ * `APINetworkError`, which may be a message that went.
  */
 class MailUnsentError extends Error {
   constructor() {
@@ -163,7 +147,7 @@ function forComment(value: string): string {
 }
 
 function sinkDocument({ to, subject, html, text, von, tags }: OutboundMail, traceId: string): string {
-  const pairs = Object.entries(tags ?? {}).map(([name, value]) => `${name}=${value}`);
+  const pairs = Object.entries(tags).map(([name, value]) => `${name}=${value}`);
   const header = [
     `From: ${absenderZeile(von)}`,
     `Reply-To: ${ANTWORT_AN}`,
@@ -234,30 +218,16 @@ function pause(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 /**
- * Converted before the gate is asked: about the typed spelling the API answers by its own Unicode
- * tables while the provider is handed this runtime's conversion, and where the two disagree a barred
- * mailbox goes unbarred.
+ * The row's address as the provider is handed it: one bare mailbox, its domain in ASCII. The ban was judged at the
+ * hand-out, on the stored spelling.
  */
 function recipientOf(to: string): string {
-  // A domain IDNA cannot convert, and any spelling around a mailbox, which the gate would answer
-  // unbarred while the provider still reached the mailbox inside it.
+  // A domain IDNA cannot convert, and any spelling around a mailbox, which the provider would still reach the mailbox
+  // inside.
   const converted = withAsciiDomain(to);
   if (converted === undefined || !isOneBareMailbox(converted)) throw new MailRecipientError();
 
   return converted;
-}
-
-/** Every message the league sends but the ban's own notice, each asked of the ban list first. */
-export async function sendMail(mail: OutboundMail): Promise<MailAccepted> {
-  const to = recipientOf(mail.to);
-
-  // Ahead of the sink, so a stack that does not mail files only what production would send and the
-  // ban can be checked there.
-  const verdict = await mayReceiveMail(to);
-  if (verdict === "barred") throw new MailBarredError();
-  if (verdict === "failed") throw new MailUnsentError();
-
-  return deliver({ ...mail, to: to });
 }
 
 /** What one drain settled: the backend's counts, summed over every report it made. */
@@ -376,7 +346,7 @@ function ergebnisOf(error: unknown): Exclude<FLPostausgangErgebnis["ergebnis"], 
 }
 
 /**
- * The one call against the mail provider, whichever entry asked for it. **A refusal never carries the
+ * The one call against the mail provider, the drain's alone. **A refusal never carries the
  * provider's message**, which names the recipient -- `fl_frontend/src/core/errors.ts :: MailSendError`
  * takes the stable `name` field instead.
  */
@@ -390,7 +360,8 @@ async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: O
   if (frontend_config.APP_ENV !== "production" || apiKey === undefined) {
     // Never on production, which reaches this arm only where `SKIP_ENV_VALIDATION` stood the key's
     // requirement down: a file there would leave a live sign-in code on the host's disk.
-    const sinkFile = frontend_config.APP_ENV === "production" ? undefined : await writeToSink({ to, subject, html, text, von, tags }, traceId);
+    const sinkFile =
+      frontend_config.APP_ENV === "production" ? undefined : await writeToSink({ to, subject, html, text, von, tags, idempotencyKey }, traceId);
 
     // Subject, tags and the file's name, never the recipient or a body: enough to say WHICH message
     // stayed behind and where to read it, and the logging rule keeps the person off the line.
@@ -433,8 +404,8 @@ async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: O
     // `Bearer undefined` and the type checker says nothing.
     Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",
+    "Idempotency-Key": idempotencyKey,
   };
-  if (idempotencyKey !== undefined) headers["Idempotency-Key"] = idempotencyKey;
 
   const body = JSON.stringify({
     from: absenderZeile(von),
@@ -443,7 +414,7 @@ async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: O
     subject,
     html,
     text,
-    ...(tags === undefined ? {} : { tags: Object.entries(tags).map(([name, value]) => ({ name: name, value: value })) }),
+    tags: Object.entries(tags).map(([name, value]) => ({ name: name, value: value })),
   });
 
   const attempt = async (): Promise<MailAccepted> => {
@@ -530,11 +501,9 @@ async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: O
       } catch (error) {
         if (error instanceof APINetworkError) brokeOff ??= error;
 
-        // A network failure is tried again only under an idempotency key, which the provider
-        // documents as collapsing the repeat of a message it accepted before the connection broke:
-        // without one, that repeat is a second message to a real person.
-        const repeatable =
-          error instanceof MailSendError ? error.isTransient : error instanceof APINetworkError && idempotencyKey !== undefined;
+        // A network failure is tried again under the send's idempotency key, which the provider documents as
+        // collapsing the repeat of a message it accepted before the connection broke.
+        const repeatable = error instanceof MailSendError ? error.isTransient : error instanceof APINetworkError;
 
         // An aborted budget ends it too: the timeout that cut the attempt leaves nothing to retry in.
         if (!repeatable || attemptNumber >= MAIL_ATTEMPTS || bound.signal.aborted) giveUp(error);

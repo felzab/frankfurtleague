@@ -152,15 +152,6 @@ export function boundCall(ownBoundMs: number): { signal: AbortSignal; clear: () 
 // body came to and reads none of them.
 
 /**
- * For a call whose failure a caller settles rather than throws, where it may still have landed: a mail
- * the provider may have accepted before the connection broke. A no-op outside a scope.
- */
-export function markOutcomeUnknown(): void {
-  const store = storage.getStore();
-  if (store !== undefined) store.outcomeUnknown = true;
-}
-
-/**
  * Runs a call whose doubt its caller words in its own answer, so a deadline cut inside it never marks the request.
  * A write it sends still counts as sent. A no-op outside a scope.
  */
@@ -178,7 +169,7 @@ export async function runAnsweringOwnCut<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-/** Whether the deadline cut a call of this request, or a settled call may have landed. `false` outside a scope. */
+/** Whether the deadline cut a call of this request. `false` outside a scope. */
 export function requestOutcomeUnknown(): boolean {
   return storage.getStore()?.outcomeUnknown === true;
 }
