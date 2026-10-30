@@ -3075,7 +3075,7 @@ export interface FLKontoSchiedsrichterEinwilligung {
   bestaetigt_text_version: string;
   einwilligung: FLEinwilligung;
   erteilbar: boolean;
-  geburtsdatum?: string | null;
+  geburtsdatum: string | null;
   honorar: number;
   inactive_since: string | null;
   kontakt: FLKontakt;

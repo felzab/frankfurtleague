@@ -16,7 +16,7 @@ from app.shared.schemas.literals import (
     FLSpielerPosition,
     FLSpielerStufe,
 )
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
 class FLSitzKontext(BaseModel):
@@ -49,7 +49,7 @@ class FLKontoSpielerEinwilligung(FLSpielerSelbst):
     kontext: FLSpielerKontext
 
 
-class FLKontoSchiedsrichterEinwilligung(FLSchiedsrichterSelbst):
+class FLKontoSchiedsrichterEinwilligung(FLSchiedsrichterSelbst, BaseReadModel):
     """One referee record on the account page: its stored data and the consent the page moves."""
 
     inactive_since: CustomOptionalDateString
