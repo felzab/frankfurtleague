@@ -4,7 +4,7 @@ import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLBewerbungZustellung } from "@/shared/schemas";
+import type { FLBewerbungZustellung } from "@/core/generated/client/types";
 import type { ReactNode } from "react";
 
 /** Beside the deadline rather than among the delivery facts, which say what became of the message. */

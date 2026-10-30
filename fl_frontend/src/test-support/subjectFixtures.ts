@@ -1,4 +1,4 @@
-import type { FLSubjektSitz } from "@/core/schemas.ts";
+import type { FLSubjektSitz } from "@/core/generated/client/types.ts";
 import type { SubjectSession } from "@/core/subject.ts";
 
 /**

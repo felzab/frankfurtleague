@@ -9,7 +9,7 @@ import { ACTOR_HEADER, AUTH_FACTOR_HEADER, AUTH_TIME_HEADER, formatTraceparent, 
 
 import type { ZodType } from "zod";
 import type { SentRequest } from "./errors";
-import type { FLRefusedField } from "./schemas";
+import type { FLRefusedField } from "./generated/client/types";
 
 const BASE_FETCH_AUTH_TYPE = "base";
 

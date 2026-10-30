@@ -21,7 +21,7 @@ export const PHONE_REGEX = new RegExp(/^([+]?[ 0-9\-().]{2,19}[0-9])$/);
 const HAUSNUMMER_REGEX = /^[\d\-abcABC]*$/;
 const HAUSNUMMER_ERROR = "Die Hausnummer darf nur aus Zahlen, Bindestrichen und den Buchstaben a, b, c bestehen.";
 
-// Named rather than written into `FLAddressSchema`: a literal inside a schema call is reachable by no comparison at all.
+// Named rather than written into `FLAddressPayloadSchema`: a literal inside a schema call is reachable by no comparison at all.
 const PLZ_REGEX = /^\d{5}$/;
 
 /**
@@ -103,15 +103,6 @@ export const einzeiligerName = (schema: z.ZodString, feld: string) =>
     error: `${feld} darf keine Zeilenumbrüche oder Steuerzeichen enthalten.`,
   });
 
-export const FLAddressSchema = z.object({
-  strasse: z.string().nonempty({ error: "Bitte gib eine Straße ein." }),
-  hausnummer: z.string().regex(HAUSNUMMER_REGEX, { error: HAUSNUMMER_ERROR }),
-  plz: z.string().regex(PLZ_REGEX, { error: "Die PLZ muss genau 5 Ziffern haben." }),
-  stadtteil: z.string(),
-  stadt: z.string().nonempty({ error: "Bitte gib eine Stadt ein." }),
-}) satisfies z.ZodType<wire.FLAddress>;
-export type FLAddress = wire.FLAddress;
-
 /**
  * The address ceilings, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Every frontend enforcement point reads
  * them from here, so the schema below and the inputs bound by them cannot disagree about the cap.
@@ -124,34 +115,35 @@ export const ADDRESS_STADTTEIL_MAX_LENGTH = 80;
 export const ADDRESS_HAUSNUMMER_MAX_LENGTH = 16;
 
 /**
- * Mirrors `FLAddressPayload` — what every write payload embeds. The ceilings are here and not on `FLAddressSchema`,
- * which the read schemas embed: a stored value over one of them must still parse, or one row fails a whole list.
+ * `FLAddressPayload`, what every write payload embeds, judged in the browser: the venue, club and application forms
+ * (`AdminSpielortEditForm.tsx`, `AdminTeamEditForm.tsx`, `BewerbungForm.tsx`) parse their slice's payload, which embeds
+ * this, and the generated Zod is `server-only`.
  */
-export const FLAddressPayloadSchema = FLAddressSchema.extend({
+export const FLAddressPayloadSchema = z.object({
   strasse: z
     .string()
     .trim()
     .nonempty({ error: "Bitte gib eine Straße ein." })
     .max(ADDRESS_STRASSE_MAX_LENGTH, { error: `Die Straße darf höchstens ${String(ADDRESS_STRASSE_MAX_LENGTH)} Zeichen lang sein.` }),
-  stadt: z
-    .string()
-    .trim()
-    .nonempty({ error: "Bitte gib eine Stadt ein." })
-    .max(ADDRESS_STADT_MAX_LENGTH, { error: `Die Stadt darf höchstens ${String(ADDRESS_STADT_MAX_LENGTH)} Zeichen lang sein.` }),
-  // No floor beside the ceiling: a district is the part of an address a place can genuinely lack, so the payload
-  // bounds its length alone.
-  stadtteil: z.string().max(ADDRESS_STADTTEIL_MAX_LENGTH, {
-    error: `Der Stadtteil darf höchstens ${String(ADDRESS_STADTTEIL_MAX_LENGTH)} Zeichen lang sein.`,
-  }),
-  // Restated beside the ceiling because extending replaces the field outright, and the alphabet alone bounds nothing.
+  // The alphabet alone bounds nothing, so the ceiling stands beside it.
   hausnummer: z
     .string()
     .regex(HAUSNUMMER_REGEX, { error: HAUSNUMMER_ERROR })
     .max(ADDRESS_HAUSNUMMER_MAX_LENGTH, {
       error: `Die Hausnummer darf höchstens ${String(ADDRESS_HAUSNUMMER_MAX_LENGTH)} Zeichen lang sein.`,
     }),
+  plz: z.string().regex(PLZ_REGEX, { error: "Die PLZ muss genau 5 Ziffern haben." }),
+  // No floor beside the ceiling: a district is the part of an address a place can genuinely lack, so the payload
+  // bounds its length alone.
+  stadtteil: z.string().max(ADDRESS_STADTTEIL_MAX_LENGTH, {
+    error: `Der Stadtteil darf höchstens ${String(ADDRESS_STADTTEIL_MAX_LENGTH)} Zeichen lang sein.`,
+  }),
+  stadt: z
+    .string()
+    .trim()
+    .nonempty({ error: "Bitte gib eine Stadt ein." })
+    .max(ADDRESS_STADT_MAX_LENGTH, { error: `Die Stadt darf höchstens ${String(ADDRESS_STADT_MAX_LENGTH)} Zeichen lang sein.` }),
 }) satisfies z.ZodType<wire.FLAddressPayload>;
-export type FLAddressPayload = wire.FLAddressPayload;
 
 /**
  * Re-exported from `core`, where `isDeliverableAddress` holds the same ceiling: applied here so an
@@ -206,18 +198,12 @@ export const KontaktEmailSchema = addressSchema(
   }),
 );
 
-export const FLKontaktSchema = z.object({
-  // Judged on the payload alone, as `email` is: a stored number `PHONE_REGEX` refuses, such as one ending
-  // in a space that the rule took before it was narrowed, would fail the whole referee list's parse.
-  telefon: z.string().nullable(),
-  // Judged on the payload alone: an address stored under an older rule would fail the whole referee
-  // list's parse.
-  email: z.string().nullable(),
-}) satisfies z.ZodType<wire.FLKontakt>;
-export type FLKontakt = wire.FLKontakt;
-
-/** What the two referee payloads embed: the write is where the address rule applies and a refusal reaches a box. */
-export const FLKontaktPayloadSchema = FLKontaktSchema.extend({
+/**
+ * What the two referee payloads embed: the write is where the address rule applies and a refusal reaches a box. Judged
+ * in the browser by the referee forms (`AdminCreateSchiedsrichterForm.tsx`, `AdminSchiedsrichterEditForm.tsx`), which
+ * the `server-only` generated Zod cannot serve.
+ */
+export const FLKontaktPayloadSchema = z.object({
   // The message has to sit on the union: with `.or()` the branch messages are unreachable and zod falls
   // back to its own English.
   telefon: z
@@ -231,13 +217,11 @@ export const FLKontaktPayloadSchema = FLKontaktSchema.extend({
 }) satisfies z.ZodType<wire.FLKontaktPayload>;
 
 /**
- * Mirrors `FLBewerbungZustellstand`, which every kind of link records. **Orthogonal to `Stand`**, which is
- * what the PERSON did: a seat can have confirmed from an address an earlier link bounced at, and folding
- * the two would lose it.
+ * Redesign: goes with its last importers, the hand-written delivery payloads in
+ * `fl_frontend/src/features/bewerbungen/schemas.ts` and `fl_frontend/src/features/zustellung/schemas.ts`.
+ * `FLBewerbungZustellungStand`, which every kind of link records. **Orthogonal to `Stand`**, which is what the PERSON did: a seat can have confirmed from an address an
+ * earlier link bounced at, and folding the two would lose it.
  */
 export const FLBewerbungZustellstandSchema = z.enum(["angenommen", "zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"], {
   error: "Diesen Zustellstand gibt es nicht.",
 }) satisfies z.ZodType<wire.FLBewerbungZustellungStand>;
-export type FLBewerbungZustellstand = wire.FLBewerbungZustellungStand;
-
-export type FLBewerbungZustellung = wire.FLBewerbungZustellung;

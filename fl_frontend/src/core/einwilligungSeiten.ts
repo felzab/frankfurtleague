@@ -1,6 +1,6 @@
 import z from "zod";
 
-import type { FLEinwilligungFassung } from "./schemas";
+import type { FLEinwilligungFassung } from "./generated/client/types";
 
 /** The pages this frontend renders a running label's words on, spelled as the backend keys them. */
 export type EinwilligungSeite =

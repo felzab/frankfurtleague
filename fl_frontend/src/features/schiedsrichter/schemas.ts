@@ -9,7 +9,7 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 
 import { alterAusserhalb } from "./constants";
 
-import type { FLKontakt } from "@/shared/schemas";
+import type { FLKontakt } from "@/core/generated/client/types";
 
 // A whole name held to the ceiling one part of any other person's name takes: one number, and one
 // sentence, on every form.

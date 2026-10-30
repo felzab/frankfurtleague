@@ -3,7 +3,7 @@ import "server-only";
 import { asSignInIdentifier } from "./emailAddress";
 import { lookUpSubjekt } from "./signInGate";
 
-import type { FLSubjektResponse } from "./schemas";
+import type { FLSubjektResponse } from "./generated/client/types";
 
 /** The grant an address holds, its tier and when the grant and its `owner` tier took effect, as the subject lookup serves them: null together for none. */
 export type Verwaltung = Pick<FLSubjektResponse, "verwaltung" | "berechtigt_seit" | "inhaber_seit">;

@@ -14,10 +14,14 @@ import {
   ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH,
 } from "./schemas";
 
-import type { FLBewerbung, FLBewerbungZustellungEreignisPayload, FLKontaktRolle } from "@/core/generated/client/types";
+import type {
+  FLBewerbung,
+  FLBewerbungZustellungEreignisPayload,
+  FLBewerbungZustellungStand,
+  FLKontaktRolle,
+} from "@/core/generated/client/types";
 import type { FLZustellungEreignisPayload, FLZustellungZiel } from "@/features/zustellung/schemas";
 import type { PillTone } from "@/shared/components/ui/badges";
-import type { FLBewerbungZustellstand } from "@/shared/schemas";
 
 /**
  * Which message a delivery event is about, as it rides the send. Its own vocabulary rather than the
@@ -227,9 +231,9 @@ export function leseZustellEreignis(raw: unknown): ZustellMeldung | null {
  * The three states no further message to that address can beat. **`beschwerde` is one of them**: a
  * person who marked the league as spam is the strongest case for never writing to them again.
  */
-const DAUERHAFT: ReadonlySet<FLBewerbungZustellstand> = new Set<FLBewerbungZustellstand>(["unzustellbar", "unterdrueckt", "beschwerde"]);
+const DAUERHAFT: ReadonlySet<FLBewerbungZustellungStand> = new Set<FLBewerbungZustellungStand>(["unzustellbar", "unterdrueckt", "beschwerde"]);
 
-export function istDauerhaftUnzustellbar(zustellung: { stand: FLBewerbungZustellstand } | null): boolean {
+export function istDauerhaftUnzustellbar(zustellung: { stand: FLBewerbungZustellungStand } | null): boolean {
   return zustellung !== null && DAUERHAFT.has(zustellung.stand);
 }
 
@@ -237,7 +241,7 @@ export function istDauerhaftUnzustellbar(zustellung: { stand: FLBewerbungZustell
  * What the seat's row says about the last message to it, or `null` where the row says nothing: an
  * accepted send and a delivery are the ordinary course, and a chip for them would grade every row.
  */
-export const ZUSTELLUNG_CHIP: Record<FLBewerbungZustellstand, { label: string; tone: PillTone } | null> = {
+export const ZUSTELLUNG_CHIP: Record<FLBewerbungZustellungStand, { label: string; tone: PillTone } | null> = {
   angenommen: null,
   zugestellt: null,
   // One label for both the temporary bounce and the failed send: what the administrator can act on

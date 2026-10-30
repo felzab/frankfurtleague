@@ -10,8 +10,7 @@ import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { openGraphFor } from "@/shared/utils/metadata";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
-import type { FLRegistrierungBestaetigungAnsichtResponseSeite } from "@/core/generated/client/types";
-import type { FLEinwilligungFassung } from "@/core/schemas";
+import type { FLEinwilligungFassung, FLRegistrierungBestaetigungAnsichtResponseSeite } from "@/core/generated/client/types";
 import type { SpielerBestaetigungStart, SpielerSeitenFassung } from "@/features/registrierungen/types";
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";

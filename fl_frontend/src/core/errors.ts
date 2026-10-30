@@ -1,4 +1,4 @@
-import type { FLRefusedField } from "./schemas";
+import type { FLRefusedField } from "./generated/client/types";
 
 /**
  * What an error says about the request it answers. Required on every API error rather than defaulted:

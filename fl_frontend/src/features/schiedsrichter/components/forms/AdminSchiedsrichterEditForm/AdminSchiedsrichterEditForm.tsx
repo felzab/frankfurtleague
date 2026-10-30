@@ -30,13 +30,12 @@ import { FormHonorarSection } from "./FormHonorarSection";
 import { FormKontaktSection } from "./FormKontaktSection";
 import { FormPersonSection } from "./FormPersonSection";
 
-import type { FLBestaetigung, FLEinwilligung } from "@/core/generated/client/types";
+import type { FLBestaetigung, FLEinwilligung, FLKontakt } from "@/core/generated/client/types";
 import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
 import type { FLPatchSchiedsrichterPayload, FLSchiedsrichterPayloadDraft } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterDraftFields, SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
-import type { FLKontakt } from "@/shared/schemas";
 
 type AdminSchiedsrichterEditFormProps = {
   /** `name` is nullable because a hand-write can leave a row without one; the erasure's rows never reach here. */

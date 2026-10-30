@@ -3,7 +3,7 @@ import { inspect } from "node:util";
 
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { FLBewerbungZustellstand } from "@/shared/schemas.ts";
+import type { FLBewerbungZustellungStand } from "@/core/generated/client/types.ts";
 
 /**
  * Its own throwaway, minted per run and never a real one: this file signs the fixtures it verifies,
@@ -389,7 +389,7 @@ describe("the tags one message rides out with", () => {
 });
 
 describe("an application holding a seat no message reaches", () => {
-  const trail = (stand: FLBewerbungZustellstand | null) => ({
+  const trail = (stand: FLBewerbungZustellungStand | null) => ({
     verschickt_am: "2026-09-01",
     erinnert_am: null,
     abgelehnt_am: null,

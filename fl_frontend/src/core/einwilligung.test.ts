@@ -14,7 +14,7 @@ import {
   SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL,
 } from "./einwilligungSeiten.ts";
 
-import type { FLEinwilligungFassung } from "./schemas.ts";
+import type { FLEinwilligungFassung } from "./generated/client/types.ts";
 
 /** What the backend answers one call; the registry's own answer unless a case names another. */
 type Answer = (endpoint: string) => Promise<unknown>;

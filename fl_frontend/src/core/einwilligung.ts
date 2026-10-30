@@ -8,7 +8,7 @@ import { einwilligungGetFassung, einwilligungGetSeiten } from "./generated/clien
 import { SITE_CACHE_TAG } from "./siteCache";
 
 import type { EinwilligungSeite } from "./einwilligungSeiten";
-import type { FLEinwilligungFassung } from "./schemas";
+import type { FLEinwilligungFassung } from "./generated/client/types";
 
 /**
  * The words a stored label names, `null` for one the registry does not hold. Never a fallback: the
