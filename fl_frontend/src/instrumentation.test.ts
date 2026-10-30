@@ -19,6 +19,9 @@ const HEARTBEAT = "https://uptime.example.invalid/api/v1/heartbeat/token";
 /** What the drain gave up, which a case sets. */
 let aufgegeben = 0;
 
+/** The restore's hold the boot reads, off unless a case sets it. */
+const settings = { APP_ENV: "production", APP_VERSION: "sha-1234567", RESTORE_HOLD: "off" };
+
 /** Each ping, as the monitor received it. */
 const pings: { url: string; method: string; body: string | undefined }[] = [];
 let monitor: () => Promise<Response> = () => Promise.resolve(new Response(null, { status: 200 }));
@@ -34,7 +37,7 @@ vi.doMock("@/core/config.ts", () => ({
   refuseInvalidEnvironment: (): never => {
     throw new Error("the doubled config refuses no environment");
   },
-  frontend_config: { APP_ENV: "production", APP_VERSION: "sha-1234567" },
+  frontend_config: settings,
   heartbeatUrl: () => heartbeat,
 }));
 vi.doMock("@/core/logging.ts", () => ({
@@ -88,6 +91,7 @@ beforeEach(() => {
   answers.clear();
   heartbeat = undefined;
   aufgegeben = 0;
+  settings.RESTORE_HOLD = "off";
   pings.length = 0;
   monitor = () => Promise.resolve(new Response(null, { status: 200 }));
   vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
@@ -158,6 +162,15 @@ describe("the one scheduler", () => {
   /* `next dev` reaches whatever backend and transport the developer's own environment names: the league's real people. */
   it("arms nothing under a development build", async () => {
     expect(await bootAndStep("development", [3 * HOUR_MS])).toStrictEqual([[]]);
+  });
+
+  /* A restore's steps are done on the admin pages against the restored state, which a pass would act on first: the
+     pupils' deletion, mail to people not yet erased again. */
+  it("arms nothing under a restore's hold, and says so", async () => {
+    settings.RESTORE_HOLD = "on";
+
+    expect(await bootAndStep("production", [MINUTE_MS, 3 * HOUR_MS])).toStrictEqual([[], []]);
+    expect(schedulerLines().map(({ event }) => event)).toStrictEqual(["scheduler.held"]);
   });
 
   /* A job that threw is a job that stopped, and the ones behind it still owe what they owe. */

@@ -120,9 +120,13 @@ that serves the site and stops when it stops. A pass runs each job in turn: the 
 (`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`) and the grants' notices
 (`fl_frontend/src/features/berechtigungen/abgleich.ts :: runBerechtigungenAbgleich`). Then the
 Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainPostausgang`) sends what they owed; a
-write that owes a mail drains at once besides. **No switch holds a job back**: every job runs
+write that owes a mail drains at once besides. **No switch holds one job back**: every job runs
 wherever a production build runs, the local stack included (§1.5), and a `next dev` process arms
-nothing. Production declares no replicas, so one process arms one timer, and an hour that finds the
+nothing. **`RESTORE_HOLD=on` in `fl_frontend/.env` holds them all, for a restore alone**
+([`runbooks.md`](runbooks.md) §13): read once at the boot, off where the file sets nothing, it arms
+no pass and makes a write's drain send nothing
+(`fl_frontend/src/core/afterResponse.ts :: drainSoon`), the mail waiting in the Postausgang for the
+first drain after it. Production declares no replicas, so one process arms one timer, and an hour that finds the
 previous pass still running is skipped with one line rather than overlapping it. Every job selects
 on dates, lapses or season statuses and is idempotent, so a redeploy, a restart and a missed hour
 each cost nothing, and a job that throws stops none of the others. The deletion notice is

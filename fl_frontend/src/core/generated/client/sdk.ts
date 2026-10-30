@@ -2339,13 +2339,14 @@ export const getPostausgangPostAusgabeUrl = () => {
 };
 
 /**
- * Claim, oldest first and a page at a time, the owed mails no claim holds, for five minutes, and hand each out.
+ * Claim, a page at a time, the owed mails no claim holds, for five minutes, and hand each out.
  *
- * A mail past its deadline is given up rather than handed out, and counted in `aufgegeben`. A mail to an address a
- * standing ban holds is stopped as `gesperrt`, the ban's own notice alone excepted. A mail carrying a link has it minted
- * here, its hash written to the record the mail is about and the raw token answered once, in `token`; a record gone
- * since stops the mail as `entfallen`. A second call inside the lease is answered none of these rows. The caller sends
- * each under the idempotency key its `versuch` names and reports every outcome, with `beanspruchung`, to `POST /postausgang/ergebnis`;
+ * The sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline
+ * is given up rather than handed out, and counted in `aufgegeben`. A mail to an address a standing ban holds is stopped
+ * as `gesperrt`, the ban's own notice alone excepted. A mail carrying a link has it minted here, its hash written to
+ * the record the mail is about and the raw token answered once, in `token`; a record gone since stops the mail as
+ * `entfallen`. A second call inside the lease is answered none of these rows. The caller sends each under the
+ * idempotency key its `versuch` names and reports every outcome, with `beanspruchung`, to `POST /postausgang/ergebnis`;
  * where the lease lapses first, the next call hands the row out again with a fresh link and number, every earlier link
  * staying valid unless the mail's link supersedes them. Server to server alone: the answer names addresses, live links
  * and secrets.

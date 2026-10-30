@@ -1,6 +1,7 @@
 import "server-only";
 
 import { AsyncLocalStorage } from "node:async_hooks";
+import { randomUUID } from "node:crypto";
 
 import { cache } from "react";
 import { headers } from "next/headers";
@@ -11,25 +12,24 @@ import { passkey } from "@better-auth/passkey";
 import { betterAuth, getCurrentAdapter } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
 import { getSessionCookie, SECURE_COOKIE_PREFIX } from "better-auth/cookies";
-import { makeSignature } from "better-auth/crypto";
+import { makeSignature, symmetricEncrypt } from "better-auth/crypto";
 import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { MongoServerError } from "mongodb";
 
-import { ANMELDUNG_CODE, ANMELDUNG_TAG } from "./anmeldeTag";
-import { buildCodeEmail, CODE_VALIDITY_MINUTES } from "./authEmail";
+import { drainSoon } from "./afterResponse";
+import { CODE_VALIDITY_MINUTES } from "./authEmail";
 import { MONGO_DB_NAME } from "./authIndexes";
 import { authSecret, frontend_config } from "./config";
 import { signInStore } from "./db";
 import { asSignInIdentifier } from "./emailAddress";
-import { BRAND_NAME, renderMail } from "./emailShell";
+import { BRAND_NAME } from "./emailShell";
 import { RolledBackError } from "./errors";
+import { postausgangPostAnmeldung } from "./generated/client/sdk";
 import { KONTO_HREF } from "./kontoHref";
-import { buildLoeschungEmail, LOESCHUNG_LINK_GUELTIG_STUNDEN } from "./loeschungEmail";
+import { LOESCHUNG_LINK_GUELTIG_STUNDEN } from "./loeschungEmail";
 import { logger } from "./logging";
-import { sendMail } from "./mail";
 import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "./passkeyCeremony";
-import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
 import { passkeyLastUse } from "./passkeyLastUse";
 import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
 import { getRequestActor, oncePerRequest, setRequestActor } from "./requestScope";
@@ -45,13 +45,12 @@ import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MA
 import { lookUpAnmeldung, lookUpSubjekt, mayReceiveSignIn, signInVerdictOf } from "./signInGate";
 import { HOUR_MS } from "./timeUnits";
 import { readTraceparent, TRACEPARENT_HEADER } from "./trace";
-import { versandAusfallOf } from "./versandAusfall";
 import { madeSince, verwaltungOf } from "./verwaltung";
 
 import type { Passkey } from "@better-auth/passkey";
 import type { AuthContext, BetterAuthOptions, DBTransactionAdapter, GenericEndpointContext } from "better-auth";
 import type { MongoClient } from "mongodb";
-import type { Mail } from "./emailShell";
+import type { FLPasskeyDaten, FLPostausgangAnmeldungPayload } from "./generated/client/types";
 import type { ActorLane, RequestActor } from "./requestScope";
 import type { Lifetime } from "./sessionLifetimes";
 import type { AnmeldungRecords } from "./signInGate";
@@ -727,18 +726,36 @@ const DISABLED_PATHS: readonly string[] = [
 ];
 
 /**
- * A failed send leaves the change standing: a passkey row rolled back for an unreachable mailbox is
- * a lockout the reader never asked for.
+ * Owes one mail of the sign-in library through the Postausgang, then drains it at once. A secret -- the code, the
+ * deletion token -- leaves sealed under this frontend's own secret by the library's own cipher
+ * (`better-auth/crypto :: symmetricEncrypt`), so no backend row holds it readable; the drain opens it
+ * (`fl_frontend/src/core/mail.ts :: zustellen`). The backend tries the mail once: a failed send's repair is the
+ * library's own, a fresh code or link.
  */
-async function notify(message: Mail, email: string): Promise<void> {
-  try {
-    await sendMail({ to: email, ...renderMail(message) });
-  } catch (failed) {
-    // Filed by a deployment that mails nothing, or kept from a barred address, each recorded by the
-    // mailer's own line.
-    const ausfall = versandAusfallOf(failed);
-    if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
+async function oweSignInMail(
+  an: string,
+  daten: FLPostausgangAnmeldungPayload["daten"],
+  geheim?: { readonly wert: string; readonly gueltigMs: number },
+): Promise<void> {
+  await postausgangPostAnmeldung({
+    // Fresh for every mail: nothing the library calls a send for repeats an earlier call.
+    schluessel: `${daten.art}/${randomUUID()}`,
+    an: an,
+    daten: daten,
+    geheim: geheim === undefined ? null : await symmetricEncrypt({ key: authSecret(), data: geheim.wert }),
+    gueltig_bis: geheim === undefined ? null : new Date(Date.now() + geheim.gueltigMs).toISOString(),
+  });
+  drainSoon();
+}
 
+/**
+ * A failed notice leaves the change standing: a passkey row rolled back for an unreachable backend is a lockout the
+ * reader never asked for. The account page is spelled on the serving origin by the drain, never `brand.ts :: SITE_URL`.
+ */
+async function notifyPasskey(art: FLPasskeyDaten["art"], email: string): Promise<void> {
+  try {
+    await oweSignInMail(email, { art: art, zeitpunkt: new Date().toISOString(), konto: KONTO_HREF });
+  } catch (failed) {
     // Name only, as the code's own send writes one: a failure here routinely carries the address.
     logger.error("auth.passkey_notice_failed", undefined, {
       name: failed instanceof Error ? failed.name : "unknown",
@@ -746,12 +763,9 @@ async function notify(message: Mail, email: string): Promise<void> {
   }
 }
 
-/**
- * Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens. Composed
- * on the serving origin, never `brand.ts :: SITE_URL`.
- */
+/** Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens. */
 export async function notifyPasskeyRemoved(email: string): Promise<void> {
-  await notify(buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(), origin: frontend_config.AUTH_URL, konto: KONTO_HREF }), email);
+  await notifyPasskey("passkey_geloescht", email);
 }
 
 // Matched on the OPENING of the library's own message, because each of these ends in the value it
@@ -816,21 +830,12 @@ const userOptions = {
 } satisfies BetterAuthOptions["user"];
 
 /**
- * Mails the interstitial's link, spelled from the token: the library's own `url` deletes on a GET.
- * The library swallows a throw from here, logging it.
+ * Owes the interstitial's link, which the drain spells from the token: the library's own `url` deletes on a GET. The
+ * token is the library's verification token and completes the deletion, so it travels sealed, as the code does. The
+ * library swallows a throw from here, logging it.
  */
 async function sendDeletionLink({ user, token }: { user: { email: string }; token: string }): Promise<void> {
-  try {
-    // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`.
-    await sendMail({ to: user.email, ...renderMail(buildLoeschungEmail({ origin: frontend_config.AUTH_URL, token: token })) });
-  } catch (failed) {
-    // Filed by a deployment that mails nothing, or kept from a barred address, each recorded by the
-    // mailer's own line.
-    const ausfall = versandAusfallOf(failed);
-    if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
-
-    throw failed;
-  }
+  await oweSignInMail(user.email, { art: "konto_loeschung" }, { wert: token, gueltigMs: LOESCHUNG_LINK_GUELTIG_STUNDEN * HOUR_MS });
 }
 
 /** Named, because the library's failure line records an error's name and nothing else. */
@@ -1183,12 +1188,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // would name an enrolment a later refusal never made.
         if (ctx.path === PASSKEY_REGISTRATION_PATH) {
           const enrolled = await getSessionFromCtx(ctx);
-          if (enrolled !== null) {
-            await notify(
-              buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date(), origin: frontend_config.AUTH_URL, konto: KONTO_HREF }),
-              enrolled.user.email,
-            );
-          }
+          if (enrolled !== null) await notifyPasskey("passkey_hinzugefuegt", enrolled.user.email);
         }
 
         // The browser client reads nothing off either body but whether it is there
@@ -1234,21 +1234,11 @@ const authOptions = (origin: URL, client: MongoClient) =>
             return;
           }
 
-          // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is
-          // not production must not mail production links.
-          const message = renderMail(buildCodeEmail(otp, frontend_config.AUTH_URL));
-
+          // Awaited: the one caller a stranger reaches, `fl_frontend/src/features/auth/actions.ts :: handleSignIn`,
+          // runs this whole send behind its response, and the library's own send route is closed (`DISABLED_PATHS`).
           try {
-            // Tagged so the delivery webhook can tell this lane from the application flow's and put
-            // a bounce on the stream: a mailbox refusing the code locks out whoever holds no passkey,
-            // and an untagged event reaches no reader at all.
-            await sendMail({ to: email, ...message, tags: { [ANMELDUNG_TAG]: ANMELDUNG_CODE } });
+            await oweSignInMail(email, { art: "anmeldecode" }, { wert: otp, gueltigMs: CODE_VALIDITY_SECONDS * 1000 });
           } catch (failed) {
-            // Filed by a deployment that mails nothing, or kept from an address barred since the gate
-            // above read it, each recorded by the mailer's own line.
-            const ausfall = versandAusfallOf(failed);
-            if (ausfall === "zurueckgehalten" || ausfall === "gesperrt") return;
-
             // Name only: a failure on this path routinely carries the submitted address, and
             // `fl_frontend/src/core/logging.ts` writes its message and stack, an address alone scrubbed.
             logger.error("auth.code_send_failed", undefined, {

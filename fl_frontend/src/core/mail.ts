@@ -3,8 +3,10 @@ import "server-only";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { symmetricDecrypt } from "better-auth/crypto";
+
 import { KONTAKT_EMAIL } from "./brand";
-import { authResendKey, frontend_config } from "./config";
+import { authResendKey, authSecret, frontend_config } from "./config";
 import { COPY } from "./copy";
 import { isOneBareMailbox, withAsciiDomain } from "./emailAddress";
 import { renderMail } from "./emailShell";
@@ -342,7 +344,18 @@ async function drainen(zaehlung: DrainZaehlung): Promise<void> {
  * (https://resend.com/docs/dashboard/emails/idempotency-keys). The ban was judged at the hand-out.
  */
 async function zustellen(mail: FLPostausgangAusgabe): Promise<FLPostausgangErgebnis> {
-  const nachricht = mailFor(mail.daten.art, mail.daten, { token: mail.token, geheim: mail.geheim, origin: frontend_config.AUTH_URL });
+  // Opened here alone, sealed by `fl_frontend/src/core/auth.ts :: oweSignInMail` under the same key, and held by this
+  // scope alone: never on a line, never in an error.
+  let geheim: string | null = null;
+  try {
+    if (mail.geheim !== null) geheim = await symmetricDecrypt({ key: authSecret(), data: mail.geheim });
+  } catch (error) {
+    // Given up rather than thrown: sealed under a key since replaced, the row would stop every drain until it lapses,
+    // each claiming it first. The error's name alone, which quotes no value.
+    logger.error("postausgang.geheim_unlesbar", undefined, { art: mail.daten.art, name: error instanceof Error ? error.name : undefined });
+    return { id: mail.id, ergebnis: "aufgeben", nachricht_id: null };
+  }
+  const nachricht = mailFor(mail.daten.art, mail.daten, { token: mail.token, geheim: geheim, origin: frontend_config.AUTH_URL });
   if (nachricht === undefined) {
     // Handed back rather than given up: the row waits until its deadline for a deployment that builds its kind.
     logger.error("postausgang.art_ohne_vorlage", undefined, { art: mail.daten.art });
