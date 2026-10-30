@@ -54,7 +54,7 @@ GRUND = "Falsches Geburtsdatum bei der Anmeldung"
 # bound does with it is `tests/api/test_sperrliste_lapse_execution.py`'s.
 ACTIVE_SAISON_ID = "2026"
 
-# What a ban entered under `ACTIVE_SAISON_ID` covers through: the shipped validator requires the
+# What a ban entered under `ACTIVE_SAISON_ID` covers through: the record model requires the
 # field, so a row written straight to the collection needs one too.
 LAST_COVERED = "2031"
 
@@ -74,7 +74,7 @@ class SeasonsRunningARivalAfterTheFirstRead(InterleavedCollection):
 
 
 def on_a_clean_list(url: str, body: Body) -> Any:
-    """The SHIPPED validator and the unique index, so a document production would refuse fails here too."""
+    """The shipped unique index, so a duplicate production would refuse fails here too."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
@@ -513,7 +513,7 @@ class TestTheKeyTheRowsWereTakenUnder:
                     BANNED,
                     bis=LAST_COVERED,
                     # Keyed under the previous master and labelled as the builder labels every row,
-                    # which a row written before a rotation would carry: the validator closes no set,
+                    # which a row written before a rotation would carry: nothing closes the set of labels,
                     # so the old population stays readable.
                     adresse_hash=adresse_hash(BANNED, schluessel=SecretStr("the-previous-key".ljust(64, "0"))),
                 )

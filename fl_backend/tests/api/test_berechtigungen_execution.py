@@ -136,7 +136,7 @@ STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=RUNNING)
 
 
 def on_a_league(url: str, body: Body, *, grants: list[dict[str, Any]] | None = None) -> Any:
-    """The shipped validators and indexes, a season running, and the grants."""
+    """The shipped indexes, a season running, and the grants."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
