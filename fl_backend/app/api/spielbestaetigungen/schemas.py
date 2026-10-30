@@ -372,12 +372,6 @@ class FLSpielbestaetigungSchiedsrichterAntwortResponse(BaseAPIResponse):
 # link and no name (`READ-ANSETZUNG-002`).
 
 
-class FLSpielbestaetigungSweepSaisonsResponse(BaseAPIResponse):
-    """The `active` seasons a pass visits, oldest first."""
-
-    saison_ids: list[str]
-
-
 class FLSpielbestaetigungSweepResponse(BaseAPIResponse):
     """One season's pass, counted: what it closed, the rows it asked or reminded, and the mails it owed the Postausgang."""
 

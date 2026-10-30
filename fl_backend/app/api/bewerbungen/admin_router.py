@@ -22,7 +22,6 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungKontaktEmailPayload,
     FLBewerbungKontaktEmailResponse,
     FLBewerbungKontaktSitzPayload,
-    FLBewerbungKontaktSitzResponse,
     FLBewerbungListAdapter,
     FLBewerbungSingleResponse,
     FLBewerbungStatus,
@@ -710,7 +709,7 @@ async def post_kontakt_email(
 
 @router.post(
     f"{by_id('bewerbung_id')}/kontakte/{{seat}}",
-    response_model=FLBewerbungKontaktSitzResponse,
+    response_model=FLBewerbungKontaktEmailResponse,
     summary="Seat another person where a contact person stepped out",
     dependencies=[Depends(verify_step_up)],
 )
@@ -725,7 +724,7 @@ async def post_kontakt_sitz(
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLBewerbungKontaktSitzResponse:
+) -> FLBewerbungKontaktEmailResponse:
     """
     Write another person into a seat its own holder stepped out of, and owe them their link in the same transaction.
 
@@ -752,7 +751,7 @@ async def post_kontakt_sitz(
     # Outside the callback, for the re-send's reason.
     nonce = secrets.token_hex(8)
 
-    async def seat_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktSitzResponse:
+    async def seat_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktEmailResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
 
         db_filter = {"_id": bewerbung_id}
@@ -820,7 +819,7 @@ async def post_kontakt_sitz(
             now=germany_now,
         )
 
-        return FLBewerbungKontaktSitzResponse(email=sitz_data.email, rollen=list(seats), bestaetigungsfrist=bestaetigungsfrist)
+        return FLBewerbungKontaktEmailResponse(email=sitz_data.email, rollen=list(seats), bestaetigungsfrist=bestaetigungsfrist)
 
     # A transaction for the correction's reason: this write seats a person as well as a credential,
     # so a decision landing mid-request must leave neither half standing.

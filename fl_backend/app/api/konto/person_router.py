@@ -41,7 +41,6 @@ from app.api.identitaet.lookup import RecordCollections, SubjektLookup
 from app.api.identitaet.services import ist_eigener_schiedsrichter, ist_eigener_spieler, may_grant_on_schiedsrichter, may_grant_on_spieler
 from app.api.konto.schemas import (
     FLKontoAdresswechselFreigabePayload,
-    FLKontoAdresswechselFreigabeResponse,
     FLKontoAdresswechselMintResponse,
     FLKontoAdresswechselOffen,
     FLKontoAdresswechselPayload,
@@ -387,7 +386,7 @@ async def post_adresswechsel(
 
 @router.post(
     "/adresswechsel/freigabe",
-    response_model=FLKontoAdresswechselFreigabeResponse,
+    response_model=FLKontoAdresswechselMintResponse,
     summary="Approve the address change an administrator asked of the signed-in person",
     dependencies=[Depends(verify_recent_person_confirmation)],
 )
@@ -400,7 +399,7 @@ async def post_adresswechsel_freigabe(
     db: DBClient,
     actor: Annotated[SessionActor, Depends(verify_person_actor)],
     germany_now: datetime = Depends(get_germany_now),
-) -> FLKontoAdresswechselFreigabeResponse:
+) -> FLKontoAdresswechselMintResponse:
     """
     Approve the change `id` names, which an administrator started without a reason, owing the new mailbox its link.
 
@@ -456,7 +455,7 @@ async def post_adresswechsel_freigabe(
     gueltig_bis = als_utc(record["gueltig_bis"])
     assert gueltig_bis is not None
 
-    return FLKontoAdresswechselFreigabeResponse(id=record["_id"], gueltig_bis=gueltig_bis, email=record["email"])
+    return FLKontoAdresswechselMintResponse(id=record["_id"], gueltig_bis=gueltig_bis, email=record["email"])
 
 
 @router.delete(

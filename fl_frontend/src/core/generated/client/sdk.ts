@@ -46,13 +46,11 @@ import type {
   FLBewerbungKontaktEmailPayload,
   FLBewerbungKontaktEmailResponse,
   FLBewerbungKontaktSitzPayload,
-  FLBewerbungKontaktSitzResponse,
   FLBewerbungKontoEinwilligungResponse,
   FLBewerbungKuerzelResponse,
   FLBewerbungSchulenResponse,
   FLBewerbungSingleResponse,
   FLBewerbungSweepResponse,
-  FLBewerbungSweepSaisonsResponse,
   FLBewerbungTrikotFarbenResponse,
   FLCreatedResponse,
   FLEinladungAnsichtResponse,
@@ -72,7 +70,6 @@ import type {
   FLKaderZeile,
   FLKontaktEinladenResponse,
   FLKontoAdresswechselFreigabePayload,
-  FLKontoAdresswechselFreigabeResponse,
   FLKontoAdresswechselMintResponse,
   FLKontoAdresswechselPayload,
   FLKontoAdresswechselResponse,
@@ -114,7 +111,6 @@ import type {
   FLPostBerechtigungPayload,
   FLPostBerechtigungResponse,
   FLPostBewerbungPayload,
-  FLPostBewerbungResponse,
   FLPostRegistrierungPayload,
   FLPostRegistrierungResponse,
   FLPostSaisonPayload,
@@ -175,7 +171,6 @@ import type {
   FLSpielbestaetigungSchiedsrichterAntwortPayload,
   FLSpielbestaetigungSchiedsrichterAntwortResponse,
   FLSpielbestaetigungSweepResponse,
-  FLSpielbestaetigungSweepSaisonsResponse,
   FLSpielbestaetigungWriteResponse,
   FLSpieleActionRequiredResponse,
   FLSpieleAdminListResponse,
@@ -199,6 +194,7 @@ import type {
   FLSubjektResponse,
   FLSwapGruppenPayload,
   FLSwapGruppenResponse,
+  FLSweepSaisonsResponse,
   FLTeamsGroupedResponse,
   FLTeamSitzeResponse,
   FLTeamsListResponse,
@@ -982,7 +978,7 @@ export const getBewerbungenPostBewerbungUrl = () => {
 export const bewerbungenPostBewerbung = async (
   fLPostBewerbungPayload: FLPostBewerbungPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLPostBewerbungResponse> => {
+): Promise<FLCreatedResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -995,7 +991,7 @@ export const bewerbungenPostBewerbung = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLPostBewerbungResponse>(getBewerbungenPostBewerbungUrl(), {
+  return baseKeyTransport<FLCreatedResponse>(getBewerbungenPostBewerbungUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1165,10 +1161,8 @@ export const getBewerbungenGetSweepSaisonsUrl = () => {
  * Every season's id, oldest first, for the caller to sweep one at a time.
  * @summary Every season the sweep has to visit
  */
-export const bewerbungenGetSweepSaisons = async (
-  options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLBewerbungSweepSaisonsResponse> => {
-  return systemKeyTransport<FLBewerbungSweepSaisonsResponse>(getBewerbungenGetSweepSaisonsUrl(), {
+export const bewerbungenGetSweepSaisons = async (options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLSweepSaisonsResponse> => {
+  return systemKeyTransport<FLSweepSaisonsResponse>(getBewerbungenGetSweepSaisonsUrl(), {
     ...options,
     method: "GET",
   });
@@ -1365,7 +1359,7 @@ export const bewerbungenPostKontaktSitz = async (
   seat: string,
   fLBewerbungKontaktSitzPayload: FLBewerbungKontaktSitzPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLBewerbungKontaktSitzResponse> => {
+): Promise<FLBewerbungKontaktEmailResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -1378,7 +1372,7 @@ export const bewerbungenPostKontaktSitz = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLBewerbungKontaktSitzResponse>(getBewerbungenPostKontaktSitzUrl(bewerbungId, seat), {
+  return adminKeyTransport<FLBewerbungKontaktEmailResponse>(getBewerbungenPostKontaktSitzUrl(bewerbungId, seat), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1985,7 +1979,7 @@ export const getKontoPostAdresswechselFreigabeUrl = () => {
 export const kontoPostAdresswechselFreigabe = async (
   fLKontoAdresswechselFreigabePayload: FLKontoAdresswechselFreigabePayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLKontoAdresswechselFreigabeResponse> => {
+): Promise<FLKontoAdresswechselMintResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -1998,7 +1992,7 @@ export const kontoPostAdresswechselFreigabe = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLKontoAdresswechselFreigabeResponse>(getKontoPostAdresswechselFreigabeUrl(), {
+  return adminKeyTransport<FLKontoAdresswechselMintResponse>(getKontoPostAdresswechselFreigabeUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -3762,8 +3756,8 @@ export const getSpielbestaetigungenGetSweepSaisonsUrl = () => {
  */
 export const spielbestaetigungenGetSweepSaisons = async (
   options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLSpielbestaetigungSweepSaisonsResponse> => {
-  return systemKeyTransport<FLSpielbestaetigungSweepSaisonsResponse>(getSpielbestaetigungenGetSweepSaisonsUrl(), {
+): Promise<FLSweepSaisonsResponse> => {
+  return systemKeyTransport<FLSweepSaisonsResponse>(getSpielbestaetigungenGetSweepSaisonsUrl(), {
     ...options,
     method: "GET",
   });

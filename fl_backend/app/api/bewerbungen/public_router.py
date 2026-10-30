@@ -20,7 +20,6 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungTrikotFarbenResponse,
     FLEinwilligungAntwortResponse,
     FLPostBewerbungPayload,
-    FLPostBewerbungResponse,
     FLSaisonTeamEinwilligungAntwortResponse,
 )
 from app.api.bewerbungen.services import (
@@ -109,6 +108,7 @@ from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from app.shared.schemas.custom import fold_shorthand
 from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.responses import FLCreatedResponse
 from app.shared.tokens import hash_token
 
 # Base-tier at the prefix the admin and person routers share: a member of the public applies here,
@@ -302,17 +302,17 @@ async def _any_gesperrt(
     return bool(await hashes_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session))
 
 
-def _answer_as_the_first(*, stored: Mapping[str, Any], fingerabdruck: str) -> FLPostBewerbungResponse:
+def _answer_as_the_first(*, stored: Mapping[str, Any], fingerabdruck: str) -> FLCreatedResponse:
     """The answer a stored key gets: the application it already holds, whose mails its first press owed, never a second one."""
 
     refuse(find_abweichender_fingerabdruck_refusal(gespeichert=stored.get("idempotenz_fingerabdruck"), fingerabdruck=fingerabdruck))
 
-    return FLPostBewerbungResponse(created_id=stored["_id"])
+    return FLCreatedResponse(created_id=stored["_id"])
 
 
 @router.post(
     "",
-    response_model=FLPostBewerbungResponse,
+    response_model=FLCreatedResponse,
     status_code=201,
     summary="Submit a Bewerbung",
 )
@@ -331,7 +331,7 @@ async def post_bewerbung(
     idempotency_key: Annotated[UUID4 | None, Header()] = None,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLPostBewerbungResponse:
+) -> FLCreatedResponse:
     """
     Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.
 
@@ -363,7 +363,7 @@ async def post_bewerbung(
     # The REFERENCE season a ban is counted from, as the registration reads it.
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
-    async def store_or_replay(session: AsyncClientSession) -> FLPostBewerbungResponse:
+    async def store_or_replay(session: AsyncClientSession) -> FLCreatedResponse:
         """The replay or the judged insert, in one transaction: either write is the request's only one."""
 
         # Before every judgement: a replay answers what the first request did, whatever has closed since.
@@ -467,7 +467,7 @@ async def post_bewerbung(
             now=germany_now,
         )
 
-        return FLPostBewerbungResponse(created_id=created.inserted_id)
+        return FLCreatedResponse(created_id=created.inserted_id)
 
     # The key lookup is the transaction's first read: a first press committed before this snapshot is
     # found, and one committed after it makes the insert a write conflict `with_transaction` retries.

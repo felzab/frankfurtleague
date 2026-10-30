@@ -3275,7 +3275,7 @@
         "type": "object"
       },
       "FLBewerbungKontaktEmailResponse": {
-        "description": "The corrected address as stored and every seat it reached; the fresh link is owed there in the same write.",
+        "description": "A seat's address as a correction or a new person left it, and every seat it reached; the link is owed there in the same write.",
         "properties": {
           "bestaetigungsfrist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -3346,34 +3346,6 @@
           "text_version"
         ],
         "title": "FLBewerbungKontaktSitzPayload",
-        "type": "object"
-      },
-      "FLBewerbungKontaktSitzResponse": {
-        "description": "The new person's address as stored and every seat they now hold; their link is owed there in the same write.",
-        "properties": {
-          "bestaetigungsfrist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Bestaetigungsfrist",
-            "type": "string"
-          },
-          "email": {
-            "title": "Email",
-            "type": "string"
-          },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "title": "Rollen",
-            "type": "array"
-          }
-        },
-        "required": [
-          "email",
-          "rollen",
-          "bestaetigungsfrist"
-        ],
-        "title": "FLBewerbungKontaktSitzResponse",
         "type": "object"
       },
       "FLBewerbungKontaktePayload": {
@@ -3837,23 +3809,6 @@
           "fehlgeschlagen"
         ],
         "title": "FLBewerbungSweepResponse",
-        "type": "object"
-      },
-      "FLBewerbungSweepSaisonsResponse": {
-        "description": "Every season's id, for the caller to sweep one by one.",
-        "properties": {
-          "saison_ids": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Saison Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "saison_ids"
-        ],
-        "title": "FLBewerbungSweepSaisonsResponse",
         "type": "object"
       },
       "FLBewerbungTrikot": {
@@ -6047,34 +6002,8 @@
         "title": "FLKontoAdresswechselFreigabePayload",
         "type": "object"
       },
-      "FLKontoAdresswechselFreigabeResponse": {
-        "description": "The approval, the new mailbox's link owed in the Postausgang.",
-        "properties": {
-          "email": {
-            "title": "Email",
-            "type": "string"
-          },
-          "gueltig_bis": {
-            "format": "date-time",
-            "title": "Gueltig Bis",
-            "type": "string"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "gueltig_bis",
-          "email"
-        ],
-        "title": "FLKontoAdresswechselFreigabeResponse",
-        "type": "object"
-      },
       "FLKontoAdresswechselMintResponse": {
-        "description": "The person's start, its two mails owed in the Postausgang: no link is answered.",
+        "description": "The change a start or an approval wrote, and the mailbox its link is owed in the Postausgang: no link is answered.",
         "properties": {
           "email": {
             "title": "Email",
@@ -8750,21 +8679,6 @@
           "stufengroesse"
         ],
         "title": "FLPostBewerbungPayload",
-        "type": "object"
-      },
-      "FLPostBewerbungResponse": {
-        "description": "The stored application, the one a replayed key wrote first; its mails are owed in the same write.",
-        "properties": {
-          "created_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Created Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "created_id"
-        ],
-        "title": "FLPostBewerbungResponse",
         "type": "object"
       },
       "FLPostRegistrierungPayload": {
@@ -15139,23 +15053,6 @@
         "title": "FLSpielbestaetigungSweepResponse",
         "type": "object"
       },
-      "FLSpielbestaetigungSweepSaisonsResponse": {
-        "description": "The `active` seasons a pass visits, oldest first.",
-        "properties": {
-          "saison_ids": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Saison Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "saison_ids"
-        ],
-        "title": "FLSpielbestaetigungSweepSaisonsResponse",
-        "type": "object"
-      },
       "FLSpielbestaetigungTermin": {
         "description": "A date and time without a ground: a team's proposal, and the slot a moved fixture left.",
         "properties": {
@@ -16485,6 +16382,23 @@
           "rewritten_spiele"
         ],
         "title": "FLSwapGruppenResponse",
+        "type": "object"
+      },
+      "FLSweepSaisonsResponse": {
+        "description": "The seasons a system pass visits, for its caller to sweep one by one in the order given.",
+        "properties": {
+          "saison_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Saison Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "saison_ids"
+        ],
+        "title": "FLSweepSaisonsResponse",
         "type": "object"
       },
       "FLTeam": {
@@ -18973,7 +18887,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLPostBewerbungResponse"
+                  "$ref": "#/components/schemas/FLCreatedResponse"
                 }
               }
             },
@@ -19494,7 +19408,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungSweepSaisonsResponse"
+                  "$ref": "#/components/schemas/FLSweepSaisonsResponse"
                 }
               }
             },
@@ -20065,7 +19979,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungKontaktSitzResponse"
+                  "$ref": "#/components/schemas/FLBewerbungKontaktEmailResponse"
                 }
               }
             },
@@ -21295,7 +21209,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLKontoAdresswechselFreigabeResponse"
+                  "$ref": "#/components/schemas/FLKontoAdresswechselMintResponse"
                 }
               }
             },
@@ -25563,7 +25477,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungSweepSaisonsResponse"
+                  "$ref": "#/components/schemas/FLSweepSaisonsResponse"
                 }
               }
             },

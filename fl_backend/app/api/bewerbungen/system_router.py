@@ -7,7 +7,7 @@ from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.aktionen.crud import redact_images_in_session
-from app.api.bewerbungen.schemas import FLBewerbungSweepResponse, FLBewerbungSweepSaisonsResponse
+from app.api.bewerbungen.schemas import FLBewerbungSweepResponse
 from app.api.bewerbungen.services import (
     SWEEP_PAGE,
     acceptance_loeschung_is_due,
@@ -55,6 +55,7 @@ from app.core.recording import build_redaction_filter, build_redaction_update, l
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.responses import FLSweepSaisonsResponse
 
 # System tier and the system actor: the sweep holds no session, so `bind_actor` would refuse it,
 # and an invented administrator for a machine is what `SYSTEM_ACTOR` exists to avoid.
@@ -128,15 +129,15 @@ async def pull_the_season_after(
     return later_saison_status
 
 
-@router.get("", response_model=FLBewerbungSweepSaisonsResponse, summary="Every season the sweep has to visit")
-async def get_sweep_saisons(saisons_collection: SaisonsCollection) -> FLBewerbungSweepSaisonsResponse:
+@router.get("", response_model=FLSweepSaisonsResponse, summary="Every season the sweep has to visit")
+async def get_sweep_saisons(saisons_collection: SaisonsCollection) -> FLSweepSaisonsResponse:
     """Every season's id, oldest first, for the caller to sweep one at a time."""
 
     seasons = await pull_many_from_db(
         collection=saisons_collection, db_filter={}, projection=["_id"], sort_by=[("_id", 1)], limit=LIST_LIMIT_MAX
     )
 
-    return FLBewerbungSweepSaisonsResponse(saison_ids=[str(season["_id"]) for season in seasons])
+    return FLSweepSaisonsResponse(saison_ids=[str(season["_id"]) for season in seasons])
 
 
 @router.post(

@@ -18,7 +18,6 @@ from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, anchor_t
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungGrund,
     FLSpielbestaetigungSweepResponse,
-    FLSpielbestaetigungSweepSaisonsResponse,
 )
 from app.api.spielbestaetigungen.services import (
     AnsetzungLage,
@@ -68,6 +67,7 @@ from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import Batch, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
+from app.shared.schemas.responses import FLSweepSaisonsResponse
 
 # System tier and the system actor, for `app/api/bewerbungen/system_router.py`'s reason: the timer
 # holds no session, and an invented administrator for a machine is what `SYSTEM_ACTOR` exists to avoid.
@@ -274,8 +274,8 @@ class _Owed:
     marked: bool = False
 
 
-@router.get("", response_model=FLSpielbestaetigungSweepSaisonsResponse, summary="Every season the confirmation pass visits")
-async def get_sweep_saisons(saisons_collection: SaisonsCollection) -> FLSpielbestaetigungSweepSaisonsResponse:
+@router.get("", response_model=FLSweepSaisonsResponse, summary="Every season the confirmation pass visits")
+async def get_sweep_saisons(saisons_collection: SaisonsCollection) -> FLSweepSaisonsResponse:
     """
     Answer every `active` season's id, oldest first.
 
@@ -292,7 +292,7 @@ async def get_sweep_saisons(saisons_collection: SaisonsCollection) -> FLSpielbes
         limit=LIST_LIMIT_MAX,
     )
 
-    return FLSpielbestaetigungSweepSaisonsResponse(saison_ids=[str(season["_id"]) for season in seasons])
+    return FLSweepSaisonsResponse(saison_ids=[str(season["_id"]) for season in seasons])
 
 
 @router.post(

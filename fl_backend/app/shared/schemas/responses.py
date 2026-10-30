@@ -45,3 +45,9 @@ class FLCreatedResponse(BaseAPIResponse):
     """The id a create minted, which the caller reads the new record by."""
 
     created_id: CustomObjectId
+
+
+class FLSweepSaisonsResponse(BaseAPIResponse):
+    """The seasons a system pass visits, for its caller to sweep one by one in the order given."""
+
+    saison_ids: list[str]

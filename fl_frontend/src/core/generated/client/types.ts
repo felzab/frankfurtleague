@@ -1603,7 +1603,7 @@ export interface FLBewerbungKontaktEmailPayload {
 }
 
 /**
- * The corrected address as stored and every seat it reached; the fresh link is owed there in the same write.
+ * A seat's address as a correction or a new person left it, and every seat it reached; the link is owed there in the same write.
  */
 export interface FLBewerbungKontaktEmailResponse {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -1638,16 +1638,6 @@ export interface FLBewerbungKontaktSitzPayload {
    * @pattern ^\p{L}[\p{L}\-' ]*$
    */
   vorname: string;
-}
-
-/**
- * The new person's address as stored and every seat they now hold; their link is owed there in the same write.
- */
-export interface FLBewerbungKontaktSitzResponse {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  bestaetigungsfrist: string;
-  email: string;
-  rollen: FLKontaktRolle[];
 }
 
 /**
@@ -1801,13 +1791,6 @@ export interface FLBewerbungSweepResponse {
   ohne_entscheidung_geloescht: number;
   redigierte_aktionen: number;
   saison_id: string;
-}
-
-/**
- * Every season's id, for the caller to sweep one by one.
- */
-export interface FLBewerbungSweepSaisonsResponse {
-  saison_ids: string[];
 }
 
 /**
@@ -2636,17 +2619,7 @@ export interface FLKontoAdresswechselFreigabePayload {
 }
 
 /**
- * The approval, the new mailbox's link owed in the Postausgang.
- */
-export interface FLKontoAdresswechselFreigabeResponse {
-  email: string;
-  gueltig_bis: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-}
-
-/**
- * The person's start, its two mails owed in the Postausgang: no link is answered.
+ * The change a start or an approval wrote, and the mailbox its link is owed in the Postausgang: no link is answered.
  */
 export interface FLKontoAdresswechselMintResponse {
   email: string;
@@ -3581,14 +3554,6 @@ export interface FLPostBewerbungPayload {
   team_id: string | null;
   trikot: FLBewerbungTrikotPayload;
   wunschgegner?: string | null;
-}
-
-/**
- * The stored application, the one a replayed key wrote first; its mails are owed in the same write.
- */
-export interface FLPostBewerbungResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  created_id: string;
 }
 
 /**
@@ -5294,13 +5259,6 @@ export interface FLSpielbestaetigungSweepResponse {
 }
 
 /**
- * The `active` seasons a pass visits, oldest first.
- */
-export interface FLSpielbestaetigungSweepSaisonsResponse {
-  saison_ids: string[];
-}
-
-/**
  * Shared by the administrator's two presses, both answering the row as it now stands.
  */
 export interface FLSpielbestaetigungWriteResponse {
@@ -5623,6 +5581,13 @@ export interface FLSwapGruppenResponse {
   team2_gruppe: FLGruppenNames;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team2_id: string;
+}
+
+/**
+ * The seasons a system pass visits, for its caller to sweep one by one in the order given.
+ */
+export interface FLSweepSaisonsResponse {
+  saison_ids: string[];
 }
 
 export interface FLTeam {

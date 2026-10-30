@@ -546,12 +546,6 @@ class FLBewerbungTrikotFarbenResponse(BaseAPIResponse):
     vergeben: list[FLTrikotFarbe]
 
 
-class FLPostBewerbungResponse(BaseAPIResponse):
-    """The stored application, the one a replayed key wrote first; its mails are owed in the same write."""
-
-    created_id: CustomObjectId
-
-
 # --- The CONFIRMATION. The token is the whole credential, as a sign-in code is, so both
 # endpoints are base-tier and every payload forbids an undeclared key.
 
@@ -678,17 +672,6 @@ class FLBewerbungKontaktSitzPayload(_KontaktpersonWritablePayload):
     text_version: CustomEinwilligungTextVersion
 
 
-class FLBewerbungKontaktSitzResponse(BaseAPIResponse):
-    """The new person's address as stored and every seat they now hold; their link is owed there in the same write."""
-
-    # Answered rather than re-derived by the caller, so one function decides the form a message is sent to.
-    email: str
-    # Plural as the correction's is: a mirrored pair is one person, and both seats are written from
-    # the claim `kontakte.trainer_ist_zugleich` records.
-    rollen: list[FLKontaktRolle]
-    bestaetigungsfrist: CustomDateString
-
-
 class FLBewerbungKontaktEmailPayload(BaseModel):
     """The corrected address and the one the page showed on the seat, and nothing else of the person."""
 
@@ -703,11 +686,12 @@ class FLBewerbungKontaktEmailPayload(BaseModel):
 
 
 class FLBewerbungKontaktEmailResponse(BaseAPIResponse):
-    """The corrected address as stored and every seat it reached; the fresh link is owed there in the same write."""
+    """A seat's address as a correction or a new person left it, and every seat it reached; the link is owed there in the same write."""
 
+    # Answered rather than re-derived by the caller, so one function decides the form a message is sent to.
     email: str
-    # Plural: one person may hold two seats, and the correction writes the address and the link to
-    # both, as a re-send does (`app/api/bewerbungen/services.py :: compose_erneut_update`).
+    # Plural: one person may hold two seats, a mirrored pair the claim `kontakte.trainer_ist_zugleich` records, and the
+    # write reaches both, as a re-send does (`app/api/bewerbungen/services.py :: compose_erneut_update`).
     rollen: list[FLKontaktRolle]
     bestaetigungsfrist: CustomDateString
 
@@ -734,12 +718,6 @@ class FLBewerbungSweepResponse(BaseAPIResponse):
     redigierte_aktionen: int
     # One sum over every clock rather than a count a clock: the line logging each row names its clock.
     fehlgeschlagen: int
-
-
-class FLBewerbungSweepSaisonsResponse(BaseAPIResponse):
-    """Every season's id, for the caller to sweep one by one."""
-
-    saison_ids: list[str]
 
 
 class FLBewerbungKontoEinwilligungResponse(BaseAPIResponse):

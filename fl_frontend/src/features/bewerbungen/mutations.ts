@@ -25,13 +25,12 @@ import type {
   FLBewerbungKontaktEmailPayload,
   FLBewerbungKontaktEmailResponse,
   FLBewerbungKontaktSitzPayload,
-  FLBewerbungKontaktSitzResponse,
   FLBewerbungSweepResponse,
-  FLBewerbungSweepSaisonsResponse,
+  FLCreatedResponse,
   FLKontaktRolle,
   FLPostBewerbungPayload,
-  FLPostBewerbungResponse,
   FLSaisonTeamEinwilligungAntwortResponse,
+  FLSweepSaisonsResponse,
   FLTokenPayload,
 } from "@/core/generated/client/types";
 
@@ -56,7 +55,7 @@ export async function ablehnenBewerbung({ id, grund }: { id: string } & FLAblehn
 }
 
 /** Records one school's application. */
-export async function postBewerbung(payload: FLPostBewerbungPayload, idempotencyKey: string | null): Promise<FLPostBewerbungResponse> {
+export async function postBewerbung(payload: FLPostBewerbungPayload, idempotencyKey: string | null): Promise<FLCreatedResponse> {
   return bewerbungenPostBewerbung(payload, { headers: idempotencyKey === null ? {} : { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey } });
 }
 
@@ -109,7 +108,7 @@ export async function besetzenKontaktSitz({
   email,
   telefon,
   text_version,
-}: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktSitzPayload): Promise<FLBewerbungKontaktSitzResponse> {
+}: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktSitzPayload): Promise<FLBewerbungKontaktEmailResponse> {
   return bewerbungenPostKontaktSitz(id, rolle, {
     vorname: vorname,
     nachname: nachname,
@@ -123,7 +122,7 @@ export async function besetzenKontaktSitz({
  * Every season the retention sweep walks. Here rather than in `queries.ts` beside the other reads
  * because every read there is cached for a render, and this one answers a timer.
  */
-export async function getBewerbungSweepSaisons(): Promise<FLBewerbungSweepSaisonsResponse> {
+export async function getBewerbungSweepSaisons(): Promise<FLSweepSaisonsResponse> {
   // `GET /saisons` cannot serve this: it withholds a `future` season,
   // which is the status every season with an open application holds.
   return bewerbungenGetSweepSaisons();
