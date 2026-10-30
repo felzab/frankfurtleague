@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import z from "zod";
 
 // The applications slice declares the width every minted token is bounded by, one mint function

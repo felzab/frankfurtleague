@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import z from "zod";
 
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
@@ -120,8 +121,8 @@ export const FLRegistrierungAblehnenPayloadSchema = z.object({
   grund: FLRegistrierungAblehnungsgrundSchema.nullable(),
 });
 
-// Redesign: goes with its last importer, `fl_frontend/src/features/funktionen/schemas.ts`, which reads
-// `FLRegistrierungSchema.shape.status`. Every reader in this slice takes the generated `FLRegistrierung`.
+// Read by `fl_frontend/src/features/funktionen/schemas.ts` for its status alone; every reader in this
+// slice takes the generated `FLRegistrierung`.
 const FLRegistrierungEinwilligungSchema = FLEinwilligungSchema.extend({
   umfang: FLEinwilligungSchema.shape.umfang.nullable(),
   datum: FLEinwilligungSchema.shape.datum.nullable(),
