@@ -1,3 +1,4 @@
+// Redesign: goes with its last importer.
 import { isEdgeRefusal } from "@/kit/edgeRefusal";
 
 import { APIBadStatusError, APINetworkError, isRecordMissing, isRefusalCode, mayHaveWritten, RolledBackError } from "@/core/errors";

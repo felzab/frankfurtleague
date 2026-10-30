@@ -78,6 +78,8 @@ export class APIBadStatusError extends Error {
   refusedFields: readonly FLRefusedField[];
   url: string;
   endpoint: string;
+  // Redesign: these two fields, here and on `APINetworkError`, go with their last readers, the old write path's
+  // `shared/utils/actionError.ts` and `shared/utils/writeOutcome.ts`.
   method: string;
   readOnly: boolean;
 
@@ -172,6 +174,7 @@ export class APINetworkError extends Error {
   traceId: string;
   url: string;
   isTimeout: boolean;
+  // Redesign: these two fields go with `APIBadStatusError`'s.
   method: string;
   readOnly: boolean;
 
