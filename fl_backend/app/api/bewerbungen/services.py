@@ -1243,9 +1243,7 @@ def zustellung_send_applies(*, bestaetigungen: Any, seat: str, am: str) -> bool:
     if stored is None or stored.get("stand") != "angenommen":
         return True
 
-    # Two accepts ARE comparable, both stamps being this host's: one fan-out mints a message per
-    # address of a record and settles them together
-    # (`fl_frontend/src/features/zustellung/notifications.ts :: sendZielMail`).
+    # Two accepts ARE comparable, both stamps being this host's.
     return str(stored.get("am") or "") < am
 
 
