@@ -176,8 +176,8 @@ const environment = {
     return protocol === "https:" || hostname === "localhost" || hostname === "127.0.0.1";
   }, "AUTH_URL must use https:// unless it points at localhost"),
 
-  // The image's version from its build argument (`fl_frontend/Dockerfile`), which the start-up line logs; absent
-  // from a build handed none and from `next dev`.
+  // The image's version from its build argument (`fl_frontend/Dockerfile`), which the start-up line logs; unset under
+  // `next dev`, and empty, so read as unset, in a build handed none.
   APP_VERSION: z.string().min(1).optional(),
 
   // On for a restore's steps alone (`docs/ops/runbooks.md` §13): no pass is armed and no write's drain sends, so nothing
@@ -261,7 +261,9 @@ function validate(input: Record<string, string | undefined>): z.output<typeof sc
 // One validation over the settings and the secrets together: the production demand reads `APP_ENV`
 // beside the files, and a boot refusing both kinds prints both lines before it throws.
 const validated = validate({
-  ...Object.fromEntries(Object.keys(environment).map((name) => [name, process.env[name]])),
+  // An empty variable reads as unset, as the backend's `env_ignore_empty` reads it: an image built without an
+  // argument carries its `ENV` as the empty string, which Docker cannot leave unset.
+  ...Object.fromEntries(Object.keys(environment).map((name) => [name, process.env[name] === "" ? undefined : process.env[name]])),
   // Off the files alone: a variable of the same name, standing in for a missing file, would hand
   // a credential `docker inspect` prints to a boot that should refuse.
   ...secrets.values,

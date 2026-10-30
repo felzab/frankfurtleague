@@ -87,7 +87,8 @@ EXPOSE 3000
 
 # The version the deploy stamps on the image (`.github/workflows/verify.yml`'s build argument, the tag its
 # `org.opencontainers.image.version` label carries), which the start-up line logs. Last, so a new value per commit
-# rebuilds no layer above it; a build handed none logs it as null.
+# rebuilds no layer above it. A build handed none sets the variable to the empty string, since an `ENV` cannot
+# leave it unset, and the settings read an empty variable as unset, so that build logs it as null.
 ARG APP_VERSION
 ENV APP_VERSION=$APP_VERSION
 
