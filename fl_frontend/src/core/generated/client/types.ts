@@ -4720,6 +4720,13 @@ export interface FLSelbstErasureAnsichtResponse {
   verwaltung: FLVerwaltung | null;
 }
 
+export type FLSortOrder = (typeof FLSortOrder)[keyof typeof FLSortOrder];
+
+export const FLSortOrder = {
+  asc: "asc",
+  desc: "desc",
+} as const;
+
 /**
  * One ban as the list serves it: the stored row, its author withheld where the ban list holds that address too.
  */
@@ -6457,15 +6464,8 @@ export type AktionenGetAktionenParams = {
    * @maximum 1024
    */
   limit?: number;
-  order?: AktionenGetAktionenOrder;
+  order?: FLSortOrder;
 };
-
-export type AktionenGetAktionenOrder = (typeof AktionenGetAktionenOrder)[keyof typeof AktionenGetAktionenOrder];
-
-export const AktionenGetAktionenOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
 
 export type BewerbungenGetBewerbungenParams = {
   saison_id?: string | null;

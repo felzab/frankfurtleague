@@ -12475,6 +12475,13 @@
         ],
         "type": "string"
       },
+      "FLSortOrder": {
+        "enum": [
+          "asc",
+          "desc"
+        ],
+        "type": "string"
+      },
       "FLSperrlisteListResponse": {
         "description": "The bans, newest first, and how many there are.\n\n`anzahl_gesamt` is what makes a ban past the cap liftable: one enforced and not rendered is a\nperson barred by a row nobody can reach.",
         "properties": {
@@ -19157,13 +19164,8 @@
             "name": "order",
             "required": false,
             "schema": {
-              "default": "desc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
+              "$ref": "#/components/schemas/FLSortOrder",
+              "default": "desc"
             }
           }
         ],

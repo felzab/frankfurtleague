@@ -274,8 +274,6 @@ export const AdresswechselPostAdresswechselGenehmigungParams = zod.object({
 export const aktionenGetAktionenQueryLimitDefault = 1024;
 export const aktionenGetAktionenQueryLimitMax = 1024;
 
-export const aktionenGetAktionenQueryOrderDefault = `desc`;
-
 export const AktionenGetAktionenQueryParams = zod.object({
   collection: zod.string().optional(),
   operation: zod.string().optional(),
@@ -283,7 +281,7 @@ export const AktionenGetAktionenQueryParams = zod.object({
   trace_id: zod.union([zod.string(), zod.null()]).optional(),
   document_id: zod.union([zod.string(), zod.null()]).optional(),
   limit: zod.int().min(1).max(aktionenGetAktionenQueryLimitMax).default(aktionenGetAktionenQueryLimitDefault),
-  order: zod.enum(["asc", "desc"]).default(aktionenGetAktionenQueryOrderDefault),
+  order: zod.enum(["asc", "desc"]).optional(),
 });
 
 /**

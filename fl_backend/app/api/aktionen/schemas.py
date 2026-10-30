@@ -8,6 +8,7 @@ from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, TypeAdap
 from app.core.recording import AktorFunktion
 from app.shared.schemas.bounds import AKTEUR_PSEUDONYM_SHOWN, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.literals import FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse
 
 # One alias for both the row and the filter: without it the two hand-copies drift, and a filter
@@ -232,7 +233,7 @@ class FLAktionenFilterParams(BaseModel):
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     # Newest first, and no `sort_by`: every other order over a log of recorded writes is a report
     # rather than a page, and one of them would have to be the default anyway.
-    order: Literal["asc", "desc"] = Field(default="desc")
+    order: FLSortOrder = Field(default="desc")
 
 
 class FLAktionenListResponse(BaseAPIResponse):
