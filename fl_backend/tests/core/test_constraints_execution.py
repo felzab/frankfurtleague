@@ -1036,7 +1036,6 @@ async def the_report_squads(database: AsyncDatabase) -> Issued:
             spiele_collection=database[Collection.SPIELE],
             saisons_collection=database[Collection.SAISONS],
             saison_spieler_collection=squad,
-            saison_teams_collection=database[Collection.SAISON_TEAMS],
             spiel_id=SPIEL_OID,
             session=session,
         ),

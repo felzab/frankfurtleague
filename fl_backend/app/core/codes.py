@@ -35,7 +35,6 @@ class Code(StrEnum):
     ADRESSWECHSEL_ERSETZTE_GESPERRT = "REQ-ADRESSWECHSEL-005"
     ADRESSWECHSEL_VERGEBEN = "REQ-ADRESSWECHSEL-006"
     ADRESSWECHSEL_UNVERAENDERT = "REQ-ADRESSWECHSEL-007"
-    ADRESSWECHSEL_NAME_IM_GRUND = "REQ-ADRESSWECHSEL-008"
     ADRESSWECHSEL_GESPERRT = "REQ-ADRESSWECHSEL-009"
     ADRESSWECHSEL_NICHTS = "REQ-ADRESSWECHSEL-010"
     ADRESSWECHSEL_KEIN_GENEHMIGER = "REQ-ADRESSWECHSEL-011"
@@ -89,7 +88,6 @@ class Code(StrEnum):
     BERICHT_NICHT_GELEITET = "REQ-BERICHT-002"
     BERICHT_NICHT_IM_KADER = "REQ-BERICHT-003"
     BERICHT_ABGESAGT = "REQ-BERICHT-004"
-    BERICHT_NAME_IN_BEMERKUNGEN = "REQ-BERICHT-005"
     # Both writes replace the whole block, so a form opened before another write would put back what that write changed.
     BERICHT_INZWISCHEN_GEAENDERT = "REQ-BERICHT-006"
     BERICHT_SAISON_BEENDET = "REQ-BERICHT-007"
@@ -181,7 +179,6 @@ class Code(StrEnum):
     VERWALTUNG_ADRESSE = "REQ-PURGE-005"
     # 422 on the box, as the address the payload's own validator refuses there: the value typed is what is
     # refused, and the administrator rephrases it.
-    NAME_IM_ANLASS = "REQ-PURGE-006"
     # 403 for who asks, as `REQ-PURGE-005`: an erasure ends every change naming its address, and ending a grant holder's
     # change is a discard, which only an owner may make of it.
     FREMDER_ADRESSWECHSEL = "REQ-PURGE-007"
@@ -266,7 +263,6 @@ class Code(StrEnum):
     SPERRLISTE_KEINE_SAISON = "REQ-SPERRLISTE-002"
     SPERRLISTE_VERWALTUNG = "REQ-SPERRLISTE-003"
     # The ban's reason, by the same matcher and on its own box.
-    NAME_IM_GRUND = "REQ-SPERRLISTE-004"
     SPIELPLAN_ALREADY_DRAWN = "REQ-SPIELPLAN-001"
     SPIELPLAN_MATCHDAYS_HELD = "REQ-SPIELPLAN-002"
     SPIELPLAN_SAISON_FINISHED = "REQ-SPIELPLAN-003"

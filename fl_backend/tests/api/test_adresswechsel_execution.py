@@ -1046,11 +1046,6 @@ class TestTheToolsStart:
     def test_an_address_holding_nothing_is_refused(self, mongo_replica_set_url: str):
         assert self.refused_start(mongo_replica_set_url, adresse="nobody@schule.example") == (Code.ADRESSWECHSEL_NICHTS, 0)
 
-    def test_a_reason_naming_the_person_is_refused(self, mongo_replica_set_url: str):
-        """The log keeps the reason a year beside the start."""
-
-        assert self.refused_start(mongo_replica_set_url, grund="Lenore rief an") == (Code.ADRESSWECHSEL_NAME_IM_GRUND, 0)
-
     def test_the_administrator_s_own_address_is_refused(self, mongo_replica_set_url: str):
         assert self.refused_start(mongo_replica_set_url, adresse=ADMIN) == (Code.EIGENE_ADRESSE, 0)
 

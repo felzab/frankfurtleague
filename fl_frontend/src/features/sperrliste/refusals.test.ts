@@ -18,7 +18,7 @@ describe("the address a unique index already holds", () => {
 
   /* The rules restated, so a code retired from the endpoint fails here rather than leaving a dead arm behind. */
   it("answers every refusal the create publishes", () => {
-    for (const code of refusalCodes("DB-COMMON-002", "REQ-SPERRLISTE-001", "REQ-SPERRLISTE-002", "REQ-SPERRLISTE-003", "REQ-SPERRLISTE-004")) {
+    for (const code of refusalCodes("DB-COMMON-002", "REQ-SPERRLISTE-001", "REQ-SPERRLISTE-002", "REQ-SPERRLISTE-003")) {
       expect(answerShown(code, mapSperreRefusal), `${code} reaches the admin as an unhandled conflict`).not.toBe(null);
     }
   });
@@ -37,14 +37,6 @@ describe("the address a unique index already holds", () => {
   it("lands an administrator's address on the address box", () => {
     expect(mapSperreRefusal(refusedWith(409, "REQ-SPERRLISTE-003"))).toStrictEqual({
       fieldErrors: { email: "Diese Adresse gehört zur Verwaltung und lässt sich nicht sperren." },
-    });
-  });
-
-  /* The typed reason is what the rule refuses, so the sentence lands under its box, the box itself the way out: the rule
-     names no word and refuses a common word equal to a name with it. */
-  it("lands a name of the address's records in the reason on the reason box", () => {
-    expect(mapSperreRefusal(refused("REQ-SPERRLISTE-004"))).toStrictEqual({
-      fieldErrors: { grund: "Der Grund enthält ein Wort, das einem Namen der Person gleicht." },
     });
   });
 

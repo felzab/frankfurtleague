@@ -27,10 +27,8 @@ from app.api.identitaet.services import (
     build_season_team_pipeline,
     build_unplayed_saison_pipeline,
     compose_erasure_ansicht_auf_anfrage,
-    eigene_namen,
     find_eigene_adresse_refusal,
     find_fremder_adresswechsel_refusal,
-    find_name_im_anlass_refusal,
     find_verwaltung_adresse_refusal,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
@@ -272,16 +270,11 @@ async def erase_auf_anfrage(
     live grant and the administrator no owner's power (`REQ-PURGE-007`): the erasure ends the change, a discard only an
     owner makes of it. The refusal tells that administrator some change the preview withholds names the address.
 
-    `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does. No
-    redaction reaches it, so it is refused 422 where it holds an address, and, inside the write ahead of the erasure's first
-    step, where it holds a name of the person's own records as a whole word or before a genitive s (`REQ-PURGE-006`): each
-    name field whole and each of its words, but a particle such as `von` before a later word of its field and any single
-    letter. Names compare as stored, spacing aside, and equal where their plain lower or their plain upper case is: „Weiss“
-    is refused for „Weiß“, whose capitals it shares, and another spelling such as „Mueller“ for „Müller“ passes. A common
-    word equal to a name is refused with it. The grant notice names this administrator as ending the
-    person's grant. An address holding nothing is answered with every count zero. The 404 and the 409 answer only a database
-    changed by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once this has
-    answered.
+    `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does.
+    No redaction reaches it, so it is refused 422 where it holds an address. The grant notice names this administrator
+    as ending the person's grant. An address holding nothing is answered with every count zero. The 404 and the 409
+    answer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is
+    the caller's, once this has answered.
     """
 
     identifier = sign_in_identifier(erasure_data.email)
@@ -302,7 +295,7 @@ async def erase_auf_anfrage(
         if any(grant["adresse"] == identifier for grant in lebendige(grants)):
             refuse_unconfirmed()
 
-        # Ahead of the erasure's first write, and in its snapshot: a retry judges the names afresh.
+        # Ahead of the erasure's first write, and in its snapshot: a retry judges the changes afresh.
         subject = await resolve_subject(
             identifier,
             saison_teams_collection=saison_teams_collection,
@@ -312,14 +305,6 @@ async def erase_auf_anfrage(
             registrierungen_collection=registrierungen_collection,
             schluessel=config.sperrliste_schluessel,
             session=session,
-        )
-        names = eigene_namen(
-            identifier,
-            saison_team_rows=subject.saison_teams,
-            bewerbung_rows=subject.bewerbungen,
-            referee_rows=subject.schiedsrichter,
-            pupil_rows=subject.spieler,
-            registrierung_rows=subject.registrierungen,
         )
         # Ending a grant holder's change is a discard, which only an owner makes.
         refuse(
@@ -331,7 +316,6 @@ async def erase_auf_anfrage(
                 announced=announced,
             )
         )
-        refuse(find_name_im_anlass_refusal(anlass=erasure_data.anlass, names=names))
 
         erased = await erase_everything(
             identifier,

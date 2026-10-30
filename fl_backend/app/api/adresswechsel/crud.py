@@ -51,7 +51,7 @@ from app.api.berechtigungen.services import compose_fortgefuehrt, genehmigung_st
 from app.api.berechtigungen.services import compose_postausgang as compose_berechtigung_postausgang
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import RecordCollections
-from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt, eigene_sitze, ist_eigener_schiedsrichter, namen_aus
+from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt, eigene_sitze, ist_eigener_schiedsrichter
 from app.api.kontakte.services import find_matching_slots, rows_seating
 from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_ist_bestaetigt
 from app.api.schiedsrichter.services import build_selbst_referee_filter, vorname_of
@@ -113,23 +113,6 @@ class Bestand:
         ]
 
         return next((str(name) for name in kandidaten if isinstance(name, str) and name), "")
-
-    def namen(self) -> frozenset[str]:
-        """Every name the moved records hold, which an administrator's reason may not name (`holds_a_name`)."""
-
-        fields = [
-            *([] if self.spieler is None else [self.spieler.get("vorname"), self.spieler.get("nachname")]),
-            *(row.get("name") for row in self.schiedsrichter),
-            *(
-                (row.get("kontakte") or {}).get(slot, {}).get(part)
-                for row, slots in (*self.sitze, *self.bewerbungssitze)
-                for slot in slots
-                for part in ("vorname", "nachname")
-            ),
-            *(row.get(part) for row in self.registrierungen for part in ("vorname", "nachname")),
-        ]
-
-        return namen_aus(fields)
 
 
 async def live_grant_of(

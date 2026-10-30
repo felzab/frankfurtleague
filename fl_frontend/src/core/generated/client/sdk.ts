@@ -286,8 +286,8 @@ export const getAdresswechselPostAdresswechselVerwaltungUrl = () => {
  * Refused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power
  * (`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds
  * (`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the
- * change moves a pupil (`-006`), a new address any entry names, confirmed or not (`-018`), a grant nobody could approve
- * (`-011`), and a reason naming a person of the records the change would move (`-008`).
+ * change moves a pupil (`-006`), a new address any entry names, confirmed or not (`-018`), and a grant nobody could
+ * approve (`-011`).
  * @summary Start an address change for a person who says they cannot sign in
  */
 export const adresswechselPostAdresswechselVerwaltung = async (
@@ -2005,16 +2005,11 @@ export const getIdentitaetEraseAufAnfrageUrl = () => {
  * live grant and the administrator no owner's power (`REQ-PURGE-007`): the erasure ends the change, a discard only an
  * owner makes of it. The refusal tells that administrator some change the preview withholds names the address.
  *
- * `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does. No
- * redaction reaches it, so it is refused 422 where it holds an address, and, inside the write ahead of the erasure's first
- * step, where it holds a name of the person's own records as a whole word or before a genitive s (`REQ-PURGE-006`): each
- * name field whole and each of its words, but a particle such as `von` before a later word of its field and any single
- * letter. Names compare as stored, spacing aside, and equal where their plain lower or their plain upper case is: „Weiss“
- * is refused for „Weiß“, whose capitals it shares, and another spelling such as „Mueller“ for „Müller“ passes. A common
- * word equal to a name is refused with it. The grant notice names this administrator as ending the
- * person's grant. An address holding nothing is answered with every count zero. The 404 and the 409 answer only a database
- * changed by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once this has
- * answered.
+ * `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does.
+ * No redaction reaches it, so it is refused 422 where it holds an address. The grant notice names this administrator
+ * as ending the person's grant. An address holding nothing is answered with every count zero. The 404 and the 409
+ * answer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is
+ * the caller's, once this has answered.
  * @summary Erase every record an address holds, on that person's request
  */
 export const identitaetEraseAufAnfrage = async (
@@ -3788,10 +3783,7 @@ export const getSperrlistePostSperrlisteEintragUrl = () => {
  * `gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still queued
  * for the address loses the address in the same transaction.
  *
- * `grund` is served, mailed to the address and kept past that person's erasure, so it is refused 422 where it holds a
- * name of the address's own records, as `POST /identitaet/erasure/ansicht` names each (`REQ-SPERRLISTE-004`). It is
- * matched as that erasure's `anlass` is: as stored, spacing aside, and equal where the plain lower or the plain upper case
- * is, so „Weiss“ is refused for „Weiß“ and another spelling such as „Mueller“ for „Müller“ passes.
+ * `grund` is served, mailed to the address and kept past that person's erasure.
  * @summary Ban an email address
  */
 export const sperrlistePostSperrlisteEintrag = async (
@@ -3911,10 +3903,9 @@ export const getSpielberichtePatchSpielberichtUrl = (spielId: string) => {
  * other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day is
  * still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out proposed on a
  * group-phase fixture (`REQ-BERICHT-009`); a pupil newly named on a side outside that side's live squad of the season
- * (`REQ-BERICHT-003`); a yellow or second yellow card naming no reason, unless the stored report holds that card, by
- * side, pupil and colour, stripped of its reason at the end of the season after the match (`REQ-BERICHT-008`); and remarks naming a seat
- * holder of either club, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each but
- * `REQ-BERICHT-006` is asked again outside the transaction just before answering; a write of the report landing
+ * (`REQ-BERICHT-003`); and a yellow or second yellow card naming no reason, unless the stored report holds that card,
+ * by side, pupil and colour, stripped of its reason at the end of the season after the match (`REQ-BERICHT-008`). Each
+ * but `REQ-BERICHT-006` is asked again outside the transaction just before answering; a write of the report landing
  * mid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two pages
  * opened on no report: the later is refused.
  * @summary Write one fixture's report as an administrator
@@ -4017,19 +4008,17 @@ export const getSpielberichtePutSpielberichtBerichtUrl = (spielId: string) => {
  * another version would replace a report its sender never saw.
  *
  * Refuses, in this order, each writing nothing: an address holding no confirmed, live referee record
- * (`REQ-FUNKTION-001`); a fixture that
- * does not exist (`DB-COMMON-001`); one booked to none of its records (`REQ-BERICHT-002`); one whose season has
- * ended, whose report its referee only reads (`REQ-BERICHT-007`); a `bericht_stand` other than the version standing
- * now, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day is still to come
- * (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out proposed on a group-phase fixture
- * (`REQ-BERICHT-009`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil
- * the report already named on that side staying while the side fields the club it did (`REQ-BERICHT-003`); a yellow
- * or second yellow card naming no reason (`REQ-BERICHT-008`); and remarks naming a seat holder of either club, the
- * booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal but
- * `REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's records included, so
- * a write landing on what was judged before that second asking refuses the report rather than letting it stand, and
- * one landing after it stands beside the report; a write of the report itself landing mid-press conflicts with this
- * one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two forms opened on no report: the later is
+ * (`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records
+ * (`REQ-BERICHT-002`); one whose season has ended, whose report its referee only reads (`REQ-BERICHT-007`); a
+ * `bericht_stand` other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated
+ * or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out
+ * proposed on a group-phase fixture (`REQ-BERICHT-009`); a pupil the write newly names on a side outside that side's
+ * live squad of the season, a pupil the report already named on that side staying while the side fields the club it
+ * did (`REQ-BERICHT-003`); and a yellow or second yellow card naming no reason (`REQ-BERICHT-008`). Every refusal but
+ * `REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's records included, so a
+ * write landing on what was judged before that second asking refuses the report rather than letting it stand, and one
+ * landing after it stands beside the report; a write of the report itself landing mid-press conflicts with this one,
+ * whose retry meets `REQ-BERICHT-006`. Two first writes at once are two forms opened on no report: the later is
  * refused.
  * @summary Write one fixture's report as its referee
  */

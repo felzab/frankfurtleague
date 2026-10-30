@@ -574,8 +574,8 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   on the season row, confirming in writing from their own confirmed address; for a referee, a call
   to the telephone number on their record, or in person at a fixture. Where neither is possible,
   refuse and say why. Record how you checked as the reason, naming nobody and no address: the reason
-  stays twelve months in the log, and the backend refuses a name of the person
-  (`REQ-ADRESSWECHSEL-008`). Start the change in the address tool with it. The new address confirms
+  stays twelve months in the log, and nothing checks it for a name. Start the change in the address tool
+  with it. The new address confirms
   by link within `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours,
   and the change takes effect `:: ADRESSWECHSEL_WARTEZEIT_TAGE` days later, judged again then; until
   then the address on file, should it still be read, stops it by link or on its account page. A stopped change means the mailbox is not gone: talk to the
