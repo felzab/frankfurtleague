@@ -26,6 +26,7 @@ const SPIELTAG: FLSpieltagWithSpiele = {
   position: 1,
   saison_phase: "viertelfinale",
   saison_id: "2026",
+  version: 0,
   spiele: [],
 };
 
