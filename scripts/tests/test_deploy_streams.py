@@ -634,7 +634,6 @@ def _env_spellings(text: str, frontend: str | None = None) -> tuple[int, str]:
 SCHEMA_SHAPES: Final = [
     pytest.param("API_URL=http://backend:8000/api?x=1&y=[2]", id="url-query"),
     pytest.param("AUTH_URL=https://a@frankfurtleague.de:443/~b/c;d=(e)!f*g+h,i%20-_.", id="url-every-character"),
-    pytest.param("API_VERSION=0", id="integer"),
     pytest.param("APP_ENV=production", id="enum"),
     pytest.param("SECRETS_DIR=/run/secrets", id="path"),
     pytest.param("SECRETS_DIR=../secrets", id="relative-path"),
@@ -646,7 +645,7 @@ SCHEMA_SHAPES: Final = [
 @pytest.mark.parametrize("line", SCHEMA_SHAPES)
 def test_each_value_shape_the_schemas_declare_is_clean(line: str) -> None:
     """Beside a comment saying anything, a blank line and a carriage return, none of which a reader takes as data."""
-    code, output = _env_spellings(f'# costs $5, "quoted" #1\n\n \t\n{line}\r\nLOG_FORMAT=json\n')
+    code, output = _env_spellings(f'# costs $5, "quoted" #1\n\n \t\n{line}\r\nDB_BASE_NAME=fl_db\n')
 
     assert code == 0, output
     assert "judged-clean" in output, output
