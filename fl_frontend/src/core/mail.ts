@@ -15,7 +15,7 @@ import { postausgangPostAusgabe, postausgangPostErgebnis } from "./generated/cli
 import { PostausgangPostErgebnisBody } from "./generated/zod/inputs";
 import { logger } from "./logging";
 import { mailFor, POSTAUSGANG_TAG } from "./mailKinds";
-import { boundCall, getRequestTraceId, recordWriteSent } from "./requestScope";
+import { boundCall, getRequestTraceId } from "./requestScope";
 import { mintTraceId } from "./trace";
 
 import type { MailVon } from "./emailShell";
@@ -45,8 +45,8 @@ function absenderZeile(von: MailVon): string {
 const ANTWORT_AN = KONTAKT_EMAIL;
 
 // Bounds the WHOLE call the way `fl_frontend/src/core/api.ts :: FETCH_TIMEOUT_MS` bounds a
-// backend call: a per-attempt budget would multiply by the attempts below, and the application-form
-// notices are awaited inside an admin's own save.
+// backend call: a per-attempt budget would multiply by the attempts below, and the backend's lease on a
+// page of sends is counted from both (`fl_backend/app/api/postausgang/services.py :: BEANSPRUCHUNG_DAUER`).
 const MAIL_TIMEOUT_MS = 15000;
 
 /** Three, because the provider's own transient set is a rate limit or a blip and neither clears on the instant. */
@@ -58,9 +58,6 @@ const MAIL_RETRY_DELAY_MS = 400;
 // `.gitignore` and `.prettierignore` both hold `.tmp-*/`, and a name outside that pattern is one git
 // offers to commit -- with a sign-in code, a bearer credential, inside it.
 const MAIL_SINK_DIR = ".tmp-mail";
-
-/** Long enough for the biggest fan-out this application draws, short enough to end rather than spin. */
-const SINK_NAME_ATTEMPTS = 20;
 
 const SINK_SLUG_MAX = 40;
 
@@ -169,20 +166,9 @@ async function writeToSink(message: OutboundMail, traceId: string): Promise<void
   try {
     await mkdir(directory, { recursive: true });
 
-    for (let attempt = 1; attempt <= SINK_NAME_ATTEMPTS; attempt++) {
-      const name = attempt === 1 ? `${stem}.html` : `${stem}-${String(attempt)}.html`;
-      try {
-        // `wx`, because one application's three contact people are three messages inside one
-        // millisecond: an overwrite here would report two of them as never rendered.
-        await writeFile(path.join(directory, name), sinkDocument(message, traceId), { encoding: "utf8", flag: "wx" });
-
-        return;
-      } catch (error) {
-        if (errnoCode(error) !== "EEXIST") throw error;
-      }
-    }
-
-    throw new Error("No unused name was left for the message.");
+    // `wx`, so a message never overwrites another's file: the drain sends one at a time, a backend round trip apart, so
+    // two sharing a millisecond's name is a fault to see rather than a message to lose.
+    await writeFile(path.join(directory, `${stem}.html`), sinkDocument(message, traceId), { encoding: "utf8", flag: "wx" });
   } catch (error) {
     // The errno token, never the thrown message, which carries the path: the line says which failure
     // to fix without naming a directory the developer is about to be told to open anyway.
@@ -401,9 +387,6 @@ async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: O
 
   const attempt = async (): Promise<MailAccepted> => {
     let res: Response;
-    // A message is a write nothing takes back, and one whose answer never comes may still have gone. No
-    // attempt starts on a spent deadline: the checks before the first and after each pause refuse it.
-    recordWriteSent();
     try {
       res = await fetch(MAIL_ENDPOINT, { method: "POST", headers: headers, body: body, signal: signal });
     } catch (error) {

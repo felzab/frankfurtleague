@@ -207,8 +207,8 @@ export function requestOutcomeUnknown(): boolean {
 }
 
 /**
- * Called as a call that may write is sent: one never answered may still have landed. The API and mail
- * clients call it themselves, and a write through another client at the write. A no-op outside a scope.
+ * Called as a call that may write is sent: one never answered may still have landed. The API client calls it
+ * itself, and a write through another client at the write. A no-op outside a scope.
  */
 export function recordWriteSent(): void {
   const store = storage.getStore();
