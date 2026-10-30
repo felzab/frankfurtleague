@@ -2033,12 +2033,10 @@ export interface FLBewerbungSweepResponse {
 }
 
 /**
- * Every season's id, for the caller to sweep one by one, and the day each retention pass last ran anywhere in this database.
+ * Every season's id, for the caller to sweep one by one.
  */
 export interface FLBewerbungSweepSaisonsResponse {
-  registrierung_sweep_gelaufen_am: string | null;
   saison_ids: string[];
-  sweep_gelaufen_am: string | null;
 }
 
 /**

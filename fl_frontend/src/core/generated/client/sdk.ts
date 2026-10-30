@@ -1338,13 +1338,10 @@ export const getBewerbungenGetSweepSaisonsUrl = () => {
 };
 
 /**
- * Answer every season's id, oldest first, so the caller runs the clocks one season at a time, and the day each pass last ran.
+ * Answer every season's id, oldest first, so the caller runs the clocks one season at a time.
  *
  * System tier rather than the base one: a season taking applications is `future`, which the base tier is never served,
  * and the two clocks that matter run over exactly those seasons.
- *
- * Null against this database means no pass has ever run, never that the last one found nothing to do: a pass that reminds
- * nobody and deletes nothing records the day exactly as a busy one does. Reading it writes nothing.
  * @summary Every season the sweep has to visit
  */
 export const bewerbungenGetSweepSaisons = async (
@@ -1385,7 +1382,7 @@ export const getBewerbungenSweepSaisonUrl = (saisonId: string) => {
  * An application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,
  * is passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it
  * again and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks
- * passed over: a day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.
+ * passed over.
  *
  * 404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,
  * though it logs the count of withheld seats again.
@@ -1399,9 +1396,6 @@ export const getBewerbungenSweepSaisonUrl = (saisonId: string) => {
  * reports of their remarks and every card's reason; the answers' way, day and role and the reports' scorers, cards and
  * result stay as the record. Each strip is its own transaction after the blocks' share: one that fails is
  * logged under the season's id and counted in `fehlgeschlagen`, and the blocks clear all the same.
- *
- * One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
- * answers it. So a day's first call records the day and the rest of that day's calls record nothing.
  * @summary Run one season's retention clocks
  */
 export const bewerbungenSweepSaison = async (
@@ -2871,15 +2865,10 @@ export const getRegistrierungenSweepRegistrierungenUrl = (saisonId: string) => {
  *
  * A registration whose write fails, the database refusing it or anything else, or one the answer cannot carry, is passed over
  * alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it again and one
- * failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over: a
- * day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.
+ * failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.
  *
  * 404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes
  * nothing, though it logs the count of withheld registrations again.
- *
- * One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
- * answers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record
- * nothing.
  * @summary Run one season's registration retention clocks
  */
 export const registrierungenSweepRegistrierungen = async (

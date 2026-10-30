@@ -865,7 +865,7 @@ export const BewerbungenGetKuerzelParams = zod.object({
  * An application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,
  * is passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it
  * again and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks
- * passed over: a day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.
+ * passed over.
  *
  * 404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,
  * though it logs the count of withheld seats again.
@@ -879,9 +879,6 @@ export const BewerbungenGetKuerzelParams = zod.object({
  * reports of their remarks and every card's reason; the answers' way, day and role and the reports' scorers, cards and
  * result stay as the record. Each strip is its own transaction after the blocks' share: one that fails is
  * logged under the season's id and counted in `fehlgeschlagen`, and the blocks clear all the same.
- *
- * One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
- * answers it. So a day's first call records the day and the rest of that day's calls record nothing.
  * @summary Run one season's retention clocks
  */
 export const BewerbungenSweepSaisonParams = zod.object({
@@ -1850,15 +1847,10 @@ export const RegistrierungenPatchEinwilligungBody = zod
  *
  * A registration whose write fails, the database refusing it or anything else, or one the answer cannot carry, is passed over
  * alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it again and one
- * failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over: a
- * day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.
+ * failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.
  *
  * 404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes
  * nothing, though it logs the count of withheld registrations again.
- *
- * One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
- * answers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record
- * nothing.
  * @summary Run one season's registration retention clocks
  */
 export const RegistrierungenSweepRegistrierungenParams = zod.object({
