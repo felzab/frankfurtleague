@@ -46,7 +46,7 @@ from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
-from tests.actor_tokens import FRESH_ADMIN_ACTOR
+from tests.actor_tokens import fresh_admin_actor
 from tests.api import test_spielbestaetigung_sweep_refusal as budget
 from tests.bans import ban_list
 from tests.config import build_test_config
@@ -1060,7 +1060,7 @@ async def hand_alphas_trainer_to(database: AsyncDatabase, client: AsyncMongoClie
         postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=client,
-        actor=FRESH_ADMIN_ACTOR,
+        actor=fresh_admin_actor(),
         today=TODAY,
         germany_now=MAIL_NOW,
     )

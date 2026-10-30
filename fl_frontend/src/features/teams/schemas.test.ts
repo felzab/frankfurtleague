@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { FLEinwilligungStandSchema } from "@/features/spieler/schemas";
-
 import {
   FLCreateTeamFormPayloadSchema,
   FLKontaktKenntnisnahmePayloadSchema,
-  FLKontaktKenntnisnahmeSchema,
   FLPatchSaisonTeamPayloadSchema,
   FLPatchTeamPayloadSchema,
   FLSaisonTeamKontaktePayloadSchema,
@@ -249,33 +246,5 @@ describe("a club's two names, against the single-line class the application's re
     for (const [, schema, extra] of FORMS) {
       expect(schema.safeParse({ ...createTeam({ name: "Carl Schurz", full_name: "Carl-Schurz-Schule" }), ...extra }).success).toBe(true);
     }
-  });
-});
-
-/* Composed by the backend's own writers and serialised by its read model: an administrator reseats the
-   person, who answers the seat's own page with WhatsApp and media granted. */
-const SERVED_KENNTNISNAHME = {
-  umfang: "kontaktdaten_whatsapp",
-  text_version: "2026-10-bestaetigungsseite-verwaltung",
-  datum: "2026-10-02",
-  bestaetigt_am: "2026-10-02",
-  medien: true,
-  eingetragen_von: "liga",
-  nachweis: {
-    umfang: { am: "2026-10-02T18:03:57+00:00", text_version: "2026-10-bestaetigungsseite-verwaltung", erteilt_zuvor: null },
-    medien: { am: "2026-10-02T18:03:57+00:00", text_version: "2026-10-bestaetigungsseite-verwaltung", erteilt_zuvor: null },
-  },
-};
-
-describe("a contact seat's record whose evidence is filled, as a read serves it", () => {
-  // Equal rather than merely parsed, for the reason `fl_frontend/src/features/spieler/schemas.test.ts` gives.
-  it("keeps who seated the person and each choice's act", () => {
-    expect(FLKontaktKenntnisnahmeSchema.parse(SERVED_KENNTNISNAHME)).toStrictEqual(SERVED_KENNTNISNAHME);
-  });
-
-  it("keeps both choices' stand a read serves as the press's precondition", () => {
-    const stand = { umfang: null, medien: "9f2c1e7a4b5d6e8f0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f6071" };
-
-    expect(FLEinwilligungStandSchema.parse(stand)).toStrictEqual(stand);
   });
 });

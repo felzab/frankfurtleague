@@ -23,7 +23,7 @@ from app.api.teams.admin_router import delete_einladung, get_einladung, post_ein
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
-from tests.actor_tokens import FRESH_ADMIN_ACTOR
+from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document
@@ -169,7 +169,7 @@ async def mint(database: AsyncDatabase, team_id: ObjectId, *, saison_id: str = S
         db=database.client,
         erstellt_von=ADMIN,
         today=TODAY,
-        actor=FRESH_ADMIN_ACTOR,
+        actor=fresh_admin_actor(),
     )
 
 

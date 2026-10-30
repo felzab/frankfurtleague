@@ -48,9 +48,10 @@ def verified_actor(email: str, *, signed_in_before_s: int = SESSION_AGE_S, facto
     return SessionActor(email=email, auth_time=int(time.time()) - signed_in_before_s, factor=factor)
 
 
-# What a handler called without a request is handed. Judged at the clock, so it stays inside the
-# enrolment window for the first minutes of a run and inside the step-up window for its first hours.
-FRESH_ADMIN_ACTOR = verified_actor("admin@example.com")
+def fresh_admin_actor() -> SessionActor:
+    """What a handler called without a request is handed, stamped at each call: the windows are judged at the clock."""
+
+    return verified_actor("admin@example.com")
 
 
 class SignedActor(Mapping[str, str]):

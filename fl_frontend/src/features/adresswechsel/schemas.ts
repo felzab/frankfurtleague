@@ -1,5 +1,7 @@
+// Redesign: goes with its last importer.
 import z from "zod";
 
+import { FLAdresswechselAntwort } from "@/core/generated/client/types";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { LOESCHUNG_ANLASS_MAX_LENGTH } from "@/features/funktionen/constants";
 import { ADRESSE_IM_GRUND_REGEX } from "@/features/sperrliste/schemas";
@@ -32,7 +34,7 @@ const adresswechselToken = z
 /** The new mailbox's press: `bestaetigt` moves the address there, `abgelehnt` discards the change. */
 export const FLAdresswechselAntwortPayloadSchema = z.object({
   token: adresswechselToken,
-  antwort: z.enum(["bestaetigt", "abgelehnt"], { error: LINK_UNVOLLSTAENDIG }),
+  antwort: z.enum(FLAdresswechselAntwort, { error: LINK_UNVOLLSTAENDIG }),
 });
 
 /** The stop of the address on file, by the token its notice carried. */

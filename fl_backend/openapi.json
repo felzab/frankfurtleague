@@ -71,24 +71,6 @@
         },
         "description": "Unprocessable Content"
       },
-      "429": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/FLFailureBody"
-            }
-          }
-        },
-        "description": "Too Many Requests",
-        "headers": {
-          "Retry-After": {
-            "description": "Seconds to wait before asking again",
-            "schema": {
-              "type": "integer"
-            }
-          }
-        }
-      },
       "500": {
         "content": {
           "application/json": {
@@ -17208,66 +17190,6 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/": {
-      "get": {
-        "description": "Confirm the service is answering. The versioned API is under `/api/v0`; `/system/is_live` is the probe.",
-        "operationId": "system_root",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "summary": "Root",
-        "tags": [
-          "system"
-        ]
-      }
-    },
     "/api/v0/adresswechsel": {
       "post": {
         "description": "Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.\n\n**Nothing moves here.** Without a `grund` the change asks the address on file first: it is owed the request with its\nstop link, and nothing goes to the new mailbox until that address approves on its account page. With a `grund`,\nrecording how the administrator established who asks, the new mailbox is owed its link and the address on file a\nnotice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new mailbox\nconfirms. Where the address holds a grant, the change also waits on another administrator's approval, never this\none's. No link is answered. The address's live change ends replaced.\n\nRefused the administrator's own address (`eigene_adresse`), a grant holder's without an owner's power\n(`verwaltung_adresse`), the address on file typed again (`adresswechsel_unveraendert`), a new address the ban list holds\n(`adresswechsel_gesperrt`), an address holding nothing a change moves (`adresswechsel_nichts`), a new address another pupil signs in on\nwhere the change moves a pupil (`adresswechsel_vergeben`), a new address any entry names, confirmed or not (`adresswechsel_belegt`), and a\ngrant nobody could approve (`adresswechsel_kein_genehmiger`).",
@@ -17320,10 +17242,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -17398,10 +17316,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -17474,10 +17388,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -17552,10 +17462,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -17629,10 +17535,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -17705,10 +17607,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -17792,10 +17690,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -17858,10 +17752,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -17935,10 +17825,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -18015,10 +17901,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -18094,10 +17976,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -18172,10 +18050,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -18322,10 +18196,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -18401,10 +18271,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -18467,10 +18333,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -18543,10 +18405,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -18609,10 +18467,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -18689,10 +18543,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -18768,10 +18618,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -18846,10 +18692,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -18933,10 +18775,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -19069,10 +18907,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -19163,10 +18997,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -19255,10 +19085,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -19332,10 +19158,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -19398,10 +19220,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -19485,10 +19303,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -19563,10 +19377,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -19630,10 +19440,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -19696,10 +19502,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -19775,10 +19577,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -19852,10 +19650,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -19931,10 +19725,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -20021,10 +19811,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -20110,10 +19896,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -20197,10 +19979,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -20296,10 +20074,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -20394,10 +20168,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -20483,10 +20253,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -20561,10 +20327,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -20627,10 +20389,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -20705,10 +20463,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -20782,10 +20536,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -20849,10 +20599,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -20915,10 +20661,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -20993,10 +20735,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -21069,10 +20807,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -21156,10 +20890,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -21232,10 +20962,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -21310,10 +21036,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -21377,10 +21099,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -21441,10 +21159,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -21516,10 +21230,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -21594,10 +21304,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -21660,10 +21366,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -21738,10 +21440,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -21804,10 +21502,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -21882,10 +21576,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -21958,10 +21648,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -22111,10 +21797,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -22205,10 +21887,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -22281,10 +21959,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -22359,10 +22033,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -22435,10 +22105,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -22545,10 +22211,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -22634,10 +22296,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -22711,10 +22369,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -22801,10 +22455,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -22889,10 +22539,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -23016,10 +22662,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -23091,10 +22733,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -23157,10 +22795,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -23284,10 +22918,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -23361,10 +22991,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -23448,10 +23074,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -23525,10 +23147,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -23614,10 +23232,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -23701,10 +23315,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -23790,10 +23400,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -23868,10 +23474,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -23945,10 +23547,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -24030,10 +23628,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -24166,10 +23760,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -24240,10 +23830,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -24318,10 +23904,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -24394,10 +23976,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -24484,10 +24062,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -24550,10 +24124,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -24630,10 +24200,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -24706,10 +24272,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -24794,10 +24356,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -24872,10 +24430,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -24952,10 +24506,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -25018,10 +24568,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -25093,10 +24639,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -25172,10 +24714,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -25258,10 +24796,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -25324,10 +24858,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -25414,10 +24944,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -25492,10 +25018,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -25590,10 +25112,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -25680,10 +25198,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -25788,10 +25302,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -25862,10 +25372,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -25940,10 +25446,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -26007,10 +25509,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -26073,10 +25571,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -26151,10 +25645,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -26241,10 +25731,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -26330,10 +25816,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -26408,10 +25890,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -26589,10 +26067,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -26673,10 +26147,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -26854,10 +26324,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -26932,10 +26398,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -27051,10 +26513,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -27129,10 +26587,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -27273,10 +26727,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -27360,10 +26810,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -27458,10 +26904,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -27565,10 +27007,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -27641,10 +27079,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -27720,10 +27154,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -27787,10 +27217,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -27853,10 +27279,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -27933,10 +27355,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -28009,10 +27427,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -28097,10 +27511,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -28175,10 +27585,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -28265,10 +27671,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -28352,10 +27754,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -28449,10 +27847,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -28536,10 +27930,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -28653,10 +28043,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -28727,10 +28113,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -28807,10 +28189,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -28883,10 +28261,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -28971,10 +28345,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -29049,10 +28419,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -29196,10 +28562,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -29342,10 +28704,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -29420,10 +28778,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -29508,10 +28862,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -29587,10 +28937,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -29653,10 +28999,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -29864,10 +29206,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -29938,10 +29276,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -30164,10 +29498,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -30230,10 +29560,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -30309,10 +29635,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -30417,10 +29739,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -30504,10 +29822,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -30582,10 +29896,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -30671,10 +29981,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -30770,10 +30076,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -30858,10 +30160,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -30944,10 +30242,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -31029,10 +30323,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -31128,10 +30418,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -31226,10 +30512,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -31322,10 +30604,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",
@@ -31421,10 +30699,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -31519,10 +30793,6 @@
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
           },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
           "500": {
             "$ref": "#/components/responses/500",
             "description": "Internal Server Error"
@@ -31606,10 +30876,6 @@
           "422": {
             "$ref": "#/components/responses/422",
             "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
           },
           "500": {
             "$ref": "#/components/responses/500",

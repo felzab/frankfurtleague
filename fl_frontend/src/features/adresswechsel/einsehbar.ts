@@ -1,11 +1,16 @@
 import z from "zod";
 
-import { ADRESSWECHSEL_EINSEHBAR_VERWEHRT } from "@/core/adresswechsel";
+import { FLAdresswechselEinsehbarVerwehrt } from "@/core/generated/client/types";
 import { NACH_ERNENNUNG_NEU_ANMELDEN } from "@/features/berechtigungen/constants";
 
+/**
+ * Why the address tool refuses its reader a change, as every read linking one into it serves it: the reader's own
+ * address (`eigene`), or a grant holder's without an owner's power (`verwaltung`).
+ */
+export type EinsehbarVerwehrt = FLAdresswechselEinsehbarVerwehrt;
+
 /** The served reason as the approval sends it back, read again on the server: a browser may send any value. */
-export const EinsehbarVerwehrtSchema = z.enum(ADRESSWECHSEL_EINSEHBAR_VERWEHRT);
-export type EinsehbarVerwehrt = (typeof ADRESSWECHSEL_EINSEHBAR_VERWEHRT)[number];
+export const EinsehbarVerwehrtSchema = z.enum(FLAdresswechselEinsehbarVerwehrt);
 
 /**
  * What a page says in place of its way into the address tool, true of the change wherever a page names it: under its

@@ -3,9 +3,7 @@
 # SCRIPTS · the pre-merge gate — every scope, or the scopes a run names.
 #
 # Never writes, but `next build` rewrites the tracked `fl_frontend/tsconfig.json` when a
-# `compilerOptions` key is absent; the frontend CI job diffs that path. The db scope's contract check
-# regenerates `fl_backend/openapi.json` and `fl_frontend/src/core/generated/`, which moves a file only
-# where its committed copy is stale, the finding that check reports.
+# `compilerOptions` key is absent; the frontend CI job diffs that path.
 #
 #   ./scripts/gate/verify.sh                   every scope, side by side — the run a pull request is called ready to merge on
 #   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend-units --frontend --ops --db --images
@@ -515,22 +513,32 @@ files under nginx/shared/ decide it." bash nginx/edge_test.sh \
 # --- db --------------------------------------------------------------------------------------------
 
 CONTRACT_PATHS=(fl_backend/openapi.json fl_frontend/src/core/generated)
+# Beside the tree, never in it, since the other scopes read the committed files while this check
+# runs; inside the repository, so Orval's Prettier pass finds the repository's config.
+CONTRACT_SCRATCH=.tmp-contract
 
-# The published document regenerated from the routes and models, the client regenerated from it, and
-# both compared with the tree: a route, a model or a docstring the committed files do not hold is a
-# finding. Each generator rewrites only files whose committed copy is then stale. An untracked file is
-# one a generation added, which `git diff` alone would pass. A generator that fails reaches no verdict.
+# The published document regenerated from the routes and models, the client regenerated from that,
+# both into the scratch folder, and each compared with the tree's: a route, a model or a docstring the
+# committed files do not hold is a finding. An untracked file in the tree's folders is one a
+# generation added and nobody committed, which the comparison alone would pass. A generator that fails
+# reaches no verdict, and neither does a comparison git could not make.
 contract_check() {
-  ( cd fl_frontend && pnpm run contract ) || return 3
-  local untracked
+  local rc=0 untracked
+  rm -rf "$CONTRACT_SCRATCH" && mkdir "$CONTRACT_SCRATCH" || return 3
+  in_dir fl_backend "$PY" -m app.openapi_document "../${CONTRACT_SCRATCH}/openapi.json" || return 3
+  ( cd fl_frontend && CONTRACT_SCRATCH="../${CONTRACT_SCRATCH}" pnpm exec orval --fail-on-warnings ) || return 3
   untracked="$(git ls-files --others --exclude-standard -- "${CONTRACT_PATHS[@]}")"
-  if [[ -n "$untracked" ]]; then printf 'Written by the generation and not committed:\n%s\n' "$untracked"; return 1; fi
-  git diff --exit-code -- "${CONTRACT_PATHS[@]}"
+  if [[ -n "$untracked" ]]; then printf 'Not committed:\n%s\n' "$untracked"; rc=1; fi
+  # git answers 1 for a difference.
+  git diff --no-index -- fl_backend/openapi.json "${CONTRACT_SCRATCH}/openapi.json" || { (( $? == 1 )) || return 3; rc=1; }
+  git diff --no-index -- fl_frontend/src/core/generated "${CONTRACT_SCRATCH}/generated" || { (( $? == 1 )) || return 3; rc=1; }
+  return "$rc"
 }
 
 # Split from the default tier because it needs the Docker daemon the quick scope avoids.
 scope_db() {
   section db
+  trap 'rm -rf "$CONTRACT_SCRATCH"' EXIT
   # This scope because it alone has both the backend's virtualenv and the frontend's install.
   step "db · the contract and its generated client match the code they are built from"
   check "The committed contract no longer matches the code it is generated from; the diff above names each file.

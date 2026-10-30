@@ -725,9 +725,10 @@ LOCAL_BACKEND_SECRETS=(sperrliste_schluessel internal_api_key_base internal_api_
 # it; `scripts/tests/test_check_compose_model.py` holds the two equal.
 MOVED_ENV_NAMES=(MONGODB_URI SPERRLISTE_SCHLUESSEL AUTH_SECRET AUTH_RESEND_KEY RESEND_WEBHOOK_SECRET INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN TURNSTILE_SECRET_KEY BETTERSTACK_HEARTBEAT_URL)
 
-# The administrator list the stored grants replaced: read by no service, and its addresses are what
-# `docker inspect` would print.
-RETIRED_ENV_NAMES=(ALLOWED_ADMIN_EMAILS)
+# Names no service reads: the administrator list the stored grants replaced, whose addresses are what
+# `docker inspect` would print, and the five job switches the hourly scheduler replaced, which the
+# frontend's settings never read, so a line left standing would read as a switch still set.
+RETIRED_ENV_NAMES=(ALLOWED_ADMIN_EMAILS BEWERBUNG_SWEEP KONTO_SWEEP LOESCHUNG_SWEEP SPIEL_SWEEP SPIELBERICHT_EINGABE)
 
 # No command, so the image's own server runs its boot gates, which `BOOT_CHECK` ends there; `$2` is
 # the deployment the boot holds `APP_ENV` to (`fl_frontend/src/instrumentation-node.ts :: registerOnNode`).
@@ -818,7 +819,8 @@ refuse_credential_lines() { # $@ the environment files
   done
   (( ${#found[@]} )) || return 0
   refuse "these lines name a value no service reads from its environment: a credential, which is its
-file's under secrets/, or the administrator list the stored grants replaced:
+file's under secrets/, the administrator list the stored grants replaced, or a job switch the
+hourly scheduler replaced:
 $(printf '  %s\n' "${found[@]}")
 Delete them (docs/ops/runbooks.md §16). NOTHING was asked of compose or of either service."
 }

@@ -1,5 +1,3 @@
-import "server-only";
-
 import { adminKeyTransport, baseKeyTransport, serializeQuery, systemKeyTransport, unkeyedTransport } from "@/core/transport";
 
 import type {
@@ -230,21 +228,6 @@ import type {
   TeamsGetTeamsParams,
   TeamsGetTeamsVerwaltungParams,
 } from "./types.ts";
-
-export const getSystemRootUrl = () => {
-  return `/`;
-};
-
-/**
- * Confirm the service is answering. The versioned API is under `/api/v0`; `/system/is_live` is the probe.
- * @summary Root
- */
-export const systemRoot = async (options?: Parameters<typeof unkeyedTransport>[1]): Promise<unknown> => {
-  return unkeyedTransport<unknown>(getSystemRootUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
 
 export const getAdresswechselPostAdresswechselVerwaltungUrl = () => {
   return `/api/v0/adresswechsel`;

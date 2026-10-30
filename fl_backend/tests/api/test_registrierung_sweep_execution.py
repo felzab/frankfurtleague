@@ -348,8 +348,8 @@ async def refuse_the_redaction_of(database: AsyncDatabase, registrierung_id: Obj
     await refuse_writes_breaking(database, Collection.AKTIONEN, {"required": ["trace_id"]})
 
 
-# What the planted log image's refusal reads as on a passed-over line: the property the installed validator requires.
-REFUSED_TRACE_ID = "WriteError, code 121: [{'loc': 'trace_id', 'type': 'required', 'msg': 'property is missing'}]"
+# What the planted log image's refusal reads as on a passed-over line: the driver's type and the server's code.
+REFUSED_TRACE_ID = "WriteError, code 121"
 
 
 def passed_over(caplog: pytest.LogCaptureFixture) -> list[tuple[Any, ...]]:
@@ -449,7 +449,7 @@ class TestOneRowHoldsBackNoOther:
         answered, count, stamp = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
         assert (answered, count, stamp) == ({REMIND_OID, INSIDE_OID}, 1, None)
-        refusal = "OperationFailure, code 121: [{'loc': 'einladung_id', 'type': 'required', 'msg': 'property is missing'}]"
+        refusal = "OperationFailure, code 121"
         assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Registration", str(SECOND_OID), "reminder", f"{refusal}")]
 
     def test_a_pass_whose_every_reminder_fails_counts_them(self, mongo_replica_set_url: str):

@@ -12,3 +12,8 @@
 *.woff binary
 *.woff2 binary
 *.pdf binary
+
+# Written by `pnpm run contract` in fl_frontend, never by hand, so GitHub collapses each in a diff
+# and leaves it out of the language statistics.
+fl_backend/openapi.json linguist-generated=true
+fl_frontend/src/core/generated/** linguist-generated=true

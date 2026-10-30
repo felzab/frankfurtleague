@@ -26,7 +26,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from tests.actor_tokens import FRESH_ADMIN_ACTOR
+from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, saison_document, saison_team_document
@@ -249,7 +249,7 @@ async def write_kontakte(
         postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=database.client,
-        actor=FRESH_ADMIN_ACTOR,
+        actor=fresh_admin_actor(),
         today=TODAY,
         germany_now=MAIL_NOW,
     )

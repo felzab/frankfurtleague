@@ -28,7 +28,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from tests import documents
-from tests.actor_tokens import FRESH_ADMIN_ACTOR
+from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list
 from tests.config import ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
@@ -125,7 +125,7 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
         db=client,
         today=TODAY,
         now=MAIL_NOW,
-        actor=FRESH_ADMIN_ACTOR,
+        actor=fresh_admin_actor(),
     )
 
 

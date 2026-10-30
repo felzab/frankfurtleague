@@ -1070,8 +1070,8 @@ async def refuse_the_redaction_of(database: AsyncDatabase, collection: Collectio
     await refuse_writes_breaking(database, Collection.AKTIONEN, {"required": ["trace_id"]})
 
 
-# What the planted log image's refusal reads as on a passed-over line: the property the installed validator requires.
-REFUSED_TRACE_ID = "WriteError, code 121: [{'loc': 'trace_id', 'type': 'required', 'msg': 'property is missing'}]"
+# What the planted log image's refusal reads as on a passed-over line: the driver's type and the server's code.
+REFUSED_TRACE_ID = "WriteError, code 121"
 
 # A hand-edited deadline as the reminder's facts refuse it: the field and the rule, never the value.
 REFUSED_DEADLINE = (
@@ -1226,7 +1226,7 @@ class TestOneRowHoldsBackNoOther:
 
         # The refused row's mails went with its stamp: nobody is chased whose seat says they were not.
         assert (answered, count, stamps) == ({REMIND_OID}, 1, [None, None, None])
-        refusal = "OperationFailure, code 121: [{'loc': 'trikot', 'type': 'required', 'msg': 'property is missing'}]"
+        refusal = "OperationFailure, code 121"
         assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(SECOND_OID), "reminder", f"{refusal}")]
 
     def test_a_pass_whose_every_reminder_fails_counts_them(self, mongo_replica_set_url: str):

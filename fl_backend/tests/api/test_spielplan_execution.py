@@ -33,7 +33,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.logging import trace_id_var
 from tests import documents
-from tests.actor_tokens import FRESH_ADMIN_ACTOR
+from tests.actor_tokens import fresh_admin_actor
 from tests.bracket_reference import BRACKET_SEEDING
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
@@ -215,7 +215,7 @@ async def call_draw(
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(replace=replace, shape=shape),
         today=today,
-        actor=FRESH_ADMIN_ACTOR,
+        actor=fresh_admin_actor(),
     )
 
 
@@ -813,8 +813,8 @@ A_RECORD = "abgebrochen"
 # noted fixture as untouched and the replace destroys the note.
 A_NOTE = "Platz gesperrt"
 
-# Every key the `spiele` validator asks of a booking, so the seeding update is a document production
-# would accept rather than one this file invented.
+# Every key `FLSpiel`'s booking asks for, so the seeding update is a document the read-back would
+# accept rather than one this file invented.
 A_BOOKED_ORT: dict[str, Any] = {
     "spielort_id": ObjectId("6890a1b2c3d4e5f607760101"),
     "name": "Sporthalle Nord",
@@ -1534,9 +1534,8 @@ def a_season_drawn_from(url: str, *, seed: Seed, shape: FLSpielplanShape | None,
     return on_a_seeded_saison(url, body, seed=seed)
 
 
-# A `rules` sub-key no model declares. The `saisons` validator admits it,
-# `app/core/constraints.py :: _object` emitting no `additionalProperties`, and `FLSaisonRules` ignores it
-# -- so only a write that names its paths can leave it standing.
+# A `rules` sub-key no model declares, which `FLSaisonRules` ignores on a read -- so only a write
+# that names its paths can leave it standing.
 UNDECLARED_RULE: dict[str, Any] = {"spielzeit_minuten": 25}
 
 

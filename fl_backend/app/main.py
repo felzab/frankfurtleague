@@ -49,7 +49,6 @@ from app.api.spieler.public_router import router as spieler_public_router
 from app.api.spielorte.admin_router import router as spielorte_admin_router
 from app.api.spieltage.admin_router import router as spieltage_admin_router
 from app.api.spieltage.public_router import router as spieltage_public_router
-from app.api.system.router import root_router
 from app.api.system.router import router as system_router
 from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.person_router import router as teams_person_router
@@ -94,7 +93,7 @@ ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
     "spieler": (spieler_public_router, spieler_admin_router, spieler_person_router, spieler_person_spieler_router),
     "spielorte": (spielorte_admin_router,),
     "spieltage": (spieltage_public_router, spieltage_admin_router),
-    "system": (root_router, system_router),
+    "system": (system_router,),
     "teams": (teams_public_router, teams_admin_router, teams_person_router),
 }
 
@@ -108,8 +107,7 @@ def operation_id(route: APIRoute) -> str:
 # A 422 alone carries `fields` (`app/core/exception_handlers.py :: error_response`'s callers), so it
 # alone answers with the refused payload's body.
 FAILURE_BODIES = {status: FLRefusedPayloadBody if status is HTTPStatus.UNPROCESSABLE_CONTENT else FLFailureBody for status in FAILURE_STATUSES}
-# The statuses whose every refusal names when to come back: the throttle's and the unavailable database's.
-RETRY_AFTER_STATUSES = frozenset({HTTPStatus.TOO_MANY_REQUESTS, HTTPStatus.SERVICE_UNAVAILABLE})
+# The unavailable database's 503 is the one failure naming when to come back.
 RETRY_AFTER_HEADER = {"Retry-After": {"description": "Seconds to wait before asking again", "schema": {"type": "integer"}}}
 SCHEMA_REF = "#/components/schemas/{model}"
 
@@ -119,7 +117,7 @@ def failure_response(status: HTTPStatus) -> dict[str, Any]:
         "description": status.phrase,
         "content": {"application/json": {"schema": {"$ref": SCHEMA_REF.format(model=FAILURE_BODIES[status].__name__)}}},
     }
-    if status in RETRY_AFTER_STATUSES:
+    if status is HTTPStatus.SERVICE_UNAVAILABLE:
         response["headers"] = RETRY_AFTER_HEADER
 
     return response
@@ -200,7 +198,9 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
         fl_logger.critical("system.config_refused", extra={"refusal": str(refusal)})
         raise SystemExit(BOOT_REFUSED) from None
 
-    app = TracedApp(lifespan=lifespan)
+    # FastAPI's `openapi_url=None` serves no document and so no `/docs` or `/redoc` page: the published
+    # contract is the committed one `app/openapi_document.py` builds, and no route here answers unguarded but the probe.
+    app = TracedApp(lifespan=lifespan, openapi_url=None)
     app.state.config = config
 
     register_exception_handlers(app)

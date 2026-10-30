@@ -8,6 +8,7 @@ waiting time moves everything the replaced address holds in one write. The pass'
 """
 
 import asyncio
+import json
 import logging
 from collections.abc import Awaitable, Iterator, Mapping
 from contextlib import contextmanager
@@ -545,9 +546,11 @@ class TestTheSystemsReadOfTheNewAddress:
         status, answered, written = on_a_person(mongo_replica_set_url, body)
 
         assert (status, answered["email"]) == (200, NEW_EMAIL)
-        assert f'"path": "/api/v{API_VERSION}/adresswechsel/adresse", "status": 200' in written, (
-            "the request's own line was not captured, so the absence below holds of nothing"
-        )
+        # Each line the formatter wrote, parsed: a line no JSON reader reads would hide what it holds.
+        documents = [json.loads(line) for line in written.splitlines() if line.startswith("{")]
+        assert [(document["path"], document["status"]) for document in documents if "path" in document] == [
+            (f"/api/v{API_VERSION}/adresswechsel/adresse", 200)
+        ], "the request's own line was not captured, so the absence below holds of nothing"
         assert NEW_EMAIL not in written.lower()
 
 
