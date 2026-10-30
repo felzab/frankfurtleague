@@ -19,7 +19,7 @@ import { CARDS_CASCADE_CLASSES, PAGE_RISE_CLASSES } from "@/shared/components/ui
 
 import { ACTION_REQUIRED_LABELS, bestaetigungNotizen, buildActionRequiredSections, saisonBestaetigungen } from "../../utils";
 
-import type { FLBracketFault, FLSpielbestaetigung, FLSpielberichtZustandEintrag } from "@/core/generated/client/types";
+import type { FLBracketFault, FLSpielberichtZustandEintrag, FLSpielbestaetigung } from "@/core/generated/client/types";
 import type { SpielCardNotes } from "@/features/spiele/components/collections/SpielCardsList";
 import type { ActionRequiredCategory, FLSpiel } from "@/features/spiele/types";
 import type { FeedbackTone } from "@/shared/components/ui/badges";

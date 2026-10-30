@@ -9,7 +9,7 @@ import {
   saisonBestaetigungen,
 } from "./utils.ts";
 
-import type { FLBracketFault, FLSpielbestaetigung, FLSpielbestaetigungAntwort, FLSpielberichtZustand } from "@/core/generated/client/types";
+import type { FLBracketFault, FLSpielberichtZustand, FLSpielbestaetigung, FLSpielbestaetigungAntwort } from "@/core/generated/client/types";
 import type { FLSpiel } from "../spiele/types.ts";
 import type { FLActionUrgency } from "./utils.ts";
 
