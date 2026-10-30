@@ -24394,7 +24394,7 @@
         ]
       },
       "patch": {
-        "description": "Update a season's dates and rules. `status` is on no payload.\n\nEditing the points moves every league table on the NEXT READ, standings being derived. What a\nfinished or drawn season has fixed is refused, as is a rule narrowed below what it holds.",
+        "description": "Update a season's dates and rules. `status` is on no payload.\n\nEditing the points moves every league table on the NEXT READ, standings being derived. What a\nstarted or drawn season has fixed is refused, as is a rule narrowed below what it holds.",
         "operationId": "saisons_patch_saison",
         "parameters": [
           {

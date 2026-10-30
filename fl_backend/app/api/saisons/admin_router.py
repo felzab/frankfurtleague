@@ -330,7 +330,7 @@ async def patch_saison(
     Update a season's dates and rules. `status` is on no payload.
 
     Editing the points moves every league table on the NEXT READ, standings being derived. What a
-    finished or drawn season has fixed is refused, as is a rule narrowed below what it holds.
+    started or drawn season has fixed is refused, as is a rule narrowed below what it holds.
     """
 
     async def judge_and_write_the_rules(session: AsyncClientSession) -> FLPatchSaisonResponse:
