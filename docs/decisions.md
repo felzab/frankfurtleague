@@ -51,7 +51,6 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 
 ## The backend
 
-- **models** — Give `saison_id` a Pydantic field default
 - **db** — Swallow a failed index build
 - **routing** — Move a guard onto an endpoint; merge the two routers; delete `GET /{id}`
 - **placings** — Recurse the tiebreak chain; seed a placing the group can still change

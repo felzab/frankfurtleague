@@ -632,6 +632,8 @@ FLSpielJoinedInternalListAdapter = TypeAdapter(list[FLSpielJoinedInternal])
 
 
 class FLSpieleFilterParams(BaseModel):
+    # None and never the current season: which season is current is a database read, which only the
+    # route can make (`get_spiele`, `get_spiele_for_admin`).
     saison_id: str | None = None
     saison_phase: Literal["playoffs"] | FLSaisonPhase | None = None
     spiel_status: FLSpielStatus | None = None
