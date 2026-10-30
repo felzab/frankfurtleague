@@ -14,8 +14,6 @@ const LANES = new Set(["admin", "person", "public"]);
 const CLAIMS = new Set(["seat", "record"]);
 const ROUTE = /(?:^|\/)src\/app\/(?:.*\/)?route\.[jt]sx?$/;
 
-const isDirective = (statement, value) => statement.type === "ExpressionStatement" && statement.directive === value;
-
 /** The `key: value` of an object literal, or `undefined` where it has none or reads one it cannot see past. */
 function property(object, key) {
   for (const entry of object.properties) {
@@ -82,8 +80,9 @@ const serverAction = {
       Program(program) {
         if (ROUTE.test(filename) && !keptRoutes.includes(filename)) context.report({ node: program, messageId: "route" });
 
-        const first = program.body[0];
-        if (first === undefined || !isDirective(first, "use server")) return;
+        // The parser marks the leading string statements alone as directives, so `"use strict"` ahead of
+        // `"use server"` still makes an action module, as Next reads one.
+        if (!program.body.some((statement) => statement.directive === "use server")) return;
 
         for (const statement of program.body) {
           if (statement.type === "ImportDeclaration" && statement.source.value === BUILDER) {

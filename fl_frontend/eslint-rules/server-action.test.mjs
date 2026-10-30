@@ -39,6 +39,7 @@ tester.run("fl/server-action", serverAction, {
   invalid: [
     // An export the builder never made, in every shape a module can export it.
     invalid('"use server";\nexport async function anlegen() {}', "notBuilt"),
+    invalid('"use strict";\n"use server";\nexport async function anlegen() {}', "notBuilt"),
     invalid(inModule('export default action({ lane: "admin", input, run });'), "notBuilt"),
     invalid(inModule('export * from "./more";'), "notBuilt"),
     invalid(inModule('const anlegen = action({ lane: "admin", input, run });\nexport { anlegen };'), "notBuilt"),
