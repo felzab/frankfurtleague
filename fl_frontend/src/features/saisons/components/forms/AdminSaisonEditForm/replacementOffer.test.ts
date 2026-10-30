@@ -1,10 +1,9 @@
 import { side as sharedSide, spielFields } from "@/test-support/fixtures.ts";
 import { describe, expect, it } from "vitest";
 
-import { FLSpielSchema } from "../../../../spiele/schemas.ts";
 import { buildReplacementContext, describePlatz, describeUebernommeneSpiele } from "./replacementOffer.ts";
 
-import type { FLSpiel } from "../../../../spiele/schemas.ts";
+import type { FLSpiel } from "../../../../spiele/types.ts";
 import type { FLAustritt } from "../../../../teams/schemas.ts";
 
 /**
@@ -12,14 +11,9 @@ import type { FLAustritt } from "../../../../teams/schemas.ts";
  * shape the draw writes: `buildReplacementContext` reads no phase and no provenance, so one would
  * suggest it grades something it does not.
  */
-const BLANK: FLSpiel = FLSpielSchema.parse(spielFields({ id: "0".repeat(24), spieltag_id: "1".repeat(24), team1: null, team2: null }));
+const BLANK: FLSpiel = spielFields({ id: "0".repeat(24), spieltag_id: "1".repeat(24), team1: null, team2: null });
 
-/**
- * The shared side, named per case and narrowed to this schema's own `austritt_type` union.
- *
- * `fl_frontend/src/test-support/fixtures.ts` types that field as a plain string, a module under
- * `shared` being unable to import a feature slice's schema.
- */
+/** The shared side, named per case, with the club's exit where the case gives one. */
 const side = (teamId: string, name: string, austrittType: FLAustritt["type"] | null = null): FLSpiel["team1"] => ({
   ...sharedSide(teamId, { name, shorthand: name.slice(0, 2).toUpperCase() }),
   austritt_type: austrittType,

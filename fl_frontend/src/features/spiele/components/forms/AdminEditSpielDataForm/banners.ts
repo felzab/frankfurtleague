@@ -1,7 +1,8 @@
 import { DAY_MS } from "@/core/timeUnits";
 import { SPIEL_ANFRAGE_VORLAUF_TAGE, SPIEL_BESTAETIGUNG_FRIST_TAGE } from "@/features/spiele/constants";
 
-import type { FLSonderereignis, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
+import type { FLSonderereignis } from "@/core/generated/client/types";
+import type { FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/types";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
 export type SpielBannerId =

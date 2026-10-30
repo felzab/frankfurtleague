@@ -19,7 +19,7 @@ import { SpielCardGrid } from "../ui/SpielCardGrid";
 
 import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
 import type { SaisonBestaetigungen } from "@/features/spielbestaetigungen/types";
-import type { FLSpiel } from "../../schemas";
+import type { FLSpiel } from "../../types";
 
 // Module scope: a fresh array defeats `useFuzzySearch`'s memo. The `searchable_team1_quelle` and
 // `searchable_team2_quelle` keys exist because a `quelle` holds no text, while the label derived from

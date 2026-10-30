@@ -4,7 +4,6 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { FLKontaktRolleSchema } from "@/features/bewerbungen/schemas";
 import { SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH } from "@/features/spiele/constants";
-import { FLSpielOrtFieldPublicSchema } from "@/features/spiele/schemas";
 import {
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
@@ -12,6 +11,8 @@ import {
   einzeiligerName,
   FLBewerbungZustellungSchema,
 } from "@/shared/schemas";
+
+import type { FLSpielOrtFieldPublic } from "@/core/generated/client/types";
 
 /** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
 const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link aus Deiner E-Mail erneut.";
@@ -95,7 +96,7 @@ export const FLSpielbestaetigungAnsichtAnsetzungSchema = z.object({
   team2_name: z.string(),
   datum: CustomDateStringSchema,
   uhrzeit: CustomTimeStringSchema,
-  spielort: FLSpielOrtFieldPublicSchema.nullable(),
+  spielort: z.custom<FLSpielOrtFieldPublic>().nullable(),
 });
 export type FLSpielbestaetigungAnsichtAnsetzung = z.infer<typeof FLSpielbestaetigungAnsichtAnsetzungSchema>;
 

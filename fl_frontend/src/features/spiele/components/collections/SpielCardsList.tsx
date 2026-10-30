@@ -11,7 +11,7 @@ import { SpielCard } from "../ui/SpielCard";
 import type { BerichtChip } from "@/features/spielberichte/utils";
 import type { SaisonBestaetigungen } from "@/features/spielbestaetigungen/types";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
-import type { FLSpiel } from "../../schemas";
+import type { FLSpiel } from "../../types";
 
 /** What a note beside a card says, in one tone for the list: a fault is an error, a proposal or a silence is not. */
 export type SpielCardNotes = {

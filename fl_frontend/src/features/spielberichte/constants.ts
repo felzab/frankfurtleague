@@ -1,5 +1,6 @@
+import type { FLKartenFarbe, FLKartenGrund, FLSpielberichtZustand } from "@/core/generated/client/types";
 import type { PillTone } from "@/shared/components/ui/badges";
-import type { FLKartenFarbe, FLKartenGrund, FLSpielberichtSonderereignis, FLSpielberichtZustand } from "./schemas";
+import type { FLSpielberichtSonderereignis } from "./schemas";
 
 /**
  * The remarks box's bound, mirroring the backend's `SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH`

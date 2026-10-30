@@ -7,10 +7,10 @@ import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { categorizeActionRequired } from "../../utils";
 import { useAdmin } from "../providers/AdminContextProvider";
 
+import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";
 import type { SpielberichtStand } from "@/features/spielberichte/types";
 import type { SpielbestaetigungenStand } from "@/features/spielbestaetigungen/types";
-import type { FLSpielAdmin, FLSpielWithDraftFields } from "@/features/spiele/schemas";
-import type { ActionRequiredCategory } from "@/features/spiele/types";
+import type { ActionRequiredCategory, FLSpielWithDraftFields } from "@/features/spiele/types";
 
 /**
  * The bridge for the match editor: it reads `useAdmin()` so `AdminEditSpielDataForm` never has to and
@@ -24,7 +24,7 @@ export function AdminSpielEditView({
   bestaetigungen,
   spielbericht,
 }: {
-  spielData: FLSpielAdmin;
+  spielData: FLSpielJoinedAdmin;
   today: string;
   isSpielSweepOn: boolean;
   /** `null` where the read failed, which the panel says. */

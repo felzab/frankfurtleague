@@ -26,7 +26,7 @@ import { SpielTeamSlot } from "./SpielTeamSlot";
 import type { BerichtChip } from "@/features/spielberichte/utils";
 import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
 import type { SaisonBestaetigungen } from "@/features/spielbestaetigungen/types";
-import type { FLSpiel } from "../../schemas";
+import type { FLSpiel } from "../../types";
 
 export function SpielCard({
   spielData,

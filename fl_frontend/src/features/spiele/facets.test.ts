@@ -5,7 +5,8 @@ import { applyFacets, offeredOptions, readFacetSelection } from "@/shared/utils/
 
 import { buildSpielFacets } from "./facets.ts";
 
-import type { FLSpiel, FLSpielTeamFieldJoined } from "./schemas.ts";
+import type { FLSpielTeamFieldJoined } from "@/core/generated/client/types";
+import type { FLSpiel } from "./types.ts";
 
 const TODAY = "2026-07-29";
 

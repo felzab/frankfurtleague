@@ -11,7 +11,7 @@ import { RailSection } from "@/shared/components/ui/RailSection";
 import { SpielDraftPreview } from "./SpielDraftPreview";
 import { useSpielExpected } from "./SpielExpectedContext";
 
-import type { FLSpielWithDraftFields } from "@/features/spiele/schemas";
+import type { FLSpielWithDraftFields } from "@/features/spiele/types";
 import type { SpielBanner } from "./banners";
 
 /**

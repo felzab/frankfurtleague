@@ -10,7 +10,7 @@ import { sortByDate } from "@/shared/utils/date";
 
 import { computeEntscheidungFor } from "../../utils";
 
-import type { FLSpiel } from "@/features/spiele/schemas";
+import type { FLSpiel } from "@/features/spiele/types";
 import type { FLSpielErgebnisFor } from "@/features/spiele/utils";
 
 /**

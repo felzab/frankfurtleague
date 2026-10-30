@@ -7,7 +7,7 @@ import { TeamSaisonSpieleTimeline } from "../ui/TeamSaisonSpieleTimeline";
 import { TeamSaisonStatistik } from "../ui/TeamSaisonStatistik";
 import { TeamSaisonVerlauf } from "../ui/TeamSaisonVerlauf";
 
-import type { FLSpiel } from "@/features/spiele/schemas";
+import type { FLSpiel } from "@/features/spiele/types";
 import type { FLTeam } from "../../schemas";
 
 /**

@@ -1,7 +1,6 @@
 import { side as sharedSide, spielFields } from "@/test-support/fixtures.ts";
 import { assert, describe, expect, it } from "vitest";
 
-import { FLSpielSchema } from "../spiele/schemas.ts";
 import { RECORDED_FACTS_ANY, RECORDED_FACTS_NONE } from "./constants.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
@@ -19,7 +18,7 @@ import {
   searchWithoutSaisonId,
 } from "./utils.ts";
 
-import type { FLSpiel } from "../spiele/schemas.ts";
+import type { FLSpiel } from "../spiele/types.ts";
 
 describe("searchWithoutSaisonId", () => {
   it("returns a bare ? when the season was the only parameter", () => {
@@ -115,38 +114,27 @@ describe("buildSpielplanBestand", () => {
   const TEAM_1 = "2".repeat(24);
   const TEAM_2 = "3".repeat(24);
 
-  /**
-   * The shared side, narrowed to this schema's own `austritt_type` union.
-   *
-   * `fl_frontend/src/test-support/fixtures.ts` types that field as a plain string, a module shared by
-   * every slice's tests being unable to import one slice's schema.
-   */
+  /** The shared side, scoring `tore` and still in the league. */
   const side = (teamId: string, tore: number | null = null): FLSpiel["team1"] => ({ ...sharedSide(teamId), tore, austritt_type: null });
 
   const QUELLE: FLSpiel["team1_quelle"] = { type: "gruppe", gruppe: "A", platz: 1 };
 
-  // Parsed at construction: a field the shared literal has fallen behind on fails where the fixture
-  // is built rather than wherever it is read.
   /**
    * A group fixture as the draw leaves it: both sides OCCUPIED, neither wired, nothing entered. An
    * empty-sided one is an EMPTIED fixture instead, which is a state the endpoint counts.
    */
-  const GRUPPENSPIEL: FLSpiel = FLSpielSchema.parse(
-    spielFields({ id: "0".repeat(24), spieltag_id: "1".repeat(24), team1: side(TEAM_1), team2: side(TEAM_2) }),
-  );
+  const GRUPPENSPIEL: FLSpiel = spielFields({ id: "0".repeat(24), spieltag_id: "1".repeat(24), team1: side(TEAM_1), team2: side(TEAM_2) });
 
   /** A bracket fixture as the draw leaves it — WIRED and empty, the exact inverse of the group shape. */
-  const KOSPIEL: FLSpiel = FLSpielSchema.parse(
-    spielFields({
-      id: "0".repeat(24),
-      spieltag_id: "1".repeat(24),
-      saison_phase: "halbfinale",
-      team1: null,
-      team2: null,
-      team1_quelle: QUELLE,
-      team2_quelle: { type: "spiel", spiel_nr: 3, ausgang: "sieger" },
-    }),
-  );
+  const KOSPIEL: FLSpiel = spielFields({
+    id: "0".repeat(24),
+    spieltag_id: "1".repeat(24),
+    saison_phase: "halbfinale",
+    team1: null,
+    team2: null,
+    team1_quelle: QUELLE,
+    team2_quelle: { type: "spiel", spiel_nr: 3, ausgang: "sieger" },
+  });
 
   const spiel = (fields: Partial<FLSpiel> = {}): FLSpiel => ({ ...GRUPPENSPIEL, ...fields });
   const koSpiel = (fields: Partial<FLSpiel> = {}): FLSpiel => ({ ...KOSPIEL, ...fields });

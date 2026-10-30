@@ -19,7 +19,7 @@ import { berichtSperre, berlinZeitpunkt } from "../../utils";
 import { VorschlagText } from "../ui/VorschlagText";
 import { BerichtEintraege } from "./BerichtEintraege";
 
-import type { FLSpielberichtBericht } from "../../schemas";
+import type { FLSpielberichtBericht } from "@/core/generated/client/types";
 import type { Eingesetzt, SpielberichtStand } from "../../types";
 
 const KORREKTUR = "Spielbericht bearbeiten";

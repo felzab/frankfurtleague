@@ -4,15 +4,15 @@ import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
 import { SPIELBERICHT_ZUSTAENDE_OFFEN, SPIELBERICHT_ZUSTAND_TONE } from "./constants";
 
-import type { PillTone } from "@/shared/components/ui/badges";
-import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   FLSpielberichtSeiten,
   FLSpielberichtSpiel,
   FLSpielberichtSpieler,
   FLSpielberichtVorschlag,
   FLSpielberichtZustandEintrag,
-} from "./schemas";
+} from "@/core/generated/client/types";
+import type { PillTone } from "@/shared/components/ui/badges";
+import type { FieldErrors } from "@/shared/utils/validation";
 import type { Eingesetzt } from "./types";
 
 /**
