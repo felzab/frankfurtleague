@@ -46,6 +46,10 @@ ADMIN_ACTOR = Actor(kind="admin_session", email="admin@example.com")
 ROUTE = ("PATCH", "/api/v0/teams/{team_id}")
 TRACE_ID = "0123456789abcdef0123456789abcdef"
 
+# Outside `EDITED_COLLECTIONS`, whose fan-outs narrow their filter and whose creates stamp a version
+# (`app/core/crud.py`): the two cases reading what the helper passed on judge the recording alone.
+UNVERSIONED = Collection.EINLADUNGEN
+
 # A stand-in for the caller's session, outside a transaction: what is proved is that the row travels inside whatever the caller passed.
 SESSION = cast(AsyncClientSession, SimpleNamespace(in_transaction=False))
 
@@ -196,7 +200,7 @@ class TestWhatEachWriteRecords:
 
     def test_a_fan_out_records_the_filter_it_matched_on_and_no_prior_image(self):
         """It matched a filter rather than a document, so there is no single image to hold and nothing to name in `document_id`."""
-        target, log = build(modified_count=MATCHED)
+        target, log = build(UNVERSIONED, modified_count=MATCHED)
 
         asyncio.run(patch_many_in_db(collection=as_collection(target), db_filter=FILTER, update=UPDATE))
 
@@ -251,7 +255,7 @@ class TestWhatEachWriteRecords:
 
     def test_a_bulk_create_hands_the_driver_the_documents_unchanged(self):
         """A helper editing what it was given would put a document into the database no caller composed."""
-        target, _ = build()
+        target, _ = build(UNVERSIONED)
 
         asyncio.run(post_many_to_db(collection=as_collection(target), documents=CREATED_DOCUMENTS))
 
