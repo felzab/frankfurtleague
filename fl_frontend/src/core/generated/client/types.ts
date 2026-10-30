@@ -4685,13 +4685,6 @@ export interface FLSpielJoinedAdmin {
   uhrzeit: string | null;
 }
 
-export type FLSpielSeite = (typeof FLSpielSeite)[keyof typeof FLSpielSeite];
-
-export const FLSpielSeite = {
-  team1: "team1",
-  team2: "team2",
-} as const;
-
 export type FLSpielStatus = (typeof FLSpielStatus)[keyof typeof FLSpielStatus];
 
 export const FLSpielStatus = {
