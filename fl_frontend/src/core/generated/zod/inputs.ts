@@ -1276,7 +1276,7 @@ export const IdentitaetPostAbmeldungBody = zod
   .object({
     email: zod.string().max(identitaetPostAbmeldungBodyEmailMax).regex(identitaetPostAbmeldungBodyEmailRegExp),
   })
-  .describe("The mailbox whose every session the page ends next, looked up as the erasure looks one up.");
+  .describe("The mailbox an erasure, its preview or a sign-out of every session is looked up by.");
 
 /**
  * Answer what the sign-in gate decides on for one mailbox: its own records, its pending confirmation, its ban and its grant.
@@ -1383,7 +1383,7 @@ export const IdentitaetGetErasureAnsichtAufAnfrageBody = zod
   .object({
     email: zod.string().max(identitaetGetErasureAnsichtAufAnfrageBodyEmailMax).regex(identitaetGetErasureAnsichtAufAnfrageBodyEmailRegExp),
   })
-  .describe("The mailbox the reveal is read for, in the BODY for `FLSubjektPayload`'s reason.");
+  .describe("The mailbox an erasure, its preview or a sign-out of every session is looked up by.");
 
 /**
  * Answer whether a standing ban holds the one address the frontend's mailer is about to send to.

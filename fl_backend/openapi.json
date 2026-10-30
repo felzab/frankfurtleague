@@ -385,23 +385,6 @@
         "title": "FLAblehnenBewerbungResponse",
         "type": "object"
       },
-      "FLAbmeldungPayload": {
-        "additionalProperties": false,
-        "description": "The mailbox whose every session the page ends next, looked up as the erasure looks one up.",
-        "properties": {
-          "email": {
-            "maxLength": 254,
-            "pattern": "@",
-            "title": "Email",
-            "type": "string"
-          }
-        },
-        "required": [
-          "email"
-        ],
-        "title": "FLAbmeldungPayload",
-        "type": "object"
-      },
       "FLAbmeldungResponse": {
         "description": "The envelope alone: the log row it filed names no address to answer with.",
         "properties": {},
@@ -5814,6 +5797,23 @@
         ],
         "type": "string"
       },
+      "FLErasureAdressePayload": {
+        "additionalProperties": false,
+        "description": "The mailbox an erasure, its preview or a sign-out of every session is looked up by.",
+        "properties": {
+          "email": {
+            "maxLength": 254,
+            "pattern": "@",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "FLErasureAdressePayload",
+        "type": "object"
+      },
       "FLErasureAnsichtAdresswechsel": {
         "description": "Another address's live change naming this one as its new address: the change ends, its address's records standing.",
         "properties": {
@@ -5959,23 +5959,6 @@
           "inactive_since"
         ],
         "title": "FLErasureAnsichtKader",
-        "type": "object"
-      },
-      "FLErasureAnsichtPayload": {
-        "additionalProperties": false,
-        "description": "The mailbox the reveal is read for, in the BODY for `FLSubjektPayload`'s reason.",
-        "properties": {
-          "email": {
-            "maxLength": 254,
-            "pattern": "@",
-            "title": "Email",
-            "type": "string"
-          }
-        },
-        "required": [
-          "email"
-        ],
-        "title": "FLErasureAnsichtPayload",
         "type": "object"
       },
       "FLErasureAnsichtRegistrierung": {
@@ -21970,7 +21953,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLAbmeldungPayload"
+                "$ref": "#/components/schemas/FLErasureAdressePayload"
               }
             }
           },
@@ -22201,7 +22184,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLErasureAnsichtPayload"
+                "$ref": "#/components/schemas/FLErasureAdressePayload"
               }
             }
           },
