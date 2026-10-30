@@ -16,7 +16,7 @@ reads like a constant of this league is nearly always one some season chose for 
 | [The life of a season](#the-life-of-a-season)                       | What each stage opens, what it closes, and the one way back    |
 | [The competition's own rules](#the-competitions-own-rules)          | What would be different in another league                      |
 | [Stored and computed](#what-is-stored-and-what-is-computed)         | Which facts a document holds and which follow from the matches |
-| [What a write is checked against](#what-a-write-is-checked-against) | Why a rule lives in the validator, the model or the endpoint   |
+| [What a write is checked against](#what-a-write-is-checked-against) | Why a rule lives in the model, the index or the endpoint       |
 | [Where the German misleads](#where-the-german-misleads)             | The trap that belongs to no single term                        |
 | [What the model permits](#what-the-model-permits-on-purpose)        | The states no write refuses, and why refusing would be wrong   |
 
@@ -232,16 +232,16 @@ match count follows from the season's rules and is held nowhere.
 
 ## What a write is checked against
 
-| Layer                          | Enforces                                                    | Why not elsewhere                                                        |
-| ------------------------------ | ----------------------------------------------------------- | ------------------------------------------------------------------------ |
-| **`$jsonSchema` validators**   | BSON types, required keys, closed enums                     | Only these fail _silently_; a bad range fails Pydantic on the next read  |
-| **Pydantic models**            | Ranges, patterns, lengths, cross-field shape                | A validator cannot express them, and a wrong value is loud               |
-| **`find_*_refusal` functions** | Everything spanning more than one document                  | No validator sees more than one document                                 |
-| **The pages that offer**       | Offering only legal choices, and reporting permitted states | A page may never be the only enforcement — a direct API call bypasses it |
+| Layer                          | Enforces                                                                        | Why not elsewhere                                                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **Pydantic models**            | Types, required keys, closed sets, ranges, patterns, lengths, cross-field shape | Every write passes its payload model, and every served read its response model, so a wrong value is loud |
+| **Unique indexes**             | One document per key (`fl_backend/app/core/constraints.py :: UNIQUE_INDEXES`)   | Only the database sees two writes racing for one key                                                     |
+| **`find_*_refusal` functions** | Everything spanning more than one document                                      | No model sees more than one document                                                                     |
+| **The pages that offer**       | Offering only legal choices, and reporting permitted states                     | A page may never be the only enforcement — a direct API call bypasses it                                 |
 
-The line between the first two is itself tested:
-`fl_backend/tests/core/test_constraints.py :: test_no_validator_constrains_a_range_or_a_format` fails a
-validator that reaches past it. **The pages narrow the offer and name what they cannot narrow; they never
+Nothing in the database refuses a document of another shape, so a migration paste is followed by
+`python -m app.readback` (`fl_backend/app/readback.py`), which reads every stored document back through its
+record model and names each one it refuses. **The pages narrow the offer and name what they cannot narrow; they never
 replace the refusal** — the entry form disables a group it can see is full, and the endpoint still judges the
 entry, because a stale form and a direct request each reach it, and on a public page the direct request is
 anyone's.
@@ -251,7 +251,7 @@ reads; `fl_backend/app/core/codes.py :: Code` is each code's one spelling, and `
 them all once, as the failure body's `error_code`.
 
 **The table above is about validity — may this value exist? Read visibility is a different question: may
-this caller see a value that legitimately does?** Neither the validators nor the refusal functions can settle
+this caller see a value that legitimately does?** Neither the models nor the refusal functions can settle
 it, both judging a document and never a caller: the guard on the router decides who may make a read at all,
 and the response model decides what that read serves. Which tier is served which field is
 therefore the response models' to decide — a base-tier fixture read is served neither money

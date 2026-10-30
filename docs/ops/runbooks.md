@@ -89,11 +89,11 @@ the machine is outside the repository. What it does tell you:
   is recreated**, in a one-off container started as the stack starts the service, so with its
   variables, as its own user and in its own group. The frontend's runs the image's own server, which
   runs every boot gate and ends there (`scripts/lib/_lib.sh :: check_frontend_boot_config`): **a value
-  the schema refuses, a secret file missing, blank, not a file or unreadable by that user, a signing
-  key it cannot read, and an `APP_ENV` naming another deployment than the one being deployed each
-  refuse the deploy at exit 2** with nothing recreated — Cloudflare's published test site key under
+  the schema refuses, a secret file missing, blank, not a file or unreadable by that user, and an
+  `APP_ENV` naming another deployment than the one being deployed each refuse the deploy at exit
+  2** with nothing recreated — Cloudflare's published test site key under
   production and a sign-in secret below its library's floor of 32 characters among them. The
-  `CRITICAL` line above the refusal names the variable, the file or the key's path and never a value:
+  `CRITICAL` line above the refusal names the variable or the file and never a value:
   correct a variable in `fl_frontend/.env`, and give a file §16's contents, owner or mode. The
   backend's container builds its settings as its boot does
   (`scripts/lib/_lib.sh :: check_backend_boot_config`), so a file it cannot use and a value its
@@ -176,7 +176,7 @@ the machine is outside the repository. What it does tell you:
     pass writes its claim on the row before reading anything, a write that build's validator refuses
     with code 121, so every pass fails and no change of access is mailed again, where the row is
     still queued as that build boots;
-  - that build's boot attaches its own validators again (§2), which refuse any write over either row.
+  - that build's boot attaches its own validators again, which refuse any write over either row.
 - **Never deploy by tag a build published before `sha-3eebe79`, the first build requiring the
   records as the deletion of every pupil and referee row and the emptying of the action log left
   them; roll forward instead.** Such a build's returning pupil's page stamps a consent label
@@ -1148,8 +1148,8 @@ as `bewerbungen left <n>`.
 
 **A row either pass cannot write is passed over and named, and the pass goes on.** The
 backend's line names the application, the registration or the season row by id, the error's class
-and what locates it, never a person's values: `database_failed` is a write the database refused, with
-the properties its validator refused; `stored_data_invalid` a stored value the answer cannot carry, such as
+and what locates it, never a person's values: `database_failed` is a write the database refused;
+`stored_data_invalid` a stored value the answer cannot carry, such as
 a hand-edited deadline or an empty first name, with the fields refused; and `unhandled_crash` any other
 failure, with the file, line and function it was raised in. The rest of that clock's rows go, and
 the named one stays due: every later pass names it again until its record is repaired. **An application the fourteen-day clock passes over is owed no notice**: the notice is owed in the erasure's own
@@ -1223,7 +1223,7 @@ page for at most the lifetime [section 20](#20-after-a-hand-edit-in-mongodb) sta
 
 **A pupil counted `fehlgeschlagen` stays due, and every later pass meets them again.** The
 backend's line names that pupil's id, the error's class and what locates it, never an address:
-under `database_failed` the properties a validator refused the erasure's write on, under `stored_data_invalid`
+under `database_failed` the write the database refused, under `stored_data_invalid`
 the fields a model refused, and under `unhandled_crash` the file, line and function a failure the
 database did not raise came from. Find the record it points to and repair it, and the pass after
 deletes the pupil. A warning saying the database deadline
@@ -1366,7 +1366,7 @@ question.
 **The state is a seat holding a date beside no `bestaetigt_am`**, and nothing in the product clears
 one: the date arrives with a person's own confirmation and rides with their address through every
 later edit (`fl_backend/app/api/teams/services.py :: _geburtsdatum_held_by`), so no save reaches it,
-and no validator expresses the pairing either, so `--check` reports nothing about it.
+and no record model expresses the pairing either, so the read-back (§2) reports nothing about it.
 
 **It sits on TWO collections, three seats each, and clearing one leaves the other.** One pair of
 declarations builds the block on a `saison_teams` row and on the `bewerbungen` document the people
@@ -1380,14 +1380,14 @@ database shell. Four things decide whether the one pasted is right:
   that is not null beside a `bestaetigt_am` that is null — and read the number of documents each
   update reports as modified against its count.
 - **The `null` half matches the stored null every unconfirmed seat holds**, the key being
-  required (`fl_backend/app/core/constraints.py :: _KONTAKT_KENNTNISNAHME`), and the `$ne: null`
+  required (`fl_backend/app/api/teams/schemas.py :: FLKontaktKenntnisnahme`), and the `$ne: null`
   half a stored value alone, so an empty seat and an already-clear one match neither.
 - **Null rather than `$unset`**, which is the shape every write path stores and every read answers
   as none (`fl_backend/app/api/bewerbungen/services.py :: compose_kontakte`).
 - **One update per seat, each carrying its own seat's term**, for the reason §2's rename gives: a
   dotted path cannot traverse a null, and a document the term matched necessarily holds that seat.
 
-Then `--check` again.
+Then the read-back (§2): exit 0.
 
 ## 13. After a restore from a snapshot
 
@@ -1403,7 +1403,7 @@ own, which stands as its person made it.
 **Never restore a snapshot taken before 2026-10-28 08:25 (Europe/Berlin)**, the moment by which
 every pupil and referee row had been deleted and the action log emptied. It brings back those rows
 and that log, holding addresses nobody asked to keep, and records citing consent labels the
-registry does not hold, which §2's `--check` never reads. The rule lapses once the hosting holds no
+registry does not hold, which §2's read-back passes, a record model taking any label. The rule lapses once the hosting holds no
 snapshot taken before that moment, its snapshot window being about eight days
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); delete it then.
 
@@ -1667,8 +1667,7 @@ cookie comes back. With an expiry-after of zero seconds the stored value is the 
   for the library's full `expiresIn` otherwise, and with the index the store stops serving what the
   guards in `fl_frontend/src/core/auth.ts` would refuse anyway.
 
-**An index dropped by hand after a boot is reported by nothing until the next one**, and
-`app.core.constraints --check` (§2) reads the backend's own declared indexes, which these are not.
+**An index dropped by hand after a boot is reported by nothing until the next one.**
 
 **A Better Auth release that declares an index of its own on a key the list covers throws on every
 write to that collection**, its adapter building the library's name where the list's already

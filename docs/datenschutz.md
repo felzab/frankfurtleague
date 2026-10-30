@@ -527,8 +527,8 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   account, and nothing about a visitor who is not.
 - **A person's own write is recorded under a pseudonym rather than their address.** An address in
   `actor.email` would sit outside the redaction above, an exception taken for administrators and
-  for the reason administrators give, so a person's actor carries none: the binder every router of
-  `fl_backend/app/main.py :: PERSON_ROUTERS` declares
+  for the reason administrators give, so a person's actor carries none: the binder each slice's
+  `person_router.py` declares
   (`fl_backend/app/api/sperrliste/guard.py :: person_actor_binder`) records a stable pseudonym, a keyed hash
   of the folded address as the ban list takes one, and the kind of person the write was made as,
   and the log refuses a person's row carrying an address. Ruled

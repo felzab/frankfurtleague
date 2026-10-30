@@ -64,7 +64,7 @@ export default defineConfig({
         header: SERVER_ONLY,
         operations,
         paramsSerializer: { path: TRANSPORT_PATH, name: "serializeQuery" },
-        // A call answers its success body; `apiClient` throws on any other status.
+        // A call answers its success body; `fl_frontend/src/core/api.ts :: sendToBackend` throws on any other status.
         fetch: { includeHttpResponseReturnType: false },
       },
     },
