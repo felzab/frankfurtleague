@@ -7,7 +7,7 @@ import pytest
 from bson import ObjectId
 
 from app.api.bewerbungen.services import find_saison_frist_refusal
-from app.api.outbox.schemas import FLOutboxDeliveryStand, FLOutboxEventPayload
+from app.api.outbox.schemas import FLOutboxDeliveryState, FLOutboxEventPayload
 from app.api.outbox.services import enqueue_mails
 from app.api.outbox.system_router import post_event
 from app.api.teams.admin_router import get_team_saisons
@@ -70,7 +70,7 @@ ROW_OID = ObjectId("6890a1b2c3d4e5f607990011")
 TODAY = "2026-03-01"
 
 # Owed is the seats a mail's link answers, the event what the provider then reported about it, `None` for none yet.
-Owed = tuple[tuple[FLKontaktRolle, ...], FLOutboxDeliveryStand | None]
+Owed = tuple[tuple[FLKontaktRolle, ...], FLOutboxDeliveryState | None]
 
 
 def read_the_links(
@@ -113,7 +113,7 @@ def read_the_links(
             assert len(mails) == len(owed)
             for mail, (_, event) in zip(mails, owed, strict=True):
                 if event is not None:
-                    ereignis = FLOutboxEventPayload(id=mail.id, stand=event, grund=None, am=MAIL_NOW)
+                    ereignis = FLOutboxEventPayload(id=mail.id, state=event, grund=None, am=MAIL_NOW)
                     await post_event(event_data=ereignis, outbox_collection=database[Collection.OUTBOX])
             roh = await aggregate_many_from_db(collection=database[Collection.TEAMS], pipeline=build_team_saisons_pipeline())
             return roh, await get_team_saisons(
@@ -156,12 +156,12 @@ def test_each_seats_link_is_served_by_its_state_and_never_by_its_hash(mongo_repl
         "declined_at": None,
         "expired": False,
     }
-    assert (trainer["delivery"]["stand"], trainer["delivery"]["delivery"]["stand"], trainer["delivery"]["undeliverable"]) == (
+    assert (trainer["delivery"]["state"], trainer["delivery"]["delivery"]["state"], trainer["delivery"]["undeliverable"]) == (
         "sent",
         "undeliverable",
         True,
     )
-    assert served["ansprechperson"]["delivery"] == {"stand": "sent", "delivery": None, "undeliverable": False}
+    assert served["ansprechperson"]["delivery"] == {"state": "sent", "delivery": None, "undeliverable": False}
     assert served["stellvertretung"] is None
     # Twice: the read drops the hashes, and the model declares none, so neither alone carries them to the wire.
     assert "token_hash" not in json.dumps(roh, default=str)

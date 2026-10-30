@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
-from app.api.outbox.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spieler.schemas import FLEinwilligung
 from app.core.crud import Anchored
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SCHIEDSRICHTER_SCHULE_MAX_LENGTH
@@ -189,7 +189,7 @@ class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     # Why the address tool refuses that change this administrator; null where it opens it or none stands.
     address_change_viewable_denied: FLAddressChangeViewableDenied | None
     # What became of the last confirmation mail the referee was owed; null where none was.
-    delivery: FLOutboxState | None
+    delivery: FLOutboxStatus | None
 
 
 class FLSchiedsrichterSelf(BaseReadModel):

@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 from bson import ObjectId
 
-from app.api.aktionen.schemas import FLActionLogEntry, FLActionLogEntryWithStand
+from app.api.aktionen.schemas import FLActionLogEntry, FLActionLogEntryWithBefore
 from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLSaison, FLSaisonRules
@@ -558,7 +558,7 @@ class TestAStoredPreImageIsNeverRevalidated:
     def test_the_stored_image_is_typed_as_data(self):
         """Two arms because a removal takes a set, and neither names a field of any collection."""
 
-        assert FLActionLogEntryWithStand.model_fields["before"].annotation == dict[str, Any] | list[dict[str, Any]] | None
+        assert FLActionLogEntryWithBefore.model_fields["before"].annotation == dict[str, Any] | list[dict[str, Any]] | None
 
     def test_the_list_model_carries_no_image_at_all(self):
         """The other half of the containment: the page-sized read cannot serve what it does not declare."""

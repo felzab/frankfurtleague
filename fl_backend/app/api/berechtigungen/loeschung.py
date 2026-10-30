@@ -16,7 +16,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.crud import OFFENE_MITTEILUNG, owe_in_session
-from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLGrantStand
+from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLGrantSnapshot
 from app.api.berechtigungen.services import Mitteilung, compare, compose_mitteilung, stand_of
 from app.api.kontakte.services import same_address
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
@@ -204,7 +204,7 @@ async def loeschen_grants_and_authorship_in_session(
     ]
     records_by_id = {record["_id"]: record for record in records}
 
-    changes: list[tuple[ObjectId, FLBerechtigungAenderungArt, FLGrantStand | None, FLGrantStand | None, str | None]] = []
+    changes: list[tuple[ObjectId, FLBerechtigungAenderungArt, FLGrantSnapshot | None, FLGrantSnapshot | None, str | None]] = []
     for grant in grants:
         record = records_by_id.get(grant["_id"])
         # A database edit to the row nobody was told of goes out first, as a revoke's does;

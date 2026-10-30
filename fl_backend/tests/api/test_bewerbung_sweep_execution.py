@@ -638,7 +638,7 @@ class TestTheOneMonthClock:
 
         response, document, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert (response.declined_erased, document) == (1, None)
+        assert (response.erased_declined, document) == (1, None)
         assert rows and all(row["before"] is None for row in rows)
 
     def test_another_seasons_application_is_not_reached(self, mongo_replica_set_url: str):
@@ -681,7 +681,7 @@ class TestTheSeasonsOwnEndClock:
             mongo_replica_set_url, body, status="past", next_status="active"
         )
 
-        assert (response.without_decision_erased, confirmed, past_its_deadline) == (2, None, None)
+        assert (response.erased_without_decision, confirmed, past_its_deadline) == (2, None, None)
         # The accepted one is the successor season's business, and that season still runs.
         assert accepted is not None
         assert rows and all(row["before"] is None and row["redacted_at"] == REDACTED_AT for row in rows)
@@ -698,7 +698,7 @@ class TestTheSeasonsOwnEndClock:
 
         response, confirmed = on_a_league(mongo_replica_set_url, body)
 
-        assert response.without_decision_erased == 0
+        assert response.erased_without_decision == 0
         assert confirmed is not None
 
     def test_the_pass_offers_neither_a_reminder_nor_a_notice_for_a_row_this_clock_takes(self, mongo_replica_set_url: str):
@@ -712,7 +712,7 @@ class TestTheSeasonsOwnEndClock:
         response, mails = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
 
         assert (response.reminded, response.erased, mails) == (0, 0, 0)
-        assert response.without_decision_erased == 2
+        assert response.erased_without_decision == 2
 
     def test_an_application_whose_notice_the_provider_refuses_goes_with_the_season(self, mongo_replica_set_url: str):
         """The hold that has no other end: `deletion_is_due` drops a refused address, so nothing else ever reaches this row."""
@@ -725,13 +725,13 @@ class TestTheSeasonsOwnEndClock:
 
         response, document = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
 
-        assert (response.without_decision_erased, document) == (2, None)
+        assert (response.erased_without_decision, document) == (2, None)
 
     def test_a_second_pass_the_same_day_finds_nothing_left(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await sweep(database, client)
 
-            return first.without_decision_erased, (await sweep(database, client)).without_decision_erased
+            return first.erased_without_decision, (await sweep(database, client)).erased_without_decision
 
         # The first count as well as the second: a clock taking nothing at all answers zero twice.
         assert on_a_league(mongo_replica_set_url, body, status="past", next_status="active") == (2, 0)
@@ -746,7 +746,7 @@ class TestTheSeasonAndOneClock:
 
         response, document, row = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
 
-        assert (response.accepted_erased, response.kontakt_blocks_emptied) == (0, 0)
+        assert (response.erased_accepted, response.kontakt_blocks_emptied) == (0, 0)
         assert document is not None and row is not None and row["kontakte"] is not None
 
     def test_the_application_goes_and_the_contact_block_empties_once_the_next_season_is_past(self, mongo_replica_set_url: str):
@@ -762,7 +762,7 @@ class TestTheSeasonAndOneClock:
 
         response, document, row, junction_log = on_a_league(mongo_replica_set_url, body, status="past", next_status="past")
 
-        assert (response.accepted_erased, response.kontakt_blocks_emptied, document) == (1, 1, None)
+        assert (response.erased_accepted, response.kontakt_blocks_emptied, document) == (1, 1, None)
         assert row is not None and row["kontakte"] is None
         # The block's own keys survive around the clearing: the row is still a junction row.
         assert (row["gruppe"], row["trikot_farbe"]) == ("B", "blau")
@@ -792,7 +792,7 @@ class TestTheSeasonAndOneClock:
             "sent_at": "2026-03-02",
             "frist": "2026-03-16",
             "declined_at": None,
-            "delivery": {"message_id": "msg-1", "stand": "delivered", "grund": None, "am": "2026-03-02T10:00:00+01:00"},
+            "delivery": {"message_id": "msg-1", "state": "delivered", "grund": None, "am": "2026-03-02T10:00:00+01:00"},
         }
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -819,7 +819,7 @@ class TestTheSeasonAndOneClock:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await sweep(database, client)
 
-            return response.accepted_erased, response.kontakt_blocks_emptied
+            return response.erased_accepted, response.kontakt_blocks_emptied
 
         assert on_a_league(mongo_replica_set_url, body, status="past", next_status=None) == (0, 0)
 
@@ -841,7 +841,7 @@ class TestTheSeasonAndOneClock:
             await database[Collection.SAISONS].insert_one(season(SKIPPED_TO_SAISON_ID, "past"))
             response = await sweep(database, client)
 
-            return response.accepted_erased, response.kontakt_blocks_emptied
+            return response.erased_accepted, response.kontakt_blocks_emptied
 
         assert on_a_league(mongo_replica_set_url, body, status="past", next_status=between) == (1, 1)
 
@@ -858,7 +858,7 @@ class TestTheSeasonAndOneClock:
 
         response, document, row = on_a_league(mongo_replica_set_url, body, status="active", next_status="past")
 
-        assert (response.accepted_erased, response.kontakt_blocks_emptied) == (0, 0)
+        assert (response.erased_accepted, response.kontakt_blocks_emptied) == (0, 0)
         assert document is not None and row is not None and row["kontakte"] is not None
 
     def test_a_running_season_whose_id_is_no_year_still_fails_the_pass(self, mongo_replica_set_url: str):
@@ -1000,7 +1000,7 @@ class TestAnActivationInsideAnLoeschenTransactionKeepsTheSeasonsRows:
                 interleaved.rival_outcome,
                 await database[Collection.SAISONS].find_one({"_id": SAISON_ID}),
                 (
-                    response.accepted_erased,
+                    response.erased_accepted,
                     response.kontakt_blocks_emptied,
                     await stored(database, ACCEPTED_OID) is not None,
                     junction_row is not None and junction_row["kontakte"] is not None,
@@ -1101,7 +1101,7 @@ class TestOneRowHoldsBackNoOther:
             answer = await sweep(database, client)
 
             return (
-                (answer.without_decision_erased, answer.declined_erased, answer.failed),
+                (answer.erased_without_decision, answer.erased_declined, answer.failed),
                 await stored(database, REMIND_OID),
                 await stored(database, DELETE_OID),
             )
@@ -1125,7 +1125,7 @@ class TestOneRowHoldsBackNoOther:
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
             answer, refused, other, chased = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
-        assert (answer.declined_erased, answer.failed) == (1, 1)
+        assert (answer.erased_declined, answer.failed) == (1, 1)
         assert (refused is not None, other) == (True, None)
         # The clocks after it ran: the drive at the fork found the reminder unstamped and the call raising every pass.
         assert (chased, answer.erased) == ({REMIND_OID}, 1)
@@ -1140,7 +1140,7 @@ class TestOneRowHoldsBackNoOther:
             answer = await sweep(database, client)
 
             return (
-                (answer.accepted_erased, answer.kontakt_blocks_emptied, answer.failed),
+                (answer.erased_accepted, answer.kontakt_blocks_emptied, answer.failed),
                 await stored(database, ACCEPTED_OID),
                 await stored(database, SECOND_OID),
             )
@@ -1556,7 +1556,7 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
         answer, names = on_a_league(mongo_replica_set_url, body, status="future", next_status="past")
         rows = answer.reminded + answer.kontakt_blocks_emptied
 
-        assert (answer.declined_erased, answer.accepted_erased, answer.erased, rows) == (1, 1, 1, 4)
+        assert (answer.erased_declined, answer.erased_accepted, answer.erased, rows) == (1, 1, 1, 4)
         assert sum(names.values()) - budget.ROUND_TRIPS_A_ROW * rows == budget.SWEEP_OTHER_COMMANDS, names
 
 
@@ -1576,7 +1576,7 @@ class TestAPageAndOneMoreIsDrained:
             await database[Collection.BEWERBUNGEN].insert_many([application(numbered(position), **declined) for position in range(overflow)])
             response = await sweep(database, client)
 
-            return response.declined_erased, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
+            return response.erased_declined, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
 
         assert on_a_league(mongo_replica_set_url, body) == (overflow, 0)
 
@@ -1588,7 +1588,7 @@ class TestAPageAndOneMoreIsDrained:
             await database[Collection.BEWERBUNGEN].insert_many([application(numbered(position)) for position in range(overflow)])
             response = await sweep(database, client)
 
-            return response.without_decision_erased, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
+            return response.erased_without_decision, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
 
         assert on_a_league(mongo_replica_set_url, body, status="past", next_status="active") == (overflow, 0)
 
@@ -1606,7 +1606,7 @@ class TestAPageAndOneMoreIsDrained:
             await database[Collection.BEWERBUNGEN].insert_many([application(numbered(position), **accepted) for position in range(overflow)])
             response = await sweep(database, client)
 
-            return response.accepted_erased, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
+            return response.erased_accepted, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
 
         assert on_a_league(mongo_replica_set_url, body, status="past", next_status="past") == (overflow, 0)
 
@@ -1621,7 +1621,7 @@ class TestAPageAndOneMoreIsDrained:
             await database[Collection.BEWERBUNGEN].delete_many({})
             await database[Collection.BEWERBUNGEN].insert_many([*seeded, application(numbered(SWEEP_PAGE + 1), **due)])
 
-            return (await sweep(database, client)).declined_erased
+            return (await sweep(database, client)).erased_declined
 
         assert on_a_league(mongo_replica_set_url, body) == 1
 
@@ -1643,7 +1643,7 @@ def a_declined_confirmation(team_id: ObjectId, saison_id: str) -> dict[str, Any]
         team1={"team_id": team_id},
         team2={"team_id": CLUB_OID},
     )
-    delivered = {"message_id": "msg-1", "stand": "delivered", "grund": None, "am": f"{saison_id}-04-02T09:00:00+00:00"}
+    delivered = {"message_id": "msg-1", "state": "delivered", "grund": None, "am": f"{saison_id}-04-02T09:00:00+00:00"}
 
     return documents.spielbestaetigung_document(
         fixture,

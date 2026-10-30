@@ -260,8 +260,8 @@ STALL = "sleep(60000) || true"
 # Long enough that the team before the stall is minted inside it on a loaded machine.
 SHORT_REQUEST_DEADLINE_S = 1.5
 
-MINT_FAILED = "erzeugung_failed"
-MINT_OUTCOME_UNKNOWN = "erzeugung_uncertain"
+MINT_FAILED = "mint_failed"
+MINT_OUTCOME_UNKNOWN = "mint_uncertain"
 
 
 def _seeded_link(team_id: ObjectId) -> dict[str, Any]:

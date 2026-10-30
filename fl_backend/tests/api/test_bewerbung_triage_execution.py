@@ -1377,8 +1377,8 @@ class TestCorrectingOneContactAddress:
 
         before, after = on_a_league(mongo_replica_set_url, body)
 
-        assert before is not None and before.delivery is not None and before.delivery.stand == "undeliverable"
-        assert after is not None and (after.stand, after.delivery) == ("open", None)
+        assert before is not None and before.delivery is not None and before.delivery.state == "undeliverable"
+        assert after is not None and (after.state, after.delivery) == ("open", None)
 
     def test_one_person_holding_two_seats_is_corrected_on_both(self, mongo_replica_set_url: str):
         """A seat left on the old address keeps a live link to a mailbox the league has stopped using."""

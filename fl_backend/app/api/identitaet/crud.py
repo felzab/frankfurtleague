@@ -547,7 +547,7 @@ async def loeschen_the_mails_in_session(
         collection=outbox_collection,
         pipeline=[
             {"$match": {"art": {"$ne": "account_erasure"}}},
-            {"$project": {"an": 1, "art": 1, "stand": 1, "data.now": 1, "data.before": 1, "data.changed_by": 1}},
+            {"$project": {"an": 1, "art": 1, "state": 1, "data.now": 1, "data.before": 1, "data.changed_by": 1}},
         ],
         session=session,
     )
@@ -557,7 +557,7 @@ async def loeschen_the_mails_in_session(
 
     # The person's own address the grants' step withholds; a replaced one only this chain finds.
     for row in rows:
-        if row["_id"] in ids or row["art"] != "grant" or row["stand"] != "open" or not replaced:
+        if row["_id"] in ids or row["art"] != "grant" or row["state"] != "open" or not replaced:
             continue
         daten = row.get("data") or {}
         withheld: dict[str, Any] = {}

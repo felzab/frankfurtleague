@@ -17,7 +17,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.berechtigungen.loeschung import GeloeschtGrantsAndAuthorship, loeschen_grants_and_authorship_in_session
-from app.api.berechtigungen.schemas import FLGrantStand
+from app.api.berechtigungen.schemas import FLGrantSnapshot
 from app.api.berechtigungen.services import compose_mitteilung
 from app.api.einladungen.services import compose_einladung
 from app.api.kontakte.services import same_address
@@ -107,8 +107,8 @@ def announced(grant_id: ObjectId, adresse: str, verwaltung: str) -> dict[str, An
 def notice(
     row_id: ObjectId, grant_id: ObjectId, art: Any, jetzt: str | None, before: str | None, von: str, *, barred: frozenset[str] = frozenset()
 ) -> dict[str, Any]:
-    def stand(adresse: str | None) -> FLGrantStand | None:
-        return None if adresse is None else FLGrantStand(adresse=adresse, verwaltung="administration")
+    def stand(adresse: str | None) -> FLGrantSnapshot | None:
+        return None if adresse is None else FLGrantSnapshot(adresse=adresse, verwaltung="administration")
 
     mitteilung = compose_mitteilung(
         grant_id=grant_id, art=art, jetzt=stand(jetzt), before=stand(before), changed_by=von, now=QUEUED, barred=barred
@@ -124,7 +124,7 @@ def notice(
         "secret": None,
         "reference": None,
         "link": None,
-        "stand": "open",
+        "state": "open",
         "recorded_at": QUEUED,
         "frist": QUEUED + ZUSTELLFRIST,
         "erase_at": QUEUED + ZUSTELLFRIST + RETENTION,

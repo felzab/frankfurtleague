@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.admin_router import get_action_log
-from app.api.aktionen.schemas import FLActionLogEntry, FLActionLogEntryWithStand, FLAktionenFilterParams, FLAktionenListAdapter
+from app.api.aktionen.schemas import FLActionLogEntry, FLActionLogEntryWithBefore, FLAktionenFilterParams, FLAktionenListAdapter
 from app.api.aktionen.services import akteur_adressen, mit_vorenthaltenem_akteur
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -63,13 +63,13 @@ class TestARecordedRowSurvivesTheResponseModel:
     """
 
     def test_a_stored_pre_image_serializes_to_json(self):
-        serialized = FLActionLogEntryWithStand.model_validate(served_row()).model_dump_json()
+        serialized = FLActionLogEntryWithBefore.model_validate(served_row()).model_dump_json()
 
         assert json.loads(serialized)["before"]["ergebnis"] == "2:1"
 
     def test_every_objectid_in_the_pre_image_becomes_text(self):
         """`ObjectId` has no JSON form, so one left anywhere under `before` raises on serialization."""
-        before = json.loads(FLActionLogEntryWithStand.model_validate(served_row()).model_dump_json())["before"]
+        before = json.loads(FLActionLogEntryWithBefore.model_validate(served_row()).model_dump_json())["before"]
 
         assert before["_id"] == "6890a1b2c3d4e5f607200010"
         assert before["team1"]["team_id"] == "6890a1b2c3d4e5f607200011"
@@ -79,7 +79,7 @@ class TestARecordedRowSurvivesTheResponseModel:
 
     def test_the_pre_image_keeps_every_other_value_as_stored(self):
         """A read model repairs nothing: the row answers with the document as it was, minus the id types."""
-        before = FLActionLogEntryWithStand.model_validate(served_row()).before
+        before = FLActionLogEntryWithBefore.model_validate(served_row()).before
 
         # One document, never the array a removal stores: this row records a patch.
         assert isinstance(before, dict)
@@ -130,8 +130,8 @@ class TestAPersonsPseudonymIsServedAsItsPrefix:
 
     PERSON = {"kind": "person_session", "pseudonym": "3f9a07c2" + "d" * 56, "funktion": "spieler"}
 
-    @pytest.mark.parametrize("model", [FLActionLogEntry, FLActionLogEntryWithStand])
-    def test_both_reads_serve_the_first_eight_characters(self, model: type[FLActionLogEntry] | type[FLActionLogEntryWithStand]):
+    @pytest.mark.parametrize("model", [FLActionLogEntry, FLActionLogEntryWithBefore])
+    def test_both_reads_serve_the_first_eight_characters(self, model: type[FLActionLogEntry] | type[FLActionLogEntryWithBefore]):
         served = json.loads(model.model_validate(served_row(actor=dict(self.PERSON))).model_dump_json())["actor"]
 
         assert served == {"kind": "person_session", "pseudonym": "3f9a07c2", "funktion": "spieler"}
@@ -146,8 +146,8 @@ class TestAPersonsPseudonymIsServedAsItsPrefix:
 class TestABarredActorIsWithheldOnBothReads:
     """No barred address is served in plain, an actor's included."""
 
-    @pytest.mark.parametrize("model", [FLActionLogEntry, FLActionLogEntryWithStand])
-    def test_an_address_the_ban_list_holds_is_null_beside_the_flag(self, model: type[FLActionLogEntry] | type[FLActionLogEntryWithStand]):
+    @pytest.mark.parametrize("model", [FLActionLogEntry, FLActionLogEntryWithBefore])
+    def test_an_address_the_ban_list_holds_is_null_beside_the_flag(self, model: type[FLActionLogEntry] | type[FLActionLogEntryWithBefore]):
         row = mit_vorenthaltenem_akteur(stored_row(), {"admin@example.invalid"})
         served = json.loads(model.model_validate(row).model_dump_json())
 
@@ -171,7 +171,7 @@ class TestABarredActorIsWithheldOnBothReads:
         """The read a restore starts from: an image with its addresses withheld would restore a document the write never replaced."""
 
         row = mit_vorenthaltenem_akteur(stored_row(before={**STORED_SPIEL, "created_by": "admin@example.invalid"}), {"admin@example.invalid"})
-        before = FLActionLogEntryWithStand.model_validate(row).before
+        before = FLActionLogEntryWithBefore.model_validate(row).before
 
         assert isinstance(before, dict)
         assert before["created_by"] == "admin@example.invalid"
@@ -182,7 +182,7 @@ class TestABarredActorIsWithheldOnBothReads:
         with pytest.raises(ValidationError):
             FLActionLogEntry.model_validate(stored_row())
         with pytest.raises(ValidationError):
-            FLActionLogEntryWithStand.model_validate(stored_row())
+            FLActionLogEntryWithBefore.model_validate(stored_row())
 
 
 class TestTheListReportsTheImageWithoutServingIt:

@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.outbox.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxStatus
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import FLKontaktRolle
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -35,7 +35,7 @@ class FLInvitationRow(FLEinladung):
     created_by: CustomNonEmptyString | None
     created_by_barred: bool
     # What became of the last mail owed about it, null where none was ever owed.
-    delivery: FLOutboxState | None
+    delivery: FLOutboxStatus | None
 
 
 class FLInvitationMintResponse(BaseAPIResponse):
@@ -83,13 +83,13 @@ class FLInvitationRecipient(BaseModel):
     email: CustomNonEmptyString
 
 
-# Five ordinary states, a failure and an unknown: `erzeugung_failed` says the league failed
-# that team and `erzeugung_uncertain` that it cannot tell, and a surface words both apart from the
+# Five ordinary states, a failure and an unknown: `mint_failed` says the league failed
+# that team and `mint_uncertain` that it cannot tell, and a surface words both apart from the
 # rest.
 type FLInvitationDispatchGrund = Literal[
     "austritt_entered",
-    "erzeugung_failed",
-    "erzeugung_uncertain",
+    "mint_failed",
+    "mint_uncertain",
     "no_kontaktblock",
     "no_confirmed_kontaktperson",
     "kontakte_barred",

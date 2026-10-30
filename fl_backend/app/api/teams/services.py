@@ -5,7 +5,7 @@ from itertools import combinations, product
 from typing import Any, get_args
 
 from app.api.bewerbungen.services import bestaetigungsfrist_from, row_takes_confirmations, saison_link_is_over, seat_is_answered
-from app.api.outbox.schemas import FLKontaktLinkData, FLOutboxLink, FLOutboxReference, FLOutboxState
+from app.api.outbox.schemas import FLKontaktLinkData, FLOutboxLink, FLOutboxReference, FLOutboxStatus
 from app.api.outbox.services import OwedMail
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
@@ -897,7 +897,7 @@ def _lage_sitz(row: Mapping[str, Any], seat: str) -> str:
 
 
 def mit_linkstand(
-    teams_raw: Sequence[Mapping[str, Any]], *, today: str, lagen: Mapping[tuple[Any, str | None], FLOutboxState]
+    teams_raw: Sequence[Mapping[str, Any]], *, today: str, lagen: Mapping[tuple[Any, str | None], FLOutboxStatus]
 ) -> list[dict[str, Any]]:
     """The memberships read with each stored seat link judged as its press judges it (`saison_link_is_over`), and what became of its mail.
 

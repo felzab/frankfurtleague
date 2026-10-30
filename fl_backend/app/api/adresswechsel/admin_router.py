@@ -61,7 +61,7 @@ from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.berechtigungen.services import genehmiger_of, genehmigung_verwehrt, holds_an_owners_power
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.services import JEDE_VERWALTUNG, find_eigene_adresse_refusal, find_verwaltung_adresse_refusal
-from app.api.outbox.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxStatus
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.spieler.crud import another_pupil_holds
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -71,8 +71,8 @@ from app.core.dependencies import (
     AddressChangeCollection,
     BewerbungenCollection,
     DBClient,
+    GrantApprovalRequestsCollection,
     GrantsAnnouncedCollection,
-    GrantsApprovalRequestsCollection,
     GrantsCollection,
     InvitationsCollection,
     OutboxCollection,
@@ -139,7 +139,7 @@ async def _pull_the_change(
     return record
 
 
-def _offen(record: Mapping[str, Any], *, delivery: FLOutboxState | None, now: datetime) -> FLAddressChangeVerwaltungOpen:
+def _offen(record: Mapping[str, Any], *, delivery: FLOutboxStatus | None, now: datetime) -> FLAddressChangeVerwaltungOpen:
     genehmigung = record.get("approval")
 
     return FLAddressChangeVerwaltungOpen(
@@ -270,7 +270,7 @@ async def post_address_change_verwaltung(
     berechtigungen_collection: GrantsCollection,
     berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
+    berechtigungen_antraege_collection: GrantApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: ActionLogCollection,
     db: DBClient,
@@ -412,7 +412,7 @@ async def invite_address_change(
     spieler_collection: SpielerCollection,
     berechtigungen_collection: GrantsCollection,
     berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
+    berechtigungen_antraege_collection: GrantApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     operator: str = Depends(get_actor_email),
@@ -601,7 +601,7 @@ async def post_address_change_approval(
     berechtigungen_collection: GrantsCollection,
     berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
     outbox_collection: OutboxCollection,
-    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
+    berechtigungen_antraege_collection: GrantApprovalRequestsCollection,
     einladungen_collection: InvitationsCollection,
     sperrliste_collection: SperrlisteCollection,
     sperrliste: SperrlisteLookup,

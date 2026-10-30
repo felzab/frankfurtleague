@@ -394,7 +394,7 @@
           "approval": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLAddressChangeApprovalStand"
+                "$ref": "#/components/schemas/FLAddressChangeApprovalState"
               },
               {
                 "type": "null"
@@ -1473,7 +1473,7 @@
       "FLActionLogEntrySingleResponse": {
         "properties": {
           "action_log_entry": {
-            "$ref": "#/components/schemas/FLActionLogEntryWithStand"
+            "$ref": "#/components/schemas/FLActionLogEntryWithBefore"
           }
         },
         "required": [
@@ -1482,7 +1482,7 @@
         "title": "FLActionLogEntrySingleResponse",
         "type": "object"
       },
-      "FLActionLogEntryWithStand": {
+      "FLActionLogEntryWithBefore": {
         "description": "One recorded write with the document it replaced, which only the single-row read serves.",
         "properties": {
           "actor": {
@@ -1633,7 +1633,7 @@
           "anlass",
           "before"
         ],
-        "title": "FLActionLogEntryWithStand",
+        "title": "FLActionLogEntryWithBefore",
         "type": "object"
       },
       "FLActionLogListResponse": {
@@ -1936,7 +1936,7 @@
         "title": "FLAddressChangeApprovalResponse",
         "type": "object"
       },
-      "FLAddressChangeApprovalStand": {
+      "FLAddressChangeApprovalState": {
         "description": "The approval a change of the person's own grant waits on, as their account page reads it: never who gave it.",
         "properties": {
           "approved": {
@@ -1957,7 +1957,7 @@
           "approved",
           "bis"
         ],
-        "title": "FLAddressChangeApprovalStand",
+        "title": "FLAddressChangeApprovalState",
         "type": "object"
       },
       "FLAddressChangeDiscardedData": {
@@ -2018,43 +2018,6 @@
           "discarded"
         ],
         "type": "string"
-      },
-      "FLAddressChangeHinweisData": {
-        "description": "The address on file's notice of an address change, its stop link minted at the hand-out into `stop.token_hashes`.",
-        "properties": {
-          "art": {
-            "const": "address_change_hinweis",
-            "title": "Art",
-            "type": "string"
-          },
-          "valid_until": {
-            "format": "date-time",
-            "title": "Valid Until",
-            "type": "string"
-          },
-          "vorname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vorname"
-          },
-          "way": {
-            "$ref": "#/components/schemas/FLAddressChangeWay"
-          }
-        },
-        "required": [
-          "art",
-          "way",
-          "valid_until",
-          "vorname"
-        ],
-        "title": "FLAddressChangeHinweisData",
-        "type": "object"
       },
       "FLAddressChangeIdResponse": {
         "properties": {
@@ -2144,6 +2107,43 @@
           "moves"
         ],
         "title": "FLAddressChangeMovesResponse",
+        "type": "object"
+      },
+      "FLAddressChangeNoticeData": {
+        "description": "The address on file's notice of an address change, its stop link minted at the hand-out into `stop.token_hashes`.",
+        "properties": {
+          "art": {
+            "const": "address_change_notice",
+            "title": "Art",
+            "type": "string"
+          },
+          "valid_until": {
+            "format": "date-time",
+            "title": "Valid Until",
+            "type": "string"
+          },
+          "vorname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vorname"
+          },
+          "way": {
+            "$ref": "#/components/schemas/FLAddressChangeWay"
+          }
+        },
+        "required": [
+          "art",
+          "way",
+          "valid_until",
+          "vorname"
+        ],
+        "title": "FLAddressChangeNoticeData",
         "type": "object"
       },
       "FLAddressChangeOpenMove": {
@@ -2369,7 +2369,7 @@
           "delivery": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLOutboxState"
+                "$ref": "#/components/schemas/FLOutboxStatus"
               },
               {
                 "type": "null"
@@ -3136,7 +3136,7 @@
           "delivery": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLOutboxState"
+                "$ref": "#/components/schemas/FLOutboxStatus"
               },
               {
                 "type": "null"
@@ -4093,16 +4093,20 @@
       "FLBewerbungSweepResponse": {
         "description": "One season's pass: each clock's count, every reminder and deletion notice owed in the write it belongs to.",
         "properties": {
-          "accepted_erased": {
-            "title": "Accepted Erased",
-            "type": "integer"
-          },
-          "declined_erased": {
-            "title": "Declined Erased",
-            "type": "integer"
-          },
           "erased": {
             "title": "Erased",
+            "type": "integer"
+          },
+          "erased_accepted": {
+            "title": "Erased Accepted",
+            "type": "integer"
+          },
+          "erased_declined": {
+            "title": "Erased Declined",
+            "type": "integer"
+          },
+          "erased_without_decision": {
+            "title": "Erased Without Decision",
             "type": "integer"
           },
           "failed": {
@@ -4124,19 +4128,15 @@
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
-          },
-          "without_decision_erased": {
-            "title": "Without Decision Erased",
-            "type": "integer"
           }
         },
         "required": [
           "saison_id",
           "reminded",
           "erased",
-          "declined_erased",
-          "accepted_erased",
-          "without_decision_erased",
+          "erased_declined",
+          "erased_accepted",
+          "erased_without_decision",
           "kontakt_blocks_emptied",
           "redacted_action_log",
           "failed"
@@ -6151,7 +6151,7 @@
           "before": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLGrantStand"
+                "$ref": "#/components/schemas/FLGrantSnapshot"
               },
               {
                 "type": "null"
@@ -6194,7 +6194,7 @@
           "now": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLGrantStand"
+                "$ref": "#/components/schemas/FLGrantSnapshot"
               },
               {
                 "type": "null"
@@ -6319,7 +6319,7 @@
         "title": "FLGrantRow",
         "type": "object"
       },
-      "FLGrantStand": {
+      "FLGrantSnapshot": {
         "description": "One grant's address and tier at one moment.",
         "properties": {
           "adresse": {
@@ -6341,7 +6341,7 @@
           "adresse",
           "verwaltung"
         ],
-        "title": "FLGrantStand",
+        "title": "FLGrantSnapshot",
         "type": "object"
       },
       "FLGrantStufeResponse": {
@@ -6515,8 +6515,8 @@
       "FLInvitationDispatchGrund": {
         "enum": [
           "austritt_entered",
-          "erzeugung_failed",
-          "erzeugung_uncertain",
+          "mint_failed",
+          "mint_uncertain",
           "no_kontaktblock",
           "no_confirmed_kontaktperson",
           "kontakte_barred",
@@ -6857,7 +6857,7 @@
           "delivery": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLOutboxState"
+                "$ref": "#/components/schemas/FLOutboxStatus"
               },
               {
                 "type": "null"
@@ -7648,19 +7648,19 @@
             ],
             "title": "Grund"
           },
-          "stand": {
-            "$ref": "#/components/schemas/FLOutboxDeliveryStand"
+          "state": {
+            "$ref": "#/components/schemas/FLOutboxDeliveryState"
           }
         },
         "required": [
-          "stand",
+          "state",
           "grund",
           "am"
         ],
         "title": "FLOutboxDelivery",
         "type": "object"
       },
-      "FLOutboxDeliveryStand": {
+      "FLOutboxDeliveryState": {
         "enum": [
           "delivered",
           "delayed",
@@ -7697,13 +7697,13 @@
             "title": "Id",
             "type": "string"
           },
-          "stand": {
-            "$ref": "#/components/schemas/FLOutboxDeliveryStand"
+          "state": {
+            "$ref": "#/components/schemas/FLOutboxDeliveryState"
           }
         },
         "required": [
           "id",
-          "stand",
+          "state",
           "grund",
           "am"
         ],
@@ -7742,8 +7742,8 @@
                 "account_erasure": "#/components/schemas/FLAccountErasureData",
                 "address_change_discarded": "#/components/schemas/FLAddressChangeDiscardedData",
                 "address_change_effective": "#/components/schemas/FLAddressChangeEffectiveData",
-                "address_change_hinweis": "#/components/schemas/FLAddressChangeHinweisData",
                 "address_change_link": "#/components/schemas/FLAddressChangeLinkData",
+                "address_change_notice": "#/components/schemas/FLAddressChangeNoticeData",
                 "bewerbung_absage": "#/components/schemas/FLBewerbungAbsageData",
                 "bewerbung_confirmation": "#/components/schemas/FLBewerbungLinkData",
                 "bewerbung_erasure": "#/components/schemas/FLBewerbungErasureData",
@@ -7762,10 +7762,10 @@
                 "schiedsrichter_confirmation": "#/components/schemas/FLSchiedsrichterConfirmationData",
                 "sign_in_code": "#/components/schemas/FLSignInCodeData",
                 "sperre": "#/components/schemas/FLSperreData",
-                "spiel_abgesagt": "#/components/schemas/FLSpielHinweisData",
+                "spiel_abgesagt": "#/components/schemas/FLSpielNoticeData",
                 "spiel_einteilung": "#/components/schemas/FLSpielEinteilungData",
                 "spiel_einteilung_lifted": "#/components/schemas/FLSpielEinteilungLiftedData",
-                "spiel_new_angesetzt": "#/components/schemas/FLSpielHinweisData",
+                "spiel_new_angesetzt": "#/components/schemas/FLSpielNoticeData",
                 "spiel_reminder": "#/components/schemas/FLSpielRequestData",
                 "spiel_request": "#/components/schemas/FLSpielRequestData",
                 "spiel_vorschlag_discarded": "#/components/schemas/FLSpielVorschlagDiscardedData"
@@ -7792,7 +7792,7 @@
                 "$ref": "#/components/schemas/FLAddressChangeLinkData"
               },
               {
-                "$ref": "#/components/schemas/FLAddressChangeHinweisData"
+                "$ref": "#/components/schemas/FLAddressChangeNoticeData"
               },
               {
                 "$ref": "#/components/schemas/FLAddressChangeEffectiveData"
@@ -7810,7 +7810,7 @@
                 "$ref": "#/components/schemas/FLSpielEinteilungData"
               },
               {
-                "$ref": "#/components/schemas/FLSpielHinweisData"
+                "$ref": "#/components/schemas/FLSpielNoticeData"
               },
               {
                 "$ref": "#/components/schemas/FLSpielEinteilungLiftedData"
@@ -7970,7 +7970,7 @@
               "sent",
               "retry",
               "abandon",
-              "withheld"
+              "held"
             ],
             "title": "Result",
             "type": "string"
@@ -7993,6 +7993,11 @@
             "title": "Abandoned",
             "type": "integer"
           },
+          "held": {
+            "minimum": 0.0,
+            "title": "Held",
+            "type": "integer"
+          },
           "ignored": {
             "minimum": 0.0,
             "title": "Ignored",
@@ -8007,18 +8012,13 @@
             "minimum": 0.0,
             "title": "Sent",
             "type": "integer"
-          },
-          "withheld": {
-            "minimum": 0.0,
-            "title": "Withheld",
-            "type": "integer"
           }
         },
         "required": [
           "sent",
           "repeated",
           "abandoned",
-          "withheld",
+          "held",
           "ignored"
         ],
         "title": "FLOutboxResultResponse",
@@ -8091,7 +8091,7 @@
         "title": "FLOutboxSignInPayload",
         "type": "object"
       },
-      "FLOutboxState": {
+      "FLOutboxStatus": {
         "description": "What became of the last mail owed about one record and seat, as an editor reads it beside the link.",
         "properties": {
           "delivery": {
@@ -8104,16 +8104,16 @@
               }
             ]
           },
-          "stand": {
+          "state": {
             "enum": [
               "open",
               "sent",
-              "withheld",
+              "held",
               "barred",
               "dropped",
               "abandoned"
             ],
-            "title": "Stand",
+            "title": "State",
             "type": "string"
           },
           "undeliverable": {
@@ -8124,11 +8124,11 @@
           }
         },
         "required": [
-          "stand",
+          "state",
           "delivery",
           "undeliverable"
         ],
-        "title": "FLOutboxState",
+        "title": "FLOutboxStatus",
         "type": "object"
       },
       "FLPasskeyData": {
@@ -10234,6 +10234,27 @@
         "title": "FLRegistrierungDeclinePayload",
         "type": "object"
       },
+      "FLRegistrierungDeclineResponse": {
+        "description": "The declined registration, and the first name the seat holder is told the decision by.",
+        "properties": {
+          "registrierung_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Registrierung Id",
+            "type": "string"
+          },
+          "vorname": {
+            "minLength": 1,
+            "title": "Vorname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "registrierung_id",
+          "vorname"
+        ],
+        "title": "FLRegistrierungDeclineResponse",
+        "type": "object"
+      },
       "FLRegistrierungEinwilligung": {
         "description": "A pending registration's consent record, each choice and `datum` optional here alone.\n\nA returning pupil's page asks no choice.",
         "properties": {
@@ -10364,27 +10385,6 @@
           "deviates_from"
         ],
         "title": "FLRegistrierungPerson",
-        "type": "object"
-      },
-      "FLRegistrierungRefusalResponse": {
-        "description": "The declined registration, and the first name the seat holder is told the decision by.",
-        "properties": {
-          "registrierung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Registrierung Id",
-            "type": "string"
-          },
-          "vorname": {
-            "minLength": 1,
-            "title": "Vorname",
-            "type": "string"
-          }
-        },
-        "required": [
-          "registrierung_id",
-          "vorname"
-        ],
-        "title": "FLRegistrierungRefusalResponse",
         "type": "object"
       },
       "FLRegistrierungStatus": {
@@ -11178,7 +11178,7 @@
           "delivery": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLOutboxState"
+                "$ref": "#/components/schemas/FLOutboxStatus"
               },
               {
                 "type": "null"
@@ -11949,7 +11949,7 @@
           "delivery": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLOutboxState"
+                "$ref": "#/components/schemas/FLOutboxStatus"
               },
               {
                 "type": "null"
@@ -12400,37 +12400,6 @@
           "team2"
         ],
         "title": "FLSpielElfmeterschiessen",
-        "type": "object"
-      },
-      "FLSpielHinweisData": {
-        "description": "A party's word that a fixture it was asked about moved or was called off: the slot it was asked about.",
-        "properties": {
-          "appointment": {
-            "$ref": "#/components/schemas/FLSpielMailAppointment"
-          },
-          "art": {
-            "enum": [
-              "spiel_new_angesetzt",
-              "spiel_abgesagt"
-            ],
-            "title": "Art",
-            "type": "string"
-          },
-          "recipient": {
-            "enum": [
-              "team",
-              "schiedsrichter"
-            ],
-            "title": "Recipient",
-            "type": "string"
-          }
-        },
-        "required": [
-          "art",
-          "recipient",
-          "appointment"
-        ],
-        "title": "FLSpielHinweisData",
         "type": "object"
       },
       "FLSpielJoined": {
@@ -12889,6 +12858,37 @@
           "uhrzeit"
         ],
         "title": "FLSpielMailAppointment",
+        "type": "object"
+      },
+      "FLSpielNoticeData": {
+        "description": "A party's word that a fixture it was asked about moved or was called off: the slot it was asked about.",
+        "properties": {
+          "appointment": {
+            "$ref": "#/components/schemas/FLSpielMailAppointment"
+          },
+          "art": {
+            "enum": [
+              "spiel_new_angesetzt",
+              "spiel_abgesagt"
+            ],
+            "title": "Art",
+            "type": "string"
+          },
+          "recipient": {
+            "enum": [
+              "team",
+              "schiedsrichter"
+            ],
+            "title": "Recipient",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art",
+          "recipient",
+          "appointment"
+        ],
+        "title": "FLSpielNoticeData",
         "type": "object"
       },
       "FLSpielOrtField": {
@@ -14803,7 +14803,7 @@
           "delivery": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLOutboxState"
+                "$ref": "#/components/schemas/FLOutboxStatus"
               },
               {
                 "type": "null"
@@ -21338,7 +21338,7 @@
     },
     "/api/v0/outbox/result": {
       "post": {
-        "description": "Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.\n\n`sent` records the provider's message id; `withheld` a deployment that sends no mail; `abandon` a\nrefusal every send would meet, any 4xx but a 429. A failed send's `grund`, the provider's own name for the refusal,\nis recorded on the row, the send's one record of why. `retry`, for a 429, a 5xx or a send that never reached the\nprovider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a\nmail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not\nhold -- unknown, settled already, or claimed since by another drain after this claim lapsed -- is left alone and\ncounted in `ignored`; the answer counts one outcome. Each write names the claim, so its check and the outcome are\none atomic operation on one row, needing no transaction; a settled row keeps no facts and no secret.",
+        "description": "Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.\n\n`sent` records the provider's message id; `held` a deployment that sends no mail; `abandon` a\nrefusal every send would meet, any 4xx but a 429. A failed send's `grund`, the provider's own name for the refusal,\nis recorded on the row, the send's one record of why. `retry`, for a 429, a 5xx or a send that never reached the\nprovider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a\nmail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not\nhold -- unknown, settled already, or claimed since by another drain after this claim lapsed -- is left alone and\ncounted in `ignored`; the answer counts one outcome. Each write names the claim, so its check and the outcome are\none atomic operation on one row, needing no transaction; a settled row keeps no facts and no secret.",
         "operationId": "outbox_post_result",
         "requestBody": {
           "content": {
@@ -22312,7 +22312,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLRegistrierungRefusalResponse"
+                  "$ref": "#/components/schemas/FLRegistrierungDeclineResponse"
                 }
               }
             },

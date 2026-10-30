@@ -32,7 +32,7 @@ from app.api.berechtigungen.admin_router import (
 from app.api.berechtigungen.crud import owe_in_session
 from app.api.berechtigungen.loeschung import loeschen_grants_and_authorship_in_session
 from app.api.berechtigungen.schemas import (
-    FLGrantStand,
+    FLGrantSnapshot,
     FLPatchGrantPayload,
     FLPostGrantPayload,
 )
@@ -298,8 +298,8 @@ class Notice:
     grant_id: ObjectId
     art: str
     author: str
-    now: FLGrantStand | None
-    before: FLGrantStand | None
+    now: FLGrantSnapshot | None
+    before: FLGrantSnapshot | None
     changed_by: str | None
     changed_at: str | None
     barred: bool
@@ -312,7 +312,7 @@ class Notice:
 async def _open_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     """The grant notices still owed, in the order they were owed: one row per recipient."""
 
-    return [row async for row in database[Collection.OUTBOX].find({"stand": "open", "art": "grant"}).sort([("recorded_at", 1), ("_id", 1)])]
+    return [row async for row in database[Collection.OUTBOX].find({"state": "open", "art": "grant"}).sort([("recorded_at", 1), ("_id", 1)])]
 
 
 def _by_notice(rows: list[Mapping[str, Any]]) -> dict[str, list[Mapping[str, Any]]]:
@@ -338,8 +338,8 @@ async def queued(database: AsyncDatabase) -> list[Mapping[str, Any]]:
 
 
 async def owed(database: AsyncDatabase) -> list[Notice]:
-    def stand(value: Mapping[str, Any] | None) -> FLGrantStand | None:
-        return None if value is None else FLGrantStand.model_validate(value)
+    def stand(value: Mapping[str, Any] | None) -> FLGrantSnapshot | None:
+        return None if value is None else FLGrantSnapshot.model_validate(value)
 
     notices = []
     for key, rows in _by_notice(await _open_rows(database)).items():
@@ -418,7 +418,7 @@ async def told(database: AsyncDatabase, client: AsyncMongoClient) -> None:
     """One comparison pass, and everything owed sent, as a drain settles it."""
 
     await compared(database, client)
-    await database[Collection.OUTBOX].update_many({"stand": "open"}, {"$set": {"stand": "sent"}})
+    await database[Collection.OUTBOX].update_many({"state": "open"}, {"$set": {"state": "sent"}})
 
 
 def summary(notices: list[Notice]) -> list[tuple[str, str | None, str | None]]:
@@ -493,8 +493,8 @@ class TestAReplayOwesNothingTwice:
             mitteilung = compose_mitteilung(
                 grant_id=ANNA_ID,
                 art="changed",
-                jetzt=FLGrantStand(adresse=ANNA, verwaltung="owner"),
-                before=FLGrantStand(adresse=ANNA, verwaltung="administration"),
+                jetzt=FLGrantSnapshot(adresse=ANNA, verwaltung="owner"),
+                before=FLGrantSnapshot(adresse=ANNA, verwaltung="administration"),
                 changed_by=OWNER,
                 now=NOW,
                 barred=(),
@@ -599,7 +599,7 @@ class TestTheNoticeMovesWithItsChange:
 
             return (
                 await database[Collection.GRANTS].count_documents({"_id": BERND_ID}),
-                await database[Collection.OUTBOX].count_documents({"stand": "open"}),
+                await database[Collection.OUTBOX].count_documents({"state": "open"}),
             )
 
         assert on_a_league(mongo_replica_set_url, body) == (1, 0)
@@ -1104,7 +1104,7 @@ class TestTheComparison:
             await told(database, client)
             rows = database[Collection.ACTION_LOG].find({"collection": str(Collection.GRANTS_ANNOUNCED)})
 
-            return [str(row) async for row in rows], await database[Collection.OUTBOX].distinct("_id", {"stand": "open"})
+            return [str(row) async for row in rows], await database[Collection.OUTBOX].distinct("_id", {"state": "open"})
 
         logged, left = on_a_league(mongo_replica_set_url, body)
 
@@ -1195,7 +1195,7 @@ class TestTheComparison:
             await told(database, client)
             await database[Collection.GRANTS].update_one({"_id": BERND_ID}, {"$set": {"adresse": NEU}})
             answer = await compared(database, client)
-            await database[Collection.OUTBOX].update_many({"stand": "open"}, {"$set": {"stand": "sent"}})
+            await database[Collection.OUTBOX].update_many({"state": "open"}, {"$set": {"state": "sent"}})
 
             return [
                 (

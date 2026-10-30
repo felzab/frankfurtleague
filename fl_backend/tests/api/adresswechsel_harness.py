@@ -88,7 +88,7 @@ CONFIRMATION_OID = ObjectId("6890a1b2c3d4e5f607850062")
 UNCONFIRMED_REG_LINK = "the-unconfirmed-registrations-link"
 REFEREE_LABEL = LAUFENDE_FASSUNGEN["bestaetigung_schiedsrichter"]
 
-A_BOUNCE: Mapping[str, Any] = {"message_id": "m-1", "stand": "undeliverable", "grund": "NoEmail", "am": "2126-03-21T10:00:00.000000+00:00"}
+A_BOUNCE: Mapping[str, Any] = {"message_id": "m-1", "state": "undeliverable", "grund": "NoEmail", "am": "2126-03-21T10:00:00.000000+00:00"}
 
 
 def _seat(email: str, *, confirmed: bool) -> dict[str, Any]:
@@ -292,7 +292,7 @@ def read(database: AsyncDatabase, client: AsyncMongoClient, identifier: str = EM
 
 
 # The kinds whose hand-out mints a change's link, and which link each mints.
-_LINKS = {"address_change_link": "token", "address_change_hinweis": "stopp_token"}
+_LINKS = {"address_change_link": "token", "address_change_notice": "stopp_token"}
 
 
 @dataclass(frozen=True)
@@ -325,7 +325,7 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
     held = [mail.id for mail in mails if mail.data.art in _LINKS]
     others = [mail.id for mail in mails if mail.data.art not in _LINKS]
     if held:
-        await database[Collection.OUTBOX].update_many({"_id": {"$in": held}}, {"$set": {"stand": "sent"}})
+        await database[Collection.OUTBOX].update_many({"_id": {"$in": held}}, {"$set": {"state": "sent"}})
     if others:
         await database[Collection.OUTBOX].update_many(
             {"_id": {"$in": others}}, {"$set": {"lease": None, "leased_until": None}, "$inc": {"attempts": -1}}
@@ -433,7 +433,7 @@ async def owed(database: AsyncDatabase) -> list[dict[str, Any]]:
     """The notices the ends owe, in the order the drain hands them out: their kind, their recipient and whom they greet."""
 
     rows = database[Collection.OUTBOX].find(
-        {"art": {"$in": ["address_change_effective", "address_change_discarded"]}, "stand": "open"}, sort=[("recorded_at", 1), ("_id", 1)]
+        {"art": {"$in": ["address_change_effective", "address_change_discarded"]}, "state": "open"}, sort=[("recorded_at", 1), ("_id", 1)]
     )
     return [
         {

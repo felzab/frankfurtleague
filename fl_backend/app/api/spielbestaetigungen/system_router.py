@@ -11,7 +11,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.services import SWEEP_PAGE
 from app.api.outbox.crud import states_of
-from app.api.outbox.schemas import FLOutboxState, FLSpielEinteilungData, FLSpielRequestData
+from app.api.outbox.schemas import FLOutboxStatus, FLSpielEinteilungData, FLSpielRequestData
 from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, anchor_the_referees_told, anchor_the_seats_minted
@@ -668,7 +668,7 @@ async def sweep_spielbestaetigungen(
             session=session,
         )
 
-        def reached(lage: FLOutboxState | None) -> bool:
+        def reached(lage: FLOutboxStatus | None) -> bool:
             return lage is None or not lage.undeliverable
 
         def reminder_of(row: Mapping[str, Any]) -> _Owed:
