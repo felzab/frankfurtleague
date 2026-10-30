@@ -15,7 +15,7 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.einwilligung import CustomEinwilligungTextVersion, FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
 from app.shared.schemas.literals import FLAdresswechselEinsehbarVerwehrt, FLBestaetigungZustand, FLEinwilligungUmfang, FLSortOrder
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
 class _SchiedsrichterWritable(BaseModel):
@@ -62,7 +62,7 @@ class FLSchiedsrichterMint(BaseModel):
     email: CustomNonEmptyString
 
 
-class FLSchiedsrichter(_SchiedsrichterWritable):
+class FLSchiedsrichter(_SchiedsrichterWritable, BaseReadModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # Nullable where the payload is not, for the one row that stands behind nobody
     # (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`). The floor stays on the string branch, an
@@ -195,7 +195,7 @@ class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     adresswechsel_einsehbar_verwehrt: FLAdresswechselEinsehbarVerwehrt | None
 
 
-class FLSchiedsrichterSelbst(BaseModel):
+class FLSchiedsrichterSelbst(BaseReadModel):
     """One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.
 
     For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason, the account page's entry extends it.

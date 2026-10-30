@@ -18,7 +18,7 @@ from app.shared.schemas.literals import (
     FLSpielerPosition,
     FLSpielerStufe,
 )
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
 # does not, and the two ends must accept and refuse the same shirt.
@@ -81,7 +81,7 @@ class _SaisonSpielerWritable(BaseModel):
     rolle: FLSpielerRolle | None
 
 
-class FLSpielerPublic(_SpielerPerson):
+class FLSpielerPublic(_SpielerPerson, BaseReadModel):
     """One squad row as the BASE TIER serves it -- all an anonymous visitor may read.
 
     `build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the

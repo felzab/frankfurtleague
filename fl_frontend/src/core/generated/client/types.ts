@@ -1480,7 +1480,7 @@ export interface FLBestaetigung {
   frist: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   verschickt_am: string;
-  zustellung?: FLBewerbungZustellung | null;
+  zustellung: FLBewerbungZustellung | null;
 }
 
 export type FLBestaetigungZustand = (typeof FLBestaetigungZustand)[keyof typeof FLBestaetigungZustand];
@@ -3113,7 +3113,7 @@ export interface FLKontoSchiedsrichterEinwilligung {
   bestaetigt_text_version: string;
   einwilligung: FLEinwilligung;
   erteilbar: boolean;
-  geburtsdatum?: string | null;
+  geburtsdatum: string | null;
   honorar: number;
   inactive_since: string | null;
   kontakt: FLKontakt;
@@ -3398,11 +3398,11 @@ export interface FLSchiedsrichterMint {
 }
 
 export interface FLSchiedsrichter {
-  bestaetigung?: FLBestaetigung | null;
+  bestaetigung: FLBestaetigung | null;
   /** @minimum 0 */
   default_payment: number;
-  einwilligung?: FLEinwilligung | null;
-  geburtsdatum?: string | null;
+  einwilligung: FLEinwilligung | null;
+  geburtsdatum: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   inactive_since: string | null;
@@ -4366,7 +4366,7 @@ export interface FLSchiedsrichterReactivateResponse {
  * For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason, the account page's entry extends it.
  */
 export interface FLSchiedsrichterSelbst {
-  geburtsdatum?: string | null;
+  geburtsdatum: string | null;
   honorar: number;
   kontakt: FLKontakt;
   /** @minLength 1 */
@@ -5129,7 +5129,7 @@ export interface FLSpielbestaetigungGeschlossen {
  * every live link's hash through the admin read.
  */
 export interface FLSpielbestaetigungSitz {
-  zustellung?: FLBewerbungZustellung | null;
+  zustellung: FLBewerbungZustellung | null;
 }
 
 /**
@@ -5605,8 +5605,8 @@ export interface FLSpielerAdminSingleResponse {
  */
 export interface FLSpielerPublic {
   nachname: string | null;
-  nummer?: string | null;
-  position?: FLSpielerPosition | null;
+  nummer: string | null;
+  position: FLSpielerPosition | null;
   vorname: string | null;
 }
 

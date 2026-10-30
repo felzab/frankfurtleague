@@ -2792,7 +2792,8 @@
         "required": [
           "verschickt_am",
           "erinnert_am",
-          "frist"
+          "frist",
+          "zustellung"
         ],
         "title": "FLBestaetigung",
         "type": "object"
@@ -7679,6 +7680,7 @@
           "schule",
           "kontakt",
           "honorar",
+          "geburtsdatum",
           "inactive_since",
           "einwilligung",
           "bestaetigt_text_version",
@@ -11540,7 +11542,10 @@
           "schule",
           "default_payment",
           "id",
-          "inactive_since"
+          "inactive_since",
+          "bestaetigung",
+          "einwilligung",
+          "geburtsdatum"
         ],
         "title": "FLSchiedsrichter",
         "type": "object"
@@ -11767,7 +11772,8 @@
           "name",
           "schule",
           "kontakt",
-          "honorar"
+          "honorar",
+          "geburtsdatum"
         ],
         "title": "FLSchiedsrichterSelbst",
         "type": "object"
@@ -14971,6 +14977,9 @@
             ]
           }
         },
+        "required": [
+          "zustellung"
+        ],
         "title": "FLSpielbestaetigungSitz",
         "type": "object"
       },
@@ -16123,7 +16132,9 @@
         },
         "required": [
           "vorname",
-          "nachname"
+          "nachname",
+          "nummer",
+          "position"
         ],
         "title": "FLSpielerPublic",
         "type": "object"

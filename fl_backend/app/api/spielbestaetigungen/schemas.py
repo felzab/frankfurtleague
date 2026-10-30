@@ -16,7 +16,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
 )
 from app.shared.schemas.literals import FLKontaktRolle, FLSpielSeite
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # One delivery shape at every home `app/api/zustellung/services.py :: ZIEL_PFADE` names, as the
 # referee's carrier declares it.
@@ -84,7 +84,7 @@ class FLSpielbestaetigungAnsetzung(BaseModel):
     stand: str
 
 
-class FLSpielbestaetigungSitz(BaseModel):
+class FLSpielbestaetigungSitz(BaseReadModel):
     """One seat's link bookkeeping as an administrator reads it -- and NO `token_hashes`.
 
     The hashes are raw document keys the token filter alone reads; a model declaring them would serve
