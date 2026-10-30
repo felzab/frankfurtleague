@@ -29,33 +29,9 @@ const FLSpielerRolleSchema = z.enum(["kapitaen", "co_kapitaen"], { error: "Bitte
  * A consent press's precondition, `FLEinwilligungStandPayload`: each choice's stand as the page was served it, null
  * where no evidence backs that choice, echoed unread, so nothing here reads or derives it.
  */
-export const FLEinwilligungStandSchema = z.object({
+const FLEinwilligungStandSchema = z.object({
   umfang: z.string().nullable(),
   medien: z.string().nullable(),
-});
-
-// Read schemas `features/teams`'s read mirror still composes; the generated types are the ones every reader imports,
-// and these go with that mirror.
-
-/** Mirrors `FLEinwilligungBeleg` — when a person set one consent choice, and under which wording. */
-const FLEinwilligungBelegSchema = z.object({
-  // An instant in UTC, where the block carries a day: two acts on one day are ordered by it.
-  am: z.string(),
-  text_version: z.string(),
-});
-
-/** Mirrors `FLEinwilligungNachweis` — the act that set one choice's value, and on a withdrawal the grant it ended. */
-const FLEinwilligungNachweisSchema = FLEinwilligungBelegSchema.extend({
-  erteilt_zuvor: FLEinwilligungBelegSchema.nullable(),
-});
-
-/**
- * Mirrors `FLEinwilligungNachweise` — each choice's evidence, null until its person sets it. The pupil's,
- * the referee's and a contact seat's record all carry this one shape.
- */
-export const FLEinwilligungNachweiseSchema = z.object({
-  umfang: FLEinwilligungNachweisSchema.nullable(),
-  medien: FLEinwilligungNachweisSchema.nullable(),
 });
 
 // Redesign: goes with its last importer.

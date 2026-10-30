@@ -1,6 +1,7 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
+import { FLKontaktKenntnisnahmeUmfang } from "@/core/generated/client/types";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { FLSpielerKontoEinwilligungPayloadSchema, LinkAntwortTextVersionSchema, WAHL_UNBEKANNT } from "@/features/spieler/schemas";
 import {
@@ -12,13 +13,7 @@ import {
   TEAM_WEBSITE_URL_MAX_LENGTH,
 } from "@/features/teams/constants";
 import { kontaktePersonenRegeln } from "@/features/teams/kontaktePersonen";
-import {
-  FLGruppenNamesSchema,
-  FLKontaktKenntnisnahmeSchema,
-  FLSchulformSchema,
-  FLTrainerZugleichSchema,
-  FLTrikotFarbeSchema,
-} from "@/features/teams/schemas";
+import { FLGruppenNamesSchema, FLSchulformSchema, FLTrainerZugleichSchema, FLTrikotFarbeSchema } from "@/features/teams/schemas";
 import {
   ADDRESS_STADTTEIL_MAX_LENGTH,
   CustomDateStringSchema,
@@ -353,7 +348,7 @@ export const FLEinwilligungErneutPayloadSchema = z.object({
  */
 export const FLBewerbungPersonEinwilligungPayloadSchema = FLSpielerKontoEinwilligungPayloadSchema.extend({
   // Both choices on every press, so moving one never leaves the other judged by nothing.
-  umfang: z.enum(FLKontaktKenntnisnahmeSchema.shape.umfang.options, { error: WAHL_UNBEKANNT }),
+  umfang: z.enum(FLKontaktKenntnisnahmeUmfang, { error: WAHL_UNBEKANNT }),
 });
 
 /**

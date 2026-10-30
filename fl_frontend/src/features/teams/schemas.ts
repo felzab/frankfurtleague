@@ -5,7 +5,6 @@ import z from "zod";
 // hold it (`docs/glossary.md :: Kürzel`). A literal beside it is compared by nothing.
 import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
-import { FLEinwilligungNachweiseSchema } from "@/features/spieler/schemas";
 import {
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
@@ -31,8 +30,7 @@ import { kontaktePersonenRegeln } from "./kontaktePersonen";
 
 // The old club, junction and contact forms' own judgement of their drafts, in words an administrator reads, before
 // each action sends the write through the generated client, which types the body against the write's published
-// contract. The three read schemas below the payloads serve the applications', contacts' and account slices' own
-// answer mirrors, which their lanes remove.
+// contract.
 
 /** A closed set. German error because the group picker binds this schema, and an untouched picker submits null. */
 export const FLGruppenNamesSchema = z.enum(GRUPPEN_OPTIONS, { error: "Bitte wähle eine Gruppe." });
@@ -263,18 +261,4 @@ export const FLReplaceSaisonTeamPayloadSchema = z.object({
   // The only field on the wire: the row keeps its group, and its copy of the identity is reseeded
   // from the incoming club, so a client-supplied name could only disagree with it.
   incoming_team_id: CustomObjectIdStringSchema,
-});
-
-/**
- * Which wording a contact person was shown, and on whose word the record is held. The wider `umfang` is its person's
- * alone to write, so the administrator's payload above keeps the one-member literal.
- */
-export const FLKontaktKenntnisnahmeSchema = z.object({
-  umfang: z.enum(["kontaktdaten", "kontaktdaten_whatsapp"], { error: "Die Kenntnisnahme gilt für Kontaktdaten, mit oder ohne WhatsApp." }),
-  text_version: z.string(),
-  datum: CustomDateStringSchema,
-  bestaetigt_am: CustomDateStringSchema.nullable(),
-  medien: z.boolean(),
-  eingetragen_von: z.enum(["bewerbung", "liga"]),
-  nachweis: FLEinwilligungNachweiseSchema,
 });
