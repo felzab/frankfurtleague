@@ -18,7 +18,7 @@ export default function SaisonsLayout({ children }: { children: ReactNode }) {
       groups={[{ entries: [{ id: "spielplan", label: COPY.seite.spielplan, saison: "spielplan", icon: "spielplan" }] }]}
       bar={["spielplan"]}
       saison={{ saisons: readSeasons(), home: "spielplan" }}
-      foot={{ kind: "anmelden", href: ROUTES.signIn.path() }}>
+      foot={{ kind: "signIn", href: ROUTES.signIn.path() }}>
       {children}
     </RailFrame>
   );

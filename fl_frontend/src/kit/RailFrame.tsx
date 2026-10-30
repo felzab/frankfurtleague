@@ -23,7 +23,7 @@ import type { ChipProps } from "./Chip";
 import type { AccountRead, FrameSaisons, RailGroup } from "./FrameNav";
 
 /** The rail's foot: the account signed in, which streams in, or „Anmelden“ where nobody is. */
-type RailFoot = { kind: "account"; account: AccountRead } | { kind: "anmelden"; href: Route };
+type RailFoot = { kind: "account"; account: AccountRead } | { kind: "signIn"; href: Route };
 
 /** The phone bar's pages, by their entries' ids: up to four, „Mehr“ and the account taking the other places. */
 type Bar = readonly [string] | readonly [string, string] | readonly [string, string, string] | readonly [string, string, string, string];
@@ -68,7 +68,7 @@ export function RailFrame({
   const account = foot.kind === "account" ? foot.account : undefined;
   // Signed out, the phone reaches „Anmelden“ and the two legal pages through „Mehr“ (the strip carries them on desktop).
   const extra =
-    foot.kind === "anmelden"
+    foot.kind === "signIn"
       ? [
           { label: COPY.shared.verb.anmelden, href: foot.href },
           { label: COPY.seite.impressum, href: ROUTES.impressum.path() },

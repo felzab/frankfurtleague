@@ -56,7 +56,7 @@ export const ROUTES = {
   about: { path: () => "/about" as const, title: COPY.seite.about, indexed: true },
   kontakt: { path: () => "/kontakt" as const, title: COPY.seite.kontakt, indexed: true },
   // Session 3: its page is built.
-  sponsoren: { path: () => "/sponsors" as const, title: COPY.seite.sponsoren, indexed: true },
+  sponsors: { path: () => "/sponsors" as const, title: COPY.seite.sponsoren, indexed: true },
   impressum: { path: () => "/impressum" as const, title: COPY.seite.impressum, indexed: true },
   datenschutz: { path: () => "/datenschutz" as const, title: COPY.seite.datenschutz, indexed: true },
   /** Signing in, which every page signed out offers as „Anmelden“. */
