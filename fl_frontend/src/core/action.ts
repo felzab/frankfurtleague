@@ -202,11 +202,6 @@ function logFailure(name: string, error: unknown): void {
   logger.error("action.failed", undefined, { action: name, name: error instanceof Error ? error.name : "unknown", ...requestOf(error) });
 }
 
-/** The bot check's refusal as the catalogue holds it, found by its words. */
-function checkRefusal(satz: string): Copy {
-  return Object.values(COPY.shared.pruefung).find((text) => text === satz) ?? COPY.shared.fehler.unerwartet;
-}
-
 /** A person turned away, by the operation and the reason, never an address. */
 function turnedAwayPerson(operation: string, grund: "keine_sitzung" | "kein_sitz"): ActionAnswer<never> {
   logger.info("funktion.verweigert", { operation, grund });
@@ -244,7 +239,7 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
         // First, before the input is read at all: nothing an unverified sender posted is parsed.
         const token = raw instanceof FormData ? raw.get(TURNSTILE_FIELD) : (raw as Partial<Record<string, unknown>> | null)?.[TURNSTILE_FIELD];
         const refusal = await turnstileRefusal(typeof token === "string" ? token : null);
-        if (refusal !== null) return { ok: false, reason: checkRefusal(refusal) };
+        if (refusal !== null) return { ok: false, reason: refusal };
       }
       const read = parsed(lane, raw);
       return "answer" in read ? read.answer : body(lane, () => lane.run(read.input, undefined));
