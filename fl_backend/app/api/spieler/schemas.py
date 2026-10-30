@@ -4,13 +4,12 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapte
 
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.bounds import (
-    EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
 )
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLEinwilligungStandPayload
+from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomKontaktName
 from app.shared.schemas.literals import (
     FLAdresswechselEinsehbarVerwehrt,
@@ -440,22 +439,6 @@ class FLSpielerSelbstResponse(BaseAPIResponse):
     """The signed-in address's own pupil record: one at most, `spieler.email` being unique."""
 
     spieler: FLSpielerSelbst
-
-
-class SelbstEinwilligungPayload(BaseModel):
-    """One declaration under each own record's published name, the pupil's, the referee's and a registration's, so no two drift apart."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    # No member defaulted: a default would let a page that forgot one reset the person's other choice.
-
-    # `FLEinwilligung.umfang`'s set again, held equal to it by
-    # `fl_backend/tests/api/test_spieler_selbst.py :: test_the_payload_offers_the_scopes_the_record_stores`.
-    umfang: Literal["kader_oeffentlich", "intern"]
-    medien: bool
-    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
-    # The record's `nachweis_stand` as the page was served it.
-    nachweis_stand: FLEinwilligungStandPayload
 
 
 class FLSpielerSelbstEinwilligungResponse(BaseAPIResponse):
