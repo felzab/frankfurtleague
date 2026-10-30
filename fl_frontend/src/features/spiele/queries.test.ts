@@ -23,7 +23,8 @@ const { getAdminTeams } = await import("../teams/queries.ts");
 
 const SAISON_ID = "2526";
 
-const countOf = (endpoint: string): number => reads.filter((read) => read.endpoint === endpoint).length;
+// By the path alone: a generated call carries its query inside `endpoint`.
+const countOf = (endpoint: string): number => reads.filter((read) => read.endpoint.split("?")[0] === endpoint).length;
 
 /** The three counts together, so a per-endpoint delta needs no index into a parallel array. */
 const countsNow = (): Map<string, number> => new Map(ENDPOINTS.map((endpoint) => [endpoint, countOf(endpoint)]));
