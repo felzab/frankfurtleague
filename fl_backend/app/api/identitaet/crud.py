@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -74,7 +75,6 @@ from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
 from app.api.spieler.services import build_spieler_filter
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.concurrency import gather_cancelling
 from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_many_in_db, refuse
 from app.core.db import warn_about_the_grants
 from app.core.journal import JournalLine, lost_its_answer
@@ -203,7 +203,7 @@ async def find_subjekt(identifier: str, records: RecordCollections) -> FLSubjekt
     reads through `find_subjekt_in_session`.
     """
 
-    seat_rows, referee_rows, pupil_rows = await gather_cancelling(
+    seat_rows, referee_rows, pupil_rows = await asyncio.gather(
         *(aggregate_many_from_db(collection=collection, pipeline=pipeline) for collection, pipeline in _reads(identifier, records))
     )
 
@@ -217,7 +217,7 @@ async def find_eigene_eintraege(identifier: str, records: RecordCollections) -> 
     so are read on no page render.
     """
 
-    seat_rows, referee_rows, pupil_rows, bewerbung_rows, registrierung_rows = await gather_cancelling(
+    seat_rows, referee_rows, pupil_rows, bewerbung_rows, registrierung_rows = await asyncio.gather(
         *(aggregate_many_from_db(collection=collection, pipeline=pipeline) for collection, pipeline in _reads(identifier, records)),
         aggregate_many_from_db(collection=records.bewerbungen_collection, pipeline=build_bewerbung_pipeline(identifier)),
         aggregate_many_from_db(collection=records.registrierungen_collection, pipeline=build_registrierung_pipeline(identifier)),
@@ -875,7 +875,7 @@ async def unreferenced_of(
 
     # No ban read beside these: a ban keeps no account, a barred address's going once no record holds it
     # (`docs/datenschutz.md :: 6`).
-    (seat_rows, bewerbung_rows, referee_rows, pupil_rows, registrierung_rows, grant_rows, carry_rows) = await gather_cancelling(
+    (seat_rows, bewerbung_rows, referee_rows, pupil_rows, registrierung_rows, grant_rows, carry_rows) = await asyncio.gather(
         aggregate_many_from_db(collection=records.saison_teams_collection, pipeline=build_seat_references_pipeline(folded)),
         aggregate_many_from_db(collection=records.bewerbungen_collection, pipeline=build_bewerbung_references_pipeline(folded)),
         aggregate_many_from_db(collection=records.schiedsrichter_collection, pipeline=build_referee_references_pipeline(folded)),

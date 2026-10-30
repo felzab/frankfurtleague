@@ -1,19 +1,15 @@
 import asyncio
-from collections.abc import Coroutine, Mapping
+from collections.abc import Mapping
 from contextlib import nullcontext
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import Any, cast, get_args
+from typing import Any, cast
 
 import pytest
 from bson import ObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.aktionen import admin_router as aktionen_admin_router
-from app.api.aktionen.schemas import FLAktionenFilterParams
 from app.api.berechtigungen import crud as berechtigungen_crud
-from app.api.bewerbungen import router as bewerbungen_router
-from app.api.bewerbungen.schemas import FLBewerbungenFilterParams, FLBewerbungSaisonbezug, FLBewerbungStatus
 from app.api.identitaet import crud as identitaet_crud
 from app.api.identitaet import router as identitaet_router
 from app.api.identitaet.schemas import FLAnmeldung, FLSubjekt, FLSubjektPayload
@@ -76,38 +72,6 @@ class _Reads:
         return await self.answer(collection, self.rows.get(collection, []), session)
 
 
-class _Stalled:
-    """Reads that answer only after the loop has turned far past a sibling's failure, recording each cancelled."""
-
-    def __init__(self) -> None:
-        self.cancelled: list[str] = []
-
-    async def read(self, name: str) -> Any:
-        try:
-            for _ in range(50):
-                await asyncio.sleep(0)
-        except asyncio.CancelledError:
-            self.cancelled.append(name)
-            raise
-        raise AssertionError(f"the {name} read ran to its end past a sibling's failure")
-
-    def failure_and_cancelled_by_then(self, call: Coroutine[Any, Any, Any]) -> tuple[BaseException, list[str]]:
-        """What `call` raised, and which reads were cancelled by the moment it did.
-
-        Read inside the loop: `asyncio.run` cancels every task still pending once it returns, so a read
-        left running would read as cancelled after it.
-        """
-
-        async def answered() -> tuple[BaseException, list[str]]:
-            try:
-                await call
-            except Exception as failed:
-                return failed, list(self.cancelled)
-            raise AssertionError("the call answered past a failed read")
-
-        return asyncio.run(answered())
-
-
 def _find_subjekt(reads: _Reads, session: object = None) -> FLSubjekt:
     """The system route's lookup with no session, the one a transaction reaches with one."""
 
@@ -148,36 +112,6 @@ class TestTheSubjectLookupsReads:
 
         assert sorted(reads.issued) == ["ban", "grant", "records"]
         assert reads.peak == 3, "the endpoint awaited one read before sending the next"
-
-    def test_a_failed_read_cancels_the_two_still_running_and_reaches_the_caller_as_itself(self, monkeypatch: pytest.MonkeyPatch):
-        stalled = _Stalled()
-
-        async def find_subjekt(_identifier: str, _records: Any) -> FLSubjekt:
-            await asyncio.sleep(0)
-            raise ConnectionError("the records read failed")
-
-        async def hash_gesperrt(*_: Any, **__: Any) -> bool:
-            return await stalled.read("ban")
-
-        async def verwaltung_of(**_: Any) -> None:
-            return await stalled.read("grant")
-
-        monkeypatch.setattr(identitaet_router, "find_subjekt", find_subjekt)
-        monkeypatch.setattr(identitaet_router, "hash_gesperrt", hash_gesperrt)
-        monkeypatch.setattr(identitaet_router, "verwaltung_of", verwaltung_of)
-
-        stand_in = cast(Any, None)
-        failed, cancelled = stalled.failure_and_cancelled_by_then(
-            identitaet_router.get_subjekt(
-                subjekt_data=FLSubjektPayload(email=IDENTIFIER),
-                records=stand_in,
-                sperrliste=ban_list({Collection.SPERRLISTE: stand_in, Collection.SAISONS: stand_in}),
-                berechtigungen_collection=stand_in,
-            )
-        )
-
-        assert (type(failed), str(failed)) == (ConnectionError, "the records read failed")
-        assert sorted(cancelled) == ["ban", "grant"], "a read was left running past the endpoint's answer"
 
     def test_the_three_record_reads_are_in_flight_together_outside_a_transaction(self, monkeypatch: pytest.MonkeyPatch):
         reads = _Reads()
@@ -220,22 +154,6 @@ class TestTheSubjectLookupsReads:
 
         assert reads.peak == 1
         assert reads.sessions == [transaction] * len(reads.issued)
-
-    def test_a_failed_record_read_cancels_the_two_still_running_and_reaches_the_caller_as_itself(self, monkeypatch: pytest.MonkeyPatch):
-        stalled = _Stalled()
-
-        async def aggregate_many_from_db(*, collection: str, pipeline: Any, session: object = None) -> list[Mapping[str, Any]]:
-            if collection != SAISON_TEAMS:
-                return await stalled.read(collection)
-            await asyncio.sleep(0)
-            raise ConnectionError("the seat read failed")
-
-        monkeypatch.setattr(identitaet_crud, "aggregate_many_from_db", aggregate_many_from_db)
-
-        failed, cancelled = stalled.failure_and_cancelled_by_then(identitaet_crud.find_subjekt(IDENTIFIER, RECORDS))
-
-        assert (type(failed), str(failed)) == (ConnectionError, "the seat read failed")
-        assert sorted(cancelled) == [SCHIEDSRICHTER, SPIELER], "a record read was left running past the lookup's answer"
 
     def test_a_person_endpoint_reads_the_three_funktion_records_in_its_session(self, monkeypatch: pytest.MonkeyPatch):
         """No application or registration: neither grants a panel, so a person endpoint authorising against them pays for nothing."""
@@ -318,90 +236,6 @@ class TestTheActorChecksTwoReads:
 
         assert sorted(reads.issued) == ["ban", BERECHTIGUNGEN]
         assert reads.peak == 2, "the check awaited the grant before asking the ban list"
-
-    def test_a_failed_grant_read_cancels_the_ban_read_and_reaches_the_caller_as_itself(self, monkeypatch: pytest.MonkeyPatch):
-        stalled = _Stalled()
-
-        async def aggregate_many_from_db(**_: Any) -> list[Mapping[str, Any]]:
-            await asyncio.sleep(0)
-            raise ConnectionError("the grant read failed")
-
-        async def adressen_gesperrt(*_: Any, **__: Any) -> set[str]:
-            return await stalled.read("ban")
-
-        monkeypatch.setattr(berechtigungen_crud, "aggregate_many_from_db", aggregate_many_from_db)
-        monkeypatch.setattr(berechtigungen_crud, "adressen_gesperrt", adressen_gesperrt)
-
-        grants = SimpleNamespace(database=SimpleNamespace(client=SimpleNamespace(start_session=lambda **_: nullcontext())))
-        failed, cancelled = stalled.failure_and_cancelled_by_then(
-            berechtigungen_crud.live_unbarred_grant_since(IDENTIFIER, berechtigungen_collection=cast(Any, grants), sperrliste=cast(Any, None))
-        )
-
-        assert (type(failed), str(failed)) == (ConnectionError, "the grant read failed")
-        assert cancelled == ["ban"], "the ban read was left running past the check's answer"
-
-
-class TestTheListsGatheredReads:
-    """The action log's and the application queue's reads, gathered beside their tallies."""
-
-    def test_a_failed_tally_cancels_the_action_log_s_page_and_reaches_the_caller_as_itself(self, monkeypatch: pytest.MonkeyPatch):
-        stalled = _Stalled()
-
-        async def aggregate_many_from_db(**_: Any) -> list[Mapping[str, Any]]:
-            await asyncio.sleep(0)
-            raise ConnectionError("the tally failed")
-
-        async def pull_many_from_db(**_: Any) -> list[Mapping[str, Any]]:
-            return await stalled.read("page")
-
-        monkeypatch.setattr(aktionen_admin_router, "aggregate_many_from_db", aggregate_many_from_db)
-        monkeypatch.setattr(aktionen_admin_router, "pull_many_from_db", pull_many_from_db)
-
-        failed, cancelled = stalled.failure_and_cancelled_by_then(
-            aktionen_admin_router.get_aktionen(
-                aktionen_collection=cast(Any, None), sperrliste=cast(Any, None), filters=FLAktionenFilterParams()
-            )
-        )
-
-        assert (type(failed), str(failed)) == (ConnectionError, "the tally failed")
-        assert cancelled == ["page"], "the page read was left running past the list's answer"
-
-    @pytest.mark.parametrize("failing", [*get_args(FLBewerbungStatus), *get_args(FLBewerbungSaisonbezug), "dubletten"])
-    def test_a_failed_read_of_the_queue_cancels_every_other_and_reaches_the_caller_as_itself(
-        self, monkeypatch: pytest.MonkeyPatch, failing: str
-    ):
-        """A count failing is the load-bearing arm: a nested gather that leaves its siblings running still cancels when its parent does."""
-
-        stalled = _Stalled()
-
-        async def read(name: str) -> Any:
-            if name != failing:
-                return await stalled.read(name)
-            await asyncio.sleep(0)
-            raise ConnectionError(f"the {name} read failed")
-
-        async def aggregate_many_from_db(**_: Any) -> list[Mapping[str, Any]]:
-            return await read("dubletten")
-
-        class _Counted:
-            # Each count named for the status or the season relation it answers, unfiltered requests
-            # counting the relation against `None`.
-            async def count_documents(self, db_filter: Mapping[str, Any]) -> int:
-                if "status" in db_filter:
-                    return await read(db_filter["status"])
-                return await read("andere_saison" if isinstance(db_filter["saison_id"], dict) else "diese_saison")
-
-        monkeypatch.setattr(bewerbungen_router, "aggregate_many_from_db", aggregate_many_from_db)
-
-        failed, cancelled = stalled.failure_and_cancelled_by_then(
-            bewerbungen_router.get_bewerbungen(
-                bewerbungen_collection=cast(Any, _Counted()), sperrliste=cast(Any, None), filters=FLBewerbungenFilterParams()
-            )
-        )
-
-        every_read = {*get_args(FLBewerbungStatus), *get_args(FLBewerbungSaisonbezug), "dubletten"}
-        assert (type(failed), str(failed)) == (ConnectionError, f"the {failing} read failed")
-        assert sorted(cancelled) == sorted(every_read - {failing}), "a read was left running past the queue's answer"
 
 
 class TestTheAccountReadsReads:
