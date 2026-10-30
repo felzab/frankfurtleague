@@ -111,7 +111,7 @@ describe("the German the ordering refusal renders", () => {
     expect(message).toMatch(/die Spiele des Spieltags, der später gespielt werden soll/);
   });
 
-  /* `FLPatchSpieltagPayload` refines `ende >= beginn` and the follower arm fires on
+  /* `FLPatchSpieltagPayloadSchema` refines `ende >= beginn` and the follower arm fires on
      `beginn > following.beginn`, so every refusal it can produce carries an `ende` past the
      neighbour. An imperative to widen it would name a step the admin has taken. */
   it("asks for no wider Ende, which the refused payload already carries", () => {

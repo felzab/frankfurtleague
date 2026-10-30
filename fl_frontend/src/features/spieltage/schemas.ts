@@ -24,7 +24,6 @@ export const FLPatchSpieltagPayloadSchema = z
     ende: CustomDateStringSchema,
   })
   .refine((spieltag) => spieltag.ende >= spieltag.beginn, endsAfterItBegins);
-export type FLPatchSpieltagPayload = z.infer<typeof FLPatchSpieltagPayloadSchema>;
 
 /**
  * The same payload with the season's own span folded in, mirroring `REQ-DATE-002`. A FACTORY because the span is

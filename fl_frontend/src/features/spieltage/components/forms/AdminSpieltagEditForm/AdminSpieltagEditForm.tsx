@@ -23,7 +23,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { buildSpieltagBanners } from "./banners";
 import { FormZeitraumSection } from "./FormZeitraumSection";
 
-import type { FLPatchSpieltagPayload } from "@/features/spieltage/schemas";
+import type { FLPatchSpieltagPayload } from "@/core/generated/client/types";
 import type { FLSpieltagDraftFields } from "@/features/spieltage/spieltagDraftStatus";
 import type { AdminSpieltagEditRow } from "@/features/spieltage/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
@@ -67,7 +67,7 @@ export function AdminSpieltagEditForm({
   });
 
   // `id` is the loaded record's own and the wire carries it in the path, so no refusal can name it.
-  const buildPayload = (): FLPatchSpieltagPayload => ({ id: spieltag.id, beginn, ende });
+  const buildPayload = (): FLPatchSpieltagPayload & { id: string } => ({ id: spieltag.id, beginn, ende });
 
   const draftFields: FLSpieltagDraftFields = { beginn, ende };
   const storedFields: FLSpieltagDraftFields = { beginn: spieltag.beginn ?? "", ende: spieltag.ende ?? "" };
