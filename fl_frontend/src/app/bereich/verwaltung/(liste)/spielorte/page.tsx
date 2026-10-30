@@ -59,14 +59,14 @@ async function Spielorte() {
       list={{
         kind: "table",
         table: {
-          label: ROUTES.verwaltungSpielorte.titel,
+          label: ROUTES.verwaltungSpielorte.title,
           nameLabel: WORTE.name,
           columns: [
             { key: "adresse", label: WORTE.adresse, hideOnPhone: true },
             { key: "mietpreis", label: WORTE.mietpreis, figures: true },
           ],
           rows: spielorte.map(zeile),
-          empty: { kind: "noch", plural: ROUTES.verwaltungSpielorte.titel, glyph: "spielorte" },
+          empty: { kind: "noch", plural: ROUTES.verwaltungSpielorte.title, glyph: "spielorte" },
         },
       }}
     />

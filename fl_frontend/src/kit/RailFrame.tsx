@@ -170,7 +170,7 @@ export function RailColumn({ editor = false, back, children }: { editor?: boolea
 }
 
 // The routes named by a fixed title; a record page is named by its record, a match by its two teams.
-type TitledRoute = { [K in keyof typeof ROUTES]: (typeof ROUTES)[K]["titel"] extends Copy ? K : never }[keyof typeof ROUTES];
+type TitledRoute = { [K in keyof typeof ROUTES]: (typeof ROUTES)[K]["title"] extends Copy ? K : never }[keyof typeof ROUTES];
 
 /**
  * A page's name: its route's catalogue title, a match's two teams in the fixture's order, or a record's own
@@ -180,8 +180,8 @@ export type PageTitle = { route: TitledRoute } | { route: "spiel"; heim: string;
 
 function titleOf(title: PageTitle): string {
   if ("record" in title) return title.record;
-  if (title.route === "spiel") return ROUTES.spiel.titel(title.heim, title.gast);
-  return ROUTES[title.route].titel;
+  if (title.route === "spiel") return ROUTES.spiel.title(title.heim, title.gast);
+  return ROUTES[title.route].title;
 }
 
 const strip = tv({
@@ -248,7 +248,7 @@ export function RailPage({
                 href={page.path()}
                 data-kit-focus="ring"
                 className={frameLink({ tone: "strip" })}>
-                {page.titel}
+                {page.title}
               </NextLink>
             ))}
           </nav>

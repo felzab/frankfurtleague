@@ -22,10 +22,10 @@ import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite, unansweredRead } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { nichtHinterlegt } from "@/shared/utils/format";
-import { REGISTRIERUNGSLINK_TITEL, reportLinkDispatch } from "@/shared/utils/linkDispatchToast";
+import { REGISTRIERUNGSLINK_TITLE, reportLinkDispatch } from "@/shared/utils/linkDispatchToast";
 
 import type { FLInvitationDispatchGrund, FLInvitationDispatchPreviewRow, FLInvitationDispatchRow } from "@/core/generated/client/types";
-import type { DispatchTitel } from "@/shared/utils/linkDispatchToast";
+import type { DispatchTitle } from "@/shared/utils/linkDispatchToast";
 
 /** The ruling's own words, copied rather than reworded: a label a visitor navigates by is nobody's here to choose. */
 const SENDEN_LABEL = "Links an alle Teams senden";
@@ -98,8 +98,8 @@ function zustellSatz(zeile: FLInvitationDispatchRow): string {
  * One press writes to many teams, so the title says whose grade it is: one team's in its own press's words, every team's,
  * or some teams' where a link went beside one that did not.
  */
-function registrierungslinksTitel(gemeint: number, erreicht: number): DispatchTitel {
-  if (gemeint === 1) return REGISTRIERUNGSLINK_TITEL;
+function registrierungslinksTitel(gemeint: number, erreicht: number): DispatchTitle {
+  if (gemeint === 1) return REGISTRIERUNGSLINK_TITLE;
 
   const teils = erreicht > 0;
 

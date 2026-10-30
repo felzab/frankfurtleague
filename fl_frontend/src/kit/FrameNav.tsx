@@ -195,8 +195,8 @@ function AccountMenu({ account, trigger, beside }: { account: Account; trigger: 
           { kind: "action", label: COPY.shared.verb.abmelden, onAction: () => void abmelden() },
         ],
         [
-          { kind: "link", label: ROUTES.impressum.titel, href: ROUTES.impressum.path() },
-          { kind: "link", label: ROUTES.datenschutz.titel, href: ROUTES.datenschutz.path() },
+          { kind: "link", label: ROUTES.impressum.title, href: ROUTES.impressum.path() },
+          { kind: "link", label: ROUTES.datenschutz.title, href: ROUTES.datenschutz.path() },
         ],
       ]}
       foot={{
