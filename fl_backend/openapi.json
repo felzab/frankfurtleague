@@ -2768,7 +2768,8 @@
         "required": [
           "verschickt_am",
           "erinnert_am",
-          "frist"
+          "frist",
+          "zustellung"
         ],
         "title": "FLBestaetigung",
         "type": "object"
