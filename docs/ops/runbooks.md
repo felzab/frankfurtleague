@@ -1141,7 +1141,10 @@ docker compose logs --since 2h frontend | grep -E 'bewerbung.sweep_pass|registri
 ```
 
 **A half that did not finish says why in the frontend's log.** Each files its own failure line,
-`bewerbung.sweep_failed` and `registrierung.sweep_failed`, so the event name is what names the half.
+`bewerbung.sweep_failed` and `registrierung.sweep_failed`, naming the season, so the event name is what names the
+half. Every other half and season still runs, and the job then fails, which `scheduler.job_failed` names as
+`bewerbungen` and the heartbeat as `bewerbungen failed`. A pass that ran but passed rows over reaches the heartbeat
+as `bewerbungen left <n>`.
 
 **A row either pass cannot write is passed over and named, and the pass goes on.** The
 backend's line names the application, the registration or the season row by id, the error's class
@@ -1149,9 +1152,10 @@ and what locates it, never a person's values: `DB-FAIL-001` is a write the datab
 the properties its validator refused; `SRV-VAL-001` a stored value the answer cannot carry, such as
 a hand-edited deadline or an empty first name, with the fields refused; and `SRV-FAIL-001` any other
 failure, with the file, line and function it was raised in. The rest of that clock's rows go, and
-the named one stays due: every later pass names it again until its record is repaired. **An application whose
-announcement stamp is passed over is mailed its deletion notice again each day**, and stands past
-its fourteen days until the stamp lands or its season is `past`. **The confirmation strip clock
+the named one stays due: every later pass names it again until its record is repaired. **An application the fourteen-day clock passes over is owed no notice**: the notice is owed in the erasure's own
+write, so the application stands past its fourteen days, nobody told, until the erasure lands or its season is
+`past`. Every reminder and deletion notice the sweep owes leaves through the Postausgang's drain, whose own lines
+report a mail that did not go. **The confirmation strip clock
 names the season**, as it takes an ended season's fixture confirmations whole: its line says what of
 theirs the season's end could not strip, the contact blocks clear all the same, and every later pass
 tries again.
@@ -1177,7 +1181,8 @@ confirmed change refused at its due time or lapsed unapproved a notice naming no
 by carrying each sign-in account an effect still owes
 (`fl_frontend/src/features/adresswechsel/umzug.ts :: runAdresswechselUmzuege`). It writes one line per pass holding its
 counts and no person, `adresswechsel.sweep_pass`, at `INFO` where the pass left no row due, and as a
-warning where it left rows due; a half that threw files `adresswechsel.sweep_failed` besides.
+warning where it left rows due. A half that threw fails the applications' job once the seasons have run, which
+`scheduler.job_failed` names as `bewerbungen`.
 
 **A notice the drain could not send stays owed in the Postausgang**, which retries it as it retries
 every owed mail, and a notice it gives up is counted in its `postausgang.drain` line and reported to
@@ -1188,7 +1193,7 @@ rejects, for the heartbeat to name. A carry the new address refused files
 `adresswechsel.konto_nicht_umgezogen`:
 
 ```bash
-docker compose logs --since 2h frontend | grep -E 'adresswechsel\.(sweep_failed|konto_nicht_umgezogen)'
+docker compose logs --since 2h frontend | grep -E 'adresswechsel\.konto_nicht_umgezogen|scheduler\.job_failed'
 ```
 
 A `konto_nicht_umgezogen` line at `WARN` needs no repair: reading `grund: "belegt"`, the new address
@@ -1198,8 +1203,8 @@ held an account of its own, and the person signs in there anew.
 (`fl_frontend/src/features/saisons/sweep.ts :: runLoeschungSweep`). It stamps no day either: each
 pass deletes the pupils the season-after rule makes due, drops the squad cache after its last call,
 and writes one `loeschung.sweep_pass` line, at `INFO` where it left no pupil due and as a warning
-where it left pupils it failed or passed over; a pass whose call threw files `loeschung.sweep_failed`
-besides:
+where it left pupils it failed or passed over; a pass whose call threw fails the job after that line, which
+`scheduler.job_failed` names as `loeschung`:
 
 ```bash
 docker compose logs --since 2h frontend | grep loeschung.sweep_
