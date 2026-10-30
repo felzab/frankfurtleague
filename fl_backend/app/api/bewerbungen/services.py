@@ -972,7 +972,7 @@ def objection_is_announced(*, kontakte: Any, seats: Sequence[str]) -> bool:
     return "ansprechperson" not in seats and ansprechperson_mailbox(kontakte=kontakte)[0] is not None
 
 
-def compose_decline_update(*, seats: Sequence[str], today: str, angekuendigt: bool = False) -> Mapping[str, Any]:
+def compose_decline_update(*, seats: Sequence[str], today: str, angekuendigt: bool) -> Mapping[str, Any]:
     """A decline empties the person's slot and records the day beside it, where the emptying cannot reach.
 
     `angekuendigt` where the objection notice goes out: it names the deletion day, so it is the deletion notice too.

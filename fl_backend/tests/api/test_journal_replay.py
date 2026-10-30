@@ -174,7 +174,8 @@ async def _seed(database: AsyncDatabase) -> None:
                 DECLINED_APPLICATION_OID,
                 SAISON_ID,
                 "eingereicht",
-                kontakte=kontakte_document(trainer=_seat(DECLINER, confirmed=False)),
+                # An Ansprechperson standing, so the Widerspruch's notice names the deletion day and the press stamps it.
+                kontakte=kontakte_document(trainer=_seat(DECLINER, confirmed=False), ansprechperson=_seat(PERSON)),
                 eingereicht_am="2126-10-01",
                 bestaetigungsfrist="2126-10-15",
                 team_id=TEAM_OID,

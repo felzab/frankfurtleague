@@ -17,7 +17,7 @@ import argparse
 import asyncio
 import json
 import sys
-from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping
+from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Final, Literal, TextIO
@@ -40,7 +40,13 @@ from app.api.adresswechsel.services import deckt
 from app.api.berechtigungen.antraege import ist_offen, remove_the_antrag_in_session
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.services import genehmigung_steht
-from app.api.bewerbungen.services import compose_decline_update, compose_saison_decline_update, seat_adressen, seat_is_answered
+from app.api.bewerbungen.services import (
+    compose_decline_update,
+    compose_saison_decline_update,
+    objection_is_announced,
+    seat_adressen,
+    seat_is_answered,
+)
 from app.api.identitaet.crud import unattribute_pseudonym_in_session
 from app.api.identitaet.lookup import RecordCollections
 from app.api.kontakte.crud import redact_the_decliner, remove_the_holders_reasons, remove_their_reasons
@@ -81,8 +87,15 @@ _PERSON_ADDRESS: Final[Mapping[Collection, Callable[[Mapping[str, Any]], Any]]] 
     Collection.SCHIEDSRICHTER: lambda row: (row.get("kontakt") or {}).get("email"),
 }
 
-# Each home's own update emptying the seats a Widerspruch names, as the link's answer writes it.
-_WIDERSPRUCH_UPDATE: Final = {Collection.BEWERBUNGEN: compose_decline_update, Collection.SAISON_TEAMS: compose_saison_decline_update}
+
+def _widerspruch_update(home: Collection, *, kontakte: Mapping[str, Any], seats: Sequence[str], today: str) -> Mapping[str, Any]:
+    """Each home's own update emptying the seats a Widerspruch names, as the link's answer writes it, its deletion notice included."""
+
+    if home == Collection.SAISON_TEAMS:
+        return compose_saison_decline_update(seats=seats, today=today)
+
+    return compose_decline_update(seats=seats, today=today, angekuendigt=objection_is_announced(kontakte=kontakte, seats=seats))
+
 
 # The ending each ending line replays, as its press ended the change.
 _ENDE_ART: Final[Mapping[str, FLAdresswechselEndeArt]] = {
@@ -306,7 +319,7 @@ async def _plan_widerspruch(
         await patch_one_in_db(
             collection=collection,
             db_filter={"_id": row["_id"]},
-            update=_WIDERSPRUCH_UPDATE[home](seats=offen, today=declined_on),
+            update=_widerspruch_update(home, kontakte=kontakte, seats=offen, today=declined_on),
             session=session,
             return_document=ReturnDocument.BEFORE,
         )

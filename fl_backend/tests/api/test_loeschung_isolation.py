@@ -133,7 +133,7 @@ async def a_league(database: AsyncDatabase) -> None:
     )
     # As the Stellvertretung's own Widerspruch leaves it, the one state a seat is filled again from.
     await database[Collection.BEWERBUNGEN].update_one(
-        {"_id": STEPPED_OUT_OID}, compose_decline_update(seats=["stellvertretung"], today="2026-03-20")
+        {"_id": STEPPED_OUT_OID}, compose_decline_update(seats=["stellvertretung"], today="2026-03-20", angekuendigt=False)
     )
     await database[Collection.SPIELER].insert_one(spieler_document(PUPIL_OID, "Wraxlington", "Muster", email=PUPIL_EMAIL))
     await database[Collection.SCHIEDSRICHTER].insert_one(
