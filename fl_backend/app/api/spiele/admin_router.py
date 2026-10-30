@@ -59,7 +59,7 @@ from app.api.spiele.services import (
     stored_in_slice,
 )
 from app.core.config import API_VERSION
-from app.core.crud import aggregate_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import VERSION_FIELD, aggregate_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
@@ -405,7 +405,13 @@ async def patch_spiel_data(
             releases=releases,
         )
 
-        return FLPatchSpielDataResponse(advanced_to=advanced_to, released_sides=released_sides, bracket_faults=bracket_faults)
+        return FLPatchSpielDataResponse(
+            advanced_to=advanced_to,
+            released_sides=released_sides,
+            bracket_faults=bracket_faults,
+            version=patched.version,
+            bericht_uebernommen=None,
+        )
 
     if dry_run:
         # No transaction: a preview that took a write lock would be paying for a question.
@@ -423,7 +429,7 @@ async def patch_spiel_data(
         await patch_one_in_db(
             collection=spiele_collection,
             db_filter={"_id": spiel_id},
-            update={"$set": document},
+            update={"$set": {**document, VERSION_FIELD: spiel_data.version}},
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
@@ -456,16 +462,19 @@ async def patch_spiel_data(
                     schiedsrichter_collection=schiedsrichter_collection, schiedsrichter_id=booked.schiedsrichter_id, session=session
                 )
 
+        # After the resolution, which can re-field this fixture's sides and raise its version again.
+        gespeichert = await pull_one_from_db(
+            collection=spiele_collection,
+            db_filter={"_id": spiel_id},
+            projection={"team1.team_id": 1, "team2.team_id": 1, VERSION_FIELD: 1},
+            session=session,
+        )
+
         # Here and with the session, never after the commit or off it: a save refused or rolled back stamps nothing.
-        if uebernimmt_bericht is not None:
-            # After the resolution, which can re-field this fixture's sides too.
-            gespeichert = await pull_one_from_db(
-                collection=spiele_collection,
-                db_filter={"_id": spiel_id},
-                projection={"team1.team_id": 1, "team2.team_id": 1},
-                session=session,
-            )
-            await stamp_the_adoption(
+        uebernommen = (
+            None
+            if uebernimmt_bericht is None
+            else await stamp_the_adoption(
                 spielberichte_collection=spielberichte_collection,
                 spiel_id=spiel_id,
                 version=uebernimmt_bericht,
@@ -473,8 +482,15 @@ async def patch_spiel_data(
                 now=now,
                 session=session,
             )
+        )
 
-        return FLPatchSpielDataResponse(advanced_to=advanced_to, released_sides=released_sides, bracket_faults=bracket_faults)
+        return FLPatchSpielDataResponse(
+            advanced_to=advanced_to,
+            released_sides=released_sides,
+            bracket_faults=bracket_faults,
+            version=gespeichert[VERSION_FIELD],
+            bericht_uebernommen=uebernommen,
+        )
 
     # `with_transaction` rather than a bare `start_transaction`: two saves in one season can
     # write-conflict on the same advanced fixture, and the callback is safe to retry, every pass

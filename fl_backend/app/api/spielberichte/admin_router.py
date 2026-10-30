@@ -202,6 +202,7 @@ async def patch_spielbericht(
             payload=payload,
             von=von,
             now=now,
+            version=bericht_data.version,
             session=session,
         )
         if gespeichert is None:

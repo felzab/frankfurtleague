@@ -2636,6 +2636,7 @@ export const SpielberichtePatchSpielberichtBody = zod
         .max(spielberichtePatchSpielberichtBodyBerichtTorschuetzenMax),
     }),
     bericht_stand: zod.union([zod.int(), zod.null()]),
+    version: zod.union([zod.int(), zod.null()]).optional(),
   })
   .describe("The whole `bericht` block, written wholesale by the referee's PUT and the administrator's PATCH alike.");
 
@@ -2802,6 +2803,7 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
         .max(spielberichtePutSpielberichtBerichtBodyBerichtTorschuetzenMax),
     }),
     bericht_stand: zod.union([zod.int(), zod.null()]),
+    version: zod.union([zod.int(), zod.null()]).optional(),
   })
   .describe("The whole `bericht` block, written wholesale by the referee's PUT and the administrator's PATCH alike.");
 
@@ -3346,6 +3348,7 @@ export const SpielePatchSpielDataBody = zod.object({
     zod.null(),
     zod.string().regex(spielePatchSpielDataBodyUhrzeitThreeRegExp),
   ]),
+  version: zod.union([zod.int(), zod.null()]).optional(),
 });
 
 /**

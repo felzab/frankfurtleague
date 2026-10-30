@@ -138,6 +138,7 @@
         "enum": [
           "DB-COMMON-001",
           "DB-COMMON-002",
+          "DB-COMMON-003",
           "DB-CONN-001",
           "DB-FAIL-001",
           "DB-FAIL-002",
@@ -8630,6 +8631,17 @@
               }
             ],
             "title": "Uhrzeit"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8650,7 +8662,7 @@
         "type": "object"
       },
       "FLPatchSpielDataResponse": {
-        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.",
+        "description": "Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.\n\n`version` is the fixture's own after the save, the one its next save sends; `bericht_uebernommen` says whether the\nadoption `uebernimmt_bericht` asked for was stamped, null where none was asked or on a `dry_run`.",
         "properties": {
           "advanced_to": {
             "items": {
@@ -8658,6 +8670,17 @@
             },
             "title": "Advanced To",
             "type": "array"
+          },
+          "bericht_uebernommen": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bericht Uebernommen"
           },
           "bracket_faults": {
             "items": {
@@ -8672,12 +8695,18 @@
             },
             "title": "Released Sides",
             "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
           "advanced_to",
           "released_sides",
-          "bracket_faults"
+          "bracket_faults",
+          "version",
+          "bericht_uebernommen"
         ],
         "title": "FLPatchSpielDataResponse",
         "type": "object"
@@ -12721,7 +12750,7 @@
         "type": "object"
       },
       "FLSpielJoinedAdmin": {
-        "description": "The same fixture for the admin reads: the referee as booked, whole name and payment, and the venue's rent.",
+        "description": "The same fixture for the admin reads: the referee as booked, whole name and payment, and the venue's rent.\n\n`version` counts the fixture's writes; a save sending it back is refused once another write has raised it.",
         "properties": {
           "ansetzung_bestaetigt": {
             "anyOf": [
@@ -12884,6 +12913,11 @@
               }
             ],
             "title": "Uhrzeit"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -12904,7 +12938,8 @@
           "saison_phase",
           "saison_id",
           "notiz",
-          "ansetzung_bestaetigt"
+          "ansetzung_bestaetigt",
+          "version"
         ],
         "title": "FLSpielJoinedAdmin",
         "type": "object"
@@ -13346,6 +13381,17 @@
           "spiel": {
             "$ref": "#/components/schemas/FLSpielberichtSpiel"
           },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
           "zustand": {
             "anyOf": [
               {
@@ -13363,6 +13409,7 @@
           "genannt",
           "bericht",
           "seiten_geaendert",
+          "version",
           "zustand"
         ],
         "title": "FLSpielberichtAdminResponse",
@@ -13664,6 +13711,17 @@
               }
             ],
             "title": "Bericht Stand"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -13862,6 +13920,17 @@
           },
           "spiel": {
             "$ref": "#/components/schemas/FLSpielberichtSpiel"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -13870,6 +13939,7 @@
           "genannt",
           "bericht",
           "seiten_geaendert",
+          "version",
           "abgeschlossen"
         ],
         "title": "FLSpielberichtSchiedsrichterResponse",

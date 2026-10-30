@@ -10,6 +10,7 @@ export type Code = (typeof Code)[keyof typeof Code];
 export const Code = {
   "DB-COMMON-001": "DB-COMMON-001",
   "DB-COMMON-002": "DB-COMMON-002",
+  "DB-COMMON-003": "DB-COMMON-003",
   "DB-CONN-001": "DB-CONN-001",
   "DB-FAIL-001": "DB-FAIL-001",
   "DB-FAIL-002": "DB-FAIL-002",
@@ -3555,6 +3556,7 @@ export interface FLPatchSpielDataPayload {
   team2: FLSpielTeamFieldPayload | null;
   team2_quelle: FLSpielQuelle | null;
   uhrzeit: string | null;
+  version?: number | null;
 }
 
 /**
@@ -3590,11 +3592,16 @@ export interface FLSpielReleasedSide {
 
 /**
  * Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.
+ *
+ * `version` is the fixture's own after the save, the one its next save sends; `bericht_uebernommen` says whether the
+ * adoption `uebernimmt_bericht` asked for was stamped, null where none was asked or on a `dry_run`.
  */
 export interface FLPatchSpielDataResponse {
   advanced_to: FLSpielAdvancement[];
+  bericht_uebernommen: boolean | null;
   bracket_faults: FLBracketFault[];
   released_sides: FLSpielReleasedSide[];
+  version: number;
 }
 
 /**
@@ -4754,6 +4761,8 @@ export interface FLSpielSchiedsrichterField {
 
 /**
  * The same fixture for the admin reads: the referee as booked, whole name and payment, and the venue's rent.
+ *
+ * `version` counts the fixture's writes; a save sending it back is refused once another write has raised it.
  */
 export interface FLSpielJoinedAdmin {
   ansetzung_bestaetigt: boolean | null;
@@ -4781,6 +4790,7 @@ export interface FLSpielJoinedAdmin {
   team2: FLSpielTeamFieldJoined | null;
   team2_quelle: FLSpielQuelle | null;
   uhrzeit: string | null;
+  version: number;
 }
 
 export type FLSpielStatus = (typeof FLSpielStatus)[keyof typeof FLSpielStatus];
@@ -4972,6 +4982,7 @@ export interface FLSpielberichtAdminResponse {
   kader: FLSpielberichtKader;
   seiten_geaendert: FLSpielberichtAdminResponseSeitenGeaendertItem[];
   spiel: FLSpielberichtSpiel;
+  version: number | null;
   zustand: FLSpielberichtZustand | null;
 }
 
@@ -5010,6 +5021,7 @@ export interface FLSpielberichtBerichtPayload {
 export interface FLSpielberichtPayload {
   bericht: FLSpielberichtBerichtPayload;
   bericht_stand: number | null;
+  version?: number | null;
 }
 
 /**
@@ -5057,6 +5069,7 @@ export interface FLSpielberichtSchiedsrichterResponse {
   kader: FLSpielberichtKader;
   seiten_geaendert: FLSpielberichtSchiedsrichterResponseSeitenGeaendertItem[];
   spiel: FLSpielberichtSpiel;
+  version: number | null;
 }
 
 /**
