@@ -48,7 +48,7 @@ import { madeSince, verwaltungOf } from "./verwaltung";
 import type { Passkey } from "@better-auth/passkey";
 import type { AuthContext, BetterAuthOptions, DBTransactionAdapter, GenericEndpointContext } from "better-auth";
 import type { MongoClient } from "mongodb";
-import type { FLOutboxSignInPayload, FLPasskeyData } from "./generated/client/types";
+import type { FLOutboxSignInPayload, FLPasskeyDataArt } from "./generated/client/types";
 import type { ActorLane, RequestActor } from "./requestScope";
 import type { Lifetime } from "./sessionLifetimes";
 import type { AnmeldungRecords } from "./signInGate";
@@ -747,7 +747,7 @@ async function oweSignInMail(
  * A failed notice leaves the change standing: a passkey row rolled back for an unreachable backend is a lockout the
  * reader never asked for. The account page is spelled on the serving origin by the drain, never `brand.ts :: SITE_URL`.
  */
-async function notifyPasskey(art: FLPasskeyData["art"], email: string): Promise<void> {
+async function notifyPasskey(art: FLPasskeyDataArt, email: string): Promise<void> {
   try {
     await oweSignInMail(email, { art: art, instant: new Date().toISOString(), account: KONTO_HREF });
   } catch (failed) {

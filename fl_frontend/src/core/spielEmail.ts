@@ -11,6 +11,7 @@ import type {
   FLSpielEinteilungData,
   FLSpielEinteilungLiftedData,
   FLSpielHinweisData,
+  FLSpielHinweisDataRecipient,
   FLSpielMailAnsetzung,
   FLSpielRequestData,
   FLSpielVorschlagDiscardedData,
@@ -149,7 +150,7 @@ export function buildSpielEinteilungEmail({ ansetzung: facts }: FLSpielEinteilun
 }
 
 /** What became of the earlier word, and what follows it, per reader: a team was asked, a referee booked. */
-const NEU_SAETZE: Record<FLSpielHinweisData["recipient"], readonly [string, string]> = {
+const NEU_SAETZE: Record<FLSpielHinweisDataRecipient, readonly [string, string]> = {
   team: [
     "Die Anfrage zum bisherigen Termin und ihr Link gelten nicht mehr.",
     "Bleibt Dein Team in diesem Spiel, bekommst Du für einen neuen Termin nach dem heutigen Tag eine neue Anfrage.",
@@ -161,7 +162,7 @@ const NEU_SAETZE: Record<FLSpielHinweisData["recipient"], readonly [string, stri
 };
 
 /** What the call-off ends for each reader, and what a reinstated fixture brings: a team was asked, a referee booked. */
-const ABGESAGT_SAETZE: Record<FLSpielHinweisData["recipient"], readonly [string, string, string]> = {
+const ABGESAGT_SAETZE: Record<FLSpielHinweisDataRecipient, readonly [string, string, string]> = {
   team: [
     "Die Anfrage zu diesem Spiel und ihr Link gelten nicht mehr.",
     "Du musst nichts tun.",

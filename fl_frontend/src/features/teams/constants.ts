@@ -2,7 +2,14 @@ import { FLGruppenNames } from "@/core/generated/client/types";
 import { KONTAKT_ROLLE_LANGFORM, TRIKOT_FARBEN } from "@/core/teamVocabulary";
 import { NICHT_HINTERLEGT, nichtHinterlegt } from "@/shared/utils/format";
 
-import type { FLAustrittType, FLKontaktKenntnisnahme, FLSchulform, FLTrainerAlso, FLTrikotFarbe } from "@/core/generated/client/types";
+import type {
+  FLAustrittType,
+  FLKontaktEnteredBy,
+  FLKontaktKenntnisnahmeUmfang,
+  FLSchulform,
+  FLTrainerAlso,
+  FLTrikotFarbe,
+} from "@/core/generated/client/types";
 
 export const TEAMS_CRUD_COPY = {
   searchLabel: "Teams suchen",
@@ -166,7 +173,7 @@ export function kontaktGeburtsdatumLeer(bestaetigtAm: string | null, ohneLabel =
 }
 
 type EingetragenVonOption = {
-  readonly value: FLKontaktKenntnisnahme["entered_by"];
+  readonly value: FLKontaktEnteredBy;
   readonly label: string;
 };
 
@@ -174,7 +181,7 @@ type EingetragenVonOption = {
 const EINGETRAGEN_VON_LABELS = {
   bewerbung: "Mit der Bewerbung eingetragen",
   liga: "Von der Liga eingetragen",
-} as const satisfies Record<FLKontaktKenntnisnahme["entered_by"], string>;
+} as const satisfies Record<FLKontaktEnteredBy, string>;
 
 /**
  * Who seated a contact person, in the order the contacts facet offers them: the applicant on the form,
@@ -186,7 +193,7 @@ export const EINGETRAGEN_VON_OPTIONS: readonly EingetragenVonOption[] = [
 ];
 
 /** The Herkunft every surface renders for a contact seat: who seated the person. */
-export function eingetragenVonLabel(von: FLKontaktKenntnisnahme["entered_by"]): string {
+export function eingetragenVonLabel(von: FLKontaktEnteredBy): string {
   return EINGETRAGEN_VON_LABELS[von];
 }
 
@@ -199,7 +206,7 @@ export const WEBSITE_URL_SCHEME = "https://";
 
 /** What an administrator's readout labels a seat's contact scope with, and its two values keyed by the scope. */
 export const KONTAKT_WHATSAPP_FRAGE = "WhatsApp";
-export const KONTAKT_WHATSAPP_LABELS: Readonly<Record<FLKontaktKenntnisnahme["umfang"], string>> = {
+export const KONTAKT_WHATSAPP_LABELS: Readonly<Record<FLKontaktKenntnisnahmeUmfang, string>> = {
   kontaktdaten_whatsapp: "erlaubt",
   kontaktdaten: "nicht erlaubt",
 };

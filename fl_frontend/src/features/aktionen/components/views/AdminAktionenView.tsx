@@ -12,7 +12,12 @@ import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { AdminAktionenTable } from "../collections/AdminAktionenTable";
 
-import type { FLActionLogEntry, FLActionLogListResponse } from "@/core/generated/client/types";
+import type {
+  FLActionLogEntry,
+  FLActionLogListResponseCountPerCollection,
+  FLActionLogListResponseCountPerHerkunft,
+  FLActionLogListResponseCountPerOperation,
+} from "@/core/generated/client/types";
 import type { SearchKey } from "@/shared/hooks/useFuzzySearch";
 import type { Leserichtung } from "@/shared/utils/leserichtung";
 
@@ -43,9 +48,9 @@ export function AdminAktionenView({
   aktionen: FLActionLogEntry[];
   vollstaendig: boolean;
   /** The endpoint's own counts, one map per facet: `aktionen` holds only what the narrowing selected, so it cannot answer for the rest. */
-  anzahlJeCollection: FLActionLogListResponse["count_per_collection"];
-  anzahlJeOperation: FLActionLogListResponse["count_per_operation"];
-  anzahlJeHerkunft: FLActionLogListResponse["count_per_herkunft"];
+  anzahlJeCollection: FLActionLogListResponseCountPerCollection;
+  anzahlJeOperation: FLActionLogListResponseCountPerOperation;
+  anzahlJeHerkunft: FLActionLogListResponseCountPerHerkunft;
   /** The one document the list is narrowed to, or null for the whole log — set by a row's history action. */
   dokumentId: string | null;
   /** The one Vorgang the list is narrowed to, or null — set by a row's copy action, and served under the same cap. */

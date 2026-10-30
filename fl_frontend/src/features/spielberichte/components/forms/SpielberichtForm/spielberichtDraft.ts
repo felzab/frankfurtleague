@@ -12,6 +12,7 @@ import type {
   FLSpielberichtBerichtPayload,
   FLSpielberichtPayload,
   FLSpielberichtSpieler,
+  FLSpielberichtVorschlag,
   FLSpielSeite,
 } from "@/core/generated/client/types";
 import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
@@ -183,7 +184,7 @@ export function wirePayloadOf(draft: SpielberichtDraft, stand: number | null): F
     bericht: {
       ...form.bericht,
       // Cast once here, the form schema having refused every null these narrow before a send reaches this.
-      ergebnis_vorschlag: form.bericht.ergebnis_vorschlag as FLSpielberichtBerichtPayload["ergebnis_vorschlag"],
+      ergebnis_vorschlag: form.bericht.ergebnis_vorschlag as FLSpielberichtVorschlag,
       torschuetzen: form.bericht.torschuetzen.map((eintrag) => ({
         ...eintrag,
         seite: eintrag.seite as FLSpielSeite,

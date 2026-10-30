@@ -9,6 +9,7 @@ import type {
   FLKontaktperson,
   FLSaison,
   FLSaisonPhase,
+  FLSaisonRules,
   FLSaisonTeamKontakte,
   FLTeamMembership,
   FLTeamWithMemberships,
@@ -23,7 +24,7 @@ import type { AdminKontakteRow, AdminKontaktSeat, GruppeOffer, KontaktpersonDraf
  * Every junction row counts — a disqualified team never leaves its season. The pickers disable what
  * `POST /teams/{team_id}/saisons` would refuse (`entry_gruppe_not_offered/003`), which stays authoritative.
  */
-export const buildGruppeOffer = (saisonId: string, rules: FLSaison["rules"], memberships: readonly FLTeamMembership[][]): GruppeOffer[] => {
+export const buildGruppeOffer = (saisonId: string, rules: FLSaisonRules, memberships: readonly FLTeamMembership[][]): GruppeOffer[] => {
   const occupied = new Map<string, number>();
   for (const teamMemberships of memberships) {
     for (const membership of teamMemberships) {

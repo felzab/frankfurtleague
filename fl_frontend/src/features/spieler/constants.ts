@@ -2,7 +2,7 @@ import { FLSpielerPosition, FLSpielerStufe } from "@/core/generated/client/types
 import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
 import { buildRefusal } from "@/shared/utils/refusal";
 
-import type { FLEinwilligung, FLSpielerRolle } from "@/core/generated/client/types";
+import type { FLEinwilligungUmfang, FLSpielerRolle } from "@/core/generated/client/types";
 
 type RolleOption = { value: FLSpielerRolle; label: string };
 
@@ -48,7 +48,7 @@ export function orderStufen(erlaubt: readonly FLSpielerStufe[]): FLSpielerStufe[
  * What a pupil agreed may be PUBLISHED, never what a contact seat's identically named block records:
  * the two share every field name and no value (`docs/glossary.md :: Einwilligung`).
  */
-export const EINWILLIGUNG_UMFANG_LABELS: Record<FLEinwilligung["umfang"], string> = {
+export const EINWILLIGUNG_UMFANG_LABELS: Record<FLEinwilligungUmfang, string> = {
   kader_oeffentlich: "Name im öffentlichen Kader",
   intern: "Nur innerhalb der Liga",
 };

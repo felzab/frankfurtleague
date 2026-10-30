@@ -41,7 +41,7 @@ const ANTWORT_AN = KONTAKT_EMAIL;
 
 // Bounds the WHOLE call the way `fl_frontend/src/core/api.ts :: FETCH_TIMEOUT_MS` bounds a
 // backend call: a per-attempt budget would multiply by the attempts below, and the backend's lease on a
-// page of sends is counted from both (`fl_backend/app/api/postausgang/services.py :: BEANSPRUCHUNG_DAUER`).
+// page of sends is counted from both (`fl_backend/app/api/outbox/services.py :: LEASE_DURATION`).
 const MAIL_TIMEOUT_MS = 15000;
 
 /** Three, because the provider's own transient set is a rate limit or a blip and neither clears on the instant. */

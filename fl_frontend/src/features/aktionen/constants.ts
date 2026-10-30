@@ -1,4 +1,4 @@
-import type { FLActionLogEntry, FLActorPerson } from "@/core/generated/client/types";
+import type { FLActionLogEntry, FLActionLogEntryOperation, FLActorPersonFunktion } from "@/core/generated/client/types";
 import type { PillTone } from "@/shared/components/ui/badges";
 
 // Its own module: every export of a `"use client"` view becomes a client reference.
@@ -47,7 +47,7 @@ export const AKTION_COLLECTION_LABELS: Record<string, string> = {
  * What each operation is called. **Rendered as a tag beside the area's own tag and never in one sentence with it**: the
  * area names carry three grammatical genders, so a sentence agreeing with the value is wrong for most of them.
  */
-export const AKTION_OPERATION_LABELS: Record<FLActionLogEntry["operation"], string> = {
+export const AKTION_OPERATION_LABELS: Record<FLActionLogEntryOperation, string> = {
   insert: "Angelegt",
   insert_many: "Mehrere angelegt",
   patch_one: "Geändert",
@@ -62,7 +62,7 @@ export const AKTION_OPERATION_LABELS: Record<FLActionLogEntry["operation"], stri
  * The fan-out and the bulk create take `warning`, having touched records nobody named. Both removals
  * take `danger`: they differ in what the log kept, never in severity.
  */
-export const AKTION_OPERATION_TINTS: Record<FLActionLogEntry["operation"], PillTone> = {
+export const AKTION_OPERATION_TINTS: Record<FLActionLogEntryOperation, PillTone> = {
   insert: "success",
   insert_many: "warning",
   patch_one: "info",
@@ -89,7 +89,7 @@ export const AKTOR_HERKUNFT: Record<FLActionLogEntry["actor"]["kind"], AktionHer
 };
 
 /** The word naming, on a signed-in person's row, the kind of person the write was made as, beside the start of their pseudonym. */
-export const AKTOR_FUNKTION_LABELS: Record<FLActorPerson["funktion"], string> = {
+export const AKTOR_FUNKTION_LABELS: Record<FLActorPersonFunktion, string> = {
   kontakt: "Kontakt",
   spieler: "Spieler",
   schiedsrichter: "Schiedsrichter",

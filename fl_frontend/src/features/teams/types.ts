@@ -2,6 +2,7 @@ import type {
   FLAustritt,
   FLAustrittType,
   FLGruppenNames,
+  FLKontaktEnteredBy,
   FLKontaktKenntnisnahme,
   FLKontaktperson,
   FLPatchSaisonTeamPayload,
@@ -41,7 +42,7 @@ export type AustrittDraft = Omit<FLAustritt, "type"> & {
 /** One contact person mid-edit. Every other field is typed, so an unanswered one is the empty string. */
 export type KontaktpersonDraft = Omit<FLKontaktperson, "einwilligung"> & {
   // Null on a seat the editor opened: the save that seats the person stamps who did.
-  einwilligung: Omit<FLKontaktKenntnisnahme, "entered_by"> & { entered_by: FLKontaktKenntnisnahme["entered_by"] | null };
+  einwilligung: Omit<FLKontaktKenntnisnahme, "entered_by"> & { entered_by: FLKontaktEnteredBy | null };
 };
 
 /**

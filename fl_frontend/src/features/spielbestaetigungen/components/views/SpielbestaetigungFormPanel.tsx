@@ -36,7 +36,7 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
 import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 
-import type { FLSpielbestaetigungAntwort, FLSpielbestaetigungAppointment } from "@/core/generated/client/types";
+import type { FLSpielbestaetigungAppointment, FLSpielbestaetigungVon } from "@/core/generated/client/types";
 import type { FLSpielbestaetigungAntwortPayload } from "@/features/spielbestaetigungen/schemas";
 import type { SpielbestaetigungLinkZustand } from "@/features/spielbestaetigungen/utils";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
@@ -49,8 +49,8 @@ const ANDEREN_TERMIN_VORSCHLAGEN = "Anderen Termin vorschlagen";
 export type SpielbestaetigungAbschluss =
   | { zustand: "zugesagt-neu" }
   | { zustand: "abgelehnt-neu"; vorschlag: FLSpielbestaetigungAppointment }
-  | { zustand: "zugesagt"; answered_by: FLSpielbestaetigungAntwort["von"] }
-  | { zustand: "declined"; answered_by: FLSpielbestaetigungAntwort["von"] }
+  | { zustand: "zugesagt"; answered_by: FLSpielbestaetigungVon }
+  | { zustand: "declined"; answered_by: FLSpielbestaetigungVon }
   | { zustand: "discarded"; appointment: FLSpielbestaetigungAppointment }
   | { zustand: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "declined" | "discarded"> };
 
@@ -60,7 +60,7 @@ export type SpielbestaetigungAntwort =
   | (PublicEnvelope & {
       success: false;
       zustand?: SpielbestaetigungLinkZustand;
-      answered_by?: FLSpielbestaetigungAntwort["von"];
+      answered_by?: FLSpielbestaetigungVon;
       appointment?: FLSpielbestaetigungAppointment;
     });
 
@@ -92,7 +92,7 @@ const toTime = (stored: string): Time | null => (stored === "" ? null : parseTim
 /** A refused press as the panel it swaps the form for: an answered link keeps the seat that answered. */
 function spentAbschluss(
   zustand: SpielbestaetigungLinkZustand,
-  beantwortetVon: FLSpielbestaetigungAntwort["von"] | undefined,
+  beantwortetVon: FLSpielbestaetigungVon | undefined,
   termin: FLSpielbestaetigungAppointment | undefined,
 ): SpielbestaetigungAbschluss {
   // As an answered state without its seat: a discard read back without the date it kept claims nothing either.

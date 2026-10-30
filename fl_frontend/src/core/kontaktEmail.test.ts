@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { FLKontaktLinkData } from "./generated/client/types.ts";
+import type { FLKontaktLinkData, FLKontaktRow } from "./generated/client/types.ts";
 
 const { mailFor } = await import("./mailKinds.ts");
 const { renderMail } = await import("./emailShell.ts");
@@ -9,7 +9,7 @@ const { kontaktBestaetigungsLink } = await import("./kontaktLink.ts");
 const ORIGIN = "http://localhost:3000";
 
 /** One person's link as a contacts save owes it, on an open row unless `row` names a closed one. */
-const daten = (row: FLKontaktLinkData["row"] = "open", rollen: FLKontaktLinkData["rollen"] = ["ansprechperson"]) =>
+const daten = (row: FLKontaktRow = "open", rollen: FLKontaktLinkData["rollen"] = ["ansprechperson"]) =>
   ({ art: "kontakt_confirmation", saison_id: "2627", schule: "Lessing-Kolleg", rollen, frist: "2026-10-17", row }) as const;
 
 const rendered = (facts: ReturnType<typeof daten>) => {

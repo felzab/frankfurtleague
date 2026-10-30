@@ -9,10 +9,10 @@ import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type {
   FLSpielbestaetigung,
-  FLSpielbestaetigungAntwort,
   FLSpielbestaetigungAppointment,
   FLSpielbestaetigungClosedGrund,
   FLSpielbestaetigungViewResponse,
+  FLSpielbestaetigungVon,
 } from "@/core/generated/client/types";
 import type { SpielBannerAnsetzung } from "@/features/spiele/components/forms/AdminEditSpielDataForm/banners";
 import type { FLSpiel } from "@/features/spiele/types";
@@ -20,7 +20,7 @@ import type { FieldErrors } from "@/shared/utils/validation";
 import type { AntwortStand } from "./constants";
 
 /** Who answered, as a readout rather than a sentence: a seat's long label agrees with no one article. */
-export function beantwortetVon(von: FLSpielbestaetigungAntwort["von"]): string {
+export function beantwortetVon(von: FLSpielbestaetigungVon): string {
   if (von.art === "admin") return "Verwaltung der Liga";
   if (von.art === "schiedsrichter") return "Schiedsrichterin oder Schiedsrichter";
   return KONTAKT_ROLLEN.find((eintrag) => eintrag.value === von.rolle)?.langform ?? NICHT_HINTERLEGT;
@@ -204,8 +204,8 @@ export type SpielbestaetigungAnsicht =
   // A member per state, never one for the pair: a union keyed on a union of literals narrows on neither.
   | { zustand: "valid"; ansicht: FLSpielbestaetigungViewResponse }
   | { zustand: "vorschlag"; ansicht: FLSpielbestaetigungViewResponse }
-  | { zustand: "zugesagt"; answered_by: FLSpielbestaetigungAntwort["von"] }
-  | { zustand: "declined"; answered_by: FLSpielbestaetigungAntwort["von"] }
+  | { zustand: "zugesagt"; answered_by: FLSpielbestaetigungVon }
+  | { zustand: "declined"; answered_by: FLSpielbestaetigungVon }
   // The date the league kept, which its sentence points at: the link's mail named it already.
   | { zustand: "discarded"; appointment: FLSpielbestaetigungAppointment }
   // `termin-vorbei` is the page's own: an `abgelaufen` link whose fixture's day has gone by.
