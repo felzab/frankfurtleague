@@ -14,7 +14,7 @@ import {
   teamPageHref,
 } from "./utils";
 
-import type { FLKontaktperson, FLTeamMembership } from "@/features/teams/schemas";
+import type { FLKontaktperson, FLTeamMembership } from "@/core/generated/client/types";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
 
 /** The label the backend runs on the application form, which a seat opened blank stamps. */

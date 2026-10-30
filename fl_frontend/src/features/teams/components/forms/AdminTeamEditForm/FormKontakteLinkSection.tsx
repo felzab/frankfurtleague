@@ -8,7 +8,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { textLink } from "@/shared/components/ui/textLink";
 
-import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
+import type { FLSaisonTeamKontakte } from "@/core/generated/client/types";
 
 /**
  * The way to the season's three seats, and no field of them. They answer a different question from

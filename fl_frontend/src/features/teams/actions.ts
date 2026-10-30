@@ -26,16 +26,14 @@ import {
 } from "./schemas";
 import { describeReplacementUmfang } from "./utils";
 
-import type { ActionFailure, ActionResult } from "@/shared/types/types";
 import type {
-  FLDeleteTeamPayload,
   FLPatchTeamPayload,
-  FLReactivateTeamPayload,
   FLReplaceSaisonTeamPayload,
   FLReplaceSaisonTeamResponse,
   FLSaisonTeamResponse,
   FLTeamRecord,
-} from "./schemas";
+} from "@/core/generated/client/types";
+import type { ActionFailure, ActionResult } from "@/shared/types/types";
 import type { SaisonTeamEnterDraft, SaisonTeamMembershipDraft, TeamCreateDraft } from "./types";
 
 export async function postTeamAction(
@@ -86,7 +84,7 @@ export async function postTeamAction(
   });
 }
 
-export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<
+export async function patchTeamAction(rawPayload: FLPatchTeamPayload & { id: string }): Promise<
   ActionResult<{
     updated_document?: FLTeamRecord;
     // Both counts, because both halves of the fan-out fail silently and each answers a different
@@ -122,7 +120,7 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload): Promise<
   });
 }
 
-export async function deleteTeamAction(rawPayload: FLDeleteTeamPayload): Promise<ActionResult<{ updated_document?: FLTeamRecord }>> {
+export async function deleteTeamAction(rawPayload: { id: string }): Promise<ActionResult<{ updated_document?: FLTeamRecord }>> {
   return runAdminMutation("deleteTeamAction", async () => {
     const validated = FLDeleteTeamPayloadSchema.safeParse(rawPayload);
 
@@ -148,7 +146,7 @@ export async function deleteTeamAction(rawPayload: FLDeleteTeamPayload): Promise
   });
 }
 
-export async function reactivateTeamAction(rawPayload: FLReactivateTeamPayload): Promise<ActionResult<{ updated_document?: FLTeamRecord }>> {
+export async function reactivateTeamAction(rawPayload: { id: string }): Promise<ActionResult<{ updated_document?: FLTeamRecord }>> {
   return runAdminMutation("reactivateTeamAction", async () => {
     const validated = FLReactivateTeamPayloadSchema.safeParse(rawPayload);
 
@@ -238,7 +236,7 @@ export async function patchSaisonTeamAction(
  * for the season are retired.
  */
 export async function replaceSaisonTeamAction(
-  rawPayload: FLReplaceSaisonTeamPayload,
+  rawPayload: FLReplaceSaisonTeamPayload & { team_id: string; saison_id: string },
 ): Promise<ActionResult<{ replacement?: FLReplaceSaisonTeamResponse }>> {
   return runAdminMutation("replaceSaisonTeamAction", { stepUp: true }, async () => {
     const validated = FLReplaceSaisonTeamPayloadSchema.safeParse(rawPayload);

@@ -9,8 +9,8 @@ import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
 import { alterAusserhalb, BEWERBUNG_MAX_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
 
+import type { FLTrainerZugleich } from "@/core/generated/client/types";
 import type { KontaktRolle } from "@/features/teams/constants";
-import type { FLTrainerZugleich } from "@/features/teams/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { BewerbungHerkunft } from "./constants";
 import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas";

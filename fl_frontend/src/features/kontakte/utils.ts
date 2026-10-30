@@ -3,8 +3,6 @@ import { EINWILLIGUNG_UMFANG, KONTAKT_ROLLEN } from "@/features/teams/constants"
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
-import type { KontaktZeile } from "@/core/kontaktEmail";
-import type { KontaktRolle } from "@/features/teams/constants";
 import type {
   FLAustritt,
   FLKontaktpersonPayload,
@@ -12,7 +10,9 @@ import type {
   FLTeamMembership,
   FLTeamWithMemberships,
   FLTrainerZugleich,
-} from "@/features/teams/schemas";
+} from "@/core/generated/client/types";
+import type { KontaktZeile } from "@/core/kontaktEmail";
+import type { KontaktRolle } from "@/features/teams/constants";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
 
 /**

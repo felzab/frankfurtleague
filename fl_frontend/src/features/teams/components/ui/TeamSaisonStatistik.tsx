@@ -4,7 +4,7 @@ import { card } from "@/shared/components/ui/card";
 
 import { Tordifferenz } from "./Tordifferenz";
 
-import type { FLTeamStatistik } from "../../schemas";
+import type { FLTeamStatistik } from "@/core/generated/client/types";
 
 // Each step is n tiles of 9.5rem plus the `gap-4` between them: 9.5rem is the narrowest tile, at a
 // quarter-rem step, holding „15 / 10 / 12“ on one line at its largest type.

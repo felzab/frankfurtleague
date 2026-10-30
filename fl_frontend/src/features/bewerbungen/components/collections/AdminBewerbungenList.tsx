@@ -32,10 +32,10 @@ import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
 
+import type { FLKontaktperson } from "@/core/generated/client/types";
 import type { BewerbungDublette } from "@/features/bewerbungen/duplicates";
 import type { AdminBewerbungRow } from "@/features/bewerbungen/types";
 import type { KontaktRolle } from "@/features/teams/constants";
-import type { FLKontaktperson } from "@/features/teams/schemas";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { ReactNode } from "react";
 

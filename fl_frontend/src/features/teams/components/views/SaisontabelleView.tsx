@@ -19,7 +19,7 @@ import { AustrittKuerzel } from "../ui/AustrittKuerzel";
 import { TeamPopoverMenu } from "../ui/TeamPopoverMenu";
 import { Tordifferenz } from "../ui/Tordifferenz";
 
-import type { FLGruppen } from "../../schemas";
+import type { FLGruppen } from "@/core/generated/client/types";
 
 /** A club holding no place: a dash to the eye in the narrow rank column, words to a screen reader. */
 const OHNE_PLATZ = "–";

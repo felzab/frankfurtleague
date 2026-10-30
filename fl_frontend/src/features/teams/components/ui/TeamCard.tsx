@@ -9,7 +9,7 @@ import { card } from "@/shared/components/ui/card";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
 
-import type { FLTeam } from "../../schemas";
+import type { FLTeam } from "@/core/generated/client/types";
 
 /**
  * **Never `variant`/`color` on a Chip here**: those resolve against HeroUI's own theme tokens, which

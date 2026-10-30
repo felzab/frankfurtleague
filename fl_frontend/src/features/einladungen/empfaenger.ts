@@ -1,4 +1,4 @@
-import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
+import type { FLSaisonTeamKontakte } from "@/core/generated/client/types";
 import type { FLEinladungEmpfaenger } from "./schemas";
 
 /**

@@ -5,7 +5,7 @@ import { assert, describe, expect, it } from "vitest";
 
 import { EINGETRAGEN_VON_OPTIONS, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS } from "./constants.ts";
 import { buildKontakteFacets, buildTeamFacets, KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung, TEAM_FACETS } from "./facets.ts";
-import { FLGruppenTeamSchema, FLTrikotFarbeSchema } from "./schemas.ts";
+import { FLTrikotFarbeSchema } from "./schemas.ts";
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
 import {
   buildEmptyKontaktperson,
@@ -21,19 +21,23 @@ import {
   toWebsiteUrl,
 } from "./utils.ts";
 
-import type { FLSaisonPhase } from "@/core/generated/client/types.ts";
+import type {
+  FLGruppenTeam,
+  FLKontaktperson,
+  FLSaisonPhase,
+  FLSaisonTeamKontakte,
+  FLTeamWithMemberships,
+} from "@/core/generated/client/types.ts";
 import type { FLSpiel } from "../spiele/types.ts";
-import type { FLGruppenTeam, FLKontaktperson, FLSaisonTeamKontakte, FLTeamWithMemberships } from "./schemas.ts";
 
 const TEAM_ID = (seed: number) => `6890a1b2c3d4e5f6071900${String(seed).padStart(2, "0")}`;
 
-/** Complete and parsed at construction: a drifted field fails where the fixture is built rather than wherever it is read. */
-const GRUPPEN_TEAM: FLGruppenTeam = FLGruppenTeamSchema.parse({
+const GRUPPEN_TEAM: FLGruppenTeam = {
   id: TEAM_ID(0),
   name: "SV Beispiel",
   shorthand: "SB",
   // Every counter at zero, so no fixture here states what a played match is worth: the ladder is the
-  // backend's and `.claude/CLAUDE.md` §7 **table** keeps it out of this surface entirely.
+  // backend's, and a ratified decision keeps the points per result off this surface entirely.
   statistik: {
     anzahl_gespielte_spiele: 0,
     siege: 0,
@@ -46,7 +50,7 @@ const GRUPPEN_TEAM: FLGruppenTeam = FLGruppenTeamSchema.parse({
   },
   austritt_type: null,
   anzahl_ausstehende_spiele: 0,
-} satisfies FLGruppenTeam);
+};
 
 /**
  * One row of a standing. A team is walked past because `austritt_type` is non-null, never because of
@@ -778,9 +782,9 @@ describe("what a website box reports upward", () => {
     expect(toWebsiteUrl("HTTP://www.beispielschule.de")).toBe("https://www.beispielschule.de");
   });
 
-  /* ONE spelling of "no website" is ever written, so no reader downstream tests for two.
-     `OptionalExternalUrlSchema` refuses `""` outright (`schemas.test.ts`), so an empty box
-     reported as one would be refused rather than stored. */
+  /* ONE spelling of "no website" is ever written, so no reader downstream tests for two. The
+     club payload refuses `""` outright (`schemas.test.ts`), so an empty box reported as one would
+     be refused rather than stored. */
   it("reports no website as null, never as the empty string", () => {
     expect(toWebsiteUrl("")).toBe(null);
     expect(toWebsiteUrl("   ")).toBe(null);

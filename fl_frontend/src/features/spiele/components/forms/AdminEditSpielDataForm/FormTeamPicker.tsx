@@ -35,10 +35,9 @@ import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 
-import type { FLGruppenNames, FLPatchSpielDataPayload } from "@/core/generated/client/types";
+import type { FLGruppenNames, FLPatchSpielDataPayload, FLTeam } from "@/core/generated/client/types";
 import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { FLSpiel, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/types";
-import type { FLTeam } from "@/features/teams/schemas";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
 import type { Key } from "@heroui/react/rac";
 import type { SpielBanner } from "./banners";

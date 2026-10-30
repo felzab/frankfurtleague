@@ -49,17 +49,17 @@ import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
 
 import { FormKontaktEinladen } from "./FormKontaktEinladen";
 
-import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
-import type { KontakteFieldPath } from "@/features/kontakte/kontakteDraftStatus";
-import type { MedienFragen } from "@/features/spieler/nachweis";
-import type { KontaktRolle } from "@/features/teams/constants";
 import type {
   FLSaisonTeamAdresswechsel,
   FLSaisonTeamBestaetigungAnsicht,
   FLSaisonTeamBestaetigungenAnsicht,
   FLSaisonTeamKontakte,
   FLTrainerZugleich,
-} from "@/features/teams/schemas";
+} from "@/core/generated/client/types";
+import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
+import type { KontakteFieldPath } from "@/features/kontakte/kontakteDraftStatus";
+import type { MedienFragen } from "@/features/spieler/nachweis";
+import type { KontaktRolle } from "@/features/teams/constants";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
 import type { CalendarDate } from "@internationalized/date";
 import type { ReactNode } from "react";

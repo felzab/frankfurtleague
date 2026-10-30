@@ -48,8 +48,8 @@ import { listboxRow } from "@/shared/components/ui/refusableOption";
 import { Select } from "@/shared/components/ui/Select";
 import { TextField } from "@/shared/components/ui/TextField";
 
+import type { FLSchulform } from "@/core/generated/client/types";
 import type { BewerbungSchuleDraft } from "@/features/bewerbungen/types";
-import type { FLSchulform } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react/rac";
 
 /** The clubs' own row in the picker, `PickOrCreateAutocomplete`'s so the two lists read alike. */

@@ -1,25 +1,32 @@
 import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
-import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
+import { teamsGetTeam, teamsGetTeamMemberships, teamsGetTeams, teamsGetTeamsForAdmin } from "@/core/generated/client/sdk";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import { FLTeamsMembershipsResponseSchema, FLTeamsResponseSchema, FLTeamsSingleResponseSchema } from "./schemas";
+import type {
+  FLTeamsGroupedResponse,
+  FLTeamsListResponse,
+  FLTeamsMembershipsResponse,
+  FLTeamsSingleResponse,
+  TeamsGetTeamParams,
+  TeamsGetTeamsForAdminParams,
+  TeamsGetTeamsParams,
+} from "@/core/generated/client/types";
 
-import type { FLTeamsMembershipsResponse, FLTeamsResponse, FLTeamsSingleResponse } from "./schemas";
-import type { FLPublicTeamsFilterParams, FLTeamsFilterParams, FLTeamSingleFilterParams } from "./types";
+/** The list read's two shapes, told apart by `format`: `in_gruppen` asks for the grouped one. */
+type FLTeamsResponse = FLTeamsListResponse | FLTeamsGroupedResponse;
 
-export async function getTeams(filters: FLPublicTeamsFilterParams = {}): Promise<FLTeamsResponse> {
+/** Omitted, `saison_id` is the current season. */
+export async function getTeams(filters: TeamsGetTeamsParams = {}): Promise<FLTeamsResponse> {
   "use cache";
 
   cacheTag(SITE_CACHE_TAG);
   cacheLife("minutes");
 
-  return apiClient<FLTeamsResponse>("/teams", FLTeamsResponseSchema, {
-    params: filters,
-  });
+  return teamsGetTeams(filters);
 }
 
 /**
@@ -27,15 +34,13 @@ export async function getTeams(filters: FLPublicTeamsFilterParams = {}): Promise
  * `"use cache"` scope reaches the caller redacted to a digest, so a catch at the call site cannot
  * recognise it. Other errors still throw.
  */
-export async function getTeam(teamId: string, filters: FLTeamSingleFilterParams = {}): Promise<FLTeamsSingleResponse | null> {
+export async function getTeam(teamId: string, filters: TeamsGetTeamParams = {}): Promise<FLTeamsSingleResponse | null> {
   "use cache";
 
   cacheTag(SITE_CACHE_TAG);
   cacheLife("minutes");
 
-  return apiClient<FLTeamsSingleResponse>(`/teams/${teamId}`, FLTeamsSingleResponseSchema, {
-    params: filters,
-  }).catch((error: unknown) => {
+  return teamsGetTeam(teamId, filters).catch((error: unknown) => {
     // A 404 is "no such team" OR "no junction row for this season": the join is strict.
     if (isRecordMissing(error)) return null;
     throw error;
@@ -49,15 +54,13 @@ const adminTeamsInFlight = cache((): Map<string, Promise<FLTeamsResponse>> => ne
  * A season's clubs for the admin surfaces, a planned season's included — `getTeams` refuses that
  * season, though a club is entered into one while planned. **Uncached**.
  */
-export function getAdminTeams(filters: FLTeamsFilterParams = {}): Promise<FLTeamsResponse> {
+export function getAdminTeams(filters: TeamsGetTeamsForAdminParams = {}): Promise<FLTeamsResponse> {
   // Keyed on the filters SERIALIZED, for the reason `fl_frontend/src/features/spiele/queries.ts :: getAdminSpiele` gives.
   const key = JSON.stringify(filters, Object.keys(filters).sort());
   const held = adminTeamsInFlight().get(key);
   if (held !== undefined) return held;
 
-  const started = runAdminRead(() =>
-    apiClient<FLTeamsResponse>("/teams/list/admin", FLTeamsResponseSchema, { authType: "admin", params: filters }),
-  );
+  const started = runAdminRead(() => teamsGetTeamsForAdmin(filters));
   adminTeamsInFlight().set(key, started);
 
   return started;
@@ -68,6 +71,4 @@ export function getAdminTeams(filters: FLTeamsFilterParams = {}): Promise<FLTeam
  * club-centric question.
  */
 // Never `"use cache"` here, which keys on the arguments rather than the caller.
-export const getTeamMemberships = cache(async (): Promise<FLTeamsMembershipsResponse> =>
-  runAdminRead(() => apiClient<FLTeamsMembershipsResponse>("/teams/memberships", FLTeamsMembershipsResponseSchema, { authType: "admin" })),
-);
+export const getTeamMemberships = cache(async (): Promise<FLTeamsMembershipsResponse> => runAdminRead(() => teamsGetTeamMemberships()));
