@@ -27,11 +27,11 @@ const SDK_DOUBLE = {
       throw new Error("The request's deadline had passed before this call was sent.");
     const claim = claims.shift() ?? { mails: [], aufgegeben: 0 };
     const held = claim.mails.length > 0;
-    return { beanspruchung: held ? "claim-1" : null, beansprucht_bis: null, mails: claim.mails, aufgegeben: claim.aufgegeben };
+    return { beanspruchung: held ? "claim-1" : null, mails: claim.mails, aufgegeben: claim.aufgegeben };
   },
   postausgangPostErgebnis: async (payload: FLPostausgangErgebnisPayload) => {
     schritte.push({ art: "report", payload });
-    const [{ ergebnis }] = payload.ergebnisse as [FLPostausgangErgebnisPayload["ergebnisse"][number]];
+    const { ergebnis } = payload;
     const counted = { gesendet: 0, wiederholt: 0, aufgegeben: 0, zurueckgehalten: 0, ignoriert: 0 };
     const key = ({ gesendet: "gesendet", wiederholen: "wiederholt", aufgeben: "aufgegeben", zurueckgehalten: "zurueckgehalten" } as const)[
       ergebnis
@@ -97,7 +97,9 @@ beforeEach(() => {
 });
 
 const sends = () => schritte.filter((schritt): schritt is Extract<Schritt, { art: "send" }> => schritt.art === "send");
-const reports = () => schritte.flatMap((schritt) => (schritt.art === "report" ? schritt.payload.ergebnisse : []));
+// Each report's outcome, its claim aside: every case's claim is the one the double hands out.
+const reports = () => schritte.flatMap((schritt) => (schritt.art === "report" ? [omitClaim(schritt.payload)] : []));
+const omitClaim = ({ beanspruchung: _claim, ...ergebnis }: FLPostausgangErgebnisPayload) => ergebnis;
 
 describe("one drain of the Postausgang", () => {
   /* A send without the row's tag is an event no row is found by, and one without the hand-out's key is a second mail

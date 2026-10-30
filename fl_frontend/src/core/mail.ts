@@ -18,7 +18,12 @@ import { boundCall, getRequestTraceId, recordWriteSent } from "./requestScope";
 import { mintTraceId } from "./trace";
 
 import type { MailVon } from "./emailShell";
-import type { FLPostausgangAusgabe, FLPostausgangErgebnis, FLPostausgangErgebnisResponse } from "./generated/client/types";
+import type {
+  FLPostausgangAusgabe,
+  FLPostausgangErgebnisPayload,
+  FLPostausgangErgebnisPayloadErgebnis,
+  FLPostausgangErgebnisResponse,
+} from "./generated/client/types";
 
 const MAIL_ENDPOINT = "https://api.resend.com/emails";
 
@@ -282,7 +287,7 @@ async function drainen(zaehlung: DrainZaehlung): Promise<void> {
     if (beanspruchung === null) return;
 
     for (const mail of mails) {
-      const antwort = await postausgangPostErgebnis({ beanspruchung: beanspruchung, ergebnisse: [await zustellen(mail)] });
+      const antwort = await postausgangPostErgebnis({ beanspruchung: beanspruchung, ...(await zustellen(mail)) });
       zaehlung.gesendet += antwort.gesendet;
       zaehlung.wiederholt += antwort.wiederholt;
       zaehlung.aufgegeben += antwort.aufgegeben;
@@ -297,7 +302,7 @@ async function drainen(zaehlung: DrainZaehlung): Promise<void> {
  * repeat of this send, and a later hand-out mints a fresh link under a key of its own
  * (https://resend.com/docs/dashboard/emails/idempotency-keys). The ban was judged at the hand-out.
  */
-async function zustellen(mail: FLPostausgangAusgabe): Promise<FLPostausgangErgebnis> {
+async function zustellen(mail: FLPostausgangAusgabe): Promise<Omit<FLPostausgangErgebnisPayload, "beanspruchung">> {
   // Opened here alone, sealed by `fl_frontend/src/core/auth.ts :: oweSignInMail` under the same key, and held by this
   // scope alone: never on a line, never in an error.
   let geheim: string | null = null;
@@ -333,7 +338,7 @@ async function zustellen(mail: FLPostausgangAusgabe): Promise<FLPostausgangErgeb
  * A failed send's outcome. A refusal the provider names temporary, its quota among them, a send that broke off and one
  * that never left are tried again and never count toward giving up; any other refusal is one every send would meet.
  */
-function ergebnisOf(error: unknown): Exclude<FLPostausgangErgebnis["ergebnis"], "gesendet"> {
+function ergebnisOf(error: unknown): Exclude<FLPostausgangErgebnisPayloadErgebnis, "gesendet"> {
   if (error instanceof MailWithheldError) return "zurueckgehalten";
   if (error instanceof MailRecipientError) return "aufgeben";
   if (error instanceof MailSendError) return error.isTransient ? "wiederholen" : "aufgeben";

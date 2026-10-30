@@ -3952,12 +3952,11 @@ export interface FLPostausgangAusgabe {
 }
 
 /**
- * The owed mails one claim holds, oldest first; `beanspruchung` and `beansprucht_bis` are null exactly where it holds none.
+ * The owed mails one claim holds, oldest first; `beanspruchung` is null exactly where it holds none.
  */
 export interface FLPostausgangAusgabeResponse {
   /** @minimum 0 */
   aufgegeben: number;
-  beansprucht_bis: string | null;
   beanspruchung: string | null;
   mails: FLPostausgangAusgabe[];
 }
@@ -3982,30 +3981,26 @@ export interface FLPostausgangEreignisResponse {
   angewendet: boolean;
 }
 
-export type FLPostausgangErgebnisErgebnis = (typeof FLPostausgangErgebnisErgebnis)[keyof typeof FLPostausgangErgebnisErgebnis];
+export type FLPostausgangErgebnisPayloadErgebnis =
+  (typeof FLPostausgangErgebnisPayloadErgebnis)[keyof typeof FLPostausgangErgebnisPayloadErgebnis];
 
-export const FLPostausgangErgebnisErgebnis = {
+export const FLPostausgangErgebnisPayloadErgebnis = {
   gesendet: "gesendet",
   wiederholen: "wiederholen",
   aufgeben: "aufgeben",
   zurueckgehalten: "zurueckgehalten",
 } as const;
 
-export interface FLPostausgangErgebnis {
-  ergebnis: FLPostausgangErgebnisErgebnis;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  nachricht_id: string | null;
-}
-
+/**
+ * The outcome of one handed-out mail's send, reported as the send returns.
+ */
 export interface FLPostausgangErgebnisPayload {
   /** @minLength 1 */
   beanspruchung: string;
-  /**
-   * @minItems 1
-   * @maxItems 64
-   */
-  ergebnisse: FLPostausgangErgebnis[];
+  ergebnis: FLPostausgangErgebnisPayloadErgebnis;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  nachricht_id: string | null;
 }
 
 export interface FLPostausgangErgebnisResponse {

@@ -449,10 +449,9 @@ class FLPostausgangAusgabe(BaseModel):
 
 
 class FLPostausgangAusgabeResponse(BaseAPIResponse):
-    """The owed mails one claim holds, oldest first; `beanspruchung` and `beansprucht_bis` are null exactly where it holds none."""
+    """The owed mails one claim holds, oldest first; `beanspruchung` is null exactly where it holds none."""
 
     beanspruchung: str | None
-    beansprucht_bis: AwareDatetime | None
     mails: list[FLPostausgangAusgabe]
     # Rows this claim found past their deadline and gave up, which no report will count.
     aufgegeben: int = Field(ge=0)
@@ -461,9 +460,12 @@ class FLPostausgangAusgabeResponse(BaseAPIResponse):
 FLPostausgangErgebnisArt = Literal["gesendet", "wiederholen", "aufgeben", "zurueckgehalten"]
 
 
-class FLPostausgangErgebnis(BaseModel):
+class FLPostausgangErgebnisPayload(BaseModel):
+    """The outcome of one handed-out mail's send, reported as the send returns."""
+
     model_config = ConfigDict(extra="forbid")
 
+    beanspruchung: CustomStrippedNonEmptyString
     id: CustomObjectId
     ergebnis: FLPostausgangErgebnisArt
     # The provider's id for the accepted message, kept as the row's record of it.
@@ -477,13 +479,6 @@ class FLPostausgangErgebnis(BaseModel):
             raise ValueError("Nur eine gesendete Mail nennt eine Nachricht.")
 
         return self
-
-
-class FLPostausgangErgebnisPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    beanspruchung: CustomStrippedNonEmptyString
-    ergebnisse: list[FLPostausgangErgebnis] = Field(min_length=1, max_length=64)
 
 
 class FLPostausgangErgebnisResponse(BaseAPIResponse):

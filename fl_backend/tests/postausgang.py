@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.postausgang.schemas import FLPostausgangAusgabe, FLPostausgangErgebnis, FLPostausgangErgebnisPayload
+from app.api.postausgang.schemas import FLPostausgangAusgabe, FLPostausgangErgebnisPayload
 from app.api.postausgang.system_router import post_ausgabe, post_ergebnis
 from app.core.collections import Collection
 from tests.bans import ban_list
@@ -24,13 +24,12 @@ async def drained(database: AsyncDatabase, client: AsyncMongoClient, *, now: dat
         if answer.beanspruchung is None:
             return mails
 
-        await post_ergebnis(
-            ergebnis_data=FLPostausgangErgebnisPayload(
-                beanspruchung=answer.beanspruchung,
-                ergebnisse=[FLPostausgangErgebnis(id=mail.id, ergebnis="gesendet", nachricht_id=None) for mail in answer.mails],
-            ),
-            postausgang_collection=database[Collection.POSTAUSGANG],
-            db_client=client,
-            now=now,
-        )
+        for mail in answer.mails:
+            await post_ergebnis(
+                ergebnis_data=FLPostausgangErgebnisPayload(
+                    beanspruchung=answer.beanspruchung, id=mail.id, ergebnis="gesendet", nachricht_id=None
+                ),
+                postausgang_collection=database[Collection.POSTAUSGANG],
+                now=now,
+            )
         mails += answer.mails

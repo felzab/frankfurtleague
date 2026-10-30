@@ -20,6 +20,7 @@ from app.api.postausgang.schemas import (
     FLPostausgangArt,
     FLPostausgangBezug,
     FLPostausgangDaten,
+    FLPostausgangErgebnisArt,
     FLPostausgangLink,
     FLPostausgangStand,
     FLPostausgangZustellStand,
@@ -49,6 +50,14 @@ ANMELDE_ARTEN: Final[frozenset[FLPostausgangArt]] = frozenset({"anmeldecode", "p
 
 # The one kind of mail a ban does not stop: the ban's own notice.
 UNGESPERRT: Final[frozenset[FLPostausgangArt]] = frozenset({"sperre"})
+
+# The final state each reported outcome settles a row in; a send to be tried again ends there only where it may not be.
+ENDSTAND: Final[Mapping[FLPostausgangErgebnisArt, FLPostausgangStand]] = {
+    "gesendet": "gesendet",
+    "zurueckgehalten": "zurueckgehalten",
+    "aufgeben": "aufgegeben",
+    "wiederholen": "aufgegeben",
+}
 
 # What a reader of a seat's delivery takes as the mail not having arrived: refused by the provider's suppression list,
 # bounced for good, or marked as spam -- or never sent at all.

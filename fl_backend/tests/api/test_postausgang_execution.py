@@ -24,7 +24,6 @@ from app.api.postausgang.schemas import (
     FLPostausgangBezug,
     FLPostausgangDaten,
     FLPostausgangEreignisPayload,
-    FLPostausgangErgebnis,
     FLPostausgangErgebnisArt,
     FLPostausgangErgebnisPayload,
     FLPostausgangErgebnisResponse,
@@ -119,7 +118,6 @@ async def claimed(database: AsyncDatabase, client: AsyncMongoClient, *, now: dat
 
 async def reported(
     database: AsyncDatabase,
-    client: AsyncMongoClient,
     beanspruchung: str | None,
     row_id: ObjectId,
     ergebnis: FLPostausgangErgebnisArt,
@@ -129,11 +127,9 @@ async def reported(
     assert beanspruchung is not None
     return await post_ergebnis(
         ergebnis_data=FLPostausgangErgebnisPayload(
-            beanspruchung=beanspruchung,
-            ergebnisse=[FLPostausgangErgebnis(id=row_id, ergebnis=ergebnis, nachricht_id=f"msg-{row_id}" if ergebnis == "gesendet" else None)],
+            beanspruchung=beanspruchung, id=row_id, ergebnis=ergebnis, nachricht_id=f"msg-{row_id}" if ergebnis == "gesendet" else None
         ),
         postausgang_collection=database[Collection.POSTAUSGANG],
-        db_client=client,
         now=now,
     )
 
@@ -204,8 +200,8 @@ class TestTheDrain:
             lost = await claimed(database, client)
             inside = await claimed(database, client, now=NOW + BEANSPRUCHUNG_DAUER - timedelta(seconds=1))
             after = await claimed(database, client, now=NOW + BEANSPRUCHUNG_DAUER)
-            late = await reported(database, client, lost.beanspruchung, row_id, "gesendet")
-            settled = await reported(database, client, after.beanspruchung, row_id, "gesendet")
+            late = await reported(database, lost.beanspruchung, row_id, "gesendet")
+            settled = await reported(database, after.beanspruchung, row_id, "gesendet")
             record = await database[Collection.EINLADUNGEN].find_one({"_id": EINLADUNG})
             logged = await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.POSTAUSGANG)})
 
@@ -283,7 +279,7 @@ class TestTheDrain:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             row_id = await owe(database, client, "sperre/1")
             first = await claimed(database, client)
-            failed = await reported(database, client, first.beanspruchung, row_id, "wiederholen")
+            failed = await reported(database, first.beanspruchung, row_id, "wiederholen")
             waiting = await claimed(database, client, now=NOW + WIEDERHOLUNG_NACH - timedelta(seconds=1))
             again = await claimed(database, client, now=NOW + WIEDERHOLUNG_NACH)
 
@@ -325,7 +321,7 @@ class TestTheSignInCode:
                 now=NOW,
             )
             first = await claimed(database, client)
-            failed = await reported(database, client, first.beanspruchung, owed.id, "wiederholen")
+            failed = await reported(database, first.beanspruchung, owed.id, "wiederholen")
 
             return first, failed, await stored(database, owed.id)
 
@@ -343,7 +339,7 @@ class TestTheExpiry:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> dict[str, Any]:
             row_id = await owe(database, client, "sperre/1")
             answer = await claimed(database, client, now=settled_at)
-            await reported(database, client, answer.beanspruchung, row_id, "gesendet", now=settled_at)
+            await reported(database, answer.beanspruchung, row_id, "gesendet", now=settled_at)
 
             return await stored(database, row_id)
 
@@ -364,7 +360,7 @@ class TestTheDeliveryEvent:
 
             # The provider's event can outrun the send's own report, which has then recorded nothing of the message.
             first = await event("unzustellbar")
-            await reported(database, client, answer.beanspruchung, row_id, "gesendet")
+            await reported(database, answer.beanspruchung, row_id, "gesendet")
             applied = [first, await event("verzoegert"), await event("zugestellt"), await event("zugestellt", ObjectId())]
             newest = await read_the_newest(postausgang_collection=database[Collection.POSTAUSGANG], bezug=BEZUG)
 
