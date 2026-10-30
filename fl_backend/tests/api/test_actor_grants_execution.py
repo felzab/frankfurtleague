@@ -82,7 +82,7 @@ def test_a_session_signed_in_before_its_grant_is_refused(seeded_url: str):
 
     response = answered(seeded_url, SignedActor(GRANTED_AT_THE_SEED, ADMIN_KEY, signed_in_before_s=AN_HOUR_S))
 
-    assert (response.status_code, response.json()["error_code"]) == (401, Code.ACTOR_TOKEN_REFUSED)
+    assert (response.status_code, response.json()["error_code"]) == (401, Code.SESSION_REFUSED)
 
 
 def test_an_actor_holding_a_grant_passes_the_real_read(seeded_url: str):
