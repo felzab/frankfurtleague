@@ -41,6 +41,7 @@ services:
       - auth_secret
       - auth_resend_key
       - resend_webhook_secret
+      - betterstack_heartbeat_url
       - internal_api_key_base
       - internal_api_key_system
       - internal_api_key_admin
@@ -244,6 +245,8 @@ secrets:
     file: ./secrets/auth_resend_key
   resend_webhook_secret:
     file: ./secrets/resend_webhook_secret
+  betterstack_heartbeat_url:
+    file: ./secrets/betterstack_heartbeat_url
   sperrliste_schluessel:
     file: ./secrets/sperrliste_schluessel
   internal_api_key_base:

@@ -8,7 +8,7 @@ import { HOUR_MS } from "./core/timeUnits";
 const REFUSED = 3;
 
 export async function registerOnNode() {
-  const { checkedAs } = await passBootGates().catch((refusal: unknown) => {
+  const { checkedAs, heartbeatUrl } = await passBootGates().catch((refusal: unknown) => {
     // Next logs a throwing hook and serves on, every page a 500; a dead container is what a restart
     // policy and the deploy's rollback read. The empty write's
     // callback runs once the CRITICAL line has left.
@@ -23,7 +23,7 @@ export async function registerOnNode() {
 
   // `next dev` never sets NODE_ENV to production, and a developer's machine holds a real transport
   // and the league's real people.
-  if (process.env.NODE_ENV === "production") armScheduler(await loadJobs());
+  if (process.env.NODE_ENV === "production") armScheduler(await loadJobs(), heartbeatUrl());
 
   // Unawaited: Next serves nothing until this hook returns, and the site serves without these
   // indexes, where an outage of the store would otherwise hold every page.
@@ -83,7 +83,7 @@ const FIRST_PASS_DELAY_MS = 60 * 1000;
  * timer and no cross-process lease is built. Armed and returned at once, the first pass never awaited: Next serves
  * nothing until `register` returns (installed `03-file-conventions/instrumentation.md`).
  */
-function armScheduler({ jobs, drain }: Awaited<ReturnType<typeof loadJobs>>): void {
+function armScheduler({ jobs, drain }: Awaited<ReturnType<typeof loadJobs>>, heartbeat: string | undefined): void {
   let laeuft = false;
   const tick = async () => {
     // A pass slower than the hour would otherwise run beside itself over the same rows.
@@ -94,7 +94,7 @@ function armScheduler({ jobs, drain }: Awaited<ReturnType<typeof loadJobs>>): vo
 
     laeuft = true;
     try {
-      await runPass(jobs, drain);
+      await ping(heartbeat, await runPass(jobs, drain));
     } finally {
       laeuft = false;
     }
@@ -140,16 +140,40 @@ async function runPass(jobs: readonly Job[], drain: () => Promise<{ aufgegeben: 
   return ausfaelle;
 }
 
+/** Long enough for the monitor's answer, short enough that a hung one never reaches the next pass. */
+const HEARTBEAT_TIMEOUT_MS = 10 * 1000;
+
+/**
+ * The pass reported to Better Stack's heartbeat, `/fail` with the jobs it names where it left anything owed
+ * (https://betterstack.com/docs/uptime/cron-and-heartbeat-monitor/). A pass that never pings is what the monitor
+ * alerts on, so the ping never fails the pass: its own failure is a line.
+ */
+async function ping(url: string | undefined, ausfaelle: readonly string[]): Promise<void> {
+  if (url === undefined) return;
+
+  try {
+    const signal = AbortSignal.timeout(HEARTBEAT_TIMEOUT_MS);
+    const res =
+      ausfaelle.length === 0
+        ? await fetch(url, { signal })
+        : await fetch(`${url}/fail`, { method: "POST", body: ausfaelle.join("\n"), signal });
+    if (!res.ok) logger.warn("scheduler.heartbeat_refused", { status: res.status });
+  } catch (error) {
+    // The error's name alone: its message can quote the address, whose token is the credential.
+    logger.warn("scheduler.heartbeat_failed", { name: error instanceof Error ? error.name : undefined });
+  }
+}
+
 /** The boot gates, each writing its own CRITICAL line before it throws: the environment and the secret files, the deployment a preflight names, then the signing key. */
 async function passBootGates() {
   // Importing it *is* the gate — validation runs during this module load, before anything is served.
   // Taken apart where it loads: the whole namespace would carry every secret's reader.
-  const { bootCheck, frontend_config, refuseInvalidEnvironment } = await import("./core/config");
+  const { bootCheck, frontend_config, heartbeatUrl, refuseInvalidEnvironment } = await import("./core/config");
   const checkedAs = bootCheck();
 
   // The schema demands production's files and keys on `APP_ENV`'s word alone, so a production host whose
   // file says `local` passes every gate holding none of them: the preflight names the deployment instead.
   if (checkedAs !== undefined && frontend_config.APP_ENV !== checkedAs) refuseInvalidEnvironment(["APP_ENV"]);
 
-  return { checkedAs };
+  return { checkedAs, heartbeatUrl };
 }

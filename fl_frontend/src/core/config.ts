@@ -34,6 +34,7 @@ const SECRET_FILES = {
   INTERNAL_API_KEY_SYSTEM: "internal_api_key_system",
   INTERNAL_API_KEY_ADMIN: "internal_api_key_admin",
   TURNSTILE_SECRET_KEY: "turnstile_secret_key",
+  BETTERSTACK_HEARTBEAT_URL: "betterstack_heartbeat_url",
 } as const;
 
 type SecretKey = keyof typeof SECRET_FILES;
@@ -131,7 +132,12 @@ const APP_ENVIRONMENTS = ["production", "local"] as const;
 // The credentials `production` demands and no other deployment holds, refused at boot on the
 // production host alone. Files only: the deploy asks production for them by file, never by a
 // variable.
-const PRODUCTION_ONLY_REQUIRED = ["AUTH_RESEND_KEY", "RESEND_WEBHOOK_SECRET", "TURNSTILE_SECRET_KEY"] as const satisfies readonly SecretKey[];
+const PRODUCTION_ONLY_REQUIRED = [
+  "AUTH_RESEND_KEY",
+  "RESEND_WEBHOOK_SECRET",
+  "TURNSTILE_SECRET_KEY",
+  "BETTERSTACK_HEARTBEAT_URL",
+] as const satisfies readonly SecretKey[];
 
 // Mirrored from https://developers.cloudflare.com/turnstile/troubleshooting/testing/, read 2026-10-04,
 // which moves without us: every published test key, site and secret alike, takes this shape.
@@ -242,6 +248,10 @@ const fromFiles = {
 
   // Demanded of production alone, `TURNSTILE_TEST_SECRET_KEY` standing in everywhere else.
   TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
+
+  // The monitor's own address, whose token is the credential: anyone holding it reports the passes. Demanded of
+  // production alone, the one stack the monitor watches; absent anywhere else, no pass pings.
+  BETTERSTACK_HEARTBEAT_URL: z.url({ protocol: /^https$/ }).optional(),
 } satisfies Record<SecretKey, z.ZodType>;
 
 // A rule reading two variables at once, which a per-variable schema cannot express. Each issue carries a
@@ -303,6 +313,7 @@ export const internalApiKeyBase = (): string => validated.INTERNAL_API_KEY_BASE;
 export const internalApiKeySystem = (): string => validated.INTERNAL_API_KEY_SYSTEM;
 export const internalApiKeyAdmin = (): string => validated.INTERNAL_API_KEY_ADMIN;
 export const turnstileSecretKey = (): string => validated.TURNSTILE_SECRET_KEY ?? TURNSTILE_TEST_SECRET_KEY;
+export const heartbeatUrl = (): string | undefined => validated.BETTERSTACK_HEARTBEAT_URL;
 
 /** The deployment the deploy's or the local stack's preflight names, set by that preflight alone: the boot judges it and ends. */
 export const bootCheck = (): string | undefined => process.env.BOOT_CHECK;

@@ -191,12 +191,12 @@ environment names.
 host file's own owner and mode are what the container sees (Docker's Compose file reference,
 `services` · `secrets`, read 2026-09-27). Each file therefore belongs to the user that reads it:
 
-| Files                                                                                                     | Owner                            | Mode  |
-| --------------------------------------------------------------------------------------------------------- | -------------------------------- | ----- |
-| `tunnel_token`                                                                                            | uid and gid 65532, the connector | `400` |
-| `frontend_mongodb_uri`, `auth_secret`, `auth_resend_key`, `resend_webhook_secret`, `turnstile_secret_key` | uid and gid 1001, the frontend   | `400` |
-| `backend_mongodb_uri`, `sperrliste_schluessel`                                                            | uid and gid 1002, the backend    | `400` |
-| `internal_api_key_base`, `internal_api_key_system`, `internal_api_key_admin`                              | root, group 1003                 | `440` |
+| Files                                                                                                                                  | Owner                            | Mode  |
+| -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- | ----- |
+| `tunnel_token`                                                                                                                         | uid and gid 65532, the connector | `400` |
+| `frontend_mongodb_uri`, `auth_secret`, `auth_resend_key`, `resend_webhook_secret`, `turnstile_secret_key`, `betterstack_heartbeat_url` | uid and gid 1001, the frontend   | `400` |
+| `backend_mongodb_uri`, `sperrliste_schluessel`                                                                                         | uid and gid 1002, the backend    | `400` |
+| `internal_api_key_base`, `internal_api_key_system`, `internal_api_key_admin`                                                           | root, group 1003                 | `440` |
 
 **The three internal keys are one file each, read by both application services**, which run as
 different users: both take group 1003 through `group_add`, the documented answer for containers of
@@ -694,10 +694,10 @@ misspells or omits it, so that boot, run before anything is recreated, refuses a
 a new name required on a host nobody edited, and no shipped value serves in its place. **What
 `APP_ENV=production` alone demands is a file and never a variable**
 (`fl_frontend/src/core/config.ts :: PRODUCTION_ONLY_REQUIRED`), since a reader would have to open a
-value to decide: the mail provider's sending key, its webhook's signing key and the bot check's
-secret, which the frontend's boot demands on the deploy, held to `production` below, and never on
-the local stack, which sends no mail, is sent no event, and verifies the bot check with Cloudflare's
-published test secret. **A bare
+value to decide: the mail provider's sending key, its webhook's signing key, the bot check's
+secret and the heartbeat monitor's address, which the frontend's boot demands on the deploy, held
+to `production` below, and never on the local stack, which sends no mail, is sent no event,
+verifies the bot check with Cloudflare's published test secret and pings no monitor. **A bare
 pass-through `KEY` would satisfy no required name**: compose resolves that form's
 value from the shell that ran it, and failing that from compose's own `.env` beside the compose
 file (Docker's environment-variable precedence table, rows 8 and 9, read 2026-09-27). A deploy's

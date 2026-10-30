@@ -173,6 +173,7 @@ const SECRET_READERS = Object.fromEntries(
     // The system's key calls the backend as the system, past every guard on an admin's session.
     ["src/core/api.ts", ["internalApiKeyBase", "internalApiKeySystem", "internalApiKeyAdmin"], "the backend's keys"],
     ["src/core/turnstile.ts", ["turnstileSecretKey"], "the key the bot check's tokens are verified with"],
+    ["src/instrumentation-node.ts", ["heartbeatUrl"], "the monitor's address, whose token reports the passes"],
   ].map(([owner, importNames, secret]) => [
     owner,
     {
