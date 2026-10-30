@@ -1407,43 +1407,22 @@ registry does not hold, which §2's `--check` never reads. The rule lapses once 
 snapshot taken before that moment, its snapshot window being about eight days
 ([`../datenschutz.md`](../datenschutz.md#5-erasure-reaches-everyone-who-asks)); delete it then.
 
-**Before restoring, switch `LOESCHUNG_SWEEP` off (§9), and switch it on again only once every step
-below is done:** until then nothing may call `POST /identitaet/loeschung/lauf`. The run deletes each
-pupil the season-after rule makes due under the restored state, a returning pupil whose admission
-the snapshot predates among them, and nothing brings one back. Re-enter the squad rows and
-registrations written since the snapshot, and activate again a season whose activation it predates,
-the switch still off. Its deletions are re-derived rather than replayed: it journals none, so the steps below never list them.
+**Before restoring, start the frontend held: add `RESTORE_HOLD=on` to the server's
+`fl_frontend/.env` and deploy (§1), and take the line out again only at the last step below.** The
+steps below are done on the admin pages, so the frontend runs throughout, and every hourly pass
+would act on the restored state before they are done. The pupils' deletion would delete each pupil
+the season-after rule makes due under it, a returning pupil whose squad row the snapshot predates
+among them, and nothing brings one back. The fixture confirmations would mail seat holders and
+referees whose erasure has not run again, and the retention sweep would remind the seats of erased
+people. The drain would send what the snapshot held unsent. Held, the frontend reads the line once
+as it boots: it arms no pass, logging `scheduler.held`, and no write's drain sends, each mail it owes
+waiting in the Postausgang for the first drain after the hold. So, while it holds:
 
-**Before restoring, switch `SPIEL_SWEEP` off as well (§9), and on again only once every step below
-is done:** the restore brings back every seat holder and referee erased since the snapshot, still
-seated or booked and holding their address, and a pass before their erasure runs again below mails
-them a request or a booking.
-
-**Switched on again, it asks once more about what the window asked**, the restore having taken back
-every confirmation row minted and every answer given since the snapshot:
-
-- **A request mailed inside the window** names a row that is gone, so its link answers nothing; the
-  first pass mints the fixture again and mails a fresh request.
-- **An answer given inside the window** is gone, and the fixture reads unconfirmed again. The link
-  of a first request mailed before the snapshot answers again; a reminder's mailed inside the
-  window does not.
-- **A referee's answer given inside the window** is gone with their row. Their decline also took
-  them off the fixture, so the restore books them onto it again with no row, and the first pass
-  mails them a fresh Einteilung; until they agree again the fixture names no referee.
-
-Write to each club mailed inside the window, which the mail provider's list of sent messages names
-by subject, that a link from those days answers nothing and an answer given then is to be given
-again. Write to each referee booked onto a fixture still to come, at the address their record
-holds, that an answer given on their panel in those days is to be given again there, a decline
-included: no record the restore keeps says which of them answered.
-
-**A match report sent or corrected inside the window is gone, and nothing tells its referee**: the
-fixture reads as the snapshot left it, open on the referee's panel where no report stood then. No
-record names whose report went, the log being rolled back too, and a report can be sent or
-corrected on any day from the match day until its season ends, so write to the referees booked on
-every fixture played by the restore day in a season the restore leaves running, which the fixture
-list names, to look at their panel and enter again what it lacks; an administrator's correction
-made inside the window is gone too.
+- **The heartbeat alerts**, no pass pinging it (§9). That alert is expected until the last step.
+- **No sign-in code is mailed.** Sign in by passkey, which every administrator holds and which the
+  owner's steps below ask for anyway.
+- **A season's activation still deletes**: its press runs the pupils' deletion itself, which is why
+  it comes last.
 
 **The action log cannot be the list, because the restore rolls it back too; the erasure journal is.**
 Everything written between the snapshot and the restore is gone, the log's own rows about it
@@ -1485,7 +1464,7 @@ the export wrote no file for. Each line is listed by its act and its record, nev
 - **An erasure** is followed by every collection, document and field holding its address, or by
   "held nowhere". Every stored spelling is matched, folded as the sign-in folds it. The `auth`
   database is not read, an account whose
-  address no league record holds going with the account sweep within the hour (§5). Held nowhere,
+  address no league record holds going with the account sweep's first pass after the hold (§5). Held nowhere,
   the address leaves its pseudonym and its holder digest: where the pseudonym still marks log rows,
   or the digest still finds a confirmation or a log image holding a reason of theirs,
   which a restore brings back with the snapshot, the listing says how many, with the log rows' ids,
@@ -1582,10 +1561,14 @@ guard reads something the restore took away:
 - **Anybody who had signed in, whatever their role.** The `auth` database is on the same cluster
   , so a restore of the cluster brings back their `user`, `session`,
   `account` and `passkey` rows with everything else. Once the erasure above has run again, the
-  account sweep deletes each within the hour, a barred address's included (section 5).
+  account sweep's first pass after the hold deletes each, a barred address's included (section 5).
 
 **The log's redactions came back as well**, so re-running each erasure is also what redoes the
 redactions it had stamped.
+
+**Then re-enter the squad rows and registrations written since the snapshot**, from the clubs'
+mail threads: the pupils' deletion runs on the state the last steps leave, so a returning pupil
+whose row is back by then is no longer due.
 
 **Then re-run every grant and ban change made inside the window**, which the restore undid as it
 undid the erasures, and which nothing re-runs:
@@ -1600,15 +1583,51 @@ undid the erasures, and which nothing re-runs:
   grant the restore took: approve it again, or refuse it. One asked inside the window is gone and is
   asked again.
 - **A ban entered after the snapshot is gone, and one lifted after it is back.** Enter each again
-  at `/bereich/admin/sperrliste`, which mails the person again, and lift the others there; the mail
-  thread that asked for each is the record, the log having rolled back with it.
-
-**One consequence more.** The retention sweep repairs itself, its clocks being stored dates — but a
-deletion notice already sent whose stamp the restore took back is sent a second time, that sweep
-mailing before it erases.
+  at `/bereich/admin/sperrliste`, which owes the person its notice again, sent once the hold is
+  lifted, and lift the others there; the mail thread that asked for each is the record, the log
+  having rolled back with it.
 
 **Then list once more**: nothing may be left but the records for review you settled by hand,
 and with none of those it exits 0.
+
+**Then activate again each season whose activation the snapshot predates**, last of all: its press
+runs the pupils' deletion over the state the steps above re-entered. Its deletions are re-derived
+rather than replayed: it journals none, so no listing names them.
+
+**Last, restart without the hold: take `RESTORE_HOLD=on` out of the server's `fl_frontend/.env`
+and deploy (§1).** The first pass runs a minute after the boot and pings the heartbeat, and the
+drain sends what waited, so these follow:
+
+- **The Postausgang came back with the snapshot**, so every mail open in it then goes out with the
+  first drain, a second time where the lost window had sent it already, beside the mails the steps
+  above owed.
+- **The retention sweep repairs itself**, its clocks being stored dates, but a deletion notice
+  already sent whose stamp the restore took back is sent a second time, that sweep mailing before
+  it erases.
+- **The fixture confirmations ask once more about what the window asked**, the restore having taken
+  back every confirmation row minted and every answer given since the snapshot:
+  - **A request mailed inside the window** names a row that is gone, so its link answers nothing;
+    the first pass mints the fixture again and mails a fresh request.
+  - **An answer given inside the window** is gone, and the fixture reads unconfirmed again. The link
+    of a first request mailed before the snapshot answers again; a reminder's mailed inside the
+    window does not.
+  - **A referee's answer given inside the window** is gone with their row. Their decline also took
+    them off the fixture, so the restore books them onto it again with no row, and the first pass
+    mails them a fresh Einteilung; until they agree again the fixture names no referee.
+
+Write to each club mailed inside the window, which the mail provider's list of sent messages names
+by subject, that a link from those days answers nothing and an answer given then is to be given
+again. Write to each referee booked onto a fixture still to come, at the address their record
+holds, that an answer given on their panel in those days is to be given again there, a decline
+included: no record the restore keeps says which of them answered.
+
+**A match report sent or corrected inside the window is gone, and nothing tells its referee**: the
+fixture reads as the snapshot left it, open on the referee's panel where no report stood then. No
+record names whose report went, the log being rolled back too, and a report can be sent or
+corrected on any day from the match day until its season ends, so write to the referees booked on
+every fixture played by the restore day in a season the restore leaves running, which the fixture
+list names, to look at their panel and enter again what it lacks; an administrator's correction
+made inside the window is gone too.
 
 **Nothing needs running for the caches.** A restore clears no cache tag, so the public pages serve
 what they cached before it, the people erased again and the publication consents withdrawn again

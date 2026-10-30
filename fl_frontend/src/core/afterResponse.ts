@@ -1,5 +1,6 @@
 import { after } from "next/server";
 
+import { frontend_config } from "./config";
 import { requestOf } from "./errors";
 import { logger } from "./logging";
 import { drainPostausgang } from "./mail";
@@ -18,9 +19,12 @@ export function afterTheResponse(work: () => Promise<void>): void {
 
 /**
  * The Postausgang drained once behind the response, for a write that owed a mail: the mail leaves at once rather than
- * at the next hourly pass, which retries whatever this drain could not send.
+ * at the next hourly pass, which retries whatever this drain could not send. A restore's hold sends nothing, the owed
+ * mail waiting in the Postausgang for the first drain after it (`docs/ops/runbooks.md` §13).
  */
 export function drainSoon(): void {
+  if (frontend_config.RESTORE_HOLD === "on") return;
+
   afterTheResponse(async () => {
     try {
       await drainPostausgang();

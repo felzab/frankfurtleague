@@ -180,6 +180,14 @@ const environment = {
   // from a build handed none and from `next dev`.
   APP_VERSION: z.string().min(1).optional(),
 
+  // On for a restore's steps alone (`docs/ops/runbooks.md` §13): no pass is armed and no write's drain sends, so nothing
+  // acts on the restored state before those steps have. Off where the server sets nothing.
+  RESTORE_HOLD: z
+    .string()
+    .transform((value) => value.toLowerCase())
+    .pipe(z.enum(["on", "off"]))
+    .default("off"),
+
   // Public: the bot check's widget prints it into the page. No default, so a host's file leaving it out
   // is refused before the recreate rather than at the boot.
   TURNSTILE_SITE_KEY: z.string().min(1),
