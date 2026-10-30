@@ -233,26 +233,41 @@ function recipientOf(to: string): string {
   return converted;
 }
 
-/** What one drain settled: the backend's counts, summed over every report it made. */
+/** What drains settled: the backend's counts, summed over every report they made. */
 type DrainZaehlung = Record<keyof FLPostausgangErgebnisResponse, number>;
 
+const keine = (): DrainZaehlung => ({ gesendet: 0, wiederholt: 0, aufgegeben: 0, zurueckgehalten: 0, ignoriert: 0 });
+
+/** Every drain's counts since the hourly pass last took them, whichever started the drain: a write's or the pass. */
+let seitDemLetztenDurchlauf = keine();
+
+/**
+ * What every drain in this process settled since the last call, `aufgegeben` the mails the heartbeat reports: a mail is
+ * given up by whichever drain meets it, and most drains are a write's.
+ */
+export function takeDrainCounts(): DrainZaehlung {
+  const genommen = seitDemLetztenDurchlauf;
+  seitDemLetztenDurchlauf = keine();
+
+  return genommen;
+}
+
 /** The one drain this process runs, and the one every call made while it runs waits on. */
-let drainLaeuft: Promise<DrainZaehlung> | undefined;
-let drainDanach: Promise<DrainZaehlung> | undefined;
+let drainLaeuft: Promise<void> | undefined;
+let drainDanach: Promise<void> | undefined;
 
 /**
  * Every mail owed now: claimed a page at a time, each sent, and each outcome reported as its send returns, so a drain
- * cut short leaves no sent mail unreported but the one in flight. Answers what it settled, `aufgegeben` the mails the
- * heartbeat reports.
+ * cut short leaves no sent mail unreported but the one in flight. What it settled joins `takeDrainCounts`.
  *
  * One drain at a time in this process: a call while one runs waits on the next, started once that one settles however
  * it settles. Rejects where a hand-out or a report fails, the rows it held going to the next drain once their lease
  * lapses.
  */
-export function drainPostausgang(): Promise<DrainZaehlung> {
+export function drainPostausgang(): Promise<void> {
   if (drainLaeuft !== undefined) {
-    // Started from this call's context, so it runs under this call's deadline rather than the running drain's, which
-    // may be what that drain failed on.
+    // Started from this call's context, so it runs under this call's scope rather than the running drain's, whose
+    // deadline may be what that drain failed on.
     const danach = () => {
       drainDanach = undefined;
       return drainPostausgang();
@@ -261,38 +276,24 @@ export function drainPostausgang(): Promise<DrainZaehlung> {
     return drainDanach;
   }
 
-  const lauf = (async () => {
-    const zaehlung: DrainZaehlung = { gesendet: 0, wiederholt: 0, aufgegeben: 0, zurueckgehalten: 0, ignoriert: 0 };
-    try {
-      await drainen(zaehlung);
-    } finally {
-      drainLaeuft = undefined;
-      // Counts alone: the row is each mail's record, and this line what the drain as a whole did.
-      if (zaehlung.aufgegeben === 0) logger.info("postausgang.drain", zaehlung);
-      else logger.warn("postausgang.drain", zaehlung);
-    }
-
-    return zaehlung;
-  })();
+  const lauf = drainen().finally(() => {
+    drainLaeuft = undefined;
+  });
   drainLaeuft = lauf;
 
   return lauf;
 }
 
 /** Claims until a claim holds nothing: a mail handed back to wait its minute is no longer free, so the loop ends. */
-async function drainen(zaehlung: DrainZaehlung): Promise<void> {
+async function drainen(): Promise<void> {
   for (;;) {
     const { beanspruchung, mails, aufgegeben } = await postausgangPostAusgabe();
-    zaehlung.aufgegeben += aufgegeben;
+    seitDemLetztenDurchlauf.aufgegeben += aufgegeben;
     if (beanspruchung === null) return;
 
     for (const mail of mails) {
       const antwort = await postausgangPostErgebnis({ beanspruchung: beanspruchung, ...(await zustellen(mail)) });
-      zaehlung.gesendet += antwort.gesendet;
-      zaehlung.wiederholt += antwort.wiederholt;
-      zaehlung.aufgegeben += antwort.aufgegeben;
-      zaehlung.zurueckgehalten += antwort.zurueckgehalten;
-      zaehlung.ignoriert += antwort.ignoriert;
+      for (const feld of Object.keys(antwort) as (keyof DrainZaehlung)[]) seitDemLetztenDurchlauf[feld] += antwort[feld];
     }
   }
 }

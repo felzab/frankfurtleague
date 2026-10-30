@@ -8,13 +8,16 @@ type SweepEvent = { kind: "api"; endpoint: string; method: string } | { kind: "a
 
 const events: SweepEvent[] = [];
 
-/** Every line as it was written, its fields whole: what a half reports per pass, and what its failure carries. */
+/** Every line as it was written, its fields whole: what a half's failure carries. */
 const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
 
 let apiAnswer: (call: { endpoint: string; method: string }) => unknown = () => ({});
 
+/** What the address changes' half did, its remainder `verbleibend`. */
+const adressen = (verbleibend = 0) => ({ entfernt: 0, wirksam: 0, verworfen: 0, verbleibend: verbleibend });
+
 /** The address changes' half, answered here and held in `fl_frontend/src/features/adresswechsel/sweep.test.ts`. */
-let adresswechselAnswer: () => Promise<number> = () => Promise.resolve(0);
+let adresswechselAnswer: () => Promise<ReturnType<typeof adressen>> = () => Promise.resolve(adressen());
 
 // Replaced at the module boundary rather than the sweep being reshaped to admit a seam: the real
 // client reaches a backend no test process runs.
@@ -93,7 +96,7 @@ beforeEach(() => {
   events.length = 0;
   lines.length = 0;
   seasons([]);
-  adresswechselAnswer = () => Promise.resolve(0);
+  adresswechselAnswer = () => Promise.resolve(adressen());
 });
 
 describe("one pass of the applications' job", () => {
@@ -114,27 +117,40 @@ describe("one pass of the applications' job", () => {
 
   /* What the heartbeat names: the rows a pass left owed, which only a sum over every season and both halves tells
      apart from a healthy pass. */
-  it("resolves to every row the halves passed over and every lapsed change the address half left", async () => {
-    seasons(["2526", "2627"], { uebergangen: { "/bewerbungen/sweep/2526": 1, "/registrierungen/sweep/2627": 8 } });
-    adresswechselAnswer = () => Promise.resolve(2);
+  it("leaves every row the halves passed over and every lapsed change the address half left, each half counted", async () => {
+    seasons(["2526", "2627"], {
+      uebergangen: { "/bewerbungen/sweep/2526": 1, "/bewerbungen/sweep/2627": 6, "/registrierungen/sweep/2627": 8 },
+    });
+    adresswechselAnswer = () => Promise.resolve({ ...adressen(2), entfernt: 5 });
 
-    expect(await runBewerbungSweep()).toBe(11);
+    expect(await runBewerbungSweep()).toStrictEqual({
+      zaehlung: {
+        bewerbung_fehlgeschlagen: 7,
+        registrierung_fehlgeschlagen: 8,
+        adresswechsel_entfernt: 5,
+        adresswechsel_wirksam: 0,
+        adresswechsel_verworfen: 0,
+        adresswechsel_verbleibend: 2,
+      },
+      offen: 17,
+      fehler: undefined,
+    });
   });
 
-  it("resolves to none where nothing was passed over", async () => {
+  it("leaves none where nothing was passed over", async () => {
     seasons(["2627"]);
 
-    expect(await runBewerbungSweep()).toBe(0);
+    expect((await runBewerbungSweep()).offen).toBe(0);
   });
 });
 
 describe("a half that fails", () => {
   /* Each half apart: a throw in the application's clocks skips no registration, whose rows hold a minor's name,
      address and birthdate. */
-  it("runs every other half, files a line naming the half and the season, and then rejects", async () => {
+  it("runs every other half, files a line naming the half and the season, and then fails", async () => {
     seasons(["2526", "2627"], { scheitert: ["/bewerbungen/sweep/2526", "/registrierungen/sweep/2627"] });
 
-    await expect(runBewerbungSweep()).rejects.toThrow(AggregateError);
+    expect((await runBewerbungSweep()).fehler).toBeInstanceOf(AggregateError);
 
     expect(order()).toStrictEqual([
       "/bewerbungen/sweep",
@@ -152,12 +168,12 @@ describe("a half that fails", () => {
 
   /* The pass's one end where nothing can be swept: the scheduler files it under the job's name, and the address
      changes are ended all the same. */
-  it("rejects where the season list cannot be read, the address half still running", async () => {
+  it("fails where the season list cannot be read, the address half still running", async () => {
     apiAnswer = () => {
       throw new Error("the backend refused the season list");
     };
 
-    await expect(runBewerbungSweep()).rejects.toThrow("the backend refused the season list");
+    expect((await runBewerbungSweep()).fehler).toStrictEqual(new Error("the backend refused the season list"));
 
     expect(order()).toStrictEqual(["/bewerbungen/sweep", "adresswechsel"]);
   });
@@ -171,16 +187,12 @@ describe("a half that fails", () => {
     expect(order()).toStrictEqual(["/bewerbungen/sweep", "/bewerbungen/sweep/2627", "/registrierungen/sweep/2627", "adresswechsel"]);
   });
 
-  it("keeps the counts of the halves that answered on the pass's lines where another throws", async () => {
+  it("keeps the counts of the halves that answered where another throws", async () => {
     seasons(["2526", "2627"], { uebergangen: { "/bewerbungen/sweep/2526": 3 }, scheitert: ["/bewerbungen/sweep/2627"] });
 
-    await expect(runBewerbungSweep()).rejects.toThrow(AggregateError);
+    const lauf = await runBewerbungSweep();
 
-    expect(lines.find(({ event }) => event === "bewerbung.sweep_pass")).toStrictEqual({
-      level: "warn",
-      event: "bewerbung.sweep_pass",
-      fields: { fehlgeschlagen: 3 },
-    });
+    expect([lauf.zaehlung.bewerbung_fehlgeschlagen, lauf.offen, lauf.fehler instanceof AggregateError]).toStrictEqual([3, 3, true]);
   });
 });
 
@@ -204,7 +216,7 @@ describe("the line a failed call files", () => {
       });
     };
 
-    await expect(runBewerbungSweep()).rejects.toThrow(AggregateError);
+    expect((await runBewerbungSweep()).fehler).toBeInstanceOf(AggregateError);
 
     expect(failures()).toStrictEqual([
       {
@@ -237,43 +249,13 @@ describe("the line a failed call files", () => {
       });
     };
 
-    await expect(runBewerbungSweep()).rejects.toThrow(AggregateError);
+    expect((await runBewerbungSweep()).fehler).toBeInstanceOf(AggregateError);
 
     expect(failures()).toStrictEqual([
       {
         event: "registrierung.sweep_failed",
         fields: { name: "APINetworkError", trace_id: "4bf92f3577b34da6a3ce929d0e0e4736", saison_id: "2627" },
       },
-    ]);
-  });
-});
-
-describe("the line each season half files for a pass", () => {
-  const seasonLines = () => lines.filter(({ event }) => event === "bewerbung.sweep_pass" || event === "registrierung.sweep_pass");
-
-  it("files one line a pass for each half, at info where no call passed a row over", async () => {
-    seasons(["2526", "2627"]);
-
-    await runBewerbungSweep();
-
-    expect(seasonLines()).toStrictEqual([
-      { level: "info", event: "bewerbung.sweep_pass", fields: { fehlgeschlagen: 0 } },
-      { level: "info", event: "registrierung.sweep_pass", fields: { fehlgeschlagen: 0 } },
-    ]);
-  });
-
-  /* A clock failing on every row still answers 200, so this warning is the one line that tells it from a healthy
-     one. */
-  it("warns the rows each half passed over, summed over every season", async () => {
-    seasons(["2526", "2627"], {
-      uebergangen: { "/bewerbungen/sweep/2526": 1, "/bewerbungen/sweep/2627": 6, "/registrierungen/sweep/2627": 8 },
-    });
-
-    await runBewerbungSweep();
-
-    expect(seasonLines()).toStrictEqual([
-      { level: "warn", event: "bewerbung.sweep_pass", fields: { fehlgeschlagen: 7 } },
-      { level: "warn", event: "registrierung.sweep_pass", fields: { fehlgeschlagen: 8 } },
     ]);
   });
 });

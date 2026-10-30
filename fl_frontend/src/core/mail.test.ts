@@ -67,7 +67,7 @@ vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
 vi.doMock("@/core/mailKinds.ts", () => KINDS_DOUBLE);
 vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
 
-const { drainPostausgang } = await import("./mail.ts");
+const { drainPostausgang, takeDrainCounts } = await import("./mail.ts");
 
 /** One handed-out row, its id and claim number spelled from `n`. */
 const handed = (n: number, versuch = 1): FLPostausgangAusgabe => ({
@@ -80,6 +80,7 @@ const handed = (n: number, versuch = 1): FLPostausgangAusgabe => ({
 });
 
 beforeEach(() => {
+  takeDrainCounts();
   schritte.length = 0;
   claims = [];
   apiKey = "re_test";
@@ -108,7 +109,7 @@ describe("one drain of the Postausgang", () => {
   it("sends each mail under its hand-out's key and its row's tag, and reports it before the next goes", async () => {
     claims = [{ mails: [handed(1), handed(2, 3)], aufgegeben: 1 }];
 
-    const zaehlung = await drainPostausgang();
+    await drainPostausgang();
 
     expect(schritte.map((schritt) => schritt.art)).toStrictEqual(["send", "report", "send", "report"]);
     expect(sends().map(({ headers }) => headers.get("Idempotency-Key"))).toStrictEqual([
@@ -124,7 +125,20 @@ describe("one drain of the Postausgang", () => {
       { id: handed(2).id, ergebnis: "gesendet", nachricht_id: "re-1" },
     ]);
     // The claim's own give-ups count with the reports', which is what the heartbeat reads.
-    expect(zaehlung).toMatchObject({ gesendet: 2, aufgegeben: 1 });
+    expect(takeDrainCounts()).toMatchObject({ gesendet: 2, aufgegeben: 1 });
+  });
+
+  /* Most drains are a write's, and a mail is given up by whichever drain meets it: the hourly pass's heartbeat reads every
+     drain's count since the last, or a mail given up behind a write never reaches `/fail`. */
+  it("counts every drain's outcomes until the pass takes them, and starts again from none", async () => {
+    claims = [{ mails: [], aufgegeben: 1 }];
+    await drainPostausgang();
+    claims = [{ mails: [handed(1)], aufgegeben: 0 }];
+    provider = () => Response.json({ name: "validation_error" }, { status: 422 });
+    await drainPostausgang();
+
+    expect(takeDrainCounts()).toStrictEqual({ gesendet: 0, wiederholt: 0, aufgegeben: 2, zurueckgehalten: 0, ignoriert: 0 });
+    expect(takeDrainCounts()).toStrictEqual({ gesendet: 0, wiederholt: 0, aufgegeben: 0, zurueckgehalten: 0, ignoriert: 0 });
   });
 
   /* A call made while a drain runs waits on it. Served by that drain, or by one more under its caller's spent deadline,
@@ -137,7 +151,7 @@ describe("one drain of the Postausgang", () => {
     const waiting = runWithRequestScope({ traceId: "trace-waiting" }, drainPostausgang);
 
     await expect(failing).rejects.toThrow("deadline");
-    await expect(waiting).resolves.toMatchObject({ gesendet: 1 });
+    await expect(waiting).resolves.toBeUndefined();
     expect(reports()).toStrictEqual([{ id: handed(1).id, ergebnis: "gesendet", nachricht_id: "re-1" }]);
   });
 
