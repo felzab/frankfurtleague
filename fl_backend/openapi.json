@@ -563,16 +563,7 @@
         "description": "What either link opens once its change ended, for as long as its record is kept.",
         "properties": {
           "art": {
-            "enum": [
-              "wirksam",
-              "abgelehnt",
-              "gestoppt",
-              "abgelaufen",
-              "ersetzt",
-              "verworfen"
-            ],
-            "title": "Art",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselEndeArt"
           },
           "seite": {
             "enum": [
@@ -617,13 +608,7 @@
             "type": "string"
           },
           "weg": {
-            "enum": [
-              "konto",
-              "freigabe",
-              "wartezeit"
-            ],
-            "title": "Weg",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselWeg"
           },
           "wirksam_ab": {
             "anyOf": [
@@ -690,13 +675,7 @@
             "type": "string"
           },
           "weg": {
-            "enum": [
-              "konto",
-              "freigabe",
-              "wartezeit"
-            ],
-            "title": "Weg",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselWeg"
           },
           "wirksam_ab": {
             "anyOf": [
@@ -853,6 +832,24 @@
         "title": "FLAdresswechselAntwortResponse",
         "type": "object"
       },
+      "FLAdresswechselEinsehbarVerwehrt": {
+        "enum": [
+          "eigene",
+          "verwaltung"
+        ],
+        "type": "string"
+      },
+      "FLAdresswechselEndeArt": {
+        "enum": [
+          "wirksam",
+          "abgelehnt",
+          "gestoppt",
+          "abgelaufen",
+          "ersetzt",
+          "verworfen"
+        ],
+        "type": "string"
+      },
       "FLAdresswechselGenehmigungResponse": {
         "properties": {
           "id": {
@@ -1006,18 +1003,12 @@
           "weg": {
             "anyOf": [
               {
-                "enum": [
-                  "konto",
-                  "freigabe",
-                  "wartezeit"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAdresswechselWeg"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Weg"
+            ]
           }
         },
         "required": [
@@ -1324,13 +1315,7 @@
             "title": "Vorname"
           },
           "weg": {
-            "enum": [
-              "konto",
-              "freigabe",
-              "wartezeit"
-            ],
-            "title": "Weg",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselWeg"
           }
         },
         "required": [
@@ -1426,23 +1411,10 @@
             "type": "string"
           },
           "wartet_auf": {
-            "enum": [
-              "freigabe",
-              "neue_adresse",
-              "genehmigung",
-              "wartezeit"
-            ],
-            "title": "Wartet Auf",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselWartetAuf"
           },
           "weg": {
-            "enum": [
-              "konto",
-              "freigabe",
-              "wartezeit"
-            ],
-            "title": "Weg",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselWeg"
           },
           "wirksam_ab": {
             "anyOf": [
@@ -1521,6 +1493,23 @@
         ],
         "title": "FLAdresswechselVerwaltungPayload",
         "type": "object"
+      },
+      "FLAdresswechselWartetAuf": {
+        "enum": [
+          "freigabe",
+          "neue_adresse",
+          "genehmigung",
+          "wartezeit"
+        ],
+        "type": "string"
+      },
+      "FLAdresswechselWeg": {
+        "enum": [
+          "konto",
+          "freigabe",
+          "wartezeit"
+        ],
+        "type": "string"
       },
       "FLAdresswechselZugestelltPayload": {
         "additionalProperties": false,
@@ -2033,17 +2022,12 @@
           "verwaltung": {
             "anyOf": [
               {
-                "enum": [
-                  "owner",
-                  "administration"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLVerwaltung"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Verwaltung"
+            ]
           }
         },
         "required": [
@@ -2060,63 +2044,17 @@
         "description": "Which group the school enters, and the kit colour the league assigns it.\n\nNo `saison_id`: the application names its own season, so a payload carrying one could only\ndisagree with it.",
         "properties": {
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "trikot_farbe": {
             "anyOf": [
               {
-                "enum": [
-                  "schwarz",
-                  "weiss",
-                  "grau",
-                  "braun",
-                  "bordeaux",
-                  "rot",
-                  "koralle",
-                  "orange",
-                  "gold",
-                  "gelb",
-                  "limette",
-                  "hellgruen",
-                  "gruen",
-                  "smaragd",
-                  "tuerkis",
-                  "cyan",
-                  "hellblau",
-                  "meerblau",
-                  "blau",
-                  "dunkelblau",
-                  "flieder",
-                  "violett",
-                  "magenta",
-                  "rosa"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrikotFarbe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trikot Farbe"
+            ]
           }
         },
         "required": [
@@ -2134,26 +2072,7 @@
             "type": "boolean"
           },
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -2167,39 +2086,12 @@
           "trikot_farbe": {
             "anyOf": [
               {
-                "enum": [
-                  "schwarz",
-                  "weiss",
-                  "grau",
-                  "braun",
-                  "bordeaux",
-                  "rot",
-                  "koralle",
-                  "orange",
-                  "gold",
-                  "gelb",
-                  "limette",
-                  "hellgruen",
-                  "gruen",
-                  "smaragd",
-                  "tuerkis",
-                  "cyan",
-                  "hellblau",
-                  "meerblau",
-                  "blau",
-                  "dunkelblau",
-                  "flieder",
-                  "violett",
-                  "magenta",
-                  "rosa"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrikotFarbe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trikot Farbe"
+            ]
           },
           "updated_document": {
             "$ref": "#/components/schemas/FLBewerbung"
@@ -2230,12 +2122,7 @@
             "type": "string"
           },
           "type": {
-            "enum": [
-              "disqualifikation",
-              "rueckzug"
-            ],
-            "title": "Type",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAustrittType"
           }
         },
         "required": [
@@ -2245,6 +2132,13 @@
         ],
         "title": "FLAustritt",
         "type": "object"
+      },
+      "FLAustrittType": {
+        "enum": [
+          "disqualifikation",
+          "rueckzug"
+        ],
+        "type": "string"
       },
       "FLBerechtigungAbgleichResponse": {
         "properties": {
@@ -2316,17 +2210,12 @@
           "einsehbar_verwehrt": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "verwaltung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAdresswechselEinsehbarVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Einsehbar Verwehrt"
+            ]
           },
           "email": {
             "anyOf": [
@@ -2377,28 +2266,15 @@
           "verwehrt": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "gestartet",
-                  "inhaber",
-                  "juenger"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLGenehmigungVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Verwehrt"
+            ]
           },
           "weg": {
-            "enum": [
-              "konto",
-              "freigabe",
-              "wartezeit"
-            ],
-            "title": "Weg",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselWeg"
           }
         },
         "required": [
@@ -2684,29 +2560,17 @@
             "type": "boolean"
           },
           "verwaltung": {
-            "enum": [
-              "owner",
-              "administration"
-            ],
-            "title": "Verwaltung",
-            "type": "string"
+            "$ref": "#/components/schemas/FLVerwaltung"
           },
           "verwehrt": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "gestartet",
-                  "inhaber",
-                  "juenger"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLGenehmigungVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Verwehrt"
+            ]
           }
         },
         "required": [
@@ -2740,12 +2604,7 @@
             "title": "Adresse"
           },
           "verwaltung": {
-            "enum": [
-              "owner",
-              "administration"
-            ],
-            "title": "Verwaltung",
-            "type": "string"
+            "$ref": "#/components/schemas/FLVerwaltung"
           }
         },
         "required": [
@@ -2844,12 +2703,7 @@
             "type": "string"
           },
           "verwaltung": {
-            "enum": [
-              "owner",
-              "administration"
-            ],
-            "title": "Verwaltung",
-            "type": "string"
+            "$ref": "#/components/schemas/FLVerwaltung"
           }
         },
         "required": [
@@ -3209,13 +3063,7 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -3228,34 +3076,22 @@
           "zeile": {
             "anyOf": [
               {
-                "enum": [
-                  "offen",
-                  "saison_vorbei",
-                  "ausgetreten"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLKontaktZeile"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Zeile"
+            ]
           },
           "zugleich_rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "trainer",
-                  "ansprechperson",
-                  "stellvertretung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLKontaktRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Zugleich Rolle"
+            ]
           },
           "zustand": {
             "enum": [
@@ -3361,24 +3197,14 @@
           },
           "ansprechperson_rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Ansprechperson Rollen",
             "type": "array"
           },
           "ausstehend": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Ausstehend",
             "type": "array"
@@ -3424,13 +3250,7 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -3476,22 +3296,11 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -3727,12 +3536,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -3811,12 +3615,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -3851,17 +3650,12 @@
           "trainer_ist_zugleich": {
             "anyOf": [
               {
-                "enum": [
-                  "ansprechperson",
-                  "stellvertretung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrainerZugleich"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trainer Ist Zugleich"
+            ]
           }
         },
         "required": [
@@ -3952,12 +3746,7 @@
             "type": "string"
           },
           "umfang": {
-            "enum": [
-              "kontaktdaten",
-              "kontaktdaten_whatsapp"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
@@ -3986,23 +3775,13 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
           },
           "umfang": {
-            "enum": [
-              "kontaktdaten",
-              "kontaktdaten_whatsapp"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
@@ -4029,21 +3808,12 @@
           "schulform": {
             "anyOf": [
               {
-                "enum": [
-                  "gymnasium_g8",
-                  "gymnasium_g9",
-                  "gesamtschule",
-                  "privatschule_g8",
-                  "privatschule_g9",
-                  "oberstufengymnasium"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSchulform"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Schulform"
+            ]
           },
           "shorthand": {
             "pattern": "^[A-Z]{3}$",
@@ -4114,16 +3884,7 @@
             "type": "string"
           },
           "schulform": {
-            "enum": [
-              "gymnasium_g8",
-              "gymnasium_g9",
-              "gesamtschule",
-              "privatschule_g8",
-              "privatschule_g9",
-              "oberstufengymnasium"
-            ],
-            "title": "Schulform",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSchulform"
           },
           "shorthand": {
             "pattern": "^\\s*[A-Za-z]{3}\\s*$",
@@ -4241,13 +4002,7 @@
         "description": "A seat the deletion notice lists as never confirmed. `vorname` is null where the slot was emptied by a decline or an erasure.",
         "properties": {
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "vorname": {
             "anyOf": [
@@ -4380,12 +4135,7 @@
           },
           "ansprechperson_rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Ansprechperson Rollen",
             "type": "array"
@@ -4537,12 +4287,7 @@
         "properties": {
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -4572,34 +4317,7 @@
             "type": "string"
           },
           "wunschfarbe": {
-            "enum": [
-              "schwarz",
-              "weiss",
-              "grau",
-              "braun",
-              "bordeaux",
-              "rot",
-              "koralle",
-              "orange",
-              "gold",
-              "gelb",
-              "limette",
-              "hellgruen",
-              "gruen",
-              "smaragd",
-              "tuerkis",
-              "cyan",
-              "hellblau",
-              "meerblau",
-              "blau",
-              "dunkelblau",
-              "flieder",
-              "violett",
-              "magenta",
-              "rosa"
-            ],
-            "title": "Wunschfarbe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLTrikotFarbe"
           }
         },
         "required": [
@@ -4618,33 +4336,7 @@
           },
           "vergeben": {
             "items": {
-              "enum": [
-                "schwarz",
-                "weiss",
-                "grau",
-                "braun",
-                "bordeaux",
-                "rot",
-                "koralle",
-                "orange",
-                "gold",
-                "gelb",
-                "limette",
-                "hellgruen",
-                "gruen",
-                "smaragd",
-                "tuerkis",
-                "cyan",
-                "hellblau",
-                "meerblau",
-                "blau",
-                "dunkelblau",
-                "flieder",
-                "violett",
-                "magenta",
-                "rosa"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLTrikotFarbe"
             },
             "title": "Vergeben",
             "type": "array"
@@ -4666,34 +4358,7 @@
             "type": "string"
           },
           "wunschfarbe": {
-            "enum": [
-              "schwarz",
-              "weiss",
-              "grau",
-              "braun",
-              "bordeaux",
-              "rot",
-              "koralle",
-              "orange",
-              "gold",
-              "gelb",
-              "limette",
-              "hellgruen",
-              "gruen",
-              "smaragd",
-              "tuerkis",
-              "cyan",
-              "hellblau",
-              "meerblau",
-              "blau",
-              "dunkelblau",
-              "flieder",
-              "violett",
-              "magenta",
-              "rosa"
-            ],
-            "title": "Wunschfarbe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLTrikotFarbe"
           }
         },
         "required": [
@@ -4702,6 +4367,16 @@
         ],
         "title": "FLBewerbungTrikotPayload",
         "type": "object"
+      },
+      "FLBewerbungZustellEreignis": {
+        "enum": [
+          "zugestellt",
+          "verzoegert",
+          "unzustellbar",
+          "unterdrueckt",
+          "beschwerde"
+        ],
+        "type": "string"
       },
       "FLBewerbungZustellung": {
         "description": "What became of the last message to one seat.\n\nInside the seat's block rather than a collection of its own: an erasure empties that block, so\nthis goes with the person it is about.",
@@ -4770,12 +4445,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -4826,26 +4496,13 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
           },
           "stand": {
-            "enum": [
-              "zugestellt",
-              "verzoegert",
-              "unzustellbar",
-              "unterdrueckt",
-              "beschwerde"
-            ],
-            "title": "Stand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLBewerbungZustellEreignis"
           }
         },
         "required": [
@@ -4864,12 +4521,7 @@
         "properties": {
           "angewendet": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Angewendet",
             "type": "array"
@@ -5086,26 +4738,7 @@
         "description": "One bracket slot whose `gruppe` reference names a placing no standing will hand it.\n\n`tie_unresolved` alone empties the slot: every other reason names wiring the season cannot hold,\nand a slot is never emptied over one.",
         "properties": {
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "platz": {
             "exclusiveMinimum": 0.0,
@@ -5152,12 +4785,7 @@
             "type": "string"
           },
           "austritt_type": {
-            "enum": [
-              "disqualifikation",
-              "rueckzug"
-            ],
-            "title": "Austritt Type",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAustrittType"
           },
           "reason": {
             "const": "departed_occupant",
@@ -5418,15 +5046,7 @@
         "properties": {
           "erlaubte_stufen": {
             "items": {
-              "enum": [
-                "E1",
-                "E2",
-                "Q1",
-                "Q2",
-                "Q3",
-                "Q4"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLSpielerStufe"
             },
             "title": "Erlaubte Stufen",
             "type": "array"
@@ -5448,13 +5068,7 @@
             "type": "string"
           },
           "saison_status": {
-            "enum": [
-              "past",
-              "active",
-              "future"
-            ],
-            "title": "Saison Status",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSaisonStatus"
           },
           "schule": {
             "minLength": 1,
@@ -5494,13 +5108,7 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "vorname": {
             "minLength": 1,
@@ -5953,12 +5561,7 @@
             "type": "string"
           },
           "umfang": {
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLEinwilligungUmfang"
           }
         },
         "required": [
@@ -6211,6 +5814,13 @@
         "title": "FLEinwilligungStandPayload",
         "type": "object"
       },
+      "FLEinwilligungUmfang": {
+        "enum": [
+          "kader_oeffentlich",
+          "intern"
+        ],
+        "type": "string"
+      },
       "FLErasureAnsichtAdresswechsel": {
         "description": "Another address's live change naming this one as its new address: the change ends, its address's records standing.",
         "properties": {
@@ -6222,17 +5832,12 @@
           "einsehbar_verwehrt": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "verwaltung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAdresswechselEinsehbarVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Einsehbar Verwehrt"
+            ]
           }
         },
         "required": [
@@ -6259,12 +5864,7 @@
             "type": "string"
           },
           "verwaltung": {
-            "enum": [
-              "owner",
-              "administration"
-            ],
-            "title": "Verwaltung",
-            "type": "string"
+            "$ref": "#/components/schemas/FLVerwaltung"
           }
         },
         "required": [
@@ -6287,13 +5887,7 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -6407,12 +6001,7 @@
             "type": "string"
           },
           "status": {
-            "enum": [
-              "eingereicht",
-              "abgelehnt"
-            ],
-            "title": "Status",
-            "type": "string"
+            "$ref": "#/components/schemas/FLRegistrierungStatus"
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -6515,17 +6104,12 @@
           "verwaltung": {
             "anyOf": [
               {
-                "enum": [
-                  "owner",
-                  "administration"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLVerwaltung"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Verwaltung"
+            ]
           }
         },
         "required": [
@@ -6597,13 +6181,7 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -6783,6 +6361,15 @@
         "title": "FLFailureBody",
         "type": "object"
       },
+      "FLGenehmigungVerwehrt": {
+        "enum": [
+          "eigene",
+          "gestartet",
+          "inhaber",
+          "juenger"
+        ],
+        "type": "string"
+      },
       "FLGenerateSpielplanPayload": {
         "additionalProperties": false,
         "description": "Whether this draw may REPLACE what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission. `REQ-SPIELPLAN-005` bounds a confirmed one.",
@@ -6894,27 +6481,31 @@
         },
         "description": "Every group the SEASON offers, all of them and no other, in standing order.\n\nBuilt by `fl_backend/app/api/teams/services.py :: build_gruppen` alone: the order is the tiebreak\nchain, whose head-to-head criterion reads the season's matches.",
         "propertyNames": {
-          "enum": [
-            "A",
-            "B",
-            "C",
-            "D",
-            "E",
-            "F",
-            "G",
-            "H",
-            "I",
-            "J",
-            "K",
-            "L",
-            "M",
-            "N",
-            "O",
-            "P"
-          ]
+          "$ref": "#/components/schemas/FLGruppenNames"
         },
         "title": "FLGruppen",
         "type": "object"
+      },
+      "FLGruppenNames": {
+        "enum": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O",
+          "P"
+        ],
+        "type": "string"
       },
       "FLGruppenTeam": {
         "description": "One row of a league table: what a standing shows and nothing more.\n\nNarrower than `FLTeam` on purpose: a public CLIENT component renders this, so every field is\nserialised into the page, and a club's address is a school's street.",
@@ -6927,17 +6518,12 @@
           "austritt_type": {
             "anyOf": [
               {
-                "enum": [
-                  "disqualifikation",
-                  "rueckzug"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAustrittType"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Austritt Type"
+            ]
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -6974,15 +6560,7 @@
         "properties": {
           "erlaubte_stufen": {
             "items": {
-              "enum": [
-                "E1",
-                "E2",
-                "Q1",
-                "Q2",
-                "Q3",
-                "Q4"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLSpielerStufe"
             },
             "minItems": 1,
             "title": "Erlaubte Stufen",
@@ -7062,19 +6640,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "rolle": {
             "anyOf": [
@@ -7099,21 +6670,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "vorname": {
             "minLength": 1,
@@ -7184,19 +6746,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "rolle": {
             "anyOf": [
@@ -7221,21 +6776,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "vorname": {
             "minLength": 1,
@@ -7295,12 +6841,7 @@
         "properties": {
           "bleibt_als": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Bleibt Als",
             "type": "array"
@@ -7311,12 +6852,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -7334,6 +6870,13 @@
         ],
         "title": "FLKontaktAbgang",
         "type": "object"
+      },
+      "FLKontaktEingetragenVon": {
+        "enum": [
+          "bewerbung",
+          "liga"
+        ],
+        "type": "string"
       },
       "FLKontaktEinladenResponse": {
         "description": "A fresh link for one seat, and its pair where the Trainer holds both; the old link then opens nothing.",
@@ -7386,12 +6929,7 @@
             "type": "string"
           },
           "eingetragen_von": {
-            "enum": [
-              "bewerbung",
-              "liga"
-            ],
-            "title": "Eingetragen Von",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktEingetragenVon"
           },
           "medien": {
             "title": "Medien",
@@ -7405,12 +6943,7 @@
             "type": "string"
           },
           "umfang": {
-            "enum": [
-              "kontaktdaten",
-              "kontaktdaten_whatsapp"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
@@ -7452,6 +6985,13 @@
         "title": "FLKontaktKenntnisnahmePayload",
         "type": "object"
       },
+      "FLKontaktKenntnisnahmeUmfang": {
+        "enum": [
+          "kontaktdaten",
+          "kontaktdaten_whatsapp"
+        ],
+        "type": "string"
+      },
       "FLKontaktMint": {
         "description": "One person's fresh confirmation link, RAW, for the admin action to mail; it is answered here and in no other response, ever.",
         "properties": {
@@ -7466,12 +7006,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -7485,13 +7020,7 @@
             "type": "string"
           },
           "zeile": {
-            "enum": [
-              "offen",
-              "saison_vorbei",
-              "ausgetreten"
-            ],
-            "title": "Zeile",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktZeile"
           }
         },
         "required": [
@@ -7536,6 +7065,22 @@
         ],
         "title": "FLKontaktPayload",
         "type": "object"
+      },
+      "FLKontaktRolle": {
+        "enum": [
+          "trainer",
+          "ansprechperson",
+          "stellvertretung"
+        ],
+        "type": "string"
+      },
+      "FLKontaktZeile": {
+        "enum": [
+          "offen",
+          "saison_vorbei",
+          "ausgetreten"
+        ],
+        "type": "string"
       },
       "FLKontaktperson": {
         "description": "One person the league reaches this team through, for one season.",
@@ -7764,23 +7309,10 @@
             "type": "string"
           },
           "wartet_auf": {
-            "enum": [
-              "freigabe",
-              "neue_adresse",
-              "genehmigung",
-              "wartezeit"
-            ],
-            "title": "Wartet Auf",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselWartetAuf"
           },
           "weg": {
-            "enum": [
-              "konto",
-              "freigabe",
-              "wartezeit"
-            ],
-            "title": "Weg",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAdresswechselWeg"
           },
           "wirksam_ab": {
             "anyOf": [
@@ -7878,12 +7410,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "minItems": 1,
             "title": "Rollen",
@@ -7898,12 +7425,7 @@
             "type": "string"
           },
           "umfang": {
-            "enum": [
-              "kontaktdaten",
-              "kontaktdaten_whatsapp"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
@@ -8035,19 +7557,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "registrierung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -8061,21 +7576,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -8096,17 +7602,12 @@
           "umfang": {
             "anyOf": [
               {
-                "enum": [
-                  "kader_oeffentlich",
-                  "intern"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLEinwilligungUmfang"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Umfang"
+            ]
           },
           "vorname": {
             "title": "Vorname",
@@ -8269,12 +7770,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "minItems": 1,
             "title": "Rollen",
@@ -8294,12 +7790,7 @@
             "type": "string"
           },
           "umfang": {
-            "enum": [
-              "kontaktdaten",
-              "kontaktdaten_whatsapp"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
@@ -8551,19 +8042,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "registrierung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -8573,21 +8057,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "vorname": {
             "minLength": 1,
@@ -8647,12 +8122,7 @@
         "additionalProperties": false,
         "properties": {
           "verwaltung": {
-            "enum": [
-              "owner",
-              "administration"
-            ],
-            "title": "Verwaltung",
-            "type": "string"
+            "$ref": "#/components/schemas/FLVerwaltung"
           }
         },
         "required": [
@@ -8680,19 +8150,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "rolle": {
             "anyOf": [
@@ -8712,21 +8175,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           }
         },
         "required": [
@@ -8816,19 +8270,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "rolle": {
             "anyOf": [
@@ -8848,21 +8295,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -8981,63 +8419,17 @@
             ]
           },
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "trikot_farbe": {
             "anyOf": [
               {
-                "enum": [
-                  "schwarz",
-                  "weiss",
-                  "grau",
-                  "braun",
-                  "bordeaux",
-                  "rot",
-                  "koralle",
-                  "orange",
-                  "gold",
-                  "gelb",
-                  "limette",
-                  "hellgruen",
-                  "gruen",
-                  "smaragd",
-                  "tuerkis",
-                  "cyan",
-                  "hellblau",
-                  "meerblau",
-                  "blau",
-                  "dunkelblau",
-                  "flieder",
-                  "violett",
-                  "magenta",
-                  "rosa"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrikotFarbe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trikot Farbe"
+            ]
           }
         },
         "required": [
@@ -9191,20 +8583,12 @@
           "sonderereignis": {
             "anyOf": [
               {
-                "enum": [
-                  "ausgefallen",
-                  "nichtantreten_team1",
-                  "nichtantreten_team2",
-                  "abgebrochen",
-                  "annulliert"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSonderereignis"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Sonderereignis"
+            ]
           },
           "team1": {
             "anyOf": [
@@ -9518,21 +8902,12 @@
           "schulform": {
             "anyOf": [
               {
-                "enum": [
-                  "gymnasium_g8",
-                  "gymnasium_g9",
-                  "gesamtschule",
-                  "privatschule_g8",
-                  "privatschule_g9",
-                  "oberstufengymnasium"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSchulform"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Schulform"
+            ]
           },
           "shorthand": {
             "pattern": "^\\s*[A-Za-z]{3}\\s*$",
@@ -9767,38 +9142,22 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "token": {
             "maxLength": 128,
@@ -9964,19 +9323,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "rolle": {
             "anyOf": [
@@ -10002,21 +9354,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -10040,26 +9383,7 @@
         "description": "One team's membership of one season. `team_id` comes from the path, `saison_id` from here.",
         "properties": {
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "saison_id": {
             "maxLength": 4,
@@ -10244,21 +9568,12 @@
           "schulform": {
             "anyOf": [
               {
-                "enum": [
-                  "gymnasium_g8",
-                  "gymnasium_g9",
-                  "gesamtschule",
-                  "privatschule_g8",
-                  "privatschule_g9",
-                  "oberstufengymnasium"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSchulform"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Schulform"
+            ]
           },
           "shorthand": {
             "pattern": "^\\s*[A-Za-z]{3}\\s*$",
@@ -10494,50 +9809,29 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
           },
           "status": {
-            "enum": [
-              "eingereicht",
-              "abgelehnt"
-            ],
-            "title": "Status",
-            "type": "string"
+            "$ref": "#/components/schemas/FLRegistrierungStatus"
           },
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -10683,19 +9977,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "registrierung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -10714,21 +10001,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -11070,17 +10348,12 @@
           "umfang": {
             "anyOf": [
               {
-                "enum": [
-                  "kader_oeffentlich",
-                  "intern"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLEinwilligungUmfang"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Umfang"
+            ]
           }
         },
         "required": [
@@ -11230,6 +10503,13 @@
         ],
         "title": "FLRegistrierungSelbstEinwilligungResponse",
         "type": "object"
+      },
+      "FLRegistrierungStatus": {
+        "enum": [
+          "eingereicht",
+          "abgelehnt"
+        ],
+        "type": "string"
       },
       "FLRegistrierungSweepBenachrichtigung": {
         "description": "One pupil whose confirmed registration was erased at its season's end, and who is told after the fact.\n\nNo token and no deadline: the row is gone, and this message asks for nothing.",
@@ -11410,26 +10690,7 @@
             "type": "integer"
           },
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "incoming_team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -11468,39 +10729,12 @@
           "trikot_farbe": {
             "anyOf": [
               {
-                "enum": [
-                  "schwarz",
-                  "weiss",
-                  "grau",
-                  "braun",
-                  "bordeaux",
-                  "rot",
-                  "koralle",
-                  "orange",
-                  "gold",
-                  "gelb",
-                  "limette",
-                  "hellgruen",
-                  "gruen",
-                  "smaragd",
-                  "tuerkis",
-                  "cyan",
-                  "hellblau",
-                  "meerblau",
-                  "blau",
-                  "dunkelblau",
-                  "flieder",
-                  "violett",
-                  "magenta",
-                  "rosa"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrikotFarbe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trikot Farbe"
+            ]
           }
         },
         "required": [
@@ -11577,13 +10811,7 @@
             "type": "string"
           },
           "status": {
-            "enum": [
-              "past",
-              "active",
-              "future"
-            ],
-            "title": "Status",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSaisonStatus"
           }
         },
         "required": [
@@ -11646,6 +10874,16 @@
         "title": "FLSaisonForfeitErgebnis",
         "type": "object"
       },
+      "FLSaisonPhase": {
+        "enum": [
+          "gruppenphase",
+          "achtelfinale",
+          "viertelfinale",
+          "halbfinale",
+          "finale"
+        ],
+        "type": "string"
+      },
       "FLSaisonPhaseSchedule": {
         "description": "One phase of a season: how many matchdays it takes, and how many matches each holds.\n\nA phase the bracket does not reach is ABSENT rather than present with zeroes, so the list IS the\nphases the season plays, in playing order.",
         "properties": {
@@ -11660,15 +10898,7 @@
             "type": "integer"
           },
           "phase": {
-            "enum": [
-              "gruppenphase",
-              "achtelfinale",
-              "viertelfinale",
-              "halbfinale",
-              "finale"
-            ],
-            "title": "Phase",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSaisonPhase"
           }
         },
         "required": [
@@ -11714,15 +10944,7 @@
           },
           "erlaubte_stufen": {
             "items": {
-              "enum": [
-                "E1",
-                "E2",
-                "Q1",
-                "Q2",
-                "Q3",
-                "Q4"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLSpielerStufe"
             },
             "minItems": 1,
             "title": "Erlaubte Stufen",
@@ -11814,19 +11036,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "rolle": {
             "anyOf": [
@@ -11855,21 +11070,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -11917,6 +11123,14 @@
         ],
         "title": "FLSaisonSpielplan",
         "type": "object"
+      },
+      "FLSaisonStatus": {
+        "enum": [
+          "past",
+          "active",
+          "future"
+        ],
+        "type": "string"
       },
       "FLSaisonTeamAdresswechsel": {
         "description": "The live change of each confirmed seat's address, which the address tool shows.\n\nNull where none stands, the seat is empty, or its person never confirmed it, the change moving nothing of theirs.",
@@ -11975,47 +11189,32 @@
           "ansprechperson": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "verwaltung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAdresswechselEinsehbarVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Ansprechperson"
+            ]
           },
           "stellvertretung": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "verwaltung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAdresswechselEinsehbarVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stellvertretung"
+            ]
           },
           "trainer": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "verwaltung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAdresswechselEinsehbarVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trainer"
+            ]
           }
         },
         "required": [
@@ -12200,17 +11399,12 @@
           "trainer_ist_zugleich": {
             "anyOf": [
               {
-                "enum": [
-                  "ansprechperson",
-                  "stellvertretung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrainerZugleich"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trainer Ist Zugleich"
+            ]
           }
         },
         "required": [
@@ -12259,17 +11453,12 @@
           "trainer_ist_zugleich": {
             "anyOf": [
               {
-                "enum": [
-                  "ansprechperson",
-                  "stellvertretung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrainerZugleich"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trainer Ist Zugleich"
+            ]
           }
         },
         "required": [
@@ -12298,12 +11487,7 @@
             "type": "string"
           },
           "umfang": {
-            "enum": [
-              "kontaktdaten",
-              "kontaktdaten_whatsapp"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
@@ -12327,12 +11511,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -12347,12 +11526,7 @@
             "type": "string"
           },
           "umfang": {
-            "enum": [
-              "kontaktdaten",
-              "kontaktdaten_whatsapp"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
           }
         },
         "required": [
@@ -12380,26 +11554,7 @@
             ]
           },
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "kontakte": {
             "anyOf": [
@@ -12433,39 +11588,12 @@
           "trikot_farbe": {
             "anyOf": [
               {
-                "enum": [
-                  "schwarz",
-                  "weiss",
-                  "grau",
-                  "braun",
-                  "bordeaux",
-                  "rot",
-                  "koralle",
-                  "orange",
-                  "gold",
-                  "gelb",
-                  "limette",
-                  "hellgruen",
-                  "gruen",
-                  "smaragd",
-                  "tuerkis",
-                  "cyan",
-                  "hellblau",
-                  "meerblau",
-                  "blau",
-                  "dunkelblau",
-                  "flieder",
-                  "violett",
-                  "magenta",
-                  "rosa"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrikotFarbe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trikot Farbe"
+            ]
           }
         },
         "required": [
@@ -12998,17 +12126,12 @@
           "adresswechsel_einsehbar_verwehrt": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "verwaltung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAdresswechselEinsehbarVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Adresswechsel Einsehbar Verwehrt"
+            ]
           },
           "adresswechsel_id": {
             "anyOf": [
@@ -13051,6 +12174,17 @@
         ],
         "title": "FLSchiedsrichterWriteResponse",
         "type": "object"
+      },
+      "FLSchulform": {
+        "enum": [
+          "gymnasium_g8",
+          "gymnasium_g9",
+          "gesamtschule",
+          "privatschule_g8",
+          "privatschule_g9",
+          "oberstufengymnasium"
+        ],
+        "type": "string"
       },
       "FLSelbstErasureAnsichtResponse": {
         "properties": {
@@ -13101,17 +12235,12 @@
           "verwaltung": {
             "anyOf": [
               {
-                "enum": [
-                  "owner",
-                  "administration"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLVerwaltung"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Verwaltung"
+            ]
           }
         },
         "required": [
@@ -13135,13 +12264,7 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -13225,13 +12348,7 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "saison_id": {
             "title": "Saison Id",
@@ -13305,12 +12422,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "minItems": 1,
             "title": "Rollen",
@@ -13373,6 +12485,16 @@
         ],
         "title": "FLSitzKontext",
         "type": "object"
+      },
+      "FLSonderereignis": {
+        "enum": [
+          "ausgefallen",
+          "nichtantreten_team1",
+          "nichtantreten_team2",
+          "abgebrochen",
+          "annulliert"
+        ],
+        "type": "string"
       },
       "FLSperrlisteListResponse": {
         "description": "The bans, newest first, and how many there are.\n\n`anzahl_gesamt` is what makes a ban past the cap liftable: one enforced and not rendered is a\nperson barred by a row nobody can reach.",
@@ -13502,20 +12624,12 @@
           "voided_sonderereignis": {
             "anyOf": [
               {
-                "enum": [
-                  "ausgefallen",
-                  "nichtantreten_team1",
-                  "nichtantreten_team2",
-                  "abgebrochen",
-                  "annulliert"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSonderereignis"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Voided Sonderereignis"
+            ]
           }
         },
         "required": [
@@ -13630,15 +12744,7 @@
             "type": "string"
           },
           "saison_phase": {
-            "enum": [
-              "gruppenphase",
-              "achtelfinale",
-              "viertelfinale",
-              "halbfinale",
-              "finale"
-            ],
-            "title": "Saison Phase",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSaisonPhase"
           },
           "schiedsrichter": {
             "anyOf": [
@@ -13653,20 +12759,12 @@
           "sonderereignis": {
             "anyOf": [
               {
-                "enum": [
-                  "ausgefallen",
-                  "nichtantreten_team1",
-                  "nichtantreten_team2",
-                  "abgebrochen",
-                  "annulliert"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSonderereignis"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Sonderereignis"
+            ]
           },
           "spiel_nr": {
             "exclusiveMinimum": 0.0,
@@ -13864,15 +12962,7 @@
             "type": "string"
           },
           "saison_phase": {
-            "enum": [
-              "gruppenphase",
-              "achtelfinale",
-              "viertelfinale",
-              "halbfinale",
-              "finale"
-            ],
-            "title": "Saison Phase",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSaisonPhase"
           },
           "schiedsrichter": {
             "anyOf": [
@@ -13887,20 +12977,12 @@
           "sonderereignis": {
             "anyOf": [
               {
-                "enum": [
-                  "ausgefallen",
-                  "nichtantreten_team1",
-                  "nichtantreten_team2",
-                  "abgebrochen",
-                  "annulliert"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSonderereignis"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Sonderereignis"
+            ]
           },
           "spiel_nr": {
             "exclusiveMinimum": 0.0,
@@ -14103,26 +13185,7 @@
         "description": "A slot fed by the group phase: the team finishing `platz` in `gruppe`.",
         "properties": {
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "platz": {
             "exclusiveMinimum": 0.0,
@@ -14224,20 +13287,12 @@
           "voided_sonderereignis": {
             "anyOf": [
               {
-                "enum": [
-                  "ausgefallen",
-                  "nichtantreten_team1",
-                  "nichtantreten_team2",
-                  "abgebrochen",
-                  "annulliert"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSonderereignis"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Voided Sonderereignis"
+            ]
           }
         },
         "required": [
@@ -14341,17 +13396,12 @@
           "austritt_type": {
             "anyOf": [
               {
-                "enum": [
-                  "disqualifikation",
-                  "rueckzug"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAustrittType"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Austritt Type"
+            ]
           },
           "name": {
             "minLength": 1,
@@ -15086,33 +14136,17 @@
             "type": "string"
           },
           "saison_phase": {
-            "enum": [
-              "gruppenphase",
-              "achtelfinale",
-              "viertelfinale",
-              "halbfinale",
-              "finale"
-            ],
-            "title": "Saison Phase",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSaisonPhase"
           },
           "sonderereignis": {
             "anyOf": [
               {
-                "enum": [
-                  "ausgefallen",
-                  "nichtantreten_team1",
-                  "nichtantreten_team2",
-                  "abgebrochen",
-                  "annulliert"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSonderereignis"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Sonderereignis"
+            ]
           },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -16384,12 +15418,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -16411,12 +15440,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -16912,13 +15936,7 @@
             "type": "string"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           }
         },
         "required": [
@@ -17290,19 +16308,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "rolle": {
             "anyOf": [
@@ -17326,21 +16337,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -17397,6 +16399,15 @@
         "title": "FLSpielerNachnominierungResponse",
         "type": "object"
       },
+      "FLSpielerPosition": {
+        "enum": [
+          "Tor",
+          "Abwehr",
+          "Mittelfeld",
+          "Angriff"
+        ],
+        "type": "string"
+      },
       "FLSpielerPublic": {
         "description": "One squad row as the BASE TIER serves it -- all an anonymous visitor may read.\n\n`build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the\n`stufe` is gone (`READ-PUPIL-002`), and the consent record with it.",
         "properties": {
@@ -17425,19 +16436,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "vorname": {
             "anyOf": [
@@ -17594,19 +16598,12 @@
           "position": {
             "anyOf": [
               {
-                "enum": [
-                  "Tor",
-                  "Abwehr",
-                  "Mittelfeld",
-                  "Angriff"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerPosition"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Position"
+            ]
           },
           "rolle": {
             "anyOf": [
@@ -17630,21 +16627,12 @@
           "stufe": {
             "anyOf": [
               {
-                "enum": [
-                  "E1",
-                  "E2",
-                  "Q1",
-                  "Q2",
-                  "Q3",
-                  "Q4"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerStufe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Stufe"
+            ]
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -17722,23 +16710,29 @@
         "title": "FLSpielerSingleResponse",
         "type": "object"
       },
+      "FLSpielerStufe": {
+        "enum": [
+          "E1",
+          "E2",
+          "Q1",
+          "Q2",
+          "Q3",
+          "Q4"
+        ],
+        "type": "string"
+      },
       "FLSpielerWithMemberships": {
         "description": "The person as stored, plus every squad row they hold.\n\nA DIFFERENT question from `FLSpieler`, not a projection: that one is FLATTENED against one\nseason, so a player in two comes back as two indistinguishable rows.",
         "properties": {
           "adresswechsel_einsehbar_verwehrt": {
             "anyOf": [
               {
-                "enum": [
-                  "eigene",
-                  "verwaltung"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLAdresswechselEinsehbarVerwehrt"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Adresswechsel Einsehbar Verwehrt"
+            ]
           },
           "adresswechsel_id": {
             "anyOf": [
@@ -17988,15 +16982,7 @@
             "type": "string"
           },
           "saison_phase": {
-            "enum": [
-              "gruppenphase",
-              "achtelfinale",
-              "viertelfinale",
-              "halbfinale",
-              "finale"
-            ],
-            "title": "Saison Phase",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSaisonPhase"
           }
         },
         "required": [
@@ -18132,17 +17118,12 @@
           "verwaltung": {
             "anyOf": [
               {
-                "enum": [
-                  "owner",
-                  "administration"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLVerwaltung"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Verwaltung"
+            ]
           }
         },
         "required": [
@@ -18177,26 +17158,14 @@
         "description": "One contact seat the mailbox holds on a season's junction row.\n\nPer seat and never per person, as the erasure's `FLSelbstErasureSitz` is: one row seats one\nperson twice where `trainer_ist_zugleich` says so.",
         "properties": {
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
           },
           "saison_status": {
-            "enum": [
-              "past",
-              "active",
-              "future"
-            ],
-            "title": "Saison Status",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSaisonStatus"
           },
           "team_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -18269,26 +17238,7 @@
             "type": "string"
           },
           "team1_gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Team1 Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "team1_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -18296,26 +17246,7 @@
             "type": "string"
           },
           "team2_gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Team2 Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "team2_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -18360,26 +17291,7 @@
             "type": "string"
           },
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -18406,21 +17318,12 @@
           "schulform": {
             "anyOf": [
               {
-                "enum": [
-                  "gymnasium_g8",
-                  "gymnasium_g9",
-                  "gesamtschule",
-                  "privatschule_g8",
-                  "privatschule_g9",
-                  "oberstufengymnasium"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSchulform"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Schulform"
+            ]
           },
           "shorthand": {
             "pattern": "^[A-Z]{3}$",
@@ -18493,26 +17396,7 @@
             ]
           },
           "gruppe": {
-            "enum": [
-              "A",
-              "B",
-              "C",
-              "D",
-              "E",
-              "F",
-              "G",
-              "H",
-              "I",
-              "J",
-              "K",
-              "L",
-              "M",
-              "N",
-              "O",
-              "P"
-            ],
-            "title": "Gruppe",
-            "type": "string"
+            "$ref": "#/components/schemas/FLGruppenNames"
           },
           "kontakte": {
             "anyOf": [
@@ -18537,39 +17421,12 @@
           "trikot_farbe": {
             "anyOf": [
               {
-                "enum": [
-                  "schwarz",
-                  "weiss",
-                  "grau",
-                  "braun",
-                  "bordeaux",
-                  "rot",
-                  "koralle",
-                  "orange",
-                  "gold",
-                  "gelb",
-                  "limette",
-                  "hellgruen",
-                  "gruen",
-                  "smaragd",
-                  "tuerkis",
-                  "cyan",
-                  "hellblau",
-                  "meerblau",
-                  "blau",
-                  "dunkelblau",
-                  "flieder",
-                  "violett",
-                  "magenta",
-                  "rosa"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLTrikotFarbe"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Trikot Farbe"
+            ]
           }
         },
         "required": [
@@ -18625,21 +17482,12 @@
           "schulform": {
             "anyOf": [
               {
-                "enum": [
-                  "gymnasium_g8",
-                  "gymnasium_g9",
-                  "gesamtschule",
-                  "privatschule_g8",
-                  "privatschule_g9",
-                  "oberstufengymnasium"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSchulform"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Schulform"
+            ]
           },
           "shorthand": {
             "pattern": "^[A-Z]{3}$",
@@ -18691,13 +17539,7 @@
             "title": "Name"
           },
           "rolle": {
-            "enum": [
-              "trainer",
-              "ansprechperson",
-              "stellvertretung"
-            ],
-            "title": "Rolle",
-            "type": "string"
+            "$ref": "#/components/schemas/FLKontaktRolle"
           }
         },
         "required": [
@@ -18838,21 +17680,12 @@
           "schulform": {
             "anyOf": [
               {
-                "enum": [
-                  "gymnasium_g8",
-                  "gymnasium_g9",
-                  "gesamtschule",
-                  "privatschule_g8",
-                  "privatschule_g9",
-                  "oberstufengymnasium"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSchulform"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Schulform"
+            ]
           },
           "shorthand": {
             "pattern": "^[A-Z]{3}$",
@@ -18985,6 +17818,42 @@
         "title": "FLTeamsSingleResponse",
         "type": "object"
       },
+      "FLTrainerZugleich": {
+        "enum": [
+          "ansprechperson",
+          "stellvertretung"
+        ],
+        "type": "string"
+      },
+      "FLTrikotFarbe": {
+        "enum": [
+          "schwarz",
+          "weiss",
+          "grau",
+          "braun",
+          "bordeaux",
+          "rot",
+          "koralle",
+          "orange",
+          "gold",
+          "gelb",
+          "limette",
+          "hellgruen",
+          "gruen",
+          "smaragd",
+          "tuerkis",
+          "cyan",
+          "hellblau",
+          "meerblau",
+          "blau",
+          "dunkelblau",
+          "flieder",
+          "violett",
+          "magenta",
+          "rosa"
+        ],
+        "type": "string"
+      },
       "FLUndrawSpielplanResponse": {
         "description": "What removing the season's Spielplan took away, on the shape the draw reports.\n\nBoth counts are zero on a season already undrawn, which is why the watermark is reported apart:\nit is the one thing a season can hold with neither collection behind it.",
         "properties": {
@@ -19018,6 +17887,13 @@
         "title": "FLUndrawSpielplanResponse",
         "type": "object"
       },
+      "FLVerwaltung": {
+        "enum": [
+          "owner",
+          "administration"
+        ],
+        "type": "string"
+      },
       "FLZustellungAbgewiesenPayload": {
         "additionalProperties": false,
         "description": "A send the provider refused outright. No `nachricht_id`: nothing was minted, so there is no message for a later event to join.",
@@ -19043,12 +17919,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -19099,12 +17970,7 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
@@ -19168,26 +18034,13 @@
           },
           "rollen": {
             "items": {
-              "enum": [
-                "trainer",
-                "ansprechperson",
-                "stellvertretung"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLKontaktRolle"
             },
             "title": "Rollen",
             "type": "array"
           },
           "stand": {
-            "enum": [
-              "zugestellt",
-              "verzoegert",
-              "unzustellbar",
-              "unterdrueckt",
-              "beschwerde"
-            ],
-            "title": "Stand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLBewerbungZustellEreignis"
           },
           "ziel": {
             "enum": [
@@ -24273,11 +23126,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "eingereicht",
-                    "abgelehnt"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLRegistrierungStatus"
                 },
                 {
                   "type": "null"
@@ -25183,12 +24032,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "past",
-                    "active",
-                    "future"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLSaisonStatus"
                 },
                 {
                   "type": "null"
@@ -25456,12 +24300,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "past",
-                    "active",
-                    "future"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLSaisonStatus"
                 },
                 {
                   "type": "null"
@@ -28908,14 +27747,7 @@
                   "type": "string"
                 },
                 {
-                  "enum": [
-                    "gruppenphase",
-                    "achtelfinale",
-                    "viertelfinale",
-                    "halbfinale",
-                    "finale"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLSaisonPhase"
                 },
                 {
                   "type": "null"
@@ -29187,14 +28019,7 @@
                   "type": "string"
                 },
                 {
-                  "enum": [
-                    "gruppenphase",
-                    "achtelfinale",
-                    "viertelfinale",
-                    "halbfinale",
-                    "finale"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLSaisonPhase"
                 },
                 {
                   "type": "null"
@@ -31577,14 +30402,7 @@
                   "type": "string"
                 },
                 {
-                  "enum": [
-                    "gruppenphase",
-                    "achtelfinale",
-                    "viertelfinale",
-                    "halbfinale",
-                    "finale"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLSaisonPhase"
                 },
                 {
                   "type": "null"
@@ -31730,14 +30548,7 @@
                   "type": "string"
                 },
                 {
-                  "enum": [
-                    "gruppenphase",
-                    "achtelfinale",
-                    "viertelfinale",
-                    "halbfinale",
-                    "finale"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLSaisonPhase"
                 },
                 {
                   "type": "null"
@@ -32186,25 +30997,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "A",
-                    "B",
-                    "C",
-                    "D",
-                    "E",
-                    "F",
-                    "G",
-                    "H",
-                    "I",
-                    "J",
-                    "K",
-                    "L",
-                    "M",
-                    "N",
-                    "O",
-                    "P"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLGruppenNames"
                 },
                 {
                   "type": "null"
@@ -32236,11 +31029,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "disqualifikation",
-                    "rueckzug"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLAustrittType"
                 },
                 {
                   "type": "null"
@@ -32498,25 +31287,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "A",
-                    "B",
-                    "C",
-                    "D",
-                    "E",
-                    "F",
-                    "G",
-                    "H",
-                    "I",
-                    "J",
-                    "K",
-                    "L",
-                    "M",
-                    "N",
-                    "O",
-                    "P"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLGruppenNames"
                 },
                 {
                   "type": "null"
@@ -32548,11 +31319,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "enum": [
-                    "disqualifikation",
-                    "rueckzug"
-                  ],
-                  "type": "string"
+                  "$ref": "#/components/schemas/FLAustrittType"
                 },
                 {
                   "type": "null"

@@ -5,7 +5,7 @@ from typing import Annotated, Any, Final, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, model_validator
 
-from app.api.teams.schemas import FLAustritt, FLAustrittType, FLGruppenNames
+from app.api.teams.schemas import FLAustritt
 from app.shared.schemas.bounds import (
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
@@ -23,15 +23,10 @@ from app.shared.schemas.custom import (
     CustomSpielNr,
     CustomTimeString,
 )
+from app.shared.schemas.literals import FLAustrittType, FLGruppenNames, FLSaisonPhase, FLSonderereignis
 from app.shared.schemas.responses import BaseAPIResponse
 
-FLSaisonPhase = Literal["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"]
 FLSpielStatus = Literal["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"]
-
-# What happened to a fixture beyond being played. Nullable rather than total: `null` is "nothing to
-# say", so no read site spells an ordinary fixture out. Distinct from `FLSpielStatus`, which is
-# derived and about time rather than event.
-FLSonderereignis = Literal["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"]
 
 # Each tuple below answers ONE consumer's question. They are deliberately NOT one predicate: a single
 # boolean would make independent consumers agree by accident, and a field telling five events apart

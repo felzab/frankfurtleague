@@ -14,14 +14,10 @@ from app.api.spiele.schemas import (
     records_an_absence,
 )
 from app.api.teams.schemas import (
-    KONTAKT_ROLLEN,
     FLGruppen,
-    FLGruppenNames,
     FLGruppenTeam,
     FLKontaktAbgang,
     FLKontaktMint,
-    FLKontaktRolle,
-    FLKontaktZeile,
     FLPublicTeamsFilterParams,
     FLTeam,
     FLTeamsFilterParams,
@@ -36,6 +32,7 @@ from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLGruppenNames, FLKontaktRolle, FLKontaktZeile
 
 AS_NAME = "saison_data"
 SAISON_PAST_AS_NAME = "saison_past_data"
@@ -525,7 +522,7 @@ def _spiele_by_gruppe(
     points inside it, so no placing there is final while it stands.
     """
 
-    by_gruppe: dict[FLGruppenNames, list[FLSpielCommon]] = {name: [] for name in get_args(FLGruppenNames)}
+    by_gruppe: dict[FLGruppenNames, list[FLSpielCommon]] = {name: [] for name in get_args(FLGruppenNames.__value__)}
     unattributable: set[FLGruppenNames] = set()
 
     for spiel in spiele:
@@ -539,7 +536,7 @@ def _spiele_by_gruppe(
         if _counted_goals(spiel) is None and spiel.sonderereignis not in SONDEREREIGNIS_WITHOUT_A_RESULT:
             if spiel.team1 is None and spiel.team2 is None:
                 # NO side to attribute, so nothing can say which group it lands in.
-                unattributable.update(get_args(FLGruppenNames))
+                unattributable.update(get_args(FLGruppenNames.__value__))
             else:
                 unattributable.update(name for name in (left, right) if name is not None)
 
@@ -819,7 +816,7 @@ def build_decided_standings(
     by_gruppe, unattributable = _spiele_by_gruppe(spiele, gruppe_of)
     still_to_play = _still_to_play(spiele)
 
-    teams_by_gruppe: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in get_args(FLGruppenNames)}
+    teams_by_gruppe: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in get_args(FLGruppenNames.__value__)}
     for team in teams:
         if team.gruppe in teams_by_gruppe:
             teams_by_gruppe[team.gruppe].append(team)
@@ -832,7 +829,7 @@ def build_decided_standings(
             still_to_play=still_to_play,
             has_unattributable=name in unattributable,
         )
-        for name in get_args(FLGruppenNames)
+        for name in get_args(FLGruppenNames.__value__)
         if gruppen is None or name in gruppen
     }
 
@@ -1374,7 +1371,7 @@ def find_club_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | Non
 
 
 def offered_gruppen(number_of_groups: int) -> tuple[FLGruppenNames, ...]:
-    return get_args(FLGruppenNames)[:number_of_groups]
+    return get_args(FLGruppenNames.__value__)[:number_of_groups]
 
 
 def find_gruppe_move_refusal(*, fixtures_drawn: int) -> WriteRefusal | None:

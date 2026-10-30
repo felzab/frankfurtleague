@@ -47,7 +47,7 @@ from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.spiele.services import ANSETZUNG_BESTAETIGT, build_spiele_pipeline
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
-from app.api.teams.schemas import KONTAKT_ROLLEN, FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
+from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -55,6 +55,7 @@ from app.core.logging import FL_LOGGER_NAME, JSONFormatter
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.api import test_spielbestaetigung_sweep_refusal as budget

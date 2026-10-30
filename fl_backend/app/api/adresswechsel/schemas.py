@@ -3,14 +3,8 @@ from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-from app.api.adresswechsel.services import (
-    FLAdresswechselBisherigZustand,
-    FLAdresswechselEndeArt,
-    FLAdresswechselNeuZustand,
-    FLAdresswechselVerwaltung,
-    FLAdresswechselWartetAuf,
-)
-from app.api.berechtigungen.schemas import FLAdresswechselWeg, FLUtcInstant
+from app.api.adresswechsel.services import FLAdresswechselBisherigZustand, FLAdresswechselNeuZustand, FLAdresswechselVerwaltung
+from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.sperrliste.schemas import refuse_an_address_in_the_reason
 from app.shared.schemas.bounds import BEWERBUNG_TOKEN_MAX_LENGTH, ERASURE_ANLASS_MAX_LENGTH, LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import (
@@ -21,6 +15,7 @@ from app.shared.schemas.custom import (
     CustomStrippedNonEmptyString,
 )
 from app.shared.schemas.kontakt import CustomEmail
+from app.shared.schemas.literals import FLAdresswechselEndeArt, FLAdresswechselWartetAuf, FLAdresswechselWeg
 from app.shared.schemas.responses import BaseAPIResponse
 from app.shared.schemas.zustellung import FLBewerbungZustellung
 

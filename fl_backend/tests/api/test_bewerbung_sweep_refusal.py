@@ -21,9 +21,9 @@ from app.api.bewerbungen.services import (
     vorname_of,
 )
 from app.api.bewerbungen.sweep_router import BLOCKS_CLEARED_PER_PASS, REMINDERS_PER_PASS
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.shared.schemas.bounds import BEWERBUNG_ERINNERUNG_TAGE
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests.documents import kontaktperson_document
 
 TODAY = "2026-04-01"

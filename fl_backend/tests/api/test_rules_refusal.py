@@ -9,10 +9,9 @@ from app.api.saisons.services import (
     find_rules_refusal,
     find_undraw_refusal,
 )
-from app.api.spiele.schemas import FLSaisonPhase
-from app.api.teams.schemas import FLGruppenNames
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
+from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase
 
 
 def rules_payload(

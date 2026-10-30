@@ -3,7 +3,6 @@ from typing import Annotated, Final, Literal, Self
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
-from app.api.teams.schemas import FLKontaktRolle
 from app.shared.schemas.bounds import BEWERBUNG_TOKEN_MAX_LENGTH, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH
 from app.shared.schemas.custom import (
     SINGLE_LINE_PATTERN,
@@ -14,6 +13,7 @@ from app.shared.schemas.custom import (
     CustomTimeString,
     parse_empty_string_to_none,
 )
+from app.shared.schemas.literals import FLKontaktRolle
 from app.shared.schemas.responses import BaseAPIResponse
 
 # One delivery shape at every home `app/api/zustellung/services.py :: ZIEL_PFADE` names, as the

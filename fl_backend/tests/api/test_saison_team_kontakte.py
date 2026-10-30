@@ -15,7 +15,6 @@ from app.api.teams.schemas import (
     FLKontaktKenntnisnahmePayload,
     FLKontaktperson,
     FLKontaktpersonPayload,
-    FLKontaktRolle,
     FLPatchSaisonTeamKontaktePayload,
     FLTeamMembership,
 )
@@ -30,6 +29,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.schemas.literals import FLKontaktRolle
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop

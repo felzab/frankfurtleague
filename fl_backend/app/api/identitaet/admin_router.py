@@ -8,7 +8,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.adresswechsel.crud import others_naming
 from app.api.berechtigungen.antraege import read_the_antraege_of
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
-from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
 from app.api.berechtigungen.services import lebendige
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, ErasureJournal, erase_everything, resolve_subject
 from app.api.identitaet.schemas import (
@@ -72,6 +71,7 @@ from app.core.security import (
 )
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
+from app.shared.schemas.literals import FLAdresswechselEinsehbarVerwehrt
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/identitaet",

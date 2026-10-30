@@ -43,7 +43,7 @@ from app.api.spiele.services import (
     resolve_bracket,
     slots_booked_against,
 )
-from app.api.teams.schemas import FLGruppenNames, FLTeamListAdapter, FLTeamsFilterParams
+from app.api.teams.schemas import FLTeamListAdapter, FLTeamsFilterParams
 from app.api.teams.services import (
     ZERO_STATISTIK,
     DecidedStanding,
@@ -56,6 +56,7 @@ from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_one_in_db,
 from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.literals import FLGruppenNames
 
 
 async def _resolve_one_saison(
