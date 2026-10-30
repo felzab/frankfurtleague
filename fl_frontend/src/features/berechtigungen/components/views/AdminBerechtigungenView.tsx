@@ -2,9 +2,8 @@
 
 import { useId } from "react";
 
-import { ALLE_ZUGAENGE, erteiltVonAnzeige, uebersprungenHinweis, vonOderGesperrt } from "@/features/berechtigungen/constants";
+import { ALLE_ZUGAENGE, erteiltVonAnzeige, vonOderGesperrt } from "@/features/berechtigungen/constants";
 import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
-import { Callout } from "@/shared/components/ui/Callout";
 
 import { AdminBerechtigungAntraegeList } from "../collections/AdminBerechtigungAntraegeList";
 import { AdminBerechtigungenList } from "../collections/AdminBerechtigungenList";
@@ -22,12 +21,10 @@ const SEARCH_KEYS: readonly SearchKey<FLBerechtigungZeile>[] = [
 /** **No `renderDeleteModal`**: a revoke is confirmed on the row itself, as a ban's removal is. */
 export function AdminBerechtigungenView({
   berechtigungen,
-  uebersprungen,
   antraege,
   inhaberAdresse,
 }: {
   berechtigungen: FLBerechtigungZeile[];
-  uebersprungen: number;
   antraege: FLBerechtigungAntragZeile[];
   inhaberAdresse: string | null;
 }) {
@@ -36,15 +33,6 @@ export function AdminBerechtigungenView({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Not dismissible: a standing property of the store, which a closed notice would hide. */}
-      {uebersprungen > 0 && (
-        <Callout
-          severity="warning"
-          title="Diese Liste ist unvollständig">
-          {uebersprungenHinweis(uebersprungen)}
-        </Callout>
-      )}
-
       <AdminBerechtigungAntraegeList antraege={antraege} />
 
       <section className="flex w-full flex-col gap-3">

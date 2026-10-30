@@ -3,11 +3,12 @@ from typing import Annotated, Literal, Self, get_args
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from app.api.berechtigungen.schemas import FLBerechtigungMitteilungArt, FLBerechtigungStand, FLBerechtigungUrheber, FLBerechtigungVorenthalten
 from app.api.registrierungen.schemas import FLRegistrierungAblehnungsgrund
 from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
 from app.shared.schemas.kontakt import CustomEmail
-from app.shared.schemas.literals import FLGruppenNames, FLKontaktRolle, FLKontaktZeile, FLTrikotFarbe
+from app.shared.schemas.literals import FLAdresswechselWeg, FLGruppenNames, FLKontaktRolle, FLKontaktZeile, FLTrikotFarbe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # Each kind of mail is one member of `FLPostausgangDaten` below, carrying the facts its builder renders and never a
@@ -44,6 +45,58 @@ class FLSperreDaten(BaseModel):
     art: Literal["sperre"]
     grund: str
     gesperrt_bis_saison_id: str
+
+
+class FLBerechtigungDaten(BaseModel):
+    """A change to a grant, or a grant or promotion asked for, as the notice to each administrator states it."""
+
+    art: Literal["berechtigung"]
+    aenderung: FLBerechtigungMitteilungArt
+    urheber: FLBerechtigungUrheber
+    jetzt: FLBerechtigungStand | None
+    vorher: FLBerechtigungStand | None
+    # The administrator whose write made it; null where it was found in the database, or where a ban withholds them,
+    # `urheber` telling the two apart; `app/core/recording.py :: ERASED_ACTOR_MARKER` for one erased since.
+    geaendert_von: str | None
+    # Null where it was found in the database, nobody knowing when that edit was made.
+    geaendert_am: AwareDatetime | None
+    # Why a grant address above is null.
+    vorenthalten: FLBerechtigungVorenthalten | None
+
+
+class FLAdresswechselLinkDaten(BaseModel):
+    """The new mailbox's link to confirm an address change, minted at the hand-out into the change's `token_hashes`."""
+
+    art: Literal["adresswechsel_link"]
+    weg: FLAdresswechselWeg
+    # When the link lapses, which the mail states.
+    gueltig_bis: AwareDatetime
+
+
+class FLAdresswechselHinweisDaten(BaseModel):
+    """The address on file's notice of an address change, its stop link minted at the hand-out into `stopp.token_hashes`."""
+
+    art: Literal["adresswechsel_hinweis"]
+    weg: FLAdresswechselWeg
+    # The approval's deadline, which only the `freigabe` way's notice states.
+    gueltig_bis: AwareDatetime
+    # Null on the lost-mailbox way: that mailbox may have passed to a stranger, so the notice greets nobody.
+    vorname: str | None
+
+
+class FLAdresswechselWirksamDaten(BaseModel):
+    """The replaced address's notice that the change took effect."""
+
+    art: Literal["adresswechsel_wirksam"]
+    # The effect's own instant.
+    zeitpunkt: AwareDatetime
+    vorname: str | None
+
+
+class FLAdresswechselVerworfenDaten(BaseModel):
+    """The new mailbox's notice that a confirmed change did not take effect: never why, nor the address on file."""
+
+    art: Literal["adresswechsel_verworfen"]
 
 
 class FLSchiedsrichterBestaetigungDaten(BaseModel):
@@ -237,6 +290,11 @@ FLPostausgangDaten = Annotated[
     | FLPasskeyDaten
     | FLKontoLoeschungDaten
     | FLSperreDaten
+    | FLBerechtigungDaten
+    | FLAdresswechselLinkDaten
+    | FLAdresswechselHinweisDaten
+    | FLAdresswechselWirksamDaten
+    | FLAdresswechselVerworfenDaten
     | FLSchiedsrichterBestaetigungDaten
     | FLSpielAnfrageDaten
     | FLSpielEinteilungDaten
@@ -263,6 +321,11 @@ FLPostausgangArt = Literal[
     "passkey_geloescht",
     "konto_loeschung",
     "sperre",
+    "berechtigung",
+    "adresswechsel_link",
+    "adresswechsel_hinweis",
+    "adresswechsel_wirksam",
+    "adresswechsel_verworfen",
     "schiedsrichter_bestaetigung",
     "spiel_anfrage",
     "spiel_erinnerung",

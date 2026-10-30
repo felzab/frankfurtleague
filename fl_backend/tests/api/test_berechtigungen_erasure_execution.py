@@ -18,9 +18,11 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.berechtigungen.erasure import ErasedGrantsAndAuthorship, erase_grants_and_authorship_in_session
 from app.api.berechtigungen.schemas import FLBerechtigungStand
-from app.api.berechtigungen.services import compose_postausgang
+from app.api.berechtigungen.services import compose_mitteilung
 from app.api.einladungen.services import compose_einladung
 from app.api.kontakte.services import same_address
+from app.api.postausgang.schemas import FLBerechtigungDaten
+from app.api.postausgang.services import NACHLAUF, ZUSTELLFRIST
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
@@ -108,11 +110,29 @@ def notice(
     def stand(adresse: str | None) -> FLBerechtigungStand | None:
         return None if adresse is None else FLBerechtigungStand(adresse=adresse, verwaltung="administration")
 
+    mitteilung = compose_mitteilung(
+        berechtigung_id=grant_id, art=art, jetzt=stand(jetzt), vorher=stand(vorher), geaendert_von=von, now=QUEUED, gesperrt=gesperrt
+    )
+
+    # Owed to Dora, as `app/api/postausgang/services.py :: enqueue_mail` stores a row: her copy of the notice.
     return {
         "_id": row_id,
-        **compose_postausgang(
-            berechtigung_id=grant_id, art=art, jetzt=stand(jetzt), vorher=stand(vorher), geaendert_von=von, now=QUEUED, gesperrt=gesperrt
-        ),
+        "schluessel": f"berechtigung/{grant_id}/{art}/anwendung/{QUEUED.isoformat()}/{DORA}",
+        "art": "berechtigung",
+        "an": DORA,
+        "daten": FLBerechtigungDaten.model_validate(mitteilung.daten).model_dump(mode="json"),
+        "geheim": None,
+        "bezug": None,
+        "link": None,
+        "stand": "offen",
+        "erfasst_am": QUEUED,
+        "frist": QUEUED + ZUSTELLFRIST,
+        "loeschen_am": QUEUED + ZUSTELLFRIST + NACHLAUF,
+        "beanspruchung": None,
+        "beansprucht_bis": None,
+        "versuche": 0,
+        "nachricht_id": None,
+        "zustellung": None,
     }
 
 
@@ -162,7 +182,7 @@ async def a_league_she_administered(database: AsyncDatabase) -> None:
             *(announced(grant_id, adresse, "administration") for grant_id, adresse in ((BERND_ID, BERND), (CLARA_ID, CLARA), (NAHE_ID, NAHE))),
         ]
     )
-    await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].insert_many(
+    await database[Collection.POSTAUSGANG].insert_many(
         [
             notice(NAMING_HER_GRANT, ERIKA_ID, "geaendert", ERIKA, ERIKA, DORA),
             notice(MADE_BY_HER, BERND_ID, "erteilt", BERND, None, ERIKA_TYPED),
@@ -217,7 +237,7 @@ async def erased(
         return await erase_grants_and_authorship_in_session(
             berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            postausgang_collection=database[Collection.POSTAUSGANG],
             bewerbungen_collection=database[Collection.BEWERBUNGEN],
             registrierungen_collection=database[Collection.REGISTRIERUNGEN],
             einladungen_collection=database[Collection.EINLADUNGEN],
@@ -238,16 +258,26 @@ async def ids_in(database: AsyncDatabase, collection: Collection) -> set[ObjectI
 
 
 async def queued_for(database: AsyncDatabase, grant_id: ObjectId) -> list[Mapping[str, Any]]:
-    """The notices about one grant this erasure queued, as stored, in the order it queued them."""
+    """The notices about one grant this erasure owed, each once whoever it is owed to, in the order it owed them."""
 
-    projection = {"_id": 0, "art": 1, "urheber": 1, "jetzt": 1, "vorher": 1, "geaendert_von": 1, "vorenthalten": 1}
+    notices: dict[str, Mapping[str, Any]] = {}
+    async for row in (
+        database[Collection.POSTAUSGANG].find({"schluessel": {"$regex": f"^berechtigung/{grant_id}/"}, "erfasst_am": NOW}).sort("_id", 1)
+    ):
+        daten = row["daten"]
+        notices.setdefault(
+            row["schluessel"].rpartition("/")[0],
+            {
+                "art": daten["aenderung"],
+                "urheber": daten["urheber"],
+                "jetzt": daten["jetzt"],
+                "vorher": daten["vorher"],
+                "geaendert_von": daten["geaendert_von"],
+                "vorenthalten": daten["vorenthalten"],
+            },
+        )
 
-    return [
-        row
-        async for row in database[Collection.BERECHTIGUNGEN_POSTAUSGANG]
-        .find({"berechtigung_id": grant_id, "erfasst_am": NOW}, projection)
-        .sort("_id", 1)
-    ]
+    return list(notices.values())
 
 
 class TestHerGrantsGo:
@@ -366,8 +396,8 @@ class TestTheNotices:
 
         async def stored(database: AsyncDatabase) -> dict[ObjectId, tuple[Any, ...]]:
             return {
-                row["_id"]: tuple(row[site] for site in sites)
-                async for row in database[Collection.BERECHTIGUNGEN_POSTAUSGANG].find(
+                row["_id"]: tuple(row["daten"][site] for site in sites)
+                async for row in database[Collection.POSTAUSGANG].find(
                     {"_id": {"$in": [NAMING_HER_GRANT, MADE_BY_HER, A_BARRED_GRANT_BY_HER, NOT_HERS, BY_HER_LOCAL_PART_ELSEWHERE]}}
                 )
             }

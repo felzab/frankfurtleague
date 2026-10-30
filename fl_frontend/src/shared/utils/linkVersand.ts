@@ -1,5 +1,3 @@
-import type { FLAdresswechselWeg } from "@/core/generated/client/types";
-
 /**
  * How one link mail ended. `zurueckgehalten` is a deployment that mails nothing filing it
  * (`fl_frontend/src/core/mail.ts :: MailWithheldError`), `gesperrt` the ban list keeping it from the
@@ -35,16 +33,6 @@ export function versandWarnt(versand: LinkVersand | undefined): boolean {
  * unanswered that may have landed. A courtesy beside a saved write, it words its own doubt.
  */
 export type HinweisVersand = LinkVersand | "ungewiss";
-
-/**
- * How an address change's two messages ended, each `null` where the mint answered no token for it: no
- * link before an approval, no notice on a re-send.
- */
-export type AdresswechselVersand = {
-  weg: FLAdresswechselWeg;
-  link: LinkVersand | null;
-  hinweis: HinweisVersand | null;
-};
 
 /**
  * Whether an address change's notice to the stored address failed or may have, which its sentence asks the

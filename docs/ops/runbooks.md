@@ -309,9 +309,9 @@ administration is shut while it is down. Each of these is easy to get wrong:
   in, and recovery when no owner can sign in.** Write in MongoDB Playground, never
   `mongosh`, into the `berechtigungen` collection of the application database (`DB_BASE_NAME`,
   which `fl_backend/.env` names). The row holds four fields, each typed by the validator: `adresse`,
-  the address FOLDED — trimmed, the letters of both halves lower-case, the domain in punycode — or it
-  admits nobody, the validator refusing no spelling and the boot counting it as `SRV-BOOT-007`
-  without naming it; `verwaltung`, `owner` or `administration`; `erteilt_von`, a marker naming the
+  the address in the form the sign-in stores it (`fl_backend/app/shared/folding.py ::
+sign_in_identifier`) — trimmed, the letters of both halves lower-case, the domain in punycode —
+  which the application then reads as typed; `verwaltung`, `owner` or `administration`; `erteilt_von`, a marker naming the
   paste, such as `PLAYGROUND`; and `erteilt_am`, a date rather than a string. Removing the row by its
   folded address revokes it. A paste asks nobody's approval, which is why it serves these two cases
   alone. The statement itself is kept off this public repository.

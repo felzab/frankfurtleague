@@ -18,23 +18,11 @@ type Zaehlung = {
 
 /**
  * One pass over every sign-in account, deleting those no record references, for the scheduler
- * (`fl_frontend/src/instrumentation-node.ts :: armScheduler`), which runs one pass at a time.
+ * (`fl_frontend/src/instrumentation-node.ts :: armScheduler`), which runs one pass at a time. A store that lists
+ * nothing rejects, for the heartbeat to name; the pass resolves to the accounts it could not judge or delete.
  */
-export async function runKontoSweep(): Promise<void> {
-  await sweepAlleKonten();
-}
-
-async function sweepAlleKonten(): Promise<void> {
-  let konten: readonly string[];
-
-  try {
-    konten = await listAccounts();
-  } catch (error) {
-    // No completion line: a pass that listed nothing it could read did not run.
-    logKontoFailure("konto.sweep_failed", error);
-    return;
-  }
-
+export async function runKontoSweep(): Promise<number> {
+  const konten = await listAccounts();
   const zaehlung: Zaehlung = { gelistet: konten.length, unreferenziert: 0, geloescht: 0, bereits_geloescht: 0, fehlgeschlagen: 0 };
 
   // Batch by batch, each within the read's ceiling: a larger one, or an empty one, is refused whole,
@@ -63,6 +51,8 @@ async function sweepAlleKonten(): Promise<void> {
   // A warning where a failure kept accounts, so a level above INFO still shows a pass that judged none.
   if (zaehlung.fehlgeschlagen === 0) logger.info("konto.sweep_completed", zaehlung);
   else logger.warn("konto.sweep_completed", zaehlung);
+
+  return zaehlung.fehlgeschlagen;
 }
 
 /** One account, deleted only where the read answers its address unreferenced again, alone. */
@@ -82,11 +72,7 @@ async function loescheKonto(adresse: string, zaehlung: Zaehlung): Promise<void> 
 }
 
 /** The step and the error's name, never the address: a failure on this path routinely carries it. */
-function logKontoFailure(
-  event: "konto.sweep_failed" | "konto.referenzen_failed" | "konto.delete_failed",
-  error: unknown,
-  anzahl?: number,
-): void {
+function logKontoFailure(event: "konto.referenzen_failed" | "konto.delete_failed", error: unknown, anzahl?: number): void {
   logger.error(event, undefined, {
     name: error instanceof Error ? error.name : undefined,
     ...requestOf(error),

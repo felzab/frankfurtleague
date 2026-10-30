@@ -13,7 +13,9 @@ from app.api.adresswechsel.crud import (
     adresse_belegt,
     end_the_change_in_session,
     ending_line,
-    queue_the_approval_notice_in_session,
+    lage_of_the_link,
+    owe_the_hinweis_in_session,
+    owe_the_link_in_session,
     read_the_bestand,
     refusal_of,
     start_the_change_in_session,
@@ -56,25 +58,24 @@ from app.api.adresswechsel.services import (
 )
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.berechtigungen.services import genehmiger_of, genehmigung_verwehrt, holds_an_owners_power, lebendige
-from app.api.bewerbungen.services import mint_token
+from app.api.berechtigungen.services import genehmiger_of, genehmigung_verwehrt, holds_an_owners_power
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.services import JEDE_VERWALTUNG, find_eigene_adresse_refusal, find_verwaltung_adresse_refusal
+from app.api.postausgang.schemas import FLPostausgangLage
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.spieler.crud import another_pupil_holds
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
     AdresswechselCollection,
-    AdresswechselPostausgangCollection,
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenAntraegeCollection,
     BerechtigungenCollection,
-    BerechtigungenPostausgangCollection,
     BewerbungenCollection,
     DBClient,
     EinladungenCollection,
+    PostausgangCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
@@ -138,7 +139,7 @@ async def _pull_the_change(
     return record
 
 
-def _offen(record: Mapping[str, Any], *, now: datetime) -> FLAdresswechselVerwaltungOffen:
+def _offen(record: Mapping[str, Any], *, zustellung: FLPostausgangLage | None, now: datetime) -> FLAdresswechselVerwaltungOffen:
     genehmigung = record.get("genehmigung")
 
     return FLAdresswechselVerwaltungOffen(
@@ -152,7 +153,7 @@ def _offen(record: Mapping[str, Any], *, now: datetime) -> FLAdresswechselVerwal
         freigegeben_am=als_utc(record.get("freigegeben_am")),
         bestaetigt_am=als_utc(record.get("bestaetigt_am")),
         wirksam_ab=als_utc(record.get("wirksam_ab")),
-        zustellung=(record.get("versand") or {}).get("zustellung"),
+        zustellung=zustellung,
         abgelaufen=ist_abgelaufen(record, now=now),
         genehmigung=None if not isinstance(genehmigung, Mapping) else FLAdresswechselVerwaltungGenehmigung.model_validate(genehmigung),
     )
@@ -177,6 +178,7 @@ def _bestand(bestand: Bestand) -> FLAdresswechselVerwaltungBestand:
 async def get_adresswechsel_verwaltung_ansicht(
     ansicht_data: Annotated[FLAdresswechselVerwaltungAnsichtPayload, Body()],
     adresswechsel_collection: AdresswechselCollection,
+    postausgang_collection: PostausgangCollection,
     records: SubjektLookup,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
@@ -215,16 +217,21 @@ async def get_adresswechsel_verwaltung_ansicht(
         )
         bestand = await read_the_bestand(identifier, records=records, berechtigungen_collection=berechtigungen_collection, session=session)
         offen = await adresswechsel_collection.find_one(build_address_filter(identifier), session=session)
+        zustellung = (
+            None
+            if offen is None
+            else await lage_of_the_link(postausgang_collection=postausgang_collection, adresswechsel_id=offen["_id"], session=session)
+        )
 
     return FLAdresswechselVerwaltungAnsichtResponse(
         adresse=identifier,
         bestand=_bestand(bestand),
         moeglich=not bestand.leer,
-        offen=None if offen is None else _offen(offen, now=germany_now),
+        offen=None if offen is None else _offen(offen, zustellung=zustellung, now=germany_now),
     )
 
 
-async def _genehmiger(
+async def _refuse_without_genehmiger(
     bestand: Bestand,
     *,
     akteur: str,
@@ -233,11 +240,11 @@ async def _genehmiger(
     sperrliste: BanList,
     now: datetime,
     session: AsyncClientSession,
-) -> list[str]:
-    """Who could approve a change of this address's grant, the start's actor excluded; refused `-011` where nobody could."""
+) -> None:
+    """Refused `-011` where nobody but the start's actor could approve a change of this address's grant."""
 
     assert bestand.berechtigung is not None
-    gesperrt = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in lebendige(grants)], session=session)
+    gesperrt = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in grants], session=session)
     genehmiger = genehmiger_of(
         verwaltung=str(bestand.berechtigung["verwaltung"]),
         ausgenommen={bestand.identifier, akteur},
@@ -247,8 +254,6 @@ async def _genehmiger(
         vor=now,
     )
     refuse(find_kein_genehmiger_refusal(genehmiger=len(genehmiger)))
-
-    return genehmiger
 
 
 @router.post(
@@ -264,9 +269,8 @@ async def post_adresswechsel_verwaltung(
     spieler_collection: SpielerCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    postausgang_collection: PostausgangCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
-    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
     db: DBClient,
@@ -275,15 +279,14 @@ async def post_adresswechsel_verwaltung(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAdresswechselVerwaltungMintResponse:
     """
-    Start a change of the typed address for a person who says they cannot sign in, answering its raw links once, for the caller to mail.
+    Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.
 
-    **Nothing moves here.** Without a `grund` the change asks the address on file first: the caller mails it the request
-    with its stop link, and nothing goes to the new mailbox until that address approves on its account page. With a
-    `grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the
-    address on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new
-    mailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never
-    this one's: `genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).
-    The address's live change ends replaced.
+    **Nothing moves here.** Without a `grund` the change asks the address on file first: it is owed the request with its
+    stop link, and nothing goes to the new mailbox until that address approves on its account page. With a `grund`,
+    recording how the administrator established who asks, the new mailbox is owed its link and the address on file a
+    notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new mailbox
+    confirms. Where the address holds a grant, the change also waits on another administrator's approval, never this
+    one's. No link is answered. The address's live change ends replaced.
 
     Refused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power
     (`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds
@@ -295,8 +298,6 @@ async def post_adresswechsel_verwaltung(
     identifier, email, grund = sign_in_identifier(str(adresswechsel_data.adresse)), str(adresswechsel_data.email), adresswechsel_data.grund
     akteur = sign_in_identifier(operator)
     weg: FLAdresswechselWeg = "freigabe" if grund is None else "wartezeit"
-    raw_token, token_hash = mint_token()
-    raw_stopp, stopp_hash = mint_token()
     gehasht = sperrliste.hash_of(email)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
@@ -334,27 +335,22 @@ async def post_adresswechsel_verwaltung(
                     belegung=Belegung(
                         berechtigungen_collection=berechtigungen_collection,
                         berechtigungen_antraege_collection=berechtigungen_antraege_collection,
-                        adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+                        adresswechsel_collection=adresswechsel_collection,
                         now=germany_now,
                     ),
                     session=session,
                 )
             )
         )
-        genehmiger = (
-            []
-            if bestand.berechtigung is None
-            else await _genehmiger(
+        if bestand.berechtigung is not None:
+            await _refuse_without_genehmiger(
                 bestand, akteur=akteur, grants=grants, announced=announced, sperrliste=sperrliste, now=germany_now, session=session
             )
-        )
 
         record = compose_record(
             adresse=identifier,
             email=email,
             weg=weg,
-            token_hash=None if weg == "freigabe" else token_hash,
-            stopp_hash=stopp_hash,
             grund=grund,
             genehmigung=None
             if bestand.berechtigung is None
@@ -370,26 +366,30 @@ async def post_adresswechsel_verwaltung(
             journal=journal,
             session=session,
         )
-        if record["genehmigung"] is not None:
-            await queue_the_approval_notice_in_session(
+        # The notice first and the link after, as the address on file is told before the new mailbox can answer.
+        await owe_the_hinweis_in_session(
+            adresswechsel_id=adresswechsel_id,
+            adresse=identifier,
+            weg=weg,
+            gueltig_bis=record["gueltig_bis"],
+            # Greeting nobody on the lost-mailbox way: the address on file may have passed to a stranger.
+            vorname=None if weg == "wartezeit" else bestand.vorname,
+            postausgang_collection=postausgang_collection,
+            now=germany_now,
+            session=session,
+        )
+        if weg != "freigabe":
+            await owe_the_link_in_session(
                 adresswechsel_id=adresswechsel_id,
-                gestartet_von=akteur,
-                berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                email=email,
+                weg=weg,
+                gueltig_bis=record["gueltig_bis"],
+                postausgang_collection=postausgang_collection,
                 now=germany_now,
                 session=session,
             )
 
-        return FLAdresswechselVerwaltungMintResponse(
-            id=adresswechsel_id,
-            weg=weg,
-            token=None if weg == "freigabe" else raw_token,
-            stopp_token=raw_stopp,
-            gueltig_bis=record["gueltig_bis"],
-            email=email,
-            bisherige_email=identifier,
-            vorname=None if weg == "wartezeit" else bestand.vorname,
-            genehmiger_anzahl=len(genehmiger),
-        )
+        return FLAdresswechselVerwaltungMintResponse(id=adresswechsel_id, weg=weg, gueltig_bis=record["gueltig_bis"], email=email)
 
     # ONE transaction over the judgement and the write: a record written outside it would stand with a live link an
     # administrator was then told had been refused.
@@ -407,12 +407,12 @@ async def post_adresswechsel_verwaltung(
 async def einladen_adresswechsel(
     adresswechsel_id: CustomRouteObjectId,
     adresswechsel_collection: AdresswechselCollection,
+    postausgang_collection: PostausgangCollection,
     records: SubjektLookup,
     spieler_collection: SpielerCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
-    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     operator: str = Depends(get_actor_email),
@@ -420,12 +420,12 @@ async def einladen_adresswechsel(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAdresswechselVerwaltungMintResponse:
     """
-    Mint the new mailbox a fresh link for the change this id names, answering the raw token once, for the caller to mail.
+    Owe the new mailbox a fresh link for the change this id names, in the same transaction.
 
-    The previous link stops working at once and the delivery state of the message it went out in goes with it; the
-    deadline restarts now. The stop link stays, so the address on file is mailed nothing again. A lapsed link is no
-    refusal while the change stands, which is until the next hourly pass ends it. Acts
-    on the change the id names alone, so a page showing a change since replaced re-sends nothing.
+    The previous link stops working once the fresh one is handed out; the deadline restarts now. The stop link stays, so
+    the address on file is mailed nothing again. A lapsed link is no refusal while the change stands, which is until the
+    next hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends
+    nothing.
 
     Refused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), where the ban list holds the pending address
     (`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), where an entry has come to name it,
@@ -435,7 +435,6 @@ async def einladen_adresswechsel(
     """
 
     akteur = sign_in_identifier(operator)
-    raw_token, token_hash = mint_token()
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
@@ -471,7 +470,7 @@ async def einladen_adresswechsel(
                     belegung=Belegung(
                         berechtigungen_collection=berechtigungen_collection,
                         berechtigungen_antraege_collection=berechtigungen_antraege_collection,
-                        adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+                        adresswechsel_collection=adresswechsel_collection,
                         now=germany_now,
                     ),
                     session=session,
@@ -487,24 +486,24 @@ async def einladen_adresswechsel(
         updated = await patch_one_in_db(
             collection=adresswechsel_collection,
             db_filter=build_live_filter(adresswechsel_id, build_resendable_terms()),
-            update=compose_link_update(token_hash=token_hash, now=germany_now, freigabe=False),
+            update=compose_link_update(now=germany_now, freigabe=False),
             session=session,
             return_document=ReturnDocument.AFTER,
         )
         gueltig_bis = als_utc(updated["gueltig_bis"])
         assert gueltig_bis is not None
 
-        return FLAdresswechselVerwaltungMintResponse(
-            id=adresswechsel_id,
-            weg=updated["weg"],
-            token=raw_token,
-            stopp_token=None,
-            gueltig_bis=gueltig_bis,
+        await owe_the_link_in_session(
+            adresswechsel_id=adresswechsel_id,
             email=email,
-            bisherige_email=identifier,
-            vorname=None if updated["weg"] == "wartezeit" else bestand.vorname,
-            genehmiger_anzahl=0,
+            weg=updated["weg"],
+            gueltig_bis=gueltig_bis,
+            postausgang_collection=postausgang_collection,
+            now=germany_now,
+            session=session,
         )
+
+        return FLAdresswechselVerwaltungMintResponse(id=adresswechsel_id, weg=updated["weg"], gueltig_bis=gueltig_bis, email=email)
 
     async with transaction_session(db) as session:
         return await session.with_transaction(judge_and_remint_the_change)
@@ -601,11 +600,10 @@ async def post_adresswechsel_genehmigung(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    postausgang_collection: PostausgangCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
-    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
     db: DBClient,
@@ -675,11 +673,10 @@ async def post_adresswechsel_genehmigung(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            postausgang_collection=postausgang_collection,
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
-            adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
             aktionen_collection=aktionen_collection,
             schluessel=config.sperrliste_schluessel,
             now=germany_now,

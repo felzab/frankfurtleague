@@ -131,7 +131,7 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
 
 
 async def request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-    """An administrator's start through the address tool, with a reason, so the new mailbox is minted its link at once."""
+    """An administrator's start through the address tool, with a reason, so the new mailbox is owed its link at once."""
 
     return await post_adresswechsel_verwaltung(
         adresswechsel_data=FLAdresswechselVerwaltungPayload.model_validate({"adresse": EMAIL, "email": NEW_EMAIL, "grund": GRUND}),
@@ -140,9 +140,8 @@ async def request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         spieler_collection=database[Collection.SPIELER],
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-        berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
-        adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
         sperrliste=ban_list(database),
         aktionen_collection=database[Collection.AKTIONEN],
         db=client,
@@ -208,7 +207,7 @@ class TestTheSaveOnAConfirmedReferee:
 
         assert saved.bestaetigung is None
         assert row["default_payment"] == 25
-        assert (change["beendet"], change["token_hash"]) == (None, hash_token(str(minted.token)))
+        assert (change["beendet"], change["email"]) == (None, NEW_EMAIL)
 
 
 class TestAnUnconfirmedReferee:

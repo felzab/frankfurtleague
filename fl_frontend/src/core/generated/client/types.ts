@@ -595,42 +595,35 @@ export interface FLAdresswechselGenehmigungStand {
   verwaltung: FLVerwaltung;
 }
 
+/**
+ * The address on file's notice of an address change, its stop link minted at the hand-out into `stopp.token_hashes`.
+ */
+export interface FLAdresswechselHinweisDaten {
+  art: "adresswechsel_hinweis";
+  gueltig_bis: string;
+  vorname: string | null;
+  weg: FLAdresswechselWeg;
+}
+
 export interface FLAdresswechselIdResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
 }
 
-export type FLAdresswechselPostausgangZeileArt = (typeof FLAdresswechselPostausgangZeileArt)[keyof typeof FLAdresswechselPostausgangZeileArt];
-
-export const FLAdresswechselPostausgangZeileArt = {
-  wirksam: "wirksam",
-  verworfen: "verworfen",
-} as const;
-
 /**
- * One owed notice a pass claimed, server to server alone: no browser receives an address of it.
- *
- * `wirksam`: whom the completion notice greets, and the sign-in account to carry. `verworfen`: the new address alone,
- * never told why.
+ * The new mailbox's link to confirm an address change, minted at the hand-out into the change's `token_hashes`.
  */
-export interface FLAdresswechselPostausgangZeile {
-  art: FLAdresswechselPostausgangZeileArt;
-  aufgegeben: boolean;
-  bisherige_email: string | null;
-  email: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  vorname: string | null;
-  weg: FLAdresswechselWeg | null;
+export interface FLAdresswechselLinkDaten {
+  art: "adresswechsel_link";
+  gueltig_bis: string;
+  weg: FLAdresswechselWeg;
 }
 
-/**
- * The owed notices one claim holds, oldest first; `beanspruchung` and `beansprucht_bis` null exactly where it holds none.
- */
-export interface FLAdresswechselPostausgangResponse {
-  beansprucht_bis: string | null;
-  beanspruchung: string | null;
-  mitteilungen: FLAdresswechselPostausgangZeile[];
+export interface FLAdresswechselOffenerUmzug {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  nach: string;
+  von: string;
 }
 
 export const FLAdresswechselStoppResponseValue = {
@@ -649,6 +642,29 @@ export interface FLAdresswechselSweepResponse {
   verworfen: number;
   /** @minimum 0 */
   wirksam: number;
+}
+
+export interface FLAdresswechselUmzuegeErledigtPayload {
+  /**
+   * @minItems 1
+   * @maxItems 1024
+   * @items.pattern ^[0-9a-fA-F]{24}$
+   */
+  ids: string[];
+}
+
+export interface FLAdresswechselUmzuegeErledigtResponse {
+  /** @minimum 0 */
+  erledigt: number;
+}
+
+/**
+ * The sign-in accounts the effects still owe to carry, server to server alone: each names two addresses.
+ *
+ * A page at a time; a full page means more wait.
+ */
+export interface FLAdresswechselUmzuegeResponse {
+  umzuege: FLAdresswechselOffenerUmzug[];
 }
 
 /**
@@ -696,10 +712,20 @@ export const FLAdresswechselWartetAuf = {
   wartezeit: "wartezeit",
 } as const;
 
-export type FLBewerbungZustellungStand = (typeof FLBewerbungZustellungStand)[keyof typeof FLBewerbungZustellungStand];
+export type FLPostausgangLageStand = (typeof FLPostausgangLageStand)[keyof typeof FLPostausgangLageStand];
 
-export const FLBewerbungZustellungStand = {
-  angenommen: "angenommen",
+export const FLPostausgangLageStand = {
+  offen: "offen",
+  gesendet: "gesendet",
+  zurueckgehalten: "zurueckgehalten",
+  gesperrt: "gesperrt",
+  entfallen: "entfallen",
+  aufgegeben: "aufgegeben",
+} as const;
+
+export type FLPostausgangZustellungStand = (typeof FLPostausgangZustellungStand)[keyof typeof FLPostausgangZustellungStand];
+
+export const FLPostausgangZustellungStand = {
   zugestellt: "zugestellt",
   verzoegert: "verzoegert",
   unzustellbar: "unzustellbar",
@@ -707,17 +733,18 @@ export const FLBewerbungZustellungStand = {
   beschwerde: "beschwerde",
 } as const;
 
-/**
- * What became of the last message to one seat.
- *
- * Inside the seat's block rather than a collection of its own: an erasure empties that block, so
- * this goes with the person it is about.
- */
-export interface FLBewerbungZustellung {
+export interface FLPostausgangZustellung {
   am: string;
   grund: string | null;
-  nachricht_id: string;
-  stand: FLBewerbungZustellungStand;
+  stand: FLPostausgangZustellungStand;
+}
+
+/**
+ * What became of the last mail owed about one record and seat, as an editor reads it beside the link.
+ */
+export interface FLPostausgangLage {
+  stand: FLPostausgangLageStand;
+  zustellung: FLPostausgangZustellung | null;
 }
 
 /**
@@ -738,7 +765,7 @@ export interface FLAdresswechselVerwaltungOffen {
   wartet_auf: FLAdresswechselWartetAuf;
   weg: FLAdresswechselWeg;
   wirksam_ab: string | null;
-  zustellung: FLBewerbungZustellung | null;
+  zustellung: FLPostausgangLage | null;
 }
 
 export interface FLAdresswechselVerwaltungAnsichtResponse {
@@ -749,20 +776,14 @@ export interface FLAdresswechselVerwaltungAnsichtResponse {
 }
 
 /**
- * A started or re-sent change's raw links, answered ONCE and stored nowhere, admin-tier whole.
+ * A started or re-sent change, whose mails are owed in the Postausgang: no link is answered.
  */
 export interface FLAdresswechselVerwaltungMintResponse {
-  bisherige_email: string;
   /** @minLength 1 */
   email: string;
-  /** @minimum 0 */
-  genehmiger_anzahl: number;
   gueltig_bis: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  stopp_token: string | null;
-  token: string | null;
-  vorname: string | null;
   weg: FLAdresswechselWeg;
 }
 
@@ -777,22 +798,21 @@ export interface FLAdresswechselVerwaltungPayload {
   grund: string | null;
 }
 
-export interface FLAdresswechselZugestelltPayload {
-  /** @minLength 1 */
-  beanspruchung: string;
-  /**
-   * @minItems 1
-   * @maxItems 1024
-   * @items.pattern ^[0-9a-fA-F]{24}$
-   */
-  ids: string[];
-}
+/**
+ * The new mailbox's notice that a confirmed change did not take effect: never why, nor the address on file.
+ */
+export const FLAdresswechselVerworfenDatenValue = {
+  art: "adresswechsel_verworfen",
+} as const;
+export type FLAdresswechselVerworfenDaten = typeof FLAdresswechselVerworfenDatenValue;
 
-export interface FLAdresswechselZugestelltResponse {
-  /** @minimum 0 */
-  ignoriert: number;
-  /** @minimum 0 */
-  zugestellt: number;
+/**
+ * The replaced address's notice that the change took effect.
+ */
+export interface FLAdresswechselWirksamDaten {
+  art: "adresswechsel_wirksam";
+  vorname: string | null;
+  zeitpunkt: string;
 }
 
 export type FLAktionDbFilter = { [key: string]: string } | null;
@@ -1018,61 +1038,9 @@ export interface FLAustritt {
   type: FLAustrittType;
 }
 
-export type FLBerechtigungAenderungArt = (typeof FLBerechtigungAenderungArt)[keyof typeof FLBerechtigungAenderungArt];
-
-export const FLBerechtigungAenderungArt = {
-  erteilt: "erteilt",
-  entzogen: "entzogen",
-  geaendert: "geaendert",
-  beantragt: "beantragt",
-  adresswechsel: "adresswechsel",
-  antrag_abgelehnt: "antrag_abgelehnt",
-  antrag_beendet: "antrag_beendet",
-} as const;
-
-/**
- * One grant's address and tier at one moment.
- */
-export interface FLBerechtigungStand {
-  adresse: string | null;
-  verwaltung: FLVerwaltung;
-}
-
-export type FLBerechtigungAenderungUrheber = (typeof FLBerechtigungAenderungUrheber)[keyof typeof FLBerechtigungAenderungUrheber];
-
-export const FLBerechtigungAenderungUrheber = {
-  anwendung: "anwendung",
-  datenbank: "datenbank",
-} as const;
-
-/**
- * One claimed change to announce: what the grant is now, what everyone was last told, and who made it.
- */
-export interface FLBerechtigungAenderung {
-  an: string[] | null;
-  art: FLBerechtigungAenderungArt;
-  aufgegeben: boolean;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  berechtigung_id: string;
-  geaendert_am: string | null;
-  geaendert_von: string | null;
-  geaendert_von_gesperrt: boolean;
-  geloescht: boolean;
-  gesperrt: boolean;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  jetzt: FLBerechtigungStand | null;
-  urheber: FLBerechtigungAenderungUrheber;
-  vorher: FLBerechtigungStand | null;
-}
-
 export interface FLBerechtigungAbgleichResponse {
-  aenderungen: FLBerechtigungAenderung[];
-  beansprucht_bis: string | null;
-  beanspruchung: string | null;
-  empfaenger: string[];
   /** @minimum 0 */
-  uebersprungen: number;
+  aenderungen: number;
 }
 
 export type FLGenehmigungVerwehrt = (typeof FLGenehmigungVerwehrt)[keyof typeof FLGenehmigungVerwehrt];
@@ -1102,24 +1070,6 @@ export interface FLBerechtigungAdresswechsel {
   weg: FLAdresswechselWeg;
 }
 
-export interface FLBerechtigungAngekuendigtPayload {
-  /** @minLength 1 */
-  beanspruchung: string;
-  /**
-   * @minItems 1
-   * @maxItems 1024
-   * @items.pattern ^[0-9a-fA-F]{24}$
-   */
-  ids: string[];
-}
-
-export interface FLBerechtigungAngekuendigtResponse {
-  /** @minimum 0 */
-  angekuendigt: number;
-  /** @minimum 0 */
-  ignoriert: number;
-}
-
 /**
  * The request a refusal or a withdrawal removed: a removal is hard, so the id is all there is to answer with.
  */
@@ -1144,6 +1094,51 @@ export interface FLBerechtigungAntragZeile {
   steht: boolean;
   verwaltung: FLVerwaltung;
   verwehrt: FLGenehmigungVerwehrt | null;
+}
+
+export type FLBerechtigungDatenAenderung = (typeof FLBerechtigungDatenAenderung)[keyof typeof FLBerechtigungDatenAenderung];
+
+export const FLBerechtigungDatenAenderung = {
+  erteilt: "erteilt",
+  entzogen: "entzogen",
+  geaendert: "geaendert",
+  beantragt: "beantragt",
+} as const;
+
+export type FLBerechtigungDatenUrheber = (typeof FLBerechtigungDatenUrheber)[keyof typeof FLBerechtigungDatenUrheber];
+
+export const FLBerechtigungDatenUrheber = {
+  anwendung: "anwendung",
+  datenbank: "datenbank",
+} as const;
+
+export type FLBerechtigungDatenVorenthalten = (typeof FLBerechtigungDatenVorenthalten)[keyof typeof FLBerechtigungDatenVorenthalten] | null;
+
+export const FLBerechtigungDatenVorenthalten = {
+  gesperrt: "gesperrt",
+  geloescht: "geloescht",
+} as const;
+
+/**
+ * One grant's address and tier at one moment.
+ */
+export interface FLBerechtigungStand {
+  adresse: string | null;
+  verwaltung: FLVerwaltung;
+}
+
+/**
+ * A change to a grant, or a grant or promotion asked for, as the notice to each administrator states it.
+ */
+export interface FLBerechtigungDaten {
+  aenderung: FLBerechtigungDatenAenderung;
+  art: "berechtigung";
+  geaendert_am: string | null;
+  geaendert_von: string | null;
+  jetzt: FLBerechtigungStand | null;
+  urheber: FLBerechtigungDatenUrheber;
+  vorenthalten: FLBerechtigungDatenVorenthalten;
+  vorher: FLBerechtigungStand | null;
 }
 
 /**
@@ -1180,13 +1175,11 @@ export interface FLBerechtigungZeile {
 }
 
 /**
- * Every live grant, never in part, and every request still waiting.
+ * Every grant, never in part, and every request still waiting.
  */
 export interface FLBerechtigungenListResponse {
   antraege: FLBerechtigungAntragZeile[];
   berechtigungen: FLBerechtigungZeile[];
-  /** @minimum 0 */
-  uebersprungen: number;
 }
 
 /**
@@ -1210,41 +1203,6 @@ export const FLBestaetigungZustand = {
   abgelaufen: "abgelaufen",
   gesperrt: "gesperrt",
 } as const;
-
-export type FLPostausgangLageStand = (typeof FLPostausgangLageStand)[keyof typeof FLPostausgangLageStand];
-
-export const FLPostausgangLageStand = {
-  offen: "offen",
-  gesendet: "gesendet",
-  zurueckgehalten: "zurueckgehalten",
-  gesperrt: "gesperrt",
-  entfallen: "entfallen",
-  aufgegeben: "aufgegeben",
-} as const;
-
-export type FLPostausgangZustellungStand = (typeof FLPostausgangZustellungStand)[keyof typeof FLPostausgangZustellungStand];
-
-export const FLPostausgangZustellungStand = {
-  zugestellt: "zugestellt",
-  verzoegert: "verzoegert",
-  unzustellbar: "unzustellbar",
-  unterdrueckt: "unterdrueckt",
-  beschwerde: "beschwerde",
-} as const;
-
-export interface FLPostausgangZustellung {
-  am: string;
-  grund: string | null;
-  stand: FLPostausgangZustellungStand;
-}
-
-/**
- * What became of the last mail owed about one record and seat, as an editor reads it beside the link.
- */
-export interface FLPostausgangLage {
-  stand: FLPostausgangLageStand;
-  zustellung: FLPostausgangZustellung | null;
-}
 
 /**
  * One seat's confirmation bookkeeping as the triage reads it, without its link's hashes.
@@ -2949,30 +2907,23 @@ export interface FLKontoAdresswechselFreigabePayload {
 }
 
 /**
- * The approval, answered ONCE to the frontend's server, which mails the new mailbox its link.
+ * The approval, the new mailbox's link owed in the Postausgang.
  */
 export interface FLKontoAdresswechselFreigabeResponse {
   email: string;
   gueltig_bis: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  token: string;
 }
 
 /**
- * The person's start, answered ONCE to the frontend's server, which mails both links and answers the browser neither.
+ * The person's start, its two mails owed in the Postausgang: no link is answered.
  */
 export interface FLKontoAdresswechselMintResponse {
-  bisherige_email: string;
   email: string;
-  /** @minimum 0 */
-  genehmiger_anzahl: number;
   gueltig_bis: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  stopp_token: string;
-  token: string;
-  vorname: string;
 }
 
 /**
@@ -3792,6 +3743,7 @@ export interface FLPostSchiedsrichterResponse {
 }
 
 export interface FLPostSperrlistePayload {
+  benachrichtigen: boolean;
   /** @maxLength 254 */
   email: string;
   /**
@@ -4014,6 +3966,11 @@ export interface FLPostausgangAusgabe {
     | FLPasskeyDaten
     | FLKontoLoeschungDaten
     | FLSperreDaten
+    | FLBerechtigungDaten
+    | FLAdresswechselLinkDaten
+    | FLAdresswechselHinweisDaten
+    | FLAdresswechselWirksamDaten
+    | FLAdresswechselVerworfenDaten
     | FLSchiedsrichterBestaetigungDaten
     | FLSpielAnfrageDaten
     | FLSpielEinteilungDaten

@@ -42,7 +42,6 @@ async function Berechtigungen() {
   return (
     <AdminBerechtigungenView
       berechtigungen={berechtigungenRes.berechtigungen}
-      uebersprungen={berechtigungenRes.uebersprungen}
       antraege={berechtigungenRes.antraege}
       inhaberAdresse={inhaberAdresse}
     />

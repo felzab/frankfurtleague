@@ -16,7 +16,6 @@ import { logger } from "./logging";
 import { mayReceiveMail } from "./mailGate";
 import { mailFor, POSTAUSGANG_TAG } from "./mailKinds";
 import { boundCall, getRequestTraceId, recordWriteSent } from "./requestScope";
-import { buildSperreEmail } from "./sperrlisteEmail";
 import { mintTraceId } from "./trace";
 
 import type { MailVon } from "./emailShell";
@@ -259,22 +258,6 @@ export async function sendMail(mail: OutboundMail): Promise<MailAccepted> {
   if (verdict === "failed") throw new MailUnsentError();
 
   return deliver({ ...mail, to: to });
-}
-
-/**
- * The one message an address the ban list holds is sent: composed here from the ban's own facts, so
- * nothing a caller hands over can travel past the ban list under it.
- */
-export async function sendSperreNotice({
-  to,
-  grund,
-  gesperrtBisSaisonId,
-  origin,
-}: { to: string } & Parameters<typeof buildSperreEmail>[0]): Promise<MailAccepted> {
-  return deliver({
-    to: recipientOf(to),
-    ...renderMail(buildSperreEmail({ grund: grund, gesperrtBisSaisonId: gesperrtBisSaisonId, origin: origin })),
-  });
 }
 
 /** What one drain settled: the backend's counts, summed over every report it made. */

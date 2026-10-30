@@ -199,19 +199,18 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("saison_id", ASCENDING), ("status", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
         "one season's queue narrowed to one status, which is what a triage tab reads",
     ),
-    # PLAIN rather than sparse or partial: `SupportIndex` spells no partial form, and the lookup is an equality on a hex
-    # digest, which the null key a hash-less row adds cannot match. A tombstone keeps its hashes, so each link answers how
-    # its change ended.
+    # Multikey, each array's every hash a key, so a lookup's equality on one finds its change. A tombstone keeps its
+    # hashes, so each link answers how its change ended.
     SupportIndex(
         Collection.ADRESSWECHSEL,
-        "adresswechsel_token_hash",
-        (("token_hash", ASCENDING),),
+        "adresswechsel_token_hashes",
+        (("token_hashes", ASCENDING),),
         "the address page's lookup, driven by strangers",
     ),
     SupportIndex(
         Collection.ADRESSWECHSEL,
-        "adresswechsel_stopp_hash",
-        (("stopp_hash", ASCENDING),),
+        "adresswechsel_stopp_token_hashes",
+        (("stopp.token_hashes", ASCENDING),),
         "the address page's stop lookup, driven by strangers",
     ),
     # Not a unique one, though a hash collides with nothing: a revoked row keeps its hashes, so the

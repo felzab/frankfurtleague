@@ -12,9 +12,9 @@ from pydantic import BaseModel, ValidationError
 from pymongo import AsyncMongoClient
 from pymongo.errors import PyMongoError
 
-from app.api.adresswechsel.schemas import FLAdresswechselPostausgang, FLAdresswechselRecord
+from app.api.adresswechsel.schemas import FLAdresswechselRecord
 from app.api.aktionen.schemas import FLAktionRecord
-from app.api.berechtigungen.schemas import FLBerechtigung, FLBerechtigungAngekuendigt, FLBerechtigungAntrag, FLBerechtigungPostausgangZeile
+from app.api.berechtigungen.schemas import FLBerechtigung, FLBerechtigungAngekuendigt, FLBerechtigungAntrag
 from app.api.bewerbungen.schemas import FLBewerbungRecord
 from app.api.einladungen.schemas import FLEinladungRecord
 from app.api.postausgang.schemas import FLPostausgangZeile
@@ -50,11 +50,9 @@ RECORD_MODELS: Mapping[Collection, type[BaseModel]] = {
     Collection.REGISTRIERUNGEN: FLRegistrierungRecord,
     Collection.BERECHTIGUNGEN: FLBerechtigung,
     Collection.BERECHTIGUNGEN_ANGEKUENDIGT: FLBerechtigungAngekuendigt,
-    Collection.BERECHTIGUNGEN_POSTAUSGANG: FLBerechtigungPostausgangZeile,
     Collection.SPIELBESTAETIGUNGEN: FLSpielbestaetigungRecord,
     Collection.SPIELBERICHTE: FLSpielbericht,
     Collection.ADRESSWECHSEL: FLAdresswechselRecord,
-    Collection.ADRESSWECHSEL_POSTAUSGANG: FLAdresswechselPostausgang,
     Collection.BERECHTIGUNGEN_ANTRAEGE: FLBerechtigungAntrag,
     Collection.POSTAUSGANG: FLPostausgangZeile,
 }

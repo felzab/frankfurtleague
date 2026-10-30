@@ -2,11 +2,10 @@ import "server-only";
 
 import { buildBewerbungErinnerungEmail, buildBewerbungGeloeschtEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
-import { ContractBreakError, requestOf } from "@/core/errors";
+import { requestOf } from "@/core/errors";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
-import { postAdresswechselSweep } from "@/features/adresswechsel/mutations";
-import { runAdresswechselPostausgang } from "@/features/adresswechsel/postausgang";
+import { sweepAdresswechsel } from "@/features/adresswechsel/sweep";
 import { postRegistrierungSweep } from "@/features/registrierungen/mutations";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -15,7 +14,7 @@ import { getBewerbungSweepSaisons, postBewerbungSweep, postBewerbungSweepAngekue
 import { rollenText, rolleText, sendBewerbungLinkMail, sendBewerbungMail } from "./notifications";
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
-import type { FLAdresswechselSweepResponse, FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung } from "@/core/generated/client/types";
+import type { FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung } from "@/core/generated/client/types";
 import type { BewerbungEmpfaenger, BewerbungLinkEmpfaenger } from "./notifications";
 
 /** The action the mail fan-out logs a refused address under. */
@@ -39,46 +38,6 @@ export async function runBewerbungSweep(): Promise<void> {
   // Catching its own throw, as a season's two halves do: a shared `try` would leave a lapsed address standing every
   // hour the seasons' loop fails.
   await sweepAdresswechsel();
-}
-
-/**
- * Every pending change whose step lapsed, and every one whose waiting time ended. On every pass: no switch holds a
- * lapsed address or keeps a due one from taking effect.
- */
-async function sweepAdresswechsel(): Promise<void> {
-  let entfernt = 0;
-  let wirksam = 0;
-  let verworfen = 0;
-  try {
-    let antwort: FLAdresswechselSweepResponse;
-    let nach: string | null = null;
-    do {
-      antwort = await postAdresswechselSweep(nach);
-      entfernt += antwort.entfernt;
-      verworfen += antwort.verworfen;
-      wirksam += antwort.wirksam;
-      // The pass's one end and its guard against a place not past the one sent, as the pupils' deletion's
-      // (`fl_frontend/src/features/saisons/loeschung.ts :: loeschungLaufen`).
-      if (nach !== null && antwort.nach !== null && antwort.nach <= nach) {
-        throw new ContractBreakError("The lapsed addresses answered a place not past the one they were sent.");
-      }
-      nach = antwort.nach;
-    } while (nach !== null);
-
-    // The last call's count, never a sum: each call counts every lapsed change standing, an earlier page's failures among them.
-    logPass(
-      "adresswechsel.sweep_pass",
-      { entfernt: entfernt, wirksam: wirksam, verworfen: verworfen, verbleibend: antwort.verbleibend },
-      antwort.verbleibend,
-    );
-  } catch (error) {
-    logger.info("adresswechsel.sweep_pass", { entfernt: entfernt, wirksam: wirksam, verworfen: verworfen });
-    logSweepFailure("adresswechsel.sweep_failed", error, undefined);
-  }
-
-  // Whatever the calls came to: every notice an end queued, this pass's and any whose answer a confirmation or an
-  // approval lost, is delivered from the outbox.
-  await runAdresswechselPostausgang();
 }
 
 async function sweepAlleSaisons(): Promise<void> {

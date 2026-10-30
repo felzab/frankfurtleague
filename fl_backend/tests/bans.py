@@ -1,5 +1,7 @@
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
@@ -33,18 +35,20 @@ async def ban_through_the_route(
     today: str,
     saisons: Any = None,
     berechtigungen: Any = None,
+    benachrichtigen: bool = False,
 ) -> FLPostSperrlisteResponse:
     """A ban as an administrator enters it: its own transaction and the anchors it writes, where `ban_document` seeds the row alone."""
 
     return await post_sperrliste_eintrag(
-        sperrliste_data=FLPostSperrlistePayload(email=email, grund=grund),
+        sperrliste_data=FLPostSperrlistePayload(email=email, grund=grund, benachrichtigen=benachrichtigen),
         sperrliste_collection=database[Collection.SPERRLISTE],
         sperrliste=ban_list(database, saisons=saisons),
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN] if berechtigungen is None else berechtigungen,
-        berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         db=client,
         config=_CONFIG,
         erstellt_von=von,
         today=today,
+        now=datetime.fromisoformat(today).replace(hour=12, tzinfo=ZoneInfo("Europe/Berlin")),
     )

@@ -162,7 +162,7 @@ class TestTheNewMailboxsState:
 
 
 class TestTheLinksLookups:
-    @pytest.mark.parametrize("key", ["token_hash", "stopp_hash"])
+    @pytest.mark.parametrize("key", ["token_hashes", "stopp.token_hashes"])
     def test_each_hash_a_stranger_drives_is_indexed_and_never_unique(self, key: str):
         """Indexed, as a stranger sends the lookup; never unique, as a kept record holds its hashes beside a live one's."""
 

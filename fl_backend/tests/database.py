@@ -9,6 +9,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.database import Database
 from pymongo.mongo_client import MongoClient
+from pymongo.uri_parser import parse_uri
 
 from app.core.constraints import apply_constraints
 
@@ -21,9 +22,14 @@ DOCUMENT_VALIDATION_FAILED = 121
 Enforcement = dict[str, Any]
 Schema = dict[str, Enforcement]
 
+# One database: the servers a url names and the database's name. A url's options never enter it, so
+# two spellings of one server -- a case adding `appName` for a fail point -- share one baseline;
+# keyed apart, the second spelling's rebuild drops what the first one's baseline still lists.
+_Key = tuple[tuple[tuple[str, int], ...], str]
+
 # A module global rather than a fixture: what reads it is the plain `on_a_*` helper each suite
 # defines, and the tier -- one worker of it, under `-n` -- runs in one process.
-_BUILT: dict[tuple[str, str], tuple[bool, Schema]] = {}
+_BUILT: dict[_Key, tuple[bool, Schema]] = {}
 
 # Module globals for `_BUILT`'s reason, torn down by `_release`.
 _LOOP: asyncio.AbstractEventLoop | None = None
@@ -188,7 +194,11 @@ def _guard(message: str, name: str, baseline: Schema, present: Schema, foreign: 
         raise AssertionError(message.format(database=name, moved=", ".join(moved)))
 
 
-def _reusable(key: tuple[str, str], constraints: bool) -> Schema | None:
+def _key(url: str, name: str) -> _Key:
+    return tuple(sorted(parse_uri(url)["nodelist"])), name
+
+
+def _reusable(key: _Key, constraints: bool) -> Schema | None:
     """The baseline to clear against, or `None` when this database has to be built."""
 
     built = _BUILT.get(key)
@@ -235,7 +245,7 @@ async def a_clean_database(
     # Shared, and bound to `on_the_seed_loop`'s loop, which every seed runs on; closing it belongs to
     # `_release` at exit, so a body that raises leaves the next test a client rather than none.
     client = shared_client(url)
-    key = (str(url), name)
+    key = _key(url, name)
     database = client[name]
 
     baseline = _reusable(key, constraints)
@@ -264,7 +274,7 @@ def a_clean_database_sync(client: MongoClient, url: str, name: str, *, constrain
     Its check therefore runs at the next seed and refuses with `_DRIFT_SYNC` rather than `_DRIFT`.
     """
 
-    key = (str(url), name)
+    key = _key(url, name)
     database = client[name]
     built = _BUILT.get(key)
     _BUILT.pop(key, None)

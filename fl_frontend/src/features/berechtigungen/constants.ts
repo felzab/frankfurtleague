@@ -168,12 +168,6 @@ export const STUFE_GEAENDERT_MESSAGE: Readonly<Record<FLVerwaltung, string>> = {
   administration: "Diese Adresse ist nicht mehr Inhaberin oder Inhaber der Verwaltung und behält den Zugang.",
 };
 
-/** Rows the backend left out as no request can match them: a database paste to repair, never one this page can make. */
-export const uebersprungenHinweis = (anzahl: number): string =>
-  anzahl === 1
-    ? "Ein Eintrag in der Datenbank passt zu keiner Adresse und gewährt keinen Zugang."
-    : `${String(anzahl)} Einträge in der Datenbank passen zu keiner Adresse und gewähren keinen Zugang.`;
-
 /** What a request asks for, by the tier it names: `owner` is a promotion of a grant that stands. */
 export const ANTRAG_WAS: Readonly<Record<FLVerwaltung, string>> = {
   administration: "Zugang zur Verwaltung",

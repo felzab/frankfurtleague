@@ -8,7 +8,6 @@ from app.api.adresswechsel.crud import others_naming
 from app.api.berechtigungen.antraege import read_the_antraege_of
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.berechtigungen.services import lebendige
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, ErasureJournal, erase_everything, resolve_subject
 from app.api.identitaet.schemas import (
     FLAbmeldungResponse,
@@ -34,15 +33,14 @@ from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, post_one_to_db, refuse
 from app.core.dependencies import (
     AdresswechselCollection,
-    AdresswechselPostausgangCollection,
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenAntraegeCollection,
     BerechtigungenCollection,
-    BerechtigungenPostausgangCollection,
     BewerbungenCollection,
     DBClient,
     EinladungenCollection,
+    PostausgangCollection,
     RegistrierungenCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
@@ -217,7 +215,7 @@ async def get_erasure_ansicht_auf_anfrage(
         unplayed_rows=unplayed_rows,
     )
     # A live row is its own fold, so equality is the fold's judgement.
-    own = next((grant for grant in lebendige(grants) if grant["adresse"] == identifier), None)
+    own = next((grant for grant in grants if grant["adresse"] == identifier), None)
 
     return FLErasureAnsichtResponse(**ansicht.model_dump(), verwaltung=None if own is None else own["verwaltung"], gesperrt=bool(gesperrt))
 
@@ -242,11 +240,10 @@ async def erase_auf_anfrage(
     aktionen_collection: AktionenCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    postausgang_collection: PostausgangCollection,
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
     adresswechsel_collection: AdresswechselCollection,
-    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     sperrliste: SperrlisteLookup,
     actor: Annotated[SessionActor, Depends(verify_admin_actor)],
@@ -292,7 +289,7 @@ async def erase_auf_anfrage(
         )
         # Ending a live grant asks what a revoke asks. A live row is its own fold,
         # so equality is the fold's judgement.
-        if any(grant["adresse"] == identifier for grant in lebendige(grants)):
+        if any(grant["adresse"] == identifier for grant in grants):
             verify_recent_confirmation(actor)
 
         # Ahead of the erasure's first write, and in its snapshot: a retry judges the changes afresh.
@@ -332,11 +329,10 @@ async def erase_auf_anfrage(
             aktionen_collection=aktionen_collection,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            postausgang_collection=postausgang_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
             adresswechsel_collection=adresswechsel_collection,
-            adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
             sperrliste=sperrliste,
             geaendert_von=operator,

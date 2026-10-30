@@ -860,95 +860,17 @@
         "title": "FLAdresswechselGenehmigungStand",
         "type": "object"
       },
-      "FLAdresswechselIdResponse": {
-        "properties": {
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "title": "FLAdresswechselIdResponse",
-        "type": "object"
-      },
-      "FLAdresswechselPostausgangResponse": {
-        "description": "The owed notices one claim holds, oldest first; `beanspruchung` and `beansprucht_bis` null exactly where it holds none.",
-        "properties": {
-          "beansprucht_bis": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Beansprucht Bis"
-          },
-          "beanspruchung": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Beanspruchung"
-          },
-          "mitteilungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLAdresswechselPostausgangZeile"
-            },
-            "title": "Mitteilungen",
-            "type": "array"
-          }
-        },
-        "required": [
-          "beanspruchung",
-          "beansprucht_bis",
-          "mitteilungen"
-        ],
-        "title": "FLAdresswechselPostausgangResponse",
-        "type": "object"
-      },
-      "FLAdresswechselPostausgangZeile": {
-        "description": "One owed notice a pass claimed, server to server alone: no browser receives an address of it.\n\n`wirksam`: whom the completion notice greets, and the sign-in account to carry. `verworfen`: the new address alone,\nnever told why.",
+      "FLAdresswechselHinweisDaten": {
+        "description": "The address on file's notice of an address change, its stop link minted at the hand-out into `stopp.token_hashes`.",
         "properties": {
           "art": {
-            "enum": [
-              "wirksam",
-              "verworfen"
-            ],
+            "const": "adresswechsel_hinweis",
             "title": "Art",
             "type": "string"
           },
-          "aufgegeben": {
-            "title": "Aufgegeben",
-            "type": "boolean"
-          },
-          "bisherige_email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bisherige Email"
-          },
-          "email": {
-            "title": "Email",
-            "type": "string"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
+          "gueltig_bis": {
+            "format": "date-time",
+            "title": "Gueltig Bis",
             "type": "string"
           },
           "vorname": {
@@ -963,26 +885,79 @@
             "title": "Vorname"
           },
           "weg": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLAdresswechselWeg"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/FLAdresswechselWeg"
+          }
+        },
+        "required": [
+          "art",
+          "weg",
+          "gueltig_bis",
+          "vorname"
+        ],
+        "title": "FLAdresswechselHinweisDaten",
+        "type": "object"
+      },
+      "FLAdresswechselIdResponse": {
+        "properties": {
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "FLAdresswechselIdResponse",
+        "type": "object"
+      },
+      "FLAdresswechselLinkDaten": {
+        "description": "The new mailbox's link to confirm an address change, minted at the hand-out into the change's `token_hashes`.",
+        "properties": {
+          "art": {
+            "const": "adresswechsel_link",
+            "title": "Art",
+            "type": "string"
+          },
+          "gueltig_bis": {
+            "format": "date-time",
+            "title": "Gueltig Bis",
+            "type": "string"
+          },
+          "weg": {
+            "$ref": "#/components/schemas/FLAdresswechselWeg"
+          }
+        },
+        "required": [
+          "art",
+          "weg",
+          "gueltig_bis"
+        ],
+        "title": "FLAdresswechselLinkDaten",
+        "type": "object"
+      },
+      "FLAdresswechselOffenerUmzug": {
+        "properties": {
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "nach": {
+            "title": "Nach",
+            "type": "string"
+          },
+          "von": {
+            "title": "Von",
+            "type": "string"
           }
         },
         "required": [
           "id",
-          "art",
-          "bisherige_email",
-          "email",
-          "vorname",
-          "weg",
-          "aufgegeben"
+          "von",
+          "nach"
         ],
-        "title": "FLAdresswechselPostausgangZeile",
+        "title": "FLAdresswechselOffenerUmzug",
         "type": "object"
       },
       "FLAdresswechselStoppResponse": {
@@ -1041,6 +1016,57 @@
           "nach"
         ],
         "title": "FLAdresswechselSweepResponse",
+        "type": "object"
+      },
+      "FLAdresswechselUmzuegeErledigtPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "ids": {
+            "items": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "type": "string"
+            },
+            "maxItems": 1024,
+            "minItems": 1,
+            "title": "Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "title": "FLAdresswechselUmzuegeErledigtPayload",
+        "type": "object"
+      },
+      "FLAdresswechselUmzuegeErledigtResponse": {
+        "properties": {
+          "erledigt": {
+            "minimum": 0.0,
+            "title": "Erledigt",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "erledigt"
+        ],
+        "title": "FLAdresswechselUmzuegeErledigtResponse",
+        "type": "object"
+      },
+      "FLAdresswechselUmzuegeResponse": {
+        "description": "The sign-in accounts the effects still owe to carry, server to server alone: each names two addresses.\n\nA page at a time; a full page means more wait.",
+        "properties": {
+          "umzuege": {
+            "items": {
+              "$ref": "#/components/schemas/FLAdresswechselOffenerUmzug"
+            },
+            "title": "Umzuege",
+            "type": "array"
+          }
+        },
+        "required": [
+          "umzuege"
+        ],
+        "title": "FLAdresswechselUmzuegeResponse",
         "type": "object"
       },
       "FLAdresswechselVerwaltungAnsichtPayload": {
@@ -1191,21 +1217,12 @@
         "type": "object"
       },
       "FLAdresswechselVerwaltungMintResponse": {
-        "description": "A started or re-sent change's raw links, answered ONCE and stored nowhere, admin-tier whole.",
+        "description": "A started or re-sent change, whose mails are owed in the Postausgang: no link is answered.",
         "properties": {
-          "bisherige_email": {
-            "title": "Bisherige Email",
-            "type": "string"
-          },
           "email": {
             "minLength": 1,
             "title": "Email",
             "type": "string"
-          },
-          "genehmiger_anzahl": {
-            "minimum": 0.0,
-            "title": "Genehmiger Anzahl",
-            "type": "integer"
           },
           "gueltig_bis": {
             "format": "date-time",
@@ -1217,39 +1234,6 @@
             "title": "Id",
             "type": "string"
           },
-          "stopp_token": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stopp Token"
-          },
-          "token": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Token"
-          },
-          "vorname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vorname"
-          },
           "weg": {
             "$ref": "#/components/schemas/FLAdresswechselWeg"
           }
@@ -1257,13 +1241,8 @@
         "required": [
           "id",
           "weg",
-          "token",
-          "stopp_token",
           "gueltig_bis",
-          "email",
-          "bisherige_email",
-          "vorname",
-          "genehmiger_anzahl"
+          "email"
         ],
         "title": "FLAdresswechselVerwaltungMintResponse",
         "type": "object"
@@ -1367,7 +1346,7 @@
           "zustellung": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLBewerbungZustellung"
+                "$ref": "#/components/schemas/FLPostausgangLage"
               },
               {
                 "type": "null"
@@ -1430,6 +1409,21 @@
         "title": "FLAdresswechselVerwaltungPayload",
         "type": "object"
       },
+      "FLAdresswechselVerworfenDaten": {
+        "description": "The new mailbox's notice that a confirmed change did not take effect: never why, nor the address on file.",
+        "properties": {
+          "art": {
+            "const": "adresswechsel_verworfen",
+            "title": "Art",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art"
+        ],
+        "title": "FLAdresswechselVerworfenDaten",
+        "type": "object"
+      },
       "FLAdresswechselWartetAuf": {
         "enum": [
           "freigabe",
@@ -1447,50 +1441,37 @@
         ],
         "type": "string"
       },
-      "FLAdresswechselZugestelltPayload": {
-        "additionalProperties": false,
+      "FLAdresswechselWirksamDaten": {
+        "description": "The replaced address's notice that the change took effect.",
         "properties": {
-          "beanspruchung": {
-            "minLength": 1,
-            "title": "Beanspruchung",
+          "art": {
+            "const": "adresswechsel_wirksam",
+            "title": "Art",
             "type": "string"
           },
-          "ids": {
-            "items": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "type": "string"
-            },
-            "maxItems": 1024,
-            "minItems": 1,
-            "title": "Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "beanspruchung",
-          "ids"
-        ],
-        "title": "FLAdresswechselZugestelltPayload",
-        "type": "object"
-      },
-      "FLAdresswechselZugestelltResponse": {
-        "properties": {
-          "ignoriert": {
-            "minimum": 0.0,
-            "title": "Ignoriert",
-            "type": "integer"
+          "vorname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vorname"
           },
-          "zugestellt": {
-            "minimum": 0.0,
-            "title": "Zugestellt",
-            "type": "integer"
+          "zeitpunkt": {
+            "format": "date-time",
+            "title": "Zeitpunkt",
+            "type": "string"
           }
         },
         "required": [
-          "zugestellt",
-          "ignoriert"
+          "art",
+          "zeitpunkt",
+          "vorname"
         ],
-        "title": "FLAdresswechselZugestelltResponse",
+        "title": "FLAdresswechselWirksamDaten",
         "type": "object"
       },
       "FLAktion": {
@@ -2082,54 +2063,13 @@
       "FLBerechtigungAbgleichResponse": {
         "properties": {
           "aenderungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLBerechtigungAenderung"
-            },
-            "title": "Aenderungen",
-            "type": "array"
-          },
-          "beansprucht_bis": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Beansprucht Bis"
-          },
-          "beanspruchung": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Beanspruchung"
-          },
-          "empfaenger": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Empfaenger",
-            "type": "array"
-          },
-          "uebersprungen": {
             "minimum": 0.0,
-            "title": "Uebersprungen",
+            "title": "Aenderungen",
             "type": "integer"
           }
         },
         "required": [
-          "beanspruchung",
-          "beansprucht_bis",
-          "aenderungen",
-          "empfaenger",
-          "uebersprungen"
+          "aenderungen"
         ],
         "title": "FLBerechtigungAbgleichResponse",
         "type": "object"
@@ -2230,178 +2170,6 @@
           "einsehbar_verwehrt"
         ],
         "title": "FLBerechtigungAdresswechsel",
-        "type": "object"
-      },
-      "FLBerechtigungAenderung": {
-        "description": "One claimed change to announce: what the grant is now, what everyone was last told, and who made it.",
-        "properties": {
-          "an": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "An"
-          },
-          "art": {
-            "enum": [
-              "erteilt",
-              "entzogen",
-              "geaendert",
-              "beantragt",
-              "adresswechsel",
-              "antrag_abgelehnt",
-              "antrag_beendet"
-            ],
-            "title": "Art",
-            "type": "string"
-          },
-          "aufgegeben": {
-            "title": "Aufgegeben",
-            "type": "boolean"
-          },
-          "berechtigung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Berechtigung Id",
-            "type": "string"
-          },
-          "geaendert_am": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Geaendert Am"
-          },
-          "geaendert_von": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Geaendert Von"
-          },
-          "geaendert_von_gesperrt": {
-            "title": "Geaendert Von Gesperrt",
-            "type": "boolean"
-          },
-          "geloescht": {
-            "title": "Geloescht",
-            "type": "boolean"
-          },
-          "gesperrt": {
-            "title": "Gesperrt",
-            "type": "boolean"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "jetzt": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLBerechtigungStand"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "urheber": {
-            "enum": [
-              "anwendung",
-              "datenbank"
-            ],
-            "title": "Urheber",
-            "type": "string"
-          },
-          "vorher": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLBerechtigungStand"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "berechtigung_id",
-          "art",
-          "urheber",
-          "jetzt",
-          "vorher",
-          "geaendert_von",
-          "geaendert_von_gesperrt",
-          "geaendert_am",
-          "gesperrt",
-          "geloescht",
-          "aufgegeben",
-          "an"
-        ],
-        "title": "FLBerechtigungAenderung",
-        "type": "object"
-      },
-      "FLBerechtigungAngekuendigtPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "beanspruchung": {
-            "minLength": 1,
-            "title": "Beanspruchung",
-            "type": "string"
-          },
-          "ids": {
-            "items": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "type": "string"
-            },
-            "maxItems": 1024,
-            "minItems": 1,
-            "title": "Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "beanspruchung",
-          "ids"
-        ],
-        "title": "FLBerechtigungAngekuendigtPayload",
-        "type": "object"
-      },
-      "FLBerechtigungAngekuendigtResponse": {
-        "properties": {
-          "angekuendigt": {
-            "minimum": 0.0,
-            "title": "Angekuendigt",
-            "type": "integer"
-          },
-          "ignoriert": {
-            "minimum": 0.0,
-            "title": "Ignoriert",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "angekuendigt",
-          "ignoriert"
-        ],
-        "title": "FLBerechtigungAngekuendigtResponse",
         "type": "object"
       },
       "FLBerechtigungAntragAbgelehntResponse": {
@@ -2511,6 +2279,104 @@
           "verwehrt"
         ],
         "title": "FLBerechtigungAntragZeile",
+        "type": "object"
+      },
+      "FLBerechtigungDaten": {
+        "description": "A change to a grant, or a grant or promotion asked for, as the notice to each administrator states it.",
+        "properties": {
+          "aenderung": {
+            "enum": [
+              "erteilt",
+              "entzogen",
+              "geaendert",
+              "beantragt"
+            ],
+            "title": "Aenderung",
+            "type": "string"
+          },
+          "art": {
+            "const": "berechtigung",
+            "title": "Art",
+            "type": "string"
+          },
+          "geaendert_am": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geaendert Am"
+          },
+          "geaendert_von": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geaendert Von"
+          },
+          "jetzt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBerechtigungStand"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "urheber": {
+            "enum": [
+              "anwendung",
+              "datenbank"
+            ],
+            "title": "Urheber",
+            "type": "string"
+          },
+          "vorenthalten": {
+            "anyOf": [
+              {
+                "enum": [
+                  "gesperrt",
+                  "geloescht"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vorenthalten"
+          },
+          "vorher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBerechtigungStand"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "art",
+          "aenderung",
+          "urheber",
+          "jetzt",
+          "vorher",
+          "geaendert_von",
+          "geaendert_am",
+          "vorenthalten"
+        ],
+        "title": "FLBerechtigungDaten",
         "type": "object"
       },
       "FLBerechtigungStand": {
@@ -2649,7 +2515,7 @@
         "type": "object"
       },
       "FLBerechtigungenListResponse": {
-        "description": "Every live grant, never in part, and every request still waiting.",
+        "description": "Every grant, never in part, and every request still waiting.",
         "properties": {
           "antraege": {
             "items": {
@@ -2664,16 +2530,10 @@
             },
             "title": "Berechtigungen",
             "type": "array"
-          },
-          "uebersprungen": {
-            "minimum": 0.0,
-            "title": "Uebersprungen",
-            "type": "integer"
           }
         },
         "required": [
           "berechtigungen",
-          "uebersprungen",
           "antraege"
         ],
         "title": "FLBerechtigungenListResponse",
@@ -4208,50 +4068,6 @@
           "beschwerde"
         ],
         "type": "string"
-      },
-      "FLBewerbungZustellung": {
-        "description": "What became of the last message to one seat.\n\nInside the seat's block rather than a collection of its own: an erasure empties that block, so\nthis goes with the person it is about.",
-        "properties": {
-          "am": {
-            "title": "Am",
-            "type": "string"
-          },
-          "grund": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Grund"
-          },
-          "nachricht_id": {
-            "title": "Nachricht Id",
-            "type": "string"
-          },
-          "stand": {
-            "enum": [
-              "angenommen",
-              "zugestellt",
-              "verzoegert",
-              "unzustellbar",
-              "unterdrueckt",
-              "beschwerde"
-            ],
-            "title": "Stand",
-            "type": "string"
-          }
-        },
-        "required": [
-          "nachricht_id",
-          "stand",
-          "grund",
-          "am"
-        ],
-        "title": "FLBewerbungZustellung",
-        "type": "object"
       },
       "FLBewerbungZustellungAngenommenPayload": {
         "additionalProperties": false,
@@ -6945,7 +6761,7 @@
         "type": "object"
       },
       "FLKontoAdresswechselFreigabeResponse": {
-        "description": "The approval, answered ONCE to the frontend's server, which mails the new mailbox its link.",
+        "description": "The approval, the new mailbox's link owed in the Postausgang.",
         "properties": {
           "email": {
             "title": "Email",
@@ -6960,15 +6776,10 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id",
             "type": "string"
-          },
-          "token": {
-            "title": "Token",
-            "type": "string"
           }
         },
         "required": [
           "id",
-          "token",
           "gueltig_bis",
           "email"
         ],
@@ -6976,20 +6787,11 @@
         "type": "object"
       },
       "FLKontoAdresswechselMintResponse": {
-        "description": "The person's start, answered ONCE to the frontend's server, which mails both links and answers the browser neither.",
+        "description": "The person's start, its two mails owed in the Postausgang: no link is answered.",
         "properties": {
-          "bisherige_email": {
-            "title": "Bisherige Email",
-            "type": "string"
-          },
           "email": {
             "title": "Email",
             "type": "string"
-          },
-          "genehmiger_anzahl": {
-            "minimum": 0.0,
-            "title": "Genehmiger Anzahl",
-            "type": "integer"
           },
           "gueltig_bis": {
             "format": "date-time",
@@ -7000,29 +6802,12 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id",
             "type": "string"
-          },
-          "stopp_token": {
-            "title": "Stopp Token",
-            "type": "string"
-          },
-          "token": {
-            "title": "Token",
-            "type": "string"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
           }
         },
         "required": [
           "id",
-          "token",
-          "stopp_token",
           "gueltig_bis",
-          "email",
-          "bisherige_email",
-          "vorname",
-          "genehmiger_anzahl"
+          "email"
         ],
         "title": "FLKontoAdresswechselMintResponse",
         "type": "object"
@@ -9244,6 +9029,10 @@
       "FLPostSperrlistePayload": {
         "additionalProperties": false,
         "properties": {
+          "benachrichtigen": {
+            "title": "Benachrichtigen",
+            "type": "boolean"
+          },
           "email": {
             "maxLength": 254,
             "title": "Email",
@@ -9259,6 +9048,7 @@
         },
         "required": [
           "email",
+          "benachrichtigen",
           "grund"
         ],
         "title": "FLPostSperrlistePayload",
@@ -9475,7 +9265,12 @@
           "daten": {
             "discriminator": {
               "mapping": {
+                "adresswechsel_hinweis": "#/components/schemas/FLAdresswechselHinweisDaten",
+                "adresswechsel_link": "#/components/schemas/FLAdresswechselLinkDaten",
+                "adresswechsel_verworfen": "#/components/schemas/FLAdresswechselVerworfenDaten",
+                "adresswechsel_wirksam": "#/components/schemas/FLAdresswechselWirksamDaten",
                 "anmeldecode": "#/components/schemas/FLAnmeldecodeDaten",
+                "berechtigung": "#/components/schemas/FLBerechtigungDaten",
                 "bewerbung_absage": "#/components/schemas/FLBewerbungAbsageDaten",
                 "bewerbung_bestaetigung": "#/components/schemas/FLBewerbungLinkDaten",
                 "bewerbung_eingang": "#/components/schemas/FLBewerbungEingangDaten",
@@ -9515,6 +9310,21 @@
               },
               {
                 "$ref": "#/components/schemas/FLSperreDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLBerechtigungDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLAdresswechselLinkDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLAdresswechselHinweisDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLAdresswechselWirksamDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLAdresswechselVerworfenDaten"
               },
               {
                 "$ref": "#/components/schemas/FLSchiedsrichterBestaetigungDaten"
@@ -17729,7 +17539,7 @@
     },
     "/api/v0/adresswechsel": {
       "post": {
-        "description": "Start a change of the typed address for a person who says they cannot sign in, answering its raw links once, for the caller to mail.\n\n**Nothing moves here.** Without a `grund` the change asks the address on file first: the caller mails it the request\nwith its stop link, and nothing goes to the new mailbox until that address approves on its account page. With a\n`grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the\naddress on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new\nmailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never\nthis one's: `genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).\nThe address's live change ends replaced.\n\nRefused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power\n(`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds\n(`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the\nchange moves a pupil (`-006`), a new address any entry names, confirmed or not (`-018`), and a grant nobody could\napprove (`-011`).",
+        "description": "Start a change of the typed address for a person who says they cannot sign in, its mails owed in the same transaction.\n\n**Nothing moves here.** Without a `grund` the change asks the address on file first: it is owed the request with its\nstop link, and nothing goes to the new mailbox until that address approves on its account page. With a `grund`,\nrecording how the administrator established who asks, the new mailbox is owed its link and the address on file a\nnotice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new mailbox\nconfirms. Where the address holds a grant, the change also waits on another administrator's approval, never this\none's. No link is answered. The address's live change ends replaced.\n\nRefused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power\n(`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds\n(`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the\nchange moves a pupil (`-006`), a new address any entry names, confirmed or not (`-018`), and a grant nobody could\napprove (`-011`).",
         "operationId": "adresswechsel_post_adresswechsel_verwaltung",
         "requestBody": {
           "content": {
@@ -17883,7 +17693,7 @@
     },
     "/api/v0/adresswechsel/bestaetigung": {
       "post": {
-        "description": "Record whether the mailbox this link was sent to is the person's: `bestaetigt` confirms it, `abgelehnt` ends the change.\n\n**A confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's\nstart with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this\ntransaction: every pupil row, confirmed referee row, confirmed contact seat, registration and grant the address on\nfile holds moves to the new one, asking no consent and writing none, and `wirksam` says so; its completion notice is\nqueued in this transaction for `POST /adresswechsel/sweep/postausgang`. A change that waits is confirmed alone,\nanswering `wirksam_ab` or `genehmigung_offen`.\nEither answer spends the link, which keeps answering what became of the change.\n\nRefuses a token no change holds (`REQ-ADRESSWECHSEL-001`), a link already answered or a change ended\n(`REQ-ADRESSWECHSEL-002`), and, in the order the link's view ranks its states, a CONFIRMATION through a link mailed to\nan address the ban list holds now (`-004`), one past its deadline (`-003`), one whose change would replace an address\nthe ban list holds now (`-005`), so a barred person cannot move their records off the address the ban keys on, one\nmoving a pupil onto an address another pupil signs in on (`-006`), one whose address came to hold a grant its approval\ndoes not cover (`-015`), one moving a grant onto an address holding one (`-016`), and one whose new address any entry\nnames, confirmed or not, an open grant request among them (`-018`): moving the person onto it would join two people's\nrecords. **A decline is refused none of these**: it removes an address nobody proved, out of every log image of the change too.\n\nA change whose address has come to hold nothing to move ends discarded, and the press answers `-002`. The codes past\n`-004` tell a caller what the view's `nicht_bestaetigbar` keeps alike; only the edge keeps them from the link's holder.",
+        "description": "Record whether the mailbox this link was sent to is the person's: `bestaetigt` confirms it, `abgelehnt` ends the change.\n\n**A confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's\nstart with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this\ntransaction: every pupil row, confirmed referee row, confirmed contact seat, registration and grant the address on\nfile holds moves to the new one, asking no consent and writing none, and `wirksam` says so; its completion notice is\nowed in this transaction, and so is its sign-in account's carry. A change that waits is confirmed alone,\nanswering `wirksam_ab` or `genehmigung_offen`.\nEither answer spends the link, which keeps answering what became of the change.\n\nRefuses a token no change holds (`REQ-ADRESSWECHSEL-001`), a link already answered or a change ended\n(`REQ-ADRESSWECHSEL-002`), and, in the order the link's view ranks its states, a CONFIRMATION through a link mailed to\nan address the ban list holds now (`-004`), one past its deadline (`-003`), one whose change would replace an address\nthe ban list holds now (`-005`), so a barred person cannot move their records off the address the ban keys on, one\nmoving a pupil onto an address another pupil signs in on (`-006`), one whose address came to hold a grant its approval\ndoes not cover (`-015`), one moving a grant onto an address holding one (`-016`), and one whose new address any entry\nnames, confirmed or not, an open grant request among them (`-018`): moving the person onto it would join two people's\nrecords. **A decline is refused none of these**: it removes an address nobody proved, out of every log image of the change too.\n\nA change whose address has come to hold nothing to move ends discarded, and the press answers `-002`. The codes past\n`-004` tell a caller what the view's `nicht_bestaetigbar` keeps alike; only the edge keeps them from the link's holder.",
         "operationId": "adresswechsel_post_adresswechsel_antwort",
         "requestBody": {
           "content": {
@@ -18114,7 +17924,7 @@
     },
     "/api/v0/adresswechsel/sweep": {
       "post": {
-        "description": "End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.\n\n**A lapsed change** -- its link, the approval it asked of the address on file, or its grant's approval by another\nadministrator -- ends as `abgelaufen`: its address and reason out of the record and every log image of it\n(`entfernt`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still\nholds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil\nsigning in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move\nends it discarded, and\n`verworfen` counts it, its new address queued to be told it did not take effect and never why; otherwise\neverything the replaced address holds moves, and `wirksam` counts it, its completion notice queued. The notices are\n`POST /adresswechsel/sweep/postausgang`'s to claim, queued in each change's own transaction, so none rides on this answer.\n\nEach change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or\nreplaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `nach` the last\nanswered**, the first naming none; it ends at the call answering `nach` null. A call reaches at most a fixed share of the\nchanges after `nach`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is\nlogged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the\nrequest's deadline cuts the call, it stops at that change, warns once, and answers what it did. `verbleibend` counts\nthe changes standing due after the call, so it is no stopping condition.",
+        "description": "End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.\n\n**A lapsed change** -- its link, the approval it asked of the address on file, or its grant's approval by another\nadministrator -- ends as `abgelaufen`: its address and reason out of the record and every log image of it\n(`entfernt`). **A due change**, one whose waiting time has ended and whose grant's move, where its address still\nholds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil\nsigning in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move\nends it discarded, and\n`verworfen` counts it, its new address owed a notice that it did not take effect and never why; otherwise\neverything the replaced address holds moves, and `wirksam` counts it, its completion notice owed. Each notice is owed\nin the Postausgang in its change's own transaction, so none rides on this answer.\n\nEach change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or\nreplaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `nach` the last\nanswered**, the first naming none; it ends at the call answering `nach` null. A call reaches at most a fixed share of the\nchanges after `nach`, in `_id` order, and the pass holds no state on the server. A change whose handling fails is\nlogged by its id and passed, holding back nobody behind it; it stays due, and the next pass tries it again. Where the\nrequest's deadline cuts the call, it stops at that change, warns once, and answers what it did. `verbleibend` counts\nthe changes standing due after the call, so it is no stopping condition.",
         "operationId": "adresswechsel_sweep_adresswechsel",
         "parameters": [
           {
@@ -18275,16 +18085,16 @@
         ]
       }
     },
-    "/api/v0/adresswechsel/sweep/postausgang": {
-      "post": {
-        "description": "Claim, oldest first and a page at a time, every owed notice no claim holds or whose claim has lapsed, for ten minutes.\n\nEach end owing a notice queued it in its own transaction: an effect its completion notice and its sign-in account's\ncarry, a due change the pass refused its new address's notice. A second call inside the lease is answered none of\nthem; the caller delivers each and hands the ids it delivered, with `beanspruchung`, to\n`POST /adresswechsel/sweep/postausgang/zugestellt`, and where the lease lapses first the next call claims them again,\nso a notice is delivered at least once. A notice handed out past the grants' attempt cap is answered `aufgegeben`:\nthe caller delivers nothing, logs it by id and stamps it. Server to server alone: the answer names addresses.",
-        "operationId": "adresswechsel_post_adresswechsel_postausgang",
+    "/api/v0/adresswechsel/sweep/umzuege": {
+      "get": {
+        "description": "List, oldest first and a page at a time, the ended changes still owing to carry a sign-in account to their new address.\n\nEach effect owed its carry in its own transaction, so a lost answer loses none. The caller moves each account and\nhands the ids it moved to `POST /adresswechsel/sweep/umzuege/erledigt`; one it could not move is listed again by the\nnext call. Moving one twice finds no account left, so no claim holds them. Server to server alone: the answer names\naddresses.",
+        "operationId": "adresswechsel_get_adresswechsel_umzuege",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLAdresswechselPostausgangResponse"
+                  "$ref": "#/components/schemas/FLAdresswechselUmzuegeResponse"
                 }
               }
             },
@@ -18336,21 +18146,21 @@
             "SystemKey": []
           }
         ],
-        "summary": "Claim the notices the address changes' ends still owe",
+        "summary": "List the sign-in accounts the effects still owe to carry",
         "tags": [
           "adresswechsel"
         ]
       }
     },
-    "/api/v0/adresswechsel/sweep/postausgang/zugestellt": {
+    "/api/v0/adresswechsel/sweep/umzuege/erledigt": {
       "post": {
-        "description": "Remove each named notice the named claim still holds, and nothing else.\n\nA notice the claim does not hold -- unknown, removed already, or claimed since by another call after this claim\nlapsed -- is left alone and counted in `ignoriert`. A repeated id counts once. One transaction, imageless: a row\nnames addresses, and the log keeps no image of its removal.",
-        "operationId": "adresswechsel_post_adresswechsel_zugestellt",
+        "description": "Take the owed carry off each named change, counting the ones that owed one; an id owing none is left alone.",
+        "operationId": "adresswechsel_post_adresswechsel_umzuege_erledigt",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLAdresswechselZugestelltPayload"
+                "$ref": "#/components/schemas/FLAdresswechselUmzuegeErledigtPayload"
               }
             }
           },
@@ -18361,7 +18171,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLAdresswechselZugestelltResponse"
+                  "$ref": "#/components/schemas/FLAdresswechselUmzuegeErledigtResponse"
                 }
               }
             },
@@ -18413,7 +18223,7 @@
             "SystemKey": []
           }
         ],
-        "summary": "Remove the delivered notices a claim holds",
+        "summary": "Take the carries done off their changes",
         "tags": [
           "adresswechsel"
         ]
@@ -18500,7 +18310,7 @@
     },
     "/api/v0/adresswechsel/{adresswechsel_id}/einladen": {
       "post": {
-        "description": "Mint the new mailbox a fresh link for the change this id names, answering the raw token once, for the caller to mail.\n\nThe previous link stops working at once and the delivery state of the message it went out in goes with it; the\ndeadline restarts now. The stop link stays, so the address on file is mailed nothing again. A lapsed link is no\nrefusal while the change stands, which is until the next hourly pass ends it. Acts\non the change the id names alone, so a page showing a change since replaced re-sends nothing.\n\nRefused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), where the ban list holds the pending address\n(`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), where an entry has come to name it,\nconfirmed or not (`-018`), where a grant's approval week has passed (`-003`), and where the change ended (`-002`). 404 for\nan id naming no change, and unless the change waits on the new mailbox: one awaiting the address on file's approval,\nor confirmed, has no link to re-send.",
+        "description": "Owe the new mailbox a fresh link for the change this id names, in the same transaction.\n\nThe previous link stops working once the fresh one is handed out; the deadline restarts now. The stop link stays, so\nthe address on file is mailed nothing again. A lapsed link is no refusal while the change stands, which is until the\nnext hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends\nnothing.\n\nRefused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), where the ban list holds the pending address\n(`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), where an entry has come to name it,\nconfirmed or not (`-018`), where a grant's approval week has passed (`-003`), and where the change ended (`-002`). 404 for\nan id naming no change, and unless the change waits on the new mailbox: one awaiting the address on file's approval,\nor confirmed, has no link to re-send.",
         "operationId": "adresswechsel_einladen_adresswechsel",
         "parameters": [
           {
@@ -18886,7 +18696,7 @@
     },
     "/api/v0/berechtigungen": {
       "get": {
-        "description": "List every live grant of access to the administration, by address: its tier, who granted it and when.\n\nUncapped, as few people hold one. A row whose address no request can match -- empty, unfolded or refused by the address rule --\nadmits nobody and is left out, counted in `uebersprungen`. An address on the ban list is answered as `null` beside `gesperrt`,\nnever in plain, and so is a barred `erteilt_von`, beside `erteilt_von_gesperrt`; it is otherwise an administrator's address\nfor a grant made here and whatever the database edit wrote for one made there.\n\n`adresswechsel` names the change of a grant's address waiting on an administrator's approval: its new address, how it was\nstarted (`weg`), the administrator who started it and the reason they recorded, and why this administrator may not approve\nit, where they may not: their own, one they started, or an owner's without an owner's power\n(`POST /adresswechsel/{adresswechsel_id}/genehmigung`); and why the address tool refuses it them (`einsehbar_verwehrt`). An\nowner's change withholds its new address, starter and reason from that non-owner, as the address tool refuses them an\nowner's address; a barred new address or starter is withheld as on a grant's row. A change any step of which lapsed is\nleft out: its approval is refused, and the next hourly pass ends it.\n\n`antraege` lists every grant and promotion waiting on a second administrator's approval and not yet lapsed, oldest first:\nthe address, the tier asked, who asked and when, until when it waits, whether its requester still holds that tier since\nbefore it (`steht`), and why this administrator may not approve it, where they may not. A barred address is withheld as on a\ngrant's row.",
+        "description": "List every grant of access to the administration, by address: its tier, who granted it and when.\n\nUncapped, as few people hold one. An address on the ban list is answered as `null` beside `gesperrt`,\nnever in plain, and so is a barred `erteilt_von`, beside `erteilt_von_gesperrt`; it is otherwise an administrator's address\nfor a grant made here and whatever the database edit wrote for one made there.\n\n`adresswechsel` names the change of a grant's address waiting on an administrator's approval: its new address, how it was\nstarted (`weg`), the administrator who started it and the reason they recorded, and why this administrator may not approve\nit, where they may not: their own, one they started, or an owner's without an owner's power\n(`POST /adresswechsel/{adresswechsel_id}/genehmigung`); and why the address tool refuses it them (`einsehbar_verwehrt`). An\nowner's change withholds its new address, starter and reason from that non-owner, as the address tool refuses them an\nowner's address; a barred new address or starter is withheld as on a grant's row. A change any step of which lapsed is\nleft out: its approval is refused, and the next hourly pass ends it.\n\n`antraege` lists every grant and promotion waiting on a second administrator's approval and not yet lapsed, oldest first:\nthe address, the tier asked, who asked and when, until when it waits, whether its requester still holds that tier since\nbefore it (`steht`), and why this administrator may not approve it, where they may not. A barred address is withheld as on a\ngrant's row.",
         "operationId": "berechtigungen_get_berechtigungen",
         "responses": {
           "200": {
@@ -18951,7 +18761,7 @@
         ]
       },
       "post": {
-        "description": "Grant an address access to the administration, as `administration`, or ask another administrator to. No request grants `owner`.\n\n**Four eyes**: where another administrator could approve it -- a live, unbarred grant in effect now, neither this administrator\nnor the address -- the grant is not made: a request is, answered with `beantragt` set and its id, and the grant takes effect\nonly on that approval (`POST /berechtigungen/antraege/{antrag_id}/genehmigung`). A lone administrator grants alone.\n\nThe address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live\ngrant already holds the address (`REQ-BERECHTIGUNG-001`) -- a dead row of another spelling blocks nothing -- where the ban list\nholds it (`REQ-BERECHTIGUNG-003`), and where a request about it waits already (`REQ-BERECHTIGUNG-008`). The grant takes effect on\nthe next request, for a session signed in after it alone -- an older one is refused `REQ-AUTH-007` on every admin-tier route -- and\nits announcement is queued in the same transaction for `POST /berechtigungen/abgleich` to hand out. Like a revoke and a tier\nchange, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES`, refused `REQ-AUTH-009` otherwise.",
+        "description": "Grant an address access to the administration, as `administration`, or ask another administrator to. No request grants `owner`.\n\n**Four eyes**: where another administrator could approve it -- a live, unbarred grant in effect now, neither this administrator\nnor the address -- the grant is not made: a request is, answered with `beantragt` set and its id, and the grant takes effect\nonly on that approval (`POST /berechtigungen/antraege/{antrag_id}/genehmigung`). A lone administrator grants alone.\n\nThe address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live\ngrant already holds the address (`REQ-BERECHTIGUNG-001`), where the ban list\nholds it (`REQ-BERECHTIGUNG-003`), and where a request about it waits already (`REQ-BERECHTIGUNG-008`). The grant takes effect on\nthe next request, for a session signed in after it alone -- an older one is refused `REQ-AUTH-007` on every admin-tier route -- and\nits announcement is owed to every administrator in the same transaction. Like a revoke and a tier\nchange, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES`, refused `REQ-AUTH-009` otherwise.",
         "operationId": "berechtigungen_post_berechtigung",
         "requestBody": {
           "content": {
@@ -19028,7 +18838,7 @@
     },
     "/api/v0/berechtigungen/abgleich": {
       "post": {
-        "description": "Queue the grants' changes made in the database, then claim, for ten minutes, the changes still to announce and who to tell.\n\nA change found here names nobody (`urheber` is `datenbank`), and no barred or erased address is answered in plain. The caller\nmails each change, a row's own `an` in place of `empfaenger` where it is set, and hands the ids it mailed to\n`POST /berechtigungen/abgleich/angekuendigt`; a claim that lapses first is claimed again by the next call.",
+        "description": "Compare the grants with what the administrators were last told, and owe each change made in the database to every one of them.\n\nA change found here names nobody (`urheber` is `datenbank`), and no barred address is named in it. A write through the\napplication owes its own notice in its own transaction, so only an edit in the database is found here, once: the record\nit is compared with moves in the same transaction.",
         "operationId": "berechtigungen_post_berechtigungen_abgleich",
         "responses": {
           "200": {
@@ -19087,84 +18897,7 @@
             "SystemKey": []
           }
         ],
-        "summary": "Claim the grant changes still to be announced",
-        "tags": [
-          "berechtigungen"
-        ]
-      }
-    },
-    "/api/v0/berechtigungen/abgleich/angekuendigt": {
-      "post": {
-        "description": "Remove from the queue each named change the named claim still holds, counting every other id once in `ignoriert`.",
-        "operationId": "berechtigungen_post_berechtigungen_angekuendigt",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLBerechtigungAngekuendigtPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLBerechtigungAngekuendigtResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "SystemKey": []
-          }
-        ],
-        "summary": "Remove the announced changes a claim holds",
+        "summary": "Owe a notice of every change to the grants made in the database",
         "tags": [
           "berechtigungen"
         ]
@@ -22233,7 +21966,7 @@
         ]
       },
       "post": {
-        "description": "Start a change of the address the person signs in on, answering both raw links once, for the frontend's server to mail.\n\nThe new mailbox is mailed its link, and the address on file a notice with a stop link; **everything the address holds\nas its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. Where it holds a\ngrant, the change also waits on another administrator's approval, an owner's for an owner's grant,\n`genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`). The address's live\nchange ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.\n**Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start\nanswers alike whatever the new address holds.\n\nRefused `REQ-AUTH-009` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the\naddress holds a grant;\n`REQ-ADRESSWECHSEL-010` where the address holds nothing a change moves; `-007` where the typed address is the one\nsigned in; and `-011` where nobody could approve the grant's move, the last owner making another first.",
+        "description": "Start a change of the address the person signs in on, its two mails owed in the same transaction and no link answered.\n\nThe new mailbox is owed its link, and the address on file a notice with a stop link; **everything the address holds\nas its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. Where it holds a\ngrant, the change also waits on another administrator's approval, an owner's for an owner's grant. The address's live\nchange ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.\n**Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start\nanswers alike whatever the new address holds.\n\nRefused `REQ-AUTH-009` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the\naddress holds a grant;\n`REQ-ADRESSWECHSEL-010` where the address holds nothing a change moves; `-007` where the typed address is the one\nsigned in; and `-011` where nobody could approve the grant's move, the last owner making another first.",
         "operationId": "konto_post_adresswechsel",
         "requestBody": {
           "content": {
@@ -22310,7 +22043,7 @@
     },
     "/api/v0/konto/adresswechsel/freigabe": {
       "post": {
-        "description": "Approve the change `id` names, which an administrator started without a reason, minting the new mailbox's link once.\n\n**Nothing reaches the new mailbox before this press**. Nothing about the new address is\njudged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the\nchange its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.\n\nRefused `REQ-AUTH-009` as the start is; `REQ-ADRESSWECHSEL-002` where the change `id` names has ended; 404 where it\nis no change of this address awaiting its approval; and `REQ-ADRESSWECHSEL-003` past the approval's deadline.",
+        "description": "Approve the change `id` names, which an administrator started without a reason, owing the new mailbox its link.\n\n**Nothing reaches the new mailbox before this press**. Nothing about the new address is\njudged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the\nchange its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.\n\nRefused `REQ-AUTH-009` as the start is; `REQ-ADRESSWECHSEL-002` where the change `id` names has ended; 404 where it\nis no change of this address awaiting its approval; and `REQ-ADRESSWECHSEL-003` past the approval's deadline.",
         "operationId": "konto_post_adresswechsel_freigabe",
         "requestBody": {
           "content": {
@@ -25810,7 +25543,7 @@
         ]
       },
       "post": {
-        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is\nrunning, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and\nwhere the address is an administrator's (`REQ-SPERRLISTE-003`). The ban covers the\nfifth season after the one running now — the last one it covers is answered as\n`gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still queued\nfor the address loses the address in the same transaction.\n\n`grund` is served, mailed to the address and kept past that person's erasure.",
+        "description": "Ban an address from signing up. The address is hashed under the backend key; no row and no log line holds it but its notice's.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is\nrunning, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and\nwhere the address is an administrator's (`REQ-SPERRLISTE-003`). The ban covers the\nfifth season after the one running now — the last one it covers is answered as\n`gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still owed\nthat names the address loses it in the same transaction, and where `benachrichtigen` is set the ban's\nown notice is owed to it there too, the one mail a ban does not stop.\n\n`grund` is served, mailed to the address and kept past that person's erasure.",
         "operationId": "sperrliste_post_sperrliste_eintrag",
         "requestBody": {
           "content": {

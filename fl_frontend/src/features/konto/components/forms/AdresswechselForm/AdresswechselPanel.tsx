@@ -173,8 +173,9 @@ export function AdresswechselPanel({
 
     landung.landed();
     if (was.art === "start") setEntwurf(null);
+    // The write owed the mail, which leaves behind the answer: whether it arrives is no press's to know.
     meldeLinkVersand(
-      res.versand,
+      "gesendet",
       was.art === "start" ? KONTO_LINK_TITEL : { ...KONTO_LINK_TITEL, gesendet: "Änderung freigegeben" },
       res.message,
     );

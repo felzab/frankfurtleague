@@ -11,7 +11,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.adresswechsel.services import compose_postausgang
 from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
 from app.api.berechtigungen.antraege import compose_antrag
@@ -303,22 +302,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "verwaltung": "owner",
             "angekuendigt_am": datetime(2026, 1, 1, 0, 5, tzinfo=UTC),
         },
-        # A removal a pass holds claimed: the one shape carrying every nullable key both ways.
-        "berechtigungen_postausgang": {
-            "_id": BERECHTIGUNG_OID,
-            "berechtigung_id": TEAM_OID,
-            "art": "entzogen",
-            "urheber": "anwendung",
-            "jetzt": None,
-            "vorher": {"adresse": None, "verwaltung": "administration"},
-            "geaendert_von": "inhaberin@example.invalid",
-            "geaendert_am": datetime(2026, 1, 1, tzinfo=UTC),
-            "vorenthalten": "gesperrt",
-            "erfasst_am": datetime(2026, 1, 1, tzinfo=UTC),
-            "beansprucht_bis": datetime(2026, 1, 1, 0, 10, tzinfo=UTC),
-            "beanspruchung": "a-claim",
-            "versuche": 1,
-        },
         # An open team row as the pass mints it: one seat holding the link the request went out with,
         # one sharing it as a mirrored pair does, one empty.
         "spielbestaetigungen": spielbestaetigung_document(
@@ -343,25 +326,12 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             },
         ),
         "spielberichte": spielbericht_document({"_id": SPIEL_OID, "saison_id": SAISON_ID}),
-        # A live change as the start stores it: its instants are dates, which every read takes.
+        # A live change as the start stores it, its instants dates, which every read takes; and the carry an earlier
+        # effect of the address left owed on it, which the record keeps beside its live fields as the model reads them.
         "adresswechsel": {
             "_id": ADRESSWECHSEL_OID,
             **adresswechsel_document(adresse="alt@example.invalid", email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16"),
-        },
-        # An effect's notice a pass holds claimed on the lost-mailbox way, greeting nobody: every nullable key both ways.
-        "adresswechsel_postausgang": {
-            "_id": ADRESSWECHSEL_OID,
-            **compose_postausgang(
-                art="wirksam",
-                email="neu@example.invalid",
-                now=datetime(2026, 3, 16, tzinfo=UTC),
-                bisherige_email="alt@example.invalid",
-                vorname=None,
-                weg="wartezeit",
-            ),
-            "beansprucht_bis": datetime(2026, 3, 16, 0, 10, tzinfo=UTC),
-            "beanspruchung": "a-claim",
-            "versuche": 1,
+            "umzug": {"von": "vorher@example.invalid", "nach": "alt@example.invalid"},
         },
         # A promotion asked, so `berechtigung_id` is an id rather than the null a grant's request holds.
         "berechtigungen_antraege": {

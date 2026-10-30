@@ -18,9 +18,6 @@ export type SentMail = {
   von: MailVon;
 };
 
-/** What `fl_frontend/src/core/mail.ts :: sendSperreNotice` is handed: the address and the ban's own facts. */
-type SperreFacts = { to: string; grund: string; gesperrtBisSaisonId: string; origin: string };
-
 /**
  * How the mailer ends one message. `barred`, `withheld`, `recipient` and `unsent` are raised before
  * any attempt, so no write is recorded; an acceptance, a refusal and `lost` answer an attempt, which
@@ -77,17 +74,14 @@ class MailUnsentError extends Error {
 
 /**
  * Stands in for `fl_frontend/src/core/mail.ts` alone: the real fan-outs send through it, so the write
- * record a suite reads is the one the mailer and the fan-out leave together. `notices` is the share
- * of `sent` the ban notice's own sender took.
+ * record a suite reads is the one the mailer and the fan-out leave together.
  */
 export function doubleSendMail(): {
   sent: SentMail[];
-  notices: SentMail[];
   owed: FLPostausgangAnmeldungPayload[];
   answerWith: (next: MailAnswer) => void;
 } {
   const sent: SentMail[] = [];
-  const notices: SentMail[] = [];
   // Every sign-in mail owed through the Postausgang, as the backend was handed it.
   const owed: FLPostausgangAnmeldungPayload[] = [];
   const accepted: MailAnswer = () => "accepted";
@@ -128,17 +122,7 @@ export function doubleSendMail(): {
     return settle(mail);
   };
 
-  // Composed by the real builder, as the real sender composes it: a case reads the notice's words.
-  const sendSperreNotice = async ({ to, ...facts }: SperreFacts): Promise<{ id: string | null }> => {
-    const { buildSperreEmail } = await import("@/core/sperrlisteEmail.ts");
-    const { renderMail } = await import("@/core/emailShell.ts");
-    const notice = { to: to, ...renderMail(buildSperreEmail(facts)) };
-    sent.push(notice);
-    notices.push(notice);
-    return settle(notice);
-  };
-
-  const doubled = { MailBarredError, MailWithheldError, MailRecipientError, MailUnsentError, sendMail, sendSperreNotice };
+  const doubled = { MailBarredError, MailWithheldError, MailRecipientError, MailUnsentError, sendMail };
 
   /*
    * The Postausgang and its drain in one step: a sign-in mail owed is recorded as the backend would store it, then
@@ -180,10 +164,9 @@ export function doubleSendMail(): {
   // Back to accepted before every case: a case that named a refusal would hand it to the next case's message.
   beforeEach(() => {
     sent.length = 0;
-    notices.length = 0;
     owed.length = 0;
     answering = accepted;
   });
 
-  return { sent, notices, owed, answerWith: (next) => void (answering = next) };
+  return { sent, owed, answerWith: (next) => void (answering = next) };
 }

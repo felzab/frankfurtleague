@@ -4,6 +4,8 @@ import { KONTAKT_EMAIL } from "./brand";
 import { BRAND_NAME, mailOrigin } from "./emailShell";
 
 import type { Mail } from "./emailShell";
+import type { FLSperreDaten } from "./generated/client/types";
+import type { MailOrt } from "./mailKinds";
 
 /**
  * What is kept, named because the reader cannot be shown it, the account only while a record holds the
@@ -23,7 +25,7 @@ const EINLEITUNG = [
   "Mit ihr kannst Du Dich vorerst weder anmelden noch für eine Saison registrieren, und Du kannst weder als Kontaktperson in einer Bewerbung genannt noch als Schiedsrichterin oder Schiedsrichter eingetragen werden.",
 ] as const;
 
-export function buildSperreEmail({ grund, gesperrtBisSaisonId, origin }: { grund: string; gesperrtBisSaisonId: string; origin: string }): Mail {
+export function buildSperreEmail({ grund, gesperrt_bis_saison_id: gesperrtBisSaisonId }: FLSperreDaten, { origin }: MailOrt): Mail {
   return {
     art: "mitteilung",
     betreff: "Deine E-Mail-Adresse ist gesperrt",

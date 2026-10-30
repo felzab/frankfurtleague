@@ -1,7 +1,6 @@
-import secrets
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, Any, Final
+from typing import Annotated, Any, Final, Literal
 
 from fastapi import APIRouter, Body, Depends, Query
 from pydantic import SecretStr
@@ -10,17 +9,16 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
-from app.api.adresswechsel.crud import end_the_change_in_session, ending_line, queue_the_refusal_notice_in_session, take_effect_in_session
+from app.api.adresswechsel.crud import end_the_change_in_session, ending_line, owe_the_refusal_notice_in_session, take_effect_in_session
 from app.api.adresswechsel.schemas import (
     FLAdresswechselAdressePayload,
     FLAdresswechselAdresseResponse,
-    FLAdresswechselPostausgangArt,
-    FLAdresswechselPostausgangResponse,
-    FLAdresswechselPostausgangZeile,
+    FLAdresswechselOffenerUmzug,
     FLAdresswechselSweepParams,
     FLAdresswechselSweepResponse,
-    FLAdresswechselZugestelltPayload,
-    FLAdresswechselZugestelltResponse,
+    FLAdresswechselUmzuegeErledigtPayload,
+    FLAdresswechselUmzuegeErledigtResponse,
+    FLAdresswechselUmzuegeResponse,
 )
 from app.api.adresswechsel.services import (
     GEHALTEN,
@@ -30,25 +28,23 @@ from app.api.adresswechsel.services import (
     build_parked_terms,
     ist_abgelaufen,
 )
-from app.api.berechtigungen.services import BEANSPRUCHUNG_DAUER, VERSUCHE_HOECHSTENS
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.lookup import RecordCollections, SubjektLookup
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, sperrliste_saison
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, pull_many_from_db, pull_one_from_db
+from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     AdresswechselCollection,
-    AdresswechselPostausgangCollection,
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenAntraegeCollection,
     BerechtigungenCollection,
-    BerechtigungenPostausgangCollection,
     BewerbungenCollection,
     DBClient,
     EinladungenCollection,
+    PostausgangCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
@@ -110,7 +106,7 @@ async def _end_the_lapsed_change(
     row: Mapping[str, Any],
     *,
     adresswechsel_collection: AsyncCollection,
-    adresswechsel_postausgang_collection: AsyncCollection,
+    postausgang_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     db: AsyncMongoClient,
     now: datetime,
@@ -134,9 +130,7 @@ async def _end_the_lapsed_change(
         # A confirmed change lapsing on its owed approval: its new mailbox was told it waits on the administration, so it is
         # told it did not take effect, as a refused due change's is.
         if stored.get("bestaetigt_am") is not None:
-            await queue_the_refusal_notice_in_session(
-                stored, adresswechsel_postausgang_collection=adresswechsel_postausgang_collection, now=now, session=session
-            )
+            await owe_the_refusal_notice_in_session(stored, postausgang_collection=postausgang_collection, now=now, session=session)
 
     async with transaction_session(db) as session:
         await session.with_transaction(end_the_lapsed_change)
@@ -157,27 +151,26 @@ async def _make_the_due_change_take_effect(
     spielbestaetigungen_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    berechtigungen_postausgang_collection: AsyncCollection,
+    postausgang_collection: AsyncCollection,
     berechtigungen_antraege_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
-    adresswechsel_postausgang_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     db: AsyncMongoClient,
     schluessel: SecretStr,
     now: datetime,
     stamp: str,
-) -> FLAdresswechselPostausgangArt | None:
+) -> Literal["wirksam", "verworfen"] | None:
     """One due change in its own transaction, judged again as its confirmation was.
 
-    Answers which notice it queued, or `None` where it waits on an approval; `DocumentNotFoundError` where stopped,
+    Answers how it ended, its notice owed, or `None` where it waits on an approval; `DocumentNotFoundError` where stopped,
     discarded or replaced since the page was read.
     """
 
     journal = Journal()
 
     @journal.attempted
-    async def take_effect(session: AsyncClientSession) -> FLAdresswechselPostausgangArt | None:
+    async def take_effect(session: AsyncClientSession) -> Literal["wirksam", "verworfen"] | None:
         record = await pull_one_from_db(
             collection=adresswechsel_collection, db_filter={"_id": row["_id"], **build_due_terms(now)}, session=session
         )
@@ -195,11 +188,10 @@ async def _make_the_due_change_take_effect(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            postausgang_collection=postausgang_collection,
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
-            adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
             aktionen_collection=aktionen_collection,
             schluessel=schluessel,
             now=now,
@@ -237,9 +229,7 @@ async def _make_the_due_change_take_effect(
                     schluessel=schluessel,
                 )
             )
-            await queue_the_refusal_notice_in_session(
-                record, adresswechsel_postausgang_collection=adresswechsel_postausgang_collection, now=now, session=session
-            )
+            await owe_the_refusal_notice_in_session(record, postausgang_collection=postausgang_collection, now=now, session=session)
         return "verworfen"
 
     async with journal:
@@ -264,11 +254,10 @@ async def sweep_adresswechsel(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    postausgang_collection: PostausgangCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
-    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
     db: DBClient,
@@ -284,9 +273,9 @@ async def sweep_adresswechsel(
     holds the grant, was approved, is judged again as its confirmation was: a ban on either address, another pupil
     signing in on the new one, a grant its approval does not cover, a grant at the new address, or nothing left to move
     ends it discarded, and
-    `verworfen` counts it, its new address queued to be told it did not take effect and never why; otherwise
-    everything the replaced address holds moves, and `wirksam` counts it, its completion notice queued. The notices are
-    `POST /adresswechsel/sweep/postausgang`'s to claim, queued in each change's own transaction, so none rides on this answer.
+    `verworfen` counts it, its new address owed a notice that it did not take effect and never why; otherwise
+    everything the replaced address holds moves, and `wirksam` counts it, its completion notice owed. Each notice is owed
+    in the Postausgang in its change's own transaction, so none rides on this answer.
 
     Each change is handled in a transaction of its own that judges it again, so one confirmed, stopped, discarded or
     replaced since this call read it is left standing. **A pass is a run of calls, each handing the next the `nach` the last
@@ -334,11 +323,10 @@ async def sweep_adresswechsel(
                     spielbestaetigungen_collection=spielbestaetigungen_collection,
                     berechtigungen_collection=berechtigungen_collection,
                     berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-                    berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                    postausgang_collection=postausgang_collection,
                     berechtigungen_antraege_collection=berechtigungen_antraege_collection,
                     einladungen_collection=einladungen_collection,
                     sperrliste_collection=sperrliste_collection,
-                    adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
                     aktionen_collection=aktionen_collection,
                     db=db,
                     schluessel=config.sperrliste_schluessel,
@@ -349,7 +337,7 @@ async def sweep_adresswechsel(
                 await _end_the_lapsed_change(
                     row,
                     adresswechsel_collection=adresswechsel_collection,
-                    adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+                    postausgang_collection=postausgang_collection,
                     aktionen_collection=aktionen_collection,
                     db=db,
                     now=germany_now,
@@ -407,106 +395,45 @@ async def sweep_adresswechsel(
     )
 
 
-@router.post(
-    "/postausgang",
-    response_model=FLAdresswechselPostausgangResponse,
-    summary="Claim the notices the address changes' ends still owe",
-)
-async def post_adresswechsel_postausgang(
-    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
-    db: DBClient,
-    now: datetime = Depends(get_germany_now),
-) -> FLAdresswechselPostausgangResponse:
+@router.get("/umzuege", response_model=FLAdresswechselUmzuegeResponse, summary="List the sign-in accounts the effects still owe to carry")
+async def get_adresswechsel_umzuege(adresswechsel_collection: AdresswechselCollection) -> FLAdresswechselUmzuegeResponse:
     """
-    Claim, oldest first and a page at a time, every owed notice no claim holds or whose claim has lapsed, for ten minutes.
+    List, oldest first and a page at a time, the ended changes still owing to carry a sign-in account to their new address.
 
-    Each end owing a notice queued it in its own transaction: an effect its completion notice and its sign-in account's
-    carry, a due change the pass refused its new address's notice. A second call inside the lease is answered none of
-    them; the caller delivers each and hands the ids it delivered, with `beanspruchung`, to
-    `POST /adresswechsel/sweep/postausgang/zugestellt`, and where the lease lapses first the next call claims them again,
-    so a notice is delivered at least once. A notice handed out past the grants' attempt cap is answered `aufgegeben`:
-    the caller delivers nothing, logs it by id and stamps it. Server to server alone: the answer names addresses.
+    Each effect owed its carry in its own transaction, so a lost answer loses none. The caller moves each account and
+    hands the ids it moved to `POST /adresswechsel/sweep/umzuege/erledigt`; one it could not move is listed again by the
+    next call. Moving one twice finds no account left, so no claim holds them. Server to server alone: the answer names
+    addresses.
     """
 
-    async def claim(session: AsyncClientSession) -> tuple[list[Mapping[str, Any]], str | None]:
-        claimable = await pull_many_from_db(
-            collection=adresswechsel_postausgang_collection,
-            db_filter={"$or": [{"beansprucht_bis": None}, {"beansprucht_bis": {"$lte": now}}]},
-            sort_by=[("erfasst_am", ASCENDING), ("_id", ASCENDING)],
-            limit=LIST_LIMIT_DEFAULT,
-            session=session,
-        )
-        if not claimable:
-            return [], None
+    owed = await pull_many_from_db(
+        collection=adresswechsel_collection,
+        db_filter={"umzug": {"$type": "object"}},
+        sort_by=[("_id", ASCENDING)],
+        limit=LIST_LIMIT_DEFAULT,
+        projection=["umzug"],
+    )
 
-        token = secrets.token_urlsafe(24)
-        # Every claimed row written, so two overlapping calls conflict and the retry sees them held; the count rises in
-        # this write, so a retried claim counts once.
-        await patch_many_in_db(
-            collection=adresswechsel_postausgang_collection,
-            db_filter={"_id": {"$in": [row["_id"] for row in claimable]}},
-            update={"$set": {"beanspruchung": token, "beansprucht_bis": now + BEANSPRUCHUNG_DAUER}, "$inc": {"versuche": 1}},
-            session=session,
-        )
-
-        return claimable, token
-
-    async with transaction_session(db) as session:
-        claimable, token = await session.with_transaction(claim)
-
-    return FLAdresswechselPostausgangResponse(
-        beanspruchung=token,
-        beansprucht_bis=None if token is None else now + BEANSPRUCHUNG_DAUER,
-        mitteilungen=[
-            FLAdresswechselPostausgangZeile.model_validate(
-                # The row as read before this claim raised its count.
-                {**row, "id": row["_id"], "aufgegeben": row["versuche"] + 1 > VERSUCHE_HOECHSTENS}
-            )
-            for row in claimable
-        ],
+    return FLAdresswechselUmzuegeResponse(
+        umzuege=[FLAdresswechselOffenerUmzug(id=row["_id"], von=row["umzug"]["von"], nach=row["umzug"]["nach"]) for row in owed]
     )
 
 
-@router.post(
-    "/postausgang/zugestellt",
-    response_model=FLAdresswechselZugestelltResponse,
-    summary="Remove the delivered notices a claim holds",
-)
-async def post_adresswechsel_zugestellt(
-    zugestellt_data: Annotated[FLAdresswechselZugestelltPayload, Body()],
-    adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
-    db: DBClient,
-) -> FLAdresswechselZugestelltResponse:
-    """
-    Remove each named notice the named claim still holds, and nothing else.
+@router.post("/umzuege/erledigt", response_model=FLAdresswechselUmzuegeErledigtResponse, summary="Take the carries done off their changes")
+async def post_adresswechsel_umzuege_erledigt(
+    erledigt_data: Annotated[FLAdresswechselUmzuegeErledigtPayload, Body()],
+    adresswechsel_collection: AdresswechselCollection,
+) -> FLAdresswechselUmzuegeErledigtResponse:
+    """Take the owed carry off each named change, counting the ones that owed one; an id owing none is left alone."""
 
-    A notice the claim does not hold -- unknown, removed already, or claimed since by another call after this claim
-    lapsed -- is left alone and counted in `ignoriert`. A repeated id counts once. One transaction, imageless: a row
-    names addresses, and the log keeps no image of its removal.
-    """
+    # By id alone: the log keeps the filter, and an address would stand in it.
+    result = await patch_many_in_db(
+        collection=adresswechsel_collection,
+        db_filter={"_id": {"$in": sorted(set(erledigt_data.ids))}, "umzug": {"$type": "object"}},
+        update={"$unset": {"umzug": ""}},
+    )
 
-    ids = sorted(set(zugestellt_data.ids))
-
-    async def remove(session: AsyncClientSession) -> int:
-        held = await pull_many_from_db(
-            collection=adresswechsel_postausgang_collection,
-            db_filter={"_id": {"$in": ids}, "beanspruchung": zugestellt_data.beanspruchung},
-            limit=len(ids),
-            projection=["_id"],
-            session=session,
-        )
-        if not held:
-            return 0
-        removed = await erase_many_from_db(
-            collection=adresswechsel_postausgang_collection, db_filter={"_id": {"$in": [row["_id"] for row in held]}}, session=session
-        )
-
-        return removed.deleted_count
-
-    async with transaction_session(db) as session:
-        zugestellt = await session.with_transaction(remove)
-
-    return FLAdresswechselZugestelltResponse(zugestellt=zugestellt, ignoriert=len(ids) - zugestellt)
+    return FLAdresswechselUmzuegeErledigtResponse(erledigt=result.modified_count)
 
 
 @router.post(
@@ -531,7 +458,7 @@ async def get_adresswechsel_adresse(
     db_filter = (
         {"_id": adresse_data.adresswechsel_id, **LIVE_TERMS}
         if adresse_data.token is None
-        else {"token_hash": hash_token(adresse_data.token), **LIVE_TERMS}
+        else {"token_hashes": hash_token(adresse_data.token), **LIVE_TERMS}
     )
     record = await adresswechsel_collection.find_one(db_filter, projection={"email": 1})
 

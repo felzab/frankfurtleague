@@ -304,7 +304,16 @@ const BACKGROUND_PASSES = [
   {
     operations: ["adresswechsel_sweep_adresswechsel"],
     wrapper: { file: "src/features/adresswechsel/mutations.ts", regex: moduleNamed("mutations"), names: ["postAdresswechselSweep"] },
-    runners: ["src/features/bewerbungen/sweep.ts"],
+    runners: ["src/features/adresswechsel/sweep.ts"],
+  },
+  {
+    operations: ["adresswechsel_get_adresswechsel_umzuege", "adresswechsel_post_adresswechsel_umzuege_erledigt"],
+    wrapper: {
+      file: "src/features/adresswechsel/mutations.ts",
+      regex: moduleNamed("mutations"),
+      names: ["getAdresswechselUmzuege", "postAdresswechselUmzuegeErledigt"],
+    },
+    runners: ["src/features/adresswechsel/umzug.ts"],
   },
   {
     operations: ["identitaet_get_referenzen"],
@@ -326,12 +335,8 @@ const BACKGROUND_PASSES = [
     runners: ["src/features/spielbestaetigungen/sweep.ts"],
   },
   {
-    operations: ["berechtigungen_post_berechtigungen_abgleich", "berechtigungen_post_berechtigungen_angekuendigt"],
-    wrapper: {
-      file: "src/features/berechtigungen/mutations.ts",
-      regex: moduleNamed("mutations"),
-      names: ["postBerechtigungenAbgleich", "postBerechtigungenAngekuendigt"],
-    },
+    operations: ["berechtigungen_post_berechtigungen_abgleich"],
+    wrapper: { file: "src/features/berechtigungen/mutations.ts", regex: moduleNamed("mutations"), names: ["postBerechtigungenAbgleich"] },
     runners: ["src/features/berechtigungen/abgleich.ts"],
   },
 ];
