@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from datetime import datetime
 from typing import Annotated
 
@@ -58,12 +57,14 @@ from app.core.dependencies import (
 )
 from app.core.recording import act_row, anlass_var, log_stamp
 from app.core.security import (
+    SessionActor,
     bind_actor,
     get_actor_auth_time,
     get_actor_email,
-    get_recent_confirmation_check,
     verify_access_admin,
     verify_actor_is_admin,
+    verify_admin_actor,
+    verify_recent_confirmation,
     verify_step_up,
 )
 from app.core.transactions import transaction_session
@@ -249,7 +250,7 @@ async def erase_auf_anfrage(
     adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     sperrliste: SperrlisteLookup,
-    refuse_unconfirmed: Annotated[Callable[[], None], Depends(get_recent_confirmation_check)],
+    actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
@@ -293,7 +294,7 @@ async def erase_auf_anfrage(
         # Ending a live grant asks what a revoke asks. A live row is its own fold,
         # so equality is the fold's judgement.
         if any(grant["adresse"] == identifier for grant in lebendige(grants)):
-            refuse_unconfirmed()
+            verify_recent_confirmation(actor)
 
         # Ahead of the erasure's first write, and in its snapshot: a retry judges the changes afresh.
         subject = await resolve_subject(

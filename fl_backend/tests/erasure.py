@@ -10,7 +10,7 @@ from app.api.identitaet.person_router import erase_selbst
 from app.api.identitaet.schemas import FLErasureResponse
 from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
-from tests.actor_tokens import FRESH_STEP_UP_CHECK
+from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.bans import ban_list
 from tests.config import build_test_config
 
@@ -41,7 +41,7 @@ async def erased(
         **erasure_collections(database, **replaced),
         sperrliste=ban_list(database),
         # Refusing none: a grant holder's passkey is held over HTTP, in `tests/api/test_step_up_execution.py`.
-        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+        actor=FRESH_ADMIN_ACTOR,
         db=client,
         config=_CONFIG,
         germany_now=germany_now,

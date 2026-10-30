@@ -44,9 +44,10 @@ from app.core.recording import log_stamp
 from app.core.security import (
     PERSON_ACTOR_BINDERS,
     KontaktIdentifier,
-    StepUpCheck,
-    get_person_confirmation_check,
+    SessionActor,
     verify_access_admin,
+    verify_person_actor,
+    verify_person_passkey_confirmation,
 )
 from app.core.transactions import transaction_session
 
@@ -84,7 +85,7 @@ async def erase_selbst(
     adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     sperrliste: SperrlisteLookup,
-    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_person_confirmation_check)],
+    actor: Annotated[SessionActor, Depends(verify_person_actor)],
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
@@ -124,7 +125,7 @@ async def erase_selbst(
         # A grant holder's grants go with the rest, so the erasure asks the passkey a revoke asks. A live
         # row is its own fold, so equality is the fold's judgement.
         if any(grant["adresse"] == identifier for grant in grants):
-            refuse_unconfirmed()
+            verify_person_passkey_confirmation(actor)
         # Before any write, and for an owner alone: no other erasure can leave the administration without one.
         if holds_an_owner_grant(identifier, grants):
             # Rereads this snapshot's rows and writes each, so two owners erasing themselves at once conflict, and

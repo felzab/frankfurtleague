@@ -230,26 +230,19 @@ def confirmation_required(window_s: int) -> APIError:
 
 
 def verify_recent_confirmation(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> None:
-    """Refuse a write the page steps up to the enrolment window from an older sign-in or confirmation."""
+    """Refuse a write the page steps up to the enrolment window from an older sign-in or confirmation.
+
+    A write stepped up on some calls alone declares the actor and calls this on exactly those calls.
+    """
 
     if confirmed_before(actor, ENROLMENT_WINDOW_S):
         raise confirmation_required(ENROLMENT_WINDOW_S)
 
 
-def get_recent_confirmation_check(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> Callable[[], None]:
-    """`verify_recent_confirmation`'s window on the calls a handler judges to end a grant."""
-
-    def refuse_unconfirmed() -> None:
-        if confirmed_before(actor, ENROLMENT_WINDOW_S):
-            raise confirmation_required(ENROLMENT_WINDOW_S)
-
-    return refuse_unconfirmed
-
-
 def verify_step_up(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> None:
-    """Refuse a write stepped up on every call from a sign-in or confirmation older than the step-up window.
+    """Refuse a write stepped up from a sign-in or confirmation older than the step-up window.
 
-    One stepped up on some calls takes `get_step_up_check` instead, and its handler judges the call.
+    A write stepped up on some calls alone declares the actor and calls this on exactly those calls.
     """
 
     if confirmed_before(actor, STEP_UP_WINDOW_S):
@@ -271,14 +264,14 @@ def get_step_up_check(actor: Annotated[SessionActor, Depends(verify_admin_actor)
     return refuse_unconfirmed
 
 
-def get_person_confirmation_check(actor: Annotated[SessionActor, Depends(verify_person_actor)]) -> StepUpCheck:
-    """A grant holder's own erasure asks a fresh passkey, as a revoke does: the person's lane admits a sign-in by code."""
+def verify_person_passkey_confirmation(actor: SessionActor) -> None:
+    """Refuse a person's write ending or handing over their grant without a fresh passkey, as a revoke does.
 
-    def refuse_unconfirmed() -> None:
-        if actor.factor != PASSKEY_FACTOR or confirmed_before(actor, ENROLMENT_WINDOW_S):
-            raise confirmation_required(ENROLMENT_WINDOW_S)
+    The person's lane admits a sign-in by code, so the handler calls this on exactly the calls it judges to reach a grant.
+    """
 
-    return refuse_unconfirmed
+    if actor.factor != PASSKEY_FACTOR or confirmed_before(actor, ENROLMENT_WINDOW_S):
+        raise confirmation_required(ENROLMENT_WINDOW_S)
 
 
 def verify_recent_person_confirmation(actor: Annotated[SessionActor, Depends(verify_person_actor)]) -> None:

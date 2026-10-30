@@ -57,11 +57,11 @@ from app.core.dependencies import (
 )
 from app.core.routing import by_id
 from app.core.security import (
-    StepUpCheck,
+    SessionActor,
     bind_actor,
-    get_step_up_check,
     verify_access_admin,
     verify_actor_is_admin,
+    verify_admin_actor,
     verify_step_up,
 )
 from app.core.transactions import transaction_session
@@ -147,7 +147,7 @@ async def patch_schiedsrichter(
     spiele_collection: SpieleCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
-    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
+    actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     today: str = Depends(get_german_date_str),
 ) -> FLPatchSchiedsrichterResponse:
     """
@@ -194,7 +194,7 @@ async def patch_schiedsrichter(
         )
         refuse(find_bestaetigte_adresse_refusal(stored=stored, payload_email=email))
         if save_moves_the_link(stored=stored, payload_email=email):
-            refuse_unconfirmed()
+            verify_step_up(actor)
         update, minted = compose_korrektur_update(stored=stored, payload=payload, payload_email=email, token_hash=token_hash, today=today)
 
         # The season is NOT a condition here: it is `None` while no season is running, and the
@@ -299,7 +299,7 @@ async def reactivate_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
-    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
+    actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterReactivateResponse:
     """Clear `inactive_since`, putting the referee back into the picker and every default read.
@@ -331,7 +331,7 @@ async def reactivate_schiedsrichter(
         email = str((stored.get("kontakt") or {}).get("email")) if owes_reactivation_mint(stored=stored) else None
 
         if email is not None:
-            refuse_unconfirmed()
+            verify_step_up(actor)
             gesperrt = await hash_gesperrt(
                 sperrliste, sperrliste.hash_of(email), massgebliche_saison_id=massgebliche_saison_id, session=session
             )

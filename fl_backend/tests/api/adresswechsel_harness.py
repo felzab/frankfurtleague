@@ -39,7 +39,7 @@ from app.api.konto.router import get_adresswechsel, post_adresswechsel, post_adr
 from app.api.konto.schemas import FLKontoAdresswechselFreigabePayload, FLKontoAdresswechselPayload
 from app.core.collections import Collection
 from app.core.exceptions import APIError
-from app.core.security import PASSKEY_FACTOR, StepUpCheck, get_person_confirmation_check
+from app.core.security import PASSKEY_FACTOR, SessionActor
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import ADRESSWECHSEL_WARTEZEIT_TAGE
 from tests import documents
@@ -248,11 +248,10 @@ async def granted(database: AsyncDatabase, adresse: str = EMAIL, *, verwaltung: 
     return grant_id
 
 
-def person_check(*, factor: str | None) -> StepUpCheck:
-    """The person's step-up check over a sign-in a minute old, by passkey or, with `factor` None, by code."""
+def person_actor(*, factor: str | None) -> SessionActor:
+    """The person's session, made a minute ago, by passkey or, with `factor` None, by code."""
 
-    actor = verified_actor(EMAIL, factor=PASSKEY_FACTOR if factor == PASSKEY_FACTOR else "code")
-    return get_person_confirmation_check(actor)
+    return verified_actor(EMAIL, factor=PASSKEY_FACTOR if factor == PASSKEY_FACTOR else "code")
 
 
 def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client: AsyncMongoClient, **given: Any) -> Awaitable[Any]:
@@ -283,8 +282,8 @@ def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, client
             supplied[name] = int(time.time()) - 60
         elif name == "identifier":
             supplied[name] = EMAIL
-        elif name == "refuse_unconfirmed":
-            supplied[name] = person_check(factor=PASSKEY_FACTOR)
+        elif name == "actor":
+            supplied[name] = person_actor(factor=PASSKEY_FACTOR)
 
     return handler(**supplied)
 

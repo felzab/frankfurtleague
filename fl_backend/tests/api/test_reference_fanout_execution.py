@@ -16,7 +16,7 @@ from app.api.spielorte.schemas import FLPatchSpielortPayload, FLPatchSpielortRes
 from app.api.teams.admin_router import patch_team
 from app.api.teams.schemas import FLPatchTeamPayload, FLPatchTeamResponse
 from app.core.collections import Collection
-from tests.actor_tokens import FRESH_STEP_UP_CHECK
+from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.bans import ban_list
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, saison_document, saison_team_document, spiel_document, team_document
@@ -281,7 +281,7 @@ async def rename_the_referee(
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
-        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+        actor=FRESH_ADMIN_ACTOR,
     )
 
 
