@@ -781,13 +781,6 @@ class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
     # Empty where the save seated nobody new: a seat keeping its person keeps their link.
     bestaetigungen: list[FLKontaktMint]
 
-    @computed_field
-    @property
-    def kontakte_stand(self) -> str:
-        """The AFTER image's token: this save has moved the row past what its caller read, so an undo of it can replay against no other."""
-
-        return kontakte_stand_of(None if self.kontakte is None else self.kontakte.model_dump(mode="json"))
-
 
 class FLKontaktEinladenResponse(BaseAPIResponse):
     """A fresh link owed one seat, and its pair where the Trainer holds both; the old link opens nothing from this write on."""

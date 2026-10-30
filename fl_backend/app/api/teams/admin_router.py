@@ -771,8 +771,7 @@ async def patch_saison_team_kontakte(
         return FLPatchSaisonTeamKontakteResponse(
             saison_id=saison_id,
             team_id=team_id,
-            # The AFTER image, not the payload: what the row holds is the claim this echo makes, and
-            # its token is the precondition an undo of this save replays against.
+            # The AFTER image, not the payload: what the row holds is the claim this echo makes.
             kontakte=updated_raw["kontakte"],
             bestaetigungen=[mint for _, mint in links],
         )

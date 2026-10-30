@@ -79,7 +79,6 @@ const saved = (bestaetigungen: unknown[]) => ({
   saison_id: "2627",
   team_id: TEAM_ID,
   kontakte: GESPEICHERT,
-  kontakte_stand: "a1b2",
   bestaetigungen,
 });
 

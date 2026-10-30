@@ -7994,12 +7994,6 @@
               }
             ]
           },
-          "kontakte_stand": {
-            "description": "The AFTER image's token: this save has moved the row past what its caller read, so an undo of it can replay against no other.",
-            "readOnly": true,
-            "title": "Kontakte Stand",
-            "type": "string"
-          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
@@ -8014,8 +8008,7 @@
           "saison_id",
           "team_id",
           "kontakte",
-          "bestaetigungen",
-          "kontakte_stand"
+          "bestaetigungen"
         ],
         "title": "FLPatchSaisonTeamKontakteResponse",
         "type": "object"

@@ -3210,8 +3210,6 @@ export interface FLPatchSaisonTeamKontaktePayload {
 export interface FLPatchSaisonTeamKontakteResponse {
   bestaetigungen: FLKontaktMint[];
   kontakte: FLSaisonTeamKontakte | null;
-  /** The AFTER image's token: this save has moved the row past what its caller read, so an undo of it can replay against no other. */
-  readonly kontakte_stand: string;
   saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
