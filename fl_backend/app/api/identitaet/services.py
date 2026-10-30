@@ -12,7 +12,7 @@ from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
 
-from app.api.berechtigungen.services import OWNER, holds_an_owners_power, lebendige, verwaltung_des
+from app.api.berechtigungen.services import OWNER, holds_an_owners_power, verwaltung_des
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
 from app.api.identitaet.schemas import FLErasureAnsicht, FLSelbstErasureAnsicht, FLSubjekt, FLSubjektSitz
 from app.api.kontakte.services import rows_seating
@@ -703,7 +703,7 @@ def unreferenced(identifiers: Iterable[str], *, referenced: Collection[str]) -> 
 def find_kein_inhaber_refusal(grant_rows: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
     """`REQ-REFERENZEN-001`: no live grant is an `owner`'s, live as every reader of a grant reads one."""
 
-    if any(grant.get("verwaltung") == OWNER for grant in lebendige(grant_rows)):
+    if any(grant.get("verwaltung") == OWNER for grant in grant_rows):
         return None
 
     return WriteRefusal(

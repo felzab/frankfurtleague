@@ -101,23 +101,6 @@ def sign_in_identifier(address: str) -> str:
     return f"{local.translate(_ASCII_LOWER)}@{_folded_domain(domain)}" if at else bare.translate(_ASCII_LOWER)
 
 
-def is_stored_identifier(value: Any) -> bool:
-    """Whether a stored value is an identifier a request can match: a string, its own fold, and one the address rule accepts.
-
-    What a hand-typed row is judged by: the database refuses no spelling.
-    """
-
-    if not isinstance(value, str) or value == "" or sign_in_identifier(value) != value:
-        return False
-
-    try:
-        league_address(value)
-    except ValueError:
-        return False
-
-    return True
-
-
 def canonical_address(address: str) -> str:
     """The form a ban is keyed on; `ValueError` where the address rule refuses the value.
 

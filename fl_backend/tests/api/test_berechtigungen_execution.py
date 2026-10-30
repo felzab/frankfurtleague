@@ -30,7 +30,6 @@ from app.api.berechtigungen.admin_router import (
     post_berechtigung,
 )
 from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
-from app.api.berechtigungen.guard import get_grant_lookup
 from app.api.berechtigungen.schemas import (
     FLBerechtigungStand,
     FLPatchBerechtigungPayload,
@@ -584,22 +583,21 @@ async def list_the_grants(database: AsyncDatabase, client: AsyncMongoClient, als
     )
 
 
-class TestTheListServesLiveGrantsAlone:
-    def test_a_dead_row_is_counted_and_a_barred_address_is_withheld(self, mongo_replica_set_url: str):
-        """Both on one list: the three live rows, one of them barred by a ban the Playground grant predates."""
+class TestTheListWithholdsABarredAddress:
+    def test_a_barred_address_is_withheld(self, mongo_replica_set_url: str):
+        """The three rows, one of them barred by a ban the Playground grant predates."""
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[tuple[str | None, bool, str]], int]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str | None, bool, str]]:
             await database[Collection.SPERRLISTE].insert_one(ban_document(BERND, bis=STANDING))
             listed = await list_the_grants(database, client)
 
-            return [(row.adresse, row.gesperrt, row.verwaltung) for row in listed.berechtigungen], listed.uebersprungen
+            return [(row.adresse, row.gesperrt, row.verwaltung) for row in listed.berechtigungen]
 
-        grants = [*the_three_grants(), grant_document(DEAD_ID, "Dora.Tot@Frankfurtleague.de", "administration")]
-
-        assert on_a_league(mongo_replica_set_url, body, grants=grants) == (
-            [(ANNA, False, "administration"), (None, True, "administration"), (OWNER, False, "owner")],
-            1,
-        )
+        assert on_a_league(mongo_replica_set_url, body) == [
+            (ANNA, False, "administration"),
+            (None, True, "administration"),
+            (OWNER, False, "owner"),
+        ]
 
     def test_a_barred_granting_administrator_is_withheld_as_erteilt_von(self, mongo_replica_set_url: str):
         """The actor field takes the same withholding as the address, flagged as the address is."""
@@ -638,18 +636,6 @@ class TestASecondGrantOfOneAddress:
             on_a_league(mongo_replica_set_url, lambda database, client: refusal_of(grant(database, client, OWNER)))
             == Code.BERECHTIGUNG_VORHANDEN
         )
-
-    def test_a_dead_spelling_of_the_address_blocks_nothing(self, mongo_replica_set_url: str):
-        """The unfolded row admits nobody, so the grant is made beside it rather than refused over it."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
-            await grant(database, client)
-
-            return await addresses(database)
-
-        grants = [*the_three_grants(), grant_document(DEAD_ID, NEU_TYPED, "administration")]
-
-        assert on_a_league(mongo_replica_set_url, body, grants=grants) == sorted([OWNER, ANNA, BERND, NEU, NEU_TYPED])
 
 
 class TestOnlyAnOwnerRevokes:
@@ -775,15 +761,12 @@ class TestAnOwnerChangesATier:
             {OWNER: "owner", ANNA: "administration", BERND: "administration"},
         )
 
-    @pytest.mark.parametrize("target", [ObjectId(), DEAD_ID], ids=["no row", "a dead row"])
-    def test_a_grant_the_list_does_not_serve_is_not_found(self, mongo_replica_set_url: str, target: ObjectId):
-        """A dead row made an owner would be an owner nobody can sign in as."""
-
+    def test_a_grant_the_list_does_not_hold_is_not_found(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
             with pytest.raises(DocumentNotFoundError):
-                await change(database, client, target, "owner")
+                await change(database, client, ObjectId(), "owner")
 
-        on_a_league(mongo_replica_set_url, body, grants=[*the_three_grants(), grant_document(DEAD_ID, DEAD_OWNER, "administration")])
+        on_a_league(mongo_replica_set_url, body)
 
     def test_a_barred_address_is_made_an_owner_by_nobody(self, mongo_replica_set_url: str):
         """`REQ-BERECHTIGUNG-003`, the grant's own refusal: a barred holder is no administrator, so never an owner."""
@@ -852,18 +835,6 @@ class TestAGrantToABarredAddress:
 
         assert on_a_league(mongo_replica_set_url, body) == (Code.SPERRLISTE_VERWALTUNG, 1)
 
-    def test_a_dead_row_of_the_address_blocks_no_ban(self, mongo_replica_set_url: str):
-        """The same reading as the grant's own refusal: a row that admits nobody holds nothing a ban would take away."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            await ban(database, client, NEU)
-
-            return await database[Collection.SPERRLISTE].count_documents({})
-
-        grants = [*the_three_grants(), grant_document(DEAD_ID, NEU_TYPED, "administration")]
-
-        assert on_a_league(mongo_replica_set_url, body, grants=grants) == 1
-
 
 class TestTheFloorOfTwo:
     """`REQ-BERECHTIGUNG-004`: two live, unbarred grants stand whatever is revoked, an `owner` grant counted."""
@@ -879,21 +850,15 @@ class TestTheFloorOfTwo:
 
         assert on_a_league(mongo_replica_set_url, body) == (Code.BERECHTIGUNG_MINDESTZAHL, sorted([OWNER, ANNA]))
 
-    @pytest.mark.parametrize("third", ["dead", "barred"])
-    def test_a_third_grant_that_admits_nobody_does_not_hold_the_floor(self, mongo_replica_set_url: str, third: str):
-        """Counted, a dead or barred row would let the revoke leave one person able to act."""
+    def test_a_barred_third_grant_does_not_hold_the_floor(self, mongo_replica_set_url: str):
+        """Counted, a barred row would let the revoke leave one person able to act."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            if third == "barred":
-                await database[Collection.SPERRLISTE].insert_one(ban_document(BERND, bis=STANDING))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(BERND, bis=STANDING))
 
             return await refusal_of(revoke(database, client, ANNA_ID))
 
-        grants = the_three_grants()
-        if third == "dead":
-            grants[2] = grant_document(BERND_ID, "Bernd.Admin@Frankfurtleague.de", "administration")
-
-        assert on_a_league(mongo_replica_set_url, body, grants=grants) == Code.BERECHTIGUNG_MINDESTZAHL
+        assert on_a_league(mongo_replica_set_url, body) == Code.BERECHTIGUNG_MINDESTZAHL
 
 
 class GrantsRunningARivalAfterTheFirstRead(InterleavedCollection):
@@ -1357,19 +1322,16 @@ class TestWhatTheComparisonStampsOnAGrant:
 class TestWhatMarksARowSeen:
     """`gesehen_am`: once a row's record is gone, what tells an edit since from a paste."""
 
-    def test_every_row_a_pass_reads_is_marked_once_a_dead_one_included(self, mongo_replica_set_url: str):
-        """The dead row is no grant and queues nothing, and is the row a later fold in place makes live."""
-
+    def test_every_row_a_pass_reads_is_marked_once(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> dict[ObjectId, Any]:
             await told(database, client)
             await compared(database, client, now=LATER)
 
             return await gesehen_am(database)
 
-        grants = [*the_three_grants(), grant_document(DEAD_ID, NEU_TYPED, "administration")]
         seen = NOW.astimezone(UTC).replace(tzinfo=None)
 
-        assert on_a_league(mongo_replica_set_url, body, grants=grants) == {OWNER_ID: seen, ANNA_ID: seen, BERND_ID: seen, DEAD_ID: seen}
+        assert on_a_league(mongo_replica_set_url, body) == {OWNER_ID: seen, ANNA_ID: seen, BERND_ID: seen}
 
     def test_a_grant_and_a_tier_change_made_here_mark_the_row_they_record(self, mongo_replica_set_url: str):
         """The tier change meets a paste no pass has read, whose record it writes."""
@@ -1424,32 +1386,6 @@ Edit = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[tuple[str, int]]]
 
 
 async def an_address_changed_in_place(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-    await told(database, client)
-    signed_in = int(time.time()) - 60
-    await database[Collection.BERECHTIGUNGEN].update_one({"_id": BERND_ID}, {"$set": {"adresse": NEU}})
-
-    return NEU, signed_in
-
-
-async def a_dead_spelling_fixed_in_place(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-    """Pasted unfolded weeks ago, which the boot names and no pass records, then folded by hand."""
-
-    weeks_ago = since(14 * 86400)
-    await database[Collection.BERECHTIGUNGEN].insert_one(
-        grant_document(ObjectId.from_datetime(weeks_ago), NEU_TYPED, "administration") | {"erteilt_am": weeks_ago}
-    )
-    await told(database, client)
-    signed_in = int(time.time()) - 600
-    await database[Collection.BERECHTIGUNGEN].update_one({"adresse": NEU_TYPED}, {"$set": {"adresse": NEU}})
-
-    return NEU, signed_in
-
-
-async def repointed_through_a_dead_spelling(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-    """The pass between reads the dead spelling as a revoke and erases the record, so the repoint meets a row with none."""
-
-    await told(database, client)
-    await database[Collection.BERECHTIGUNGEN].update_one({"_id": BERND_ID}, {"$set": {"adresse": BERND.upper()}})
     await told(database, client)
     signed_in = int(time.time()) - 60
     await database[Collection.BERECHTIGUNGEN].update_one({"_id": BERND_ID}, {"$set": {"adresse": NEU}})
@@ -1550,8 +1486,6 @@ class TestTheMountedRouteReadsTheGrants:
         "edit",
         [
             pytest.param(an_address_changed_in_place, id="an address changed in place"),
-            pytest.param(a_dead_spelling_fixed_in_place, id="a dead spelling fixed in place"),
-            pytest.param(repointed_through_a_dead_spelling, id="repointed through a dead spelling past a pass"),
             pytest.param(removed_and_put_back_whole, id="removed and put back whole past a pass"),
             pytest.param(granted_and_revoked_here_then_put_back, id="granted and revoked here, then put back whole"),
         ],
@@ -1702,22 +1636,6 @@ class TestTheMountedRouteReadsTheGrants:
             return response.status_code
 
         assert on_a_league(mongo_replica_set_url, body) == 200
-
-    def test_the_lookup_admits_a_live_row_and_no_dead_one_of_the_same_equality(self, mongo_replica_set_url: str):
-        """A folded row the address rule refuses equals its own header and still admits nobody."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[datetime | None]:
-            grant_since = get_grant_lookup(
-                database[Collection.BERECHTIGUNGEN],
-                ban_list(database),
-            )
-
-            return [await grant_since(ANNA), await grant_since("jürgen@frankfurtleague.de")]
-
-        grants = [*the_three_grants(), grant_document(DEAD_ID, "jürgen@frankfurtleague.de", "administration")]
-
-        # The live row dated as `berechtigt_seit` dates it, the offset marked, for the comparison with `auth_time`.
-        assert on_a_league(mongo_replica_set_url, body, grants=grants) == [datetime(2026, 1, 1, tzinfo=UTC), None]
 
 
 async def demoted_through_the_tier_change(database: AsyncDatabase, client: AsyncMongoClient) -> None:

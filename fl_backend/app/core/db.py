@@ -16,7 +16,6 @@ from app.core.config import MONGODB_URI_FILE, BackendConfig, get_app_config
 from app.core.constraints import apply_constraints
 from app.core.exceptions import APIError
 from app.core.logging import fl_logger
-from app.shared.folding import is_stored_identifier
 
 
 class Refusal(NamedTuple):
@@ -75,31 +74,21 @@ class BootWarning(NamedTuple):
 
 NO_GRANT = BootWarning("berechtigungen holds no live grant, so nobody can enter the administration.", "SRV-BOOT-005")
 NO_OWNER = BootWarning("berechtigungen holds no live owner row, so no grant is out of an administrator's reach.", "SRV-BOOT-006")
-DEAD_GRANT = BootWarning(
-    "berechtigungen holds {count} grant(s) whose address is empty, unfolded or refused by the address rule, which admit nobody.",
-    "SRV-BOOT-007",
-)
 
 
 async def warn_about_the_grants(berechtigungen_collection: AsyncCollection) -> None:
-    """Name a list that admits nobody, protects nobody, or holds a row no request matches: at boot, and after an erasure took a grant.
+    """Name a list that admits nobody or protects nobody: at boot, and after an erasure took a grant.
 
     Counts alone reach the line and never an address: the log outlives the grants it describes.
     """
 
-    grants = await berechtigungen_collection.find({}, projection={"adresse": 1, "verwaltung": 1}).to_list(length=None)
-    # The one reading every reader of a grant takes: the store refuses no spelling, so a hand-typed
-    # row may be stored that no request matches.
-    live = [grant for grant in grants if is_stored_identifier(grant.get("adresse"))]
+    grants = await berechtigungen_collection.find({}, projection={"verwaltung": 1}).to_list(length=None)
 
-    if len(live) < len(grants):
-        fl_logger.warning(DEAD_GRANT.sentence.format(count=len(grants) - len(live)), extra={"error_code": DEAD_GRANT.error_code})
-
-    if not live:
+    if not grants:
         fl_logger.warning(NO_GRANT.sentence, extra={"error_code": NO_GRANT.error_code})
         return
 
-    if all(grant.get("verwaltung") != "owner" for grant in live):
+    if all(grant.get("verwaltung") != "owner" for grant in grants):
         fl_logger.warning(NO_OWNER.sentence, extra={"error_code": NO_OWNER.error_code})
 
 

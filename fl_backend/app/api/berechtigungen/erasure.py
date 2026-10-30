@@ -17,7 +17,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.crud import OFFENE_MITTEILUNG, owe_in_session
 from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungStand
-from app.api.berechtigungen.services import Mitteilung, compare, compose_mitteilung, lebendige_adresse, stand_of
+from app.api.berechtigungen.services import Mitteilung, compare, compose_mitteilung, stand_of
 from app.api.kontakte.services import same_address
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db
@@ -212,8 +212,7 @@ async def erase_grants_and_authorship_in_session(
         # A database edit to the row nobody was told of goes out first, as a revoke's does;
         # `geaendert_von` null names the database as its source.
         changes += [(*change, None) for change in compare(grants=[grant], announced=[] if record is None else [record])]
-        if lebendige_adresse(grant) is not None:
-            changes.append((grant["_id"], "entzogen", None, stand_of(grant), geaendert_von))
+        changes.append((grant["_id"], "entzogen", None, stand_of(grant), geaendert_von))
     for record in records:
         if record["_id"] not in grant_ids:
             # The row it was kept for now names somebody else, or nothing: the pass announces that one.

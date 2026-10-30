@@ -2516,7 +2516,7 @@
         "type": "object"
       },
       "FLBerechtigungenListResponse": {
-        "description": "Every live grant, never in part, and every request still waiting.",
+        "description": "Every grant, never in part, and every request still waiting.",
         "properties": {
           "antraege": {
             "items": {
@@ -2531,16 +2531,10 @@
             },
             "title": "Berechtigungen",
             "type": "array"
-          },
-          "uebersprungen": {
-            "minimum": 0.0,
-            "title": "Uebersprungen",
-            "type": "integer"
           }
         },
         "required": [
           "berechtigungen",
-          "uebersprungen",
           "antraege"
         ],
         "title": "FLBerechtigungenListResponse",
@@ -19162,7 +19156,7 @@
     },
     "/api/v0/berechtigungen": {
       "get": {
-        "description": "List every live grant of access to the administration, by address: its tier, who granted it and when.\n\nUncapped, as few people hold one. A row whose address no request can match -- empty, unfolded or refused by the address rule --\nadmits nobody and is left out, counted in `uebersprungen`. An address on the ban list is answered as `null` beside `gesperrt`,\nnever in plain, and so is a barred `erteilt_von`, beside `erteilt_von_gesperrt`; it is otherwise an administrator's address\nfor a grant made here and whatever the database edit wrote for one made there.\n\n`adresswechsel` names the change of a grant's address waiting on an administrator's approval: its new address, how it was\nstarted (`weg`), the administrator who started it and the reason they recorded, and why this administrator may not approve\nit, where they may not: their own, one they started, or an owner's without an owner's power\n(`POST /adresswechsel/{adresswechsel_id}/genehmigung`); and why the address tool refuses it them (`einsehbar_verwehrt`). An\nowner's change withholds its new address, starter and reason from that non-owner, as the address tool refuses them an\nowner's address; a barred new address or starter is withheld as on a grant's row. A change any step of which lapsed is\nleft out: its approval is refused, and the next hourly pass ends it.\n\n`antraege` lists every grant and promotion waiting on a second administrator's approval and not yet lapsed, oldest first:\nthe address, the tier asked, who asked and when, until when it waits, whether its requester still holds that tier since\nbefore it (`steht`), and why this administrator may not approve it, where they may not. A barred address is withheld as on a\ngrant's row.",
+        "description": "List every grant of access to the administration, by address: its tier, who granted it and when.\n\nUncapped, as few people hold one. An address on the ban list is answered as `null` beside `gesperrt`,\nnever in plain, and so is a barred `erteilt_von`, beside `erteilt_von_gesperrt`; it is otherwise an administrator's address\nfor a grant made here and whatever the database edit wrote for one made there.\n\n`adresswechsel` names the change of a grant's address waiting on an administrator's approval: its new address, how it was\nstarted (`weg`), the administrator who started it and the reason they recorded, and why this administrator may not approve\nit, where they may not: their own, one they started, or an owner's without an owner's power\n(`POST /adresswechsel/{adresswechsel_id}/genehmigung`); and why the address tool refuses it them (`einsehbar_verwehrt`). An\nowner's change withholds its new address, starter and reason from that non-owner, as the address tool refuses them an\nowner's address; a barred new address or starter is withheld as on a grant's row. A change any step of which lapsed is\nleft out: its approval is refused, and the next hourly pass ends it.\n\n`antraege` lists every grant and promotion waiting on a second administrator's approval and not yet lapsed, oldest first:\nthe address, the tier asked, who asked and when, until when it waits, whether its requester still holds that tier since\nbefore it (`steht`), and why this administrator may not approve it, where they may not. A barred address is withheld as on a\ngrant's row.",
         "operationId": "berechtigungen_get_berechtigungen",
         "responses": {
           "200": {
@@ -19227,7 +19221,7 @@
         ]
       },
       "post": {
-        "description": "Grant an address access to the administration, as `administration`, or ask another administrator to. No request grants `owner`.\n\n**Four eyes**: where another administrator could approve it -- a live, unbarred grant in effect now, neither this administrator\nnor the address -- the grant is not made: a request is, answered with `beantragt` set and its id, and the grant takes effect\nonly on that approval (`POST /berechtigungen/antraege/{antrag_id}/genehmigung`). A lone administrator grants alone.\n\nThe address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live\ngrant already holds the address (`REQ-BERECHTIGUNG-001`) -- a dead row of another spelling blocks nothing -- where the ban list\nholds it (`REQ-BERECHTIGUNG-003`), and where a request about it waits already (`REQ-BERECHTIGUNG-008`). The grant takes effect on\nthe next request, for a session signed in after it alone -- an older one is refused `REQ-AUTH-007` on every admin-tier route -- and\nits announcement is owed to every administrator in the same transaction. Like a revoke and a tier\nchange, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES`, refused `REQ-AUTH-009` otherwise.",
+        "description": "Grant an address access to the administration, as `administration`, or ask another administrator to. No request grants `owner`.\n\n**Four eyes**: where another administrator could approve it -- a live, unbarred grant in effect now, neither this administrator\nnor the address -- the grant is not made: a request is, answered with `beantragt` set and its id, and the grant takes effect\nonly on that approval (`POST /berechtigungen/antraege/{antrag_id}/genehmigung`). A lone administrator grants alone.\n\nThe address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live\ngrant already holds the address (`REQ-BERECHTIGUNG-001`), where the ban list\nholds it (`REQ-BERECHTIGUNG-003`), and where a request about it waits already (`REQ-BERECHTIGUNG-008`). The grant takes effect on\nthe next request, for a session signed in after it alone -- an older one is refused `REQ-AUTH-007` on every admin-tier route -- and\nits announcement is owed to every administrator in the same transaction. Like a revoke and a tier\nchange, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES`, refused `REQ-AUTH-009` otherwise.",
         "operationId": "berechtigungen_post_berechtigung",
         "requestBody": {
           "content": {

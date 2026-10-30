@@ -22,8 +22,6 @@ from app.api.berechtigungen.services import (
     compose_announced,
     compose_mitteilung,
     inhaber_seit,
-    lebendige,
-    lebendige_adresse,
     stand_of,
 )
 from app.api.postausgang.schemas import FLBerechtigungDaten, FLPostausgangBezug
@@ -120,7 +118,7 @@ async def _grant_and_its_record(
 async def verwaltung_of(*, berechtigungen_collection: AsyncCollection, adresse: str) -> tuple[FLVerwaltung, datetime, datetime | None] | None:
     """The tier this address holds, and when the grant and the tier took effect, or `None`.
 
-    No dead-row check: each caller folds an address the address rule admitted, and a row equal to
+    Each caller folds an address the address rule admitted, and a row equal to
     that is live.
     """
 
@@ -159,7 +157,7 @@ async def live_unbarred_grant_since(
         _grant_and_its_record(berechtigungen_collection=berechtigungen_collection, adresse=identifier, fields=[]),
         adressen_gesperrt(sperrliste, [identifier]),
     )
-    if grant is None or lebendige_adresse(grant[0]) is None or barred:
+    if grant is None or barred:
         return None
 
     return berechtigt_seit(*grant)
@@ -193,7 +191,7 @@ async def owe_in_session(
     holders: set[str] = set()
     if an is None:
         grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
-        holders = {str(row["adresse"]) for row in lebendige(grants)}
+        holders = {str(row["adresse"]) for row in grants}
 
     for mitteilung in mitteilungen:
         daten = FLBerechtigungDaten.model_validate(mitteilung.daten)
@@ -322,18 +320,17 @@ async def revoke_in_session(
         compose_mitteilung(berechtigung_id=changed_id, art=art, jetzt=jetzt, vorher=vorher, geaendert_von=None, now=now, gesperrt=gesperrt)
         for changed_id, art, jetzt, vorher in compare(grants=[grant], announced=announced)
     ]
-    if lebendige_adresse(grant) is not None:
-        mitteilungen.append(
-            compose_mitteilung(
-                berechtigung_id=grant["_id"],
-                art="entzogen",
-                jetzt=None,
-                vorher=stand_of(grant),
-                geaendert_von=entzogen_von,
-                now=now,
-                gesperrt=gesperrt,
-            )
+    mitteilungen.append(
+        compose_mitteilung(
+            berechtigung_id=grant["_id"],
+            art="entzogen",
+            jetzt=None,
+            vorher=stand_of(grant),
+            geaendert_von=entzogen_von,
+            now=now,
+            gesperrt=gesperrt,
         )
+    )
 
     await delete_many_from_db(collection=berechtigungen_collection, db_filter={"_id": grant["_id"]}, session=session)
     # The grant keeps its image, the administrator's act; its announced row is bookkeeping and keeps

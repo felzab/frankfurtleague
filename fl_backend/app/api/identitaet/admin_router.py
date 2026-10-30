@@ -8,7 +8,6 @@ from app.api.adresswechsel.crud import others_naming
 from app.api.berechtigungen.antraege import read_the_antraege_of
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.berechtigungen.services import lebendige
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, ErasureJournal, erase_everything, resolve_subject
 from app.api.identitaet.schemas import (
     FLAbmeldungResponse,
@@ -216,7 +215,7 @@ async def get_erasure_ansicht_auf_anfrage(
         unplayed_rows=unplayed_rows,
     )
     # A live row is its own fold, so equality is the fold's judgement.
-    own = next((grant for grant in lebendige(grants) if grant["adresse"] == identifier), None)
+    own = next((grant for grant in grants if grant["adresse"] == identifier), None)
 
     return FLErasureAnsichtResponse(**ansicht.model_dump(), verwaltung=None if own is None else own["verwaltung"], gesperrt=bool(gesperrt))
 
@@ -290,7 +289,7 @@ async def erase_auf_anfrage(
         )
         # Ending a live grant asks what a revoke asks. A live row is its own fold,
         # so equality is the fold's judgement.
-        if any(grant["adresse"] == identifier for grant in lebendige(grants)):
+        if any(grant["adresse"] == identifier for grant in grants):
             verify_recent_confirmation(actor)
 
         # Ahead of the erasure's first write, and in its snapshot: a retry judges the changes afresh.

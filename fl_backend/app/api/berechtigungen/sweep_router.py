@@ -5,7 +5,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.berechtigungen.crud import owe_in_session, pull_the_list_to_judge, read_berechtigungen, read_the_announced
 from app.api.berechtigungen.schemas import FLBerechtigungAbgleichResponse
-from app.api.berechtigungen.services import compare, compose_announced, compose_mitteilung, ernannt, gefunden, lebendige
+from app.api.berechtigungen.services import compare, compose_announced, compose_mitteilung, ernannt, gefunden
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION
 from app.core.crud import erase_many_from_db, patch_many_in_db, post_many_to_db
@@ -62,7 +62,7 @@ async def post_berechtigungen_abgleich(
             named = {
                 stand.adresse for _, _, jetzt, vorher in changes for stand in (jetzt, vorher) if stand is not None and stand.adresse is not None
             }
-            barred = await adressen_gesperrt(sperrliste, {str(row["adresse"]) for row in lebendige(grants)} | named, session=session)
+            barred = await adressen_gesperrt(sperrliste, {str(row["adresse"]) for row in grants} | named, session=session)
             await owe_in_session(
                 [
                     compose_mitteilung(
@@ -106,7 +106,7 @@ async def post_berechtigungen_abgleich(
                     session=session,
                 )
 
-        # Every row no pass has read, a dead one included: once its record is gone, this mark tells an
+        # Every row no pass has read: once its record is gone, this mark tells an
         # edit made since from a paste nothing has seen. The unseen
         # alone, so a quiet pass writes nothing.
         if unseen := [row["_id"] for row in grants if row.get("gesehen_am") is None]:

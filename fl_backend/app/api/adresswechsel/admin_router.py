@@ -58,7 +58,7 @@ from app.api.adresswechsel.services import (
 )
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.berechtigungen.services import genehmiger_of, genehmigung_verwehrt, holds_an_owners_power, lebendige
+from app.api.berechtigungen.services import genehmiger_of, genehmigung_verwehrt, holds_an_owners_power
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.services import JEDE_VERWALTUNG, find_eigene_adresse_refusal, find_verwaltung_adresse_refusal
 from app.api.postausgang.schemas import FLPostausgangLage
@@ -244,7 +244,7 @@ async def _refuse_without_genehmiger(
     """Refused `-011` where nobody but the start's actor could approve a change of this address's grant."""
 
     assert bestand.berechtigung is not None
-    gesperrt = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in lebendige(grants)], session=session)
+    gesperrt = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in grants], session=session)
     genehmiger = genehmiger_of(
         verwaltung=str(bestand.berechtigung["verwaltung"]),
         ausgenommen={bestand.identifier, akteur},

@@ -283,21 +283,9 @@ class TestWhatLetsAnAccountGo:
 class TestALeagueWithoutAnOwner:
     """An empty or foreign database answers every address unreferenced, and the sweep would delete every account on it."""
 
-    @pytest.mark.parametrize(
-        "seeded",
-        [
-            pytest.param(False, id="an empty database"),
-            pytest.param(True, id="a league whose only owner row no request matches"),
-        ],
-    )
-    def test_the_whole_batch_is_refused(self, mongo_replica_set_url: str, seeded: bool):
-        """The second case holds an administrator's live grant and an owner's dead one: only a live `owner` lets the read answer."""
-
+    def test_the_whole_batch_is_refused(self, mongo_replica_set_url: str):
         async def _run() -> tuple[int, Mapping[str, Any]]:
-            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (_, database):
-                if seeded:
-                    await _seed(database, inhaberin=INHABERIN.capitalize())
-
+            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True):
                 return await _ask(mongo_replica_set_url, [NIEMAND, SITZ_OFFEN])
 
         status, body = on_the_seed_loop(_run())

@@ -44,7 +44,7 @@ from app.api.aktionen.crud import (
 from app.api.berechtigungen.antraege import antrag_line, build_offen_filter, end_the_antraege_about_in_session
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
 from app.api.berechtigungen.erasure import carry_authorship_in_session
-from app.api.berechtigungen.services import compose_fortgefuehrt, genehmigung_steht, lebendige_adresse
+from app.api.berechtigungen.services import compose_fortgefuehrt, genehmigung_steht
 from app.api.identitaet.lookup import RecordCollections
 from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt, eigene_sitze, ist_eigener_schiedsrichter
 from app.api.kontakte.services import find_matching_slots, rows_seating, same_address
@@ -124,11 +124,9 @@ class Bestand:
 async def live_grant_of(
     identifier: str, *, berechtigungen_collection: AsyncCollection, session: AsyncClientSession | None
 ) -> Mapping[str, Any] | None:
-    """The live grant this folded address holds, by `uniq_berechtigung_adresse`'s equality; a dead row admits nobody and moves with nothing."""
+    """The grant this folded address holds, by `uniq_berechtigung_adresse`'s equality."""
 
-    row = await berechtigungen_collection.find_one({"adresse": identifier}, session=session)
-
-    return row if row is not None and lebendige_adresse(row) is not None else None
+    return await berechtigungen_collection.find_one({"adresse": identifier}, session=session)
 
 
 async def read_the_bestand(

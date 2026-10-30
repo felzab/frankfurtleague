@@ -6,7 +6,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.adresswechsel.crud import known_to_the_new_mailbox, others_naming
 from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen
-from app.api.berechtigungen.services import lebendige
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, ErasureJournal, erase_everything, resolve_subject
 from app.api.identitaet.schemas import FLErasureResponse, FLSelbstErasureAnsichtResponse
 from app.api.identitaet.services import (
@@ -113,7 +112,7 @@ async def erase_selbst(
     """
 
     async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
-        grants = lebendige(await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session))
+        grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
         # A grant holder's grants go with the rest, so the erasure asks the passkey a revoke asks. A live
         # row is its own fold, so equality is the fold's judgement.
         if any(grant["adresse"] == identifier for grant in grants):
@@ -231,7 +230,7 @@ async def get_erasure_ansicht(
             else []
         )
         # The press's own judgement, on this snapshot rather than the press's: two owners can still leave between them.
-        grants = lebendige(await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session))
+        grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
         # A live row is its own fold, so equality is the fold's judgement.
         own = next((grant for grant in grants if grant["adresse"] == identifier), None)
         letzter_inhaber = holds_an_owner_grant(identifier, grants) and (

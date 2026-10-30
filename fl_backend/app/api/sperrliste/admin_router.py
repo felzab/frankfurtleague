@@ -8,7 +8,6 @@ from pymongo.results import InsertOneResult
 
 from app.api.berechtigungen.crud import pull_the_list_to_judge, withhold_in_the_postausgang
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.berechtigungen.services import lebendige
 from app.api.postausgang.schemas import FLSperreDaten
 from app.api.postausgang.services import enqueue_mail
 from app.api.saisons.crud import pull_massgebliche_saison_id
@@ -156,7 +155,7 @@ async def post_sperrliste_eintrag(
         refuse(
             find_verwaltung_refusal(
                 gehasht=gehasht,
-                berechtigt=berechtigte_hashes([str(grant["adresse"]) for grant in lebendige(grants)], schluessel=config.sperrliste_schluessel),
+                berechtigt=berechtigte_hashes([str(grant["adresse"]) for grant in grants], schluessel=config.sperrliste_schluessel),
             )
         )
 

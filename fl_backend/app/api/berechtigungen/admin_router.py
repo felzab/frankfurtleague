@@ -58,7 +58,6 @@ from app.api.berechtigungen.services import (
     genehmiger_of,
     genehmigung_verwehrt,
     holds_an_owners_power,
-    lebendige,
     stand_of,
 )
 from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt
@@ -108,10 +107,9 @@ async def get_berechtigungen(
     now: datetime = Depends(get_germany_now),
 ) -> FLBerechtigungenListResponse:
     """
-    List every live grant of access to the administration, by address: its tier, who granted it and when.
+    List every grant of access to the administration, by address: its tier, who granted it and when.
 
-    Uncapped, as few people hold one. A row whose address no request can match -- empty, unfolded or refused by the address rule --
-    admits nobody and is left out, counted in `uebersprungen`. An address on the ban list is answered as `null` beside `gesperrt`,
+    Uncapped, as few people hold one. An address on the ban list is answered as `null` beside `gesperrt`,
     never in plain, and so is a barred `erteilt_von`, beside `erteilt_von_gesperrt`; it is otherwise an administrator's address
     for a grant made here and whatever the database edit wrote for one made there.
 
@@ -135,8 +133,7 @@ async def get_berechtigungen(
         rows = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
         announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
         antraege = await read_the_antraege(berechtigungen_antraege_collection=berechtigungen_antraege_collection, now=now, session=session)
-        live = lebendige(rows)
-        grants = [FLBerechtigung.model_validate(row) for row in live]
+        grants = [FLBerechtigung.model_validate(row) for row in rows]
         barred = await adressen_gesperrt(
             sperrliste,
             [grant.adresse for grant in grants]
@@ -189,7 +186,6 @@ async def get_berechtigungen(
 
     return FLBerechtigungenListResponse(
         berechtigungen=served,
-        uebersprungen=len(rows) - len(live),
         antraege=[
             _antrag_zeile(antrag, akteur=akteur, inhaber=inhaber, grants=rows, announced=announced, barred=barred) for antrag in antraege
         ],
@@ -288,7 +284,7 @@ async def post_berechtigung(
     only on that approval (`POST /berechtigungen/antraege/{antrag_id}/genehmigung`). A lone administrator grants alone.
 
     The address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live
-    grant already holds the address (`REQ-BERECHTIGUNG-001`) -- a dead row of another spelling blocks nothing -- where the ban list
+    grant already holds the address (`REQ-BERECHTIGUNG-001`), where the ban list
     holds it (`REQ-BERECHTIGUNG-003`), and where a request about it waits already (`REQ-BERECHTIGUNG-008`). The grant takes effect on
     the next request, for a session signed in after it alone -- an older one is refused `REQ-AUTH-007` on every admin-tier route -- and
     its announcement is owed to every administrator in the same transaction. Like a revoke and a tier
@@ -412,7 +408,7 @@ async def _genehmiger(
     """
 
     announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
-    barred = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in lebendige(grants)], session=session)
+    barred = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in grants], session=session)
 
     return genehmiger_of(verwaltung=verwaltung, ausgenommen=ausgenommen, grants=grants, announced=announced, gesperrt=barred, vor=now)
 
@@ -462,7 +458,7 @@ async def delete_berechtigung(
 
         refuse(find_inhaber_refusal(grant=grant))
 
-        live = lebendige(grants)
+        live = grants
         barred = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in live], session=session)
         remaining = [row for row in live if row["_id"] != berechtigung_id and row["adresse"] not in barred]
         refuse(find_mindestzahl_refusal(remaining=len(remaining)))
@@ -535,7 +531,7 @@ async def patch_berechtigung(
         records = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
         refuse(find_nur_inhaber_refusal(akteur=akteur, auth_time=auth_time, grants=grants, announced=records))
 
-        live = lebendige(grants)
+        live = grants
         # A live row alone: the list serves no other, and an owner nobody can sign in as could demote nobody back.
         grant = next((row for row in live if row["_id"] == berechtigung_id), None)
         if grant is None:
@@ -730,7 +726,7 @@ async def post_antrag_genehmigung(
         # Written, so a revoke or a demotion of the approver or the requester committing beside it conflicts.
         grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
         records = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
-        barred = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in lebendige(grants)] + [adresse], session=session)
+        barred = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in grants] + [adresse], session=session)
 
         inhaber = holds_an_owners_power(akteur=akteur, auth_time=auth_time, grants=grants, announced=records)
         refuse(
@@ -768,7 +764,7 @@ async def post_antrag_genehmigung(
             return created_id
 
         # The grant the request named, at the address it named: one repointed in the database since is somebody else's.
-        grant = next((row for row in lebendige(grants) if row["_id"] == antrag["berechtigung_id"] and row["adresse"] == adresse), None)
+        grant = next((row for row in grants if row["_id"] == antrag["berechtigung_id"] and row["adresse"] == adresse), None)
         if grant is None:
             raise DocumentNotFoundError()
         if grant["verwaltung"] != OWNER:

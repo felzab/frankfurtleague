@@ -739,10 +739,9 @@ export const getBerechtigungenGetBerechtigungenUrl = () => {
 };
 
 /**
- * List every live grant of access to the administration, by address: its tier, who granted it and when.
+ * List every grant of access to the administration, by address: its tier, who granted it and when.
  *
- * Uncapped, as few people hold one. A row whose address no request can match -- empty, unfolded or refused by the address rule --
- * admits nobody and is left out, counted in `uebersprungen`. An address on the ban list is answered as `null` beside `gesperrt`,
+ * Uncapped, as few people hold one. An address on the ban list is answered as `null` beside `gesperrt`,
  * never in plain, and so is a barred `erteilt_von`, beside `erteilt_von_gesperrt`; it is otherwise an administrator's address
  * for a grant made here and whatever the database edit wrote for one made there.
  *
@@ -781,7 +780,7 @@ export const getBerechtigungenPostBerechtigungUrl = () => {
  * only on that approval (`POST /berechtigungen/antraege/{antrag_id}/genehmigung`). A lone administrator grants alone.
  *
  * The address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live
- * grant already holds the address (`REQ-BERECHTIGUNG-001`) -- a dead row of another spelling blocks nothing -- where the ban list
+ * grant already holds the address (`REQ-BERECHTIGUNG-001`), where the ban list
  * holds it (`REQ-BERECHTIGUNG-003`), and where a request about it waits already (`REQ-BERECHTIGUNG-008`). The grant takes effect on
  * the next request, for a session signed in after it alone -- an older one is refused `REQ-AUTH-007` on every admin-tier route -- and
  * its announcement is owed to every administrator in the same transaction. Like a revoke and a tier

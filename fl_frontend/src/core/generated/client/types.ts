@@ -1393,13 +1393,11 @@ export interface FLBerechtigungZeile {
 }
 
 /**
- * Every live grant, never in part, and every request still waiting.
+ * Every grant, never in part, and every request still waiting.
  */
 export interface FLBerechtigungenListResponse {
   antraege: FLBerechtigungAntragZeile[];
   berechtigungen: FLBerechtigungZeile[];
-  /** @minimum 0 */
-  uebersprungen: number;
 }
 
 /**

@@ -45,7 +45,7 @@ class FLBerechtigungFortgefuehrt(BaseModel):
 
 
 class FLBerechtigung(BaseModel):
-    """One grant as the collection stores it, read only once `app/shared/folding.py :: is_stored_identifier` has passed its address."""
+    """One grant as the collection stores it, its address folded as the sign-in folds it."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     adresse: CustomNonEmptyString
@@ -57,7 +57,7 @@ class FLBerechtigung(BaseModel):
     # Absent until a comparison finds the row new, and never written by a grant made here: a paste's
     # `erteilt_am` is whatever was typed, and an address changed in place keeps the old one.
     gefunden_am: datetime | None = None
-    # Written once, by the first pass to read the row, dead or live, or by the write here that first
+    # Written once, by the first pass to read the row, or by the write here that first
     # records it: a row carrying it and no record was edited after it was seen.
     gesehen_am: datetime | None = None
     # When the row last became `owner` by a promotion, written by the tier change and by a comparison
@@ -154,11 +154,9 @@ class FLBerechtigungAntragZeile(BaseModel):
 
 
 class FLBerechtigungenListResponse(BaseAPIResponse):
-    """Every live grant, never in part, and every request still waiting."""
+    """Every grant, never in part, and every request still waiting."""
 
     berechtigungen: list[FLBerechtigungZeile]
-    # The rows no request can match, left out rather than failing the page.
-    uebersprungen: int = Field(ge=0)
     # Every request not yet lapsed, oldest first.
     antraege: list[FLBerechtigungAntragZeile]
 

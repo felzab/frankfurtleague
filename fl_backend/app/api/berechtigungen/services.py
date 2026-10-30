@@ -18,7 +18,7 @@ from app.api.sperrliste.services import withheld_actor
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.core.security import signed_in_since
-from app.shared.folding import is_stored_identifier, sign_in_identifier
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import FLGenehmigungVerwehrt
 
 # An `owner` grant counts among the two, being a row no route can remove: a floor one `owner` alone
@@ -26,17 +26,6 @@ from app.shared.schemas.literals import FLGenehmigungVerwehrt
 MINDESTZAHL: Final = 2
 
 OWNER: Final = "owner"
-
-
-def lebendige_adresse(row: Mapping[str, Any]) -> str | None:
-    """The address a stored grant admits, or `None` for a dead row, which every reader skips.
-
-    Every reader takes this one reading: two readers disagreeing is one mailbox holding two rows.
-    """
-
-    adresse = row.get("adresse")
-
-    return adresse if is_stored_identifier(adresse) else None
 
 
 def berechtigt_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None) -> datetime | None:
@@ -47,7 +36,7 @@ def berechtigt_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | No
 
     seit = as_utc(row.get("gefunden_am") or row["erteilt_am"])
     if angekuendigt is None:
-        # Seen before and its record gone since: made live from a dead spelling, repointed past the pass
+        # Seen before and its record gone since: repointed past the pass
         # that erased its record, or put back whole. Every date it carries, its id's included, is from
         # before that edit.
         if row.get("gesehen_am") is not None:
@@ -100,21 +89,14 @@ def ernannt(
     ]
 
 
-def lebendige(grants: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
-    return [grant for grant in grants if lebendige_adresse(grant) is not None]
-
-
 def verwaltung_des(adresse: str, grants: Sequence[Mapping[str, Any]]) -> str | None:
     """The tier this folded address holds among the live grants, or `None`."""
 
-    return next((str(grant["verwaltung"]) for grant in lebendige(grants) if grant["adresse"] == adresse), None)
+    return next((str(grant["verwaltung"]) for grant in grants if grant["adresse"] == adresse), None)
 
 
 def find_vorhanden_refusal(*, adresse: str, grants: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
-    """`REQ-BERECHTIGUNG-001`: a live grant already holds the address, of either tier.
-
-    A dead spelling of it admits nobody and blocks nothing, so the grant is made beside it.
-    """
+    """`REQ-BERECHTIGUNG-001`: a grant already holds the address, of either tier."""
 
     if verwaltung_des(adresse, grants) is None:
         return None
@@ -131,7 +113,7 @@ def holds_an_owners_power(*, akteur: str, auth_time: int, grants: Sequence[Mappi
     One judgement for every refusal keyed on an owner's power, so no two of them can part on who holds it.
     """
 
-    row = next((grant for grant in lebendige(grants) if grant["adresse"] == akteur), None)
+    row = next((grant for grant in grants if grant["adresse"] == akteur), None)
     record = None if row is None else next((entry for entry in announced if entry["_id"] == row["_id"]), None)
     seit = None if row is None else inhaber_seit(row, record)
 
@@ -186,7 +168,7 @@ def find_inhaber_refusal(*, grant: Mapping[str, Any]) -> WriteRefusal | None:
 def find_mindestzahl_refusal(*, remaining: int) -> WriteRefusal | None:
     """`REQ-BERECHTIGUNG-004`: a revoke leaves at least `MINDESTZAHL` live, unbarred grants, any `owner` grant among them.
 
-    Counted over the grants that admit somebody: a dead or barred row counted would let the floor
+    Counted over the unbarred grants: a barred row counted would let the floor
     hold while one person alone could still act.
     """
 
@@ -202,7 +184,7 @@ def find_mindestzahl_refusal(*, remaining: int) -> WriteRefusal | None:
 def find_letzter_inhaber_refusal(*, remaining_owners: int) -> WriteRefusal | None:
     """`REQ-BERECHTIGUNG-007`: a demotion leaves at least one live, unbarred `owner`.
 
-    Counted as the floor of two is: a dead or barred `owner` row admits nobody, so it could demote
+    Counted as the floor of two is: a barred `owner` row admits nobody, so it could demote
     nobody back and grant nothing.
     """
 
@@ -222,12 +204,12 @@ def stand_of(row: Mapping[str, Any]) -> FLBerechtigungStand:
 def compare(
     *, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
 ) -> list[tuple[Any, FLBerechtigungAenderungArt, FLBerechtigungStand | None, FLBerechtigungStand | None]]:
-    """Every live grant whose state differs from the announced record, in id order; a dead row reads as no grant.
+    """Every grant whose state differs from the announced record, in id order.
 
     Keyed on the grant's id, never its address, or a revoke and a re-grant cancel out unannounced.
     """
 
-    jetzt = {row["_id"]: stand_of(row) for row in lebendige(grants)}
+    jetzt = {row["_id"]: stand_of(row) for row in grants}
     vorher = {row["_id"]: stand_of(row) for row in announced}
 
     changes: list[tuple[Any, FLBerechtigungAenderungArt, FLBerechtigungStand | None, FLBerechtigungStand | None]] = []
@@ -336,7 +318,7 @@ def haelt_seit(
     A grant made after a request approves nothing of it, or one person could grant a second mailbox and approve with it.
     """
 
-    row = next((grant for grant in lebendige(grants) if grant["adresse"] == adresse), None)
+    row = next((grant for grant in grants if grant["adresse"] == adresse), None)
     if row is None:
         return False
     record = next((entry for entry in announced if entry["_id"] == row["_id"]), None)
@@ -362,7 +344,7 @@ def genehmiger_of(
 
     return [
         str(row["adresse"])
-        for row in lebendige(grants)
+        for row in grants
         if row["adresse"] not in ausgenommen
         and row["adresse"] not in gesperrt
         and haelt_seit(str(row["adresse"]), verwaltung=verwaltung, vor=vor, grants=grants, announced=announced)

@@ -35,7 +35,7 @@ from app.api.adresswechsel.services import (
     wartet_auf,
 )
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
-from app.api.berechtigungen.services import genehmiger_of, lebendige
+from app.api.berechtigungen.services import genehmiger_of
 from app.api.identitaet.crud import funktionen_aus
 from app.api.identitaet.lookup import RecordCollections, SubjektLookup
 from app.api.identitaet.services import ist_eigener_schiedsrichter, ist_eigener_spieler, may_grant_on_schiedsrichter, may_grant_on_spieler
@@ -332,7 +332,7 @@ async def post_adresswechsel(
             verify_person_passkey_confirmation(actor)
             grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
             announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
-            gesperrt = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in lebendige(grants)], session=session)
+            gesperrt = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in grants], session=session)
             verwaltung = str(bestand.berechtigung["verwaltung"])
             genehmiger = genehmiger_of(
                 verwaltung=verwaltung, ausgenommen={identifier}, grants=grants, announced=announced, gesperrt=gesperrt, vor=germany_now
