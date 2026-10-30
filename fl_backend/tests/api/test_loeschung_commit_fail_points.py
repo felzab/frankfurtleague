@@ -1,5 +1,8 @@
 """
-API · a commit refused or its answer lost: the erasures' and a press's journal, each sweep's unanswered line, an adoption's stamp
+API · a commit refused or its answer lost, and a read held: the journals, the sweeps, an adoption's stamp, the subject lookup
+
+The erasures' and a press's journal, each sweep's unanswered line and an adoption's stamp meet a refused or unanswered
+commit; the subject lookup's reads are held on the server, so that the reads it gathers are seen in flight together.
 
 Every case configuring `failCommand` lives in this module: the fail point is one setting the server holds for all
 workers, so a second module configuring it on another worker would replace this one's configuration, and either case's
@@ -26,6 +29,7 @@ from app.core.db import NO_OWNER
 from app.core.journal import JOURNAL_TOKEN
 from app.core.security import actor_pseudonym, erasure_journal_hash
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
+from tests.documents import ban_document
 from tests.whole_database import where_held
 
 from . import test_spielbestaetigung_sweep_execution as confirmations
@@ -37,6 +41,8 @@ from .test_adresswechsel_sweep_execution import sweep as an_address_change_call
 from .test_funktionen_loeschung import IDENTIFIER, THEIR_GRANT_OID, a_grant
 from .test_funktionen_loeschung import geloescht_by_the_handler as geloescht_by_the_person
 from .test_funktionen_loeschung import on_a_league as on_their_league
+from .test_identitaet_subjekt_execution import FUTURE_SAISON, VERWALTUNG_STORED, call_subjekt
+from .test_identitaet_subjekt_execution import on_a_league as on_the_subjects_league
 from .test_journal_replay import PERSON, PUPIL_OID, V, _app, _person, _withdrawal, journalled, served
 from .test_loeschung_auf_anfrage import CONFIG as REQUEST_CONFIG
 from .test_loeschung_auf_anfrage import geloescht_by_the_handler as geloescht_on_request
@@ -64,6 +70,11 @@ UNANSWERED: dict[str, Any] = {
 }
 
 FAIL_POINT = "failCommand"
+# The client whose reads the server holds, every other client's running as it would.
+HELD_READS_APP = "subject-held-reads"
+# Far longer than opening a connection for each gathered read takes, so every read gathered beside the first is sent
+# before the first is answered, and a read awaited before the next is sent shows as an answer ahead of that send.
+HELD_FOR_MS = 200
 TESTS_ROOT = Path(__file__).resolve().parents[1]
 BACKEND_ROOT = TESTS_ROOT.parent
 THIS_MODULE = ".".join(Path(__file__).resolve().relative_to(BACKEND_ROOT).with_suffix("").parts)
@@ -88,6 +99,35 @@ class _Commits(monitoring.CommandListener):
     def failed(self, event: monitoring.CommandFailedEvent) -> None:
         if event.command_name == "commitTransaction":
             self.answered.append(event.failure.get("code"))
+
+
+class _InFlight(monitoring.CommandListener):
+    """Each read the case's own client sends and each answer to one, by collection, in the order the driver saw them."""
+
+    def __init__(self) -> None:
+        self.events: list[tuple[str, str]] = []
+        self._collections: dict[int, str] = {}
+
+    def started(self, event: monitoring.CommandStartedEvent) -> None:
+        if event.command_name in ("find", "aggregate"):
+            collection = str(event.command[event.command_name])
+            self._collections[event.request_id] = collection
+            self.events.append(("sent", collection))
+
+    def succeeded(self, event: monitoring.CommandSucceededEvent) -> None:
+        self._answered(event.request_id)
+
+    def failed(self, event: monitoring.CommandFailedEvent) -> None:
+        self._answered(event.request_id)
+
+    def _answered(self, request_id: int) -> None:
+        if (collection := self._collections.pop(request_id, None)) is not None:
+            self.events.append(("answered", collection))
+
+    def sent_before_the_first_answer(self) -> list[str]:
+        first = next((index for index, (kind, _) in enumerate(self.events) if kind == "answered"), len(self.events))
+
+        return sorted(collection for kind, collection in self.events[:first] if kind == "sent")
 
 
 def _modules_imported(path: Path) -> frozenset[str]:
@@ -118,6 +158,43 @@ def test_no_other_module_configures_the_fail_point():
     importing = [name for name, (path, text) in texts.items() if Path(__file__).stem in text and THIS_MODULE in _modules_imported(path)]
 
     assert (spelling, importing) == ([Path(__file__).relative_to(TESTS_ROOT).as_posix()], [])
+
+
+@pytest.mark.db
+class TestTheSubjectLookupsReads:
+    """`POST /identity/subject` answers every signed-in render, so its reads are paid in latency on every page."""
+
+    def test_the_records_the_ban_and_the_grant_are_read_at_once(self, mongo_replica_set_url: str):
+        """The first read of each: the records' three, the ban's running season and the grant, each sent before any answers.
+
+        The ban's own row follows its season, which it needs, and a seat's season follows the seats; neither is a first read.
+        """
+
+        async def body(database: AsyncDatabase) -> Any:
+            await database[Collection.SPERRLISTE].insert_one(ban_document(VERWALTUNG_STORED, bis=FUTURE_SAISON))
+            reads = _InFlight()
+            held = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=HELD_READS_APP, event_listeners=[reads])
+            holding = {
+                "failCommands": ["find", "aggregate"],
+                "appName": HELD_READS_APP,
+                "blockConnection": True,
+                "blockTimeMS": HELD_FOR_MS,
+            }
+            await database.client.admin.command("configureFailPoint", FAIL_POINT, mode="alwaysOn", data=holding)
+            try:
+                answer = await call_subjekt(held[database.name], VERWALTUNG_STORED)
+            finally:
+                await database.client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
+                await held.close()
+
+            return answer, reads.sent_before_the_first_answer()
+
+        answer, sent = on_the_subjects_league(mongo_replica_set_url, body)
+
+        # The premise first: the ban and the grant answered what was seeded, so the order below is of reads that ran.
+        assert (answer.barred, answer.verwaltung) == (True, "administration")
+        first_reads = (Collection.GRANTS, Collection.SAISONS, Collection.SAISON_TEAMS, Collection.SCHIEDSRICHTER, Collection.SPIELER)
+        assert sent == sorted(map(str, first_reads)), "the endpoint awaited one read before sending the next"
 
 
 @pytest.mark.db
