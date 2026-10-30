@@ -215,7 +215,6 @@ def legal_combinations() -> set[tuple[int, int]]:
         for groups in range(1, ceiling("number_of_groups") + 1)
         for qualifiers in range(1, ceiling("teams_per_group") + 1)
         if find_rules_refusal(
-            saison_status="future",
             stored=None,
             proposed=rules(groups=groups, teams=max(qualifiers, 2), qualifiers=qualifiers),
             occupancy_by_gruppe={},
@@ -508,7 +507,6 @@ class TestTheShapesAreSeasonsThatCanExist:
 
         assert (
             find_rules_refusal(
-                saison_status="future",
                 stored=None,
                 proposed=rules(groups=groups, teams=teams, qualifiers=qualifiers),
                 occupancy_by_gruppe={},

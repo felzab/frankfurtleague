@@ -5,6 +5,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
 from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN
 from app.shared.schemas.literals import FLEinwilligungUmfang, FLKontaktKenntnisnahmeUmfang
+from app.shared.schemas.responses import BaseReadModel
 
 
 class FLEinwilligungBeleg(BaseModel):
@@ -17,13 +18,13 @@ class FLEinwilligungBeleg(BaseModel):
     text_version: str
 
 
-class FLEinwilligungNachweis(FLEinwilligungBeleg):
+class FLEinwilligungNachweis(FLEinwilligungBeleg, BaseReadModel):
     """The evidence one consent choice keeps: the act that set its value, and on a withdrawal the grant it ended."""
 
     erteilt_zuvor: FLEinwilligungBeleg | None = None
 
 
-class FLEinwilligungNachweise(BaseModel):
+class FLEinwilligungNachweise(BaseReadModel):
     """Each choice's evidence, null until its person sets it: a record no person has answered carries none."""
 
     umfang: FLEinwilligungNachweis | None = None

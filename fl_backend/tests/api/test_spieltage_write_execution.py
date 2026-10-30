@@ -117,6 +117,7 @@ async def move_the_seasons_end(database: AsyncDatabase, end_date: str) -> Any:
         spieltage_collection=database.spieltage,
         saison_spieler_collection=database.saison_spieler,
         db=database.client,
+        today=SAISON_START,
     )
 
 
