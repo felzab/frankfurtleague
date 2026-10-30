@@ -1201,11 +1201,6 @@ def _entry_of(bestaetigungen: Any, seat: str) -> Mapping[str, Any] | None:
     return entry if isinstance(entry, Mapping) else None
 
 
-# The states a clock reads: the provider will not carry a message to that address, however it says
-# so. `verzoegert` is not one -- a delayed message still arrives -- and neither is `zugestellt`.
-ZUSTELLUNG_ABGEWIESEN = frozenset({"unzustellbar", "unterdrueckt", "beschwerde"})
-
-
 def seat_zustellung(*, bestaetigungen: Any, seat: str) -> Mapping[str, Any] | None:
     """What is known about the last message to this seat, or `None` where nothing is."""
 
@@ -1213,14 +1208,6 @@ def seat_zustellung(*, bestaetigungen: Any, seat: str) -> Mapping[str, Any] | No
     stored = entry.get("zustellung") if entry is not None else None
 
     return stored if isinstance(stored, Mapping) else None
-
-
-def seat_is_unreachable(*, bestaetigungen: Any, seat: str) -> bool:
-    """Whether the provider refused the last message to this seat's address."""
-
-    stored = seat_zustellung(bestaetigungen=bestaetigungen, seat=seat)
-
-    return stored is not None and stored.get("stand") in ZUSTELLUNG_ABGEWIESEN
 
 
 def zustellung_event_applies(*, bestaetigungen: Any, seat: str, nachricht_id: str, am: str) -> bool:
@@ -1436,7 +1423,10 @@ def build_erinnerung_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
 
 
 def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
-    """Every application `deletion_is_due` takes, as a query: a held one would otherwise fill the page ahead of a due one."""
+    """Every application the fourteen-day clock may take, as a query: a confirmed one would otherwise fill the page ahead of a due one.
+
+    A held one stays in it, its delivery being the Postausgang's, so `deletion_is_due` judges each row read.
+    """
 
     return {
         "saison_id": saison_id,
@@ -1527,7 +1517,7 @@ def bewerbung_link(seats: Sequence[str]) -> FLPostausgangLink:
 def bewerbung_bezug(bewerbung_id: Any, seats: Sequence[FLKontaktRolle]) -> FLPostausgangBezug:
     """The application and the person's seat a delivery is read by: the one the Trainer mirrors, where they hold two."""
 
-    return FLPostausgangBezug(sammlung=Sammlung.BEWERBUNGEN, id=bewerbung_id, sitz=sorted(seats, key=lambda seat: seat == "trainer")[0])
+    return FLPostausgangBezug(sammlung=Sammlung.BEWERBUNGEN, id=bewerbung_id, sitz=min(seats, key=lambda seat: seat == "trainer"))
 
 
 def lage_unzustellbar(lage: FLPostausgangLage | None) -> bool:
@@ -1809,3 +1799,29 @@ def mit_vorenthaltener_entscheidung(row: Mapping[str, Any], gesperrt: Collection
     von = withheld_actor(entscheidung.von, gesperrt)
 
     return {**row, "entscheidung": {**entscheidung.model_dump(), "von": von, "von_gesperrt": von is None}}
+
+
+def mit_zustellung(row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLPostausgangLage]) -> dict[str, Any]:
+    """A stored application with each seat's last mail beside its bookkeeping, as every read serves it.
+
+    A Trainer who is another seat's person reads that seat's mail: one person is sent one mail for both, read by the
+    seat it mirrors (`bewerbung_bezug`).
+    """
+
+    bestaetigungen = row.get("bestaetigungen")
+    if not isinstance(bestaetigungen, Mapping):
+        return dict(row)
+
+    kontakte = row.get("kontakte")
+    zugleich = kontakte.get("trainer_ist_zugleich") if isinstance(kontakte, Mapping) else None
+
+    def lage(seat: str) -> FLPostausgangLage | None:
+        gespiegelt = lagen.get((row["_id"], zugleich)) if seat == "trainer" and zugleich else None
+        return gespiegelt or lagen.get((row["_id"], seat))
+
+    return {
+        **row,
+        "bestaetigungen": {
+            seat: {**entry, "zustellung": lage(seat)} if isinstance(entry, Mapping) else entry for seat, entry in bestaetigungen.items()
+        },
+    }

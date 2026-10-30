@@ -1,7 +1,7 @@
 import secrets
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, Any, Final
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
@@ -494,8 +494,9 @@ async def korrigiere_kontakt_email(
     deadline restarts from today exactly as a re-send restarts it.
 
     The fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because
-    its notice could not arrive is a deletion candidate again once that mail is not refused. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this
-    write would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm
+    its notice could not arrive is a deletion candidate again once that mail is not refused.
+
+    Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this write would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm
     — the mirrored seat included (`REQ-BEWERBUNG-011`) — on a seat holding another address than `bisherige_email`, the address the
     caller's page showed, as after a Widerspruch and a reseat (`REQ-BEWERBUNG-021`), and on an address another contact person on this
     application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming

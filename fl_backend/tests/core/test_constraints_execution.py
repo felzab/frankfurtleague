@@ -15,7 +15,7 @@ from app.api.adresswechsel.services import compose_postausgang
 from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
 from app.api.berechtigungen.antraege import compose_antrag
-from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter, compose_bestaetigungen, hash_token
+from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter, hash_token
 from app.api.identitaet.crud import erase_pupil_actor_in_session, unattribute_in_session
 from app.api.spielberichte.crud import pull_bericht_lage
 from app.api.spieler.person_router import _read_the_squad
@@ -32,6 +32,7 @@ from tests.documents import (
     adresswechsel_document,
     bericht_document,
     kontaktperson_document,
+    minted_bestaetigungen,
     spiel_document,
     spielbericht_document,
     spielbestaetigung_document,
@@ -221,8 +222,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "wunschgegner": None,
             "entscheidung": None,
             "bestaetigungsfrist": "2026-02-15",
-            "bestaetigungen": compose_bestaetigungen(
-                hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
+            "bestaetigungen": minted_bestaetigungen(hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
             ),
         },
         "aktionen": {

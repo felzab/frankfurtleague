@@ -1,8 +1,9 @@
 from datetime import UTC, datetime
-from typing import Annotated, Any, Final, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
+from app.api.postausgang.schemas import FLPostausgangLage
 from app.api.teams.schemas import FLSaisonTeamKontakte, FLSaisonTeamKontaktePayload, _KontaktpersonWritablePayload
 from app.shared.alter import whole_years_between
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
@@ -49,8 +50,6 @@ from app.shared.schemas.literals import (
     FLTrikotFarbe,
 )
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
-from app.shared.schemas.zustellung import FLBewerbungZustellung
-from app.api.postausgang.schemas import FLPostausgangLage
 
 # `eingereicht` is the only state a submission arrives in; the other two are the triage's, and
 # `app/api/bewerbungen/admin_router.py` is the only writer of either.
@@ -100,8 +99,8 @@ CustomNachrichtId = Annotated[str, StringConstraints(strip_whitespace=True, min_
 CustomZustellgrund = Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=128, pattern=SINGLE_LINE_PATTERN)]
 
 
-class FLBewerbungBestaetigung(BaseReadModel):
-    """One seat's confirmation bookkeeping as the triage reads it, without its link's hash."""
+class _FLBewerbungSitzStand(BaseReadModel):
+    """One seat's confirmation bookkeeping, as the record and the read share it."""
 
     # The day the link was last mailed; a re-send moves it.
     verschickt_am: CustomDateString
@@ -109,9 +108,14 @@ class FLBewerbungBestaetigung(BaseReadModel):
     # Beside the slot rather than inside it: a decline EMPTIES the person's slot, and a marker in
     # there would go with it.
     abgelehnt_am: CustomOptionalDateString
+
+
+class FLBewerbungBestaetigung(_FLBewerbungSitzStand):
+    """One seat's confirmation bookkeeping as the triage reads it, without its link's hashes."""
+
     # What became of the last mail owed this seat, as the read joins it from the Postausgang: no seat stores it, and null
     # where none was ever owed.
-    zustellung: FLPostausgangLage | None = None
+    zustellung: FLPostausgangLage | None
 
 
 class FLBewerbungBestaetigungen(BaseModel):
@@ -202,7 +206,7 @@ class FLBewerbung(BaseModel):
     bestaetigungen: FLBewerbungBestaetigungen
 
 
-class FLBewerbungBestaetigungRecord(FLBewerbungBestaetigung):
+class FLBewerbungBestaetigungRecord(_FLBewerbungSitzStand):
     """One seat's bookkeeping as `bewerbungen` stores it: the hash of every link it was mailed, each live until a re-send."""
 
     token_hashes: list[str]

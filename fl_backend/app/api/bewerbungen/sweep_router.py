@@ -18,8 +18,8 @@ from app.api.bewerbungen.services import (
     compose_erinnerung_update,
     decline_erasure_is_due,
     deletion_is_due,
-    latest_decision_due,
     lage_unzustellbar,
+    latest_decision_due,
     next_saison_id,
     owed_link,
     owed_loeschung,
@@ -284,7 +284,10 @@ async def sweep_saison(
         return len(taken)
 
     async def erase_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
-        """The fourteen-day clock: owe the submitter the notice, erase, then redact, in one transaction. Read in-session, so a retry re-judges."""
+        """The fourteen-day clock: owe the submitter the notice, erase, then redact, in one transaction.
+
+        Read in-session, so a retry re-judges.
+        """
 
         rows = await batch.saw(
             pull_many_from_db(

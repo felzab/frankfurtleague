@@ -262,6 +262,12 @@ def neue_schule_document(team_name: str, shorthand: str, **fields: Any) -> dict[
     }
 
 
+def minted_bestaetigungen(*, hashes: Mapping[str, str], today: str) -> dict[str, Any]:
+    """An application's three seats as the hand-out of each seat's mail left them: one live link each, mailed `today`."""
+
+    return {seat: {**entry, "token_hashes": [hashes[seat]]} for seat, entry in compose_bestaetigungen(today=today).items()}
+
+
 def bewerbung_document(
     bewerbung_id: Any,
     saison_id: str,
@@ -299,7 +305,7 @@ def bewerbung_document(
         "wunschgegner": None,
         "entscheidung": None,
         "bestaetigungsfrist": bestaetigungsfrist if bestaetigungsfrist is not None else bestaetigungsfrist_from(today=gemintet),
-        "bestaetigungen": compose_bestaetigungen(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=gemintet),
+        "bestaetigungen": minted_bestaetigungen(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=gemintet),
         **fields,
     }
 

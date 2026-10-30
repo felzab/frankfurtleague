@@ -10,7 +10,6 @@ from app.api.bewerbungen.schemas import (
 )
 from app.api.bewerbungen.services import (
     ausstehende_seats,
-    compose_bestaetigungen,
     compose_decline_update,
     find_expired_token_refusal,
     hash_token,
@@ -26,7 +25,7 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
 )
 from app.shared.schemas.literals import KONTAKT_ROLLEN
-from tests.documents import kontaktperson_document
+from tests.documents import kontaktperson_document, minted_bestaetigungen
 
 TODAY = "2026-04-01"
 
@@ -71,7 +70,7 @@ TOMORROW = "2026-04-02"
 # Fixed rather than minted, so a case names the same hash every run; the raw values are never
 # needed here, only what the database would hold.
 HASHES: Mapping[str, str] = {seat: hash_token(f"raw-{seat}") for seat in KONTAKT_ROLLEN}
-BESTAETIGUNGEN: Mapping[str, Any] = compose_bestaetigungen(hashes=HASHES, today=TODAY)
+BESTAETIGUNGEN: Mapping[str, Any] = minted_bestaetigungen(hashes=HASHES, today=TODAY)
 
 
 def kontakte(**overrides: Any) -> dict[str, Any]:
@@ -94,7 +93,7 @@ def application(**overrides: Any) -> dict[str, Any]:
         "team_id": None,
         "kontakte": kontakte(),
         "bestaetigungsfrist": TOMORROW,
-        "bestaetigungen": compose_bestaetigungen(hashes=HASHES, today="2026-03-20"),
+        "bestaetigungen": minted_bestaetigungen(hashes=HASHES, today="2026-03-20"),
         **overrides,
     }
 
@@ -115,8 +114,8 @@ class TestWhatAReopenedLinkShows:
                 application(
                     kontakte=kontakte(trainer=None),
                     bestaetigungen={
-                        **compose_bestaetigungen(hashes=HASHES, today=TODAY),
-                        "trainer": {**compose_bestaetigungen(hashes=HASHES, today=TODAY)["trainer"], "abgelehnt_am": YESTERDAY},
+                        **minted_bestaetigungen(hashes=HASHES, today=TODAY),
+                        "trainer": {**minted_bestaetigungen(hashes=HASHES, today=TODAY)["trainer"], "abgelehnt_am": YESTERDAY},
                     },
                 ),
                 "abgelehnt",

@@ -9,7 +9,6 @@ from app.api.bewerbungen.services import (
     ZUSTELLUNG_ABGEWIESEN,
     announcement_is_undeliverable,
     ansprechperson_mailbox,
-    compose_bestaetigungen,
     decline_erasure_is_due,
     deletion_is_due,
     group_seats_by_mailbox,
@@ -24,7 +23,7 @@ from app.api.bewerbungen.sweep_router import BLOCKS_CLEARED_PER_PASS, REMINDERS_
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.shared.schemas.bounds import BEWERBUNG_ERINNERUNG_TAGE
 from app.shared.schemas.literals import KONTAKT_ROLLEN
-from tests.documents import kontaktperson_document
+from tests.documents import kontaktperson_document, minted_bestaetigungen
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -51,7 +50,7 @@ def kontakte(**overrides: Any) -> dict[str, Any]:
 def bestaetigungen(*, verschickt_am: str = MAILED_ON_THE_MARK, **entries: Any) -> dict[str, Any]:
     """Three live entries mailed on one day, any of them replaced by a case's own."""
 
-    return {**compose_bestaetigungen(hashes=HASHES, today=verschickt_am), **entries}
+    return {**minted_bestaetigungen(hashes=HASHES, today=verschickt_am), **entries}
 
 
 def zustellung(stand: str) -> dict[str, Any]:

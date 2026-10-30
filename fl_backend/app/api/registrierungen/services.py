@@ -9,7 +9,7 @@ from collections.abc import Collection, Iterable, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final
 
-from app.api.bewerbungen.services import ZUSTELLUNG_ABGEWIESEN, days_after, latest_decision_due, one_month_after, season_has_ended
+from app.api.bewerbungen.services import days_after, latest_decision_due, one_month_after, season_has_ended
 
 # The window predicate is the invite slice's, and `saison_nimmt_registrierungen_an` below answers
 # every `laeuft` a link is shown with and this flow's refusal, so a link and the write it opens
@@ -597,14 +597,6 @@ def build_decline_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
     """
 
     return {"saison_id": saison_id, "status": DECLINED, "entscheidung.getroffen_am": {"$lte": latest_decision_due(today=today)}}
-
-
-def link_is_unreachable(*, bestaetigung: Any) -> bool:
-    """Whether the provider refused the last message a confirmation block's link went out in, as its own `zustellung` records it."""
-
-    zustellung = bestaetigung.get("zustellung") if isinstance(bestaetigung, Mapping) else None
-
-    return isinstance(zustellung, Mapping) and zustellung.get("stand") in ZUSTELLUNG_ABGEWIESEN
 
 
 def erinnerung_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:

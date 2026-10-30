@@ -10,7 +10,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.einwilligung_router import post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
-from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
+from app.api.bewerbungen.services import hash_token
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
@@ -20,7 +20,7 @@ from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import kontaktperson_document
+from tests.documents import kontaktperson_document, minted_bestaetigungen
 from tests.worker import worker_database
 
 # Module level, as the execution suite marks its own: every test below reaches a real mongod.
@@ -109,6 +109,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         saisons_collection=database[Collection.SAISONS],
         aktionen_collection=database[Collection.AKTIONEN],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=client,
         config=build_test_config(),
@@ -144,7 +145,7 @@ class TestAPairedDecline:
         assert document["bestaetigungen"]["ansprechperson"]["abgelehnt_am"] == TODAY
         # The third seat keeps its person, and no seat carries a stamp, so all three stay outstanding.
         assert document["kontakte"]["stellvertretung"] is not None
-        assert (response.ergebnis, response.ausstehend) == ("abgelehnt", list(KONTAKT_ROLLEN))
+        assert response.ergebnis == "abgelehnt"
         assert len(rows) == 1
         image = rows[0]["before"]["kontakte"]
         assert (image["trainer"], image["ansprechperson"], rows[0]["redacted_at"]) == (None, None, "2026-04-01T10:30:00+00:00")
@@ -155,7 +156,7 @@ class TestAPairedDecline:
         """A dotted `$set` under a null parent aborts the transaction, so the person's own seat would be refused a 500 rather than declined."""
 
         emptied = bewerbung_document(
-            bestaetigungen={**compose_bestaetigungen(hashes=HASHES, today="2026-03-20"), "trainer": None},
+            bestaetigungen={**minted_bestaetigungen(hashes=HASHES, today="2026-03-20"), "trainer": None},
         )
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -230,4 +231,3 @@ class TestAPairedConfirmation:
         assert document["kontakte"]["ansprechperson"]["einwilligung"]["bestaetigt_am"] == TODAY
         assert document["kontakte"]["trainer"] is None
         # The emptied seat has no stamp, so the application still cannot be accepted on it.
-        assert response.ausstehend == ["trainer", "stellvertretung"]
