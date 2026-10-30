@@ -1312,7 +1312,7 @@ class TestTheDrawAnswersStoredValuesUnderItsTwins:
     """A rule a stated shape breaks against a STORED value is a conflict with the season, so it answers 409 under a code of its own."""
 
     def test_the_forfeit_and_the_span_answer_under_their_twins(self):
-        """The shape's qualifiers can give the season a bracket its stored level forfeit cannot decide, and its matchdays can outgrow the stored span."""
+        """A shape's qualifiers can make a bracket the stored level forfeit cannot decide; its matchdays can outgrow the stored span."""
 
         assert on_the_draw(Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT) == (Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED, HTTPStatus.CONFLICT)
         assert on_the_draw(Code.SAISON_SPAN_BELOW_SCHEDULE) == (Code.SAISON_SPAN_BELOW_SCHEDULE_AS_STORED, HTTPStatus.CONFLICT)
