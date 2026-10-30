@@ -21202,7 +21202,7 @@
     },
     "/api/v0/outbox/event": {
       "post": {
-        "description": "Record what the mail provider reported about one message, on the row of the mail it was.\n\nThe row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds\nit all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before\nanything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later\none changes nothing. Both answer `angewendet: false`, as does an id no row has, rather than a refusal the provider\nwould retry for hours.",
+        "description": "Record what the mail provider reported about one message, on the row of the mail it was.\n\nThe row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds\nit all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before\nanything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later\none changes nothing. Both answer `applied: false`, as does an id no row has, rather than a refusal the provider\nwould retry for hours.",
         "operationId": "outbox_post_event",
         "requestBody": {
           "content": {
