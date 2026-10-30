@@ -121,7 +121,8 @@ class FLSpielbestaetigungVonSchiedsrichter(BaseModel):
     art: Literal["schiedsrichter"]
 
 
-FLSpielbestaetigungVon = Annotated[
+# A `type` statement, so the document publishes who answered as one component the three answers reference.
+type FLSpielbestaetigungVon = Annotated[
     FLSpielbestaetigungVonKontakt | FLVonAdmin | FLSpielbestaetigungVonSchiedsrichter,
     Field(discriminator="art"),
 ]

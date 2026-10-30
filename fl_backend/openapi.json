@@ -14482,31 +14482,12 @@
           "beantwortet_von": {
             "anyOf": [
               {
-                "discriminator": {
-                  "mapping": {
-                    "admin": "#/components/schemas/FLVonAdmin",
-                    "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
-                    "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-                  },
-                  "propertyName": "art"
-                },
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
-                  },
-                  {
-                    "$ref": "#/components/schemas/FLVonAdmin"
-                  },
-                  {
-                    "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-                  }
-                ]
+                "$ref": "#/components/schemas/FLSpielbestaetigungVon"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Beantwortet Von"
+            ]
           },
           "frist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -14577,26 +14558,7 @@
             "title": "Begruendung"
           },
           "von": {
-            "discriminator": {
-              "mapping": {
-                "admin": "#/components/schemas/FLVonAdmin",
-                "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
-                "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-              },
-              "propertyName": "art"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
-              },
-              {
-                "$ref": "#/components/schemas/FLVonAdmin"
-              },
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-              }
-            ],
-            "title": "Von"
+            "$ref": "#/components/schemas/FLSpielbestaetigungVon"
           },
           "vorschlag": {
             "anyOf": [
@@ -14678,26 +14640,7 @@
         "description": "What the answer recorded: its way, its role, and the answering club's own proposal, which no view of the link serves.\n\nSo a page shows that proposal from this response, never from a re-read. No receipt is mailed off it.",
         "properties": {
           "beantwortet_von": {
-            "discriminator": {
-              "mapping": {
-                "admin": "#/components/schemas/FLVonAdmin",
-                "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
-                "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-              },
-              "propertyName": "art"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
-              },
-              {
-                "$ref": "#/components/schemas/FLVonAdmin"
-              },
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-              }
-            ],
-            "title": "Beantwortet Von"
+            "$ref": "#/components/schemas/FLSpielbestaetigungVon"
           },
           "vorschlag": {
             "anyOf": [
@@ -15607,6 +15550,27 @@
         ],
         "title": "FLSpielbestaetigungTermin",
         "type": "object"
+      },
+      "FLSpielbestaetigungVon": {
+        "discriminator": {
+          "mapping": {
+            "admin": "#/components/schemas/FLVonAdmin",
+            "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
+            "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
+          },
+          "propertyName": "art"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
+          },
+          {
+            "$ref": "#/components/schemas/FLVonAdmin"
+          },
+          {
+            "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
+          }
+        ]
       },
       "FLSpielbestaetigungVonKontakt": {
         "description": "The seat whose link was pressed, never the person: two seats one person holds share a link, and the first seat in order is recorded.",

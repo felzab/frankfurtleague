@@ -5060,26 +5060,45 @@ export const FLSpielbestaetigungAntwortArt = {
   abgelehnt: "abgelehnt",
 } as const;
 
+export type FLSpielbestaetigungVonKontaktArt = (typeof FLSpielbestaetigungVonKontaktArt)[keyof typeof FLSpielbestaetigungVonKontaktArt];
+
+export const FLSpielbestaetigungVonKontaktArt = {
+  kontakt: "kontakt",
+} as const;
+
 /**
  * The seat whose link was pressed, never the person: two seats one person holds share a link, and the first seat in order is recorded.
  */
 export interface FLSpielbestaetigungVonKontakt {
-  art: "kontakt";
+  art: FLSpielbestaetigungVonKontaktArt;
   rolle: FLKontaktRolle;
 }
+
+export type FLVonAdminArt = (typeof FLVonAdminArt)[keyof typeof FLVonAdminArt];
+
+export const FLVonAdminArt = {
+  admin: "admin",
+} as const;
 
 /**
  * An administrator's act, naming nobody: the record keeps how a thing was settled, not who typed it.
  */
-export const FLVonAdminValue = {
-  art: "admin",
-} as const;
-export type FLVonAdmin = typeof FLVonAdminValue;
+export interface FLVonAdmin {
+  art: FLVonAdminArt;
+}
 
-export const FLSpielbestaetigungVonSchiedsrichterValue = {
-  art: "schiedsrichter",
+export type FLSpielbestaetigungVonSchiedsrichterArt =
+  (typeof FLSpielbestaetigungVonSchiedsrichterArt)[keyof typeof FLSpielbestaetigungVonSchiedsrichterArt];
+
+export const FLSpielbestaetigungVonSchiedsrichterArt = {
+  schiedsrichter: "schiedsrichter",
 } as const;
-export type FLSpielbestaetigungVonSchiedsrichter = typeof FLSpielbestaetigungVonSchiedsrichterValue;
+
+export interface FLSpielbestaetigungVonSchiedsrichter {
+  art: FLSpielbestaetigungVonSchiedsrichterArt;
+}
+
+export type FLSpielbestaetigungVon = FLSpielbestaetigungVonKontakt | FLVonAdmin | FLSpielbestaetigungVonSchiedsrichter;
 
 /**
  * A date and time without a ground: a team's proposal, and the slot a moved fixture left.
@@ -5099,7 +5118,7 @@ export interface FLSpielbestaetigungAntwort {
   am: string;
   art: FLSpielbestaetigungAntwortArt;
   begruendung: string | null;
-  von: FLSpielbestaetigungVonKontakt | FLVonAdmin | FLSpielbestaetigungVonSchiedsrichter;
+  von: FLSpielbestaetigungVon;
   vorschlag: FLSpielbestaetigungTermin | null;
 }
 
@@ -5213,7 +5232,7 @@ export const FLSpielbestaetigungAnsichtResponseZustand = {
  */
 export interface FLSpielbestaetigungAnsichtResponse {
   ansetzung: FLSpielbestaetigungAnsichtAnsetzung;
-  beantwortet_von: FLSpielbestaetigungVonKontakt | FLVonAdmin | FLSpielbestaetigungVonSchiedsrichter | null;
+  beantwortet_von: FLSpielbestaetigungVon | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   frist: string;
   seite: FLSpielSeite;
@@ -5249,7 +5268,7 @@ export interface FLSpielbestaetigungAntwortPayload {
  * So a page shows that proposal from this response, never from a re-read. No receipt is mailed off it.
  */
 export interface FLSpielbestaetigungAntwortResponse {
-  beantwortet_von: FLSpielbestaetigungVonKontakt | FLVonAdmin | FLSpielbestaetigungVonSchiedsrichter;
+  beantwortet_von: FLSpielbestaetigungVon;
   vorschlag: FLSpielbestaetigungTermin | null;
   zustand: FLSpielbestaetigungAntwortArt;
 }
