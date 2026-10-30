@@ -539,7 +539,7 @@
         "type": "object"
       },
       "FLAdresswechselAdresseResponse": {
-        "description": "A live change's new address and nothing else, server to server alone (`READ-ADRESSWECHSEL-002`).",
+        "description": "A live change's new address and nothing else, server to server alone.",
         "properties": {
           "email": {
             "anyOf": [
@@ -751,7 +751,7 @@
         "type": "object"
       },
       "FLAdresswechselAnsichtResponse": {
-        "description": "What one address link opens: never a name, either address or the id (`READ-ADRESSWECHSEL-001`).",
+        "description": "What one address link opens: never a name, either address or the id.",
         "properties": {
           "ansicht": {
             "discriminator": {
@@ -2302,7 +2302,7 @@
         "type": "object"
       },
       "FLBerechtigungAdresswechsel": {
-        "description": "The change of a grant's address waiting on an administrator's approval, which the list's reader may press.\n\nWho started it, how and why is what a pretext hides.",
+        "description": "The change of this grant's address that waits on an administrator's approval.",
         "properties": {
           "bestaetigt": {
             "title": "Bestaetigt",
@@ -2776,7 +2776,7 @@
         "type": "object"
       },
       "FLBerechtigungWriteResponse": {
-        "description": "The grant a revoke removed or a tier change moved: a removal is hard, so the id is all there is to answer with.",
+        "description": "The grant a revoke removed: the removal is hard, so the id is all there is to answer with.",
         "properties": {
           "berechtigung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -2866,7 +2866,7 @@
         "type": "object"
       },
       "FLBerechtigungenListResponse": {
-        "description": "Every live grant, uncapped: a list the floor of two is judged over is never served in part.",
+        "description": "Every live grant, never in part, and every request still waiting.",
         "properties": {
           "antraege": {
             "items": {

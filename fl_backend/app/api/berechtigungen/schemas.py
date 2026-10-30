@@ -89,10 +89,7 @@ class FLBerechtigung(BaseModel):
 
 
 class FLBerechtigungAdresswechsel(BaseModel):
-    """The change of a grant's address waiting on an administrator's approval, which the list's reader may press.
-
-    Who started it, how and why is what a pretext hides.
-    """
+    """The change of this grant's address that waits on an administrator's approval."""
 
     id: CustomObjectId
     # Null where withheld: on the ban list (`email_gesperrt`), as a grant's barred address is, or from a non-owner.
@@ -174,7 +171,7 @@ class FLBerechtigungAntragZeile(BaseModel):
 
 
 class FLBerechtigungenListResponse(BaseAPIResponse):
-    """Every live grant, uncapped: a list the floor of two is judged over is never served in part."""
+    """Every live grant, never in part, and every request still waiting."""
 
     berechtigungen: list[FLBerechtigungZeile]
     # The rows no request can match, left out rather than failing the page.
@@ -205,7 +202,7 @@ class FLPostBerechtigungResponse(BaseAPIResponse):
 
 
 class FLBerechtigungWriteResponse(BaseAPIResponse):
-    """The grant a revoke removed or a tier change moved: a removal is hard, so the id is all there is to answer with."""
+    """The grant a revoke removed: the removal is hard, so the id is all there is to answer with."""
 
     berechtigung_id: CustomObjectId
 

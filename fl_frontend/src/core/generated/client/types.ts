@@ -727,7 +727,7 @@ export interface FLAdresswechselAdressePayload {
 }
 
 /**
- * A live change's new address and nothing else, server to server alone (`READ-ADRESSWECHSEL-002`).
+ * A live change's new address and nothing else, server to server alone.
  */
 export interface FLAdresswechselAdresseResponse {
   email: string | null;
@@ -829,7 +829,7 @@ export interface FLAdresswechselAnsichtPayload {
 }
 
 /**
- * What one address link opens: never a name, either address or the id (`READ-ADRESSWECHSEL-001`).
+ * What one address link opens: never a name, either address or the id.
  */
 export interface FLAdresswechselAnsichtResponse {
   ansicht: FLAdresswechselAnsichtNeu | FLAdresswechselAnsichtBisherig | FLAdresswechselAnsichtBeendet;
@@ -1502,9 +1502,7 @@ export const FLBerechtigungAdresswechselWeg = {
 } as const;
 
 /**
- * The change of a grant's address waiting on an administrator's approval, which the list's reader may press.
- *
- * Who started it, how and why is what a pretext hides.
+ * The change of this grant's address that waits on an administrator's approval.
  */
 export interface FLBerechtigungAdresswechsel {
   bestaetigt: boolean;
@@ -1601,7 +1599,7 @@ export interface FLBerechtigungStufeResponse {
 }
 
 /**
- * The grant a revoke removed or a tier change moved: a removal is hard, so the id is all there is to answer with.
+ * The grant a revoke removed: the removal is hard, so the id is all there is to answer with.
  */
 export interface FLBerechtigungWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -1631,7 +1629,7 @@ export interface FLBerechtigungZeile {
 }
 
 /**
- * Every live grant, uncapped: a list the floor of two is judged over is never served in part.
+ * Every live grant, never in part, and every request still waiting.
  */
 export interface FLBerechtigungenListResponse {
   antraege: FLBerechtigungAntragZeile[];
