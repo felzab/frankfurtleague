@@ -72,9 +72,9 @@ const MAIL_KINDS: { [A in PostausgangArt]?: MailBuilder<A> } = {
   passkey_geloescht: ({ zeitpunkt, konto }, { origin }) =>
     buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(zeitpunkt), origin: origin, konto: konto }),
   konto_loeschung: (_daten, { geheim, origin }) => buildLoeschungEmail({ origin: origin, token: geheimDerArt(geheim) }),
-  schiedsrichter_bestaetigung: buildSchiedsrichterBestaetigungEmail,
-  spiel_anfrage: buildSpielAnfrageEmail,
-  spiel_erinnerung: buildSpielAnfrageEmail,
+  schiedsrichter_bestaetigung: (daten, ausgabe) => buildSchiedsrichterBestaetigungEmail(daten, gemintet(ausgabe)),
+  spiel_anfrage: (daten, ausgabe) => buildSpielAnfrageEmail(daten, gemintet(ausgabe)),
+  spiel_erinnerung: (daten, ausgabe) => buildSpielAnfrageEmail(daten, gemintet(ausgabe)),
   spiel_einteilung: buildSpielEinteilungEmail,
   spiel_neu_angesetzt: buildSpielHinweisEmail,
   spiel_abgesagt: buildSpielHinweisEmail,

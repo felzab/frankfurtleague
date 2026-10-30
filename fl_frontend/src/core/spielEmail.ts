@@ -15,6 +15,7 @@ import type {
   FLSpielMailAnsetzung,
   FLSpielVorschlagVerworfenDaten,
 } from "./generated/client/types";
+import type { MailLink, MailOrt } from "./mailKinds";
 
 /** Under the segment `fl_frontend/src/app/robots.ts` already turns crawlers back from, so a live token is never indexed. */
 export const SPIEL_BESTAETIGUNG_PATH = "/bestaetigung/spiel";
@@ -25,14 +26,6 @@ export const SPIEL_BESTAETIGUNG_PATH = "/bestaetigung/spiel";
  */
 export function spielBestaetigungsLink(origin: string, token: string): string {
   return `${mailOrigin(origin)}${SPIEL_BESTAETIGUNG_PATH}?token=${encodeURIComponent(token)}`;
-}
-
-/** What the hand-out answers beside a fixture mail's facts: the serving origin, and the link it minted where the kind carries one. */
-interface Ausgabe {
-  /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`. */
-  readonly origin: string;
-  /** The raw token. It is a bearer credential and is never taken apart here. */
-  readonly token: string | null;
 }
 
 /** One fixture as a message states it. No person, the referee included. */
@@ -83,10 +76,7 @@ const alterTermin = (datum: string, uhrzeit: string): Lauf => ({ stark: `${datum
  * A club's request to confirm a fixture, or the reminder of it, to one mailbox of one of its teams. No name and no seat:
  * the administrator typed this address, so behind a typo its reader is a stranger, owed none.
  */
-export function buildSpielAnfrageEmail({ art, team, ansetzung: facts, frist }: FLSpielAnfrageDaten, { origin, token }: Ausgabe): Mail {
-  // Every row of this kind carries a link, so a hand-out answering none is a fault the drain stops on.
-  if (token === null) throw new Error("A fixture request was handed out without its link.");
-
+export function buildSpielAnfrageEmail({ art, team, ansetzung: facts, frist }: FLSpielAnfrageDaten, { origin, token }: MailLink): Mail {
   const ansetzung = ansetzungText(facts);
   const spiel = `${ansetzung.team1} gegen ${ansetzung.team2} am ${ansetzung.datumText}`;
 
@@ -127,7 +117,7 @@ export function buildSpielAnfrageEmail({ art, team, ansetzung: facts, frist }: F
  * The referee's word that they are booked. No token: the referee answers on their own panel, signed
  * in, so the control leads there rather than to a link page.
  */
-export function buildSpielEinteilungEmail({ ansetzung: facts }: FLSpielEinteilungDaten, { origin }: Ausgabe): Mail {
+export function buildSpielEinteilungEmail({ ansetzung: facts }: FLSpielEinteilungDaten, { origin }: MailOrt): Mail {
   const site = mailOrigin(origin);
   const ansetzung = ansetzungText(facts);
 
@@ -186,7 +176,7 @@ const ABGESAGT_SAETZE: Record<FLSpielHinweisDaten["empfaenger"], readonly [strin
  * it knows. A move names no new slot, the next request stating it; a call-off has no button and no name, nothing being
  * left to answer and the address perhaps having changed hands since the request.
  */
-export function buildSpielHinweisEmail({ art, empfaenger, termin: alt }: FLSpielHinweisDaten, { origin }: Ausgabe): Mail {
+export function buildSpielHinweisEmail({ art, empfaenger, termin: alt }: FLSpielHinweisDaten, { origin }: MailOrt): Mail {
   const { team1, team2 } = alt;
 
   if (art === "spiel_neu_angesetzt") {
@@ -218,7 +208,7 @@ export function buildSpielHinweisEmail({ art, empfaenger, termin: alt }: FLSpiel
  * The word to a referee that their Einteilung is lifted, whoever took them off the fixture: no button, since nothing is
  * left for them to answer, and no name, since the address may have changed hands since the Einteilung.
  */
-export function buildSpielEinteilungAufgehobenEmail({ termin: alt }: FLSpielEinteilungAufgehobenDaten, { origin }: Ausgabe): Mail {
+export function buildSpielEinteilungAufgehobenEmail({ termin: alt }: FLSpielEinteilungAufgehobenDaten, { origin }: MailOrt): Mail {
   return {
     art: "mitteilung",
     betreff: `Nicht mehr eingeteilt: ${alt.team1} gegen ${alt.team2}`,
@@ -243,7 +233,7 @@ export function buildSpielEinteilungAufgehobenEmail({ termin: alt }: FLSpielEint
  * The word to a club that the league kept the date it declined and proposed another for: its answer said the league
  * decides, and nothing else tells it the league has. No button, nothing being left to answer.
  */
-export function buildSpielVorschlagVerworfenEmail({ termin: alt }: FLSpielVorschlagVerworfenDaten, { origin }: Ausgabe): Mail {
+export function buildSpielVorschlagVerworfenEmail({ termin: alt }: FLSpielVorschlagVerworfenDaten, { origin }: MailOrt): Mail {
   return {
     art: "mitteilung",
     betreff: `Termin bleibt: ${alt.team1} gegen ${alt.team2} am ${datumText(alt.datum)}`,

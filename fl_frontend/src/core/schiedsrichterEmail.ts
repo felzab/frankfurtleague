@@ -6,6 +6,7 @@ import { formatDatum } from "./format";
 import type { Mail } from "./emailShell";
 import type { Kalendertag } from "./format";
 import type { FLSchiedsrichterBestaetigungDaten } from "./generated/client/types";
+import type { MailLink } from "./mailKinds";
 
 /** A segment of its own rather than a query on a shared page, so the sitemap and `robots.ts` answer it by name. */
 const SCHIEDSRICHTER_BESTAETIGUNG_PATH = "/bestaetigung/schiedsrichter";
@@ -27,13 +28,7 @@ function schiedsrichterBestaetigungsLink(origin: string, token: string): string 
  * `origin` is the serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`; `token` is a bearer credential and
  * is never taken apart here.
  */
-export function buildSchiedsrichterBestaetigungEmail(
-  { frist }: FLSchiedsrichterBestaetigungDaten,
-  { origin, token }: { readonly origin: string; readonly token: string | null },
-): Mail {
-  // Every row of this kind carries a link, so a hand-out answering none is a fault the drain stops on.
-  if (token === null) throw new Error("A confirmation mail was handed out without its link.");
-
+export function buildSchiedsrichterBestaetigungEmail({ frist }: FLSchiedsrichterBestaetigungDaten, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
   const fristText = formatDatum(frist as Kalendertag);
 

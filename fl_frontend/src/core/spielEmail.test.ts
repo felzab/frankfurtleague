@@ -41,7 +41,7 @@ describe("the fixture confirmation's link", () => {
 
     const mail = mailFor("spiel_anfrage", daten, { token: "beispiel-eins", geheim: null, origin: ORIGIN });
 
-    expect(mail?.aktion?.href).toBe(spielBestaetigungsLink(ORIGIN, "beispiel-eins"));
-    expect(() => mailFor("spiel_anfrage", daten, { token: null, geheim: null, origin: ORIGIN })).toThrow(/without its link/);
+    expect(mail?.aktion).toStrictEqual({ label: "Spieltermin bestätigen", href: spielBestaetigungsLink(ORIGIN, "beispiel-eins") });
+    expect(() => mailFor("spiel_anfrage", daten, { token: null, geheim: null, origin: ORIGIN })).toThrow(/handed out without one/);
   });
 });
