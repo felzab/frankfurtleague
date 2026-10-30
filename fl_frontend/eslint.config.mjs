@@ -380,7 +380,8 @@ const IMPORT_BANS = [
   importBan(CATALOGUE_BRAND, EVERY, { allow: ["src/core/serverCopy.ts"] }),
   ...BACKGROUND_PASS_BANS,
   // `no-restricted-imports` reads import and export declarations alone, so an `import()` would pass every ban above.
-  // Each file spared loads a module at the call for the reason its comment there gives.
+  // The two files spared are the runtime split, Next's documented shape, and the boot, which turns the settings'
+  // failed validation into its refusal.
   ban(
     "no-restricted-syntax",
     syntax(
@@ -388,15 +389,7 @@ const IMPORT_BANS = [
       "Import a module statically: the import bans read import and export declarations alone, so an `import()` passes every one of them.",
     ),
     PRODUCTION,
-    {
-      allow: [
-        // The runtime split and the boot, which turns the settings' failed validation into its refusal.
-        "src/instrumentation.ts",
-        "src/instrumentation-node.ts",
-        "src/shared/utils/personRead.ts",
-        "src/features/adresswechsel/queries.ts",
-      ],
-    },
+    { allow: ["src/instrumentation.ts", "src/instrumentation-node.ts"] },
   ),
 ];
 
