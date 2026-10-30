@@ -8,7 +8,6 @@ import { Code } from "./generated/client/types";
 import { boundCall, getRequestActor, getRequestTraceId } from "./requestScope";
 import { ACTOR_HEADER, AUTH_FACTOR_HEADER, AUTH_TIME_HEADER, formatTraceparent, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
-import type { ZodType } from "zod";
 import type { SentRequest } from "./errors";
 import type { FLRefusedField } from "./generated/client/types";
 
@@ -210,9 +209,3 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions =
     bound.clear();
   }
 }
-
-/**
- * Redesign: goes with its last importer. A slice's hand-written call, which names its answer by a schema of its own;
- * the schema types the answer and parses nothing.
- */
-export const apiClient = <T>(endpoint: string, _answer: ZodType<T>, options?: FetchOptions): Promise<T> => sendToBackend<T>(endpoint, options);

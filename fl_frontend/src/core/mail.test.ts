@@ -66,8 +66,6 @@ vi.doMock("@/core/generated/client/sdk.ts", () => SDK_DOUBLE);
 vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
 vi.doMock("@/core/mailKinds.ts", () => KINDS_DOUBLE);
 vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
-// The ban was judged at the hand-out, so the drain never asks the gate: a call here fails the case.
-vi.doMock("@/core/mailGate.ts", () => ({ mayReceiveMail: () => expect.unreachable("the drain asked the ban list") }));
 
 const { drainPostausgang } = await import("./mail.ts");
 

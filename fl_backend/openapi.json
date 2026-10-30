@@ -5990,37 +5990,6 @@
         "title": "FLGenerateSpielplanResponse",
         "type": "object"
       },
-      "FLGesperrtPayload": {
-        "additionalProperties": false,
-        "description": "The one address a message is about to go to.",
-        "properties": {
-          "email": {
-            "maxLength": 254,
-            "pattern": "@",
-            "title": "Email",
-            "type": "string"
-          }
-        },
-        "required": [
-          "email"
-        ],
-        "title": "FLGesperrtPayload",
-        "type": "object"
-      },
-      "FLGesperrtResponse": {
-        "description": "Whether a standing ban holds that address, and nothing of any record: the mailer needs none.",
-        "properties": {
-          "gesperrt": {
-            "title": "Gesperrt",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "gesperrt"
-        ],
-        "title": "FLGesperrtResponse",
-        "type": "object"
-      },
       "FLGruppen": {
         "additionalProperties": {
           "items": {
@@ -20841,7 +20810,7 @@
     },
     "/api/v0/identitaet/erasure/ansicht": {
       "post": {
-        "description": "Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names\nevery one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,\nand no other. Another address's pending change to this address is named by its id, the change going and that address's\nrecords standing, beside why the address tool refuses that change this administrator, or null where it opens it; a change\nof an address holding a grant is left out for an administrator without an owner's power, as the administrators page\nwithholds it, since naming it would answer whether a typed address is its new one. The address's own live change is\nnamed by its id, ending with the records it would move. Every request for a grant about the address (`betroffen`) or\nmade by it (`gestellt`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is\nleft out, though the erasure removes its row too. A squad\nrow and a referee row each carry the day it was retired, null while live, and a referee row every season holding a\nfixture still to be played that it is booked on, as `REQ-RETIRE-004` judges one. Reached and not named: the fixtures\nbooking a referee row, which move onto the ghost, and the referee's name in each of those fixtures' log images, which\ngoes; the match reports a referee row sent, which stand naming the ghost, in\ntheir log images too; the confirmations a referee row was asked for, which go, and its id\nand reason in a removed season's log images; the links its contact seats were mailed on their teams' open match\nconfirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,\nwhich goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for\nothers, which name a marker in its place; its rows in the log; every log image of a record the\nerasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;\na dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the\naddress under another grant's id; and the address in every notice still queued, withheld. Written besides: the\nnotice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.\n`verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the\naddress, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless\nthe administrator holds an owner's power (`REQ-PURGE-005`).",
+        "description": "Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names\nevery one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,\nand no other. Another address's pending change to this address is named by its id, the change going and that address's\nrecords standing, beside why the address tool refuses that change this administrator, or null where it opens it; a change\nof an address holding a grant is left out for an administrator without an owner's power, as the administrators page\nwithholds it, since naming it would answer whether a typed address is its new one. The address's own live change is\nnamed by its id, ending with the records it would move. Every request for a grant about the address (`betroffen`) or\nmade by it (`gestellt`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is\nleft out, though the erasure removes its row too. A squad\nrow and a referee row each carry the day it was retired, null while live, and a referee row every season holding a\nfixture still to be played that it is booked on, as `REQ-RETIRE-004` judges one. Reached and not named: the fixtures\nbooking a referee row, which move onto the ghost, and the referee's name in each of those fixtures' log images, which\ngoes; the match reports a referee row sent, which stand naming the ghost, in\ntheir log images too; the confirmations a referee row was asked for, which go, and its id\nand reason in a removed season's log images; the links its contact seats were mailed on their teams' open match\nconfirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,\nwhich goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for\nothers, which name a marker in its place; its rows in the log; every log image of a record the\nerasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;\na dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the\naddress under another grant's id; and the address in every notice still queued, withheld. Written besides: the\nnotice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.\n`verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the\naddress, judged as a stored address is; the erasure leaves a ban standing. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless\nthe administrator holds an owner's power (`REQ-PURGE-005`).",
         "operationId": "identitaet_get_erasure_ansicht_auf_anfrage",
         "requestBody": {
           "content": {
@@ -20911,83 +20880,6 @@
           }
         ],
         "summary": "Show what an erasure of an address would remove",
-        "tags": [
-          "identitaet"
-        ]
-      }
-    },
-    "/api/v0/identitaet/gesperrt": {
-      "post": {
-        "description": "Answer whether a standing ban holds the one address the frontend's mailer is about to send to.\n\nStores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the address travels in the body, so no path or query carries it\ninto an access line.\n\nThe address is judged as a stored one is: every spelling that folds to the same mailbox -- its letters in any case, its domain in\nUnicode or in punycode -- answers alike, and a ban holds only while the running season is within its bound, every ban holding\nwhile no season runs. An address today's address rule refuses is answered `false` rather than refused, no ban being keyable\nunder it: the mailer sends to the addresses records hold, some of them stored under older rules.\n\nThe flag is the whole answer. No record the address holds and no part of the ban reaches the caller, which needs neither.",
-        "operationId": "identitaet_get_gesperrt",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLGesperrtPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLGesperrtResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "SystemKey": []
-          }
-        ],
-        "summary": "Say whether a ban stands on an address about to be mailed",
         "tags": [
           "identitaet"
         ]

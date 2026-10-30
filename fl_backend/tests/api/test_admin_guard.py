@@ -113,7 +113,6 @@ SYSTEM_WRITES = [
     # system tier's.
     ("/api/v0/identitaet/subjekt", "post"),
     ("/api/v0/identitaet/anmeldung", "post"),
-    ("/api/v0/identitaet/gesperrt", "post"),
     ("/api/v0/identitaet/referenzen", "post"),
     # The grants' comparison: the hourly pass holds no session, and a change made in the database directly has no
     # administrator to attribute it to.

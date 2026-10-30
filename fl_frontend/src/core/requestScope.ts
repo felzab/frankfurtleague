@@ -19,7 +19,7 @@ export const AFTER_RESPONSE_DEADLINE_MS = 30000;
 export type ActorLane = "admin" | "person";
 
 /**
- * Who the request acts for, as `fl_frontend/src/core/api.ts :: apiClient` states them beside the admin
+ * Who the request acts for, as `fl_frontend/src/core/api.ts :: sendToBackend` states them beside the admin
  * key: the folded address, when its session was made in whole seconds, and by which factor
  * (`fl_frontend/src/core/auth.ts :: requestActorOf`).
  */

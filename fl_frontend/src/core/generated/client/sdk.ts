@@ -73,8 +73,6 @@ import type {
   FLErasureResponse,
   FLGenerateSpielplanPayload,
   FLGenerateSpielplanResponse,
-  FLGesperrtPayload,
-  FLGesperrtResponse,
   FLKaderResponse,
   FLKaderZeile,
   FLKontaktEinladenResponse,
@@ -1674,7 +1672,7 @@ export const getIdentitaetGetErasureAnsichtAufAnfrageUrl = () => {
  * address under another grant's id; and the address in every notice still queued, withheld. Written besides: the
  * notice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.
  * `verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the
- * address, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.
+ * address, judged as a stored address is; the erasure leaves a ban standing. Stores nothing.
  *
  * Refused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless
  * the administrator holds an owner's power (`REQ-PURGE-005`).
@@ -1701,48 +1699,6 @@ export const identitaetGetErasureAnsichtAufAnfrage = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLErasureAdressePayload),
-  });
-};
-
-export const getIdentitaetGetGesperrtUrl = () => {
-  return `/api/v0/identitaet/gesperrt`;
-};
-
-/**
- * Answer whether a standing ban holds the one address the frontend's mailer is about to send to.
- *
- * Stores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the address travels in the body, so no path or query carries it
- * into an access line.
- *
- * The address is judged as a stored one is: every spelling that folds to the same mailbox -- its letters in any case, its domain in
- * Unicode or in punycode -- answers alike, and a ban holds only while the running season is within its bound, every ban holding
- * while no season runs. An address today's address rule refuses is answered `false` rather than refused, no ban being keyable
- * under it: the mailer sends to the addresses records hold, some of them stored under older rules.
- *
- * The flag is the whole answer. No record the address holds and no part of the ban reaches the caller, which needs neither.
- * @summary Say whether a ban stands on an address about to be mailed
- */
-export const identitaetGetGesperrt = async (
-  fLGesperrtPayload: FLGesperrtPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLGesperrtResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return systemKeyTransport<FLGesperrtResponse>(getIdentitaetGetGesperrtUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLGesperrtPayload),
   });
 };
 

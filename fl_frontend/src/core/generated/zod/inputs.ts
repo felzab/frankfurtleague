@@ -1128,7 +1128,7 @@ export const IdentitaetEraseAufAnfrageBody = zod
  * address under another grant's id; and the address in every notice still queued, withheld. Written besides: the
  * notice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.
  * `verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the
- * address, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.
+ * address, judged as a stored address is; the erasure leaves a ban standing. Stores nothing.
  *
  * Refused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless
  * the administrator holds an owner's power (`REQ-PURGE-005`).
@@ -1143,30 +1143,6 @@ export const IdentitaetGetErasureAnsichtAufAnfrageBody = zod
     email: zod.string().max(identitaetGetErasureAnsichtAufAnfrageBodyEmailMax).regex(identitaetGetErasureAnsichtAufAnfrageBodyEmailRegExp),
   })
   .describe("The mailbox an erasure, its preview or a sign-out of every session is looked up by.");
-
-/**
- * Answer whether a standing ban holds the one address the frontend's mailer is about to send to.
- *
- * Stores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the address travels in the body, so no path or query carries it
- * into an access line.
- *
- * The address is judged as a stored one is: every spelling that folds to the same mailbox -- its letters in any case, its domain in
- * Unicode or in punycode -- answers alike, and a ban holds only while the running season is within its bound, every ban holding
- * while no season runs. An address today's address rule refuses is answered `false` rather than refused, no ban being keyable
- * under it: the mailer sends to the addresses records hold, some of them stored under older rules.
- *
- * The flag is the whole answer. No record the address holds and no part of the ban reaches the caller, which needs neither.
- * @summary Say whether a ban stands on an address about to be mailed
- */
-export const identitaetGetGesperrtBodyEmailMax = 254;
-
-export const identitaetGetGesperrtBodyEmailRegExp = new RegExp("@");
-
-export const IdentitaetGetGesperrtBody = zod
-  .object({
-    email: zod.string().max(identitaetGetGesperrtBodyEmailMax).regex(identitaetGetGesperrtBodyEmailRegExp),
-  })
-  .describe("The one address a message is about to go to.");
 
 /**
  * Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.

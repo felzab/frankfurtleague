@@ -2626,24 +2626,6 @@ export interface FLGenerateSpielplanResponse {
   spieltage: number;
 }
 
-/**
- * The one address a message is about to go to.
- */
-export interface FLGesperrtPayload {
-  /**
-   * @maxLength 254
-   * @pattern @
-   */
-  email: string;
-}
-
-/**
- * Whether a standing ban holds that address, and nothing of any record: the mailer needs none.
- */
-export interface FLGesperrtResponse {
-  gesperrt: boolean;
-}
-
 export interface FLTeamStatistik {
   /** @minimum 0 */
   anzahl_abgesagte_spiele: number;

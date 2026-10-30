@@ -116,22 +116,6 @@ class FLAnmeldungResponse(FLAnmeldung, BaseAPIResponse):
     verwaltung: FLVerwaltung | None
 
 
-class FLGesperrtPayload(BaseModel):
-    """The one address a message is about to go to."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    # Held to no address rule, as the erasure's lookup is: a seat stored under an older rule is still
-    # mailed, and refusing it here would close the mailer on an address no ban can key.
-    email: Annotated[str, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH, pattern="@")]
-
-
-class FLGesperrtResponse(BaseAPIResponse):
-    """Whether a standing ban holds that address, and nothing of any record: the mailer needs none."""
-
-    gesperrt: bool
-
-
 class FLErasure(BaseModel):
     """How many of each kind of record one erasure removed or emptied, zero for a kind the address held none of.
 
@@ -221,8 +205,8 @@ class FLReferenzenPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # Each held to no address rule, as `FLGesperrtPayload`'s is, nor to a length: one address refused
-    # refuses the whole batch, and every pass asks again, so the sweep would delete nothing ever after.
+    # Each held to no address rule, nor to a length: one address refused refuses the whole batch, and every
+    # pass asks again, so the sweep would delete nothing ever after.
     identifiers: list[str] = Field(min_length=1, max_length=REFERENZEN_ADRESSEN_MAX)
 
 

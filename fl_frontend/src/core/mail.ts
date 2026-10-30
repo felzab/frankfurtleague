@@ -448,7 +448,7 @@ async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: O
       providerErrorName = refused && typeof refused === "object" && "name" in refused ? String(refused.name) : undefined;
     } catch (error) {
       // A stalled body aborts here rather than inside `fetch`, as it does in
-      // `fl_frontend/src/core/api.ts :: apiClient`. An unparseable one is left to the status alone.
+      // `fl_frontend/src/core/api.ts :: sendToBackend`. An unparseable one is left to the status alone.
       if (error instanceof Error && error.name === "AbortError") throw failNetwork(error);
     }
 
