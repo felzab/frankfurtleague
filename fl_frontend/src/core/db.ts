@@ -12,8 +12,10 @@ const options = {
     strict: true,
     deprecationErrors: true,
   },
-  // Per operation, and an admin action runs up to seven: three session reads of two commands
-  // (measured against `next start` on 2026-09-24) and a refresh, so a slow store costs it up to 21 s.
+  // Per operation, never per request: a session read is one aggregate, and a session a passkey made
+  // adds that passkey's lookup (`fl_frontend/src/core/auth.ts :: servedSessionOf`). An admin action reads
+  // the session in the proxy's slide, its guard and the render after it, so a slow store costs it
+  // several times this.
 
   // Shared inside a transaction, which the adapter runs through `withTransaction`: its operations,
   // commit and retries draw on one budget, so a store slow at each step times the whole out. Its
