@@ -168,8 +168,9 @@ const SECRET_READERS = Object.fromEntries(
     [["src/core/db.ts"], ["mongodbUri"], "the sign-in store's credential"],
     // The drain opens a sign-in mail's secret with it, which `auth.ts` sealed (`better-auth/crypto :: symmetricDecrypt`).
     [["src/core/auth.ts", "src/core/mail.ts"], ["authSecret"], "the key every session is signed with"],
-    // The key lets a send leave without `sendMail`, and so without the ban list's gate.
-    [["src/core/mail.ts"], ["authResendKey"], "the provider's key, which sends past the ban list's gate"],
+    // The key authorises a send, so a module holding it could mail past the Postausgang and the ban its hand-out judges;
+    // the drain's own send is module-private, which the compiler holds.
+    [["src/core/mail.ts"], ["authResendKey"], "the provider's key, which sends past the Postausgang"],
     [["src/app/api/mail/zustellung/route.ts"], ["resendWebhookSecret"], "the key the provider's delivery reports are verified with"],
     // The system's key calls the backend as the system, past every guard on an admin's session.
     [["src/core/api.ts"], ["internalApiKeyBase", "internalApiKeySystem", "internalApiKeyAdmin"], "the backend's keys"],
@@ -204,14 +205,6 @@ const SIGN_IN_STORE = {
   importNames: ["signInStore"],
   message:
     "signInStore hands out a client holding the store's login: fl_frontend/src/core/auth.ts and fl_frontend/src/core/authIndexes.ts import it, and a *.test.ts(x) file may; nothing else may.",
-};
-
-/** The ban's own notice skips the ban list's gate, so only the ban action, which checks the reason it carries, sends it. */
-const SPERRE_NOTICE = {
-  regex: moduleNamed("mail"),
-  importNames: ["sendSperreNotice"],
-  message:
-    "sendSperreNotice sends past the ban list's gate: fl_frontend/src/features/sperrliste/actions.ts imports it, and a *.test.ts(x) file may; nothing else may.",
 };
 
 /** The eraser is whatever its caller hands in, so a second caller could delete an account erasing nothing. */
@@ -385,7 +378,6 @@ const IMPORT_BANS = [
   ),
   importBan(AUTH_INSTANCE, PRODUCTION, { allow: ["src/app/api/auth/[...all]/route.ts"] }),
   importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth.ts", "src/core/authIndexes.ts"] }),
-  importBan(SPERRE_NOTICE, PRODUCTION, { allow: ["src/features/sperrliste/actions.ts"] }),
   importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/konto/personActions.ts"] }),
   ...BACKGROUND_PASS_BANS,
 ];
