@@ -50,7 +50,8 @@ and answers the kit's `ActionAnswer`, the backend's refusal code with it; the li
 `fl/server-action` (`fl_frontend/eslint-rules/server-action.mjs`) refuses an action built any other
 way, and the forms not yet moved onto it are counted in the suppressions list until their area
 moves them. Every cached scope carries one tag, `fl_frontend/src/core/siteCache.ts ::
-SITE_CACHE_TAG`, and the save spines clear it after every write that may stand (the builder, the old
+SITE_CACHE_TAG`, and the save spines clear it after every write that may stand (the builder on its
+administrator's and person's lanes, a public action such as the sign-in reaching no cached read; the old
 `fl_frontend/src/shared/utils/adminMutation.ts :: runGuardedMutation`, and
 `fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest` for a route handler), so no
 write names the reads it moves. The league's reads keep Next's `minutes` lifetime; the read of a

@@ -48,9 +48,9 @@ The actor travels as three headers on an admin-key call, `X-FL-Actor`, `X-FL-Aut
 (`fl_backend/app/core/security.py :: get_session_actor`). The address travels as UTF-8,
 percent-encoded as `encodeURIComponent` spells it, since a header value is ASCII; any other spelling
 is refused as naming nobody. The admin key and the private network are
-what make them believed. **`system/router.py` holds the two routes with no guard**:
+what make them believed. **`system/router.py` holds the one route with no guard**:
 `/system/is_live`, both the container healthcheck and the public uptime probe, since a probe that
-needs a secret fails for the wrong reasons, and the service's root `/`.
+needs a secret fails for the wrong reasons.
 
 ## Data access
 
