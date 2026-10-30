@@ -1,5 +1,5 @@
 """
-API · the address change's clock against the shipped validators: lapses end, due changes take effect, each judged again
+API · the address change's clock against the shipped indexes: lapses end, due changes take effect, each judged again
 
 A live change whose step lapsed ends within the hour, and a confirmed change whose waiting time ended takes effect or is
 refused, the refused one's new address answered alone. The share's sizing is `tests/api/test_adresswechsel_sweep_refusal.py`'s.

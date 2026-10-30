@@ -14,14 +14,12 @@ import type {
   FLActivateSaisonResponse,
   FLAdresswechselAdressePayload,
   FLAdresswechselAdresseResponse,
-  FLAdresswechselAnsichtPayload,
   FLAdresswechselAnsichtResponse,
   FLAdresswechselAntwortPayload,
   FLAdresswechselAntwortResponse,
   FLAdresswechselGenehmigungResponse,
   FLAdresswechselIdResponse,
   FLAdresswechselPostausgangResponse,
-  FLAdresswechselStoppPayload,
   FLAdresswechselStoppResponse,
   FLAdresswechselSweepResponse,
   FLAdresswechselVerwaltungAnsichtPayload,
@@ -39,7 +37,6 @@ import type {
   FLBerechtigungAngekuendigtPayload,
   FLBerechtigungAngekuendigtResponse,
   FLBerechtigungAntragAbgelehntResponse,
-  FLBerechtigungAntragGenehmigtResponse,
   FLBerechtigungenListResponse,
   FLBerechtigungStufeResponse,
   FLBerechtigungWriteResponse,
@@ -418,7 +415,7 @@ export const getAdresswechselGetAdresswechselAnsichtUrl = () => {
  * @summary What one address link opens
  */
 export const adresswechselGetAdresswechselAnsicht = async (
-  fLAdresswechselAnsichtPayload: FLAdresswechselAnsichtPayload,
+  fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLAdresswechselAnsichtResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -437,7 +434,7 @@ export const adresswechselGetAdresswechselAnsicht = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAdresswechselAnsichtPayload),
+    body: JSON.stringify(fLTokenPayload),
   });
 };
 
@@ -453,7 +450,7 @@ export const getAdresswechselPostAdresswechselStoppUrl = () => {
  * @summary Stop a pending address change
  */
 export const adresswechselPostAdresswechselStopp = async (
-  fLAdresswechselStoppPayload: FLAdresswechselStoppPayload,
+  fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLAdresswechselStoppResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -472,7 +469,7 @@ export const adresswechselPostAdresswechselStopp = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAdresswechselStoppPayload),
+    body: JSON.stringify(fLTokenPayload),
   });
 };
 
@@ -841,39 +838,11 @@ export const getBerechtigungenPostBerechtigungenAbgleichUrl = () => {
 };
 
 /**
- * Queue every change made to the grants in the database directly, then claim the unannounced changes and answer who to tell.
+ * Queue the grants' changes made in the database, then claim, for ten minutes, the changes still to announce and who to tell.
  *
- * Every grant and revoke made through the application queued its own notice when it was made, naming the administrator who made
- * it. What was changed in the database directly is found here, by comparing the grants with the record of what is already
- * accounted for, and queued naming nobody: `geaendert_von` and `geaendert_am` null. A database change undone again before any
- * call to this endpoint is found by nothing. A row whose address no request can match counts as no grant, and `uebersprungen`
- * counts those rows. A grant found here -- a new row, or an address changed in place -- is stamped `gefunden_am` with this call's
- * time, which `POST /identitaet/subjekt` then answers as `berechtigt_seit`: a session signed in before it administers nothing. Every
- * row a call reads for the first time, one no request can match included, is stamped `gesehen_am`, and a row carrying it beside no
- * record of its own was changed in the database since a call read it: it is no grant until a call finds it.
- *
- * The call then claims, oldest first and a page at a time, every queued change no claim holds or whose claim has lapsed, for ten
- * minutes from now. A second call inside that time is answered none of them. The caller mails each change and then hands the ids it
- * mailed, with `beanspruchung`, to `POST /berechtigungen/abgleich/angekuendigt`. Where a lease lapses before that, the next call
- * claims those changes again. `beanspruchung` and `beansprucht_bis` are null exactly where nothing was claimed.
- *
- * `urheber` says who made each change: `anwendung` for an administrator through the application, `datenbank` for an edit
- * found here. No barred address is answered in plain: wherever one would stand -- `jetzt`, `vorher`, `geaendert_von`,
- * `empfaenger` -- it is `null` or left out; a barred grant address carries `gesperrt`, a barred `geaendert_von`
- * `geaendert_von_gesperrt`. A grant address whose holder was erased is `null` beside `geloescht`, and an erased
- * `geaendert_von` reads `ERASED`, naming nobody. An address changed in place is two changes, its removal and the new
- * address's grant.
- * `empfaenger` is every live, unbarred grant holder now; a removed address is read off its change.
- *
- * A `beantragt` row is a grant or a promotion asked for, which no grant has yet. It goes to its own `an` rather than to
- * `empfaenger`: whoever could approve the request now, as `POST /berechtigungen/antraege/{antrag_id}/genehmigung` judges
- * them, and nobody where the request is decided, withdrawn, lapsed or erased, or its requester does not hold, since before
- * it, the tier it asks for. An `adresswechsel` row is an address change moving a grant, keyed by the change, that waits on
- * an approval: it goes to its own `an` too, whoever could approve it now as `POST /adresswechsel/{adresswechsel_id}/genehmigung`
- * judges them, and nobody where the change is approved, ended or past its week, or its address now holds no grant.
- * An `antrag_abgelehnt` row is a request an administrator refused, and an `antrag_beendet` row one an address change ended,
- * each keyed by the request and naming its requester as `geaendert_von`: it goes to its own `an` as well, that requester alone
- * while they hold a live, unbarred grant, and nobody otherwise. `an` is null on every other row.
+ * A change found here names nobody (`urheber` is `datenbank`), and no barred or erased address is answered in plain. The caller
+ * mails each change, a row's own `an` in place of `empfaenger` where it is set, and hands the ids it mailed to
+ * `POST /berechtigungen/abgleich/angekuendigt`; a claim that lapses first is claimed again by the next call.
  * @summary Claim the grant changes still to be announced
  */
 export const berechtigungenPostBerechtigungenAbgleich = async (
@@ -890,11 +859,7 @@ export const getBerechtigungenPostBerechtigungenAngekuendigtUrl = () => {
 };
 
 /**
- * Remove each named change from the queue, where the named claim still holds it, and nothing else.
- *
- * A change the claim does not hold -- unknown, removed already, or claimed since by another call after this claim lapsed -- is
- * left alone and counted in `ignoriert`, so a caller can mark as told only what the server itself holds as queued under its own
- * claim. A repeated id counts once. One transaction, recorded under the system actor.
+ * Remove from the queue each named change the named claim still holds, counting every other id once in `ignoriert`.
  * @summary Remove the announced changes a claim holds
  */
 export const berechtigungenPostBerechtigungenAngekuendigt = async (
@@ -968,8 +933,8 @@ export const getBerechtigungenPostAntragGenehmigungUrl = (antragId: string) => {
 export const berechtigungenPostAntragGenehmigung = async (
   antragId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLBerechtigungAntragGenehmigtResponse> => {
-  return adminKeyTransport<FLBerechtigungAntragGenehmigtResponse>(getBerechtigungenPostAntragGenehmigungUrl(antragId), {
+): Promise<FLBerechtigungWriteResponse> => {
+  return adminKeyTransport<FLBerechtigungWriteResponse>(getBerechtigungenPostAntragGenehmigungUrl(antragId), {
     ...options,
     method: "POST",
   });

@@ -26,7 +26,6 @@ from app.api.berechtigungen.schemas import (
     FLBerechtigung,
     FLBerechtigungAdresswechsel,
     FLBerechtigungAntragAbgelehntResponse,
-    FLBerechtigungAntragGenehmigtResponse,
     FLBerechtigungAntragZeile,
     FLBerechtigungenListResponse,
     FLBerechtigungStand,
@@ -59,7 +58,7 @@ from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
 from app.api.sperrliste.services import withheld_actor
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_one_in_db, post_one_to_db, refuse
+from app.core.crud import VERSION_FIELD, aggregate_many_from_db, erase_many_from_db, patch_one_in_db, post_one_to_db, refuse
 from app.core.dependencies import (
     AdresswechselCollection,
     BerechtigungenAngekuendigtCollection,
@@ -183,6 +182,7 @@ async def get_berechtigungen(
                 else _adresswechsel_zeile(
                     record, akteur=akteur, auth_time=auth_time, inhaber=inhaber, grants=rows, announced=announced, barred=barred_im_wechsel
                 ),
+                version=grant.version,
             )
         )
 
@@ -577,6 +577,7 @@ async def patch_berechtigung(
         await _move_the_tier_in_session(
             grant,
             verwaltung=verwaltung,
+            version=berechtigung_data.version,
             records=records,
             barred=barred,
             geaendert_von=geaendert_von,
@@ -599,6 +600,8 @@ async def _move_the_tier_in_session(
     grant: Mapping[str, Any],
     *,
     verwaltung: str,
+    # Required, so no caller forgets the form's version: the payload's, or `None` where no form was read.
+    version: int | None,
     records: Sequence[Mapping[str, Any]],
     barred: Set[str],
     geaendert_von: str,
@@ -636,6 +639,8 @@ async def _move_the_tier_in_session(
                 # Its owner's power dates from now, so the promoted holder's older sessions keep
                 # administering and hold none of it.
                 **({"ernannt_am": now} if verwaltung == OWNER else {}),
+                # Taken into the filter by the helper: a tier change opened before another write is refused.
+                VERSION_FIELD: version,
             }
         },
         session=session,
@@ -668,7 +673,7 @@ async def _move_the_tier_in_session(
 
 @router.post(
     f"/antraege{by_id('antrag_id')}/genehmigung",
-    response_model=FLBerechtigungAntragGenehmigtResponse,
+    response_model=FLBerechtigungWriteResponse,
     summary="Approve a grant or a promotion another administrator asked for",
     # The enrolment window a grant takes, not the step-up's: the approval hands access to the administration over.
     dependencies=[Depends(verify_recent_confirmation)],
@@ -684,7 +689,7 @@ async def post_antrag_genehmigung(
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
     now: datetime = Depends(get_germany_now),
-) -> FLBerechtigungAntragGenehmigtResponse:
+) -> FLBerechtigungWriteResponse:
     """
     Approve a request, the second pair of eyes a grant or a promotion waits on.
 
@@ -757,6 +762,8 @@ async def post_antrag_genehmigung(
             await _move_the_tier_in_session(
                 grant,
                 verwaltung=OWNER,
+                # An approval saves no form, so it is checked against no version.
+                version=None,
                 records=records,
                 barred=barred,
                 geaendert_von=operator,
@@ -772,7 +779,7 @@ async def post_antrag_genehmigung(
     async with transaction_session(db) as session:
         berechtigung_id = await session.with_transaction(approve_the_antrag)
 
-    return FLBerechtigungAntragGenehmigtResponse(berechtigung_id=berechtigung_id)
+    return FLBerechtigungWriteResponse(berechtigung_id=berechtigung_id)
 
 
 @router.delete(

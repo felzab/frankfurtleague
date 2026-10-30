@@ -199,7 +199,7 @@ async def a_league_she_administered(database: AsyncDatabase) -> None:
 
 
 def on_a_league(url: str, body: Body) -> Any:
-    """The shipped validators, so a write production would refuse fails here too."""
+    """The shipped indexes, so a write production would refuse as a duplicate fails here too."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):

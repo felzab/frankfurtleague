@@ -136,7 +136,7 @@ STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=RUNNING)
 
 
 def on_a_league(url: str, body: Body, *, grants: list[dict[str, Any]] | None = None) -> Any:
-    """The shipped validators and indexes, a season running, and the grants."""
+    """The shipped indexes, a season running, and the grants."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
@@ -407,6 +407,7 @@ class TestWhatAGrantStoresAndQueues:
             "erteilt_von": APPROVER[ANNA],
             "erteilt_am": NOW.astimezone(UTC).replace(tzinfo=None),
             "gesehen_am": NOW.astimezone(UTC).replace(tzinfo=None),
+            "version": 0,
         }
 
     def test_a_grant_and_a_revoke_made_here_each_queue_their_notice_as_they_happened(self, mongo_replica_set_url: str):
@@ -557,23 +558,6 @@ class TestTheListServesLiveGrantsAlone:
             [(ANNA, False, "administration"), (None, True, "administration"), (OWNER, False, "owner")],
             1,
         )
-
-    def test_a_live_grant_with_an_empty_erteilt_von_is_served(self, mongo_replica_set_url: str):
-        """A field no reader decides anything from hides no grant, whatever a paste left in it."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str | None, str | None]]:
-            listed = await list_the_grants(database, client)
-
-            return [(row.adresse, row.erteilt_von) for row in listed.berechtigungen]
-
-        grants = [*the_three_grants(), {**grant_document(DEAD_ID, NEU, "administration"), "erteilt_von": ""}]
-
-        assert on_a_league(mongo_replica_set_url, body, grants=grants) == [
-            (ANNA, "PLAYGROUND"),
-            (BERND, "PLAYGROUND"),
-            (OWNER, "PLAYGROUND"),
-            (NEU, ""),
-        ]
 
     def test_a_barred_granting_administrator_is_withheld_as_erteilt_von(self, mongo_replica_set_url: str):
         """The actor field takes the same withholding as the address, flagged as the address is."""

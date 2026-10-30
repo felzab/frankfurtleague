@@ -1,5 +1,5 @@
 """
-API · one address's change of the address it signs in on, driven end to end against the shipped validators
+API · one address's change of the address it signs in on, driven end to end against the shipped indexes
 
 The person starts it on their own account page, an administrator through the address tool for a person who cannot sign
 in, and the new mailbox's confirmation, an administrator's approval of a grant's move, or the hourly pass at the end of a
@@ -512,7 +512,7 @@ class TestTheSystemsReadOfTheNewAddress:
         assert on_a_person(mongo_replica_set_url, body) == [NEW_EMAIL] * 4
 
     def test_a_row_holding_another_spelling_is_answered_folded(self, mongo_replica_set_url: str):
-        """Every start stores the fold, the validator no spelling: a row written by hand still names the account's key."""
+        """Every start stores the fold and the database refuses no spelling: a row written by hand still names the account's key."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)

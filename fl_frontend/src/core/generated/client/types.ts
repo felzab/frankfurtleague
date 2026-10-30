@@ -704,7 +704,7 @@ export interface FLAdresswechselAdressePayload {
 }
 
 /**
- * A live change's new address and nothing else, server to server alone (`READ-ADRESSWECHSEL-002`).
+ * A live change's new address and nothing else, server to server alone.
  */
 export interface FLAdresswechselAdresseResponse {
   email: string | null;
@@ -789,51 +789,35 @@ export interface FLAdresswechselAnsichtNeu {
   zustand: FLAdresswechselAnsichtNeuZustand;
 }
 
-export interface FLAdresswechselAnsichtPayload {
-  /**
-   * @minLength 1
-   * @maxLength 128
-   */
-  token: string;
-}
-
 /**
- * What one address link opens: never a name, either address or the id (`READ-ADRESSWECHSEL-001`).
+ * What one address link opens: never a name, either address or the id.
  */
 export interface FLAdresswechselAnsichtResponse {
   ansicht: FLAdresswechselAnsichtNeu | FLAdresswechselAnsichtBisherig | FLAdresswechselAnsichtBeendet;
 }
 
-export type FLAdresswechselAntwortPayloadAntwort =
-  (typeof FLAdresswechselAntwortPayloadAntwort)[keyof typeof FLAdresswechselAntwortPayloadAntwort];
+export type FLAdresswechselAntwort = (typeof FLAdresswechselAntwort)[keyof typeof FLAdresswechselAntwort];
 
-export const FLAdresswechselAntwortPayloadAntwort = {
+export const FLAdresswechselAntwort = {
   bestaetigt: "bestaetigt",
   abgelehnt: "abgelehnt",
 } as const;
 
 export interface FLAdresswechselAntwortPayload {
-  antwort: FLAdresswechselAntwortPayloadAntwort;
+  antwort: FLAdresswechselAntwort;
   /**
    * @minLength 1
    * @maxLength 128
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   token: string;
 }
-
-export type FLAdresswechselAntwortResponseAntwort =
-  (typeof FLAdresswechselAntwortResponseAntwort)[keyof typeof FLAdresswechselAntwortResponseAntwort];
-
-export const FLAdresswechselAntwortResponseAntwort = {
-  bestaetigt: "bestaetigt",
-  abgelehnt: "abgelehnt",
-} as const;
 
 /**
  * The answer recorded, and no address of the change: the notices an effect owes are queued, never answered.
  */
 export interface FLAdresswechselAntwortResponse {
-  antwort: FLAdresswechselAntwortResponseAntwort;
+  antwort: FLAdresswechselAntwort;
   genehmigung_offen: boolean;
   wirksam: boolean;
   wirksam_ab: string | null;
@@ -852,12 +836,11 @@ export interface FLAdresswechselGenehmigungResponse {
   wirksam: boolean;
 }
 
-export type FLAdresswechselGenehmigungStandVerwaltung =
-  (typeof FLAdresswechselGenehmigungStandVerwaltung)[keyof typeof FLAdresswechselGenehmigungStandVerwaltung];
+export type FLVerwaltung = (typeof FLVerwaltung)[keyof typeof FLVerwaltung];
 
-export const FLAdresswechselGenehmigungStandVerwaltung = {
-  administration: "administration",
+export const FLVerwaltung = {
   owner: "owner",
+  administration: "administration",
 } as const;
 
 /**
@@ -866,7 +849,7 @@ export const FLAdresswechselGenehmigungStandVerwaltung = {
 export interface FLAdresswechselGenehmigungStand {
   bis: string;
   genehmigt: boolean;
-  verwaltung: FLAdresswechselGenehmigungStandVerwaltung;
+  verwaltung: FLVerwaltung;
 }
 
 export interface FLAdresswechselIdResponse {
@@ -907,14 +890,6 @@ export interface FLAdresswechselPostausgangResponse {
   mitteilungen: FLAdresswechselPostausgangZeile[];
 }
 
-export interface FLAdresswechselStoppPayload {
-  /**
-   * @minLength 1
-   * @maxLength 128
-   */
-  token: string;
-}
-
 export const FLAdresswechselStoppResponseValue = {
   gestoppt: true,
 } as const;
@@ -941,19 +916,11 @@ export interface FLAdresswechselVerwaltungAnsichtPayload {
   adresswechsel_id?: string | null;
 }
 
-export type FLAdresswechselVerwaltungBestandBerechtigung =
-  (typeof FLAdresswechselVerwaltungBestandBerechtigung)[keyof typeof FLAdresswechselVerwaltungBestandBerechtigung] | null;
-
-export const FLAdresswechselVerwaltungBestandBerechtigung = {
-  administration: "administration",
-  owner: "owner",
-} as const;
-
 /**
  * What the address holds that a change moves, counted: the tool names the kinds, the editors the records.
  */
 export interface FLAdresswechselVerwaltungBestand {
-  berechtigung: FLAdresswechselVerwaltungBestandBerechtigung;
+  berechtigung: FLVerwaltung | null;
   /** @minimum 0 */
   bewerbungssitze: number;
   /** @minimum 0 */
@@ -966,14 +933,6 @@ export interface FLAdresswechselVerwaltungBestand {
   spieler: number;
 }
 
-export type FLAdresswechselVerwaltungGenehmigungVerwaltung =
-  (typeof FLAdresswechselVerwaltungGenehmigungVerwaltung)[keyof typeof FLAdresswechselVerwaltungGenehmigungVerwaltung];
-
-export const FLAdresswechselVerwaltungGenehmigungVerwaltung = {
-  administration: "administration",
-  owner: "owner",
-} as const;
-
 /**
  * The approval a change moving a grant waits on, read-only here: the administrators page approves it.
  *
@@ -982,7 +941,7 @@ export const FLAdresswechselVerwaltungGenehmigungVerwaltung = {
 export interface FLAdresswechselVerwaltungGenehmigung {
   bis: string;
   genehmigt_am: string | null;
-  verwaltung: FLAdresswechselVerwaltungGenehmigungVerwaltung;
+  verwaltung: FLVerwaltung;
 }
 
 export type FLAdresswechselWartetAuf = (typeof FLAdresswechselWartetAuf)[keyof typeof FLAdresswechselWartetAuf];
@@ -1203,13 +1162,6 @@ export interface FLAktionenListResponse {
   vollstaendig: boolean;
 }
 
-export type FLVerwaltung = (typeof FLVerwaltung)[keyof typeof FLVerwaltung];
-
-export const FLVerwaltung = {
-  owner: "owner",
-  administration: "administration",
-} as const;
-
 /**
  * The sign-in gate's whole answer: the records' two flags, the ban and the grant, and no record itself.
  *
@@ -1352,9 +1304,7 @@ export const FLGenehmigungVerwehrt = {
 } as const;
 
 /**
- * The change of a grant's address waiting on an administrator's approval, which the list's reader may press.
- *
- * Who started it, how and why is what a pretext hides.
+ * The change of this grant's address that waits on an administrator's approval.
  */
 export interface FLBerechtigungAdresswechsel {
   bestaetigt: boolean;
@@ -1398,14 +1348,6 @@ export interface FLBerechtigungAntragAbgelehntResponse {
 }
 
 /**
- * The grant an approval wrote or promoted.
- */
-export interface FLBerechtigungAntragGenehmigtResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  berechtigung_id: string;
-}
-
-/**
  * One request as the list serves it, while it may still be decided.
  */
 export interface FLBerechtigungAntragZeile {
@@ -1433,7 +1375,7 @@ export interface FLBerechtigungStufeResponse {
 }
 
 /**
- * The grant a revoke removed or a tier change moved: a removal is hard, so the id is all there is to answer with.
+ * The grant a revoke removed or an approval wrote or promoted.
  */
 export interface FLBerechtigungWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -1452,11 +1394,12 @@ export interface FLBerechtigungZeile {
   gesperrt: boolean;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
+  version: number;
   verwaltung: FLVerwaltung;
 }
 
 /**
- * Every live grant, uncapped: a list the floor of two is judged over is never served in part.
+ * Every live grant, never in part, and every request still waiting.
  */
 export interface FLBerechtigungenListResponse {
   antraege: FLBerechtigungAntragZeile[];
@@ -3312,6 +3255,7 @@ export interface FLOffeneRegistrierungenResponse {
 }
 
 export interface FLPatchBerechtigungPayload {
+  version?: number | null;
   verwaltung: FLVerwaltung;
 }
 

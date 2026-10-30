@@ -50,15 +50,14 @@ LAST_COVERED = "2031"
 FIRST_CLEAR = "2032"
 
 TEAM_ID = ObjectId("6890a1b2c3d4e5f607250001")
-# `spiele.spieltag_id` is `objectId` and NOT nullable in the shipped validator, so a drawn fixture
-# names a matchday whether or not one is seeded; nothing checks that the row exists.
+# A drawn fixture names a matchday whether or not one is seeded; nothing checks that the row exists.
 SPIELTAG_ID = ObjectId("6890a1b2c3d4e5f6072500a1")
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def saison_document(saison_id: str, status: str) -> dict[str, Any]:
-    """The span and the rules are what the shipped validator requires of any season; `status` is what this suite varies."""
+    """The span and the rules are what the season's record model requires; `status` is what this suite varies."""
 
     return documents.saison_document(saison_id, status, rules=documents.rules_document(number_of_groups=2, erlaubte_stufen=["E1"]))
 
@@ -83,7 +82,7 @@ async def a_drawn_target(database: AsyncDatabase, saison_id: str) -> None:
 
 
 def on_a_league(url: str, seasons: list[dict[str, Any]], body: Body) -> Any:
-    """The SHIPPED validator and the unique index, so a document production would refuse fails here too."""
+    """The shipped unique index, so a duplicate production would refuse fails here too."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):

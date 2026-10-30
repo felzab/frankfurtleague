@@ -31,7 +31,7 @@ def refuse_an_address_in_the_reason(value: str) -> str:
 
 
 class FLSperrlisteEintrag(BaseModel):
-    """One ban as it is served. `adresse_hash` is on no model, so no read can recover the lookup key."""
+    """One ban as it is served: never its lookup key, so no read can recover the address."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     grund: CustomNonEmptyString
@@ -64,11 +64,13 @@ class FLPostSperrlistePayload(BaseModel):
     # The one place an address reaches this slice. It is hashed at the endpoint and dropped there,
     # so nothing below this line has a plain address to store, log or echo.
     email: CustomEmail
-    # Stripped on the WRITE side alone, and single-line because the
-    # admin card renders it beside the author and the day.
+    # Stripped on the WRITE side alone, and single-line because the admin card renders it beside the author and the day.
+    # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
     grund: Annotated[
         str,
-        StringConstraints(strip_whitespace=True, min_length=1, max_length=SPERRLISTE_GRUND_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        StringConstraints(max_length=SPERRLISTE_GRUND_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        AfterValidator(str.strip),
+        StringConstraints(min_length=1),
         AfterValidator(refuse_an_address_in_the_reason),
     ]
 
@@ -81,8 +83,6 @@ class FLSperrlisteListResponse(BaseAPIResponse):
     """
 
     sperrliste: list[FLSperrlisteZeile]
-    # German, unlike the envelope field beside it, for the reason
-    # `fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungenListResponse` gives `vollstaendig`.
     anzahl_gesamt: int = Field(ge=0)
 
 

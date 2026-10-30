@@ -93,9 +93,11 @@ export const AdresswechselGetAdresswechselVerwaltungAnsichtBody = zod
  */
 export const adresswechselPostAdresswechselAntwortBodyTokenMax = 128;
 
+export const adresswechselPostAdresswechselAntwortBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
 export const AdresswechselPostAdresswechselAntwortBody = zod.object({
   antwort: zod.enum(["bestaetigt", "abgelehnt"]),
-  token: zod.string().min(1).max(adresswechselPostAdresswechselAntwortBodyTokenMax),
+  token: zod.string().min(1).max(adresswechselPostAdresswechselAntwortBodyTokenMax).regex(adresswechselPostAdresswechselAntwortBodyTokenRegExp),
 });
 
 /**
@@ -116,9 +118,13 @@ export const AdresswechselPostAdresswechselAntwortBody = zod.object({
  */
 export const adresswechselGetAdresswechselAnsichtBodyTokenMax = 128;
 
-export const AdresswechselGetAdresswechselAnsichtBody = zod.object({
-  token: zod.string().min(1).max(adresswechselGetAdresswechselAnsichtBodyTokenMax),
-});
+export const adresswechselGetAdresswechselAnsichtBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
+export const AdresswechselGetAdresswechselAnsichtBody = zod
+  .object({
+    token: zod.string().min(1).max(adresswechselGetAdresswechselAnsichtBodyTokenMax).regex(adresswechselGetAdresswechselAnsichtBodyTokenRegExp),
+  })
+  .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
  * Stop the change the address on file was told of: its new address goes, out of every log image of the change too.
@@ -129,9 +135,13 @@ export const AdresswechselGetAdresswechselAnsichtBody = zod.object({
  */
 export const adresswechselPostAdresswechselStoppBodyTokenMax = 128;
 
-export const AdresswechselPostAdresswechselStoppBody = zod.object({
-  token: zod.string().min(1).max(adresswechselPostAdresswechselStoppBodyTokenMax),
-});
+export const adresswechselPostAdresswechselStoppBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
+export const AdresswechselPostAdresswechselStoppBody = zod
+  .object({
+    token: zod.string().min(1).max(adresswechselPostAdresswechselStoppBodyTokenMax).regex(adresswechselPostAdresswechselStoppBodyTokenRegExp),
+  })
+  .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
  * End a bounded share of the live changes whose waiting step lapsed, and make the due ones take effect.
@@ -174,10 +184,21 @@ export const AdresswechselSweepAdresswechselQueryParams = zod.object({
 export const adresswechselGetAdresswechselAdresseBodyAdresswechselIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const adresswechselGetAdresswechselAdresseBodyTokenOneMax = 128;
 
+export const adresswechselGetAdresswechselAdresseBodyTokenOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
 export const AdresswechselGetAdresswechselAdresseBody = zod
   .object({
     adresswechsel_id: zod.union([zod.string().regex(adresswechselGetAdresswechselAdresseBodyAdresswechselIdOneRegExp), zod.null()]).optional(),
-    token: zod.union([zod.string().min(1).max(adresswechselGetAdresswechselAdresseBodyTokenOneMax), zod.null()]).optional(),
+    token: zod
+      .union([
+        zod
+          .string()
+          .min(1)
+          .max(adresswechselGetAdresswechselAdresseBodyTokenOneMax)
+          .regex(adresswechselGetAdresswechselAdresseBodyTokenOneRegExp),
+        zod.null(),
+      ])
+      .optional(),
   })
   .describe("Exactly one key: the new mailbox's link token, or the change an approval names.");
 
@@ -336,11 +357,7 @@ export const BerechtigungenPostBerechtigungBody = zod.object({
 });
 
 /**
- * Remove each named change from the queue, where the named claim still holds it, and nothing else.
- *
- * A change the claim does not hold -- unknown, removed already, or claimed since by another call after this claim lapsed -- is
- * left alone and counted in `ignoriert`, so a caller can mark as told only what the server itself holds as queued under its own
- * claim. A repeated id counts once. One transaction, recorded under the system actor.
+ * Remove from the queue each named change the named claim still holds, counting every other id once in `ignoriert`.
  * @summary Remove the announced changes a claim holds
  */
 
@@ -438,6 +455,7 @@ export const BerechtigungenPatchBerechtigungParams = zod.object({
 });
 
 export const BerechtigungenPatchBerechtigungBody = zod.object({
+  version: zod.union([zod.int(), zod.null()]).optional(),
   verwaltung: zod.enum(["owner", "administration"]),
 });
 

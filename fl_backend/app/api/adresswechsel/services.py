@@ -34,8 +34,7 @@ FLAdresswechselNeuZustand = Literal["gueltig", "abgelaufen", "gesperrt", "nicht_
 
 ADRESSWECHSEL_ENDE_ARTEN: Final[tuple[str, ...]] = get_args(FLAdresswechselEndeArt.__value__)
 
-# The tier of the grant a change moves, and so who may approve it: `owner` another owner alone.
-FLAdresswechselVerwaltung = Literal["administration", "owner"]
+# The tier of the grant a change moves ranked, and so who may approve it: `owner` another owner alone.
 _RANG: Final[Mapping[str, int]] = {"administration": 0, "owner": 1}
 
 # The one filter every read of a live change carries: `uniq_adresswechsel_adresse` indexes these rows alone.
