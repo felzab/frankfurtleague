@@ -134,7 +134,7 @@ describe("the admin lane", () => {
         lane: "admin",
         name: "ergebnis",
         input: z.object({ team1: Seite, team2: Seite }),
-        ownWords: { ergebnis_side_emptied: "team2.tore" },
+        ownWords: { state_ergebnis_on_a_non_event: "team2.tore" },
         run: async () => {
           if (wirft !== undefined) throw wirft;
           return { ok: true, value: undefined };
@@ -145,10 +145,10 @@ describe("the admin lane", () => {
       ok: false,
       fieldErrors: { "team1.tore": COPY.shared.feld.zwischen(0, 99), "team2.tore": COPY.shared.feld.zwischen(0, 99) },
     });
-    expect(await ergebnis(refusal("ergebnis_side_emptied"))({ team1: { tore: 1 }, team2: { tore: 2 } })).toStrictEqual({
+    expect(await ergebnis(refusal("state_ergebnis_on_a_non_event"))({ team1: { tore: 1 }, team2: { tore: 2 } })).toStrictEqual({
       ok: false,
-      errorCode: "ergebnis_side_emptied",
-      fieldErrors: { "team2.tore": COPY.shared.ablehnung["ergebnis_side_emptied"] },
+      errorCode: "state_ergebnis_on_a_non_event",
+      fieldErrors: { "team2.tore": COPY.shared.ablehnung["state_ergebnis_on_a_non_event"] },
     });
   });
 

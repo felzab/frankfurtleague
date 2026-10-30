@@ -217,8 +217,17 @@ describe("the match editor's save", () => {
       reason: COPY.shared.ablehnung["spiel_double_booked"],
     });
 
-    stand.ablehnung = refusal("booking_schiedsrichter_moved");
-    expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "booking_schiedsrichter_moved", reason: COPY.shared.fehler.veraltet });
+    // The editor sets no team, so a team's refusal means the fixture changed under it.
+    for (const code of [
+      "booking_schiedsrichter_moved",
+      "ergebnis_side_emptied",
+      "spieltag_occupied",
+      "spieltag_occupied_by_the_resolution",
+      "eligibility_team_not_in_saison",
+    ] as const) {
+      stand.ablehnung = refusal(code);
+      expect(await spielSpeichern(save), code).toEqual({ ok: false, errorCode: code, reason: COPY.shared.fehler.veraltet });
+    }
 
     // The fixture changed since the editor read it: the write refused the version it was sent.
     stand.ablehnung = refusal("version_stale");

@@ -110,6 +110,12 @@ const STALE: ReadonlySet<Code> = new Set<Code>([
   "wiring_seed_past_the_opening_round",
   "wiring_gruppe_not_run",
   "funktion_nicht_gehalten",
+  // A team's refusals, which a screen setting no team meets only where the fixture changed under it; a screen
+  // setting one words them as its own.
+  "ergebnis_side_emptied",
+  "spieltag_occupied",
+  "spieltag_occupied_by_the_resolution",
+  "eligibility_team_not_in_saison",
   // The input passed the API's own rules as this page knows them: the page is older than the API.
   "payload_refused",
   "body_unreadable",

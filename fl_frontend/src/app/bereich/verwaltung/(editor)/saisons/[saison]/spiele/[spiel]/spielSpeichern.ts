@@ -112,11 +112,7 @@ export const spielSpeichern = action({
     booking_unknown_resource: true,
     booking_unconfirmed_schiedsrichter: true,
     spiel_double_booked: true,
-    ergebnis_side_emptied: true,
-    spieltag_occupied: true,
-    spieltag_occupied_by_the_resolution: true,
     eligibility_disqualified: true,
-    eligibility_team_not_in_saison: true,
   },
   examples: { "changes.mietpreis": COPY.verwaltung.spielort.mietpreisBeispiel },
   run: async ({ id, fingerprint, changes }): Promise<ActionAnswer<string>> => {
