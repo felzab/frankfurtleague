@@ -647,10 +647,10 @@ async def patch_saison_team_kontakte(
     Rewrite the three people this team is reached through for one season. Null clears the block.
 
     Its own endpoint so the contacts editor and the club editor cannot clobber one row. The one
-    rule's refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served
+    rule's refusal is `kontakte_moved_under_the_save`: the body echoes back the `kontakte_stand` its caller was served
     beside the block, and a row whose block answers to another token is refused rather than
     overwritten, an erasure between the caller's read and this write being what moves it. A clearing,
-    which nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than
+    which nothing restores, is refused `confirmation_required` from a sign-in or confirmation older than
     `STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `eingetragen_von` and
     `bestaetigt_am` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed
     on is stored as the league's entry, unconfirmed.
@@ -660,15 +660,15 @@ async def patch_saison_team_kontakte(
     both seats where the Trainer holds a second. A seat keeping its person keeps their link, and a seat emptied or
     handed on loses the one it held and its links on the team's open match confirmations, so the person who left it
     holds nothing live. A save newly seating an address the ban list holds is
-    refused `REQ-KONTAKT-003`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the
+    refused `kontakt_sitz_gesperrt`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the
     link is how its person learns of the entry, and it takes their Widerspruch alone. A save owing a link, emptying
-    or handing on a seat, or voiding a link its person could still answer, is refused `REQ-AUTH-009` as the clearing
+    or handing on a seat, or voiding a link its person could still answer, is refused `confirmation_required` as the clearing
     is; a save doing none of these is not.
 
     **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
     or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
     person's own write grants one. Such a seat's label must be the application form's running one
-    (`REQ-EINWILLIGUNG-001`). A kept seat may name its stored label back, whichever page it is a version of, or the
+    (`fassung_unzulaessig`). A kept seat may name its stored label back, whichever page it is a version of, or the
     running one, and its record is carried either way.
     """
 
@@ -899,7 +899,7 @@ async def replace_saison_team(
             collection=saison_teams_collection,
             db_filter={"saison_id": saison_id, "team_id": team_id},
             # `austritt` cleared: left standing it marks the INCOMING club withdrawn to
-            # `REQ-SWAP-006` and `_may_hold_a_platz`; the exit survives in the logged pre-image. The
+            # `swap_fields_disqualified` and `_may_hold_a_platz`; the exit survives in the logged pre-image. The
             # colour, the contacts and their links leave with the OUTGOING school.
             update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "bestaetigungen": None}},
             session=session,
@@ -937,7 +937,7 @@ async def replace_saison_team(
         )
 
         # Ausgetragen, not moved: the players did not transfer, and a row left standing would name a
-        # season its club now holds no junction row in -- what `REQ-SQUAD-001` refuses to create.
+        # season its club now holds no junction row in -- what `kader_team_not_in_saison` refuses to create.
         # LIVE rows alone, so an earlier exit keeps its own date.
         ausgetragene_squad = await patch_many_in_db(
             collection=saison_spieler_collection,
@@ -993,10 +993,10 @@ async def einladen_kontakt(
     the previous link stops opening anything from this write on, and the deadline restarts from today. The answer names
     the address the mail is owed to, never the link.
 
-    Refused where the season has ended or the team has left it (`REQ-KONTAKT-005`), where the seat holds nobody or its
-    person has already confirmed it (`REQ-KONTAKT-002`), and where its address is on the ban list (`REQ-KONTAKT-003`).
+    Refused where the season has ended or the team has left it (`kontakt_zeile_ohne_saison`), where the seat holds nobody or its
+    person has already confirmed it (`kontakt_sitz_ohne_bestaetigung`), and where its address is on the ban list (`kontakt_sitz_gesperrt`).
     404 for a team and season holding no row, and for a path naming no seat. Every call owes a bearer link, so every call from a
-    sign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused `REQ-AUTH-009`.
+    sign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
     """
 
     db_filter = {"team_id": team_id, "saison_id": saison_id}
@@ -1094,13 +1094,13 @@ async def post_einladung(
     holding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh
     every time somebody opens it, so a window moved after the mint moves this link with it.
 
-    Refused where the season holds no junction row for this team (`REQ-EINLADUNG-001`) and where the season has ended
-    (`REQ-EINLADUNG-002`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.
+    Refused where the season holds no junction row for this team (`einladung_team_nicht_eingetragen`) and where the season has ended
+    (`saison_past`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.
 
     **A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an
     administrator is looking at, and a squad row and a contact correction are accepted for such a team too.
 
-    A mint voiding a live link is refused `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`, and
+    A mint voiding a live link is refused `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`, and
     writes nothing; a team's first link is not.
     """
 

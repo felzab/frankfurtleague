@@ -43,7 +43,7 @@ describe("the address the erasure, its reveal and the sign-out look up", () => {
     }
   });
 
-  /* The endpoints answer these with a REQ-VAL-001 whose mark names no rule, so the box has to say it first. */
+  /* The endpoints answer these with a payload_refused whose mark names no rule, so the box has to say it first. */
   it("refuses what the API's lookup refuses, so the box carries the message", () => {
     for (const [payload, takes] of LOOKUPS) {
       for (const email of ["", "   ", "erika.example.de", `${"a".repeat(250)}@schule.de`]) {

@@ -107,7 +107,7 @@ async def get_adresswechsel_ansicht(
     Answer what this token opens: the new mailbox's link, the stop link the address on file was mailed, or how either's change ended.
 
     **Nothing else about the change**: never a name, either address or the id. A POST that reads, so the token travels in
-    a body and never in a second URL. Refuses only a token no change holds (`REQ-ADRESSWECHSEL-001`); an ended change's
+    a body and never in a second URL. Refuses only a token no change holds (`link_ungueltig`); an ended change's
     links answer `beendet` and how it ended for as long as its record is kept.
 
     The new mailbox's side is served in a state: once pressed, `bestaetigt`, or `genehmigung_abgelaufen` where its
@@ -166,7 +166,7 @@ async def get_adresswechsel_ansicht(
             session=None,
         )
         gesperrt = urteil.ursache == "neue_gesperrt"
-        # An address left holding nothing to move too: the press ends that change discarded and answers `-002`.
+        # An address left holding nothing to move too: the press ends that change discarded and answers `adresswechsel_beendet`.
         nicht_bestaetigbar = urteil.ursache in _NICHT_BESTAETIGBAR or urteil.leer
 
     zustand = neu_zustand(record, now=germany_now, gesperrt=gesperrt, nicht_bestaetigbar=nicht_bestaetigbar)
@@ -225,17 +225,18 @@ async def post_adresswechsel_antwort(
     answering `wirksam_ab` or `genehmigung_offen`.
     Either answer spends the link, which keeps answering what became of the change.
 
-    Refuses a token no change holds (`REQ-ADRESSWECHSEL-001`), a link already answered or a change ended
-    (`REQ-ADRESSWECHSEL-002`), and, in the order the link's view ranks its states, a CONFIRMATION through a link mailed to
-    an address the ban list holds now (`-004`), one past its deadline (`-003`), one whose change would replace an address
-    the ban list holds now (`-005`), so a barred person cannot move their records off the address the ban keys on, one
-    moving a pupil onto an address another pupil signs in on (`-006`), one whose address came to hold a grant its approval
-    does not cover (`-015`), one moving a grant onto an address holding one (`-016`), and one whose new address any entry
-    names, confirmed or not, an open grant request among them (`-018`): moving the person onto it would join two people's
-    records. **A decline is refused none of these**: it removes an address nobody proved, out of every log image of the change too.
+    Refuses a token no change holds (`link_ungueltig`), a link already answered or a change ended
+    (`adresswechsel_beendet`), and, in the order the link's view ranks its states, a CONFIRMATION through a link mailed to
+    an address the ban list holds now (`link_gesperrt`), one past its deadline (`link_abgelaufen`), one whose change would replace an address
+    the ban list holds now (`adresswechsel_ersetzte_gesperrt`), so a barred person cannot move their records off the address the ban keys on,
+    one moving a pupil onto an address another pupil signs in on (`adresswechsel_vergeben`), one whose address came to hold a grant its approval
+    does not cover (`adresswechsel_nicht_gedeckt`), one moving a grant onto an address holding one (`adresswechsel_neue_berechtigt`), and one
+    whose new address any entry names, confirmed or not, an open grant request among them (`adresswechsel_belegt`): moving the person onto it
+    would join two people's records. **A decline is refused none of these**: it removes an address nobody proved, out of every log image of the
+    change too.
 
-    A change whose address has come to hold nothing to move ends discarded, and the press answers `-002`. The codes past
-    `-004` tell a caller what the view's `nicht_bestaetigbar` keeps alike; only the edge keeps them from the link's holder.
+    A change whose address has come to hold nothing to move ends discarded, and the press answers `adresswechsel_beendet`. The codes past
+    `link_gesperrt` tell a caller what the view's `nicht_bestaetigbar` keeps alike; only the edge keeps them from the link's holder.
     """
 
     token_hash = hash_token(antwort_data.token)
@@ -349,7 +350,7 @@ async def post_adresswechsel_stopp(
     """
     Stop the change the address on file was told of: its new address goes, out of every log image of the change too.
 
-    **Refused nothing but a token no change holds** (`REQ-ADRESSWECHSEL-001`) **and a change ended** (`-002`): a stop
+    **Refused nothing but a token no change holds** (`link_ungueltig`) **and a change ended** (`adresswechsel_beendet`): a stop
     hands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends.
     """
 

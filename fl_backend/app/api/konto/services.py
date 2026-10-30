@@ -128,9 +128,9 @@ def widerruf_line(
 
 
 def find_erteilung_refusal(*, zugelassen: bool) -> WriteRefusal | None:
-    """`REQ-EINWILLIGUNG-004`: the record is the person's own and takes a withdrawal alone, so a grant on it is refused.
+    """`erteilung_nicht_zugelassen`: the record is the person's own and takes a withdrawal alone, so a grant on it is refused.
 
-    Its own code, not `REQ-FUNKTION-001`'s: the record was found, so naming the cause hides nothing.
+    Its own code, not `funktion_nicht_gehalten`'s: the record was found, so naming the cause hides nothing.
     """
 
     if zugelassen:
@@ -143,7 +143,7 @@ def find_erteilung_refusal(*, zugelassen: bool) -> WriteRefusal | None:
 
 
 def find_eigener_eintrag_refusal(*, gehalten: bool) -> WriteRefusal | None:
-    """`REQ-FUNKTION-001` on a person's own record: the address holds no record this operation may read or change.
+    """`funktion_nicht_gehalten` on a person's own record: the address holds no record this operation may read or change.
 
     One answer for another person's id, an unconfirmed record and none at all, so the refusal tells
     nobody which ids exist.
@@ -159,7 +159,7 @@ def find_eigener_eintrag_refusal(*, gehalten: bool) -> WriteRefusal | None:
 
 
 def find_nachweis_stand_refusal(*, erwartet: Mapping[str, Any], bloecke: Sequence[Any]) -> WriteRefusal | None:
-    """`REQ-EINWILLIGUNG-003`: a choice's evidence moved since the page was served.
+    """`fassung_unzulaessig`: a choice's evidence moved since the page was served.
 
     Refused rather than merged: a stale page sends the other choice as it last saw it, and taking that
     would re-grant what the person withdrew elsewhere.
@@ -169,13 +169,13 @@ def find_nachweis_stand_refusal(*, erwartet: Mapping[str, Any], bloecke: Sequenc
         return None
 
     return WriteRefusal(
-        error_code=Code.EINWILLIGUNG_STAND_VERALTET,
+        error_code=Code.FASSUNG_UNZULAESSIG,
         status=HTTPStatus.CONFLICT,
     )
 
 
 def find_konto_fassung_refusal(*, seite: Seite, text_version: str, erteilt: bool) -> WriteRefusal | None:
-    """`REQ-EINWILLIGUNG-001` on an account-page control: a grant names the page's running label, a withdrawal any version of it.
+    """`fassung_unzulaessig` on an account-page control: a grant names the page's running label, a withdrawal any version of it.
 
     Refusing a withdrawal from a page loaded before a deploy would make taking a consent back harder
     than giving it.

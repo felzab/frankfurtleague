@@ -19,20 +19,20 @@ from app.core.logging import fl_logger
 
 
 class Refusal(NamedTuple):
-    """A boot refusal's sentence and the code its log line carries.
+    """A boot refusal's log line key and the sentence its error carries.
 
-    One object rather than two constants, so a cause cannot be given a sentence and left without a code.
+    One object rather than two constants, so a cause cannot be given a key and left without a sentence.
     """
 
+    event: str
     sentence: str
-    error_code: str
 
 
-# The secret file's NAME and the fact, in one sentence each, used by the log line and the error alike.
-# The three share their opening, so an operator who found one of them reads which by its continuation.
-UNREACHABLE = Refusal(f"{MONGODB_URI_FILE}: the MongoDB server could not be reached, so the application will not start.", "SRV-BOOT-001")
-NO_SERVER = Refusal(f"{MONGODB_URI_FILE}: the value did not yield a server to connect to, so the application will not start.", "SRV-BOOT-002")
-REJECTED = Refusal(f"{MONGODB_URI_FILE}: the server refused to authenticate this value, so the application will not start.", "SRV-BOOT-003")
+# The secret file's NAME and the fact, in one sentence each, for the error. The three share their
+# opening, so an operator who found one of them reads which by its continuation.
+UNREACHABLE = Refusal("db.unreachable", f"{MONGODB_URI_FILE}: the MongoDB server could not be reached, so the application will not start.")
+NO_SERVER = Refusal("db.no_server", f"{MONGODB_URI_FILE}: the value did not yield a server to connect to, so the application will not start.")
+REJECTED = Refusal("db.rejected", f"{MONGODB_URI_FILE}: the server refused to authenticate this value, so the application will not start.")
 
 
 class DatabaseUnreachableError(Exception):
@@ -61,19 +61,11 @@ def _refusal_for(error: BaseException) -> Refusal:
     return UNREACHABLE
 
 
-class BootWarning(NamedTuple):
-    """`Refusal`'s pair for a line the boot goes on past.
-
-    Warnings rather than refusals: the public site needs no administrator, and a boot refused over the
-    grants would take it down to repair a state only a Playground paste repairs.
-    """
-
-    sentence: str
-    error_code: str
-
-
-NO_GRANT = BootWarning("berechtigungen holds no live grant, so nobody can enter the administration.", "SRV-BOOT-005")
-NO_OWNER = BootWarning("berechtigungen holds no live owner row, so no grant is out of an administrator's reach.", "SRV-BOOT-006")
+# The two lines the boot goes on past: nobody can enter the administration, or no grant is out of an
+# administrator's reach. Warnings rather than refusals: the public site needs no administrator, and a
+# boot refused over the grants would take it down to repair a state only a Playground paste repairs.
+NO_GRANT = "berechtigungen.no_grant"
+NO_OWNER = "berechtigungen.no_owner"
 
 
 async def warn_about_the_grants(berechtigungen_collection: AsyncCollection) -> None:
@@ -85,11 +77,11 @@ async def warn_about_the_grants(berechtigungen_collection: AsyncCollection) -> N
     grants = await berechtigungen_collection.find({}, projection={"verwaltung": 1}).to_list(length=None)
 
     if not grants:
-        fl_logger.warning(NO_GRANT.sentence, extra={"error_code": NO_GRANT.error_code})
+        fl_logger.warning(NO_GRANT)
         return
 
     if all(grant.get("verwaltung") != "owner" for grant in grants):
-        fl_logger.warning(NO_OWNER.sentence, extra={"error_code": NO_OWNER.error_code})
+        fl_logger.warning(NO_OWNER)
 
 
 # Wider than the frontend's (`fl_frontend/src/core/db.ts :: options`), which a visitor's first request
@@ -118,7 +110,8 @@ async def lifespan(app: FastAPI):
             await client.admin.command("ping")
         except Exception as error:
             refusal = _refusal_for(error)
-            fl_logger.critical(refusal.sentence, extra={"error_code": refusal.error_code})
+            # The file by its name, the one an operator goes and fixes; never its value.
+            fl_logger.critical(refusal.event, extra={"file": MONGODB_URI_FILE})
             # No `exc_info`, and a new error `from None`: the driver's own message carries the host
             # it resolved out of the value, which is the half an operator must not be handed.
             raise DatabaseUnreachableError(refusal.sentence) from None
@@ -127,11 +120,7 @@ async def lifespan(app: FastAPI):
         try:
             constraints = await apply_constraints(app.state.db_client[config.db_base_name])
         except Exception:
-            fl_logger.critical(
-                "Database indexes could not be applied, so the application will not start.",
-                exc_info=True,
-                extra={"error_code": "SRV-BOOT-004"},
-            )
+            fl_logger.critical("db.indexes_failed", exc_info=True)
             raise
         fl_logger.info(
             "db.indexes_applied",

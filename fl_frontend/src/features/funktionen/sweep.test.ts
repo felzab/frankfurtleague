@@ -210,7 +210,7 @@ describe("a pass meeting a failure", () => {
         method: "POST",
         readOnly: true,
         statusCode: 409,
-        serverErrorCode: "REQ-REFERENZEN-001",
+        serverErrorCode: "kein_inhaber",
         traceId: TRACE_ID,
       });
     };
@@ -224,7 +224,7 @@ describe("a pass meeting a failure", () => {
         fields: {
           name: "APIBadStatusError",
           status: 409,
-          server_error_code: "REQ-REFERENZEN-001",
+          server_error_code: "kein_inhaber",
           trace_id: TRACE_ID,
           anzahl: 2,
         },

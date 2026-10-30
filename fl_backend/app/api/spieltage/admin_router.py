@@ -120,7 +120,7 @@ async def _refuse_an_out_of_order_beginn(
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> None:
-    """Refuse `REQ-DATE-008` when this matchday's new `beginn` breaks the order its phase's positions are dated in."""
+    """Refuse `spieltag_beginn_out_of_order` when this matchday's new `beginn` breaks the order its phase's positions are dated in."""
 
     # The neighbour reads are the whole of what two writers dating one phase share, and a read is
     # what a snapshot re-validates nowhere -- so the season is written to put the two in one write set.

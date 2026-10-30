@@ -28,6 +28,6 @@ def find_venue_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRefu
         return None
 
     return WriteRefusal(
-        error_code=Code.VENUE_STILL_BOOKED,
+        error_code=Code.SPIELORT_STILL_BOOKED,
         status=HTTPStatus.CONFLICT,
     )

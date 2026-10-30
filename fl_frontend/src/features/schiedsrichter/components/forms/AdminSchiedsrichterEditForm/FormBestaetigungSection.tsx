@@ -230,7 +230,7 @@ export function FormBestaetigungSection({
         {einwilligung === null ? (
           // The missing control belongs in the same breath, a reader of an empty panel among editable
           // ones looking for a way to record a consent; so does what waits on it, the save refusing to
-          // book an unconfirmed referee (`REQ-BOOKING-002`).
+          // book an unconfirmed referee (`booking_unconfirmed_schiedsrichter`).
           <p className="muted-hint">
             Diese Person hat ihren Eintrag noch nicht bestätigt, und eintragen lässt sich die Einwilligung nicht. Einteilen lässt sie sich erst,
             wenn sie bestätigt hat.

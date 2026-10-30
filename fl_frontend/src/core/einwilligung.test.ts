@@ -118,7 +118,7 @@ describe("the words read", () => {
 
   // Only the record-missing code is an unknown label: a 404 carrying none is a route nothing served.
   it("throws every other failure rather than calling the label unknown", async () => {
-    for (const thrown of [failure(404, undefined), failure(500, "SRV-FAIL-001")]) {
+    for (const thrown of [failure(404, undefined), failure(500, "unhandled_crash")]) {
       api.answerWith(() => Promise.reject(thrown));
 
       await expect(getEinwilligungFassung("2026-10-spielerseite-5")).rejects.toSatisfy((error) => error === thrown);

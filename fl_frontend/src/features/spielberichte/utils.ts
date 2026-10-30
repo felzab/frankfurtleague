@@ -6,6 +6,7 @@ import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { SPIELBERICHT_ZUSTAENDE_OFFEN, SPIELBERICHT_ZUSTAND_TONE } from "./constants";
 
 import type {
+  Code,
   FLSpielberichtSeiten,
   FLSpielberichtSpiel,
   FLSpielberichtSpieler,
@@ -111,7 +112,7 @@ export function berlinZeitpunkt(stamp: string): string {
   return Number.isNaN(instant.getTime()) ? stamp : `${BERLIN_ZEITPUNKT.format(instant)} Uhr`;
 }
 
-/** Why a fixture takes no report today, `null` where it takes one, as `REQ-BERICHT-001` and `REQ-BERICHT-004` judge a write. */
+/** Why a fixture takes no report today, `null` where it takes one, as `bericht_nicht_gespielt` and `bericht_abgesagt` judge a write. */
 export type BerichtSperre = "abgesagt" | "undatiert" | "kuenftig";
 
 export function berichtSperre(spiel: Pick<FLSpielberichtSpiel, "datum" | "sonderereignis">, today: string): BerichtSperre | null {
@@ -141,50 +142,53 @@ const NEU_EINTRAGEN = "Lade die Seite neu und trage Deine Änderung dort erneut 
 const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
   schiedsrichter: {
     // Ahead of the spine's own reading, whose sentence names a team: the referee's record is what went.
-    "REQ-FUNKTION-001": "Du bist nicht mehr als Schiedsrichterin oder Schiedsrichter eingetragen. Lade die Seite neu.",
-    "REQ-BERICHT-001": buildRefusal({ reason: "Dieses Spiel hat noch kein Datum oder noch nicht stattgefunden", repair: LADE_DIE_SEITE_NEU }),
-    "REQ-BERICHT-002": buildRefusal({ reason: "Dieses Spiel leitest Du nicht mehr", repair: LADE_DIE_SEITE_NEU }),
-    "REQ-BERICHT-003": buildRefusal({
+    funktion_nicht_gehalten: "Du bist nicht mehr als Schiedsrichterin oder Schiedsrichter eingetragen. Lade die Seite neu.",
+    bericht_nicht_gespielt: buildRefusal({
+      reason: "Dieses Spiel hat noch kein Datum oder noch nicht stattgefunden",
+      repair: LADE_DIE_SEITE_NEU,
+    }),
+    bericht_nicht_geleitet: buildRefusal({ reason: "Dieses Spiel leitest Du nicht mehr", repair: LADE_DIE_SEITE_NEU }),
+    bericht_nicht_im_kader: buildRefusal({
       reason: "Eine gewählte Person steht nicht mehr im Kader ihres Teams",
       repair: "Lade die Seite neu und wähle neu",
     }),
-    "REQ-BERICHT-004": buildRefusal({
+    bericht_abgesagt: buildRefusal({
       reason: "Dieses Spiel ist inzwischen als ausgefallen oder annulliert eingetragen und nimmt keinen Spielbericht an",
       repair: LADE_DIE_SEITE_NEU,
     }),
-    "REQ-BERICHT-008": GRUND_FEHLT,
-    "REQ-BERICHT-009": ELFMETER_IN_DER_GRUPPE,
-    "REQ-BERICHT-007": buildRefusal({
+    bericht_grund_fehlt: GRUND_FEHLT,
+    bericht_elfmeter_in_der_gruppe: ELFMETER_IN_DER_GRUPPE,
+    saison_past: buildRefusal({
       reason: "Die Saison dieses Spiels ist vorbei, und den Spielbericht kannst Du nicht mehr ändern",
       repair: LADE_DIE_SEITE_NEU,
     }),
-    "REQ-BERICHT-006": buildRefusal({
+    bericht_inzwischen_geaendert: buildRefusal({
       reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Verwaltung oder von Dir in einem anderen Fenster",
       repair: NEU_EINTRAGEN,
     }),
-    "DB-COMMON-002": buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: NEU_EINTRAGEN }),
+    duplicate_key: buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: NEU_EINTRAGEN }),
   },
   admin: {
     // A reload, no date to enter: the correction page states an undated or future fixture before any press, so this
     // arrives only where the fixture moved under the page, and an entered date may be the future one.
-    "REQ-BERICHT-001": buildRefusal({ reason: "Das Spiel hat noch kein Datum oder findet erst noch statt", repair: LADE_DIE_SEITE_NEU }),
-    "REQ-BERICHT-003": buildRefusal({
+    bericht_nicht_gespielt: buildRefusal({ reason: "Das Spiel hat noch kein Datum oder findet erst noch statt", repair: LADE_DIE_SEITE_NEU }),
+    bericht_nicht_im_kader: buildRefusal({
       reason: "Eine gewählte Person steht nicht im Kader ihres Teams",
       repair: "Lade die Seite neu und wähle neu",
     }),
-    "REQ-BERICHT-004": buildRefusal({
+    bericht_abgesagt: buildRefusal({
       reason: "Das Spiel ist als ausgefallen oder annulliert eingetragen",
       repair: "Entferne das Sonderereignis im Spiel, um den Spielbericht zu bearbeiten",
     }),
-    "REQ-BERICHT-008": GRUND_FEHLT,
-    "REQ-BERICHT-009": ELFMETER_IN_DER_GRUPPE,
-    "REQ-BERICHT-006": buildRefusal({
+    bericht_grund_fehlt: GRUND_FEHLT,
+    bericht_elfmeter_in_der_gruppe: ELFMETER_IN_DER_GRUPPE,
+    bericht_inzwischen_geaendert: buildRefusal({
       reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Schiedsrichterin oder dem Schiedsrichter",
       repair: NEU_EINTRAGEN,
     }),
-    "DB-COMMON-002": buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: NEU_EINTRAGEN }),
+    duplicate_key: buildRefusal({ reason: "Der Spielbericht wurde gerade gleichzeitig gespeichert", repair: NEU_EINTRAGEN }),
   },
-};
+} satisfies Record<SpielberichtLeser, Partial<Record<Code, string>>>;
 
 /** A report write's refusal in its reader's words, `null` for a code neither write answers. */
 export function mapSpielberichtRefusal(error: unknown, leser: SpielberichtLeser): { error?: string; fieldErrors?: FieldErrors } | null {

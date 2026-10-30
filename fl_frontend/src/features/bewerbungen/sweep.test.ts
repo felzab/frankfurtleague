@@ -199,7 +199,7 @@ describe("the line a failed call files", () => {
         method: "POST",
         readOnly: false,
         statusCode: 500,
-        serverErrorCode: "DB-FAIL-001",
+        serverErrorCode: "database_failed",
         traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
       });
     };
@@ -212,7 +212,7 @@ describe("the line a failed call files", () => {
         fields: {
           name: "APIBadStatusError",
           status: 500,
-          server_error_code: "DB-FAIL-001",
+          server_error_code: "database_failed",
           trace_id: "4bf92f3577b34da6a3ce929d0e0e4736",
           saison_id: "2627",
         },

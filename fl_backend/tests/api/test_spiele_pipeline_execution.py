@@ -66,7 +66,7 @@ class TestTheJoinedDisqualification:
         assert match_8["team2"]["austritt"] is None
 
     def test_a_side_whose_team_holds_no_row_for_the_season_carries_null(self, league: SeededLeague) -> None:
-        """No junction row is not a disqualification: that is `REQ-ELIGIBILITY-002`'s fact, and this field answers a different one."""
+        """No junction row is no disqualification: that is `eligibility_team_not_in_saison`'s fact, and this field answers another one."""
 
         assert spiel(league, 8, saison_id=PRIOR_SAISON)["team1"]["austritt"] is None
 

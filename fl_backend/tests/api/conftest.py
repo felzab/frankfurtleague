@@ -132,7 +132,7 @@ def _side(key: str | None, tore: int | None) -> dict[str, Any] | None:
 
 
 def _spieltag_oid(saison_id: str, nr: int) -> ObjectId:
-    """One per fixture, not one per phase: that would field six clubs twice on a Spieltag, which `REQ-SPIELTAG-001` refuses.
+    """One per fixture, not one per phase: that would field six clubs twice on a Spieltag, which `spieltag_occupied` refuses.
 
     No `spieltage` row is seeded and nothing joins on the key, but `spieltag_id` is not nullable.
     """

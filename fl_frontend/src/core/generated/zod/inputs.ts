@@ -12,11 +12,11 @@ import * as zod from "zod";
  * confirms. Where the address holds a grant, the change also waits on another administrator's approval, never this
  * one's. No link is answered. The address's live change ends replaced.
  *
- * Refused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power
- * (`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds
- * (`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the
- * change moves a pupil (`-006`), a new address any entry names, confirmed or not (`-018`), and a grant nobody could
- * approve (`-011`).
+ * Refused the administrator's own address (`eigene_adresse`), a grant holder's without an owner's power
+ * (`verwaltung_adresse`), the address on file typed again (`adresswechsel_unveraendert`), a new address the ban list holds
+ * (`adresswechsel_gesperrt`), an address holding nothing a change moves (`adresswechsel_nichts`), a new address another pupil signs in on
+ * where the change moves a pupil (`adresswechsel_vergeben`), a new address any entry names, confirmed or not (`adresswechsel_belegt`), and a
+ * grant nobody could approve (`adresswechsel_kein_genehmiger`).
  * @summary Start an address change for a person who says they cannot sign in
  */
 export const adresswechselPostAdresswechselVerwaltungBodyAdresseMax = 254;
@@ -48,9 +48,9 @@ export const AdresswechselPostAdresswechselVerwaltungBody = zod
  * ADMIN TIER, the address tool's read, keyed by the address the administrator types or by a change a page links to;
  * never a hash. `moeglich` where the address holds anything a change moves, a grant included. Stores nothing.
  *
- * Refused as the erasure's reveal is: the administrator's own address (`REQ-PURGE-003`), and an address holding a live
- * grant unless the administrator holds an owner's power (`REQ-PURGE-005`). A change id answers 404 where no change is
- * kept, and `REQ-ADRESSWECHSEL-002` where it ended.
+ * Refused as the erasure's reveal is: the administrator's own address (`eigene_adresse`), and an address holding a live
+ * grant unless the administrator holds an owner's power (`verwaltung_adresse`). A change id answers 404 where no change is
+ * kept, and `adresswechsel_beendet` where it ended.
  * @summary Show what an address holds that a change moves, and its live change
  */
 export const adresswechselGetAdresswechselVerwaltungAnsichtBodyAdresseOneMax = 254;
@@ -77,17 +77,18 @@ export const AdresswechselGetAdresswechselVerwaltungAnsichtBody = zod
  * answering `wirksam_ab` or `genehmigung_offen`.
  * Either answer spends the link, which keeps answering what became of the change.
  *
- * Refuses a token no change holds (`REQ-ADRESSWECHSEL-001`), a link already answered or a change ended
- * (`REQ-ADRESSWECHSEL-002`), and, in the order the link's view ranks its states, a CONFIRMATION through a link mailed to
- * an address the ban list holds now (`-004`), one past its deadline (`-003`), one whose change would replace an address
- * the ban list holds now (`-005`), so a barred person cannot move their records off the address the ban keys on, one
- * moving a pupil onto an address another pupil signs in on (`-006`), one whose address came to hold a grant its approval
- * does not cover (`-015`), one moving a grant onto an address holding one (`-016`), and one whose new address any entry
- * names, confirmed or not, an open grant request among them (`-018`): moving the person onto it would join two people's
- * records. **A decline is refused none of these**: it removes an address nobody proved, out of every log image of the change too.
+ * Refuses a token no change holds (`link_ungueltig`), a link already answered or a change ended
+ * (`adresswechsel_beendet`), and, in the order the link's view ranks its states, a CONFIRMATION through a link mailed to
+ * an address the ban list holds now (`link_gesperrt`), one past its deadline (`link_abgelaufen`), one whose change would replace an address
+ * the ban list holds now (`adresswechsel_ersetzte_gesperrt`), so a barred person cannot move their records off the address the ban keys on,
+ * one moving a pupil onto an address another pupil signs in on (`adresswechsel_vergeben`), one whose address came to hold a grant its approval
+ * does not cover (`adresswechsel_nicht_gedeckt`), one moving a grant onto an address holding one (`adresswechsel_neue_berechtigt`), and one
+ * whose new address any entry names, confirmed or not, an open grant request among them (`adresswechsel_belegt`): moving the person onto it
+ * would join two people's records. **A decline is refused none of these**: it removes an address nobody proved, out of every log image of the
+ * change too.
  *
- * A change whose address has come to hold nothing to move ends discarded, and the press answers `-002`. The codes past
- * `-004` tell a caller what the view's `nicht_bestaetigbar` keeps alike; only the edge keeps them from the link's holder.
+ * A change whose address has come to hold nothing to move ends discarded, and the press answers `adresswechsel_beendet`. The codes past
+ * `link_gesperrt` tell a caller what the view's `nicht_bestaetigbar` keeps alike; only the edge keeps them from the link's holder.
  * @summary Confirm or decline a pending address
  */
 export const adresswechselPostAdresswechselAntwortBodyTokenMax = 128;
@@ -103,7 +104,7 @@ export const AdresswechselPostAdresswechselAntwortBody = zod.object({
  * Answer what this token opens: the new mailbox's link, the stop link the address on file was mailed, or how either's change ended.
  *
  * **Nothing else about the change**: never a name, either address or the id. A POST that reads, so the token travels in
- * a body and never in a second URL. Refuses only a token no change holds (`REQ-ADRESSWECHSEL-001`); an ended change's
+ * a body and never in a second URL. Refuses only a token no change holds (`link_ungueltig`); an ended change's
  * links answer `beendet` and how it ended for as long as its record is kept.
  *
  * The new mailbox's side is served in a state: once pressed, `bestaetigt`, or `genehmigung_abgelaufen` where its
@@ -128,7 +129,7 @@ export const AdresswechselGetAdresswechselAnsichtBody = zod
 /**
  * Stop the change the address on file was told of: its new address goes, out of every log image of the change too.
  *
- * **Refused nothing but a token no change holds** (`REQ-ADRESSWECHSEL-001`) **and a change ended** (`-002`): a stop
+ * **Refused nothing but a token no change holds** (`link_ungueltig`) **and a change ended** (`adresswechsel_beendet`): a stop
  * hands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends.
  * @summary Stop a pending address change
  */
@@ -223,8 +224,8 @@ export const AdresswechselPostAdresswechselUmzuegeErledigtBody = zod.object({
  * bring back a change confirmed in its waiting time to take effect. Nothing is mailed. Acts on the change the id names
  * alone, so a page showing a change since replaced discards nothing.
  *
- * Refused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), and where the change ended
- * (`REQ-ADRESSWECHSEL-002`); 404 for an id naming no change.
+ * Refused as the start is about who asks (`eigene_adresse`, `verwaltung_adresse`), and where the change ended
+ * (`adresswechsel_beendet`); 404 for an id naming no change.
  * @summary Discard a pending address change
  */
 export const adresswechselDeleteAdresswechselPathAdresswechselIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -241,11 +242,11 @@ export const AdresswechselDeleteAdresswechselParams = zod.object({
  * next hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends
  * nothing.
  *
- * Refused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), where the ban list holds the pending address
- * (`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), where an entry has come to name it,
- * confirmed or not (`-018`), where a grant's approval week has passed (`-003`), and where the change ended (`-002`). 404 for
- * an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on file's approval,
- * or confirmed, has no link to re-send.
+ * Refused as the start is about who asks (`eigene_adresse`, `verwaltung_adresse`), where the ban list holds the pending address
+ * (`adresswechsel_gesperrt`), where another pupil has come to sign in on it (`adresswechsel_vergeben`), where an entry has come to name it,
+ * confirmed or not (`adresswechsel_belegt`), where a grant's approval week has passed (`link_abgelaufen`), and where the change ended
+ * (`adresswechsel_beendet`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on
+ * file's approval, or confirmed, has no link to re-send.
  * @summary Send a pending address a fresh link
  */
 export const adresswechselEinladenAdresswechselPathAdresswechselIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -263,13 +264,13 @@ export const AdresswechselEinladenAdresswechselParams = zod.object({
  * in this transaction. Otherwise the approval is recorded and the change takes effect at its confirmation
  * or at the end of its waiting time. **An approval refused writes nothing**: the change stands unapproved.
  *
- * Refused where the change asks no approval or was given it (`REQ-ADRESSWECHSEL-012`), where its seven days have passed
- * (`-003`), to the changed address and to the administrator who started it (`-013`), to anyone but an owner, signed in
- * since becoming one, where the grant is an owner's (`-014`), and where the change ended (`-002`); and, where it would
- * take effect, as the confirmation is (`-004`, `-005`, `-006`, `-015`, `-016`, `-018`). A change whose address has come to hold
- * nothing to move ends discarded, its new address told it did not take effect, answering `-010`. 404 for an id naming no
- * change. A sign-in or confirmation older than
- * `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.
+ * Refused where the change asks no approval or was given it (`adresswechsel_keine_genehmigung_offen`), where its seven days have passed
+ * (`link_abgelaufen`), to the changed address and to the administrator who started it (`adresswechsel_genehmigung_verwehrt`), to anyone but an
+ * owner, signed in since becoming one, where the grant is an owner's (`adresswechsel_genehmigung_inhaber`), and where the change ended
+ * (`adresswechsel_beendet`); and, where it would take effect, as the confirmation is (`link_gesperrt`, `adresswechsel_ersetzte_gesperrt`,
+ * `adresswechsel_vergeben`, `adresswechsel_nicht_gedeckt`, `adresswechsel_neue_berechtigt`, `adresswechsel_belegt`). A change whose address
+ * has come to hold nothing to move ends discarded, its new address told it did not take effect, answering `adresswechsel_nichts`. 404 for an
+ * id naming no change. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `confirmation_required`, as a grant's is.
  * @summary Approve the move of an administrator's access with their address change
  */
 export const adresswechselPostAdresswechselGenehmigungPathAdresswechselIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -316,11 +317,11 @@ export const AktionenGetAktionByIdParams = zod.object({
  * only on that approval (`POST /berechtigungen/antraege/{antrag_id}/genehmigung`). A lone administrator grants alone.
  *
  * The address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live
- * grant already holds the address (`REQ-BERECHTIGUNG-001`), where the ban list
- * holds it (`REQ-BERECHTIGUNG-003`), and where a request about it waits already (`REQ-BERECHTIGUNG-008`). The grant takes effect on
- * the next request, for a session signed in after it alone -- an older one is refused `REQ-AUTH-007` on every admin-tier route -- and
+ * grant already holds the address (`berechtigung_vorhanden`), where the ban list
+ * holds it (`berechtigung_gesperrt`), and where a request about it waits already (`berechtigung_antrag_offen`). The grant takes effect on
+ * the next request, for a session signed in after it alone -- an older one is refused `session_refused` on every admin-tier route -- and
  * its announcement is owed to every administrator in the same transaction. Like a revoke and a tier
- * change, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES`, refused `REQ-AUTH-009` otherwise.
+ * change, it takes a passkey sign-in or confirmation no older than `ENROLMENT_WINDOW_MINUTES`, refused `confirmation_required` otherwise.
  * @summary Grant access to the administration
  */
 export const berechtigungenPostBerechtigungBodyEmailMax = 254;
@@ -332,9 +333,10 @@ export const BerechtigungenPostBerechtigungBody = zod.object({
 /**
  * Refuse a request, or withdraw one's own: it is removed, and nothing it asked for happens. HARD, no soft form.
  *
- * Decided by whoever may approve it, refused with the approval's own codes otherwise (`REQ-BERECHTIGUNG-009`, `-010`, `-011`), and
- * withdrawn by the administrator who made it, whatever their tier now. 404 for an id naming no request, a request decided, withdrawn or
- * lapsed among them. A restore from a snapshot taken before it brings the request back only until the replay of its journal line.
+ * Decided by whoever may approve it, refused with the approval's own codes otherwise (`berechtigung_genehmigung_verwehrt`,
+ * `berechtigung_genehmigung_inhaber`, `berechtigung_genehmigung_juenger`), and withdrawn by the administrator who made it, whatever their tier
+ * now. 404 for an id naming no request, a request decided, withdrawn or lapsed among them. A restore from a snapshot taken before it brings
+ * the request back only until the replay of its journal line.
  *
  * A refusal queues, in the same transaction, a notice to the request's requester naming the address and tier it asked for and
  * nobody who refused it, for `POST /berechtigungen/abgleich` to hand out; a withdrawal tells nobody.
@@ -352,13 +354,13 @@ export const BerechtigungenDeleteAntragParams = zod.object({
  * The grant is made, or the tier moved, and the request removed, in one transaction, the change announced to every
  * administrator as one made directly is, under this administrator's name.
  *
- * Refused to the address the request is about and to the administrator who made it (`REQ-BERECHTIGUNG-009`), to anyone but an
- * owner, signed in since becoming one, for a promotion (`-010`), to an administrator whose grant, or owner's tier, took effect after
- * the request (`-011`), and where the requester does not hold that tier since before it, revoked, demoted or barred since
- * (`-012`); and, as the direct act would be, where the address holds a grant by now (`-001`) or is on the ban list (`-003`). 404 for
- * an id naming no request, a request decided, withdrawn or lapsed among them, and for a promotion whose grant has gone. A promotion
- * whose grant is an owner's already removes the request and changes nothing. A sign-in or confirmation older than
- * `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.
+ * Refused to the address the request is about and to the administrator who made it (`berechtigung_genehmigung_verwehrt`), to anyone but an
+ * owner, signed in since becoming one, for a promotion (`berechtigung_genehmigung_inhaber`), to an administrator whose grant, or owner's tier,
+ * took effect after the request (`berechtigung_genehmigung_juenger`), and where the requester does not hold that tier since before it,
+ * revoked, demoted or barred since (`berechtigung_antrag_verfallen`); and, as the direct act would be, where the address holds a grant by now
+ * (`berechtigung_vorhanden`) or is on the ban list (`berechtigung_gesperrt`). 404 for an id naming no request, a request decided, withdrawn or
+ * lapsed among them, and for a promotion whose grant has gone. A promotion whose grant is an owner's already removes the request and changes
+ * nothing. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `confirmation_required`, as a grant's is.
  * @summary Approve a grant or a promotion another administrator asked for
  */
 export const berechtigungenPostAntragGenehmigungPathAntragIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -368,14 +370,14 @@ export const BerechtigungenPostAntragGenehmigungParams = zod.object({
 });
 
 /**
- * Revoke one grant, removing the row. HARD, no soft form; the revoked address meets `REQ-AUTH-006` on its next request.
+ * Revoke one grant, removing the row. HARD, no soft form; the revoked address meets `actor_not_admin` on its next request.
  *
- * Only an `owner` revokes (`REQ-BERECHTIGUNG-005`), judged on the actor's own grant inside the transaction, and before anything
+ * Only an `owner` revokes (`berechtigung_nur_inhaber`), judged on the actor's own grant inside the transaction, and before anything
  * about the target is answered; an owner's sign-in older than the moment they became one is refused the same. 404 where no grant
- * has the id. Refused for an `owner` row (`REQ-BERECHTIGUNG-002`), which is made an
- * administrator first, and where fewer than two live, unbarred grants would remain (`REQ-BERECHTIGUNG-004`). The removal's
+ * has the id. Refused for an `owner` row (`berechtigung_inhaber`), which is made an
+ * administrator first, and where fewer than two live, unbarred grants would remain (`berechtigung_mindestzahl`). The removal's
  * announcement is queued in the same transaction, after any change to the row made in the database and not yet announced. A sign-in
- * or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as the grant's is.
+ * or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `confirmation_required`, as the grant's is.
  * @summary Revoke access to the administration
  */
 export const berechtigungenDeleteBerechtigungPathBerechtigungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -387,7 +389,7 @@ export const BerechtigungenDeleteBerechtigungParams = zod.object({
 /**
  * Make an administrator an owner, or an owner an administrator; an owner steps down by naming their own grant.
  *
- * Only an `owner` changes a tier (`REQ-BERECHTIGUNG-005`), judged on the actor's own grant inside the transaction, and before
+ * Only an `owner` changes a tier (`berechtigung_nur_inhaber`), judged on the actor's own grant inside the transaction, and before
  * anything about the target is answered; an owner's sign-in older than the moment they became one is refused the same.
  *
  * **Four eyes on a promotion**: where another owner could approve it -- a live, unbarred `owner` grant in effect now, neither this
@@ -397,12 +399,12 @@ export const BerechtigungenDeleteBerechtigungParams = zod.object({
  *
  * A promotion holds for a sign-in after it alone: the promoted administrator's older sessions keep administering and take no owner's
  * step until they sign in again. A demotion takes the tier from every session at once. 404 where no live grant has the id. A
- * promotion of an address on the ban list is refused (`REQ-BERECHTIGUNG-003`), one whose request waits already
- * (`REQ-BERECHTIGUNG-008`), and a demotion leaving no live, unbarred owner (`REQ-BERECHTIGUNG-007`). Naming the tier the grant holds
- * changes nothing and answers 200. The change reaches the next request; its announcement is queued in the same transaction, after
+ * promotion of an address on the ban list is refused (`berechtigung_gesperrt`), one whose request waits already
+ * (`berechtigung_antrag_offen`), and a demotion leaving no live, unbarred owner (`berechtigung_letzter_inhaber`). Naming the tier the grant
+ * holds changes nothing and answers 200. The change reaches the next request; its announcement is queued in the same transaction, after
  * any change to the row made in the database and not yet announced, and a grant found that way is stamped `gefunden_am` as
  * `POST /berechtigungen/abgleich` stamps one. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused
- * `REQ-AUTH-009`, as the grant's is.
+ * `confirmation_required`, as the grant's is.
  * @summary Change a grant between administrator and owner
  */
 export const berechtigungenPatchBerechtigungPathBerechtigungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -449,11 +451,11 @@ export const BewerbungenGetBewerbungenQueryParams = zod.object({
  *
  * An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
  * application it holds, stores none and owes nothing again. The same key over other details is refused
- * (`REQ-BEWERBUNG-015`).
+ * (`bewerbung_schluessel_abweichend`).
  *
- * An address the ban list holds, on any seat, is refused (`REQ-BEWERBUNG-018`) on a first press.
+ * An address the ban list holds, on any seat, is refused (`bewerbung_adresse_gesperrt`) on a first press.
  *
- * A seat naming a consent wording other than the one the form now shows is refused (`REQ-EINWILLIGUNG-001`),
+ * A seat naming a consent wording other than the one the form now shows is refused (`fassung_unzulaessig`),
  * and only once the key has been looked up: a stored key is answered whatever wording it names.
  * @summary Submit a Bewerbung
  */
@@ -702,8 +704,8 @@ export const BewerbungenPostBewerbungBody = zod
  *
  * A decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who
  * refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
- * `REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and on a team's season row
- * `REQ-KONTAKT-004` and `-006`.
+ * `link_ungueltig`, `link_abgelaufen`, `bewerbung_sitz_already_answered`, `bestaetigung_alter`, `link_gesperrt`, `fassung_unzulaessig`,
+ * `medien_alter`, and on a team's season row `link_abgelaufen` and `kontakt_saison_vorbei`.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
 export const bewerbungenPostEinwilligungBodyGeburtsdatumOneRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
@@ -738,7 +740,7 @@ export const BewerbungenPostEinwilligungBody = zod
  * What the confirmation page renders for the seat this token opens, and nothing of the person.
  *
  * A POST, so the token travels in the body. A confirmed, declined or expired link is served in that state, `gesperrt`
- * ranking first; only a token no seat holds is refused (`REQ-BEWERBUNG-009`).
+ * ranking first; only a token no seat holds is refused (`link_ungueltig`).
  * @summary What one confirmation link opens
  */
 export const bewerbungenGetEinwilligungAnsichtBodyTokenMax = 128;
@@ -896,7 +898,7 @@ export const BewerbungenAblehnenBewerbungBody = zod
  *
  * IRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an
  * `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
- * confirm their own seat (`REQ-BEWERBUNG-013`), so every seat enters the season as its person confirmed it.
+ * confirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.
  * The acceptance is owed to every person of the application in the same transaction, naming the seats each holds.
  * @summary Accept a Bewerbung and enter the school into the season
  */
@@ -949,7 +951,7 @@ export const BewerbungenAnnehmenBewerbungBody = zod
  * The application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat
  * is judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a
  * decision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list
- * holds is refused `REQ-BEWERBUNG-019`. A path naming no seat is a 404.
+ * holds is refused `bewerbung_kontakt_gesperrt`. A path naming no seat is a 404.
  * @summary Re-send one seat's confirmation link
  */
 export const bewerbungenErneutEinwilligungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -971,11 +973,11 @@ export const BewerbungenErneutEinwilligungParams = zod.object({
  * restarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens
  * nothing, seating them for a confirmation they cannot give.
  *
- * Refused on an application already decided (`REQ-BEWERBUNG-001`); on any seat this write would reach that nobody
+ * Refused on an application already decided (`bewerbung_already_decided`); on any seat this write would reach that nobody
  * stepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included
- * (`REQ-BEWERBUNG-011`); and on an address another
- * contact person on this application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds
- * (`REQ-BEWERBUNG-019`); and on any label but the application form's running one (`REQ-EINWILLIGUNG-001`), the person
+ * (`bewerbung_sitz_already_answered`); and on an address another
+ * contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds
+ * (`bewerbung_kontakt_gesperrt`); and on any label but the application form's running one (`fassung_unzulaessig`), the person
  * seated being a new acceptance. A path naming no seat is a 404.
  * @summary Seat another person where a contact person stepped out
  */
@@ -1023,11 +1025,11 @@ export const BewerbungenBesetzeKontaktSitzBody = zod
  * The fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because
  * its notice could not arrive is a deletion candidate again once that mail is not refused.
  *
- * Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this write would reach that is already
+ * Refused on an application already decided (`bewerbung_already_decided`), on any seat this write would reach that is already
  * confirmed, already answered with a Widerspruch, or holding nothing to confirm — the mirrored seat included
- * (`REQ-BEWERBUNG-011`) — on a seat holding another address than `bisherige_email`, the address the caller's page
- * showed, as after a Widerspruch and a reseat (`REQ-BEWERBUNG-021`), and on an address another contact person on this
- * application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming
+ * (`bewerbung_sitz_already_answered`) — on a seat holding another address than `bisherige_email`, the address the caller's page
+ * showed, as after a Widerspruch and a reseat (`bewerbung_sitz_anders_besetzt`), and on an address another contact person on this
+ * application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds (`bewerbung_kontakt_gesperrt`). A path naming
  * no seat is a 404.
  * @summary Correct one contact person's email address and re-send their link
  */
@@ -1052,8 +1054,8 @@ export const BewerbungenKorrigiereKontaktEmailBody = zod
 /**
  * Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
  *
- * A grant is refused. Refuses, writing nothing: `REQ-FUNKTION-001`, `REQ-EINWILLIGUNG-003` (the choices moved since the
- * page was served), `REQ-EINWILLIGUNG-004` and `REQ-EINWILLIGUNG-001`.
+ * A grant is refused. Refuses, writing nothing: `funktion_nicht_gehalten`, `fassung_unzulaessig` (the choices moved since the
+ * page was served), `erteilung_nicht_zugelassen` and `fassung_unzulaessig`.
  * @summary Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung
  */
 export const bewerbungenPatchEinwilligungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1099,9 +1101,9 @@ export const EinwilligungGetFassungParams = zod.object({
  * the row is the whole of what this writes: collection `anmeldungen`, operation `delete_many`, the administrator as actor,
  * and no address, filter, image or count. Nothing bars the address and nothing is mailed; a person signs in again as before.
  *
- * Refused so that a refused call ends no session: from a sign-in older than the step-up window (`REQ-AUTH-009`), the
- * administrator's own address (`REQ-PURGE-003`), an address holding an `owner` grant unless the administrator holds an
- * owner's power (`REQ-PURGE-005`). Unlike the erasure, it
+ * Refused so that a refused call ends no session: from a sign-in older than the step-up window (`confirmation_required`), the
+ * administrator's own address (`eigene_adresse`), an address holding an `owner` grant unless the administrator holds an
+ * owner's power (`verwaltung_adresse`). Unlike the erasure, it
  * ends another administrator's sessions for an administrator holding no owner's power: signing in again repairs it.
  * @summary Log the ending of every session an address holds
  */
@@ -1134,13 +1136,13 @@ export const IdentitaetGetAnmeldungBody = zod
  *
  * ADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/selbst/erasure` runs and refuses nothing about the
  * person's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.
- * Three refusals are about who asks. The administrator's own address is refused (`REQ-PURGE-003`): their account page
+ * Three refusals are about who asks. The administrator's own address is refused (`eigene_adresse`): their account page
  * serves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,
- * signed in since becoming one (`REQ-PURGE-005`), judged inside the write: erasing it removes the grant, whatever grants
+ * signed in since becoming one (`verwaltung_adresse`), judged inside the write: erasing it removes the grant, whatever grants
  * remain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every
- * other address is erased from a sign-in inside the step-up window. Either window missed answers `REQ-AUTH-009`. An
+ * other address is erased from a sign-in inside the step-up window. Either window missed answers `confirmation_required`. An
  * address another address's pending change would move to is refused, judged inside the write, where that address holds a
- * live grant and the administrator no owner's power (`REQ-PURGE-007`): the erasure ends the change, a discard only an
+ * live grant and the administrator no owner's power (`fremder_adresswechsel`): the erasure ends the change, a discard only an
  * owner makes of it. The refusal tells that administrator some change the preview withholds names the address.
  *
  * `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does.
@@ -1177,7 +1179,7 @@ export const IdentitaetEraseAufAnfrageBody = zod
  * made by it (`gestellt`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is
  * left out, though the erasure removes its row too. A squad
  * row and a referee row each carry the day it was retired, null while live, and a referee row every season holding a
- * fixture still to be played that it is booked on, as `REQ-RETIRE-004` judges one. Reached and not named: the fixtures
+ * fixture still to be played that it is booked on, as `schiedsrichter_still_assigned` judges one. Reached and not named: the fixtures
  * booking a referee row, which move onto the ghost, and the referee's name in each of those fixtures' log images, which
  * goes; the match reports a referee row sent, which stand naming the ghost, in
  * their log images too; the confirmations a referee row was asked for, which go, and its id
@@ -1192,8 +1194,8 @@ export const IdentitaetEraseAufAnfrageBody = zod
  * `verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the
  * address, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.
  *
- * Refused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless
- * the administrator holds an owner's power (`REQ-PURGE-005`).
+ * Refused as the erasure is: the administrator's own address (`eigene_adresse`), an address holding a live grant unless
+ * the administrator holds an owner's power (`verwaltung_adresse`).
  * @summary Show what an erasure of an address would remove
  */
 export const identitaetGetErasureAnsichtAufAnfrageBodyEmailMax = 254;
@@ -1306,10 +1308,10 @@ export const IdentitaetGetSubjektBody = zod
  * **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
  * answers alike whatever the new address holds.
  *
- * Refused `REQ-AUTH-009` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
+ * Refused `confirmation_required` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
  * address holds a grant;
- * `REQ-ADRESSWECHSEL-010` where the address holds nothing a change moves; `-007` where the typed address is the one
- * signed in; and `-011` where nobody could approve the grant's move, the last owner making another first.
+ * `adresswechsel_nichts` where the address holds nothing a change moves; `adresswechsel_unveraendert` where the typed address is the one
+ * signed in; and `adresswechsel_kein_genehmiger` where nobody could approve the grant's move, the last owner making another first.
  * @summary Start a change of the signed-in person's address
  */
 export const kontoPostAdresswechselBodyEmailMax = 254;
@@ -1325,8 +1327,8 @@ export const KontoPostAdresswechselBody = zod.object({
  * judged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the
  * change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
  *
- * Refused `REQ-AUTH-009` as the start is; `REQ-ADRESSWECHSEL-002` where the change `id` names has ended; 404 where it
- * is no change of this address awaiting its approval; and `REQ-ADRESSWECHSEL-003` past the approval's deadline.
+ * Refused `confirmation_required` as the start is; `adresswechsel_beendet` where the change `id` names has ended; 404 where it
+ * is no change of this address awaiting its approval; and `link_abgelaufen` past the approval's deadline.
  * @summary Approve the address change an administrator asked of the signed-in person
  */
 export const kontoPostAdresswechselFreigabeBodyIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1473,8 +1475,8 @@ export const RegistrierungenGetRegistrierungenQueryParams = zod.object({
  *
  * An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
  * registration it holds, stores none and owes no second mail. The same key over other details is refused
- * (`REQ-REGISTRIERUNG-011`). A key whose registration the team has since admitted is refused too
- * (`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.
+ * (`registrierung_schluessel_abweichend`). A key whose registration the team has since admitted is refused too
+ * (`registrierung_schon_aufgenommen`) and stores nothing: the pupil is in the squad.
  * @summary Register through a team's link
  */
 export const registrierungenPostRegistrierungBodyEmailMax = 254;
@@ -1511,8 +1513,8 @@ export const RegistrierungenPostRegistrierungBody = zod
 /**
  * Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
  *
- * Refuses, writing nothing: `REQ-REGISTRIERUNG-004`, `-005`, `-006`, `-007`, `-010`, `-012`, `-017` and
- * `REQ-EINWILLIGUNG-001`.
+ * Refuses, writing nothing: `link_ungueltig`, `link_abgelaufen`, `bestaetigung_vorhanden`, `bestaetigung_alter`, `medien_alter`,
+ * `link_gesperrt`, `registrierung_wahlen_unpassend` and `fassung_unzulaessig`.
  * @summary Confirm one registration and record the pupil's consent
  */
 export const registrierungenPostBestaetigungBodyGeburtsdatumOneRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
@@ -1547,7 +1549,7 @@ export const RegistrierungenPostBestaetigungBody = zod
  *
  * A POST, so the token travels in the body. A confirmed or expired link is served in that state, `gesperrt` ranking first,
  * and `bestaetigung_spieler_wiederkehrend` opens the returning pupil's page; only a token no registration holds is refused
- * (`REQ-REGISTRIERUNG-004`).
+ * (`link_ungueltig`).
  * @summary What one registration confirmation link opens
  */
 export const registrierungenGetBestaetigungAnsichtBodyTokenMax = 128;
@@ -1613,8 +1615,8 @@ export const RegistrierungenGetOffeneRegistrierungenQueryParams = zod.object({
 /**
  * Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
  *
- * A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `REQ-FUNKTION-001`,
- * `REQ-EINWILLIGUNG-003` (the choices moved since the page was served), `REQ-EINWILLIGUNG-004` and `REQ-EINWILLIGUNG-001`.
+ * A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `funktion_nicht_gehalten`,
+ * `fassung_unzulaessig` (the wording or the choices moved since the page was served) and `erteilung_nicht_zugelassen`.
  * @summary Withdraw a pupil's own publication and media consent on their pending registration
  */
 export const registrierungenPatchEinwilligungPathRegistrierungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1678,7 +1680,7 @@ export const RegistrierungenSweepRegistrierungenParams = zod.object({
  * where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.
  *
  * Refuses, in this order, no pending registration with this id (404) and no seat on its team's season
- * (`REQ-FUNKTION-001`).
+ * (`funktion_nicht_gehalten`).
  * @summary Decline a registration
  */
 export const registrierungenAblehnenPathRegistrierungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1710,12 +1712,12 @@ export const RegistrierungenAblehnenBody = zod
  * press meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.
  *
  * Refuses, in this order: no pending registration with this id (404), no seat on its team's season
- * (`REQ-FUNKTION-001`), a registration the pupil has not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban list
- * holds (`REQ-REGISTRIERUNG-009`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
- * (`REQ-REGISTRIERUNG-003`), a registration confirmed on the returning pupil's page whose address holds no stored
- * person (`REQ-REGISTRIERUNG-018`: it carries no choice, so it admits nobody, and the pupil registers again), a
- * `spieler_id` that is not the person this registration may be admitted into (`REQ-REGISTRIERUNG-014`), a person
- * already playing in a squad this season (`REQ-REGISTRIERUNG-015`) and a full squad (`REQ-SQUAD-003`). Nothing is
+ * (`funktion_nicht_gehalten`), a registration the pupil has not confirmed (`registrierung_unbestaetigt`), an address the ban list
+ * holds (`registrierung_adresse_gesperrt`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
+ * (`registrierung_stufe_nicht_erlaubt`), a registration confirmed on the returning pupil's page whose address holds no stored
+ * person (`registrierung_person_fehlt`: it carries no choice, so it admits nobody, and the pupil registers again), a
+ * `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_nicht_benannt`), a person
+ * already playing in a squad this season (`registrierung_schon_im_kader`) and a full squad (`kader_full`). Nothing is
  * written on any of them.
  * @summary Admit a registration into the team's squad
  */
@@ -1825,7 +1827,7 @@ export const SaisonsPostSaisonBody = zod.object({
         verlierer_tore: zod.int().min(saisonsPostSaisonBodyRulesForfeitErgebnisVerliererToreMin),
       })
       .describe(
-        "What a fixture is awarded when one side does not appear.\n\nBoth sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.\nA LEVEL award needs a season with no knockout round (`REQ-RULES-010`).",
+        "What a fixture is awarded when one side does not appear.\n\nBoth sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.\nA LEVEL award needs a season with no knockout round (`rules_forfeit_draws_a_knockout`).",
       ),
     max_kadergroesse: zod.int().gt(saisonsPostSaisonBodyRulesMaxKadergroesseExclusiveMin),
     number_of_groups: zod.int().gt(saisonsPostSaisonBodyRulesNumberOfGroupsExclusiveMin).max(saisonsPostSaisonBodyRulesNumberOfGroupsMax),
@@ -1939,7 +1941,7 @@ export const SaisonsPatchSaisonBody = zod.object({
         verlierer_tore: zod.int().min(saisonsPatchSaisonBodyRulesForfeitErgebnisVerliererToreMin),
       })
       .describe(
-        "What a fixture is awarded when one side does not appear.\n\nBoth sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.\nA LEVEL award needs a season with no knockout round (`REQ-RULES-010`).",
+        "What a fixture is awarded when one side does not appear.\n\nBoth sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.\nA LEVEL award needs a season with no knockout round (`rules_forfeit_draws_a_knockout`).",
       ),
     max_kadergroesse: zod.int().gt(saisonsPatchSaisonBodyRulesMaxKadergroesseExclusiveMin),
     number_of_groups: zod.int().gt(saisonsPatchSaisonBodyRulesNumberOfGroupsExclusiveMin).max(saisonsPatchSaisonBodyRulesNumberOfGroupsMax),
@@ -1979,10 +1981,10 @@ export const SaisonsActivateSaisonParams = zod.object({
  * `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
  * being a deliberate act rather than a bulk one.
  *
- * Refused where the season has ended (`REQ-EINLADUNG-002`); 404 where no season holds that id; a season holding no team answers an
+ * Refused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers an
  * empty list.
  *
- * **An administrator whose access is revoked while the mailing runs is refused `REQ-AUTH-006` at the next team**: every team done before
+ * **An administrator whose access is revoked while the mailing runs is refused `actor_not_admin` at the next team**: every team done before
  * that point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those
  * teams and reaches the rest.
  * @summary Mint every admitted team a link
@@ -2066,8 +2068,8 @@ export const SaisonsPreviewLoeschungParams = zod.object({
  *
  * Every fixture's confirmations go with it.
  *
- * The replace's window bounds it (`REQ-SPIELPLAN-006`), and a submitted match report refuses it
- * (`REQ-SPIELPLAN-007`). Undoing the draw is what reopens the shape rules to `PATCH` and the groups to
+ * The replace's window bounds it (`spielplan_undraw_outside_its_window`), and a submitted match report refuses it
+ * (`spielplan_berichte_eingereicht`). Undoing the draw is what reopens the shape rules to `PATCH` and the groups to
  * an entry.
  * @summary Undraw this Saison's Spielplan
  */
@@ -2079,9 +2081,9 @@ export const SaisonsUndrawSpielplanParams = zod.object({
  * Draw the whole season at once: every matchday and every fixture, undated, in one transaction.
  *
  * `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
- * deletes both lists first, every fixture's confirmations with them, inside `REQ-SPIELPLAN-005`'s
- * window and on a season holding no submitted match report (`REQ-SPIELPLAN-007`), and is refused
- * `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`: nothing writes
+ * deletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s
+ * window and on a season holding no submitted match report (`spielplan_berichte_eingereicht`), and is refused
+ * `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`: nothing writes
  * the removed rows back.
  * @summary Draw this Saison's Spielplan
  */
@@ -2123,7 +2125,7 @@ export const SaisonsGenerateSpielplanBody = zod
       .optional(),
   })
   .describe(
-    "Whether this draw may REPLACE what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission. `REQ-SPIELPLAN-005` bounds a confirmed one.",
+    "Whether this draw may REPLACE what the season already holds, and the shape it runs from.\n\nAn absent body is a first draw off the season's own rules: nothing is destroyed and no\nnumber moves by omission. `spielplan_replace_outside_its_window` bounds a confirmed one.",
   );
 
 /**
@@ -2160,7 +2162,7 @@ export const SchiedsrichterGetSchiedsrichterQueryParams = zod.object({
  * whether this person is asked, because a referee nobody asked is a name nobody consented to
  * publish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.
  *
- * Refused `REQ-SCHIEDSRICHTER-007` where the address given is on the ban list.
+ * Refused `schiedsrichter_adresse_gesperrt` where the address given is on the ban list.
  * @summary Create a Schiedsrichter
  */
 export const schiedsrichterPostSchiedsrichterBodyDefaultPaymentMin = 0;
@@ -2194,11 +2196,11 @@ export const SchiedsrichterPostSchiedsrichterBody = zod.object({
  * shown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,
  * which the fixture list joins at read time to decide whether to publish the name each fixture stores.
  *
- * Refuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed
- * (`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), any label but the referee
- * page's running one (`REQ-EINWILLIGUNG-001`), a link mailed to an address the ban list holds now, whenever the link
- * was minted (`REQ-SCHIEDSRICHTER-009`), an age outside what this consent asks (`REQ-SCHIEDSRICHTER-005`), and a media
- * consent from a referee below `medien_mindestalter` (`REQ-SCHIEDSRICHTER-008`) -- the label and the last two judged
+ * Refuses, in this order: a token no referee holds (`link_ungueltig`), an entry already confirmed
+ * (`bestaetigung_vorhanden`), a link whose deadline has passed (`link_abgelaufen`), any label but the referee
+ * page's running one (`fassung_unzulaessig`), a link mailed to an address the ban list holds now, whenever the link
+ * was minted (`link_gesperrt`), an age outside what this consent asks (`bestaetigung_alter`), and a media
+ * consent from a referee below `medien_mindestalter` (`medien_alter`) -- the label and the last two judged
  * before anything is written, so a reloaded page or a mistyped year spends nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this record. Nothing here can:
@@ -2233,9 +2235,9 @@ export const SchiedsrichterPostBestaetigungBody = zod.object({
  * confirmed, which behind a typo is a stranger's. A POST that reads, so the token travels in a body and never in a second
  * URL.
  *
- * Refuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link
+ * Refuses only a token no referee holds (`link_ungueltig`): a confirmed or an expired link
  * is SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `gesperrt`,
- * ahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`),
+ * ahead of every other, wherever the ban list holds the address the link was mailed to (`link_gesperrt`),
  * so the page offers a barred referee nothing to press.
  * @summary What one Schiedsrichter confirmation link opens
  */
@@ -2258,12 +2260,12 @@ export const SchiedsrichterGetBestaetigungAnsichtBody = zod
  * list's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to
  * `kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
  *
- * Refuses, in this order: an id that is no confirmed referee record of this address (`REQ-FUNKTION-001`); a
+ * Refuses, in this order: an id that is no confirmed referee record of this address (`funktion_nicht_gehalten`); a
  * `nachweis_stand` other than the record's own, either choice having moved since the page was served
- * (`REQ-EINWILLIGUNG-003`); a grant on a retired record (`REQ-EINWILLIGUNG-004`); a `text_version` naming no version of
- * the account page's referee control, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`);
+ * (`fassung_unzulaessig`); a grant on a retired record (`erteilung_nicht_zugelassen`); a `text_version` naming no version of
+ * the account page's referee control, or a grant naming any but the page's running one (`fassung_unzulaessig`);
  * `medien` moving to `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing
- * (`REQ-EINWILLIGUNG-002`). Each refusal writes nothing.
+ * (`medien_alter`). Each refusal writes nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
  * @summary Change a signed-in referee's own publication and media consent
@@ -2334,14 +2336,14 @@ export const SchiedsrichterGetSchiedsrichterByIdParams = zod.object({
  * new address, named in `bestaetigung`: the old link was posted to a mailbox nobody reads, and
  * leaving it live is a credential in the wrong inbox.
  *
- * **A CONFIRMED referee's address is refused here** (`REQ-SCHIEDSRICHTER-011`), retired or not: it is who signs in as the
+ * **A CONFIRMED referee's address is refused here** (`schiedsrichter_adresse_nur_per_wechsel`), retired or not: it is who signs in as the
  * person, and moves only through an address change: the address tool, `POST /adresswechsel`, or the person's own account page.
  * A save keeping it lands, a pending change standing.
  *
  * **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
  * collected for a role nobody gives them. Their old link is retired all the same, and the
  * reactivation mints the fresh one. Where a link is minted, a banned new address is refused
- * `REQ-SCHIEDSRICHTER-007`. A save retiring or minting a link is refused `REQ-AUTH-009` from a
+ * `schiedsrichter_adresse_gesperrt`. A save retiring or minting a link is refused `confirmation_required` from a
  * sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.
  *
  * The ghost answers 404 here as it does to every read: a name written onto it would appear on the
@@ -2384,10 +2386,10 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
  *
  * It replaces the whole block, so the previous link stops working at once. The deadline restarts from today.
  *
- * Refused where the referee is retired (`REQ-SCHIEDSRICHTER-001`), where they have already
- * answered (`REQ-SCHIEDSRICHTER-004`), where they carry no email address
- * (`REQ-SCHIEDSRICHTER-006`), and where that address is on the ban list
- * (`REQ-SCHIEDSRICHTER-007`). 404 for an id no referee holds, an erased referee's among them, and
+ * Refused where the referee is retired (`schiedsrichter_retired`), where they have already
+ * answered (`bestaetigung_vorhanden`), where they carry no email address
+ * (`schiedsrichter_keine_adresse`), and where that address is on the ban list
+ * (`schiedsrichter_adresse_gesperrt`). 404 for an id no referee holds, an erased referee's among them, and
  * for the ghost, which every by-id route filters out.
  *
  * **A referee who has already answered is refused rather than sent a second link**: the
@@ -2408,8 +2410,8 @@ export const SchiedsrichterEinladenSchiedsrichterParams = zod.object({
  * retired referee's save stores a new address and mails nothing, so coming back is what
  * asks them. A row holding no address a link can go to comes back unasked, and so does one whose
  * person has answered. Where a link is minted, an address on the ban list is refused
- * `REQ-SCHIEDSRICHTER-007` and the row stays retired, and one from a sign-in or confirmation older than
- * `STEP_UP_WINDOW_HOURS` is refused `REQ-AUTH-009`.
+ * `schiedsrichter_adresse_gesperrt` and the row stays retired, and one from a sign-in or confirmation older than
+ * `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
  *
  * The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
  * person behind it.
@@ -2424,9 +2426,9 @@ export const SchiedsrichterReactivateSchiedsrichterParams = zod.object({
 /**
  * Ban an address from signing up. The address is hashed under the backend key; no row and no log line holds it but its notice's.
  *
- * Refused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is
- * running, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and
- * where the address is an administrator's (`REQ-SPERRLISTE-003`). The ban covers the
+ * Refused where the list already holds the address (`duplicate_key`), while no season is
+ * running, there being nothing to count the ban's five seasons from (`sperrliste_keine_saison`), and
+ * where the address is an administrator's (`sperrliste_verwaltung`). The ban covers the
  * fifth season after the one running now — the last one it covers is answered as
  * `gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still owed
  * that names the address loses it in the same transaction, and where `benachrichtigen` is set the ban's
@@ -2469,7 +2471,7 @@ export const SperrlisteDeleteSperrlisteEintragParams = zod.object({
  * Every report of one season holding a block, each with its state against its fixture and what it proposes.
  *
  * What the season editor counts before an undraw or a replace, which a submitted report refuses
- * (`REQ-SPIELPLAN-007`). Scoped to `saison_id`, the active season when none is named, which answers 404 while no
+ * (`spielplan_berichte_eingereicht`). Scoped to `saison_id`, the active season when none is named, which answers 404 while no
  * season is active.
  * @summary Every report of a season and the state it reads in
  */
@@ -2487,14 +2489,14 @@ export const SpielberichteGetSpielberichteQueryParams = zod.object({
  * `bericht_stand` is the `version` of the report the page was served, null where none stood, as on the referee's
  * write.
  *
- * Refuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); a `bericht_stand`
- * other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day is
- * still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out proposed on a
- * group-phase fixture (`REQ-BERICHT-009`); a pupil newly named on a side outside that side's live squad of the season
- * (`REQ-BERICHT-003`); and a yellow or second yellow card naming no reason, unless the stored report holds that card,
- * by side, pupil and colour, stripped of its reason at the end of the season after the match (`REQ-BERICHT-008`). Each
- * but `REQ-BERICHT-006` is asked again outside the transaction just before answering; a write of the report landing
- * mid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two pages
+ * Refuses, in this order, each writing nothing: a fixture that does not exist (`document_not_found`); a `bericht_stand`
+ * other than the version standing now, or than none where none stands (`bericht_inzwischen_geaendert`); one undated or whose day is
+ * still to come (`bericht_nicht_gespielt`); one called off or struck out (`bericht_abgesagt`); a shoot-out proposed on a
+ * group-phase fixture (`bericht_elfmeter_in_der_gruppe`); a pupil newly named on a side outside that side's live squad of the season
+ * (`bericht_nicht_im_kader`); and a yellow or second yellow card naming no reason, unless the stored report holds that card,
+ * by side, pupil and colour, stripped of its reason at the end of the season after the match (`bericht_grund_fehlt`). Each
+ * but `bericht_inzwischen_geaendert` is asked again outside the transaction just before answering; a write of the report landing
+ * mid-press conflicts with this one, whose retry meets `bericht_inzwischen_geaendert`. Two first writes at once are two pages
  * opened on no report: the later is refused.
  * @summary Write one fixture's report as an administrator
  */
@@ -2599,7 +2601,7 @@ export const SpielberichtePatchSpielberichtBody = zod
  *
  * Beside it the fixture and the pupils the report names, by name. Both clubs' live squads of the season only with
  * `kader`, which the correction's form picks from: the panel reads no pupil the report does not name, so a fixture
- * holding no report serves none. The report and its state are null where no report stands; `DB-COMMON-001` only for
+ * holding no report serves none. The report and its state are null where no report stands; `document_not_found` only for
  * a fixture that does not exist.
  * @summary One fixture's report, whole, for an administrator
  */
@@ -2628,8 +2630,8 @@ export const SpielberichteGetSpielberichtAdminQueryParams = zod.object({
  * empty: the pupils the stored report names are then all in `genannt`. Once the fixture's season has ended,
  * `abgeschlossen` is true and the read is the report alone, both squads empty, which its referee writes no more.
  * Refused
- * `REQ-FUNKTION-001` where the address holds no confirmed, live referee record, and `REQ-BERICHT-002` where the fixture
- * is booked to none of its records; `DB-COMMON-001` for a fixture that does not exist.
+ * `funktion_nicht_gehalten` where the address holds no confirmed, live referee record, and `bericht_nicht_geleitet` where the fixture
+ * is booked to none of its records; `document_not_found` for a fixture that does not exist.
  * @summary One fixture's report as its referee reads it
  */
 export const spielberichteGetSpielberichtBerichtPathSpielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2651,17 +2653,17 @@ export const SpielberichteGetSpielberichtBerichtParams = zod.object({
  * another version would replace a report its sender never saw.
  *
  * Refuses, in this order, each writing nothing: an address holding no confirmed, live referee record
- * (`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records
- * (`REQ-BERICHT-002`); one whose season has ended, whose report its referee only reads (`REQ-BERICHT-007`); a
- * `bericht_stand` other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated
- * or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out
- * proposed on a group-phase fixture (`REQ-BERICHT-009`); a pupil the write newly names on a side outside that side's
+ * (`funktion_nicht_gehalten`); a fixture that does not exist (`document_not_found`); one booked to none of its records
+ * (`bericht_nicht_geleitet`); one whose season has ended, whose report its referee only reads (`saison_past`); a
+ * `bericht_stand` other than the version standing now, or than none where none stands (`bericht_inzwischen_geaendert`); one undated
+ * or whose day is still to come (`bericht_nicht_gespielt`); one called off or struck out (`bericht_abgesagt`); a shoot-out
+ * proposed on a group-phase fixture (`bericht_elfmeter_in_der_gruppe`); a pupil the write newly names on a side outside that side's
  * live squad of the season, a pupil the report already named on that side staying while the side fields the club it
- * did (`REQ-BERICHT-003`); and a yellow or second yellow card naming no reason (`REQ-BERICHT-008`). Every refusal but
- * `REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's records included, so a
+ * did (`bericht_nicht_im_kader`); and a yellow or second yellow card naming no reason (`bericht_grund_fehlt`). Every refusal but
+ * `bericht_inzwischen_geaendert` is asked again outside the transaction just before answering, the referee's records included, so a
  * write landing on what was judged before that second asking refuses the report rather than letting it stand, and one
  * landing after it stands beside the report; a write of the report itself landing mid-press conflicts with this one,
- * whose retry meets `REQ-BERICHT-006`. Two first writes at once are two forms opened on no report: the later is
+ * whose retry meets `bericht_inzwischen_geaendert`. Two first writes at once are two forms opened on no report: the later is
  * refused.
  * @summary Write one fixture's report as its referee
  */
@@ -2788,17 +2790,17 @@ export const SpielbestaetigungenGetSpielbestaetigungenQueryParams = zod.object({
  * Record one club's answer about one Ansetzung, from whichever of its three seats presses first, and the seat it came from.
  *
  * The first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered
- * (`REQ-ANSETZUNG-002`). Writes no fixture: a proposal is the administrator's to act on.
+ * (`ansetzung_beantwortet`). Writes no fixture: a proposal is the administrator's to act on.
  *
- * Refuses, in this order: a token no seat holds (`REQ-ANSETZUNG-001`); a link whose seat's address the ban list holds
- * now, whenever it was minted (`REQ-ANSETZUNG-011`); a row already answered, closed since or not
- * (`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club
- * (`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the link (`REQ-ANSETZUNG-004`), each
- * as the confirmation pass's close judges the row; an answer after the deadline's day (`REQ-ANSETZUNG-003`); a
- * proposal dated before today (`REQ-ANSETZUNG-007`); and a proposal the administrator's own save of that date would be
+ * Refuses, in this order: a token no seat holds (`link_ungueltig`); a link whose seat's address the ban list holds
+ * now, whenever it was minted (`link_gesperrt`); a row already answered, closed since or not
+ * (`ansetzung_beantwortet`); one closed unanswered (`ansetzung_geschlossen`); a fixture decided, called off or left by a club
+ * (`ansetzung_entschieden`), then one whose date, time, ground or sides moved since the link (`ansetzung_geaendert`), each
+ * as the confirmation pass's close judges the row; an answer after the deadline's day (`ansetzung_frist_vorbei`); a
+ * proposal dated before today (`ansetzung_vorschlag_vergangen`); and a proposal the administrator's own save of that date would be
  * refused, judged on what it newly claims and in that save's order: on or after a club's exit
- * (`REQ-ELIGIBILITY-001`), outside the matchday (`REQ-DATE-001`), or within four hours of the ground's or the referee's
- * other fixture (`REQ-CLASH-001`). The reason is stored as typed. Every refusal after the ban's is asked again outside
+ * (`eligibility_disqualified`), outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's
+ * other fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the ban's is asked again outside
  * the transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather
  * than letting it stand.
  * @summary Confirm a fixture's Ansetzung, or decline it proposing another date
@@ -2846,7 +2848,7 @@ export const SpielbestaetigungenPostSpielbestaetigungBody = zod
  * The state, which side the reader's club plays, the fixture as it stands now (or, where it moved since the link, the
  * Ansetzung the link asked about), the row's deadline, the other club's proposal and which role answered. A POST that
  * reads, so the token travels in a body and never in a second URL. Refuses only a token no seat of any row holds
- * (`REQ-ANSETZUNG-001`), a guess and a link voided when its seat changed hands alike: an answered, closed, moved,
+ * (`link_ungueltig`), a guess and a link voided when its seat changed hands alike: an answered, closed, moved,
  * decided or expired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The
  * state is `gesperrt`, ahead of every other, wherever the ban list holds the address the seat's links were mailed to.
  * `vorschlag` is the state of an open link while the other club's decline proposes another date for the same
@@ -2927,12 +2929,12 @@ export const SpielbestaetigungenSweepSpielbestaetigungenParams = zod.object({
  * the season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture
  * carries.
  *
- * Refuses, in this order: an address holding no live, confirmed referee record (`REQ-FUNKTION-001`); an id naming no
- * row of an `active` season, or a row naming none of those records (`REQ-ANSETZUNG-015`, one answer for both); a row
- * already answered, by them or by the league for them (`REQ-ANSETZUNG-002`); one closed unanswered
- * (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club (`REQ-ANSETZUNG-005`), then one whose date,
- * time, ground or sides moved since the row, or which books another referee or none (`REQ-ANSETZUNG-004`); and a
- * fixture whose day has gone by (`REQ-ANSETZUNG-003`). An acceptance is judged again outside the transaction just
+ * Refuses, in this order: an address holding no live, confirmed referee record (`funktion_nicht_gehalten`); an id naming no
+ * row of an `active` season, or a row naming none of those records (`ansetzung_fremde_zeile`, one answer for both); a row
+ * already answered, by them or by the league for them (`ansetzung_beantwortet`); one closed unanswered
+ * (`ansetzung_geschlossen`); a fixture decided, called off or left by a club (`ansetzung_entschieden`), then one whose date,
+ * time, ground or sides moved since the row, or which books another referee or none (`ansetzung_geaendert`); and a
+ * fixture whose day has gone by (`ansetzung_frist_vorbei`). An acceptance is judged again outside the transaction just
  * before answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.
  *
  * **The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name
@@ -2969,7 +2971,7 @@ export const SpielbestaetigungenPostSchiedsrichterAntwortBody = zod
  * The administrator's reason says how. IRREVERSIBLE: the answer is the league's record of how a date was agreed, and
  * nothing rewrites it. It names nobody: no seat and no person is recorded, and the reason takes any text and goes at
  * the season's end. Refused for a row
- * already answered, by a seat or by an administrator, or closed (`REQ-ANSETZUNG-013`), including one a seat answers
+ * already answered, by a seat or by an administrator, or closed (`ansetzung_nicht_eintragbar`), including one a seat answers
  * while this request runs: of the two answers exactly one is stored. A row about an Ansetzung the fixture has since
  * left is settled as asked, and the next confirmation pass closes it.
  * @summary Record a party's Zusage on its behalf
@@ -3005,7 +3007,7 @@ export const SpielbestaetigungenEintragenSpielbestaetigungBody = zod
  * agreement beside it. Where its day is still to come, the club is owed a notice that the date stands, at every
  * address its season row's seats hold now, in the same transaction. Refused for any other row -- open, agreed,
  * declined without a proposal, a referee's, closed, or about an Ansetzung the fixture has left, the fixture moving
- * while this request runs included (`REQ-ANSETZUNG-014`): the confirmation pass closes that row and tells its club of
+ * while this request runs included (`ansetzung_nicht_verwerfbar`): the confirmation pass closes that row and tells its club of
  * the move.
  * @summary Discard a club's proposed date
  */
@@ -3296,7 +3298,7 @@ export const SpielerGetSpielerQueryParams = zod.object({
  * Every row, ausgetragen ones included and marked by `inactive_since`; each surname whole, and no
  * e-mail address or telephone number of anybody. `nummer_doppelt` marks a live row whose number
  * another live row of the squad wears, compared as stored. `erlaubte_stufen` is what the season's
- * rules offer an edit. Refused `REQ-FUNKTION-001` where the signed-in person holds no seat on this
+ * rules offer an edit. Refused `funktion_nicht_gehalten` where the signed-in person holds no seat on this
  * team in this season, a seat on a `past` season holding none.
  * @summary Read a team's squad as its seat holder
  */
@@ -3312,7 +3314,7 @@ export const SpielerGetKaderParams = zod.object({
  *
  * Stamps the row's `inactive_since`; the person stays in the league, and only an administrator
  * brings the row back. 404 where this team holds no live row for the player in this season,
- * another team's pupil and an ausgetragen row alike. Refused `REQ-FUNKTION-001` without a seat.
+ * another team's pupil and an ausgetragen row alike. Refused `funktion_nicht_gehalten` without a seat.
  * @summary Take a Spieler out of the squad as its team's seat holder (austragen)
  */
 export const spielerDeleteKaderZeilePathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3329,8 +3331,8 @@ export const SpielerDeleteKaderZeileParams = zod.object({
  *
  * The team and the Nachnominierung flag stay the stored row's. 404 where this team holds no live
  * row for the player in this season: another team's pupil and an ausgetragen row answer alike, and
- * nothing is written. Refused `REQ-FUNKTION-001` without a seat, `REQ-SQUAD-005` for a `stufe` the
- * season's `erlaubte_stufen` does not offer unless the row already holds it, and `REQ-SQUAD-004`
+ * nothing is written. Refused `funktion_nicht_gehalten` without a seat, `kader_stufe_nicht_erlaubt` for a `stufe` the
+ * season's `erlaubte_stufen` does not offer unless the row already holds it, and `kader_rolle_taken`
  * for a `rolle` another live row of the squad holds. A shared `nummer` is permitted.
  * @summary Update a squad entry as its team's seat holder
  */
@@ -3377,11 +3379,11 @@ export const SpielerGetSpielerNachnominierungParams = zod.object({
  * PATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is
  * taken on a live record alone; a withdrawal on a retired one too.
  *
- * Refuses, in this order: an address holding no confirmed pupil record (`REQ-FUNKTION-001`); a `nachweis_stand`
- * other than the record's own, either choice having moved since the page was served (`REQ-EINWILLIGUNG-003`); a
- * grant on a retired record (`REQ-EINWILLIGUNG-004`); a `text_version` naming no version of the account page's pupil
- * control, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`); `medien` moving to `true` where
- * the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`). Each
+ * Refuses, in this order: an address holding no confirmed pupil record (`funktion_nicht_gehalten`); a `nachweis_stand`
+ * other than the record's own, either choice having moved since the page was served (`fassung_unzulaessig`); a
+ * grant on a retired record (`erteilung_nicht_zugelassen`); a `text_version` naming no version of the account page's pupil
+ * control, or a grant naming any but the page's running one (`fassung_unzulaessig`); `medien` moving to `true` where
+ * the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_alter`). Each
  * refusal writes nothing.
  *
  * **The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a
@@ -3478,7 +3480,7 @@ export const SpielerReactivateSpielerParams = zod.object({
  *
  * 404 where no player has this id. One row per player per season: moving a player is a PATCH of
  * `team_id`, and a repeat is a 409 even where the row is retired. A
- * squad holds each `rolle` once (`REQ-SQUAD-004`). `ist_nachnominiert` is derived here and never
+ * squad holds each `rolle` once (`kader_rolle_taken`). `ist_nachnominiert` is derived here and never
  * taken from the body: it is true from the first day of the season's matchday 1, and false while
  * that matchday is undated.
  * @summary Add a Spieler to a squad
@@ -3527,7 +3529,7 @@ export const SpielerDeleteSaisonSpielerParams = zod.object({
  *
  * Changing `team_id` is how a transfer is recorded. A DUPLICATE `nummer` is permitted
  * (`docs/domain.md`'s what the model permits on purpose); a `rolle` another live row holds is not
- * (`REQ-SQUAD-004`).
+ * (`kader_rolle_taken`).
  * @summary Update a squad entry
  */
 export const spielerPatchSaisonSpielerPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3558,7 +3560,7 @@ export const SpielerPatchSaisonSpielerBody = zod
  *
  * Where a repeat create is redirected: a create reviving the row
  * would overwrite both. Refused where the squad has filled up, where its club left, or where the
- * `rolle` the row carries has been given to somebody else since (`REQ-SQUAD-004`).
+ * `rolle` the row carries has been given to somebody else since (`kader_rolle_taken`).
  * @summary Put a Spieler back in a squad they left
  */
 export const spielerReactivateSaisonSpielerPathSpielerIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3620,7 +3622,7 @@ export const SpielortePostSpielortBody = zod.object({
  * Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.
  *
  * Matches embed a copy, so a hard delete would orphan every historical match that used it. Refused
- * while an unplayed fixture is still booked here (`REQ-RETIRE-003`).
+ * while an unplayed fixture is still booked here (`spielort_still_booked`).
  * @summary Deactivate a Spielort (soft delete)
  */
 export const spielorteDeleteSpielortPathSpielortIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -4116,13 +4118,13 @@ export const TeamsGetEinladungParams = zod.object({
  * holding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh
  * every time somebody opens it, so a window moved after the mint moves this link with it.
  *
- * Refused where the season holds no junction row for this team (`REQ-EINLADUNG-001`) and where the season has ended
- * (`REQ-EINLADUNG-002`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.
+ * Refused where the season holds no junction row for this team (`einladung_team_nicht_eingetragen`) and where the season has ended
+ * (`saison_past`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.
  *
  * **A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an
  * administrator is looking at, and a squad row and a contact correction are accepted for such a team too.
  *
- * A mint voiding a live link is refused `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`, and
+ * A mint voiding a live link is refused `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`, and
  * writes nothing; a team's first link is not.
  * @summary Mint this team's registration link for a season
  */
@@ -4164,10 +4166,10 @@ export const TeamsPostEinladungVersandBody = zod
  * Rewrite the three people this team is reached through for one season. Null clears the block.
  *
  * Its own endpoint so the contacts editor and the club editor cannot clobber one row. The one
- * rule's refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served
+ * rule's refusal is `kontakte_moved_under_the_save`: the body echoes back the `kontakte_stand` its caller was served
  * beside the block, and a row whose block answers to another token is refused rather than
  * overwritten, an erasure between the caller's read and this write being what moves it. A clearing,
- * which nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than
+ * which nothing restores, is refused `confirmation_required` from a sign-in or confirmation older than
  * `STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `eingetragen_von` and
  * `bestaetigt_am` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed
  * on is stored as the league's entry, unconfirmed.
@@ -4177,15 +4179,15 @@ export const TeamsPostEinladungVersandBody = zod
  * both seats where the Trainer holds a second. A seat keeping its person keeps their link, and a seat emptied or
  * handed on loses the one it held and its links on the team's open match confirmations, so the person who left it
  * holds nothing live. A save newly seating an address the ban list holds is
- * refused `REQ-KONTAKT-003`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the
+ * refused `kontakt_sitz_gesperrt`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the
  * link is how its person learns of the entry, and it takes their Widerspruch alone. A save owing a link, emptying
- * or handing on a seat, or voiding a link its person could still answer, is refused `REQ-AUTH-009` as the clearing
+ * or handing on a seat, or voiding a link its person could still answer, is refused `confirmation_required` as the clearing
  * is; a save doing none of these is not.
  *
  * **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
  * or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
  * person's own write grants one. Such a seat's label must be the application form's running one
- * (`REQ-EINWILLIGUNG-001`). A kept seat may name its stored label back, whichever page it is a version of, or the
+ * (`fassung_unzulaessig`). A kept seat may name its stored label back, whichever page it is a version of, or the
  * running one, and its record is carried either way.
  * @summary Rewrite a team's season contacts, and nothing else on the row
  */
@@ -4352,10 +4354,10 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
  * the previous link stops opening anything from this write on, and the deadline restarts from today. The answer names
  * the address the mail is owed to, never the link.
  *
- * Refused where the season has ended or the team has left it (`REQ-KONTAKT-005`), where the seat holds nobody or its
- * person has already confirmed it (`REQ-KONTAKT-002`), and where its address is on the ban list (`REQ-KONTAKT-003`).
+ * Refused where the season has ended or the team has left it (`kontakt_zeile_ohne_saison`), where the seat holds nobody or its
+ * person has already confirmed it (`kontakt_sitz_ohne_bestaetigung`), and where its address is on the ban list (`kontakt_sitz_gesperrt`).
  * 404 for a team and season holding no row, and for a path naming no seat. Every call owes a bearer link, so every call from a
- * sign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused `REQ-AUTH-009`.
+ * sign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
  * @summary Send one contact seat a fresh confirmation link
  */
 export const teamsEinladenKontaktPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -4376,12 +4378,12 @@ export const TeamsEinladenKontaktParams = zod.object({
  * to `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the
  * person confirmed a seat on, a past season's included.
  *
- * Refuses, in this order: a row on which the address holds no confirmed seat (`REQ-FUNKTION-001`); a
+ * Refuses, in this order: a row on which the address holds no confirmed seat (`funktion_nicht_gehalten`); a
  * `nachweis_stand` other than the held seats' own, either choice having moved since the page was served
- * (`REQ-EINWILLIGUNG-003`); a grant where the row grants no panel (`REQ-EINWILLIGUNG-004`); a `text_version` naming no
- * version of the account page's seat control, or a grant naming any but its running one (`REQ-EINWILLIGUNG-001`);
+ * (`fassung_unzulaessig`); a grant where the row grants no panel (`erteilung_nicht_zugelassen`); a `text_version` naming no
+ * version of the account page's seat control, or a grant naming any but its running one (`fassung_unzulaessig`);
  * `medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is
- * missing (`REQ-EINWILLIGUNG-002`). Each refusal writes nothing.
+ * missing (`medien_alter`). Each refusal writes nothing.
  * @summary Change a seat holder's own WhatsApp and media consent on one team's season
  */
 export const teamsPatchEinwilligungPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

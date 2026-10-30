@@ -71,7 +71,7 @@ export function FormGruppenSwapSection({
 }: {
   saisonId: string;
   swap: SaisonGruppenSwapContext;
-  /** `REQ-SWAP-003`: a `past` season's groups are frozen, so the panel explains instead of offering. */
+  /** `saison_past`: a `past` season's groups are frozen, so the panel explains instead of offering. */
   isFinishedSaison: boolean;
 }) {
   const router = useRouter();
@@ -100,7 +100,7 @@ export function FormGruppenSwapSection({
 
   /**
    * Rebuilt against `first` rather than computed once: a Spieltag clash is a property of the PAIR
-   * (`REQ-SWAP-005`), so no club is unpickable for the second picker on its own account.
+   * (`swap_spieltag_clash`), so no club is unpickable for the second picker on its own account.
    */
   const unpickableForSecond = new Map(unpickable);
   if (first) {

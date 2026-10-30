@@ -72,22 +72,19 @@ export function mapRegistrierungSubmitRefusal(
   switch (error.serverErrorCode) {
     // Every body rule the form can break is mirrored, so a refusal no box can take is of a drifted
     // client, which the team's link replaces.
-    case "REQ-VAL-002":
-    case "REQ-VAL-001":
+    case "body_unreadable":
+    case "payload_refused":
       return refusedPayloadAnswer(error, REGISTRIERUNG_NEU_OEFFNEN);
-    // The link died between the page loading and this press, and the whole page is the answer: a
-    // banner over a form nothing accepts invites a second attempt.
-    case "REQ-EINLADUNG-003":
-    // With the record missing, the season or the club the link names is gone: as dead a link.
-    case "DB-COMMON-001":
+    // The link died between the page loading and this press, or the season or the club it names is
+    // gone: the whole page is the answer, since a banner over a form nothing accepts invites a second attempt.
+    case "document_not_found":
       return { zustand: "ungueltig" };
     // Each reachable only where the season moved after this page loaded, and the team's link reopens
     // onto a page read since: the window's or the team's own panel, or the Stufen offered now.
-    case "REQ-REGISTRIERUNG-001":
-    case "REQ-REGISTRIERUNG-002":
-    case "REQ-REGISTRIERUNG-003":
+    case "registrierung_geschlossen":
+    case "registrierung_stufe_nicht_erlaubt":
       return { error: REGISTRIERUNG_NEU_OEFFNEN };
-    case "REQ-REGISTRIERUNG-008":
+    case "registrierung_kader_voll":
       return {
         error: buildRefusal({
           reason: "Der Kader dieses Teams ist voll",
@@ -96,7 +93,7 @@ export function mapRegistrierungSubmitRefusal(
       };
     // The press this form repeated stands, under the details first sent: a banner rather than a
     // field, since whichever box changed since then is not the one at fault.
-    case "REQ-REGISTRIERUNG-011":
+    case "registrierung_schluessel_abweichend":
       return {
         schonAngekommen: true,
         error: buildRefusal({
@@ -106,7 +103,7 @@ export function mapRegistrierungSubmitRefusal(
       };
     // The same press, replayed after the team admitted it: the key outlives the registration on the
     // squad row, so the answer is the admission rather than a second registration.
-    case "REQ-REGISTRIERUNG-016":
+    case "registrierung_schon_aufgenommen":
       return {
         schonAngekommen: true,
         error: buildRefusal({
@@ -116,7 +113,7 @@ export function mapRegistrierungSubmitRefusal(
       };
     // Neutral, and under the address it was judged on: a stranger learns nothing about a list, and
     // the person it does concern already knows why.
-    case "REQ-REGISTRIERUNG-009":
+    case "registrierung_adresse_gesperrt":
       return {
         fieldErrors: {
           email: `Mit dieser E-Mail-Adresse ist keine Registrierung möglich. Wenn Du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`,
@@ -175,37 +172,37 @@ export async function mapBestaetigungRefusal(
   switch (error.serverErrorCode) {
     // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
     // mail's link replaces.
-    case "REQ-VAL-002":
-    case "REQ-VAL-001":
+    case "body_unreadable":
+    case "payload_refused":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     // The switch is offered from the served age on the browser's day, so a clock disagreeing with the
     // backend's sends this, which a reopened link would offer again: switching it off is the repair.
-    case "REQ-REGISTRIERUNG-010":
+    case "medien_alter":
       return { error: medienNochNicht((await ansicht())?.medien_mindestalter ?? null) };
     // Answers the page did not ask: a drifted client, the label check refusing a page whose person
     // changed since it opened first. The mail's link reopens it.
-    case "REQ-REGISTRIERUNG-017":
+    case "registrierung_wahlen_unpassend":
       return { error: ANTWORT_NEU_OEFFNEN };
     // The backend's judgement of the label: a page opened before a
     // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
-    case "REQ-EINWILLIGUNG-001":
+    case "fassung_unzulaessig":
       return { error: FASSUNG_NEU_OEFFNEN };
-    case "REQ-REGISTRIERUNG-004":
+    case "link_ungueltig":
       return { zustand: "ungueltig" };
     // Judged ahead of a confirmation and of the ban, which the view ranks first: a link confirmed in another window,
     // or an address barred since, reads as a reload shows it.
-    case "REQ-REGISTRIERUNG-005":
+    case "link_abgelaufen":
       return { zustand: await stand("abgelaufen") };
     // Judged ahead of the ban, which the view ranks first.
-    case "REQ-REGISTRIERUNG-006":
+    case "bestaetigung_vorhanden":
       return { zustand: await stand("bestaetigt") };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
-    case "REQ-REGISTRIERUNG-012":
+    case "link_gesperrt":
       return { zustand: "gesperrt" };
     // The one refusal that spends no token, so a typed date's refusal lands on its field and the date survives it;
     // a `zustand` here would swap a live form for a dead-link panel.
-    case "REQ-REGISTRIERUNG-007": {
-      // No date sent is the returning pupil's stored one judged: their page asks none (`REQ-REGISTRIERUNG-017`).
+    case "bestaetigung_alter": {
+      // No date sent is the returning pupil's stored one judged: their page asks none (`registrierung_wahlen_unpassend`).
       if (gesendet.geburtsdatum === null) return { error: GESPEICHERTES_GEBURTSDATUM_AUSSERHALB };
 
       const floor = (await ansicht())?.mindestalter ?? null;
@@ -266,42 +263,42 @@ export function mapAufnahmeRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
-    case "DB-COMMON-001":
+    case "document_not_found":
       return REGISTRIERUNG_SCHON_ENTSCHIEDEN;
     // The list marks the row and offers no press, so only a page older than the pupil's state sends this.
-    case "REQ-REGISTRIERUNG-013":
+    case "registrierung_unbestaetigt":
       return buildRefusal({
         reason: "Diese Registrierung ist noch nicht bestätigt",
         repair: "Nimm sie auf, sobald die Person ihren Link bestätigt hat",
       });
-    case "REQ-REGISTRIERUNG-009":
+    case "registrierung_adresse_gesperrt":
       return buildRefusal({ reason: "Diese Registrierung kann nicht aufgenommen werden", repair: "Wende Dich an die Liga" });
-    case "REQ-REGISTRIERUNG-003":
+    case "registrierung_stufe_nicht_erlaubt":
       return buildRefusal({
         reason: "Diese Stufe ist in dieser Saison nicht zugelassen",
         repair: "Lehne die Registrierung ab oder wende Dich an die Liga",
       });
     // The page sends exactly the person the read resolved, so this is a page older than
     // the stored person it names.
-    case "REQ-REGISTRIERUNG-014":
+    case "registrierung_person_nicht_benannt":
       return buildRefusal({
         reason: "Wen diese Registrierung meint, hat sich seit dem Laden der Seite geändert",
         repair: "Lade die Seite neu und entscheide erneut",
       });
     // The pupil confirmed as a person the league has erased since, and gave no answers a new person
     // could stand on: only a fresh registration asks them.
-    case "REQ-REGISTRIERUNG-018":
+    case "registrierung_person_fehlt":
       return buildRefusal({
         reason: "Die Person zu dieser Registrierung ist bei uns nicht mehr gespeichert",
         repair: "Lehne die Registrierung ab. Die Person kann sich danach erneut registrieren",
       });
-    case "REQ-REGISTRIERUNG-015":
+    case "registrierung_schon_im_kader":
       return buildRefusal({
         reason: "Diese Person steht in dieser Saison schon in einem Kader",
         repair: "Lehne die Registrierung ab oder wende Dich an die Liga",
       });
     // The administrator's remedy, raising the cap, is no seat holder's: the league is.
-    case "REQ-SQUAD-003":
+    case "kader_full":
       return buildRefusal({
         reason: "Der Kader Deines Teams ist für diese Saison voll",
         repair: "Wende Dich an die Liga, wenn noch jemand dazukommen soll",
@@ -315,7 +312,7 @@ export function mapAufnahmeRefusal(error: unknown): string | null {
 export function mapAblehnungRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "DB-COMMON-001" ? REGISTRIERUNG_SCHON_ENTSCHIEDEN : null;
+  return error.serverErrorCode === "document_not_found" ? REGISTRIERUNG_SCHON_ENTSCHIEDEN : null;
 }
 
 /**
@@ -329,7 +326,7 @@ export function mapRegistrierungAnsichtRefusal(error: unknown): "ungueltig" | nu
 
   // A token the backend will not parse matches no record, so the page calls the link void rather
   // than offering a reload that cannot succeed.
-  if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
+  if (error.serverErrorCode === "payload_refused") return "ungueltig";
 
   // The season or club an invitation names gone, which the invitation's read answers as the sign-up
   // does; the confirmation's read and write meet no gone record.

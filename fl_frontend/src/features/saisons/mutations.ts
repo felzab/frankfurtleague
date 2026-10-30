@@ -23,7 +23,7 @@ import type {
 } from "@/core/generated/client/types";
 
 // The one create whose payload carries its own id: `saisons._id` is chosen rather than generated, so
-// a reuse is refused by the index and comes back as `DB-COMMON-002`, no rule's code.
+// a reuse is refused by the index and comes back as `duplicate_key`, no rule's code.
 export async function postSaison({
   id,
   start_date,

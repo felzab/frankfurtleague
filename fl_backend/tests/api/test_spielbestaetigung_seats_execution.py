@@ -3,7 +3,7 @@ API · every write moving a season seat's holder voids that seat's links on its 
 
 Each writer of an existing season row's seats is driven against the shipped validators, and straight after it commits,
 with no sweep run, each link is opened through the link's own view (`app/api/spielbestaetigungen/router.py ::
-get_spielbestaetigung_ansicht`): a link it refuses with `REQ-ANSETZUNG-001` is voided. A contact's erasure and their
+get_spielbestaetigung_ansicht`): a link it refuses with `link_ungueltig` is voided. A contact's erasure and their
 Widerspruch also take every reason they typed, matched on the holder each answer stored.
 """
 
@@ -211,7 +211,7 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
 
 
 async def links_answering(database: AsyncDatabase) -> dict[str, set[str]]:
-    """Per row, the seats whose mailed link the link's view still opens; a seat absent here is refused `REQ-ANSETZUNG-001`."""
+    """Per row, the seats whose mailed link the link's view still opens; a seat absent here is refused `link_ungueltig`."""
 
     answering: dict[str, set[str]] = {}
     for row in ROWS:
@@ -229,7 +229,7 @@ async def links_answering(database: AsyncDatabase) -> dict[str, set[str]]:
                     today=TODAY,
                 )
             except APIError as refused:
-                assert refused.error_code == "REQ-ANSETZUNG-001"
+                assert refused.error_code == "link_ungueltig"
                 continue
             answering[row].add(seat)
 
@@ -556,7 +556,7 @@ class TestAnAnsweredRowsLinkOutlivesNoHolder:
 
         links, stored_answers, _ = on_a_league(mongo_replica_set_url, hand_on_then_bar)
 
-        # Refused `REQ-ANSETZUNG-001` (`links_answering` admits no other refusal), never served as `gesperrt`.
+        # Refused `link_ungueltig` (`links_answering` admits no other refusal), never served as `gesperrt`.
         assert links["answered"] == ALL - {"trainer"}
         assert stored_answers == [row["antwort"] for row in ROWS.values()]
 

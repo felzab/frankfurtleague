@@ -81,23 +81,23 @@ export function FormRegelnSection({
   onStufenChange: (next: FLSpielerStufe[]) => void;
   /**
    * Whether this season is over, which freezes the four fields the league table is scored from
-   * (`REQ-RULES-005`). The endpoint refuses a change to any of them; this stops the page offering one.
+   * (`rules_saison_started`). The endpoint refuses a change to any of them; this stops the page offering one.
    */
   isFinishedSaison: boolean;
   /**
    * Whether a knockout fixture has been played, which freezes the tiebreak (`REQ-RULES-012`).
-   * **Handed in, never derived here**: the group swap grades the same fact (`REQ-SWAP-002`), and a
+   * **Handed in, never derived here**: the group swap grades the same fact (`swap_saison_started`), and a
    * second reading would offer what the endpoint refuses.
    */
   isKnockoutStarted: boolean;
   /**
    * Whether the season's fixtures exist, which freezes the three they were drawn from
-   * (`REQ-RULES-011`). Not a later stage of the freeze above: a season is drawn long before it is
+   * (`rules_shape_after_spielplan`). Not a later stage of the freeze above: a season is drawn long before it is
    * over, and `qualifiers_per_group` is in both.
    */
   isDrawnSaison: boolean;
   /**
-   * `REQ-RULES-002` and `REQ-RULES-003`'s own figure. **Handed in, never derived here**: the endpoint
+   * `rules_gruppen_in_use` and `rules_capacity_below_use`'s own figure. **Handed in, never derived here**: the endpoint
    * counts it once per write, and a second reading could close a row the save would take.
    */
   gruppenOccupancy: SaisonGruppenOccupancy;
@@ -218,7 +218,7 @@ export function FormRegelnSection({
 
         <div className="flex w-full flex-col gap-y-3">
           <h3 className={FORM_SECTION_HEADING_CLASSES}>Aufbau der Saison</h3>
-          {/* The offer is `fl_frontend/src/features/saisons/shapeOffer.ts`'s throughout: `REQ-RULES-001`
+          {/* The offer is `fl_frontend/src/features/saisons/shapeOffer.ts`'s throughout: `rules_bracket_impossible`
               leaves the two counts a set that SKIPS, which no floor-and-ceiling can state, and the
               stepper between them takes its floor from whichever count stands beside it. */}
           <div className={FIELD_TRIO_CLASSES}>
@@ -266,7 +266,7 @@ export function FormRegelnSection({
             />
           </div>
 
-          {/* Refused by `REQ-RULES-007`, and said here because the two fields that cause it are
+          {/* Refused by `rules_qualifiers_above_gruppe`, and said here because the two fields that cause it are
               directly above: the seeding walk asks each group for this many placings, and a group
               that cannot produce them leaves the bracket short. */}
           <InlineBanners

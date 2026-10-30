@@ -25,7 +25,7 @@ const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatus
  * Restated rather than looked up: the case below fails on a renumbering, and the loop over the
  * published codes then names the one the mapper leaves unanswered.
  */
-const ORDERING_CODE = "REQ-DATE-008";
+const ORDERING_CODE = "spieltag_beginn_out_of_order";
 
 /**
  * The German the mapper renders for one code, as a sentence. Thrown rather than answered as "": a
@@ -68,7 +68,7 @@ describe("the matchday's write", () => {
 });
 
 describe("the Spieltag refusals against the codes the matchday PATCH publishes", () => {
-  for (const code of refusalCodes("REQ-DATE-002", "REQ-DATE-003", "REQ-DATE-008")) {
+  for (const code of refusalCodes("spieltag_outside_saison", "spieltag_span_below_spiele", "spieltag_beginn_out_of_order")) {
     it(`${code} reaches the admin in German when the edit is saved`, () => {
       expect(answerShown(code, mapSpieltagRefusal), `${code} falls through to the generic conflict message when the edit is saved`).not.toBe(
         null,
@@ -78,7 +78,7 @@ describe("the Spieltag refusals against the codes the matchday PATCH publishes",
 
   it("answers every refusal the save publishes through the mapper", async () => {
     await assertEachAnswered({
-      codes: refusalCodes("REQ-DATE-002", "REQ-DATE-003", "REQ-DATE-008"),
+      codes: refusalCodes("spieltag_outside_saison", "spieltag_span_below_spiele", "spieltag_beginn_out_of_order"),
       refuseWith: answerWith,
       act: () => patchSpieltagAction({ id: "6890a1b2c3d4e5f607182931", beginn: "2026-03-12", ende: "2026-03-12" }),
       mapped: mapSpieltagRefusal,
@@ -165,7 +165,7 @@ describe("the one date a final's Spieltag is given", () => {
      `fl_frontend/src/shared/hooks/useServerFieldErrors.ts`'s unhandled-refusal toast. */
   it("keeps that picker on the one path a refusal can land on", () => {
     expect(fieldNames(SINGLE_DAY)).toStrictEqual(["beginn"]);
-    const landed = refusalCodes("REQ-DATE-002", "REQ-DATE-003", "REQ-DATE-008").flatMap((code) =>
+    const landed = refusalCodes("spieltag_outside_saison", "spieltag_span_below_spiele", "spieltag_beginn_out_of_order").flatMap((code) =>
       Object.keys(mapSpieltagRefusal(refused(code))?.fieldErrors ?? {}),
     );
     expect([...new Set(landed)]).toStrictEqual(["beginn"]);

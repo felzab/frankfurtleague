@@ -64,7 +64,7 @@ export function buildTeamBanners({
 
   if (!isMember) {
     // Graded in the order `POST /teams/{team_id}/saisons` answers in: a club that left the LEAGUE is
-    // refused by every season (`REQ-ENTER-005`), so naming the season's window instead would send
+    // refused by every season (`team_retired`), so naming the season's window instead would send
     // the admin after a remedy that changes nothing.
     if (isRetired) {
       banners.push({
@@ -151,7 +151,7 @@ export function buildTeamBanners({
     });
   }
 
-  // The whole of what is certain: the picker opens only while `REQ-ENTER-004` holds, so this club
+  // The whole of what is certain: the picker opens only while `entry_gruppe_locked` holds, so this club
   // has played nothing here and the seeding its group feeds is not decided yet.
   if (!isGruppeLocked && isGruppeChanged) {
     banners.push({

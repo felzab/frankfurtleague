@@ -36,7 +36,7 @@ function countSpieleProTeam(spiele: readonly FLSpiel[]): Map<string, SpieleOfRow
 
 /**
  * Both sides of the replacement offer. `gruppenphase` and `playoffs` together are every phase, which
- * is the set `REQ-REPLACE-002` judges and the set the rewrite moves — a narrower one would offer a
+ * is the set `replace_outgoing_has_a_record` judges and the set the rewrite moves — a narrower one would offer a
  * row the endpoint refuses.
  */
 export function buildReplacementContext({

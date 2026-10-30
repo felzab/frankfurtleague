@@ -58,7 +58,7 @@ const PARTNER_REFUSAL_LABEL: Record<SwapPartnerRefusal, string> = {
 
 /**
  * The group swap with ONE side already decided — one picker, because the page has answered "which
- * club". Same endpoint, same transaction, and `REQ-ENTER-004`'s lock above it is neither consulted
+ * club". Same endpoint, same transaction, and `entry_gruppe_locked`'s lock above it is neither consulted
  * nor relaxed.
  */
 function GruppenTauschControl({
@@ -257,7 +257,7 @@ export function FormSaisonSection({
   isMember: boolean;
   /**
    * The club's standing in the LEAGUE, not in this season: a stamped `teams.inactive_since`, which
-   * the entry write refuses for every season and every group alike (`REQ-ENTER-005`).
+   * the entry write refuses for every season and every group alike (`team_retired`).
    */
   isRetired: boolean;
   gruppe: FLGruppenNames | null;
@@ -447,8 +447,8 @@ export function FormSaisonSection({
           </div>
         ) : (
           // No entry affordance where the junction write refuses one whatever the admin picks: a
-          // season past planning (`REQ-ENTER-001`), and a club that has left the league
-          // (`REQ-ENTER-005`). A closure over every group is a banner, never a greyed picker.
+          // season past planning (`entry_saison_not_future`), and a club that has left the league
+          // (`team_retired`). A closure over every group is a banner, never a greyed picker.
           <InlineBanners
             banners={banners}
             spot="saison-kein-eintritt"

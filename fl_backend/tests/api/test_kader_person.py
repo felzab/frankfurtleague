@@ -297,7 +297,7 @@ ELSEWHERE = [
 
 
 class TestASeatNotHeld:
-    """`REQ-FUNKTION-001`, judged by each handler itself: drop the check from one and its three cases go red."""
+    """`funktion_nicht_gehalten`, judged by each handler itself: drop the check from one and its three cases go red."""
 
     @pytest.mark.parametrize(("method", "path", "body"), OPERATIONS)
     @pytest.mark.parametrize(("email", "team_id", "saison_id"), ELSEWHERE)
@@ -427,7 +427,7 @@ class TestAnEdit:
 
 
 class TestAStufeTheSeasonDoesNotOffer:
-    """`REQ-SQUAD-005`: a server refusal, the form's offer being no rule."""
+    """`kader_stufe_nicht_erlaubt`: a server refusal, the form's offer being no rule."""
 
     def test_a_stufe_outside_the_season_s_list_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str):
         answer, untouched = refused_and_untouched(
@@ -452,7 +452,7 @@ class TestTheCaptaincy:
             mongo_replica_set_url, "PATCH", row_url(TEILT_DIE_SIEBEN), ANSPRECH, {**PAYLOAD, "rolle": "kapitaen"}
         )
 
-        assert answer == (409, Code.SQUAD_ROLLE_TAKEN)
+        assert answer == (409, Code.KADER_ROLLE_TAKEN)
         assert untouched
 
     def test_two_edits_naming_one_rolle_leave_one_holder(self, mongo_replica_set_url: str):
@@ -492,7 +492,7 @@ class TestTheCaptaincy:
         outcome, holders, passes = on_a_league(mongo_replica_set_url, run)
 
         assert passes >= 1, "the rival never ran, so the edit was raced by nobody"
-        assert (outcome, holders) == (Code.SQUAD_ROLLE_TAKEN, 1), (
+        assert (outcome, holders) == (Code.KADER_ROLLE_TAKEN, 1), (
             f"the edit answered {outcome!r} ({COMMITTED!r} is no refusal), leaving {holders} holders"
         )
 

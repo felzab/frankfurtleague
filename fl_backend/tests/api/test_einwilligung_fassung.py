@@ -21,7 +21,7 @@ ANDERE_SEITE = "2026-09-bestaetigungsseite-6"
 
 
 class TestTheLabelAWriteStamps:
-    """`REQ-EINWILLIGUNG-001`: a record cites the words its person was shown, so the label it stamps must name them."""
+    """`fassung_unzulaessig`: a record cites the words its person was shown, so the label it stamps must name them."""
 
     def test_the_running_label_passes(self):
         """The floor: without it every refusal below would pass on a check refusing everything."""

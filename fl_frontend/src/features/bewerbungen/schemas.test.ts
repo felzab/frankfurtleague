@@ -90,7 +90,7 @@ describe("what the public submission schema accepts", () => {
     expect(refusedPaths(withAddress("käthe@beispiel.de"))).toStrictEqual(["kontakte.trainer.email"]);
   });
 
-  /* The API answers a hyphen-final label with a REQ-VAL-001 that marks the box with a generic
+  /* The API answers a hyphen-final label with a payload_refused that marks the box with a generic
      sentence, which never tells the applicant what to change. */
   it("refuses a contact address the API would refuse, on that seat's own box", () => {
     const draft = validDraft();
@@ -768,7 +768,7 @@ describe("the ceiling on the confirmation link's own token", () => {
   const verdict = (token: string) => FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ token: token, ...antwortBody });
 
   /* No control renders the token, so past `CustomBewerbungToken`'s ceiling the endpoint's
-     `REQ-VAL-001` naming it marks nothing, and the page can only report a failed save. */
+     `payload_refused` naming it marks nothing, and the page can only report a failed save. */
   it("answers a token past the endpoint's ceiling with the sentence the missing one gets", () => {
     const parsed = verdict("x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH + 1));
     expect(parsed.success).toBe(false);

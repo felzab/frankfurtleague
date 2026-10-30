@@ -45,7 +45,7 @@ export function FormTeamErsatzSection({
 }: {
   saisonId: string;
   ersatz: SaisonReplacementContext;
-  /** `REQ-REPLACE-001`: a finished season's fixtures record who played, so the panel explains instead of offering. */
+  /** `saison_past`: a finished season's fixtures record who played, so the panel explains instead of offering. */
   isFinishedSaison: boolean;
 }) {
   const [outgoingId, setOutgoingId] = useState<string | null>(null);
@@ -58,7 +58,7 @@ export function FormTeamErsatzSection({
   const router = useRouter();
   const { isConfirming, isPending: isReplacing, press, cancel } = twoPress;
 
-  // `REQ-REPLACE-002` in the form: a fixture carrying a record would be credited to the arriving
+  // `replace_outgoing_has_a_record` in the form: a fixture carrying a record would be credited to the arriving
   // club, so the row it stands on cannot be handed over.
   const outgoingOptions: RefusableOption[] = ersatz.rows.map((row) => ({
     id: row.teamId,
@@ -68,7 +68,7 @@ export function FormTeamErsatzSection({
   }));
 
   // The outgoing club holds a row here too, so the first arm is also what keeps one club off both
-  // ends of the same wechsel, which the backend refuses as `REQ-REPLACE-004`.
+  // ends of the same wechsel, which the backend refuses as `replace_one_team_on_both_ends`.
   const incomingOptions: RefusableOption[] = ersatz.candidates.map((candidate) => ({
     id: candidate.id,
     name: candidate.name,

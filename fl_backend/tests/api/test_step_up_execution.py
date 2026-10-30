@@ -2,7 +2,7 @@
 API · a write stepped up on some calls alone asks the step-up window on exactly those calls
 
 Each of these handlers decides whether this call destroys what nothing restores, or mints or voids a
-link to an address, and refuses `REQ-AUTH-009` there from a sign-in older than the step-up window.
+link to an address, and refuses `confirmation_required` there from a sign-in older than the step-up window.
 Served over HTTP against the shipped validators, so each refusal is
 shown to leave the stored state as it was, and each call of the other kind to pass the same sign-in.
 """
@@ -214,7 +214,7 @@ class TestTheDraw:
 
         status, code = on_a_season(mongo_replica_set_url, body)
 
-        assert (status, code.startswith("REQ-SPIELPLAN-")) == (409, True)
+        assert (status, code.startswith("spielplan_")) == (409, True)
 
 
 def a_referee(*, confirmed: bool = False, retired: bool = False) -> dict[str, Any]:

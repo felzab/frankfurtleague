@@ -197,7 +197,7 @@ class TestMovingAClubBetweenGroups:
         assert row["gruppe"] == "B"
 
     def test_a_started_season_with_a_fixture_drawn_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
-        """`REQ-ENTER`'s move lock through the route: the group phase is a round robin, so a move after the draw strands every fixture."""
+        """`entry_gruppe_locked`'s move lock through the route: the group phase is a round robin, so a move after the draw strands it."""
 
         async def body(database: AsyncDatabase) -> Any:
             with pytest.raises(APIError) as conflict:

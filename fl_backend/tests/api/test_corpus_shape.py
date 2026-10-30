@@ -8,7 +8,7 @@ from .conftest import SPIELE
 def test_no_club_is_fielded_twice_among_the_fixtures_sharing_a_spieltag():
     """A refusal no single document can hold: it spans documents rather than living in one.
 
-    A corpus carrying the state `REQ-SPIELTAG-001` refuses is one production could not have stored,
+    A corpus carrying the state `spieltag_occupied` refuses is one production could not have stored,
     so a pipeline proved against it is proved against nothing.
     """
 

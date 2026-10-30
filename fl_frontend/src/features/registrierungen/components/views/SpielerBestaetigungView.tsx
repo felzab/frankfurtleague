@@ -379,9 +379,9 @@ function SpielerBestaetigungForm({
   // the schema is what turns that into a field error rather than this builder into a cast.
   const payload = () => ({
     token: token,
-    // None from the returning page: the press takes the stored person's (`REQ-REGISTRIERUNG-017` refuses one sent).
+    // None from the returning page: the press takes the stored person's (`registrierung_wahlen_unpassend` refuses one sent).
     geburtsdatum: fragtWahlen ? entwurf.geburtsdatum : null,
-    // Both choices null from the returning page, which asks neither (`REQ-REGISTRIERUNG-017` refuses any other).
+    // Both choices null from the returning page, which asks neither (`registrierung_wahlen_unpassend` refuses any other).
     umfang: fragtWahlen ? entwurf.umfang : null,
     // Never the draft's own `true` where no switch stands: one given before the date moved below the
     // media age would send a consent this page withheld.

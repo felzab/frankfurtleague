@@ -87,7 +87,7 @@ async def get_spielberichte_person(
 
     `fruehere` holds every fixture of an ended season booked to those records now on which a report stands, newest
     first, one whose date was cleared after its report last with a null `datum`: its page shows the report read-only.
-    Refused `REQ-FUNKTION-001` where the address holds no confirmed, live referee record.
+    Refused `funktion_nicht_gehalten` where the address holds no confirmed, live referee record.
     """
 
     # A snapshot, so the fixtures served are those of the records judged; never a transaction, which a read writing
@@ -183,8 +183,8 @@ async def get_spielbericht_bericht(
     empty: the pupils the stored report names are then all in `genannt`. Once the fixture's season has ended,
     `abgeschlossen` is true and the read is the report alone, both squads empty, which its referee writes no more.
     Refused
-    `REQ-FUNKTION-001` where the address holds no confirmed, live referee record, and `REQ-BERICHT-002` where the fixture
-    is booked to none of its records; `DB-COMMON-001` for a fixture that does not exist.
+    `funktion_nicht_gehalten` where the address holds no confirmed, live referee record, and `bericht_nicht_geleitet` where the fixture
+    is booked to none of its records; `document_not_found` for a fixture that does not exist.
     """
 
     async with db.start_session(snapshot=True) as session:
@@ -257,17 +257,17 @@ async def put_spielbericht_bericht(
     another version would replace a report its sender never saw.
 
     Refuses, in this order, each writing nothing: an address holding no confirmed, live referee record
-    (`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records
-    (`REQ-BERICHT-002`); one whose season has ended, whose report its referee only reads (`REQ-BERICHT-007`); a
-    `bericht_stand` other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated
-    or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out
-    proposed on a group-phase fixture (`REQ-BERICHT-009`); a pupil the write newly names on a side outside that side's
+    (`funktion_nicht_gehalten`); a fixture that does not exist (`document_not_found`); one booked to none of its records
+    (`bericht_nicht_geleitet`); one whose season has ended, whose report its referee only reads (`saison_past`); a
+    `bericht_stand` other than the version standing now, or than none where none stands (`bericht_inzwischen_geaendert`); one undated
+    or whose day is still to come (`bericht_nicht_gespielt`); one called off or struck out (`bericht_abgesagt`); a shoot-out
+    proposed on a group-phase fixture (`bericht_elfmeter_in_der_gruppe`); a pupil the write newly names on a side outside that side's
     live squad of the season, a pupil the report already named on that side staying while the side fields the club it
-    did (`REQ-BERICHT-003`); and a yellow or second yellow card naming no reason (`REQ-BERICHT-008`). Every refusal but
-    `REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's records included, so a
+    did (`bericht_nicht_im_kader`); and a yellow or second yellow card naming no reason (`bericht_grund_fehlt`). Every refusal but
+    `bericht_inzwischen_geaendert` is asked again outside the transaction just before answering, the referee's records included, so a
     write landing on what was judged before that second asking refuses the report rather than letting it stand, and one
     landing after it stands beside the report; a write of the report itself landing mid-press conflicts with this one,
-    whose retry meets `REQ-BERICHT-006`. Two first writes at once are two forms opened on no report: the later is
+    whose retry meets `bericht_inzwischen_geaendert`. Two first writes at once are two forms opened on no report: the later is
     refused.
     """
 

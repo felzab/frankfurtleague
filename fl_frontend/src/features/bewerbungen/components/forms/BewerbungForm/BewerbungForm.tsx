@@ -212,7 +212,7 @@ export function BewerbungForm({
     void fetchKuerzel(shorthand).then(
       (antwort) => {
         setIsKuerzelPending(false);
-        // A check that could not be judged refuses nothing: the submit's own `REQ-BEWERBUNG-008` is
+        // A check that could not be judged refuses nothing: the submit's own `bewerbung_shorthand_taken` is
         // what stands between a taken code and a stored one, and this is a courtesy in front of it.
         setKuerzelVerdikt(antwort.success && antwort.vergeben !== undefined ? { shorthand, vergeben: antwort.vergeben } : null);
 

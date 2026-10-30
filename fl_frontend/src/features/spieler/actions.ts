@@ -161,7 +161,7 @@ export async function deleteSaisonSpielerAction(
       success: true,
       saison_spieler: deleteOperation,
       // The role is on the list although another live row can take it meanwhile: this stamp empties no
-      // field, the reactivate brings all four back, and `REQ-SQUAD-004` is what refuses a role given away.
+      // field, the reactivate brings all four back, and `kader_rolle_taken` is what refuses a role given away.
       message: "Nummer, Rolle, Position und Stufe bleiben erhalten.",
     };
   });
@@ -178,7 +178,7 @@ export async function reactivateSaisonSpielerAction(
     }
 
     // Reviving a row takes a squad slot like any other write, so the cap refuses it too
-    // (`REQ-SQUAD-003`) — and the shared fallback would name no reason.
+    // (`kader_full`) — and the shared fallback would name no reason.
     let reactivateOperation;
     try {
       reactivateOperation = await reactivateSaisonSpieler(validated.data);

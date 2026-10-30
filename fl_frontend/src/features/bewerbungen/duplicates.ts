@@ -3,7 +3,7 @@ import type { PillTone } from "@/shared/components/ui/badges";
 
 /**
  * What two open applications collide on. Never both at once: an application names either a club or a
- * proposed school, the shape `REQ-BEWERBUNG-005` refuses, so each row carries exactly one key.
+ * proposed school, the shape `bewerbung_submission_subject_unresolved` refuses, so each row carries exactly one key.
  */
 export type BewerbungDublette = "team" | "kuerzel";
 

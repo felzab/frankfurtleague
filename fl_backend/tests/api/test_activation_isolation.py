@@ -52,8 +52,8 @@ ENTRY_BLOCK = {OUTGOING: "1", TARGET: "2", RIVAL: "3"}
 # rollover that lands names the state it left instead of an exception that failed to arrive.
 COMMITTED = "the rollover committed"
 
-# The other order a season can rank a group by than the seed's. NOT a shape field, so `REQ-RULES-011`
-# passes it on a drawn season and `REQ-RULES-012` is the only rule left to refuse it.
+# The other order a season can rank a group by than the seed's. NOT a shape field, so `rules_shape_after_spielplan`
+# passes it on a drawn season and `rules_saison_started` is the only rule left to refuse it.
 REORDERED_TIEBREAK = "direkter_vergleich"
 SEEDED_TIEBREAK = rules_document()["tiebreak_order"]
 
@@ -69,7 +69,7 @@ def seeded_saison(saison_id: str, status: str) -> dict[str, Any]:
 
 
 def entry_rows(saison_id: str) -> list[dict[str, Any]]:
-    """Every offered group filled to `teams_per_group`, which is what `REQ-SPIELPLAN-004` asks of a season about to be drawn."""
+    """Every offered group filled to `teams_per_group`, which is what `spielplan_gruppen_off_rules` asks of a season about to be drawn."""
 
     return [
         saison_team_document(
@@ -147,7 +147,7 @@ def on_a_league(
             # removes from are the ones a drawn season really holds, watermark included.
             for saison_id in drawn:
                 await call_draw(database, client, saison_id)
-                # The draw leaves every matchday undated, so without this `REQ-ACTIVATE-004` would
+                # The draw leaves every matchday undated, so without this `activate_spieltage_undated` would
                 # answer every case in this file before the interference it is about could be judged.
                 await database[Collection.SPIELTAGE].update_many(
                     {"saison_id": saison_id}, {"$set": {"beginn": f"{saison_id}-03-01", "ende": f"{saison_id}-03-02"}}
@@ -301,13 +301,13 @@ async def tiebreak_now(database: AsyncDatabase) -> str:
 class TestADrawLandingMidRolloverIsJudgedAgain:
     """The outgoing season owes nothing when the rollover judges, and a whole Spielplan when it writes.
 
-    A missed judgement is unrecoverable: `REQ-ACTIVATE-002` never promotes a `past` season back.
+    A missed judgement is unrecoverable: `saison_past` never promotes a `past` season back.
     """
 
     def test_the_rollover_is_refused_on_the_fixtures_drawn_under_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def draw_the_outgoing_season() -> None:
-                # Permitted while it is `active`: `REQ-SPIELPLAN-003` refuses a draw on a `past`
+                # Permitted while it is `active`: `saison_past` refuses a draw on a `past`
                 # season alone, which is exactly why the rollover may not close this one blind.
                 await call_draw(database, client, OUTGOING)
 
@@ -324,7 +324,7 @@ class TestADrawLandingMidRolloverIsJudgedAgain:
             drawn=(TARGET,),
         )
 
-        # `REQ-ACTIVATE-001` reads the outgoing season's fixtures, and it held none when this request
+        # `activate_saison_unfinished` reads the outgoing season's fixtures, and it held none when this request
         # first judged, so only a second judgement can refuse. The statuses ride along, naming the
         # `past` season a landed rollover left unplayed.
         assert (outcome, statuses) == (Code.ACTIVATE_SAISON_UNFINISHED, {OUTGOING: "active", TARGET: "future"})
@@ -334,7 +334,7 @@ class TestADrawLandingMidRolloverIsJudgedAgain:
 
 
 class TestAnUndrawLandingMidRolloverIsJudgedAgain:
-    """The target is drawn when the rollover judges and undrawn when it writes, which `REQ-ACTIVATE-003` exists to refuse."""
+    """The target is drawn when the rollover judges and undrawn when it writes, which `activate_target_undrawn` exists to refuse."""
 
     def test_the_rollover_is_refused_on_the_fixtures_removed_under_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -426,9 +426,9 @@ class TestARivalRolloverLandingMidReactivationIsJudgedAgain:
         )
 
         # Unrefused, the endpoint answers 200 echoing `active` over a database reading `past` -- and
-        # `REQ-ACTIVATE-002` never promotes a `past` season back, so the admin acts on a state nobody
+        # `saison_past` never promotes a `past` season back, so the admin acts on a state nobody
         # can restore.
-        assert (outcome, statuses) == (Code.ACTIVATE_TARGET_PAST, {TARGET: "past", RIVAL: "active"})
+        assert (outcome, statuses) == (Code.SAISON_PAST, {TARGET: "past", RIVAL: "active"})
 
         # The judgement, then the retry's: the conflicted write reads no echo back, so the retry is what refused.
         assert season_reads == 2, (
@@ -508,7 +508,7 @@ class TestAStartLandingMidPatchIsJudgedAgain:
 
         # The draw dates nothing, so the season had not started when this request first judged: the
         # refusal can only come from the re-judgement after the write.
-        assert refusal.error_code == Code.RULES_SAISON_FINISHED
+        assert refusal.error_code == Code.RULES_SAISON_STARTED
         # TWO, and neither is a retry: the judgement's read, then the echo read the write itself
         # makes -- the rival touched `spiele` alone, so nothing conflicted.
         assert season_reads == 2, (
@@ -553,15 +553,15 @@ class TestARolloverLandingMidPatchIsJudgedAgain:
             mongo_replica_set_url,
             body,
             # The incumbent is UNDRAWN, which is what leaves it owing nothing for the rollover to
-            # refuse, and leaves `REQ-RULES-011` no fixtures to refuse the reorder on either.
+            # refuse, and leaves `rules_shape_after_spielplan` no fixtures to refuse the reorder on either.
             saisons=[seeded_saison(TARGET, "active"), seeded_saison(RIVAL, "future")],
             entered=(TARGET, RIVAL),
             drawn=(RIVAL,),
         )
 
-        # `REQ-RULES-005` weighs the season's own `status`, and it was `active` when this request
+        # `rules_saison_started` weighs the season's own `status`, and it was `active` when this request
         # first judged: the refusal can only come from a read made after the rollover committed.
-        assert refusal.error_code == Code.RULES_SAISON_FINISHED
+        assert refusal.error_code == Code.RULES_SAISON_STARTED
         assert (promoted.updated_document.id, statuses) == (RIVAL, {TARGET: "past", RIVAL: "active"})
 
         # TWO: the judgement's read and the retry's. The write conflicted rather than echoing, and a

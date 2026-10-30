@@ -274,7 +274,7 @@ class TestWhatALinkOpens:
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == Code.REGISTRIERUNG_TOKEN_UNKNOWN
+        assert on_a_league(mongo_replica_set_url, body) == Code.LINK_UNGUELTIG
 
     def test_a_link_past_its_deadline_is_shown_as_expired_rather_than_refused(self, mongo_replica_set_url: str):
         expired = registrierung_document(
@@ -456,7 +456,7 @@ class TestWhatAConfirmationWrites:
         too_young = spieler_document(SPIELER_OID, geburtsdatum=A_DAY_SHORT, einwilligung=einwilligung(medien=False))
         code, document = on_a_league(mongo_replica_set_url, body, spieler=[too_young])
 
-        assert code == Code.REGISTRIERUNG_ALTER
+        assert code == Code.BESTAETIGUNG_ALTER
         assert document == registrierung_document()
 
     def test_the_answer_carries_nothing_of_the_registration_beyond_what_was_posted(self, mongo_replica_set_url: str):
@@ -469,7 +469,7 @@ class TestWhatAConfirmationWrites:
 
 
 class TestTheLabelAPressNames:
-    """`REQ-EINWILLIGUNG-001`: a new acceptance names the running label of the page the link opens and nothing else."""
+    """`fassung_unzulaessig`: a new acceptance names the running label of the page the link opens and nothing else."""
 
     @pytest.fixture(autouse=True)
     def _an_earlier_version_of_the_page(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -532,7 +532,7 @@ class TestTheLabelAPressNames:
 
 
 class TestTheChoicesThePageAsks:
-    """`REQ-REGISTRIERUNG-017` at the endpoint, judged against the page the press resolves and before anything is written."""
+    """`registrierung_wahlen_unpassend` at the endpoint, judged against the page the press resolves and before anything is written."""
 
     @pytest.mark.parametrize(
         ("held", "label", "wahlen"),
@@ -584,7 +584,7 @@ class TestTheLinkIsSpentByTheStamp:
 
         code, document, view = on_a_league(mongo_replica_set_url, body)
 
-        assert code == Code.REGISTRIERUNG_ALREADY_CONFIRMED
+        assert code == Code.BESTAETIGUNG_VORHANDEN
         assert (document["einwilligung"]["umfang"], document["einwilligung"]["medien"]) == ("kader_oeffentlich", True)
         assert view.zustand == "bestaetigt"
 
@@ -599,7 +599,7 @@ class TestTheLinkIsSpentByTheStamp:
 
         code, view, document, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert code == Code.REGISTRIERUNG_ALTER
+        assert code == Code.BESTAETIGUNG_ALTER
         assert view.zustand == "gueltig"
         assert document == registrierung_document()
         assert rows == []
@@ -624,7 +624,7 @@ class TestTheLinkIsSpentByTheStamp:
 
         code, document = on_a_league(mongo_replica_set_url, body, registrierungen=[expired])
 
-        assert code == Code.REGISTRIERUNG_TOKEN_EXPIRED
+        assert code == Code.LINK_ABGELAUFEN
         assert document["einwilligung"] is None
 
     def test_a_decided_registration_takes_no_answer_either(self, mongo_replica_set_url: str):
@@ -639,7 +639,7 @@ class TestTheLinkIsSpentByTheStamp:
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, registrierungen=[declined]) == Code.REGISTRIERUNG_TOKEN_EXPIRED
+        assert on_a_league(mongo_replica_set_url, body, registrierungen=[declined]) == Code.LINK_ABGELAUFEN
 
     def test_an_expired_link_carrying_a_refused_date_answers_the_link_rather_than_the_age(self, mongo_replica_set_url: str):
         """The order, which no other case pins: judged age-first, a dead link would tell a pupil to correct a date that buys them nothing."""
@@ -654,7 +654,7 @@ class TestTheLinkIsSpentByTheStamp:
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, registrierungen=[expired]) == Code.REGISTRIERUNG_TOKEN_EXPIRED
+        assert on_a_league(mongo_replica_set_url, body, registrierungen=[expired]) == Code.LINK_ABGELAUFEN
 
     def test_a_confirmed_registration_carrying_a_refused_date_answers_the_stamp_rather_than_the_age(self, mongo_replica_set_url: str):
         """The other half of the order: a pupil who has already answered is told so rather than asked to retype a date nothing will store."""
@@ -667,7 +667,7 @@ class TestTheLinkIsSpentByTheStamp:
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == Code.REGISTRIERUNG_ALREADY_CONFIRMED
+        assert on_a_league(mongo_replica_set_url, body) == Code.BESTAETIGUNG_VORHANDEN
 
     def test_a_token_no_registration_holds_is_refused_before_anything_is_read_of_a_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -678,7 +678,7 @@ class TestTheLinkIsSpentByTheStamp:
 
         code, document = on_a_league(mongo_replica_set_url, body)
 
-        assert code == Code.REGISTRIERUNG_TOKEN_UNKNOWN
+        assert code == Code.LINK_UNGUELTIG
         assert document == registrierung_document()
 
 
@@ -688,7 +688,7 @@ A_DAY_SHORT_OF_THE_MEDIA_AGE = "2008-04-02"
 
 
 class TestTheMediaAge:
-    """`REQ-REGISTRIERUNG-010` at the endpoint: the refusal is wired in, and judged before the write."""
+    """`medien_alter` at the endpoint: the refusal is wired in, and judged before the write."""
 
     def test_the_view_serves_the_age_the_page_offers_the_switch_from(self, mongo_replica_set_url: str):
         assert on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW)).medien_mindestalter == MEDIEN_MIN_AGE_YEARS
@@ -702,7 +702,7 @@ class TestTheMediaAge:
 
         code, document, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert code == Code.REGISTRIERUNG_MEDIEN_ALTER
+        assert code == Code.MEDIEN_ALTER
         assert document == registrierung_document()
         assert rows == []
 
@@ -717,7 +717,7 @@ async def ban(database: AsyncDatabase, address: str, *, bis: str = STANDING) -> 
 
 
 class TestALinkToABarredAddress:
-    """`REQ-REGISTRIERUNG-012`: a ban reaches a link already in somebody's inbox, the seeded one minted before it."""
+    """`link_gesperrt`: a ban reaches a link already in somebody's inbox, the seeded one minted before it."""
 
     def test_the_press_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         """Barred in the folded spelling while the row stores the typed one, so the check keys the stored address as a ban does."""
@@ -732,7 +732,7 @@ class TestALinkToABarredAddress:
 
         code, status, document, rows = on_a_league(mongo_replica_set_url, body)
 
-        assert (code, status) == (Code.REGISTRIERUNG_BESTAETIGUNG_GESPERRT, 403)
+        assert (code, status) == (Code.LINK_GESPERRT, 403)
         assert document == registrierung_document()
         assert rows == []
 
@@ -782,7 +782,7 @@ class TestALinkToABarredAddress:
 
             return refused.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == Code.REGISTRIERUNG_ALREADY_CONFIRMED
+        assert on_a_league(mongo_replica_set_url, body) == Code.BESTAETIGUNG_VORHANDEN
 
     def test_a_barred_press_carrying_a_refused_date_answers_the_ban_rather_than_the_age(self, mongo_replica_set_url: str):
         """The other half of the order: a corrected date buys a barred address nothing, so it is not what the pupil is asked for."""
@@ -795,7 +795,7 @@ class TestALinkToABarredAddress:
 
             return refused.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body) == Code.REGISTRIERUNG_BESTAETIGUNG_GESPERRT
+        assert on_a_league(mongo_replica_set_url, body) == Code.LINK_GESPERRT
 
 
 class TestTheViewOfALinkToABarredAddress:

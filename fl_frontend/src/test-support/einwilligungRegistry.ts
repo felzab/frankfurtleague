@@ -48,7 +48,7 @@ export function einwilligungAnswer(endpoint: string): unknown {
     message: "not found",
     url: `http://backend/api/v0${endpoint}`,
     statusCode: 404,
-    serverErrorCode: "DB-COMMON-001",
+    serverErrorCode: "document_not_found",
     endpoint: endpoint,
     method: "GET",
     readOnly: true,

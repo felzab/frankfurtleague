@@ -668,7 +668,7 @@ class TestTheRefusalsTheWritePathAnswers:
         assert refused(mongo_replica_set_url, saison_status="past").error_code == Code.BEWERBUNG_FENSTER_GESCHLOSSEN
 
     def test_a_season_no_document_names_is_a_404(self, mongo_replica_set_url: str):
-        """A 404 rather than `REQ-BEWERBUNG-004`: nothing was refused, the season the body names does not exist."""
+        """A 404 rather than `bewerbung_fenster_geschlossen`: nothing was refused, the season the body names does not exist."""
 
         async def body(database: AsyncDatabase) -> None:
             with pytest.raises(DocumentNotFoundError):
@@ -698,10 +698,10 @@ class TestTheRefusalsTheWritePathAnswers:
     def test_a_club_the_list_does_not_offer_refuses(self, mongo_replica_set_url: str, team_id: str):
         """The same code for both, so a client sending an id it was never given learns nothing about which."""
 
-        assert refused(mongo_replica_set_url, team_id=team_id).error_code == Code.BEWERBUNG_PICKED_CLUB_UNUSABLE
+        assert refused(mongo_replica_set_url, team_id=team_id).error_code == Code.BEWERBUNG_PICKED_TEAM_UNUSABLE
 
     def test_a_club_already_playing_the_season_refuses(self, mongo_replica_set_url: str):
-        assert refused(mongo_replica_set_url, team_id=str(ENTERED_OID)).error_code == Code.BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED
+        assert refused(mongo_replica_set_url, team_id=str(ENTERED_OID)).error_code == Code.BEWERBUNG_PICKED_TEAM_ALREADY_ENTERED
 
     def test_a_first_press_naming_an_earlier_wording_refuses(self, mongo_replica_set_url: str):
         """The replay case's control: the same body under a key nothing stores is judged, and stores nothing."""
@@ -816,7 +816,7 @@ class TestASubmissionMadeOverTheWire:
         assert submitted.stored == 0
 
     def test_no_actor_header_is_demanded(self, mongo_replica_set_url: str):
-        """The whole reason the router declares `bind_public_actor`: `bind_actor` would answer `REQ-AUTH-005` here."""
+        """The whole reason the router declares `bind_public_actor`: `bind_actor` would answer `missing_actor` here."""
 
         assert through_the_app(mongo_replica_set_url, payload()).response.status_code != 401
 
@@ -885,7 +885,7 @@ class TestASubmissionMadeOverTheWire:
         submitted = through_the_app(mongo_replica_set_url, payload(team_id=str(UNKNOWN_OID)))
 
         assert submitted.response.status_code == 409
-        assert submitted.response.json()["error_code"] == Code.BEWERBUNG_PICKED_CLUB_UNUSABLE
+        assert submitted.response.json()["error_code"] == Code.BEWERBUNG_PICKED_TEAM_UNUSABLE
 
 
 # `gute_spieler` is non-nullable on every side, not the payload alone, so the stored shape is an int and no null.
@@ -924,7 +924,7 @@ class TestAKuerzelARetiredClubStillHolds:
     """The write path's lookup spans retired clubs, because `uniq_shorthand` does.
 
     Narrow it and a new school passes here, then fails at ACCEPTANCE on the duplicate key -- the
-    dead end `REQ-BEWERBUNG-006`'s wording exists to close, reached through `schule`.
+    dead end `bewerbung_picked_team_unusable`'s wording exists to close, reached through `schule`.
     """
 
     def test_a_new_school_proposing_a_retired_clubs_kuerzel_is_refused(self, mongo_replica_set_url: str):
@@ -954,7 +954,7 @@ class TestAKuerzelARetiredClubStillHolds:
 
 
 class TestABannedContactAddress:
-    """`REQ-BEWERBUNG-018`: an address the ban list holds applies for nobody, on whichever seat it stands."""
+    """`bewerbung_adresse_gesperrt`: an address the ban list holds applies for nobody, on whichever seat it stands."""
 
     @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
     def test_a_banned_address_on_any_seat_is_refused_and_stores_nothing(self, mongo_replica_set_url: str, seat: str):

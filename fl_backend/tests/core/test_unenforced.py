@@ -304,7 +304,7 @@ RULES_OF_THE_SEASON = _rules()
 
 @pytest.fixture
 def a_semi_final_played_at_a_retired_ground(spiel: PayloadFactory) -> list[dict[str, Any]]:
-    """Played where the ground has since retired, which `REQ-RETIRE-003` lets it do."""
+    """Played where the ground has since retired, which `spielort_still_booked` lets it do."""
 
     return [
         spiel(
@@ -338,7 +338,7 @@ class TestARetiredBookingOnAReopenedFixture:
         ] == [(SLOT_NR, "ort", GROUND_RETIRED_ON)]
 
     def test_a_save_keeping_it_passes_and_a_save_newly_booking_it_is_refused(self, a_semi_final_played_at_a_retired_ground):
-        """Both directions of `REQ-BOOKING-001`: the state stands because the reopened fixture's next save books nothing."""
+        """Both directions of `booking_unknown_resource`: the state stands because the reopened fixture's next save books nothing."""
 
         (document,) = a_semi_final_played_at_a_retired_ground
         reopened_document = {**document, "team1": document["team2"], "team2": None, "ergebnis": None}
@@ -401,7 +401,7 @@ def _holders_of(spiele: list[FLSpiel]) -> list[FLSpielSlotHolder]:
 
 
 def _clash_refusal_of(stored: FLSpiel, holders: list[FLSpielSlotHolder], **changes: Any) -> WriteRefusal | None:
-    """`REQ-CLASH-001` on a save of `stored` changing `changes`, judged over the claims it makes as `judge` judges them."""
+    """`spiel_double_booked` on a save of `stored` changing `changes`, judged over the claims it makes as `judge` judges them."""
 
     payload = _resubmit([stored.model_dump()], stored.spiel_nr).model_copy(update=changes)
     claims = find_claims_made(stored, payload)
@@ -440,7 +440,7 @@ class TestADoubleBookingALiftedNoShowLeaves:
         assert _clash_refusal_of(later, holders, notiz="Nur eine Notiz") is None
 
         moved_inside = _clash_refusal_of(lifted, holders, uhrzeit="17:30:00")
-        assert moved_inside is not None and moved_inside.error_code == Code.FIXTURE_DOUBLE_BOOKED
+        assert moved_inside is not None and moved_inside.error_code == Code.SPIEL_DOUBLE_BOOKED
         assert _clash_refusal_of(lifted, holders, uhrzeit="13:00:00") is None
 
 
@@ -604,7 +604,7 @@ class TestADisqualifiedClubKeepsItsFixtures:
         assert refusal is not None
 
     def test_re_dating_it_past_the_exit_is_the_other(self, one_fixture):
-        """The half `REQ-ELIGIBILITY-001` gained: the tolerated state is a fixture STANDING, never one moved past the exit."""
+        """The half `eligibility_disqualified` gained: the tolerated state is a fixture STANDING, never one moved past the exit."""
 
         stored = FLSpielListAdapter.validate_python(one_fixture)
         re_dated = _resubmit(one_fixture, 1).model_copy(update={"datum": "2026-04-01"})
@@ -683,7 +683,10 @@ class TestAFutureSeasonHoldingRecordedResults:
         assert "status" not in FLSpiel.model_fields
 
     def test_both_windows_take_the_record_and_the_status_as_two_figures(self):
-        """`REQ-SPIELPLAN-005` and `REQ-SPIELPLAN-006` share one sentence for the same reason: neither infers the record from the status."""
+        """The replace's and the undraw's window refusals share one sentence: neither infers the record from the status.
+
+        They are `spielplan_replace_outside_its_window` and `spielplan_undraw_outside_its_window`.
+        """
 
         for refusal in (find_spielplan_refusal, find_undraw_refusal):
             assert {"saison_status", "recorded_fixtures"} <= set(inspect.signature(refusal).parameters), refusal.__name__
@@ -723,7 +726,7 @@ class TestAnAbandonedFixtureAndItsResult:
         cancelled = _abandoned(tore=(3, 1)).model_copy(update={"sonderereignis": "ausgefallen"})
         refusal = find_state_refusal(cancelled)
 
-        assert refusal is not None and refusal.error_code == Code.STATE_RESULT_ON_A_NON_EVENT
+        assert refusal is not None and refusal.error_code == Code.STATE_ERGEBNIS_ON_A_NON_EVENT
 
     def test_it_sits_outside_the_set_that_awards_nothing(self):
         """The partition is what leaves it out: a fixture that used its slot is not one recording an absence."""

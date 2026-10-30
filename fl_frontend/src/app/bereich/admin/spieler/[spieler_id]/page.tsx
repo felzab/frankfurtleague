@@ -88,7 +88,7 @@ async function AdminSpielerEditContent({
   };
 
   // Who leads each team this season, so the editor offers no role the write path would refuse
-  // (`REQ-SQUAD-004`). The edited player's own row is excluded: their role is not held against them.
+  // (`kader_rolle_taken`). The edited player's own row is excluded: their role is not held against them.
   const heldRollen = collectHeldRollen({ spieler: membershipsRes.spieler, saisonId: selectedSaison.id, exceptSpielerId: spielerId });
   // The same exclusion as the roles above, and it is what makes an untouched save survive its own
   // place: a squad at the cap counting this player would refuse an edit that moves nobody.

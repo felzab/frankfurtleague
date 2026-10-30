@@ -88,7 +88,7 @@ def _served() -> FastAPI:
 
 
 def client() -> TestClient:
-    """No lifespan, so nothing opens the database: a request clearing every check then fails on `DB-CONN-001`, which is observable."""
+    """No lifespan, so nothing opens the database: a request clearing every check then fails on `no_database_client`, which is observable."""
 
     return TestClient(_served(), raise_server_exceptions=False)
 
@@ -106,7 +106,7 @@ def test_a_request_without_the_admin_key_sets_no_actor():
 
     response = client().delete(WRITE_PATH, headers={**BASE_AUTH, **actor_headers(ACTOR)})
 
-    assert answer(response) == (401, Code.WRONG_ADMIN_KEY)
+    assert answer(response) == (401, Code.ACCESS_KEY_REFUSED)
 
 
 @pytest.mark.parametrize(
@@ -153,7 +153,7 @@ class TestTheAdministratorsSession:
 
         response = client().delete(WRITE_PATH, headers=headers)
 
-        assert answer(response) == (401, Code.ACTOR_TOKEN_REFUSED)
+        assert answer(response) == (401, Code.SESSION_REFUSED)
         assert response.headers["www-authenticate"] == ACTOR_TOKEN_CHALLENGE
 
     @pytest.mark.parametrize(("method", "path"), [("delete", WRITE_PATH), ("get", READ_PATH)], ids=("a write", "a read"))
@@ -167,7 +167,7 @@ class TestTheAdministratorsSession:
         ("granted_after_s", "expected"),
         [
             pytest.param(0.999, (503, UNREACHED_DATABASE), id="later inside the sign-in's second"),
-            pytest.param(1, (401, Code.ACTOR_TOKEN_REFUSED), id="the second after the sign-in"),
+            pytest.param(1, (401, Code.SESSION_REFUSED), id="the second after the sign-in"),
         ],
     )
     def test_a_session_signed_in_before_its_grant_is_refused_to_the_second(self, granted_after_s: float, expected: tuple[int, str]):
@@ -271,7 +271,7 @@ class TestTheStepUp:
     def test_a_write_its_window_admits_passes_the_check(self, method: str, path: str, age_s: int):
         """The control: every refusal above would pass on a check refusing everything."""
 
-        assert answer(getattr(client(), method)(path, headers=signed_in_before(age_s)))[1] in {UNREACHED_DATABASE, "REQ-VAL-001"}
+        assert answer(getattr(client(), method)(path, headers=signed_in_before(age_s)))[1] in {UNREACHED_DATABASE, "payload_refused"}
 
     def test_every_route_declaring_the_step_up_is_one_listed_above(self):
         """A step-up write dropping its declaration fails here, where no request would."""
@@ -480,7 +480,7 @@ class TestThePersonsSession:
     def test_a_session_past_the_person_s_window_is_refused(self):
         response = person_client().get(PERSON_PROBE, headers=as_person(age_s=PERSON_WINDOW_DAYS * 86400 + 60))
 
-        assert answer(response) == (401, Code.ACTOR_TOKEN_REFUSED)
+        assert answer(response) == (401, Code.SESSION_REFUSED)
 
     def test_a_request_naming_nobody_is_refused_before_the_ban_read_opens_the_database(self):
         """No database and the real read: a 503 here would mean the list was asked before the session was read."""

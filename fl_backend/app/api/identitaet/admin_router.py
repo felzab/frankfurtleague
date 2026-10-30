@@ -110,7 +110,7 @@ async def get_erasure_ansicht_auf_anfrage(
     made by it (`gestellt`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is
     left out, though the erasure removes its row too. A squad
     row and a referee row each carry the day it was retired, null while live, and a referee row every season holding a
-    fixture still to be played that it is booked on, as `REQ-RETIRE-004` judges one. Reached and not named: the fixtures
+    fixture still to be played that it is booked on, as `schiedsrichter_still_assigned` judges one. Reached and not named: the fixtures
     booking a referee row, which move onto the ghost, and the referee's name in each of those fixtures' log images, which
     goes; the match reports a referee row sent, which stand naming the ghost, in
     their log images too; the confirmations a referee row was asked for, which go, and its id
@@ -125,8 +125,8 @@ async def get_erasure_ansicht_auf_anfrage(
     `verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the
     address, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.
 
-    Refused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless
-    the administrator holds an owner's power (`REQ-PURGE-005`).
+    Refused as the erasure is: the administrator's own address (`eigene_adresse`), an address holding a live grant unless
+    the administrator holds an owner's power (`verwaltung_adresse`).
     """
 
     identifier = sign_in_identifier(ansicht_data.email)
@@ -258,13 +258,13 @@ async def erase_auf_anfrage(
 
     ADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/selbst/erasure` runs and refuses nothing about the
     person's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.
-    Three refusals are about who asks. The administrator's own address is refused (`REQ-PURGE-003`): their account page
+    Three refusals are about who asks. The administrator's own address is refused (`eigene_adresse`): their account page
     serves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,
-    signed in since becoming one (`REQ-PURGE-005`), judged inside the write: erasing it removes the grant, whatever grants
+    signed in since becoming one (`verwaltung_adresse`), judged inside the write: erasing it removes the grant, whatever grants
     remain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every
-    other address is erased from a sign-in inside the step-up window. Either window missed answers `REQ-AUTH-009`. An
+    other address is erased from a sign-in inside the step-up window. Either window missed answers `confirmation_required`. An
     address another address's pending change would move to is refused, judged inside the write, where that address holds a
-    live grant and the administrator no owner's power (`REQ-PURGE-007`): the erasure ends the change, a discard only an
+    live grant and the administrator no owner's power (`fremder_adresswechsel`): the erasure ends the change, a discard only an
     owner makes of it. The refusal tells that administrator some change the preview withholds names the address.
 
     `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does.
@@ -384,9 +384,9 @@ async def post_abmeldung(
     the row is the whole of what this writes: collection `anmeldungen`, operation `delete_many`, the administrator as actor,
     and no address, filter, image or count. Nothing bars the address and nothing is mailed; a person signs in again as before.
 
-    Refused so that a refused call ends no session: from a sign-in older than the step-up window (`REQ-AUTH-009`), the
-    administrator's own address (`REQ-PURGE-003`), an address holding an `owner` grant unless the administrator holds an
-    owner's power (`REQ-PURGE-005`). Unlike the erasure, it
+    Refused so that a refused call ends no session: from a sign-in older than the step-up window (`confirmation_required`), the
+    administrator's own address (`eigene_adresse`), an address holding an `owner` grant unless the administrator holds an
+    owner's power (`verwaltung_adresse`). Unlike the erasure, it
     ends another administrator's sessions for an administrator holding no owner's power: signing in again repairs it.
     """
 
@@ -405,7 +405,7 @@ async def post_abmeldung(
 
         await post_one_to_db(collection=aktionen_collection, document=act_row("anmeldungen", operation="delete_many"), session=session)
 
-    # In a transaction for its judge: an administrator revoked meanwhile files nothing, and `REQ-PURGE-005` holds at the write.
+    # In a transaction for its judge: an administrator revoked meanwhile files nothing, and `verwaltung_adresse` holds at the write.
     async with transaction_session(db) as session:
         await session.with_transaction(log_the_act)
 

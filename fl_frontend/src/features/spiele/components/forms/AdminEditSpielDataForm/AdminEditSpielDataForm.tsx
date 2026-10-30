@@ -272,7 +272,7 @@ export function AdminEditSpielDataForm({
     isEnabled: dependentSpiele.length > 0 || spieltagOccupancy.size > 0,
   });
 
-  // `previewKey` plus the date, the one judged input it leaves out: `REQ-ELIGIBILITY-001` fires on a
+  // `previewKey` plus the date, the one judged input it leaves out: `eligibility_disqualified` fires on a
   // re-dating with neither side touched.
   const refusalKey = `${previewKey}|${draft.datum ?? ""}`;
 
@@ -281,7 +281,7 @@ export function AdminEditSpielDataForm({
   const tore1 = team1Payload?.tore ?? null;
   const tore2 = team2Payload?.tore ?? null;
 
-  // `REQ-STATE-002`'s own subject: the write path refuses on ANY goal count standing beside an event
+  // `state_ergebnis_on_a_non_event`'s own subject: the write path refuses on ANY goal count standing beside an event
   // that awards nothing, so a lone 0 in one box is already the refusal.
   const hasAnyTore = tore1 !== null || tore2 !== null;
 
@@ -502,16 +502,16 @@ export function AdminEditSpielDataForm({
       switch (errorCode) {
         // ANY `austritt`, whichever way the club left: `pull_saison_membership` keys the refusal on
         // the record's `datum` alone, so a withdrawal refuses exactly as a disqualification does.
-        case "REQ-ELIGIBILITY-001":
+        case "eligibility_disqualified":
           return (!stays || judgedInputMoved) && team !== undefined && team.austritt !== null;
         // The one rule that IS about a newly fielded club alone: one already standing here without a
         // junction row is a fault corrected on this very fixture, and refusing every save would trap
         // that correction.
-        case "REQ-ELIGIBILITY-002":
+        case "eligibility_team_not_in_saison":
           return !stays && team === undefined;
         // Judged on whichever clubs the payload fields, moved or not: the bracket resolution can put
         // one club on two fixtures of a Spieltag with neither side touched here.
-        case "REQ-SPIELTAG-001":
+        case "spieltag_occupied":
           return spieltagOccupancy.has(side.team_id) || side.team_id === (side === team1Payload ? team2Payload : team1Payload)?.team_id;
         default:
           return false;
@@ -708,7 +708,7 @@ export function AdminEditSpielDataForm({
         heading="Schiedsrichter anlegen">
         <AdminCreateSchiedsrichterForm
           onClose={closeCreating}
-          // Listed and never selected: a referee just created is unconfirmed, which the save refuses (`REQ-BOOKING-002`).
+          // Listed and never selected: a referee just created is unconfirmed, which the save refuses (`booking_unconfirmed_schiedsrichter`).
           onCreated={(referee) => {
             setCreatedSchiedsrichter((previous) => [...previous, referee]);
           }}

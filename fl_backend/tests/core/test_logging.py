@@ -81,7 +81,7 @@ class TestResolveTraceId:
 
 
 async def refused(request):
-    record_error_code("REQ-PROBE-001")
+    record_error_code("probe")
     return Response(status_code=409)
 
 
@@ -94,7 +94,7 @@ def test_the_access_line_carries_the_code_the_request_was_refused_with(caplog):
 
     assert [
         (record.getMessage(), record.status, record.error_code, record.trace_id) for record in caplog.records if record.name == fl_logger.name
-    ] == [("http.answered", 409, "REQ-PROBE-001", TRACE)]
+    ] == [("http.answered", 409, "probe", TRACE)]
 
 
 def test_uvicorn_s_own_handlers_are_taken_off_so_its_lines_reach_the_service_s():

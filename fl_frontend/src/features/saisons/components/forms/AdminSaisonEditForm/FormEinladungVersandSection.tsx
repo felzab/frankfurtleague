@@ -127,7 +127,7 @@ export function FormEinladungVersandSection({
   isFinishedSaison,
 }: {
   saisonId: string;
-  /** `REQ-EINLADUNG-002`: a finished season hands out no further links, and the panel explains instead of offering. */
+  /** `saison_past`: a finished season hands out no further links, and the panel explains instead of offering. */
   isFinishedSaison: boolean;
 }) {
   const router = useRouter();

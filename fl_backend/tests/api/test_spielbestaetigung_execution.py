@@ -364,7 +364,7 @@ class TestWhatALinkOpens:
         closed, unknown = on_a_fixture(mongo_replica_set_url, body)
 
         assert closed == "abgelaufen"
-        assert unknown == [Code.ANSETZUNG_TOKEN_UNKNOWN, Code.ANSETZUNG_TOKEN_UNKNOWN]
+        assert unknown == [Code.LINK_UNGUELTIG, Code.LINK_UNGUELTIG]
 
 
 class ConfirmationsRunningARivalAfterTheRowRead(InterleavedCollection):
@@ -390,7 +390,7 @@ class TestAFixtureRemovedBetweenTheViewsTwoReads:
 
             return outcome, confirmations.passes
 
-        assert on_a_fixture(mongo_replica_set_url, body) == (Code.ANSETZUNG_TOKEN_UNKNOWN, 1)
+        assert on_a_fixture(mongo_replica_set_url, body) == (Code.LINK_UNGUELTIG, 1)
 
 
 class ReadsRecorded:
@@ -588,10 +588,10 @@ class TestAProposalIsJudgedWhereTheAdminIsJudged:
     @pytest.mark.parametrize(
         ("vorschlag", "neighbour", "austritt", "code"),
         [
-            pytest.param(("2027-05-20", "18:00:00"), None, None, Code.FIXTURE_OUTSIDE_SPIELTAG, id="outside-the-matchday"),
+            pytest.param(("2027-05-20", "18:00:00"), None, None, Code.SPIEL_OUTSIDE_SPIELTAG, id="outside-the-matchday"),
             # Four hours apart is the buffer; two is inside it, on the referee's other booking.
             pytest.param(
-                ("2027-05-15", "20:00:00"), ("2027-05-15", "18:00:00"), None, Code.FIXTURE_DOUBLE_BOOKED, id="beside-the-referees-other-fixture"
+                ("2027-05-15", "20:00:00"), ("2027-05-15", "18:00:00"), None, Code.SPIEL_DOUBLE_BOOKED, id="beside-the-referees-other-fixture"
             ),
             pytest.param(("2027-05-15", "18:00:00"), None, "2027-05-15", Code.ELIGIBILITY_DISQUALIFIED, id="on-a-clubs-exit"),
         ],
@@ -648,7 +648,7 @@ class TestAHandEditedFixtureOfAnotherSeasonAnswersTheRefusal:
 
             return await outcome_of(ablehnen(database, client, token(TEAM1, "trainer"), ("2027-05-20", "19:00:00")))
 
-        assert on_a_fixture(mongo_replica_set_url, body) == Code.FIXTURE_OUTSIDE_SPIELTAG
+        assert on_a_fixture(mongo_replica_set_url, body) == Code.SPIEL_OUTSIDE_SPIELTAG
 
     def test_the_premise_the_hand_edited_fixture_does_raise_at_the_booking_read(self, mongo_replica_set_url: str):
         """Inside the matchday the read is reached, and raises: without that the case above proves nothing about the order."""
@@ -680,7 +680,7 @@ class TestALinkToAnAddressBarredAfterTheMint:
 
             return view.zustand, refused, unwritten, other_seat, lifted
 
-        assert on_a_fixture(mongo_replica_set_url, body) == ("gesperrt", Code.ANSETZUNG_GESPERRT, None, "gueltig", COMMITTED)
+        assert on_a_fixture(mongo_replica_set_url, body) == ("gesperrt", Code.LINK_GESPERRT, None, "gueltig", COMMITTED)
 
 
 class TestTheLinkLookupWalksAnIndex:
@@ -796,8 +796,8 @@ class TestWhatTheProposalIsJudgedOnMovingMidAnswerIsJudgedAgain:
     @pytest.mark.parametrize(
         ("rival", "code"),
         [
-            pytest.param(narrow_the_matchday, Code.FIXTURE_OUTSIDE_SPIELTAG, id="the-matchday-narrowed"),
-            pytest.param(book_the_referee_beside_it, Code.FIXTURE_DOUBLE_BOOKED, id="a-rival-booking-of-the-referee"),
+            pytest.param(narrow_the_matchday, Code.SPIEL_OUTSIDE_SPIELTAG, id="the-matchday-narrowed"),
+            pytest.param(book_the_referee_beside_it, Code.SPIEL_DOUBLE_BOOKED, id="a-rival-booking-of-the-referee"),
             pytest.param(let_a_club_leave_before_the_proposal, Code.ELIGIBILITY_DISQUALIFIED, id="a-club-leaving-before-the-new-day"),
         ],
     )
@@ -1351,7 +1351,7 @@ class TestAnAnswerAndItsWritersErasureCross:
 
         # The premise: the erasure ran once, inside the answer's transaction, ahead of its write.
         assert passes == 1
-        assert (outcome, row["antwort"], row["kontakte"]["trainer"]) == (Code.ANSETZUNG_TOKEN_UNKNOWN, None, None)
+        assert (outcome, row["antwort"], row["kontakte"]["trainer"]) == (Code.LINK_UNGUELTIG, None, None)
 
     def test_an_answer_landing_inside_the_erasure_has_its_reason_and_digest_taken(self, mongo_replica_set_url: str):
         """The erasure run again finds the digest the answer stored, and nulls it with the reason; the way and the role stay."""
@@ -1676,7 +1676,7 @@ class FixturesRunningARivalBeforeTheSave(InterleavedCollection):
 
 
 class TestASaveFromAnEditorOpenedBeforeTheDecline:
-    """`REQ-BOOKING-003`: the wholesale save carries the referee its editor loaded, so it never books a decliner again unasked."""
+    """`booking_schiedsrichter_moved`: the wholesale save carries the referee its editor loaded, so it never books a decliner again unasked."""
 
     def test_a_save_keeping_the_referee_who_declined_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1688,7 +1688,7 @@ class TestASaveFromAnEditorOpenedBeforeTheDecline:
 
         outcome, stored = on_a_refereed_fixture(mongo_replica_set_url, body)
 
-        assert (outcome, stored["schiedsrichter"], stored["notiz"]) == (Code.BOOKING_REFEREE_MOVED, None, "Flutlicht")
+        assert (outcome, stored["schiedsrichter"], stored["notiz"]) == (Code.BOOKING_SCHIEDSRICHTER_MOVED, None, "Flutlicht")
 
     @pytest.mark.parametrize(
         ("loaded_after", "referee"),
@@ -1719,11 +1719,11 @@ class TestASaveFromAnEditorOpenedBeforeTheDecline:
 
             return outcome, (await spiel_now(database))["schiedsrichter"], fixtures.passes
 
-        assert on_a_refereed_fixture(mongo_replica_set_url, body) == (Code.BOOKING_REFEREE_MOVED, None, 1)
+        assert on_a_refereed_fixture(mongo_replica_set_url, body) == (Code.BOOKING_SCHIEDSRICHTER_MOVED, None, 1)
 
 
 class TestARowAnswersOnlyToItsOwnReferee:
-    """`REQ-FUNKTION-001` and `REQ-ANSETZUNG-015` pinned apart: holding no referee Funktion, and holding one this row does not name."""
+    """`funktion_nicht_gehalten` and `ansetzung_fremde_zeile` apart: holding no referee Funktion, and holding one this row does not name."""
 
     def test_the_referee_named_answers_their_own_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

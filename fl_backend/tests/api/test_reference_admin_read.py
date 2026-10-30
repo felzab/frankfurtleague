@@ -35,7 +35,7 @@ from .conftest import config_for, unwritten
 ACTOR = "admin@example.com"
 
 # Which guard refused, and so which tier the route belongs to: no key satisfies both.
-ADMIN_GUARD_REFUSED = Code.WRONG_ADMIN_KEY
+ADMIN_GUARD_REFUSED = Code.ACCESS_KEY_REFUSED
 
 # Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure.
 UNREACHED_DATABASE = Code.DATABASE_FAILED

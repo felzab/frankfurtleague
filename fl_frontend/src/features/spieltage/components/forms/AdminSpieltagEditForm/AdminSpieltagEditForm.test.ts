@@ -157,7 +157,7 @@ describe("the one date a final's Spieltag is given", () => {
 });
 
 describe("what bounds the Zeitraum pickers", () => {
-  /* The season is the only bound the pickers take, and that is a decision: `REQ-DATE-008` judges the
+  /* The season is the only bound the pickers take, and that is a decision: `spieltag_beginn_out_of_order` judges the
      STEP, so a static one would grey out a repair the endpoint allows. The greying is the calendar's
      own answer and carries no sentence beside it. */
   it("greys out every day outside the season in every picker of either panel, and no day inside it", async () => {

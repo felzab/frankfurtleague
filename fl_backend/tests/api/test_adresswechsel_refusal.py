@@ -117,7 +117,7 @@ class TestTheSystemsReadOfTheNewAddress:
             f"/api/v{API_VERSION}/adresswechsel/sweep/adresse", headers=BASE_AUTH, json={"token": "t" * 43}
         )
 
-        assert (response.status_code, response.json()["error_code"]) == (401, Code.WRONG_SYSTEM_KEY)
+        assert (response.status_code, response.json()["error_code"]) == (401, Code.ACCESS_KEY_REFUSED)
 
 
 NOW = datetime(2026, 4, 1, 10, 0, tzinfo=UTC)

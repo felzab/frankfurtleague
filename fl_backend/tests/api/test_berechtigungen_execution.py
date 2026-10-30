@@ -655,7 +655,7 @@ class TestTheListWithholdsABarredAddress:
 
 
 class TestASecondGrantOfOneAddress:
-    """`REQ-BERECHTIGUNG-001`."""
+    """`berechtigung_vorhanden`."""
 
     def test_an_address_granted_already_is_refused_in_another_spelling_and_nothing_is_added(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, list[str]]:
@@ -676,7 +676,7 @@ class TestASecondGrantOfOneAddress:
 
 
 class TestOnlyAnOwnerRevokes:
-    """`REQ-BERECHTIGUNG-005`: judged on the actor's own live grant, read inside the transaction, before anything about the target."""
+    """`berechtigung_nur_inhaber`: judged on the actor's own live grant, read inside the transaction, before anything about the target."""
 
     def test_an_administrator_revokes_nobody_while_an_owner_revokes_the_same_grant(self, mongo_replica_set_url: str):
         """Beside the owner's revoke that succeeds, so a check refusing every revoke fails here."""
@@ -709,7 +709,7 @@ class TestOnlyAnOwnerRevokes:
 
 
 class TestTheOwnersRow:
-    """`REQ-BERECHTIGUNG-002`: reached only by an owner now, revoking an owner's grant, its own included."""
+    """`berechtigung_inhaber`: reached only by an owner now, revoking an owner's grant, its own included."""
 
     def test_an_owners_grant_is_revoked_by_no_route_while_an_administrators_is(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, list[str]]:
@@ -784,7 +784,7 @@ class TestAnOwnerChangesATier:
         assert on_a_league(mongo_replica_set_url, body) == ({OWNER: "owner", ANNA: "administration", BERND: "administration"}, [], True, 0)
 
     def test_an_administrator_changes_no_tier_and_is_told_so_before_the_target_is_looked_up(self, mongo_replica_set_url: str):
-        """`REQ-BERECHTIGUNG-005`: making oneself an owner included, and an unknown id refused as the administrator's."""
+        """`berechtigung_nur_inhaber`: making oneself an owner included, and an unknown id refused as the administrator's."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, str, dict[str, str]]:
             itself = await refusal_of(change(database, client, ANNA_ID, "owner", als=ANNA))
@@ -806,7 +806,7 @@ class TestAnOwnerChangesATier:
         on_a_league(mongo_replica_set_url, body)
 
     def test_a_barred_address_is_made_an_owner_by_nobody(self, mongo_replica_set_url: str):
-        """`REQ-BERECHTIGUNG-003`, the grant's own refusal: a barred holder is no administrator, so never an owner."""
+        """`berechtigung_gesperrt`, the grant's own refusal: a barred holder is no administrator, so never an owner."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, dict[str, str]]:
             await database[Collection.SPERRLISTE].insert_one(ban_document(BERND, bis=STANDING))
@@ -820,7 +820,7 @@ class TestAnOwnerChangesATier:
 
 
 class TestTheLastOwner:
-    """`REQ-BERECHTIGUNG-007`: a demotion leaves one live, unbarred owner."""
+    """`berechtigung_letzter_inhaber`: a demotion leaves one live, unbarred owner."""
 
     def test_the_only_owner_neither_steps_down_nor_is_demoted(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, dict[str, str]]:
@@ -847,7 +847,7 @@ class TestTheLastOwner:
 
 
 class TestAGrantToABarredAddress:
-    """`REQ-BERECHTIGUNG-003`, and the ban's `REQ-SPERRLISTE-003` from the other side."""
+    """`berechtigung_gesperrt`, and the ban's `sperrliste_verwaltung` from the other side."""
 
     def test_a_barred_address_is_granted_nothing_until_the_ban_is_lifted(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, list[str]]:
@@ -874,7 +874,7 @@ class TestAGrantToABarredAddress:
 
 
 class TestTheFloorOfTwo:
-    """`REQ-BERECHTIGUNG-004`: two live, unbarred grants stand whatever is revoked, an `owner` grant counted."""
+    """`berechtigung_mindestzahl`: two live, unbarred grants stand whatever is revoked, an `owner` grant counted."""
 
     def test_a_revoke_leaving_one_grant_is_refused_and_one_leaving_two_is_not(self, mongo_replica_set_url: str):
         """The second revoke is the refused one: the first leaves exactly the floor."""
@@ -1461,7 +1461,7 @@ class TestTheMountedRouteReadsTheGrants:
     @pytest.mark.parametrize(
         ("granted_s_ago", "status", "error_code"),
         [
-            pytest.param(0, 401, Code.ACTOR_TOKEN_REFUSED, id="granted after the sign-in"),
+            pytest.param(0, 401, Code.SESSION_REFUSED, id="granted after the sign-in"),
             pytest.param(120, 200, None, id="granted before it"),
         ],
     )
@@ -1501,9 +1501,9 @@ class TestTheMountedRouteReadsTheGrants:
             return [*before_the_pass, *after_the_pass]
 
         assert on_a_league(mongo_replica_set_url, body) == [
-            (401, Code.ACTOR_TOKEN_REFUSED),
+            (401, Code.SESSION_REFUSED),
             (200, None),
-            (401, Code.ACTOR_TOKEN_REFUSED),
+            (401, Code.SESSION_REFUSED),
             (200, None),
         ]
 
@@ -1517,7 +1517,7 @@ class TestTheMountedRouteReadsTheGrants:
             async with app_client(mongo_replica_set_url, app=_served()) as http:
                 return [await asked(http, NEU, signed_in_before_the_paste), await asked(http, NEU, int(time.time()))]
 
-        assert on_a_league(mongo_replica_set_url, body) == [(401, Code.ACTOR_TOKEN_REFUSED), (200, None)]
+        assert on_a_league(mongo_replica_set_url, body) == [(401, Code.SESSION_REFUSED), (200, None)]
 
     @pytest.mark.parametrize(
         "edit",
@@ -1546,7 +1546,7 @@ class TestTheMountedRouteReadsTheGrants:
         assert on_a_league(mongo_replica_set_url, body) == [
             (403, Code.ACTOR_NOT_ADMIN),
             (403, Code.ACTOR_NOT_ADMIN),
-            (401, Code.ACTOR_TOKEN_REFUSED),
+            (401, Code.SESSION_REFUSED),
             (200, None),
         ]
 

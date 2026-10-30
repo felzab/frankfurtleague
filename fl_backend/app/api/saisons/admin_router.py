@@ -130,7 +130,7 @@ def _spieltag_clashes(
     gruppenphase_spiele: Sequence[Mapping[str, Any]],
     knockout_spiele: Sequence[Mapping[str, Any]],
 ) -> int:
-    """How many Spieltage would double one of these clubs once they exchange (`REQ-SWAP-005`).
+    """How many Spieltage would double one of these clubs once they exchange (`swap_spieltag_clash`).
 
     A bijection over the Gruppenphase, so afterwards a club stands in its OWN knockout fixtures plus
     the OTHER's group ones.
@@ -184,7 +184,7 @@ async def _rewrite_gruppenphase_sides(
         collection=teams_collection,
         db_filter={"_id": {"$in": list(team_ids)}},
         # `teams`, while `app/api/spiele/services.py :: _composed_side` reads the season's
-        # `saison_teams` row: they differ only in a `past` season, which `REQ-SWAP-003` refuses.
+        # `saison_teams` row: they differ only in a `past` season, which `saison_past` refuses.
         # Spelled out, not sliced off `SWAPPED_SIDE_KEYS`, whose order would then matter.
         projection=["name", "shorthand"],
         session=session,
@@ -346,7 +346,7 @@ async def patch_saison(
                 occupancy[gruppe] = occupancy.get(gruppe, 0) + 1
 
         # Both sides, because a `quelle` sits on either; 0 where no slot is group-seeded. Judged on
-        # the snapshot and never re-read below: `REQ-RULES-004`, the only refusal that reads it,
+        # the snapshot and never re-read below: `rules_qualifiers_below_wiring`, the only refusal that reads it,
         # cannot be reached at all.
         highest_platz = 0
         async for spiel in spiele_collection.find(
@@ -361,7 +361,7 @@ async def patch_saison(
 
         # The fullest matchday of a phase, not the total, and keyed on the MATCHDAY's phase, which the
         # fixture's can disagree with. Judged on the snapshot for `highest_platz`'s reason, the
-        # unreachable refusal here being `REQ-RULES-006`.
+        # unreachable refusal here being `rules_spieltag_over_its_phase`.
         attached_by_phase: dict[Any, int] = {}
         phase_of_spieltag: dict[Any, Any] = {}
         async for spieltag in spieltage_collection.find({"saison_id": saison_id}, {"saison_phase": 1}, session=session):
@@ -371,7 +371,7 @@ async def patch_saison(
         async for spiel in spiele_collection.find({"saison_id": saison_id}, ["spieltag_id"], session=session):
             per_spieltag[spiel["spieltag_id"]] = per_spieltag.get(spiel["spieltag_id"], 0) + 1
 
-        # Every fixture, whichever matchday it hangs on: what `REQ-RULES-011` freezes is the draw, and
+        # Every fixture, whichever matchday it hangs on: what `rules_shape_after_spielplan` freezes is the draw, and
         # one on another season's matchday came out of this season's rules too. Only a draw or an
         # undraw moves the count, and both write `saisons`, so both conflict.
         drawn_fixtures = sum(per_spieltag.values())
@@ -627,7 +627,7 @@ async def swap_gruppen(
         )
         gruppe_of = {row["team_id"]: row["gruppe"] for row in rows}
 
-        # The same rows as the groups, so `REQ-SWAP-006` cannot judge against a stale record.
+        # The same rows as the groups, so `swap_fields_disqualified` cannot judge against a stale record.
         departed_since = {row["team_id"]: (row.get("austritt") or {}).get("datum") for row in rows}
 
         # Again in-session, because `activate_saison` moves `status` in a transaction of its own.
@@ -738,9 +738,9 @@ async def generate_spielplan(
     Draw the whole season at once: every matchday and every fixture, undated, in one transaction.
 
     `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
-    deletes both lists first, every fixture's confirmations with them, inside `REQ-SPIELPLAN-005`'s
-    window and on a season holding no submitted match report (`REQ-SPIELPLAN-007`), and is refused
-    `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`: nothing writes
+    deletes both lists first, every fixture's confirmations with them, inside `spielplan_replace_outside_its_window`'s
+    window and on a season holding no submitted match report (`spielplan_berichte_eingereicht`), and is refused
+    `confirmation_required` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`: nothing writes
     the removed rows back.
     """
 
@@ -785,14 +785,14 @@ async def generate_spielplan(
             occupancy[gruppe] = occupancy.get(gruppe, 0) + 1
 
         # LISTED rather than counted, as the group swap's callback lists its own: one read answers
-        # `REQ-SPIELPLAN-001` and supplies what `REQ-SPIELPLAN-005` weighs, so the two cannot
+        # `spielplan_already_drawn` and supplies what `spielplan_replace_outside_its_window` weighs, so the two cannot
         # disagree about what a replace would destroy.
         stored_spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id},
             # The predicate's own fields, so the projection cannot fall behind what it reads: a
             # venue, a referee or an admin's note is work a replace would destroy, and
-            # `REQ-SPIELPLAN-005`'s window closes on one exactly as on a result.
+            # `spielplan_replace_outside_its_window`'s window closes on one exactly as on a result.
             projection=list(RECORDED_FACT_FIELDS),
             limit=LIST_LIMIT_DEFAULT + 1,
             session=session,
@@ -800,7 +800,7 @@ async def generate_spielplan(
 
         # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks:
         # a truncated list counts fewer records than the season holds,
-        # and `REQ-SPIELPLAN-005`'s window opens on work a replace would then destroy.
+        # and `spielplan_replace_outside_its_window`'s window opens on work a replace would then destroy.
         if len(stored_spiele) > LIST_LIMIT_DEFAULT:
             raise ValueError(
                 f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can weigh a replace against"
@@ -967,8 +967,8 @@ async def undraw_spielplan(
 
     Every fixture's confirmations go with it.
 
-    The replace's window bounds it (`REQ-SPIELPLAN-006`), and a submitted match report refuses it
-    (`REQ-SPIELPLAN-007`). Undoing the draw is what reopens the shape rules to `PATCH` and the groups to
+    The replace's window bounds it (`spielplan_undraw_outside_its_window`), and a submitted match report refuses it
+    (`spielplan_berichte_eingereicht`). Undoing the draw is what reopens the shape rules to `PATCH` and the groups to
     an entry.
     """
 
@@ -991,7 +991,7 @@ async def undraw_spielplan(
 
         # One over the cap, as `fl_backend/app/api/spiele/crud.py :: advance_bracket_winners` asks:
         # a truncated list counts fewer records than the season holds,
-        # and `REQ-SPIELPLAN-006`'s window opens on a result the removals below would destroy.
+        # and `spielplan_undraw_outside_its_window`'s window opens on a result the removals below would destroy.
         if len(stored_spiele) > LIST_LIMIT_DEFAULT:
             raise ValueError(
                 f"season {saison_id} holds more than {LIST_LIMIT_DEFAULT} fixtures, which is more than one read can weigh an undraw against"
@@ -1363,10 +1363,10 @@ async def post_einladungen_versand(
     `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
     being a deliberate act rather than a bulk one.
 
-    Refused where the season has ended (`REQ-EINLADUNG-002`); 404 where no season holds that id; a season holding no team answers an
+    Refused where the season has ended (`saison_past`); 404 where no season holds that id; a season holding no team answers an
     empty list.
 
-    **An administrator whose access is revoked while the mailing runs is refused `REQ-AUTH-006` at the next team**: every team done before
+    **An administrator whose access is revoked while the mailing runs is refused `actor_not_admin` at the next team**: every team done before
     that point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those
     teams and reaches the rest.
     """

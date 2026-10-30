@@ -40,7 +40,7 @@ export function AdminSpieltagEditForm({
   pageHeader,
 }: {
   spieltag: AdminSpieltagEditRow;
-  /** The season's own span, which bounds every date picker (`REQ-DATE-002`). */
+  /** The season's own span, which bounds every date picker (`spieltag_outside_saison`). */
   saisonSpan?: { start: string; end: string };
   pageHeader: EditPageHeaderContent;
 }) {

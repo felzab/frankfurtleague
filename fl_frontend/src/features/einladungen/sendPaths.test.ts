@@ -73,7 +73,7 @@ describe("what the single invite press answers", () => {
 
   it("refuses an invite replaced since the panel read it, in the reload's words", async () => {
     apiAnswer = () => {
-      throw refused("DB-COMMON-001");
+      throw refused("document_not_found");
     };
 
     const res = await press();

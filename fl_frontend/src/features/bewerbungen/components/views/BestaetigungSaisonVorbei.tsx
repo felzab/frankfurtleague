@@ -30,7 +30,7 @@ const NICHT_GESPEICHERT = `Dein Widerspruch wurde nicht gespeichert. ${VERSUCHE_
 
 /**
  * A season row's link once its season has ended or its team has left it: the backend takes no
- * confirmation there (`REQ-KONTAKT-006`) and still takes a Widerspruch, so the page offers that alone.
+ * confirmation there (`kontakt_saison_vorbei`) and still takes a Widerspruch, so the page offers that alone.
  */
 export function BestaetigungSaisonVorbei({
   ansicht,

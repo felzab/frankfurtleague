@@ -246,7 +246,7 @@ def antrag_line(*, antrag: Mapping[str, Any], art: AntragEndeLine, am: str, schl
 
 
 def find_antrag_offen_refusal(*, offen: bool) -> WriteRefusal | None:
-    """`REQ-BERECHTIGUNG-008`: a request for this address waits already, which its approver or a refusal decides first."""
+    """`berechtigung_antrag_offen`: a request for this address waits already, which its approver or a refusal decides first."""
 
     if not offen:
         return None
@@ -258,7 +258,11 @@ def find_antrag_offen_refusal(*, offen: bool) -> WriteRefusal | None:
 
 
 def find_genehmigung_verwehrt_refusal(*, verwehrt: FLGenehmigungVerwehrt | None) -> WriteRefusal | None:
-    """`-009` for a request about the actor or made by them, `-010` for an owner's without an owner's power, `-011` for a younger grant."""
+    """Why this administrator may not decide the request, or `None`.
+
+    `berechtigung_genehmigung_verwehrt` for a request about the actor or made by them, `berechtigung_genehmigung_inhaber` for an owner's
+    without an owner's power, `berechtigung_genehmigung_juenger` for a younger grant.
+    """
 
     if verwehrt is None:
         return None
@@ -282,7 +286,7 @@ def find_genehmigung_verwehrt_refusal(*, verwehrt: FLGenehmigungVerwehrt | None)
 
 
 def find_antrag_verfallen_refusal(*, steht: bool) -> WriteRefusal | None:
-    """`REQ-BERECHTIGUNG-012`: the request's requester does not hold, since before it, the tier it asks for."""
+    """`berechtigung_antrag_verfallen`: the request's requester does not hold, since before it, the tier it asks for."""
 
     if steht:
         return None

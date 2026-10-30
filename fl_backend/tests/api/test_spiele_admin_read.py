@@ -23,8 +23,8 @@ from .conftest import unwritten
 
 # Which guard refused, and so which route answered: `verify_access_base` guards the public router
 # and `verify_access_admin` the admin one, and no key satisfies both.
-BASE_GUARD_REFUSED = Code.WRONG_BASE_KEY
-ADMIN_GUARD_REFUSED = Code.WRONG_ADMIN_KEY
+BASE_GUARD_REFUSED = Code.ACCESS_KEY_REFUSED
+ADMIN_GUARD_REFUSED = Code.ACCESS_KEY_REFUSED
 
 # Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure,
 # the harness's own included.

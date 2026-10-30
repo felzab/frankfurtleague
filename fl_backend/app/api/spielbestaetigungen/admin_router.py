@@ -133,7 +133,7 @@ async def eintragen_spielbestaetigung(
     The administrator's reason says how. IRREVERSIBLE: the answer is the league's record of how a date was agreed, and
     nothing rewrites it. It names nobody: no seat and no person is recorded, and the reason takes any text and goes at
     the season's end. Refused for a row
-    already answered, by a seat or by an administrator, or closed (`REQ-ANSETZUNG-013`), including one a seat answers
+    already answered, by a seat or by an administrator, or closed (`ansetzung_nicht_eintragbar`), including one a seat answers
     while this request runs: of the two answers exactly one is stored. A row about an Ansetzung the fixture has since
     left is settled as asked, and the next confirmation pass closes it.
     """
@@ -191,7 +191,7 @@ async def verwerfen_spielbestaetigung(
     agreement beside it. Where its day is still to come, the club is owed a notice that the date stands, at every
     address its season row's seats hold now, in the same transaction. Refused for any other row -- open, agreed,
     declined without a proposal, a referee's, closed, or about an Ansetzung the fixture has left, the fixture moving
-    while this request runs included (`REQ-ANSETZUNG-014`): the confirmation pass closes that row and tells its club of
+    while this request runs included (`ansetzung_nicht_verwerfbar`): the confirmation pass closes that row and tells its club of
     the move.
     """
 

@@ -227,7 +227,7 @@ async def pull_booked_slots(
     claims: Sequence[SlotClaim],
     session: AsyncClientSession | None = None,
 ) -> list[BookedSlot]:
-    """Every other fixture's booking one of `claims` meets, as `REQ-CLASH-001` compares them.
+    """Every other fixture's booking one of `claims` meets, as `spiel_double_booked` compares them.
 
     `claims` is the caller's choice, and a save judges `find_claims_made`'s rather than every claim
     its fixture makes.
@@ -340,7 +340,7 @@ async def anchor_a_booked_venue(
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> None:
-    """Put a write booking this venue into the write set of `REQ-RETIRE-003`, which reads fixtures and writes the venue."""
+    """Put a write booking this venue into the write set of `spielort_still_booked`, which reads fixtures and writes the venue."""
 
     await anchor_in_db(
         collection=spielorte_collection,
@@ -356,7 +356,10 @@ async def anchor_a_booked_referee(
     # REQUIRED for `anchor_a_booked_venue`'s reason.
     session: AsyncClientSession,
 ) -> None:
-    """Put a write booking this referee into the write set of `REQ-RETIRE-004` and of the erasure: both judge fixtures and write this row."""
+    """Put a write booking this referee in the write set of `schiedsrichter_still_assigned` and of the erasure.
+
+    Both judge fixtures and write this row.
+    """
 
     await anchor_in_db(
         collection=schiedsrichter_collection,
@@ -385,7 +388,7 @@ def references_booked_again[Rewrite: (SlotAdvancement, SpieltagRelease)](
         # called-off fixture stays out of those still to be played.
         reopened = reopens(stored, ergebnis=None, sonderereignis=None if rewrite.voided_sonderereignis is not None else stored.sonderereignis)
 
-        # A lifted no-show claims its slot again even on a fixture that stays unplayed, which `REQ-CLASH-001` judges.
+        # A lifted no-show claims its slot again even on a fixture that stays unplayed, which `spiel_double_booked` judges.
         if not reopened and rewrite.voided_sonderereignis is None:
             continue
 

@@ -26,7 +26,7 @@ WITHOUT_TOKEN_HASH: Mapping[str, int] = {"token_hashes": 0}
 # `app/api/spieler/services.py :: find_squad_refusal` asks the same question of the same junction and
 # is pinned to its own caller set, so this slice asks it again rather than widening that one.
 def find_team_in_saison_refusal(*, entered: bool) -> WriteRefusal | None:
-    """`REQ-EINLADUNG-001`: the season holds no junction row for this team.
+    """`einladung_team_nicht_eingetragen`: the season holds no junction row for this team.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
     """
@@ -41,7 +41,7 @@ def find_team_in_saison_refusal(*, entered: bool) -> WriteRefusal | None:
 
 
 def find_saison_vorbei_refusal(*, saison_status: Any) -> WriteRefusal | None:
-    """`REQ-EINLADUNG-002`: the season has ended.
+    """`saison_past`: the season has ended.
 
     A `future` season mints: an administrator prepares the links before the window opens, and the
     window is judged at every use rather than at the mint.
@@ -51,13 +51,13 @@ def find_saison_vorbei_refusal(*, saison_status: Any) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=Code.EINLADUNG_SAISON_VORBEI,
+        error_code=Code.SAISON_PAST,
         status=HTTPStatus.CONFLICT,
     )
 
 
 def find_unknown_einladung_refusal(*, einladung_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
-    """`REQ-EINLADUNG-003`: the link value the visitor presented opens no live invite.
+    """`document_not_found`: the link value the visitor presented opens no live invite.
 
     Takes the row the caller's own read found, for `find_team_in_saison_refusal`'s reason. A revoked
     row is a miss here because the filter that found nothing asked for a live one.
@@ -67,7 +67,7 @@ def find_unknown_einladung_refusal(*, einladung_raw: Mapping[str, Any] | None) -
         return None
 
     return WriteRefusal(
-        error_code=Code.EINLADUNG_UNBEKANNT,
+        error_code=Code.DOCUMENT_NOT_FOUND,
         status=HTTPStatus.NOT_FOUND,
     )
 

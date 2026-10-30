@@ -21,7 +21,7 @@ import type { AdminKontakteRow, AdminKontaktSeat, GruppeOffer, KontaktpersonDraf
 
 /**
  * Every junction row counts — a disqualified team never leaves its season. The pickers disable what
- * `POST /teams/{team_id}/saisons` would refuse (`REQ-ENTER-002/003`), which stays authoritative.
+ * `POST /teams/{team_id}/saisons` would refuse (`entry_gruppe_not_offered/003`), which stays authoritative.
  */
 export const buildGruppeOffer = (saisonId: string, rules: FLSaison["rules"], memberships: readonly FLTeamMembership[][]): GruppeOffer[] => {
   const occupied = new Map<string, number>();
@@ -39,7 +39,7 @@ export const buildGruppeOffer = (saisonId: string, rules: FLSaison["rules"], mem
 };
 
 /**
- * `REQ-SQUAD-001` judges the row's `team_id` on the PATCH as well as on the reactivate, so a row
+ * `kader_team_not_in_saison` judges the row's `team_id` on the PATCH as well as on the reactivate, so a row
  * reassigned to a club this season holds comes back without its own club returning.
  */
 const SQUAD_REPAIR = `Um einen solchen Eintrag zu reaktivieren, bearbeite den Spieler und weise den Eintrag im Bereich „${KADER_ABSCHNITT}“ einem Team dieser Saison zu.`;
@@ -368,7 +368,7 @@ export function publicTeamSaisonId(
 }
 
 /**
- * `REQ-RETIRE-001` mirrored, so neither the list nor the editor offers a retirement the write path refuses: no running
+ * `retire_blocked` mirrored, so neither the list nor the editor offers a retirement the write path refuses: no running
  * or planned season may hold the club.
  */
 export function isRetireable(

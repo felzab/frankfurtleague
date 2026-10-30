@@ -20,7 +20,7 @@ import type { MailLink, MailOrt } from "./mailKinds";
 
 /**
  * Future tense because it has to be: a club is entered only while its season is `future`
- * (`REQ-ENTER-001`), and `future` is the one status the public tier is refused
+ * (`entry_saison_not_future`), and `future` is the one status the public tier is refused
  * (`fl_backend/app/api/saisons/services.py :: WITHHELD_FROM_BASE_TIER`).
  */
 const websiteSatz = (site: string): Absatz => [

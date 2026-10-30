@@ -67,7 +67,7 @@ describe("FLAddressPayloadSchema", () => {
   });
 
   // The API strips before its floor counts, so an untrimmed mirror takes what the endpoint refuses
-  // with a `REQ-VAL-001` marking the box with a generic sentence rather than the floor's German.
+  // with a `payload_refused` marking the box with a generic sentence rather than the floor's German.
   it("refuses a strasse or stadt of spaces alone, and sends a padded one stripped", () => {
     for (const field of ["strasse", "stadt"] as const) {
       expect(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "   " }).success, `${field} spaces alone`).toBe(false);
@@ -225,7 +225,7 @@ describe("KontaktEmailSchema", () => {
     }
   });
 
-  // Each is one the API answers with a REQ-VAL-001 marking the box with a generic sentence, which
+  // Each is one the API answers with a payload_refused marking the box with a generic sentence, which
   // never tells the applicant what to change.
   it("refuses every address the API refuses on its characters and lengths", () => {
     const addresses = [
@@ -329,7 +329,7 @@ describe("FLKontaktPayloadSchema's email bounds", () => {
   });
 
   // The boundary, not a wildly long string: a bound set anywhere passes that. Past it the API's
-  // REQ-VAL-001 marks the box with a generic sentence, so without this the ceiling went unnamed.
+  // payload_refused marks the box with a generic sentence, so without this the ceiling went unnamed.
   it("accepts an address at the backend ceiling and refuses the next character, in German", () => {
     const atTheCap = addressOfLength(KONTAKT_EMAIL_MAX_LENGTH);
     expect(atTheCap.length).toBe(KONTAKT_EMAIL_MAX_LENGTH);

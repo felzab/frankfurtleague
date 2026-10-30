@@ -120,7 +120,7 @@ async def patch_one_in_db(
 
     `BEFORE` answers the state the write just replaced. `AFTER` re-reads the document, which a patch
     inside a transaction reads anyway and one outside it pays a round trip for. A `$set` naming
-    `VERSION_FIELD` is refused `DB-COMMON-003` once another write has raised the count.
+    `VERSION_FIELD` is refused `version_stale` once another write has raised the count.
     """
 
     update, expected = _versioned(collection, update, checks=True)
@@ -308,7 +308,7 @@ DUPLICATE_KEY_ERROR = 11000
 
 
 def _duplicate_key_of(failure: BulkWriteError) -> DuplicateKeyError | None:
-    """So a batch answers 409 `DB-COMMON-002` as one insert does, asked only where nothing the batch wrote stands.
+    """So a batch answers 409 `duplicate_key` as one insert does, asked only where nothing the batch wrote stands.
 
     A refusal says nothing was written. A write-concern error beside the refusals keeps the batch's own
     failure, which says more.

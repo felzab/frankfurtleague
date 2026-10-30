@@ -331,7 +331,7 @@ class TestReissuingALink:
         assert [row["widerrufen_am"] for row in rows if row["_id"] == ObjectId(second.einladung_id)] == [None]
 
     def test_the_replaced_links_hash_then_opens_nothing(self, mongo_replica_set_url: str):
-        """`REQ-EINLADUNG-003` over the filter S9 reads: the revocation term is half of it, and a hash alone finds the spent row."""
+        """`document_not_found` over the filter S9 reads: the revocation term is half of it, and a hash alone finds the spent row."""
 
         async def body(database: AsyncDatabase) -> Any:
             first = await mint(database, TWO_SEATS)
@@ -357,7 +357,7 @@ class TestReissuingALink:
         guessed = find_unknown_einladung_refusal(einladung_raw=unknown)
 
         assert replaced is not None
-        assert replaced.error_code == Code.EINLADUNG_UNBEKANNT
+        assert replaced.error_code == Code.DOCUMENT_NOT_FOUND
         assert replaced == guessed
 
     def test_the_live_link_opens(self, mongo_replica_set_url: str):
@@ -519,7 +519,7 @@ class TestWhatAMintRefuses:
 
         code, stored = on_a_league(mongo_replica_set_url, body, saison_status="past")
 
-        assert code == Code.EINLADUNG_SAISON_VORBEI
+        assert code == Code.SAISON_PAST
         assert stored == 0
 
     def test_the_ended_season_is_reported_before_the_junction(self, mongo_replica_set_url: str):
@@ -531,7 +531,7 @@ class TestWhatAMintRefuses:
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, saison_status="past", teams=(TWO_SEATS,)) == Code.EINLADUNG_SAISON_VORBEI
+        assert on_a_league(mongo_replica_set_url, body, saison_status="past", teams=(TWO_SEATS,)) == Code.SAISON_PAST
 
     def test_a_season_no_document_names_is_a_404(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
@@ -1008,7 +1008,7 @@ class TestTheSeasonWidePress:
 
         code, live = on_a_league(mongo_replica_set_url, body, saison_status="past")
 
-        assert code == Code.EINLADUNG_SAISON_VORBEI
+        assert code == Code.SAISON_PAST
         # The seeded invitation is untouched, so the refusal stopped the whole press rather than part of it.
         assert live == 1
 

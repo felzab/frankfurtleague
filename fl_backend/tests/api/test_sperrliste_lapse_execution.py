@@ -65,8 +65,8 @@ def saison_document(saison_id: str, status: str) -> dict[str, Any]:
 async def a_drawn_target(database: AsyncDatabase, saison_id: str) -> None:
     """A `future` season and the one fixture that makes it activatable at all.
 
-    `REQ-ACTIVATE-003` refuses an undrawn target before the rollover writes anything, and no matchday
-    row is seeded, a season holding none owing no date (`REQ-ACTIVATE-004`).
+    `activate_target_undrawn` refuses an undrawn target before the rollover writes anything, and no matchday
+    row is seeded, a season holding none owing no date (`activate_spieltage_undated`).
     """
 
     await database[Collection.SAISONS].insert_one(saison_document(saison_id, "future"))

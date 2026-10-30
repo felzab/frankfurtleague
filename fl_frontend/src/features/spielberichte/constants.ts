@@ -40,7 +40,7 @@ export const KARTEN_GRUND_LABELS: Record<FLKartenGrund, string> = {
  */
 export const TORSCHUETZE_UNBEKANNT_LABEL = "unbekannt";
 
-/** The three events a referee may report; the league's own two have no report at all (`REQ-BERICHT-004`). */
+/** The three events a referee may report; the league's own two have no report at all (`bericht_abgesagt`). */
 export const SPIELBERICHT_SONDEREREIGNIS_OPTIONS: readonly FLSpielberichtSonderereignis[] = [
   "abgebrochen",
   "nichtantreten_team1",

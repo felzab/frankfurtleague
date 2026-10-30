@@ -507,7 +507,7 @@ describe("describeReplacementUmfang", () => {
     }
   });
 
-  /* The repair is a reassignment, never the outgoing club's return: `REQ-SQUAD-001` judges the row's
+  /* The repair is a reassignment, never the outgoing club's return: `kader_team_not_in_saison` judges the row's
      `team_id` on the PATCH as well, so no season status stands between the row and its squad. */
   it("names the reassignment as the repair, and names it only where it retired a row", () => {
     for (const report of [umfang(0, 1), umfang(3, 9)]) {
@@ -881,7 +881,7 @@ describe("whether the list and the editor offer a club's retirement", () => {
       ids.map((saison_id) => ({ saison_id })),
     );
 
-  /* `REQ-RETIRE-001` reads every season the club stands in, so the selected one alone would offer a write it refuses. */
+  /* `retire_blocked` reads every season the club stands in, so the selected one alone would offer a write it refuses. */
   it("withholds it while a running or a planned season holds the club, whichever season is selected", () => {
     expect(inSaisons("2025", "2026")).toBe(false);
     expect(inSaisons("2025", "2027")).toBe(false);

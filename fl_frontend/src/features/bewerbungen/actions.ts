@@ -52,7 +52,7 @@ async function resolveBewerbungTeamName(bewerbung: FLBewerbung): Promise<string 
  * whose sentence it decides. `null` where that read fails, which leaves the key to the shared reader.
  */
 async function kollisionsHerkunft(error: unknown, bewerbungId: string): Promise<BewerbungHerkunft | null> {
-  if (!(error instanceof APIBadStatusError) || error.serverErrorCode !== "DB-COMMON-002") return null;
+  if (!(error instanceof APIBadStatusError) || error.serverErrorCode !== "duplicate_key") return null;
 
   const gelesen = await getBewerbungById(bewerbungId).catch((failed: unknown) => {
     // A redirect the read's admin guard threw is a navigation, never a failed read.
@@ -151,7 +151,7 @@ const BEWERBUNG_WEG = buildRefusal({ reason: "Diese Bewerbung gibt es nicht mehr
 /** A seat with nobody in it shows no control at all, so a press reaching this came off a page whose state has moved. */
 const SITZ_LEER = buildRefusal({ reason: "Für diese Rolle steht niemand mehr in der Bewerbung", repair: LADE_DIE_SEITE_NEU });
 
-/** A confirmation asks somebody to confirm for a named school, and `REQ-BEWERBUNG-002` refuses to accept this row anyway. */
+/** A confirmation asks somebody to confirm for a named school, and `bewerbung_subject_unresolved` refuses to accept this row anyway. */
 const KEIN_TEAM = buildRefusal({ reason: "Diese Bewerbung nennt kein Team", repair: "Lehne die Bewerbung ab" });
 
 /** What a repair tells the administrator: its write owed the fresh link to the address it answered, in the same transaction. */

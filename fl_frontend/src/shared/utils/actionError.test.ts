@@ -39,14 +39,16 @@ describe("toActionErrorResult", () => {
      the server-error fallback's retry would be refused again and a sign-in restores nothing. */
   it("tells an administrator whose grant is gone so, for a write and a read alike", () => {
     for (const sent of [write, ...READS.map((read) => ({ ...base, ...read }))]) {
-      const result = toActionErrorResult(new APIBadStatusError({ ...sent, message: "bad", statusCode: 403, serverErrorCode: "REQ-AUTH-006" }));
+      const result = toActionErrorResult(
+        new APIBadStatusError({ ...sent, message: "bad", statusCode: 403, serverErrorCode: "actor_not_admin" }),
+      );
 
       expect(result, sent.method).toStrictEqual({ success: false, error: ZUGANG_WEG });
     }
   });
 
   it("maps a 409 onto the conflict message, not the generic one", () => {
-    const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode: "DB-COMMON-002" }));
+    const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode: "duplicate_key" }));
 
     expect(result.success).toBe(false);
     expect(result.error ?? "").toMatch(/Konflikt/);
@@ -56,7 +58,7 @@ describe("toActionErrorResult", () => {
      for any other reason leaves them searching for in vain. */
   it("answers a 409 no reader here words with the way out alone, never the unique index's conflict", () => {
     const result = toActionErrorResult(
-      new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode: "REQ-ACTIVATE-001" }),
+      new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode: "activate_saison_unfinished" }),
     );
 
     expect(result).toStrictEqual({ success: false, error: UNKNOWN_REFUSAL });
@@ -67,9 +69,9 @@ describe("toActionErrorResult", () => {
     // survive the mapping: the form turns it into a message on a specific side. A dropped
     // code falls back to a toast naming no field.
     const refusals: [Code, RegExp][] = [
-      ["REQ-ELIGIBILITY-001", /ausgeschieden/],
-      ["REQ-ELIGIBILITY-002", /nimmt nicht an dieser Saison teil/],
-      ["REQ-SPIELTAG-001", /selben Spieltag/],
+      ["eligibility_disqualified", /ausgeschieden/],
+      ["eligibility_team_not_in_saison", /nimmt nicht an dieser Saison teil/],
+      ["spieltag_occupied", /selben Spieltag/],
     ];
 
     for (const [serverErrorCode, expected] of refusals) {
@@ -83,7 +85,9 @@ describe("toActionErrorResult", () => {
 
   it("says a commit of unknown outcome is unclear rather than failed", () => {
     // A failure message sends the admin to repeat a write that may already stand.
-    const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 500, serverErrorCode: "DB-FAIL-002" }));
+    const result = toActionErrorResult(
+      new APIBadStatusError({ ...write, message: "bad", statusCode: 500, serverErrorCode: "unknown_outcome" }),
+    );
 
     expect(result.error).toBe("Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.");
     // The marker `appToast.failure` titles the toast by: the site's own title says the change did not happen.
@@ -91,8 +95,10 @@ describe("toActionErrorResult", () => {
   });
 
   it("keeps the one code saying the write failed a failure", () => {
-    // Titled unclear, it sends the admin to look for a change `DB-FAIL-001` says is not there.
-    const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 500, serverErrorCode: "DB-FAIL-001" }));
+    // Titled unclear, it sends the admin to look for a change `database_failed` says is not there.
+    const result = toActionErrorResult(
+      new APIBadStatusError({ ...write, message: "bad", statusCode: 500, serverErrorCode: "database_failed" }),
+    );
 
     expect(result.outcome).toBe(undefined);
   });
@@ -101,8 +107,8 @@ describe("toActionErrorResult", () => {
   // answering for a backend that stopped mid-request.
   it("says a write any other server error answered is of unknown outcome", () => {
     const answers: readonly (readonly [number, Code | undefined])[] = [
-      [500, "SRV-VAL-001"],
-      [500, "SRV-FAIL-001"],
+      [500, "stored_data_invalid"],
+      [500, "unhandled_crash"],
       [502, undefined],
       [504, undefined],
     ];
@@ -120,7 +126,7 @@ describe("toActionErrorResult", () => {
   it("keeps a read's server error the retry it is", () => {
     for (const sent of READS) {
       const result = toActionErrorResult(
-        new APIBadStatusError({ ...base, ...sent, message: "bad", statusCode: 500, serverErrorCode: "SRV-FAIL-001" }),
+        new APIBadStatusError({ ...base, ...sent, message: "bad", statusCode: 500, serverErrorCode: "unhandled_crash" }),
       );
 
       expect(result.error, sent.method).toBe("Der Server hat mit einem Fehler geantwortet. Versuche es erneut.");
@@ -131,7 +137,7 @@ describe("toActionErrorResult", () => {
   it("keeps the two rail-backed refusals to one sentence about the value", () => {
     // Their remedies are pinned where they
     // live, in `AdminEditSpielDataForm/banners.test.ts`: a shared module may not reach a feature.
-    for (const serverErrorCode of ["REQ-ELIGIBILITY-001", "REQ-SPIELTAG-001"] as const) {
+    for (const serverErrorCode of ["eligibility_disqualified", "spieltag_occupied"] as const) {
       const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode }));
 
       expect(result.error?.split(". ").length, serverErrorCode).toBe(1);
@@ -143,8 +149,8 @@ describe("toActionErrorResult", () => {
     // Own sentence and own code each: without both, a swap of the two messages, or a code that
     // stopped riding out, would still pass a check for "not the generic one".
     const own: readonly (readonly [Code, RegExp])[] = [
-      ["REQ-STATE-002", /Entferne zuerst die Tore/],
-      ["REQ-STATE-003", /Besetze zuerst den offenen Platz/],
+      ["state_ergebnis_on_a_non_event", /Entferne zuerst die Tore/],
+      ["state_nichtantreten_without_two_sides", /Besetze zuerst den offenen Platz/],
     ];
 
     for (const [serverErrorCode, sentence] of own) {
@@ -159,9 +165,11 @@ describe("toActionErrorResult", () => {
   it("does not send an occupant refusal to reload the page, as a wiring refusal does", () => {
     // The two are both 409s on the same endpoint and the advice is opposite: the season has moved
     // under a wiring refusal, and has not moved at all under an occupant one.
-    const wiring = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode: "REQ-WIRING-001" }));
+    const wiring = toActionErrorResult(
+      new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode: "wiring_unsupported" }),
+    );
     const occupant = toActionErrorResult(
-      new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode: "REQ-ELIGIBILITY-001" }),
+      new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode: "eligibility_disqualified" }),
     );
 
     expect(wiring.error ?? "").toMatch(/Lade die Seite neu/);
@@ -171,7 +179,9 @@ describe("toActionErrorResult", () => {
   it("sends the seeding refusal to change the origin, never to reload", () => {
     // The two wiring codes are 409s from one function and their advice is opposite: a reload rebuilds
     // a form that never offered the shape, and only closes the answer behind this one.
-    const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode: "REQ-WIRING-002" }));
+    const result = toActionErrorResult(
+      new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode: "wiring_seed_past_the_opening_round" }),
+    );
 
     expect(result.success).toBe(false);
     expect(result.error ?? "").not.toMatch(/Lade die Seite neu/);
@@ -186,7 +196,9 @@ describe("toActionErrorResult", () => {
   it("sends the unrun-group refusal to reload, and names the group as the fault", () => {
     // Unlike the seeding refusal above: the picker offers only the season's groups, so this code
     // arriving means the season was redrawn narrower under the open form, and a reload renews it.
-    const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode: "REQ-WIRING-003" }));
+    const result = toActionErrorResult(
+      new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode: "wiring_gruppe_not_run" }),
+    );
 
     expect(result.success).toBe(false);
     expect(result.error ?? "").toMatch(/Gruppe/);
@@ -196,7 +208,9 @@ describe("toActionErrorResult", () => {
   });
 
   it("maps a 404 onto the vanished-record message", () => {
-    const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 404, serverErrorCode: "DB-COMMON-001" }));
+    const result = toActionErrorResult(
+      new APIBadStatusError({ ...write, message: "bad", statusCode: 404, serverErrorCode: "document_not_found" }),
+    );
 
     expect(result.error ?? "").toMatch(/nicht gefunden/);
   });
@@ -259,12 +273,12 @@ describe("a refusal read by its code, whatever its status", () => {
   /* Codes are unique across the API, so a rule moved off 409 keeps the words its code is given here. */
   it("keeps each worded code's answer at any status a rule answers with", () => {
     for (const code of [
-      "REQ-WIRING-001",
-      "REQ-WIRING-002",
-      "REQ-WIRING-003",
-      "REQ-STATE-002",
-      "REQ-ELIGIBILITY-001",
-      "DB-COMMON-002",
+      "wiring_unsupported",
+      "wiring_seed_past_the_opening_round",
+      "wiring_gruppe_not_run",
+      "state_ergebnis_on_a_non_event",
+      "eligibility_disqualified",
+      "duplicate_key",
     ] as const) {
       for (const status of [422, 404, 410, 403])
         expect(refused(status, code), `${String(code)} at ${String(status)}`).toStrictEqual(refused(409, code));
@@ -273,12 +287,12 @@ describe("a refusal read by its code, whatever its status", () => {
 
   it("answers a rule no reader here words with the way out alone, at any status a rule answers with", () => {
     for (const status of [422, 404, 410, 403]) {
-      expect(refused(status, "REQ-ACTIVATE-001"), String(status)).toStrictEqual({ success: false, error: UNKNOWN_REFUSAL });
+      expect(refused(status, "activate_saison_unfinished"), String(status)).toStrictEqual({ success: false, error: UNKNOWN_REFUSAL });
     }
   });
 
   it("marks the box a rule's refusal names, with the way out for the rest", () => {
-    expect(refused(422, "REQ-ACTIVATE-001", [bodyField(["geburtsdatum"], "REQ-ACTIVATE-001")])).toStrictEqual({
+    expect(refused(422, "activate_saison_unfinished", [bodyField(["geburtsdatum"], "activate_saison_unfinished")])).toStrictEqual({
       success: false,
       error: VALIDATION_FAILED,
       fieldErrors: { geburtsdatum: FELD_ABGELEHNT },
@@ -289,21 +303,21 @@ describe("a refusal read by its code, whatever its status", () => {
   /* A body the API cannot decode answers 400 under a code of its own. A retry would send the same
      bytes, so it takes the refused payload's reload rather than the server error's retry. */
   it("answers the unreadable body as it answers the refused payload", () => {
-    expect(refused(400, "REQ-VAL-002")).toStrictEqual(refused(422, "REQ-VAL-001"));
-    expect(refused(400, "REQ-VAL-002").error).toBe("Einzelne Angaben wurden nicht übernommen. Lade die Seite neu.");
+    expect(refused(400, "body_unreadable")).toStrictEqual(refused(422, "payload_refused"));
+    expect(refused(400, "body_unreadable").error).toBe("Einzelne Angaben wurden nicht übernommen. Lade die Seite neu.");
   });
 
   /* None of these refuses what the admin asked for, so none takes a rule's fallback. */
   it("answers a vanished record, a refused request and a refused credential on their own terms", () => {
-    expect(refused(404, "DB-COMMON-001").error).toMatch(/nicht gefunden/);
+    expect(refused(404, "document_not_found").error).toMatch(/nicht gefunden/);
     // A route the framework did not serve, or one no code names at all, is never a record the API says
     // is gone, nor a rule's refusal: a page older or newer than the API meets these mid-deploy.
     for (const [status, code] of [
-      [400, "REQ-AUTH-005"],
-      [401, "REQ-AUTH-002"],
+      [400, "missing_actor"],
+      [401, "access_key_refused"],
       [404, undefined],
-      [404, "REQ-ROUTE-001"],
-      [405, "REQ-ROUTE-002"],
+      [404, "no_route"],
+      [405, "method_not_served"],
       [409, undefined],
     ] as const) {
       expect(refused(status, code).error, `${String(code)} at ${String(status)}`).toBe(
@@ -312,14 +326,21 @@ describe("a refusal read by its code, whatever its status", () => {
     }
   });
 
-  /* By the class alone: each protocol class keeps any code the backend adds to it, and only a rule's
-     code or the unique index's is ever a refusal a mapper words. */
-  it("classifies a code by its class, whatever it is numbered", () => {
-    for (const code of ["REQ-AUTH-005", "REQ-VAL-001", "REQ-VAL-002", "REQ-ROUTE-001", "DB-COMMON-001", "DB-CONN-001", "SRV-FAIL-001"]) {
+  /* Only a rule's code or the unique index's is ever a refusal a mapper words: a credential, a request the API
+     cannot take, a route, the store and the server are not. */
+  it("classifies a rule's code apart from the protocol's, the store's and the server's", () => {
+    for (const code of [
+      "missing_actor",
+      "payload_refused",
+      "body_unreadable",
+      "no_route",
+      "document_not_found",
+      "no_database_client",
+      "unhandled_crash",
+    ] satisfies Code[]) {
       expect(isRefusalCode(code), code).toBe(false);
     }
-    for (const code of ["REQ-SWAP-007", "REQ-BEWERBUNG-009", "REQ-UNCLAIMED-000", "DB-COMMON-002"])
-      expect(isRefusalCode(code), code).toBe(true);
+    for (const code of ["swap_not_a_swap", "link_ungueltig", "duplicate_key"] satisfies Code[]) expect(isRefusalCode(code), code).toBe(true);
     expect(isRefusalCode(undefined)).toBe(false);
   });
 
@@ -339,7 +360,7 @@ describe("a refusal read by its code, whatever its status", () => {
 
   /* A write a 5xx answered may have landed, and a refusal's words would say it did not. */
   it("never words a server error by the code it carries", () => {
-    for (const code of ["REQ-WIRING-001", "REQ-STATE-002", "DB-COMMON-002", "REQ-ACTIVATE-001"] as const) {
+    for (const code of ["wiring_unsupported", "state_ergebnis_on_a_non_event", "duplicate_key", "activate_saison_unfinished"] as const) {
       expect(refused(500, code).outcome, code).toBe("unknown");
     }
   });

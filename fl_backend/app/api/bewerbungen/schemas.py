@@ -497,7 +497,7 @@ class FLPostBewerbungPayload(BaseModel):
         StringConstraints(min_length=SAISON_ID_LENGTH),
     ]
     # The club picked off the autocomplete, null where the applicant proposed a new school;
-    # `REQ-BEWERBUNG-005` holds exactly one of this and `schule` filled in.
+    # `bewerbung_submission_subject_unresolved` holds exactly one of this and `schule` filled in.
     team_id: CustomObjectId | None
     schule: FLBewerbungSchulePayload | None
     kontakte: FLBewerbungKontaktePayload
@@ -596,7 +596,7 @@ class FLPostBewerbungResponse(BaseAPIResponse):
 
 # What a reopened link shows. `abgelaufen` is a spent link, its deadline passed or its application
 # decided, said one way; `gesperrt` ranks first.
-# `saison_vorbei`, a season row's alone, takes a Widerspruch and no consent (`REQ-KONTAKT-006`).
+# `saison_vorbei`, a season row's alone, takes a Widerspruch and no consent (`kontakt_saison_vorbei`).
 FLBewerbungEinwilligungZustand = Literal["gueltig", "bestaetigt", "abgelehnt", "abgelaufen", "saison_vorbei", "gesperrt"]
 
 # Which record a link's seat sits on: an application, or a team's season row an administrator seated
@@ -631,7 +631,7 @@ class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     # The PERSON's floor over the seats this link answers for, so the page bounds its date control
     # and fills its own sentences from what the answer will judge rather than from a constant.
     mindestalter: int
-    # The age from which the page offers the media switch, `REQ-EINWILLIGUNG-002`'s floor.
+    # The age from which the page offers the media switch, `medien_alter`'s floor.
     medien_mindestalter: int = Field(gt=0)
 
 
@@ -644,7 +644,7 @@ class FLBewerbungEinwilligungAntwortPayload(BaseModel):
     antwort: Literal["erteilt", "abgelehnt"]
     # Required as a KEY and null on a decline: the date is the consent's, and a decline stores no
     # person at all. Unbounded here -- the age is its own code with its own German at 422, never a
-    # `REQ-VAL-001`.
+    # `payload_refused`.
     geburtsdatum: CustomOptionalDateString
     whatsapp: bool
     # Required as `whatsapp` is: a page that forgot the switch is refused rather than read as a no.
@@ -744,7 +744,7 @@ class FLBewerbungKontaktEmailPayload(BaseModel):
     # public form refused too and a correction cannot store what a submission could not.
     email: CustomEmail
     # The address the page showed on the seat: a seat another person took since is refused rather than handed
-    # the address typed for the one who left (`REQ-BEWERBUNG-021`).
+    # the address typed for the one who left (`bewerbung_sitz_anders_besetzt`).
     bisherige_email: CustomEmail
 
 

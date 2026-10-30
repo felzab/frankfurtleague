@@ -366,7 +366,7 @@ export const FLBewerbungKontaktEmailPayloadSchema = z.object({
   rolle: FLKontaktRolleSchema,
   email: KontaktEmailSchema,
   // The address the page showed on the seat, never one read again in the action: the backend refuses a seat another
-  // person took since, which a fresh read would hand the address typed for the one who left (`REQ-BEWERBUNG-021`).
+  // person took since, which a fresh read would hand the address typed for the one who left (`bewerbung_sitz_anders_besetzt`).
   bisherige_email: KontaktEmailSchema,
 });
 

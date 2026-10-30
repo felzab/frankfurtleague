@@ -101,10 +101,10 @@ export async function patchSaisonAction(
 /**
  * The only path to `status: "active"`, under four refusals:
  *
- * - `REQ-ACTIVATE-001` while the outgoing season owes results
- * - `REQ-ACTIVATE-002` on a `past` target nothing reopens
- * - `REQ-ACTIVATE-003` on one with nothing drawn to play
- * - `REQ-ACTIVATE-004` on one whose matchdays are not dated
+ * - `activate_saison_unfinished` while the outgoing season owes results
+ * - `saison_past` on a `past` target nothing reopens
+ * - `activate_target_undrawn` on one with nothing drawn to play
+ * - `activate_spieltage_undated` on one whose matchdays are not dated
  */
 export async function activateSaisonAction(rawPayload: { id: string }): Promise<ActionResult<{ saison?: FLActivateSaisonResponse }>> {
   return runAdminMutation("activateSaisonAction", { stepUp: true }, async () => {
@@ -235,7 +235,7 @@ export async function swapGruppenAction(
 
 /**
  * The one path to a season's fixtures, on `POST /saisons/{saison_id}/spielplan`. **`replace` deletes
- * the season's matchdays and fixtures and draws fresh ones** (`REQ-SPIELPLAN-005`), and nothing
+ * the season's matchdays and fixtures and draws fresh ones** (`spielplan_replace_outside_its_window`), and nothing
  * writes them back.
  */
 export async function generateSpielplanAction(

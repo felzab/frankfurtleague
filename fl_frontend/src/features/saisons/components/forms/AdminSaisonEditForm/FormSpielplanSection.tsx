@@ -101,16 +101,16 @@ export function FormSpielplanSection({
    * values would promise a season this press cannot write.
    */
   rules: FLSaisonRules;
-  /** The season's STORED span: `REQ-DATE-009`'s mirror judges the season the press would draw, never a draft. */
+  /** The season's STORED span: `saison_span_below_spielplan_as_stored`'s mirror judges the season the press would draw, never a draft. */
   startDate: string;
   endDate: string;
   /**
-   * How full this season's groups stand. **`REQ-SPIELPLAN-004` asks each offered group for exactly
+   * How full this season's groups stand. **`spielplan_gruppen_off_rules` asks each offered group for exactly
    * `teams_per_group`**, so the boxes' own floors admit redraw shapes the entries do not fit, which the
    * press is closed over.
    */
   gruppenOccupancy: SaisonGruppenOccupancy;
-  /** `REQ-SPIELPLAN-001`: the season already holds fixtures, whoever put them there. */
+  /** `spielplan_already_drawn`: the season already holds fixtures, whoever put them there. */
   hasDrawnSpiele: boolean;
   /** Runs before either write; `false` cancels. The editor refuses while a draft is unsaved. */
   onBeforeWrite: () => boolean;
@@ -252,7 +252,7 @@ export function FormSpielplanSection({
         <PanelHeading
           className={panel.heading()}
           title={SPIELPLAN_ABSCHNITT}>
-          {/* The two bullets are the second half of the repair `REQ-RULES-011` sends an admin on, so
+          {/* The two bullets are the second half of the repair `rules_shape_after_spielplan` sends an admin on, so
               this hint keeps its wayfinding where an ordinary one would lose it. */}
           <Hint
             mode="reveal"

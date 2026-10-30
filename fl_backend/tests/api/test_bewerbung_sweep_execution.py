@@ -393,7 +393,7 @@ class TestTheReminderClock:
 
         tot, zustand, fremd_zustand, fresh_token, document = on_a_league(mongo_replica_set_url, body)
 
-        assert tot == [Code.BEWERBUNG_TOKEN_UNKNOWN] * 3
+        assert tot == [Code.LINK_UNGUELTIG] * 3
         assert (zustand, fremd_zustand) == ("gueltig", "gueltig")
         assert document is not None
         # One link answering both, each entry written back as the create writes it, and the reminder owed again.
@@ -955,7 +955,7 @@ class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
             await database[Collection.BEWERBUNGEN].insert_many(
                 [application(numbered(position), **accepted) for position in range(SWEEP_PAGE + 1)]
             )
-            # What makes the planned season activatable (`REQ-ACTIVATE-003`).
+            # What makes the planned season activatable (`activate_target_undrawn`).
             await database[Collection.SPIELE].insert_one(
                 spiel_document(spiel_id=numbered(SWEEP_PAGE + 1), saison_id=SAISON_ID, spiel_nr=1, spieltag_id=numbered(SWEEP_PAGE + 2))
             )

@@ -194,7 +194,7 @@ class TestTheFloorIsThePersons:
 
         code, document, rows = on_a_league(mongo_replica_set_url, body, documents=[paired])
 
-        assert code == Code.BEWERBUNG_KONTAKT_ALTER
+        assert code == Code.BESTAETIGUNG_ALTER
         assert document == paired
         assert rows == []
 

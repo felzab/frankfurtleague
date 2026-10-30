@@ -45,7 +45,7 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
   const bewerbung = bewerbungRes.bewerbung;
 
   // The admin-tier season read, because this season is still planned — which is the only state a
-  // team is taken into (`REQ-ENTER-001`) and the one the base read withholds.
+  // team is taken into (`entry_saison_not_future`) and the one the base read withholds.
   const [saisonsRes, teamsRes, medienFragen, neubesetzung] = await Promise.all([
     getAdminSaisons(),
     getTeamMemberships(),

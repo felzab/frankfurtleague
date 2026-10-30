@@ -52,7 +52,7 @@ from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
 
 # `bind_public_actor`, never `bind_actor`: no browser sends `X-FL-Actor`, so that guard would refuse
-# every registration with `REQ-AUTH-005`. The write still passes `app/core/crud.py`, and an insert
+# every registration with `missing_actor`. The write still passes `app/core/crud.py`, and an insert
 # records no `before`.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/registrierungen",
@@ -84,7 +84,7 @@ def _live_squad_filter(*, saison_id: str, team_id: Any) -> dict[str, Any]:
 async def _open_einladung(*, einladungen_collection: Any, token: str, session: AsyncClientSession | None = None) -> Any:
     """The live invite a presented link opens, or a refusal.
 
-    ONE code for unknown and for revoked, the reason `REQ-BEWERBUNG-009` records: nothing tells a
+    ONE code for unknown and for revoked, the reason `link_ungueltig` records: nothing tells a
     stranger's guess from a link an administrator replaced.
     """
 
@@ -144,7 +144,7 @@ async def post_einladung_ansicht(
         saison_status=saison_raw["status"],
         laeuft=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung"), today=today),
         erlaubte_stufen=list(rules.get("erlaubte_stufen") or []),
-        # The same junction row the submission judges `REQ-REGISTRIERUNG-002` on, so the page words
+        # The same junction row the submission judges `registrierung_geschlossen` on, so the page words
         # the state before anything is typed rather than after a whole form is filled in.
         team_eingetragen=junction_raw is not None,
         kader_frei=squad_size < int(rules.get("max_kadergroesse") or 0),
@@ -192,8 +192,8 @@ async def post_registrierung(
 
     An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
     registration it holds, stores none and owes no second mail. The same key over other details is refused
-    (`REQ-REGISTRIERUNG-011`). A key whose registration the team has since admitted is refused too
-    (`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.
+    (`registrierung_schluessel_abweichend`). A key whose registration the team has since admitted is refused too
+    (`registrierung_schon_aufgenommen`) and stores nothing: the pupil is in the squad.
     """
 
     schluessel = None if idempotency_key is None else str(idempotency_key)

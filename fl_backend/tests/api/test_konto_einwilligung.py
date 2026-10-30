@@ -352,7 +352,7 @@ class TestTheTwoChoices:
 
         response, before, after = served(mongo_replica_set_url, steps)
 
-        assert (response.status_code, response.json()["error_code"]) == (409, Code.EINWILLIGUNG_STAND_VERALTET)
+        assert (response.status_code, response.json()["error_code"]) == (409, Code.FASSUNG_UNZULAESSIG)
         assert after == before
 
     def test_a_press_moving_neither_choice_writes_nothing(self, mongo_replica_set_url: str):
@@ -444,7 +444,7 @@ class TestThePressesOrder:
         withdrawn, stale, before, after = served(mongo_replica_set_url, steps)
 
         assert withdrawn.status_code == 200, withdrawn.text
-        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.EINWILLIGUNG_STAND_VERALTET)
+        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.FASSUNG_UNZULAESSIG)
         assert after == before
 
 
@@ -540,7 +540,7 @@ class TestTheMediaAge:
 
         response, before, after = served(mongo_replica_set_url, steps)
 
-        assert (response.status_code, response.json()["error_code"]) == (422, Code.SELBST_MEDIEN_ALTER)
+        assert (response.status_code, response.json()["error_code"]) == (422, Code.MEDIEN_ALTER)
         assert after == before
 
 
@@ -750,7 +750,7 @@ class TestTheSeatsMediaChoice:
             _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, True, before=young_and_off, stand=_seated_stand(1, medien=False)),
         )
 
-        assert (response.status_code, response.json()["error_code"]) == (422, Code.SELBST_MEDIEN_ALTER)
+        assert (response.status_code, response.json()["error_code"]) == (422, Code.MEDIEN_ALTER)
         assert after == before
 
     def test_a_press_from_a_page_served_older_evidence_is_refused_and_unwritten(self, mongo_replica_set_url: str):
@@ -766,7 +766,7 @@ class TestTheSeatsMediaChoice:
             mongo_replica_set_url, _seat_press(IDENTIFIER, TEAM_B_OID, ACTIVE_SAISON, True, before=withdrawn_elsewhere)
         )
 
-        assert (response.status_code, response.json()["error_code"]) == (409, Code.EINWILLIGUNG_STAND_VERALTET)
+        assert (response.status_code, response.json()["error_code"]) == (409, Code.FASSUNG_UNZULAESSIG)
         assert after == before
 
     def test_a_press_moving_no_seat_writes_nothing(self, mongo_replica_set_url: str):
@@ -903,7 +903,7 @@ class TestTheSeatsWhatsAppChoice:
         first, stale, before, after = served(mongo_replica_set_url, steps)
 
         assert first.status_code == 200, first.text
-        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.EINWILLIGUNG_STAND_VERALTET)
+        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.FASSUNG_UNZULAESSIG)
         assert after == before
 
 
@@ -1175,7 +1175,7 @@ class TestAPendingApplicationsSeats:
         first, again, before, after = served(mongo_replica_set_url, steps)
 
         assert first.status_code == 200, first.text
-        assert (again.status_code, again.json()["error_code"]) == (409, Code.EINWILLIGUNG_STAND_VERALTET)
+        assert (again.status_code, again.json()["error_code"]) == (409, Code.FASSUNG_UNZULAESSIG)
         assert after == before
 
 
@@ -1338,7 +1338,7 @@ class TestAPendingRegistration:
         first, again, before, after = served(mongo_replica_set_url, steps)
 
         assert first.status_code == 200, first.text
-        assert (again.status_code, again.json()["error_code"]) == (409, Code.EINWILLIGUNG_STAND_VERALTET)
+        assert (again.status_code, again.json()["error_code"]) == (409, Code.FASSUNG_UNZULAESSIG)
         assert after == before
 
     def test_a_label_naming_no_version_of_the_pupils_control_is_refused(self, mongo_replica_set_url: str):

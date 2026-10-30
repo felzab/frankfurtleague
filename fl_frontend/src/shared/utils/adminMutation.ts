@@ -225,7 +225,7 @@ export async function runAdminMutation<T extends { success: boolean }>(
 
 /** The backend's refusal of a write for want of a passkey confirmation inside the window it holds that write to. */
 function isConfirmationRefused(error: unknown): error is APIBadStatusError {
-  return error instanceof APIBadStatusError && error.serverErrorCode === "REQ-AUTH-009";
+  return error instanceof APIBadStatusError && error.serverErrorCode === "confirmation_required";
 }
 
 /**

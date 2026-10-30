@@ -71,7 +71,7 @@ function anlegen(wirft?: unknown) {
     lane: "admin",
     name: "anlegen",
     input: Ort,
-    ownWords: { "DB-COMMON-002": "name", "REQ-CLASH-001": true },
+    ownWords: { duplicate_key: "name", spiel_double_booked: true },
     examples: { plz: COPY.verwaltung.spielort.plzBeispiel },
     run: async (input) => {
       stand.steps.push(`body ${JSON.stringify(input)}`);
@@ -133,7 +133,7 @@ describe("the admin lane", () => {
         lane: "admin",
         name: "ergebnis",
         input: z.object({ team1: Seite, team2: Seite }),
-        ownWords: { "REQ-RESULT-001": "team2.tore" },
+        ownWords: { ergebnis_side_emptied: "team2.tore" },
         run: async () => {
           if (wirft !== undefined) throw wirft;
           return { ok: true, value: undefined };
@@ -144,33 +144,33 @@ describe("the admin lane", () => {
       ok: false,
       fieldErrors: { "team1.tore": COPY.shared.feld.zwischen(0, 99), "team2.tore": COPY.shared.feld.zwischen(0, 99) },
     });
-    expect(await ergebnis(refusal("REQ-RESULT-001"))({ team1: { tore: 1 }, team2: { tore: 2 } })).toStrictEqual({
+    expect(await ergebnis(refusal("ergebnis_side_emptied"))({ team1: { tore: 1 }, team2: { tore: 2 } })).toStrictEqual({
       ok: false,
-      errorCode: "REQ-RESULT-001",
-      fieldErrors: { "team2.tore": COPY.shared.ablehnung["REQ-RESULT-001"] },
+      errorCode: "ergebnis_side_emptied",
+      fieldErrors: { "team2.tore": COPY.shared.ablehnung["ergebnis_side_emptied"] },
     });
   });
 
   it("answers a code its screen words on the box it names, or as the status line's reason", async () => {
-    expect(await anlegen(refusal("DB-COMMON-002"))({ name: "Nord", plz: "60438" })).toStrictEqual({
+    expect(await anlegen(refusal("duplicate_key"))({ name: "Nord", plz: "60438" })).toStrictEqual({
       ok: false,
-      errorCode: "DB-COMMON-002",
-      fieldErrors: { name: COPY.shared.ablehnung["DB-COMMON-002"] },
+      errorCode: "duplicate_key",
+      fieldErrors: { name: COPY.shared.ablehnung["duplicate_key"] },
     });
-    expect(await anlegen(refusal("REQ-CLASH-001"))({ name: "Nord", plz: "60438" })).toStrictEqual({
+    expect(await anlegen(refusal("spiel_double_booked"))({ name: "Nord", plz: "60438" })).toStrictEqual({
       ok: false,
-      errorCode: "REQ-CLASH-001",
-      reason: COPY.shared.ablehnung["REQ-CLASH-001"],
+      errorCode: "spiel_double_booked",
+      reason: COPY.shared.ablehnung["spiel_double_booked"],
     });
   });
 
   it("answers every other code on the shared line its kind takes, and clears the tag behind each", async () => {
-    expect(await anlegen(refusal("DB-COMMON-001"))({ name: "Nord", plz: "60438" })).toMatchObject({ reason: COPY.shared.fehler.veraltet });
-    expect(await anlegen(refusal("REQ-AUTH-006"))({ name: "Nord", plz: "60438" })).toMatchObject({ reason: COPY.shared.fehler.zugangWeg });
+    expect(await anlegen(refusal("document_not_found"))({ name: "Nord", plz: "60438" })).toMatchObject({ reason: COPY.shared.fehler.veraltet });
+    expect(await anlegen(refusal("actor_not_admin"))({ name: "Nord", plz: "60438" })).toMatchObject({ reason: COPY.shared.fehler.zugangWeg });
     // Worded on another screen, never on this one.
-    expect(await anlegen(refusal("REQ-DATE-001"))({ name: "Nord", plz: "60438" })).toStrictEqual({
+    expect(await anlegen(refusal("spiel_outside_spieltag"))({ name: "Nord", plz: "60438" })).toStrictEqual({
       ok: false,
-      errorCode: "REQ-DATE-001",
+      errorCode: "spiel_outside_spieltag",
       reason: COPY.shared.fehler.unerwartet,
     });
     expect(stand.steps.filter((step) => step === "updateTag site")).toHaveLength(3);

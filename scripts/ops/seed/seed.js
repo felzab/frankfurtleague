@@ -342,7 +342,7 @@ const running = season({
         return { datum: day(7), uhrzeit: "17:00:00", booking };
       case 12:
         // Not match 9's ground and referee, which its index would give: 90 minutes after it, inside the four
-        // hours the write keeps between two fixtures (`REQ-CLASH-001`). No other fixture that day holds these.
+        // hours the write keeps between two fixtures (`spiel_double_booked`). No other fixture that day holds these.
         return { datum: day(7), uhrzeit: "18:30:00", booking: booked(1, 1) };
       // The knockout: drawn, undated, nobody in it.
       default:

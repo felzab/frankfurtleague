@@ -138,7 +138,7 @@ def pupil_address(row: Mapping[str, Any]) -> Any:
 
 
 def build_unplayed_saison_pipeline(schiedsrichter_ids: Iterable[Any]) -> list[Mapping[str, Any]]:
-    """Each season holding a fixture still to be played that one of these referees is booked on, by `REQ-RETIRE-004`'s own filter."""
+    """Each season with a fixture still to be played that one of these referees is booked on, by `schiedsrichter_still_assigned`'s filter."""
 
     return [
         {"$match": build_unplayed_assignment_filter({"$in": list(schiedsrichter_ids)})},
@@ -468,7 +468,7 @@ def may_grant_on_schiedsrichter(subjekt: FLSubjekt, schiedsrichter_id: ObjectId)
 
 
 def find_funktion_refusal(*, sitze: Iterable[FLSubjektSitz], team_id: ObjectId, saison_id: str) -> WriteRefusal | None:
-    """`REQ-FUNKTION-001`: the signed-in person holds no seat on this team in this season.
+    """`funktion_nicht_gehalten`: the signed-in person holds no seat on this team in this season.
 
     One answer for another team, another season and a `past` one, so the refusal tells a stranger
     nothing about which teams or seasons exist.
@@ -490,7 +490,7 @@ def holds_an_owner_grant(identifier: str, grants: Iterable[Mapping[str, Any]]) -
 
 
 def find_letzter_inhaber_erasure_refusal(*, identifier: str, grants: Iterable[Mapping[str, Any]], barred: Iterable[str]) -> WriteRefusal | None:
-    """`REQ-PURGE-004`: the address holding the last live, unbarred `owner` grant erases itself only once another holds one.
+    """`letzter_inhaber_loeschung`: the address holding the last live, unbarred `owner` grant erases itself only once another holds one.
 
     `grants` are the live ones. A barred `owner` admits nobody, so it is no owner here, as for a demotion.
     """
@@ -500,19 +500,19 @@ def find_letzter_inhaber_erasure_refusal(*, identifier: str, grants: Iterable[Ma
         return None
 
     return WriteRefusal(
-        error_code=Code.LETZTER_INHABER_ERASURE,
+        error_code=Code.LETZTER_INHABER_LOESCHUNG,
         status=HTTPStatus.CONFLICT,
     )
 
 
 def ist_eigene_adresse(*, identifier: str, akteur: str) -> bool:
-    """`REQ-PURGE-003`'s judgement, both folded: the refusal raises on it, and a read serving whether the tool opens an address asks it."""
+    """`eigene_adresse`'s judgement, both folded: the refusal raises on it, and a read serving whether the tool opens an address asks it."""
 
     return identifier == akteur
 
 
 def find_eigene_adresse_refusal(*, identifier: str, akteur: str) -> WriteRefusal | None:
-    """`REQ-PURGE-003`: an administrator's route on a mailbox refuses the mailbox they act as, both folded."""
+    """`eigene_adresse`: an administrator's route on a mailbox refuses the mailbox they act as, both folded."""
 
     if not ist_eigene_adresse(identifier=identifier, akteur=akteur):
         return None
@@ -543,7 +543,7 @@ def verwaltung_adresse_verwehrt(
     announced: Sequence[Mapping[str, Any]],
     geschuetzt: frozenset[str],
 ) -> bool:
-    """`REQ-PURGE-005`'s judgement: the address holds a live grant of a `geschuetzt` tier and the actor no owner's power."""
+    """`verwaltung_adresse`'s judgement: the address holds a live grant of a `geschuetzt` tier and the actor no owner's power."""
 
     return verwaltung_des(identifier, grants) in geschuetzt and not holds_an_owners_power(
         akteur=akteur, auth_time=auth_time, grants=grants, announced=announced
@@ -559,7 +559,7 @@ def find_verwaltung_adresse_refusal(
     announced: Sequence[Mapping[str, Any]],
     geschuetzt: frozenset[str],
 ) -> WriteRefusal | None:
-    """`REQ-PURGE-005`: an address holding a live grant of a `geschuetzt` tier is acted on only by an actor holding an owner's power.
+    """`verwaltung_adresse`: an address holding a live grant of a `geschuetzt` tier is acted on only by an actor holding an owner's power.
 
     `grants` and `announced` as stored, read where the caller judges, so a retry judges them afresh.
     """
@@ -583,9 +583,10 @@ def find_fremder_adresswechsel_refusal(
     grants: Sequence[Mapping[str, Any]],
     announced: Sequence[Mapping[str, Any]],
 ) -> WriteRefusal | None:
-    """`REQ-PURGE-007`: an erasure ends no pending change of an address holding an `ADRESSWECHSEL_GESCHUETZT` grant without an owner's power.
+    """`fremder_adresswechsel`: without an owner's power, an erasure ends no pending change of an address holding a protected grant.
 
-    `adressen` are the changes' own addresses, never the one erased; the message names none of them.
+    A protected grant is one `ADRESSWECHSEL_GESCHUETZT` names. `adressen` are the changes' own addresses, never the one erased; the
+    message names none of them.
     """
 
     if not any(
@@ -701,7 +702,7 @@ def unreferenced(identifiers: Iterable[str], *, referenced: Collection[str]) -> 
 
 
 def find_kein_inhaber_refusal(grant_rows: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
-    """`REQ-REFERENZEN-001`: no live grant is an `owner`'s, live as every reader of a grant reads one."""
+    """`kein_inhaber`: no live grant is an `owner`'s, live as every reader of a grant reads one."""
 
     if any(grant.get("verwaltung") == OWNER for grant in grant_rows):
         return None

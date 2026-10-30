@@ -96,7 +96,7 @@ def verwaltung_des(adresse: str, grants: Sequence[Mapping[str, Any]]) -> str | N
 
 
 def find_vorhanden_refusal(*, adresse: str, grants: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
-    """`REQ-BERECHTIGUNG-001`: a grant already holds the address, of either tier."""
+    """`berechtigung_vorhanden`: a grant already holds the address, of either tier."""
 
     if verwaltung_des(adresse, grants) is None:
         return None
@@ -123,7 +123,7 @@ def holds_an_owners_power(*, akteur: str, auth_time: int, grants: Sequence[Mappi
 def find_nur_inhaber_refusal(
     *, akteur: str, auth_time: int, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
 ) -> WriteRefusal | None:
-    """`REQ-BERECHTIGUNG-005`: only an `owner`, signed in since becoming one, revokes or changes a tier.
+    """`berechtigung_nur_inhaber`: only an `owner`, signed in since becoming one, revokes or changes a tier.
 
     Judged inside the transaction, so one administrator cannot strip the others down to the floor and
     then shelter behind it, nor make themselves an owner.
@@ -139,7 +139,7 @@ def find_nur_inhaber_refusal(
 
 
 def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-BERECHTIGUNG-003`: the address is on the ban list, which another administrator decided.
+    """`berechtigung_gesperrt`: the address is on the ban list, which another administrator decided.
 
     The target's state, so 409: lifting the ban is what changes it.
     """
@@ -154,7 +154,7 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
 
 
 def find_inhaber_refusal(*, grant: Mapping[str, Any]) -> WriteRefusal | None:
-    """`REQ-BERECHTIGUNG-002`: an `owner` row is revoked by no route; it is demoted first."""
+    """`berechtigung_inhaber`: an `owner` row is revoked by no route; it is demoted first."""
 
     if grant.get("verwaltung") != OWNER:
         return None
@@ -166,7 +166,7 @@ def find_inhaber_refusal(*, grant: Mapping[str, Any]) -> WriteRefusal | None:
 
 
 def find_mindestzahl_refusal(*, remaining: int) -> WriteRefusal | None:
-    """`REQ-BERECHTIGUNG-004`: a revoke leaves at least `MINDESTZAHL` live, unbarred grants, any `owner` grant among them.
+    """`berechtigung_mindestzahl`: a revoke leaves at least `MINDESTZAHL` live, unbarred grants, any `owner` grant among them.
 
     Counted over the unbarred grants: a barred row counted would let the floor
     hold while one person alone could still act.
@@ -182,7 +182,7 @@ def find_mindestzahl_refusal(*, remaining: int) -> WriteRefusal | None:
 
 
 def find_letzter_inhaber_refusal(*, remaining_owners: int) -> WriteRefusal | None:
-    """`REQ-BERECHTIGUNG-007`: a demotion leaves at least one live, unbarred `owner`.
+    """`berechtigung_letzter_inhaber`: a demotion leaves at least one live, unbarred `owner`.
 
     Counted as the floor of two is: a barred `owner` row admits nobody, so it could demote
     nobody back and grant nothing.

@@ -81,7 +81,7 @@ export type TeamSaisonMembership = {
     bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null;
     /** Each seat's pending address change, read beside the block for the contacts editor. */
     adresswechsel: FLSaisonTeamAdresswechsel | null;
-    /** The token `PATCH .../kontakte` judges a save against, carried from the read (`REQ-KONTAKT-001`). */
+    /** The token `PATCH .../kontakte` judges a save against, carried from the read (`kontakte_moved_under_the_save`). */
     kontakte_stand: string;
   } | null;
 };
@@ -91,7 +91,7 @@ export type TeamSaisonContext = Pick<TeamSaisonMembership, "saisonId" | "saisonS
 
 /**
  * One group's fill state, from `buildGruppeOffer`. The pickers disable a full group; the junction
- * write's refusal (`REQ-ENTER-003`) stays authoritative.
+ * write's refusal (`entry_gruppe_full`) stays authoritative.
  */
 export type GruppeOffer = {
   gruppe: FLGruppenNames;
@@ -120,7 +120,7 @@ export type AdminTeamRow = {
   selected: { gruppe: FLGruppenNames; austritt: FLAustritt | null } | null;
   /**
    * No `active` or `future` season holds the club. Mirrors the write path's own refusal
-   * (`REQ-RETIRE-001`), which stays authoritative.
+   * (`retire_blocked`), which stays authoritative.
    */
   isRetireable: boolean;
   /**
@@ -132,7 +132,7 @@ export type AdminTeamRow = {
 
 /**
  * Editable only while the club holds no fixture in the season, whatever the season's status
- * (`REQ-ENTER-004`). WHY it is locked belongs to the swap control beneath the row, which grades four
+ * (`entry_gruppe_locked`). WHY it is locked belongs to the swap control beneath the row, which grades four
  * conditions where this grades one.
  */
 export type TeamGruppeLock = {

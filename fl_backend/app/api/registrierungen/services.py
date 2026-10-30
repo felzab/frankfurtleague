@@ -66,15 +66,15 @@ def find_fenster_refusal(*, saison_status: Any, registrierung: Any, today: str) 
         return None
 
     return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_FENSTER_GESCHLOSSEN,
+        error_code=Code.REGISTRIERUNG_GESCHLOSSEN,
         status=HTTPStatus.CONFLICT,
     )
 
 
 def find_team_junction_refusal(*, entered: bool) -> WriteRefusal | None:
-    """`REQ-REGISTRIERUNG-002`: the season holds no junction row for the invite's team.
+    """`registrierung_geschlossen`: the season holds no junction row for the invite's team.
 
-    Its own code rather than the squad write's `REQ-SQUAD-001`, which is worded for an
+    Its own code rather than the squad write's `kader_team_not_in_saison`, which is worded for an
     administrator entering a player: one rule keeps one German sentence.
     """
 
@@ -82,13 +82,13 @@ def find_team_junction_refusal(*, entered: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_TEAM_NICHT_EINGETRAGEN,
+        error_code=Code.REGISTRIERUNG_GESCHLOSSEN,
         status=HTTPStatus.CONFLICT,
     )
 
 
 def find_stufe_refusal(*, stufe: Any, erlaubte_stufen: Sequence[str]) -> WriteRefusal | None:
-    """`REQ-REGISTRIERUNG-003`: the season's rules do not offer this Stufe.
+    """`registrierung_stufe_nicht_erlaubt`: the season's rules do not offer this Stufe.
 
     A null passes: the form may leave it unanswered. Refused server-side because
     the rule protects a STORED row, and nobody has stored this one.
@@ -104,7 +104,7 @@ def find_stufe_refusal(*, stufe: Any, erlaubte_stufen: Sequence[str]) -> WriteRe
 
 
 def find_kader_refusal(*, squad_size: int, max_kadergroesse: int) -> WriteRefusal | None:
-    """`REQ-REGISTRIERUNG-008`: the squad already stands at the season's cap.
+    """`registrierung_kader_voll`: the squad already stands at the season's cap.
 
     Over the same two numbers the administrator's Kader editor compares, and asked on every
     submission rather than inside the Nachnominierung period alone, so two writers cannot disagree
@@ -122,7 +122,7 @@ def find_kader_refusal(*, squad_size: int, max_kadergroesse: int) -> WriteRefusa
 
 
 def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-REGISTRIERUNG-009`: the ban list holds the address this registration was typed with.
+    """`registrierung_adresse_gesperrt`: the ban list holds the address this registration was typed with.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
     """
@@ -341,7 +341,7 @@ def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_TOKEN_UNKNOWN,
+        error_code=Code.LINK_UNGUELTIG,
         status=HTTPStatus.NOT_FOUND,
     )
 
@@ -353,7 +353,7 @@ def find_expired_token_refusal(*, bestaetigung: Any, status: Any, today: str) ->
         return None
 
     return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_TOKEN_EXPIRED,
+        error_code=Code.LINK_ABGELAUFEN,
         status=HTTPStatus.GONE,
     )
 
@@ -365,21 +365,21 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_ALREADY_CONFIRMED,
+        error_code=Code.BESTAETIGUNG_VORHANDEN,
         status=HTTPStatus.CONFLICT,
     )
 
 
 def find_bestaetigung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-REGISTRIERUNG-012`: the ban list holds the address this link was mailed to, however long ago it was minted."""
+    """`link_gesperrt`: the ban list holds the address this link was mailed to, however long ago it was minted."""
 
     if not gesperrt:
         return None
 
-    # 403 and named plainly, where the submission's `-009` is neutral: whoever holds the mailed token
+    # 403 and named plainly, where the submission's `registrierung_adresse_gesperrt` is neutral: whoever holds the mailed token
     # holds that mailbox, as a sign-in code's holder does, and the ban's own mail has told them.
     return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_BESTAETIGUNG_GESPERRT,
+        error_code=Code.LINK_GESPERRT,
         status=HTTPStatus.FORBIDDEN,
     )
 
@@ -392,7 +392,7 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     # The pupil's own floor and never a contact seat's: raising one must not silently raise the other.
     if age < REGISTRIERUNG_MIN_ALTER_JAHRE:
         return WriteRefusal(
-            error_code=Code.REGISTRIERUNG_ALTER,
+            error_code=Code.BESTAETIGUNG_ALTER,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
         )
@@ -400,7 +400,7 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     # One ceiling over every consent flow, refusing a mistyped century rather than a real age.
     if age > BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
         return WriteRefusal(
-            error_code=Code.REGISTRIERUNG_ALTER,
+            error_code=Code.BESTAETIGUNG_ALTER,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             fields=(("geburtsdatum",),),
         )
@@ -478,7 +478,7 @@ def gespeichertes_geburtsdatum(*, seite: FLRegistrierungSeite, person_raw: Mappi
 
 
 def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any, geburtsdatum: Any) -> WriteRefusal | None:
-    """`REQ-REGISTRIERUNG-017`: the body answers what its page did not ask, or leaves out what it did.
+    """`registrierung_wahlen_unpassend`: the body answers what its page did not ask, or leaves out what it did.
 
     Both choices and a birthdate on the new pupil's page, none of the three on the returning pupil's.
     """
@@ -504,7 +504,7 @@ def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> Write
         return None
 
     return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_MEDIEN_ALTER,
+        error_code=Code.MEDIEN_ALTER,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         fields=(("medien",),),
     )
@@ -692,7 +692,7 @@ def build_erasure_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
 
 
 def find_unbestaetigt_refusal(*, einwilligung: Any) -> WriteRefusal | None:
-    """`REQ-REGISTRIERUNG-013`: the pupil has not answered their own link, so nobody may admit them yet.
+    """`registrierung_unbestaetigt`: the pupil has not answered their own link, so nobody may admit them yet.
 
     Asked at the write as well as marked on the read: the list and the press are two requests.
     """
@@ -717,7 +717,7 @@ def person_weicht_ab(*, registrierung_raw: Mapping[str, Any], spieler_raw: Mappi
 
 
 def find_person_fehlt_refusal(*, registrierung_raw: Mapping[str, Any], adresse_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
-    """`REQ-REGISTRIERUNG-018`: a returning pupil's registration whose person its address holds nobody for.
+    """`registrierung_person_fehlt`: a returning pupil's registration whose person its address holds nobody for.
 
     It carries no choice, so it cannot create a person; registering again asks them.
     """
@@ -737,7 +737,7 @@ def find_person_refusal(
     adresse_raw: Mapping[str, Any] | None,
     spieler_id: Any,
 ) -> WriteRefusal | None:
-    """`REQ-REGISTRIERUNG-014`: the body names nobody this registration may be admitted into.
+    """`registrierung_person_nicht_benannt`: the body names nobody this registration may be admitted into.
 
     A resolved address IS the person: the body only confirms it, and must where name or birthdate
     differ. Otherwise it names nobody, for a new person.
@@ -760,7 +760,7 @@ def find_person_refusal(
 
 
 def find_schon_im_kader_refusal(*, kader_raw: Mapping[str, Any] | None) -> WriteRefusal | None:
-    """`REQ-REGISTRIERUNG-015`: the person already plays in a squad this season, which one row per player per season leaves room for once.
+    """`registrierung_schon_im_kader`: the person already plays in a squad this season, and a season holds one row per player.
 
     A RETIRED row is no refusal: the admission rewrites it, whichever team it was on.
     """
@@ -775,7 +775,7 @@ def find_schon_im_kader_refusal(*, kader_raw: Mapping[str, Any] | None) -> Write
 
 
 def find_schon_aufgenommen_refusal(*, gespeichert: Any, fingerabdruck: str) -> WriteRefusal | None:
-    """Why a key an admission carried onto a squad row is refused: other details, or `REQ-REGISTRIERUNG-016`.
+    """Why a key an admission carried onto a squad row is refused: other details, or `registrierung_schon_aufgenommen`.
 
     Never `None`: no registration is left to answer as the first, and a fresh one would register an
     admitted pupil twice.

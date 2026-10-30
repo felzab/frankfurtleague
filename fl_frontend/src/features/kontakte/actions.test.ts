@@ -133,7 +133,7 @@ describe("the contacts save", () => {
   /* The backend refuses the save whole, storing nobody: the administrator is told at the save, in
      a sentence naming no address and no seat, since the refusal names neither. */
   it("answers a save seating a barred address with the ban", async () => {
-    save = () => refused("REQ-KONTAKT-003");
+    save = () => refused("kontakt_sitz_gesperrt");
 
     const res = await patchSaisonTeamKontakteAction(PAYLOAD);
 
@@ -215,10 +215,10 @@ describe("the re-send beside an unconfirmed seat", () => {
 
   for (const [code, fragment] of [
     // „Rolle“, the word every screen names a contact seat by.
-    ["REQ-KONTAKT-002", /^Für diese Rolle steht keine Bestätigung mehr aus\. Lade die Seite neu\.$/],
-    ["REQ-KONTAKT-003", /Sperrliste/],
+    ["kontakt_sitz_ohne_bestaetigung", /^Für diese Rolle steht keine Bestätigung mehr aus\. Lade die Seite neu\.$/],
+    ["kontakt_sitz_gesperrt", /Sperrliste/],
     // A reload, the one action left: the reloaded editor offers no send on such a row.
-    ["REQ-KONTAKT-005", /Saison ist vorbei oder das Team ist ausgetreten\. Lade die Seite neu, um den aktuellen Stand zu sehen\./],
+    ["kontakt_zeile_ohne_saison", /Saison ist vorbei oder das Team ist ausgetreten\. Lade die Seite neu, um den aktuellen Stand zu sehen\./],
   ] as const) {
     it(`words ${code} beside the seat`, async () => {
       resend = () => refused(code);

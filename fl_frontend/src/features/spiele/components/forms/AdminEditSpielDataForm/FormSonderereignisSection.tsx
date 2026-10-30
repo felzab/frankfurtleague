@@ -34,7 +34,7 @@ export function FormSonderereignisSection({
   sonderereignis: FLSonderereignis | null;
   hasSonderereignis: boolean;
   onHasSonderereignisChange: (next: boolean) => void;
-  /** Both slots hold a club in the DRAFT — `REQ-STATE-003`'s condition, which an open bracket slot fails. */
+  /** Both slots hold a club in the DRAFT — `state_nichtantreten_without_two_sides`'s condition, which an open bracket slot fails. */
   hasBothSides: boolean;
   onSonderereignisChange: (value: FLSonderereignis | null) => void;
   banners: readonly SpielBanner[];
@@ -44,7 +44,7 @@ export function FormSonderereignisSection({
   const item = listboxRow();
 
   // An unresolved slot has nobody who could have failed to appear, and the award would have no side
-  // to land on — so the write path answers `REQ-STATE-003` and this must not offer it.
+  // to land on — so the write path answers `state_nichtantreten_without_two_sides` and this must not offer it.
   const unpickableReason = (event: FLSonderereignis): string | undefined =>
     !hasBothSides && (event === "nichtantreten_team1" || event === "nichtantreten_team2") ? "beide Seiten nötig" : undefined;
 

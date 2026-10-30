@@ -6,7 +6,7 @@ import type { FLRefusedField } from "@/core/generated/client/types.ts";
 export const bodyField = (path: readonly (string | number)[], kind = "value_error"): FLRefusedField => ({ in: "body", path: [...path], kind });
 
 /**
- * The `REQ-VAL-001` a refused payload arrives as, from `fl_frontend/src/core/api.ts :: apiClient`: one
+ * The `payload_refused` a refused payload arrives as, from `fl_frontend/src/core/api.ts :: apiClient`: one
  * constructor for every case, so a change to the error's shape moves one site rather than each file's copy.
  */
 export function refusedPayload(fields: readonly FLRefusedField[], endpoint = "/probe"): APIBadStatusError {
@@ -14,7 +14,7 @@ export function refusedPayload(fields: readonly FLRefusedField[], endpoint = "/p
     message: "refused",
     url: `http://backend/api/v0${endpoint}`,
     statusCode: 422,
-    serverErrorCode: "REQ-VAL-001",
+    serverErrorCode: "payload_refused",
     refusedFields: fields,
     endpoint: endpoint,
     method: "POST",

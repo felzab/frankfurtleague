@@ -83,7 +83,7 @@ export const NACH_ERNENNUNG_NEU_ANMELDEN = "Bist Du erst nach Deiner Anmeldung I
  */
 const ERNENNUNG_GENEHMIGT = "eine Ernennung eine andere Inhaberin oder ein anderer Inhaber";
 
-/** Why the revoke is closed to a session holding no owner's power, and the backend's `-005` in the same words. */
+/** Why the revoke is closed to a session holding no owner's power, and the backend's `berechtigung_nur_inhaber` in the same words. */
 export const NUR_INHABER_ENTZIEHT = `Den Zugang entziehen können nur Inhaberinnen und Inhaber. ${NACH_ERNENNUNG_NEU_ANMELDEN}`;
 
 /** The row a control's name tells apart after its words: the address, or the grant's day where the address is withheld. */
@@ -104,7 +104,7 @@ export const ZUGANG_ENTZOGEN_MESSAGE = "Diese Adresse hat keinen Zugang zur Verw
 
 /**
  * The grant's refusal of a barred address, which also closes a barred row's promotion: the backend
- * refuses to make a barred address an owner (`REQ-BERECHTIGUNG-003`).
+ * refuses to make a barred address an owner (`berechtigung_gesperrt`).
  */
 export const ADRESSE_GESPERRT = "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Zugang zur Verwaltung erhalten soll.";
 

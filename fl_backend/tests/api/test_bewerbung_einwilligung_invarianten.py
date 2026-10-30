@@ -143,7 +143,7 @@ class TestWhatALinkAnswers:
         refusal = find_expired_token_refusal(bestaetigungsfrist=YESTERDAY, status="angenommen", today=TODAY)
 
         assert refusal is not None
-        assert refusal.error_code == Code.BEWERBUNG_TOKEN_DECIDED
+        assert refusal.error_code == Code.LINK_ABGELAUFEN
 
     def test_a_closed_season_rows_link_to_an_emptied_seat_opens_nobody(self):
         """Told apart, the page would tell a guess that someone once sat there, and offer a press the single use refuses."""

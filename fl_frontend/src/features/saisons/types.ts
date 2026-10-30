@@ -59,7 +59,7 @@ export type SaisonRolloverContext = {
   /** Every unfinished match of the OUTGOING season. Empty when there is nothing to warn about. */
   offeneSpiele: SaisonOffeneSpiel[];
   /**
-   * `REQ-ACTIVATE-004` over THIS season: whether any of its matchdays carries no `beginn`. Here
+   * `activate_spieltage_undated` over THIS season: whether any of its matchdays carries no `beginn`. Here
    * rather than beside `hasDrawnSpiele` because only the rollover reads it.
    */
   hasUndatierteSpieltage: boolean;
@@ -78,7 +78,7 @@ export type SaisonLoeschungVorschau = {
 };
 
 /**
- * What `REQ-DATE-004` leaves the season's own dates free to be, read off the matchdays that carry
+ * What `saison_span_below_spieltage` leaves the season's own dates free to be, read off the matchdays that carry
  * dates. `null` at an end means nothing binds it, which is the same answer for a season holding no
  * matchday and for one whose matchdays are all undated.
  */
@@ -91,7 +91,7 @@ export type SaisonSpieltagBound = {
 
 /**
  * A season's STORED draw as the generator panel weighs it: what a confirmed replace deletes, and the
- * one figure `REQ-SPIELPLAN-005` measures the offer against.
+ * one figure `spielplan_replace_outside_its_window` measures the offer against.
  */
 export type SpielplanBestand = {
   /** How many fixtures the season holds, every phase together. */
@@ -118,16 +118,16 @@ export type SpielplanBestand = {
 export type SaisonSpielplanContext = {
   /** The season's watermark, or `null` while the generator has never run on it. */
   spielplan: FLSaisonSpielplan | null;
-  /** `REQ-SPIELPLAN-002`'s condition: how many matchday rows the season holds, retired ones included. */
+  /** `spielplan_spieltage_held`'s condition: how many matchday rows the season holds, retired ones included. */
   spieltageCount: number;
   /**
    * The season's derived phase list, which the armed control counts its promise off. Served rather
    * than recomputed, so the panel and the endpoint cannot name different seasons.
    */
   schedule: readonly FLSaisonPhaseSchedule[];
-  /** What a confirmed replace would destroy, and what `REQ-SPIELPLAN-005` weighs against it. */
+  /** What a confirmed replace would destroy, and what `spielplan_replace_outside_its_window` weighs against it. */
   bestand: SpielplanBestand;
-  /** How many of the season's fixtures hold a submitted report, which `REQ-SPIELPLAN-007` keeps the Spielplan for. */
+  /** How many of the season's fixtures hold a submitted report, which `spielplan_berichte_eingereicht` keeps the Spielplan for. */
   eingereichteBerichte: number;
 };
 
@@ -157,7 +157,7 @@ export type SaisonSwapTeam = {
   /**
    * Spieltag id → this club's fixtures OUTSIDE the group phase, which a swap LEAVES where they are —
    * which is what lets an exchange put a club on one Spieltag twice. `wouldFieldAClubTwice` is
-   * `REQ-SWAP-005` over the two maps.
+   * `swap_spieltag_clash` over the two maps.
    */
   koSpieleProSpieltag: Record<string, number>;
 };
@@ -186,7 +186,7 @@ export type SaisonReplacementRow = {
   /** Every fixture of this season standing on the row, each of which changes hands with it. */
   spiele: number;
   /**
-   * `REQ-REPLACE-002` counted for this row, over `fl_frontend/src/features/saisons/utils.ts ::
+   * `replace_outgoing_has_a_record` counted for this row, over `fl_frontend/src/features/saisons/utils.ts ::
    * hasTakenPlace` — the endpoint's own predicate. Non-zero makes the row unpickable, because the
    * record it counts would be credited to the arriving club.
    */
@@ -201,9 +201,9 @@ export type SaisonReplacementRow = {
 export type SaisonReplacementCandidate = {
   id: string;
   name: string;
-  /** `REQ-ENTER-005`: the club left the league and enters no season until it is reactivated. */
+  /** `team_retired`: the club left the league and enters no season until it is reactivated. */
   isStillgelegt: boolean;
-  /** `REQ-REPLACE-003`: it holds a row here already, which also closes one club on both ends (`REQ-REPLACE-004`). */
+  /** `replace_incoming_already_entered`: it holds a row here already, which also closes one club on both ends (`replace_one_team_on_both_ends`). */
   isInSaison: boolean;
 };
 

@@ -45,7 +45,7 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
   none: BEWERBUNGEN_CRUD_COPY.emptyOverall,
 };
 
-/** What an application naming no team at all reads as — the one `REQ-BEWERBUNG-002` refuses to accept. */
+/** What an application naming no team at all reads as — the one `bewerbung_subject_unresolved` refuses to accept. */
 const NO_TEAM = nichtHinterlegt("Team");
 
 /** The eyebrow over each fact, one cell of the card's grid. */

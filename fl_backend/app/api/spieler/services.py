@@ -291,7 +291,7 @@ def find_squad_refusal(*, team_in_saison: bool) -> WriteRefusal | None:
 
     if not team_in_saison:
         return WriteRefusal(
-            error_code=Code.SQUAD_TEAM_NOT_IN_SAISON,
+            error_code=Code.KADER_TEAM_NOT_IN_SAISON,
             status=HTTPStatus.CONFLICT,
         )
 
@@ -307,7 +307,7 @@ def find_squad_capacity_refusal(*, squad_size: int, max_kadergroesse: int) -> Wr
 
     if squad_size >= max_kadergroesse:
         return WriteRefusal(
-            error_code=Code.SQUAD_FULL,
+            error_code=Code.KADER_FULL,
             status=HTTPStatus.CONFLICT,
         )
 
@@ -345,7 +345,7 @@ def find_squad_rolle_refusal(*, rolle: FLSpielerRolle | None, taken: bool) -> Wr
         return None
 
     return WriteRefusal(
-        error_code=Code.SQUAD_ROLLE_TAKEN,
+        error_code=Code.KADER_ROLLE_TAKEN,
         status=HTTPStatus.CONFLICT,
     )
 
@@ -414,7 +414,7 @@ def mark_shared_nummern(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any
 
 
 def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, erlaubte_stufen: Sequence[str]) -> WriteRefusal | None:
-    """`REQ-SQUAD-005`: the edit writes a Stufe the season's rules do not offer.
+    """`kader_stufe_nicht_erlaubt`: the edit writes a Stufe the season's rules do not offer.
 
     The stored value passes: a season narrowed after the row was written leaves it valid,
     and refusing it would lock the row's other fields too.

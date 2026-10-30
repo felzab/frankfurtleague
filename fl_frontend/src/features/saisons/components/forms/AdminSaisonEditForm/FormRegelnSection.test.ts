@@ -75,7 +75,7 @@ describe("the rules panel's freezes", () => {
     }
   });
 
-  /* The qualifiers alone are in the finished season's freeze: the table is scored from them, and `REQ-RULES-005`
+  /* The qualifiers alone are in the finished season's freeze: the table is scored from them, and `rules_saison_started`
      names no group count. */
   it("closes each shape count where its own freeze reaches it", () => {
     for (const [props, gruppen, qualifikanten] of [
@@ -194,7 +194,7 @@ describe("the repairs the reloaded panel names for the shape the draw freezes", 
 });
 
 describe("the rules panel's shape offer", () => {
-  /* `REQ-RULES-002` from the season's own clubs: two groups would strand the club entered in C. */
+  /* `rules_gruppen_in_use` from the season's own clubs: two groups would strand the club entered in C. */
   it("closes the group counts the season's clubs rule out, and holds the team stepper at the fullest group", async () => {
     const user = userEvent.setup();
     const { unmount } = render(panel({ gruppenOccupancy: {} }));
@@ -218,7 +218,7 @@ describe("the rules panel's shape offer", () => {
 });
 
 describe("the season editor's one reading of the season, handed to its panels", () => {
-  /* The swap (`REQ-SWAP-002`) and the tiebreak (`REQ-RULES-012`) close on one played knockout fixture, and the rules
+  /* The swap (`swap_saison_started`) and the tiebreak (`REQ-RULES-012`) close on one played knockout fixture, and the rules
      panel's window is the undraw's own: a second reading of either drifts from the first and offers what the
      endpoint refuses. */
   it("freezes the tiebreak where the swap closes, and states the window the undraw is closed by", () => {

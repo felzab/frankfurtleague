@@ -196,9 +196,9 @@ export function mapSpielbestaetigungAdminRefusal(error: unknown): { error: strin
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
-    case "REQ-ANSETZUNG-013":
+    case "ansetzung_nicht_eintragbar":
       return { error: buildRefusal({ reason: "Diese Anfrage ist inzwischen beantwortet oder geschlossen", repair: LADE_DIE_SEITE_NEU }) };
-    case "REQ-ANSETZUNG-014":
+    case "ansetzung_nicht_verwerfbar":
       return { error: buildRefusal({ reason: "Diese Antwort trägt keinen offenen Terminvorschlag mehr", repair: LADE_DIE_SEITE_NEU }) };
     default:
       return null;
@@ -242,7 +242,7 @@ export type SpielbestaetigungRefusal = {
 export function mapAnsetzungAnsichtRefusal(error: unknown): "ungueltig" | null {
   if (!isRefusal(error)) return null;
 
-  if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
+  if (error.serverErrorCode === "payload_refused") return "ungueltig";
 
   // Every rule's refusal alike: a spent link answers its own `zustand` in a 200, so a refusal is a
   // token nothing could place, and a code nobody planned reads the same way.
@@ -259,37 +259,37 @@ export function mapAnsetzungRefusal(error: unknown): SpielbestaetigungRefusal | 
   switch (error.serverErrorCode) {
     // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
     // mail's link replaces.
-    case "REQ-VAL-002":
-    case "REQ-VAL-001":
+    case "body_unreadable":
+    case "payload_refused":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     // A token nothing stores, a voided seat's included, and a fixture moved since the link: one panel,
     // which tells a guessed link nothing about a row.
-    case "REQ-ANSETZUNG-001":
-    case "REQ-ANSETZUNG-004":
+    case "link_ungueltig":
+    case "ansetzung_geaendert":
       return { zustand: "ungueltig" };
-    // Each covers several states the read tells apart: `-002` both answers, where „zugesagt“ would tell a
-    // club that declined in another window it confirmed; `-009` every closing reason, so the press shows
+    // Each covers several states the read tells apart: `ansetzung_beantwortet` both answers, where „zugesagt“ would tell a
+    // club that declined in another window it confirmed; `ansetzung_geschlossen` every closing reason, so the press shows
     // the panel a reload would.
-    case "REQ-ANSETZUNG-002":
-    case "REQ-ANSETZUNG-009":
+    case "ansetzung_beantwortet":
+    case "ansetzung_geschlossen":
     // Spent either way, but only the read carries whether the fixture's day has gone by, which has a panel of its own.
-    case "REQ-ANSETZUNG-003":
-    case "REQ-ANSETZUNG-005":
+    case "ansetzung_frist_vorbei":
+    case "ansetzung_entschieden":
       return { nachlesen: true };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
-    case "REQ-ANSETZUNG-011":
+    case "link_gesperrt":
       return { zustand: "gesperrt" };
     // The proposal's refusals spend nothing: each lands on the box that caused it, and the typed
     // proposal survives it.
-    case "REQ-ANSETZUNG-007":
+    case "ansetzung_vorschlag_vergangen":
       return { fieldErrors: { "vorschlag.datum": "Dieses Datum liegt in der Vergangenheit." } };
-    case "REQ-DATE-001":
+    case "spiel_outside_spieltag":
       return { fieldErrors: { "vorschlag.datum": "Dieses Datum liegt außerhalb des Spieltags." } };
-    case "REQ-ELIGIBILITY-001":
+    case "eligibility_disqualified":
       return { fieldErrors: { "vorschlag.datum": "An diesem Datum spielt eines der beiden Teams nicht mehr in der Saison." } };
     // The failure names neither the venue nor the referee, and either moves with the date as much as
     // with the time, so no one box takes it.
-    case "REQ-CLASH-001":
+    case "spiel_double_booked":
       return {
         error: buildRefusal({
           reason: "Zu dieser Zeit ist der Spielort oder die Schiedsrichterin oder der Schiedsrichter schon für ein anderes Spiel eingeteilt",
@@ -319,25 +319,25 @@ export function mapSchiedsrichterAntwortRefusal(error: unknown): { error?: strin
 
   switch (error.serverErrorCode) {
     // The body shape is mirrored, so a refusal the reason box cannot take is of a page older than the running one.
-    case "REQ-VAL-002":
-    case "REQ-VAL-001":
+    case "body_unreadable":
+    case "payload_refused":
       return refusedPayloadAnswer(error, "Lade die Seite neu und antworte erneut.");
     // Ahead of the shared reader's sentence, which names a team.
-    case "REQ-FUNKTION-001":
+    case "funktion_nicht_gehalten":
       return { error: `Du bist nicht mehr als Schiedsrichterin oder Schiedsrichter eingetragen. ${NEU_LADEN}` };
-    case "REQ-ANSETZUNG-015":
+    case "ansetzung_fremde_zeile":
       return { error: `Für dieses Spiel bist Du nicht eingeteilt. ${NEU_LADEN}` };
-    case "REQ-ANSETZUNG-002":
+    case "ansetzung_beantwortet":
       // The league may have entered the Zusage for the referee, so the sentence names no one answerer.
       return { error: `Diese Einteilung ist schon beantwortet, von Dir oder von der Verwaltung. ${NEU_LADEN}` };
-    case "REQ-ANSETZUNG-009":
+    case "ansetzung_geschlossen":
       return { error: `Diese Einteilung ist schon abgeschlossen. ${NEU_LADEN}` };
-    case "REQ-ANSETZUNG-005":
+    case "ansetzung_entschieden":
       return { error: `Das Spiel ist entschieden oder abgesagt, oder ein Team spielt nicht mehr mit. ${NEU_LADEN}` };
-    case "REQ-ANSETZUNG-004":
+    case "ansetzung_geaendert":
       return { error: `Das Spiel hat einen neuen Termin, oder Du bist nicht mehr eingeteilt. ${NEU_LADEN}` };
     // A referee's answer keeps no deadline, so the day alone spends it.
-    case "REQ-ANSETZUNG-003":
+    case "ansetzung_frist_vorbei":
       return { error: `Das Spiel liegt schon in der Vergangenheit. ${NEU_LADEN}` };
     default:
       return null;
