@@ -376,8 +376,7 @@ async def patch_spiel_data(
         # slot the decline left; after the booking refusal, which names an erased referee as its own case.
         refuse(find_referee_stand_refusal(stored, spiel_data))
 
-        # Read after every refusal but the one it feeds: it validates fixtures of every season, and a
-        # hand-edited one raises, which would answer 500 for a save an earlier rule refuses.
+        # Read last, before the one rule it feeds: it spans every season's fixtures.
         booked = await pull_booked_slots(
             spiele_collection=spiele_collection, spiel_id=spiel_id, claims=find_claims_made(stored, spiel_data), session=session
         )

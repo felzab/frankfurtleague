@@ -304,10 +304,7 @@ class FLSpielElfmeterschiessen(BaseModel):
 
     @model_validator(mode="after")
     def a_shootout_names_a_winner(self) -> FLSpielElfmeterschiessen:
-        """Refuse a level shoot-out: the one value this field could hold and still name nobody.
-
-        It fails on READ as well as on write, which is what catches a hand edit.
-        """
+        """Refuse a level shoot-out: the one value this field could hold and still name nobody."""
 
         if self.team1 == self.team2:
             raise ValueError("Ein Elfmeterschiessen kann nicht unentschieden enden -- eine Seite hat mehr Treffer als die andere.")
@@ -436,8 +433,7 @@ class FLBracketFaultClash(_BracketFault):
     other_uhrzeit: CustomTimeString
 
 
-# Discriminated, not flattened: a flat model expresses a cycle carrying a `platz`. Every reason the
-# write path refuses too reaches a stored document by hand edit alone.
+# Discriminated, not flattened: a flat model expresses a cycle carrying a `platz`.
 FLBracketFault = Annotated[
     FLBracketFaultGruppe
     | FLBracketFaultQuelle
@@ -460,8 +456,7 @@ class FLSpielBooking(BaseModel):
 
     spiel_nr: CustomSpielNr
     datum: CustomDateString
-    # Validated, not raw: `find_clash_refusal` SPLITS this, so a hand-edited `18:00` would raise on
-    # a legitimate edit and answer 500.
+    # Validated, not raw: `find_clash_refusal` splits this.
     uhrzeit: CustomTimeString
 
 

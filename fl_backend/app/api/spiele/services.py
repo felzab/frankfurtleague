@@ -718,15 +718,13 @@ def _outcome_of(spiel_nr: int, ausgang: str, walk: _BracketWalk) -> FLSpielTeamF
     if an_occupant_changed:
         return None
 
-    # A hand edit can carry goals with no `ergebnis`; advancing from a match the table skips would
-    # put the two at odds (`fl_backend/app/api/teams/services.py :: build_statistik_lookup_stage`).
     if spiel.ergebnis is None or team1 is None or team2 is None or team1.tore is None or team2.tore is None:
         return None
 
     if team1.tore == team2.tore:
-        # Read only here, so the bracket and the table disagree about this fixture on purpose.
-        # A group draw is final; that arm covers a hand edit.
-        if spiel.saison_phase == "gruppenphase" or spiel.elfmeterschiessen is None:
+        # Read only here, so the bracket and the table disagree about this fixture on purpose. No group
+        # fixture reaches this: a group feeder is a fault the walk reports before asking its outcome.
+        if spiel.elfmeterschiessen is None:
             return None
 
         # Total, because `FLSpielElfmeterschiessen` refuses a level shoot-out.
@@ -1371,7 +1369,7 @@ def _first_clash(*, datum: str, uhrzeit: str, booked: Sequence[BookedSlot]) -> t
 
 
 def find_result_removal_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, season: Sequence[FLSpiel]) -> WriteRefusal | None:
-    """Why emptying a side must be refused. Keyed on the STORED goals: a hand edit can hold `tore` with no `ergebnis`."""
+    """Why emptying a side that holds stored goals must be refused."""
 
     stored = stored_in_slice(spiel_id, season)
 
