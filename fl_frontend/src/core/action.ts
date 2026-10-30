@@ -15,6 +15,7 @@ import { getSubjectSession } from "./subject";
 import { mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "./trace";
 import { turnstileRefusal } from "./turnstile";
 import { TURNSTILE_FIELD } from "./turnstileToken";
+import { logVerweigert } from "./verweigert";
 import { feldMeldung } from "./zodGerman";
 
 import type { ActionAnswer } from "@/kit/useFormAction";
@@ -202,9 +203,9 @@ function logFailure(name: string, error: unknown): void {
   logger.error("action.failed", undefined, { action: name, name: error instanceof Error ? error.name : "unknown", ...requestOf(error) });
 }
 
-/** A person turned away, by the operation and the reason, never an address. */
+/** A person turned away, logged as a page's turn-away is. */
 function turnedAwayPerson(operation: string, grund: "keine_sitzung" | "kein_sitz"): ActionAnswer<never> {
-  logger.info("funktion.verweigert", { operation, grund });
+  logVerweigert(operation, grund);
   return { ok: false, reason: grund === "keine_sitzung" ? COPY.shared.fehler.abgelaufen : COPY.shared.fehler.veraltet };
 }
 
