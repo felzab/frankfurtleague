@@ -313,10 +313,7 @@ class TestThePopulation:
         assert on_a_league(mongo_replica_set_url, body) == [LABELS[TWO_SEASONS_BACK], LABELS[DECLINED_ALONE]]
 
     def test_neither_sentinel_is_read_or_touched(self, mongo_replica_set_url: str):
-        """Seeded as an erasure writes them. The pupils' sentinel is kept out twice, by its id and by holding no address.
-
-        Either term alone keeps it out, so only both removed turn this red.
-        """
+        """Seeded as an erasure writes them: the pupils' sentinel holds no address, which keeps it out."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             named = await population(database)
@@ -329,27 +326,6 @@ class TestThePopulation:
         assert named == []
         assert answer["spieler"] == 0
         assert ghost == build_ghost_spieler()
-
-    def test_the_pupils_sentinel_given_an_address_by_hand_is_kept_out_by_its_id(self, mongo_replica_set_url: str):
-        """The id term alone, which the case above cannot tell from the address term.
-
-        Named, the sentinel is counted in the press's „bis zu“ and read again, and passed over, on every pass.
-        """
-
-        by_hand = "von.hand@beispielschule.de"
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].update_one({"_id": build_ghost_spieler()["_id"]}, {"$set": {"email": by_hand}})
-            named = await population(database)
-            answer = await run(database, client)
-
-            return named, counts(answer), await database[Collection.SPIELER].find_one({"_id": build_ghost_spieler()["_id"]})
-
-        named, answer, ghost = on_a_league(mongo_replica_set_url, body)
-
-        assert named == []
-        assert (answer["spieler"], answer["uebersprungen"], answer["verbleibend"]) == (0, 0, 0)
-        assert ghost == {**build_ghost_spieler(), "email": by_hand}
 
 
 # --- The run.

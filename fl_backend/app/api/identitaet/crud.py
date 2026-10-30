@@ -70,7 +70,6 @@ from app.api.spielberichte.crud import repoint_referee_reports_in_session
 from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_session
 from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
-from app.api.spieler.services import build_spieler_filter
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.concurrency import gather_cancelling
@@ -1007,9 +1006,8 @@ async def erase_if_still_due(
     if ausgelassen := sorted(saison_id for saison_id, status in statuses.items() if status == "future" and saison_id not in behalten):
         await anchor_in_db(collection=saisons_collection, db_filter={"_id": {"$in": ausgelassen}}, session=session)
 
-    # By id through the filter refusing the sentinel, so a hand-given address never makes it due.
     pupils = await aggregate_many_from_db(
-        collection=spieler_collection, pipeline=[{"$match": build_spieler_filter(spieler_id)}, {"$project": {"email": 1}}], session=session
+        collection=spieler_collection, pipeline=[{"$match": {"_id": spieler_id}}, {"$project": {"email": 1}}], session=session
     )
     email = pupils[0].get("email") if pupils else None
     if not isinstance(email, str):

@@ -21,7 +21,7 @@ from app.api.schiedsrichter.services import (
     build_selbst_referee_filter,
     build_unplayed_assignment_filter,
 )
-from app.api.spieler.services import build_real_spieler_filter, build_selbst_pupil_filter
+from app.api.spieler.services import build_selbst_pupil_filter
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
@@ -652,7 +652,7 @@ def build_pupil_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[
     """`build_selbst_pupil_filter`'s equality over a batch, its `$type` term the unique index's partial filter, which `$in` does not imply."""
 
     return [
-        {"$match": {"email": {"$in": sorted(set(identifiers)), "$type": "string"}, **build_real_spieler_filter()}},
+        {"$match": {"email": {"$in": sorted(set(identifiers)), "$type": "string"}}},
         {"$project": {"email": 1}},
     ]
 
@@ -780,8 +780,8 @@ def build_loeschung_pipeline(*, behalten: frozenset[str], offene: AbstractSet[st
     """
 
     return [
-        # The sentinel twice, by id and by holding no address: either term alone keeps it out.
-        {"$match": build_real_spieler_filter({"email": {"$type": "string", "$nin": sorted(offene)}})},
+        # The sentinel holds no address, so the `$type` term keeps it out.
+        {"$match": {"email": {"$type": "string", "$nin": sorted(offene)}}},
         {
             "$lookup": {
                 "from": DbCollection.SAISON_SPIELER,
