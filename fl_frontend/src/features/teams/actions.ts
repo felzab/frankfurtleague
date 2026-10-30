@@ -1,10 +1,7 @@
 "use server";
 
-import z from "zod";
-
 import { toActionErrorResult } from "@/shared/utils/actionError";
 import { runAdminMutation } from "@/shared/utils/adminMutation";
-import { partlyRestored, refusedReplay, restored, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { deleteTeam, patchSaisonTeam, patchTeam, postSaisonTeam, postTeam, reactivateTeam, replaceSaisonTeam } from "./mutations";
@@ -17,7 +14,6 @@ import {
   mapShorthandRefusal,
   SHORTHAND_TAKEN_ON_CREATE,
   SHORTHAND_TAKEN_ON_EDIT,
-  TEAM_REPLAY_REFUSALS,
 } from "./refusals";
 import {
   FLCreateTeamFormPayloadSchema,
@@ -31,7 +27,6 @@ import {
 import { describeReplacementUmfang } from "./utils";
 
 import type { ActionFailure, ActionResult } from "@/shared/types/types";
-import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type {
   FLDeleteTeamPayload,
   FLPatchTeamPayload,
@@ -280,47 +275,5 @@ export async function replaceSaisonTeamAction(
       // between point at the outgoing club.
       message: `${replacement.name} spielt jetzt in Gruppe ${replacement.gruppe}. ${umfang} Für ${replacement.name} ist in dieser Saison kein Austritt eingetragen.`,
     };
-  });
-}
-
-const TeamUndoSchema = z
-  .object({
-    club: FLPatchTeamPayloadSchema.optional(),
-    saison: FLPatchSaisonTeamPayloadSchema.optional(),
-  })
-  .refine((body) => body.club !== undefined || body.saison !== undefined, {
-    error: "Nothing to restore",
-  });
-
-/** What closes a refusal where the club half went back first, which the change standing would deny. */
-const CLUB_HALF_RESTORED = "Nur die Stammdaten wurden zurückgesetzt.";
-
-/** The season half after the club half went back, as a refusal names it. */
-const SEASON_HALF = { unworded: "Die Saison-Zugehörigkeit lässt sich so nicht mehr zurücksetzen.", restored: CLUB_HALF_RESTORED };
-
-export async function undoAdminTeamEditAction(rawPayload: z.input<typeof TeamUndoSchema>): Promise<UndoOutcome> {
-  return runAdminUndo("undoAdminTeamEditAction", async () => {
-    const validated = TeamUndoSchema.safeParse(rawPayload);
-    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
-    const { club, saison } = validated.data;
-
-    if (club !== undefined) {
-      try {
-        await patchTeam(club);
-      } catch (error) {
-        // First of the two halves, so nothing is restored yet.
-        return refusedReplay(error, TEAM_REPLAY_REFUSALS);
-      }
-    }
-
-    if (saison !== undefined) {
-      try {
-        await patchSaisonTeam(saison);
-      } catch (error) {
-        return club === undefined ? refusedReplay(error, TEAM_REPLAY_REFUSALS) : partlyRestored(error, TEAM_REPLAY_REFUSALS, SEASON_HALF);
-      }
-    }
-
-    return restored();
   });
 }

@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 
-import { patchSpieltagAction, undoAdminSpieltagEditAction } from "@/features/spieltage/actions";
+import { patchSpieltagAction } from "@/features/spieltage/actions";
 import { buildPatchSpieltagPayloadSchema } from "@/features/spieltage/schemas";
 import { deriveSpieltagDraftStatus } from "@/features/spieltage/spieltagDraftStatus";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
@@ -20,7 +19,6 @@ import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
-import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSpieltagBanners } from "./banners";
 import { FormZeitraumSection } from "./FormZeitraumSection";
@@ -46,7 +44,6 @@ export function AdminSpieltagEditForm({
   saisonSpan?: { start: string; end: string };
   pageHeader: EditPageHeaderContent;
 }) {
-  const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
 
@@ -119,11 +116,8 @@ export function AdminSpieltagEditForm({
 
   const writeAfterBlock = () => {
     startSaving(async () => {
-      // Read before the write: the props still hold the pre-save values, and the toast that replays
-      // them outlives this component. The payload carries both dates or neither of them, so no replay
-      // can ask the endpoint to take the dates away again.
-      const undoPayload: FLPatchSpieltagPayload | null =
-        spieltag.beginn === null || spieltag.ende === null ? null : { id: spieltag.id, beginn: spieltag.beginn, ende: spieltag.ende };
+      // Read before the write: the props still hold the pre-save span.
+      const hadZeitraum = spieltag.beginn !== null && spieltag.ende !== null;
 
       const payload = buildPayload();
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
@@ -139,20 +133,10 @@ export function AdminSpieltagEditForm({
         setSubmitFieldErrors({}, {});
         setHasSaved(true);
 
-        if (undoPayload === null) {
-          appToast.success("Änderung gespeichert", { description: "Der Spieltag hat jetzt einen Zeitraum." });
-        } else {
-          // The replay can be refused: it is an ordinary `PATCH`, so a span narrowed meanwhile comes
-          // back as `REQ-DATE-003` rather than a restore.
-          offerUndo({
-            undo: () => undoAdminSpieltagEditAction(undoPayload),
-            fallback: "Der Spieltag wurde aktualisiert.",
-            router,
-          });
-        }
+        appToast.success("Änderung gespeichert", {
+          description: hadZeitraum ? "Der Spieltag wurde aktualisiert." : "Der Spieltag hat jetzt einen Zeitraum.",
+        });
 
-        // AFTER the undo payload is built, which reads the props rather than these atoms: typed values
-        // left in state let a save-then-undo reopen on values the matchday does not hold.
         resetDraftToStored();
         leavePage();
       });

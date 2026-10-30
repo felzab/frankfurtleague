@@ -325,7 +325,7 @@ const toEditorSeed = (spiel: FLSpielAdmin) => ({
 
 /**
  * [Resets the match editor's state](https://react.dev/learn/preserving-and-resetting-state#resetting-state-with-a-key)
- * when an undo restores values — the fixture id alone would keep showing what the mounted editor
+ * when a write moves its stored values — the fixture id alone would keep showing what the mounted editor
  * was seeded with until a reload.
  */
 export const spielStateKey = (spiel: FLSpielAdmin): string => `${spiel.id}:${JSON.stringify(toEditorSeed(spiel))}`;
@@ -382,7 +382,7 @@ export const formatSpielUpdateMessage = (
 };
 
 /**
- * The same sentences under the undo's own lead, `undefined` where the replay moved nothing. **The
+ * The same sentences without the save's lead, `undefined` where the write moved nothing. **The
  * save's wording and not a second set**: one event would otherwise reach an admin in two vocabularies.
  */
 export const describeMovedSpiele = (

@@ -4,7 +4,7 @@ import { useContext, useRef, useState } from "react";
 
 import { STEP_UP_RUNNING, StepUpContext } from "@/shared/components/ui/stepUp";
 
-import type { StepUp, StepUpDemand } from "@/shared/components/ui/stepUp";
+import type { StepUpDemand } from "@/shared/components/ui/stepUp";
 
 // Both ways in are called from the press itself, whose user activation the prompt needs, and never
 // inside a transition, which would hold back what the control says while the prompt is open.
@@ -28,8 +28,6 @@ export interface StepUpGate {
   running: (write: string) => string;
   /** The last prompt this control opened was refused, so nothing was sent. */
   refused: boolean;
-  /** The page's own, for a press that runs outside this tree: the undo offer's. */
-  page: StepUp | undefined;
 }
 
 export function useStepUp(): StepUpGate {
@@ -72,5 +70,5 @@ export function useStepUp(): StepUpGate {
     void confirm(due).then((confirmed) => (confirmed ? go() : onRefused?.()));
   };
 
-  return { isDue, confirm, confirmThen, isPrompting, running: (write) => (isPrompting ? STEP_UP_RUNNING : write), refused, page };
+  return { isDue, confirm, confirmThen, isPrompting, running: (write) => (isPrompting ? STEP_UP_RUNNING : write), refused };
 }

@@ -45,17 +45,8 @@ export const SITZ_WEG = "Du bist in dieser Saison nicht mehr in diesem Team eing
  */
 export const FELD_ABGELEHNT = "Diese Angabe wurde so nicht übernommen.";
 
-/**
- * The unique index's refusal (`DB-COMMON-002`), which every undo answers with too: the conflict
- * is the same one whichever write met it.
- */
-export const KONFLIKT_MIT_BESTEHENDEM = "Der Eintrag steht im Konflikt mit einem, den es schon gibt.";
-
-/**
- * What became of a change an undo did not take back, closing every sentence that says so. Here rather
- * than beside the undo spine, which loads the sign-in store: the browser's offer says it too.
- */
-export const AENDERUNG_STEHT_WEITERHIN = "Die Änderung steht weiterhin.";
+/** The unique index's refusal (`DB-COMMON-002`): the conflict is the same one whichever write met it. */
+const KONFLIKT_MIT_BESTEHENDEM = "Der Eintrag steht im Konflikt mit einem, den es schon gibt.";
 
 /**
  * An admin editor's answer to a `REQ-VAL-001` no rendered control takes, which only a page older than
@@ -165,42 +156,12 @@ export const SPEICHERUNG_UNKLAR = buildRefusal({
 const OUTCOME_UNKNOWN: ActionFailure = { success: false, error: SPEICHERUNG_UNKLAR, outcome: "unknown" };
 
 /**
- * The sentences the reader words by what the press that met a failure can do next. A save's form stays
- * open, so the same press may pass again; an undo's offer is gone once pressed
- * (`fl_frontend/src/shared/utils/adminUndo.ts :: UNDO_WORDING`).
- */
-export type Wording = {
-  /** A failure the same press may pass after: its reason, closed. `retry` offers that press again. */
-  readonly close: (reason: string, retry: string) => string;
-  /** A rule's refusal no arm words, or a throw naming no cause. */
-  readonly unworded: string;
-  /** A write that may or may not have landed. */
-  readonly unclear: string;
-  /** A sentence no press repairs, said whole: the undo adds what became of the change, as its guard's refusals do. */
-  readonly terminal: (sentence: string) => string;
-};
-
-const SAVE_WORDING: Wording = {
-  close: (reason, retry) => `${reason} ${retry}`,
-  unworded: UNKNOWN_REFUSAL,
-  unclear: SPEICHERUNG_UNKLAR,
-  terminal: (sentence) => sentence,
-};
-
-/**
  * A spine's answer where a write it sent may stand behind whatever the body made of it. Never an
  * action's rejection, which `unansweredAction` reads first.
  */
-export function outcomeUnknown(wording: Wording = SAVE_WORDING): ActionFailure {
-  return { success: false, error: wording.unclear, outcome: "unknown" };
+export function outcomeUnknown(): ActionFailure {
+  return { ...OUTCOME_UNKNOWN };
 }
-
-/**
- * An undo nobody can tell landed, said by the spine for a replay that threw and by the offer for
- * one that never answered: „nicht zurückgenommen“ would send the admin to undo by hand what may
- * already be undone.
- */
-export const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
 
 /**
  * The body of every 429 the edge answers itself (`nginx/shared/site.conf :: @edge_refusal`), which Next hands
@@ -274,7 +235,7 @@ export function unansweredRead(): ActionFailure {
 }
 
 /** A refusal in the words its code is given here, or `null` for one no arm words and no rule made. */
-function refusedAnswer(error: APIBadStatusError, wording: Wording): ActionFailure | null {
+function refusedAnswer(error: APIBadStatusError): ActionFailure | null {
   // A request the running API does not take, naming only a query parameter or the body whole, or
   // unreadable (`REQ-VAL-002`): the page that fits it comes with a reload, where a retry resends it
   // unchanged.
@@ -325,7 +286,7 @@ function refusedAnswer(error: APIBadStatusError, wording: Wording): ActionFailur
   if (isRuleRefusal(error)) {
     // Any other code is a rule no mapper here words, and naming the unique index for it would send the
     // admin looking for an entry that may not exist.
-    return refusedFailure(error, wording.unworded);
+    return refusedFailure(error, UNKNOWN_REFUSAL);
   }
 
   return null;
@@ -335,22 +296,22 @@ function refusedAnswer(error: APIBadStatusError, wording: Wording): ActionFailur
  * Maps whatever a mutation threw onto the refusal the admin forms render. Each message names the way out rather
  * than the failure: the diagnosis is in the server log, and the toast's title says what became of the save.
  */
-export function toActionErrorResult(error: unknown, answering?: SentRequest, wording: Wording = SAVE_WORDING): ActionFailure {
+export function toActionErrorResult(error: unknown, answering?: SentRequest): ActionFailure {
   if (error instanceof APIBadStatusError) {
     // Raised by the actor check before any handler, and by a write's transaction re-judging the
     // grant before each attempt, so nothing was written: the grant went after the guard read it.
-    if (error.serverErrorCode === "REQ-AUTH-006") return { success: false, error: wording.terminal(ZUGANG_WEG) };
+    if (error.serverErrorCode === "REQ-AUTH-006") return { success: false, error: ZUGANG_WEG };
     // The person binder reads the ban per request, so a ban entered since the session was judged.
-    if (error.serverErrorCode === "REQ-AUTH-008") return { success: false, error: wording.terminal(GESPERRT_KEINE_AENDERUNG) };
+    if (error.serverErrorCode === "REQ-AUTH-008") return { success: false, error: GESPERRT_KEINE_AENDERUNG };
     // Every person's write route can answer it, so it is worded here rather than by each slice; the consent
     // writes' mapper words a refused grant first (`fl_frontend/src/features/konto/einwilligung.ts :: ZUSTIMMEN_MORGEN`).
-    if (error.serverErrorCode === "REQ-DROSSELUNG-001") return { success: false, error: wording.terminal(HEUTE_GENUG_GEAENDERT) };
+    if (error.serverErrorCode === "REQ-DROSSELUNG-001") return { success: false, error: HEUTE_GENUG_GEAENDERT };
   }
   // A rule's code, so ahead of the rule fallback below, which would name no reason for it.
-  if (isFunktionLost(error)) return { success: false, error: wording.terminal(SITZ_WEG) };
+  if (isFunktionLost(error)) return { success: false, error: SITZ_WEG };
 
   if (isRefusal(error)) {
-    const refused = refusedAnswer(error, wording);
+    const refused = refusedAnswer(error);
     if (refused !== null) return refused;
     if (isRecordMissing(error)) return { success: false, error: "Der Eintrag wurde nicht gefunden. Lade die Seite neu." };
   }
@@ -359,31 +320,31 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest, wor
     if (error.statusCode === 500 && error.serverErrorCode === "DB-FAIL-002") {
       // A commit went unanswered, or the deadline cut a write, so the write may stand: "try again"
       // would repeat it, and the retry then meets its own "already exists".
-      return outcomeUnknown(wording);
+      return outcomeUnknown();
     }
     // Only `DB-FAIL-001` says the write failed: any other 5xx can follow a commit, an unhandled crash
     // or a proxy's own answer among them.
-    if (error.statusCode >= 500 && error.serverErrorCode !== "DB-FAIL-001" && mayHaveWritten(error)) return outcomeUnknown(wording);
+    if (error.statusCode >= 500 && error.serverErrorCode !== "DB-FAIL-001" && mayHaveWritten(error)) return outcomeUnknown();
 
-    return { success: false, error: wording.close("Der Server hat mit einem Fehler geantwortet.", VERSUCHE_ES_ERNEUT_SATZ) };
+    return { success: false, error: `Der Server hat mit einem Fehler geantwortet. ${VERSUCHE_ES_ERNEUT_SATZ}` };
   }
 
   if (error instanceof APINetworkError) {
     // A write whose answer never arrived may have landed, which a retry would repeat: a connection
     // lost after the send is as silent as a timeout. A read changed nothing, and trying again repairs it.
-    if (mayHaveWritten(error)) return outcomeUnknown(wording);
+    if (mayHaveWritten(error)) return outcomeUnknown();
 
     return {
       success: false,
       error: error.isTimeout
-        ? wording.close("Der Server hat zu lange nicht geantwortet.", VERSUCHE_ES_ERNEUT_SATZ)
-        : wording.close("Der Server ist gerade nicht erreichbar.", "Versuche es später erneut."),
+        ? `Der Server hat zu lange nicht geantwortet. ${VERSUCHE_ES_ERNEUT_SATZ}`
+        : "Der Server ist gerade nicht erreichbar. Versuche es später erneut.",
     };
   }
 
   // This application's own throw carries no request, so the one its caller answers stands in: thrown
   // after a write, it leaves the row standing under a failure's title. A proven rollback wrote nothing.
-  if (answering !== undefined && mayHaveWritten(answering) && !(error instanceof RolledBackError)) return outcomeUnknown(wording);
+  if (answering !== undefined && mayHaveWritten(answering) && !(error instanceof RolledBackError)) return outcomeUnknown();
 
-  return { success: false, error: wording.unworded };
+  return { success: false, error: UNKNOWN_REFUSAL };
 }
