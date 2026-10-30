@@ -59,13 +59,14 @@ async def post_ausgabe(
     now: datetime = Depends(get_germany_now),
 ) -> FLPostausgangAusgabeResponse:
     """
-    Claim, oldest first and a page at a time, the owed mails no claim holds, for five minutes, and hand each out.
+    Claim, a page at a time, the owed mails no claim holds, for five minutes, and hand each out.
 
-    A mail past its deadline is given up rather than handed out, and counted in `aufgegeben`. A mail to an address a
-    standing ban holds is stopped as `gesperrt`, the ban's own notice alone excepted. A mail carrying a link has it minted
-    here, its hash written to the record the mail is about and the raw token answered once, in `token`; a record gone
-    since stops the mail as `entfallen`. A second call inside the lease is answered none of these rows. The caller sends
-    each under the idempotency key its `versuch` names and reports every outcome, with `beanspruchung`, to `POST /postausgang/ergebnis`;
+    The sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline
+    is given up rather than handed out, and counted in `aufgegeben`. A mail to an address a standing ban holds is stopped
+    as `gesperrt`, the ban's own notice alone excepted. A mail carrying a link has it minted here, its hash written to
+    the record the mail is about and the raw token answered once, in `token`; a record gone since stops the mail as
+    `entfallen`. A second call inside the lease is answered none of these rows. The caller sends each under the
+    idempotency key its `versuch` names and reports every outcome, with `beanspruchung`, to `POST /postausgang/ergebnis`;
     where the lease lapses first, the next call hands the row out again with a fresh link and number, every earlier link
     staying valid unless the mail's link supersedes them. Server to server alone: the answer names addresses, live links
     and secrets.
@@ -78,13 +79,20 @@ async def post_ausgabe(
             update=final_update("aufgegeben", now=now),
             session=session,
         )
-        due = await pull_many_from_db(
-            collection=postausgang_collection,
-            db_filter={**_frei(now), "frist": {"$gt": now}},
-            sort_by=[("erfasst_am", ASCENDING), ("_id", ASCENDING)],
-            limit=SEITE,
-            session=session,
-        )
+        # The sign-in library's mails first, then the rest, each oldest first: a sign-in mail has one attempt, and a queue
+        # of league mail ahead of it would spend the drain's deadline before its claim.
+        anmelde_arten = list(ANMELDE_ARTEN)
+        due: list[Mapping[str, Any]] = []
+        for art_filter in ({"$in": anmelde_arten}, {"$nin": anmelde_arten}):
+            if len(due) == SEITE:
+                break
+            due += await pull_many_from_db(
+                collection=postausgang_collection,
+                db_filter={**_frei(now), "frist": {"$gt": now}, "art": art_filter},
+                sort_by=[("erfasst_am", ASCENDING), ("_id", ASCENDING)],
+                limit=SEITE - len(due),
+                session=session,
+            )
         if not due:
             return [], None, overdue.modified_count
 
