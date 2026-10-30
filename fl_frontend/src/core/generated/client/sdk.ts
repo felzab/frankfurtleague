@@ -2344,7 +2344,8 @@ export const getPostausgangPostAusgabeUrl = () => {
  * A mail past its deadline is given up rather than handed out, and counted in `aufgegeben`. A mail to an address a
  * standing ban holds is stopped as `gesperrt`, the ban's own notice alone excepted. A mail carrying a link has it minted
  * here, its hash written to the record the mail is about and the raw token answered once, in `token`; a record gone
- * since stops the mail as `entfallen`. A second call inside the lease is answered none of these rows. The caller sends
+ * since, or one no longer holding the mail's address where its link names it, stops the mail as `entfallen`. A second
+ * call inside the lease is answered none of these rows. The caller sends
  * each under the idempotency key its `versuch` names and reports every outcome, with `beanspruchung`, to `POST /postausgang/ergebnis`;
  * where the lease lapses first, the next call hands the row out again with a fresh link and number, every earlier link
  * staying valid unless the mail's link supersedes them. Server to server alone: the answer names addresses, live links

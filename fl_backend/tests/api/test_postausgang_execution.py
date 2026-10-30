@@ -58,7 +58,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 def on_a_database(url: str, body: Body) -> Any:
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME) as (client, database):
-            await database[Collection.EINLADUNGEN].insert_one({"_id": EINLADUNG, "token_hashes": []})
+            await database[Collection.EINLADUNGEN].insert_one({"_id": EINLADUNG, "email": NORA, "token_hashes": []})
             return await body(database, client)
 
     return on_the_seed_loop(_run())
@@ -70,8 +70,19 @@ def utc(moment: datetime) -> datetime:
     return moment.replace(tzinfo=UTC)
 
 
+# The one record's link: its array, minted while the record still names the recipient.
+LINK = FLPostausgangLink(pfade=["token_hashes"], adressen=["email"], ersetzt=False)
+
+
 async def owe(
-    database: AsyncDatabase, client: AsyncMongoClient, schluessel: str, *, daten: FLPostausgangDaten = SPERRE, link: bool = False
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
+    schluessel: str,
+    *,
+    daten: FLPostausgangDaten = SPERRE,
+    link: bool = False,
+    bezug: FLPostausgangBezug = BEZUG,
+    spec: FLPostausgangLink = LINK,
 ) -> ObjectId:
     """One mail owed inside a transaction of its own, as a write owing it would."""
 
@@ -83,8 +94,8 @@ async def owe(
             an=NORA,
             daten=daten,
             now=NOW,
-            bezug=BEZUG if link else None,
-            link=FLPostausgangLink(pfad="token_hashes", ersetzt=False) if link else None,
+            bezug=bezug if link else None,
+            link=spec if link else None,
         )
 
     async with transaction_session(client) as session:
@@ -179,6 +190,51 @@ class TestTheDrain:
         assert ((late.gesendet, late.ignoriert), (settled.gesendet, settled.ignoriert)) == ((0, 1), (1, 0))
         assert (row["stand"], row["nachricht_id"]) == ("gesendet", f"msg-{row['_id']}")
         assert logged == 0
+
+    def test_a_link_goes_into_every_seat_it_names_and_a_mail_whose_seat_moved_on_since_is_dropped(self, mongo_replica_set_url: str):
+        """One link for a person holding two seats, minted into both; a seat emptied or re-addressed since mints nothing.
+
+        The emptied seat is the case a write through its null entry would refuse, aborting the claim for every row on it.
+        """
+
+        saison_team = ObjectId("6890a1b2c3d4e5f607f30002")
+        spec = FLPostausgangLink(
+            pfade=["kontakte.trainer.token_hashes", "kontakte.betreuer.token_hashes"],
+            adressen=["kontakte.trainer.email", "kontakte.betreuer.email"],
+            ersetzt=False,
+        )
+        bezug = FLPostausgangBezug(sammlung=Collection.SAISON_TEAMS, id=saison_team, sitz="trainer")
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            beide = {"email": NORA, "token_hashes": []}
+            await database[Collection.SAISON_TEAMS].insert_one(
+                {"_id": saison_team, "version": 0, "kontakte": {"trainer": beide, "betreuer": beide}}
+            )
+            minted = await owe(database, client, "sitze/1", link=True, bezug=bezug, spec=spec)
+            first = await claimed(database, client)
+            record = await database[Collection.SAISON_TEAMS].find_one({"_id": saison_team})
+
+            await database[Collection.SAISON_TEAMS].update_one({"_id": saison_team}, {"$set": {"kontakte.betreuer": None}})
+            leer = await owe(database, client, "sitze/2", link=True, bezug=bezug, spec=spec)
+            emptied = await claimed(database, client)
+            await database[Collection.SAISON_TEAMS].update_one(
+                {"_id": saison_team}, {"$set": {"kontakte.betreuer": {"email": "nachfolge@beispielschule.de", "token_hashes": []}}}
+            )
+            weiter = await owe(database, client, "sitze/3", link=True, bezug=bezug, spec=spec)
+            handed_on = await claimed(database, client)
+
+            dropped = [*emptied.mails, *handed_on.mails]
+            return minted, first, record, dropped, [(await stored(database, row_id))["stand"] for row_id in (leer, weiter)]
+
+        minted, first, record, dropped, staende = on_a_database(mongo_replica_set_url, body)
+
+        (mail,) = first.mails
+        assert mail.id == minted and mail.token is not None
+        assert record is not None
+        assert [record["kontakte"][seat]["token_hashes"] for seat in ("trainer", "betreuer")] == [[hash_token(mail.token)]] * 2
+        # Bookkeeping, as an anchor is: an editor read before the drain still saves.
+        assert record["version"] == 0
+        assert (dropped, staende) == ([], ["entfallen", "entfallen"])
 
     def test_a_mail_to_a_barred_address_stops_at_the_hand_out_and_the_bans_own_notice_goes(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
