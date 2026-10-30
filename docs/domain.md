@@ -41,10 +41,8 @@ reads like a constant of this league is nearly always one some season chose for 
   (`adresswechsel_postausgang`), one barred address (`sperrliste`), one address's access to the
   administration (`berechtigungen`), what the administrators have been told of it
   (`berechtigungen_angekuendigt`), what they are still to be told (`berechtigungen_postausgang`) and
-  a grant waiting on a second administrator's approval (`berechtigungen_antraege`), one recorded
-  write (`aktionen`), and one person's count of
-  writes on one day (`drosselung`) and one address's conflict point (`adressanker`), each operational
-  state rather than a fact about the league.
+  a grant waiting on a second administrator's approval (`berechtigungen_antraege`), and one recorded
+  write (`aktionen`).
 
 A school's kind survives the year and its Trainer does not, which is what puts those two on different
 documents.
@@ -161,15 +159,12 @@ replace's own payload (`REQ-SPIELPLAN-005`) because it leaves every group as it 
 held to a `future` season with nothing recorded against a fixture (`REQ-SPIELPLAN-006`), so what they destroy
 is a schedule nobody has played.
 
-Two freezes sit outside that one:
+One freeze sits outside that one:
 
-- **A finished season's scoring is frozen** (`REQ-RULES-005`) — its table is derived from those numbers on
-  every read, and nothing records what they said before.
-- **The tie-break order freezes soonest of all** (`REQ-RULES-012`) — the bracket was seeded from the group
-  placings that order decides, so moving it once a knockout fixture has left a record would re-seed a bracket
-  that has been part-played. What counts as a record is
-  `fl_backend/app/api/teams/services.py :: has_taken_place`, which is wider than a stored result, so a
-  fixture called off or struck out leaves the order open.
+- **A started season's scoring and seeding are frozen** (`REQ-RULES-005`) — from the day of its earliest
+  group-phase fixture (`fl_backend/app/api/saisons/crud.py :: has_started`), the points, the qualifiers per
+  group and the tie-break order hold: the table is derived from them on every read, and the bracket was
+  seeded from the placings the order decides. A `past` season stays frozen whatever its fixtures' dates.
 
 **Every one of these judges the step and not the state it arrives in**, which is what keeps a season
 repairable: a date-only edit resubmits the whole `rules` object and passes whatever the stored values already

@@ -37,7 +37,6 @@ from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
     SaisonSpielerCollection,
-    SaisonTeamsCollection,
     SpielberichteCollection,
     SpieleCollection,
     SpielerCollection,
@@ -102,7 +101,6 @@ async def get_spielbericht_admin(
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
-    saison_teams_collection: SaisonTeamsCollection,
     spieler_collection: SpielerCollection,
     spielberichte_collection: SpielberichteCollection,
     db: DBClient,
@@ -122,7 +120,6 @@ async def get_spielbericht_admin(
             spiele_collection=spiele_collection,
             saisons_collection=saisons_collection,
             saison_spieler_collection=saison_spieler_collection,
-            saison_teams_collection=saison_teams_collection,
             spiel_id=spiel_id,
             session=session,
         )
@@ -151,7 +148,6 @@ async def patch_spielbericht(
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
-    saison_teams_collection: SaisonTeamsCollection,
     spieler_collection: SpielerCollection,
     spielberichte_collection: SpielberichteCollection,
     db: DBClient,
@@ -172,10 +168,9 @@ async def patch_spielbericht(
     other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day is
     still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out proposed on a
     group-phase fixture (`REQ-BERICHT-009`); a pupil newly named on a side outside that side's live squad of the season
-    (`REQ-BERICHT-003`); a yellow or second yellow card naming no reason, unless the stored report holds that card, by
-    side, pupil and colour, stripped of its reason at the end of the season after the match (`REQ-BERICHT-008`); and remarks naming a seat
-    holder of either club, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each but
-    `REQ-BERICHT-006` is asked again outside the transaction just before answering; a write of the report landing
+    (`REQ-BERICHT-003`); and a yellow or second yellow card naming no reason, unless the stored report holds that card,
+    by side, pupil and colour, stripped of its reason at the end of the season after the match (`REQ-BERICHT-008`). Each
+    but `REQ-BERICHT-006` is asked again outside the transaction just before answering; a write of the report landing
     mid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two pages
     opened on no report: the later is refused.
     """
@@ -189,7 +184,6 @@ async def patch_spielbericht(
             spiele_collection=spiele_collection,
             saisons_collection=saisons_collection,
             saison_spieler_collection=saison_spieler_collection,
-            saison_teams_collection=saison_teams_collection,
             spiel_id=spiel_id,
             session=session,
         )
@@ -222,7 +216,6 @@ async def patch_spielbericht(
             spiele_collection=spiele_collection,
             saisons_collection=saisons_collection,
             saison_spieler_collection=saison_spieler_collection,
-            saison_teams_collection=saison_teams_collection,
             spiel_id=spiel_id,
             session=None,
         )

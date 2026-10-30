@@ -16,10 +16,7 @@ import { BEMERKUNGEN_PATH } from "../../../utils";
 
 import type { SpielberichtFieldPath } from "./spielberichtDraft";
 
-/**
- * The one free text of a report, for what no field holds. The backend refuses any name of the match's people in it
- * (`REQ-BERICHT-005`), so the hint asks for a shirt number before a press does.
- */
+/** The one free text of a report, for what no field holds. */
 export function FormBemerkungenSection({
   bemerkungen,
   onChange,

@@ -64,8 +64,7 @@ def _counting_fixtures_match() -> dict[str, Any]:
 
     return {
         "ergebnis": {"$ne": None},
-        # Redundant with `ergebnis` except on a hand-edited document, where a null count would group
-        # as a 0:0 draw instead of dropping out.
+        # Both counts as well, as `_counted_goals` asks them for its types: the two derivations agree.
         "team1.tore": {"$ne": None},
         "team2.tore": {"$ne": None},
     }
@@ -1536,12 +1535,7 @@ def has_taken_place(spiel: Mapping[str, Any]) -> bool:
     if spiel.get("ergebnis") is not None or spiel.get("sonderereignis") in SONDEREREIGNIS_PRODUCING_A_RECORD:
         return True
 
-    # A save keeps a shoot-out only beside a result, so one standing alone is the same hand-written
-    # record of a decided tie as the lone goal count below, and a rewrite would destroy it.
-    if spiel.get("elfmeterschiessen") is not None:
-        return True
-
-    # A fixture can hold `team1.tore` with no `ergebnis` at all, and nothing refuses that shape.
+    # A save keeps one side's goals while the other's are still blank, and stores no `ergebnis` until both are in.
     return any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2"))
 
 

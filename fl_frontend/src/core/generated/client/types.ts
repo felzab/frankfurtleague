@@ -24,7 +24,6 @@ export const Code = {
   "REQ-ADRESSWECHSEL-005": "REQ-ADRESSWECHSEL-005",
   "REQ-ADRESSWECHSEL-006": "REQ-ADRESSWECHSEL-006",
   "REQ-ADRESSWECHSEL-007": "REQ-ADRESSWECHSEL-007",
-  "REQ-ADRESSWECHSEL-008": "REQ-ADRESSWECHSEL-008",
   "REQ-ADRESSWECHSEL-009": "REQ-ADRESSWECHSEL-009",
   "REQ-ADRESSWECHSEL-010": "REQ-ADRESSWECHSEL-010",
   "REQ-ADRESSWECHSEL-011": "REQ-ADRESSWECHSEL-011",
@@ -70,7 +69,6 @@ export const Code = {
   "REQ-BERICHT-002": "REQ-BERICHT-002",
   "REQ-BERICHT-003": "REQ-BERICHT-003",
   "REQ-BERICHT-004": "REQ-BERICHT-004",
-  "REQ-BERICHT-005": "REQ-BERICHT-005",
   "REQ-BERICHT-006": "REQ-BERICHT-006",
   "REQ-BERICHT-007": "REQ-BERICHT-007",
   "REQ-BERICHT-008": "REQ-BERICHT-008",
@@ -106,7 +104,6 @@ export const Code = {
   "REQ-DATE-005": "REQ-DATE-005",
   "REQ-DATE-008": "REQ-DATE-008",
   "REQ-DATE-009": "REQ-DATE-009",
-  "REQ-DROSSELUNG-001": "REQ-DROSSELUNG-001",
   "REQ-EINLADUNG-001": "REQ-EINLADUNG-001",
   "REQ-EINLADUNG-002": "REQ-EINLADUNG-002",
   "REQ-EINLADUNG-003": "REQ-EINLADUNG-003",
@@ -131,7 +128,6 @@ export const Code = {
   "REQ-PURGE-003": "REQ-PURGE-003",
   "REQ-PURGE-004": "REQ-PURGE-004",
   "REQ-PURGE-005": "REQ-PURGE-005",
-  "REQ-PURGE-006": "REQ-PURGE-006",
   "REQ-PURGE-007": "REQ-PURGE-007",
   "REQ-REFERENZEN-001": "REQ-REFERENZEN-001",
   "REQ-REGISTRIERUNG-001": "REQ-REGISTRIERUNG-001",
@@ -193,7 +189,6 @@ export const Code = {
   "REQ-SPERRLISTE-001": "REQ-SPERRLISTE-001",
   "REQ-SPERRLISTE-002": "REQ-SPERRLISTE-002",
   "REQ-SPERRLISTE-003": "REQ-SPERRLISTE-003",
-  "REQ-SPERRLISTE-004": "REQ-SPERRLISTE-004",
   "REQ-SPIELPLAN-001": "REQ-SPIELPLAN-001",
   "REQ-SPIELPLAN-002": "REQ-SPIELPLAN-002",
   "REQ-SPIELPLAN-003": "REQ-SPIELPLAN-003",
@@ -2655,8 +2650,6 @@ export interface FLErasureResponse {
   /** @minimum 0 */
   berechtigungen_antraege: number;
   /** @minimum 0 */
-  drosselung: number;
-  /** @minimum 0 */
   kontakt_sitze: number;
   /** @minimum 0 */
   registrierungen: number;
@@ -2915,6 +2908,7 @@ export interface FLKontaktKenntnisnahmePayload {
   /**
    * @minLength 1
    * @maxLength 64
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   text_version: string;
   umfang: "kontaktdaten";
@@ -3822,6 +3816,7 @@ export interface FLPostSaisonTeamPayload {
   /**
    * @minLength 4
    * @maxLength 4
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   saison_id: string;
 }
@@ -4287,6 +4282,7 @@ export interface FLSaisonTeamPersonEinwilligungPayload {
   /**
    * @minLength 1
    * @maxLength 64
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   text_version: string;
   umfang: FLKontaktKenntnisnahmeUmfang;

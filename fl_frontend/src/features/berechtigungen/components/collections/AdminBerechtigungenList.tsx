@@ -4,6 +4,7 @@ import { memo } from "react";
 
 import Key from "@gravity-ui/icons/Key";
 
+import { ZEITZONE } from "@/core/format";
 import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
 import {
   BERECHTIGUNGEN_CRUD_COPY,
@@ -35,7 +36,7 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
 
 // Europe/Berlin, as every other date in this app is rendered: a grant made after 22:00 in summer is
 // already the next day's in UTC.
-const ERTEILT_TAG = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" });
+const ERTEILT_TAG = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, day: "2-digit", month: "2-digit", year: "numeric" });
 
 /** The Berlin day of `erteilt_am`. */
 function erteiltTag(stamp: string): string {

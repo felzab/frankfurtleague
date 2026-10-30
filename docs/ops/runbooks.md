@@ -574,8 +574,8 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   on the season row, confirming in writing from their own confirmed address; for a referee, a call
   to the telephone number on their record, or in person at a fixture. Where neither is possible,
   refuse and say why. Record how you checked as the reason, naming nobody and no address: the reason
-  stays twelve months in the log, and the backend refuses a name of the person
-  (`REQ-ADRESSWECHSEL-008`). Start the change in the address tool with it. The new address confirms
+  stays twelve months in the log, and nothing checks it for a name. Start the change in the address tool
+  with it. The new address confirms
   by link within `fl_backend/app/shared/schemas/bounds.py :: ADRESSWECHSEL_GUELTIG_STUNDEN` hours,
   and the change takes effect `:: ADRESSWECHSEL_WARTEZEIT_TAGE` days later, judged again then; until
   then the address on file, should it still be read, stops it by link or on its account page. A stopped change means the mailbox is not gone: talk to the
@@ -849,9 +849,8 @@ sign being a second ban of an address already on the list admitted rather than r
 action log's pseudonyms of signed-in people too, so a replacement leaves one person's rows under two
 pseudonyms and the older can never be recomputed; the erasure journal's hashes, so every line
 written before a replacement matches no address a restore holds and its erasure cannot be run again
-after the restore (§13); the digests naming who answered a fixture confirmation, so an erasure
-after a replacement finds none of the reasons its person typed before it; and the addresses'
-anchors, which a replacement merely strands until their next expiry pass. Treat it as
+after the restore (§13); and the digests naming who answered a fixture confirmation, so an erasure
+after a replacement finds none of the reasons its person typed before it. Treat it as
 the one backend secret with no recovery: back it up where the database's own access details are
 backed up, and where it is genuinely gone, clear the list and enter the bans again from whatever
 record names the addresses.
@@ -1544,8 +1543,8 @@ the export wrote no file for. Each line is listed by its act and its record, nev
   "held nowhere". Every stored spelling is matched, folded as the sign-in folds it. The `auth`
   database is not read, an account whose
   address no league record holds going with the account sweep within the hour (§5). Held nowhere,
-  the address leaves its pseudonym and its holder digest: where the pseudonym still marks log rows or
-  day counts, or the digest still finds a confirmation or a log image holding a reason of theirs,
+  the address leaves its pseudonym and its holder digest: where the pseudonym still marks log rows,
+  or the digest still finds a confirmation or a log image holding a reason of theirs,
   which a restore brings back with the snapshot, the listing says how many, with the log rows' ids,
   and reads `to replay`; a line naming
   neither a pseudonym nor a holder digest reads `nothing to run`.
@@ -1571,9 +1570,9 @@ unreadable, naming files and never a value; and 3 or more where it crashed, a 1 
 again in a transaction of its own. A choice is written as its person's own press wrote it, the same
 update and the same log redaction, its evidence stamped with the instant on its line, the moment the
 person acted and never the replay's.
-An erasure held nowhere has its pseudonym's log rows marked, its day counts erased and every reason
+An erasure held nowhere has its pseudonym's log rows marked and every reason
 its holder digest finds nulled with the digest, on the rows and in the log's images, as the erasure
-did; the log keeps one row under „Pseudonyme“ for the marks and the counts. The action log records each under
+did; the log keeps one row under „Pseudonyme“ for the marks. The action log records each under
 the system, its call reading `REPLAY` and the line's act, record and journalling instant, never its
 person nor the journal's token, and a second run writes nothing. **An end that told somebody
 queues its notice again**: a request's refusal or its end by an address change tells its requester,
@@ -1872,10 +1871,10 @@ of the line keeps every security flaw fixed since.
 **Nothing in this repository watches how full the database is, and the production tier has a hard
 limit**: 5 GB of documents and indexes together. What a write meets past it is unverified: MongoDB's
 page on the limit states the size and not the behaviour, so plan for every save failing at once.
-What keeps one person from filling it is the daily write ceiling (its numbers `fl_backend/app/shared/schemas/bounds.py :: DROSSELUNG_KONTAKT_PRO_TAG` and its two
-siblings), sized so that no one person writing 10 KB a write at their ceiling every day reaches the
-first alert below within a year. The alerts show the rest: many people at once, the action log's own
-growth, or counts that stopped expiring.
+Nothing bounds how much one signed-in person writes: the alerts below show one person writing far
+past any legitimate day as surely as many people at once or the action log's own growth, and the log
+page shows which records that person's pseudonym wrote, which name the seat, the pupil or the referee
+record they act through, whose address a ban then stops.
 
 **No alert on a Flex cluster reads the limit's own measure at a threshold we choose.** The one size
 condition it takes a threshold on, `DB Data Size is`, reads documents alone, so it is set low enough
@@ -1898,9 +1897,7 @@ us; read 2026-10-07:
 - the alerts a new project gets: <https://www.mongodb.com/docs/atlas/configure-alerts/>
 
 **When either fires, find the collection that grew**, from the cluster's collection and index sizes
-in the Atlas console. `drosselung` holds one row per person, kind of person and day, which its TTL
-index removes, so a large one there is the TTL monitor stopping
-rather than people writing. Indexes larger than the documents put step 1's alert behind step 2's:
+in the Atlas console. Indexes larger than the documents put step 1's alert behind step 2's:
 lower its threshold below 4 GB times the documents' share of documents and indexes.
 
 ## 20. After a hand edit in MongoDB

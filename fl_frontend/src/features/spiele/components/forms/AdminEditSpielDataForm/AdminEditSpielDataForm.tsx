@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 
 import { parseDate, parseTime } from "@internationalized/date";
 
@@ -24,9 +23,9 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
-import { offerUndo } from "@/shared/utils/undoDispatch";
+import { appToast } from "@/shared/utils/appToast";
 
-import { patchAdminSpielDataAction, undoAdminSpielEditAction } from "../../../actions";
+import { patchAdminSpielDataAction } from "../../../actions";
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
 import { buildPatchSpielDataPayloadSchema, FLPatchSpielDataPayloadSchema } from "../../../schemas";
 import { collectKnockoutTeamIds, collectSpieltagTeamOccupancy, isFirstKnockoutRound, listDependentSpiele, toStoredSide } from "../../../utils";
@@ -68,10 +67,6 @@ import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate, Time } from "@internationalized/date";
 import type { SpielRefusalCode } from "./banners";
-
-const SPIELDATEN_AKTUALISIERT = "Die Spieldaten wurden aktualisiert.";
-const BERICHT_NICHT_UEBERNOMMEN =
-  "Der Spielbericht wurde inzwischen geändert und gilt nicht als übernommen. Prüfe das Ergebnis und übernimm seinen Vorschlag erneut.";
 
 /**
  * Lookup lists arrive as props: `useAdmin()` here would make `spiele` depend on `admin`.
@@ -120,7 +115,6 @@ export function AdminEditSpielDataForm({
    */
   categorize: (spiel: FLSpielWithDraftFields) => ReadonlySet<ActionRequiredCategory>;
 }) {
-  const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
 
@@ -375,8 +369,8 @@ export function AdminEditSpielDataForm({
 
   /**
    * **Leaving the page is not enough**: the App Router keeps the tree alive, so a discard that only
-   * navigated leaves the abandoned draft in the fields. `spielStateKey` puts a save-then-undo back
-   * on the same key, so a save needs this too.
+   * navigated leaves the abandoned draft in the fields. A save needs this too: a later write that puts
+   * the fixture back where it stood returns the editor to the same `spielStateKey`.
    */
   const resetDraftToStored = () => {
     // Every atom listed rather than looped: one added to the `useState` block above and forgotten
@@ -464,26 +458,10 @@ export function AdminEditSpielDataForm({
         setRefusal(null);
         setHasSaved(true);
 
-        // Built BEFORE leaving: these are this render's props and the toast outlives the page.
-        const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
-        // Asked to adopt, the save stamps nothing on a report changed meanwhile and lands all the same:
-        // the result it saved is the older proposal.
-        const nichtUebernommen = uebernimmtBericht !== null && (res.priorBericht ?? null) === null;
-        const gespeichert = res.message ?? SPIELDATEN_AKTUALISIERT;
-
-        offerUndo({
-          // Every fixture, and the report adoption it stamped, from the SAVE's own answer in its order: the props this
-          // render was served are older than the save, so an undo built from them would revert a field another writer moved.
-          undo: () =>
-            undoAdminSpielEditAction({
-              paarungen: res.priorPaarungen ?? [],
-              bericht: res.priorBericht ?? null,
-            }),
-          message: nichtUebernommen ? `${gespeichert} ${BERICHT_NICHT_UEBERNOMMEN}` : res.message,
-          fallback: SPIELDATEN_AKTUALISIERT,
-          warn: affected.length > 0 || nichtUebernommen,
-          router,
-        });
+        // A save that moved another fixture is graded a warning: it cost a result or a slot the admin may not have meant.
+        const warn = (res.voidedFixtures ?? []).length > 0 || (res.releasedFixtures ?? []).length > 0;
+        const raise = warn ? appToast.warning : appToast.success;
+        raise(warn ? "Mit Folgen gespeichert" : "Änderung gespeichert", { description: res.message });
 
         resetDraftToStored();
         leavePage();
@@ -663,7 +641,7 @@ export function AdminEditSpielDataForm({
                 isSpielSweepOn={isSpielSweepOn}
                 isActiveSaison={isActiveSaison}
                 // Into the two atoms `resetDraftToStored` restores, never a remount: every other unsaved edit stays,
-                // a discard drops the proposal with them, and Speichern still judges and offers its undo.
+                // a discard drops the proposal with them, and Speichern still judges it.
                 onVorschlagUebernehmen={(termin) => {
                   setDatum(parseDate(termin.datum));
                   setUhrzeit(parseTime(termin.uhrzeit));

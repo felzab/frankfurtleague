@@ -8,12 +8,6 @@ import type { FLSonderereignis, FLSpielStatus } from "./schemas";
 export const NOTIZ_MAX_LENGTH = 4096;
 
 /**
- * The most fixtures one undo replays, mirroring the backend's `LIST_LIMIT_DEFAULT`
- * (`fl_backend/app/shared/schemas/bounds.py`), the season read's ceiling.
- */
-export const PAARUNGEN_MAX = 1024;
-
-/**
  * The days before its fixture a team's answer is due, mirroring the backend's
  * `SPIEL_BESTAETIGUNG_FRIST_TAGE` (`fl_backend/app/shared/schemas/bounds.py`). A row's own deadline
  * is the one it stores; this number only says whether a date is inside the notice period.

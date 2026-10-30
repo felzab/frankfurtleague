@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { readAsSeatHolder, requireTeamSeats } from "@/features/funktionen/resolvers";
 import { teamHref } from "@/features/funktionen/teamSeats";
@@ -16,7 +15,6 @@ import type { NextPageProps } from "@/shared/types/types";
  * is ausgetragen. Read off the squad, whose other rows say who holds each captaincy.
  */
 export default async function KaderZeilePage({ params }: NextPageProps<{ team_id: string; saison_id: string; spieler_id: string }>) {
-  await connection();
   const seats = await requireTeamSeats(params);
   if (seats === null) return null;
 

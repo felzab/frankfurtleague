@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 
-import { patchSpielortAction, undoAdminSpielortEditAction } from "@/features/spielorte/actions";
+import { patchSpielortAction } from "@/features/spielorte/actions";
 import { FLPatchSpielortPayloadSchema } from "@/features/spielorte/schemas";
 import { deriveSpielortDraftStatus } from "@/features/spielorte/spielortDraftStatus";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
@@ -19,8 +18,8 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
+import { appToast } from "@/shared/utils/appToast";
 import { fieldStatus } from "@/shared/utils/draftStatus";
-import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSpielortBanners } from "./banners";
 import { FormAdresseSection } from "./FormAdresseSection";
@@ -33,11 +32,6 @@ import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeade
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FLAddress } from "@/shared/schemas";
 
-/**
- * The undo replays the identity too: both halves of the fan-out — a Spiel's embedded `ort.name` and
- * its derived `ort.maps_link` — are written by the same patch, so sending the stored values back
- * through it restores every match card too.
- */
 export function AdminSpielortEditForm({
   spielort,
   isRetired,
@@ -48,7 +42,6 @@ export function AdminSpielortEditForm({
   isRetired: boolean;
   pageHeader: EditPageHeaderContent;
 }) {
-  const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
 
@@ -132,14 +125,6 @@ export function AdminSpielortEditForm({
 
   const writeAfterBlock = () => {
     startSaving(async () => {
-      // Read before the write: the props still hold the pre-save values, and the toast that replays
-      // them outlives this component.
-      const undoPayload: FLPatchSpielortPayload = {
-        id: spielort.id,
-        name: spielort.name,
-        address: spielort.address,
-        default_mietpreis: spielort.default_mietpreis,
-      };
       // The fan-out earns a sentence because it reaches every match card at this venue, not this page.
       const identityTouched = isChanged("name") || isAddressChanged;
 
@@ -157,15 +142,12 @@ export function AdminSpielortEditForm({
         setSubmitFieldErrors({}, {});
         setHasSaved(true);
 
-        offerUndo({
-          undo: () => undoAdminSpielortEditAction(undoPayload),
-          message: identityTouched ? "Jedes Spiel an diesem Ort zeigt jetzt den neuen Namen und die neue Karte." : undefined,
-          fallback: "Die Spielortdaten wurden aktualisiert.",
-          router,
+        appToast.success("Änderung gespeichert", {
+          description: identityTouched
+            ? "Jedes Spiel an diesem Ort zeigt jetzt den neuen Namen und die neue Karte."
+            : "Die Spielortdaten wurden aktualisiert.",
         });
 
-        // After the undo payload is built: leaving with typed values still in state lets a save-then-undo
-        // reopen on values the venue does not hold.
         resetDraftToStored();
         leavePage();
       });

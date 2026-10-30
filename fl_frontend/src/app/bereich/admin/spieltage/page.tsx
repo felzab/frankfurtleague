@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { AdminSpieltageView } from "@/features/spieltage/components/views/AdminSpieltageView";
@@ -40,7 +39,6 @@ export default function AdminSpieltagePage(props: NextPageProps) {
  * round's label counts the matchdays its phase holds.
  */
 async function SpieltageList({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
-  await connection();
   // The whole season rather than its id: its schedule is what each phase's matchday count is read
   // against.
   const saison = await resolveAdminSaison(searchParams);

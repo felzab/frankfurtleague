@@ -49,7 +49,7 @@ from app.api.berechtigungen.services import compose_fortgefuehrt, genehmigung_st
 from app.api.berechtigungen.services import compose_postausgang as compose_berechtigung_postausgang
 from app.api.bewerbungen.services import mint_token
 from app.api.identitaet.lookup import RecordCollections
-from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt, eigene_sitze, ist_eigener_schiedsrichter, namen_aus
+from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt, eigene_sitze, ist_eigener_schiedsrichter
 from app.api.kontakte.services import find_matching_slots, rows_seating
 from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_ist_bestaetigt
 from app.api.schiedsrichter.services import build_selbst_referee_filter, vorname_of
@@ -64,10 +64,8 @@ from app.api.spielbestaetigungen.services import (
 from app.api.spieler.crud import another_pupil_holds
 from app.api.spieler.services import build_selbst_pupil_filter
 from app.api.teams.crud import void_moved_seats
-from app.core.adressanker import anchor_the_addresses
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
-from app.core.drosselung import carry_counts_in_session
 from app.core.exceptions import WriteRefusal
 from app.core.journal import Journal, JournalLine
 from app.core.recording import ERASED_ACTOR_MARKER, build_redaction_filter, log_stamp
@@ -114,23 +112,6 @@ class Bestand:
         ]
 
         return next((str(name) for name in kandidaten if isinstance(name, str) and name), "")
-
-    def namen(self) -> frozenset[str]:
-        """Every name the moved records hold, which an administrator's reason may not name (`holds_a_name`)."""
-
-        fields = [
-            *([] if self.spieler is None else [self.spieler.get("vorname"), self.spieler.get("nachname")]),
-            *(row.get("name") for row in self.schiedsrichter),
-            *(
-                (row.get("kontakte") or {}).get(slot, {}).get(part)
-                for row, slots in (*self.sitze, *self.bewerbungssitze)
-                for slot in slots
-                for part in ("vorname", "nachname")
-            ),
-            *(row.get(part) for row in self.registrierungen for part in ("vorname", "nachname")),
-        ]
-
-        return namen_aus(fields)
 
 
 async def live_grant_of(
@@ -316,7 +297,6 @@ async def start_the_change_in_session(
     record: Mapping[str, Any],
     adresswechsel_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
-    adressanker_collection: AsyncCollection,
     schluessel: SecretStr,
     now: datetime,
     journal: Journal,
@@ -345,10 +325,6 @@ async def start_the_change_in_session(
 
     # Two starts on one address meet at `uniq_adresswechsel_adresse` as a write conflict, which the transaction retries.
     created = await post_one_to_db(collection=adresswechsel_collection, document=record, session=session)
-    # The new address enters here, which an erasure of it running now never read; the one on file is stored on the record.
-    await anchor_the_addresses(
-        [str(record["email"]), str(record["adresse"])], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session
-    )
 
     return created.inserted_id
 
@@ -530,9 +506,7 @@ async def take_effect_in_session(
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
     adresswechsel_postausgang_collection: AsyncCollection,
-    drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
-    adressanker_collection: AsyncCollection,
     schluessel: SecretStr,
     now: datetime,
     journal: Journal,
@@ -638,9 +612,7 @@ async def take_effect_in_session(
         einladungen_collection=einladungen_collection,
         sperrliste_collection=sperrliste_collection,
         adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
-        drosselung_collection=drosselung_collection,
         aktionen_collection=aktionen_collection,
-        adressanker_collection=adressanker_collection,
         schluessel=schluessel,
         now=now,
         session=session,
@@ -672,9 +644,7 @@ async def move_the_address_in_session(
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
     adresswechsel_postausgang_collection: AsyncCollection,
-    drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
-    adressanker_collection: AsyncCollection,
     schluessel: SecretStr,
     now: datetime,
     session: AsyncClientSession,
@@ -828,13 +798,6 @@ async def move_the_address_in_session(
         stamp=stamp,
         session=session,
     )
-    # The day's counts follow the pseudonym, or every effect hands the person a fresh day.
-    await carry_counts_in_session(
-        drosselung_collection=drosselung_collection,
-        alt=akteur_pseudonym(alt, schluessel=schluessel),
-        neu=akteur_pseudonym(neu, schluessel=schluessel),
-        session=session,
-    )
     # An earlier effect's notice still queued carries its account to where the person is now, and an erasure there finds it.
     queued = await aggregate_many_from_db(
         collection=adresswechsel_postausgang_collection,
@@ -862,12 +825,6 @@ async def move_the_address_in_session(
             now=now,
         ),
         session=session,
-    )
-
-    # The effect writes the address onto rows the start never wrote, and moves every
-    # record of the one replaced: a record committed there meanwhile, which this read never saw, would stay behind.
-    await anchor_the_addresses(
-        [neue, bestand.identifier], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session
     )
 
     # The requests for a grant it ended, each journalled by the caller as a refusal.

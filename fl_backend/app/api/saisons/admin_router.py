@@ -330,7 +330,7 @@ async def patch_saison(
     Update a season's dates and rules. `status` is on no payload.
 
     Editing the points moves every league table on the NEXT READ, standings being derived. What a
-    finished or drawn season has fixed is refused, as is a rule narrowed below what it holds.
+    started or drawn season has fixed is refused, as is a rule narrowed below what it holds.
     """
 
     async def judge_and_write_the_rules(session: AsyncClientSession) -> FLPatchSaisonResponse:
@@ -860,7 +860,6 @@ async def generate_spielplan(
         # `stored=None` is the create's reading, and the one this wants: every rule judging the
         # numbers alone fires on the payload's own, and every rule judging a standing fixture is
         # skipped, each of those weighing a draw about to cease to exist.
-        shape_stated = spielplan_data.shape is not None
         refuse(
             as_the_draw_answers(
                 find_rules_refusal(
@@ -869,7 +868,6 @@ async def generate_spielplan(
                     occupancy_by_gruppe=occupancy,
                     highest_wired_platz=0,
                 ),
-                shape_stated=shape_stated,
             )
         )
 
@@ -884,7 +882,6 @@ async def generate_spielplan(
                     rules=rules,
                     spieltag_spans=[],
                 ),
-                shape_stated=shape_stated,
             )
         )
 
@@ -917,8 +914,7 @@ async def generate_spielplan(
             # The season a report's first write anchors, so the two conflict: the watermark's `$set` below can change
             # nothing on a same-day redraw, and the report's insert meets no delete here.
             await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
-            # NOT extracted, though `undraw_spielplan` repeats it: two sites are no pattern yet
-            # (`.claude/CLAUDE.md` §3).
+            # NOT extracted, though `undraw_spielplan` repeats it: two sites are no pattern yet.
             await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
             await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
             removed_spiele = (

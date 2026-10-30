@@ -372,7 +372,7 @@ describe("which mailbox is sent which link", () => {
     expect(seatsByMailbox(getrennt, { ansprechperson: "L-A", trainer: "L-T" }).length).toBe(2);
   });
 
-  /* The seats come back in `KONTAKT_ROLLEN`'s order, which is the order `joinUnd` builds a German
+  /* The seats come back in `KONTAKT_ROLLEN`'s order, which is the order `formatAufzaehlung` builds a German
      phrase in and the order the message lays its controls out in. */
   it("orders a mailbox's seats as the seat table declares them", () => {
     const kontakte = {

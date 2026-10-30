@@ -75,10 +75,4 @@ describe("what the season's contacts save sends", () => {
     expect(malformed.success, "a malformed club id was saved").toBe(false);
     expect(sent, "a body the parse refuses reached the client").toStrictEqual([]);
   });
-
-  it("hands the editor the token of the block the save left", async () => {
-    const result = await patchSaisonTeamKontakteAction(CLEARED);
-
-    expect("saison_team" in result ? result.saison_team?.kontakte_stand : undefined).toBe("a1b2");
-  });
 });

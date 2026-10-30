@@ -990,7 +990,6 @@ async def hand_alphas_trainer_to(database: AsyncDatabase, client: AsyncMongoClie
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         sperrliste=ban_list(database),
-        adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
         today=TODAY,

@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { ListPage } from "@/kit/ListPage";
 
@@ -44,7 +43,6 @@ export default function SpielortePage() {
 }
 
 async function Spielorte() {
-  await connection();
   // Retired included: the list will be the one way into a retired venue's page.
   const { spielorte } = await getSpielorte({ include_inactive: true });
 

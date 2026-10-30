@@ -58,11 +58,9 @@ from app.api.berechtigungen.services import (
 from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
 from app.api.sperrliste.services import withheld_actor
-from app.core.adressanker import anchor_the_addresses
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_one_in_db, post_one_to_db, refuse
 from app.core.dependencies import (
-    AdressankerCollection,
     AdresswechselCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenAntraegeCollection,
@@ -277,7 +275,6 @@ async def post_berechtigung(
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     sperrliste: SperrlisteLookup,
-    adressanker_collection: AdressankerCollection,
     db: DBClient,
     erteilt_von: str = Depends(get_actor_email),
     now: datetime = Depends(get_germany_now),
@@ -337,10 +334,6 @@ async def post_berechtigung(
                 now=now,
                 session=session,
             )
-            # The address entering a record, which an erasure of it running now never read.
-            await anchor_the_addresses(
-                [adresse], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session
-            )
 
             return created.inserted_id, True
 
@@ -355,8 +348,6 @@ async def post_berechtigung(
             now=now,
             session=session,
         )
-        # The address entering here, which an erasure of it running now never read.
-        await anchor_the_addresses([adresse], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session)
 
         return created_id, False
 
@@ -689,7 +680,6 @@ async def post_antrag_genehmigung(
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     sperrliste: SperrlisteLookup,
-    adressanker_collection: AdressankerCollection,
     db: DBClient,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
@@ -755,9 +745,6 @@ async def post_antrag_genehmigung(
                 berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
                 now=now,
                 session=session,
-            )
-            await anchor_the_addresses(
-                [adresse], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session
             )
             return created_id
 

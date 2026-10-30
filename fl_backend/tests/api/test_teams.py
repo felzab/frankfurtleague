@@ -309,7 +309,7 @@ class TestTheContactsPatchPayload:
 class TestAContactRecordReadsBackHoweverItWasStored:
     """On the model where breaking it locks itself in.
 
-    The validator types these as bare strings, so an import can store a value no payload would take
+    Nothing in the database types these, so an import can store a value no payload would take
     -- and `GET /teams/memberships` is the only route to repairing the row.
     """
 
