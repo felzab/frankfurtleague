@@ -39,7 +39,7 @@ import type {
   FLGruppenNames,
   FLPostTeamPayload,
   FLSchulform,
-  FLTeamRecord,
+  FLTeamWithMemberships,
   FLTrikotFarbe,
 } from "@/core/generated/client/types";
 import type { TeamEinladungState } from "@/features/einladungen/types";
@@ -63,7 +63,7 @@ export function AdminTeamEditForm({
   einladung,
   pageHeader,
 }: {
-  team: FLTeamRecord;
+  team: FLTeamWithMemberships;
   /** The sidemenu selector's season and its junction row, resolved by the page. */
   saison: TeamSaisonMembership;
   today: string;

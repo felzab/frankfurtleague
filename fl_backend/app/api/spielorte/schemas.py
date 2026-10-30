@@ -71,15 +71,8 @@ class FLSpielorteListResponse(BaseAPIResponse):
 
 
 class FLPatchSpielortResponse(BaseAPIResponse):
-    updated_document: FLSpielort
     # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently.
     fanned_out_to_spiele: int
-
-
-class FLSpielortWriteResponse(BaseAPIResponse):
-    """Shared by delete and reactivate — both answer with the venue as it now stands."""
-
-    updated_document: FLSpielort
 
 
 class FLSpielorteSingleResponse(BaseAPIResponse):

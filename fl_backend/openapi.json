@@ -336,18 +336,14 @@
         "type": "object"
       },
       "FLActivateSaisonResponse": {
-        "description": "The season now active, plus how many were moved off it -- normally exactly one.",
+        "description": "How many seasons the activation moved off `active` -- normally exactly one.",
         "properties": {
           "deactivated": {
             "title": "Deactivated",
             "type": "integer"
-          },
-          "updated_document": {
-            "$ref": "#/components/schemas/FLSaison"
           }
         },
         "required": [
-          "updated_document",
           "deactivated"
         ],
         "title": "FLActivateSaisonResponse",
@@ -7868,18 +7864,6 @@
         "title": "FLPatchSaisonPayload",
         "type": "object"
       },
-      "FLPatchSaisonResponse": {
-        "properties": {
-          "updated_document": {
-            "$ref": "#/components/schemas/FLSaison"
-          }
-        },
-        "required": [
-          "updated_document"
-        ],
-        "title": "FLPatchSaisonResponse",
-        "type": "object"
-      },
       "FLPatchSaisonSpielerPayload": {
         "additionalProperties": false,
         "description": "Replaces the squad row WHOLESALE — see `FLPatchSpielerPayload` for why nothing has a default.\n\n`team_id` is editable here: a mid-season transfer is a change to the junction row.",
@@ -8149,13 +8133,9 @@
           "fanned_out_to_spiele": {
             "title": "Fanned Out To Spiele",
             "type": "integer"
-          },
-          "updated_document": {
-            "$ref": "#/components/schemas/FLSchiedsrichter"
           }
         },
         "required": [
-          "updated_document",
           "fanned_out_to_spiele",
           "bestaetigung"
         ],
@@ -8472,13 +8452,9 @@
           "fanned_out_to_spiele": {
             "title": "Fanned Out To Spiele",
             "type": "integer"
-          },
-          "updated_document": {
-            "$ref": "#/components/schemas/FLSpielort"
           }
         },
         "required": [
-          "updated_document",
           "fanned_out_to_spiele"
         ],
         "title": "FLPatchSpielortResponse",
@@ -8601,13 +8577,9 @@
           "fanned_out_to_spiele": {
             "title": "Fanned Out To Spiele",
             "type": "integer"
-          },
-          "updated_document": {
-            "$ref": "#/components/schemas/FLTeamRecord"
           }
         },
         "required": [
-          "updated_document",
           "fanned_out_to_spiele",
           "fanned_out_to_saison_teams"
         ],
@@ -11928,13 +11900,9 @@
                 "type": "null"
               }
             ]
-          },
-          "updated_document": {
-            "$ref": "#/components/schemas/FLSchiedsrichter"
           }
         },
         "required": [
-          "updated_document",
           "bestaetigung"
         ],
         "title": "FLSchiedsrichterReactivateResponse",
@@ -12062,19 +12030,6 @@
           "zustellung"
         ],
         "title": "FLSchiedsrichterSingleResponse",
-        "type": "object"
-      },
-      "FLSchiedsrichterWriteResponse": {
-        "description": "The referee as a retirement leaves them.",
-        "properties": {
-          "updated_document": {
-            "$ref": "#/components/schemas/FLSchiedsrichter"
-          }
-        },
-        "required": [
-          "updated_document"
-        ],
-        "title": "FLSchiedsrichterWriteResponse",
         "type": "object"
       },
       "FLSchulform": {
@@ -15153,19 +15108,6 @@
         "title": "FLSpielbestaetigungVorschlagPayload",
         "type": "object"
       },
-      "FLSpielbestaetigungWriteResponse": {
-        "description": "Shared by the administrator's two presses, both answering the row as it now stands.",
-        "properties": {
-          "updated_document": {
-            "$ref": "#/components/schemas/FLSpielbestaetigung"
-          }
-        },
-        "required": [
-          "updated_document"
-        ],
-        "title": "FLSpielbestaetigungWriteResponse",
-        "type": "object"
-      },
       "FLSpielbestaetigungenListResponse": {
         "description": "The rows newest first, closed ones included.",
         "properties": {
@@ -15980,19 +15922,6 @@
         "title": "FLSpielort",
         "type": "object"
       },
-      "FLSpielortWriteResponse": {
-        "description": "Shared by delete and reactivate — both answer with the venue as it now stands.",
-        "properties": {
-          "updated_document": {
-            "$ref": "#/components/schemas/FLSpielort"
-          }
-        },
-        "required": [
-          "updated_document"
-        ],
-        "title": "FLSpielortWriteResponse",
-        "type": "object"
-      },
       "FLSpielorteListResponse": {
         "properties": {
           "spielorte": {
@@ -16126,14 +16055,10 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Spieltag Id",
             "type": "string"
-          },
-          "updated_document": {
-            "$ref": "#/components/schemas/FLSpieltag"
           }
         },
         "required": [
-          "spieltag_id",
-          "updated_document"
+          "spieltag_id"
         ],
         "title": "FLSpieltagWriteResponse",
         "type": "object"
@@ -16588,91 +16513,6 @@
         "title": "FLTeamMembership",
         "type": "object"
       },
-      "FLTeamRecord": {
-        "description": "The club document as it is STORED, and what the write endpoints echo.\n\nThe season-scoped fields would mean re-running the team pipeline, whose junction join is strict\n-- and a club being created holds no row yet.",
-        "properties": {
-          "address": {
-            "$ref": "#/components/schemas/FLAddress"
-          },
-          "description": {
-            "maxLength": 4096,
-            "title": "Description",
-            "type": "string"
-          },
-          "full_name": {
-            "minLength": 1,
-            "title": "Full Name",
-            "type": "string"
-          },
-          "id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Id",
-            "type": "string"
-          },
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
-          },
-          "name": {
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "schulform": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSchulform"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "shorthand": {
-            "pattern": "^[A-Z]{3}$",
-            "title": "Shorthand",
-            "type": "string"
-          },
-          "version": {
-            "default": 0,
-            "title": "Version",
-            "type": "integer"
-          },
-          "website_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Website Url"
-          }
-        },
-        "required": [
-          "name",
-          "shorthand",
-          "description",
-          "full_name",
-          "schulform",
-          "website_url",
-          "address",
-          "id",
-          "inactive_since",
-          "version"
-        ],
-        "title": "FLTeamRecord",
-        "type": "object"
-      },
       "FLTeamSitz": {
         "description": "One seat as the people beside it see it: who holds it and whether they answered their link.\n\nNo address, telephone number or birthdate: the contact page promises that only administrators\nsee those (`fl_backend/app/shared/einwilligung.py :: FASSUNGEN`).",
         "properties": {
@@ -16886,19 +16726,6 @@
           "memberships"
         ],
         "title": "FLTeamWithMemberships",
-        "type": "object"
-      },
-      "FLTeamWriteResponse": {
-        "description": "What the retire and reactivate endpoints echo. `FLTeamRecord`, for the reason stated on it.",
-        "properties": {
-          "updated_document": {
-            "$ref": "#/components/schemas/FLTeamRecord"
-          }
-        },
-        "required": [
-          "updated_document"
-        ],
-        "title": "FLTeamWriteResponse",
         "type": "object"
       },
       "FLTeamsGroupedResponse": {
@@ -23022,14 +22849,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLPatchSaisonResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -24148,14 +23968,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSchiedsrichterWriteResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -25764,14 +25577,7 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungWriteResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -25839,14 +25645,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungWriteResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -28137,14 +27936,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielortWriteResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -28368,14 +28160,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielortWriteResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -29584,14 +29369,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLTeamWriteResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {
@@ -29845,14 +29623,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLTeamWriteResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "400": {

@@ -291,14 +291,9 @@ class FLPostSaisonResponse(BaseAPIResponse):
     created_id: str
 
 
-class FLPatchSaisonResponse(BaseAPIResponse):
-    updated_document: FLSaison
-
-
 class FLActivateSaisonResponse(BaseAPIResponse):
-    """The season now active, plus how many were moved off it -- normally exactly one."""
+    """How many seasons the activation moved off `active` -- normally exactly one."""
 
-    updated_document: FLSaison
     deactivated: int
 
 

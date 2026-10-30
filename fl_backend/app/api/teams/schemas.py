@@ -731,18 +731,11 @@ class FLTeamsSingleResponse(BaseAPIResponse):
 
 
 class FLPatchTeamResponse(BaseAPIResponse):
-    updated_document: FLTeamRecord
     # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently.
     fanned_out_to_spiele: int
     # Reported for the same reason, and separately: it is scoped to the seasons that are not `past`,
     # so zero means the club holds no row in one of those -- every season closed, or none entered.
     fanned_out_to_saison_teams: int
-
-
-class FLTeamWriteResponse(BaseAPIResponse):
-    """What the retire and reactivate endpoints echo. `FLTeamRecord`, for the reason stated on it."""
-
-    updated_document: FLTeamRecord
 
 
 class FLSaisonTeamResponse(BaseAPIResponse):

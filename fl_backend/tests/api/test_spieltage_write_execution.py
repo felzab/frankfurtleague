@@ -104,9 +104,9 @@ def on_a_database(url: str, body: Body) -> Any:
 
 
 async def move_the_seasons_end(database: AsyncDatabase, end_date: str) -> Any:
-    """Through `PATCH /saisons`, whose span refusal judges spans it reads out of `spieltage` itself."""
+    """Through `PATCH /saisons`, whose span refusal judges spans it reads out of `spieltage` itself; the season as stored after."""
 
-    return await patch_saison(
+    await patch_saison(
         saison_id=SAISON_ID,
         saison_data=FLPatchSaisonPayload(
             start_date=SAISON_START, end_date=end_date, rules=FLSaisonRules.model_validate(RULES), bewerbung=None, registrierung=None
@@ -120,11 +120,13 @@ async def move_the_seasons_end(database: AsyncDatabase, end_date: str) -> Any:
         today=SAISON_START,
     )
 
+    return await database.saisons.find_one({"_id": SAISON_ID})
+
 
 async def re_date(database: AsyncDatabase, spieltag_id: ObjectId, *, beginn: str, ende: str) -> Any:
-    """The whole of `PATCH /spieltage/{spieltag_id}`: the payload carries the span and nothing else."""
+    """The whole of `PATCH /spieltage/{spieltag_id}`, the payload carrying the span and nothing else; the matchday as stored after."""
 
-    return await patch_spieltag(
+    await patch_spieltag(
         spieltag_id=spieltag_id,
         spieltag_data=FLPatchSpieltagPayload(beginn=beginn, ende=ende),
         spieltage_collection=database.spieltage,
@@ -132,6 +134,8 @@ async def re_date(database: AsyncDatabase, spieltag_id: ObjectId, *, beginn: str
         spiele_collection=database.spiele,
         db=database.client,
     )
+
+    return await database.spieltage.find_one({"_id": spieltag_id})
 
 
 class TestASeasonKeepsCoveringTheMatchdaysItStores:
@@ -157,47 +161,7 @@ class TestASeasonKeepsCoveringTheMatchdaysItStores:
 
         response = on_a_database(mongo_replica_set_url, body)
 
-        assert response.updated_document.end_date == "2026-06-25"
-
-
-class TestAWriteEchoesTheMatchdayItChanged:
-    """`anzahl_spiele` is on no document, so the write has to derive it rather than read the stored row back."""
-
-    def test_a_re_dated_matchday_is_echoed_with_its_derived_count(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> Any:
-            return await re_date(database, SPIELTAG_OID, beginn=SPIELTAG_BEGINN, ende="2026-06-22")
-
-        response = on_a_database(mongo_replica_set_url, body)
-
-        assert response.updated_document.ende == "2026-06-22"
-        assert response.updated_document.anzahl_spiele == GRUPPENPHASE_MATCHES
-
-    def test_the_count_follows_the_matchdays_own_phase(self, mongo_replica_set_url: str):
-        """Two phases, two figures: an echo answering a constant would be right for the Gruppenphase alone."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            await database.spieltage.insert_one(spieltag_document(_id=FINALE_OID, saison_phase="finale"))
-
-            return await re_date(database, FINALE_OID, beginn=SPIELTAG_BEGINN, ende="2026-06-22")
-
-        response = on_a_database(mongo_replica_set_url, body)
-
-        assert response.updated_document.saison_phase == "finale"
-        assert response.updated_document.anzahl_spiele == FINALE_MATCHES
-
-    def test_a_stored_count_left_over_from_before_is_ignored(self, mongo_replica_set_url: str):
-        """`extra="ignore"` validates such a document either way, so a pass-through would look correct wherever the season never changed."""
-
-        stale_oid = ObjectId("6890a1b2c3d4e5f607300002")
-
-        async def body(database: AsyncDatabase) -> Any:
-            await database.spieltage.insert_one(spieltag_document(_id=stale_oid, anzahl_spiele=99, position=2))
-
-            return await re_date(database, stale_oid, beginn=SPIELTAG_BEGINN, ende=SPIELTAG_ENDE)
-
-        response = on_a_database(mongo_replica_set_url, body)
-
-        assert response.updated_document.anzahl_spiele == GRUPPENPHASE_MATCHES
+        assert response["end_date"] == "2026-06-25"
 
 
 class TestAMatchdayKeepsCoveringItsFixtures:
@@ -230,7 +194,7 @@ class TestAMatchdayKeepsCoveringItsFixtures:
 
         response = on_a_database(mongo_replica_set_url, body)
 
-        assert response.updated_document.ende == SPIELTAG_BEGINN
+        assert response["ende"] == SPIELTAG_BEGINN
 
 
 class TestAMatchdayNeverBeginsBeforeItsPredecessor:
@@ -300,7 +264,7 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 
         response = on_a_database(mongo_replica_set_url, body)
 
-        assert response.updated_document.beginn == AFTER_THE_NEIGHBOUR
+        assert response["beginn"] == AFTER_THE_NEIGHBOUR
 
     def test_an_undated_neighbour_is_stepped_over_for_the_next_dated_one(self, mongo_replica_set_url: str):
         """A drawn matchday is undated, so stopping at the adjacent position would go blind for most of a phase being dated."""
@@ -367,4 +331,4 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
 
         response = on_a_database(mongo_replica_set_url, body)
 
-        assert response.updated_document.beginn == AFTER_THE_NEIGHBOUR
+        assert response["beginn"] == AFTER_THE_NEIGHBOUR

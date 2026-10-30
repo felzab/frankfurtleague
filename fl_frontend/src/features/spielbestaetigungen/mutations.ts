@@ -15,7 +15,6 @@ import type {
   FLSpielbestaetigungSchiedsrichterAntwortPayload,
   FLSpielbestaetigungSchiedsrichterAntwortResponse,
   FLSpielbestaetigungSweepResponse,
-  FLSpielbestaetigungWriteResponse,
   FLSweepSaisonsResponse,
   FLTokenPayload,
 } from "@/core/generated/client/types";
@@ -56,13 +55,10 @@ export async function postSpielbestaetigungSweep(saisonId: string): Promise<FLSp
   return spielbestaetigungenSweepSpielbestaetigungen(saisonId);
 }
 
-export async function eintragenSpielbestaetigung({
-  id,
-  ...fields
-}: FLSpielbestaetigungEintragenPayload): Promise<FLSpielbestaetigungWriteResponse> {
+export async function eintragenSpielbestaetigung({ id, ...fields }: FLSpielbestaetigungEintragenPayload): Promise<void> {
   return spielbestaetigungenEintragenSpielbestaetigung(id, fields);
 }
 
-export async function verwerfenSpielbestaetigung({ id }: FLSpielbestaetigungVerwerfenPayload): Promise<FLSpielbestaetigungWriteResponse> {
+export async function verwerfenSpielbestaetigung({ id }: FLSpielbestaetigungVerwerfenPayload): Promise<void> {
   return spielbestaetigungenVerwerfenSpielbestaetigung(id);
 }

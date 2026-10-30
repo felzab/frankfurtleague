@@ -22,7 +22,6 @@ from app.api.schiedsrichter.admin_router import (
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLSchiedsrichterFilterParams,
-    FLSchiedsrichterWriteResponse,
 )
 from app.api.schiedsrichter.services import (
     build_booked_image_filter,
@@ -412,7 +411,7 @@ async def call_reactivation(database: AsyncDatabase, client: AsyncMongoClient, s
     )
 
 
-async def call_retirement(database: AsyncDatabase, client: AsyncMongoClient, *, today: str) -> FLSchiedsrichterWriteResponse:
+async def call_retirement(database: AsyncDatabase, client: AsyncMongoClient, *, today: str) -> None:
     """Every seeded fixture of this referee is PLAYED, so `find_referee_retire_refusal` refuses nothing and a case below fails on the date."""
 
     return await delete_schiedsrichter(
@@ -664,9 +663,11 @@ def test_an_ordinary_retired_referee_is_still_brought_back(mongo_replica_set_url
         await database[Collection.SCHIEDSRICHTER].update_one(
             {"_id": OTHER_SCHIEDSRICHTER_OID}, {"$set": {"inactive_since": AN_EARLIER_RETIREMENT}}
         )
-        response = await call_reactivation(database, client, OTHER_SCHIEDSRICHTER_OID)
+        await call_reactivation(database, client, OTHER_SCHIEDSRICHTER_OID)
 
-        return response.updated_document.inactive_since
+        stored = await database[Collection.SCHIEDSRICHTER].find_one({"_id": OTHER_SCHIEDSRICHTER_OID})
+        assert stored is not None
+        return stored["inactive_since"]
 
     assert on_a_league(mongo_replica_set_url, body) is None
 

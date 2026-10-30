@@ -350,8 +350,28 @@ async def refuse_writes_to_spiele(database: AsyncDatabase, jsonschema: Mapping[s
     await database.command("collMod", Collection.SPIELE.value, validator={"$jsonSchema": jsonschema}, validationLevel="strict")
 
 
+def renamed(
+    url: str, rename: Callable[..., Awaitable[Any]], collection: Collection, record_id: ObjectId
+) -> tuple[Any, Mapping[str, Any], dict[int, Mapping[str, Any]]]:
+    """The answer, the renamed record as stored, which the answer does not carry, and the fixtures, from one rename."""
+
+    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+        response = await rename(database, client, **{_ID_PARAMETER[collection]: record_id})
+
+        return response, (await stored_entities(database, collection))[record_id], await stored_fixtures(database)
+
+    return on_a_database(url, body)
+
+
+_ID_PARAMETER: Mapping[Collection, str] = {
+    Collection.SPIELORTE: "spielort_id",
+    Collection.SCHIEDSRICHTER: "schiedsrichter_id",
+    Collection.TEAMS: "team_id",
+}
+
+
 def after_renaming_the_venue(url: str, **overrides: Any) -> tuple[FLPatchSpielortResponse, dict[int, Mapping[str, Any]]]:
-    """The response and the whole collection together: one seeded database serves the echo and the stored copies both."""
+    """The response and the whole collection together: one seeded database serves the answer and the stored copies both."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         response = await rename_the_venue(database, client, **overrides)
@@ -396,10 +416,10 @@ class TestAVenueRenameReachesTheFixturesThatEmbedIt:
     def test_the_maps_link_is_rewritten_alongside_the_name(self, mongo_replica_set_url: str):
         """A stale link carries the old search string, which finds the wrong place rather than nothing."""
 
-        response, fixtures = after_renaming_the_venue(mongo_replica_set_url)
+        _, venue, fixtures = renamed(mongo_replica_set_url, rename_the_venue, Collection.SPIELORTE, SPIELORT_OID)
 
         for spiel_nr in AT_THE_VENUE:
-            assert fixtures[spiel_nr]["ort"]["maps_link"] == response.updated_document.maps_link
+            assert fixtures[spiel_nr]["ort"]["maps_link"] == venue["maps_link"]
             assert fixtures[spiel_nr]["ort"]["maps_link"] != seeded_maps_link(VENUE_NAMES[SPIELORT_OID])
 
     def test_each_fixture_keeps_the_rent_agreed_for_it(self, mongo_replica_set_url: str):
@@ -431,9 +451,9 @@ class TestTheVenueFanOutReportsWhatItRewrote:
     def test_a_venue_no_fixture_embeds_reports_none(self, mongo_replica_set_url: str):
         """The venue itself is asserted on too, or the zero would also be what a patch that reached nothing reports."""
 
-        response, fixtures = after_renaming_the_venue(mongo_replica_set_url, spielort_id=UNUSED_SPIELORT_OID)
+        response, venue, fixtures = renamed(mongo_replica_set_url, rename_the_venue, Collection.SPIELORTE, UNUSED_SPIELORT_OID)
 
-        assert response.updated_document.name == RENAMED_VENUE
+        assert venue["name"] == RENAMED_VENUE
         assert response.fanned_out_to_spiele == 0
         assert fixtures[AT_THE_VENUE[0]]["ort"]["name"] == VENUE_NAMES[SPIELORT_OID]
 
@@ -489,9 +509,9 @@ class TestTheRefereeFanOutReportsWhatItRewrote:
         assert response.fanned_out_to_spiele == len(WITH_THE_REFEREE)
 
     def test_a_referee_no_fixture_embeds_reports_none(self, mongo_replica_set_url: str):
-        response, fixtures = after_renaming_the_referee(mongo_replica_set_url, schiedsrichter_id=UNUSED_SCHIEDSRICHTER_OID)
+        response, referee, fixtures = renamed(mongo_replica_set_url, rename_the_referee, Collection.SCHIEDSRICHTER, UNUSED_SCHIEDSRICHTER_OID)
 
-        assert response.updated_document.name == RENAMED_REFEREE
+        assert referee["name"] == RENAMED_REFEREE
         assert response.fanned_out_to_spiele == 0
         assert fixtures[WITH_THE_REFEREE[0]]["schiedsrichter"]["name"] == REFEREE_NAMES[SCHIEDSRICHTER_OID]
 
@@ -606,9 +626,9 @@ class TestTheClubFanOutReportsWhatItRewrote:
     def test_the_count_sums_both_passes(self, mongo_replica_set_url: str):
         """A club never plays itself, so no fixture is counted by both passes and the sum is a count of fixtures."""
 
-        response, _, _ = after_renaming_the_club(mongo_replica_set_url)
+        response, club, _ = renamed(mongo_replica_set_url, rename_the_club, Collection.TEAMS, TEAM_OID)
 
-        assert response.updated_document.name == RENAMED_CLUB
+        assert club["name"] == RENAMED_CLUB
         assert response.fanned_out_to_spiele == len(RENAMED_SIDES)
 
     def test_the_junction_count_is_its_own_figure(self, mongo_replica_set_url: str):
@@ -622,9 +642,9 @@ class TestTheClubFanOutReportsWhatItRewrote:
     def test_a_club_entered_in_no_season_reports_none_for_the_junction(self, mongo_replica_set_url: str):
         """The club document and its fixtures are asserted on too, or the zero would also be what a patch that reached nothing reports."""
 
-        response, _, _ = after_renaming_the_club(mongo_replica_set_url, team_id=THIRD_TEAM_OID)
+        response, club, _ = renamed(mongo_replica_set_url, rename_the_club, Collection.TEAMS, THIRD_TEAM_OID)
 
-        assert response.updated_document.name == RENAMED_CLUB
+        assert club["name"] == RENAMED_CLUB
         assert response.fanned_out_to_saison_teams == 0
         assert response.fanned_out_to_spiele > 0
 

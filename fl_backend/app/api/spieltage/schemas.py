@@ -80,4 +80,3 @@ class FLSpieltageSingleResponse(BaseAPIResponse):
 
 class FLSpieltagWriteResponse(BaseAPIResponse):
     spieltag_id: CustomObjectId
-    updated_document: FLSpieltag

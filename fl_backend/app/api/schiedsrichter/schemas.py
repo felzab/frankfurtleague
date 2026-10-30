@@ -120,7 +120,6 @@ class FLPostSchiedsrichterResponse(BaseAPIResponse):
 
 
 class FLPatchSchiedsrichterResponse(BaseAPIResponse):
-    updated_document: FLSchiedsrichter
     # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently.
     fanned_out_to_spiele: int
     # Null unless the save moved an UNCONFIRMED referee's address, which retires the link posted to
@@ -131,7 +130,6 @@ class FLPatchSchiedsrichterResponse(BaseAPIResponse):
 class FLSchiedsrichterReactivateResponse(BaseAPIResponse):
     """The reactivation's answer: its own rather than the retire's, being the one of the pair that can mint."""
 
-    updated_document: FLSchiedsrichter
     # Null unless the row came back unanswered and holding an address a link can go to.
     bestaetigung: FLSchiedsrichterMint | None = None
 
@@ -179,12 +177,6 @@ class FLSchiedsrichterBestaetigungResponse(BaseAPIResponse):
     umfang: FLEinwilligungUmfang
     medien: bool
     bestaetigt_am: CustomDateString
-
-
-class FLSchiedsrichterWriteResponse(BaseAPIResponse):
-    """The referee as a retirement leaves them."""
-
-    updated_document: FLSchiedsrichter
 
 
 class FLSchiedsrichterSingleResponse(BaseAPIResponse):

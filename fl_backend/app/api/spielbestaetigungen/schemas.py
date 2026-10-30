@@ -235,12 +235,6 @@ class FLSpielbestaetigungEintragenPayload(BaseModel):
     begruendung: CustomSpielbestaetigungBegruendung
 
 
-class FLSpielbestaetigungWriteResponse(BaseAPIResponse):
-    """Shared by the administrator's two presses, both answering the row as it now stands."""
-
-    updated_document: FLSpielbestaetigung
-
-
 # --- The LINK. The token is the whole credential, so both endpoints are base-tier and every payload
 # forbids an undeclared key. Nothing below names a person, a seat's address or a hash
 # (`READ-ANSETZUNG-001`).

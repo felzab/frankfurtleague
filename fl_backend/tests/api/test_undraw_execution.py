@@ -14,7 +14,6 @@ from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
     FLGenerateSpielplanResponse,
     FLPatchSaisonPayload,
-    FLPatchSaisonResponse,
     FLSaisonRules,
     FLUndrawSpielplanResponse,
 )
@@ -197,7 +196,7 @@ async def call_undraw(
     )
 
 
-async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> FLPatchSaisonResponse:
+async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> None:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it moves."""
 
     seeded = saison_document()
@@ -908,7 +907,7 @@ class ReopenedSeason:
 
     patch_refused: str
     entry_refused: str
-    widened: FLPatchSaisonResponse
+    widened_rules: dict[str, Any]
     entered: FLSaisonTeamResponse
     gruppe_a_holds: int
 
@@ -933,11 +932,14 @@ class TestWhatAnUndrawReopens:
                 await call_entry(database)
 
             await call_undraw(database, client)
+            await call_patch_rules(database, teams_per_group=WIDER_PER_GROUP)
+            widened = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
+            assert widened is not None
 
             return ReopenedSeason(
                 patch_refused=refused_patch.value.error_code,
                 entry_refused=refused_entry.value.error_code,
-                widened=await call_patch_rules(database, teams_per_group=WIDER_PER_GROUP),
+                widened_rules=widened["rules"],
                 entered=await call_entry(database),
                 gruppe_a_holds=await database[Collection.SAISON_TEAMS].count_documents({"saison_id": SAISON_ID, "gruppe": "A"}),
             )
@@ -946,7 +948,7 @@ class TestWhatAnUndrawReopens:
 
         assert reopened.patch_refused == Code.RULES_SHAPE_AFTER_SPIELPLAN
         assert reopened.entry_refused == Code.ENTRY_GRUPPE_FULL
-        # Read off the stored document the patch echoes, so a rule refused after the write cannot pass this.
-        assert reopened.widened.updated_document.rules.teams_per_group == WIDER_PER_GROUP
+        # Read off the stored document, so a rule refused after the write cannot pass this.
+        assert reopened.widened_rules["teams_per_group"] == WIDER_PER_GROUP
         assert (reopened.entered.team_id, reopened.entered.gruppe) == (NEWCOMER_OID, "A")
         assert reopened.gruppe_a_holds == TEAMS_PER_GROUP + 1

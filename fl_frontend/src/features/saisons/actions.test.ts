@@ -51,10 +51,9 @@ const TEAM1_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
 const TEAM2_ID = "68c1f0a2b3c4d5e6f7a8b9c1";
 
 /** Each write's answer as the backend sends it where the write landed. */
-function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
-  const stored = { ...SAISON, status: "future", schedule: [], spielplan: null };
+function landed({ endpoint, method }: ApiCall): Record<string, unknown> | null {
   if (endpoint === "/saisons") return { created_id: SAISON_ID };
-  if (endpoint.endsWith("/activate")) return { updated_document: stored, deactivated: 1 };
+  if (endpoint.endsWith("/activate")) return { deactivated: 1 };
   if (endpoint.endsWith("/gruppen/swap")) {
     return {
       saison_id: SAISON_ID,
@@ -71,7 +70,8 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
       ? { ...counts, watermark_cleared: true }
       : { ...counts, generiert_am: "2026-03-01", removed_spieltage: 3, removed_spiele: 12 };
   }
-  return { updated_document: stored };
+  // The rules' save, which answers 204 and no body.
+  return null;
 }
 
 describe("the season's writes", () => {

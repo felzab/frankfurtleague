@@ -7,7 +7,6 @@ import { deleteSpielort, patchSpielort, postSpielort, reactivateSpielort } from 
 import { mapNameRefusal, mapRetireRefusal } from "./refusals";
 import { FLPatchSpielortPayloadSchema, FLPostSpielortPayloadSchema, FLSpielortKeyPayloadSchema } from "./schemas";
 
-import type { FLSpielort } from "@/core/generated/client/types";
 import type { FLSpielortPayloadDraft } from "@/features/spielorte/schemas";
 import type { ActionResult } from "@/shared/types/types";
 import type { FLPatchSpielortPayload, FLPostSpielortPayload, FLSpielortKeyPayload } from "./schemas";
@@ -44,7 +43,7 @@ export async function postSpielortAction(
 export async function patchSpielortAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSpielortPayloadDraft<FLPatchSpielortPayload>,
-): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
+): Promise<ActionResult> {
   return runAdminMutation("patchSpielortAction", async () => {
     const validated = FLPatchSpielortPayloadSchema.safeParse(rawPayload);
 
@@ -57,9 +56,8 @@ export async function patchSpielortAction(
     }
 
     // The refusal belongs on the box that holds the name, not on the error page.
-    let patchOperation;
     try {
-      patchOperation = await patchSpielort(validated.data);
+      await patchSpielort(validated.data);
     } catch (error) {
       const refusal = mapNameRefusal(error);
       if (refusal) return refusalResult(refusal);
@@ -68,13 +66,12 @@ export async function patchSpielortAction(
 
     return {
       success: true,
-      updated_document: patchOperation.updated_document,
       message: "Spielort bearbeitet",
     };
   });
 }
 
-export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
+export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Promise<ActionResult> {
   return runAdminMutation("deleteSpielortAction", async () => {
     const validated = FLSpielortKeyPayloadSchema.safeParse(rawPayload);
 
@@ -87,9 +84,8 @@ export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Pr
     }
 
     // The refusal belongs in the dialog rather than on the error page.
-    let patchOperation;
     try {
-      patchOperation = await deleteSpielort(validated.data);
+      await deleteSpielort(validated.data);
     } catch (error) {
       const refusal = mapRetireRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
@@ -98,7 +94,6 @@ export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Pr
 
     return {
       success: true,
-      updated_document: patchOperation.updated_document,
       message: "Seine Spiele bleiben erhalten.",
     };
   });
@@ -109,7 +104,7 @@ export async function deleteSpielortAction(rawPayload: FLSpielortKeyPayload): Pr
  * the admin's own list, which is uncached. The endpoint refuses nothing — a venue coming back takes
  * no fixtures with it.
  */
-export async function reactivateSpielortAction(rawPayload: FLSpielortKeyPayload): Promise<ActionResult<{ updated_document?: FLSpielort }>> {
+export async function reactivateSpielortAction(rawPayload: FLSpielortKeyPayload): Promise<ActionResult> {
   return runAdminMutation("reactivateSpielortAction", async () => {
     const validated = FLSpielortKeyPayloadSchema.safeParse(rawPayload);
 
@@ -121,10 +116,9 @@ export async function reactivateSpielortAction(rawPayload: FLSpielortKeyPayload)
       };
     }
 
-    const reactivateOperation = await reactivateSpielort(validated.data);
+    await reactivateSpielort(validated.data);
     return {
       success: true,
-      updated_document: reactivateOperation.updated_document,
       message: "Spielort reaktiviert",
     };
   });

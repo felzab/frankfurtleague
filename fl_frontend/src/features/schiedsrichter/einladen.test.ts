@@ -75,11 +75,10 @@ beforeEach(() => {
   // A DIFFERENT address from the one `ENTWURF` carries: the save writes the correction and answers it back, so a
   // sentence naming the payload's address instead would be visible here.
   save = () => ({
-    updated_document: stored("korrigiert@example.de"),
     fanned_out_to_spiele: 0,
     bestaetigung: owed("korrigiert@example.de"),
   });
-  reactivate = () => ({ updated_document: stored("anna@example.de"), bestaetigung: owed("anna@example.de") });
+  reactivate = () => ({ bestaetigung: owed("anna@example.de") });
 });
 
 describe("the re-send the editor's panel presses", () => {
@@ -226,7 +225,6 @@ describe("what the save hands the editor about the link it owed", () => {
 
   it("hands over no sentence where the save owed no link", async () => {
     save = () => ({
-      updated_document: stored("anna@example.de"),
       fanned_out_to_spiele: 0,
       bestaetigung: null,
     });
@@ -247,7 +245,7 @@ describe("the reactivation of an unanswered referee", () => {
   });
 
   it("says only that it came back where the row came back unasked", async () => {
-    reactivate = () => ({ updated_document: stored("anna@example.de"), bestaetigung: null });
+    reactivate = () => ({ bestaetigung: null });
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 

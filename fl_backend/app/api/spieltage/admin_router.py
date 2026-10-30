@@ -8,7 +8,6 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.saisons.crud import pull_saison_id_and_rules
-from app.api.saisons.schemas import FLSaisonRules
 from app.api.spieltage.schemas import (
     FLPatchSpieltagPayload,
     FLSpieltag,
@@ -178,15 +177,13 @@ async def patch_spieltag(
     to its season's, to the days its own fixtures stand on, and its `beginn` to the order its phase is dated in.
     """
 
-    async def redate_the_matchday(session: AsyncClientSession) -> tuple[Mapping[str, Any], FLSaisonRules]:
+    async def redate_the_matchday(session: AsyncClientSession) -> None:
         """Judge, then move the span. Everything judged is read in-session, the phase's neighbours inside `_refuse_an_out_of_order_beginn`."""
 
         stored_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id}, session=session)
 
-        # Read for both halves of the write: the season bounds the span, and its `rules` are what the
-        # echo's `anzahl_spiele` derives from.
+        # The season bounds the span.
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": stored_raw["saison_id"]}, session=session)
-        rules = FLSaisonRules.model_validate(saison_raw["rules"])
 
         # Undated fixtures are filtered out rather than passed as nulls: one constrains nothing.
         fixture_dates = [
@@ -213,24 +210,19 @@ async def patch_spieltag(
             session=session,
         )
 
-        updated_raw = await patch_one_in_db(
+        await patch_one_in_db(
             collection=spieltage_collection,
             db_filter={"_id": spieltag_id},
             update={"$set": spieltag_data.model_dump(mode="json", exclude={"version"})},
             expected_version=spieltag_data.version,
             session=session,
-            return_document=ReturnDocument.AFTER,
+            return_document=ReturnDocument.BEFORE,
         )
-
-        return updated_raw, rules
 
     # One transaction over the span and the season write inside `_refuse_an_out_of_order_beginn`,
     # which is what makes two matchdays of one phase contend. `with_transaction` is safe to retry,
     # the callback re-reading its neighbours.
     async with transaction_session(db) as session:
-        updated_raw, rules = await session.with_transaction(redate_the_matchday)
+        await session.with_transaction(redate_the_matchday)
 
-    return FLSpieltagWriteResponse(
-        spieltag_id=spieltag_id,
-        updated_document=FLSpieltag.model_validate(with_expected_matches(updated_raw, rules)),
-    )
+    return FLSpieltagWriteResponse(spieltag_id=spieltag_id)

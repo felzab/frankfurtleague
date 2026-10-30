@@ -1,5 +1,4 @@
 import { doubleActionRequest, loggedLines } from "@/test-support/actionDoubles.ts";
-import { saisonRules } from "@/test-support/saisonRules.ts";
 import { timeoutSignalsOnFakeTimers } from "@/test-support/timeoutSignals.ts";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -38,20 +37,7 @@ const LEFT_FOR_THE_CUT_MS = 12000;
 
 const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 
-const AKTIVIERT = {
-  updated_document: {
-    id: SAISON_ID,
-    start_date: "2026-03-01",
-    end_date: "2026-07-01",
-    rules: saisonRules(),
-    bewerbung: null,
-    registrierung: null,
-    status: "active",
-    schedule: [],
-    spielplan: null,
-  },
-  deactivated: 1,
-};
+const AKTIVIERT = { deactivated: 1 };
 
 const ERSTER_LAUF = {
   abgeschlossene_saison_id: "2025",

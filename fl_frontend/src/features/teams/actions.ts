@@ -31,7 +31,6 @@ import type {
   FLReplaceSaisonTeamPayload,
   FLReplaceSaisonTeamResponse,
   FLSaisonTeamResponse,
-  FLTeamRecord,
 } from "@/core/generated/client/types";
 import type { ActionFailure, ActionResult } from "@/shared/types/types";
 import type { SaisonTeamEnterDraft, SaisonTeamMembershipDraft, TeamCreateDraft } from "./types";
@@ -86,7 +85,6 @@ export async function postTeamAction(
 
 export async function patchTeamAction(rawPayload: FLPatchTeamPayload & { id: string }): Promise<
   ActionResult<{
-    updated_document?: FLTeamRecord;
     // Both counts, because both halves of the fan-out fail silently and each answers a different
     // question — one about the seasons a club is entered in, the other about the matches it stands on.
     fanned_out_to_spiele?: number;
@@ -112,7 +110,6 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload & { id: str
     }
     return {
       success: true,
-      updated_document: patchOperation.updated_document,
       fanned_out_to_spiele: patchOperation.fanned_out_to_spiele,
       fanned_out_to_saison_teams: patchOperation.fanned_out_to_saison_teams,
       message: "Team bearbeitet",
@@ -120,7 +117,7 @@ export async function patchTeamAction(rawPayload: FLPatchTeamPayload & { id: str
   });
 }
 
-export async function deleteTeamAction(rawPayload: { id: string }): Promise<ActionResult<{ updated_document?: FLTeamRecord }>> {
+export async function deleteTeamAction(rawPayload: { id: string }): Promise<ActionResult> {
   return runAdminMutation("deleteTeamAction", async () => {
     const validated = FLDeleteTeamPayloadSchema.safeParse(rawPayload);
 
@@ -130,9 +127,8 @@ export async function deleteTeamAction(rawPayload: { id: string }): Promise<Acti
 
     // The backend refuses retiring a club entered in a running or planned season
     // (`retire_blocked`); the German answer names the rule rather than a generic conflict.
-    let deleteOperation;
     try {
-      deleteOperation = await deleteTeam(validated.data);
+      await deleteTeam(validated.data);
     } catch (error) {
       const refusal = mapRetireRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
@@ -140,13 +136,12 @@ export async function deleteTeamAction(rawPayload: { id: string }): Promise<Acti
     }
     return {
       success: true,
-      updated_document: deleteOperation.updated_document,
       message: "Seine Spiele und Saisons bleiben erhalten.",
     };
   });
 }
 
-export async function reactivateTeamAction(rawPayload: { id: string }): Promise<ActionResult<{ updated_document?: FLTeamRecord }>> {
+export async function reactivateTeamAction(rawPayload: { id: string }): Promise<ActionResult> {
   return runAdminMutation("reactivateTeamAction", async () => {
     const validated = FLReactivateTeamPayloadSchema.safeParse(rawPayload);
 
@@ -154,10 +149,9 @@ export async function reactivateTeamAction(rawPayload: { id: string }): Promise<
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    const reactivateOperation = await reactivateTeam(validated.data);
+    await reactivateTeam(validated.data);
     return {
       success: true,
-      updated_document: reactivateOperation.updated_document,
       message: "Team reaktiviert",
     };
   });
