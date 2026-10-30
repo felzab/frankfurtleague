@@ -6,7 +6,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstrai
 from app.api.registrierungen.schemas import FLRegistrierungAblehnungsgrund
 from app.api.teams.schemas import FLKontaktRolle
 from app.core.collections import Collection
-from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomStrippedNonEmptyString
+from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -46,6 +46,14 @@ class FLSperreDaten(BaseModel):
     gesperrt_bis_saison_id: str
 
 
+class FLSchiedsrichterBestaetigungDaten(BaseModel):
+    """A referee's confirmation link, owed by their entry, a corrected address, a re-send or their return."""
+
+    art: Literal["schiedsrichter_bestaetigung"]
+    # The link's last day, the one date the mail states.
+    frist: CustomDateString
+
+
 # --- The season's and the applications' mails.
 
 
@@ -71,7 +79,13 @@ class FLRegistrierungAbsageDaten(BaseModel):
 
 
 FLPostausgangDaten = Annotated[
-    FLAnmeldecodeDaten | FLPasskeyDaten | FLKontoLoeschungDaten | FLSperreDaten | FLRegistrierungLinkDaten | FLRegistrierungAbsageDaten,
+    FLAnmeldecodeDaten
+    | FLPasskeyDaten
+    | FLKontoLoeschungDaten
+    | FLSperreDaten
+    | FLSchiedsrichterBestaetigungDaten
+    | FLRegistrierungLinkDaten
+    | FLRegistrierungAbsageDaten,
     Field(discriminator="art"),
 ]
 
@@ -82,10 +96,12 @@ FLPostausgangArt = Literal[
     "passkey_geloescht",
     "konto_loeschung",
     "sperre",
+    "schiedsrichter_bestaetigung",
     "registrierung_bestaetigung",
     "registrierung_erinnerung",
     "registrierung_absage",
 ]
+
 
 _MEMBER_ARTEN = {art for member in get_args(get_args(FLPostausgangDaten)[0]) for art in get_args(member.model_fields["art"].annotation)}
 if set(get_args(FLPostausgangArt)) != _MEMBER_ARTEN:

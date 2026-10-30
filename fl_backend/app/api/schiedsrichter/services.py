@@ -159,6 +159,10 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRe
 # A test holds the two equal: parted, a bounce would be filed under a path no link is stored at.
 BESTAETIGUNG_FELD: Final = "bestaetigung"
 
+# Where the hand-out stores the hashes of the links it mints, and the address it mints them for.
+TOKEN_HASHES_PFAD: Final = f"{BESTAETIGUNG_FELD}.token_hashes"
+ADRESSE_PFAD: Final = "kontakt.email"
+
 EINWILLIGUNG_FELD: Final = "einwilligung"
 
 
@@ -168,20 +172,16 @@ def bestaetigung_frist_from(*, today: str) -> str:
     return days_after(day=today, days=SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)
 
 
-def compose_bestaetigung(*, token_hash: str, today: str) -> dict[str, Any]:
-    """The bookkeeping every mint writes: a live hash, handed out today, nobody reminded."""
+def compose_bestaetigung(*, today: str) -> dict[str, Any]:
+    """The bookkeeping every owed link writes: no hash until the hand-out mints one, owed today, nobody reminded."""
 
-    return {"token_hash": token_hash, "verschickt_am": today, "erinnert_am": None, "frist": bestaetigung_frist_from(today=today)}
+    return {"token_hashes": [], "verschickt_am": today, "erinnert_am": None, "frist": bestaetigung_frist_from(today=today)}
 
 
-def compose_mint_update(*, token_hash: str, today: str) -> dict[str, Any]:
-    """The WHOLE block, so the delivery state of the message the old link went out in goes with it.
+def compose_mint_update(*, today: str) -> dict[str, Any]:
+    """The WHOLE block, so every link the referee was sent before stops working at this write."""
 
-    A refusal recorded against a replaced address would otherwise hold the fresh link's referee
-    unreachable for ever.
-    """
-
-    return {BESTAETIGUNG_FELD: compose_bestaetigung(token_hash=token_hash, today=today)}
+    return {BESTAETIGUNG_FELD: compose_bestaetigung(today=today)}
 
 
 def compose_einwilligung(*, umfang: str, medien: bool, text_version: str, today: str) -> dict[str, Any]:
@@ -217,7 +217,7 @@ def compose_confirmation_update(*, geburtsdatum: str, umfang: str, medien: bool,
 def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
     """The hash alone finds the referee. No `inactive_since` term: a person retired after the mint still owns the answer they give."""
 
-    return {f"{BESTAETIGUNG_FELD}.token_hash": token_hash}
+    return {TOKEN_HASHES_PFAD: token_hash}
 
 
 def vorname_of(name: Any) -> str | None:
@@ -439,9 +439,9 @@ def find_bestaetigte_adresse_refusal(*, stored: Mapping[str, Any], payload_email
 
 
 def compose_korrektur_update(
-    *, stored: Mapping[str, Any], payload: Mapping[str, Any], payload_email: str, token_hash: str, today: str
+    *, stored: Mapping[str, Any], payload: Mapping[str, Any], payload_email: str, today: str
 ) -> tuple[dict[str, Any], bool]:
-    """The save's update, and whether it minted a fresh consent link.
+    """The save's update, and whether it owes a fresh consent link.
 
     A RETIRED unconfirmed referee's new address is stored and mailed nothing, and their old link
     goes, its mailbox replaced; the reactivation is what asks them.
@@ -455,7 +455,7 @@ def compose_korrektur_update(
 
     # An UNCONFIRMED referee's old link went to a mailbox nobody reads, and leaving it live is a
     # credential in the wrong inbox.
-    return {"$set": {**payload, **compose_mint_update(token_hash=token_hash, today=today)}}, True
+    return {"$set": {**payload, **compose_mint_update(today=today)}}, True
 
 
 def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:

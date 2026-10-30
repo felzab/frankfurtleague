@@ -3226,12 +3226,12 @@ export const getSchiedsrichterPostSchiedsrichterUrl = () => {
 };
 
 /**
- * Create a referee and mint their confirmation link.
+ * Create a referee and owe them their confirmation link.
  *
  * `inactive_since` is set to null here and is on no payload. **Entering a referee IS the
  * invitation**: the payload requires an email address, and there is no second press deciding
  * whether this person is asked, because a referee nobody asked is a name nobody consented to
- * publish. The raw token is answered once, for the caller to mail, and the row stores only its hash.
+ * publish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.
  *
  * Refused `REQ-SCHIEDSRICHTER-007` where the address given is on the ban list.
  * @summary Create a Schiedsrichter
@@ -3447,7 +3447,8 @@ export const getSchiedsrichterGetSchiedsrichterByIdUrl = (schiedsrichterId: stri
  *
  * Answers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a
  * lapsed link without reading a clock of its own; and the live change of the referee's address, which the address tool shows,
- * beside why the tool refuses it this administrator, null where it opens it.
+ * beside why the tool refuses it this administrator, null where it opens it. `zustellung` says what became of the last
+ * confirmation mail the referee was owed, null where none was.
  * @summary One Schiedsrichter
  */
 export const schiedsrichterGetSchiedsrichterById = async (
@@ -3469,9 +3470,9 @@ export const getSchiedsrichterPatchSchiedsrichterUrl = (schiedsrichterId: string
  *
  * Only the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.
  *
- * **A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one** in
- * `bestaetigung`, for the caller to mail to the new address: the old link was posted to a mailbox
- * nobody reads, and leaving it live is a credential in the wrong inbox.
+ * **A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the
+ * new address, named in `bestaetigung`: the old link was posted to a mailbox nobody reads, and
+ * leaving it live is a credential in the wrong inbox.
  *
  * **A CONFIRMED referee's address is refused here** (`REQ-SCHIEDSRICHTER-011`), retired or not: it is who signs in as the
  * person, and moves only through an address change: the address tool, `POST /adresswechsel`, or the person's own account page.
@@ -3517,12 +3518,9 @@ export const getSchiedsrichterEinladenSchiedsrichterUrl = (schiedsrichterId: str
 };
 
 /**
- * Mint a fresh confirmation link for this referee and answer the raw token once, for the caller to mail.
+ * Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.
  *
- * It replaces the whole block, so the previous link stops working at once and the delivery state
- * of the message that link went out in goes with it — a bounce recorded against a replaced address
- * would otherwise hold the fresh link's referee unreachable for ever. The deadline restarts from
- * today.
+ * It replaces the whole block, so the previous link stops working at once. The deadline restarts from today.
  *
  * Refused where the referee is retired (`REQ-SCHIEDSRICHTER-001`), where they have already
  * answered (`REQ-SCHIEDSRICHTER-004`), where they carry no email address
@@ -3552,8 +3550,8 @@ export const getSchiedsrichterReactivateSchiedsrichterUrl = (schiedsrichterId: s
 /**
  * Clear `inactive_since`, putting the referee back into the picker and every default read.
  *
- * **A retired referee who has not answered is minted a fresh link**, answered once for the caller
- * to mail: a retired referee's save stores a new address and mails nothing, so coming back is what
+ * **A retired referee who has not answered is owed a fresh link**, named in `bestaetigung`: a
+ * retired referee's save stores a new address and mails nothing, so coming back is what
  * asks them. A row holding no address a link can go to comes back unasked, and so does one whose
  * person has answered. Where a link is minted, an address on the ban list is refused
  * `REQ-SCHIEDSRICHTER-007` and the row stays retired, and one from a sign-in or confirmation older than

@@ -43,7 +43,7 @@ TOKEN_HASH = hash_token(RAW_TOKEN)
 
 AN_ADULTS_BIRTHDATE = "1984-05-09"
 
-LIVE_BLOCK: Mapping[str, Any] = compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)
+LIVE_BLOCK: Mapping[str, Any] = {**compose_bestaetigung(today=TODAY), "token_hashes": [TOKEN_HASH]}
 
 
 def confirmed(*, bestaetigt_am: str = TODAY) -> dict[str, Any]:
@@ -68,7 +68,7 @@ class TestTheStoredBlock:
     def test_the_lookup_is_the_hash_alone(self):
         """No `inactive_since` term: a person retired after the mint still owns the answer they give."""
 
-        assert build_token_filter(token_hash=TOKEN_HASH) == {f"{BESTAETIGUNG_FELD}.token_hash": TOKEN_HASH}
+        assert build_token_filter(token_hash=TOKEN_HASH) == {f"{BESTAETIGUNG_FELD}.token_hashes": TOKEN_HASH}
 
 
 class TestTheRecordTheConfirmationWrites:
@@ -139,12 +139,6 @@ class TestWhatALeakedLinkLearns:
 
         assert set(FLSchiedsrichterBestaetigungResponse.model_fields) == {"umfang", "medien", "bestaetigt_am"}
 
-    def test_the_mint_answers_the_address_the_link_was_minted_for(self):
-        """REQUIRED and not optional: a caller left to its own earlier read mails the credential to a mailbox a rival save has replaced."""
-
-        assert set(FLSchiedsrichterMint.model_fields) == {"token", "frist", "email"}
-        assert FLSchiedsrichterMint.model_fields["email"].is_required()
-
     @pytest.mark.parametrize(
         "model", [FLSchiedsrichterBestaetigungAnsichtResponse, FLSchiedsrichterBestaetigungResponse], ids=["ansicht", "antwort"]
     )
@@ -156,7 +150,7 @@ class TestWhatALeakedLinkLearns:
 
     @pytest.mark.parametrize("projection", [BESTAETIGUNG_ANSICHT_FIELDS, BESTAETIGUNG_ANTWORT_FIELDS], ids=["ansicht", "antwort"])
     def test_neither_projection_reaches_the_hash_the_filter_matched(self, projection: Mapping[str, int]):
-        assert f"{BESTAETIGUNG_FELD}.token_hash" not in projection
+        assert f"{BESTAETIGUNG_FELD}.token_hashes" not in projection
 
     def test_the_view_needs_no_key_to_patch_on(self):
         assert BESTAETIGUNG_ANSICHT_FIELDS["_id"] == 0
