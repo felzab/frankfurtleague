@@ -1075,8 +1075,9 @@ export const getBewerbungenPostEinwilligungUrl = () => {
  * Record one person's consent or decline for the seat their link opens, and for a second seat they hold.
  *
  * A decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who
- * refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing: `REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and
- * on a team's season row `REQ-KONTAKT-004` and `-006`.
+ * refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
+ * `REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and on a team's season row
+ * `REQ-KONTAKT-004` and `-006`.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
 export const bewerbungenPostEinwilligung = async (
@@ -1543,8 +1544,9 @@ export const getBewerbungenKorrigiereKontaktEmailUrl = (bewerbungId: string, sea
  * deadline restarts from today exactly as a re-send restarts it.
  *
  * The fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because
- * its notice could not arrive is a deletion candidate again once that mail is not refused. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this
- * write would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm
+ * its notice could not arrive is a deletion candidate again once that mail is not refused.
+ *
+ * Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this write would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm
  * — the mirrored seat included (`REQ-BEWERBUNG-011`) — on a seat holding another address than `bisherige_email`, the address the
  * caller's page showed, as after a Widerspruch and a reseat (`REQ-BEWERBUNG-021`), and on an address another contact person on this
  * application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming

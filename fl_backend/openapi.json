@@ -2703,23 +2703,12 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Verschickt Am",
             "type": "string"
-          },
-          "zustellung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLBewerbungZustellung"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "required": [
           "verschickt_am",
           "erinnert_am",
-          "frist",
-          "zustellung"
+          "frist"
         ],
         "title": "FLBestaetigung",
         "type": "object"
@@ -2921,7 +2910,7 @@
         "type": "object"
       },
       "FLBewerbungBestaetigung": {
-        "description": "One seat's confirmation bookkeeping as the triage reads it, without its link's hash.",
+        "description": "One seat's confirmation bookkeeping as the triage reads it, without its link's hashes.",
         "properties": {
           "abgelehnt_am": {
             "anyOf": [
@@ -19736,7 +19725,7 @@
     },
     "/api/v0/bewerbungen/einwilligung": {
       "post": {
-        "description": "Record one person's consent or decline for the seat their link opens, and for a second seat they hold.\n\nA decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who\nrefused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing: `REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and\non a team's season row `REQ-KONTAKT-004` and `-006`.",
+        "description": "Record one person's consent or decline for the seat their link opens, and for a second seat they hold.\n\nA decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who\nrefused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:\n`REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and on a team's season row\n`REQ-KONTAKT-004` and `-006`.",
         "operationId": "bewerbungen_post_einwilligung",
         "requestBody": {
           "content": {
@@ -21023,7 +21012,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email": {
       "post": {
-        "description": "Write a corrected address onto one seat and owe a fresh link there in the same transaction; the old link then opens nothing.\n\nThe only repair there is for a link the mail provider will not carry: everything else the school typed stays the\nrecord the decision is taken against. Where one person holds two seats both are corrected, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because\nits notice could not arrive is a deletion candidate again once that mail is not refused. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this\nwrite would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm\n— the mirrored seat included (`REQ-BEWERBUNG-011`) — on a seat holding another address than `bisherige_email`, the address the\ncaller's page showed, as after a Widerspruch and a reseat (`REQ-BEWERBUNG-021`), and on an address another contact person on this\napplication already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming\nno seat is a 404.",
+        "description": "Write a corrected address onto one seat and owe a fresh link there in the same transaction; the old link then opens nothing.\n\nThe only repair there is for a link the mail provider will not carry: everything else the school typed stays the\nrecord the decision is taken against. Where one person holds two seats both are corrected, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because\nits notice could not arrive is a deletion candidate again once that mail is not refused.\n\nRefused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this write would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm\n— the mirrored seat included (`REQ-BEWERBUNG-011`) — on a seat holding another address than `bisherige_email`, the address the\ncaller's page showed, as after a Widerspruch and a reseat (`REQ-BEWERBUNG-021`), and on an address another contact person on this\napplication already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming\nno seat is a 404.",
         "operationId": "bewerbungen_korrigiere_kontakt_email",
         "parameters": [
           {

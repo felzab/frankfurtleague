@@ -1200,7 +1200,6 @@ export interface FLBestaetigung {
   frist: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   verschickt_am: string;
-  zustellung: FLBewerbungZustellung | null;
 }
 
 export type FLBestaetigungZustand = (typeof FLBestaetigungZustand)[keyof typeof FLBestaetigungZustand];
@@ -1248,7 +1247,7 @@ export interface FLPostausgangLage {
 }
 
 /**
- * One seat's confirmation bookkeeping as the triage reads it, without its link's hash.
+ * One seat's confirmation bookkeeping as the triage reads it, without its link's hashes.
  */
 export interface FLBewerbungBestaetigung {
   abgelehnt_am: string | null;
