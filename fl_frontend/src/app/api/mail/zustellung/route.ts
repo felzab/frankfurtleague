@@ -92,14 +92,14 @@ function readOutboxEvent(raw: unknown): FLOutboxEventPayload | null {
   return null;
 }
 
-function signedByProvider(roh: string, headers: Record<string, string>): boolean {
+function signedByProvider(raw: string, headers: Record<string, string>): boolean {
   const secret = resendWebhookSecret();
   // Held by production alone, the one deployment the provider sends to, so a call anywhere else
   // carries nothing this deployment can verify.
   if (secret === undefined) return false;
 
   try {
-    new Webhook(secret).verify(roh, headers);
+    new Webhook(secret).verify(raw, headers);
     return true;
   } catch {
     return false;
@@ -113,11 +113,11 @@ function signedByProvider(roh: string, headers: Record<string, string>): boolean
 export async function POST(request: NextRequest) {
   // The exact bytes, because the signature is over them: parsing first and re-serialising changes
   // key order and whitespace, and every event would then verify as a forgery.
-  const roh = await request.text();
+  const raw = await request.text();
 
   const headers = Object.fromEntries(SVIX_HEADERS.map((name) => [name, request.headers.get(name) ?? ""]));
 
-  if (!signedByProvider(roh, headers)) {
+  if (!signedByProvider(raw, headers)) {
     // 400 rather than 503: a forgery is not worth thirty-two hours of retries, and neither is a
     // timestamp outside the verifier's tolerance. Nothing of the body reaches the line.
     logger.warn("mail.delivery_unsigned");
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
   return runWithIncomingTrace(async () => {
     let event: unknown;
     try {
-      event = JSON.parse(roh);
+      event = JSON.parse(raw);
     } catch {
       // Signed and unreadable is the provider changing shape, which no retry repairs.
       logger.error("mail.delivery_unreadable");

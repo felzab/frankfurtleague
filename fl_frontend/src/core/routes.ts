@@ -8,8 +8,8 @@ import type { Copy } from "./copy";
  * on, an address whose page does not exist fails where the link is written.
  */
 export type RouteEntry = {
-  readonly path: (...segmente: never) => `/${string}`;
-  readonly title: Copy | ((...namen: never) => Copy);
+  readonly path: (...segments: never) => `/${string}`;
+  readonly title: Copy | ((...names: never) => Copy);
   readonly indexed: boolean;
 };
 
@@ -163,7 +163,7 @@ export const ROUTES = {
     indexed: false,
   },
   // Session 7: its page is built.
-  verwaltungAdministratoren: {
+  verwaltungAdministrators: {
     path: () => "/bereich/verwaltung/administrators" as const,
     title: COPY.seite.administratoren,
     indexed: false,
@@ -181,7 +181,7 @@ export const ROUTES = {
     indexed: false,
   },
   // Session 7: its page is built.
-  verwaltungAdressaenderungen: {
+  verwaltungAddressChanges: {
     path: () => "/bereich/verwaltung/adressaenderungen" as const,
     title: COPY.seite.adressaenderungen,
     indexed: false,

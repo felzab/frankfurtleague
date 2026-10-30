@@ -51,16 +51,16 @@ export const RAIL_GROUPS: RailGroup[] = [
     entries: [
       {
         id: "administratoren",
-        label: ROUTES.verwaltungAdministratoren.title,
-        href: ROUTES.verwaltungAdministratoren.path(),
+        label: ROUTES.verwaltungAdministrators.title,
+        href: ROUTES.verwaltungAdministrators.path(),
         icon: "administratoren",
       },
       { id: "sperrliste", label: ROUTES.verwaltungSperrliste.title, href: ROUTES.verwaltungSperrliste.path(), icon: "sperrliste" },
       { id: "loeschungen", label: ROUTES.verwaltungErasures.title, href: ROUTES.verwaltungErasures.path(), icon: "erasures" },
       {
         id: "adressaenderungen",
-        label: ROUTES.verwaltungAdressaenderungen.title,
-        href: ROUTES.verwaltungAdressaenderungen.path(),
+        label: ROUTES.verwaltungAddressChanges.title,
+        href: ROUTES.verwaltungAddressChanges.path(),
         icon: "adressaenderungen",
       },
       { id: "action_log", label: ROUTES.verwaltungActionLog.title, href: ROUTES.verwaltungActionLog.path(), icon: "log" },

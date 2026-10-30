@@ -37,7 +37,7 @@ function senderRow(sender: MailSender): string {
 }
 
 /** Every reply reaches the league's mailbox, whichever address sent the mail. */
-const ANTWORT_AN = KONTAKT_EMAIL;
+const REPLY_TO = KONTAKT_EMAIL;
 
 // Bounds the WHOLE call the way `fl_frontend/src/core/api.ts :: FETCH_TIMEOUT_MS` bounds a
 // backend call: a per-attempt budget would multiply by the attempts below, and the backend's lease on a
@@ -136,7 +136,7 @@ function sinkDocument({ to, subject, html, text, sender, tags }: OutboundMail, t
   const pairs = Object.entries(tags).map(([name, value]) => `${name}=${value}`);
   const header = [
     `From: ${senderRow(sender)}`,
-    `Reply-To: ${ANTWORT_AN}`,
+    `Reply-To: ${REPLY_TO}`,
     `To: ${to}`,
     `Subject: ${subject}`,
     ...(pairs.length === 0 ? [] : [`Tags: ${pairs.join("; ")}`]),
@@ -209,22 +209,22 @@ type DrainCount = Record<keyof FLOutboxResultResponse, number>;
 const no = (): DrainCount => ({ sent: 0, repeated: 0, abandoned: 0, withheld: 0, ignored: 0 });
 
 /** Every drain's counts since the hourly pass last took them, whichever started the drain: a write's or the pass. */
-let seitDemLetztenDurchlauf = no();
+let sinceLastPass = no();
 
 /**
  * What every drain in this process settled since the last call, `abandoned` the mails the heartbeat reports: a mail is
  * given up by whichever drain meets it, and most drains are a write's.
  */
 export function takeDrainCounts(): DrainCount {
-  const genommen = seitDemLetztenDurchlauf;
-  seitDemLetztenDurchlauf = no();
+  const taken = sinceLastPass;
+  sinceLastPass = no();
 
-  return genommen;
+  return taken;
 }
 
 /** The one drain this process runs, and the one every call made while it runs waits on. */
 let drainRunning: Promise<void> | undefined;
-let drainDanach: Promise<void> | undefined;
+let drainAfter: Promise<void> | undefined;
 
 /**
  * Every mail owed now: claimed a page at a time, each sent, and each outcome reported as its send returns, so a drain
@@ -238,15 +238,15 @@ export function drainOutbox(): Promise<void> {
   if (drainRunning !== undefined) {
     // Started from this call's context, so it runs under this call's scope rather than the running drain's, whose
     // deadline may be what that drain failed on.
-    const danach = () => {
-      drainDanach = undefined;
+    const after = () => {
+      drainAfter = undefined;
       return drainOutbox();
     };
-    drainDanach ??= drainRunning.then(danach, danach);
-    return drainDanach;
+    drainAfter ??= drainRunning.then(after, after);
+    return drainAfter;
   }
 
-  const run = drainen().finally(() => {
+  const run = drain().finally(() => {
     drainRunning = undefined;
   });
   drainRunning = run;
@@ -255,18 +255,18 @@ export function drainOutbox(): Promise<void> {
 }
 
 /** Claims until a claim holds nothing: a mail handed back to wait its minute is no longer free, so the loop ends. */
-async function drainen(): Promise<void> {
+async function drain(): Promise<void> {
   for (;;) {
     const { lease, mails, abandoned } = await outboxPostHandout();
-    seitDemLetztenDurchlauf.abandoned += abandoned;
+    sinceLastPass.abandoned += abandoned;
     if (lease === null) return;
 
     for (const mail of mails) {
-      const bericht = { lease: lease, ...(await zustellen(mail)) };
+      const report = { lease: lease, ...(await zustellen(mail)) };
       // The provider's name for a refusal is its own token, kept only where the endpoint takes it: the outcome stands
       // without one, as `fl_frontend/src/app/api/mail/zustellung/route.ts` keeps a delivery event's.
-      const antwort = await outboxPostResult(OutboxPostResultBody.safeParse(bericht).data ?? { ...bericht, grund: null });
-      for (const field of Object.keys(antwort) as (keyof DrainCount)[]) seitDemLetztenDurchlauf[field] += antwort[field];
+      const response = await outboxPostResult(OutboxPostResultBody.safeParse(report).data ?? { ...report, grund: null });
+      for (const field of Object.keys(response) as (keyof DrainCount)[]) sinceLastPass[field] += response[field];
     }
   }
 }
@@ -372,7 +372,7 @@ async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }
 
   const body = JSON.stringify({
     from: senderRow(sender),
-    reply_to: ANTWORT_AN,
+    reply_to: REPLY_TO,
     to: to,
     subject,
     html,
