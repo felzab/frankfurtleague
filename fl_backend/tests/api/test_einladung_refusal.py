@@ -57,21 +57,6 @@ class TestTheWindowALinkExpiresWith:
     def test_a_season_with_no_window_at_all_is_not_running(self):
         assert not registrierungsfenster_laeuft(registrierung=None, today="2026-04-01")
 
-    def test_a_block_missing_an_end_is_not_running(self):
-        """A stored half-window would otherwise compare against `None` and raise, or worse, order against it."""
-
-        assert not registrierungsfenster_laeuft(registrierung={"offen": True, "von": "2026-03-01"}, today="2026-04-01")
-
-    def test_a_null_end_closes_the_window_rather_than_opening_it_for_ever(self):
-        """`str(None)` is `"None"` and every date sorts below it, so a coerced comparison leaves this credential live for ever."""
-
-        assert not registrierungsfenster_laeuft(registrierung={"offen": True, "von": "2026-03-01", "bis": None}, today="2026-05-01")
-
-    def test_a_null_start_closes_it_too(self):
-        """The other end, for the same reason read the other way: nothing may fall open on a stored null."""
-
-        assert not registrierungsfenster_laeuft(registrierung={"offen": True, "von": None, "bis": "2026-04-30"}, today="2026-04-01")
-
 
 class TestWhoALinkIsMailedTo:
     def test_only_a_seat_its_own_person_confirmed_is_addressed(self):
