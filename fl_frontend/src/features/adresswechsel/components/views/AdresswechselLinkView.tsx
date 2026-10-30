@@ -8,7 +8,7 @@ import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import { Button } from "@heroui/react/button";
 
 import { ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_DAUER } from "@/core/adresswechsel";
-import { ADRESSWECHSEL_STOPPEN, JA_ANGEFRAGT, NICHT_MEINE_ADRESSE } from "@/core/adresswechselAntworten";
+import { ADRESSWECHSEL_STOPPEN } from "@/core/adresswechselAntworten";
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { formatZeitpunkt } from "@/core/format";
 import { KONTO_HREF } from "@/core/kontoHref";
@@ -45,6 +45,14 @@ const ROUTE = "/api/bestaetigung/adresse";
 
 type AdresswechselAntwort =
   AdresswechselGedrueckt | (PublicEnvelope & { success: false; zustand?: AdresswechselLinkZustand; ansicht?: AdresswechselAnsicht | null });
+
+/**
+ * The new mailbox's confirmation, asking about the change and never about the mailbox: the holder of an address the league
+ * already writes to owns it truthfully, and would hand a stranger's records over by agreeing to that.
+ */
+const JA_ANGEFRAGT = "Ja, ich habe diese Änderung angefragt";
+
+const NICHT_MEINE_ADRESSE = "Das ist nicht meine Adresse";
 
 const STOPP_TITEL = "Änderung Deiner E-Mail-Adresse";
 
