@@ -708,33 +708,39 @@ export const BewerbungenPostBewerbungBody = zod
  * `medien_alter`, and on a team's season row `link_abgelaufen` and `kontakt_saison_vorbei`.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
-export const bewerbungenPostEinwilligungBodyGeburtsdatumOneRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
-export const bewerbungenPostEinwilligungBodyGeburtsdatumThreeRegExp = new RegExp("^\\s*$");
-export const bewerbungenPostEinwilligungBodyTextVersionMax = 64;
+export const bewerbungenPostEinwilligungBodyOneGeburtsdatumRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
+export const bewerbungenPostEinwilligungBodyOneTextVersionMax = 64;
 
-export const bewerbungenPostEinwilligungBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
-export const bewerbungenPostEinwilligungBodyTokenMax = 128;
+export const bewerbungenPostEinwilligungBodyOneTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const bewerbungenPostEinwilligungBodyOneTokenMax = 128;
 
-export const bewerbungenPostEinwilligungBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const bewerbungenPostEinwilligungBodyOneTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const bewerbungenPostEinwilligungBodyTwoTokenMax = 128;
 
-export const BewerbungenPostEinwilligungBody = zod
-  .object({
-    antwort: zod.enum(["erteilt", "abgelehnt"]),
-    geburtsdatum: zod.union([
-      zod.string().regex(bewerbungenPostEinwilligungBodyGeburtsdatumOneRegExp),
-      zod.null(),
-      zod.string().regex(bewerbungenPostEinwilligungBodyGeburtsdatumThreeRegExp),
-    ]),
-    medien: zod.boolean(),
-    text_version: zod
-      .string()
-      .min(1)
-      .max(bewerbungenPostEinwilligungBodyTextVersionMax)
-      .regex(bewerbungenPostEinwilligungBodyTextVersionRegExp),
-    token: zod.string().min(1).max(bewerbungenPostEinwilligungBodyTokenMax).regex(bewerbungenPostEinwilligungBodyTokenRegExp),
-    whatsapp: zod.boolean(),
-  })
-  .describe("One person's answer for one seat: the consent, or a decline that empties their slot.");
+export const bewerbungenPostEinwilligungBodyTwoTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
+export const BewerbungenPostEinwilligungBody = zod.union([
+  zod
+    .object({
+      antwort: zod.literal("erteilt").meta({ title: "Antwort" }),
+      geburtsdatum: zod.string().regex(bewerbungenPostEinwilligungBodyOneGeburtsdatumRegExp),
+      medien: zod.boolean(),
+      text_version: zod
+        .string()
+        .min(1)
+        .max(bewerbungenPostEinwilligungBodyOneTextVersionMax)
+        .regex(bewerbungenPostEinwilligungBodyOneTextVersionRegExp),
+      token: zod.string().min(1).max(bewerbungenPostEinwilligungBodyOneTokenMax).regex(bewerbungenPostEinwilligungBodyOneTokenRegExp),
+      whatsapp: zod.boolean(),
+    })
+    .describe("One person's consent for one seat: their own birthdate, their two choices and the wording they saw."),
+  zod
+    .object({
+      antwort: zod.literal("abgelehnt").meta({ title: "Antwort" }),
+      token: zod.string().min(1).max(bewerbungenPostEinwilligungBodyTwoTokenMax).regex(bewerbungenPostEinwilligungBodyTwoTokenRegExp),
+    })
+    .describe("One person's Widerspruch for one seat, which empties their slot: it carries nothing of them."),
+]);
 
 /**
  * What the confirmation page renders for the seat this token opens, and nothing of the person.

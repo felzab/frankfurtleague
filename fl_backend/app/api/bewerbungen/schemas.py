@@ -596,17 +596,15 @@ class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     medien_mindestalter: int = Field(gt=0)
 
 
-class FLBewerbungEinwilligungAntwortPayload(BaseModel):
-    """One person's answer for one seat: the consent, or a decline that empties their slot."""
+class FLBewerbungEinwilligungErteilt(BaseModel):
+    """One person's consent for one seat: their own birthdate, their two choices and the wording they saw."""
 
     model_config = ConfigDict(extra="forbid")
 
+    antwort: Literal["erteilt"]
     token: CustomToken
-    antwort: Literal["erteilt", "abgelehnt"]
-    # Required as a KEY and null on a decline: the date is the consent's, and a decline stores no
-    # person at all. Unbounded here -- the age is its own code with its own German at 422, never a
-    # `payload_refused`.
-    geburtsdatum: CustomOptionalDateString
+    # Unbounded here: the age is its own code (`bestaetigung_alter`), never a `payload_refused`.
+    geburtsdatum: CustomDateString
     whatsapp: bool
     # Required as `whatsapp` is: a page that forgot the switch is refused rather than read as a no.
     medien: bool
@@ -614,26 +612,21 @@ class FLBewerbungEinwilligungAntwortPayload(BaseModel):
     # the applicant ticked for them may be an older one.
     text_version: CustomEinwilligungTextVersion
 
-    @model_validator(mode="after")
-    def the_date_comes_with_the_consent_and_never_with_a_decline(self) -> Self:
-        """A 422, like every shape rule about the body: the person answered, and one of the two fields contradicts the answer."""
 
-        if self.antwort == "erteilt" and self.geburtsdatum is None:
-            raise ValueError("Zur Bestätigung gehört das eigene Geburtsdatum.")
+class FLBewerbungEinwilligungAbgelehnt(BaseModel):
+    """One person's Widerspruch for one seat, which empties their slot: it carries nothing of them."""
 
-        if self.antwort == "abgelehnt" and self.geburtsdatum is not None:
-            raise ValueError("Ein Widerspruch speichert kein Geburtsdatum.")
+    model_config = ConfigDict(extra="forbid")
 
-        return self
+    antwort: Literal["abgelehnt"]
+    token: CustomToken
 
-    @model_validator(mode="after")
-    def the_whatsapp_consent_comes_with_the_consent_too(self) -> Self:
-        """A decline empties the slot, so a `True` here would echo a scope back to the page that no seat records."""
 
-        if self.antwort == "abgelehnt" and self.whatsapp:
-            raise ValueError("Ein Widerspruch speichert keine WhatsApp-Einwilligung.")
-
-        return self
+# Tagged by `antwort`, Pydantic's discriminated union, so each answer carries exactly its own fields. A route takes it
+# as its body's plain annotation: beside FastAPI's `Body()` the tag is dropped, and the union is tried member by member.
+FLBewerbungEinwilligungAntwortPayload = Annotated[
+    FLBewerbungEinwilligungErteilt | FLBewerbungEinwilligungAbgelehnt, Field(discriminator="antwort")
+]
 
 
 class FLBewerbungEinwilligungAntwortResponse(BaseAPIResponse):

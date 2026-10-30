@@ -277,7 +277,7 @@ async def _registration_withdrawal(http: AsyncClient, database: AsyncDatabase) -
 
 
 def _declined(token: str) -> dict[str, Any]:
-    return {"token": token, "antwort": "abgelehnt", "geburtsdatum": None, "whatsapp": False, "medien": False, "text_version": "v1"}
+    return {"token": token, "antwort": "abgelehnt"}
 
 
 V = f"/api/v{API_VERSION}"

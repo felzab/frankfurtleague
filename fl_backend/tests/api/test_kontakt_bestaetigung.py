@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
+from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
@@ -321,18 +322,12 @@ async def answer(
     saisons: Any = None,
     saison_teams: Any = None,
 ) -> Any:
-    erteilt = antwort == "erteilt"
-    body = {
-        "token": token,
-        "antwort": antwort,
-        "geburtsdatum": AN_ADULTS_BIRTHDATE if erteilt else None,
-        "whatsapp": erteilt,
-        "medien": medien,
-        "text_version": text_version,
-    }
+    body: dict[str, Any] = {"token": token, "antwort": antwort}
+    if antwort == "erteilt":
+        body |= {"geburtsdatum": AN_ADULTS_BIRTHDATE, "whatsapp": True, "medien": medien, "text_version": text_version}
 
     return await post_einwilligung(
-        antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
+        antwort_data=TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,

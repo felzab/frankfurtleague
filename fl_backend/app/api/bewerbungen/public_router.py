@@ -601,7 +601,7 @@ async def get_einwilligung_ansicht(
     summary="Confirm or decline one seat of a Bewerbung or of a team's season row",
 )
 async def post_einwilligung(
-    antwort_data: Annotated[FLBewerbungEinwilligungAntwortPayload, Body()],
+    antwort_data: FLBewerbungEinwilligungAntwortPayload,
     bewerbungen_collection: BewerbungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
@@ -655,7 +655,6 @@ async def post_einwilligung(
 
         if antwort_data.antwort == "erteilt":
             geburtsdatum = antwort_data.geburtsdatum
-            assert geburtsdatum is not None
 
             # Unanchored: the rollover reads nothing this press writes, so one committing inside it orders as
             # one committing just after.
@@ -742,7 +741,7 @@ async def post_einwilligung(
         )
         journal_the_widerspruch(Collection.SAISON_TEAMS, row, seat, seats)
 
-        return FLSaisonTeamEinwilligungAntwortResponse(ergebnis="abgelehnt", geburtsdatum=None, whatsapp=antwort_data.whatsapp, medien=False)
+        return FLSaisonTeamEinwilligungAntwortResponse(ergebnis="abgelehnt", geburtsdatum=None, whatsapp=False, medien=False)
 
     @journal.attempted
     async def answer_for_the_person(
@@ -787,7 +786,6 @@ async def post_einwilligung(
 
         if antwort_data.antwort == "erteilt":
             geburtsdatum = antwort_data.geburtsdatum
-            assert geburtsdatum is not None
 
             # Against the one page the view answered for these seats.
             seite = bewerbung_antwort_seite(bewerbung_raw=bewerbung_raw, seats=seats)
@@ -875,7 +873,7 @@ async def post_einwilligung(
             quelle="bewerbung",
             ergebnis="abgelehnt",
             geburtsdatum=None,
-            whatsapp=antwort_data.whatsapp,
+            whatsapp=False,
             medien=False,
         )
 

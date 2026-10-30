@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from bson import ObjectId, encode
 from fastapi import FastAPI
+from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
@@ -1797,8 +1798,9 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
     """
 
     return await post_einwilligung(
-        antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(
-            {"token": token, "antwort": "abgelehnt", "geburtsdatum": None, "whatsapp": False, "medien": False, "text_version": "v1", **answer}
+        # A Widerspruch unless the case answers otherwise, and then a consent naming its own date and label.
+        antwort_data=TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(
+            {"token": token, **({"whatsapp": False, "medien": False, **answer} if answer else {"antwort": "abgelehnt"})}
         ),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],

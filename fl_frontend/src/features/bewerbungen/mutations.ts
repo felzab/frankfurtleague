@@ -17,10 +17,11 @@ import type {
   FLAblehnenBewerbungResponse,
   FLAnnehmenBewerbungPayload,
   FLAnnehmenBewerbungResponse,
+  FLBewerbungEinwilligungAbgelehnt,
   FLBewerbungEinwilligungAnsichtResponse,
-  FLBewerbungEinwilligungAntwortPayload,
   FLBewerbungEinwilligungAntwortResponse,
   FLBewerbungEinwilligungErneutResponse,
+  FLBewerbungEinwilligungErteilt,
   FLBewerbungKontaktEmailPayload,
   FLBewerbungKontaktEmailResponse,
   FLBewerbungKontaktSitzPayload,
@@ -69,7 +70,7 @@ export async function postEinwilligungAnsicht(payload: FLTokenPayload): Promise<
 
 /** Records one contact person's answer and spends their token. */
 export async function postEinwilligung(
-  payload: FLBewerbungEinwilligungAntwortPayload,
+  payload: FLBewerbungEinwilligungErteilt | FLBewerbungEinwilligungAbgelehnt,
 ): Promise<FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse> {
   return bewerbungenPostEinwilligung(payload);
 }

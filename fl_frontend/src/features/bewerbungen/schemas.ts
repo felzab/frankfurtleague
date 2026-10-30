@@ -1,7 +1,7 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
-import { FLBewerbungEinwilligungAntwortPayloadAntwort, FLKontaktKenntnisnahmeUmfang, FLKontaktRolle } from "@/core/generated/client/types";
+import { FLKontaktKenntnisnahmeUmfang, FLKontaktRolle } from "@/core/generated/client/types";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { FLSpielerKontoEinwilligungPayloadSchema, LinkAntwortTextVersionSchema, WAHL_UNBEKANNT } from "@/features/spieler/schemas";
 import {
@@ -39,6 +39,8 @@ import {
   KUERZEL_LAENGE,
 } from "./constants";
 import { geburtsdatumSpanne } from "./utils";
+
+import type { FLBewerbungEinwilligungAbgelehnt, FLBewerbungEinwilligungErteilt } from "@/core/generated/client/types";
 
 /**
  * The acceptance's input. No `saison_id`: the application names its own season, so a payload carrying
@@ -281,52 +283,47 @@ export const FLKontaktRolleSchema = z.enum(FLKontaktRolle, {
 });
 
 /**
- * One endpoint for both answers: one person, one press, one token spent. A confirmation's date is
- * judged against the German day here as the endpoint judges it, so both tiers refuse the same two
- * numbers on the same day.
+ * One endpoint for both answers, told apart by `antwort` as the backend's union is: one person, one
+ * press, one token spent. A Widerspruch carries the token alone, its seat storing no person. A
+ * confirmation's date is judged against the German day here as the endpoint judges it, so both tiers
+ * refuse the same two numbers on the same day.
  */
 export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
-  z
-    .object({
-      token: einwilligungToken,
-      // No control offers this, so a value outside the pair is a drifted client rather than a mistyped
-      // answer, and the repair is the reload rather than a choice.
-      antwort: z.enum(FLBewerbungEinwilligungAntwortPayloadAntwort, { error: "Diese Antwort kennen wir nicht. Lade die Seite neu." }),
-      geburtsdatum: CustomDateStringSchema.nullable(),
-      whatsapp: z.boolean(),
-      // Never optional, as `whatsapp` is not: a page that dropped the switch is refused rather than
-      // read as a no. An objection sends `false`, its seat storing no person to consent.
-      medien: z.boolean(),
-      // The version this page rendered, never the one the submission stamped: the seat's record has to
-      // cite the words the confirming person read, and the two are months apart.
-      text_version: LinkAntwortTextVersionSchema,
-    })
-    .superRefine((payload, ctx) => {
-      if (payload.antwort !== "erteilt") {
-        // Refused here because the endpoint refuses it: an objection carrying a date would record one
-        // for a seat that refused to be recorded at all.
-        if (payload.geburtsdatum !== null) {
-          ctx.addIssue({ code: "custom", message: "Ein Widerspruch speichert kein Geburtsdatum.", path: ["geburtsdatum"] });
-        }
-
-        // For the date's reason: an objection empties the slot, so a scope sent with one is a
-        // permission no record holds and the echo would report it back as stored.
-        if (payload.whatsapp) {
-          ctx.addIssue({ code: "custom", message: "Ein Widerspruch speichert keine WhatsApp-Einwilligung.", path: ["whatsapp"] });
-        }
-        return;
-      }
-
-      if (payload.geburtsdatum === null) {
-        ctx.addIssue({ code: "custom", message: "Bitte gib Dein Geburtsdatum ein.", path: ["geburtsdatum"] });
-        return;
-      }
-
-      const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
-      if (payload.geburtsdatum < frueheste || payload.geburtsdatum > spaeteste) {
-        ctx.addIssue({ code: "custom", message: alterAusserhalb(mindestalter), path: ["geburtsdatum"] });
-      }
-    });
+  z.discriminatedUnion(
+    "antwort",
+    [
+      z.object({
+        antwort: z.literal("erteilt" satisfies FLBewerbungEinwilligungErteilt["antwort"]),
+        token: einwilligungToken,
+        // Each stage only once the one before it passed: the empty picker is the missing date, and an age is
+        // judged of a real date alone.
+        geburtsdatum: z
+          .string()
+          .min(1, { error: "Bitte gib Dein Geburtsdatum ein." })
+          .pipe(CustomDateStringSchema)
+          .pipe(
+            z.string().refine(
+              (geburtsdatum) => {
+                const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
+                return frueheste <= geburtsdatum && geburtsdatum <= spaeteste;
+              },
+              { error: alterAusserhalb(mindestalter) },
+            ),
+          ),
+        whatsapp: z.boolean(),
+        // Never optional, as `whatsapp` is not: a page that dropped the switch is refused rather than
+        // read as a no.
+        medien: z.boolean(),
+        // The version this page rendered, never the one the submission stamped: the seat's record has to
+        // cite the words the confirming person read, and the two are months apart.
+        text_version: LinkAntwortTextVersionSchema,
+      }),
+      z.object({ antwort: z.literal("abgelehnt" satisfies FLBewerbungEinwilligungAbgelehnt["antwort"]), token: einwilligungToken }),
+    ],
+    // No control offers another, so a value outside the pair is a drifted client rather than a mistyped
+    // answer, and the repair is the reload rather than a choice.
+    { error: "Diese Antwort kennen wir nicht. Lade die Seite neu." },
+  );
 
 /**
  * The league's floor, which every seat's person clears:

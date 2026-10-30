@@ -1433,6 +1433,19 @@ export interface FLBewerbungEingangDaten {
   saison_id: string;
 }
 
+/**
+ * One person's Widerspruch for one seat, which empties their slot: it carries nothing of them.
+ */
+export interface FLBewerbungEinwilligungAbgelehnt {
+  antwort: "abgelehnt";
+  /**
+   * @minLength 1
+   * @maxLength 128
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  token: string;
+}
+
 export type FLBewerbungEinwilligungAnsichtResponseQuelle =
   (typeof FLBewerbungEinwilligungAnsichtResponseQuelle)[keyof typeof FLBewerbungEinwilligungAnsichtResponseQuelle];
 
@@ -1478,36 +1491,6 @@ export interface FLBewerbungEinwilligungAnsichtResponse {
   zustand: FLBewerbungEinwilligungAnsichtResponseZustand;
 }
 
-export type FLBewerbungEinwilligungAntwortPayloadAntwort =
-  (typeof FLBewerbungEinwilligungAntwortPayloadAntwort)[keyof typeof FLBewerbungEinwilligungAntwortPayloadAntwort];
-
-export const FLBewerbungEinwilligungAntwortPayloadAntwort = {
-  erteilt: "erteilt",
-  abgelehnt: "abgelehnt",
-} as const;
-
-/**
- * One person's answer for one seat: the consent, or a decline that empties their slot.
- */
-export interface FLBewerbungEinwilligungAntwortPayload {
-  antwort: FLBewerbungEinwilligungAntwortPayloadAntwort;
-  geburtsdatum: string | null;
-  medien: boolean;
-  /**
-   * @minLength 1
-   * @maxLength 64
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  text_version: string;
-  /**
-   * @minLength 1
-   * @maxLength 128
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  token: string;
-  whatsapp: boolean;
-}
-
 export type FLEinwilligungErgebnis = (typeof FLEinwilligungErgebnis)[keyof typeof FLEinwilligungErgebnis];
 
 export const FLEinwilligungErgebnis = {
@@ -1535,6 +1518,29 @@ export interface FLBewerbungEinwilligungErneutResponse {
   email: string;
   rolle: FLKontaktRolle;
   rollen: FLKontaktRolle[];
+}
+
+/**
+ * One person's consent for one seat: their own birthdate, their two choices and the wording they saw.
+ */
+export interface FLBewerbungEinwilligungErteilt {
+  antwort: "erteilt";
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  geburtsdatum: string;
+  medien: boolean;
+  /**
+   * @minLength 1
+   * @maxLength 64
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  text_version: string;
+  /**
+   * @minLength 1
+   * @maxLength 128
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  token: string;
+  whatsapp: boolean;
 }
 
 /**

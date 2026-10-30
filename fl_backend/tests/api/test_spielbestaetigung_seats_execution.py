@@ -18,7 +18,7 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.public_router import post_einwilligung
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAbgelehnt
 from app.api.bewerbungen.services import hash_token
 from app.api.bewerbungen.system_router import sweep_saison
 from app.api.identitaet.services import build_loeschung_seat_pipeline
@@ -334,17 +334,8 @@ async def clear_the_blocks(database: AsyncDatabase, client: AsyncMongoClient) ->
 async def contradict(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """The Trainer's Widerspruch through the season row's own link."""
 
-    body = {
-        "token": row_link("trainer"),
-        "antwort": "abgelehnt",
-        "geburtsdatum": None,
-        "whatsapp": False,
-        "medien": False,
-        "text_version": SEAT_PAGE,
-    }
-
     return await post_einwilligung(
-        antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
+        antwort_data=FLBewerbungEinwilligungAbgelehnt(token=row_link("trainer"), antwort="abgelehnt"),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],

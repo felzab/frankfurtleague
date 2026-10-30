@@ -2852,6 +2852,30 @@
         "title": "FLBewerbungEingangDaten",
         "type": "object"
       },
+      "FLBewerbungEinwilligungAbgelehnt": {
+        "additionalProperties": false,
+        "description": "One person's Widerspruch for one seat, which empties their slot: it carries nothing of them.",
+        "properties": {
+          "antwort": {
+            "const": "abgelehnt",
+            "title": "Antwort",
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "antwort",
+          "token"
+        ],
+        "title": "FLBewerbungEinwilligungAbgelehnt",
+        "type": "object"
+      },
       "FLBewerbungEinwilligungAnsichtResponse": {
         "description": "What the page renders for one seat, and nothing of the person.",
         "properties": {
@@ -2935,68 +2959,6 @@
         "title": "FLBewerbungEinwilligungAnsichtResponse",
         "type": "object"
       },
-      "FLBewerbungEinwilligungAntwortPayload": {
-        "additionalProperties": false,
-        "description": "One person's answer for one seat: the consent, or a decline that empties their slot.",
-        "properties": {
-          "antwort": {
-            "enum": [
-              "erteilt",
-              "abgelehnt"
-            ],
-            "title": "Antwort",
-            "type": "string"
-          },
-          "geburtsdatum": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              },
-              {
-                "pattern": "^\\s*$",
-                "type": "string"
-              }
-            ],
-            "title": "Geburtsdatum"
-          },
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Text Version",
-            "type": "string"
-          },
-          "token": {
-            "maxLength": 128,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Token",
-            "type": "string"
-          },
-          "whatsapp": {
-            "title": "Whatsapp",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "token",
-          "antwort",
-          "geburtsdatum",
-          "whatsapp",
-          "medien",
-          "text_version"
-        ],
-        "title": "FLBewerbungEinwilligungAntwortPayload",
-        "type": "object"
-      },
       "FLBewerbungEinwilligungAntwortResponse": {
         "description": "What the answer did; a Widerspruch's notice to the submitter is owed in the same write.",
         "properties": {
@@ -3070,6 +3032,54 @@
           "bestaetigungsfrist"
         ],
         "title": "FLBewerbungEinwilligungErneutResponse",
+        "type": "object"
+      },
+      "FLBewerbungEinwilligungErteilt": {
+        "additionalProperties": false,
+        "description": "One person's consent for one seat: their own birthdate, their two choices and the wording they saw.",
+        "properties": {
+          "antwort": {
+            "const": "erteilt",
+            "title": "Antwort",
+            "type": "string"
+          },
+          "geburtsdatum": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Geburtsdatum",
+            "type": "string"
+          },
+          "medien": {
+            "title": "Medien",
+            "type": "boolean"
+          },
+          "text_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Text Version",
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Token",
+            "type": "string"
+          },
+          "whatsapp": {
+            "title": "Whatsapp",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "antwort",
+          "token",
+          "geburtsdatum",
+          "whatsapp",
+          "medien",
+          "text_version"
+        ],
+        "title": "FLBewerbungEinwilligungErteilt",
         "type": "object"
       },
       "FLBewerbungEinwilligungPayload": {
@@ -19025,7 +19035,22 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLBewerbungEinwilligungAntwortPayload"
+                "discriminator": {
+                  "mapping": {
+                    "abgelehnt": "#/components/schemas/FLBewerbungEinwilligungAbgelehnt",
+                    "erteilt": "#/components/schemas/FLBewerbungEinwilligungErteilt"
+                  },
+                  "propertyName": "antwort"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FLBewerbungEinwilligungErteilt"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FLBewerbungEinwilligungAbgelehnt"
+                  }
+                ],
+                "title": "Antwort Data"
               }
             }
           },

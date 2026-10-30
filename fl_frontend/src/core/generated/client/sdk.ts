@@ -35,10 +35,11 @@ import type {
   FLBerechtigungenListResponse,
   FLBerechtigungStufeResponse,
   FLBerechtigungWriteResponse,
+  FLBewerbungEinwilligungAbgelehnt,
   FLBewerbungEinwilligungAnsichtResponse,
-  FLBewerbungEinwilligungAntwortPayload,
   FLBewerbungEinwilligungAntwortResponse,
   FLBewerbungEinwilligungErneutResponse,
+  FLBewerbungEinwilligungErteilt,
   FLBewerbungenListResponse,
   FLBewerbungFensterResponse,
   FLBewerbungKeinFensterResponse,
@@ -1016,7 +1017,7 @@ export const getBewerbungenPostEinwilligungUrl = () => {
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
 export const bewerbungenPostEinwilligung = async (
-  fLBewerbungEinwilligungAntwortPayload: FLBewerbungEinwilligungAntwortPayload,
+  fLBewerbungEinwilligungErteiltFLBewerbungEinwilligungAbgelehnt: FLBewerbungEinwilligungErteilt | FLBewerbungEinwilligungAbgelehnt,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -1037,7 +1038,7 @@ export const bewerbungenPostEinwilligung = async (
       ...options,
       method: "POST",
       headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-      body: JSON.stringify(fLBewerbungEinwilligungAntwortPayload),
+      body: JSON.stringify(fLBewerbungEinwilligungErteiltFLBewerbungEinwilligungAbgelehnt),
     },
   );
 };
