@@ -250,6 +250,8 @@ class Anfrage:
     spielbestaetigung_id: Any
     spiel_id: Any
     seite: str
+    # The club the mail asks, off the mail itself: the adapter holds it to the fixture's side `seite` names.
+    team: str
     frist: str
     ansetzung: Ansetzung
     links: list[Link]
@@ -312,31 +314,46 @@ class Pass:
         return self.answer.fehlgeschlagen
 
 
-async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: FLSpielbestaetigungSweepResponse) -> Pass:
-    """Drains the Postausgang and sorts what it handed out into the lists of `Pass`, each row's mails in the order owed."""
+async def handed_out(
+    database: AsyncDatabase, client: AsyncMongoClient, answer: FLSpielbestaetigungSweepResponse, *, kontakt_links: int = 0
+) -> Pass:
+    """Drains the Postausgang and sorts what it handed out into the lists of `Pass`, each row's mails in the order owed.
+
+    `kontakt_links` is how many contacts mails the case's own saves owed beside the pass, which no list of `Pass` holds:
+    stated, so a pass owing one itself fails here rather than hiding among them.
+    """
 
     mails = await drained(database, client)
     stored = {row["_id"]: row for row in await database[Collection.POSTAUSGANG].find({"_id": {"$in": [mail.id for mail in mails]}}).to_list()}
     row_ids = [stored[mail.id]["bezug"]["id"] for mail in mails]
     confirmations = {row["_id"]: row for row in await database[Collection.SPIELBESTAETIGUNGEN].find({"_id": {"$in": row_ids}}).to_list()}
+    fixtures = {
+        row["_id"]: row
+        for row in await database[Collection.SPIELE].find({"_id": {"$in": [row.get("spiel_id") for row in confirmations.values()]}}).to_list()
+    }
     pass_ = Pass(answer=answer)
     grouped: dict[tuple[str, Any], Any] = {}
+    set_aside = 0
 
     for mail, row_id in zip(mails, row_ids, strict=True):
         row = confirmations.get(row_id) or {}
         daten = mail.daten.model_dump()
         art = daten["art"]
-        # A contacts save a case runs beside the pass owes its own link mail, which is no mail of the pass.
         if art == "kontakt_bestaetigung":
+            set_aside += 1
             continue
         sitze = [pfad.split(".")[1] for pfad in (stored[mail.id]["link"] or {}).get("pfade", [])] or [stored[mail.id]["bezug"]["sitz"]]
         if art in ("spiel_anfrage", "spiel_erinnerung"):
             key = (art, row_id)
+            seite = seite_of(row)
+            # The club the request names is the one on the side its seats answer for, as the fixture spells it.
+            assert daten["team"] == fixtures[row["spiel_id"]][seite]["name"], (daten["team"], seite)
             if key not in grouped:
                 grouped[key] = Anfrage(
                     spielbestaetigung_id=row_id,
                     spiel_id=row.get("spiel_id"),
-                    seite=seite_of(row),
+                    seite=seite,
+                    team=daten["team"],
                     frist=daten["frist"],
                     ansetzung=Ansetzung(datum=daten["ansetzung"]["datum"], uhrzeit=daten["ansetzung"]["uhrzeit"]),
                     links=[],
@@ -371,6 +388,8 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
                 "spiel_vorschlag_verworfen": pass_.vorschlag_verworfen,
             }[art].append(grouped[key])
         grouped[key].empfaenger.append(Empfaenger(address=mail.an, rollen=sitze))
+
+    assert set_aside == kontakt_links, f"{set_aside} contacts mails handed out where the case owed {kontakt_links}"
 
     return pass_
 
@@ -410,10 +429,10 @@ async def sweep(
     return await handed_out(database, client, answer)
 
 
-async def a_pass_through(database: AsyncDatabase, client: AsyncMongoClient, **collections: Any) -> Pass:
-    """One pass, the collections named handed through a stand-in, and the drain after it."""
+async def a_pass_through(database: AsyncDatabase, client: AsyncMongoClient, *, kontakt_links: int = 0, **collections: Any) -> Pass:
+    """One pass, the collections named handed through a stand-in, and the drain after it; `kontakt_links` as `handed_out` takes it."""
 
-    return await handed_out(database, client, await a_pass(database, client, **collections))
+    return await handed_out(database, client, await a_pass(database, client, **collections), kontakt_links=kontakt_links)
 
 
 async def unstamp(database: AsyncDatabase) -> None:
@@ -1076,7 +1095,7 @@ class TestASeatHandedOnBesideTheMintIsMintedForItsNewHolder:
                 await hand_alphas_trainer_to(database, client, a_payload_person("Lea", "Musterfrau", "+4917010000009"))
 
             interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SAISON_TEAMS], hand_the_trainer_on)
-            answer = await a_pass_through(database, client, saison_teams=cast(Any, interleaved))
+            answer = await a_pass_through(database, client, kontakt_links=1, saison_teams=cast(Any, interleaved))
 
             return interleaved, answer
 
@@ -1482,7 +1501,7 @@ class TestAnEmptiedEntryFilledBesideAHandoverIsMintedForTheNewHolder:
                 await hand_alphas_trainer_to(database, client, a_payload_person("Lea", "Musterfrau", "+4917010000009"))
 
             interleaved = ThenTheRivalAfterTheSecondSessionRead(database[Collection.SAISON_TEAMS], hand_the_trainer_on)
-            answer = await a_pass_through(database, client, saison_teams=cast(Any, interleaved))
+            answer = await a_pass_through(database, client, kontakt_links=1, saison_teams=cast(Any, interleaved))
 
             return interleaved, answer, row_of(await rows(database), team_id=ALPHA)
 
