@@ -1701,9 +1701,10 @@ carries the address. Ask when they tried and read that window:
   person already held still stands, bar a send racing the hundredth. Only admitted addresses count,
   so a run of these is a flood over members' addresses or an evening outgrowing the figure; it lifts
   within the hour, or at once by the sweep in §17.
-- `mail.withheld`: a stack that is not production mails nothing, and the message is in its sink.
-  On the local stack that is `.tmp-mail/`, which every `./scripts/ops/local.sh` start empties of what
-  earlier runs filed, so a code there is this run's.
+- A stack that is not production mails nothing: its `postausgang.drain` line counts the code under
+  `zurueckgehalten`, and the message is in its sink. On the local stack that is `.tmp-mail/`, which
+  every `./scripts/ops/local.sh` start empties of what earlier runs filed, so a code there is this
+  run's.
 
 **A refusal by the gate writes no line.** It refuses an address that is barred, or that holds no
 record of its own (`docs/glossary.md :: Konto`) and none awaiting its confirmation; an address whose

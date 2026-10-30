@@ -165,10 +165,10 @@ function sinkDocument({ to, subject, html, text, von, tags }: OutboundMail, trac
 }
 
 /**
- * The file's name, or `undefined` where nothing could be written. **Never throws**: the send is
- * refused either way, and a sink failure taking the refusal's place would report a message as sent.
+ * Files the message where a developer reads it. **Never throws**: the send is refused either way, and a
+ * sink failure taking the refusal's place would report a message as sent.
  */
-async function writeToSink(message: OutboundMail, traceId: string): Promise<string | undefined> {
+async function writeToSink(message: OutboundMail, traceId: string): Promise<void> {
   const directory = path.join(process.cwd(), MAIL_SINK_DIR);
   const stem = sinkFileStem(message.subject, new Date());
 
@@ -182,7 +182,7 @@ async function writeToSink(message: OutboundMail, traceId: string): Promise<stri
         // millisecond: an overwrite here would report two of them as never rendered.
         await writeFile(path.join(directory, name), sinkDocument(message, traceId), { encoding: "utf8", flag: "wx" });
 
-        return name;
+        return;
       } catch (error) {
         if (errnoCode(error) !== "EEXIST") throw error;
       }
@@ -196,8 +196,6 @@ async function writeToSink(message: OutboundMail, traceId: string): Promise<stri
       error_name: errnoCode(error) ?? (error instanceof Error ? error.name : "unknown"),
       trace_id: traceId,
     });
-
-    return undefined;
   }
 }
 
@@ -360,19 +358,9 @@ async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: O
   if (frontend_config.APP_ENV !== "production" || apiKey === undefined) {
     // Never on production, which reaches this arm only where `SKIP_ENV_VALIDATION` stood the key's
     // requirement down: a file there would leave a live sign-in code on the host's disk.
-    const sinkFile =
-      frontend_config.APP_ENV === "production" ? undefined : await writeToSink({ to, subject, html, text, von, tags, idempotencyKey }, traceId);
+    if (frontend_config.APP_ENV !== "production") await writeToSink({ to, subject, html, text, von, tags, idempotencyKey }, traceId);
 
-    // Subject, tags and the file's name, never the recipient or a body: enough to say WHICH message
-    // stayed behind and where to read it, and the logging rule keeps the person off the line.
-    logger.error("mail.withheld", undefined, {
-      app_env: frontend_config.APP_ENV,
-      subject: subject,
-      tags: tags,
-      sink_file: sinkFile,
-      trace_id: traceId,
-    });
-
+    // No line of its own: the row's `zurueckgehalten` is the record, and the filed copy carries the row's id among its tags.
     throw new MailWithheldError();
   }
 
