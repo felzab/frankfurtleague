@@ -101,20 +101,20 @@ beforeEach(() => {
 });
 
 describe("one pass over the claimed changes", () => {
-  /* An address change waiting on an approval is told to whoever could give it alone, naming nobody, once per claim. */
-  it("mails an address change's approval notice to its own recipients alone, naming no address, then stamps it", async () => {
+  /* The league sends no notice of an address change waiting on an approval, nor of a request's end: each row is
+     stamped unmailed, as one nobody can approve is. */
+  it("stamps an address change's approval notice and a request's end, mailing nobody", async () => {
+    const OUTBOX_C = "6890a1b2c3d4e5f6071a0003";
     claim = claimOf([
       aenderung({ art: "adresswechsel", jetzt: null, vorher: null, geaendert_von: "lena@schule.de", an: ["inhaber@schule.de"] }),
+      aenderung({ id: OUTBOX_B, art: "antrag_abgelehnt", geaendert_von: "anna@schule.de", an: ["anna@schule.de"] }),
+      aenderung({ id: OUTBOX_C, art: "antrag_beendet", jetzt: { adresse: null, verwaltung: "owner" }, gesperrt: true, an: ["anna@schule.de"] }),
     ]);
 
     await runBerechtigungenAbgleich();
 
-    expect(mail.sent.map(({ to, subject }) => [to, subject])).toStrictEqual([
-      ["inhaber@schule.de", "Eine Adressänderung wartet auf Deine Genehmigung"],
-    ]);
-    expect(`${mail.sent[0]?.text}${mail.sent[0]?.html}`, "the notice names who started the change").not.toMatch(/lena@schule\.de/);
-    assert.ok(mail.sent[0]?.text.includes("http://localhost:3000/bereich/admin/administratoren"), "the notice leads elsewhere");
-    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    expect(mail.sent).toStrictEqual([]);
+    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A, OUTBOX_B, OUTBOX_C] }]);
   });
 
   it("stamps an address change's notice that nobody could approve any more, mailing nobody", async () => {
@@ -329,33 +329,6 @@ describe("one pass over the claimed changes", () => {
     expect(mail.sent.map((sent) => sent.to)).toStrictEqual(["inhaber@schule.de"]);
     assert.ok(mail.sent[0]?.text.includes("Für neu@schule.de ist ein Zugang zur Verwaltung beantragt."));
     expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
-  });
-
-  /* A request's end goes to its requester alone, whom the claim names in `an`, under the request's own subject, and
-     names nobody who acted. */
-  it("mails a request's end to its requester alone, naming the address asked about, and stamps it", async () => {
-    claim = claimOf([aenderung({ art: "antrag_abgelehnt", geaendert_von: "anna@schule.de", an: ["anna@schule.de"] })]);
-
-    await runBerechtigungenAbgleich();
-
-    expect(mail.sent.map(({ to, subject }) => [to, subject])).toStrictEqual([["anna@schule.de", "Antrag auf Zugang zur Verwaltung"]]);
-    assert.ok(mail.sent[0]?.text.includes("Dein Antrag auf Zugang zur Verwaltung für neu@schule.de wurde abgelehnt."));
-    expect(stamps()).toStrictEqual([{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
-  });
-
-  it("words an address change's end of a promotion, a withheld address by its state", async () => {
-    claim = claimOf([
-      aenderung({ art: "antrag_beendet", jetzt: { adresse: null, verwaltung: "owner" }, gesperrt: true, an: ["anna@schule.de"] }),
-    ]);
-
-    await runBerechtigungenAbgleich();
-
-    assert.ok(
-      mail.sent[0]?.text.includes(
-        "Dein Antrag, eine gesperrte Adresse zur Inhaberin oder zum Inhaber der Verwaltung zu ernennen, endete, weil sich die Adresse geändert hat.",
-      ),
-      String(mail.sent[0]?.text),
-    );
   });
 
   /* Decided, lapsed or approved by nobody since: the claim answers it to nobody, and it is stamped unmailed. */
