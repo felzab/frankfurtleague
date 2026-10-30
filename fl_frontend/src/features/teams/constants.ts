@@ -1,3 +1,4 @@
+import { FLGruppenNames } from "@/core/generated/client/types";
 import { KONTAKT_ROLLE_LANGFORM, TRIKOT_FARBEN } from "@/core/teamVokabular";
 import { NICHT_HINTERLEGT, nichtHinterlegt } from "@/shared/utils/format";
 
@@ -39,12 +40,8 @@ export const SAISON_ABSCHNITT = "Saison";
 /** The club editor's contacts panel, named by its heading where a refusal sends the reader to it, so a renamed panel takes the refusal with it. */
 export const KONTAKTE_ABSCHNITT = "Kontakte";
 
-/**
- * The closed set, in the order every picker offers it. The ONE spelling on this surface, and here
- * rather than beside `fl_frontend/src/features/teams/schemas.ts :: FLGruppenNamesSchema`, which
- * derives from it: the runtime import runs this way.
- */
-export const GRUPPEN_OPTIONS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"] as const;
+/** The closed set, in the order every picker offers it and a season's groups take their names. */
+export const GRUPPEN_OPTIONS: readonly FLGruppenNames[] = Object.values(FLGruppenNames);
 
 type AustrittOption = {
   readonly value: FLAustrittType;

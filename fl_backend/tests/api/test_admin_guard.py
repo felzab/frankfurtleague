@@ -35,9 +35,9 @@ EXPECTED_SCHEMES: dict[Callable[..., Any], str] = {
     verify_access_system: "SystemKey",
 }
 
-# `/` is FastAPI's own hello-world route and belongs to no slice. `/system/is_live` is the container
-# healthcheck: one that needs a secret fails for the wrong reasons (`app/core/security.py`).
-UNGUARDED_BY_DESIGN = frozenset({"/", "/api/v0/system/is_live"})
+# `/system/is_live` is the container healthcheck: one that needs a secret fails for the wrong reasons
+# (`app/core/security.py`).
+UNGUARDED_BY_DESIGN = frozenset({"/api/v0/system/is_live"})
 
 # FastAPI drops the convertor when it builds the document (`app/core/routing.py`), so
 # `{spiel_id:objectid}` publishes as `{spiel_id}` and the two spellings need bringing together.

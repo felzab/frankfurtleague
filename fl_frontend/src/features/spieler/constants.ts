@@ -1,7 +1,8 @@
+import { FLSpielerPosition, FLSpielerStufe } from "@/core/generated/client/types";
 import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
 import { buildRefusal } from "@/shared/utils/refusal";
 
-import type { FLEinwilligung, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
+import type { FLEinwilligung, FLSpielerRolle } from "@/core/generated/client/types";
 
 type RolleOption = { value: FLSpielerRolle; label: string };
 
@@ -29,14 +30,14 @@ export const SPIELER_CRUD_COPY = {
   emptyOverall: "Es steht noch niemand in einem Kader.",
 } as const;
 
-/** Ordered from the goal outwards, as a squad sheet reads. The closed set is `FLSpielerPositionSchema`'s. */
-export const POSITION_OPTIONS: readonly FLSpielerPosition[] = ["Tor", "Abwehr", "Mittelfeld", "Angriff"];
+/** Ordered from the goal outwards, as a squad sheet reads and the backend declares `FLSpielerPosition`. */
+export const POSITION_OPTIONS: readonly FLSpielerPosition[] = Object.values(FLSpielerPosition);
 
 /**
  * **A form offers a SEASON's `rules.erlaubte_stufen`, not this.** This is the vocabulary, and the
  * ordering authority a season's list is sorted against so no two seasons order alike.
  */
-export const STUFE_OPTIONS: readonly FLSpielerStufe[] = ["E1", "E2", "Q1", "Q2", "Q3", "Q4"];
+export const STUFE_OPTIONS: readonly FLSpielerStufe[] = Object.values(FLSpielerStufe);
 
 /** A season's allowed levels in the league's own order, so the picker never reads out of sequence. */
 export function orderStufen(erlaubt: readonly FLSpielerStufe[]): FLSpielerStufe[] {

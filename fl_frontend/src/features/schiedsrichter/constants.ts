@@ -1,3 +1,4 @@
+import { FLEinwilligungUmfang } from "@/core/generated/client/types";
 import { BEWERBUNG_MAX_ALTER } from "@/features/bewerbungen/constants";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
@@ -64,7 +65,7 @@ export const alterAusserhalb = (mindestalter: number): string =>
   `Du musst mindestens ${String(mindestalter)} und höchstens ${String(BEWERBUNG_MAX_ALTER)} Jahre alt sein.`;
 
 /** The publication question's answers in the order the chips stand; their words are the stamped label's. */
-export const SCHIEDSRICHTER_UMFANG_WERTE = ["kader_oeffentlich", "intern"] as const satisfies readonly FLEinwilligung["umfang"][];
+export const SCHIEDSRICHTER_UMFANG_WERTE: readonly FLEinwilligungUmfang[] = Object.values(FLEinwilligungUmfang);
 
 /**
  * What a referee agreed may be PUBLISHED. Not `@/features/spieler/constants :: EINWILLIGUNG_UMFANG_LABELS`,

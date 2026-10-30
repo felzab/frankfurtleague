@@ -6,9 +6,12 @@ type Level = "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
 export type LogMeta = Record<string, unknown>;
 
 // An address anywhere in a line: a store's duplicate-key refusal quotes the stored one in its message and
-// stack, and a failure on the sign-in or the mail path carries the submitted one. The domain ends in
-// letters, so a package store's `name@1.2.3` in a stack frame's path is left standing.
-const ADDRESS = /[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}/gi;
+// stack, and a failure on the sign-in or the mail path carries the submitted one, a Unicode domain included.
+// `fl_backend/app/core/logging.py :: ADDRESS` spells the same classes in Python's syntax, and
+// `fl_backend/tests/shared/log_addresses.json` holds the two to one answer. The domain ends in a label
+// opening with a letter, as every top-level domain does, so pnpm's `.pnpm/<name>@<version>/` in a stack
+// frame's path is left standing.
+const ADDRESS = /[\p{L}\p{N}_.!#$%&'*+/=?^`{|}~-]+@[\p{L}\p{N}_-]+(?:\.[\p{L}\p{N}_-]+)*\.\p{L}[\p{L}\p{N}_-]*/gu;
 
 /** Every string scrubbed of an address, and an error written as its name, message and stack. */
 function scrubbed(_key: string, value: unknown): unknown {

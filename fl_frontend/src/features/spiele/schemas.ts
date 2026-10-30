@@ -1,6 +1,7 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
+import { FLSonderereignis, FLSpielQuelleSpielAusgang } from "@/core/generated/client/types";
 import { FLGruppenNamesSchema } from "@/features/teams/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSchema } from "@/shared/schemas";
 
@@ -14,7 +15,7 @@ import { NOTIZ_MAX_LENGTH } from "./constants";
  */
 const SONDEREREIGNIS_UNGEWAEHLT = "Bitte wähle ein Sonderereignis.";
 
-export const FLSonderereignisSchema = z.enum(["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"], {
+export const FLSonderereignisSchema = z.enum(FLSonderereignis, {
   // A sentence, being bound to a picker in the match editor.
   error: SONDEREREIGNIS_UNGEWAEHLT,
 });
@@ -63,7 +64,7 @@ const FLSpielQuelleGruppeSchema = z.object({
 const FLSpielQuelleSpielSchema = z.object({
   type: z.literal("spiel", { error: "Bitte wähle aus, woher das Team kommt." }),
   spiel_nr: z.int({ error: "Bitte wähle ein Spiel aus." }).positive({ error: "Die Spielnummer muss mindestens 1 sein." }),
-  ausgang: z.enum(["sieger", "verlierer"], { error: "Bitte wähle Sieger oder Verlierer." }),
+  ausgang: z.enum(FLSpielQuelleSpielAusgang, { error: "Bitte wähle Sieger oder Verlierer." }),
 });
 
 const FLSpielQuelleSchema = z.discriminatedUnion("type", [FLSpielQuelleGruppeSchema, FLSpielQuelleSpielSchema], {

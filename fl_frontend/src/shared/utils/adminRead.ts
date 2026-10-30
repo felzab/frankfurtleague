@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { judgeAdminRequest } from "@/core/auth";
 import { UnreadGrantError } from "@/core/errors";
 import { SIGN_IN_LANDING } from "@/core/signInLanding";
 
@@ -10,9 +11,6 @@ import { runWithIncomingTrace } from "./traceScope";
  * whole frame, and a soft navigation renders no layout at all.
  */
 export async function requireAdminRequest(): Promise<void> {
-  // Loaded at the call: every slice's `queries.ts` imports this module, public pages among their
-  // readers, and a static import would put the sign-in store in each of their graphs.
-  const { judgeAdminRequest } = await import("@/core/auth");
   const judged = await judgeAdminRequest();
   if (!("refused" in judged)) return;
 

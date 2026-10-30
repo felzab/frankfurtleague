@@ -1,4 +1,5 @@
 import { gekeyteFassung } from "@/core/einwilligungSeiten";
+import { FLEinwilligungUmfang } from "@/core/generated/client/types";
 import { ABSATZ_CLASSES, Gefuellt } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { rollenLangform } from "@/features/bewerbungen/constants";
 import { formatSpielDatum } from "@/shared/utils/format";
@@ -15,7 +16,7 @@ import type { EinwilligungWorte, Gewaehrung, PersonUmfang, SitzUmfang } from "./
 const SPIELER_ABSATZ_SCHLUESSEL = ["veroeffentlichung", "medien", "widerruf", "nurWiderrufNichtAktiv", "nurWiderrufBisAufnahme"] as const;
 const SCHIEDSRICHTER_ABSATZ_SCHLUESSEL = ["veroeffentlichung", "medien", "widerruf", "nurWiderrufNichtAktiv"] as const;
 const SITZ_ABSATZ_SCHLUESSEL = ["whatsapp", "medien", "widerruf", "nurWiderrufVorbei", "nurWiderrufBisZusage"] as const;
-const UMFANG_SCHLUESSEL = ["kader_oeffentlich", "intern"] as const;
+const UMFANG_SCHLUESSEL: readonly FLEinwilligungUmfang[] = Object.values(FLEinwilligungUmfang);
 // The seat's one switch-shaped scope, keyed by the value it writes when on.
 const SITZ_UMFANG_SCHLUESSEL = ["kontaktdaten_whatsapp"] as const;
 

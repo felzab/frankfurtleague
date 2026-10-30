@@ -27,7 +27,7 @@
     "typegen": "next typegen",
     "typecheck": "pnpm typegen && tsc --noEmit",
     "typecheck:only": "tsc --noEmit",
-    "contract": "uv run --directory ../fl_backend --frozen python -m app.openapi_document && orval",
+    "contract": "uv run --directory ../fl_backend --frozen python -m app.openapi_document && orval --fail-on-warnings",
     "test": "vitest run --project unit",
     "test:base": "vitest run",
     "test:db": "vitest run --project db",
