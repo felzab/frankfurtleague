@@ -36,28 +36,28 @@ class TestTheStoredFormOfAnAddress:
     def test_every_spelling_of_one_address_reaches_one_row(self, typed: str):
         """The whole of what makes the ban a ban: a spelling that hashes apart is an address the list holds and does not refuse."""
 
-        assert adresse_hash(typed, schluessel=KEY) == adresse_hash(ADDRESS, schluessel=KEY)
+        assert adresse_hash(typed, key=KEY) == adresse_hash(ADDRESS, key=KEY)
 
     def test_another_address_reaches_another_row(self):
         """The control: a fold wide enough to collapse two people would pass every case above."""
 
-        assert adresse_hash("anna.mueller@muellerschule.de", schluessel=KEY) != adresse_hash(ADDRESS, schluessel=KEY)
+        assert adresse_hash("anna.mueller@muellerschule.de", key=KEY) != adresse_hash(ADDRESS, key=KEY)
 
     def test_a_stored_address_no_ban_can_key_is_barred_by_none_rather_than_refused(self):
         """The Postausgang's hand-out judges every address it holds in one read: one stored address raising would stop every mail."""
 
-        assert stored_adresse_hash("jürgen@schule.de", schluessel=KEY) is None
-        assert stored_adresse_hash(ADDRESS, schluessel=KEY) == adresse_hash(ADDRESS, schluessel=KEY)
+        assert stored_adresse_hash("jürgen@schule.de", key=KEY) is None
+        assert stored_adresse_hash(ADDRESS, key=KEY) == adresse_hash(ADDRESS, key=KEY)
 
     def test_one_address_hashes_differently_under_two_keys(self):
         """What the keying buys, and the reason the key can never be rotated: every stored row was taken under the one in force."""
 
-        assert adresse_hash(ADDRESS, schluessel=KEY) != adresse_hash(ADDRESS, schluessel=OTHER_KEY)
+        assert adresse_hash(ADDRESS, key=KEY) != adresse_hash(ADDRESS, key=OTHER_KEY)
 
     def test_the_hash_carries_no_part_of_the_address(self):
         """A leaked collection confirms no guess, so nothing recognisable may survive into the stored value."""
 
-        stored = adresse_hash(ADDRESS, schluessel=KEY)
+        stored = adresse_hash(ADDRESS, key=KEY)
 
         # Hex alone, so no text of the address survives, and the digest's full width: a truncated one is
         # a collision surface nothing reports.
@@ -84,13 +84,13 @@ class TestTheConstructionItself:
     SWAPPED_DIGEST = "bbde862683be3cabdee87e8bf8b94b3cdcc8a732239dc5b26cb2906cb6da0503"
 
     def test_the_stored_form_is_the_value_computed_outside_this_package(self):
-        assert adresse_hash(self.KNOWN_ADDRESS, schluessel=self.KNOWN_MASTER) == self.KNOWN_DIGEST
+        assert adresse_hash(self.KNOWN_ADDRESS, key=self.KNOWN_MASTER) == self.KNOWN_DIGEST
 
     def test_the_known_answer_separates_the_key_from_the_message(self):
         """The premise of the case above: without this, a swapped construction would have to be caught by eye."""
 
         assert self.KNOWN_DIGEST != self.SWAPPED_DIGEST
-        assert adresse_hash(self.KNOWN_ADDRESS, schluessel=self.KNOWN_MASTER) != self.SWAPPED_DIGEST
+        assert adresse_hash(self.KNOWN_ADDRESS, key=self.KNOWN_MASTER) != self.SWAPPED_DIGEST
 
     def test_the_corpus_is_keyed_under_its_own_label_and_never_the_master(self):
         """The sub-key's whole purpose: a second corpus under this master must not be readable from this one."""
@@ -101,7 +101,7 @@ class TestTheConstructionItself:
         master = self.KNOWN_MASTER.get_secret_value().encode("utf-8")
         under_the_master = hmac.new(master, b"anna@beispielschule.de", hashlib.sha256).hexdigest()
 
-        assert adresse_hash(self.KNOWN_ADDRESS, schluessel=self.KNOWN_MASTER) != under_the_master
+        assert adresse_hash(self.KNOWN_ADDRESS, key=self.KNOWN_MASTER) != under_the_master
 
     def test_the_label_the_rows_record_is_the_one_the_key_is_derived_under(self):
         """One string for both, or a row records a label that says nothing about the key that hashed it."""
@@ -123,7 +123,7 @@ class TestOneCanonicalFormWhateverTheRoute:
     UNICODE = "anna@müller.de"
 
     def test_both_spellings_of_one_domain_reach_one_row(self):
-        assert adresse_hash(self.PUNYCODE, schluessel=KEY) == adresse_hash(self.UNICODE, schluessel=KEY)
+        assert adresse_hash(self.PUNYCODE, key=KEY) == adresse_hash(self.UNICODE, key=KEY)
 
     def test_the_payload_route_and_the_bare_route_agree(self):
         """The two routes, driven apart: one address through the payload's rule first and one straight in."""
@@ -132,19 +132,19 @@ class TestOneCanonicalFormWhateverTheRoute:
 
         # Apart, or the assertion below compares one string's hash with itself.
         assert through_a_payload != self.UNICODE
-        assert adresse_hash(through_a_payload, schluessel=KEY) == adresse_hash(self.UNICODE, schluessel=KEY)
+        assert adresse_hash(through_a_payload, key=KEY) == adresse_hash(self.UNICODE, key=KEY)
 
     def test_a_value_that_is_no_address_is_refused_rather_than_hashed(self):
         """Loud rather than silent: a digest over junk matches no row and reports nothing."""
 
         with pytest.raises(ValueError):
-            adresse_hash("nonsense", schluessel=KEY)
+            adresse_hash("nonsense", key=KEY)
 
     def test_the_refusal_quotes_nothing_of_the_value(self):
         """The library's own message carries the rejected value, and this slice keeps addresses out of every traceback."""
 
         with pytest.raises(ValueError) as raised:
-            adresse_hash(f"{SECRET}-Geheim@", schluessel=KEY)
+            adresse_hash(f"{SECRET}-Geheim@", key=KEY)
 
         assert SECRET.lower() not in str(raised.value).lower()
         assert raised.value.__cause__ is None
@@ -154,7 +154,7 @@ class TestWhatTheReasonMayHold:
     """`grund` is served, copied whole into a removal's log image and outlives the person's erasure."""
 
     def _grund(self, grund: str) -> str:
-        return FLPostSperrlistePayload(email="admin@beispielschule.de", grund=grund, benachrichtigen=False).grund
+        return FLPostSperrlistePayload(email="admin@beispielschule.de", grund=grund, notify=False).grund
 
     @pytest.mark.parametrize(
         "grund",
@@ -191,7 +191,7 @@ class TestWhatTheCheckAnswers:
         `fl_backend/app/core/codes.py :: Code` and each slice's own mapper both key on this string.
         """
 
-        refusal = find_sperrliste_refusal(gesperrt=True)
+        refusal = find_sperrliste_refusal(barred=True)
 
         assert refusal is not None
         assert refusal.error_code == "duplicate_key"
@@ -201,4 +201,4 @@ class TestWhatTheCheckAnswers:
     def test_an_address_the_list_does_not_hold_is_refused_by_nothing(self):
         """The control: a check refusing everything would pass the case above and stop every sign-up."""
 
-        assert find_sperrliste_refusal(gesperrt=False) is None
+        assert find_sperrliste_refusal(barred=False) is None

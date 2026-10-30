@@ -30,7 +30,7 @@ PERSON_FIELDS: tuple[str, ...] = (*PERSON_IDENTITY_FIELDS, "geburtsdatum", "emai
 PERSON_ANSICHT_FIELDS: tuple[str, ...] = (
     *PERSON_IDENTITY_FIELDS,
     "geburtsdatum",
-    "einwilligung.bestaetigt_am",
+    "einwilligung.confirmed_at",
 )
 
 
@@ -68,14 +68,14 @@ async def pull_offene_registrierungen(
         collection=registrierungen_collection,
         pipeline=[
             {"$match": build_offene_filter(saison_id=saison_id, team_id=team_id)},
-            {"$sort": dict(build_registrierungen_sort(sort_by="eingereicht_am", order=order))},
+            {"$sort": dict(build_registrierungen_sort(sort_by="submitted_at", order=order))},
             {"$limit": limit + 1},
             # An inclusion: nothing beyond the form's own fields, the consent stamp and the address
             # the join runs on reaches this handler, let alone the wire.
             {
                 "$project": {
-                    **{field: 1 for field in ("eingereicht_am", *PERSON_IDENTITY_FIELDS, "nummer", "position", "stufe")},
-                    **{field: 1 for field in ("email", "geburtsdatum", "einwilligung.bestaetigt_am")},
+                    **{field: 1 for field in ("submitted_at", *PERSON_IDENTITY_FIELDS, "nummer", "position", "stufe")},
+                    **{field: 1 for field in ("email", "geburtsdatum", "einwilligung.confirmed_at")},
                 }
             },
         ],

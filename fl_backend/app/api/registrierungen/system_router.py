@@ -6,7 +6,7 @@ from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import season_has_ended
-from app.api.postausgang.schemas import FLPostausgangBezug, FLRegistrierungLinkDaten
+from app.api.postausgang.schemas import FLPostausgangBezug, FLRegistrierungLinkData
 from app.api.postausgang.services import OwedMail, enqueue_mails
 from app.api.registrierungen.schemas import FLRegistrierungSweepResponse
 from app.api.registrierungen.services import (
@@ -80,14 +80,14 @@ async def sweep_registrierungen(
     below do not run for a `past` season, whose own end takes every row they read.
 
     Otherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having
-    named that day. Then one reminder per registration at its reminder age, earliest deadline first: `erinnert_am` is stamped and the
+    named that day. Then one reminder per registration at its reminder age, earliest deadline first: `reminded_at` is stamped and the
     reminder owed in the Postausgang in one transaction, its link joining the one already in that inbox. One call reminds a bounded
     share of the registrations due; the rest stay due and the calls after it remind them. Every removal names this season alone, is
     made inside a transaction and takes its log rows with it.
 
     A registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of
     its clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
-    nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.
+    nobody behind it. `failed` sums the rows each of the four clocks passed over.
 
     404 where no season has the id. Idempotent per day: a run after every due reminder is owed writes nothing.
     """
@@ -142,7 +142,7 @@ async def sweep_registrierungen(
             pull_many_from_db(
                 collection=registrierungen_collection,
                 db_filter=batch.within(build_unconfirmed_filter(saison_id=saison_id, today=today)),
-                projection=["status", "einwilligung", "bestaetigung"],
+                projection=["status", "einwilligung", "confirmation"],
                 limit=SWEEP_PAGE + 1,
                 session=session,
             )
@@ -174,11 +174,11 @@ async def sweep_registrierungen(
             pull_many_from_db(
                 collection=registrierungen_collection,
                 db_filter=batch.within(build_erinnerung_filter(saison_id=saison_id, today=today)),
-                projection=["status", "einwilligung", "bestaetigung", "email", "team_id"],
+                projection=["status", "einwilligung", "confirmation", "email", "team_id"],
                 limit=SWEEP_PAGE + 1,
                 # Earliest deadline first, so the pupil the unconfirmed clock takes soonest is reminded
                 # first; `_id` makes the page the same page whichever plan the server picks.
-                sort_by=[("bestaetigung.frist", ASCENDING), ("_id", ASCENDING)],
+                sort_by=[("confirmation.frist", ASCENDING), ("_id", ASCENDING)],
                 session=session,
             )
         )
@@ -203,16 +203,16 @@ async def sweep_registrierungen(
             mails=[
                 OwedMail(
                     # The day too: an address change owes the moved row its reminder again, which an earlier key would swallow.
-                    schluessel=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/erinnerung/{today}",
+                    key=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/reminder/{today}",
                     an=str(row["email"]),
-                    daten=FLRegistrierungLinkDaten(
-                        art="registrierung_erinnerung",
+                    data=FLRegistrierungLinkData(
+                        art="registrierung_reminder",
                         # Empty where the team row is gone: a reminder naming no team beats a pass that stops.
                         team=team_names.get(row.get("team_id"), _TEAM_UNBEKANNT),
                         saison_id=saison_id,
-                        frist_tage=REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
+                        frist_days=REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
                     ),
-                    bezug=FLPostausgangBezug(sammlung=Collection.REGISTRIERUNGEN, id=row["_id"], sitz=None),
+                    reference=FLPostausgangBezug(collection=Collection.REGISTRIERUNGEN, id=row["_id"], seat=None),
                     link=REGISTRIERUNG_LINK,
                 )
                 for row in taken
@@ -229,7 +229,7 @@ async def sweep_registrierungen(
             pull_many_from_db(
                 collection=registrierungen_collection,
                 db_filter=batch.within(build_decline_filter(saison_id=saison_id, today=today)),
-                projection=["status", "entscheidung"],
+                projection=["status", "decision"],
                 limit=SWEEP_PAGE + 1,
                 session=session,
             )
@@ -296,10 +296,10 @@ async def sweep_registrierungen(
 
     return FLRegistrierungSweepResponse(
         saison_id=saison_id,
-        erinnert=erinnert,
-        geloescht_unbestaetigt=unbestaetigt,
-        geloescht_ohne_entscheidung=ohne_entscheidung,
-        geloescht_abgelehnt=abgelehnte,
-        redigierte_aktionen=redacted_undecided + redacted_unconfirmed + redacted_declined,
-        fehlgeschlagen=fehlgeschlagen,
+        reminded=erinnert,
+        erased_unconfirmed=unbestaetigt,
+        erased_without_decision=ohne_entscheidung,
+        erased_declined=abgelehnte,
+        redacted_action_log=redacted_undecided + redacted_unconfirmed + redacted_declined,
+        failed=fehlgeschlagen,
     )

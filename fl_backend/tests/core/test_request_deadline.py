@@ -137,7 +137,7 @@ def _grants_list_answered(method: str) -> tuple[Response, float]:
     async def _answered() -> tuple[Response, float]:
         async with app_client(UNANSWERED_URI) as http:
             started = time.monotonic()
-            response = await http.request(method, f"/api/v{API_VERSION}/berechtigungen", headers=ADMIN_HEADERS)
+            response = await http.request(method, f"/api/v{API_VERSION}/grants", headers=ADMIN_HEADERS)
             return response, time.monotonic() - started
 
     return asyncio.run(_answered())
@@ -260,8 +260,8 @@ STALL = "sleep(60000) || true"
 # Long enough that the team before the stall is minted inside it on a loaded machine.
 SHORT_REQUEST_DEADLINE_S = 1.5
 
-MINT_FAILED = "erzeugung_fehlgeschlagen"
-MINT_OUTCOME_UNKNOWN = "erzeugung_ungewiss"
+MINT_FAILED = "erzeugung_failed"
+MINT_OUTCOME_UNKNOWN = "erzeugung_uncertain"
 
 
 def _seeded_link(team_id: ObjectId) -> dict[str, Any]:
@@ -272,14 +272,14 @@ def _seeded_link(team_id: ObjectId) -> dict[str, Any]:
         "saison_id": SAISON_ID,
         "team_id": team_id,
         "token_hashes": [hash_token(f"seeded-{team_id}")],
-        "erstellt_am": "2026-03-15",
-        "erstellt_von": "admin@frankfurtleague.de",
+        "created_at": "2026-03-15",
+        "created_by": "admin@frankfurtleague.de",
         "widerrufen_am": None,
     }
 
 
 def _junction_row(team_id: ObjectId) -> dict[str, Any]:
-    trainer = kontaktperson_document(TEAM_NAMES[team_id], bestaetigt_am="2026-03-20", nachname="Mustermann", telefon="+49 69 1234567")
+    trainer = kontaktperson_document(TEAM_NAMES[team_id], confirmed_at="2026-03-20", nachname="Mustermann", telefon="+49 69 1234567")
 
     return saison_team_document(
         SAISON_ID,
@@ -287,7 +287,7 @@ def _junction_row(team_id: ObjectId) -> dict[str, Any]:
         TEAM_NAMES[team_id],
         TEAM_NAMES[team_id][:3].upper(),
         _id=ObjectId(),
-        kontakte={"trainer": trainer, "ansprechperson": None, "stellvertretung": None, "trainer_ist_zugleich": None},
+        kontakte={"trainer": trainer, "ansprechperson": None, "stellvertretung": None, "trainer_is_also": None},
     )
 
 
@@ -354,7 +354,7 @@ def _pressed(url: str, stand_in: Callable[[AsyncCollection], Any], *, seed_links
                 saison_document(
                     SAISON_ID,
                     "active",
-                    rules=rules_document(number_of_groups=2, max_kadergroesse=50, erlaubte_stufen=["E1"]),
+                    rules=rules_document(number_of_gruppen=2, max_kadergroesse=50, allowed_stufen=["E1"]),
                     registrierung={"offen": True, "von": "2026-03-01", "bis": "2026-04-30"},
                 )
             )
@@ -372,7 +372,7 @@ def _pressed(url: str, stand_in: Callable[[AsyncCollection], Any], *, seed_links
             async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
                 started = time.monotonic()
                 response = await http.post(
-                    f"/api/v{API_VERSION}/saisons/{SAISON_ID}/einladungen/versand", headers=ADMIN_HEADERS, json={"erneut": False}
+                    f"/api/v{API_VERSION}/saisons/{SAISON_ID}/invitations/dispatch", headers=ADMIN_HEADERS, json={"resend": False}
                 )
                 elapsed = time.monotonic() - started
 
@@ -384,11 +384,11 @@ def _pressed(url: str, stand_in: Callable[[AsyncCollection], Any], *, seed_links
             return (
                 response.status_code,
                 elapsed,
-                {zeile["team_id"]: zeile["uebersprungen"] for zeile in response.json()["zeilen"]},
+                {zeile["team_id"]: zeile["skipped"] for zeile in response.json()["rows"]},
                 live,
                 {team_id: row["_id"] for team_id, row in seeded.items()},
-                {zeile["team_id"]: zeile["ersetzt_link"] for zeile in response.json()["zeilen"]},
-                {zeile["team_id"]: zeile["hatte_link"] for zeile in response.json()["zeilen"]},
+                {zeile["team_id"]: zeile["replaced_link"] for zeile in response.json()["rows"]},
+                {zeile["team_id"]: zeile["had_link"] for zeile in response.json()["rows"]},
             )
 
     return on_the_seed_loop(body())

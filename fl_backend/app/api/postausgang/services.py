@@ -16,13 +16,13 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.postausgang.schemas import (
+    FLOutboxDeliveryStand,
     FLPostausgangArt,
     FLPostausgangBezug,
     FLPostausgangDaten,
     FLPostausgangErgebnisArt,
     FLPostausgangLink,
     FLPostausgangStand,
-    FLPostausgangZustellStand,
 )
 from app.core.crud import patch_many_in_db, post_many_to_db
 
@@ -48,27 +48,27 @@ ZUSTELLFRIST: Final = timedelta(days=2)
 NACHLAUF: Final = timedelta(days=30)
 
 # The sign-in library's kinds, each tried once: its own repair of a failed code is a fresh one.
-ANMELDE_ARTEN: Final[frozenset[FLPostausgangArt]] = frozenset({"anmeldecode", "passkey_hinzugefuegt", "passkey_geloescht", "konto_loeschung"})
+ANMELDE_ARTEN: Final[frozenset[FLPostausgangArt]] = frozenset({"sign_in_code", "passkey_hinzugefuegt", "passkey_erased", "account_erasure"})
 
 # The one kind of mail a ban does not stop: the ban's own notice.
 UNGESPERRT: Final[frozenset[FLPostausgangArt]] = frozenset({"sperre"})
 
 # The final state each reported outcome settles a row in; a send to be tried again ends there only where it may not be.
 ENDSTAND: Final[Mapping[FLPostausgangErgebnisArt, FLPostausgangStand]] = {
-    "gesendet": "gesendet",
-    "zurueckgehalten": "zurueckgehalten",
-    "aufgeben": "aufgegeben",
-    "wiederholen": "aufgegeben",
+    "sent": "sent",
+    "withheld": "withheld",
+    "abandon": "abandoned",
+    "retry": "abandoned",
 }
 
 # Each delivery state, and the states a row may hold for an event to move it there: never back from a later one, the
 # provider sending events in any order.
-FOLGT_AUF: Final[Mapping[FLPostausgangZustellStand, tuple[FLPostausgangZustellStand | None, ...]]] = {
-    "verzoegert": (None,),
-    "zugestellt": (None, "verzoegert"),
-    "unzustellbar": (None, "verzoegert"),
-    "unterdrueckt": (None, "verzoegert"),
-    "beschwerde": (None, "verzoegert", "zugestellt"),
+FOLGT_AUF: Final[Mapping[FLOutboxDeliveryStand, tuple[FLOutboxDeliveryStand | None, ...]]] = {
+    "delayed": (None,),
+    "delivered": (None, "delayed"),
+    "undeliverable": (None, "delayed"),
+    "suppressed": (None, "delayed"),
+    "complaint": (None, "delayed", "delivered"),
 }
 
 
@@ -76,16 +76,16 @@ FOLGT_AUF: Final[Mapping[FLPostausgangZustellStand, tuple[FLPostausgangZustellSt
 class OwedMail:
     """One mail a league write owes one recipient.
 
-    `daten` is the kind's member of `app/api/postausgang/schemas.py :: FLPostausgangDaten`, whose `art` is the row's.
-    `schluessel` is the mail's identity: the same on a replay of the write, so the replay finds the row its first run
+    `data` is the kind's member of `app/api/postausgang/schemas.py :: FLPostausgangDaten`, whose `art` is the row's.
+    `key` is the mail's identity: the same on a replay of the write, so the replay finds the row its first run
     wrote and owes nothing twice, and distinct for every recipient and every mail the write owes. `link` mints a link at
-    the hand-out on the record `bezug` names.
+    the hand-out on the record `reference` names.
     """
 
-    schluessel: str
+    key: str
     an: str
-    daten: FLPostausgangDaten
-    bezug: FLPostausgangBezug | None = None
+    data: FLPostausgangDaten
+    reference: FLPostausgangBezug | None = None
     link: FLPostausgangLink | None = None
 
 
@@ -105,88 +105,88 @@ async def enqueue_mails(
 
     if not mails:
         return
-    if len({mail.schluessel for mail in mails}) != len(mails):
+    if len({mail.key for mail in mails}) != len(mails):
         raise ValueError("every mail one write owes carries a key of its own")
 
     # A first run committed before this snapshot is found; one committed after it makes the insert a write conflict the
     # caller's `with_transaction` retries, which then finds it.
-    stored = await postausgang_collection.find(
-        {"schluessel": {"$in": [mail.schluessel for mail in mails]}}, {"schluessel": 1, "_id": 0}, session=session
-    ).to_list(length=None)
-    owed = {row["schluessel"] for row in stored}
-    neu = [mail for mail in mails if mail.schluessel not in owed]
+    stored = await postausgang_collection.find({"key": {"$in": [mail.key for mail in mails]}}, {"key": 1, "_id": 0}, session=session).to_list(
+        length=None
+    )
+    owed = {row["key"] for row in stored}
+    neu = [mail for mail in mails if mail.key not in owed]
     if not neu:
         return
 
     await post_many_to_db(
-        collection=postausgang_collection, documents=[row_of(mail, now=now, geheim=None, gueltig_bis=None) for mail in neu], session=session
+        collection=postausgang_collection, documents=[row_of(mail, now=now, secret=None, valid_until=None) for mail in neu], session=session
     )
 
-    # Equality on the three keys of `postausgang_bezug` for each record and seat (`app/core/constraints.py :: SUPPORT_INDEXES`).
+    # Equality on the three keys of `outbox_reference` for each record and seat (`app/core/constraints.py :: SUPPORT_INDEXES`).
     ersetzt = [
-        {"bezug.sammlung": str(mail.bezug.sammlung), "bezug.id": mail.bezug.id, "bezug.sitz": mail.bezug.sitz}
+        {"reference.collection": str(mail.reference.collection), "reference.id": mail.reference.id, "reference.seat": mail.reference.seat}
         for mail in neu
-        if mail.bezug is not None and mail.link is not None and mail.link.ersetzt
+        if mail.reference is not None and mail.link is not None and mail.link.replaced
     ]
     if ersetzt:
         await patch_many_in_db(
             collection=postausgang_collection,
-            db_filter={"$or": ersetzt, "stand": "offen", "link.ersetzt": True, "schluessel": {"$nin": [mail.schluessel for mail in neu]}},
-            update=final_update("entfallen", now=now),
+            db_filter={"$or": ersetzt, "stand": "open", "link.replaced": True, "key": {"$nin": [mail.key for mail in neu]}},
+            update=final_update("dropped", now=now),
             session=session,
         )
 
 
-def row_of(mail: OwedMail, *, now: datetime, geheim: str | None, gueltig_bis: datetime | None) -> dict[str, Any]:
-    """One owed mail's row as `postausgang` stores it. `geheim` lapses with `gueltig_bis`, the row's deadline and its deletion both."""
+def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: datetime | None) -> dict[str, Any]:
+    """One owed mail's row as `outbox` stores it. `secret` lapses with `valid_until`, the row's deadline and its deletion both."""
 
-    if geheim is not None and gueltig_bis is None:
+    if secret is not None and valid_until is None:
         raise ValueError("a secret is held until it lapses, and this one names no lapse")
-    if mail.link is not None and mail.bezug is None:
+    if mail.link is not None and mail.reference is None:
         raise ValueError("a link is minted on the record a mail is about, and this mail names none")
 
-    frist = gueltig_bis if gueltig_bis is not None else now + ZUSTELLFRIST
-    bezug = mail.bezug
+    frist = valid_until if valid_until is not None else now + ZUSTELLFRIST
+    bezug = mail.reference
 
     return {
-        "schluessel": mail.schluessel,
-        "art": mail.daten.art,
+        "key": mail.key,
+        "art": mail.data.art,
         "an": mail.an,
         # JSON, so an instant keeps its offset and reads back as the aware value its member requires.
-        "daten": mail.daten.model_dump(mode="json"),
-        "geheim": geheim,
+        "data": mail.data.model_dump(mode="json"),
+        "secret": secret,
         # Spelled field by field: the id type dumps as its hex string, which no stored id equals.
-        "bezug": None if bezug is None else {"sammlung": str(bezug.sammlung), "id": bezug.id, "sitz": bezug.sitz},
+        "reference": None if bezug is None else {"collection": str(bezug.collection), "id": bezug.id, "seat": bezug.seat},
         "link": None if mail.link is None else mail.link.model_dump(),
-        "stand": "offen",
-        "erfasst_am": now,
+        "stand": "open",
+        "recorded_at": now,
         "frist": frist,
         # A secret goes with its lapse; any other row at the latest a retention after its deadline, which its final
         # state brings forward (`final_update`).
-        "loeschen_am": frist if geheim is not None else frist + NACHLAUF,
-        "beanspruchung": None,
-        "beansprucht_bis": None,
-        "versuche": 0,
-        "nachricht_id": None,
+        "erase_at": frist if secret is not None else frist + NACHLAUF,
+        "lease": None,
+        "leased_until": None,
+        "attempts": 0,
+        "message_id": None,
         "grund": None,
-        "zustellung": None,
+        "delivery": None,
     }
 
 
-def final_update(stand: FLPostausgangStand, *, now: datetime, nachricht_id: str | None = None) -> Mapping[str, Any]:
+def final_update(stand: FLPostausgangStand, *, now: datetime, message_id: str | None = None) -> Mapping[str, Any]:
     """A row's final state: the claim released, the data and any secret removed, deleted a retention from now.
 
     `$min`, so a sign-in row keeps its own lapse, which is sooner, and an ordinary row's retention dates from this state.
     """
 
     return {
-        "$set": {"stand": stand, "nachricht_id": nachricht_id, "beanspruchung": None, "beansprucht_bis": None},
-        "$unset": {"daten": "", "geheim": ""},
-        "$min": {"loeschen_am": now + NACHLAUF},
+        "$set": {"stand": stand, "message_id": message_id, "lease": None, "leased_until": None},
+        "$unset": {"data": "", "secret": ""},
+        "$min": {"erase_at": now + NACHLAUF},
     }
 
 
 def retry_update(*, now: datetime) -> Mapping[str, Any]:
     """A failed send handed back: no claim holds it, and no drain takes it before the wait has passed."""
 
-    return {"$set": {"beanspruchung": None, "beansprucht_bis": now + WIEDERHOLUNG_NACH}}
+    return {"$set": {"lease": None, "leased_until": now + WIEDERHOLUNG_NACH}}

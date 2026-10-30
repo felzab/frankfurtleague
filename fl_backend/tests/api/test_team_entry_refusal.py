@@ -27,13 +27,13 @@ STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
-    qualifiers_per_group=2,
-    number_of_groups=2,
-    teams_per_group=4,
+    qualifiers_per_gruppe=2,
+    number_of_gruppen=2,
+    teams_per_gruppe=4,
     tiebreak_order="tordifferenz",
     max_kadergroesse=50,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
-    erlaubte_stufen=STUFEN,
+    allowed_stufen=STUFEN,
 )
 
 

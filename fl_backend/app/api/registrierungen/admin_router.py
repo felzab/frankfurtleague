@@ -38,8 +38,8 @@ async def get_registrierungen(
 ) -> FLRegistrierungenListResponse:
     """Every pending registration, newest first, narrowed by season, team and status.
 
-    `vollstaendig` is false where more rows exist than one read serves, `bestaetigt` says whether the pupil answered their own
-    link, and a barred decision's author is served as `null` beside `entscheidung.von_gesperrt`.
+    `complete` is false where more rows exist than one read serves, `confirmed` says whether the pupil answered their own
+    link, and a barred decision's author is served as `null` beside `decision.by_barred`.
     """
 
     # Each term omitted where the request names nothing, so an absent parameter reads as every value
@@ -72,10 +72,10 @@ async def get_registrierungen(
             [
                 {
                     **mit_vorenthaltener_entscheidung(row, barred),
-                    "bestaetigt": registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung")),
+                    "confirmed": registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung")),
                 }
                 for row in served
             ]
         ),
-        vollstaendig=len(read) <= filters.limit,
+        complete=len(read) <= filters.limit,
     )

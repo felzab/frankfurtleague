@@ -12,8 +12,8 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
     FLSpielberichtSpieler,
+    FLSpielberichtStateEntry,
     FLSpielberichtVon,
-    FLSpielberichtZustandEintrag,
 )
 from app.api.spielberichte.services import (
     SEITEN,
@@ -166,7 +166,7 @@ async def write_bericht(
     """
 
     # Off the fixture this write judged: a correction landing mid-write leaves the clubs before it stamped, and the
-    # report reads `teams_geaendert`, never adoptable.
+    # report reads `teams_changed`, never adoptable.
     seiten = seiten_of(spiel_raw)
     if gespeichert is not None and bericht_unveraendert(payload, gespeichert.get("bericht"), seiten):
         return gespeichert
@@ -213,7 +213,7 @@ async def count_eingereichte_berichte(*, spielberichte_collection: AsyncCollecti
     return counted[0]["berichte"] if counted else 0
 
 
-async def pull_zustaende(*, spielberichte_collection: AsyncCollection, saison_id: str) -> list[FLSpielberichtZustandEintrag]:
+async def pull_zustaende(*, spielberichte_collection: AsyncCollection, saison_id: str) -> list[FLSpielberichtStateEntry]:
     """Every report of one season holding a block, each with its state against its fixture as stored now."""
 
     rows = await aggregate_many_from_db(collection=spielberichte_collection, pipeline=build_zustand_pipeline(saison_id=saison_id))
@@ -222,8 +222,8 @@ async def pull_zustaende(*, spielberichte_collection: AsyncCollection, saison_id
     for row in rows:
         bericht = FLSpielberichtBericht.model_validate(row["bericht"])
         eintraege.append(
-            FLSpielberichtZustandEintrag(
-                spiel_id=row["spiel_id"], zustand=bericht_zustand_of(bericht, row["spiel"]), ergebnis_vorschlag=bericht.ergebnis_vorschlag
+            FLSpielberichtStateEntry(
+                spiel_id=row["spiel_id"], state=bericht_zustand_of(bericht, row["spiel"]), ergebnis_vorschlag=bericht.ergebnis_vorschlag
             )
         )
 
@@ -280,7 +280,7 @@ async def repoint_referee_reports_in_session(
     repointed = await patch_many_in_db(
         collection=spielberichte_collection,
         db_filter=build_referee_reports_filter(schiedsrichter_ids),
-        update={"$set": {"bericht.eingereicht_von.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}},
+        update={"$set": {"bericht.submitted_by.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}},
         session=session,
     )
 
@@ -316,9 +316,9 @@ async def stamp_the_adoption(
         db_filter={"spiel_id": spiel_id, "bericht.version": version, **{f"bericht.seiten.{seite}": seiten[seite] for seite in SEITEN}},
         update={
             "$set": {
-                "bericht.uebernommen_am": now,
-                "bericht.uebernommen_von": {"art": "admin"},
-                "bericht.uebernommene_version": version,
+                "bericht.adopted_at": now,
+                "bericht.adopted_by": {"art": "admin"},
+                "bericht.adopted_version": version,
             }
         },
         session=session,

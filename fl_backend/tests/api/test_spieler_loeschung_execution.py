@@ -9,7 +9,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.identitaet.schemas import FLLoeschungResponse
+from app.api.identitaet.schemas import FLErasureResponse
 from app.api.spieler.admin_router import (
     delete_saison_spieler,
     delete_spieler,
@@ -171,7 +171,7 @@ async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
     return spieler_id
 
 
-async def loeschen_the_pupil(database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId) -> FLLoeschungResponse:
+async def loeschen_the_pupil(database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId) -> FLErasureResponse:
     """The registry's erasure of the address this pupil's row holds: the erasure is keyed on a mailbox, never on an id."""
 
     person = await database[Collection.SPIELER].find_one({"_id": spieler_id}, {"email": 1})

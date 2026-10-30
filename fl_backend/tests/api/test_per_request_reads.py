@@ -12,7 +12,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.berechtigungen import crud as berechtigungen_crud
 from app.api.identitaet import crud as identitaet_crud
 from app.api.identitaet import system_router as identitaet_system_router
-from app.api.identitaet.schemas import FLAnmeldung, FLSubjekt, FLSubjektPayload
+from app.api.identitaet.schemas import FLAnmeldung, FLSubjectPayload, FLSubjekt
 from app.api.konto import person_router as konto_person_router
 from app.core.collections import Collection
 from tests.bans import ban_list
@@ -43,7 +43,7 @@ SEAT_ROW = {
     "saison_id": ACTIVE_SAISON,
     "team_id": ObjectId("6890a1b2c3d4e5f607820001"),
     "name": "Helmholtz",
-    "kontakte": {"trainer": {"email": IDENTIFIER, "einwilligung": bestaetigte_kenntnisnahme(bestaetigt_am="2026-01-20")}},
+    "kontakte": {"trainer": {"email": IDENTIFIER, "einwilligung": bestaetigte_kenntnisnahme(confirmed_at="2026-01-20")}},
 }
 
 
@@ -88,7 +88,7 @@ class TestTheSubjectLookupsReads:
         reads = _Reads()
 
         async def find_subjekt(_identifier: str, _records: Any) -> FLSubjekt:
-            return await reads.answer("records", FLSubjekt(sitze=[], spieler=[], schiedsrichter=[], unbestaetigt=False))
+            return await reads.answer("records", FLSubjekt(seats=[], spieler=[], schiedsrichter=[], unconfirmed=False))
 
         async def hash_gesperrt(*_: Any, **__: Any) -> bool:
             return await reads.answer("ban", False)
@@ -102,8 +102,8 @@ class TestTheSubjectLookupsReads:
 
         stand_in = cast(Any, None)
         asyncio.run(
-            identitaet_system_router.get_subjekt(
-                subjekt_data=FLSubjektPayload(email=IDENTIFIER),
+            identitaet_system_router.get_subject(
+                subjekt_data=FLSubjectPayload(email=IDENTIFIER),
                 records=stand_in,
                 sperrliste=ban_list({Collection.SPERRLISTE: stand_in, Collection.SAISONS: stand_in}),
                 berechtigungen_collection=stand_in,
@@ -141,7 +141,7 @@ class TestTheSubjectLookupsReads:
 
         assert reads.issued[-1] == SAISONS
         assert reads.issued.count(SAISONS) == 1
-        assert [sitz.saison_status for sitz in answered.sitze] == ["active"]
+        assert [sitz.saison_status for sitz in answered.seats] == ["active"]
 
     def test_inside_a_transaction_the_reads_run_one_at_a_time_in_its_session(self, monkeypatch: pytest.MonkeyPatch):
         """PyMongo documents that one session runs one operation at a time and refuses nothing, so gathered here they would race unseen."""
@@ -184,7 +184,7 @@ class TestTheSignInGatesReads:
         reads = _Reads()
 
         async def find_anmeldung(_identifier: str, _records: Any) -> FLAnmeldung:
-            return await reads.answer("records", FLAnmeldung(unbestaetigt=False, konto=False))
+            return await reads.answer("records", FLAnmeldung(unconfirmed=False, account=False))
 
         async def hash_gesperrt(*_: Any, **__: Any) -> bool:
             return await reads.answer("ban", False)
@@ -198,8 +198,8 @@ class TestTheSignInGatesReads:
 
         stand_in = cast(Any, None)
         asyncio.run(
-            identitaet_system_router.get_anmeldung(
-                anmeldung_data=FLSubjektPayload(email=IDENTIFIER),
+            identitaet_system_router.get_sign_in(
+                anmeldung_data=FLSubjectPayload(email=IDENTIFIER),
                 records=stand_in,
                 sperrliste=ban_list({Collection.SPERRLISTE: stand_in, Collection.SAISONS: stand_in}),
                 berechtigungen_collection=stand_in,
@@ -217,7 +217,7 @@ class TestTheActorChecksTwoReads:
         reads = _Reads()
 
         # The grant beside its record, as the one read joining the two answers it.
-        grant = {"adresse": IDENTIFIER, "erteilt_am": datetime(2026, 1, 1, tzinfo=UTC), "angekuendigt": [{"adresse": IDENTIFIER}]}
+        grant = {"adresse": IDENTIFIER, "granted_at": datetime(2026, 1, 1, tzinfo=UTC), "angekuendigt": [{"adresse": IDENTIFIER}]}
 
         async def aggregate_many_from_db(**_: Any) -> list[Mapping[str, Any]]:
             return await reads.answer(BERECHTIGUNGEN, [grant])

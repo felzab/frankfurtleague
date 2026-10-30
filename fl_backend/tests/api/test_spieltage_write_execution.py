@@ -59,7 +59,7 @@ OTHER_SAISON_BEGINN = "2025-06-25"
 OTHER_SAISON_ENDE = "2025-06-26"
 
 # The shape the two match counts below follow from.
-RULES = documents.rules_document(number_of_groups=4, teams_per_group=4, qualifiers_per_group=2)
+RULES = documents.rules_document(number_of_gruppen=4, teams_per_gruppe=4, qualifiers_per_gruppe=2)
 
 # Spelled out rather than computed, so a `schedule_for` change that stops matching is visible here.
 GRUPPENPHASE_MATCHES = 8
@@ -71,7 +71,7 @@ def saison_document() -> dict[str, Any]:
 
 
 def spieltag_document(**overrides: Any) -> dict[str, Any]:
-    """No `anzahl_spiele`, the shape a drawn schedule leaves, so the echo assertions are controls rather than readings of a stale key."""
+    """No `count_spiele`, the shape a drawn schedule leaves, so the echo assertions are controls rather than readings of a stale key."""
 
     return {
         "_id": SPIELTAG_OID,

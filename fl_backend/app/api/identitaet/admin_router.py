@@ -10,11 +10,11 @@ from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, LoeschungJournal, loeschen_everything, resolve_subject
 from app.api.identitaet.schemas import (
-    FLAbmeldungResponse,
-    FLLoeschungAdressePayload,
-    FLLoeschungAnsichtResponse,
-    FLLoeschungPayload,
-    FLLoeschungResponse,
+    FLErasureAdressePayload,
+    FLErasurePayload,
+    FLErasureResponse,
+    FLErasureViewResponse,
+    FLSignOutResponse,
 )
 from app.api.identitaet.services import (
     JEDE_VERWALTUNG,
@@ -65,21 +65,21 @@ from app.core.security import (
 )
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.literals import FLAdresswechselEinsehbarVerwehrt
+from app.shared.schemas.literals import FLAddressChangeViewableDenied
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/identitaet",
+    prefix=f"/api/v{API_VERSION}/identity",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
 
 @router.post(
-    "/loeschung/ansicht",
-    response_model=FLLoeschungAnsichtResponse,
+    "/erasure/view",
+    response_model=FLErasureViewResponse,
     summary="Show what an erasure of an address would remove",
 )
-async def get_loeschung_ansicht(
-    ansicht_data: Annotated[FLLoeschungAdressePayload, Body()],
+async def get_erasure_view(
+    ansicht_data: Annotated[FLErasureAdressePayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
     bewerbungen_collection: BewerbungenCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
@@ -96,7 +96,7 @@ async def get_loeschung_ansicht(
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLLoeschungAnsichtResponse:
+) -> FLErasureViewResponse:
     """
     Answer which of this address's records `POST /identitaet/loeschung` would remove or empty, by kind, name and the ids a page links each by.
 
@@ -122,10 +122,10 @@ async def get_loeschung_ansicht(
     a dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the
     address under another grant's id; and the address in every notice still queued, withheld. Written besides: the
     notice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.
-    `verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the
+    `verwaltung` is the tier of the live grant the address holds, or null. `barred` is whether a standing ban holds the
     address, judged as a stored address is; the erasure leaves a ban standing. Stores nothing.
 
-    Refused as the erasure is: the administrator's own address (`eigene_adresse`), an address holding a live grant unless
+    Refused as the erasure is: the administrator's own address (`own_adresse`), an address holding a live grant unless
     the administrator holds an owner's power (`verwaltung_adresse`).
     """
 
@@ -151,7 +151,7 @@ async def get_loeschung_ansicht(
             schiedsrichter_collection=schiedsrichter_collection,
             spieler_collection=spieler_collection,
             registrierungen_collection=registrierungen_collection,
-            schluessel=config.sperrliste_schluessel,
+            key=config.sperrliste_schluessel,
             session=session,
         )
         kader_rows = (
@@ -186,7 +186,7 @@ async def get_loeschung_ansicht(
             berechtigungen_antraege_collection=berechtigungen_antraege_collection, identifier=identifier, now=germany_now, session=session
         )
 
-    verwehrt: dict[str, FLAdresswechselEinsehbarVerwehrt] = {
+    verwehrt: dict[str, FLAddressChangeViewableDenied] = {
         str(row["adresse"]): grund
         for row in others_naming(subject.adresswechsel, identifier)
         if (
@@ -207,8 +207,8 @@ async def get_loeschung_ansicht(
         pupil_rows=subject.spieler,
         registrierung_rows=subject.registrierungen,
         adresswechsel_rows=naming,
-        verwehrt=verwehrt,
-        eigener_adresswechsel=next((row for row in subject.adresswechsel if row.get("adresse") == identifier), None),
+        denied=verwehrt,
+        own_address_change=next((row for row in subject.adresswechsel if row.get("adresse") == identifier), None),
         antrag_rows=antrag_rows,
         kader_rows=kader_rows,
         team_rows=team_rows,
@@ -217,17 +217,17 @@ async def get_loeschung_ansicht(
     # A live row is its own fold, so equality is the fold's judgement.
     own = next((grant for grant in grants if grant["adresse"] == identifier), None)
 
-    return FLLoeschungAnsichtResponse(**ansicht.model_dump(), verwaltung=None if own is None else own["verwaltung"], gesperrt=bool(gesperrt))
+    return FLErasureViewResponse(**ansicht.model_dump(), verwaltung=None if own is None else own["verwaltung"], barred=bool(gesperrt))
 
 
 @router.post(
-    "/loeschung",
-    response_model=FLLoeschungResponse,
+    "/erasure",
+    response_model=FLErasureResponse,
     summary="Erase every record an address holds, on that person's request",
     dependencies=[Depends(verify_step_up)],
 )
-async def post_loeschung(
-    loeschung_data: Annotated[FLLoeschungPayload, Body()],
+async def post_erasure(
+    loeschung_data: Annotated[FLErasurePayload, Body()],
     spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -252,19 +252,19 @@ async def post_loeschung(
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLLoeschungResponse:
+) -> FLErasureResponse:
     """
     Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.
 
     ADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/konto/loeschung` runs and refuses nothing about the
     person's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.
-    Three refusals are about who asks. The administrator's own address is refused (`eigene_adresse`): their account page
+    Three refusals are about who asks. The administrator's own address is refused (`own_adresse`): their account page
     serves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,
     signed in since becoming one (`verwaltung_adresse`), judged inside the write: erasing it removes the grant, whatever grants
     remain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every
     other address is erased from a sign-in inside the step-up window. Either window missed answers `confirmation_required`. An
     address another address's pending change would move to is refused, judged inside the write, where that address holds a
-    live grant and the administrator no owner's power (`fremder_adresswechsel`): the erasure ends the change, a discard only an
+    live grant and the administrator no owner's power (`foreign_address_change`): the erasure ends the change, a discard only an
     owner makes of it. The refusal tells that administrator some change the preview withholds names the address.
 
     `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does.
@@ -279,7 +279,7 @@ async def post_loeschung(
     # Before the transaction: who asks is known from the token alone.
     refuse(find_eigene_adresse_refusal(identifier=identifier, akteur=akteur))
 
-    async def loeschen_the_address(session: AsyncClientSession) -> FLLoeschungResponse:
+    async def loeschen_the_address(session: AsyncClientSession) -> FLErasureResponse:
         grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
         announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
         refuse(
@@ -300,7 +300,7 @@ async def post_loeschung(
             schiedsrichter_collection=schiedsrichter_collection,
             spieler_collection=spieler_collection,
             registrierungen_collection=registrierungen_collection,
-            schluessel=config.sperrliste_schluessel,
+            key=config.sperrliste_schluessel,
             session=session,
         )
         # Ending a grant holder's change is a discard, which only an owner makes.
@@ -335,17 +335,17 @@ async def post_loeschung(
             adresswechsel_collection=adresswechsel_collection,
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
             sperrliste=sperrliste,
-            geaendert_von=operator,
-            schluessel=config.sperrliste_schluessel,
+            changed_by=operator,
+            key=config.sperrliste_schluessel,
             stamp=log_stamp(germany_now),
             now=germany_now,
             session=session,
         )
 
-        return FLLoeschungResponse(**geloescht.model_dump())
+        return FLErasureResponse(**geloescht.model_dump())
 
-    journal = LoeschungJournal[FLLoeschungResponse](
-        identifier, schluessel=config.sperrliste_schluessel, berechtigungen_collection=berechtigungen_collection
+    journal = LoeschungJournal[FLErasureResponse](
+        identifier, key=config.sperrliste_schluessel, berechtigungen_collection=berechtigungen_collection
     )
     async with journal:
         # Around the whole transaction, every retry inside it, and reset in a `finally`: a value left
@@ -361,22 +361,22 @@ async def post_loeschung(
 
 
 @router.post(
-    "/abmeldung",
-    response_model=FLAbmeldungResponse,
+    "/sign_out",
+    response_model=FLSignOutResponse,
     summary="Log the ending of every session an address holds",
     # The frontend ends the address's sessions once this answers, and nothing brings them back: unasked, a stolen
     # administrator's session could sign other administrators out again and again.
     dependencies=[Depends(verify_step_up)],
 )
-async def post_abmeldung(
-    abmeldung_data: Annotated[FLLoeschungAdressePayload, Body()],
+async def post_sign_out(
+    abmeldung_data: Annotated[FLErasureAdressePayload, Body()],
     aktionen_collection: AktionenCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     db: DBClient,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
-) -> FLAbmeldungResponse:
+) -> FLSignOutResponse:
     """
     File one log row saying that this administrator ended every session of an address, and when, before the caller ends them.
 
@@ -385,7 +385,7 @@ async def post_abmeldung(
     and no address, filter, image or count. Nothing bars the address and nothing is mailed; a person signs in again as before.
 
     Refused so that a refused call ends no session: from a sign-in older than the step-up window (`confirmation_required`), the
-    administrator's own address (`eigene_adresse`), an address holding an `owner` grant unless the administrator holds an
+    administrator's own address (`own_adresse`), an address holding an `owner` grant unless the administrator holds an
     owner's power (`verwaltung_adresse`). Unlike the erasure, it
     ends another administrator's sessions for an administrator holding no owner's power: signing in again repairs it.
     """
@@ -409,4 +409,4 @@ async def post_abmeldung(
     async with transaction_session(db) as session:
         await session.with_transaction(log_the_act)
 
-    return FLAbmeldungResponse()
+    return FLSignOutResponse()

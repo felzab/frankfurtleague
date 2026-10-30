@@ -124,7 +124,7 @@ const GRANTS = [
   ["admin.telefon@example.com", "administration"],
   ["admin.editor@example.com", "administration"],
   ["admin.verwaltung@example.com", "administration"],
-].map(([adresse, verwaltung]) => ({ _id: ObjectId(), adresse, verwaltung, erteilt_von: "MADE-UP-SEED", erteilt_am: new Date() }));
+].map(([adresse, verwaltung]) => ({ _id: ObjectId(), adresse, verwaltung, granted_by: "MADE-UP-SEED", granted_at: new Date() }));
 
 // --- Seasons -------------------------------------------------------------------------------------
 
@@ -132,13 +132,13 @@ const GRANTS = [
 const RULES = {
   win_points: 3,
   draw_points: 1,
-  qualifiers_per_group: 2,
-  number_of_groups: 2,
-  teams_per_group: 4,
+  qualifiers_per_gruppe: 2,
+  number_of_gruppen: 2,
+  teams_per_gruppe: 4,
   tiebreak_order: "tordifferenz",
   max_kadergroesse: 18,
   forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
-  erlaubte_stufen: ["E1", "Q1", "Q2", "Q3", "Q4"],
+  allowed_stufen: ["E1", "Q1", "Q2", "Q3", "Q4"],
 };
 
 // `fl_backend/app/api/saisons/spielplan.py :: circle_rounds` for a group of four: each round's pairs
@@ -241,7 +241,7 @@ function season({ id, status, start, end, drawn, groups, dates, play, knockout =
     end_date: end,
     status,
     rules: RULES,
-    spielplan: { generiert_am: drawn, spieltage: spieltage.length, spiele: spiele.length },
+    spielplan: { generated_at: drawn, spieltage: spieltage.length, spiele: spiele.length },
     bewerbung: null,
     registrierung: null,
   };

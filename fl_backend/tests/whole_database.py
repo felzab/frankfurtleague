@@ -10,7 +10,7 @@ from app.shared.folding import sign_in_identifier
 # was: a log row's document and filter, and an owed mail's key and record, which a revoke leaves alike.
 _ABOUT: Mapping[str, tuple[str, ...]] = {
     Collection.AKTIONEN: ("document_id", "db_filter"),
-    Collection.POSTAUSGANG: ("schluessel", "bezug"),
+    Collection.POSTAUSGANG: ("key", "reference"),
 }
 
 

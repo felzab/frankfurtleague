@@ -129,7 +129,7 @@ class TestTheAdminTierReadsEverySeason:
 
         response = on_a_league(seeded_league, admin_read(FLSaisonsFilterParams()))
 
-        assert {saison.id: saison.begonnen for saison in response.saisons} == {ARCHIVED: False, RUNNING: True, PLANNED: False}
+        assert {saison.id: saison.begun for saison in response.saisons} == {ARCHIVED: False, RUNNING: True, PLANNED: False}
 
     def test_it_still_honours_a_status_filter(self, seeded_league: str):
         assert [saison.id for saison in on_a_league(seeded_league, admin_read(FLSaisonsFilterParams(status="future"))).saisons] == [PLANNED]

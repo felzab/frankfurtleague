@@ -55,7 +55,7 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **db** — Swallow a failed index build
 - **routing** — Move a guard onto an endpoint; merge the two routers; delete `GET /{id}`
 - **placings** — Recurse the tiebreak chain; seed a placing the group can still change
-- **draw** — Store `anzahl_spiele`; hardcode the qualifier cap
+- **draw** — Store `count_spiele`; hardcode the qualifier cap
 - **db** — Spell a collection name as a literal; enumerate the field names too
 - **routing** — Answer 422 for a malformed path id, or 404 for a query one
 - **spiele** — Merge the cancellation count into the scoring lookup
@@ -81,7 +81,7 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **spiele** — Refuse a `sonderereignis` that would overwrite a stored result; keep it out of the dry
   run's report
 - **spiele** — Add a POST or a DELETE to `/spiele`
-- **spiele** — Make `ab_heute` a partition, or `computeSpielStatus` a filter
+- **spiele** — Make `from_today` a partition, or `computeSpielStatus` a filter
 - **saisons** — Make `inactive_since` a boolean; revive a retired row by creating it
 - **saisons** — Add an austritt boolean beside the record
 - **saisons** — Write `status` outside the activate endpoint; DELETE a season row; drop the rollover

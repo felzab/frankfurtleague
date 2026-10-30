@@ -6,8 +6,8 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identitaet.crud import LOESCHUNG_STEPS
-from app.api.identitaet.person_router import post_konto_loeschung
-from app.api.identitaet.schemas import FLLoeschungResponse
+from app.api.identitaet.person_router import post_account_erasure
+from app.api.identitaet.schemas import FLErasureResponse
 from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
 from tests.actor_tokens import fresh_admin_actor
@@ -30,13 +30,13 @@ def loeschung_collections(database: AsyncDatabase | Mapping[Collection, Any], **
 
 async def geloescht(
     database: AsyncDatabase | Mapping[Collection, Any], client: AsyncMongoClient, address: str, *, germany_now: datetime, **replaced: Any
-) -> FLLoeschungResponse:
+) -> FLErasureResponse:
     """Every record `address` holds, erased by the person route's own function outside a request, any collection replaced by name.
 
     Folded here as the route's binder folds the signed address: handed on as typed, it would match no stored record.
     """
 
-    return await post_konto_loeschung(
+    return await post_account_erasure(
         identifier=sign_in_identifier(address),
         **loeschung_collections(database, **replaced),
         sperrliste=ban_list(database),

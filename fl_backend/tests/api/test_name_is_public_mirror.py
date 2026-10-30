@@ -54,14 +54,14 @@ class ConsentCase(NamedTuple):
     published: bool
 
 
-def _record(umfang: Any, bestaetigt_am: Any) -> dict[str, Any]:
-    record = {"umfang": umfang, "datum": "2026-01-15", "bestaetigt_am": bestaetigt_am}
+def _record(umfang: Any, confirmed_at: Any) -> dict[str, Any]:
+    record = {"umfang": umfang, "datum": "2026-01-15", "confirmed_at": confirmed_at}
 
     return {key: value for key, value in record.items() if value is not ABSENT}
 
 
 # The three inputs `READ-PUPIL-003` names, closed over: the record's presence, its `umfang`, and
-# whether `bestaetigt_am` is stamped -- each key's own absence among its states.
+# whether `confirmed_at` is stamped -- each key's own absence among its states.
 NAME_IS_PUBLIC: Final[tuple[ConsentCase, ...]] = (
     ConsentCase("no record at all", None, False),
     ConsentCase("public, confirmed", _record("kader_oeffentlich", CONFIRMED), True),
@@ -87,7 +87,7 @@ def _inputs(case: ConsentCase) -> tuple[Any, Any]:
     if case.einwilligung is None:
         return None, None
 
-    return case.einwilligung.get("umfang", ABSENT), case.einwilligung.get("bestaetigt_am", ABSENT)
+    return case.einwilligung.get("umfang", ABSENT), case.einwilligung.get("confirmed_at", ABSENT)
 
 
 def test_the_table_closes_over_every_input_and_both_verdicts():

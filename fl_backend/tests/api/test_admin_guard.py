@@ -79,26 +79,26 @@ PUBLISHED_OPERATIONS = sorted(
 # no other key. The two cases below assert what takes the guard's place.
 PUBLIC_WRITES = [
     ("/api/v0/bewerbungen", "post"),
-    ("/api/v0/bewerbungen/einwilligung/ansicht", "post"),
+    ("/api/v0/bewerbungen/einwilligung/view", "post"),
     ("/api/v0/bewerbungen/einwilligung", "post"),
     # A referee's own confirmation link, on a base-tier router under an otherwise admin-tier prefix:
     # the token is the whole credential, so the guard here would have no session to check.
-    ("/api/v0/schiedsrichter/bestaetigung/ansicht", "post"),
-    ("/api/v0/schiedsrichter/bestaetigung", "post"),
+    ("/api/v0/schiedsrichter/confirmation/view", "post"),
+    ("/api/v0/schiedsrichter/confirmation", "post"),
     # The address change's links, the new mailbox's and the stop link, on a base-tier router of their own for the same reason.
-    ("/api/v0/adresswechsel/bestaetigung/ansicht", "post"),
-    ("/api/v0/adresswechsel/bestaetigung", "post"),
-    ("/api/v0/adresswechsel/bestaetigung/stopp", "post"),
+    ("/api/v0/address_change/confirmation/view", "post"),
+    ("/api/v0/address_change/confirmation", "post"),
+    ("/api/v0/address_change/confirmation/stop", "post"),
     # A pupil's own confirmation link, on a third base-tier router under the registration prefix:
     # the token is the whole credential, so the guard here would have no session to check.
-    ("/api/v0/registrierungen/bestaetigung/ansicht", "post"),
-    ("/api/v0/registrierungen/bestaetigung", "post"),
+    ("/api/v0/registrierungen/confirmation/view", "post"),
+    ("/api/v0/registrierungen/confirmation", "post"),
     # The invite's own read and the registration it leads to: a pupil holds a link and no session,
     # and the first is a POST because the link value travels in the body.
-    ("/api/v0/registrierungen/einladung/ansicht", "post"),
+    ("/api/v0/registrierungen/invitation/view", "post"),
     ("/api/v0/registrierungen", "post"),
     # A club's fixture confirmation link: its holder has no session, the token being the credential.
-    ("/api/v0/spielbestaetigungen/ansicht", "post"),
+    ("/api/v0/spielbestaetigungen/view", "post"),
     ("/api/v0/spielbestaetigungen", "post"),
 ]
 
@@ -111,25 +111,25 @@ SYSTEM_WRITES = [
     # A POST that stores nothing, listed for `ADMIN_READS`' erasure reveal's reason: the address
     # travels in a body, so `MUTATIONS` covers it, and this exemption leaves its one guard the
     # system tier's.
-    ("/api/v0/identitaet/subjekt", "post"),
-    ("/api/v0/identitaet/anmeldung", "post"),
-    ("/api/v0/identitaet/referenzen", "post"),
+    ("/api/v0/identity/subject", "post"),
+    ("/api/v0/identity/sign_in", "post"),
+    ("/api/v0/identity/references", "post"),
     # The grants' comparison: the hourly pass holds no session, and a change made in the database directly has no
     # administrator to attribute it to.
-    ("/api/v0/berechtigungen/abgleich", "post"),
+    ("/api/v0/grants/reconciliation", "post"),
     # The season-after rule and the lapsed address's clock, whichever caller runs them: a timer holds
     # no session, and an activation's press deletes nobody in the administrator's name.
-    ("/api/v0/identitaet/loeschung/sweep", "post"),
-    ("/api/v0/adresswechsel/sweep", "post"),
+    ("/api/v0/identity/erasure/sweep", "post"),
+    ("/api/v0/address_change/sweep", "post"),
     # The sign-in accounts the address changes still owe to carry, reported carried by the frontend, which holds the store.
-    ("/api/v0/adresswechsel/sweep/umzuege/erledigt", "post"),
+    ("/api/v0/address_change/sweep/moves/done", "post"),
     # The Postausgang's drain, the sign-in library's mails and the provider's events: none holds a session.
-    ("/api/v0/postausgang/ausgabe", "post"),
-    ("/api/v0/postausgang/ergebnis", "post"),
-    ("/api/v0/postausgang/anmeldung", "post"),
-    ("/api/v0/postausgang/ereignis", "post"),
+    ("/api/v0/outbox/handout", "post"),
+    ("/api/v0/outbox/result", "post"),
+    ("/api/v0/outbox/sign_in", "post"),
+    ("/api/v0/outbox/event", "post"),
     # A POST storing nothing, exempt for the identity reads' reason: the frontend's server asks a live change's new address.
-    ("/api/v0/adresswechsel/adresse", "post"),
+    ("/api/v0/address_change/adresse", "post"),
 ]
 
 MUTATIONS = [
@@ -158,17 +158,17 @@ ADMIN_READS = [
     ("/api/v0/spielbestaetigungen", "get"),
     # A POST because the address travels in a body, so `MUTATIONS` covers it too -- and would
     # stop covering it the day somebody makes the reveal a GET.
-    ("/api/v0/identitaet/loeschung/ansicht", "post"),
+    ("/api/v0/identity/erasure/view", "post"),
     # The ban list names the administrator who entered each row, so a revert to `verify_access_base`
     # here publishes a staff address beside the reason they banned somebody (`READ-CONTACT-001`).
     ("/api/v0/sperrliste", "get"),
     # Which contact seats of which team a mailing would reach is `READ-CONTACT-001`'s subject exactly
     # as the two `bewerbungen` reads are.
-    ("/api/v0/saisons/{saison_id}/einladungen/versand/vorschau", "get"),
+    ("/api/v0/saisons/{saison_id}/invitations/dispatch/preview", "get"),
     # How many pupils an activation deletes, which only the person able to press it may weigh.
-    ("/api/v0/saisons/{saison_id}/loeschung/vorschau", "get"),
-    # The invitation's own read serves `erstellt_von`, an administrator's address.
-    ("/api/v0/teams/{team_id}/saisons/{saison_id}/einladung", "get"),
+    ("/api/v0/saisons/{saison_id}/erasure/preview", "get"),
+    # The invitation's own read serves `created_by`, an administrator's address.
+    ("/api/v0/teams/{team_id}/saisons/{saison_id}/invitation", "get"),
     # A registration holds a pupil's name, the address the league mailed and, once they confirm,
     # their date of birth -- `READ-CONTACT-001`'s subject, as the two `bewerbungen` reads are.
     ("/api/v0/registrierungen", "get"),
@@ -178,12 +178,12 @@ ADMIN_READS = [
     # A team's pending registrations name the person each address resolves to, a pupil's record the
     # base tier never serves; the seat lines name three people who agreed to administrators alone.
     ("/api/v0/registrierungen/kader/{team_id}/{saison_id}", "get"),
-    ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/sitze", "get"),
+    ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/seats", "get"),
     # A person's own records: a birthdate and a consent record, and on a referee's the contact
     # details (`READ-CONTACT-001`), each served to that person alone.
     ("/api/v0/spieler/self", "get"),
     ("/api/v0/schiedsrichter/self", "get"),
-    ("/api/v0/konto/einwilligungen", "get"),
+    ("/api/v0/account/einwilligungen", "get"),
     # A report's remarks and card reasons, which only the administrator and the booked referee read; the squads
     # beside them carry every surname whole.
     ("/api/v0/spielberichte/{spiel_id}/verwaltung", "get"),
@@ -238,28 +238,28 @@ PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset(
         ("/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}", "patch"),
         ("/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}", "delete"),
         ("/api/v0/registrierungen/kader/{team_id}/{saison_id}", "get"),
-        ("/api/v0/registrierungen/{registrierung_id}/aufnehmen", "post"),
-        ("/api/v0/registrierungen/{registrierung_id}/ablehnen", "post"),
-        ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/sitze", "get"),
+        ("/api/v0/registrierungen/{registrierung_id}/admit", "post"),
+        ("/api/v0/registrierungen/{registrierung_id}/decline", "post"),
+        ("/api/v0/teams/{team_id}/saisons/{saison_id}/self/seats", "get"),
         ("/api/v0/spieler/self", "get"),
-        ("/api/v0/spieler/konto/einwilligung", "patch"),
+        ("/api/v0/spieler/account/einwilligung", "patch"),
         ("/api/v0/schiedsrichter/self", "get"),
-        ("/api/v0/schiedsrichter/konto/{schiedsrichter_id}/einwilligung", "patch"),
-        ("/api/v0/konto/einwilligungen", "get"),
-        ("/api/v0/teams/{team_id}/saisons/{saison_id}/konto/einwilligung", "patch"),
-        ("/api/v0/bewerbungen/{bewerbung_id}/konto/einwilligung", "patch"),
-        ("/api/v0/registrierungen/konto/{registrierung_id}/einwilligung", "patch"),
-        ("/api/v0/identitaet/konto/loeschung", "post"),
-        ("/api/v0/identitaet/konto/loeschung/ansicht", "get"),
+        ("/api/v0/schiedsrichter/account/{schiedsrichter_id}/einwilligung", "patch"),
+        ("/api/v0/account/einwilligungen", "get"),
+        ("/api/v0/teams/{team_id}/saisons/{saison_id}/account/einwilligung", "patch"),
+        ("/api/v0/bewerbungen/{bewerbung_id}/account/einwilligung", "patch"),
+        ("/api/v0/registrierungen/account/{registrierung_id}/einwilligung", "patch"),
+        ("/api/v0/identity/account/erasure", "post"),
+        ("/api/v0/identity/account/erasure/view", "get"),
         ("/api/v0/spielbestaetigungen/self", "get"),
         ("/api/v0/spielbestaetigungen/{spielbestaetigung_id}/antwort", "post"),
         ("/api/v0/spielberichte/self", "get"),
         ("/api/v0/spielberichte/{spiel_id}/bericht", "get"),
         ("/api/v0/spielberichte/{spiel_id}/bericht", "put"),
-        ("/api/v0/konto/adresswechsel", "get"),
-        ("/api/v0/konto/adresswechsel", "post"),
-        ("/api/v0/konto/adresswechsel/freigabe", "post"),
-        ("/api/v0/konto/adresswechsel", "delete"),
+        ("/api/v0/account/address_change", "get"),
+        ("/api/v0/account/address_change", "post"),
+        ("/api/v0/account/address_change/release", "post"),
+        ("/api/v0/account/address_change", "delete"),
     }
 )
 
@@ -288,7 +288,7 @@ def test_every_admin_tier_operation_judges_its_actor_after_the_key(path: str, me
 
 # The admin-tier reads served over POST, the address they ask about travelling in a body rather than an access
 # line. Named, because nothing a route declares tells such a read from a write.
-ADMIN_TIER_READS_OVER_POST = frozenset({("/api/v0/adresswechsel/ansicht", "post"), ("/api/v0/identitaet/loeschung/ansicht", "post")})
+ADMIN_TIER_READS_OVER_POST = frozenset({("/api/v0/address_change/view", "post"), ("/api/v0/identity/erasure/view", "post")})
 
 
 def test_the_person_exemption_names_only_published_operations():
@@ -373,7 +373,7 @@ SYSTEM_READS = [
     # seasons it lists are `active`, which the base tier serves, so the rule is not its reason.
     ("/api/v0/spielbestaetigungen/sweep", "get"),
     # Read by the frontend's server alone: each owed carry names two addresses.
-    ("/api/v0/adresswechsel/sweep/umzuege", "get"),
+    ("/api/v0/address_change/sweep/moves", "get"),
 ]
 
 

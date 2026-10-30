@@ -7,11 +7,11 @@ from pymongo import ASCENDING
 
 from app.api.aktionen.schemas import (
     HERKUNFT_JE_KIND,
+    FLActionLogEntrySingleResponse,
+    FLActionLogEntryWithStand,
+    FLActionLogListResponse,
     FLAktionenFilterParams,
     FLAktionenListAdapter,
-    FLAktionenListResponse,
-    FLAktionMitStand,
-    FLAktionSingleResponse,
 )
 from app.api.aktionen.services import akteur_adressen, build_aktionen_sort, document_id_term, mit_vorenthaltenem_akteur
 from app.api.berechtigungen.guard import verify_actor_is_admin
@@ -24,7 +24,7 @@ from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/aktionen",
+    prefix=f"/api/v{API_VERSION}/action_log",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
@@ -119,13 +119,13 @@ async def _as_served(rows: Sequence[Mapping[str, Any]], *, sperrliste: BanList) 
     return [mit_vorenthaltenem_akteur(row, barred) for row in rows]
 
 
-@router.get("", response_model=FLAktionenListResponse, summary="List recorded admin actions")
-async def get_aktionen(
+@router.get("", response_model=FLActionLogListResponse, summary="List recorded admin actions")
+async def get_action_log(
     aktionen_collection: AktionenCollection,
     sperrliste: SperrlisteLookup,
     filters: FLAktionenFilters,
-) -> FLAktionenListResponse:
-    """List recorded writes newest first, `vollstaendig` false where `limit` cut them, an actor's `email` null where the ban list holds it.
+) -> FLActionLogListResponse:
+    """List recorded writes newest first, `complete` false where `limit` cut them, an actor's `email` null where the ban list holds it.
 
     `collection`, `operation` and `herkunft` take a comma-joined or repeated selection, and each
     `anzahl_je_*` count applies every filter but its own facet, a value nothing was recorded under absent.
@@ -162,24 +162,24 @@ async def get_aktionen(
     served = read[: filters.limit]
     cells = _facet_cells(grouped)
 
-    return FLAktionenListResponse(
-        aktionen=FLAktionenListAdapter.validate_python(await _as_served(served, sperrliste=sperrliste)),
-        vollstaendig=len(read) <= filters.limit,
-        anzahl_je_collection=_tally(cells, counted="collection", held={"operation": filters.operation, "herkunft": filters.herkunft}),
-        anzahl_je_operation=_tally(cells, counted="operation", held={"collection": filters.collection, "herkunft": filters.herkunft}),
-        anzahl_je_herkunft=_tally(cells, counted="herkunft", held={"collection": filters.collection, "operation": filters.operation}),
+    return FLActionLogListResponse(
+        action_log=FLAktionenListAdapter.validate_python(await _as_served(served, sperrliste=sperrliste)),
+        complete=len(read) <= filters.limit,
+        count_per_collection=_tally(cells, counted="collection", held={"operation": filters.operation, "herkunft": filters.herkunft}),
+        count_per_operation=_tally(cells, counted="operation", held={"collection": filters.collection, "herkunft": filters.herkunft}),
+        count_per_herkunft=_tally(cells, counted="herkunft", held={"collection": filters.collection, "operation": filters.operation}),
     )
 
 
-@router.get(by_id("aktion_id"), response_model=FLAktionSingleResponse, summary="One recorded admin action")
-async def get_aktion(
-    aktion_id: CustomRouteObjectId,
+@router.get(by_id("action_log_entry_id"), response_model=FLActionLogEntrySingleResponse, summary="One recorded admin action")
+async def get_action_log_entry(
+    action_log_entry_id: CustomRouteObjectId,
     aktionen_collection: AktionenCollection,
     sperrliste: SperrlisteLookup,
-) -> FLAktionSingleResponse:
+) -> FLActionLogEntrySingleResponse:
     """One recorded write with the document it replaced, served as recorded; the actor is withheld as the list withholds it."""
 
-    aktion_raw = await pull_one_from_db(collection=aktionen_collection, db_filter={"_id": aktion_id})
+    aktion_raw = await pull_one_from_db(collection=aktionen_collection, db_filter={"_id": action_log_entry_id})
     [served] = await _as_served([aktion_raw], sperrliste=sperrliste)
 
-    return FLAktionSingleResponse(aktion=FLAktionMitStand(**served))
+    return FLActionLogEntrySingleResponse(action_log_entry=FLActionLogEntryWithStand(**served))

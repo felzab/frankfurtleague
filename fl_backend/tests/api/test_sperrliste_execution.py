@@ -10,7 +10,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
-from app.api.sperrliste.admin_router import delete_sperrliste_eintrag, get_sperrliste
+from app.api.sperrliste.admin_router import delete_sperrliste_entry, get_sperrliste
 from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.core.codes import Code
@@ -58,7 +58,7 @@ ACTIVE_SAISON_ID = "2026"
 # field, so a row written straight to the collection needs one too.
 LAST_COVERED = "2031"
 
-SAISON_DOCUMENT: dict[str, Any] = saison_document(ACTIVE_SAISON_ID, "active", rules=rules_document(number_of_groups=2, erlaubte_stufen=["E1"]))
+SAISON_DOCUMENT: dict[str, Any] = saison_document(ACTIVE_SAISON_ID, "active", rules=rules_document(number_of_gruppen=2, allowed_stufen=["E1"]))
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
@@ -117,11 +117,11 @@ class TestWhatABanStores:
 
         stored = on_a_clean_list(mongo_replica_set_url, body)
 
-        assert set(stored) == {"_id", "adresse_hash", "schluessel_version", "grund", "erstellt_von", "erstellt_am", "gesperrt_bis_saison_id"}
-        assert stored["adresse_hash"] == adresse_hash(BANNED, schluessel=CONFIG.sperrliste_schluessel)
+        assert set(stored) == {"_id", "adresse_hash", "key_version", "grund", "created_by", "created_at", "barred_until_saison_id"}
+        assert stored["adresse_hash"] == adresse_hash(BANNED, key=CONFIG.sperrliste_schluessel)
         assert stored["grund"] == GRUND
-        assert stored["erstellt_von"] == ADMIN
-        assert stored["erstellt_am"] == TODAY
+        assert stored["created_by"] == ADMIN
+        assert stored["created_at"] == TODAY
 
     def test_the_row_records_the_label_its_key_was_derived_under(self, mongo_replica_set_url: str):
         """The only thing that would ever let an operator tell which rows a key in force was never able to match."""
@@ -131,7 +131,7 @@ class TestWhatABanStores:
             stored = await database[Collection.SPERRLISTE].find_one({})
 
             assert stored is not None
-            return stored["schluessel_version"]
+            return stored["key_version"]
 
         assert on_a_clean_list(mongo_replica_set_url, body) == SPERRLISTE_SCHLUESSEL_VERSION
 
@@ -147,9 +147,9 @@ class TestWhatABanStores:
 
         stored = on_a_clean_list(mongo_replica_set_url, body)
 
-        # `erstellt_von` is the ADMINISTRATOR's own address and the one field here that may hold
+        # `created_by` is the ADMINISTRATOR's own address and the one field here that may hold
         # one, so the `@` clause is asked of everything beside it.
-        assert "@" not in repr({key: value for key, value in stored.items() if key != "erstellt_von"})
+        assert "@" not in repr({key: value for key, value in stored.items() if key != "created_by"})
         assert BANNED_LOCAL_PART not in repr(stored).lower()
         assert BANNED_SCHOOL not in repr(stored).lower()
 
@@ -255,7 +255,7 @@ class TestTheCheckASignUpWillAsk:
             return [
                 await address_is_gesperrt(
                     sperrliste_collection=database[Collection.SPERRLISTE],
-                    adresse_hash=adresse_hash(typed, schluessel=CONFIG.sperrliste_schluessel),
+                    adresse_hash=adresse_hash(typed, key=CONFIG.sperrliste_schluessel),
                     massgebliche_saison_id=ACTIVE_SAISON_ID,
                 )
                 for typed in (BANNED, BANNED_RETYPED, "Zorbanax@BEISPIELSCHULE.DE  ")
@@ -271,7 +271,7 @@ class TestTheCheckASignUpWillAsk:
 
             return await address_is_gesperrt(
                 sperrliste_collection=database[Collection.SPERRLISTE],
-                adresse_hash=adresse_hash(OTHER, schluessel=CONFIG.sperrliste_schluessel),
+                adresse_hash=adresse_hash(OTHER, key=CONFIG.sperrliste_schluessel),
                 massgebliche_saison_id=ACTIVE_SAISON_ID,
             )
 
@@ -282,7 +282,7 @@ class TestTheCheckASignUpWillAsk:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
             created = await ban(database, client)
-            await delete_sperrliste_eintrag(
+            await delete_sperrliste_entry(
                 sperrliste_id=ObjectId(created.created_id),
                 sperrliste_collection=database[Collection.SPERRLISTE],
                 db=client,
@@ -290,7 +290,7 @@ class TestTheCheckASignUpWillAsk:
 
             return await address_is_gesperrt(
                 sperrliste_collection=database[Collection.SPERRLISTE],
-                adresse_hash=adresse_hash(BANNED, schluessel=CONFIG.sperrliste_schluessel),
+                adresse_hash=adresse_hash(BANNED, key=CONFIG.sperrliste_schluessel),
                 massgebliche_saison_id=ACTIVE_SAISON_ID,
             )
 
@@ -310,13 +310,13 @@ class TestWhatTheListServes:
 
         assert len(served.sperrliste) == 1
         rendered = served.model_dump_json()
-        # `erstellt_von` carries the administrator's own address, so the banned one is named
+        # `created_by` carries the administrator's own address, so the banned one is named
         # directly rather than sought by its `@`.
         assert BANNED_LOCAL_PART not in rendered.lower()
         assert "adresse_hash" not in rendered
         assert served.sperrliste[0].grund == GRUND
-        assert served.sperrliste[0].erstellt_von == ADMIN
-        assert served.sperrliste[0].erstellt_am == TODAY
+        assert served.sperrliste[0].created_by == ADMIN
+        assert served.sperrliste[0].created_at == TODAY
 
     def test_an_author_revoked_and_barred_since_is_withheld_beside_a_flag(self, mongo_replica_set_url: str):
         """The grants list's rule on every admin read: no barred address is served in plain."""
@@ -329,7 +329,7 @@ class TestWhatTheListServes:
 
             served = await listed(database)
 
-            return [(row.erstellt_von, row.erstellt_von_gesperrt) for row in served.sperrliste], served.model_dump_json()
+            return [(row.created_by, row.created_by_barred) for row in served.sperrliste], served.model_dump_json()
 
         rows, rendered = on_a_clean_list(mongo_replica_set_url, body)
 
@@ -350,7 +350,7 @@ class TestWhatTheListServes:
             served = await listed(database)
             capped = await read_sperrliste_page(sperrliste_collection=database[Collection.SPERRLISTE], limit=1)
 
-            return served.anzahl_gesamt, capped[1]
+            return served.count_total, capped[1]
 
         # The cap is what makes the pair differ: one row served, two held, and both reads say two.
         assert on_a_clean_list(mongo_replica_set_url, body) == (2, 2)
@@ -389,10 +389,10 @@ class TestWhatTheListServes:
 
         # Sorted, so the order is the codepoint one rather than the projection's: `gesperrt_…`
         # precedes `grund`.
-        assert on_a_clean_list(mongo_replica_set_url, body) == ["_id", "erstellt_am", "erstellt_von", "gesperrt_bis_saison_id", "grund"]
+        assert on_a_clean_list(mongo_replica_set_url, body) == ["_id", "created_at", "created_by", "barred_until_saison_id", "grund"]
 
     def test_the_newest_ban_is_served_first(self, mongo_replica_set_url: str):
-        """Two rows on ONE day, which is the case `erstellt_am` alone cannot order and an administrator meets first."""
+        """Two rows on ONE day, which is the case `created_at` alone cannot order and an administrator meets first."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
             await ban(database, client, grund="Zuerst eingetragen")
@@ -413,7 +413,7 @@ class TestLiftingABan:
             created = await ban(database, client)
             await ban(database, client, email=OTHER, grund="Bleibt stehen")
 
-            await delete_sperrliste_eintrag(
+            await delete_sperrliste_entry(
                 sperrliste_id=ObjectId(created.created_id),
                 sperrliste_collection=database[Collection.SPERRLISTE],
                 db=client,
@@ -431,7 +431,7 @@ class TestLiftingABan:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             created = await ban(database, client)
-            await delete_sperrliste_eintrag(
+            await delete_sperrliste_entry(
                 sperrliste_id=ObjectId(created.created_id),
                 sperrliste_collection=database[Collection.SPERRLISTE],
                 db=client,
@@ -445,7 +445,7 @@ class TestLiftingABan:
         images = recorded["before"]
 
         assert len(images) == 1
-        assert set(images[0]) == {"_id", "adresse_hash", "schluessel_version", "grund", "erstellt_von", "erstellt_am", "gesperrt_bis_saison_id"}
+        assert set(images[0]) == {"_id", "adresse_hash", "key_version", "grund", "created_by", "created_at", "barred_until_saison_id"}
         assert images[0]["grund"] == GRUND
         # The reason the image is safe to keep: it holds the hash and the administrator, never the
         # address the ban was taken from.
@@ -458,7 +458,7 @@ class TestLiftingABan:
             await ban(database, client)
 
             with pytest.raises(DocumentNotFoundError):
-                await delete_sperrliste_eintrag(
+                await delete_sperrliste_entry(
                     sperrliste_id=ObjectId("6890a1b2c3d4e5f60794ffff"),
                     sperrliste_collection=database[Collection.SPERRLISTE],
                     db=client,
@@ -515,13 +515,13 @@ class TestTheKeyTheRowsWereTakenUnder:
                     # Keyed under the previous master and labelled as the builder labels every row,
                     # which a row written before a rotation would carry: nothing closes the set of labels,
                     # so the old population stays readable.
-                    adresse_hash=adresse_hash(BANNED, schluessel=SecretStr("the-previous-key".ljust(64, "0"))),
+                    adresse_hash=adresse_hash(BANNED, key=SecretStr("the-previous-key".ljust(64, "0"))),
                 )
             )
 
             return await address_is_gesperrt(
                 sperrliste_collection=database[Collection.SPERRLISTE],
-                adresse_hash=adresse_hash(BANNED, schluessel=CONFIG.sperrliste_schluessel),
+                adresse_hash=adresse_hash(BANNED, key=CONFIG.sperrliste_schluessel),
                 massgebliche_saison_id=ACTIVE_SAISON_ID,
             )
 

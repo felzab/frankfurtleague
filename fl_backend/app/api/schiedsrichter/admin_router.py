@@ -154,7 +154,7 @@ async def get_schiedsrichter_by_id(
 
     Answers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a
     lapsed link without reading a clock of its own; and the live change of the referee's address, which the address tool shows,
-    beside why the tool refuses it this administrator, null where it opens it. `zustellung` says what became of the last
+    beside why the tool refuses it this administrator, null where it opens it. `delivery` says what became of the last
     confirmation mail the referee was owed, null where none was.
     """
 
@@ -173,12 +173,12 @@ async def get_schiedsrichter_by_id(
 
     return FLSchiedsrichterSingleResponse(
         schiedsrichter=FLSchiedsrichter(**schiedsrichter_raw),
-        bestaetigung_abgelaufen=frist_abgelaufen(schiedsrichter_raw.get(BESTAETIGUNG_FELD), today=today),
-        adresswechsel_id=None if offen is None else offen["_id"],
-        adresswechsel_einsehbar_verwehrt=None if identifier is None else verwehrt.get(identifier),
-        zustellung=await lage_of(
+        confirmation_expired=frist_abgelaufen(schiedsrichter_raw.get(BESTAETIGUNG_FELD), today=today),
+        address_change_id=None if offen is None else offen["_id"],
+        address_change_viewable_denied=None if identifier is None else verwehrt.get(identifier),
+        delivery=await lage_of(
             postausgang_collection=postausgang_collection,
-            bezug=FLPostausgangBezug(sammlung=Collection.SCHIEDSRICHTER, id=schiedsrichter_raw["_id"], sitz=None),
+            reference=FLPostausgangBezug(collection=Collection.SCHIEDSRICHTER, id=schiedsrichter_raw["_id"], seat=None),
         ),
     )
 
@@ -207,7 +207,7 @@ async def post_schiedsrichter(
     whether this person is asked, because a referee nobody asked is a name nobody consented to
     publish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.
 
-    Refused `schiedsrichter_adresse_gesperrt` where the address given is on the ban list.
+    Refused `schiedsrichter_adresse_barred` where the address given is on the ban list.
     """
 
     email = schiedsrichter_data.kontakt.email
@@ -220,9 +220,9 @@ async def post_schiedsrichter(
         """Ask the ban list, then write. The check is handed the transaction's session, so a retry re-asks it."""
 
         # The season stays `None` while no season is running, and the ban list is asked on the
-        # hash alone, as the correction and the re-send ask it (`schiedsrichter_adresse_gesperrt`).
+        # hash alone, as the correction and the re-send ask it (`schiedsrichter_adresse_barred`).
         gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
-        refuse(find_gesperrt_refusal(gesperrt=gesperrt))
+        refuse(find_gesperrt_refusal(barred=gesperrt))
 
         created = await insert_live(
             collection=schiedsrichter_collection,
@@ -253,7 +253,7 @@ async def post_schiedsrichter(
         created_id=post_operation.inserted_id,
         # The payload's own address, which this transaction wrote: there is no earlier row for a
         # rival save to have moved between the caller's read and the write.
-        bestaetigung=FLSchiedsrichterMint(frist=bestaetigung_frist_from(today=today), email=email),
+        confirmation=FLSchiedsrichterMint(frist=bestaetigung_frist_from(today=today), email=email),
     )
 
 
@@ -280,17 +280,17 @@ async def patch_schiedsrichter(
     Only the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.
 
     **A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the
-    new address, named in `bestaetigung`: the old link was posted to a mailbox nobody reads, and
+    new address, named in `confirmation`: the old link was posted to a mailbox nobody reads, and
     leaving it live is a credential in the wrong inbox.
 
-    **A CONFIRMED referee's address is refused here** (`schiedsrichter_adresse_nur_per_wechsel`), retired or not: it is who signs in as the
+    **A CONFIRMED referee's address is refused here** (`schiedsrichter_adresse_only_per_change`), retired or not: it is who signs in as the
     person, and moves only through an address change: the address tool, `POST /adresswechsel`, or the person's own account page.
     A save keeping it lands, a pending change standing.
 
     **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
     collected for a role nobody gives them. Their old link is retired all the same, and the
     reactivation mints the fresh one. Where a link is minted, a banned new address is refused
-    `schiedsrichter_adresse_gesperrt`. A save retiring or minting a link is refused `confirmation_required` from a
+    `schiedsrichter_adresse_barred`. A save retiring or minting a link is refused `confirmation_required` from a
     sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.
 
     The ghost answers 404 here as it does to every read: a name written onto it would appear on the
@@ -319,10 +319,10 @@ async def patch_schiedsrichter(
         update, minted = compose_korrektur_update(stored=stored, payload=payload, payload_email=email, today=today)
 
         # The season is NOT a condition here: it is `None` while no season is running, and the
-        # ban list is asked on the hash alone then (`schiedsrichter_adresse_gesperrt`).
+        # ban list is asked on the hash alone then (`schiedsrichter_adresse_barred`).
         if minted:
             gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
-            refuse(find_gesperrt_refusal(gesperrt=gesperrt))
+            refuse(find_gesperrt_refusal(barred=gesperrt))
 
         updated_document_raw = await patch_one_in_db(
             collection=schiedsrichter_collection,
@@ -364,7 +364,7 @@ async def patch_schiedsrichter(
         answer, re_minted = await session.with_transaction(rename_and_fan_out)
 
     if re_minted:
-        answer.bestaetigung = FLSchiedsrichterMint(frist=bestaetigung_frist_from(today=today), email=email)
+        answer.confirmation = FLSchiedsrichterMint(frist=bestaetigung_frist_from(today=today), email=email)
 
     return answer
 
@@ -436,11 +436,11 @@ async def reactivate_schiedsrichter(
 ) -> FLSchiedsrichterReactivateResponse:
     """Clear `inactive_since`, putting the referee back into the picker and every default read.
 
-    **A retired referee who has not answered is owed a fresh link**, named in `bestaetigung`: a
+    **A retired referee who has not answered is owed a fresh link**, named in `confirmation`: a
     retired referee's save stores a new address and mails nothing, so coming back is what
     asks them. A row holding no address a link can go to comes back unasked, and so does one whose
     person has answered. Where a link is minted, an address on the ban list is refused
-    `schiedsrichter_adresse_gesperrt` and the row stays retired, and one from a sign-in or confirmation older than
+    `schiedsrichter_adresse_barred` and the row stays retired, and one from a sign-in or confirmation older than
     `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
 
     The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
@@ -466,7 +466,7 @@ async def reactivate_schiedsrichter(
             gesperrt = await hash_gesperrt(
                 sperrliste, sperrliste.hash_of(email), massgebliche_saison_id=massgebliche_saison_id, session=session
             )
-            refuse(find_gesperrt_refusal(gesperrt=gesperrt))
+            refuse(find_gesperrt_refusal(barred=gesperrt))
 
         # ONE write, the mint riding the revival's `$set`: the press is one action, and two writes file
         # two log rows for it.
@@ -496,17 +496,17 @@ async def reactivate_schiedsrichter(
         _, gemintet_fuer = await session.with_transaction(reactivate_and_ask)
 
     return FLSchiedsrichterReactivateResponse(
-        bestaetigung=None if gemintet_fuer is None else FLSchiedsrichterMint(frist=bestaetigung_frist_from(today=today), email=gemintet_fuer),
+        confirmation=None if gemintet_fuer is None else FLSchiedsrichterMint(frist=bestaetigung_frist_from(today=today), email=gemintet_fuer),
     )
 
 
 @router.post(
-    f"{by_id('schiedsrichter_id')}/bestaetigung/einladen",
+    f"{by_id('schiedsrichter_id')}/confirmation/invite",
     response_model=FLSchiedsrichterMintResponse,
     summary="Send a Schiedsrichter a fresh confirmation link",
     dependencies=[Depends(verify_step_up)],
 )
-async def einladen_schiedsrichter(
+async def invite_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
     postausgang_collection: PostausgangCollection,
@@ -521,9 +521,9 @@ async def einladen_schiedsrichter(
     It replaces the whole block, so the previous link stops working at once. The deadline restarts from today.
 
     Refused where the referee is retired (`schiedsrichter_retired`), where they have already
-    answered (`bestaetigung_vorhanden`), where they carry no email address
-    (`schiedsrichter_keine_adresse`), and where that address is on the ban list
-    (`schiedsrichter_adresse_gesperrt`). 404 for an id no referee holds, an erased referee's among them, and
+    answered (`confirmation_exists`), where they carry no email address
+    (`schiedsrichter_no_adresse`), and where that address is on the ban list
+    (`schiedsrichter_adresse_barred`). 404 for an id no referee holds, an erased referee's among them, and
     for the ghost, which every by-id route filters out.
 
     **A referee who has already answered is refused rather than sent a second link**: the
@@ -558,7 +558,7 @@ async def einladen_schiedsrichter(
         # until the read above, and the hash reads no document a retry could see differently.
         gehasht = sperrliste.hash_of(str(email))
         gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
-        refuse(find_gesperrt_refusal(gesperrt=gesperrt))
+        refuse(find_gesperrt_refusal(barred=gesperrt))
 
         updated = await patch_one_in_db(
             collection=schiedsrichter_collection,
@@ -584,4 +584,4 @@ async def einladen_schiedsrichter(
     async with transaction_session(db) as session:
         gemintet_fuer = await session.with_transaction(judge_and_mint)
 
-    return FLSchiedsrichterMintResponse(bestaetigung=FLSchiedsrichterMint(frist=bestaetigung_frist_from(today=today), email=gemintet_fuer))
+    return FLSchiedsrichterMintResponse(confirmation=FLSchiedsrichterMint(frist=bestaetigung_frist_from(today=today), email=gemintet_fuer))

@@ -29,8 +29,8 @@ from app.api.adresswechsel.crud import end_an_emptied_change_in_session
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.einladungen.services import compose_einladung, compose_widerruf_update
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, LOESCHUNG_STEPS, loeschen_everything
-from app.api.registrierungen.person_router import aufnehmen
-from app.api.registrierungen.schemas import FLRegistrierungAufnehmenPayload
+from app.api.registrierungen.person_router import admit
+from app.api.registrierungen.schemas import FLRegistrierungAdmitPayload
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.spielbestaetigungen.services import halter_of
@@ -88,7 +88,7 @@ DATABASE_NAME = worker_database("fl_funktionen_loeschung_test")
 
 CONFIG = config_for(DATABASE_NAME)
 
-PATH = f"/api/v{API_VERSION}/identitaet/konto/loeschung"
+PATH = f"/api/v{API_VERSION}/identity/account/erasure"
 
 # A century ahead of the real clock: the TTL monitor deletes an expired tombstone, request or day's count at its next
 # pass, under a case reading it back. Every seeded day moves with it.
@@ -108,7 +108,7 @@ TELEFON = "+49 69 7771234"
 GEBURTSDATUM = "2008-07-14"
 # The one their referee row holds, which they typed otherwise.
 REFEREE_GEBURTSDATUM = "1990-02-03"
-PSEUDONYM = akteur_pseudonym(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
+PSEUDONYM = akteur_pseudonym(IDENTIFIER, key=CONFIG.sperrliste_schluessel)
 
 # The submission digests of two applications the person holds a seat on, the second predating the confirmation block.
 THEIR_DIGEST = "digest-7f3a1c-mit-block"
@@ -135,7 +135,7 @@ THEIR_VALUES = (
 BYSTANDER_VALUES = ("Quillhilde", "Bramblewick", "Wraxlington", "kraus.bernd@example.com")
 # Those the seed's own edits file into shared log images beside the person, which keep them past the erasure.
 BYSTANDERS_IN_THE_LOG = ("Quillhilde", "Bramblewick", "kraus.bernd@example.com")
-OTHER_PSEUDONYM = akteur_pseudonym("wraxlington@example.com", schluessel=CONFIG.sperrliste_schluessel)
+OTHER_PSEUDONYM = akteur_pseudonym("wraxlington@example.com", key=CONFIG.sperrliste_schluessel)
 
 HOME_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607b00002")
@@ -215,7 +215,7 @@ def _built_before_any_case() -> None:
 
 
 def their_seat() -> dict[str, Any]:
-    return kontaktperson_document(VORNAME, bestaetigt_am="2126-03-21", nachname=NACHNAME, email=IDENTIFIER, telefon=TELEFON)
+    return kontaktperson_document(VORNAME, confirmed_at="2126-03-21", nachname=NACHNAME, email=IDENTIFIER, telefon=TELEFON)
 
 
 def referee(schiedsrichter_id: ObjectId, *, email: str, name: str, **fields: Any) -> dict[str, Any]:
@@ -224,7 +224,7 @@ def referee(schiedsrichter_id: ObjectId, *, email: str, name: str, **fields: Any
         email=email,
         name=name,
         default_payment=PAYMENT,
-        einwilligung=eigene_einwilligung_document(text_version="v1", bestaetigt_am="2126-03-01"),
+        einwilligung=eigene_einwilligung_document(text_version="v1", confirmed_at="2126-03-01"),
         **fields,
     )
 
@@ -238,7 +238,7 @@ def a_registration(registrierung_id: ObjectId, email: str, **fields: Any) -> dic
         vorname=VORNAME,
         nachname=NACHNAME,
         token=f"token-{registrierung_id}",
-        eingereicht_am="2126-03-25",
+        submitted_at="2126-03-25",
         frist="2126-04-08",
         **fields,
     )
@@ -275,7 +275,7 @@ def a_report(report_id: ObjectId, schiedsrichter_id: ObjectId, *, spiel_id: Obje
     return spielbericht_document(
         {"_id": spiel_id, "saison_id": saison_id},
         _id=report_id,
-        bericht=bericht_document(eingereicht_von={"art": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id}, bemerkungen=THEIR_REMARKS),
+        bericht=bericht_document(submitted_by={"art": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id}, bemerkungen=THEIR_REMARKS),
     )
 
 
@@ -304,7 +304,7 @@ async def the_one(database: AsyncDatabase, collection: Collection, db_filter: Ma
     return found
 
 
-def a_confirmation(row_id: ObjectId, partei: dict[str, Any], *, spiel_id: ObjectId, saison_id: str = SAISON_ID) -> dict[str, Any]:
+def a_confirmation(row_id: ObjectId, party: dict[str, Any], *, spiel_id: ObjectId, saison_id: str = SAISON_ID) -> dict[str, Any]:
     """An open, unanswered row, as the sweep mints one; a referee's holds no seats."""
 
     spiel = spiel_document(
@@ -318,7 +318,7 @@ def a_confirmation(row_id: ObjectId, partei: dict[str, Any], *, spiel_id: Object
         team2={"team_id": OTHER_TEAM_OID},
     )
 
-    return spielbestaetigung_document(spiel, partei=partei, _id=row_id, frist="2126-03-08", angefragt_am="2126-03-01", kontakte=None)
+    return spielbestaetigung_document(spiel, party=party, _id=row_id, frist="2126-03-08", asked_at="2126-03-01", kontakte=None)
 
 
 def a_referee(schiedsrichter_id: ObjectId) -> dict[str, Any]:
@@ -326,7 +326,7 @@ def a_referee(schiedsrichter_id: ObjectId) -> dict[str, Any]:
 
 
 def declined(begruendung: str) -> dict[str, Any]:
-    return {"art": "abgelehnt", "am": "2126-03-03", "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": begruendung}
+    return {"art": "declined", "am": "2126-03-03", "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": begruendung}
 
 
 async def their_confirmations(database: AsyncDatabase) -> None:
@@ -355,9 +355,9 @@ async def their_confirmations(database: AsyncDatabase) -> None:
         database,
         Collection.SPIELBESTAETIGUNGEN,
         THEIR_CONFIRMATION_OID,
-        {"$set": {"geschlossen": {"am": "2126-03-04", "grund": "schiedsrichter_gewechselt"}}},
+        {"$set": {"closed": {"am": "2126-03-04", "grund": "schiedsrichter_switched"}}},
     )
-    await edited(database, Collection.SPIELBESTAETIGUNGEN, OTHER_CONFIRMATION_OID, {"$set": {"erinnert_am": ["2126-03-05"]}})
+    await edited(database, Collection.SPIELBESTAETIGUNGEN, OTHER_CONFIRMATION_OID, {"$set": {"reminded_at": ["2126-03-05"]}})
     async with database.client.start_session() as session:
         await delete_many_from_db(collection=confirmations, db_filter={"saison_id": UNDRAWN_SAISON_ID}, session=session)
 
@@ -375,8 +375,8 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             "HSX",
             kontakte=kontakte_document(
                 ansprechperson=their_seat(),
-                stellvertretung=kontaktperson_document("Quillhilde", bestaetigt_am="2126-03-21"),
-                trainer=kontaktperson_document("Bramblewick", bestaetigt_am="2126-03-21"),
+                stellvertretung=kontaktperson_document("Quillhilde", confirmed_at="2126-03-21"),
+                trainer=kontaktperson_document("Bramblewick", confirmed_at="2126-03-21"),
             ),
         )
     )
@@ -384,30 +384,30 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         bewerbung_document(
             BEWERBUNG_OID,
             SAISON_ID,
-            "eingereicht",
+            "submitted",
             kontakte=kontakte_document(
                 trainer=their_seat(),
                 ansprechperson=kontaktperson_document("Quillhilde"),
                 stellvertretung=kontaktperson_document("Bramblewick"),
             ),
-            eingereicht_am="2126-03-10",
-            bestaetigungsfrist="2126-04-10",
+            submitted_at="2126-03-10",
+            confirmation_deadline="2126-04-10",
             schule=neue_schule_document("Neue", "NEX"),
-            idempotenz_fingerabdruck=THEIR_DIGEST,
+            idempotency_fingerprint=THEIR_DIGEST,
         )
     )
     await database[Collection.BEWERBUNGEN].insert_one(
         bewerbung_document(
             BLOCKLESS_BEWERBUNG_OID,
             SAISON_ID,
-            "eingereicht",
+            "submitted",
             kontakte=kontakte_document(ansprechperson=their_seat()),
-            eingereicht_am="2126-02-10",
+            submitted_at="2126-02-10",
             schule=neue_schule_document("Alte", "ALX"),
-            idempotenz_fingerabdruck=THEIR_BLOCKLESS_DIGEST,
+            idempotency_fingerprint=THEIR_BLOCKLESS_DIGEST,
         )
     )
-    einwilligung = eigene_einwilligung_document(text_version="v1", bestaetigt_am="2126-03-02")
+    einwilligung = eigene_einwilligung_document(text_version="v1", confirmed_at="2126-03-02")
     # A pupil's address as it stood before its correction, which the person's own pupil row holds after it: the
     # correction's image alone keeps it, a row the person's steps never reach.
     await database[Collection.SPIELER].insert_one(
@@ -474,13 +474,13 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             {
                 "_id": ANTRAG_FOR_THEM_OID,
                 **compose_antrag(
-                    adresse=IDENTIFIER, verwaltung="administration", berechtigung_id=None, gestartet_von="quillhilde@example.com", now=FAR_OFF
+                    adresse=IDENTIFIER, verwaltung="administration", grant_id=None, started_by="quillhilde@example.com", now=FAR_OFF
                 ),
             },
             {
                 "_id": ANTRAG_BY_THEM_OID,
                 **compose_antrag(
-                    adresse="neu.kollegin@example.com", verwaltung="administration", berechtigung_id=None, gestartet_von=IDENTIFIER, now=FAR_OFF
+                    adresse="neu.kollegin@example.com", verwaltung="administration", grant_id=None, started_by=IDENTIFIER, now=FAR_OFF
                 ),
             },
         ]
@@ -501,11 +501,11 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             **documents.adresswechsel_document(adresse="vorher.zorbanax@example.org", email=IDENTIFIER, token_hash=None, day="2126-03-01"),
             "adresse": None,
             "email": None,
-            "beendet": {"art": "wirksam", "am": NOW},
-            "umzug": {"von": "vorher.zorbanax@example.org", "nach": IDENTIFIER},
-            "umgezogen": {
-                "person_hash": loeschung_journal_hash(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel),
-                "zuvor": loeschung_journal_hash("vorher.zorbanax@example.org", schluessel=CONFIG.sperrliste_schluessel),
+            "ended": {"art": "effective", "am": NOW},
+            "move": {"von": "vorher.zorbanax@example.org", "nach": IDENTIFIER},
+            "moved": {
+                "person_hash": loeschung_journal_hash(IDENTIFIER, key=CONFIG.sperrliste_schluessel),
+                "before": loeschung_journal_hash("vorher.zorbanax@example.org", key=CONFIG.sperrliste_schluessel),
             },
         }
     )
@@ -513,21 +513,21 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
     await database[Collection.POSTAUSGANG].insert_one(
         {
             "_id": SENT_NOTICE_OID,
-            "schluessel": f"adresswechsel/{OWED_CARRY_OID}/wirksam",
-            "art": "adresswechsel_wirksam",
+            "key": f"adresswechsel/{OWED_CARRY_OID}/effective",
+            "art": "address_change_effective",
             "an": "vorher.zorbanax@example.org",
-            "geheim": None,
-            "bezug": None,
+            "secret": None,
+            "reference": None,
             "link": None,
-            "stand": "gesendet",
-            "erfasst_am": NOW,
+            "stand": "sent",
+            "recorded_at": NOW,
             "frist": NOW,
-            "loeschen_am": NOW,
-            "beanspruchung": None,
-            "beansprucht_bis": None,
-            "versuche": 1,
-            "nachricht_id": None,
-            "zustellung": None,
+            "erase_at": NOW,
+            "lease": None,
+            "leased_until": None,
+            "attempts": 1,
+            "message_id": None,
+            "delivery": None,
         }
     )
 
@@ -541,9 +541,9 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         await edited(database, Collection.REGISTRIERUNGEN, registrierung_id, {"$set": {"nummer": "11"}})
     # Images of rows the person's steps never reach, each holding the address: two pending changes.
     for change_id in (OTHER_REFEREE_CHANGE_OID, MOVING_PUPIL_CHANGE_OID):
-        await edited(database, Collection.ADRESSWECHSEL, change_id, {"$set": {"verschickt_am": "2126-03-30"}})
+        await edited(database, Collection.ADRESSWECHSEL, change_id, {"$set": {"sent_at": "2126-03-30"}})
     # And of the records they made, each image keeping them as its author: the address pass's alone to reach.
-    await edited(database, Collection.BERECHTIGUNGEN, GRANTED_BY_THEM_OID, {"$set": {"erteilt_am": datetime(2126, 1, 2, tzinfo=UTC)}})
+    await edited(database, Collection.BERECHTIGUNGEN, GRANTED_BY_THEM_OID, {"$set": {"granted_at": datetime(2126, 1, 2, tzinfo=UTC)}})
     await edited(database, Collection.SPERRLISTE, BANNED_BY_THEM_OID, {"$set": {"grund": "Doppelte Anmeldung"}})
     await edited(database, Collection.EINLADUNGEN, INVITED_BY_THEM_OID, compose_widerruf_update(today=TODAY))
     await edited(database, Collection.BEWERBUNGEN, DECIDED_BY_THEM_OID, {"$set": {"wunschgegner": "Gast-Schule"}})
@@ -590,7 +590,7 @@ async def a_mailbox_sharing_their_local_part(database: AsyncDatabase) -> None:
             vorname="Quendolin",
             nachname="Anderswo",
             token="token-anderswo",
-            eingereicht_am="2126-03-25",
+            submitted_at="2126-03-25",
             frist="2126-04-08",
         )
     )
@@ -606,7 +606,7 @@ async def a_mailbox_sharing_their_local_part(database: AsyncDatabase) -> None:
             "Ulla",
             "Ulla-Muster",
             email="ulla@example.com",
-            einwilligung=eigene_einwilligung_document(text_version="v1", bestaetigt_am="2126-03-02"),
+            einwilligung=eigene_einwilligung_document(text_version="v1", confirmed_at="2126-03-02"),
         )
     )
     await pending_changes(
@@ -623,7 +623,7 @@ async def a_mailbox_sharing_their_local_part(database: AsyncDatabase) -> None:
             "GSX",
             _id=ELSEWHERE_SEAT_ROW_OID,
             kontakte=kontakte_document(
-                ansprechperson=kontaktperson_document("Quendolin", bestaetigt_am="2126-03-21", nachname="Anderswo", email=ELSEWHERE)
+                ansprechperson=kontaktperson_document("Quendolin", confirmed_at="2126-03-21", nachname="Anderswo", email=ELSEWHERE)
             ),
         )
     )
@@ -646,12 +646,12 @@ async def what_elsewhere_holds(database: AsyncDatabase) -> dict[str, int]:
             {
                 "_id": ELSEWHERE_SEAT_ROW_OID,
                 "kontakte.ansprechperson.email": ELSEWHERE,
-                "kontakte.ansprechperson.einwilligung.bestaetigt_am": {"$ne": None},
+                "kontakte.ansprechperson.einwilligung.confirmed_at": {"$ne": None},
             }
         ),
         "grant": await database[Collection.BERECHTIGUNGEN].count_documents({"_id": ELSEWHERE_GRANT_OID, "adresse": ELSEWHERE}),
         "announced": await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].count_documents({"_id": ELSEWHERE_GRANT_OID, "adresse": ELSEWHERE}),
-        "notices": await database[Collection.POSTAUSGANG].count_documents({"schluessel": {"$regex": f"^berechtigung/{ELSEWHERE_GRANT_OID}/"}}),
+        "notices": await database[Collection.POSTAUSGANG].count_documents({"key": {"$regex": f"^berechtigung/{ELSEWHERE_GRANT_OID}/"}}),
         "referee_change": await changes.count_documents({"_id": REFEREE_MOVING_ELSEWHERE_CHANGE_OID, "email": ELSEWHERE}),
         "pupil_change": await changes.count_documents({"_id": PUPIL_MOVING_ELSEWHERE_CHANGE_OID, "email": ELSEWHERE}),
         "log_actor": await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.SPIELE), "actor.email": ELSEWHERE}),
@@ -685,8 +685,8 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
             "_id": GRANTED_BY_THEM_OID,
             "adresse": "bramblewick.admin@example.com",
             "verwaltung": "administration",
-            "erteilt_von": IDENTIFIER,
-            "erteilt_am": GRANTED,
+            "granted_by": IDENTIFIER,
+            "granted_at": GRANTED,
         }
     )
     await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].insert_one(
@@ -694,7 +694,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
     )
     await database[Collection.SPERRLISTE].insert_many(
         [
-            ban_document(address, bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID), _id=ban_id, erstellt_von=von)
+            ban_document(address, bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID), _id=ban_id, created_by=von)
             for address, ban_id, von in (
                 ("gebannt@beispiel.de", BANNED_BY_THEM_OID, IDENTIFIER),
                 ("gebannt-zwei@beispiel.de", BANNED_BY_THEM_PASTED_OID, PASTED),
@@ -705,7 +705,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
         {
             "_id": INVITED_BY_THEM_OID,
             **compose_einladung(
-                saison_id=SAISON_ID, team_id=HOME_TEAM_OID, token_hashes=["hash-of-their-invite"], erstellt_von=IDENTIFIER, today=TODAY
+                saison_id=SAISON_ID, team_id=HOME_TEAM_OID, token_hashes=["hash-of-their-invite"], created_by=IDENTIFIER, today=TODAY
             ),
         }
     )
@@ -713,11 +713,11 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
         bewerbung_document(
             DECIDED_BY_THEM_OID,
             SAISON_ID,
-            "abgelehnt",
+            "declined",
             kontakte=kontakte_document(),
-            eingereicht_am="2126-03-01",
+            submitted_at="2126-03-01",
             schule=neue_schule_document("Abgelehnt", "ABX"),
-            entscheidung={"getroffen_am": "2126-03-10", "von": IDENTIFIER, "grund": "Keine Halle"},
+            decision={"made_at": "2126-03-10", "von": IDENTIFIER, "grund": "Keine Halle"},
         )
     )
     declined = registrierung_document(
@@ -728,7 +728,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
         vorname="Rita",
         nachname="Registriert",
         token="token-rita",
-        eingereicht_am="2126-03-20",
+        submitted_at="2126-03-20",
         frist="2126-03-27",
     )
     await database[Collection.REGISTRIERUNGEN].insert_one(
@@ -740,7 +740,7 @@ async def a_grant(database: AsyncDatabase, grant_id: ObjectId, adresse: str, ver
     """A grant and its announced row, granted by a paste, for the cases about a grant the address holds."""
 
     await database[Collection.BERECHTIGUNGEN].insert_one(
-        {"_id": grant_id, "adresse": adresse, "verwaltung": verwaltung, "erteilt_von": "PLAYGROUND", "erteilt_am": GRANTED}
+        {"_id": grant_id, "adresse": adresse, "verwaltung": verwaltung, "granted_by": "PLAYGROUND", "granted_at": GRANTED}
     )
     await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].insert_one(
         {"_id": grant_id, "adresse": adresse, "verwaltung": verwaltung, "angekuendigt_am": GRANTED}
@@ -798,8 +798,8 @@ async def geloescht_in_scope(
             scope=scope,
             **loeschung_collections(database, **replaced),
             sperrliste=ban_list(database),
-            geaendert_von=IDENTIFIER,
-            schluessel=CONFIG.sperrliste_schluessel,
+            changed_by=IDENTIFIER,
+            key=CONFIG.sperrliste_schluessel,
             stamp=TODAY,
             now=NOW,
             session=session,
@@ -865,12 +865,12 @@ class TestNothingOfTheirsIsLeftAnywhere:
             "saison_spieler": 1,
             "schiedsrichter": 1,
             "spiele": 1,
-            "kontakt_sitze": 3,
+            "kontakt_seats": 3,
             "registrierungen": 2,
-            "adresswechsel": 2,
-            "berechtigungen": 0,
+            "address_change": 2,
+            "grants": 0,
             # The request about their address and the one they asked.
-            "berechtigungen_antraege": 2,
+            "grants_approval_requests": 2,
         }
 
 
@@ -901,9 +901,9 @@ class TestWhatStandsBesideThem:
 
         assert row["kontakte"]["ansprechperson"] is None
         assert (row["kontakte"]["stellvertretung"]["vorname"], row["kontakte"]["trainer"]["vorname"]) == ("Quillhilde", "Bramblewick")
-        assert (bewerbung["kontakte"]["trainer"], bewerbung["bestaetigungen"]["trainer"]) == (None, None)
-        assert bewerbung["bestaetigungen"]["ansprechperson"] is not None
-        assert "idempotenz_fingerabdruck" not in bewerbung
+        assert (bewerbung["kontakte"]["trainer"], bewerbung["confirmations"]["trainer"]) == (None, None)
+        assert bewerbung["confirmations"]["ansprechperson"] is not None
+        assert "idempotency_fingerprint" not in bewerbung
 
     @pytest.mark.parametrize(
         ("change_id", "collection", "row_id", "path", "stored"),
@@ -931,7 +931,7 @@ class TestWhatStandsBesideThem:
 
         change, row = on_a_league(mongo_replica_set_url, body)
 
-        assert (change["beendet"]["art"], change["email"]) == ("verworfen", None)
+        assert (change["ended"]["art"], change["email"]) == ("discarded", None)
         held: Any = row
         for key in path.split("."):
             held = held[key]
@@ -955,7 +955,7 @@ class TestWhatStandsBesideThem:
         """
 
         def party_and_reason(image: Mapping[str, Any]) -> tuple[Any, Any]:
-            return image["partei"]["schiedsrichter_id"], (image["antwort"] or {}).get("begruendung", "unanswered")
+            return image["party"]["schiedsrichter_id"], (image["antwort"] or {}).get("begruendung", "unanswered")
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await geloescht_over_http(mongo_replica_set_url)
@@ -978,7 +978,7 @@ class TestWhatStandsBesideThem:
         """The report is the league's record of the match: it stays, its remarks with it, and another referee's report is theirs."""
 
         def sender(image: Mapping[str, Any]) -> Any:
-            return image["bericht"]["eingereicht_von"]["schiedsrichter_id"]
+            return image["bericht"]["submitted_by"]["schiedsrichter_id"]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await geloescht_over_http(mongo_replica_set_url)
@@ -1158,7 +1158,7 @@ class TestTheGrantsLeftBehind:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
 
-            return (await geloescht_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))).json()["berechtigungen"]
+            return (await geloescht_over_http(mongo_replica_set_url, headers=by_passkey(TYPED))).json()["grants"]
 
         with caplog.at_level(logging.WARNING):
             removed = on_a_league(mongo_replica_set_url, body)
@@ -1176,9 +1176,9 @@ class TestTheJournal:
             status = on_a_league(mongo_replica_set_url, body)
 
         lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
-        expected = loeschung_journal_hash(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
+        expected = loeschung_journal_hash(IDENTIFIER, key=CONFIG.sperrliste_schluessel)
 
-        halter = halter_of(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
+        halter = halter_of(IDENTIFIER, key=CONFIG.sperrliste_schluessel)
 
         assert status == 200
         assert lines == [f"{JOURNAL_TOKEN} {expected} loeschung pseudonym={PSEUDONYM} halter={halter}"]
@@ -1197,7 +1197,7 @@ class OwnersLoeschenAtOnce(InterleavedCollection):
 
 
 class TestTheLastOwner:
-    """`letzter_inhaber_loeschung`: nobody but an owner makes an owner, so the last one does not leave by erasing themselves."""
+    """`last_owner_erasure`: nobody but an owner makes an owner, so the last one does not leave by erasing themselves."""
 
     def test_the_last_owner_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1210,7 +1210,7 @@ class TestTheLastOwner:
         with caplog.at_level(logging.INFO):
             outcome, untouched = on_a_league(mongo_replica_set_url, body)
 
-        assert (outcome, untouched) == (Code.LETZTER_INHABER_LOESCHUNG, True)
+        assert (outcome, untouched) == (Code.LAST_OWNER_ERASURE, True)
         assert not [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
 
     def test_a_barred_second_owner_is_no_owner_to_leave_behind(self, mongo_replica_set_url: str):
@@ -1225,7 +1225,7 @@ class TestTheLastOwner:
 
             return await outcome_of(geloescht_by_the_handler(database, client))
 
-        assert on_a_league(mongo_replica_set_url, body) == Code.LETZTER_INHABER_LOESCHUNG
+        assert on_a_league(mongo_replica_set_url, body) == Code.LAST_OWNER_ERASURE
 
     def test_one_of_two_owners_goes_and_the_other_stands(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1255,7 +1255,7 @@ class TestTheLastOwner:
 
         grants, outcome, rival, owners = on_a_league(mongo_replica_set_url, body)
 
-        assert (rival, outcome, owners) == ([COMMITTED], Code.LETZTER_INHABER_LOESCHUNG, 1)
+        assert (rival, outcome, owners) == ([COMMITTED], Code.LAST_OWNER_ERASURE, 1)
         # The premise last: a read, the rival, the anchor's read meeting the conflict, then the retry's read and its anchor's.
         grants.assert_landed_inside(serially=2)
 
@@ -1275,10 +1275,10 @@ class TestTheScope:
                 await database[Collection.REGISTRIERUNGEN].count_documents({"_id": {"$in": [PENDING_OID, DECLINED_OID]}}),
                 (await the_one(database, Collection.SAISON_TEAMS))["kontakte"]["ansprechperson"]["email"],
                 await database[Collection.SCHIEDSRICHTER].count_documents({"_id": REFEREE_OID}),
-                (await the_one(database, Collection.ADRESSWECHSEL, {"_id": OTHER_REFEREE_CHANGE_OID}))["beendet"] is None,
+                (await the_one(database, Collection.ADRESSWECHSEL, {"_id": OTHER_REFEREE_CHANGE_OID}))["ended"] is None,
                 await database[Collection.AKTIONEN].count_documents({"actor.email": IDENTIFIER}),
                 await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": IDENTIFIER}),
-                (await the_one(database, Collection.ADRESSWECHSEL, {"_id": MOVING_PUPIL_CHANGE_OID}))["beendet"] is None,
+                (await the_one(database, Collection.ADRESSWECHSEL, {"_id": MOVING_PUPIL_CHANGE_OID}))["ended"] is None,
                 sorted(
                     [
                         (row["actor"]["funktion"], row["actor"]["pseudonym"])
@@ -1381,7 +1381,7 @@ class TestEachStepWritesWhatItDeclares:
 
         assert writes[EMPTIED.run.__name__] == {str(collection) for collection in EMPTIED.reaches}
         # Its address on file goes too: no erasure of the address follows a pupil's to take it.
-        assert (change["beendet"]["art"], change["adresse"], change["email"]) == ("verworfen", None, None)
+        assert (change["ended"]["art"], change["adresse"], change["email"]) == ("discarded", None, None)
 
     def test_a_pupils_loeschung_leaves_the_change_of_an_address_still_holding_records(self, mongo_replica_set_url: str):
         """The person is a referee and a seat holder beside the pupil, so their change still has those to move."""
@@ -1394,7 +1394,7 @@ class TestEachStepWritesWhatItDeclares:
 
         change = on_a_league(mongo_replica_set_url, body)
 
-        assert (change["beendet"], change["adresse"]) == (None, IDENTIFIER)
+        assert (change["ended"], change["adresse"]) == (None, IDENTIFIER)
 
 
 class RegistrationsAdmittedInside(InterleavedCollection):
@@ -1419,14 +1419,14 @@ async def an_admittable_registration(database: AsyncDatabase) -> None:
             HOME_TEAM_OID,
             "Heim-Schule",
             "HSX",
-            kontakte=kontakte_document(ansprechperson=kontaktperson_document("Anna", bestaetigt_am="2126-03-21")),
+            kontakte=kontakte_document(ansprechperson=kontaktperson_document("Anna", confirmed_at="2126-03-21")),
         )
     )
     await database[Collection.REGISTRIERUNGEN].insert_one(
         a_registration(
             PENDING_OID,
             IDENTIFIER,
-            bestaetigt={
+            confirmed={
                 "geburtsdatum": GEBURTSDATUM,
                 "umfang": "intern",
                 "medien": False,
@@ -1448,9 +1448,9 @@ class TestAnAdmissionInsideTheLoeschung:
             await an_admittable_registration(database)
 
             async def admission() -> None:
-                await aufnehmen(
+                await admit(
                     registrierung_id=PENDING_OID,
-                    aufnahme_data=FLRegistrierungAufnehmenPayload(spieler_id=None),
+                    aufnahme_data=FLRegistrierungAdmitPayload(spieler_id=None),
                     identifier=SEAT_HOLDER,
                     registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                     saison_spieler_collection=database[Collection.SAISON_SPIELER],
@@ -1506,9 +1506,9 @@ class TestAPersonHoldingNoFunktion:
                     bewerbung_document(
                         BEWERBUNG_OID,
                         SAISON_ID,
-                        "eingereicht",
+                        "submitted",
                         kontakte=kontakte_document(trainer=their_seat(), ansprechperson=kontaktperson_document("Quillhilde")),
-                        eingereicht_am="2126-03-10",
+                        submitted_at="2126-03-10",
                         schule=neue_schule_document("Neue", "NEX"),
                     )
                 )
@@ -1531,7 +1531,7 @@ class TestThePreview:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
-                return await http.get(f"{PATH}/ansicht", headers=as_person(TYPED))
+                return await http.get(f"{PATH}/view", headers=as_person(TYPED))
 
         response = on_a_league(mongo_replica_set_url, body)
         answer = response.json()
@@ -1539,14 +1539,14 @@ class TestThePreview:
         assert response.status_code == 200
         assert answer["spieler"] == [{"vorname": VORNAME, "nachname": NACHNAME}]
         assert answer["schiedsrichter"] == [{"name": REFEREE_NAME}]
-        assert answer["sitze"] == [
+        assert answer["seats"] == [
             {"saison_id": SAISON_ID, "team_name": "Heim-Schule", "rolle": "ansprechperson", "vorname": VORNAME, "nachname": NACHNAME}
         ]
         assert sorted(answer["bewerbungen"], key=lambda entry: entry["rolle"]) == [
             {"saison_id": SAISON_ID, "rolle": rolle, "vorname": VORNAME, "nachname": NACHNAME} for rolle in ("ansprechperson", "trainer")
         ]
         assert answer["registrierungen"] == [{"saison_id": SAISON_ID, "team_name": "Heim-Schule", "vorname": VORNAME, "nachname": NACHNAME}] * 2
-        assert (answer["adresswechsel"], answer["verwaltung"], answer["letzter_inhaber"]) == (2, "administration", False)
+        assert (answer["address_change"], answer["verwaltung"], answer["last_owner"]) == (2, "administration", False)
         assert "@" not in response.text and GEBURTSDATUM not in response.text
 
     def test_it_counts_no_change_whose_link_has_not_reached_this_mailbox(self, mongo_replica_set_url: str):
@@ -1554,11 +1554,11 @@ class TestThePreview:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             asked_first = documents.adresswechsel_document(
-                adresse="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2126-03-30", weg="freigabe"
+                adresse="noch.gefragt@example.com", email=IDENTIFIER, token_hash=None, day="2126-03-30", way="release"
             )
             await database[Collection.ADRESSWECHSEL].insert_one(asked_first)
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
-                preview = (await http.get(f"{PATH}/ansicht", headers=as_person(TYPED))).json()["adresswechsel"]
+                preview = (await http.get(f"{PATH}/view", headers=as_person(TYPED))).json()["address_change"]
 
             return preview, (await geloescht_by_the_handler(database, client)).adresswechsel
 
@@ -1571,21 +1571,21 @@ class TestThePreview:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, TYPED, "administration")
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
-                verwaltung = (await http.get(f"{PATH}/ansicht", headers=as_person(TYPED))).json()["verwaltung"]
+                verwaltung = (await http.get(f"{PATH}/view", headers=as_person(TYPED))).json()["verwaltung"]
 
             return verwaltung, (await geloescht_by_the_handler(database, client)).berechtigungen
 
         assert on_a_league(mongo_replica_set_url, body) == (None, 1)
 
     @pytest.mark.parametrize(
-        ("second_owner", "barred", "letzter_inhaber"),
+        ("second_owner", "barred", "last_owner"),
         [(False, False, True), (True, False, False), (True, True, True)],
         ids=["the only owner", "beside a second owner", "beside a barred second owner"],
     )
     def test_it_foretells_the_last_owners_refusal_as_the_press_judges_it(
-        self, mongo_replica_set_url: str, second_owner: bool, barred: bool, letzter_inhaber: bool
+        self, mongo_replica_set_url: str, second_owner: bool, barred: bool, last_owner: bool
     ):
-        """A barred owner admits nobody, so beside one the address is still the last: `letzter_inhaber` reads true.
+        """A barred owner admits nobody, so beside one the address is still the last: `last_owner` reads true.
 
         The press runs on the same seed, so a preview judging apart from it fails here.
         """
@@ -1599,11 +1599,11 @@ class TestThePreview:
                     ban_document(OTHER_OWNER, bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID))
                 )
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
-                preview = await http.get(f"{PATH}/ansicht", headers=as_person(TYPED))
+                preview = await http.get(f"{PATH}/view", headers=as_person(TYPED))
 
-            return preview.status_code, preview.json()["letzter_inhaber"], await outcome_of(geloescht_by_the_handler(database, client))
+            return preview.status_code, preview.json()["last_owner"], await outcome_of(geloescht_by_the_handler(database, client))
 
         status, foretold, pressed = on_a_league(mongo_replica_set_url, body)
 
-        assert (status, foretold) == (200, letzter_inhaber)
-        assert pressed == (Code.LETZTER_INHABER_LOESCHUNG if letzter_inhaber else COMMITTED)
+        assert (status, foretold) == (200, last_owner)
+        assert pressed == (Code.LAST_OWNER_ERASURE if last_owner else COMMITTED)

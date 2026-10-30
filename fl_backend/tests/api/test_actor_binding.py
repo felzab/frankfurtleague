@@ -141,49 +141,49 @@ class TestTheAdministratorsSession:
 
 # The writes held to the enrolment window, each declaring the check.
 GRANT_WRITES = [
-    pytest.param("post", "/api/v0/berechtigungen", id="a grant"),
-    pytest.param("delete", "/api/v0/berechtigungen/{berechtigung_id}", id="a revoke"),
-    pytest.param("patch", "/api/v0/berechtigungen/{berechtigung_id}", id="a tier change"),
-    pytest.param("post", "/api/v0/adresswechsel/{adresswechsel_id}/genehmigung", id="an approval of a grant's move"),
-    pytest.param("post", "/api/v0/berechtigungen/antraege/{antrag_id}/genehmigung", id="an approval of a grant or a promotion"),
+    pytest.param("post", "/api/v0/grants", id="a grant"),
+    pytest.param("delete", "/api/v0/grants/{grant_id}", id="a revoke"),
+    pytest.param("patch", "/api/v0/grants/{grant_id}", id="a tier change"),
+    pytest.param("post", "/api/v0/address_change/{address_change_id}/approval", id="an approval of a grant's move"),
+    pytest.param("post", "/api/v0/grants/approval_requests/{approval_request_id}/approval", id="an approval of a grant or a promotion"),
 ]
 
 # Every write the page steps up on every call: nothing reverses what it does, or it mints or voids a
 # link to an address. Listed, and held to the declarations by the case below.
 STEP_UP_WRITES = [
-    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/annehmen", id="an acceptance"),
-    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/ablehnen", id="a decline"),
-    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut", id="a seat's re-send"),
+    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/accept", id="an acceptance"),
+    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/decline", id="a decline"),
+    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/resend", id="a seat's re-send"),
     pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email", id="a seat's address correction"),
     pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}", id="a reseat"),
-    pytest.param("post", "/api/v0/identitaet/loeschung", id="an erasure on a mailed request"),
-    pytest.param("post", "/api/v0/identitaet/abmeldung", id="an address's sign-out of every session"),
+    pytest.param("post", "/api/v0/identity/erasure", id="an erasure on a mailed request"),
+    pytest.param("post", "/api/v0/identity/sign_out", id="an address's sign-out of every session"),
     pytest.param("post", "/api/v0/saisons", id="a season's creation"),
     pytest.param("post", "/api/v0/saisons/{saison_id}/activate", id="the rollover"),
     pytest.param("delete", "/api/v0/saisons/{saison_id}/spielplan", id="the undraw"),
-    pytest.param("post", "/api/v0/saisons/{saison_id}/einladungen/versand", id="the season's invitation send"),
+    pytest.param("post", "/api/v0/saisons/{saison_id}/invitations/dispatch", id="the season's invitation send"),
     pytest.param("post", "/api/v0/schiedsrichter", id="a referee's entry"),
-    pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen", id="a referee's fresh link"),
+    pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/confirmation/invite", id="a referee's fresh link"),
     pytest.param("post", "/api/v0/sperrliste", id="a ban"),
     pytest.param("delete", "/api/v0/sperrliste/{sperrliste_id}", id="a ban's lift"),
-    pytest.param("post", "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/eintragen", id="a party's Zusage recorded for it"),
-    pytest.param("post", "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/verwerfen", id="a club's proposal discarded"),
+    pytest.param("post", "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/enter", id="a party's Zusage recorded for it"),
+    pytest.param("post", "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/discard", id="a club's proposal discarded"),
     pytest.param("patch", "/api/v0/spielberichte/{spiel_id}", id="an administrator's write of a report"),
-    pytest.param("post", "/api/v0/adresswechsel", id="an address change asked"),
-    pytest.param("post", "/api/v0/adresswechsel/{adresswechsel_id}/einladen", id="an address change's fresh link"),
-    pytest.param("delete", "/api/v0/adresswechsel/{adresswechsel_id}", id="an address change discarded"),
-    pytest.param("delete", "/api/v0/berechtigungen/antraege/{antrag_id}", id="a request for a grant refused or withdrawn"),
+    pytest.param("post", "/api/v0/address_change", id="an address change asked"),
+    pytest.param("post", "/api/v0/address_change/{address_change_id}/invite", id="an address change's fresh link"),
+    pytest.param("delete", "/api/v0/address_change/{address_change_id}", id="an address change discarded"),
+    pytest.param("delete", "/api/v0/grants/approval_requests/{approval_request_id}", id="a request for a grant refused or withdrawn"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons", id="a club's entry into a season"),
-    pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen", id="a contact seat's fresh link"),
+    pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/confirmation/invite", id="a contact seat's fresh link"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/replace", id="a club's replacement"),
-    pytest.param("delete", "/api/v0/teams/{team_id}/saisons/{saison_id}/einladung", id="a club's link revoked"),
-    pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/einladung/versand", id="a club's link mailed to its seats"),
+    pytest.param("delete", "/api/v0/teams/{team_id}/saisons/{saison_id}/invitation", id="a club's link revoked"),
+    pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/invitation/dispatch", id="a club's link mailed to its seats"),
 ]
 
 # The person's own address change, started or approved, held to the enrolment window by either factor.
 ADDRESS_CHANGE_WRITES = [
-    pytest.param("post", "/api/v0/konto/adresswechsel", id="a start"),
-    pytest.param("post", "/api/v0/konto/adresswechsel/freigabe", id="an approval"),
+    pytest.param("post", "/api/v0/account/address_change", id="a start"),
+    pytest.param("post", "/api/v0/account/address_change/release", id="an approval"),
 ]
 
 WindowCheck = Callable[[SessionActor], None]
@@ -392,7 +392,7 @@ class TestThePersonsSession:
         binder = PERSON_ACTOR_BINDERS[funktion]
         identifier, during, after = asyncio.run(through(binder(request_for("GET"), attributed_person(funktion, MIXED_CASE))))
 
-        pseudonym = akteur_pseudonym(KNOWN_IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
+        pseudonym = akteur_pseudonym(KNOWN_IDENTIFIER, key=CONFIG.sperrliste_schluessel)
         assert identifier == KNOWN_IDENTIFIER
         assert during == (PersonActor(pseudonym=pseudonym, funktion=funktion), ("GET", ROUTE_TEMPLATE))
         assert after == (SYSTEM_ACTOR, None)
@@ -412,7 +412,7 @@ class TestThePersonsSession:
         asyncio.run(through(binder(request_for("PATCH"), attributed_person(SPIELER, MIXED_CASE)), handler))
 
         [row] = log.rows
-        pseudonym = akteur_pseudonym(KNOWN_IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
+        pseudonym = akteur_pseudonym(KNOWN_IDENTIFIER, key=CONFIG.sperrliste_schluessel)
         # An equality, so an `email` beside the two is a failure rather than an extra key nobody reads.
         assert row["actor"] == {"kind": "person_session", "pseudonym": pseudonym, "funktion": SPIELER}
         assert "beispielschule" not in str(row).lower()
@@ -437,11 +437,11 @@ class TestThePersonsSession:
 class TestThePseudonym:
     def test_it_is_the_value_computed_outside_this_package(self):
         """The known answer: every other case compares the function with itself, so a construction swapped end for end passes them all."""
-        assert akteur_pseudonym(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER) == KNOWN_PSEUDONYM
+        assert akteur_pseudonym(KNOWN_IDENTIFIER, key=KNOWN_MASTER) == KNOWN_PSEUDONYM
 
     def test_it_is_never_the_ban_rows_digest_of_the_same_address(self):
         """One label per purpose under one master: a shared one would let the log say who the ban list holds."""
-        assert akteur_pseudonym(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER) != adresse_hash(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER)
+        assert akteur_pseudonym(KNOWN_IDENTIFIER, key=KNOWN_MASTER) != adresse_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER)
 
 
 # The journal's answer for `KNOWN_IDENTIFIER` under `KNOWN_MASTER`, computed as `KNOWN_PSEUDONYM` was, under "loeschung-v1".
@@ -450,13 +450,13 @@ KNOWN_JOURNAL_HASH = "4bfa0be6fffe4c90adfc3290ec83efeb21a9845508cf2d170b39d04726
 
 class TestTheJournalHash:
     def test_it_is_the_value_computed_outside_this_package(self):
-        assert loeschung_journal_hash(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER) == KNOWN_JOURNAL_HASH
+        assert loeschung_journal_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER) == KNOWN_JOURNAL_HASH
 
     def test_it_is_neither_the_pseudonym_nor_the_ban_rows_digest(self):
         """A shared label would let a journal line name the pseudonym an erasure removed, or the ban a person holds."""
-        journal = loeschung_journal_hash(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER)
+        journal = loeschung_journal_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER)
 
-        assert journal not in {KNOWN_PSEUDONYM, adresse_hash(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER)}
+        assert journal not in {KNOWN_PSEUDONYM, adresse_hash(KNOWN_IDENTIFIER, key=KNOWN_MASTER)}
 
 
 # A stored spelling as a registration or a contact seat keeps one: case, and the spaces a form trims.
@@ -470,4 +470,4 @@ UNFOLDED_IDENTIFIER = f" {MIXED_CASE} "
 )
 def test_an_unfolded_spelling_hashes_as_its_fold(helper: Callable[..., str], folded: str):
     """A restore hashes every stored spelling against the journal, so a helper hashing the spelling as given matches nothing."""
-    assert helper(UNFOLDED_IDENTIFIER, schluessel=KNOWN_MASTER) == folded
+    assert helper(UNFOLDED_IDENTIFIER, key=KNOWN_MASTER) == folded

@@ -64,7 +64,7 @@ SHAPES: tuple[tuple[int, int, int], ...] = (
 def rules(*, groups: int, teams: int, qualifiers: int) -> FLSaisonRules:
     return FLSaisonRules.model_validate(
         rules_document(
-            qualifiers_per_group=qualifiers, number_of_groups=groups, teams_per_group=teams, erlaubte_stufen=["E1", "E2", "Q1", "Q2"]
+            qualifiers_per_gruppe=qualifiers, number_of_gruppen=groups, teams_per_gruppe=teams, allowed_stufen=["E1", "E2", "Q1", "Q2"]
         )
     )
 
@@ -131,7 +131,7 @@ class TestTheCircleMethodPairsAGroup:
 
     @pytest.mark.parametrize("teams", range(2, 17))
     def test_every_round_holds_the_matches_a_matchday_expects(self, teams: int):
-        """One group's share of `anzahl_spiele`; an odd group pairs all but the club on its bye."""
+        """One group's share of `count_spiele`; an odd group pairs all but the club on its bye."""
 
         assert [len(pairs) for pairs in circle_rounds(teams)] == [group_matches_per_matchday(1, teams)] * group_matchdays(teams)
 
@@ -190,7 +190,7 @@ class TestTheCircleMethodPairsAGroup:
         assert sum(leads) == (len(leads) + 1) // 2
 
     def test_a_group_too_small_to_pair_plays_nothing(self):
-        """`teams_per_group` has a floor of 2, so this is the boundary rather than a reachable season."""
+        """`teams_per_gruppe` has a floor of 2, so this is the boundary rather than a reachable season."""
 
         assert circle_rounds(1) == ()
 
@@ -204,14 +204,14 @@ def ceiling(field: str) -> int:
 def legal_combinations() -> set[tuple[int, int]]:
     """Every `(number_of_groups, qualifiers_per_group)` a create passes the write path with.
 
-    `qualifiers_per_group` states no `le` of its own; the excess rule caps it at `teams_per_group`,
+    `qualifiers_per_gruppe` states no `le` of its own; the excess rule caps it at `teams_per_gruppe`,
     so that field's ceiling is as wide as a qualifier count can be.
     """
 
     return {
         (groups, qualifiers)
-        for groups in range(1, ceiling("number_of_groups") + 1)
-        for qualifiers in range(1, ceiling("teams_per_group") + 1)
+        for groups in range(1, ceiling("number_of_gruppen") + 1)
+        for qualifiers in range(1, ceiling("teams_per_gruppe") + 1)
         if find_rules_refusal(
             stored=None,
             proposed=rules(groups=groups, teams=max(qualifiers, 2), qualifiers=qualifiers),
@@ -355,7 +355,7 @@ class TestTheTableCoversTheWritePath:
         """Derived from the rules bounds and the refusal, so widening either cannot strand a legal season with nothing to draw from."""
 
         for groups, qualifiers in legal_combinations():
-            row = bracket_seeding(number_of_groups=groups, qualifiers_per_group=qualifiers)
+            row = bracket_seeding(number_of_gruppen=groups, qualifiers_per_gruppe=qualifiers)
 
             assert sorted(row) == sorted((gruppe, platz) for gruppe in GRUPPEN[:groups] for platz in range(1, qualifiers + 1))
 
@@ -401,7 +401,7 @@ class TestTheConstructionIsTheTable:
     def test_it_reproduces_the_reference_row(self, key: tuple[int, int]):
         """A difference here is the construction wrong: the rows were checked by hand and outrank it."""
 
-        assert bracket_seeding(number_of_groups=key[0], qualifiers_per_group=key[1]) == BRACKET_SEEDING[key]
+        assert bracket_seeding(number_of_gruppen=key[0], qualifiers_per_gruppe=key[1]) == BRACKET_SEEDING[key]
 
     def test_two_rows_are_exactly_these(self):
         """Hand-written, so the table is pinned past what `score` cannot see.
@@ -417,7 +417,7 @@ class TestTheConstructionIsTheTable:
         """A field that is no power of two would index a group the season does not offer."""
 
         with pytest.raises(ValueError):
-            bracket_seeding(number_of_groups=3, qualifiers_per_group=2)
+            bracket_seeding(number_of_gruppen=3, qualifiers_per_gruppe=2)
 
     def test_a_group_count_the_closed_set_cannot_name_is_refused(self):
         """The smallest power of two past the closed set: at any other field the size guard answers instead, and `match` pins which one did.
@@ -426,7 +426,7 @@ class TestTheConstructionIsTheTable:
         """
 
         with pytest.raises(ValueError, match="the closed set holds"):
-            bracket_seeding(number_of_groups=1 << len(GRUPPEN).bit_length(), qualifiers_per_group=1)
+            bracket_seeding(number_of_gruppen=1 << len(GRUPPEN).bit_length(), qualifiers_per_gruppe=1)
 
 
 class TestTheConstructionScoresTheBestThereIs:
@@ -437,7 +437,7 @@ class TestTheConstructionScoresTheBestThereIs:
         The closed form is linear in the field, so the proof follows that widening at no cost.
         """
 
-        assert score(bracket_seeding(number_of_groups=key[0], qualifiers_per_group=key[1])) == best_possible(*key)
+        assert score(bracket_seeding(number_of_gruppen=key[0], qualifiers_per_gruppe=key[1])) == best_possible(*key)
 
     @pytest.mark.parametrize("key", SWEEPABLE_KEYS)
     def test_an_exhaustive_sweep_finds_that_same_bound(self, key: tuple[int, int]):
@@ -493,7 +493,7 @@ class TestTheConstructionBeatsTheObviousRuntimeRule:
     def test_the_construction_is_one_the_rule_permits(self, key: tuple[int, int]):
         """So it CHOOSES within the rule rather than departing from it, and what it adds is which placement to ship."""
 
-        assert bracket_seeding(number_of_groups=key[0], qualifiers_per_group=key[1]) in set(partner_consistent_seedings(*key))
+        assert bracket_seeding(number_of_gruppen=key[0], qualifiers_per_gruppe=key[1]) in set(partner_consistent_seedings(*key))
 
 
 class TestTheShapesAreSeasonsThatCanExist:
@@ -524,7 +524,7 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
         assert drawn == [
             (entry.phase, position)
             for entry in schedule_for(rules(groups=groups, teams=teams, qualifiers=qualifiers))
-            for position in range(1, entry.matchdays + 1)
+            for position in range(1, entry.spieltage + 1)
         ]
 
     @pytest.mark.parametrize("shape", SHAPES)
@@ -539,7 +539,7 @@ class TestTheDrawIsTheSeasonTheRulesDescribe:
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_every_matchday_holds_the_matches_its_phase_expects(self, shape: tuple[int, int, int]):
-        """`anzahl_spiele` is derived per matchday, so a matchday off this count reads as incomplete forever."""
+        """`count_spiele` is derived per matchday, so a matchday off this count reads as incomplete forever."""
 
         groups, teams, qualifiers = shape
         season = rules(groups=groups, teams=teams, qualifiers=qualifiers)
@@ -671,13 +671,13 @@ class TestTheEmittedDocumentsReadBack:
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_every_matchday_reads_back_through_the_model_an_endpoint_serves(self, shape: tuple[int, int, int]):
-        """`anzahl_spiele` is injected because it is derived and on no document."""
+        """`count_spiele` is injected because it is derived and on no document."""
 
         groups, teams, qualifiers = shape
         season = rules(groups=groups, teams=teams, qualifiers=qualifiers)
 
         for spieltag in draw(*shape).spieltage:
-            FLSpieltag.model_validate({**spieltag, "anzahl_spiele": expected_matches(season, spieltag["saison_phase"])}, extra="forbid")
+            FLSpieltag.model_validate({**spieltag, "count_spiele": expected_matches(season, spieltag["saison_phase"])}, extra="forbid")
 
     @pytest.mark.parametrize("shape", SHAPES)
     def test_nothing_is_scheduled_and_nothing_has_happened(self, shape: tuple[int, int, int]):
@@ -855,7 +855,7 @@ class TestADrawRefusesWhatItCannotDrawTruthfully:
             draw(2, 4, 2, entered=entered[:-1])
 
     def test_a_club_in_a_group_the_season_does_not_offer_is_refused(self):
-        """`number_of_groups` is the season's capacity, and a club outside it would be drawn into no round robin at all."""
+        """`number_of_gruppen` is the season's capacity, and a club outside it would be drawn into no round robin at all."""
 
         entered = entered_for(2, 4)
         stray = EnteredTeam(row_id=entered[0].row_id, team_id=entered[0].team_id, gruppe="C", name="C1-Schule", shorthand="JJX")
@@ -867,13 +867,13 @@ class TestADrawRefusesWhatItCannotDrawTruthfully:
 RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
-    qualifiers_per_group=2,
-    number_of_groups=4,
-    teams_per_group=6,
+    qualifiers_per_gruppe=2,
+    number_of_gruppen=4,
+    teams_per_gruppe=6,
     tiebreak_order="tordifferenz",
     max_kadergroesse=20,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
-    erlaubte_stufen=["Q1"],
+    allowed_stufen=["Q1"],
 )
 
 FULL: Mapping[FLGruppenNames, int] = {"A": 6, "B": 6, "C": 6, "D": 6}
@@ -909,7 +909,7 @@ class TestASeasonReadyToBeDrawn:
     def test_a_group_the_season_does_not_offer_may_stand_in_the_map_holding_nobody(self):
         """The map is counted from stored rows, so an emptied group survives as a key; nobody is stranded by it."""
 
-        two_groups = RULES.model_copy(update={"number_of_groups": 2})
+        two_groups = RULES.model_copy(update={"number_of_gruppen": 2})
 
         assert refusal_for(occupancy={"A": 6, "B": 6, "C": 0, "D": 0}, rules=two_groups) is None
 
@@ -946,7 +946,7 @@ class TestAFinishedSeason:
 class TestWhetherEveryOfferedGroupHoldsItsSize:
     """`spielplan_gruppen_off_rules`, and all three answers it gives.
 
-    A group short of `teams_per_group`, a group past it, and a club standing in a group the season
+    A group short of `teams_per_gruppe`, a group past it, and a club standing in a group the season
     does not offer -- one class, because `Rule.tested_by` cites one.
     """
 
@@ -957,7 +957,7 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
         assert refusal.error_code == Code.SPIELPLAN_GRUPPEN_OFF_RULES
 
     def test_a_group_holding_more_than_the_rules_ask_refuses_the_draw(self):
-        """The other direction: a group past `teams_per_group` draws more fixtures than its matchdays account for."""
+        """The other direction: a group past `teams_per_gruppe` draws more fixtures than its matchdays account for."""
 
         refusal = refusal_for(occupancy={**FULL, "A": 7})
 
@@ -971,7 +971,7 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
         draw's own `shape`, judged with `stored` as `None`.
         """
 
-        two_groups = RULES.model_copy(update={"number_of_groups": 2})
+        two_groups = RULES.model_copy(update={"number_of_gruppen": 2})
         refusal = refusal_for(occupancy={"A": 6, "B": 6, "C": 1}, rules=two_groups)
 
         assert refusal is not None
@@ -992,7 +992,7 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
     def test_a_group_the_season_does_not_offer_is_not_counted(self):
         """`offered_gruppen` bounds it: a two-group season is not short because C and D are absent from the map."""
 
-        two_groups = RULES.model_copy(update={"number_of_groups": 2})
+        two_groups = RULES.model_copy(update={"number_of_gruppen": 2})
         refusal = find_spielplan_refusal(
             saison_status="future",
             fixtures_drawn=0,

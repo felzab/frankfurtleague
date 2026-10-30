@@ -33,7 +33,7 @@ FIRST_HASH = hash_token("first")
 
 
 def einwilligung() -> dict[str, Any]:
-    return eigene_einwilligung_document(text_version="2026-10-spielerseite-5", bestaetigt_am=TODAY)
+    return eigene_einwilligung_document(text_version="2026-10-spielerseite-5", confirmed_at=TODAY)
 
 
 def bestaetigung(**overrides: Any) -> dict[str, Any]:
@@ -41,8 +41,8 @@ def bestaetigung(**overrides: Any) -> dict[str, Any]:
 
     return {
         "token_hashes": [FIRST_HASH],
-        "verschickt_am": MAILED_ON_THE_MARK,
-        "erinnert_am": None,
+        "sent_at": MAILED_ON_THE_MARK,
+        "reminded_at": None,
         "frist": "2026-04-05",
         **overrides,
     }
@@ -52,13 +52,13 @@ def registrierung(**overrides: Any) -> dict[str, Any]:
     """One submitted registration nobody has confirmed, its link due a reminder today."""
 
     return {
-        "status": "eingereicht",
+        "status": "submitted",
         "saison_id": "2026",
         "vorname": "Quillhilde",
         "email": "quillhilde@example.com",
         "einwilligung": None,
-        "bestaetigung": bestaetigung(),
-        "entscheidung": None,
+        "confirmation": bestaetigung(),
+        "decision": None,
         **overrides,
     }
 
@@ -70,15 +70,15 @@ class TestTheReminderMark:
     """
 
     @pytest.mark.parametrize(
-        ("verschickt_am", "due"),
+        ("sent_at", "due"),
         [
             pytest.param(MAILED_A_DAY_SHORT, False, id="two days ago"),
             pytest.param(MAILED_ON_THE_MARK, True, id="three days ago, to the day"),
             pytest.param(MAILED_A_DAY_PAST, True, id="four days ago"),
         ],
     )
-    def test_each_boundary_falls_where_the_bound_says(self, verschickt_am: str, due: bool):
-        stored = registrierung(bestaetigung=bestaetigung(verschickt_am=verschickt_am))
+    def test_each_boundary_falls_where_the_bound_says(self, sent_at: str, due: bool):
+        stored = registrierung(confirmation=bestaetigung(sent_at=sent_at))
 
         assert erinnerung_is_due(registrierung_raw=stored, today=TODAY) == due
         assert (REGISTRIERUNG_ERINNERUNG_TAGE, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE) == (3, 7)
@@ -87,10 +87,10 @@ class TestTheReminderMark:
         ("stored", "why"),
         [
             pytest.param(registrierung(einwilligung=einwilligung()), "confirmed", id="confirmed"),
-            pytest.param(registrierung(bestaetigung=bestaetigung(erinnert_am=YESTERDAY)), "reminded once", id="reminded once"),
-            pytest.param(registrierung(status="abgelehnt"), "declined", id="declined"),
-            pytest.param(registrierung(bestaetigung=None), "no bookkeeping", id="no bookkeeping"),
-            pytest.param(registrierung(bestaetigung=bestaetigung(verschickt_am=None)), "no send recorded", id="no send recorded"),
+            pytest.param(registrierung(confirmation=bestaetigung(reminded_at=YESTERDAY)), "reminded once", id="reminded once"),
+            pytest.param(registrierung(status="declined"), "declined", id="declined"),
+            pytest.param(registrierung(confirmation=None), "no bookkeeping", id="no bookkeeping"),
+            pytest.param(registrierung(confirmation=bestaetigung(sent_at=None)), "no send recorded", id="no send recorded"),
         ],
     )
     def test_a_registration_that_has_answered_been_chased_or_lost_its_link_is_not_reminded(self, stored: Mapping[str, Any], why: str):
@@ -107,7 +107,7 @@ class TestTheReminderMark:
     def test_nothing_past_its_deadline_is_chased(self, frist: str, due: bool):
         """A link minted on the way out is one nobody can spend: the erasure below takes the row the same day."""
 
-        stored = registrierung(bestaetigung=bestaetigung(frist=frist))
+        stored = registrierung(confirmation=bestaetigung(frist=frist))
 
         assert erinnerung_is_due(registrierung_raw=stored, today=TODAY) == due
 
@@ -123,31 +123,31 @@ class TestTheDeadlineClock:
         ],
     )
     def test_each_boundary_falls_where_the_bound_says(self, frist: str | None, due: bool):
-        stored = registrierung(bestaetigung=bestaetigung(frist=frist))
+        stored = registrierung(confirmation=bestaetigung(frist=frist))
 
         assert bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY) == due
 
     def test_a_confirmed_registration_waits_for_the_seasons_end_instead(self):
         """The clock's whole reach: a row nobody confirmed leaves at its deadline, and a confirmed one leaves with its season."""
 
-        stored = registrierung(bestaetigung=bestaetigung(frist=YESTERDAY), einwilligung=einwilligung())
+        stored = registrierung(confirmation=bestaetigung(frist=YESTERDAY), einwilligung=einwilligung())
 
         assert not bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY)
 
     def test_a_declined_registration_is_the_one_month_clocks(self):
-        stored = registrierung(status="abgelehnt", bestaetigung=bestaetigung(frist=YESTERDAY))
+        stored = registrierung(status="declined", confirmation=bestaetigung(frist=YESTERDAY))
 
         assert not bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY)
 
     def test_a_registration_stored_without_a_block_is_never_taken_by_this_clock(self):
         """A row with no readable deadline is held rather than destroyed: the date this clock counts from is the one thing it needs."""
 
-        assert not bestaetigung_loeschung_is_due(registrierung_raw=registrierung(bestaetigung=None), today=TODAY)
+        assert not bestaetigung_loeschung_is_due(registrierung_raw=registrierung(confirmation=None), today=TODAY)
 
 
 class TestTheOneMonthClock:
     @pytest.mark.parametrize(
-        ("getroffen_am", "due"),
+        ("made_at", "due"),
         [
             pytest.param("2026-03-02", False, id="a day short of the month"),
             pytest.param("2026-03-01", True, id="the month, to the day"),
@@ -155,14 +155,14 @@ class TestTheOneMonthClock:
             pytest.param("2026-01-31", True, id="clamped to February, and past it"),
         ],
     )
-    def test_each_boundary_falls_a_calendar_month_after_the_decision(self, getroffen_am: str, due: bool):
-        declined = registrierung(status="abgelehnt", entscheidung={"getroffen_am": getroffen_am, "von": "admin", "grund": "kein Platz"})
+    def test_each_boundary_falls_a_calendar_month_after_the_decision(self, made_at: str, due: bool):
+        declined = registrierung(status="declined", decision={"made_at": made_at, "von": "admin", "grund": "kein Platz"})
 
         assert decline_loeschung_is_due(registrierung_raw=declined, today=TODAY) == due
 
-    @pytest.mark.parametrize("status", ["eingereicht", "abgelehnt"])
+    @pytest.mark.parametrize("status", ["submitted", "declined"])
     def test_a_decision_with_no_day_and_a_row_nobody_decided_are_both_left_standing(self, status: str):
-        stored = registrierung(status=status, entscheidung=None)
+        stored = registrierung(status=status, decision=None)
 
         assert not decline_loeschung_is_due(registrierung_raw=stored, today=TODAY)
 
@@ -191,26 +191,26 @@ class TestWhatEachClockReads:
     def test_the_seasons_end_takes_every_submitted_row(self):
         """Nothing narrower is right here: once the season is `past` this clock takes every one of them, confirmed or not."""
 
-        assert CLOCK_FILTERS["season's end"] == {"saison_id": SAISON_ID, "status": "eingereicht"}
+        assert CLOCK_FILTERS["season's end"] == {"saison_id": SAISON_ID, "status": "submitted"}
 
     def test_the_deadline_reads_the_unconfirmed_whose_day_has_passed(self):
         """The consent term matches a null record and a null stamp alike, which is what covers both stored shapes with one key."""
 
         assert CLOCK_FILTERS["deadline"] == {
             "saison_id": SAISON_ID,
-            "status": "eingereicht",
-            "einwilligung.bestaetigt_am": None,
-            "bestaetigung.frist": {"$lt": TODAY},
+            "status": "submitted",
+            "einwilligung.confirmed_at": None,
+            "confirmation.frist": {"$lt": TODAY},
         }
 
     def test_the_reminder_reads_the_unchased_at_their_mark(self):
         assert CLOCK_FILTERS["reminder"] == {
             "saison_id": SAISON_ID,
-            "status": "eingereicht",
-            "einwilligung.bestaetigt_am": None,
-            "bestaetigung.erinnert_am": None,
-            "bestaetigung.frist": {"$gte": TODAY},
-            "bestaetigung.verschickt_am": {"$lte": THE_MARK},
+            "status": "submitted",
+            "einwilligung.confirmed_at": None,
+            "confirmation.reminded_at": None,
+            "confirmation.frist": {"$gte": TODAY},
+            "confirmation.sent_at": {"$lte": THE_MARK},
         }
 
     def test_the_decline_clock_reads_the_decisions_whose_month_is_behind_them(self):
@@ -218,8 +218,8 @@ class TestWhatEachClockReads:
 
         assert CLOCK_FILTERS["decline"] == {
             "saison_id": SAISON_ID,
-            "status": "abgelehnt",
-            "entscheidung.getroffen_am": {"$lte": "2026-03-01"},
+            "status": "declined",
+            "decision.made_at": {"$lte": "2026-03-01"},
         }
 
     @pytest.mark.parametrize(
@@ -236,8 +236,8 @@ class TestWhatEachClockReads:
     def test_the_last_decision_due_agrees_with_the_clock_at_every_month_end(self, today: str, latest: str):
         """Both sides of the cutoff, judged by the clock's own predicate: the query and the predicate must take the same rows."""
 
-        def due(getroffen_am: str) -> bool:
-            declined = {"status": "abgelehnt", "entscheidung": {"getroffen_am": getroffen_am}}
+        def due(made_at: str) -> bool:
+            declined = {"status": "declined", "decision": {"made_at": made_at}}
             return decline_loeschung_is_due(registrierung_raw=declined, today=today)
 
         day_after = (date.fromisoformat(latest) + timedelta(days=1)).isoformat()

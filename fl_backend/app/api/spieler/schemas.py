@@ -13,7 +13,7 @@ from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, Cu
 from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomKontaktName
 from app.shared.schemas.literals import (
-    FLAdresswechselEinsehbarVerwehrt,
+    FLAddressChangeViewableDenied,
     FLEinwilligungUmfang,
     FLSortOrder,
     FLSpielerPosition,
@@ -46,7 +46,7 @@ class FLEinwilligung(BaseModel):
     # The day consent was given. A record is born of its person's own confirmation, so it is that day.
     datum: CustomDateString
     # The day its person confirmed it: a record is born confirmed.
-    bestaetigt_am: CustomDateString
+    confirmed_at: CustomDateString
     # A label of `fl_backend/app/shared/einwilligung.py :: FASSUNGEN` and never the words, as
     # `app/api/teams/schemas.py :: FLKontaktKenntnisnahme` holds one: a rewording must not change what
     # a stored record claims.
@@ -153,7 +153,7 @@ class FLSpieler(FLSpielerRecord, _SaisonSpielerWritable):
     `GET /spieler` answers with `FLSpielerPublic` instead.
     """
 
-    ist_nachnominiert: bool
+    is_nachnominiert: bool
 
 
 FLSpielerListAdapter = TypeAdapter(list[FLSpielerPublic])
@@ -167,7 +167,7 @@ class FLSaisonSpielerRow(BaseModel):
     spieler_id: CustomObjectId
     saison_id: str
     team_id: CustomObjectId
-    ist_nachnominiert: bool
+    is_nachnominiert: bool
     rolle: FLSpielerRolle | None
     stufe: FLSpielerStufe | None
     position: FLSpielerPosition | None
@@ -181,8 +181,8 @@ class FLSaisonSpielerRow(BaseModel):
 class FLSaisonSpielerRecord(FLSaisonSpielerRow):
     """A squad row as `saison_spieler` stores it: an admitted registration's submission key and digest, which no read serves."""
 
-    idempotenz_schluessel: str | None = None
-    idempotenz_fingerabdruck: str | None = None
+    idempotency_key: str | None = None
+    idempotency_fingerprint: str | None = None
 
 
 class FLSpielerFilterParams(BaseModel):
@@ -221,7 +221,7 @@ class FLPatchSpielerPayload(BaseModel):
 
 # Private, so the create and the edit state the bound once and the layer publishes no OpenAPI component.
 class _SaisonSpielerPayload(_SaisonSpielerWritable):
-    # Forbidding extras is also what refuses `ist_nachnominiert`: the create derives the marker and
+    # Forbidding extras is also what refuses `is_nachnominiert`: the create derives the marker and
     # nothing edits it, so a caller's value is never stored.
     model_config = ConfigDict(extra="forbid")
 
@@ -294,7 +294,7 @@ class FLSaisonSpielerResponse(_SaisonSpielerWritable, BaseAPIResponse):
 
     spieler_id: CustomObjectId
     saison_id: str
-    ist_nachnominiert: bool
+    is_nachnominiert: bool
     # The stored row's own calendar rule, for `FLSpielerAdminSingleResponse.inactive_since`'s reason.
     inactive_since: CustomOptionalDateString
     # The writes counted so far, which the editor's save sends back.
@@ -305,7 +305,7 @@ class FLSpielerNachnominierungResponse(BaseAPIResponse):
     """Whether an entry into this season's squads today would be marked a Nachnominierung."""
 
     saison_id: str
-    # Named as `FLEinladungAnsichtResponse` names the same verdict, where `laeuft` is the window's.
+    # Named as `FLInvitationViewResponse` names the same verdict, where `running` is the window's.
     nachnominierung: bool
 
 
@@ -316,7 +316,7 @@ class FLSpielerMembership(_SaisonSpielerWritable, BaseReadModel):
     where a team never leaves a season at all.
     """
 
-    ist_nachnominiert: bool
+    is_nachnominiert: bool
 
     saison_id: str
     inactive_since: CustomOptionalDateString
@@ -345,11 +345,11 @@ class FLSpielerWithMemberships(_SpielerPerson, BaseReadModel):
     email: str
     # The live change of the pupil's address, which the address tool shows; required, so a read forgetting to look fails
     # rather than hiding a change as none.
-    adresswechsel_id: CustomObjectId | None
+    address_change_id: CustomObjectId | None
     # The writes counted so far, which the editor's save sends back.
     version: int = 0
     # Why the address tool refuses that change this administrator; null where it opens it or none stands.
-    adresswechsel_einsehbar_verwehrt: FLAdresswechselEinsehbarVerwehrt | None
+    address_change_viewable_denied: FLAddressChangeViewableDenied | None
     memberships: list[FLSpielerMembership]
 
 
@@ -359,7 +359,7 @@ class FLSpielerSaisonsResponse(BaseAPIResponse):
     spieler: list[FLSpielerWithMemberships]
 
 
-class FLKaderZeile(BaseAPIResponse):
+class FLKaderRow(BaseAPIResponse):
     """One squad row as its team's seat holder reads it (`READ-KADER-001`).
 
     Declared from nothing rather than a public model unmasked, so the whole surname reaches no
@@ -376,11 +376,11 @@ class FLKaderZeile(BaseAPIResponse):
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
     rolle: FLSpielerRolle | None
-    ist_nachnominiert: bool
+    is_nachnominiert: bool
     # Set, the row is ausgetragen and read-only to a representative: only the administrator brings it back.
     inactive_since: CustomOptionalDateString
     # Composed on read and stored nowhere, so it cannot go stale beside the rows it compares.
-    nummer_doppelt: bool
+    nummer_double: bool
     # The writes counted so far, which the editor's save sends back.
     version: int = 0
 
@@ -390,14 +390,14 @@ class FLKaderResponse(BaseAPIResponse):
 
     team_id: CustomObjectId
     saison_id: str
-    # What the editor may offer, the PATCH refusing anything else it was not already holding (`kader_stufe_nicht_erlaubt`).
+    # What the editor may offer, the PATCH refusing anything else it was not already holding (`kader_stufe_not_allowed`).
     # The floor `app/api/saisons/schemas.py :: FLSaisonRules.erlaubte_stufen` writes, so the document
     # publishes what the season guarantees.
-    erlaubte_stufen: list[FLSpielerStufe] = Field(min_length=1)
-    kader: list[FLKaderZeile]
+    allowed_stufen: list[FLSpielerStufe] = Field(min_length=1)
+    kader: list[FLKaderRow]
 
 
-class FLPatchKaderZeilePayload(BaseModel):
+class FLPatchKaderRowPayload(BaseModel):
     """What a team's seat holder may change on a live squad row, WHOLESALE for `FLPatchSpielerPayload`'s reason.
 
     Never `_SaisonSpielerPayload`'s child, which carries `team_id`: a representative moves no pupil
@@ -415,7 +415,7 @@ class FLPatchKaderZeilePayload(BaseModel):
     version: int | None = None
 
 
-class FLSpielerSelfKaderZeile(BaseModel):
+class FLSpielerSelfKaderRow(BaseModel):
     """One squad row as its own pupil reads it, with the name the club played that season under."""
 
     team_id: CustomObjectId
@@ -427,11 +427,11 @@ class FLSpielerSelfKaderZeile(BaseModel):
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
     rolle: FLSpielerRolle | None
-    ist_nachnominiert: bool
+    is_nachnominiert: bool
     inactive_since: CustomOptionalDateString
 
 
-class FLSpielerKontext(BaseModel):
+class FLSpielerContext(BaseModel):
     """What the pupil confirmation page's slots name for this record today, so its agreed words render whole.
 
     Null where no squad row names a team and season; the words then render without them.
@@ -445,12 +445,12 @@ class FLSpielerKontext(BaseModel):
 class FLSpielerSelf(_SpielerPerson):
     """One pupil record's stored data as its own person reads it: the whole surname and the birthdate, never masked.
 
-    Its consent is the account page's, whose entry extends this (`app/api/konto/schemas.py :: FLKontoSpielerEinwilligung`).
+    Its consent is the account page's, whose entry extends this (`app/api/konto/schemas.py :: FLAccountSpielerEinwilligung`).
     """
 
     spieler_id: CustomObjectId
     geburtsdatum: CustomDateString
-    kader: list[FLSpielerSelfKaderZeile]
+    kader: list[FLSpielerSelfKaderRow]
 
 
 class FLSpielerSelfResponse(BaseAPIResponse):
@@ -459,7 +459,7 @@ class FLSpielerSelfResponse(BaseAPIResponse):
     spieler: FLSpielerSelf
 
 
-class FLSpielerKontoEinwilligungResponse(BaseAPIResponse):
+class FLSpielerAccountEinwilligungResponse(BaseAPIResponse):
     """The record as it stands after the write, everything the person did not move unchanged."""
 
     spieler_id: CustomObjectId

@@ -6,7 +6,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.crud import redact_images_in_session
-from app.api.postausgang.schemas import FLPostausgangBezug, FLPostausgangLink, FLSchiedsrichterBestaetigungDaten
+from app.api.postausgang.schemas import FLPostausgangBezug, FLPostausgangLink, FLSchiedsrichterConfirmationData
 from app.api.postausgang.services import OwedMail, enqueue_mails
 from app.api.schiedsrichter.services import (
     ADRESSE_PFAD,
@@ -47,11 +47,11 @@ async def owe_the_bestaetigung(
         session=session,
         mails=[
             OwedMail(
-                schluessel=f"schiedsrichter/{schiedsrichter_id}/bestaetigung/{version}",
+                key=f"schiedsrichter/{schiedsrichter_id}/confirmation/{version}",
                 an=email,
-                daten=FLSchiedsrichterBestaetigungDaten(art="schiedsrichter_bestaetigung", frist=frist),
-                bezug=FLPostausgangBezug(sammlung=Collection.SCHIEDSRICHTER, id=schiedsrichter_id, sitz=None),
-                link=FLPostausgangLink(pfade=[TOKEN_HASHES_PFAD], adressen=[ADRESSE_PFAD], ersetzt=True),
+                data=FLSchiedsrichterConfirmationData(art="schiedsrichter_confirmation", frist=frist),
+                reference=FLPostausgangBezug(collection=Collection.SCHIEDSRICHTER, id=schiedsrichter_id, seat=None),
+                link=FLPostausgangLink(paths=[TOKEN_HASHES_PFAD], adressen=[ADRESSE_PFAD], replaced=True),
             )
         ],
         now=now,

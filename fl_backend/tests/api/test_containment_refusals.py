@@ -31,15 +31,15 @@ SPAN = {"saison_start": "2026-03-01", "saison_end": "2026-09-30"}
 
 # Every span in the containment class below is months long, so `saison_span_below_spielplan` passes.
 SAISON_RULES = FLSaisonRules(
-    number_of_groups=4,
-    teams_per_group=4,
-    qualifiers_per_group=2,
+    number_of_gruppen=4,
+    teams_per_gruppe=4,
+    qualifiers_per_gruppe=2,
     win_points=3,
     draw_points=1,
     tiebreak_order="tordifferenz",
     max_kadergroesse=18,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
-    erlaubte_stufen=["E1"],
+    allowed_stufen=["E1"],
 )
 
 # Fixed rather than generated: a failing squad-filter assertion points at the same value every run.
@@ -185,17 +185,17 @@ class TestASeasonIsLongEnoughForItsSchedule:
     def test_the_floor_follows_the_rules_rather_than_a_constant(self):
         """The same span is legal under one rules set and refused under a wider one; a hardcoded floor could not tell them apart."""
 
-        # `teams_per_group` alone differs from `SAISON_RULES`, which is the figure the floor turns on.
+        # `teams_per_gruppe` alone differs from `SAISON_RULES`, which is the figure the floor turns on.
         wider = FLSaisonRules(
-            number_of_groups=4,
-            teams_per_group=6,
-            qualifiers_per_group=2,
+            number_of_gruppen=4,
+            teams_per_gruppe=6,
+            qualifiers_per_gruppe=2,
             win_points=3,
             draw_points=1,
             tiebreak_order="tordifferenz",
             max_kadergroesse=18,
             forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
-            erlaubte_stufen=["E1"],
+            allowed_stufen=["E1"],
         )
 
         assert find_saison_span_refusal(start_date="2026-03-01", end_date="2026-03-06", rules=SAISON_RULES, spieltag_spans=[]) is None

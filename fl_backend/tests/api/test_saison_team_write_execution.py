@@ -33,7 +33,7 @@ NUMBER_OF_GROUPS = 2
 TEAMS_PER_GROUP = 2
 UNOFFERED_GRUPPE = "C"
 
-RULES = rules_document(number_of_groups=NUMBER_OF_GROUPS, teams_per_group=TEAMS_PER_GROUP, erlaubte_stufen=["E1", "Q1"])
+RULES = rules_document(number_of_gruppen=NUMBER_OF_GROUPS, teams_per_gruppe=TEAMS_PER_GROUP, allowed_stufen=["E1", "Q1"])
 
 # The season's copy of the identity is deliberately NOT the club's current one: the echo reads the
 # junction row, so a value taken from `teams` instead would show up as the club's name here.
@@ -292,7 +292,7 @@ KONTAKTE = {
     "trainer": dict(KONTAKTPERSON),
     "ansprechperson": dict(KONTAKTPERSON),
     "stellvertretung": dict(KONTAKTPERSON),
-    "trainer_ist_zugleich": "ansprechperson",
+    "trainer_is_also": "ansprechperson",
 }
 
 

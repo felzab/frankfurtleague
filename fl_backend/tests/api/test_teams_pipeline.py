@@ -23,13 +23,13 @@ STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 STANDARD_RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
-    qualifiers_per_group=2,
-    number_of_groups=4,
-    teams_per_group=4,
+    qualifiers_per_gruppe=2,
+    number_of_gruppen=4,
+    teams_per_gruppe=4,
     tiebreak_order="tordifferenz",
     max_kadergroesse=18,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
-    erlaubte_stufen=STUFEN,
+    allowed_stufen=STUFEN,
 )
 
 Pipeline = list[Mapping[str, Any]]
@@ -120,14 +120,14 @@ def test_counts_only_the_gruppenphase_unless_asked_otherwise():
 
 def test_the_gesamt_scope_filters_on_no_phase_at_all():
     """Absent, not negated: no stored `saison_phase` means 'any', so the key must not appear."""
-    match_stage = statistik_stage(build(scope="gesamt"))["pipeline"][0]["$match"]
+    match_stage = statistik_stage(build(scope="total"))["pipeline"][0]["$match"]
 
     assert "saison_phase" not in match_stage
 
 
 def test_the_scope_narrows_the_matches_and_nothing_else():
     """A scope that changed the projection, the sort or the fallback would make the two tables two pipelines."""
-    gruppenphase, gesamt = build(), build(scope="gesamt")
+    gruppenphase, gesamt = build(), build(scope="total")
 
     assert projection(gruppenphase) == projection(gesamt)
     assert len(gruppenphase) == len(gesamt)
@@ -162,7 +162,7 @@ def test_a_shoot_out_leaves_the_goals_it_was_played_over_alone(spiel, spiel_team
 
 
 # Annotated rather than inferred: a bare tuple of `str` would widen past `FLTeamStatistikScope`.
-SCOPE_PHASES: list[tuple[FLTeamStatistikScope, str | None]] = [("gruppenphase", "gruppenphase"), ("gesamt", None)]
+SCOPE_PHASES: list[tuple[FLTeamStatistikScope, str | None]] = [("gruppenphase", "gruppenphase"), ("total", None)]
 
 
 class TestTheAbsageLookup:
@@ -232,7 +232,7 @@ def test_the_cancellation_count_survives_the_zeroed_fallback():
     """Merged over the figures rather than into them: a team with no counting match can still have had fixtures called off."""
     merged = projection(build())["statistik"]["$mergeObjects"]
 
-    assert merged[-1] == {"anzahl_abgesagte_spiele": {"$ifNull": [{"$first": f"${ABSAGE_AS_NAME}.{ABSAGE_COUNT_NAME}"}, 0]}}
+    assert merged[-1] == {"count_abgesagte_spiele": {"$ifNull": [{"$first": f"${ABSAGE_AS_NAME}.{ABSAGE_COUNT_NAME}"}, 0]}}
 
 
 def test_reads_statistik_from_no_stored_copy():

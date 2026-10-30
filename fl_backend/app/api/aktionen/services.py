@@ -21,7 +21,7 @@ def akteur_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:
     ]
 
 
-def mit_vorenthaltenem_akteur(row: Mapping[str, Any], gesperrt: Collection[str]) -> dict[str, Any]:
+def mit_vorenthaltenem_akteur(row: Mapping[str, Any], barred: Collection[str]) -> dict[str, Any]:
     """A stored row with its actor as both reads serve it.
 
     The stored image is left as recorded: it is what a restore of the write starts from.
@@ -31,9 +31,9 @@ def mit_vorenthaltenem_akteur(row: Mapping[str, Any], gesperrt: Collection[str])
     if not isinstance(actor, FLAktorMitAdresse):
         return dict(row)
 
-    email = withheld_actor(actor.email, gesperrt)
+    email = withheld_actor(actor.email, barred)
 
-    return {**row, "actor": {**actor.model_dump(), "email": email, "email_gesperrt": email is None}}
+    return {**row, "actor": {**actor.model_dump(), "email": email, "email_barred": email is None}}
 
 
 def document_id_term(value: str | None) -> dict[str, Any] | None:
@@ -79,12 +79,12 @@ IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = Mappin
     {
         DbCollection.BERECHTIGUNGEN: (
             ImageAddress("adresse", "adresse", None),
-            ImageAddress("erteilt_von", "erteilt_von", GELOESCHT_ACTOR_MARKER),
+            ImageAddress("granted_by", "granted_by", GELOESCHT_ACTOR_MARKER),
         ),
-        DbCollection.SPERRLISTE: (ImageAddress("erstellt_von", "erstellt_von", GELOESCHT_ACTOR_MARKER),),
-        DbCollection.EINLADUNGEN: (ImageAddress("erstellt_von", "erstellt_von", GELOESCHT_ACTOR_MARKER),),
-        DbCollection.BEWERBUNGEN: (ImageAddress("entscheidung.von", "entscheidung.von", GELOESCHT_ACTOR_MARKER),),
-        DbCollection.REGISTRIERUNGEN: (ImageAddress("entscheidung.von", "entscheidung.von", GELOESCHT_ACTOR_MARKER),),
+        DbCollection.SPERRLISTE: (ImageAddress("created_by", "created_by", GELOESCHT_ACTOR_MARKER),),
+        DbCollection.EINLADUNGEN: (ImageAddress("created_by", "created_by", GELOESCHT_ACTOR_MARKER),),
+        DbCollection.BEWERBUNGEN: (ImageAddress("decision.von", "decision.von", GELOESCHT_ACTOR_MARKER),),
+        DbCollection.REGISTRIERUNGEN: (ImageAddress("decision.von", "decision.von", GELOESCHT_ACTOR_MARKER),),
         # A row since re-addressed: the referee step reaches only the rows naming the person now.
         DbCollection.SCHIEDSRICHTER: (ImageAddress("kontakt.email", "kontakt.email", None),),
         DbCollection.SPIELER: (ImageAddress("email", "email", None),),
@@ -92,13 +92,13 @@ IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = Mappin
         DbCollection.ADRESSWECHSEL: (
             ImageAddress("adresse", "adresse", None),
             ImageAddress("email", "email", None),
-            ImageAddress("genehmigung.gestartet_von", "genehmigung.gestartet_von", GELOESCHT_ACTOR_MARKER),
-            ImageAddress("genehmigung.genehmigt_von", "genehmigung.genehmigt_von", GELOESCHT_ACTOR_MARKER),
+            ImageAddress("approval.started_by", "approval.started_by", GELOESCHT_ACTOR_MARKER),
+            ImageAddress("approval.approved_by", "approval.approved_by", GELOESCHT_ACTOR_MARKER),
         ),
         # A decided request's: the address it was about, and the administrator who made it, whose marker keeps the image valid.
         DbCollection.BERECHTIGUNGEN_ANTRAEGE: (
             ImageAddress("adresse", "adresse", None),
-            ImageAddress("genehmigung.gestartet_von", "genehmigung.gestartet_von", GELOESCHT_ACTOR_MARKER),
+            ImageAddress("approval.started_by", "approval.started_by", GELOESCHT_ACTOR_MARKER),
         ),
     }
 )

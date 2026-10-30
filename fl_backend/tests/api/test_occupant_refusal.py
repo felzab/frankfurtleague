@@ -80,13 +80,13 @@ UNUSUAL_FORFEIT = FLSaisonForfeitErgebnis(sieger_tore=2, verlierer_tore=1)
 RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
-    qualifiers_per_group=2,
-    number_of_groups=4,
-    teams_per_group=4,
+    qualifiers_per_gruppe=2,
+    number_of_gruppen=4,
+    teams_per_gruppe=4,
     tiebreak_order="tordifferenz",
     max_kadergroesse=18,
     forfeit_ergebnis=STANDARD_FORFEIT,
-    erlaubte_stufen=["E1"],
+    allowed_stufen=["E1"],
 )
 
 PayloadFactory = Callable[..., dict[str, Any]]
@@ -224,13 +224,13 @@ A_DIFFERENT_REFEREE = {"schiedsrichter_id": ANOTHER_SCHIEDSRICHTER, "payment": 3
 
 LIVE_VENUE = BookedVenue(name="Sportplatz Nord", maps_link="Sportplatz Nord, Frankfurt", inactive_since=None)
 RETIRED_VENUE = BookedVenue(name="Sportplatz Nord", maps_link="Sportplatz Nord, Frankfurt", inactive_since="2026-02-01")
-LIVE_REFEREE = BookedReferee(name="B. Whistle", inactive_since=None, bestaetigt=True)
-RETIRED_REFEREE = BookedReferee(name="B. Whistle", inactive_since="2026-02-01", bestaetigt=True)
+LIVE_REFEREE = BookedReferee(name="B. Whistle", inactive_since=None, confirmed=True)
+RETIRED_REFEREE = BookedReferee(name="B. Whistle", inactive_since="2026-02-01", confirmed=True)
 # A referee an administrator entered whose own confirmation has not come in.
-UNCONFIRMED_REFEREE = BookedReferee(name="B. Whistle", inactive_since=None, bestaetigt=False)
+UNCONFIRMED_REFEREE = BookedReferee(name="B. Whistle", inactive_since=None, confirmed=False)
 # The ghost, which is the one referee row carrying no name (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`), and
 # no confirmation either.
-GHOST_REFEREE = BookedReferee(name=None, inactive_since="2000-01-01", bestaetigt=False)
+GHOST_REFEREE = BookedReferee(name=None, inactive_since="2000-01-01", confirmed=False)
 
 
 def patched_spiel(
@@ -588,7 +588,7 @@ class TestAnUnconfirmedRefereeIsNeverBooked:
     def test_a_retired_unconfirmed_referee_meets_the_retirement_first(self, season):
         """The order the ghost relies on: its sentence is `booking_unknown_resource`'s, never a wait for a confirmation nobody can give."""
 
-        retired = BookedReferee(name="B. Whistle", inactive_since="2026-02-01", bestaetigt=False)
+        retired = BookedReferee(name="B. Whistle", inactive_since="2026-02-01", confirmed=False)
 
         assert (
             booking_refusal_for(season, 1, references(schiedsrichter=retired), schiedsrichter=A_DIFFERENT_REFEREE)
@@ -1191,7 +1191,7 @@ def joined(
         "sonderereignis": sonderereignis,
         "saison_phase": saison_phase,
         "saison_id": SAISON_ID,
-        "ansetzung_bestaetigt": None,
+        "ansetzung_confirmed": None,
     }
 
 

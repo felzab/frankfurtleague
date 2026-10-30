@@ -14,7 +14,7 @@ from bson import ObjectId
 
 from app.api.bewerbungen.services import bewerbung_schule, build_eigene_bewerbung_filter, mindestalter_for, saison_schule
 from app.api.einwilligung.services import find_fassung_refusal, medien_angeboten
-from app.api.identitaet.schemas import FLSubjektSitz
+from app.api.identitaet.schemas import FLSubjectSeat
 from app.api.identitaet.services import eigene_sitze, holds_a_seat, ist_eigene_registrierung
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
@@ -54,7 +54,7 @@ def compose_person_move(
 ) -> dict[str, dict[str, Any]] | None:
     """The update moving a person's own block, at `einwilligung`, by the choices that change; `None` where none does.
 
-    Never `bestaetigt_am`, read by the panel and the publication mask, nor the block's CONFIRMED
+    Never `confirmed_at`, read by the panel and the publication mask, nor the block's CONFIRMED
     `text_version`: the press's label is its evidence's.
     """
 
@@ -128,22 +128,22 @@ def widerruf_line(
 
 
 def find_erteilung_refusal(*, zugelassen: bool) -> WriteRefusal | None:
-    """`erteilung_nicht_zugelassen`: the record is the person's own and takes a withdrawal alone, so a grant on it is refused.
+    """`giving_not_allowed`: the record is the person's own and takes a withdrawal alone, so a grant on it is refused.
 
-    Its own code, not `funktion_nicht_gehalten`'s: the record was found, so naming the cause hides nothing.
+    Its own code, not `role_not_held`'s: the record was found, so naming the cause hides nothing.
     """
 
     if zugelassen:
         return None
 
     return WriteRefusal(
-        error_code=Code.ERTEILUNG_NICHT_ZUGELASSEN,
+        error_code=Code.GIVING_NOT_ALLOWED,
         status=HTTPStatus.FORBIDDEN,
     )
 
 
 def find_eigener_eintrag_refusal(*, gehalten: bool) -> WriteRefusal | None:
-    """`funktion_nicht_gehalten` on a person's own record: the address holds no record this operation may read or change.
+    """`role_not_held` on a person's own record: the address holds no record this operation may read or change.
 
     One answer for another person's id, an unconfirmed record and none at all, so the refusal tells
     nobody which ids exist.
@@ -153,13 +153,13 @@ def find_eigener_eintrag_refusal(*, gehalten: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=Code.FUNKTION_NICHT_GEHALTEN,
+        error_code=Code.ROLE_NOT_HELD,
         status=HTTPStatus.FORBIDDEN,
     )
 
 
 def find_nachweis_stand_refusal(*, erwartet: Mapping[str, Any], bloecke: Sequence[Any]) -> WriteRefusal | None:
-    """`fassung_unzulaessig`: a choice's evidence moved since the page was served.
+    """`wording_not_allowed`: a choice's evidence moved since the page was served.
 
     Refused rather than merged: a stale page sends the other choice as it last saw it, and taking that
     would re-grant what the person withdrew elsewhere.
@@ -169,19 +169,19 @@ def find_nachweis_stand_refusal(*, erwartet: Mapping[str, Any], bloecke: Sequenc
         return None
 
     return WriteRefusal(
-        error_code=Code.FASSUNG_UNZULAESSIG,
+        error_code=Code.WORDING_NOT_ALLOWED,
         status=HTTPStatus.CONFLICT,
     )
 
 
 def find_konto_fassung_refusal(*, seite: Seite, text_version: str, erteilt: bool) -> WriteRefusal | None:
-    """`fassung_unzulaessig` on an account-page control: a grant names the page's running label, a withdrawal any version of it.
+    """`wording_not_allowed` on an account-page control: a grant names the page's running label, a withdrawal any version of it.
 
     Refusing a withdrawal from a page loaded before a deploy would make taking a consent back harder
     than giving it.
     """
 
-    return find_fassung_refusal(seite=seite, genannt={_FASSUNG_ORT: text_version}, jede_fassung=not erteilt)
+    return find_fassung_refusal(seite=seite, named={_FASSUNG_ORT: text_version}, jede_fassung=not erteilt)
 
 
 # --- The records each read serves: CONFIRMED ones alone, retired rows and past seasons included, a
@@ -218,7 +218,7 @@ def compose_spieler_self(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def compose_spieler_konto(row: Mapping[str, Any], *, erteilbar: bool, today: str, team: Mapping[str, Any] | None) -> dict[str, Any]:
+def compose_spieler_konto(row: Mapping[str, Any], *, givable: bool, today: str, team: Mapping[str, Any] | None) -> dict[str, Any]:
     """The pupil's account entry: its stored data and its consent. `team` is `kontext_zeile`'s club, as it stands today."""
 
     zeile = kontext_zeile(row)
@@ -227,13 +227,13 @@ def compose_spieler_konto(row: Mapping[str, Any], *, erteilbar: bool, today: str
         **compose_spieler_self(row),
         "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
-        "bestaetigt_text_version": row["einwilligung"]["text_version"],
+        "confirmed_text_version": row["einwilligung"]["text_version"],
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
-        "erteilbar": erteilbar,
-        "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
-        "mindestalter": REGISTRIERUNG_MIN_ALTER_JAHRE,
-        "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
-        "kontext": {
+        "givable": givable,
+        "medien_offered": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
+        "minimum_age": REGISTRIERUNG_MIN_ALTER_JAHRE,
+        "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
+        "context": {
             "team": None if team is None else team.get("name"),
             "schule": None if team is None else team.get("full_name"),
             "saison": None if zeile is None else zeile["saison_id"],
@@ -254,19 +254,19 @@ def compose_schiedsrichter_self(row: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def compose_schiedsrichter_konto(row: Mapping[str, Any], *, erteilbar: bool, today: str) -> dict[str, Any]:
+def compose_schiedsrichter_konto(row: Mapping[str, Any], *, givable: bool, today: str) -> dict[str, Any]:
     """One referee row's account entry: its stored data and its consent."""
 
     return {
         **compose_schiedsrichter_self(row),
         "inactive_since": row.get("inactive_since"),
         "einwilligung": row["einwilligung"],
-        "bestaetigt_text_version": row["einwilligung"]["text_version"],
+        "confirmed_text_version": row["einwilligung"]["text_version"],
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
-        "erteilbar": erteilbar,
-        "medien_angeboten": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
-        "mindestalter": SCHIEDSRICHTER_MIN_AGE_YEARS,
-        "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
+        "givable": givable,
+        "medien_offered": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
+        "minimum_age": SCHIEDSRICHTER_MIN_AGE_YEARS,
+        "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
     }
 
 
@@ -286,7 +286,7 @@ def build_self_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 # Read by the Funktionen the page judges a grant by, which come from these rows.
                 "austritt": 1,
                 **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("vorname", "email", "geburtsdatum", "einwilligung")},
-                **{f"bestaetigungen.{slot}.verschickt_am": 1 for slot in KONTAKT_ROLLEN},
+                **{f"confirmations.{slot}.sent_at": 1 for slot in KONTAKT_ROLLEN},
             }
         },
         {"$sort": {"saison_id": -1, "name": 1, "team_id": 1}},
@@ -299,16 +299,16 @@ def auf_der_saison_bestaetigt(row: Mapping[str, Any], slot: str) -> bool:
     An admitted application's seats come over with no link: the row mints one only for a person a save newly writes.
     """
 
-    entry = (row.get("bestaetigungen") or {}).get(slot)
+    entry = (row.get("confirmations") or {}).get(slot)
 
-    return isinstance(entry, Mapping) and isinstance(entry.get("verschickt_am"), str)
+    return isinstance(entry, Mapping) and isinstance(entry.get("sent_at"), str)
 
 
 def build_angenommene_bewerbungen_pipeline(team_ids: Collection[Any]) -> list[Mapping[str, Any]]:
     """The admitted applications that seated these clubs, whose pages an admitted seat was confirmed on."""
 
     return [
-        {"$match": {"team_id": {"$in": sorted(set(team_ids))}, "status": "angenommen"}},
+        {"$match": {"team_id": {"$in": sorted(set(team_ids))}, "status": "accepted"}},
         {"$project": {"team_id": 1, "saison_id": 1, "schule": 1}},
     ]
 
@@ -368,7 +368,7 @@ def bestaetigungsgruppen(kontakte: Mapping[str, Any], rollen: Sequence[str]) -> 
     gruppen: dict[tuple[Any, Any], list[str]] = {}
     for slot in rollen:
         block = kontakte[slot]["einwilligung"]
-        gruppen.setdefault((block["text_version"], block.get("bestaetigt_am")), []).append(slot)
+        gruppen.setdefault((block["text_version"], block.get("confirmed_at")), []).append(slot)
 
     return list(gruppen.values())
 
@@ -381,9 +381,9 @@ def _bestaetigt(kontakte: Mapping[str, Any], gruppe: Sequence[str], *, team: str
     return {
         "rollen": list(gruppe),
         "text_version": block["text_version"],
-        "bestaetigt_am": block.get("bestaetigt_am"),
-        "mindestalter": mindestalter_for(gruppe),
-        "kontext": {"vorname": kontakte[gruppe[0]].get("vorname"), "team": team, "schule": schule, "saison": saison},
+        "confirmed_at": block.get("confirmed_at"),
+        "minimum_age": mindestalter_for(gruppe),
+        "context": {"vorname": kontakte[gruppe[0]].get("vorname"), "team": team, "schule": schule, "saison": saison},
     }
 
 
@@ -391,7 +391,7 @@ def compose_sitze_self(
     rows: Sequence[Mapping[str, Any]],
     identifier: str,
     *,
-    sitze_mit_panel: Sequence[FLSubjektSitz],
+    sitze_mit_panel: Sequence[FLSubjectSeat],
     today: str,
     teams: Mapping[Any, Mapping[str, Any]],
     bewerbungen: Mapping[tuple[Any, str], Mapping[str, Any]],
@@ -415,10 +415,10 @@ def compose_sitze_self(
                 "saison_id": row["saison_id"],
                 "rollen": rollen,
                 **_sitz_wahlen_gehalten(held),
-                "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
-                "medien_angeboten": all(medien_angeboten(geburtsdatum=seat.get("geburtsdatum"), today=today) for seat in held),
-                "erteilbar": holds_a_seat(sitze_mit_panel, team_id=row["team_id"], saison_id=row["saison_id"]),
-                "bestaetigt": [
+                "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
+                "medien_offered": all(medien_angeboten(geburtsdatum=seat.get("geburtsdatum"), today=today) for seat in held),
+                "givable": holds_a_seat(sitze_mit_panel, team_id=row["team_id"], saison_id=row["saison_id"]),
+                "confirmed": [
                     _bestaetigt(
                         row["kontakte"],
                         gruppe,
@@ -474,9 +474,9 @@ def compose_bewerbungssitze_self(
                 "saison_id": row["saison_id"],
                 "rollen": rollen,
                 **_sitz_wahlen_gehalten(held),
-                "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
+                "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
                 # `{team}` is the school too: an application names no season row.
-                "bestaetigt": [
+                "confirmed": [
                     _bestaetigt(row["kontakte"], gruppe, team=schule, schule=schule, saison=row["saison_id"])
                     for gruppe in bestaetigungsgruppen(row["kontakte"], rollen)
                 ],
@@ -533,13 +533,13 @@ def compose_registrierungen_self(
                 "team_id": row["team_id"],
                 "team_name": None if team is None else team.get("name"),
                 "saison_id": row["saison_id"],
-                "bestaetigt_text_version": block["text_version"],
+                "confirmed_text_version": block["text_version"],
                 "umfang": block.get("umfang"),
                 "medien": ist_erteilt("medien", block.get("medien")) if traegt_wahlen(block) else None,
-                "mindestalter": REGISTRIERUNG_MIN_ALTER_JAHRE,
-                "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
+                "minimum_age": REGISTRIERUNG_MIN_ALTER_JAHRE,
+                "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
                 "nachweis_stand": nachweis_stand_of(bloecke=[block]),
-                "kontext": {
+                "context": {
                     "team": None if team is None else team.get("name"),
                     "schule": None if team is None else team.get("full_name"),
                     "saison": row["saison_id"],

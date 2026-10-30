@@ -25,7 +25,7 @@ from app.shared.sub_keys import derive_sub_key
 SPERRLISTE_SCHLUESSEL_VERSION: Final = "sperrliste-v1"
 
 
-def adresse_hash(address: str, *, schluessel: SecretStr) -> str:
+def adresse_hash(address: str, *, key: SecretStr) -> str:
     """The form a ban is stored in.
 
     KEYED, where `app/shared/tokens.py :: hash_token` is not: an address is a dictionary
@@ -34,15 +34,13 @@ def adresse_hash(address: str, *, schluessel: SecretStr) -> str:
 
     # The rule every address payload runs too (`app/shared/schemas/kontakt.py :: CustomEmail`), so an
     # address a payload admitted keys a ban rather than answering 500.
-    return hmac.new(
-        derive_sub_key(schluessel, SPERRLISTE_SCHLUESSEL_VERSION), canonical_address(address).encode("utf-8"), hashlib.sha256
-    ).hexdigest()
+    return hmac.new(derive_sub_key(key, SPERRLISTE_SCHLUESSEL_VERSION), canonical_address(address).encode("utf-8"), hashlib.sha256).hexdigest()
 
 
-def withheld_actor(actor: str | None, gesperrt: Collection[str]) -> str | None:
+def withheld_actor(actor: str | None, barred: Collection[str]) -> str | None:
     """An actor field with a barred address withheld, compared on the fold the barred set holds."""
 
-    if actor is None or sign_in_identifier(actor) in gesperrt:
+    if actor is None or sign_in_identifier(actor) in barred:
         return None
 
     return actor
@@ -72,7 +70,7 @@ def compose_gesperrt_bis_saison_id(*, massgebliche_saison_id: str) -> str:
 
 
 def find_keine_saison_refusal(*, massgebliche_saison_id: str | None) -> WriteRefusal | None:
-    """`sperrliste_keine_saison`: while no season is running there is nothing to count five seasons from.
+    """`sperrliste_no_saison`: while no season is running there is nothing to count five seasons from.
 
     A ban written there would need an unbounded row, which is the shape the lapse exists to refuse.
     """
@@ -81,12 +79,12 @@ def find_keine_saison_refusal(*, massgebliche_saison_id: str | None) -> WriteRef
         return None
 
     return WriteRefusal(
-        error_code=Code.SPERRLISTE_KEINE_SAISON,
+        error_code=Code.SPERRLISTE_NO_SAISON,
         status=HTTPStatus.CONFLICT,
     )
 
 
-def stored_adresse_hash(address: str, *, schluessel: SecretStr) -> str | None:
+def stored_adresse_hash(address: str, *, key: SecretStr) -> str | None:
     """The ban key of a stored address, or `None` where today's rule refuses it, as no ban can key one.
 
     Never raising: the actor fields it is asked of hold markers as well as addresses, and a stored address an older
@@ -94,15 +92,15 @@ def stored_adresse_hash(address: str, *, schluessel: SecretStr) -> str | None:
     """
 
     try:
-        return adresse_hash(address, schluessel=schluessel)
+        return adresse_hash(address, key=key)
     except ValueError:
         return None
 
 
-def berechtigte_hashes(administrators: Iterable[str], *, schluessel: SecretStr) -> set[str]:
+def berechtigte_hashes(administrators: Iterable[str], *, key: SecretStr) -> set[str]:
     """Each administrator's address as a ban is keyed, so a ban is compared in the form it bars by."""
 
-    hashes = (stored_adresse_hash(administrator, schluessel=schluessel) for administrator in administrators)
+    hashes = (stored_adresse_hash(administrator, key=key) for administrator in administrators)
 
     return {gehasht for gehasht in hashes if gehasht is not None}
 
@@ -123,13 +121,13 @@ def find_verwaltung_refusal(*, gehasht: str, berechtigt: set[str]) -> WriteRefus
     )
 
 
-def find_sperrliste_refusal(*, gesperrt: bool) -> WriteRefusal | None:
+def find_sperrliste_refusal(*, barred: bool) -> WriteRefusal | None:
     """`duplicate_key`: the list already holds this address.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
     """
 
-    if not gesperrt:
+    if not barred:
         return None
 
     return WriteRefusal(
