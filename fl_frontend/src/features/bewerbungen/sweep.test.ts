@@ -82,19 +82,22 @@ const outboxAnswer = (endpoint: string, body: string | undefined) => {
 
 // Replaced at the module boundary rather than the sweep being reshaped to admit a seam: the real
 // client reaches a backend no test process runs, and the real transport posts on a key none holds.
-doubleApiClient(({ endpoint, method, params, body }, schema) => {
-  // A hand-written caller's answer passes through its schema; a generated call hands none.
-  const answered = (value: unknown) => (schema === undefined ? value : schema.parse(value));
+doubleApiClient(({ endpoint: requested, method, params, body }, schema) => {
+  // A generated call carries its query in the endpoint, a hand-written one names it in `params`: both read as one
+  // shape here.
+  const url = new URL(requested, "http://backend");
+  const endpoint = url.pathname;
   // The grants' pass is armed by the same boot and answers to its own suite
   // (`fl_frontend/src/features/berechtigungen/abgleich.test.ts`): here it claims nothing and is not recorded.
-  if (endpoint.startsWith("/berechtigungen")) return answered(NOTHING_CLAIMED);
+  if (endpoint.startsWith("/berechtigungen")) return schema.parse(NOTHING_CLAIMED);
   // The address changes' outbox, drained after every pass: answered apart, so the halves' calls stay the cases' own.
-  if (endpoint === POSTAUSGANG || endpoint === ZUGESTELLT) return answered(outboxAnswer(endpoint, body));
+  if (endpoint === POSTAUSGANG || endpoint === ZUGESTELLT) return schema.parse(outboxAnswer(endpoint, body));
   // Into the one ordered list the mail double appends to, so a read and a send stay in the order they ran.
-  const call: ApiEvent = { kind: "api", endpoint, method: method ?? "GET", params: params as ApiEvent["params"], body };
+  const query = params ?? Object.fromEntries(url.searchParams);
+  const call: ApiEvent = { kind: "api", endpoint, method: method ?? "GET", params: query as ApiEvent["params"], body };
   events.push(call);
-  if (endpoint === ADRESSWECHSEL) return answered(adresswechselAnswer(call.params?.nach ?? null));
-  return answered(apiAnswer(call));
+  if (endpoint === ADRESSWECHSEL) return schema.parse(adresswechselAnswer(call.params?.nach ?? null));
+  return schema.parse(apiAnswer(call));
 });
 
 const mail = doubleSendMail();
