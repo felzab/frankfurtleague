@@ -1,5 +1,6 @@
 "use server";
 
+import { drainSoon } from "@/core/afterResponse";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -41,6 +42,8 @@ export async function eintragenSpielbestaetigungAction(
 /**
  * Closes a club's decline whose proposal the league will not take; the decline stays the record, and the club is not
  * asked again about this Ansetzung. `spiele` drops because the closed row leaves the rows the public verdict counts.
+ * Where the day is to come the discard owes the club its notice that the date stands, which the drain behind the
+ * response sends at once.
  */
 export async function verwerfenSpielbestaetigungAction(
   rawPayload: FLSpielbestaetigungVerwerfenPayload,
@@ -60,6 +63,8 @@ export async function verwerfenSpielbestaetigungAction(
       if (refusal !== null) return refusalResult(refusal);
       throw error;
     }
+
+    drainSoon();
 
     return { success: true, updated_document: operation.updated_document, message: "Der Termin bleibt, wie er ist." };
   });
