@@ -11,9 +11,9 @@ import { RailColumn, RailFrame } from "./RailFrame";
 import { TextField } from "./TextField";
 import { useEditor } from "./useEditor";
 
+import type { ActionAnswer } from "@/core/action";
 import type { ReactNode } from "react";
 import type { EditorSave } from "./useEditor";
-import type { ActionAnswer } from "./useFormAction";
 
 type Spielort = { name: string };
 

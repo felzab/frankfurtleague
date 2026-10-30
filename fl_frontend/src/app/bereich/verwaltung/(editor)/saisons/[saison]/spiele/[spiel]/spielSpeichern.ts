@@ -12,8 +12,8 @@ import { describeMovedSpiele, toStoredSide } from "@/features/spiele/utils";
 
 import { KEIN_SONDEREREIGNIS, werteOf } from "./spielWerte";
 
+import type { ActionAnswer } from "@/core/action";
 import type { FLPatchSpielDataPayload, FLSonderereignis, FLSpielJoinedAdmin } from "@/core/generated/client/types";
-import type { ActionAnswer } from "@/kit/useFormAction";
 
 const { shape } = SpielePatchSpielBody;
 const [ortShape] = shape.ort.options;

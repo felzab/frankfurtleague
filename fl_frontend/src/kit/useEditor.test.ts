@@ -6,8 +6,8 @@ import { COPY } from "@/core/copy";
 
 import { useEditor } from "./useEditor";
 
+import type { ActionAnswer } from "@/core/action";
 import type { EditorRecord, EditorSave } from "./useEditor";
-import type { ActionAnswer } from "./useFormAction";
 
 // A thrown save reads the page again through Next's router, which no test mounts.
 const router = vi.hoisted(() => ({ refresh: vi.fn() }));

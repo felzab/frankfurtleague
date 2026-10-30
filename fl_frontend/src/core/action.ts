@@ -18,13 +18,23 @@ import { TURNSTILE_FIELD } from "./turnstileToken";
 import { logVerweigert } from "./verweigert";
 import { feldMeldung } from "./zodGerman";
 
-import type { ActionAnswer } from "@/kit/useFormAction";
 import type { z } from "zod";
 import type { AdminRefusal } from "./auth";
 import type { Copy } from "./copy";
 import type { Funktion } from "./funktionen";
 import type { Code } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
+
+/**
+ * What a server action answers a form, as `action` builds it and the kit's `useFormAction` reads it: done, with
+ * what the page needs next and, where the write did more than the form asked, the line saying so; or not done,
+ * with each field's message by the field's `name`, the one line the status line shows, and the backend's code
+ * where the backend refused. A refusal a person can cause from the screen brings its reason, a stale read the
+ * stale-page line, an ended session the sign-in line, anything unexpected the shared failure line; a refusal for
+ * its fields alone may leave the line to the form.
+ */
+export type ActionAnswer<Value = undefined> =
+  { ok: true; value: Value; note?: Copy } | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy; errorCode?: Code };
 
 /** A code the catalogue words in a person's own terms, `COPY.shared.ablehnung`'s keys. */
 type WordedCode = keyof typeof COPY.shared.ablehnung;

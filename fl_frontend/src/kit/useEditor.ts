@@ -7,8 +7,9 @@ import { COPY } from "@/core/copy";
 import { useHoldLeave } from "./LeaveGuard";
 import { statusOf, useFormAction } from "./useFormAction";
 
+import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
-import type { ActionAnswer, FormStatus } from "./useFormAction";
+import type { FormStatus } from "./useFormAction";
 
 /** A value an editor's field holds: text, a figure, a choice, or nothing yet. */
 export type EditorValue = string | number | boolean | null | ReadonlyArray<string>;

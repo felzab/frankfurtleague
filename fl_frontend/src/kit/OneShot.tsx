@@ -10,10 +10,10 @@ import { StatusLine } from "./FieldParts";
 import { StatusPage } from "./StatusPage";
 import { statusOf, useFormAction } from "./useFormAction";
 
+import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
 import type { StatusCardProps } from "./StatusPage";
-import type { ActionAnswer } from "./useFormAction";
 
 /** The end a one-shot form reaches: the status page that replaces it, as the server words it. */
 export type EndState = StatusCardProps & { title: Copy };

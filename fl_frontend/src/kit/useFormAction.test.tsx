@@ -10,8 +10,8 @@ import { EDGE_REFUSAL_BODY } from "@/shared/utils/actionError";
 
 import { answering, statusOf, useFormAction } from "./useFormAction";
 
+import type { ActionAnswer } from "@/core/action";
 import type { ReactNode } from "react";
-import type { ActionAnswer } from "./useFormAction";
 
 // The hook reads the page again through Next's router, which no test mounts.
 vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => ({ refresh: () => {} }) }));

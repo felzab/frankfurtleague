@@ -16,10 +16,10 @@ import { COPY } from "@/core/copy";
 
 import { SpielortFelder } from "../../../../../SpielortFelder";
 
+import type { ActionAnswer } from "@/core/action";
 import type { Option } from "@/kit/OptionList";
 import type { PageTitle } from "@/kit/RailFrame";
 import type { EditorRecord, EditorSave } from "@/kit/useEditor";
-import type { ActionAnswer } from "@/kit/useFormAction";
 import type { SpielortRegeln } from "../../../../../spielortRegeln";
 import type { SpielWerte } from "./spielWerte";
 
