@@ -130,6 +130,10 @@ async def record_write(
         # The log recording its own rows would recurse without end, and a redaction is itself a
         # write. What a redaction did is recoverable from the erasure row that caused it.
         return
+    if collection.name == Collection.POSTAUSGANG:
+        # Bookkeeping of mail, and each row names an address: an image here would keep it in a log
+        # every administrator reads for twelve months. The row is its own record of its mail.
+        return
 
     row = _row(
         collection=str(collection.name),

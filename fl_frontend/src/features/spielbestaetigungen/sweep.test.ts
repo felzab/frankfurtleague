@@ -13,7 +13,6 @@ const ereignisse: Ereignis[] = [];
 /** Every line as it was written, its fields whole. */
 const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
 
-let sweepSwitch: string | undefined = "on";
 /** Whether the notices' stamp fails, as a backend restarting under it fails it. */
 let mitgeteiltScheitert = false;
 let appEnv = "production";
@@ -130,18 +129,8 @@ const LOGGING_DOUBLE = {
 // Getters, not values: one process holds one module registry, so a case that could not re-read a switch could only
 // ever prove one side of it.
 const CONFIG_DOUBLE = {
-  // Each boot runs in-process with no preflight naming a deployment.
-  bootCheck: () => undefined,
-  // Imported beside the settings by the boot gate, and called only on a deployment mismatch none of these boots has.
-  refuseInvalidEnvironment: (): never => {
-    throw new Error("the doubled config refuses no environment");
-  },
   frontend_config: {
     AUTH_URL: "http://localhost:3000",
-    // The boot reads the signing key before it arms anything.
-    get SPIEL_SWEEP() {
-      return sweepSwitch;
-    },
     get APP_ENV() {
       return appEnv;
     },
@@ -150,14 +139,8 @@ const CONFIG_DOUBLE = {
 
 vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
 vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
-vi.doMock("@/core/authIndexes.ts", () => ({ buildAuthIndexes: () => Promise.resolve() }));
 
-const { register } = await import("../../instrumentation.ts");
 const { runSpielSweep } = await import("./sweep.ts");
-
-const SEKUNDE_MS = 1000;
-const MINUTE_MS = 60 * SEKUNDE_MS;
-const HOUR_MS = 60 * MINUTE_MS;
 
 const apiCalls = () => ereignisse.filter((ereignis): ereignis is Extract<Ereignis, { art: "api" }> => ereignis.art === "api");
 const gesendet = () => mail.sent;
@@ -179,7 +162,6 @@ beforeEach(() => {
   ereignisse.length = 0;
   lines.length = 0;
   ausgang.clear();
-  sweepSwitch = "on";
   mitgeteiltScheitert = false;
   appEnv = "production";
   listeAnswer = () => ({ acknowledged: 1, saison_ids: ["2627"], spiel_sweep_gelaufen_am: null });
@@ -188,56 +170,6 @@ beforeEach(() => {
     // Recorded here as well, so a message and a call stay in the order they ran.
     ereignisse.push({ art: "mail", mail: sent });
     return ausgang.get(sent.to) ?? "accepted";
-  });
-});
-
-describe("what register arms for the fixture confirmations", () => {
-  // Next declares `NODE_ENV` read-only, which is true of the value a build inlines and not of this process's own
-  // environment: the arm under test is exactly the one only a test can move.
-  const env = process.env as Record<string, string | undefined>;
-
-  /** One boot under `nodeEnv` with the switch reading `value`, then each step, counting the listings asked after each. */
-  async function bootAndStep(nodeEnv: string, value: string | undefined, steps: readonly number[]): Promise<number[]> {
-    const before = env.NODE_ENV;
-    env.NODE_ENV = nodeEnv;
-    sweepSwitch = value;
-    vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] });
-    const counted: number[] = [];
-    try {
-      await register();
-      for (const step of steps) {
-        vi.advanceTimersByTime(step);
-        await new Promise((resolve) => setImmediate(resolve));
-        counted.push(apiCalls().filter(({ endpoint }) => endpoint === LISTE).length);
-      }
-    } finally {
-      vi.useRealTimers();
-      if (before === undefined) delete env.NODE_ENV;
-      else env.NODE_ENV = before;
-    }
-
-    return counted;
-  }
-
-  it("waits its minute after a production boot reading on, then runs hourly", async () => {
-    const steps = [MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS, HOUR_MS - MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS];
-
-    expect(await bootAndStep("production", "on", steps)).toStrictEqual([0, 1, 1, 2]);
-  });
-
-  /* The default: a deploy is not a mailing, and the first armed pass asks about every fixture inside the window. */
-  it("arms nothing where the switch is off", async () => {
-    expect(await bootAndStep("production", "off", [3 * HOUR_MS])).toStrictEqual([0]);
-  });
-
-  // A skipped validation leaves the value undefined, which a test negating "off" would arm on.
-  it("arms nothing where the value is missing", async () => {
-    expect(await bootAndStep("production", undefined, [3 * HOUR_MS])).toStrictEqual([0]);
-  });
-
-  /* `next dev` reaches whatever backend the developer's own environment names, and mails from it. */
-  it("arms nothing under a development build, whatever the switch says", async () => {
-    expect(await bootAndStep("development", "on", [3 * HOUR_MS])).toStrictEqual([0]);
   });
 });
 
@@ -720,23 +652,5 @@ describe("the pass's lines", () => {
       apiCalls().some(({ endpoint }) => endpoint === PASS("2728")),
       "the season after the failing one was not swept",
     );
-  });
-
-  /* A pass slower than the hour would otherwise mail beside itself before either reached its stamp. */
-  it("skips a tick that finds the previous pass still running, with one line and no call", async () => {
-    const gehalten: (() => void)[] = [];
-    listeAnswer = () =>
-      new Promise((resolve) => void gehalten.push(() => resolve({ acknowledged: 1, saison_ids: [], spiel_sweep_gelaufen_am: null })));
-
-    const laufend = runSpielSweep();
-    await runSpielSweep();
-    for (const freigeben of gehalten) freigeben();
-    await laufend;
-
-    expect(apiCalls().length, "the second tick called the backend beside the running pass").toBe(1);
-    expect(passLines().map(({ level, event }) => `${level} ${event}`)).toStrictEqual([
-      "info spielbestaetigung.sweep_skipped",
-      "info spielbestaetigung.sweep_pass",
-    ]);
   });
 });

@@ -87,7 +87,6 @@ export function SpielbestaetigungPanel({
   parteien,
   austritte,
   today,
-  isSpielSweepOn,
   isActiveSaison,
   onVorschlagUebernehmen,
 }: {
@@ -99,7 +98,6 @@ export function SpielbestaetigungPanel({
   /** The day each club left the season, by `team_id`, where it has: the pass ends a row of a club gone by its day. */
   austritte: ReadonlyMap<string, string>;
   today: string;
-  isSpielSweepOn: boolean;
   isActiveSaison: boolean;
   /** Carries a proposal into the editor's draft, where the rail marks it and Speichern still decides. */
   onVorschlagUebernehmen: (termin: FLSpielbestaetigungTermin) => void;
@@ -134,7 +132,7 @@ export function SpielbestaetigungPanel({
         ) : (
           <LetzterLauf
             gelaufenAm={stand.gelaufenAm}
-            warnt={laufUeberfaellig({ isSpielSweepOn, isActiveSaison, spiel, austritte, gelaufenAm: stand.gelaufenAm, today })}
+            warnt={laufUeberfaellig({ isActiveSaison, spiel, austritte, gelaufenAm: stand.gelaufenAm, today })}
           />
         )}
 

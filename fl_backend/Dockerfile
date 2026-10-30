@@ -59,6 +59,12 @@ COPY --chown=fl_api_user:fl_api . .
 USER fl_api_user
 EXPOSE 8000
 
+# The version the deploy stamps on the image (`.github/workflows/verify.yml`'s build argument, the tag its
+# `org.opencontainers.image.version` label carries), which the start-up line logs. Last, so a new value per commit
+# rebuilds no layer above it; a build handed none logs it as null.
+ARG APP_VERSION
+ENV APP_VERSION=$APP_VERSION
+
 # app/asgi.py, not app/main.py: main.py exports the `create_app` factory and builds nothing on
 # import, so importing it needs no environment. asgi.py is the one module that constructs the real
 # application from the real environment and secret files.

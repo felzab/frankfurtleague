@@ -1,4 +1,4 @@
-import { existsSync, globSync } from "node:fs";
+import { existsSync, globSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -173,6 +173,7 @@ const SECRET_READERS = Object.fromEntries(
     // The system's key calls the backend as the system, past every guard on an admin's session.
     ["src/core/api.ts", ["internalApiKeyBase", "internalApiKeySystem", "internalApiKeyAdmin"], "the backend's keys"],
     ["src/core/turnstile.ts", ["turnstileSecretKey"], "the key the bot check's tokens are verified with"],
+    ["src/instrumentation-node.ts", ["heartbeatUrl"], "the monitor's address, whose token reports the passes"],
   ].map(([owner, importNames, secret]) => [
     owner,
     {
@@ -252,6 +253,120 @@ const LOCALE_PROVIDER = {
 
 const importBan = (entry, reach, options) => ban("no-restricted-imports", entry, reach, options);
 
+// ---------------------------------------------------------------------------------------------------
+// The background passes. Each pass's generated sender is imported by its slice's wrapper and by the job
+// that runs it alone, and the wrapper by that job alone: the backend runs a pass on any system-key call,
+// so a second caller would run it outside the scheduler.
+// ---------------------------------------------------------------------------------------------------
+
+/** The generated client, by any path. */
+const GENERATED_SDK_PATH = "src/core/generated/client/sdk.ts";
+const GENERATED_SDK = String.raw`(?:^|\x2F)core\x2Fgenerated\x2Fclient\x2Fsdk(?:\.ts)?$`;
+
+/** Orval's names for one operation: its sender and the URL builder beside it, each a way to reach the path. */
+function sendersOf(operationId) {
+  const sender = operationId.replace(/_([a-z0-9])/g, (_, letter) => letter.toUpperCase());
+  return [sender, `get${sender.charAt(0).toUpperCase()}${sender.slice(1)}Url`];
+}
+
+/**
+ * Each pass by its operation ids: the module wrapping their senders, the wrapper's exports, and the modules running
+ * it. The drain is `core/mail.ts`'s, run by the scheduler and by `drainSoon`; the activation press runs the pupils'
+ * deletion beside its job.
+ */
+const BACKGROUND_PASSES = [
+  {
+    operations: ["postausgang_post_ausgabe", "postausgang_post_ergebnis"],
+    wrapper: { file: "src/core/mail.ts", regex: moduleNamed("mail"), names: ["drainPostausgang"] },
+    runners: ["src/instrumentation-node.ts", "src/core/afterResponse.ts"],
+  },
+  {
+    operations: [
+      "bewerbungen_get_sweep_saisons",
+      "bewerbungen_sweep_saison",
+      "bewerbungen_angekuendigt_bewerbungen",
+      "bewerbungen_loeschen_bewerbungen",
+    ],
+    wrapper: {
+      file: "src/features/bewerbungen/mutations.ts",
+      regex: moduleNamed("mutations"),
+      names: ["getBewerbungSweepSaisons", "postBewerbungSweep", "postBewerbungSweepAngekuendigt", "postBewerbungSweepLoeschen"],
+    },
+    runners: ["src/features/bewerbungen/sweep.ts"],
+  },
+  {
+    operations: ["registrierungen_sweep_registrierungen"],
+    wrapper: { file: "src/features/registrierungen/mutations.ts", regex: moduleNamed("mutations"), names: ["postRegistrierungSweep"] },
+    runners: ["src/features/bewerbungen/sweep.ts"],
+  },
+  {
+    operations: ["adresswechsel_sweep_adresswechsel"],
+    wrapper: { file: "src/features/adresswechsel/mutations.ts", regex: moduleNamed("mutations"), names: ["postAdresswechselSweep"] },
+    runners: ["src/features/bewerbungen/sweep.ts"],
+  },
+  {
+    operations: ["identitaet_get_referenzen"],
+    wrapper: { file: "src/features/funktionen/mutations.ts", regex: moduleNamed("mutations"), names: ["postReferenzen"] },
+    runners: ["src/features/funktionen/sweep.ts"],
+  },
+  {
+    operations: ["identitaet_post_loeschung_lauf"],
+    wrapper: { file: "src/features/saisons/mutations.ts", regex: moduleNamed("mutations"), names: ["postLoeschungLauf"] },
+    runners: ["src/features/saisons/sweep.ts", "src/features/saisons/actions.ts"],
+  },
+  {
+    operations: [
+      "spielbestaetigungen_get_spiel_sweep_saisons",
+      "spielbestaetigungen_sweep_spielbestaetigungen",
+      "spielbestaetigungen_angefragt_spielbestaetigungen",
+      "spielbestaetigungen_mitgeteilt_spielbestaetigungen",
+    ],
+    wrapper: {
+      file: "src/features/spielbestaetigungen/mutations.ts",
+      regex: moduleNamed("mutations"),
+      names: [
+        "getSpielbestaetigungSweepSaisons",
+        "postSpielbestaetigungSweep",
+        "postSpielbestaetigungSweepAngefragt",
+        "postSpielbestaetigungSweepMitgeteilt",
+      ],
+    },
+    runners: ["src/features/spielbestaetigungen/sweep.ts"],
+  },
+  {
+    operations: ["berechtigungen_post_berechtigungen_abgleich", "berechtigungen_post_berechtigungen_angekuendigt"],
+    wrapper: {
+      file: "src/features/berechtigungen/mutations.ts",
+      regex: moduleNamed("mutations"),
+      names: ["postBerechtigungenAbgleich", "postBerechtigungenAngekuendigt"],
+    },
+    runners: ["src/features/berechtigungen/abgleich.ts"],
+  },
+];
+
+// A sender renamed in the contract would drop out of its ban in silence, as a renamed file would.
+const GENERATED_SENDERS = readFileSync(fileURLToPath(new URL(GENERATED_SDK_PATH, import.meta.url)), "utf8");
+const UNSENT = BACKGROUND_PASSES.flatMap(({ operations }) => operations.flatMap(sendersOf)).filter(
+  (name) => !GENERATED_SENDERS.includes(`export const ${name} =`),
+);
+if (UNSENT.length > 0) {
+  throw new Error(
+    `eslint.config.mjs bans generated senders the contract no longer exports: ${UNSENT.join(", ")}. Name each pass's operations anew.`,
+  );
+}
+
+const BACKGROUND_PASS_BANS = BACKGROUND_PASSES.flatMap(({ operations, wrapper, runners }) => {
+  const reached = (names, owners) =>
+    `${names.join(", ")} ${names.length === 1 ? "runs" : "run"} a background pass: fl_frontend/${owners.join(", fl_frontend/")} ${owners.length === 1 ? "imports" : "import"} ${names.length === 1 ? "it" : "them"}, and a *.test.ts(x) file may; nothing else may.`;
+  const senders = operations.flatMap(sendersOf);
+  return [
+    importBan({ regex: GENERATED_SDK, importNames: senders, message: reached(senders, [wrapper.file, ...runners]) }, PRODUCTION, {
+      allow: [wrapper.file, ...runners],
+    }),
+    importBan({ regex: wrapper.regex, importNames: wrapper.names, message: reached(wrapper.names, runners) }, PRODUCTION, { allow: runners }),
+  ];
+});
+
 const IMPORT_BANS = [
   importBan(NEXT_PRIVATE_CONTEXTS, EVERY, { allow: ["src/test-support/nextContexts.ts"] }),
   // Layer boundaries, scoped to `core` and `shared` only: `admin` is a sanctioned aggregator slice,
@@ -280,6 +395,7 @@ const IMPORT_BANS = [
   importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth.ts", "src/core/authIndexes.ts"] }),
   importBan(SPERRE_NOTICE, PRODUCTION, { allow: ["src/features/sperrliste/actions.ts"] }),
   importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/konto/personActions.ts"] }),
+  ...BACKGROUND_PASS_BANS,
 ];
 
 // ---------------------------------------------------------------------------------------------------

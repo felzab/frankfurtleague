@@ -10,7 +10,6 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { benannt } from "@/shared/utils/benannt";
 import { formatSpielDatum, formatUhrzeit, nichtHinterlegt, PLACEHOLDER } from "@/shared/utils/format";
 
-import { SPIELBERICHT_GESCHLOSSEN } from "../../constants";
 import { SCHIEDSRICHTER_HREF } from "./SpielberichtZustandView";
 
 import type { FLSpielberichtPersonFruehererEintrag } from "@/core/generated/client/types";
@@ -42,9 +41,7 @@ export function SchiedsrichterSpielberichteSection({ spiele }: { spiele: Schieds
       </div>
 
       <div className={panel.body()}>
-        {spiele === "geschlossen" ? (
-          <p className="muted-hint">{`${SPIELBERICHT_GESCHLOSSEN.title} ${SPIELBERICHT_GESCHLOSSEN.hint}`}</p>
-        ) : spiele === "unlesbar" ? (
+        {spiele === "unlesbar" ? (
           <p className="muted-hint">Deine Spielberichte ließen sich gerade nicht lesen. Lade die Seite neu.</p>
         ) : (
           <>

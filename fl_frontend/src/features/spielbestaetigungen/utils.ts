@@ -189,18 +189,16 @@ export function antwortStand(zeile: FLSpielbestaetigung, today: string): Antwort
 }
 
 /**
- * Due and unrun: armed, a fixture the pass asks about, and no stamp since yesterday (`docs/ops/runbooks.md` §9).
+ * Due and unrun: a fixture the pass asks about, and no stamp since yesterday (`docs/ops/runbooks.md` §9).
  * Guarded on the stamp alone, it would warn on every fixture no pass ever visits.
  */
 export function laufUeberfaellig({
-  isSpielSweepOn,
   isActiveSaison,
   spiel,
   austritte,
   gelaufenAm,
   today,
 }: {
-  isSpielSweepOn: boolean;
   isActiveSaison: boolean;
   spiel: BestaetigungsSpiel;
   austritte: ReadonlyMap<string, string>;
@@ -218,7 +216,7 @@ export function laufUeberfaellig({
     }),
     today,
   });
-  if (!isSpielSweepOn || !angefragt) return false;
+  if (!angefragt) return false;
 
   // Yesterday's stamp is a healthy stack's: the hourly pass's last run may fall before midnight.
   return gelaufenAm === null || tageBis(gelaufenAm, today) < -1;

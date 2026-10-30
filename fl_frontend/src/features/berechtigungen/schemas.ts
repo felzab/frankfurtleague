@@ -169,7 +169,8 @@ export const FLBerechtigungAenderungSchema = z.object({
   id: CustomObjectIdStringSchema,
   berechtigung_id: CustomObjectIdStringSchema,
   // `beantragt` is a grant or a promotion asked for, which no grant has yet, `adresswechsel` an address change whose
-  // grant move waits on an approval, and `antrag_abgelehnt` and `antrag_beendet` a request's end: each is told to `an` alone.
+  // grant move waits on an approval, and `antrag_abgelehnt` and `antrag_beendet` a request's end. A request is told to `an`
+  // alone, and the other three to nobody (`fl_frontend/src/features/berechtigungen/abgleich.ts :: OHNE_MAIL`).
   art: z.enum(["erteilt", "entzogen", "geaendert", "beantragt", "adresswechsel", "antrag_abgelehnt", "antrag_beendet"]),
   // Where the change came from, read here and never off a null actor, which a barred administrator also is.
   urheber: z.enum(["anwendung", "datenbank"]),

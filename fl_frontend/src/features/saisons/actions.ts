@@ -1,6 +1,5 @@
 "use server";
 
-import { frontend_config } from "@/core/config";
 import { requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestOutcomeUnknown, runAnsweringOwnCut } from "@/core/requestScope";
@@ -136,9 +135,9 @@ export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload):
           ? `Saison ${validated.data.id} ist jetzt aktiv. Die vorherige Saison ist abgeschlossen.`
           : `Saison ${validated.data.id} ist jetzt aktiv. ${String(demoted)} vorher aktive Saisons wurden abgeschlossen.`;
 
-    // Compared to "on": a skipped validation leaves it undefined, where a negated test would delete. Called here rather
-    // than handed on bare: the step-up reader attributes a request only where an action's own body calls it.
-    const geloescht = frontend_config.LOESCHUNG_SWEEP === "on" ? await loeschenNachUmstellung((nach) => postLoeschungLauf(nach)) : [];
+    // Called here rather than handed on bare: the step-up reader attributes a request only where an action's own body
+    // calls it.
+    const geloescht = await loeschenNachUmstellung((nach) => postLoeschungLauf(nach));
 
     return { success: true, saison: activateOperation, message: [message, ...geloescht].join(" ") };
   });

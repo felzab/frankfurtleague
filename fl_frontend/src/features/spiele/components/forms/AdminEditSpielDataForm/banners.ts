@@ -188,7 +188,6 @@ export function buildSpielBanners({
   ansetzung,
   storedAnsetzung,
   isActiveSaison,
-  isSpielSweepOn,
   austrittTage,
   today,
 }: {
@@ -230,8 +229,6 @@ export function buildSpielBanners({
   storedAnsetzung: SpielBannerAnsetzung;
   /** The fixture's season is the running one, the only kind the sweep visits. */
   isActiveSaison: boolean;
-  /** The confirmations' pass is switched on: off, it sends no request, whatever the fixture. */
-  isSpielSweepOn: boolean;
   /** The day each club the draft fields left this season on, where it has. */
   austrittTage: readonly string[];
   /** The German today the page was rendered on. */
@@ -422,7 +419,6 @@ export function buildSpielBanners({
   // The notice the deadline promises cannot be given: the next pass asks at once, and the link answers that day alone.
   // Raised only by a save that asks, never as a standing hint on every near fixture.
   if (
-    isSpielSweepOn &&
     ansetzungGeaendert(ansetzung, storedAnsetzung) &&
     ohneVorlauf(ansetzung.datum, today) &&
     wirdAngefragt(ansetzung, { isActiveSaison, sonderereignis, hasAnyTore, hasShootOut, austrittTage, today })

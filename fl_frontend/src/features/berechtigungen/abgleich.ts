@@ -2,8 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import { buildAdresswechselGenehmigungEmail } from "@/core/adresswechselEmail";
-import { buildAntragEndeEmail, buildBerechtigungEmail } from "@/core/berechtigungEmail";
+import { buildBerechtigungEmail } from "@/core/berechtigungEmail";
 import { BERECHTIGUNG_HINWEIS, BERECHTIGUNG_TAG } from "@/core/berechtigungTag";
 import { frontend_config } from "@/core/config";
 import { renderMail } from "@/core/emailShell";
@@ -20,28 +19,6 @@ import type { Mail } from "@/core/emailShell";
 import type { FLBerechtigungAenderung } from "./schemas";
 
 /**
- * Five minutes: this is the lane that says who may administer, and a pass is one claim over a handful of
- * rows. A change made in the application is announced at once besides (`runBerechtigungenAbgleich`).
- */
-const ABGLEICH_INTERVAL_MS = 5 * 60 * 1000;
-
-/** A minute after start, for the application sweep's reason: a deploy recreates this container before the backend answers. */
-const ABGLEICH_START_DELAY_MS = 60 * 1000;
-
-/**
- * Arms the reconciliation pass for the life of this process. Every change to the grants reaches it,
- * a change made in the database directly included, through the claim's outbox.
- */
-export function armBerechtigungenAbgleich(): void {
-  const erster = setTimeout(() => void runBerechtigungenAbgleich(), ABGLEICH_START_DELAY_MS);
-  const handle = setInterval(() => void runBerechtigungenAbgleich(), ABGLEICH_INTERVAL_MS);
-
-  // Unreferenced, so neither holds a shutdown open: the listening socket keeps this process alive.
-  erster.unref();
-  handle.unref();
-}
-
-/**
  * Whether a pass is running, and whether a change arrived while it ran, per module instance: Next may
  * load one for the boot and one for the actions, and the claim hands a second pass none of the first's rows.
  */
@@ -56,7 +33,10 @@ let gewarntUebersprungen = 0;
 
 /**
  * One pass, or a second one queued behind the pass already running: a change written after that pass
- * claimed would otherwise wait for the next tick. Settles rather than throws, nothing awaiting it.
+ * claimed would otherwise wait for the next one. Run by the hourly scheduler
+ * (`fl_frontend/src/instrumentation-node.ts :: armScheduler`), which reaches every change to the grants, one made
+ * in the database directly included, and behind each response that made one. Settles rather than throws: nothing
+ * awaits it behind a response.
  */
 export async function runBerechtigungenAbgleich(): Promise<void> {
   if (laeuft) {
@@ -116,9 +96,15 @@ async function abgleichen(): Promise<void> {
  * it: a barred address is withheld, and never mailed. Answers whether the row is done: all settled, or given up.
  */
 async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: readonly string[]): Promise<boolean> {
+  // Stamped, mailed to nobody: the league sends no notice of these kinds.
+  const { art } = aenderung;
+  if (istOhneMail(art)) {
+    offen.delete(aenderung.id);
+    return true;
+  }
+
   const genannt = [aenderung.jetzt?.adresse, aenderung.vorher?.adresse].filter((adresse) => adresse !== null && adresse !== undefined);
-  // A request, and an address change waiting on an approval, goes to whoever could approve it alone: neither the address
-  // it is for nor whoever asked. A request's end goes to its requester.
+  // A request goes to whoever could approve it alone: neither the address it is for nor whoever asked.
   const adressen = [...new Set(aenderung.an ?? [...empfaenger, ...genannt])];
   const erreicht = offen.get(aenderung.id) ?? new Set<string>();
 
@@ -134,7 +120,7 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
     return true;
   }
 
-  const message = renderMail(nachricht(aenderung));
+  const message = renderMail(nachricht(aenderung, art));
   // The body a key is reused over: an erasure or a ban committing between two passes rewrites it, and the provider refuses
   // a key reused over another body for its day (`409 invalid_idempotent_request`), the recipient left untold.
   const fassung = createHash("sha256")
@@ -181,23 +167,16 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
   return false;
 }
 
-/** The message one claimed row sends, by its kind. */
-function nachricht(aenderung: FLBerechtigungAenderung): Mail {
-  const { art } = aenderung;
-  switch (art) {
-    case "adresswechsel":
-      // Naming nobody: neither address of the change, nor who started it.
-      return buildAdresswechselGenehmigungEmail({ origin: frontend_config.AUTH_URL });
-    case "antrag_abgelehnt":
-    case "antrag_beendet":
-      // Naming the address asked about and nobody who acted: `geaendert_von` is the requester it goes to.
-      return buildAntragEndeEmail(
-        { art: art, adresse: adresseOf(aenderung, aenderung.jetzt), inhaber: aenderung.jetzt?.verwaltung === "owner" },
-        frontend_config.AUTH_URL,
-      );
-    default:
-      return buildBerechtigungEmail(zugangsaenderung(aenderung, art), urheber(aenderung), frontend_config.AUTH_URL);
-  }
+/** The kinds of change the league mails nobody about: an address change waiting on an approval, and a request's end. */
+const OHNE_MAIL = ["adresswechsel", "antrag_abgelehnt", "antrag_beendet"] as const;
+
+function istOhneMail(art: FLBerechtigungAenderung["art"]): art is (typeof OHNE_MAIL)[number] {
+  return (OHNE_MAIL as readonly string[]).includes(art);
+}
+
+/** The message one claimed row sends. */
+function nachricht(aenderung: FLBerechtigungAenderung, art: Zugangsaenderung["art"]): Mail {
+  return buildBerechtigungEmail(zugangsaenderung(aenderung, art), urheber(aenderung), frontend_config.AUTH_URL);
 }
 
 /** A row's address as a notice names it, or why it is withheld. */

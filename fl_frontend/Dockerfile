@@ -85,4 +85,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
 EXPOSE 3000
 
+# The version the deploy stamps on the image (`.github/workflows/verify.yml`'s build argument, the tag its
+# `org.opencontainers.image.version` label carries), which the start-up line logs. Last, so a new value per commit
+# rebuilds no layer above it; a build handed none logs it as null.
+ARG APP_VERSION
+ENV APP_VERSION=$APP_VERSION
+
 CMD ["tini", "--", "node", "server.js"]

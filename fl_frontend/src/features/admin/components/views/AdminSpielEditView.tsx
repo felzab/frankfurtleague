@@ -20,16 +20,14 @@ import type { ActionRequiredCategory, FLSpielWithDraftFields } from "@/features/
 export function AdminSpielEditView({
   spielData,
   today,
-  isSpielSweepOn,
   bestaetigungen,
   spielbericht,
 }: {
   spielData: FLSpielJoinedAdmin;
   today: string;
-  isSpielSweepOn: boolean;
   /** `null` where the read failed, which the panel says. */
   bestaetigungen: SpielbestaetigungenStand | null;
-  /** `null` where its read failed, which the panel says; absent where `SPIELBERICHT_EINGABE` reads off and no report stands. */
+  /** `null` where its read failed, which the panel says. */
   spielbericht?: SpielberichtStand | null;
 }) {
   const { teams, spielorte, schiedsrichter, saisonSpiele, numberOfGroups, isFinishedSaison, isActiveSaison } = useAdmin();
@@ -60,7 +58,6 @@ export function AdminSpielEditView({
         isFinishedSaison={isFinishedSaison}
         isActiveSaison={isActiveSaison}
         today={today}
-        isSpielSweepOn={isSpielSweepOn}
         bestaetigungen={bestaetigungen}
         spielbericht={spielbericht}
         categorize={categorize}

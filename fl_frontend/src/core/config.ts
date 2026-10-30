@@ -34,6 +34,7 @@ const SECRET_FILES = {
   INTERNAL_API_KEY_SYSTEM: "internal_api_key_system",
   INTERNAL_API_KEY_ADMIN: "internal_api_key_admin",
   TURNSTILE_SECRET_KEY: "turnstile_secret_key",
+  BETTERSTACK_HEARTBEAT_URL: "betterstack_heartbeat_url",
 } as const;
 
 type SecretKey = keyof typeof SECRET_FILES;
@@ -131,7 +132,12 @@ const APP_ENVIRONMENTS = ["production", "local"] as const;
 // The credentials `production` demands and no other deployment holds, refused at boot on the
 // production host alone. Files only: the deploy asks production for them by file, never by a
 // variable.
-const PRODUCTION_ONLY_REQUIRED = ["AUTH_RESEND_KEY", "RESEND_WEBHOOK_SECRET", "TURNSTILE_SECRET_KEY"] as const satisfies readonly SecretKey[];
+const PRODUCTION_ONLY_REQUIRED = [
+  "AUTH_RESEND_KEY",
+  "RESEND_WEBHOOK_SECRET",
+  "TURNSTILE_SECRET_KEY",
+  "BETTERSTACK_HEARTBEAT_URL",
+] as const satisfies readonly SecretKey[];
 
 // Mirrored from https://developers.cloudflare.com/turnstile/troubleshooting/testing/, read 2026-10-04,
 // which moves without us: every published test key, site and secret alike, takes this shape.
@@ -170,47 +176,9 @@ const environment = {
     return protocol === "https:" || hostname === "localhost" || hostname === "127.0.0.1";
   }, "AUTH_URL must use https:// unless it points at localhost"),
 
-  // Defaulted so no server .env is touched to arm the retention sweep, and an enum rather than
-  // `z.coerce.boolean()`, which reads the string "false" as true and settles before a default
-  // could apply.
-  BEWERBUNG_SWEEP: z
-    .string()
-    .transform((value) => value.toLowerCase())
-    .pipe(z.enum(["on", "off"]))
-    .default("on"),
-
-  // The account sweep's own switch, for `BEWERBUNG_SWEEP`'s reasons: defaulted so no server .env is
-  // touched to arm it, and an enum because `z.coerce.boolean()` reads the string "false" as true.
-  KONTO_SWEEP: z
-    .string()
-    .transform((value) => value.toLowerCase())
-    .pipe(z.enum(["on", "off"]))
-    .default("on"),
-
-  // Off where the server sets nothing, unlike `BEWERBUNG_SWEEP`: it deletes pupils, and an operator
-  // turns it on only once the season page's count is read (`docs/ops/runbooks.md` §9).
-  LOESCHUNG_SWEEP: z
-    .string()
-    .transform((value) => value.toLowerCase())
-    .pipe(z.enum(["on", "off"]))
-    .default("off"),
-
-  // Off where the server sets nothing, unlike `BEWERBUNG_SWEEP`: its first pass mails about every fixture already
-  // inside the answer window, so arming it is a day an operator chooses rather than a deploy (`docs/ops/runbooks.md` §9).
-  SPIEL_SWEEP: z
-    .string()
-    .transform((value) => value.toLowerCase())
-    .pipe(z.enum(["on", "off"]))
-    .default("off"),
-
-  // Off where the server sets nothing, so no deploy opens the report form: it opens on the day
-  // `docs/ops/runbooks.md` §9 switches it on with `SPIEL_SWEEP`. Not `SPIEL_SWEEP` widened, which stops the mail in a
-  // provider fault.
-  SPIELBERICHT_EINGABE: z
-    .string()
-    .transform((value) => value.toLowerCase())
-    .pipe(z.enum(["on", "off"]))
-    .default("off"),
+  // The image's version from its build argument (`fl_frontend/Dockerfile`), which the start-up line logs; absent
+  // from a build handed none and from `next dev`.
+  APP_VERSION: z.string().min(1).optional(),
 
   // Public: the bot check's widget prints it into the page. No default, so a host's file leaving it out
   // is refused before the recreate rather than at the boot.
@@ -242,6 +210,10 @@ const fromFiles = {
 
   // Demanded of production alone, `TURNSTILE_TEST_SECRET_KEY` standing in everywhere else.
   TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
+
+  // The monitor's own address, whose token is the credential: anyone holding it reports the passes. Demanded of
+  // production alone, the one stack the monitor watches; absent anywhere else, no pass pings.
+  BETTERSTACK_HEARTBEAT_URL: z.url({ protocol: /^https$/ }).optional(),
 } satisfies Record<SecretKey, z.ZodType>;
 
 // A rule reading two variables at once, which a per-variable schema cannot express. Each issue carries a
@@ -303,6 +275,7 @@ export const internalApiKeyBase = (): string => validated.INTERNAL_API_KEY_BASE;
 export const internalApiKeySystem = (): string => validated.INTERNAL_API_KEY_SYSTEM;
 export const internalApiKeyAdmin = (): string => validated.INTERNAL_API_KEY_ADMIN;
 export const turnstileSecretKey = (): string => validated.TURNSTILE_SECRET_KEY ?? TURNSTILE_TEST_SECRET_KEY;
+export const heartbeatUrl = (): string | undefined => validated.BETTERSTACK_HEARTBEAT_URL;
 
 /** The deployment the deploy's or the local stack's preflight names, set by that preflight alone: the boot judges it and ends. */
 export const bootCheck = (): string | undefined => process.env.BOOT_CHECK;

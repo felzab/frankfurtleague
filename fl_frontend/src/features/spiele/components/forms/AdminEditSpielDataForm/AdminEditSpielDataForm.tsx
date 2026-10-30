@@ -91,7 +91,6 @@ export function AdminEditSpielDataForm({
   isFinishedSaison,
   isActiveSaison,
   today,
-  isSpielSweepOn,
   bestaetigungen,
   spielbericht,
   categorize,
@@ -107,8 +106,6 @@ export function AdminEditSpielDataForm({
   isFinishedSaison: boolean;
   isActiveSaison: boolean;
   today: string;
-  /** `SPIEL_SWEEP` reads `on`, so the confirmations' pass runs at all. */
-  isSpielSweepOn: boolean;
   /** The fixture's confirmations, `null` where their read failed; absent, the editor mounts no panel for them. */
   bestaetigungen?: SpielbestaetigungenStand | null;
   /** The fixture's report as the page read it on this open, `null` where the read failed; absent, the editor mounts no panel for it. */
@@ -348,7 +345,6 @@ export function AdminEditSpielDataForm({
     ansetzung,
     storedAnsetzung,
     isActiveSaison,
-    isSpielSweepOn,
     // From `teams`, which joins each club's exit on every read; the payload's copy of a side carries none.
     austrittTage: [team1Payload, team2Payload].flatMap((seite) => {
       const datum = teams.find((team) => team.id === seite?.team_id)?.austritt?.datum;
@@ -650,7 +646,6 @@ export function AdminEditSpielDataForm({
                 // `teams` joins each club's exit from this season on every read.
                 austritte={new Map(teams.flatMap((team) => (team.austritt === null ? [] : [[team.id, team.austritt.datum]])))}
                 today={today}
-                isSpielSweepOn={isSpielSweepOn}
                 isActiveSaison={isActiveSaison}
                 // Into the two atoms `resetDraftToStored` restores, never a remount: every other unsaved edit stays,
                 // a discard drops the proposal with them, and Speichern still judges it.

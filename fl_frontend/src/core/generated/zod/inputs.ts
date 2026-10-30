@@ -1409,6 +1409,103 @@ export const KontoPostAdresswechselFreigabeBody = zod
   .describe("The change the page showed: an administrator's later start replaces it, and the approval then reaches nothing.");
 
 /**
+ * Owe one mail the sign-in library sends -- the code, a passkey notice, the deletion link -- to the address named.
+ *
+ * A replay of the same `schluessel` writes nothing and answers the row its first call wrote. `geheim` is stored as it
+ * arrives, encrypted under a key this service never holds, and dropped once the mail is settled; `gueltig_bis` is both
+ * the last moment a hand-out may send it and the moment the row is deleted, settled or not.
+ * @summary Owe one mail of the sign-in library
+ */
+export const postausgangPostAnmeldungBodyAnMax = 254;
+
+export const postausgangPostAnmeldungBodyDatenTwoKontoMax = 256;
+
+export const postausgangPostAnmeldungBodyDatenTwoKontoRegExp = new RegExp("^/[a-z0-9/_-]*$");
+export const postausgangPostAnmeldungBodyGeheimOneMax = 4096;
+
+export const postausgangPostAnmeldungBodySchluesselMax = 256;
+
+export const postausgangPostAnmeldungBodySchluesselRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
+export const PostausgangPostAnmeldungBody = zod
+  .object({
+    an: zod.string().max(postausgangPostAnmeldungBodyAnMax),
+    daten: zod.union([
+      zod.object({
+        art: zod.literal("anmeldecode").meta({ title: "Art" }),
+      }),
+      zod.object({
+        art: zod.enum(["passkey_hinzugefuegt", "passkey_geloescht"]),
+        konto: zod.string().max(postausgangPostAnmeldungBodyDatenTwoKontoMax).regex(postausgangPostAnmeldungBodyDatenTwoKontoRegExp),
+        zeitpunkt: zod.iso.datetime({ offset: true }),
+      }),
+      zod.object({
+        art: zod.literal("konto_loeschung").meta({ title: "Art" }),
+      }),
+    ]),
+    geheim: zod.union([zod.string().min(1).max(postausgangPostAnmeldungBodyGeheimOneMax), zod.null()]),
+    gueltig_bis: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    schluessel: zod.string().min(1).max(postausgangPostAnmeldungBodySchluesselMax).regex(postausgangPostAnmeldungBodySchluesselRegExp),
+  })
+  .describe("One mail of the sign-in library, owed to the address it names.");
+
+/**
+ * Record what the mail provider reported about one message, on the row of the mail it was.
+ *
+ * The row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds
+ * it all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before
+ * anything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later
+ * one changes nothing. Both answer `angewendet: false`, as does an id no row has, rather than a refusal the provider
+ * would retry for hours.
+ * @summary Record one delivery event on its mail's row
+ */
+export const postausgangPostEreignisBodyGrundOneMax = 128;
+
+export const postausgangPostEreignisBodyGrundOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+export const postausgangPostEreignisBodyIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const PostausgangPostEreignisBody = zod
+  .object({
+    am: zod.iso.datetime({ offset: true }),
+    grund: zod.union([zod.string().max(postausgangPostEreignisBodyGrundOneMax).regex(postausgangPostEreignisBodyGrundOneRegExp), zod.null()]),
+    id: zod.string().regex(postausgangPostEreignisBodyIdRegExp),
+    stand: zod.enum(["zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]),
+  })
+  .describe("One delivery event about a message the provider accepted, named by the row the message was sent from.");
+
+/**
+ * Settle each named mail the named claim still holds, by the outcome of its send, and nothing else.
+ *
+ * `gesendet` records the provider's message id, which every later event about the message names; `zurueckgehalten` a
+ * deployment that sends no mail; `aufgeben` a refusal every send would meet, any 4xx but a 429. `wiederholen`, for a
+ * 429, a 5xx or a send that never reached the provider, hands the mail back for a drain a minute from now, or gives it
+ * up where it has grown past its deadline; a mail of the sign-in library is given up at once, its library's repair
+ * being a fresh one. A mail the claim does not hold -- unknown,
+ * settled already, or claimed since by another drain after this claim lapsed -- is left alone and counted in `ignoriert`.
+ * A repeated id counts once, by its first outcome. One transaction; a settled row keeps no facts and no secret.
+ * @summary Settle the mails a claim handed out
+ */
+
+export const postausgangPostErgebnisBodyErgebnisseItemIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+export const postausgangPostErgebnisBodyErgebnisseItemNachrichtIdOneMax = 128;
+
+export const postausgangPostErgebnisBodyErgebnisseMax = 64;
+
+export const PostausgangPostErgebnisBody = zod.object({
+  beanspruchung: zod.string().min(1),
+  ergebnisse: zod
+    .array(
+      zod.object({
+        ergebnis: zod.enum(["gesendet", "wiederholen", "aufgeben", "zurueckgehalten"]),
+        id: zod.string().regex(postausgangPostErgebnisBodyErgebnisseItemIdRegExp),
+        nachricht_id: zod.union([zod.string().min(1).max(postausgangPostErgebnisBodyErgebnisseItemNachrichtIdOneMax), zod.null()]),
+      }),
+    )
+    .min(1)
+    .max(postausgangPostErgebnisBodyErgebnisseMax),
+});
+
+/**
  * Every pending registration, newest first, narrowed by season, team and status.
  *
  * `vollstaendig` is false where more rows exist than one read serves, `bestaetigt` says whether the pupil answered their own

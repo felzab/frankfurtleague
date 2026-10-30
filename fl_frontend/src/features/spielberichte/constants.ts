@@ -71,24 +71,3 @@ export const SPIELBERICHT_ZUSTAND_TONE: Record<FLSpielberichtZustand, PillTone> 
  */
 const ZUSTAENDE_OFFEN = ["vorgeschlagen", "abweichend", "teams_geaendert"] as const satisfies readonly FLSpielberichtZustand[];
 export const SPIELBERICHT_ZUSTAENDE_OFFEN: ReadonlySet<FLSpielberichtZustand> = new Set(ZUSTAENDE_OFFEN);
-
-/**
- * What the referee's report page and panel say while `SPIELBERICHT_EINGABE` reads off; the administrator's surfaces word
- * their own. Never „noch nicht“: the switch can go off again after the league opened it.
- */
-export const SPIELBERICHT_GESCHLOSSEN = {
-  title: "Der Spielbericht ist gerade nicht freigeschaltet.",
-  hint: "Sobald die Liga ihn freigibt, trägst Du ihn hier ein.",
-} as const;
-
-/**
- * What the administrator's correction page says while the switch reads off. Never „noch nicht“: the switch can go off
- * again after the league opened it, and a report then standing still leads the administrator here.
- */
-export const SPIELBERICHT_GESCHLOSSEN_ADMIN = "Spielberichte sind gerade nicht freigeschaltet.";
-
-/**
- * The closed refusal an action answers with no request sent: the page that offered the press is older than the
- * switch, which went off since, so never „noch nicht“.
- */
-export const SPIELBERICHT_GESCHLOSSEN_REFUSAL = "Spielberichte sind gerade nicht freigeschaltet. Lade die Seite neu.";

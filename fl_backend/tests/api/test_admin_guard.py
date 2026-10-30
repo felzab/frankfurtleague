@@ -139,6 +139,11 @@ SYSTEM_WRITES = [
     ("/api/v0/adresswechsel/sweep", "post"),
     # The address change's owed notices, claimed and stamped by the frontend's pass as the grants' are.
     ("/api/v0/adresswechsel/sweep/postausgang", "post"),
+    # The Postausgang's drain, the sign-in library's mails and the provider's events: none holds a session.
+    ("/api/v0/postausgang/ausgabe", "post"),
+    ("/api/v0/postausgang/ergebnis", "post"),
+    ("/api/v0/postausgang/anmeldung", "post"),
+    ("/api/v0/postausgang/ereignis", "post"),
     ("/api/v0/adresswechsel/sweep/postausgang/zugestellt", "post"),
     # A POST storing nothing, exempt for the identity reads' reason: the frontend's server asks a live change's new address.
     ("/api/v0/adresswechsel/sweep/adresse", "post"),

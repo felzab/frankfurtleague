@@ -1,17 +1,8 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
-import { filesUnder, isTestFile } from "@/test-support/treeWalk.ts";
-import ts from "typescript";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /** Every line as it was written, its fields whole: what a pass reports, and the code its failure carries. */
 const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
-
-/** The two switches as the doubled config answers them, which a case sets. */
-let loeschungSwitch: string | undefined = "on";
-let bewerbungSwitch: string | undefined = "off";
 
 const LAUF = "/identitaet/loeschung/lauf";
 
@@ -58,36 +49,9 @@ const LOGGING_DOUBLE = {
   },
 };
 
-// Getters, not values: one process holds one module registry, so a case that could not re-read a switch could only
-// ever prove one side of it.
-const CONFIG_DOUBLE = {
-  // Each boot runs in-process with no preflight naming a deployment.
-  bootCheck: () => undefined,
-  // Imported beside the settings by the boot gate, and called only on a deployment mismatch none of these boots has.
-  refuseInvalidEnvironment: (): never => {
-    throw new Error("the doubled config refuses no environment");
-  },
-  frontend_config: {
-    // The boot reads the signing key before it arms anything.
-    get BEWERBUNG_SWEEP() {
-      return bewerbungSwitch;
-    },
-    get LOESCHUNG_SWEEP() {
-      return loeschungSwitch;
-    },
-  },
-};
-
 vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
-vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
-vi.doMock("@/core/authIndexes.ts", () => ({ buildAuthIndexes: () => Promise.resolve() }));
 
-const { register } = await import("../../instrumentation.ts");
 const { runLoeschungSweep } = await import("./sweep.ts");
-
-const SEKUNDE_MS = 1000;
-const MINUTE_MS = 60 * SEKUNDE_MS;
-const HOUR_MS = 60 * MINUTE_MS;
 
 /** Places in the `_id` order, as the mirror demands them. */
 const ORT = `${"e".repeat(23)}5`;
@@ -104,61 +68,7 @@ const passLines = () => lines.filter(({ event }) => event.startsWith("loeschung.
 beforeEach(() => {
   lines.length = 0;
   laufCalls.length = 0;
-  loeschungSwitch = "on";
-  bewerbungSwitch = "off";
   laufAnswer = () => gelaufen(0, 0);
-});
-
-describe("what register arms for the pupils' deletion", () => {
-  // Next declares `NODE_ENV` read-only, which is true of the value a build inlines and not of this process's own
-  // environment: the arm under test is exactly the one only a test can move.
-  const env = process.env as Record<string, string | undefined>;
-
-  /** One boot under `nodeEnv` with the switch reading `value`, then each step of `steps`, answering the calls made after each. */
-  async function bootAndStep(nodeEnv: string, value: string | undefined, steps: readonly number[]): Promise<number[]> {
-    const before = env.NODE_ENV;
-    env.NODE_ENV = nodeEnv;
-    loeschungSwitch = value;
-    vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] });
-    const counted: number[] = [];
-    try {
-      await register();
-      for (const step of steps) {
-        vi.advanceTimersByTime(step);
-        await new Promise((resolve) => setImmediate(resolve));
-        counted.push(laufCalls.length);
-      }
-    } finally {
-      vi.useRealTimers();
-      if (before === undefined) delete env.NODE_ENV;
-      else env.NODE_ENV = before;
-    }
-
-    return counted;
-  }
-
-  /* The press deletes under this switch and promises the next hourly pass deletes the rest: behind the application
-     sweep's switch too, turning that one off would break the promise. */
-  it("waits its minute after a production boot reading on, then runs hourly, the application sweep's switch off", async () => {
-    const steps = [MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS, HOUR_MS - MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS];
-
-    expect(bewerbungSwitch, "the application sweep's switch is on, so the case proves nothing").toBe("off");
-    expect(await bootAndStep("production", "on", steps)).toStrictEqual([0, 1, 1, 2]);
-  });
-
-  it("arms nothing where the switch is off", async () => {
-    expect(await bootAndStep("production", "off", [3 * HOUR_MS])).toStrictEqual([0]);
-  });
-
-  // A skipped validation leaves the value undefined, which a test negating "off" would arm on.
-  it("arms nothing where the value is missing", async () => {
-    expect(await bootAndStep("production", undefined, [3 * HOUR_MS])).toStrictEqual([0]);
-  });
-
-  /* `next dev` reaches whatever backend the developer's own environment names, and deletes from it. */
-  it("arms nothing under a development build, whatever the switch says", async () => {
-    expect(await bootAndStep("development", "on", [3 * HOUR_MS])).toStrictEqual([0]);
-  });
 });
 
 describe("one pass of the pupils' deletion", () => {
@@ -277,87 +187,5 @@ describe("one pass of the pupils' deletion", () => {
         },
       },
     ]);
-  });
-
-  /* A pass slower than the hour would otherwise ask beside itself over the same share, which the backend's own judgement
-     of each pupil makes safe and nothing makes useful. */
-  it("skips a tick that finds the previous pass still running, with one line and no call", async () => {
-    const held: (() => void)[] = [];
-    // The call's answer is held until both ticks have run, as a slow backend holds it. Every one held is released, so a
-    // second pass run beside the first fails the case rather than leaving it waiting.
-    laufAnswer = () => new Promise((resolve) => void held.push(() => resolve(gelaufen(0, 0))));
-
-    const running = runLoeschungSweep();
-    const skipped = runLoeschungSweep();
-    await skipped;
-    for (const release of held) release();
-    await running;
-
-    expect(laufCalls.length, "the second tick called the backend beside the running pass").toBe(1);
-    expect(passLines().map(({ level, event }) => `${level} ${event}`)).toStrictEqual([
-      "info loeschung.sweep_skipped",
-      "info loeschung.sweep_pass",
-    ]);
-  });
-});
-
-const LAUF_SENDER = "postLoeschungLauf";
-const LAUF_SENDER_MODULE = "features/saisons/mutations.ts";
-
-/** The path's second spelling, Orval's from the published contract: a sender no caller may reach yet. */
-const GENERATED_MODULE = "core/generated/client/sdk.ts";
-const GENERATED_URL = "getIdentitaetPostLoeschungLaufUrl";
-const GENERATED_SENDERS = ["identitaetPostLoeschungLauf", GENERATED_URL];
-
-function declaresOrImports(node: ts.Identifier, where: string): boolean {
-  if (ts.isFunctionDeclaration(node.parent) && node.parent.name === node) return where === LAUF_SENDER_MODULE;
-
-  return ts.isImportSpecifier(node.parent) && node.parent.propertyName === undefined;
-}
-
-function enclosing(node: ts.Node): string {
-  for (let at = node.parent; !ts.isSourceFile(at); at = at.parent) {
-    if ((ts.isFunctionDeclaration(at) || ts.isMethodDeclaration(at)) && at.name !== undefined) return at.name.getText();
-    if ((ts.isArrowFunction(at) || ts.isFunctionExpression(at)) && ts.isVariableDeclaration(at.parent)) return at.parent.name.getText();
-  }
-
-  return "(module)";
-}
-
-describe("the deletion pass's callers", () => {
-  /* The API deletes on any system-key call, the switch read by the press and by the boot arming the timer, so a third
-     caller would delete while it reads off. Each caller's off arm is driven in its own suite. */
-  it("are the hourly pass and the activation alone, and its path has one sender", () => {
-    const src = path.resolve(import.meta.dirname, "..", "..");
-    const uses: string[] = [];
-    const senders: string[] = [];
-    const generatedUses: string[] = [];
-
-    for (const file of filesUnder(src, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 200)) {
-      const text = readFileSync(file, "utf8");
-      if (![LAUF_SENDER, LAUF, ...GENERATED_SENDERS].some((needle) => text.includes(needle))) continue;
-      const where = path.relative(src, file).split(path.sep).join("/");
-
-      const visit = (node: ts.Node): void => {
-        // Every reference, not only a call: the hourly pass hands the function on by name, and an alias or a
-        // wrapper beside the declaration is a third caller.
-        if (ts.isIdentifier(node) && node.text === LAUF_SENDER && !declaresOrImports(node, where)) uses.push(`${where} :: ${enclosing(node)}`);
-        if ((ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node)) && node.text.includes(LAUF))
-          senders.push(`${where} :: ${enclosing(node)}`);
-        // An import, an alias's source name or a namespace's property: any of them outside the generated folder is
-        // a caller the hand-written sender never sees.
-        if (ts.isIdentifier(node) && GENERATED_SENDERS.includes(node.text) && !where.startsWith("core/generated/"))
-          generatedUses.push(`${where} :: ${enclosing(node)}`);
-        ts.forEachChild(node, visit);
-      };
-      visit(ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true));
-    }
-
-    expect(uses.sort()).toStrictEqual(["features/saisons/actions.ts :: activateSaisonAction", "features/saisons/sweep.ts :: sweepLoeschung"]);
-    // The generated URL builder spells the path in both arms of its query ternary.
-    expect(senders.sort()).toStrictEqual(
-      [`${GENERATED_MODULE} :: ${GENERATED_URL}`, `${GENERATED_MODULE} :: ${GENERATED_URL}`, `${LAUF_SENDER_MODULE} :: ${LAUF_SENDER}`].sort(),
-    );
-    expect(generatedUses).toStrictEqual([]);
   });
 });

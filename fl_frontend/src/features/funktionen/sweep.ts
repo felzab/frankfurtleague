@@ -3,23 +3,9 @@ import "server-only";
 import { deleteAccountFor, listAccounts } from "@/core/auth";
 import { requestOf } from "@/core/errors";
 import { logger } from "@/core/logging";
-import { HOUR_MS } from "@/core/timeUnits";
 
 import { REFERENZEN_ADRESSEN_MAX } from "./constants";
 import { postReferenzen } from "./mutations";
-
-/**
- * One hour, as the application sweep's: an account nothing references admits no sign-in to any panel,
- * so a later pass costs nobody anything, and a shorter interval only asks the backend more often.
- */
-const SWEEP_INTERVAL_MS = HOUR_MS;
-
-/**
- * A minute after start rather than at once: a deploy recreates this container before the backend
- * answers, so an immediate pass would log a failure for nothing. The first tick alone would skip a
- * container recreated daily.
- */
-const SWEEP_START_DELAY_MS = 60 * 1000;
 
 /** What one pass did, by count and never by address: the completion line is all that records it. */
 type Zaehlung = {
@@ -31,43 +17,11 @@ type Zaehlung = {
 };
 
 /**
- * Arms the account sweep for the life of this process.
- *
- * Production runs one frontend container, so one process holds one timer and no cross-process lease
- * is built.
- */
-export function armKontoSweep(): void {
-  const erster = setTimeout(() => void runKontoSweep(), SWEEP_START_DELAY_MS);
-  const handle = setInterval(() => void runKontoSweep(), SWEEP_INTERVAL_MS);
-
-  // Unreferenced, so neither a pending first pass nor a tick holds a shutdown open behind it: the
-  // listening socket is what keeps this process alive.
-  erster.unref();
-  handle.unref();
-}
-
-/** Whether a pass is still running. Module state, which is per process, and one process holds the timer. */
-let laeuft = false;
-
-/**
- * One pass over every sign-in account, deleting those no record references.
- *
- * Settles rather than throws: nothing awaits this, so a rejection would surface as an unhandled one
- * an hour after the tick that caused it.
+ * One pass over every sign-in account, deleting those no record references, for the scheduler
+ * (`fl_frontend/src/instrumentation-node.ts :: armScheduler`), which runs one pass at a time.
  */
 export async function runKontoSweep(): Promise<void> {
-  if (laeuft) {
-    // A pass slower than the hour would otherwise ask and delete beside itself over the same accounts.
-    logger.info("konto.sweep_skipped");
-    return;
-  }
-
-  laeuft = true;
-  try {
-    await sweepAlleKonten();
-  } finally {
-    laeuft = false;
-  }
+  await sweepAlleKonten();
 }
 
 async function sweepAlleKonten(): Promise<void> {

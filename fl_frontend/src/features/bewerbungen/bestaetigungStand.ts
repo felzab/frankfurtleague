@@ -260,7 +260,6 @@ export function loeschungsSatz({
 
   return gehalten
     ? `Die Frist für die Bestätigungen ist am ${tag} abgelaufen. Gelöscht wird die Bewerbung nicht, solange die Ansprechperson per E-Mail nicht erreichbar ist.`
-    : // The sweep's own cadence (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`).
-      // The local stack arms no sweep, so there the row outlives this sentence.
+    : // The scheduler's own cadence (`fl_frontend/src/instrumentation-node.ts :: armScheduler`).
       `Die Frist für die Bestätigungen ist am ${tag} abgelaufen. Die Bewerbung wird bei der nächsten stündlichen Prüfung gelöscht.`;
 }

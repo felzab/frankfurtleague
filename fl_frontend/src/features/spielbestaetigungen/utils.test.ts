@@ -87,7 +87,6 @@ describe("laufUeberfaellig", () => {
     schiedsrichter: null,
   };
   const FAELLIG = {
-    isSpielSweepOn: true,
     isActiveSaison: true,
     spiel: GEFRAGT,
     austritte: new Map<string, string>(),
@@ -116,7 +115,6 @@ describe("laufUeberfaellig", () => {
   it("reads a fixture no pass visits as plain, whatever the stamp", () => {
     for (const nie of [
       { ...FAELLIG, isActiveSaison: false },
-      { ...FAELLIG, isSpielSweepOn: false },
       { ...FAELLIG, spiel: { ...GEFRAGT, datum: TODAY } },
       { ...FAELLIG, spiel: { ...GEFRAGT, datum: "2026-10-01" } },
       { ...FAELLIG, spiel: { ...GEFRAGT, datum: null } },
