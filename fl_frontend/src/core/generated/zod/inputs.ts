@@ -3426,14 +3426,14 @@ export const SpielePatchSpielDataBody = zod.object({
         .object({
           gruppe: zod.enum(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]),
           platz: zod.int().gt(spielePatchSpielDataBodyTeam1QuelleOneOnePlatzExclusiveMin),
-          type: zod.literal("gruppe").meta({ title: "Type" }),
+          type: zod.enum(["gruppe"]),
         })
         .describe("A slot fed by the group phase: the team finishing `platz` in `gruppe`."),
       zod
         .object({
           ausgang: zod.enum(["sieger", "verlierer"]),
           spiel_nr: zod.int().gt(spielePatchSpielDataBodyTeam1QuelleOneTwoSpielNrExclusiveMin),
-          type: zod.literal("spiel").meta({ title: "Type" }),
+          type: zod.enum(["spiel"]),
         })
         .describe("A slot fed by an earlier fixture: the side that came out of match `spiel_nr` as `ausgang`."),
     ]),
@@ -3456,14 +3456,14 @@ export const SpielePatchSpielDataBody = zod.object({
         .object({
           gruppe: zod.enum(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]),
           platz: zod.int().gt(spielePatchSpielDataBodyTeam2QuelleOneOnePlatzExclusiveMin),
-          type: zod.literal("gruppe").meta({ title: "Type" }),
+          type: zod.enum(["gruppe"]),
         })
         .describe("A slot fed by the group phase: the team finishing `platz` in `gruppe`."),
       zod
         .object({
           ausgang: zod.enum(["sieger", "verlierer"]),
           spiel_nr: zod.int().gt(spielePatchSpielDataBodyTeam2QuelleOneTwoSpielNrExclusiveMin),
-          type: zod.literal("spiel").meta({ title: "Type" }),
+          type: zod.enum(["spiel"]),
         })
         .describe("A slot fed by an earlier fixture: the side that came out of match `spiel_nr` as `ausgang`."),
     ]),

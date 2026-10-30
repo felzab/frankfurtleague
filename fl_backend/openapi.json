@@ -4576,6 +4576,54 @@
         ],
         "type": "string"
       },
+      "FLBracketFault": {
+        "discriminator": {
+          "mapping": {
+            "departed_occupant": "#/components/schemas/FLBracketFaultOccupant",
+            "double_booked": "#/components/schemas/FLBracketFaultClash",
+            "feeder_not_played_first": "#/components/schemas/FLBracketFaultQuelle",
+            "fielded_twice": "#/components/schemas/FLBracketFaultSpieltag",
+            "gruppe_not_run": "#/components/schemas/FLBracketFaultGruppe",
+            "gruppe_too_small": "#/components/schemas/FLBracketFaultGruppe",
+            "gruppenphase_feeder": "#/components/schemas/FLBracketFaultQuelle",
+            "gruppenphase_fixture_wired": "#/components/schemas/FLBracketFaultSlot",
+            "reference_cycle": "#/components/schemas/FLBracketFaultQuelle",
+            "retired_booking": "#/components/schemas/FLBracketFaultBooking",
+            "same_team": "#/components/schemas/FLBracketFaultSpiel",
+            "seed_past_the_opening_round": "#/components/schemas/FLBracketFaultGruppe",
+            "source_feeds_another_fixture": "#/components/schemas/FLBracketFaultSlot",
+            "spiel_missing": "#/components/schemas/FLBracketFaultQuelle",
+            "tie_unresolved": "#/components/schemas/FLBracketFaultGruppe"
+          },
+          "propertyName": "reason"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/FLBracketFaultGruppe"
+          },
+          {
+            "$ref": "#/components/schemas/FLBracketFaultQuelle"
+          },
+          {
+            "$ref": "#/components/schemas/FLBracketFaultSpiel"
+          },
+          {
+            "$ref": "#/components/schemas/FLBracketFaultSlot"
+          },
+          {
+            "$ref": "#/components/schemas/FLBracketFaultOccupant"
+          },
+          {
+            "$ref": "#/components/schemas/FLBracketFaultSpieltag"
+          },
+          {
+            "$ref": "#/components/schemas/FLBracketFaultBooking"
+          },
+          {
+            "$ref": "#/components/schemas/FLBracketFaultClash"
+          }
+        ]
+      },
       "FLBracketFaultBooking": {
         "description": "A fixture still to be played booked onto a retired venue or referee.\n\nNothing is taken off: only a person chooses between reactivating the row and booking another.",
         "properties": {
@@ -4858,22 +4906,7 @@
         "description": "One slot carrying a reference it must not carry, whatever that reference names.",
         "properties": {
           "quelle": {
-            "discriminator": {
-              "mapping": {
-                "gruppe": "#/components/schemas/FLSpielQuelleGruppe",
-                "spiel": "#/components/schemas/FLSpielQuelleSpiel"
-              },
-              "propertyName": "type"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielQuelleGruppe"
-              },
-              {
-                "$ref": "#/components/schemas/FLSpielQuelleSpiel"
-              }
-            ],
-            "title": "Quelle"
+            "$ref": "#/components/schemas/FLSpielQuelle"
           },
           "reason": {
             "enum": [
@@ -8591,27 +8624,12 @@
           "team1_quelle": {
             "anyOf": [
               {
-                "discriminator": {
-                  "mapping": {
-                    "gruppe": "#/components/schemas/FLSpielQuelleGruppe",
-                    "spiel": "#/components/schemas/FLSpielQuelleSpiel"
-                  },
-                  "propertyName": "type"
-                },
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/FLSpielQuelleGruppe"
-                  },
-                  {
-                    "$ref": "#/components/schemas/FLSpielQuelleSpiel"
-                  }
-                ]
+                "$ref": "#/components/schemas/FLSpielQuelle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Team1 Quelle"
+            ]
           },
           "team2": {
             "anyOf": [
@@ -8626,27 +8644,12 @@
           "team2_quelle": {
             "anyOf": [
               {
-                "discriminator": {
-                  "mapping": {
-                    "gruppe": "#/components/schemas/FLSpielQuelleGruppe",
-                    "spiel": "#/components/schemas/FLSpielQuelleSpiel"
-                  },
-                  "propertyName": "type"
-                },
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/FLSpielQuelleGruppe"
-                  },
-                  {
-                    "$ref": "#/components/schemas/FLSpielQuelleSpiel"
-                  }
-                ]
+                "$ref": "#/components/schemas/FLSpielQuelle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Team2 Quelle"
+            ]
           },
           "uhrzeit": {
             "anyOf": [
@@ -8694,52 +8697,7 @@
           },
           "bracket_faults": {
             "items": {
-              "discriminator": {
-                "mapping": {
-                  "departed_occupant": "#/components/schemas/FLBracketFaultOccupant",
-                  "double_booked": "#/components/schemas/FLBracketFaultClash",
-                  "feeder_not_played_first": "#/components/schemas/FLBracketFaultQuelle",
-                  "fielded_twice": "#/components/schemas/FLBracketFaultSpieltag",
-                  "gruppe_not_run": "#/components/schemas/FLBracketFaultGruppe",
-                  "gruppe_too_small": "#/components/schemas/FLBracketFaultGruppe",
-                  "gruppenphase_feeder": "#/components/schemas/FLBracketFaultQuelle",
-                  "gruppenphase_fixture_wired": "#/components/schemas/FLBracketFaultSlot",
-                  "reference_cycle": "#/components/schemas/FLBracketFaultQuelle",
-                  "retired_booking": "#/components/schemas/FLBracketFaultBooking",
-                  "same_team": "#/components/schemas/FLBracketFaultSpiel",
-                  "seed_past_the_opening_round": "#/components/schemas/FLBracketFaultGruppe",
-                  "source_feeds_another_fixture": "#/components/schemas/FLBracketFaultSlot",
-                  "spiel_missing": "#/components/schemas/FLBracketFaultQuelle",
-                  "tie_unresolved": "#/components/schemas/FLBracketFaultGruppe"
-                },
-                "propertyName": "reason"
-              },
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/FLBracketFaultGruppe"
-                },
-                {
-                  "$ref": "#/components/schemas/FLBracketFaultQuelle"
-                },
-                {
-                  "$ref": "#/components/schemas/FLBracketFaultSpiel"
-                },
-                {
-                  "$ref": "#/components/schemas/FLBracketFaultSlot"
-                },
-                {
-                  "$ref": "#/components/schemas/FLBracketFaultOccupant"
-                },
-                {
-                  "$ref": "#/components/schemas/FLBracketFaultSpieltag"
-                },
-                {
-                  "$ref": "#/components/schemas/FLBracketFaultBooking"
-                },
-                {
-                  "$ref": "#/components/schemas/FLBracketFaultClash"
-                }
-              ]
+              "$ref": "#/components/schemas/FLBracketFault"
             },
             "title": "Bracket Faults",
             "type": "array"
@@ -12779,27 +12737,12 @@
           "team1_quelle": {
             "anyOf": [
               {
-                "discriminator": {
-                  "mapping": {
-                    "gruppe": "#/components/schemas/FLSpielQuelleGruppe",
-                    "spiel": "#/components/schemas/FLSpielQuelleSpiel"
-                  },
-                  "propertyName": "type"
-                },
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/FLSpielQuelleGruppe"
-                  },
-                  {
-                    "$ref": "#/components/schemas/FLSpielQuelleSpiel"
-                  }
-                ]
+                "$ref": "#/components/schemas/FLSpielQuelle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Team1 Quelle"
+            ]
           },
           "team2": {
             "anyOf": [
@@ -12814,27 +12757,12 @@
           "team2_quelle": {
             "anyOf": [
               {
-                "discriminator": {
-                  "mapping": {
-                    "gruppe": "#/components/schemas/FLSpielQuelleGruppe",
-                    "spiel": "#/components/schemas/FLSpielQuelleSpiel"
-                  },
-                  "propertyName": "type"
-                },
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/FLSpielQuelleGruppe"
-                  },
-                  {
-                    "$ref": "#/components/schemas/FLSpielQuelleSpiel"
-                  }
-                ]
+                "$ref": "#/components/schemas/FLSpielQuelle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Team2 Quelle"
+            ]
           },
           "uhrzeit": {
             "anyOf": [
@@ -12866,6 +12794,7 @@
           "sonderereignis",
           "saison_phase",
           "saison_id",
+          "notiz",
           "ansetzung_bestaetigt"
         ],
         "title": "FLSpielJoined",
@@ -12997,27 +12926,12 @@
           "team1_quelle": {
             "anyOf": [
               {
-                "discriminator": {
-                  "mapping": {
-                    "gruppe": "#/components/schemas/FLSpielQuelleGruppe",
-                    "spiel": "#/components/schemas/FLSpielQuelleSpiel"
-                  },
-                  "propertyName": "type"
-                },
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/FLSpielQuelleGruppe"
-                  },
-                  {
-                    "$ref": "#/components/schemas/FLSpielQuelleSpiel"
-                  }
-                ]
+                "$ref": "#/components/schemas/FLSpielQuelle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Team1 Quelle"
+            ]
           },
           "team2": {
             "anyOf": [
@@ -13032,27 +12946,12 @@
           "team2_quelle": {
             "anyOf": [
               {
-                "discriminator": {
-                  "mapping": {
-                    "gruppe": "#/components/schemas/FLSpielQuelleGruppe",
-                    "spiel": "#/components/schemas/FLSpielQuelleSpiel"
-                  },
-                  "propertyName": "type"
-                },
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/FLSpielQuelleGruppe"
-                  },
-                  {
-                    "$ref": "#/components/schemas/FLSpielQuelleSpiel"
-                  }
-                ]
+                "$ref": "#/components/schemas/FLSpielQuelle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Team2 Quelle"
+            ]
           },
           "uhrzeit": {
             "anyOf": [
@@ -13084,6 +12983,7 @@
           "sonderereignis",
           "saison_phase",
           "saison_id",
+          "notiz",
           "ansetzung_bestaetigt"
         ],
         "title": "FLSpielJoinedAdmin",
@@ -13170,6 +13070,23 @@
         ],
         "title": "FLSpielOrtFieldPublic",
         "type": "object"
+      },
+      "FLSpielQuelle": {
+        "discriminator": {
+          "mapping": {
+            "gruppe": "#/components/schemas/FLSpielQuelleGruppe",
+            "spiel": "#/components/schemas/FLSpielQuelleSpiel"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/FLSpielQuelleGruppe"
+          },
+          {
+            "$ref": "#/components/schemas/FLSpielQuelleSpiel"
+          }
+        ]
       },
       "FLSpielQuelleGruppe": {
         "description": "A slot fed by the group phase: the team finishing `platz` in `gruppe`.",
@@ -13370,7 +13287,8 @@
           }
         },
         "required": [
-          "name"
+          "name",
+          "name_is_public"
         ],
         "title": "FLSpielSchiedsrichterFieldPublic",
         "type": "object"
@@ -15969,52 +15887,7 @@
         "properties": {
           "bracket_faults": {
             "items": {
-              "discriminator": {
-                "mapping": {
-                  "departed_occupant": "#/components/schemas/FLBracketFaultOccupant",
-                  "double_booked": "#/components/schemas/FLBracketFaultClash",
-                  "feeder_not_played_first": "#/components/schemas/FLBracketFaultQuelle",
-                  "fielded_twice": "#/components/schemas/FLBracketFaultSpieltag",
-                  "gruppe_not_run": "#/components/schemas/FLBracketFaultGruppe",
-                  "gruppe_too_small": "#/components/schemas/FLBracketFaultGruppe",
-                  "gruppenphase_feeder": "#/components/schemas/FLBracketFaultQuelle",
-                  "gruppenphase_fixture_wired": "#/components/schemas/FLBracketFaultSlot",
-                  "reference_cycle": "#/components/schemas/FLBracketFaultQuelle",
-                  "retired_booking": "#/components/schemas/FLBracketFaultBooking",
-                  "same_team": "#/components/schemas/FLBracketFaultSpiel",
-                  "seed_past_the_opening_round": "#/components/schemas/FLBracketFaultGruppe",
-                  "source_feeds_another_fixture": "#/components/schemas/FLBracketFaultSlot",
-                  "spiel_missing": "#/components/schemas/FLBracketFaultQuelle",
-                  "tie_unresolved": "#/components/schemas/FLBracketFaultGruppe"
-                },
-                "propertyName": "reason"
-              },
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/FLBracketFaultGruppe"
-                },
-                {
-                  "$ref": "#/components/schemas/FLBracketFaultQuelle"
-                },
-                {
-                  "$ref": "#/components/schemas/FLBracketFaultSpiel"
-                },
-                {
-                  "$ref": "#/components/schemas/FLBracketFaultSlot"
-                },
-                {
-                  "$ref": "#/components/schemas/FLBracketFaultOccupant"
-                },
-                {
-                  "$ref": "#/components/schemas/FLBracketFaultSpieltag"
-                },
-                {
-                  "$ref": "#/components/schemas/FLBracketFaultBooking"
-                },
-                {
-                  "$ref": "#/components/schemas/FLBracketFaultClash"
-                }
-              ]
+              "$ref": "#/components/schemas/FLBracketFault"
             },
             "title": "Bracket Faults",
             "type": "array"

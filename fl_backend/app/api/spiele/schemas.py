@@ -24,7 +24,7 @@ from app.shared.schemas.custom import (
     CustomTimeString,
 )
 from app.shared.schemas.literals import FLAustrittType, FLGruppenNames, FLSaisonPhase, FLSonderereignis, FLSortOrder, FLSpielSeite
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 type FLSpielStatus = Literal["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"]
 
@@ -247,7 +247,7 @@ class FLSpielSchiedsrichterFieldPayload(_SpielSchiedsrichterBooking):
     payment: int = Field(ge=0)
 
 
-class FLSpielSchiedsrichterFieldPublic(_SpielSchiedsrichterNamed):
+class FLSpielSchiedsrichterFieldPublic(_SpielSchiedsrichterNamed, BaseReadModel):
     """The referee as the public reads serve it: a forename and a surname initial where they consented, else no name.
 
     Neither the payment nor the referee's id is served.
@@ -292,7 +292,7 @@ class FLSpielQuelleSpiel(BaseModel):
 
 
 # Tagged rather than a bare union, so a reader picks a variant without inspecting which keys exist.
-FLSpielQuelle = Annotated[FLSpielQuelleGruppe | FLSpielQuelleSpiel, Field(discriminator="type")]
+type FLSpielQuelle = Annotated[FLSpielQuelleGruppe | FLSpielQuelleSpiel, Field(discriminator="type")]
 
 
 # No `sieger`: a stored one could contradict the counts.
@@ -434,7 +434,7 @@ class FLBracketFaultClash(_BracketFault):
 
 
 # Discriminated, not flattened: a flat model expresses a cycle carrying a `platz`.
-FLBracketFault = Annotated[
+type FLBracketFault = Annotated[
     FLBracketFaultGruppe
     | FLBracketFaultQuelle
     | FLBracketFaultSpiel
@@ -523,7 +523,7 @@ SPIEL_PATCH_WRITTEN_FIELDS: Final = frozenset(FLPatchSpielDataPayload.model_fiel
 # The stored and the served shapes both extend THIS rather than one extending the other: they differ
 # in OPPOSITE directions, the stored one adding the two money fields and the served one each side's
 # joined season state.
-class FLSpielCommon(BaseModel):
+class FLSpielCommon(BaseReadModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
     # `None` while the occupant is unknown: absence is MODELLED, never impersonated by a placeholder.

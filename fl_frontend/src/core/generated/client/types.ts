@@ -2137,55 +2137,11 @@ export const FLBookingResource = {
   schiedsrichter: "schiedsrichter",
 } as const;
 
-/**
- * A fixture still to be played booked onto a retired venue or referee.
- *
- * Nothing is taken off: only a person chooses between reactivating the row and booking another.
- */
-export interface FLBracketFaultBooking {
-  booking: FLBookingResource;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  booking_id: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  inactive_since: string;
-  name: string | null;
-  reason: "retired_booking";
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  spiel_nr: number;
-}
-
-/**
- * A venue or referee claimed less than four hours from another fixture's claim, one entry per claim.
- *
- * It names the fixture a save's clash refusal names.
- */
-export interface FLBracketFaultClash {
-  booking: FLBookingResource;
-  name: string | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  other_datum: string;
-  other_saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  other_spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  other_spiel_nr: number;
-  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
-  other_uhrzeit: string;
-  reason: "double_booked";
-  saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  spiel_nr: number;
-}
-
 export type FLBracketFaultGruppeReason = (typeof FLBracketFaultGruppeReason)[keyof typeof FLBracketFaultGruppeReason];
 
 export const FLBracketFaultGruppeReason = {
-  gruppe_too_small: "gruppe_too_small",
   gruppe_not_run: "gruppe_not_run",
+  gruppe_too_small: "gruppe_too_small",
   seed_past_the_opening_round: "seed_past_the_opening_round",
   tie_unresolved: "tie_unresolved",
 } as const;
@@ -2207,42 +2163,13 @@ export interface FLBracketFaultGruppe {
   spiel_nr: number;
 }
 
-export type FLSpielSeite = (typeof FLSpielSeite)[keyof typeof FLSpielSeite];
-
-export const FLSpielSeite = {
-  team1: "team1",
-  team2: "team2",
-} as const;
-
-/**
- * One fixture fielding a team on or after the day it left the season, or undated, with no recorded absence excusing it.
- *
- * Nothing is emptied.
- */
-export interface FLBracketFaultOccupant {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  ausgeschieden_seit: string;
-  austritt_type: FLAustrittType;
-  reason: "departed_occupant";
-  side: FLSpielSeite;
-  spiel_datum: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  spiel_nr: number;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  /** @minLength 1 */
-  team_name: string;
-}
-
 export type FLBracketFaultQuelleReason = (typeof FLBracketFaultQuelleReason)[keyof typeof FLBracketFaultQuelleReason];
 
 export const FLBracketFaultQuelleReason = {
-  spiel_missing: "spiel_missing",
-  reference_cycle: "reference_cycle",
-  gruppenphase_feeder: "gruppenphase_feeder",
   feeder_not_played_first: "feeder_not_played_first",
+  gruppenphase_feeder: "gruppenphase_feeder",
+  reference_cycle: "reference_cycle",
+  spiel_missing: "spiel_missing",
 } as const;
 
 /**
@@ -2260,11 +2187,27 @@ export interface FLBracketFaultQuelle {
   spiel_nr: number;
 }
 
-export type FLBracketFaultSlotReason = (typeof FLBracketFaultSlotReason)[keyof typeof FLBracketFaultSlotReason];
+export type FLBracketFaultSpielReason = (typeof FLBracketFaultSpielReason)[keyof typeof FLBracketFaultSpielReason];
 
-export const FLBracketFaultSlotReason = {
-  gruppenphase_fixture_wired: "gruppenphase_fixture_wired",
-  source_feeds_another_fixture: "source_feeds_another_fixture",
+export const FLBracketFaultSpielReason = {
+  same_team: "same_team",
+} as const;
+
+/**
+ * One fixture whose two references resolve to the same club; the fixture keeps its stored sides.
+ */
+export interface FLBracketFaultSpiel {
+  reason: FLBracketFaultSpielReason;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+  /** @exclusiveMinimum 0 */
+  spiel_nr: number;
+}
+
+export type FLSpielQuelleGruppeType = (typeof FLSpielQuelleGruppeType)[keyof typeof FLSpielQuelleGruppeType];
+
+export const FLSpielQuelleGruppeType = {
+  gruppe: "gruppe",
 } as const;
 
 /**
@@ -2274,7 +2217,7 @@ export interface FLSpielQuelleGruppe {
   gruppe: FLGruppenNames;
   /** @exclusiveMinimum 0 */
   platz: number;
-  type: "gruppe";
+  type: FLSpielQuelleGruppeType;
 }
 
 export type FLSpielQuelleSpielAusgang = (typeof FLSpielQuelleSpielAusgang)[keyof typeof FLSpielQuelleSpielAusgang];
@@ -2284,6 +2227,12 @@ export const FLSpielQuelleSpielAusgang = {
   verlierer: "verlierer",
 } as const;
 
+export type FLSpielQuelleSpielType = (typeof FLSpielQuelleSpielType)[keyof typeof FLSpielQuelleSpielType];
+
+export const FLSpielQuelleSpielType = {
+  spiel: "spiel",
+} as const;
+
 /**
  * A slot fed by an earlier fixture: the side that came out of match `spiel_nr` as `ausgang`.
  */
@@ -2291,14 +2240,30 @@ export interface FLSpielQuelleSpiel {
   ausgang: FLSpielQuelleSpielAusgang;
   /** @exclusiveMinimum 0 */
   spiel_nr: number;
-  type: "spiel";
+  type: FLSpielQuelleSpielType;
 }
+
+export type FLSpielQuelle = FLSpielQuelleGruppe | FLSpielQuelleSpiel;
+
+export type FLBracketFaultSlotReason = (typeof FLBracketFaultSlotReason)[keyof typeof FLBracketFaultSlotReason];
+
+export const FLBracketFaultSlotReason = {
+  gruppenphase_fixture_wired: "gruppenphase_fixture_wired",
+  source_feeds_another_fixture: "source_feeds_another_fixture",
+} as const;
+
+export type FLSpielSeite = (typeof FLSpielSeite)[keyof typeof FLSpielSeite];
+
+export const FLSpielSeite = {
+  team1: "team1",
+  team2: "team2",
+} as const;
 
 /**
  * One slot carrying a reference it must not carry, whatever that reference names.
  */
 export interface FLBracketFaultSlot {
-  quelle: FLSpielQuelleGruppe | FLSpielQuelleSpiel;
+  quelle: FLSpielQuelle;
   reason: FLBracketFaultSlotReason;
   side: FLSpielSeite;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -2307,22 +2272,45 @@ export interface FLBracketFaultSlot {
   spiel_nr: number;
 }
 
+export type FLBracketFaultOccupantReason = (typeof FLBracketFaultOccupantReason)[keyof typeof FLBracketFaultOccupantReason];
+
+export const FLBracketFaultOccupantReason = {
+  departed_occupant: "departed_occupant",
+} as const;
+
 /**
- * One fixture whose two references resolve to the same club; the fixture keeps its stored sides.
+ * One fixture fielding a team on or after the day it left the season, or undated, with no recorded absence excusing it.
+ *
+ * Nothing is emptied.
  */
-export interface FLBracketFaultSpiel {
-  reason: "same_team";
+export interface FLBracketFaultOccupant {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  ausgeschieden_seit: string;
+  austritt_type: FLAustrittType;
+  reason: FLBracketFaultOccupantReason;
+  side: FLSpielSeite;
+  spiel_datum: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
   /** @exclusiveMinimum 0 */
   spiel_nr: number;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+  /** @minLength 1 */
+  team_name: string;
 }
+
+export type FLBracketFaultSpieltagReason = (typeof FLBracketFaultSpieltagReason)[keyof typeof FLBracketFaultSpieltagReason];
+
+export const FLBracketFaultSpieltagReason = {
+  fielded_twice: "fielded_twice",
+} as const;
 
 /**
  * A club standing more than once on one Spieltag, one entry per appearance.
  */
 export interface FLBracketFaultSpieltag {
-  reason: "fielded_twice";
+  reason: FLBracketFaultSpieltagReason;
   side: FLSpielSeite;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
@@ -2335,6 +2323,72 @@ export interface FLBracketFaultSpieltag {
   /** @minLength 1 */
   team_name: string;
 }
+
+export type FLBracketFaultBookingReason = (typeof FLBracketFaultBookingReason)[keyof typeof FLBracketFaultBookingReason];
+
+export const FLBracketFaultBookingReason = {
+  retired_booking: "retired_booking",
+} as const;
+
+/**
+ * A fixture still to be played booked onto a retired venue or referee.
+ *
+ * Nothing is taken off: only a person chooses between reactivating the row and booking another.
+ */
+export interface FLBracketFaultBooking {
+  booking: FLBookingResource;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  booking_id: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  inactive_since: string;
+  name: string | null;
+  reason: FLBracketFaultBookingReason;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+  /** @exclusiveMinimum 0 */
+  spiel_nr: number;
+}
+
+export type FLBracketFaultClashReason = (typeof FLBracketFaultClashReason)[keyof typeof FLBracketFaultClashReason];
+
+export const FLBracketFaultClashReason = {
+  double_booked: "double_booked",
+} as const;
+
+/**
+ * A venue or referee claimed less than four hours from another fixture's claim, one entry per claim.
+ *
+ * It names the fixture a save's clash refusal names.
+ */
+export interface FLBracketFaultClash {
+  booking: FLBookingResource;
+  name: string | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  other_datum: string;
+  other_saison_id: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  other_spiel_id: string;
+  /** @exclusiveMinimum 0 */
+  other_spiel_nr: number;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
+  other_uhrzeit: string;
+  reason: FLBracketFaultClashReason;
+  saison_id: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+  /** @exclusiveMinimum 0 */
+  spiel_nr: number;
+}
+
+export type FLBracketFault =
+  | FLBracketFaultGruppe
+  | FLBracketFaultQuelle
+  | FLBracketFaultSpiel
+  | FLBracketFaultSlot
+  | FLBracketFaultOccupant
+  | FLBracketFaultSpieltag
+  | FLBracketFaultBooking
+  | FLBracketFaultClash;
 
 /**
  * The link a visitor presents, and nothing else: the row it opens says which team and season it is for.
@@ -3599,9 +3653,9 @@ export interface FLPatchSpielDataPayload {
   schiedsrichter_stand: string | null;
   sonderereignis: FLSonderereignis | null;
   team1: FLSpielTeamFieldPayload | null;
-  team1_quelle: FLSpielQuelleGruppe | FLSpielQuelleSpiel | null;
+  team1_quelle: FLSpielQuelle | null;
   team2: FLSpielTeamFieldPayload | null;
-  team2_quelle: FLSpielQuelleGruppe | FLSpielQuelleSpiel | null;
+  team2_quelle: FLSpielQuelle | null;
   uhrzeit: string | null;
 }
 
@@ -3641,16 +3695,7 @@ export interface FLSpielReleasedSide {
  */
 export interface FLPatchSpielDataResponse {
   advanced_to: FLSpielAdvancement[];
-  bracket_faults: (
-    | FLBracketFaultGruppe
-    | FLBracketFaultQuelle
-    | FLBracketFaultSpiel
-    | FLBracketFaultSlot
-    | FLBracketFaultOccupant
-    | FLBracketFaultSpieltag
-    | FLBracketFaultBooking
-    | FLBracketFaultClash
-  )[];
+  bracket_faults: FLBracketFault[];
   released_sides: FLSpielReleasedSide[];
 }
 
@@ -4780,7 +4825,7 @@ export interface FLSpielOrtFieldPublic {
  */
 export interface FLSpielSchiedsrichterFieldPublic {
   name: string | null;
-  name_is_public?: boolean;
+  name_is_public: boolean;
 }
 
 /**
@@ -4809,7 +4854,7 @@ export interface FLSpielJoined {
   ergebnis: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  notiz?: string | null;
+  notiz: string | null;
   ort: FLSpielOrtFieldPublic | null;
   /**
    * @minLength 4
@@ -4824,9 +4869,9 @@ export interface FLSpielJoined {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieltag_id: string;
   team1: FLSpielTeamFieldJoined | null;
-  team1_quelle: FLSpielQuelleGruppe | FLSpielQuelleSpiel | null;
+  team1_quelle: FLSpielQuelle | null;
   team2: FLSpielTeamFieldJoined | null;
-  team2_quelle: FLSpielQuelleGruppe | FLSpielQuelleSpiel | null;
+  team2_quelle: FLSpielQuelle | null;
   uhrzeit: string | null;
 }
 
@@ -4865,7 +4910,7 @@ export interface FLSpielJoinedAdmin {
   ergebnis: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  notiz?: string | null;
+  notiz: string | null;
   ort: FLSpielOrtField | null;
   /**
    * @minLength 4
@@ -4880,9 +4925,9 @@ export interface FLSpielJoinedAdmin {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieltag_id: string;
   team1: FLSpielTeamFieldJoined | null;
-  team1_quelle: FLSpielQuelleGruppe | FLSpielQuelleSpiel | null;
+  team1_quelle: FLSpielQuelle | null;
   team2: FLSpielTeamFieldJoined | null;
-  team2_quelle: FLSpielQuelleGruppe | FLSpielQuelleSpiel | null;
+  team2_quelle: FLSpielQuelle | null;
   uhrzeit: string | null;
 }
 
@@ -5756,16 +5801,7 @@ export interface FLSpielbestaetigungenSelbstResponse {
  * match a fault or an open report names.
  */
 export interface FLSpieleActionRequiredResponse {
-  bracket_faults: (
-    | FLBracketFaultGruppe
-    | FLBracketFaultQuelle
-    | FLBracketFaultSpiel
-    | FLBracketFaultSlot
-    | FLBracketFaultOccupant
-    | FLBracketFaultSpieltag
-    | FLBracketFaultBooking
-    | FLBracketFaultClash
-  )[];
+  bracket_faults: FLBracketFault[];
   spielberichte: FLSpielberichtZustandEintrag[];
   spiele: FLSpielJoinedAdmin[];
 }
