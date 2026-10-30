@@ -218,7 +218,7 @@ class TestADrawnForfeitCannotDecideAKnockout:
         refusal = judge(proposed=rules(forfeit=(0, 0)))
 
         assert refusal is not None
-        assert refusal.error_code == Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT
+        assert refusal.error_code == Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT
 
     def test_the_refusal_names_the_award(self):
         """Any level pair, not 0:0 alone: what strands the bracket is the two numbers matching."""
@@ -226,7 +226,7 @@ class TestADrawnForfeitCannotDecideAKnockout:
         refusal = judge(proposed=rules(forfeit=(2, 2)))
 
         assert refusal is not None
-        assert refusal.error_code == Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT
+        assert refusal.error_code == Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT
 
     def test_a_season_playing_no_knockout_round_may_regulate_a_level_award(self):
         """3 x 1 reaches no bracket, so no round lacks a winner; `rules_bracket_impossible` passes the product because it did not change."""
@@ -239,12 +239,12 @@ class TestADrawnForfeitCannotDecideAKnockout:
         refusal = judge(stored=rules(groups=3, qualifiers=1, forfeit=(0, 0)), proposed=rules(groups=4, qualifiers=2, forfeit=(0, 0)))
 
         assert refusal is not None
-        assert refusal.error_code == Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT
+        assert refusal.error_code == Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT
 
     def test_permits_resubmitting_a_stored_pairing_unchanged(self):
         """`rules` is required on the patch, so refusing this would leave a season stored that way unpatchable.
 
-        The one arm this rule cannot judge by the proposal: `_forfeit_draws_a_knockout` is read on both sides for it.
+        The one arm this rule cannot judge by the proposal: `_forfeit_unentschieden_in_a_knockout` is read on both sides for it.
         """
 
         drawn = rules(forfeit=(0, 0))
@@ -267,7 +267,7 @@ class TestADrawnForfeitCannotDecideAKnockout:
         )
 
         assert refusal is not None
-        assert refusal.error_code == Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT
+        assert refusal.error_code == Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT
 
 
 class TestNarrowingTheGroupCount:

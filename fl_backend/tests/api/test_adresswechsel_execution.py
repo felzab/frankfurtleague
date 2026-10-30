@@ -538,9 +538,7 @@ class TestTheSystemsReadOfTheNewAddress:
             minted = await start(database, client)
             async with app_client(mongo_replica_set_url, app=create_app(config_for(DATABASE_NAME))) as http:
                 capfd.readouterr()
-                response = await http.post(
-                    f"/api/v{API_VERSION}/adresswechsel/adresse", headers=SYSTEM_AUTH, json={"token": minted.token}
-                )
+                response = await http.post(f"/api/v{API_VERSION}/adresswechsel/adresse", headers=SYSTEM_AUTH, json={"token": minted.token})
                 written = capfd.readouterr()
             return response.status_code, response.json(), written.out + written.err
 

@@ -15,7 +15,7 @@ from pydantic import SecretStr
 from app.core import clock
 from app.core.codes import Code
 from app.core.config import BackendConfig, get_app_config
-from app.core.exceptions import ACTOR_TOKEN_CHALLENGE, APIError
+from app.core.exceptions import ACTOR_CHALLENGE, APIError
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, PersonActor, actor_var, request_var
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, ENROLMENT_WINDOW_MINUTES, PERSON_WINDOW_DAYS, STEP_UP_WINDOW_HOURS
@@ -30,7 +30,7 @@ BEARER_CHALLENGE: Final = {"WWW-Authenticate": "Bearer"}
 KeySelector = Callable[[BackendConfig], SecretStr]
 
 
-def verify_api_key(select_key: KeySelector, error_code: Code, *, scheme_name: str) -> Callable:
+def verify_api_key(select_key: KeySelector, *, scheme_name: str) -> Callable:
     """Build a guard that compares the bearer token against one configured key.
 
     The key is selected PER REQUEST: capturing its value here would read the environment at import
@@ -38,17 +38,15 @@ def verify_api_key(select_key: KeySelector, error_code: Code, *, scheme_name: st
     """
 
     # A scheme per tier, so each operation's published `security` names the key it takes.
-    # `auto_error=False` so a missing header answers `MISSING_TOKEN`, where FastAPI's own 403 carries no code.
+    # `auto_error=False` so a missing header answers `access_key_refused`, where FastAPI's own 403 carries no code.
     scheme = HTTPBearer(scheme_name=scheme_name, auto_error=False)
 
     def dependency(
         credentials: Annotated[HTTPAuthorizationCredentials | None, Security(scheme)],
         config: Annotated[BackendConfig, Depends(get_app_config)],
     ) -> str:
-        if credentials is None:
+        if credentials is None or not secrets.compare_digest(credentials.credentials, select_key(config).get_secret_value()):
             raise APIError(HTTPStatus.UNAUTHORIZED, Code.ACCESS_KEY_REFUSED, headers=BEARER_CHALLENGE)
-        if not secrets.compare_digest(credentials.credentials, select_key(config).get_secret_value()):
-            raise APIError(HTTPStatus.UNAUTHORIZED, error_code, headers=BEARER_CHALLENGE)
         return credentials.credentials
 
     return dependency
@@ -56,11 +54,9 @@ def verify_api_key(select_key: KeySelector, error_code: Code, *, scheme_name: st
 
 # Module-level objects, so every router declares the same callable: FastAPI caches a dependency per
 # request by its callable, and runs a guard declared twice once.
-verify_access_base = verify_api_key(lambda config: config.internal_api_key_base, error_code=Code.ACCESS_KEY_REFUSED, scheme_name="BaseKey")
-verify_access_system = verify_api_key(
-    lambda config: config.internal_api_key_system, error_code=Code.ACCESS_KEY_REFUSED, scheme_name="SystemKey"
-)
-verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admin, error_code=Code.ACCESS_KEY_REFUSED, scheme_name="AdminKey")
+verify_access_base = verify_api_key(lambda config: config.internal_api_key_base, scheme_name="BaseKey")
+verify_access_system = verify_api_key(lambda config: config.internal_api_key_system, scheme_name="SystemKey")
+verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admin, scheme_name="AdminKey")
 
 
 def get_actor_email() -> str:
@@ -93,7 +89,7 @@ PASSKEY_FACTOR: Final = "passkey"
 
 
 # The actor's own scheme on every 401 the session's facts earn, beside the tier key's `Bearer`.
-ACTOR_REFUSAL_HEADERS: Final = {"WWW-Authenticate": ACTOR_TOKEN_CHALLENGE}
+ACTOR_REFUSAL_HEADERS: Final = {"WWW-Authenticate": ACTOR_CHALLENGE}
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -203,7 +199,7 @@ def confirmation_required(window_s: int) -> APIError:
     """`confirmation_required`'s refusal of a write asking a sign-in or confirmation inside `window_s`, every raise of it built here."""
 
     # RFC 9470 §3's error and parameter, under the actor's own scheme.
-    challenge = f'{ACTOR_TOKEN_CHALLENGE} error="insufficient_user_authentication", max_age="{window_s}"'
+    challenge = f'{ACTOR_CHALLENGE} error="insufficient_user_authentication", max_age="{window_s}"'
     return APIError(HTTPStatus.UNAUTHORIZED, Code.CONFIRMATION_REQUIRED, headers={"WWW-Authenticate": challenge})
 
 

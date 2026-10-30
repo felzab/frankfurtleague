@@ -217,12 +217,12 @@ class Code(StrEnum):
     RULES_QUALIFIERS_ABOVE_GRUPPE = auto()
     RULES_UNENTSCHIEDEN_OUTVALUES_WIN = auto()
     RULES_KADER_BELOW_USE = auto()
-    RULES_FORFEIT_DRAWS_A_KNOCKOUT = auto()
+    RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT = auto()
     RULES_SHAPE_AFTER_SPIELPLAN = auto()
     RULES_SPIELE_OVER_ONE_READ = auto()
     # The draw's twin of a code it shares with a season write: the draw judges the STORED rules beneath
     # its shape, so a refusal reading a stored value is a conflict with state, a 409.
-    RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED = auto()
+    RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT_AS_STORED = auto()
     SCHIEDSRICHTER_RETIRED = auto()
     SCHIEDSRICHTER_KEINE_ADRESSE = auto()
     # Its own code and never `duplicate_key`, which the ban list's client words as a second ban of one

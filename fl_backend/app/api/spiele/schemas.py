@@ -95,7 +95,7 @@ def records_an_absence(*, side: str, sonderereignis: FLSonderereignis | None, sa
 
     # Only `awards_nothing` takes the phase gate: a cancelled knockout advances nobody, where a
     # no-show names the absent side and composes a result advancing the other -- which rests on
-    # `rules_forfeit_draws_a_knockout` barring a level forfeit here.
+    # `rules_forfeit_unentschieden_in_a_knockout` barring a level forfeit here.
     return stayed_away or (awards_nothing and saison_phase == "gruppenphase")
 
 

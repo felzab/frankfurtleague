@@ -148,10 +148,10 @@ export const Code = {
   rules_qualifiers_above_gruppe: "rules_qualifiers_above_gruppe",
   rules_unentschieden_outvalues_win: "rules_unentschieden_outvalues_win",
   rules_kader_below_use: "rules_kader_below_use",
-  rules_forfeit_draws_a_knockout: "rules_forfeit_draws_a_knockout",
+  rules_forfeit_unentschieden_in_a_knockout: "rules_forfeit_unentschieden_in_a_knockout",
   rules_shape_after_spielplan: "rules_shape_after_spielplan",
   rules_spiele_over_one_read: "rules_spiele_over_one_read",
-  rules_forfeit_draws_a_knockout_as_stored: "rules_forfeit_draws_a_knockout_as_stored",
+  rules_forfeit_unentschieden_in_a_knockout_as_stored: "rules_forfeit_unentschieden_in_a_knockout_as_stored",
   schiedsrichter_retired: "schiedsrichter_retired",
   schiedsrichter_keine_adresse: "schiedsrichter_keine_adresse",
   schiedsrichter_adresse_gesperrt: "schiedsrichter_adresse_gesperrt",
@@ -253,7 +253,7 @@ export const FLSpielerStufe = {
  * What a fixture is awarded when one side does not appear.
  *
  * Both sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.
- * A LEVEL award needs a season with no knockout round (`rules_forfeit_draws_a_knockout`).
+ * A LEVEL award needs a season with no knockout round (`rules_forfeit_unentschieden_in_a_knockout`).
  */
 export interface FLSaisonForfeitErgebnis {
   /** @minimum 0 */

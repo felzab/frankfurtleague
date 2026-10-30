@@ -24,7 +24,7 @@ from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS
 from app.api.sperrliste.services import adresse_hash
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.exceptions import ACTOR_TOKEN_CHALLENGE, APIError
+from app.core.exceptions import ACTOR_CHALLENGE, APIError
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, AktorFunktion, PersonActor, actor_var, record_write, request_var
 from app.core.security import (
     AUTH_TIME_HEADER,
@@ -136,7 +136,7 @@ class TestTheAdministratorsSession:
         response = client().delete(WRITE_PATH, headers=headers)
 
         assert answer(response) == (401, Code.SESSION_REFUSED)
-        assert response.headers["www-authenticate"] == ACTOR_TOKEN_CHALLENGE
+        assert response.headers["www-authenticate"] == ACTOR_CHALLENGE
 
 
 # The writes held to the enrolment window, each declaring the check.
@@ -204,7 +204,7 @@ DECLARATIONS = [
 
 
 def challenge(window_s: int) -> str:
-    return f'{ACTOR_TOKEN_CHALLENGE} error="insufficient_user_authentication", max_age="{window_s}"'
+    return f'{ACTOR_CHALLENGE} error="insufficient_user_authentication", max_age="{window_s}"'
 
 
 def refusal_of(check: WindowCheck, actor: SessionActor) -> APIError | None:

@@ -76,7 +76,7 @@ export function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?:
       return { fieldErrors: { "rules.max_kadergroesse": "Mindestens ein Kader hat schon mehr Spieler als dieses Maximum." } };
     // On the winner's box, which is the one to raise, and only there: the pair's own row picks it up
     // through `saisonDraftStatus`'s `errorPaths`.
-    case "rules_forfeit_draws_a_knockout":
+    case "rules_forfeit_unentschieden_in_a_knockout":
       return { fieldErrors: { "rules.forfeit_ergebnis.sieger_tore": FORFEIT_CANNOT_DECIDE } };
     // Neither freeze can see whether the other holds, so each names only the fields it freezes. A
     // reload is the whole repair: the panel holds these read-only, so only a season that started
@@ -160,7 +160,7 @@ export function mapSpielplanRefusal(error: unknown, carriedShape: boolean): stri
     case "rules_spiele_over_one_read":
       return shapeFaultMessage(TOO_MANY_FIXTURES);
     // The forfeit is never a draw's own number, so its repair is the rules panel.
-    case "rules_forfeit_draws_a_knockout_as_stored":
+    case "rules_forfeit_unentschieden_in_a_knockout_as_stored":
       return rulesFaultMessage(FORFEIT_CANNOT_DECIDE);
     // NOT through a fault message, whose tails send the admin to change a number: the dates are the
     // repair that works whatever the numbers are. Only where a smaller one could be typed differs,

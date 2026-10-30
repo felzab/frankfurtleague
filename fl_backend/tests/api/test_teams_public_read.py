@@ -61,7 +61,8 @@ ADMIN_FILTERS: type[BaseModel] = get_type_hints(get_teams_verwaltung)["filters"]
 # drops an undeclared key before any read sees it.
 _PUBLISHED_PATHS = build_document()["paths"]
 BASE_QUERY_PARAMETERS = {parameter["name"] for parameter in _PUBLISHED_PATHS[f"/api/v{API_VERSION}/teams"]["get"]["parameters"]}
-ADMIN_QUERY_PARAMETERS = {parameter["name"] for parameter in _PUBLISHED_PATHS[f"/api/v{API_VERSION}/teams/list/verwaltung"]["get"]["parameters"]}
+_ADMIN_LIST = _PUBLISHED_PATHS[f"/api/v{API_VERSION}/teams/list/verwaltung"]
+ADMIN_QUERY_PARAMETERS = {parameter["name"] for parameter in _ADMIN_LIST["get"]["parameters"]}
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 

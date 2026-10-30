@@ -1737,7 +1737,7 @@ export const SaisonsPostSaisonBody = zod.object({
         verlierer_tore: zod.int().min(saisonsPostSaisonBodyRulesForfeitErgebnisVerliererToreMin),
       })
       .describe(
-        "What a fixture is awarded when one side does not appear.\n\nBoth sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.\nA LEVEL award needs a season with no knockout round (`rules_forfeit_draws_a_knockout`).",
+        "What a fixture is awarded when one side does not appear.\n\nBoth sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.\nA LEVEL award needs a season with no knockout round (`rules_forfeit_unentschieden_in_a_knockout`).",
       ),
     max_kadergroesse: zod.int().gt(saisonsPostSaisonBodyRulesMaxKadergroesseExclusiveMin),
     number_of_groups: zod.int().gt(saisonsPostSaisonBodyRulesNumberOfGroupsExclusiveMin).max(saisonsPostSaisonBodyRulesNumberOfGroupsMax),
@@ -1852,7 +1852,7 @@ export const SaisonsPatchSaisonBody = zod.object({
         verlierer_tore: zod.int().min(saisonsPatchSaisonBodyRulesForfeitErgebnisVerliererToreMin),
       })
       .describe(
-        "What a fixture is awarded when one side does not appear.\n\nBoth sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.\nA LEVEL award needs a season with no knockout round (`rules_forfeit_draws_a_knockout`).",
+        "What a fixture is awarded when one side does not appear.\n\nBoth sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.\nA LEVEL award needs a season with no knockout round (`rules_forfeit_unentschieden_in_a_knockout`).",
       ),
     max_kadergroesse: zod.int().gt(saisonsPatchSaisonBodyRulesMaxKadergroesseExclusiveMin),
     number_of_groups: zod.int().gt(saisonsPatchSaisonBodyRulesNumberOfGroupsExclusiveMin).max(saisonsPatchSaisonBodyRulesNumberOfGroupsMax),

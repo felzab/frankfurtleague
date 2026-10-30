@@ -195,7 +195,7 @@ finished season, correcting a mistyped one changing nothing anybody competed for
   qualified for anything, and entering a result is what fills the slots downstream.
 - **A level knockout fixture is settled by a shoot-out**, whose own scoreline is stored beside the result and
   never inside it. A no-show is awarded a scoreline the season configures, and a season that plays a knockout
-  round may not configure that award level (`rules_forfeit_draws_a_knockout`) — a drawn forfeit would leave the round with
+  round may not configure that award level (`rules_forfeit_unentschieden_in_a_knockout`) — a drawn forfeit would leave the round with
   nobody to advance.
 - **A club leaves one season, never the league.** An `austritt` record says which of the two routes out it
   took, and the club's own document is untouched by it.
