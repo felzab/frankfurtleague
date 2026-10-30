@@ -532,22 +532,6 @@ def find_wahlen_refusal(*, seite: FLRegistrierungSeite, umfang: Any, medien: Any
     )
 
 
-def find_ohne_geburtsdatum_refusal(*, seite: FLRegistrierungSeite, gespeichert: Any) -> WriteRefusal | None:
-    """`REQ-REGISTRIERUNG-019`: the returning pupil's page takes the stored birthdate, and the person holds none.
-
-    Only a hand edit leaves one (`app/core/constraints.py :: NAMELESS_PERSON_RULE`), and the page has no date
-    field, so the league is the repair.
-    """
-
-    if seite != SEITE_WIEDERKEHREND or gespeichert is not None:
-        return None
-
-    return WriteRefusal(
-        error_code=Code.REGISTRIERUNG_OHNE_GEBURTSDATUM,
-        status=HTTPStatus.CONFLICT,
-    )
-
-
 def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> WriteRefusal | None:
     """Why this pupil's media consent is refused, or `None`.
 

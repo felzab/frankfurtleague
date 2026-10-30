@@ -457,20 +457,6 @@ class TestWhatAConfirmationWrites:
         assert code == Code.REGISTRIERUNG_ALTER
         assert document == registrierung_document()
 
-    def test_a_returning_pupil_whose_person_holds_no_date_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
-        """Only a hand edit leaves a person undated, and the page has no field to fill: a refusal reopening the link would loop."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(APIError) as refused:
-                await answer(database, client, RAW, geburtsdatum=None, umfang=None, medien=None, text_version=RETURNING_LABEL)
-
-            return (refused.value.error_code, refused.value.status_code), await stored(database)
-
-        code, document = on_a_league(mongo_replica_set_url, body, spieler=[spieler_document(SPIELER_OID, geburtsdatum=None)])
-
-        assert code == (Code.REGISTRIERUNG_OHNE_GEBURTSDATUM, 409)
-        assert document == registrierung_document()
-
     def test_the_answer_carries_nothing_of_the_registration_beyond_what_was_posted(self, mongo_replica_set_url: str):
         """A response re-read off the updated document would widen this page's answer to everything a registration holds."""
 

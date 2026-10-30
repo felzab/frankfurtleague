@@ -335,10 +335,9 @@ async def sweep_saison(
                 session=session,
             )
         )
-        # Judged row by row: a decision date a hand edit left unreadable is passed over in place, and the rest of the page goes.
-        taken = batch.took([row for row, due in batch.judged(rows, lambda row: decline_erasure_is_due(bewerbung_raw=row, today=today)) if due])
+        taken = batch.took([row for row in rows if decline_erasure_is_due(bewerbung_raw=row, today=today)])
         if not taken:
-            refuse_a_stalled_page(read=len(rows), moved=len(batch.refused), page=SWEEP_PAGE, clock="decline", saison_id=saison_id)
+            refuse_a_stalled_page(read=len(rows), moved=0, page=SWEEP_PAGE, clock="decline", saison_id=saison_id)
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]
