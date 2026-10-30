@@ -1,5 +1,5 @@
 import { existsSync, globSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import css from "@eslint/css";
@@ -265,78 +265,77 @@ function sendersOf(operationId) {
 }
 
 /**
- * Each pass by its operation ids: the module wrapping their senders, the wrapper's exports, and the modules running
- * it. The drain is `core/mail.ts`'s, run by the scheduler and by `drainSoon`; the activation press runs the pupils'
+ * Each pass by its operation ids: the module wrapping their senders, which the wrapper's ban names by its file name,
+ * the wrapper's exports, and the modules running it. The drain is `core/mail.ts`'s, run by the scheduler and by `drainSoon`; the activation press runs the pupils'
  * deletion beside its job.
  */
 const BACKGROUND_PASSES = [
   {
     operations: ["postausgang_post_ausgabe", "postausgang_post_ergebnis"],
-    wrapper: { file: "src/core/mail.ts", regex: moduleNamed("mail"), names: ["drainPostausgang"] },
+    wrapper: { file: "src/core/mail.ts", names: ["drainPostausgang"] },
     runners: ["src/instrumentation-node.ts", "src/core/afterResponse.ts"],
   },
   {
     operations: ["bewerbungen_get_sweep_saisons", "bewerbungen_sweep_saison"],
-    wrapper: {
-      file: "src/features/bewerbungen/mutations.ts",
-      regex: moduleNamed("mutations"),
-      names: ["getBewerbungSweepSaisons", "postBewerbungSweep"],
-    },
+    wrapper: { file: "src/features/bewerbungen/mutations.ts", names: ["getBewerbungSweepSaisons", "postBewerbungSweep"] },
     runners: ["src/features/bewerbungen/sweep.ts"],
   },
   {
     operations: ["registrierungen_sweep_registrierungen"],
-    wrapper: { file: "src/features/registrierungen/mutations.ts", regex: moduleNamed("mutations"), names: ["postRegistrierungSweep"] },
+    wrapper: { file: "src/features/registrierungen/mutations.ts", names: ["postRegistrierungSweep"] },
     runners: ["src/features/bewerbungen/sweep.ts"],
   },
   {
     operations: ["adresswechsel_sweep_adresswechsel"],
-    wrapper: { file: "src/features/adresswechsel/mutations.ts", regex: moduleNamed("mutations"), names: ["postAdresswechselSweep"] },
+    wrapper: { file: "src/features/adresswechsel/mutations.ts", names: ["postAdresswechselSweep"] },
     runners: ["src/features/adresswechsel/sweep.ts"],
   },
   {
     operations: ["adresswechsel_get_adresswechsel_umzuege", "adresswechsel_post_adresswechsel_umzuege_erledigt"],
-    wrapper: {
-      file: "src/features/adresswechsel/mutations.ts",
-      regex: moduleNamed("mutations"),
-      names: ["getAdresswechselUmzuege", "postAdresswechselUmzuegeErledigt"],
-    },
+    wrapper: { file: "src/features/adresswechsel/mutations.ts", names: ["getAdresswechselUmzuege", "postAdresswechselUmzuegeErledigt"] },
     runners: ["src/features/adresswechsel/umzug.ts"],
   },
   {
     operations: ["identitaet_get_referenzen"],
-    wrapper: { file: "src/features/funktionen/mutations.ts", regex: moduleNamed("mutations"), names: ["postReferenzen"] },
+    wrapper: { file: "src/features/funktionen/mutations.ts", names: ["postReferenzen"] },
     runners: ["src/features/funktionen/sweep.ts"],
   },
   {
     operations: ["identitaet_sweep_loeschung"],
-    wrapper: { file: "src/features/saisons/mutations.ts", regex: moduleNamed("mutations"), names: ["postLoeschungSweep"] },
+    wrapper: { file: "src/features/saisons/mutations.ts", names: ["postLoeschungSweep"] },
     runners: ["src/features/saisons/sweep.ts", "src/features/saisons/actions.ts"],
   },
   {
     operations: ["spielbestaetigungen_get_sweep_saisons", "spielbestaetigungen_sweep_spielbestaetigungen"],
     wrapper: {
       file: "src/features/spielbestaetigungen/mutations.ts",
-      regex: moduleNamed("mutations"),
       names: ["getSpielbestaetigungSweepSaisons", "postSpielbestaetigungSweep"],
     },
     runners: ["src/features/spielbestaetigungen/sweep.ts"],
   },
   {
     operations: ["berechtigungen_post_berechtigungen_abgleich"],
-    wrapper: { file: "src/features/berechtigungen/mutations.ts", regex: moduleNamed("mutations"), names: ["postBerechtigungenAbgleich"] },
+    wrapper: { file: "src/features/berechtigungen/mutations.ts", names: ["postBerechtigungenAbgleich"] },
     runners: ["src/features/berechtigungen/abgleich.ts"],
   },
 ];
 
-// A sender renamed in the contract would drop out of its ban in silence, as a renamed file would.
-const GENERATED_SENDERS = readFileSync(fileURLToPath(new URL(GENERATED_SDK_PATH, import.meta.url)), "utf8");
-const UNSENT = BACKGROUND_PASSES.flatMap(({ operations }) => operations.flatMap(sendersOf)).filter(
-  (name) => !GENERATED_SENDERS.includes(`export const ${name} =`),
-);
-if (UNSENT.length > 0) {
+// A sender renamed in the contract, or a wrapper's export renamed, would drop out of its ban in silence, as a renamed
+// file would.
+const sourceOf = (path) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
+const GENERATED_SENDERS = sourceOf(GENERATED_SDK_PATH);
+const UNEXPORTED = BACKGROUND_PASSES.flatMap(({ operations, wrapper }) => {
+  const wrapped = sourceOf(wrapper.file);
+  return [
+    ...operations.flatMap(sendersOf).filter((name) => !GENERATED_SENDERS.includes(`export const ${name} =`)),
+    ...wrapper.names
+      .filter((name) => !new RegExp(String.raw`^export (?:async function|function|const) ${name}\b`, "m").test(wrapped))
+      .map((name) => `${wrapper.file} :: ${name}`),
+  ];
+});
+if (UNEXPORTED.length > 0) {
   throw new Error(
-    `eslint.config.mjs bans generated senders the contract no longer exports: ${UNSENT.join(", ")}. Name each pass's operations anew.`,
+    `eslint.config.mjs bans exports that no longer exist: ${UNEXPORTED.join(", ")}. Name each pass's operations and its wrapper's exports anew.`,
   );
 }
 
@@ -348,7 +347,11 @@ const BACKGROUND_PASS_BANS = BACKGROUND_PASSES.flatMap(({ operations, wrapper, r
     importBan({ regex: GENERATED_SDK, importNames: senders, message: reached(senders, [wrapper.file, ...runners]) }, PRODUCTION, {
       allow: [wrapper.file, ...runners],
     }),
-    importBan({ regex: wrapper.regex, importNames: wrapper.names, message: reached(wrapper.names, runners) }, PRODUCTION, { allow: runners }),
+    importBan(
+      { regex: moduleNamed(basename(wrapper.file, ".ts")), importNames: wrapper.names, message: reached(wrapper.names, runners) },
+      PRODUCTION,
+      { allow: runners },
+    ),
   ];
 });
 
