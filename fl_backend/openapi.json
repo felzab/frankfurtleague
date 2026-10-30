@@ -4980,6 +4980,21 @@
         "title": "FLBracketFaultSpieltag",
         "type": "object"
       },
+      "FLCreatedResponse": {
+        "description": "The id a create minted, which the caller reads the new record by.",
+        "properties": {
+          "created_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Created Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "created_id"
+        ],
+        "title": "FLCreatedResponse",
+        "type": "object"
+      },
       "FLEinladungAnsichtResponse": {
         "description": "What an invite's holder is told before they type anything, and the bounds the form is held to.",
         "properties": {
@@ -9554,20 +9569,6 @@
         "title": "FLPostTeamPayload",
         "type": "object"
       },
-      "FLPostTeamResponse": {
-        "properties": {
-          "created_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Created Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "created_id"
-        ],
-        "title": "FLPostTeamResponse",
-        "type": "object"
-      },
       "FLReferenzenPayload": {
         "additionalProperties": false,
         "description": "The sign-in addresses a pass of the account sweep asks about.",
@@ -11303,36 +11304,6 @@
           "trainer_ist_zugleich"
         ],
         "title": "FLSaisonTeamKontaktePayload",
-        "type": "object"
-      },
-      "FLSaisonTeamPersonEinwilligungPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
-          },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Text Version",
-            "type": "string"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
-          }
-        },
-        "required": [
-          "umfang",
-          "medien",
-          "text_version",
-          "nachweis_stand"
-        ],
-        "title": "FLSaisonTeamPersonEinwilligungPayload",
         "type": "object"
       },
       "FLSaisonTeamPersonEinwilligungResponse": {
@@ -31094,7 +31065,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLPostTeamResponse"
+                  "$ref": "#/components/schemas/FLCreatedResponse"
                 }
               }
             },
@@ -32467,7 +32438,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLSaisonTeamPersonEinwilligungPayload"
+                "$ref": "#/components/schemas/FLSitzEinwilligungPayload"
               }
             }
           },

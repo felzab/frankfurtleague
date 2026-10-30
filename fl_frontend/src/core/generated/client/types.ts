@@ -2282,6 +2282,14 @@ export interface FLBracketFaultSpieltag {
 }
 
 /**
+ * The id a create minted, which the caller reads the new record by.
+ */
+export interface FLCreatedResponse {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  created_id: string;
+}
+
+/**
  * What an invite's holder is told before they type anything, and the bounds the form is held to.
  */
 export interface FLEinladungAnsichtResponse {
@@ -3914,11 +3922,6 @@ export interface FLPostTeamPayload {
   website_url: string | null;
 }
 
-export interface FLPostTeamResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  created_id: string;
-}
-
 /**
  * The sign-in addresses a pass of the account sweep asks about.
  */
@@ -4289,18 +4292,6 @@ export interface FLSaisonTeamEinwilligungAntwortResponse {
   medien: boolean;
   quelle: "saison";
   whatsapp: boolean;
-}
-
-export interface FLSaisonTeamPersonEinwilligungPayload {
-  medien: boolean;
-  nachweis_stand: FLEinwilligungStandPayload;
-  /**
-   * @minLength 1
-   * @maxLength 64
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  text_version: string;
-  umfang: FLKontaktKenntnisnahmeUmfang;
 }
 
 /**

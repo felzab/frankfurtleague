@@ -42,7 +42,6 @@ from app.api.teams.schemas import (
     FLPatchTeamResponse,
     FLPostSaisonTeamPayload,
     FLPostTeamPayload,
-    FLPostTeamResponse,
     FLReplaceSaisonTeamPayload,
     FLReplaceSaisonTeamResponse,
     FLSaisonTeamResponse,
@@ -133,6 +132,7 @@ from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktZeile
+from app.shared.schemas.responses import FLCreatedResponse
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/teams",
@@ -272,12 +272,12 @@ async def get_teams_for_admin(
     )
 
 
-@router.post("", response_model=FLPostTeamResponse, status_code=201, summary="Create a team")
+@router.post("", response_model=FLCreatedResponse, status_code=201, summary="Create a team")
 async def post_team(
     team_data: Annotated[FLPostTeamPayload, Body()],
     teams_collection: TeamsCollection,
     db: DBClient,
-) -> FLPostTeamResponse:
+) -> FLCreatedResponse:
     """Create a club. `shorthand` is unique across every club, retired ones included, so a duplicate is a 409."""
 
     async def found_the_club(session: AsyncClientSession) -> InsertOneResult:
@@ -286,7 +286,7 @@ async def post_team(
     async with transaction_session(db) as session:
         post_operation = await session.with_transaction(found_the_club)
 
-    return FLPostTeamResponse(
+    return FLCreatedResponse(
         created_id=post_operation.inserted_id,
     )
 

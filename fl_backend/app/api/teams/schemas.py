@@ -44,7 +44,6 @@ from app.shared.schemas.einwilligung import (
     CustomEinwilligungTextVersion,
     FLEinwilligungNachweise,
     FLEinwilligungStand,
-    FLEinwilligungStandPayload,
 )
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.literals import (
@@ -629,26 +628,6 @@ class FLPatchSaisonTeamKontaktePayload(BaseModel):
     kontakte_stand: str
 
 
-class SitzEinwilligungPayload(BaseModel):
-    """A seat holder's own two choices for every seat they hold on one row, under the name each seat control publishes.
-
-    Both choices on every press: a page that sent one alone would leave the other judged by nothing.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    umfang: FLKontaktKenntnisnahmeUmfang
-    medien: bool
-    # The label of the account page's seat control the press was given under, recorded on its evidence.
-    text_version: CustomEinwilligungTextVersion
-    # The row's `nachweis_stand` as the page was served it.
-    nachweis_stand: FLEinwilligungStandPayload
-
-
-class FLSaisonTeamPersonEinwilligungPayload(SitzEinwilligungPayload):
-    pass
-
-
 class FLReplaceSaisonTeamPayload(BaseModel):
     """Which club takes this season's row over. The path names the club going OUT."""
 
@@ -732,10 +711,6 @@ class FLTeamsSingleResponse(BaseAPIResponse):
 
     format: Literal["single"] = "single"
     team: FLTeam
-
-
-class FLPostTeamResponse(BaseAPIResponse):
-    created_id: CustomObjectId
 
 
 class FLPatchTeamResponse(BaseAPIResponse):

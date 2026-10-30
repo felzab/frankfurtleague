@@ -4481,15 +4481,19 @@ export const teamsPatchEinwilligungBodyTextVersionMax = 64;
 
 export const teamsPatchEinwilligungBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 
-export const TeamsPatchEinwilligungBody = zod.object({
-  medien: zod.boolean(),
-  nachweis_stand: zod.object({
-    medien: zod.union([zod.string(), zod.null()]),
-    umfang: zod.union([zod.string(), zod.null()]),
-  }),
-  text_version: zod.string().min(1).max(teamsPatchEinwilligungBodyTextVersionMax).regex(teamsPatchEinwilligungBodyTextVersionRegExp),
-  umfang: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
-});
+export const TeamsPatchEinwilligungBody = zod
+  .object({
+    medien: zod.boolean(),
+    nachweis_stand: zod.object({
+      medien: zod.union([zod.string(), zod.null()]),
+      umfang: zod.union([zod.string(), zod.null()]),
+    }),
+    text_version: zod.string().min(1).max(teamsPatchEinwilligungBodyTextVersionMax).regex(teamsPatchEinwilligungBodyTextVersionRegExp),
+    umfang: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
+  })
+  .describe(
+    "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+  );
 
 /**
  * The team's three seats in this season, each with its holder's name and whether that person has confirmed it.
