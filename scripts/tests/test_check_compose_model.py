@@ -654,8 +654,7 @@ def test_a_secret_mounted_elsewhere_fails():
     """Each reader takes the default path, so a file mounted anywhere else is no file to it."""
     rendered = stack_of("production")
     rendered["services"]["backend"]["secrets"] = [
-        entry | {"target": "/etc/key"} if entry["source"] == "sperrliste_key" else entry
-        for entry in rendered["services"]["backend"]["secrets"]
+        entry | {"target": "/etc/key"} if entry["source"] == "sperrliste_key" else entry for entry in rendered["services"]["backend"]["secrets"]
     ]
 
     found = checker.secret_holders(rendered, "p", RENDER, "production")
