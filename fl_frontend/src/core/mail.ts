@@ -262,7 +262,7 @@ async function drain(): Promise<void> {
     if (lease === null) return;
 
     for (const mail of mails) {
-      const report = { lease: lease, ...(await zustellen(mail)) };
+      const report = { lease: lease, ...(await sendHandedOut(mail)) };
       // The provider's name for a refusal is its own token, kept only where the endpoint takes it: the outcome stands
       // without one, as `fl_frontend/src/app/api/mail/zustellung/route.ts` keeps a delivery event's.
       const response = await outboxPostResult(OutboxPostResultBody.safeParse(report).data ?? { ...report, grund: null });
@@ -276,7 +276,7 @@ async function drain(): Promise<void> {
  * repeat of this send, and a later hand-out mints a fresh link under a key of its own
  * (https://resend.com/docs/dashboard/emails/idempotency-keys). The ban was judged at the hand-out.
  */
-async function zustellen(mail: FLOutboxHandout): Promise<Omit<FLOutboxResultPayload, "lease">> {
+async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResultPayload, "lease">> {
   // Opened here alone, sealed by `fl_frontend/src/core/auth.ts :: oweSignInMail` under the same key, and held by this
   // scope alone: never on a line, never in an error.
   let secret: string | null = null;

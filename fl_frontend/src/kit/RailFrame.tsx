@@ -71,8 +71,8 @@ export function RailFrame({
     foot.kind === "signIn"
       ? [
           { label: COPY.shared.verb.anmelden, href: foot.href },
-          { label: COPY.seite.impressum, href: ROUTES.impressum.path() },
-          { label: COPY.seite.datenschutz, href: ROUTES.datenschutz.path() },
+          { label: COPY.seite.impressum, href: ROUTES.legalNotice.path() },
+          { label: COPY.seite.datenschutz, href: ROUTES.privacyNotice.path() },
         ]
       : [];
   const pages = groups.flatMap((group) => group.entries.flatMap((entry) => (entry.saison === undefined ? [] : [entry.saison])));
@@ -242,7 +242,7 @@ export function RailPage({
           <nav
             aria-label={COPY.vorlage.navigation}
             className="ms-auto hidden gap-1 lg:flex">
-            {[ROUTES.impressum, ROUTES.datenschutz].map((page) => (
+            {[ROUTES.legalNotice, ROUTES.privacyNotice].map((page) => (
               <NextLink
                 key={page.path()}
                 href={page.path()}

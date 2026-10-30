@@ -22,7 +22,7 @@ const BACKEND = "https://backend.invalid/api/v0/outbox/sign_in";
 
 /**
  * Stands in for the Postausgang and its drain in one step: a sign-in mail owed is recorded as the backend would store it,
- * then opened and rendered as `fl_frontend/src/core/mail.ts :: zustellen` does, under the suite's own key, and sent; every
+ * then opened and rendered as `fl_frontend/src/core/mail.ts :: sendHandedOut` does, under the suite's own key, and sent; every
  * other mail is owed by the backend's own write and drained by nothing here.
  */
 export function doubleOutbox(): {

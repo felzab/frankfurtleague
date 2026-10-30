@@ -48,17 +48,17 @@ export const ROUTES = {
     indexed: true,
   },
   // Session 3: its page is built.
-  spielsuche: {
+  spielSearch: {
     path: (saison: string) => `/saisons/${saison}/search` as const,
     title: COPY.seite.spielsuche,
     indexed: true,
   },
   about: { path: () => "/about" as const, title: COPY.seite.about, indexed: true },
-  kontakt: { path: () => "/kontakt" as const, title: COPY.seite.kontakt, indexed: true },
+  contact: { path: () => "/kontakt" as const, title: COPY.seite.kontakt, indexed: true },
   // Session 3: its page is built.
   sponsors: { path: () => "/sponsors" as const, title: COPY.seite.sponsoren, indexed: true },
-  impressum: { path: () => "/impressum" as const, title: COPY.seite.impressum, indexed: true },
-  datenschutz: { path: () => "/datenschutz" as const, title: COPY.seite.datenschutz, indexed: true },
+  legalNotice: { path: () => "/impressum" as const, title: COPY.seite.impressum, indexed: true },
+  privacyNotice: { path: () => "/datenschutz" as const, title: COPY.seite.datenschutz, indexed: true },
   /** Signing in, which every page signed out offers as „Anmelden“. */
   signIn: { path: () => "/signin" as const, title: COPY.anmeldung.titel, indexed: false },
   /** The passkey step a sign-in reaches where its session is to set one up, use one or is offered one. */

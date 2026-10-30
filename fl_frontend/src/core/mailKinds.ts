@@ -57,7 +57,7 @@ type DataPerArt = { [A in OutboxArt]: Member<OutboxData, A> };
 interface Handout {
   /** The raw link token minted for this hand-out, or null where the mail carries no link. */
   readonly token: string | null;
-  /** The row's secret, opened by the drain (`fl_frontend/src/core/mail.ts :: zustellen`), or null where it holds none. */
+  /** The row's secret, opened by the drain (`fl_frontend/src/core/mail.ts :: sendHandedOut`), or null where it holds none. */
   readonly secret: string | null;
   /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not production mails no production link. */
   readonly origin: string;
