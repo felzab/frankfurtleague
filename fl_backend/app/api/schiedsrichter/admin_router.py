@@ -298,7 +298,7 @@ async def patch_schiedsrichter(
     fixtures of every referee already erased.
     """
 
-    payload = schiedsrichter_data.model_dump(mode="json")
+    payload = schiedsrichter_data.model_dump(mode="json", exclude={"version"})
     email = schiedsrichter_data.kontakt.email
     gehasht = sperrliste.hash_of(email)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`), and read on every
@@ -329,6 +329,7 @@ async def patch_schiedsrichter(
             collection=schiedsrichter_collection,
             db_filter=build_referee_filter(schiedsrichter_id),
             update=update,
+            expected_version=schiedsrichter_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )

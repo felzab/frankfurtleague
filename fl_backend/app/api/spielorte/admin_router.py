@@ -144,7 +144,8 @@ async def patch_spielort(
         updated_document_raw = await patch_one_in_db(
             collection=spielorte_collection,
             db_filter={"_id": spielort_id},
-            update={"$set": {**spielort_data.model_dump(mode="json"), "maps_link": maps_link}},
+            update={"$set": {**spielort_data.model_dump(mode="json", exclude={"version"}), "maps_link": maps_link}},
+            expected_version=spielort_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )

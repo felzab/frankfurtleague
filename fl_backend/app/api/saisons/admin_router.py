@@ -463,7 +463,8 @@ async def patch_saison(
         updated_document_raw = await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
-            update={"$set": saison_data.model_dump(mode="json")},
+            update={"$set": saison_data.model_dump(mode="json", exclude={"version"})},
+            expected_version=saison_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )

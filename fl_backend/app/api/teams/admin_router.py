@@ -102,7 +102,6 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
-    VERSION_FIELD,
     aggregate_many_from_db,
     insert_live,
     patch_many_in_db,
@@ -333,7 +332,8 @@ async def patch_team(
         updated_raw = await patch_one_in_db(
             collection=teams_collection,
             db_filter={"_id": team_id},
-            update={"$set": team_data.model_dump(mode="json")},
+            update={"$set": team_data.model_dump(mode="json", exclude={"version"})},
+            expected_version=team_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )
@@ -591,7 +591,8 @@ async def patch_saison_team(
         updated_raw = await patch_one_in_db(
             collection=saison_teams_collection,
             db_filter={"team_id": team_id, "saison_id": saison_id},
-            update={"$set": saison_team_data.model_dump(mode="json")},
+            update={"$set": saison_team_data.model_dump(mode="json", exclude={"version"})},
+            expected_version=saison_team_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )
@@ -760,7 +761,8 @@ async def patch_saison_team_kontakte(
             # The two paths, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
             # `trikot_farbe` belong to the junction PATCH, and a `$set` carrying them would reinstate
             # whatever this caller last read. The version the editor sent is the helper's to check.
-            update={"$set": {"kontakte": kontakte, "bestaetigungen": bestaetigungen, VERSION_FIELD: kontakte_data.version}},
+            update={"$set": {"kontakte": kontakte, "bestaetigungen": bestaetigungen}},
+            expected_version=kontakte_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )

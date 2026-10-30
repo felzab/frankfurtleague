@@ -1,7 +1,7 @@
 """
 CORE · the version every edited document carries, written and checked by the two patch helpers alone
 
-A save naming the version its form was read at matches only while it stands; every other write raises it.
+A save passing the version its form was read at matches only while it stands; every other write raises it.
 """
 
 from collections.abc import Awaitable, Callable
@@ -60,14 +60,20 @@ async def stored(database: AsyncDatabase, spiel_id: ObjectId) -> dict[str, Any]:
     return document
 
 
-async def save(database: AsyncDatabase, update: dict[str, Any]) -> None:
-    await patch_one_in_db(collection=database[Collection.SPIELE], db_filter={"_id": FIRST}, update=update, return_document=ReturnDocument.AFTER)
+async def save(database: AsyncDatabase, update: dict[str, Any], *, expected_version: int | None = None) -> None:
+    await patch_one_in_db(
+        collection=database[Collection.SPIELE],
+        db_filter={"_id": FIRST},
+        update=update,
+        expected_version=expected_version,
+        return_document=ReturnDocument.AFTER,
+    )
 
 
 class TestASaveNamingItsVersion:
     def test_a_save_on_the_version_standing_writes_and_raises_it(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> dict[str, Any]:
-            await save(database, {"$set": {"notiz": "verlegt", VERSION_FIELD: 0}})
+            await save(database, {"$set": {"notiz": "verlegt"}}, expected_version=0)
 
             return await stored(database, FIRST)
 
@@ -79,7 +85,7 @@ class TestASaveNamingItsVersion:
         async def body(database: AsyncDatabase) -> tuple[APIError, dict[str, Any]]:
             await save(database, {"$set": {"notiz": "zuerst"}})
             with pytest.raises(APIError) as refused:
-                await save(database, {"$set": {"notiz": "veraltet", VERSION_FIELD: 0}})
+                await save(database, {"$set": {"notiz": "veraltet"}}, expected_version=0)
 
             return refused.value, await stored(database, FIRST)
 

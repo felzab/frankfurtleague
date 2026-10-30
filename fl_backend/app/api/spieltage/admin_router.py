@@ -216,7 +216,8 @@ async def patch_spieltag(
         updated_raw = await patch_one_in_db(
             collection=spieltage_collection,
             db_filter={"_id": spieltag_id},
-            update={"$set": spieltag_data.model_dump(mode="json")},
+            update={"$set": spieltag_data.model_dump(mode="json", exclude={"version"})},
+            expected_version=spieltag_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )

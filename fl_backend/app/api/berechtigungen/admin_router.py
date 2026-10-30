@@ -66,7 +66,7 @@ from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_
 from app.api.sperrliste.services import withheld_actor
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import VERSION_FIELD, aggregate_many_from_db, loeschen_many_from_db, patch_one_in_db, post_one_to_db, refuse
+from app.core.crud import aggregate_many_from_db, loeschen_many_from_db, patch_one_in_db, post_one_to_db, refuse
 from app.core.dependencies import (
     AdresswechselCollection,
     BerechtigungenAngekuendigtCollection,
@@ -640,10 +640,10 @@ async def _move_the_tier_in_session(
                 # Its owner's power dates from now, so the promoted holder's older sessions keep
                 # administering and hold none of it.
                 **({"ernannt_am": now} if verwaltung == OWNER else {}),
-                # Taken into the filter by the helper: a tier change opened before another write is refused.
-                VERSION_FIELD: version,
             }
         },
+        # A tier change opened before another write is refused.
+        expected_version=version,
         session=session,
         return_document=ReturnDocument.BEFORE,
     )

@@ -81,31 +81,19 @@ async def pull_many_from_db(
 
 # Every document of an `EDITED_COLLECTIONS` member carries this count of its writes: 0 when created, raised by every
 # update through the two patch helpers below, and never by an anchor, which changes nothing a reader sees. A save
-# names the count its form was read at as this key of its `$set`, and matches only while the count stands there:
+# passes the count its form was read at as `expected_version`, and matches only while the count stands there:
 # MongoDB's documented pattern, "include the expected current value in the update filter" (the manual's
 # write-operations atomicity page), Mongoose's `optimisticConcurrency`.
 VERSION_FIELD: Final = "version"
 
 
-def _versioned(collection: AsyncCollection, update: Mapping[str, Any], *, checks: bool) -> tuple[Mapping[str, Any], int | None]:
-    """`update` raising the version, and the version its `$set` named, which `checks` alone may carry."""
+def _versioned(collection: AsyncCollection, update: Mapping[str, Any]) -> Mapping[str, Any]:
+    """`update` raising the version, on a collection whose documents count their writes."""
 
-    fields = dict(update.get("$set", {}))
-    expected = fields.pop(VERSION_FIELD, None)
-    if expected is not None and not checks:
-        raise ValueError(f"a fan-out over {collection.name} checks no {VERSION_FIELD}")
     if collection.name not in EDITED_COLLECTIONS:
-        if VERSION_FIELD in update.get("$set", {}):
-            raise ValueError(f"{collection.name} is in no EDITED_COLLECTIONS, so a write to it carries no {VERSION_FIELD}")
-        return update, None
+        return update
 
-    raised: dict[str, Any] = {**update, "$inc": {**update.get("$inc", {}), VERSION_FIELD: 1}}
-    # Dropped rather than sent empty, which the server refuses: a save may change nothing but the count.
-    raised.pop("$set", None)
-    if fields:
-        raised["$set"] = fields
-
-    return raised, expected
+    return {**update, "$inc": {**update.get("$inc", {}), VERSION_FIELD: 1}}
 
 
 async def patch_one_in_db(
@@ -113,26 +101,29 @@ async def patch_one_in_db(
     collection: AsyncCollection,
     db_filter: Mapping[str, Any],
     update: Mapping[str, Any],
+    expected_version: int | None = None,
     session: AsyncClientSession | None = None,
     return_document: bool,
 ) -> Mapping[str, Any]:
     """`return_document` has no default, so every caller weighs the two images.
 
     `BEFORE` answers the state the write just replaced. `AFTER` re-reads the document, which a patch
-    inside a transaction reads anyway and one outside it pays a round trip for. A `$set` naming
-    `VERSION_FIELD` is refused `version_stale` once another write has raised the count.
+    inside a transaction reads anyway and one outside it pays a round trip for. An `expected_version`
+    is refused `version_stale` once another write has raised the count; `None` checks nothing.
     """
 
-    update, expected = _versioned(collection, update, checks=True)
-    if expected is not None:
-        db_filter = {**db_filter, VERSION_FIELD: expected}
+    if expected_version is not None:
+        if collection.name not in EDITED_COLLECTIONS:
+            raise ValueError(f"{collection.name} is in no EDITED_COLLECTIONS, so a write to it checks no {VERSION_FIELD}")
+        db_filter = {**db_filter, VERSION_FIELD: expected_version}
+    update = _versioned(collection, update)
 
     # `BEFORE` whatever the caller asked for: `find_one_and_update` yields one image, and only the
     # update's own is taken with the write.
     before = await collection.find_one_and_update(filter=db_filter, update=update, session=session, return_document=ReturnDocument.BEFORE)
     if before is None:
         # A removed document reads as a changed one, as no second read tells the two apart.
-        raise DocumentNotFoundError() if expected is None else APIError(HTTPStatus.CONFLICT, Code.VERSION_STALE)
+        raise DocumentNotFoundError() if expected_version is None else APIError(HTTPStatus.CONFLICT, Code.VERSION_STALE)
     replaced_id = before["_id"]
 
     async def read_back() -> Mapping[str, Any]:
@@ -201,7 +192,7 @@ async def patch_many_in_db(
     # The caller's filter is what the row records: the narrowing only restates which documents a `$set`
     # changes, and the log page shows each filter key as the set the fan-out ran over.
     matched = _changed_by(db_filter, update) if collection.name in EDITED_COLLECTIONS else db_filter
-    update, _ = _versioned(collection, update, checks=False)
+    update = _versioned(collection, update)
 
     result = await collection.update_many(filter=matched, update=update, session=session)
 

@@ -430,7 +430,8 @@ async def patch_spiel(
         await patch_one_in_db(
             collection=spiele_collection,
             db_filter={"_id": spiel_id},
-            update={"$set": {**document, VERSION_FIELD: spiel_data.version}},
+            update={"$set": document},
+            expected_version=spiel_data.version,
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
