@@ -89,7 +89,8 @@ def find_keine_saison_refusal(*, massgebliche_saison_id: str | None) -> WriteRef
 def stored_adresse_hash(address: str, *, schluessel: SecretStr) -> str | None:
     """The ban key of a stored address, or `None` where today's rule refuses it, as no ban can key one.
 
-    Never raising: a page of rows must not fail on the one a hand edit or an older rule left.
+    Never raising: the actor fields it is asked of hold markers as well as addresses, and a stored address an older
+    rule admitted must not fail the page it sits on.
     """
 
     try:
