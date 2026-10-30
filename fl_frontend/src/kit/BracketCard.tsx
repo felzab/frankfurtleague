@@ -1,10 +1,10 @@
 import { Link } from "./Link";
-import { figures, look, NONE, sideMarks } from "./MatchRow";
+import { figures, look, NONE, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
 import type { Route } from "next";
-import type { Figures, SpielRowProps, SpielSide } from "./MatchRow";
+import type { Figures, SpielRowProps, SpielSide } from "./SpielRow";
 
 const card = tv({
   extend: sideMarks,

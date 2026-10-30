@@ -1,6 +1,6 @@
-import { logRefused } from "@/core/verweigert";
+import { logRefused } from "@/core/refused";
 
-import type { Refusal } from "@/core/verweigert";
+import type { Refusal } from "@/core/refused";
 
 /** Why a page turned a signed-in person away: the session it was judged under stands, so never `keine_sitzung`. */
 export type PageVerweigerung = Exclude<Refusal, "keine_sitzung">;

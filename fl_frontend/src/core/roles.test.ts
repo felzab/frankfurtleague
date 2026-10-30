@@ -5,8 +5,8 @@ import { person, seat, SEAT } from "@/test-support/subjectFixtures.ts";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { grantsAPanel, rolesOf } from "./funktionen.ts";
 import { FLSaisonStatus } from "./generated/client/types.ts";
+import { grantsAPanel, rolesOf } from "./roles.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { formatErgebnis } from "@/core/format";
 
-import { SpielList } from "./MatchRow";
+import { SpielList } from "./SpielRow";
 
 const SPIEL = {
   id: "1",

@@ -11,7 +11,7 @@ import { RouterProvider } from "@heroui/react/rac";
 import { COPY } from "@/core/copy";
 
 import { counterpart, SaisonScope } from "./FrameNav";
-import { SaisonButton } from "./SeasonButton";
+import { SaisonButton } from "./SaisonButton";
 
 import type { SaisonPage, Saisons } from "./FrameNav";
 

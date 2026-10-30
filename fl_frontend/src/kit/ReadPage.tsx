@@ -1,14 +1,14 @@
 import { Facts } from "./Facts";
-import { SpielList } from "./MatchRow";
 import { formColumn, RailPage } from "./RailFrame";
 import { SectionTitle } from "./Section";
+import { SpielList } from "./SpielRow";
 import { Table } from "./Table";
 
 import type { Copy } from "@/core/copy";
 import type { ReactElement } from "react";
 import type { Fact } from "./Facts";
-import type { SpielRowProps } from "./MatchRow";
 import type { RailPageHead } from "./RailFrame";
+import type { SpielRowProps } from "./SpielRow";
 import type { TableProps } from "./Table";
 
 type GroupContent =

@@ -22,10 +22,10 @@ import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite, unansweredRead } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { nichtHinterlegt } from "@/shared/utils/format";
-import { REGISTRIERUNGSLINK_TITEL, reportLinkDispatch } from "@/shared/utils/linkVersandToast";
+import { REGISTRIERUNGSLINK_TITEL, reportLinkDispatch } from "@/shared/utils/linkDispatchToast";
 
 import type { FLEinladungVersandGrund, FLEinladungVersandVorschauZeile, FLEinladungVersandZeile } from "@/core/generated/client/types";
-import type { DispatchTitel } from "@/shared/utils/linkVersandToast";
+import type { DispatchTitel } from "@/shared/utils/linkDispatchToast";
 
 /** The ruling's own words, copied rather than reworded: a label a visitor navigates by is nobody's here to choose. */
 const SENDEN_LABEL = "Links an alle Teams senden";

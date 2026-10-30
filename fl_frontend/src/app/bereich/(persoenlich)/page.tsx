@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { rolesOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/roles";
 import { FunktionenView } from "@/features/funktionen/components/views/FunktionenView";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { zieleOf } from "@/features/funktionen/utils";

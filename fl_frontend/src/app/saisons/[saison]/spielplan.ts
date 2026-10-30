@@ -19,8 +19,8 @@ import type { FLSaison, FLSonderereignis, FLSpielQuelle, FLSpielTeamFieldJoined 
 import type { FLSpiel } from "@/features/spiele/types";
 import type { Fact } from "@/kit/Facts";
 import type { Saisons } from "@/kit/FrameNav";
-import type { SpielHeadProps } from "@/kit/MatchHead";
-import type { SpielRowProps, SpielSide } from "@/kit/MatchRow";
+import type { SpielHeadProps } from "@/kit/SpielHead";
+import type { SpielRowProps, SpielSide } from "@/kit/SpielRow";
 
 /** The season an address names, among the seasons the public may read; any other is not found. */
 export async function readSaison(saisonId: string): Promise<{ saison: FLSaison }> {

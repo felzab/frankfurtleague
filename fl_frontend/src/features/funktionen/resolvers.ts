@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { redirect } from "next/navigation";
 
-import { rolesOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/roles";
 import { getSubjectSession } from "@/core/subject";
 import { isFunktionLost } from "@/shared/utils/actionError";
 

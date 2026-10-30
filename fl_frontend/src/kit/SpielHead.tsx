@@ -1,11 +1,11 @@
 import { COPY } from "@/core/copy";
 import { ERGEBNIS_TRENNER } from "@/core/format";
 
-import { figures, look, NONE, sideMarks } from "./MatchRow";
+import { figures, look, NONE, sideMarks } from "./SpielRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
-import type { Figures, SpielRowProps, SpielSide } from "./MatchRow";
+import type { Figures, SpielRowProps, SpielSide } from "./SpielRow";
 
 export type SpielHeadProps = {
   /** The line above the pairing, as a competition's round stands over a scoreboard: the matchday. */

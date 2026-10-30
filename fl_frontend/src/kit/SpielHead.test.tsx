@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { SpielHead } from "./MatchHead";
-import { NONE } from "./MatchRow";
+import { SpielHead } from "./SpielHead";
+import { NONE } from "./SpielRow";
 
 const PAIRING = {
   eyebrow: "1. Spieltag",

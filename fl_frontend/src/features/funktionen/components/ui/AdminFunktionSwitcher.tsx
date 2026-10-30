@@ -1,6 +1,6 @@
 import { getAdminSession } from "@/core/auth";
 import { asSignInIdentifier } from "@/core/emailAddress";
-import { rolesOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/roles";
 import { lookUpSubjekt } from "@/core/signInGate";
 import { ADMIN_SHELL_FALLBACK } from "@/features/admin/constants";
 import { FunktionSwitcher } from "@/shared/components/layout/sidemenu/FunktionSwitcher";

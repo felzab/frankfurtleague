@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { rolesOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/roles";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { logPageVerweigert } from "@/features/funktionen/verweigert";
 import { SchiedsrichterSelfView } from "@/features/schiedsrichter/components/views/SchiedsrichterSelfView";

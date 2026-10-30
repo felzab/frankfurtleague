@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
 import { isRecordMissing } from "@/core/errors";
-import { rolesOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/roles";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { logPageVerweigert } from "@/features/funktionen/verweigert";
 import { kontextOf } from "@/features/spielberichte/components/forms/SpielberichtForm/spielberichtDraft";

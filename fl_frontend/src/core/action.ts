@@ -7,23 +7,23 @@ import { unstable_rethrow } from "next/navigation";
 import { judgeAdminRequest } from "./auth";
 import { COPY } from "./copy";
 import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
-import { isSeatAt, rolesOf } from "./funktionen";
 import { logger } from "./logging";
+import { logRefused } from "./refused";
 import { runWithRequestScope } from "./requestScope";
+import { isSeatAt, rolesOf } from "./roles";
 import { SERVER_COPY } from "./serverCopy";
 import { SITE_CACHE_TAG } from "./siteCache";
 import { getSubjectSession } from "./subject";
 import { mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "./trace";
 import { turnstileRefusal } from "./turnstile";
 import { TURNSTILE_FIELD } from "./turnstileToken";
-import { logRefused } from "./verweigert";
 import { fieldMessage } from "./zodGerman";
 
 import type { z } from "zod";
 import type { AdminRefusal } from "./auth";
 import type { Copy } from "./copy";
-import type { Role } from "./funktionen";
 import type { Code, FLRefusedField } from "./generated/client/types";
+import type { Role } from "./roles";
 import type { SubjectSession } from "./subject";
 
 /**

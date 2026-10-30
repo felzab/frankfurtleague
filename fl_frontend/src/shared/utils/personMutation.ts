@@ -2,17 +2,17 @@
 import { refresh } from "next/cache";
 
 import { APIBadStatusError } from "@/core/errors";
-import { isSeatAt, rolesOf } from "@/core/funktionen";
+import { logRefused } from "@/core/refused";
+import { isSeatAt, rolesOf } from "@/core/roles";
 import { getSubjectSession } from "@/core/subject";
-import { logRefused } from "@/core/verweigert";
 
 import { ANMELDUNG_ABGELAUFEN, SITZ_WEG } from "./actionError";
 import { logActionFailure } from "./actionFailure";
 import { runGuardedMutation, stepUpRequired } from "./adminMutation";
 
-import type { Role } from "@/core/funktionen";
+import type { Refusal } from "@/core/refused";
+import type { Role } from "@/core/roles";
 import type { SubjectSession } from "@/core/subject";
-import type { Refusal } from "@/core/verweigert";
 import type { ActionFailure } from "@/shared/types/types";
 
 /** The team and season a person's write claims a seat on, as the action's own argument carries them. */

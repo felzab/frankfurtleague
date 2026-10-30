@@ -7,7 +7,7 @@ import { StatusPanel } from "@/shared/components/ui/StatusPanel";
 
 import { zieleOf } from "../../utils";
 
-import type { Role } from "@/core/funktionen";
+import type { Role } from "@/core/roles";
 
 const BEREICH = { href: "/bereich", label: DEIN_BEREICH_TITEL };
 

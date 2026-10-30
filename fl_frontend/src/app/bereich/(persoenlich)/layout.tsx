@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-import { rolesOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/roles";
 import { getSubjectSession } from "@/core/subject";
 import { PersonAreaBoundary } from "@/features/funktionen/components/providers/PersonAreaBoundary";
 import { PersonSessionHold } from "@/features/funktionen/components/providers/PersonSessionHold";

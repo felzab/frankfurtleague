@@ -4,7 +4,7 @@ import { Callout } from "@/kit/Callout";
 import { RouteDialog } from "@/kit/Dialog";
 import { Facts } from "@/kit/Facts";
 import { Link } from "@/kit/Link";
-import { SpielHead } from "@/kit/MatchHead";
+import { SpielHead } from "@/kit/SpielHead";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";

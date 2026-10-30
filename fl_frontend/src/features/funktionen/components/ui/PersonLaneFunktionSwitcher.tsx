@@ -1,4 +1,4 @@
-import { rolesOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/roles";
 import { getSubjectSession } from "@/core/subject";
 import { FunktionSwitcher } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
 

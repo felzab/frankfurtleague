@@ -30,7 +30,7 @@ import { useStepUp } from "@/shared/hooks/useStepUp";
 import { LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
-import { reportAddressChangeDispatch } from "@/shared/utils/linkVersandToast";
+import { reportAddressChangeDispatch } from "@/shared/utils/linkDispatchToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 import { toFieldErrors } from "@/shared/utils/validation";
 

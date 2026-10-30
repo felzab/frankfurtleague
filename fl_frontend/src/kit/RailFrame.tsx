@@ -12,7 +12,7 @@ import { LeaveGuardProvider } from "./LeaveGuard";
 import { frameLink } from "./Link";
 import { RailRoot, RailToggle, RailTooltip } from "./RailState";
 import { RAIL_ID, railFade, railGlyph } from "./railStyles";
-import { SaisonButton } from "./SeasonButton";
+import { SaisonButton } from "./SaisonButton";
 import { ToastRegion } from "./Toast";
 import { tv } from "./tv";
 

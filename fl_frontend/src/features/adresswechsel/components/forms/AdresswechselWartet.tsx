@@ -28,7 +28,7 @@ import { LINK_UNKLAR, rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { FOCUS_HEADING, focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { reportAddressChangeDispatch } from "@/shared/utils/linkVersandToast";
+import { reportAddressChangeDispatch } from "@/shared/utils/linkDispatchToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLAdresswechselVerwaltungOffen, FLAdresswechselWartetAuf, FLAdresswechselWeg } from "@/core/generated/client/types";

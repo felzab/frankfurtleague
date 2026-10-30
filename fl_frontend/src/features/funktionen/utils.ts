@@ -4,7 +4,7 @@ import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
 import { teamHref } from "./teamSeats";
 
-import type { Role } from "@/core/funktionen";
+import type { Role } from "@/core/roles";
 import type { FunktionOrt } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
 import type { PersonEintrag } from "./constants";
 

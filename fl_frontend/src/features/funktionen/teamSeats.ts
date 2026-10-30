@@ -1,6 +1,6 @@
-import { isSeatAt } from "@/core/funktionen";
+import { isSeatAt } from "@/core/roles";
 
-import type { Role } from "@/core/funktionen";
+import type { Role } from "@/core/roles";
 
 /** One contact seat a person holds, the only Funktion a team's area answers to. */
 export type TeamSeat = Extract<Role, { art: "kontakt" }>;

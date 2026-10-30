@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 
 import { ListPage } from "@/kit/ListPage";
-import { SpielList } from "@/kit/MatchRow";
+import { SpielList } from "@/kit/SpielRow";
 import { chosenTab } from "@/kit/tabChoice";
 
 import { COPY } from "@/core/copy";
