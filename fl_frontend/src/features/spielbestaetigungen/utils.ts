@@ -1,5 +1,5 @@
 import { hasTakenPlace } from "@/features/saisons/utils";
-import { ansetzungGeaendert, tageBis, wirdAngefragt } from "@/features/spiele/components/forms/AdminEditSpielDataForm/banners";
+import { ansetzungGeaendert } from "@/features/spiele/components/forms/AdminEditSpielDataForm/banners";
 import { CLASH_BUFFER_TEXT } from "@/features/spiele/constants";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
@@ -7,20 +7,20 @@ import { formatSpielDatum, formatUhrzeit, NICHT_HINTERLEGT } from "@/shared/util
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
+import type {
+  FLSpielbestaetigung,
+  FLSpielbestaetigungAnsichtResponse,
+  FLSpielbestaetigungAntwort,
+  FLSpielbestaetigungGeschlossenGrund,
+  FLSpielbestaetigungTermin,
+} from "@/core/generated/client/types";
 import type { SpielBannerAnsetzung } from "@/features/spiele/components/forms/AdminEditSpielDataForm/banners";
 import type { FLSpiel } from "@/features/spiele/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { AntwortStand } from "./constants";
-import type {
-  FLSpielbestaetigung,
-  FLSpielbestaetigungAnsichtResponse,
-  FLSpielbestaetigungGrund,
-  FLSpielbestaetigungTermin,
-  FLSpielbestaetigungVon,
-} from "./schemas";
 
 /** Who answered, as a readout rather than a sentence: a seat's long label agrees with no one article. */
-export function beantwortetVon(von: FLSpielbestaetigungVon): string {
+export function beantwortetVon(von: FLSpielbestaetigungAntwort["von"]): string {
   if (von.art === "admin") return "Verwaltung der Liga";
   if (von.art === "schiedsrichter") return "Schiedsrichterin oder Schiedsrichter";
   return KONTAKT_ROLLEN.find((eintrag) => eintrag.value === von.rolle)?.langform ?? NICHT_HINTERLEGT;
@@ -79,7 +79,7 @@ export type BestaetigungsSpiel = {
 };
 
 // `fl_backend/app/api/spielbestaetigungen/services.py :: GRUENDE_ENDING_AN_ANSWER`: a move never ends a discard.
-const GRUENDE_ENDING_AN_ANSWER: ReadonlySet<FLSpielbestaetigungGrund> = new Set([
+const GRUENDE_ENDING_AN_ANSWER: ReadonlySet<FLSpielbestaetigungGeschlossenGrund> = new Set([
   "austritt",
   "spiel_entschieden",
   "abgesagt",
@@ -91,7 +91,7 @@ function grundZumSchliessen(
   zeile: FLSpielbestaetigung,
   spiel: BestaetigungsSpiel,
   { austritte, today }: { austritte: ReadonlyMap<string, string>; today: string },
-): FLSpielbestaetigungGrund | null {
+): FLSpielbestaetigungGeschlossenGrund | null {
   const { ansetzung, partei } = zeile;
   // On the fixture's day as it stands, or the row's where the fixture lost its date.
   const tag = spiel.datum ?? ansetzung.datum;
@@ -121,7 +121,7 @@ export function grundZumEnde(
   zeile: FLSpielbestaetigung,
   spiel: BestaetigungsSpiel,
   umstand: { austritte: ReadonlyMap<string, string>; today: string },
-): FLSpielbestaetigungGrund | null {
+): FLSpielbestaetigungGeschlossenGrund | null {
   const grund = grundZumSchliessen(zeile, spiel, umstand);
   if (zeile.geschlossen === null || (grund !== null && GRUENDE_ENDING_AN_ANSWER.has(grund))) return grund;
 
@@ -189,42 +189,6 @@ export function antwortStand(zeile: FLSpielbestaetigung, today: string): Antwort
 }
 
 /**
- * Due and unrun: armed, a fixture the pass asks about, and no stamp since yesterday (`docs/ops/runbooks.md` §9).
- * Guarded on the stamp alone, it would warn on every fixture no pass ever visits.
- */
-export function laufUeberfaellig({
-  isSpielSweepOn,
-  isActiveSaison,
-  spiel,
-  austritte,
-  gelaufenAm,
-  today,
-}: {
-  isSpielSweepOn: boolean;
-  isActiveSaison: boolean;
-  spiel: BestaetigungsSpiel;
-  austritte: ReadonlyMap<string, string>;
-  gelaufenAm: string | null;
-  today: string;
-}): boolean {
-  const angefragt = wirdAngefragt(spielAnsetzung(spiel), {
-    isActiveSaison,
-    sonderereignis: spiel.sonderereignis,
-    hasAnyTore: (spiel.team1?.tore ?? null) !== null || (spiel.team2?.tore ?? null) !== null,
-    hasShootOut: spiel.elfmeterschiessen !== null,
-    austrittTage: [spiel.team1, spiel.team2].flatMap((seite) => {
-      const austritt = seite === null ? undefined : austritte.get(seite.team_id);
-      return austritt === undefined ? [] : [austritt];
-    }),
-    today,
-  });
-  if (!isSpielSweepOn || !angefragt) return false;
-
-  // Yesterday's stamp is a healthy stack's: the hourly pass's last run may fall before midnight.
-  return gelaufenAm === null || tageBis(gelaufenAm, today) < -1;
-}
-
-/**
  * The settle's and the discard's state refusals: the panel showed a state read earlier, so the repair is the reload.
  * `null` hands every other code to the shared reader.
  */
@@ -249,8 +213,8 @@ export type SpielbestaetigungAnsicht =
   // A member per state, never one for the pair: a union keyed on a union of literals narrows on neither.
   | { zustand: "gueltig"; ansicht: FLSpielbestaetigungAnsichtResponse }
   | { zustand: "vorschlag"; ansicht: FLSpielbestaetigungAnsichtResponse }
-  | { zustand: "zugesagt"; beantwortet_von: FLSpielbestaetigungVon }
-  | { zustand: "abgelehnt"; beantwortet_von: FLSpielbestaetigungVon }
+  | { zustand: "zugesagt"; beantwortet_von: FLSpielbestaetigungAntwort["von"] }
+  | { zustand: "abgelehnt"; beantwortet_von: FLSpielbestaetigungAntwort["von"] }
   // The date the league kept, which its sentence points at: the link's mail named it already.
   | { zustand: "verworfen"; termin: FLSpielbestaetigungTermin }
   // `termin-vorbei` is the page's own: an `abgelaufen` link whose fixture's day has gone by.

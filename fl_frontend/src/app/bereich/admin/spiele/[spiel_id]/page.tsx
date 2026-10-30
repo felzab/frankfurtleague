@@ -75,11 +75,7 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
         today={getGermanTodayStr()}
         // The comparison the timer is armed on, so the near-date warning never announces a request no pass sends.
         isSpielSweepOn={frontend_config.SPIEL_SWEEP === "on"}
-        bestaetigungen={
-          bestaetigungenRes === null
-            ? null
-            : { zeilen: bestaetigungenRes.spielbestaetigungen, gelaufenAm: bestaetigungenRes.spiel_sweep_gelaufen_am }
-        }
+        bestaetigungen={bestaetigungenRes?.spielbestaetigungen ?? null}
         spielbericht={spielbericht}
       />
     </AdminContextWrapper>

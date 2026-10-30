@@ -7,8 +7,8 @@ import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { categorizeActionRequired } from "../../utils";
 import { useAdmin } from "../providers/AdminContextProvider";
 
+import type { FLSpielbestaetigung } from "@/core/generated/client/types";
 import type { SpielberichtStand } from "@/features/spielberichte/types";
-import type { SpielbestaetigungenStand } from "@/features/spielbestaetigungen/types";
 import type { FLSpielAdmin, FLSpielWithDraftFields } from "@/features/spiele/schemas";
 import type { ActionRequiredCategory } from "@/features/spiele/types";
 
@@ -28,7 +28,7 @@ export function AdminSpielEditView({
   today: string;
   isSpielSweepOn: boolean;
   /** `null` where the read failed, which the panel says. */
-  bestaetigungen: SpielbestaetigungenStand | null;
+  bestaetigungen: readonly FLSpielbestaetigung[] | null;
   /** `null` where its read failed, which the panel says; absent where `SPIELBERICHT_EINGABE` reads off and no report stands. */
   spielbericht?: SpielberichtStand | null;
 }) {

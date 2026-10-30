@@ -4,12 +4,12 @@ import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { FLSpielbestaetigungGeschlossenGrund } from "@/core/generated/client/types.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import { FLSonderereignisSchema } from "../spiele/schemas.ts";
-import { FLSpielbestaetigungGrundSchema, FLSpielbestaetigungSchema } from "./schemas.ts";
-import { grundZumEnde, laufUeberfaellig, mapAnsetzungAnsichtRefusal, mapAnsetzungRefusal } from "./utils.ts";
+import { grundZumEnde, mapAnsetzungAnsichtRefusal, mapAnsetzungRefusal } from "./utils.ts";
 
 import type { BestaetigungsSpiel } from "./utils.ts";
 
@@ -68,64 +68,6 @@ describe("mapAnsetzungRefusal on a body the API refused", () => {
       fieldErrors: { "vorschlag.datum": FELD_ABGELEHNT },
       unplacedError: ANTWORT_NEU_OEFFNEN,
     });
-  });
-});
-
-describe("laufUeberfaellig", () => {
-  const TODAY = "2026-10-20";
-  /** Set in full five days out: a fixture the pass asks about. */
-  const GEFRAGT: BestaetigungsSpiel = {
-    id: "6890a1b2c3d4e5f607182930",
-    datum: "2026-10-25",
-    uhrzeit: "18:00:00",
-    ort: { spielort_id: "6890a1b2c3d4e5f607182934" },
-    team1: { team_id: "6890a1b2c3d4e5f607182932", tore: null },
-    team2: { team_id: "6890a1b2c3d4e5f607182933", tore: null },
-    ergebnis: null,
-    elfmeterschiessen: null,
-    sonderereignis: null,
-    schiedsrichter: null,
-  };
-  const FAELLIG = {
-    isSpielSweepOn: true,
-    isActiveSaison: true,
-    spiel: GEFRAGT,
-    austritte: new Map<string, string>(),
-    gelaufenAm: null,
-    today: TODAY,
-  };
-
-  it("warns where a pass was due for the fixture and none ran, or none since the day before yesterday", () => {
-    expect(laufUeberfaellig(FAELLIG)).toBe(true);
-    expect(laufUeberfaellig({ ...FAELLIG, gelaufenAm: "2026-10-18" })).toBe(true);
-  });
-
-  // Yesterday's stamp is a healthy stack's: the hourly pass's last run may fall before midnight.
-  it("reads today's stamp and yesterday's as plain", () => {
-    expect(laufUeberfaellig({ ...FAELLIG, gelaufenAm: TODAY })).toBe(false);
-    expect(laufUeberfaellig({ ...FAELLIG, gelaufenAm: "2026-10-19" })).toBe(false);
-  });
-
-  // The pass's last asking day is three weeks out; `banners.test.ts` holds `wirdAngefragt` to the pass row by row.
-  it("warns for a fixture as far out as the pass asks, and for none past it", () => {
-    expect(laufUeberfaellig({ ...FAELLIG, spiel: { ...GEFRAGT, datum: "2026-11-10" } })).toBe(true);
-    expect(laufUeberfaellig({ ...FAELLIG, spiel: { ...GEFRAGT, datum: "2026-11-11" } })).toBe(false);
-  });
-
-  // What a line guarded on the stamp alone gets wrong, and most of the fixtures the site holds.
-  it("reads a fixture no pass visits as plain, whatever the stamp", () => {
-    for (const nie of [
-      { ...FAELLIG, isActiveSaison: false },
-      { ...FAELLIG, isSpielSweepOn: false },
-      { ...FAELLIG, spiel: { ...GEFRAGT, datum: TODAY } },
-      { ...FAELLIG, spiel: { ...GEFRAGT, datum: "2026-10-01" } },
-      { ...FAELLIG, spiel: { ...GEFRAGT, datum: null } },
-      { ...FAELLIG, spiel: { ...GEFRAGT, ort: null } },
-      { ...FAELLIG, spiel: { ...GEFRAGT, sonderereignis: "ausgefallen" as const } },
-      { ...FAELLIG, austritte: new Map([[GEFRAGT.team2?.team_id ?? "", "2026-10-22"]]) },
-    ]) {
-      expect(laufUeberfaellig(nie), JSON.stringify({ ...nie, austritte: [...nie.austritte] })).toBe(false);
-    }
   });
 });
 
@@ -465,7 +407,7 @@ const GRUND_TO_END = z
         schiedsrichter: z.literal("anderer").nullable().optional(),
         austritt_tage: z.int().optional(),
       }),
-      grund: FLSpielbestaetigungGrundSchema.nullable(),
+      grund: z.enum(FLSpielbestaetigungGeschlossenGrund).nullable(),
     }),
   )
   .parse(GRUND_TO_END_ROWS);
@@ -499,15 +441,13 @@ describe("grundZumEnde", () => {
               ? null
               : { schiedsrichter_id: SCHIEDSRICHTER[1] },
       };
-      const row = FLSpielbestaetigungSchema.parse(
-        spielbestaetigungFields({
-          spiel_id: spiel.id,
-          partei:
-            zeile.partei === undefined ? { art: "team", team_id: SEITEN[0] } : { art: "schiedsrichter", schiedsrichter_id: SCHIEDSRICHTER[0] },
-          ansetzung: { datum, uhrzeit: "18:00:00", spielort_id: SPIELORT, team1_id: SEITEN[0], team2_id: SEITEN[1], stand: "0".repeat(64) },
-          geschlossen: zeile.verworfen === undefined ? null : { am: HEUTE, grund: "verworfen" },
-        }),
-      );
+      const row = spielbestaetigungFields({
+        spiel_id: spiel.id,
+        partei:
+          zeile.partei === undefined ? { art: "team", team_id: SEITEN[0] } : { art: "schiedsrichter", schiedsrichter_id: SCHIEDSRICHTER[0] },
+        ansetzung: { datum, uhrzeit: "18:00:00", spielort_id: SPIELORT, team1_id: SEITEN[0], team2_id: SEITEN[1], stand: "0".repeat(64) },
+        geschlossen: zeile.verworfen === undefined ? null : { am: HEUTE, grund: "verworfen" },
+      });
       const austritte = new Map(anders.austritt_tage === undefined ? [] : [[SEITEN[1], tagNach(anders.austritt_tage)]]);
 
       expect(grundZumEnde(row, spiel, { austritte, today: HEUTE })).toBe(grund);

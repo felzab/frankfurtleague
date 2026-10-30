@@ -41,11 +41,10 @@ import { SpielExpectedProvider } from "./SpielExpectedContext";
 import { SpielRail } from "./SpielRail";
 import { useVoidPreview } from "./useVoidPreview";
 
-import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
+import type { FLSchiedsrichter, FLSpielbestaetigung, FLSpielort } from "@/core/generated/client/types";
 import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
 import type { FLSpielberichtBericht, FLSpielberichtVorschlag } from "@/features/spielberichte/schemas";
 import type { SpielberichtStand } from "@/features/spielberichte/types";
-import type { SpielbestaetigungenStand } from "@/features/spielbestaetigungen/types";
 import type { FLSpielDraftFields } from "@/features/spiele/draftStatus";
 import type {
   FLPatchSpielDataPayload,
@@ -61,7 +60,6 @@ import type {
   FLSpielWithDraftFields,
 } from "@/features/spiele/schemas";
 import type { ActionRequiredCategory } from "@/features/spiele/types";
-import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
@@ -108,7 +106,7 @@ export function AdminEditSpielDataForm({
   /** `SPIEL_SWEEP` reads `on`, so the confirmations' pass runs at all. */
   isSpielSweepOn: boolean;
   /** The fixture's confirmations, `null` where their read failed; absent, the editor mounts no panel for them. */
-  bestaetigungen?: SpielbestaetigungenStand | null;
+  bestaetigungen?: readonly FLSpielbestaetigung[] | null;
   /** The fixture's report as the page read it on this open, `null` where the read failed; absent, the editor mounts no panel for it. */
   spielbericht?: SpielberichtStand | null;
   /** Rendered inside the scroll container, so it scrolls while the action bar stays put. */
@@ -654,14 +652,12 @@ export function AdminEditSpielDataForm({
 
             {bestaetigungen !== undefined && (
               <SpielbestaetigungPanel
-                stand={bestaetigungen}
+                zeilen={bestaetigungen}
                 spiel={spielData}
                 parteien={{ teams: teams, schiedsrichter: schiedsrichter }}
                 // `teams` joins each club's exit from this season on every read.
                 austritte={new Map(teams.flatMap((team) => (team.austritt === null ? [] : [[team.id, team.austritt.datum]])))}
                 today={today}
-                isSpielSweepOn={isSpielSweepOn}
-                isActiveSaison={isActiveSaison}
                 // Into the two atoms `resetDraftToStored` restores, never a remount: every other unsaved edit stays,
                 // a discard drops the proposal with them, and Speichern still judges and offers its undo.
                 onVorschlagUebernehmen={(termin) => {

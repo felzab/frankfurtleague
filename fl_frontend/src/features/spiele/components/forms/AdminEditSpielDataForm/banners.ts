@@ -119,7 +119,7 @@ export const ansetzungGeaendert = (draft: SpielBannerAnsetzung, stored: SpielBan
   ANSETZUNG_QUELLEN.some((quelle) => draft[quelle] !== stored[quelle]);
 
 /** The days from `today` to `datum`, each `YYYY-MM-DD`: `Date.parse` reads both as a UTC midnight, so the count is exact. */
-export const tageBis = (datum: string, today: string): number => (Date.parse(datum) - Date.parse(today)) / DAY_MS;
+const tageBis = (datum: string, today: string): number => (Date.parse(datum) - Date.parse(today)) / DAY_MS;
 
 /**
  * Inside the deadline's days and strictly after `today`, the sweep's own floor: a fixture whose day has come is asked
