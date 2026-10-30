@@ -21,7 +21,6 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtPayload,
     FLSpielberichtSpieler,
     FLSpielberichtVon,
-    FLSpielberichtVonAdmin,
 )
 from app.api.spielberichte.services import (
     BerichtLage,
@@ -46,6 +45,7 @@ from app.core.dependencies import (
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.core.transactions import transaction_session
+from app.shared.schemas.aktor import FLVonAdmin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -194,7 +194,7 @@ async def patch_spielbericht(
         judge_bericht(lage=lage, payload=payload, gespeichert=block, neu=neu, today=today)
 
         await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*neu.values()), session=session)
-        von: FLSpielberichtVon = FLSpielberichtVonAdmin(art="admin")
+        von: FLSpielberichtVon = FLVonAdmin(art="admin")
         dokument = await write_bericht(
             spielberichte_collection=spielberichte_collection,
             spiel_raw=lage.spiel,

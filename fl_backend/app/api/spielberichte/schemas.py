@@ -4,6 +4,7 @@ from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Fie
 
 from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLBracketFault, FLSpielElfmeterschiessen, FLSpielJoinedAdmin
+from app.shared.schemas.aktor import FLVonAdmin
 from app.shared.schemas.bounds import SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH, SPIELBERICHT_EINTRAEGE_MAX
 from app.shared.schemas.custom import (
     CustomDateString,
@@ -12,7 +13,7 @@ from app.shared.schemas.custom import (
     CustomTimeString,
     parse_empty_string_to_none,
 )
-from app.shared.schemas.literals import FLSaisonPhase, FLSonderereignis
+from app.shared.schemas.literals import FLSaisonPhase, FLSonderereignis, FLSpielSeite
 from app.shared.schemas.responses import BaseAPIResponse
 
 # The minute as the DFB's report writes it: the played minute, and stoppage time after a plus, `45+2`.
@@ -26,8 +27,6 @@ CustomSpielberichtMinute = Annotated[str, StringConstraints(pattern=MINUTE_PATTE
 CustomSpielberichtBemerkungen = Annotated[
     str, StringConstraints(max_length=SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
 ]
-
-FLSpielberichtSeite = Literal["team1", "team2"]
 
 type FLKartenFarbe = Literal["gelb", "gelb_rot", "rot"]
 
@@ -71,7 +70,7 @@ class FLSpielberichtVorschlag(BaseModel):
 class FLSpielberichtTorschuetze(BaseModel):
     """One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one."""
 
-    seite: FLSpielberichtSeite
+    seite: FLSpielSeite
     spieler_id: CustomObjectId | None
     minute: CustomSpielberichtMinute
     # An own goal keeps the scorer's side and counts for the other one.
@@ -81,7 +80,7 @@ class FLSpielberichtTorschuetze(BaseModel):
 class FLSpielberichtKarte(BaseModel):
     """One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons."""
 
-    seite: FLSpielberichtSeite
+    seite: FLSpielSeite
     spieler_id: CustomObjectId
     minute: CustomSpielberichtMinute
     farbe: FLKartenFarbe
@@ -102,17 +101,7 @@ class FLSpielberichtVonSchiedsrichter(BaseModel):
     schiedsrichter_id: CustomObjectId
 
 
-class FLSpielberichtVonAdmin(BaseModel):
-    """An administrator who wrote the block first, naming nobody, as an administrator's settle does."""
-
-    art: Literal["admin"]
-
-
-FLSpielberichtVon = Annotated[FLSpielberichtVonSchiedsrichter | FLSpielberichtVonAdmin, Field(discriminator="art")]
-
-
-class FLSpielberichtUebernommenVon(BaseModel):
-    art: Literal["admin"]
+FLSpielberichtVon = Annotated[FLSpielberichtVonSchiedsrichter | FLVonAdmin, Field(discriminator="art")]
 
 
 class FLSpielberichtSeiten(BaseModel):
@@ -143,7 +132,7 @@ class FLSpielberichtBericht(BaseModel):
     geaendert_am: FLUtcInstant
     version: int
     uebernommen_am: FLUtcInstant | None
-    uebernommen_von: FLSpielberichtUebernommenVon | None
+    uebernommen_von: FLVonAdmin | None
     uebernommene_version: int | None
 
 
@@ -270,7 +259,7 @@ class _SpielberichtAnsicht(BaseAPIResponse):
     genannt: list[FLSpielberichtSpieler]
     bericht: FLSpielberichtBericht | None
     # The sides fielding another club than the report's last write found there, which reads `teams_geaendert`.
-    seiten_geaendert: list[FLSpielberichtSeite]
+    seiten_geaendert: list[FLSpielSeite]
     # The document's count of writes, null where none is stored: a save sending it back is refused once another write
     # has raised it. Not `bericht.version`, the report's own, which only its content's writes raise.
     version: int | None
