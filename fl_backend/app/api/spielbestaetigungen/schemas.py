@@ -20,7 +20,7 @@ from app.shared.schemas.responses import BaseAPIResponse
 # referee's carrier declares it.
 from app.shared.schemas.zustellung import FLBewerbungZustellung
 
-FLSpielbestaetigungAntwortArt = Literal["zugesagt", "abgelehnt"]
+type FLSpielbestaetigungAntwortArt = Literal["zugesagt", "abgelehnt"]
 
 # Why a row stopped applying. `verworfen` closes an open decline carrying a proposal alone: the decline stands
 # as the record, and what is discarded is the administrator's obligation to act on its proposal.
@@ -228,11 +228,9 @@ class FLSpielbestaetigungenFilterParams(BaseModel):
 
 
 class FLSpielbestaetigungenListResponse(BaseAPIResponse):
-    """The rows newest first, closed ones included, and the named season's own last pass."""
+    """The rows newest first, closed ones included."""
 
     spielbestaetigungen: list[FLSpielbestaetigung]
-    # Null where no pass has run over the season, or no season has the id.
-    spiel_sweep_gelaufen_am: CustomDateString | None
     # False where the cut left out rows not holding their question, so a cut list is never read as the season whole.
     vollstaendig: bool
 
@@ -249,11 +247,9 @@ class FLSpielbestaetigungEintragenPayload(BaseModel):
     begruendung: CustomSpielbestaetigungBegruendung
 
 
-class FLSpielbestaetigungEintragenResponse(BaseAPIResponse):
-    updated_document: FLSpielbestaetigung
+class FLSpielbestaetigungWriteResponse(BaseAPIResponse):
+    """Shared by the administrator's two presses, both answering the row as it now stands."""
 
-
-class FLSpielbestaetigungVerwerfenResponse(BaseAPIResponse):
     updated_document: FLSpielbestaetigung
 
 
@@ -397,12 +393,9 @@ class FLSpielbestaetigungSchiedsrichterAntwortResponse(BaseAPIResponse):
 
 
 class FLSpielbestaetigungSweepSaisonsResponse(BaseAPIResponse):
-    """The `active` seasons a pass visits, and the day a pass last ran over any of them."""
+    """The `active` seasons a pass visits, oldest first."""
 
     saison_ids: list[str]
-    # The newest stamp among them, as `GET /bewerbungen/sweep` answers its own: a season activated since
-    # the last pass carries none. Null means no pass ever ran over these seasons.
-    spiel_sweep_gelaufen_am: CustomDateString | None
 
 
 class FLSpielbestaetigungSweepLink(BaseModel):

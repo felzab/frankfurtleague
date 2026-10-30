@@ -2945,11 +2945,11 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
   .describe("The whole `bericht` block, written wholesale by the referee's PUT and the administrator's PATCH alike.");
 
 /**
- * Every confirmation row of the season, or of its one fixture, and the day the confirmation pass last ran over it.
+ * Every confirmation row of the season, or of its one fixture.
  *
  * Newest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still
  * holding its party's question is served; `limit` cuts the others, and `vollstaendig` is false where it left the
- * oldest of them out. A season no document has answers no rows and a null day rather than 404.
+ * oldest of them out. A season no document has answers no rows rather than 404.
  * @summary A season's fixture confirmations, or one fixture's
  */
 export const spielbestaetigungenGetSpielbestaetigungenQuerySpielIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3095,11 +3095,10 @@ export const SpielbestaetigungenGetSpielbestaetigungAnsichtBody = zod
  * it once the ban is lifted; each pass logs how many seats it withheld, never which.
  *
  * Each step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has
- * committed something owed a message, a later failure -- the stamp of the pass's day on this season included -- is logged
- * and the call answers what committed. A row whose write or answer fails is passed over alone, logged by id and counted in
- * `fehlgeschlagen`.
+ * committed something owed a message, a later failure is logged and the call answers what committed. A row whose write or
+ * answer fails is passed over alone, logged by id and counted in `fehlgeschlagen`.
  *
- * A season that is not `active` is passed by whole -- nothing closed, minted, reminded or stamped, every list empty -- so a
+ * A season that is not `active` is passed by whole -- nothing closed, minted or reminded, every list empty -- so a
  * mistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.
  * @summary Run one season's fixture confirmation pass
  */
