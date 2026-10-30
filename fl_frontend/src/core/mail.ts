@@ -9,13 +9,16 @@ import { COPY } from "./copy";
 import { isOneBareMailbox, withAsciiDomain } from "./emailAddress";
 import { renderMail } from "./emailShell";
 import { APINetworkError, MailSendError } from "./errors";
+import { postausgangPostAusgabe, postausgangPostErgebnis } from "./generated/client/sdk";
 import { logger } from "./logging";
 import { mayReceiveMail } from "./mailGate";
+import { mailFor, POSTAUSGANG_TAG } from "./mailKinds";
 import { boundCall, getRequestTraceId, recordWriteSent } from "./requestScope";
 import { buildSperreEmail } from "./sperrlisteEmail";
 import { mintTraceId } from "./trace";
 
 import type { MailVon } from "./emailShell";
+import type { FLPostausgangAusgabe, FLPostausgangErgebnis, FLPostausgangErgebnisResponse } from "./generated/client/types";
 
 const MAIL_ENDPOINT = "https://api.resend.com/emails";
 
@@ -270,6 +273,107 @@ export async function sendSperreNotice({
     to: recipientOf(to),
     ...renderMail(buildSperreEmail({ grund: grund, gesperrtBisSaisonId: gesperrtBisSaisonId, origin: origin })),
   });
+}
+
+/** What one drain settled, by the backend's counts. */
+type DrainZaehlung = Omit<FLPostausgangErgebnisResponse, "acknowledged">;
+
+/** The one drain this process runs, and whether a call arrived while it ran. */
+let drainLaeuft: Promise<DrainZaehlung> | undefined;
+let nochmalDrainen = false;
+
+/**
+ * Every mail owed now: claimed a page at a time, each sent, and each outcome reported as its send returns, so a drain
+ * cut short leaves no sent mail unreported but the one in flight. Answers what it settled, `aufgegeben` the mails the
+ * heartbeat reports.
+ *
+ * One drain at a time in this process: a call while one runs is answered by it, which then claims once more for what
+ * was owed since. Rejects where a hand-out or a report fails, the rows it held going to the next drain once their lease
+ * lapses.
+ */
+export function drainPostausgang(): Promise<DrainZaehlung> {
+  if (drainLaeuft !== undefined) {
+    nochmalDrainen = true;
+    return drainLaeuft;
+  }
+
+  const lauf = (async () => {
+    const zaehlung: DrainZaehlung = { gesendet: 0, wiederholt: 0, aufgegeben: 0, zurueckgehalten: 0, ignoriert: 0 };
+    try {
+      do {
+        nochmalDrainen = false;
+        await drainen(zaehlung);
+      } while (nochmalDrainen);
+    } finally {
+      drainLaeuft = undefined;
+      // Counts alone: the row is each mail's record, and this line what the drain as a whole did.
+      if (zaehlung.aufgegeben === 0) logger.info("postausgang.drain", zaehlung);
+      else logger.warn("postausgang.drain", zaehlung);
+    }
+
+    return zaehlung;
+  })();
+  drainLaeuft = lauf;
+
+  return lauf;
+}
+
+/** Claims until a claim holds nothing: a mail handed back to wait its minute is no longer free, so the loop ends. */
+async function drainen(zaehlung: DrainZaehlung): Promise<void> {
+  for (;;) {
+    const { beanspruchung, mails, aufgegeben } = await postausgangPostAusgabe();
+    zaehlung.aufgegeben += aufgegeben;
+    if (beanspruchung === null) return;
+
+    for (const mail of mails) {
+      const antwort = await postausgangPostErgebnis({ beanspruchung: beanspruchung, ergebnisse: [await zustellen(mail)] });
+      zaehlung.gesendet += antwort.gesendet;
+      zaehlung.wiederholt += antwort.wiederholt;
+      zaehlung.aufgegeben += antwort.aufgegeben;
+      zaehlung.zurueckgehalten += antwort.zurueckgehalten;
+      zaehlung.ignoriert += antwort.ignoriert;
+    }
+  }
+}
+
+/**
+ * One handed-out mail, rendered from its row and sent under the hand-out's own idempotency key: the provider collapses a
+ * repeat of this send, and a later hand-out mints a fresh link under a key of its own
+ * (https://resend.com/docs/dashboard/emails/idempotency-keys). The ban was judged at the hand-out.
+ */
+async function zustellen(mail: FLPostausgangAusgabe): Promise<FLPostausgangErgebnis> {
+  const nachricht = mailFor(mail.daten.art, mail.daten, { token: mail.token, geheim: mail.geheim, origin: frontend_config.AUTH_URL });
+  if (nachricht === undefined) {
+    // Handed back rather than given up: the row waits until its deadline for a deployment that builds its kind.
+    logger.error("postausgang.art_ohne_vorlage", undefined, { art: mail.daten.art });
+    return { id: mail.id, ergebnis: "wiederholen", nachricht_id: null };
+  }
+
+  try {
+    const { id } = await deliver({
+      to: recipientOf(mail.an),
+      ...renderMail(nachricht),
+      tags: { [POSTAUSGANG_TAG]: mail.id },
+      idempotencyKey: `postausgang/${mail.id}/${String(mail.versuch)}`,
+    });
+    return { id: mail.id, ergebnis: "gesendet", nachricht_id: id };
+  } catch (error) {
+    return { id: mail.id, ergebnis: ergebnisOf(error), nachricht_id: null };
+  }
+}
+
+/**
+ * A failed send's outcome. A refusal the provider names temporary, its quota among them, a send that broke off and one
+ * that never left are tried again and never count toward giving up; any other refusal is one every send would meet.
+ */
+function ergebnisOf(error: unknown): Exclude<FLPostausgangErgebnis["ergebnis"], "gesendet"> {
+  if (error instanceof MailWithheldError) return "zurueckgehalten";
+  if (error instanceof MailRecipientError) return "aufgeben";
+  if (error instanceof MailSendError) return error.isTransient ? "wiederholen" : "aufgeben";
+  if (error instanceof APINetworkError || error instanceof MailUnsentError) return "wiederholen";
+
+  // A fault of this code rather than of the send: the drain stops, and the row returns once its lease lapses.
+  throw error;
 }
 
 /**
