@@ -53,6 +53,7 @@ from app.shared.schemas.literals import (
     FLKontaktRolle,
     FLKontaktZeile,
     FLSchulform,
+    FLSortOrder,
     FLTrainerZugleich,
     FLTrikotFarbe,
 )
@@ -65,7 +66,7 @@ MAX_NUMBER_OF_GROUPS: Final = len(get_args(FLGruppenNames.__value__))
 
 # Two values rather than a free `saison_phase` filter: a table of the Halbfinale alone is not a
 # standing, and offering it invites one.
-FLTeamStatistikScope = Literal["gruppenphase", "gesamt"]
+type FLTeamStatistikScope = Literal["gruppenphase", "gesamt"]
 
 
 # Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
@@ -665,7 +666,7 @@ class FLPublicTeamsFilterParams(BaseModel):
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: Literal["name"] = Field(default="name")
-    order: Literal["asc", "desc"] = Field(default="asc")
+    order: FLSortOrder = Field(default="asc")
 
 
 class FLTeamsFilterParams(FLPublicTeamsFilterParams):

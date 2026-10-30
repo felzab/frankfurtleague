@@ -8,10 +8,10 @@ from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.core import clock
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_reversed_span
-from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSpielerStufe
+from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSortOrder, FLSpielerStufe
 from app.shared.schemas.responses import BaseAPIResponse
 
-FLSaisonsSortOptions = Literal["_id", "start_date", "end_date"]
+type FLSaisonsSortOptions = Literal["_id", "start_date", "end_date"]
 
 
 class FLSaisonForfeitErgebnis(BaseModel):
@@ -185,7 +185,7 @@ class FLSaisonsFilterParams(BaseModel):
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: FLSaisonsSortOptions = Field(default="_id")
-    order: Literal["asc", "desc"] = Field(default="asc")
+    order: FLSortOrder = Field(default="asc")
 
 
 # The league's FIRST season, and the floor an id may not fall below. A LITERAL because it is a fact
