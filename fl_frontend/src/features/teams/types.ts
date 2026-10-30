@@ -1,75 +1,32 @@
-import type { KontaktRolle } from "./constants";
 import type {
   FLAustritt,
   FLAustrittType,
-  FLCreateTeamFormPayload,
   FLGruppenNames,
   FLKontaktKenntnisnahme,
   FLKontaktperson,
   FLPatchSaisonTeamPayload,
   FLPostSaisonTeamPayload,
+  FLPostTeamPayload,
   FLSaisonTeamAdresswechsel,
   FLSaisonTeamBestaetigungenAnsicht,
   FLSaisonTeamKontakte,
   FLTrikotFarbe,
-} from "./schemas";
-
-type FLTeamsSortingOptions = "name";
-
-/**
- * Omitting it is `"gruppenphase"`: both scopes return the same fields, so a forgotten parameter must
- * not produce a standing that counts playoff results.
- */
-type FLTeamStatistikScope = "gruppenphase" | "gesamt";
+} from "@/core/generated/client/types";
+import type { KontaktRolle } from "./constants";
 
 /**
- * What narrows the LIST — one team by its id is an identity, not a filter.
- *
- * Omission is meaningful: an absent `saison_id` means the current season, and `apiClient` drops
- * undefined params rather than serialising them.
+ * The create form's draft: the club and its first season in one, with `gruppe` widened to `null` so the form starts
+ * with none chosen. The schema refuses the null, turning an untouched picker into a field error rather than a wrong
+ * group.
  */
-export type FLPublicTeamsFilterParams = {
-  saison_id?: string;
-  gruppe?: FLGruppenNames;
-  // A question about the junction, not a field on it: the row stores an `austritt` record and
-  // no boolean.
-  has_austritt?: boolean;
-  // Independent of the boolean rather than nested under it: naming a route already implies having
-  // left, so the two combine without either implying the other.
-  austritt_type?: FLAustrittType;
-  in_gruppen?: boolean;
-  statistik_scope?: FLTeamStatistikScope;
+export type TeamCreateDraft = FLPostTeamPayload &
+  Omit<FLPostSaisonTeamPayload, "gruppe"> & {
+    gruppe: FLGruppenNames | null;
+  };
 
-  limit?: number;
-  sort_by?: FLTeamsSortingOptions;
-  order?: "asc" | "desc";
-};
-
-/**
- * The admin read's filters. `include_inactive` is here and not above because the base endpoint
- * stopped declaring it: a public standings row carries no retirement date, so un-hiding a retired
- * club there would serve one nothing marks (`READ-SQUAD-002`).
- */
-export type FLTeamsFilterParams = FLPublicTeamsFilterParams & {
-  include_inactive?: boolean;
-};
-
-/** What `GET /teams/{team_id}` accepts: only the two choosing which season's figures to derive. */
-export type FLTeamSingleFilterParams = {
-  saison_id?: string;
-  statistik_scope?: FLTeamStatistikScope;
-};
-
-/**
- * The create form's draft, with `gruppe` widened to `null` so the form starts with none chosen. The
- * schema refuses the null, turning an untouched picker into a field error rather than a wrong group.
- */
-export type TeamCreateDraft = Omit<FLCreateTeamFormPayload, "gruppe"> & {
-  gruppe: FLGruppenNames | null;
-};
-
-/** The junction editor's enter-a-season draft, widened the same way. */
+/** The junction editor's enter-a-season draft, widened the same way, the club it enters beside it. */
 export type SaisonTeamEnterDraft = Omit<FLPostSaisonTeamPayload, "gruppe"> & {
+  team_id: string;
   gruppe: FLGruppenNames | null;
 };
 
@@ -102,6 +59,8 @@ export type SaisonTeamKontakteDraft = Omit<FLSaisonTeamKontakte, "trainer" | "an
  * payload does not carry the block, and the three seats are the contacts editor's to move.
  */
 export type SaisonTeamMembershipDraft = Omit<FLPatchSaisonTeamPayload, "gruppe" | "austritt"> & {
+  team_id: string;
+  saison_id: string;
   gruppe: FLGruppenNames | null;
   austritt: AustrittDraft | null;
 };

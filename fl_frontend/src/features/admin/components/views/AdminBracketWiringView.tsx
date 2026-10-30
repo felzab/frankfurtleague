@@ -18,11 +18,10 @@ import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 import { benannt } from "@/shared/utils/benannt";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
-import type { FLSpielQuelle } from "@/core/generated/client/types";
-import type { FLSaisonPhase } from "@/features/saisons/schemas";
+import type { FLSaisonPhase, FLSpielQuelle } from "@/core/generated/client/types";
 import type { FLSpielTeamField } from "@/features/spiele/types";
 import type { FLSlotHerkunft } from "@/features/spiele/utils";
-import type { FLSpieltagWithSpiele } from "@/features/spieltage/schemas";
+import type { FLSpieltagWithSpiele } from "@/features/spieltage/types";
 import type { PillTone } from "@/shared/components/ui/badges";
 
 /** The wiring review colours a group-fed slot apart from a match-fed one, so `quelle` splits here and stays whole in `FLSlotHerkunft`. */

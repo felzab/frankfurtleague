@@ -4,7 +4,6 @@ import { resolveIsFinishedSaison, resolveSaisonId } from "@/features/saisons/res
 import { getSpiele } from "@/features/spiele/queries";
 import { SpielplanView } from "@/features/spieltage/components/views/SpielplanView";
 import { getSpieltage } from "@/features/spieltage/queries";
-import { FLSpielplanSchema } from "@/features/spieltage/schemas";
 import { joinCollections } from "@/shared/utils/data";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { seasonScopedMetadata } from "@/shared/utils/metadata";
@@ -28,7 +27,7 @@ export default async function SpielplanPage(props: NextPageProps) {
     getSpiele({ saison_id: specifiedSaisonId }),
     resolveIsFinishedSaison(specifiedSaisonId),
   ]);
-  const spielplan = FLSpielplanSchema.parse({
+  const spielplan = {
     spieltage: joinCollections({
       left: spieltageRes.spieltage,
       right: spieleRes.spiele,
@@ -36,7 +35,7 @@ export default async function SpielplanPage(props: NextPageProps) {
       rightIdKey: "spieltag_id",
       targetKey: "spiele",
     }),
-  });
+  };
 
   return (
     <SpielplanView

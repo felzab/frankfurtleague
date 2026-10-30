@@ -10,7 +10,7 @@ import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 import { orderRoundsByWiring, spieltagLabels } from "../../utils";
 
 import type { FLSpiel } from "@/features/spiele/types";
-import type { FLSpieltagWithSpiele } from "../../schemas";
+import type { FLSpieltagWithSpiele } from "../../types";
 
 // A round's share of the scroller once the `gap-8` gutters are out, capped at 380px, so every round is on
 // screen wherever all of them fit at the floor. One literal per count: Tailwind emits only whole class names.

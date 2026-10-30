@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resolveIsFinishedSaison, resolveSaisonId, selectSaison } from "./resolvers.ts";
 
-import type { FLSaisonsListResponse } from "./schemas.ts";
+import type { FLSaisonsListResponse } from "@/core/generated/client/types.ts";
 
 /** How often the stand-in list was read, which is the whole of what the absent-id case is about. */
 const reads = vi.hoisted(() => ({ count: 0 }));
@@ -28,8 +28,8 @@ beforeEach(() => {
 });
 
 describe("whether a page shows a finished season", () => {
-  /* The page without `?saison_id=` shows the running season, and `.claude/rules/frontend.md`'s
-   **saisons** clause keeps the season list unread on exactly that path. */
+  /* The page without `?saison_id=` shows the running season, and a ratified decision keeps the
+   season list unread on exactly that path. */
   it("answers no for the running season without reading the season list", async () => {
     expect(await resolveIsFinishedSaison(undefined)).toBe(false);
     expect(reads.count, "the absent id read the season list").toBe(0);

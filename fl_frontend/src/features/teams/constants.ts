@@ -1,6 +1,6 @@
 import { NICHT_HINTERLEGT, nichtHinterlegt } from "@/shared/utils/format";
 
-import type { FLAustrittType, FLKontaktKenntnisnahme, FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "./schemas";
+import type { FLAustrittType, FLKontaktKenntnisnahme, FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "@/core/generated/client/types";
 
 export const TEAMS_CRUD_COPY = {
   searchLabel: "Teams suchen",

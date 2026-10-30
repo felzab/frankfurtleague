@@ -18,7 +18,7 @@ import { AddressFields } from "@/shared/components/ui/AddressFields";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES, FIELD_TEXTAREA_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { TextField } from "@/shared/components/ui/TextField";
 
-import type { FLPostTeamPayload } from "@/features/teams/schemas";
+import type { FLPostTeamPayload } from "@/core/generated/client/types";
 
 /**
  * Field names match their path in the create payload, so react-aria's `Form` distributes

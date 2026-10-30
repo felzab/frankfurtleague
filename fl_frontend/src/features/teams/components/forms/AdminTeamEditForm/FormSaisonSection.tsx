@@ -37,9 +37,9 @@ import { appToast } from "@/shared/utils/appToast";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 
+import type { FLGruppenNames, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
 import type { SwapPartnerRefusal } from "@/features/saisons/utils";
-import type { FLGruppenNames, FLTrikotFarbe } from "@/features/teams/schemas";
 import type { TeamFieldPath } from "@/features/teams/teamDraftStatus";
 import type { GruppeOffer, TeamGruppeLock, TeamSaisonContext } from "@/features/teams/types";
 import type { RefusableOption } from "@/shared/components/ui/RefusableSelect";

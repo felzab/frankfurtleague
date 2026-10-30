@@ -4,7 +4,7 @@ import { getAdminSaisons, getCurrentSaisonOrNull, getSaisons } from "../../queri
 import { selectSaison } from "../../resolvers";
 import { SaisonSelector } from "./SaisonSelector";
 
-import type { FLSaison } from "../../schemas";
+import type { FLSaison } from "@/core/generated/client/types";
 import type { SaisonSelectorOption } from "../../types";
 
 /** Id and range only — the whole of what the switcher renders, and the whole of what may cross into it. */

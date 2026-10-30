@@ -31,7 +31,7 @@ import { Select } from "@/shared/components/ui/Select";
 import { TextField } from "@/shared/components/ui/TextField";
 import { benannt } from "@/shared/utils/benannt";
 
-import type { FLPostTeamPayload, FLSchulform } from "@/features/teams/schemas";
+import type { FLPostTeamPayload, FLSchulform } from "@/core/generated/client/types";
 import type { TeamFieldPath } from "@/features/teams/teamDraftStatus";
 import type { Key } from "@heroui/react/rac";
 

@@ -1,4 +1,4 @@
-import type { FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "@/features/teams/schemas";
+import type { FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { FLBewerbung, FLBewerbungEinwilligungAnsichtResponse, FLBewerbungKontaktpersonPayload, FLBewerbungSchulePayload } from "./schemas";
 
 /** A club as the triage needs to know it, so any read carrying the two fields answers. */

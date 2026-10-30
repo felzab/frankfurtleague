@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { kontakteMayMoveLinks } from "./linkMint.ts";
 
-import type { FLKontaktperson, FLKontaktpersonPayload } from "@/features/teams/schemas";
+import type { FLKontaktperson, FLKontaktpersonPayload } from "@/core/generated/client/types";
 
 const gespeichert = (vorname: string, email: string): FLKontaktperson => ({
   vorname,

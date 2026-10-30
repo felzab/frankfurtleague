@@ -13,9 +13,9 @@ import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { useReactivation } from "@/shared/hooks/useReactivation";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
+import type { FLTeamRecord } from "@/core/generated/client/types";
 import type { TeamEinladungState } from "@/features/einladungen/types";
 import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
-import type { FLTeamRecord } from "@/features/teams/schemas";
 import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
 
 /**

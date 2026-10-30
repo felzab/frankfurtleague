@@ -12,8 +12,8 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { Switch } from "@/shared/components/ui/Switch";
 
+import type { FLSaisonRegistrierung } from "@/core/generated/client/types";
 import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus";
-import type { FLSaisonRegistrierung } from "@/features/saisons/schemas";
 
 /**
  * The window a freshly opened block holds, with NEITHER date filled. **A span seeded here would be a

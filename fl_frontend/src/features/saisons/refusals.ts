@@ -3,13 +3,13 @@ import { isRefusal } from "@/shared/utils/actionError";
 
 import {
   GRUPPEN_OFF_RULES,
+  MAX_QUALIFIERS,
   RECORDED_FACTS_NONE,
   REGELN_ABSCHNITT,
   SPIELBERICHTE_HALTEN_DEN_SPIELPLAN,
   SPIELPLAN_ABSCHNITT,
   SPIELTAGE_UNDATED,
 } from "./constants";
-import { MAX_QUALIFIERS } from "./schemas";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 

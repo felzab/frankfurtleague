@@ -1,48 +1,36 @@
+// Redesign: goes with its last importer.
 import z from "zod";
 
-import { BaseAPIResponseSchema } from "@/core/schemas";
 import { FLSpielerStufeSchema } from "@/features/spieler/schemas";
 // Its `options` are read at module load below, so a VALUE cycle back into this file reads the set
 // before it is initialised rather than merely tangling the graph.
 import { FLGruppenNamesSchema } from "@/features/teams/schemas";
 import { CustomDateStringSchema, CustomObjectIdStringSchema } from "@/shared/schemas";
 
-import { SAISON_ID_LENGTH } from "./constants";
+import { MAX_QUALIFIERS, SAISON_ID_LENGTH } from "./constants";
+
+// The old season forms' own judgement of their drafts, in words an administrator reads, before each action sends the
+// write through the generated client, which types the body against the write's published contract.
 
 export const FLSaisonStatusSchema = z.enum(["past", "active", "future"], { error: "FLSaisonStatus is invalid" });
-export type FLSaisonStatus = z.infer<typeof FLSaisonStatusSchema>;
-// `"playoffs"` is deliberately absent: it is a query-only alias the backend compiles to "not
-// gruppenphase", valid to send and never valid to receive.
-export const FLSaisonPhaseSchema = z.enum(["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"], {
-  error: "FLSaisonPhase is invalid",
-});
-
-/**
- * `2 ** (knockout rounds)`, mirroring `fl_backend/app/api/spiele/schemas.py :: MAX_QUALIFIERS`.
- * Derived so a new round raises it at both ends; off the schema rather than `SAISON_PHASE_OPTIONS`,
- * which would cycle via `constants.ts`.
- */
-export const MAX_QUALIFIERS = 2 ** (FLSaisonPhaseSchema.options.length - 1);
-export type FLSaisonPhase = z.infer<typeof FLSaisonPhaseSchema>;
 
 /**
  * **Both sides' goals rather than a margin**, so a season can regulate 3:0, 2:0 or 0:0 as its own
  * competition requires — `fl_backend/app/api/spiele/services.py :: apply_payload_to_spiel` composes
  * the fixture from exactly these two numbers.
  */
-export const FLSaisonForfeitErgebnisSchema = z.object({
+const FLSaisonForfeitErgebnisSchema = z.object({
   sieger_tore: z.int({ error: "Bitte gib die Tore für den Sieger ein." }).nonnegative({ error: "Der Sieger bekommt 0 oder mehr Tore." }),
   verlierer_tore: z
     .int({ error: "Bitte gib die Tore für den Verlierer ein." })
     .nonnegative({ error: "Der Verlierer bekommt 0 oder mehr Tore." }),
 });
-export type FLSaisonForfeitErgebnis = z.infer<typeof FLSaisonForfeitErgebnisSchema>;
 
 /**
  * German on the TYPE check as well as the bound: an emptied count reaches the draft as `null` and fails
  * `z.int()` first, so a message only on `.positive()` leaves Zod's own English on the field.
  */
-export const FLSaisonRulesSchema = z.object({
+const FLSaisonRulesSchema = z.object({
   win_points: z.int({ error: "Bitte gib die Punkte für einen Sieg ein." }).positive({ error: "Ein Sieg bringt mindestens 1 Punkt." }),
   draw_points: z
     .int({ error: "Bitte gib die Punkte für ein Unentschieden ein." })
@@ -77,96 +65,36 @@ export const FLSaisonRulesSchema = z.object({
   // unfillable.
   erlaubte_stufen: z.array(FLSpielerStufeSchema).min(1, { error: "Bitte wähle mindestens eine Stufe aus." }),
 });
-export type FLSaisonRules = z.infer<typeof FLSaisonRulesSchema>;
-export type FLSaisonTiebreakOrder = FLSaisonRules["tiebreak_order"];
 
 /**
- * **Mirrored rather than recomputed**: an odd group needs an extra round because one team sits out,
- * and a copy that undercounts refuses a phase the endpoint accepts. A phase the bracket does not
- * reach is absent rather than zeroed.
+ * The two halves recording when the league accepts applications for a season: the span, and the
+ * `offen` flag an administrator sets beside it.
  */
-export const FLSaisonPhaseScheduleSchema = z.object({
-  phase: FLSaisonPhaseSchema,
-  matchdays: z.int().nonnegative(),
-  matches_per_matchday: z.int().nonnegative(),
-});
-export type FLSaisonPhaseSchedule = z.infer<typeof FLSaisonPhaseScheduleSchema>;
-
-/**
- * The watermark `POST /saisons/{saison_id}/spielplan` leaves on the season it drew. The counts are
- * what that ONE transaction wrote rather than what the season holds now, so a later cancellation
- * does not move them.
- */
-export const FLSaisonSpielplanSchema = z.object({
-  generiert_am: CustomDateStringSchema,
-  spieltage: z.int().nonnegative(),
-  spiele: z.int().nonnegative(),
-});
-export type FLSaisonSpielplan = z.infer<typeof FLSaisonSpielplanSchema>;
-
-/**
- * Mirrors `FLSaisonBewerbung` — the two halves recording when the league accepts applications for a
- * season: the span, and the `offen` flag an administrator sets beside it.
- */
-export const FLSaisonBewerbungSchema = z.object({
+const FLSaisonBewerbungSchema = z.object({
   offen: z.boolean(),
   von: CustomDateStringSchema,
   bis: CustomDateStringSchema,
 });
-export type FLSaisonBewerbung = z.infer<typeof FLSaisonBewerbungSchema>;
 
 /**
- * Mirrors `FLSaisonRegistrierung`, when a pupil may register. Its own schema rather than a second name
- * for the window above: the two are two decisions, and one shape would widen both at once.
+ * When a pupil may register. Its own schema rather than a second name for the window above: the two
+ * are two decisions, and one shape would widen both at once.
  */
-export const FLSaisonRegistrierungSchema = z.object({
+const FLSaisonRegistrierungSchema = z.object({
   offen: z.boolean(),
   von: CustomDateStringSchema,
   bis: CustomDateStringSchema,
 });
-export type FLSaisonRegistrierung = z.infer<typeof FLSaisonRegistrierungSchema>;
+
+type Fenster = z.infer<typeof FLSaisonBewerbungSchema> | z.infer<typeof FLSaisonRegistrierungSchema>;
 
 /**
- * Every field naming a season already stored, at one width: unbounded, an id lets `SaisonSelector`
- * offer a season the backend cannot hold. `saisonIdField` below MINTS one and carries the pattern
- * and the year range besides.
+ * Every field naming a season already stored, at one width. `saisonIdField` below MINTS one and
+ * carries the pattern and the year range besides.
  */
 const saisonIdReference = z
   .string()
   .length(SAISON_ID_LENGTH, { error: `Die Saison-ID besteht aus genau ${String(SAISON_ID_LENGTH)} Zeichen.` });
-
-export const FLSaisonSchema = z.object({
-  id: saisonIdReference,
-
-  start_date: CustomDateStringSchema,
-  end_date: CustomDateStringSchema,
-  status: FLSaisonStatusSchema,
-  rules: FLSaisonRulesSchema,
-  // Derived from `rules`, stored on no document. One entry per phase the season plays.
-  schedule: z.array(FLSaisonPhaseScheduleSchema),
-  // Required and nullable rather than optional: a stored season may omit the key, but the model
-  // defaults it and nothing excludes unset, so every response carries it. `null` is the season
-  // the generator has never run on.
-  spielplan: FLSaisonSpielplanSchema.nullable(),
-  // Required and nullable for `spielplan`'s reason: the model defaults it, so every response carries
-  // the key. `null` is the season that takes no applications at all.
-  bewerbung: FLSaisonBewerbungSchema.nullable(),
-  // Required and nullable on the same terms. `null` is the season that takes no registrations.
-  registrierung: FLSaisonRegistrierungSchema.nullable(),
-});
-export type FLSaison = z.infer<typeof FLSaisonSchema>;
-
-export const FLSaisonsListResponseSchema = BaseAPIResponseSchema.extend({
-  format: z.literal("list"),
-  saisons: z.array(FLSaisonSchema),
-});
-export type FLSaisonsListResponse = z.infer<typeof FLSaisonsListResponseSchema>;
-
-export const FLSaisonsSingleResponseSchema = BaseAPIResponseSchema.extend({
-  format: z.literal("single"),
-  saison: FLSaisonSchema,
-});
-export type FLSaisonsSingleResponse = z.infer<typeof FLSaisonsSingleResponseSchema>;
 
 /**
  * The rules a CREATE judges alone. A patch judges none of the family: each one turns on the step
@@ -209,7 +137,7 @@ const windowEndsAfterItOpens = {
  * legitimately open before the season does. `null` is the season taking no applications, which this
  * rule has nothing to say about.
  */
-const windowRunsForwards = (fenster: FLSaisonBewerbung | FLSaisonRegistrierung | null) => fenster === null || fenster.bis >= fenster.von;
+const windowRunsForwards = (fenster: Fenster | null) => fenster === null || fenster.bis >= fenster.von;
 
 // The sentence `the_registration_window_ends_after_it_opens` raises, worded for its own window:
 // one message over both would name neither panel's field.
@@ -234,14 +162,14 @@ const saisonPayloadFields = {
  * Retyped from `fl_backend/app/api/saisons/schemas.py :: FIRST_SAISON_YEAR`. A literal on both sides, being a fact about this
  * league's own history; the ceiling below is a fact about the calendar and is read from the clock.
  */
-export const FIRST_SAISON_YEAR = 2026;
+const FIRST_SAISON_YEAR = 2026;
 
 // The width is the length bound beside it, on both tiers, so neither states one number twice.
 /**
  * The ALPHABET, character for character as `fl_backend/app/api/saisons/schemas.py :: FLPostSaisonPayload`
  * spells it.
  */
-export const SAISON_ID_PATTERN = /^[0-9]+$/;
+const SAISON_ID_PATTERN = /^[0-9]+$/;
 
 /** Read PER PARSE: a ceiling taken once when the module loads pins the year the tab was opened, not the year it is now. */
 const newestSaisonYear = () => new Date().getFullYear() + 1;
@@ -277,7 +205,6 @@ export const FLPostSaisonPayloadSchema = z
   .refine((saison) => windowRunsForwards(saison.registrierung), registrationWindowEndsAfterItOpens)
   .refine((saison) => saison.rules.qualifiers_per_group <= saison.rules.teams_per_group, groupCannotOverQualify)
   .refine((saison) => hasPlayableBracket(saison.rules), bracketMustHaveAShape);
-export type FLPostSaisonPayload = z.infer<typeof FLPostSaisonPayloadSchema>;
 
 export const FLPatchSaisonPayloadSchema = z
   .object({
@@ -288,32 +215,24 @@ export const FLPatchSaisonPayloadSchema = z
   .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
   .refine((saison) => windowRunsForwards(saison.bewerbung), windowEndsAfterItOpens)
   .refine((saison) => windowRunsForwards(saison.registrierung), registrationWindowEndsAfterItOpens);
-export type FLPatchSaisonPayload = z.infer<typeof FLPatchSaisonPayloadSchema>;
 
 /** An id in the path and no request body. */
 export const FLActivateSaisonPayloadSchema = z.object({
   id: saisonIdReference,
 });
-export type FLActivateSaisonPayload = z.infer<typeof FLActivateSaisonPayloadSchema>;
 
 /**
  * The three rules a season's fixture list is a function of. **All three or none**: the draw is one
  * function of the whole shape, so half of it would leave the rest on a season that stopped matching.
  * Picked from the rules, so each bound is stated once.
  */
-export const FLSpielplanShapeSchema = FLSaisonRulesSchema.pick({
+const FLSpielplanShapeSchema = FLSaisonRulesSchema.pick({
   number_of_groups: true,
   teams_per_group: true,
   qualifiers_per_group: true,
 });
-export type FLSpielplanShape = z.infer<typeof FLSpielplanShapeSchema>;
 
-/**
- * An id in the path, plus the replace confirmation and the shape this draw runs from.
- *
- * **`.optional()`, never `.default(...)`**: a Zod default is required on output, which `apiContract`
- * fails. Both left out is the first draw, which destroys nothing.
- */
+/** An id in the path, plus the replace confirmation and the shape this draw runs from. Both left out is the first draw, which destroys nothing. */
 export const FLGenerateSpielplanPayloadSchema = z.object({
   id: saisonIdReference,
   replace: z.boolean().optional(),
@@ -321,13 +240,11 @@ export const FLGenerateSpielplanPayloadSchema = z.object({
   // from the season's stored numbers", which is what `REQ-RULES-011` freezes every other route out of.
   shape: FLSpielplanShapeSchema.nullable().optional(),
 });
-export type FLGenerateSpielplanPayload = z.infer<typeof FLGenerateSpielplanPayloadSchema>;
 
 /** An id in the path and no request body. */
 export const FLUndrawSpielplanPayloadSchema = z.object({
   id: saisonIdReference,
 });
-export type FLUndrawSpielplanPayload = z.infer<typeof FLUndrawSpielplanPayloadSchema>;
 
 /**
  * **Neither side carries a group**: the backend reads the two junction rows inside the transaction, so
@@ -338,86 +255,3 @@ export const FLSwapGruppenPayloadSchema = z.object({
   team1_id: CustomObjectIdStringSchema,
   team2_id: CustomObjectIdStringSchema,
 });
-export type FLSwapGruppenPayload = z.infer<typeof FLSwapGruppenPayloadSchema>;
-
-export const FLPostSaisonResponseSchema = BaseAPIResponseSchema.extend({
-  created_id: z.string(),
-});
-export type FLPostSaisonResponse = z.infer<typeof FLPostSaisonResponseSchema>;
-
-export const FLPatchSaisonResponseSchema = BaseAPIResponseSchema.extend({
-  updated_document: FLSaisonSchema,
-});
-export type FLPatchSaisonResponse = z.infer<typeof FLPatchSaisonResponseSchema>;
-
-/** `deactivated` counts the seasons moved off `active`, and `activateSaisonAction` reports it. */
-export const FLActivateSaisonResponseSchema = BaseAPIResponseSchema.extend({
-  updated_document: FLSaisonSchema,
-  deactivated: z.int().nonnegative(),
-});
-export type FLActivateSaisonResponse = z.infer<typeof FLActivateSaisonResponseSchema>;
-
-/**
- * What the one transaction wrote, reported by the endpoint rather than re-read: the panel names the
- * two counts without a second request, and they are the same numbers the season's watermark keeps.
- */
-export const FLGenerateSpielplanResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: saisonIdReference,
-  spieltage: z.int().nonnegative(),
-  spiele: z.int().nonnegative(),
-  generiert_am: CustomDateStringSchema,
-  // Measured off the confirmed replace's deletes, zero where none ran.
-  removed_spieltage: z.int().nonnegative(),
-  removed_spiele: z.int().nonnegative(),
-});
-export type FLGenerateSpielplanResponse = z.infer<typeof FLGenerateSpielplanResponseSchema>;
-
-/**
- * What removing the Spielplan took away. The watermark is reported apart from the two counts: it is
- * the one thing a season can hold with neither collection behind it, so a zero pair does not mean
- * the season was already undrawn.
- */
-export const FLUndrawSpielplanResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: saisonIdReference,
-  spieltage: z.int().nonnegative(),
-  spiele: z.int().nonnegative(),
-  watermark_cleared: z.boolean(),
-});
-export type FLUndrawSpielplanResponse = z.infer<typeof FLUndrawSpielplanResponseSchema>;
-
-/**
- * The groups are what LANDED rather than what was intended: the backend writes from this object, which
- * is what lets the toast name them.
- */
-export const FLSwapGruppenResponseSchema = BaseAPIResponseSchema.extend({
-  saison_id: saisonIdReference,
-  team1_id: CustomObjectIdStringSchema,
-  team1_gruppe: FLGruppenNamesSchema,
-  team2_id: CustomObjectIdStringSchema,
-  team2_gruppe: FLGruppenNamesSchema,
-  rewritten_spiele: z.int().nonnegative(),
-});
-export type FLSwapGruppenResponse = z.infer<typeof FLSwapGruppenResponseSchema>;
-
-/**
- * `nach` is where the pass's next call starts, null once it reached the end; `verbleibend` counts the failed and
- * the passed-over too, so it never ends a pass. `abgeschlossene_saison_id` is null where no season is `past`.
- */
-export const FLLoeschungLaufResponseSchema = BaseAPIResponseSchema.extend({
-  abgeschlossene_saison_id: saisonIdReference.nullable(),
-  spieler: z.int().nonnegative(),
-  saison_spieler: z.int().nonnegative(),
-  registrierungen: z.int().nonnegative(),
-  uebersprungen: z.int().nonnegative(),
-  fehlgeschlagen: z.int().nonnegative(),
-  verbleibend: z.int().nonnegative(),
-  nach: CustomObjectIdStringSchema.nullable(),
-});
-export type FLLoeschungLaufResponse = z.infer<typeof FLLoeschungLaufResponseSchema>;
-
-/** Whom activating this season would delete, counted and never named; `abgeschlossene_saison_id` is the season that activation closes. */
-export const FLLoeschungVorschauResponseSchema = BaseAPIResponseSchema.extend({
-  abgeschlossene_saison_id: saisonIdReference.nullable(),
-  spieler: z.int().nonnegative(),
-});
-export type FLLoeschungVorschauResponse = z.infer<typeof FLLoeschungVorschauResponseSchema>;

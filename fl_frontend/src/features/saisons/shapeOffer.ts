@@ -1,9 +1,8 @@
-import { MAX_QUALIFIERS } from "@/features/saisons/schemas";
+import { MAX_QUALIFIERS } from "@/features/saisons/constants";
 import { GRUPPEN_OPTIONS } from "@/features/teams/constants";
 
-import type { FLSpielplanShape } from "@/features/saisons/schemas";
+import type { FLGruppenNames, FLSpielplanShape } from "@/core/generated/client/types";
 import type { SaisonGruppenOccupancy } from "@/features/saisons/types";
-import type { FLGruppenNames } from "@/features/teams/schemas";
 import type { RefusableOption } from "@/shared/components/ui/refusableOption";
 
 /**

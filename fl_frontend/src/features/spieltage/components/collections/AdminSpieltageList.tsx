@@ -17,7 +17,7 @@ import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLSaisonPhase } from "@/features/saisons/schemas";
+import type { FLSaisonPhase } from "@/core/generated/client/types";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { AdminSpieltagRow } from "../../types";
 import type { SpieltagPhaseProgress } from "../../utils";

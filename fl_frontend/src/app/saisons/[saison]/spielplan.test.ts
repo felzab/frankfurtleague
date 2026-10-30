@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { currentMatchday, factsOf, matchRowOf, readSpielplan } from "./spielplan.ts";
 
-import type { FLSaison } from "@/features/saisons/schemas.ts";
+import type { FLSaison } from "@/core/generated/client/types.ts";
 import type { FLSpiel } from "@/features/spiele/types.ts";
 import type { Matchday } from "./spielplan.ts";
 

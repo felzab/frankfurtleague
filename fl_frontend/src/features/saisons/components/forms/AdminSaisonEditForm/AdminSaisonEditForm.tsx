@@ -39,8 +39,14 @@ import { FormTeamErsatzSection } from "./FormTeamErsatzSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
 import { movedShapeCount, startingRedraw } from "./spielplanShape";
 
+import type {
+  FLPatchSaisonPayload,
+  FLSaisonBewerbung,
+  FLSaisonRegistrierung,
+  FLSaisonRules,
+  FLSaisonStatus,
+} from "@/core/generated/client/types";
 import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus";
-import type { FLPatchSaisonPayload, FLSaisonBewerbung, FLSaisonRegistrierung, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
 import type {
   FLSaisonRulesDraft,
   SaisonDraftFields,
@@ -122,7 +128,7 @@ export function AdminSaisonEditForm({
       schemas: { saison: FLPatchSaisonPayloadSchema },
     });
 
-  type SaisonPatchDraft = Omit<FLPatchSaisonPayload, "rules"> & { rules: FLSaisonRulesDraft };
+  type SaisonPatchDraft = Omit<FLPatchSaisonPayload, "rules"> & { id: string; rules: FLSaisonRulesDraft };
 
   const buildPayload = (): SaisonPatchDraft => ({
     id: saison.id,

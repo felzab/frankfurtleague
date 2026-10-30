@@ -11,7 +11,7 @@ import {
   spielplanUndrawBlockedReason,
 } from "./blockedReasons.ts";
 
-import type { FLSpielplanShape } from "@/features/saisons/schemas.ts";
+import type { FLSpielplanShape } from "@/core/generated/client/types.ts";
 import type { SpielplanControlInput, SpielplanOperation } from "./blockedReasons.ts";
 
 const spielplanInput = (overrides: Partial<SpielplanControlInput> = {}): SpielplanControlInput => ({

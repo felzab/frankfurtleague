@@ -11,7 +11,6 @@ let laufAnswer: (nach: string | null) => unknown = () => gelaufen(0, 0);
 
 /** One call of the pupils' deletion: whom it erased, who is still due after it, and where the pass goes on. */
 const gelaufen = (spieler: number, verbleibend: number, nach: string | null = null) => ({
-  acknowledged: 1,
   abgeschlossene_saison_id: "2526",
   spieler: spieler,
   saison_spieler: spieler,
@@ -23,21 +22,22 @@ const gelaufen = (spieler: number, verbleibend: number, nach: string | null = nu
 });
 
 /** The grants' claim with nothing to announce. */
-const NOTHING_CLAIMED = { acknowledged: 1, beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
+const NOTHING_CLAIMED = { beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
 
 /** Every deletion call, with the place it carried. */
 const laufCalls: { params: Record<string, string> }[] = [];
 
 // Replaced at the module boundary: the real client reaches a backend no test process runs.
-doubleApiClient(async ({ endpoint, params }, schema) => {
+doubleApiClient(async ({ endpoint }, schema) => {
   // The grants' pass is armed by the same boot and answers to its own suite
   // (`fl_frontend/src/features/berechtigungen/abgleich.test.ts`): here it claims nothing and is not recorded.
   if (endpoint.startsWith("/berechtigungen")) return schema.parse(NOTHING_CLAIMED);
-  expect(endpoint, `the pass reached a route nothing here answers: ${endpoint}`).toBe(LAUF);
-  const carried = (params ?? {}) as Record<string, string>;
+  // The generated call carries its query in the endpoint.
+  const sent = new URL(endpoint, "http://backend");
+  expect(sent.pathname, `the pass reached a route nothing here answers: ${endpoint}`).toBe(LAUF);
+  const carried = Object.fromEntries(sent.searchParams);
   laufCalls.push({ params: carried });
-  // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift.
-  return schema.parse(await laufAnswer(carried.nach ?? null));
+  return laufAnswer(carried.nach ?? null);
 });
 
 const LOGGING_DOUBLE = {

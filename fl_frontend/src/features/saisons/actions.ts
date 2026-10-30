@@ -21,11 +21,7 @@ import {
 } from "./schemas";
 import { describeSpielplanUmfang } from "./utils";
 
-import type { FLSaisonRulesDraft, SaisonCreateDraft } from "@/features/saisons/types";
-import type { ActionResult } from "@/shared/types/types";
-import type { LoeschungLauf } from "./loeschung";
 import type {
-  FLActivateSaisonPayload,
   FLActivateSaisonResponse,
   FLGenerateSpielplanPayload,
   FLGenerateSpielplanResponse,
@@ -34,9 +30,11 @@ import type {
   FLPatchSaisonResponse,
   FLSwapGruppenPayload,
   FLSwapGruppenResponse,
-  FLUndrawSpielplanPayload,
   FLUndrawSpielplanResponse,
-} from "./schemas";
+} from "@/core/generated/client/types";
+import type { FLSaisonRulesDraft, SaisonCreateDraft } from "@/features/saisons/types";
+import type { ActionResult } from "@/shared/types/types";
+import type { LoeschungLauf } from "./loeschung";
 
 export async function postSaisonAction(
   // The DRAFT shape: an emptied rule count submits `null`, and the schema below is what turns that into a
@@ -72,7 +70,7 @@ export async function postSaisonAction(
 }
 
 export async function patchSaisonAction(
-  rawPayload: Omit<FLPatchSaisonPayload, "rules"> & { rules: FLSaisonRulesDraft },
+  rawPayload: Omit<FLPatchSaisonPayload, "rules"> & { id: string; rules: FLSaisonRulesDraft },
 ): Promise<ActionResult<{ saison?: FLPatchSaisonResponse }>> {
   return runAdminMutation("patchSaisonAction", async () => {
     const validated = FLPatchSaisonPayloadSchema.safeParse(rawPayload);
@@ -108,7 +106,7 @@ export async function patchSaisonAction(
  * - `REQ-ACTIVATE-003` on one with nothing drawn to play
  * - `REQ-ACTIVATE-004` on one whose matchdays are not dated
  */
-export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload): Promise<ActionResult<{ saison?: FLActivateSaisonResponse }>> {
+export async function activateSaisonAction(rawPayload: { id: string }): Promise<ActionResult<{ saison?: FLActivateSaisonResponse }>> {
   return runAdminMutation("activateSaisonAction", { stepUp: true }, async () => {
     const validated = FLActivateSaisonPayloadSchema.safeParse(rawPayload);
 
@@ -201,7 +199,9 @@ function loeschungsSaetze(lauf: LoeschungLauf): string[] {
  * Two clubs exchange groups. The same transaction rewrites every drawn Gruppenphase fixture fielding
  * either club.
  */
-export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promise<ActionResult<{ swap?: FLSwapGruppenResponse }>> {
+export async function swapGruppenAction(
+  rawPayload: FLSwapGruppenPayload & { saison_id: string },
+): Promise<ActionResult<{ swap?: FLSwapGruppenResponse }>> {
   return runAdminMutation("swapGruppenAction", async () => {
     const validated = FLSwapGruppenPayloadSchema.safeParse(rawPayload);
 
@@ -239,7 +239,7 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
  * writes them back.
  */
 export async function generateSpielplanAction(
-  rawPayload: FLGenerateSpielplanPayload,
+  rawPayload: FLGenerateSpielplanPayload & { id: string },
 ): Promise<ActionResult<{ spielplan?: FLGenerateSpielplanResponse }>> {
   return runAdminMutation("generateSpielplanAction", async (session) => {
     const validated = FLGenerateSpielplanPayloadSchema.safeParse(rawPayload);
@@ -286,9 +286,7 @@ export async function generateSpielplanAction(
  * an inverse**: nothing writes the removed rows back, and a fresh
  * draw draws its own.
  */
-export async function undrawSpielplanAction(
-  rawPayload: FLUndrawSpielplanPayload,
-): Promise<ActionResult<{ undraw?: FLUndrawSpielplanResponse }>> {
+export async function undrawSpielplanAction(rawPayload: { id: string }): Promise<ActionResult<{ undraw?: FLUndrawSpielplanResponse }>> {
   return runAdminMutation("undrawSpielplanAction", { stepUp: true }, async () => {
     const validated = FLUndrawSpielplanPayloadSchema.safeParse(rawPayload);
 

@@ -13,7 +13,7 @@ vi.doMock("@/shared/utils/adminRead.ts", async (importOriginal) => ({
 }));
 
 /** Every request the doubled client was asked for, cumulative across every pass in this file. */
-const reads = doubleApiClient(() => ({ acknowledged: 1, spieltag: {} }));
+const reads = doubleApiClient(() => ({ spieltag: {} }));
 
 serveServerReact();
 

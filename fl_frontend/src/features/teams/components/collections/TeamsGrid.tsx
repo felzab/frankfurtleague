@@ -7,7 +7,7 @@ import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { TeamCard } from "../ui/TeamCard";
 
-import type { FLTeam } from "../../schemas";
+import type { FLTeam } from "@/core/generated/client/types";
 
 // Each step is n columns of 14.25rem plus the gaps between them: 14.25rem is the narrowest `TeamCard`, at
 // a quarter-rem step, still holding its three chips on one line with a three-digit goal count.

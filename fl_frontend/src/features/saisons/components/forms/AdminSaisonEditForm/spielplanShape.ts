@@ -2,7 +2,7 @@ import { buildSpielplanVorschau } from "@/features/saisons/utils";
 
 import { spielplanPress, spielplanReplacesDraw } from "./blockedReasons";
 
-import type { FLSaisonRules, FLSaisonStatus, FLSpielplanShape } from "@/features/saisons/schemas";
+import type { FLSaisonRules, FLSaisonStatus, FLSpielplanShape } from "@/core/generated/client/types";
 import type { SaisonGruppenOccupancy, SaisonSpielplanContext } from "@/features/saisons/types";
 import type { SpielplanControlInput, SpielplanOperation } from "./blockedReasons";
 

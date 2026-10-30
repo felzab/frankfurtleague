@@ -15,7 +15,7 @@ import { mapEinladenRefusal, mapKontakteRefusal } from "./refusals";
 import { FLKontaktEinladenPayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 import { mitLaufenderFassung } from "./utils";
 
-import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
+import type { FLSaisonTeamKontakte } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
 import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { KontaktVersand } from "./notifications";

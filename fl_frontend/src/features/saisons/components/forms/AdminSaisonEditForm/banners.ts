@@ -1,4 +1,4 @@
-import type { FLSaisonStatus } from "@/features/saisons/schemas";
+import type { FLSaisonStatus } from "@/core/generated/client/types";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 
 type SaisonBannerId =

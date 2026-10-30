@@ -7,7 +7,7 @@ import { NewTabLink } from "@/shared/components/ui/NewTabLink";
 import { textLink } from "@/shared/components/ui/textLink";
 import { buildMapsSearchUrl, formatAddress } from "@/shared/utils/format";
 
-import type { FLTeam } from "../../schemas";
+import type { FLTeam } from "@/core/generated/client/types";
 
 /** Names the page's record, so its `h2` is the heading the shell's `h1` sits above. */
 export function TeamIdentityCard({ teamData }: { teamData: FLTeam }) {

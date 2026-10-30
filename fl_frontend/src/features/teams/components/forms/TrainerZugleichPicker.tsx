@@ -11,7 +11,7 @@ import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, TOGGLE_GROUP_ALIGN_CLASSES } 
 import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
 import { TextField } from "@/shared/components/ui/TextField";
 
-import type { FLTrainerZugleich } from "@/features/teams/schemas";
+import type { FLTrainerZugleich } from "@/core/generated/client/types";
 import type { Key } from "@heroui/react/rac";
 import type { ReactNode } from "react";
 

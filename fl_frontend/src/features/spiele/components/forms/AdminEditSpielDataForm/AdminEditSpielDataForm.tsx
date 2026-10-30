@@ -48,6 +48,7 @@ import type {
   FLSpielberichtVorschlag,
   FLSpielJoinedAdmin,
   FLSpielQuelle,
+  FLTeam,
 } from "@/core/generated/client/types";
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
@@ -65,7 +66,6 @@ import type {
   FLSpielWithDraftFields,
 } from "@/features/spiele/types";
 import type { FLSpielort } from "@/features/spielorte/schemas";
-import type { FLTeam } from "@/features/teams/schemas";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";

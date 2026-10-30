@@ -7,10 +7,12 @@ import { patchSpieltag } from "./mutations";
 import { mapSpieltagRefusal } from "./refusals";
 import { FLPatchSpieltagPayloadSchema } from "./schemas";
 
+import type { FLPatchSpieltagPayload, FLSpieltagWriteResponse } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
-import type { FLPatchSpieltagPayload, FLSpieltagWriteResponse } from "./schemas";
 
-export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): Promise<ActionResult<{ spieltag?: FLSpieltagWriteResponse }>> {
+export async function patchSpieltagAction(
+  rawPayload: FLPatchSpieltagPayload & { id: string },
+): Promise<ActionResult<{ spieltag?: FLSpieltagWriteResponse }>> {
   return runAdminMutation("patchSpieltagAction", async () => {
     const validated = FLPatchSpieltagPayloadSchema.safeParse(rawPayload);
 
