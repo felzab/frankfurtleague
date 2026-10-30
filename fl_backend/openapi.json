@@ -369,13 +369,16 @@
         "type": "object"
       },
       "FLAblehnenBewerbungResponse": {
+        "description": "The declined application; its mails are owed in the same write.",
         "properties": {
-          "updated_document": {
-            "$ref": "#/components/schemas/FLBewerbung"
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
           }
         },
         "required": [
-          "updated_document"
+          "id"
         ],
         "title": "FLAblehnenBewerbungResponse",
         "type": "object"
@@ -2005,7 +2008,7 @@
         "type": "object"
       },
       "FLAnnehmenBewerbungResponse": {
-        "description": "The application as the acceptance left it, plus what the acceptance wrote beyond it.",
+        "description": "What the acceptance wrote beyond the application: the club in the season, and where; its mails are owed in the same write.",
         "properties": {
           "created_team": {
             "title": "Created Team",
@@ -2032,13 +2035,9 @@
                 "type": "null"
               }
             ]
-          },
-          "updated_document": {
-            "$ref": "#/components/schemas/FLBewerbung"
           }
         },
         "required": [
-          "updated_document",
           "team_id",
           "created_team",
           "saison_id",
@@ -2704,23 +2703,12 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Verschickt Am",
             "type": "string"
-          },
-          "zustellung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLBewerbungZustellung"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "required": [
           "verschickt_am",
           "erinnert_am",
-          "frist",
-          "zustellung"
+          "frist"
         ],
         "title": "FLBestaetigung",
         "type": "object"
@@ -2838,6 +2826,45 @@
         "title": "FLBewerbung",
         "type": "object"
       },
+      "FLBewerbungAbsageDaten": {
+        "description": "A decline, to one person of the application, with the administrator's reason verbatim.",
+        "properties": {
+          "art": {
+            "const": "bewerbung_absage",
+            "title": "Art",
+            "type": "string"
+          },
+          "grund": {
+            "title": "Grund",
+            "type": "string"
+          },
+          "rollen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktRolle"
+            },
+            "minItems": 1,
+            "title": "Rollen",
+            "type": "array"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "team": {
+            "title": "Team",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art",
+          "team",
+          "saison_id",
+          "rollen",
+          "grund"
+        ],
+        "title": "FLBewerbungAbsageDaten",
+        "type": "object"
+      },
       "FLBewerbungAddressPayload": {
         "additionalProperties": false,
         "description": "The school's address, with the Stadtteil required.",
@@ -2883,7 +2910,7 @@
         "type": "object"
       },
       "FLBewerbungBestaetigung": {
-        "description": "One seat's confirmation bookkeeping as the triage reads it, without its link's hash.",
+        "description": "One seat's confirmation bookkeeping as the triage reads it, without its link's hashes.",
         "properties": {
           "abgelehnt_am": {
             "anyOf": [
@@ -2917,7 +2944,7 @@
           "zustellung": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLBewerbungZustellung"
+                "$ref": "#/components/schemas/FLPostausgangLage"
               },
               {
                 "type": "null"
@@ -2932,30 +2959,6 @@
           "zustellung"
         ],
         "title": "FLBewerbungBestaetigung",
-        "type": "object"
-      },
-      "FLBewerbungBestaetigungTokens": {
-        "description": "The three raw tokens the create or its replay minted, one per seat; no read serves them again.",
-        "properties": {
-          "ansprechperson": {
-            "title": "Ansprechperson",
-            "type": "string"
-          },
-          "stellvertretung": {
-            "title": "Stellvertretung",
-            "type": "string"
-          },
-          "trainer": {
-            "title": "Trainer",
-            "type": "string"
-          }
-        },
-        "required": [
-          "trainer",
-          "ansprechperson",
-          "stellvertretung"
-        ],
-        "title": "FLBewerbungBestaetigungTokens",
         "type": "object"
       },
       "FLBewerbungBestaetigungen": {
@@ -2998,6 +3001,49 @@
           "stellvertretung"
         ],
         "title": "FLBewerbungBestaetigungen",
+        "type": "object"
+      },
+      "FLBewerbungEingangDaten": {
+        "description": "The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer.",
+        "properties": {
+          "art": {
+            "const": "bewerbung_eingang",
+            "title": "Art",
+            "type": "string"
+          },
+          "ausstehend": {
+            "items": {
+              "$ref": "#/components/schemas/FLBewerbungPerson"
+            },
+            "title": "Ausstehend",
+            "type": "array"
+          },
+          "frist": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist",
+            "type": "string"
+          },
+          "rollen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktRolle"
+            },
+            "minItems": 1,
+            "title": "Rollen",
+            "type": "array"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art",
+          "saison_id",
+          "rollen",
+          "ausstehend",
+          "frist"
+        ],
+        "title": "FLBewerbungEingangDaten",
         "type": "object"
       },
       "FLBewerbungEinwilligungAnsichtResponse": {
@@ -3146,43 +3192,8 @@
         "type": "object"
       },
       "FLBewerbungEinwilligungAntwortResponse": {
-        "description": "What the answer did, and which of the application's seats are still open.\n\nThe fields after `medien` compose the outbound messages and are for the frontend's server alone.",
+        "description": "What the answer did; a Widerspruch's notice to the submitter is owed in the same write.",
         "properties": {
-          "ansprechperson_email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ansprechperson Email"
-          },
-          "ansprechperson_rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "title": "Ansprechperson Rollen",
-            "type": "array"
-          },
-          "ausstehend": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "title": "Ausstehend",
-            "type": "array"
-          },
-          "bestaetigungsfrist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Bestaetigungsfrist",
-            "type": "string"
-          },
-          "bewerbung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Bewerbung Id",
-            "type": "string"
-          },
           "ergebnis": {
             "$ref": "#/components/schemas/FLEinwilligungErgebnis"
           },
@@ -3208,17 +3219,6 @@
             "title": "Quelle",
             "type": "string"
           },
-          "rolle": {
-            "$ref": "#/components/schemas/FLKontaktRolle"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
-          },
           "whatsapp": {
             "title": "Whatsapp",
             "type": "boolean"
@@ -3227,23 +3227,15 @@
         "required": [
           "quelle",
           "ergebnis",
-          "ausstehend",
           "geburtsdatum",
           "whatsapp",
-          "medien",
-          "bewerbung_id",
-          "saison_id",
-          "rolle",
-          "vorname",
-          "bestaetigungsfrist",
-          "ansprechperson_email",
-          "ansprechperson_rollen"
+          "medien"
         ],
         "title": "FLBewerbungEinwilligungAntwortResponse",
         "type": "object"
       },
       "FLBewerbungEinwilligungErneutResponse": {
-        "description": "A fresh link for one seat, RAW, for the admin action to mail; the old one then opens nothing.",
+        "description": "The seat whose link was replaced and where its fresh one is owed; the old one opens nothing.",
         "properties": {
           "bestaetigungsfrist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -3263,14 +3255,9 @@
             },
             "title": "Rollen",
             "type": "array"
-          },
-          "token": {
-            "title": "Token",
-            "type": "string"
           }
         },
         "required": [
-          "token",
           "rolle",
           "email",
           "rollen",
@@ -3472,19 +3459,8 @@
         "type": "object"
       },
       "FLBewerbungKontaktEmailResponse": {
-        "description": "The corrected address as stored, the fresh link it is to be mailed at, and every seat both reached.",
+        "description": "The corrected address as stored and every seat it reached; the fresh link is owed there in the same write.",
         "properties": {
-          "abgang_email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Abgang Email"
-          },
           "bestaetigungsfrist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Bestaetigungsfrist",
@@ -3500,18 +3476,12 @@
             },
             "title": "Rollen",
             "type": "array"
-          },
-          "token": {
-            "title": "Token",
-            "type": "string"
           }
         },
         "required": [
           "email",
           "rollen",
-          "token",
-          "bestaetigungsfrist",
-          "abgang_email"
+          "bestaetigungsfrist"
         ],
         "title": "FLBewerbungKontaktEmailResponse",
         "type": "object"
@@ -3563,7 +3533,7 @@
         "type": "object"
       },
       "FLBewerbungKontaktSitzResponse": {
-        "description": "The new person's address as stored, every seat they now hold, and the fresh link the caller mails them there.",
+        "description": "The new person's address as stored and every seat they now hold; their link is owed there in the same write.",
         "properties": {
           "bestaetigungsfrist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -3580,16 +3550,11 @@
             },
             "title": "Rollen",
             "type": "array"
-          },
-          "token": {
-            "title": "Token",
-            "type": "string"
           }
         },
         "required": [
           "email",
           "rollen",
-          "token",
           "bestaetigungsfrist"
         ],
         "title": "FLBewerbungKontaktSitzResponse",
@@ -3687,6 +3652,116 @@
           "vergeben"
         ],
         "title": "FLBewerbungKuerzelResponse",
+        "type": "object"
+      },
+      "FLBewerbungLinkDaten": {
+        "description": "One person's confirmation link on an application: at its submission, a re-send, a correction or a reseat, or the one reminder.\n\n`rollen` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.",
+        "properties": {
+          "art": {
+            "enum": [
+              "bewerbung_bestaetigung",
+              "bewerbung_erinnerung"
+            ],
+            "title": "Art",
+            "type": "string"
+          },
+          "frist": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist",
+            "type": "string"
+          },
+          "rollen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktRolle"
+            },
+            "minItems": 1,
+            "title": "Rollen",
+            "type": "array"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "schule": {
+            "title": "Schule",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art",
+          "saison_id",
+          "schule",
+          "rollen",
+          "frist"
+        ],
+        "title": "FLBewerbungLinkDaten",
+        "type": "object"
+      },
+      "FLBewerbungLoeschungDaten": {
+        "description": "The fourteen-day deletion notice, to the submitter, naming who never confirmed; owed in the erasure's own write.",
+        "properties": {
+          "art": {
+            "const": "bewerbung_loeschung",
+            "title": "Art",
+            "type": "string"
+          },
+          "ausstehend": {
+            "items": {
+              "$ref": "#/components/schemas/FLBewerbungPerson"
+            },
+            "title": "Ausstehend",
+            "type": "array"
+          },
+          "rollen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktRolle"
+            },
+            "minItems": 1,
+            "title": "Rollen",
+            "type": "array"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art",
+          "saison_id",
+          "rollen",
+          "ausstehend"
+        ],
+        "title": "FLBewerbungLoeschungDaten",
+        "type": "object"
+      },
+      "FLBewerbungPerson": {
+        "description": "Another person's seats, as a mail names them to the submitter: a first name where one stands, and the seats.",
+        "properties": {
+          "rollen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktRolle"
+            },
+            "minItems": 1,
+            "title": "Rollen",
+            "type": "array"
+          },
+          "vorname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vorname"
+          }
+        },
+        "required": [
+          "vorname",
+          "rollen"
+        ],
+        "title": "FLBewerbungPerson",
         "type": "object"
       },
       "FLBewerbungPersonEinwilligungResponse": {
@@ -3894,212 +3969,8 @@
         ],
         "type": "string"
       },
-      "FLBewerbungSweepAngekuendigtResponse": {
-        "properties": {
-          "angekuendigt": {
-            "title": "Angekuendigt",
-            "type": "integer"
-          },
-          "fehlgeschlagen": {
-            "title": "Fehlgeschlagen",
-            "type": "integer"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "angekuendigt",
-          "fehlgeschlagen"
-        ],
-        "title": "FLBewerbungSweepAngekuendigtResponse",
-        "type": "object"
-      },
-      "FLBewerbungSweepAusstehend": {
-        "description": "A seat the deletion notice lists as never confirmed; `vorname` is null where the slot was emptied.",
-        "properties": {
-          "rolle": {
-            "$ref": "#/components/schemas/FLKontaktRolle"
-          },
-          "vorname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vorname"
-          }
-        },
-        "required": [
-          "rolle",
-          "vorname"
-        ],
-        "title": "FLBewerbungSweepAusstehend",
-        "type": "object"
-      },
-      "FLBewerbungSweepAuswahlPayload": {
-        "additionalProperties": false,
-        "description": "The candidates from one pass's deletion list that this step names. The backend re-judges each, skipping one that no longer qualifies.",
-        "properties": {
-          "bewerbung_ids": {
-            "items": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "type": "string"
-            },
-            "maxItems": 83,
-            "title": "Bewerbung Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "bewerbung_ids"
-        ],
-        "title": "FLBewerbungSweepAuswahlPayload",
-        "type": "object"
-      },
-      "FLBewerbungSweepErinnerung": {
-        "description": "One reminder to send: one mailbox of one application, with every seat it holds due today.",
-        "properties": {
-          "bestaetigungsfrist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Bestaetigungsfrist",
-            "type": "string"
-          },
-          "bewerbung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Bewerbung Id",
-            "type": "string"
-          },
-          "email": {
-            "title": "Email",
-            "type": "string"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "schule": {
-            "title": "Schule",
-            "type": "string"
-          },
-          "seats": {
-            "items": {
-              "$ref": "#/components/schemas/FLBewerbungSweepSeat"
-            },
-            "title": "Seats",
-            "type": "array"
-          }
-        },
-        "required": [
-          "bewerbung_id",
-          "saison_id",
-          "schule",
-          "bestaetigungsfrist",
-          "email",
-          "seats"
-        ],
-        "title": "FLBewerbungSweepErinnerung",
-        "type": "object"
-      },
-      "FLBewerbungSweepLoeschenResponse": {
-        "properties": {
-          "fehlgeschlagen": {
-            "title": "Fehlgeschlagen",
-            "type": "integer"
-          },
-          "geloescht": {
-            "title": "Geloescht",
-            "type": "integer"
-          },
-          "redigierte_aktionen": {
-            "title": "Redigierte Aktionen",
-            "type": "integer"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "geloescht",
-          "redigierte_aktionen",
-          "fehlgeschlagen"
-        ],
-        "title": "FLBewerbungSweepLoeschenResponse",
-        "type": "object"
-      },
-      "FLBewerbungSweepLoeschung": {
-        "description": "One application past its deadline, still standing: the notice goes out first, the erasure in a second call.",
-        "properties": {
-          "angekuendigt": {
-            "title": "Angekuendigt",
-            "type": "boolean"
-          },
-          "ansprechperson_email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ansprechperson Email"
-          },
-          "ansprechperson_rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "title": "Ansprechperson Rollen",
-            "type": "array"
-          },
-          "ausstehend": {
-            "items": {
-              "$ref": "#/components/schemas/FLBewerbungSweepAusstehend"
-            },
-            "title": "Ausstehend",
-            "type": "array"
-          },
-          "bestaetigungsfrist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Bestaetigungsfrist",
-            "type": "string"
-          },
-          "bewerbung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Bewerbung Id",
-            "type": "string"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "schule": {
-            "title": "Schule",
-            "type": "string"
-          }
-        },
-        "required": [
-          "bewerbung_id",
-          "saison_id",
-          "schule",
-          "bestaetigungsfrist",
-          "ansprechperson_email",
-          "ansprechperson_rollen",
-          "ausstehend",
-          "angekuendigt"
-        ],
-        "title": "FLBewerbungSweepLoeschung",
-        "type": "object"
-      },
       "FLBewerbungSweepResponse": {
-        "description": "One season's pass: the reminders already stamped, the deletions still to notify, and each clock's count.",
+        "description": "One season's pass: each clock's count, every reminder and deletion notice owed in the write it belongs to.",
         "properties": {
           "abgelehnte_geloescht": {
             "title": "Abgelehnte Geloescht",
@@ -4109,27 +3980,21 @@
             "title": "Angenommene Geloescht",
             "type": "integer"
           },
-          "erinnerungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLBewerbungSweepErinnerung"
-            },
-            "title": "Erinnerungen",
-            "type": "array"
+          "erinnert": {
+            "title": "Erinnert",
+            "type": "integer"
           },
           "fehlgeschlagen": {
             "title": "Fehlgeschlagen",
             "type": "integer"
           },
+          "geloescht": {
+            "title": "Geloescht",
+            "type": "integer"
+          },
           "kontaktbloecke_geleert": {
             "title": "Kontaktbloecke Geleert",
             "type": "integer"
-          },
-          "loeschungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLBewerbungSweepLoeschung"
-            },
-            "title": "Loeschungen",
-            "type": "array"
           },
           "ohne_entscheidung_geloescht": {
             "title": "Ohne Entscheidung Geloescht",
@@ -4146,8 +4011,8 @@
         },
         "required": [
           "saison_id",
-          "erinnerungen",
-          "loeschungen",
+          "erinnert",
+          "geloescht",
           "abgelehnte_geloescht",
           "angenommene_geloescht",
           "ohne_entscheidung_geloescht",
@@ -4173,33 +4038,6 @@
           "saison_ids"
         ],
         "title": "FLBewerbungSweepSaisonsResponse",
-        "type": "object"
-      },
-      "FLBewerbungSweepSeat": {
-        "description": "One link a reminder carries, with its raw fresh token.",
-        "properties": {
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "title": "Rollen",
-            "type": "array"
-          },
-          "token": {
-            "title": "Token",
-            "type": "string"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
-          }
-        },
-        "required": [
-          "rollen",
-          "vorname",
-          "token"
-        ],
-        "title": "FLBewerbungSweepSeat",
         "type": "object"
       },
       "FLBewerbungTrikot": {
@@ -4259,6 +4097,106 @@
           "wunschfarbe"
         ],
         "title": "FLBewerbungTrikotPayload",
+        "type": "object"
+      },
+      "FLBewerbungWiderspruchDaten": {
+        "description": "A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too.",
+        "properties": {
+          "abgelehnt": {
+            "$ref": "#/components/schemas/FLBewerbungPerson"
+          },
+          "art": {
+            "const": "bewerbung_widerspruch",
+            "title": "Art",
+            "type": "string"
+          },
+          "frist": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist",
+            "type": "string"
+          },
+          "rollen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktRolle"
+            },
+            "minItems": 1,
+            "title": "Rollen",
+            "type": "array"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art",
+          "saison_id",
+          "rollen",
+          "abgelehnt",
+          "frist"
+        ],
+        "title": "FLBewerbungWiderspruchDaten",
+        "type": "object"
+      },
+      "FLBewerbungZusageDaten": {
+        "description": "An acceptance, to one person of the application, naming the seats they were entered for.",
+        "properties": {
+          "art": {
+            "const": "bewerbung_zusage",
+            "title": "Art",
+            "type": "string"
+          },
+          "gruppe": {
+            "$ref": "#/components/schemas/FLGruppenNames"
+          },
+          "rollen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktRolle"
+            },
+            "minItems": 1,
+            "title": "Rollen",
+            "type": "array"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "team": {
+            "title": "Team",
+            "type": "string"
+          },
+          "trikot_farbe": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLTrikotFarbe"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "wunschgegner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wunschgegner"
+          }
+        },
+        "required": [
+          "art",
+          "team",
+          "saison_id",
+          "rollen",
+          "gruppe",
+          "trikot_farbe",
+          "wunschgegner"
+        ],
+        "title": "FLBewerbungZusageDaten",
         "type": "object"
       },
       "FLBewerbungZustellEreignis": {
@@ -6828,6 +6766,50 @@
         ],
         "type": "string"
       },
+      "FLKontaktLinkDaten": {
+        "description": "One person an administrator seated on a team's season row, asked to confirm: no name, the address being unconfirmed.",
+        "properties": {
+          "art": {
+            "const": "kontakt_bestaetigung",
+            "title": "Art",
+            "type": "string"
+          },
+          "frist": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist",
+            "type": "string"
+          },
+          "rollen": {
+            "items": {
+              "$ref": "#/components/schemas/FLKontaktRolle"
+            },
+            "minItems": 1,
+            "title": "Rollen",
+            "type": "array"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "schule": {
+            "title": "Schule",
+            "type": "string"
+          },
+          "zeile": {
+            "$ref": "#/components/schemas/FLKontaktZeile"
+          }
+        },
+        "required": [
+          "art",
+          "saison_id",
+          "schule",
+          "rollen",
+          "frist",
+          "zeile"
+        ],
+        "title": "FLKontaktLinkDaten",
+        "type": "object"
+      },
       "FLKontaktMint": {
         "description": "One person's fresh confirmation link, RAW, for the admin action to mail; it is answered here and in no other response, ever.",
         "properties": {
@@ -9014,44 +8996,16 @@
         "type": "object"
       },
       "FLPostBewerbungResponse": {
-        "description": "What the submission wrote, without the people's details it carried.",
+        "description": "The stored application, the one a replayed key wrote first; its mails are owed in the same write.",
         "properties": {
-          "bestaetigungen": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLBewerbungBestaetigungTokens"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "bestaetigungsfrist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Bestaetigungsfrist",
-            "type": "string"
-          },
           "created_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Created Id",
             "type": "string"
-          },
-          "eingereicht_am": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Eingereicht Am",
-            "type": "string"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
           }
         },
         "required": [
-          "created_id",
-          "saison_id",
-          "eingereicht_am",
-          "bestaetigungen",
-          "bestaetigungsfrist"
+          "created_id"
         ],
         "title": "FLPostBewerbungResponse",
         "type": "object"
@@ -9597,7 +9551,15 @@
             "discriminator": {
               "mapping": {
                 "anmeldecode": "#/components/schemas/FLAnmeldecodeDaten",
+                "bewerbung_absage": "#/components/schemas/FLBewerbungAbsageDaten",
+                "bewerbung_bestaetigung": "#/components/schemas/FLBewerbungLinkDaten",
+                "bewerbung_eingang": "#/components/schemas/FLBewerbungEingangDaten",
+                "bewerbung_erinnerung": "#/components/schemas/FLBewerbungLinkDaten",
+                "bewerbung_loeschung": "#/components/schemas/FLBewerbungLoeschungDaten",
+                "bewerbung_widerspruch": "#/components/schemas/FLBewerbungWiderspruchDaten",
+                "bewerbung_zusage": "#/components/schemas/FLBewerbungZusageDaten",
                 "einladung": "#/components/schemas/FLEinladungDaten",
+                "kontakt_bestaetigung": "#/components/schemas/FLKontaktLinkDaten",
                 "konto_loeschung": "#/components/schemas/FLKontoLoeschungDaten",
                 "passkey_geloescht": "#/components/schemas/FLPasskeyDaten",
                 "passkey_hinzugefuegt": "#/components/schemas/FLPasskeyDaten",
@@ -9655,6 +9617,27 @@
               },
               {
                 "$ref": "#/components/schemas/FLEinladungDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLBewerbungLinkDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLBewerbungEingangDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLBewerbungZusageDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLBewerbungAbsageDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLBewerbungLoeschungDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLBewerbungWiderspruchDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLKontaktLinkDaten"
               }
             ],
             "title": "Daten"
@@ -19721,7 +19704,7 @@
         ]
       },
       "post": {
-        "description": "Store one school's application to play one season as submitted, and mint one confirmation link per contact person.\n\nEverything the league decides -- `status`, `eingereicht_am`, `entscheidung` and each consent's\nscope, source and date -- is written here and never taken off the payload. The three raw tokens are answered\nfor the caller to mail and stored only as hashes; the response is the one place outside the recipients' inboxes\nthey ever exist.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds and stores none: fresh links where no message to any seat is known to have\nreached its inbox, none otherwise. The same key over other details is refused (`REQ-BEWERBUNG-015`).\n\nAn address the ban list holds, on any seat, is refused (`REQ-BEWERBUNG-018`) on a first press and on a\nreplay alike, before any link is minted.\n\nA seat naming a consent wording other than the one the form now shows is refused (`REQ-EINWILLIGUNG-001`),\nand only once the key has been looked up: a stored key is answered whatever wording it names.",
+        "description": "Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.\n\nEverything the league decides -- `status`, `eingereicht_am`, `entscheidung` and each consent's\nscope, source and date -- is written here and never taken off the payload. One mail per person is owed in the\nsame transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming\nwho is still to answer, every other person their link. Each link is minted when its mail is handed out; no token\nis answered.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds, stores none and owes nothing again. The same key over other details is refused\n(`REQ-BEWERBUNG-015`).\n\nAn address the ban list holds, on any seat, is refused (`REQ-BEWERBUNG-018`) on a first press.\n\nA seat naming a consent wording other than the one the form now shows is refused (`REQ-EINWILLIGUNG-001`),\nand only once the key has been looked up: a stored key is answered whatever wording it names.",
         "operationId": "bewerbungen_post_bewerbung",
         "parameters": [
           {
@@ -19817,7 +19800,7 @@
     },
     "/api/v0/bewerbungen/einwilligung": {
       "post": {
-        "description": "Record one person's consent or decline for the seat their link opens, and for a second seat they hold.\n\nA decline empties the slot. Server-to-server only: the answer carries the addresses the outbound messages are composed\nfrom. Refuses, writing nothing: `REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and\non a team's season row `REQ-KONTAKT-004` and `-006`.",
+        "description": "Record one person's consent or decline for the seat their link opens, and for a second seat they hold.\n\nA decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who\nrefused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:\n`REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and on a team's season row\n`REQ-KONTAKT-004` and `-006`.",
         "operationId": "bewerbungen_post_einwilligung",
         "requestBody": {
           "content": {
@@ -20351,7 +20334,7 @@
     },
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
-        "description": "Run one season's six retention clocks as of today, and answer the reminders and deletion notices the caller must mail.\n\nEvery reminder answered is already stamped and committed. A deletion candidate is only listed: the caller stamps the\ndelivered notices through `/angekuendigt` and erases the announced ones through `/loeschen`. A row that cannot be written\nis passed over, counted in `fehlgeschlagen` and met again by the next pass. 404 where no season has the id.",
+        "description": "Run one season's six retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.\n\nThe drain sends what the pass owed. A row that cannot be written is passed over, counted in `fehlgeschlagen` and met\nagain by the next pass. 404 where no season has the id.",
         "operationId": "bewerbungen_sweep_saison",
         "parameters": [
           {
@@ -20422,182 +20405,6 @@
           }
         ],
         "summary": "Run one season's retention clocks",
-        "tags": [
-          "bewerbungen"
-        ]
-      }
-    },
-    "/api/v0/bewerbungen/sweep/{saison_id}/angekuendigt": {
-      "post": {
-        "description": "Stamp the named candidates whose deletion notice was delivered.\n\nAn id that no longer qualifies, or already carries a stamp, is skipped. 404 where no season has the id.",
-        "operationId": "bewerbungen_angekuendigt_bewerbungen",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLBewerbungSweepAuswahlPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungSweepAngekuendigtResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "SystemKey": []
-          }
-        ],
-        "summary": "Stamp the candidates whose notice was delivered",
-        "tags": [
-          "bewerbungen"
-        ]
-      }
-    },
-    "/api/v0/bewerbungen/sweep/{saison_id}/loeschen": {
-      "post": {
-        "description": "Erase the named candidates that still qualify and carry the announcement stamp, and redact every log row naming them.\n\nAny other id is skipped. 404 where no season has the id.",
-        "operationId": "bewerbungen_loeschen_bewerbungen",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLBewerbungSweepAuswahlPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLBewerbungSweepLoeschenResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "SystemKey": []
-          }
-        ],
-        "summary": "Erase the notified deletion candidates",
         "tags": [
           "bewerbungen"
         ]
@@ -20916,7 +20723,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/ablehnen": {
       "post": {
-        "description": "Decline an application, recording who decided and the reason they gave.\n\nThe submission itself is untouched: a decline moves `status` and `entscheidung` and nothing else,\nso what the school wrote stays the record the decision was taken against.",
+        "description": "Decline an application, recording who decided and the reason they gave, and owe every person of it the decline.\n\nThe submission itself is untouched: a decline moves `status` and `entscheidung` and nothing else,\nso what the school wrote stays the record the decision was taken against. The mails carry the reason verbatim.",
         "operationId": "bewerbungen_ablehnen_bewerbung",
         "parameters": [
           {
@@ -21005,7 +20812,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/annehmen": {
       "post": {
-        "description": "Accept an application, creating the school's club where the applicant proposed a new one.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`REQ-BEWERBUNG-013`), so every seat enters the season as its person confirmed it.",
+        "description": "Accept an application, creating the school's club where the applicant proposed a new one.\n\nIRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an\n`austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to\nconfirm their own seat (`REQ-BEWERBUNG-013`), so every seat enters the season as its person confirmed it.\nThe acceptance is owed to every person of the application in the same transaction, naming the seats each holds.",
         "operationId": "bewerbungen_annehmen_bewerbung",
         "parameters": [
           {
@@ -21094,7 +20901,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut": {
       "post": {
-        "description": "Mint a fresh link for one seat and answer it raw, for the caller to mail; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.\nThe application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list\nholds is refused `REQ-BEWERBUNG-019`. A path naming no seat is a 404.",
+        "description": "Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.\nThe application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list\nholds is refused `REQ-BEWERBUNG-019`. A path naming no seat is a 404.",
         "operationId": "bewerbungen_erneut_einwilligung",
         "parameters": [
           {
@@ -21182,7 +20989,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
-        "description": "Write another person into a seat its own holder stepped out of, and mint the fresh link to mail them.\n\nIt runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.\nThe record written is administrative and confirms nothing: the new person's own link is what asks them, and an\nacceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled\nfrom one press and one link answers both, and both must be empty for either to be written.\n\nThe link the seat's last holder was sent stops opening anything, and the application's confirmation deadline\nrestarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens\nnothing, seating them for a confirmation they cannot give.\n\nRefused on an application already decided (`REQ-BEWERBUNG-001`); on any seat this write would reach that nobody\nstepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included\n(`REQ-BEWERBUNG-011`); and on an address another\ncontact person on this application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds\n(`REQ-BEWERBUNG-019`); and on any label but the application form's running one (`REQ-EINWILLIGUNG-001`), the person\nseated being a new acceptance. A path naming no seat is a 404.",
+        "description": "Write another person into a seat its own holder stepped out of, and owe them their link in the same transaction.\n\nIt runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.\nThe record written is administrative and confirms nothing: the new person's own link is what asks them, and an\nacceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled\nfrom one press and one link answers both, and both must be empty for either to be written.\n\nThe link the seat's last holder was sent stops opening anything, and the application's confirmation deadline\nrestarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens\nnothing, seating them for a confirmation they cannot give.\n\nRefused on an application already decided (`REQ-BEWERBUNG-001`); on any seat this write would reach that nobody\nstepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included\n(`REQ-BEWERBUNG-011`); and on an address another\ncontact person on this application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds\n(`REQ-BEWERBUNG-019`); and on any label but the application form's running one (`REQ-EINWILLIGUNG-001`), the person\nseated being a new acceptance. A path naming no seat is a 404.",
         "operationId": "bewerbungen_besetze_kontakt_sitz",
         "parameters": [
           {
@@ -21280,7 +21087,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email": {
       "post": {
-        "description": "Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.\n\n**The mailbox the link leaves is answered in `abgang_email`** for the caller to tell, as the contacts editor's save\nanswers one it takes off a seat; null where the corrected address is the one the seat held.\n\nThe only repair there is for a link the mail provider will not carry: everything else the school typed stays the\nrecord the decision is taken against. Where one person holds two seats both are corrected, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day\ndeletion because its notice could not arrive is a deletion candidate again once the corrected link is answered\nfor or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this\nwrite would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm\n— the mirrored seat included (`REQ-BEWERBUNG-011`) — on a seat holding another address than `bisherige_email`, the address the\ncaller's page showed, as after a Widerspruch and a reseat (`REQ-BEWERBUNG-021`), and on an address another contact person on this\napplication already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming\nno seat is a 404.",
+        "description": "Write a corrected address onto one seat and owe a fresh link there in the same transaction; the old link then opens nothing.\n\nThe only repair there is for a link the mail provider will not carry: everything else the school typed stays the\nrecord the decision is taken against. Where one person holds two seats both are corrected, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because\nits notice could not arrive is a deletion candidate again once that mail is not refused.\n\nRefused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this write would reach that is already\nconfirmed, already answered with a Widerspruch, or holding nothing to confirm — the mirrored seat included\n(`REQ-BEWERBUNG-011`) — on a seat holding another address than `bisherige_email`, the address the caller's page\nshowed, as after a Widerspruch and a reseat (`REQ-BEWERBUNG-021`), and on an address another contact person on this\napplication already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming\nno seat is a 404.",
         "operationId": "bewerbungen_korrigiere_kontakt_email",
         "parameters": [
           {
