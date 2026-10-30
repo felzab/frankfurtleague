@@ -14,9 +14,8 @@ from pymongo import AsyncMongoClient, MongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
-from app.api.bewerbungen.sweep_router import get_sweep_saisons
 from app.api.registrierungen import sweep_router as sweep_router_module
-from app.api.registrierungen.services import SWEEP_PAGE, build_erinnerung_filter, build_unconfirmed_filter, build_wiederholung_filter
+from app.api.registrierungen.services import SWEEP_PAGE, build_erinnerung_filter
 from app.api.registrierungen.sweep_router import REMINDERS_PER_PASS, sweep_registrierungen
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.codes import Code
@@ -432,48 +431,6 @@ class TestTheOneMonthClock:
         assert DECLINED_OID not in left
 
 
-class TestThePassRecordsTheDayItRan:
-    def test_it_stamps_every_season_and_a_second_pass_appends_no_row(self, mongo_replica_set_url: str):
-        """The stamp reaches only a season not yet stamped today, and a fan-out that changed nothing logs nothing: one row a day."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await sweep(database, client)
-            after_first = await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.SAISONS)})
-            await sweep(database, client)
-            after_second = await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.SAISONS)})
-            stamped = await database[Collection.SAISONS].find({}, {"registrierung_sweep_gelaufen_am": 1}).sort("_id", 1).to_list(length=None)
-
-            return after_first, after_second, [row.get("registrierung_sweep_gelaufen_am") for row in stamped]
-
-        after_first, after_second, days = on_a_league(mongo_replica_set_url, body)
-
-        assert after_first == 1
-        assert after_second == 1
-        # Every season and not the one swept: one pass stamps them all, which is what makes the day
-        # the run's rather than the season's.
-        assert days == [TODAY, TODAY]
-
-    def test_the_season_list_answers_the_two_days_apart(self, mongo_replica_set_url: str):
-        """`docs/ops/runbooks.md` §9 reads one call: a fresh date beside a stale one is what names the pass that stopped."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            before = await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])
-            await sweep(database, client)
-            after = await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])
-
-            return (
-                (before.sweep_gelaufen_am, before.registrierung_sweep_gelaufen_am),
-                (after.sweep_gelaufen_am, after.registrierung_sweep_gelaufen_am),
-            )
-
-        before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert before == (None, None)
-        # The application's pass has not run here, and its date says so while the registration's says
-        # today: one date for both would report the sweep that stopped as the one that ran.
-        assert after == (None, TODAY)
-
-
 SECOND_OID = ObjectId("6890a1b2c3d4e5f607970007")
 BARRED_OID = ObjectId("6890a1b2c3d4e5f607970008")
 
@@ -529,10 +486,6 @@ def passed_over(caplog: pytest.LogCaptureFixture) -> list[tuple[Any, ...]]:
     ]
 
 
-async def the_days_stamp(database: AsyncDatabase) -> str | None:
-    return (await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])).registrierung_sweep_gelaufen_am
-
-
 class TestOneRowHoldsBackNoOther:
     """One case per write the call makes: with the site's isolation gone the whole call raises, every hour."""
 
@@ -564,30 +517,30 @@ class TestOneRowHoldsBackNoOther:
             await refuse_the_redaction_of(database, REMIND_OID)
             answer = await sweep(database, client)
 
-            return answer, await standing(database), await the_days_stamp(database)
+            return answer, await standing(database)
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            answer, left, day = on_a_league(mongo_replica_set_url, body, status="past", mutates_schema=True)
+            answer, left = on_a_league(mongo_replica_set_url, body, status="past", mutates_schema=True)
 
         assert (answer.geloescht_ohne_entscheidung, answer.fehlgeschlagen, [entry.registrierung_id for entry in answer.benachrichtigt]) == (
             3,
             1,
             [CONFIRMED_OID],
         )
-        assert (left, day) == ([REMIND_OID, OTHER_SEASON_OID], TODAY)
+        assert left == [REMIND_OID, OTHER_SEASON_OID]
         assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Registration", str(REMIND_OID), "season's end", f"{REFUSED_TRACE_ID}")]
 
-    def test_a_seasons_end_whose_every_erasure_fails_records_its_day_and_counts_them(self, mongo_replica_set_url: str):
-        """No half commits, so the day is stamped alone: the count is all that tells this pass from a clean one."""
+    def test_a_seasons_end_whose_every_erasure_fails_counts_them(self, mongo_replica_set_url: str):
+        """No half commits: the count is all that tells this pass from a clean one."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.REGISTRIERUNGEN].delete_many({"_id": {"$in": [EXPIRED_OID, INSIDE_OID, CONFIRMED_OID]}})
             await refuse_the_redaction_of(database, REMIND_OID)
             answer = await sweep(database, client)
 
-            return answer.geloescht_ohne_entscheidung, answer.fehlgeschlagen, await the_days_stamp(database)
+            return answer.geloescht_ohne_entscheidung, answer.fehlgeschlagen
 
-        assert on_a_league(mongo_replica_set_url, body, status="past", mutates_schema=True) == (0, 1, TODAY)
+        assert on_a_league(mongo_replica_set_url, body, status="past", mutates_schema=True) == (0, 1)
 
     def test_a_pupil_the_seasons_end_note_cannot_carry_stands_named_once(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Confirmed, with an empty first name: never erased untold, and read past by the page after its own rather than again."""
@@ -687,18 +640,18 @@ class TestOneRowHoldsBackNoOther:
             getattr(record, "registrierungen", None) for record in caplog.records if record.getMessage() == "registrierungen.reminders_withheld"
         ] == [1]
 
-    def test_a_pass_whose_every_reminder_fails_records_its_day_and_counts_them(self, mongo_replica_set_url: str):
-        """Every stamp refused, so no half commits and the day is stamped alone: the count is all that tells this pass from a clean one."""
+    def test_a_pass_whose_every_reminder_fails_counts_them(self, mongo_replica_set_url: str):
+        """Every stamp refused, so no half commits: the count is all that tells this pass from a clean one."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.REGISTRIERUNGEN].update_many({}, {"$unset": {"einladung_id": ""}})
             await refuse_writes_breaking(database, Collection.REGISTRIERUNGEN, {"required": ["einladung_id"]})
             answer = await sweep(database, client)
 
-            return answer.erinnerungen, answer.fehlgeschlagen, await the_days_stamp(database)
+            return answer.erinnerungen, answer.fehlgeschlagen
 
         # The two registrations at their reminder mark.
-        assert on_a_league(mongo_replica_set_url, body, mutates_schema=True) == ([], 2, TODAY)
+        assert on_a_league(mongo_replica_set_url, body, mutates_schema=True) == ([], 2)
 
 
 # A page and a short one after it. At a page plus ONE the first read takes every row, so a clock
@@ -765,51 +718,6 @@ async def passes_until_empty(one_pass: Callable[[], Awaitable[int]], *, share: i
     raise AssertionError(f"{total} rows at {share} a pass take {passes} passes, and pass {passes + 1} still took rows: {taken}")
 
 
-EMPTY_STAMP_OID = ObjectId("6890a1b2c3d4e5f607970031")
-
-
-def stamped_empty(*, frist: str) -> dict[str, Any]:
-    """A row whose consent record a hand edit stamped `""`, which `app/shared/einwilligung.py :: is_confirmed` calls unconfirmed."""
-
-    return registrierung(EMPTY_STAMP_OID, einwilligung=einwilligung(bestaetigt_am=""), bestaetigung=bestaetigung(EMPTY_STAMP_OID, frist=frist))
-
-
-class TestAnEmptyStampIsUnconfirmedToEveryFilter:
-    """Each filter selecting unconfirmed rows, run by the database itself: `None` alone never matches `""`, and only a server says so."""
-
-    def test_the_deadline_takes_a_row_stamped_empty(self, mongo_replica_set_url: str):
-        assert EMPTY_STAMP_OID in selected(mongo_replica_set_url, stamped_empty(frist=YESTERDAY), build_unconfirmed_filter)
-
-    def test_the_reminder_takes_a_row_stamped_empty(self, mongo_replica_set_url: str):
-        assert EMPTY_STAMP_OID in selected(mongo_replica_set_url, stamped_empty(frist="2026-04-05"), build_erinnerung_filter)
-
-    def test_a_replay_hands_a_row_stamped_empty_a_fresh_link(self, mongo_replica_set_url: str):
-        row = stamped_empty(frist="2026-04-05")
-        replay_filter = build_wiederholung_filter(registrierung_raw=row, today=TODAY)
-        assert replay_filter is not None
-
-        assert selected(mongo_replica_set_url, row, lambda **_: replay_filter) == [EMPTY_STAMP_OID]
-
-    def test_a_null_record_and_a_confirmed_one_still_part_as_they_did(self, mongo_replica_set_url: str):
-        """The control: `$in` with null still matches the corpus's null record, and a real stamp is still passed over."""
-
-        chosen = selected(mongo_replica_set_url, stamped_empty(frist=YESTERDAY), build_unconfirmed_filter)
-
-        assert (EXPIRED_OID in chosen, CONFIRMED_OID in chosen) == (True, False)
-
-
-def selected(url: str, row: dict[str, Any], build: Callable[..., Mapping[str, Any]]) -> list[ObjectId]:
-    """The ids a filter selects from the corpus plus `row`, asked of the server rather than of a matcher."""
-
-    async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[ObjectId]:
-        await database[Collection.REGISTRIERUNGEN].insert_one(row)
-        rows = await database[Collection.REGISTRIERUNGEN].find(build(saison_id=SAISON_ID, today=TODAY), {"_id": 1}).to_list(length=None)
-
-        return sorted(found["_id"] for found in rows)
-
-    return on_a_league(url, body)
-
-
 class TestTheReminderClockTakesAShareEachCall:
     def test_each_pass_stamps_its_share_and_the_passes_reach_every_row(self, mongo_replica_set_url: str):
         """A whole page in one transaction could outrun the request's deadline, and a transaction that times out stamps nothing, every pass."""
@@ -855,8 +763,6 @@ class TestTheReminderClockTakesAShareEachCall:
             async def counted(due: int) -> int:
                 await database[Collection.REGISTRIERUNGEN].delete_many({})
                 await database[Collection.REGISTRIERUNGEN].insert_many(overflowing()[:due])
-                # Stamped already, so the run's own stamp costs both passes the same guard read.
-                await database[Collection.SAISONS].update_many({}, {"$set": {"registrierung_sweep_gelaufen_am": TODAY}})
 
                 return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
@@ -890,8 +796,6 @@ class TestTheReminderClockTakesAShareEachCall:
             async def counted(rows: list[dict[str, Any]]) -> int:
                 await database[Collection.REGISTRIERUNGEN].delete_many({})
                 await database[Collection.REGISTRIERUNGEN].insert_many(rows)
-                # Stamped already, so the run's own stamp costs both passes the same guard read.
-                await database[Collection.SAISONS].update_many({}, {"$set": {"registrierung_sweep_gelaufen_am": TODAY}})
 
                 return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
@@ -910,7 +814,6 @@ class TestTheReminderClockTakesAShareEachCall:
             async def counted(rows: list[dict[str, Any]]) -> int:
                 await database[Collection.REGISTRIERUNGEN].delete_many({})
                 await database[Collection.REGISTRIERUNGEN].insert_many(rows)
-                await database[Collection.SAISONS].update_many({}, {"$set": {"registrierung_sweep_gelaufen_am": TODAY}})
 
                 return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
 
@@ -923,7 +826,7 @@ class TestTheReminderClockTakesAShareEachCall:
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
     def test_the_sweep(self, mongo_replica_set_url: str):
-        """`tests/api/test_registrierung_sweep_refusal.py`'s budget: both erasing clocks take a page and the day is not yet stamped.
+        """`tests/api/test_registrierung_sweep_refusal.py`'s budget: both erasing clocks take a page.
 
         A command added to the call turns this red, so the share is judged against the deadline again.
         """

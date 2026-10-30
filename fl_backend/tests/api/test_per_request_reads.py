@@ -366,7 +366,7 @@ class TestTheListsGatheredReads:
         assert (type(failed), str(failed)) == (ConnectionError, "the tally failed")
         assert cancelled == ["page"], "the page read was left running past the list's answer"
 
-    @pytest.mark.parametrize("failing", [*get_args(FLBewerbungStatus), *get_args(FLBewerbungSaisonbezug), "dubletten"])
+    @pytest.mark.parametrize("failing", [*get_args(FLBewerbungStatus.__value__), *get_args(FLBewerbungSaisonbezug), "dubletten"])
     def test_a_failed_read_of_the_queue_cancels_every_other_and_reaches_the_caller_as_itself(
         self, monkeypatch: pytest.MonkeyPatch, failing: str
     ):
@@ -399,7 +399,7 @@ class TestTheListsGatheredReads:
             )
         )
 
-        every_read = {*get_args(FLBewerbungStatus), *get_args(FLBewerbungSaisonbezug), "dubletten"}
+        every_read = {*get_args(FLBewerbungStatus.__value__), *get_args(FLBewerbungSaisonbezug), "dubletten"}
         assert (type(failed), str(failed)) == (ConnectionError, f"the {failing} read failed")
         assert sorted(cancelled) == sorted(every_read - {failing}), "a read was left running past the queue's answer"
 

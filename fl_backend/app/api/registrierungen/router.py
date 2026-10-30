@@ -35,14 +35,10 @@ async def get_registrierungen(
     sperrliste: SperrlisteLookup,
     filters: FLRegistrierungenFilters,
 ) -> FLRegistrierungenListResponse:
-    """
-    Every pending registration, newest first, narrowable by season, by team and by status.
+    """Every pending registration, newest first, narrowed by season, team and status.
 
-    `bestaetigt` says whether the pupil answered their own confirmation link, composed here rather
-    than left to the reader: an admission is offered on no registration lacking it.
-    `vollstaendig` is false where more rows exist than one read serves. A decision's author is `null`
-    beside `entscheidung.von_gesperrt` where the ban list holds that address, as no barred address is
-    served in plain.
+    `vollstaendig` is false where more rows exist than one read serves, `bestaetigt` says whether the pupil answered their own
+    link, and a barred decision's author is served as `null` beside `entscheidung.von_gesperrt`.
     """
 
     # Each term omitted where the request names nothing, so an absent parameter reads as every value

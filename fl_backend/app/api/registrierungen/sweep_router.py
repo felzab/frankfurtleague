@@ -13,11 +13,9 @@ from app.api.registrierungen.services import (
     bestaetigung_erasure_is_due,
     build_decline_filter,
     build_erinnerung_filter,
-    build_stale_stamp_filter,
     build_unconfirmed_filter,
     build_undecided_filter,
     compose_erinnerung_update,
-    compose_sweep_stamp,
     decline_erasure_is_due,
     erinnerung_is_due,
     registrierung_ist_bestaetigt,
@@ -40,7 +38,7 @@ from app.core.dependencies import (
 from app.core.logging import fl_logger
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
-from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated, transaction_session
+from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated
 
 # System tier and the system actor, as the application sweep's own router is: this pass holds no
 # session, so `bind_actor` would refuse it.
@@ -53,9 +51,9 @@ router = APIRouter(
 # a pass that stops on a club somebody retired.
 _TEAM_UNBEKANNT = ""
 
-# Three commands a row beside the eighteen of the worst call erasing one page per clock
-# (`tests/api/test_registrierung_sweep_refusal.py :: OTHER_COMMANDS`): 261 commands at a 37 ms round trip
-# plus 1.27 ms take 9.99 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
+# Three commands a row beside the sixteen of the worst call erasing one page per clock
+# (`tests/api/test_registrierung_sweep_refusal.py :: OTHER_COMMANDS`): 259 commands at a 37 ms round trip
+# plus 1.27 ms take 9.91 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 81
 
 
@@ -120,15 +118,10 @@ async def sweep_registrierungen(
 
     A registration whose write fails, the database refusing it or anything else, or one the answer cannot carry, is passed over
     alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it again and one
-    failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over: a
-    day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.
+    failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.
 
     404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes
     nothing, though it logs the count of withheld registrations again.
-
-    One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
-    answers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record
-    nothing.
     """
 
     # The read that answers the 404 carries the status: this season's own end is a clock, and a
@@ -139,16 +132,6 @@ async def sweep_registrierungen(
     stamp = log_stamp(germany_now)
     # Outside the reminder's transaction, whose callback may run again, as the application sweep reads it.
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
-
-    async def stamp_the_run(session: AsyncClientSession) -> None:
-        """One fan-out over every season today has not reached, inside the pass's LAST transaction, so a stamped day is a committed call."""
-
-        await patch_many_in_db(
-            collection=saisons_collection,
-            db_filter=build_stale_stamp_filter(today=today),
-            update=compose_sweep_stamp(today=today),
-            session=session,
-        )
 
     async def erase_the_undecided(
         session: AsyncClientSession, batch: Batch
@@ -204,10 +187,7 @@ async def sweep_registrierungen(
         if not taken:
             # Rows passed over in place move the page: the next one is read without them.
             refuse_a_stalled_page(read=len(rows), moved=len(batch.refused), page=SWEEP_PAGE, clock="season's end", saison_id=saison_id)
-            last = len(rows) <= SWEEP_PAGE
-            if last:
-                await stamp_the_run(session)
-            return [], 0, 0, last
+            return [], 0, 0, len(rows) <= SWEEP_PAGE
 
         ids = [row["_id"] for row, _ in taken]
         result = await erase_many_from_db(
@@ -217,11 +197,7 @@ async def sweep_registrierungen(
 
         # A page naming somebody to tell ends the pass: its answer is the only record of who is owed
         # a message, and a later transaction failing would answer the request with an error instead.
-        last = len(rows) <= SWEEP_PAGE or bool(benachrichtigt)
-        if last:
-            await stamp_the_run(session)
-
-        return benachrichtigt, result.deleted_count, redacted, last
+        return benachrichtigt, result.deleted_count, redacted, len(rows) <= SWEEP_PAGE or bool(benachrichtigt)
 
     async def erase_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The deadline clock: erase, then redact. Read in-session, so a retry re-judges."""
@@ -254,7 +230,7 @@ async def sweep_registrierungen(
         return len(rows), result.deleted_count, redacted
 
     async def remind(session: AsyncClientSession, batch: Batch) -> list[FLRegistrierungSweepErinnerung]:
-        """Stamp, mint, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges.
+        """Stamp, mint, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges.
 
         Counts on the batch how many registrations on the page a ban kept from their reminder, for the log line.
         """
@@ -310,8 +286,6 @@ async def sweep_registrierungen(
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
-
-        await stamp_the_run(session)
 
         return [erinnerung for _, (erinnerung, _) in taken]
 
@@ -382,11 +356,7 @@ async def sweep_registrierungen(
                 benachrichtigt.extend(notizen)
                 ohne_entscheidung += erased
                 redacted_undecided += redacted
-            # Every half of a page taken apart reads under the page and so ends the call, having
-            # stamped the day; where none committed, nothing is owed and the day is stamped alone.
-            if not pages:
-                async with transaction_session(db) as session:
-                    await session.with_transaction(stamp_the_run)
+            # Every half of a page taken apart reads under the page and so ends the call.
             if all(last for *_, last in pages):
                 break
         fehlgeschlagen += len(passed_at_the_end)
@@ -411,10 +381,6 @@ async def sweep_registrierungen(
             clock="reminder",
         )
         fehlgeschlagen += len(passed)
-        # Every half that committed stamped the day; where none did, nothing is owed and it is stamped alone.
-        if not reminded:
-            async with transaction_session(db) as session:
-                await session.with_transaction(stamp_the_run)
         erinnerungen = [erinnerung for answered in reminded for erinnerung in answered]
 
         # After the commit, so a retried transaction writes no second line. A count and never an id:
