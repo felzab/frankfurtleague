@@ -773,7 +773,7 @@ class FLKontaktMint(BaseModel):
 
 
 class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
-    """The block as STORED after the write, its row, and the people it owed a link.
+    """The block as STORED after the write, and each person it owed a link.
 
     No other field off that row: the caller sent none, and echoing one would invite a client to
     believe this endpoint owns it.
