@@ -11,7 +11,6 @@ from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.config import API_VERSION
-from app.core.crud import WritesSent, writes_sent_var
 from app.core.logging import fl_logger, trace_id_var
 
 # W3C Trace Context, version 00 alone: a malformed header is attacker-chosen log text. Anchored
@@ -79,9 +78,6 @@ class TraceContextMiddleware:
         trace_token = trace_id_var.set(resolve_trace_id(request.headers.get("traceparent")))
         answer = _Answer()
         answer_token = answer_var.set(answer)
-        # Fresh per request, as the answer is: a record inherited from the context this runs in would
-        # answer another request's write as this one's.
-        writes_token = writes_sent_var.set(WritesSent())
         started = time.perf_counter()
         deadline_token = request_deadline_var.set(time.monotonic() + REQUEST_DEADLINE_S)
 
@@ -112,7 +108,6 @@ class TraceContextMiddleware:
         finally:
             # Reset, or the id bleeds onto the log lines of whichever request the loop runs next.
             request_deadline_var.reset(deadline_token)
-            writes_sent_var.reset(writes_token)
             answer_var.reset(answer_token)
             trace_id_var.reset(trace_token)
 

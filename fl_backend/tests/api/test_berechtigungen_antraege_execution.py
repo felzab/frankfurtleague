@@ -44,7 +44,6 @@ from app.api.identitaet.wiederherstellung import Window, plan_replay
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import WritesSent, writes_sent_var
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.journal import JOURNAL_TOKEN, parse_line
 from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR, Actor, actor_var, log_stamp
@@ -159,13 +158,11 @@ async def call(handler: Callable[..., Awaitable[Any]], database: AsyncDatabase, 
         elif name in _ACTOR_PARAMETERS:
             supplied[name] = als
 
-    sent_token = writes_sent_var.set(WritesSent())
     actor_token = actor_var.set(Actor(kind="admin_session", email=als))
     try:
         return await handler(**supplied)
     finally:
         actor_var.reset(actor_token)
-        writes_sent_var.reset(sent_token)
 
 
 def ask(database: AsyncDatabase, client: AsyncMongoClient, email: str = NEU_TYPED, *, als: str = ANNA, **given: Any) -> Awaitable[Any]:
