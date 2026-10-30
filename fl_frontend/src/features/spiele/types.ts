@@ -20,7 +20,7 @@ export type FLSpiel = Omit<FLSpielJoined, "schiedsrichter"> & {
 
 /**
  * A fixture's own status, the label the chip and the status facet read: the client's partition by date and
- * event, never the server's `FLSpielStatus` filter, whose `ab_heute` includes today where `ausstehend`
+ * event, never the server's `FLSpielStatus` filter, whose `from_today` includes today where `ausstehend`
  * leaves it to `heute` (`docs/glossary.md` — spiel_status).
  */
 export type SpielStatus = "ausstehend" | "heute" | "vergangen" | "abgesagt" | "unbekannt";
