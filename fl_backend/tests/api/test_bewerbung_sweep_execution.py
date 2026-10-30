@@ -818,7 +818,6 @@ class TestABarredMailboxIsNotChased:
 STELLVERTRETUNG_STAMP = "kontakte.stellvertretung.einwilligung.bestaetigt_am"
 STAMP_STATES = [
     pytest.param({"$set": {STELLVERTRETUNG_STAMP: MAILED_ON_THE_MARK}}, False, id="confirmed, the control"),
-    pytest.param({"$set": {STELLVERTRETUNG_STAMP: ""}}, True, id="stamped empty"),
     pytest.param({"$set": {STELLVERTRETUNG_STAMP: None}}, True, id="stamped null"),
     # No stamp at all, the field missing, which the query's null term has to reach as well.
     pytest.param({"$set": {"kontakte.stellvertretung": None}}, True, id="the seat erased"),

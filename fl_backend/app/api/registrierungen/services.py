@@ -31,7 +31,7 @@ from app.core.codes import Code
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
-from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
+from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_nachweis import compose_erneuert, compose_geboren
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
@@ -231,7 +231,7 @@ def build_wiederholung_filter(*, registrierung_raw: Mapping[str, Any], today: st
     return {
         "_id": registrierung_raw["_id"],
         "status": SUBMITTED,
-        "einwilligung.bestaetigt_am": UNCONFIRMED_STAMP,
+        "einwilligung.bestaetigt_am": None,
         # The deadline's own day still takes a link, as `link_is_over` reads it.
         "bestaetigung.frist": {"$gte": today},
         "bestaetigung.erinnert_am": None,
@@ -608,9 +608,9 @@ DECLINED: Final = "abgelehnt"
 # One row per PUPIL, so a season's registrations outgrow a page long before its fixtures do.
 SWEEP_PAGE: Final = LIST_LIMIT_MAX
 
-# The consent stamp, at the path a null `einwilligung` and a null stamp both answer: `$in` with null
-# matches a missing path too, so one term covers both stored shapes and the empty stamp beside them.
-_UNBESTAETIGT: Final[Mapping[str, Any]] = {"einwilligung.bestaetigt_am": UNCONFIRMED_STAMP}
+# The consent stamp, at the path a null `einwilligung` and a null stamp both answer: null matches a
+# missing path too, so one term covers both stored shapes.
+_UNBESTAETIGT: Final[Mapping[str, Any]] = {"einwilligung.bestaetigt_am": None}
 
 
 def build_undecided_filter(*, saison_id: str) -> Mapping[str, Any]:

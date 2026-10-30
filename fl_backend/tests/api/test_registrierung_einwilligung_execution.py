@@ -245,9 +245,9 @@ class TestWhatALinkOpens:
         assert A_RETURNING_PUPILS_BIRTHDATE not in response.model_dump_json()
 
     def test_a_record_nobody_confirmed_makes_no_returning_pupil(self, mongo_replica_set_url: str):
-        """The returning page says the choices stand as the pupil gave them; a stamp a hand edit blanked holds choices nobody gave."""
+        """The returning page says the choices stand as the pupil gave them, and a person who never confirmed gave none."""
 
-        unconfirmed = spieler_document(SPIELER_OID, einwilligung=einwilligung(bestaetigt_am=""))
+        unconfirmed = spieler_document(SPIELER_OID, einwilligung=None)
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[unconfirmed])
 
@@ -518,7 +518,7 @@ class TestTheLabelAPressNames:
         [
             pytest.param([spieler_document(SPIELER_OID)], THIS_SEASONS_LABEL, {}, id="new page shown, the person confirmed since"),
             pytest.param(
-                [spieler_document(SPIELER_OID, einwilligung=einwilligung(bestaetigt_am=""))],
+                [spieler_document(SPIELER_OID, einwilligung=None)],
                 RETURNING_LABEL,
                 {"umfang": None, "medien": None},
                 id="returning page shown, the record unconfirmed since",

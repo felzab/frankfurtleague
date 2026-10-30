@@ -14,11 +14,11 @@ STAMP = "2026-02-01"
 
 @pytest.mark.parametrize(
     "einwilligung",
-    [None, "2026-02-01", {}, {"bestaetigt_am": None}, {"bestaetigt_am": ""}],
-    ids=["null record", "no mapping", "no stamp key", "null stamp", "empty stamp"],
+    [None, "2026-02-01", {}, {"bestaetigt_am": None}],
+    ids=["null record", "no mapping", "no stamp key", "null stamp"],
 )
 def test_every_shape_short_of_a_stamp_is_unconfirmed(einwilligung: Any):
-    """The seat's, the pupil's and the referee's shapes together; the empty string is the one a presence test calls stamped."""
+    """The seat's, the pupil's and the referee's shapes together."""
 
     assert is_confirmed(einwilligung) is False
 

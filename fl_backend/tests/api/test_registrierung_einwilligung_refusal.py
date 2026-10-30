@@ -14,7 +14,6 @@ from app.api.registrierungen.services import (
     compose_bestaetigung,
     compose_person,
     compose_person_update,
-    find_already_confirmed_refusal,
     find_expired_token_refusal,
     persons_named,
     seite_of,
@@ -100,13 +99,6 @@ class TestALinkWhoseTimeIsOver:
         assert find_expired_token_refusal(bestaetigung={"frist": TODAY}, status="eingereicht", today=TODAY) is None
 
 
-class TestARegistrationAlreadyConfirmed:
-    def test_a_record_stamped_with_an_empty_string_is_still_open(self):
-        """Every reader of a stamp takes an empty one for none, as the application's seats do: the pupil may still answer."""
-
-        assert find_already_confirmed_refusal(einwilligung={"bestaetigt_am": ""}) is None
-
-
 class TestWhichPageTheLinkOpens:
     """The returning pupil's page is the confirmed person's at this address and name alone."""
 
@@ -125,7 +117,7 @@ class TestWhichPageTheLinkOpens:
             pytest.param(PERSON, SEITE_WIEDERKEHREND, id="the confirmed person under the registration's name"),
             pytest.param({**PERSON, "inactive_since": "2025-07-01"}, SEITE_WIEDERKEHREND, id="that person retired"),
             pytest.param({**PERSON, "vorname": "Bramblewick"}, SEITE_NEU, id="another name at the address, a sibling"),
-            pytest.param({**PERSON, "einwilligung": einwilligung(bestaetigt_am="")}, SEITE_NEU, id="a record stamped with an empty string"),
+            pytest.param({**PERSON, "einwilligung": None}, SEITE_NEU, id="a person who never confirmed"),
         ],
     )
     def test_only_the_confirmed_person_of_the_registrations_name_makes_it_returning(self, person: Any, seite: str):
