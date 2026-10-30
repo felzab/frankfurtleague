@@ -42,12 +42,6 @@ interface Knopf {
   readonly href: string;
 }
 
-/** A link printed under the name it answers for, where one mail carries several and so no button. */
-interface BenannterLink {
-  readonly name: string;
-  readonly href: string;
-}
-
 /** One mail as its template states it: data only, which `renderMail` turns into both versions. */
 export interface Mail {
   readonly art: MailArt;
@@ -61,7 +55,7 @@ export interface Mail {
   /** The one facts block: a column of rows, the sign-in code, or a link a reader passes on, standing alone in its box. */
   readonly block?: { readonly fakten: readonly Fakt[] } | { readonly code: string } | { readonly link: string };
   readonly nachBlock?: readonly Absatz[];
-  readonly aktion?: Knopf | { readonly links: readonly BenannterLink[] };
+  readonly aktion?: Knopf;
 }
 
 /** What a mail is handed to the mailer as. */
@@ -244,14 +238,7 @@ function blockHtml(block: NonNullable<Mail["block"]>): Baustein {
 }
 
 /** The button, 44 px high (11 + 22 + 11) and full width on a phone, then its link printed to copy. */
-function aktionBausteine(aktion: NonNullable<Mail["aktion"]>): Baustein[] {
-  if ("links" in aktion) {
-    return aktion.links.map(({ name, href }, index) => ({
-      html: p(`${escapeHtml(einzeilig(name))}:<br />${linkHtml(href, href, "word-break:break-all;")}`, SMALL_TEXT),
-      abstand: index === aktion.links.length - 1 ? ABSTAND.block : ABSTAND.absatz,
-    }));
-  }
-
+function aktionBausteine(aktion: Knopf): Baustein[] {
   return [
     {
       html: `<table ${TABLE_ATTRS} class="fl-knopf" align="center" style="margin:0 auto;"><tr><td align="center" style="background-color:${BRAND_SOLID_COLOR};border-radius:8px;"><a href="${escapeHtml(einzeilig(aktion.href))}" style="display:inline-block;padding:11px 24px;font-family:${FONT_STACK};font-size:16px;line-height:22px;font-weight:700;color:${ON_BRAND_COLOR};text-decoration:none;">${escapeHtml(einzeilig(aktion.label))}</a></td></tr></table>`,
@@ -345,10 +332,7 @@ function renderHtml(mail: Mail, betreff: string): string {
 </html>`;
 }
 
-function aktionText(aktion: NonNullable<Mail["aktion"]>): string[] {
-  if ("links" in aktion)
-    return aktion.links.flatMap(({ name, href }, index) => [...(index === 0 ? [] : [""]), `${einzeilig(name)}:`, einzeilig(href)]);
-
+function aktionText(aktion: Knopf): string[] {
   return [`${einzeilig(aktion.label)}: ${einzeilig(aktion.href)}`];
 }
 
