@@ -8228,6 +8228,17 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Start Date",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8336,6 +8347,17 @@
           "kontakte_stand": {
             "title": "Kontakte Stand",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8431,6 +8453,17 @@
                 "type": "null"
               }
             ]
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8819,6 +8852,17 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Ende",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8867,6 +8911,17 @@
             "pattern": "^\\s*[A-Za-z]{3}\\s*$",
             "title": "Shorthand",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           },
           "website_url": {
             "anyOf": [
@@ -10643,6 +10698,11 @@
           },
           "status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -10654,6 +10714,7 @@
           "id",
           "status",
           "spielplan",
+          "version",
           "schedule"
         ],
         "title": "FLSaison",
@@ -17193,6 +17254,11 @@
                 "type": "null"
               }
             ]
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -17203,6 +17269,7 @@
           "kontakte",
           "bestaetigungen",
           "adresswechsel",
+          "version",
           "kontakte_stand"
         ],
         "title": "FLTeamMembership",
@@ -17261,6 +17328,11 @@
             "title": "Shorthand",
             "type": "string"
           },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
           "website_url": {
             "anyOf": [
               {
@@ -17282,7 +17354,8 @@
           "website_url",
           "address",
           "id",
-          "inactive_since"
+          "inactive_since",
+          "version"
         ],
         "title": "FLTeamRecord",
         "type": "object"
@@ -17469,6 +17542,11 @@
             "title": "Shorthand",
             "type": "string"
           },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
           "website_url": {
             "anyOf": [
               {
@@ -17491,6 +17569,7 @@
           "address",
           "id",
           "inactive_since",
+          "version",
           "memberships"
         ],
         "title": "FLTeamWithMemberships",

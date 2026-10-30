@@ -859,6 +859,7 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
                             "trikot_farbe": 1,
                             "kontakte": 1,
                             "bestaetigungen": 1,
+                            "version": 1,
                         }
                     },
                     # Each link's state and never its hash, which only the link's own lookup reads. Unset

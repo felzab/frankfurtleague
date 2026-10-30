@@ -2017,6 +2017,7 @@ export const SaisonsPatchSaisonBody = zod.object({
     win_points: zod.int().gt(saisonsPatchSaisonBodyRulesWinPointsExclusiveMin),
   }),
   start_date: zod.string().regex(saisonsPatchSaisonBodyStartDateRegExp),
+  version: zod.union([zod.int(), zod.null()]).optional(),
 });
 
 /**
@@ -3855,6 +3856,7 @@ export const spieltagePatchSpieltagBodyEndeRegExp = new RegExp("^[0-9]{4}-(0[1-9
 export const SpieltagePatchSpieltagBody = zod.object({
   beginn: zod.string().regex(spieltagePatchSpieltagBodyBeginnRegExp),
   ende: zod.string().regex(spieltagePatchSpieltagBodyEndeRegExp),
+  version: zod.union([zod.int(), zod.null()]).optional(),
 });
 
 /**
@@ -4052,6 +4054,7 @@ export const TeamsPatchTeamBody = zod.object({
     zod.null(),
   ]),
   shorthand: zod.string().regex(teamsPatchTeamBodyShorthandRegExp),
+  version: zod.union([zod.int(), zod.null()]).optional(),
   website_url: zod.union([zod.string().max(teamsPatchTeamBodyWebsiteUrlOneMax), zod.null()]),
 });
 
@@ -4153,6 +4156,7 @@ export const TeamsPatchSaisonTeamBody = zod
       ]),
       zod.null(),
     ]),
+    version: zod.union([zod.int(), zod.null()]).optional(),
   })
   .describe(
     "The row's own fields. NO `kontakte`: `FLPatchSaisonTeamKontaktePayload` owns it.\n\nA stored contact is shapeless on read and bounded on write, so round-tripping it here refuses\nevery save a club with one bad row can make.",
@@ -4400,6 +4404,7 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
       zod.null(),
     ]),
     kontakte_stand: zod.string(),
+    version: zod.union([zod.int(), zod.null()]).optional(),
   })
   .describe(
     'The contact block alone, plus the token naming which block it was composed against.\n\n`extra="forbid"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value this\nendpoint was never asked to decide.',

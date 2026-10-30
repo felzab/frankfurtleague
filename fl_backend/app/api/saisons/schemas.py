@@ -165,6 +165,9 @@ class _SaisonStored(_SaisonWritable):
     # DEFAULTED: the season's creation writes no key, the generator being what writes it.
     spielplan: FLSaisonSpielplan | None = None
 
+    # 0 until a write raises it, as the create stamps it.
+    version: int = 0
+
 
 class FLSaison(_SaisonStored, BaseReadModel):
     # DERIVED, and on no document. Injected before validation, because a computed field would close
@@ -231,7 +234,8 @@ class FLPostSaisonPayload(_SaisonPayload):
 # The patch shape IS `_SaisonPayload`, and stays a name of its own: a private base publishes no
 # OpenAPI component, and `fl_frontend/src/core/apiContract.test.ts` pairs the mirror by name.
 class FLPatchSaisonPayload(_SaisonPayload):
-    pass
+    # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
+    version: int | None = None
 
 
 class FLSwapGruppenPayload(BaseModel):

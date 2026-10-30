@@ -397,10 +397,10 @@ class TestTwoFirstActivationsRacing:
 
 
 class TestARivalRolloverLandingMidReactivationIsJudgedAgain:
-    """The target is the SOLE incumbent, so the rollover re-activates it and the promotion rewrites nothing.
+    """The target is the SOLE incumbent, so the rollover re-activates it and the promotion changes no field.
 
-    A document nothing rewrites joins no write set, so the rival's demotion raises no conflict. Only
-    the read outside the session refuses this.
+    The promotion still raises the target's version, so the rival's demotion conflicts with it and the
+    retry refuses the target as `past`.
     """
 
     def test_a_reactivated_target_demoted_under_the_rollover_is_refused_as_past(self, mongo_replica_set_url: str):
@@ -430,11 +430,10 @@ class TestARivalRolloverLandingMidReactivationIsJudgedAgain:
         # can restore.
         assert (outcome, statuses) == (Code.ACTIVATE_TARGET_PAST, {TARGET: "past", RIVAL: "active"})
 
-        # The judgement, the promotion's echo, and the re-judgement: one entry into the callback, so
-        # what refused is the read outside the session rather than a retry.
-        assert season_reads == 3, (
-            f"{season_reads} season reads where the judgement, the promotion's echo and the re-read outside the session make three: "
-            "fewer is a rival that landed outside the rollover or a re-read that is gone, more a retry this case does not prove"
+        # The judgement, then the retry's: the conflicted write reads no echo back, so the retry is what refused.
+        assert season_reads == 2, (
+            f"{season_reads} season reads where the judgement and the retry's make two: "
+            "one is a rival that landed outside the rollover, three an echo of a promotion that committed"
         )
 
 

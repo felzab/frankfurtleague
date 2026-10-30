@@ -88,6 +88,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
+    VERSION_FIELD,
     aggregate_many_from_db,
     insert_live,
     patch_many_in_db,
@@ -738,8 +739,8 @@ async def patch_saison_team_kontakte(
             db_filter=db_filter,
             # The two paths, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
             # `trikot_farbe` belong to the junction PATCH, and a `$set` carrying them would reinstate
-            # whatever this caller last read.
-            update={"$set": {"kontakte": kontakte, "bestaetigungen": bestaetigungen}},
+            # whatever this caller last read. The version the editor sent is the helper's to check.
+            update={"$set": {"kontakte": kontakte, "bestaetigungen": bestaetigungen, VERSION_FIELD: kontakte_data.version}},
             session=session,
             return_document=ReturnDocument.AFTER,
         )
