@@ -102,7 +102,7 @@ async def get_bewerbungen(
         gather_cancelling(
             # `bewerbungen_saison_id_status_queue` carries both terms, so a count walks keys and
             # fetches nothing; measured, the complement loses the COUNT_SCAN and stays an IXSCAN.
-            *(bewerbungen_collection.count_documents({**beyond_status, "status": status}) for status in get_args(FLBewerbungStatus))
+            *(bewerbungen_collection.count_documents({**beyond_status, "status": status}) for status in get_args(FLBewerbungStatus.__value__))
         ),
         gather_cancelling(*(bewerbungen_collection.count_documents({**beyond_saison, **term}) for term in saisonbezug_terms.values())),
         aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_dubletten_pipeline(beyond_status)),
@@ -130,7 +130,7 @@ async def get_bewerbungen(
     return FLBewerbungenListResponse(
         bewerbungen=FLBewerbungListAdapter.validate_python(await _as_served(served, sperrliste=sperrliste)),
         vollstaendig=len(read) <= filters.limit,
-        anzahl_je_status=dict(zip(get_args(FLBewerbungStatus), counted, strict=True)),
+        anzahl_je_status=dict(zip(get_args(FLBewerbungStatus.__value__), counted, strict=True)),
         anzahl_je_saisonbezug=dict(zip(saisonbezug_terms, bezogen, strict=True)),
         dubletten_schluessel=dubletten_schluessel_of(cells),
     )

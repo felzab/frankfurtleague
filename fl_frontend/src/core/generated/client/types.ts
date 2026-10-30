@@ -2033,12 +2033,10 @@ export interface FLBewerbungSweepResponse {
 }
 
 /**
- * Every season's id, for the caller to sweep one by one, and the day each retention pass last ran anywhere in this database.
+ * Every season's id, for the caller to sweep one by one.
  */
 export interface FLBewerbungSweepSaisonsResponse {
-  registrierung_sweep_gelaufen_am: string | null;
   saison_ids: string[];
-  sweep_gelaufen_am: string | null;
 }
 
 /**
@@ -2126,7 +2124,7 @@ export interface FLBewerbungZustellungResponse {
  */
 export interface FLBewerbungenListResponse {
   anzahl_je_saisonbezug: Partial<Record<"diese_saison" | "andere_saison", number>>;
-  anzahl_je_status: Partial<Record<"eingereicht" | "angenommen" | "abgelehnt", number>>;
+  anzahl_je_status: Partial<Record<FLBewerbungStatus, number>>;
   bewerbungen: FLBewerbung[];
   dubletten_schluessel: string[];
   vollstaendig: boolean;

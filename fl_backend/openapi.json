@@ -2805,13 +2805,7 @@
             ]
           },
           "status": {
-            "enum": [
-              "eingereicht",
-              "angenommen",
-              "abgelehnt"
-            ],
-            "title": "Status",
-            "type": "string"
+            "$ref": "#/components/schemas/FLBewerbungStatus"
           },
           "stufengroesse": {
             "title": "Stufengroesse",
@@ -3958,6 +3952,14 @@
         "title": "FLBewerbungSingleResponse",
         "type": "object"
       },
+      "FLBewerbungStatus": {
+        "enum": [
+          "eingereicht",
+          "angenommen",
+          "abgelehnt"
+        ],
+        "type": "string"
+      },
       "FLBewerbungSweepAngekuendigtPayload": {
         "additionalProperties": false,
         "description": "Which candidates' notices the caller delivered. The backend re-judges them: an id that has stopped qualifying is skipped.",
@@ -4243,44 +4245,18 @@
         "type": "object"
       },
       "FLBewerbungSweepSaisonsResponse": {
-        "description": "Every season's id, for the caller to sweep one by one, and the day each retention pass last ran anywhere in this database.",
+        "description": "Every season's id, for the caller to sweep one by one.",
         "properties": {
-          "registrierung_sweep_gelaufen_am": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Registrierung Sweep Gelaufen Am"
-          },
           "saison_ids": {
             "items": {
               "type": "string"
             },
             "title": "Saison Ids",
             "type": "array"
-          },
-          "sweep_gelaufen_am": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sweep Gelaufen Am"
           }
         },
         "required": [
-          "saison_ids",
-          "sweep_gelaufen_am",
-          "registrierung_sweep_gelaufen_am"
+          "saison_ids"
         ],
         "title": "FLBewerbungSweepSaisonsResponse",
         "type": "object"
@@ -4557,11 +4533,7 @@
               "type": "integer"
             },
             "propertyNames": {
-              "enum": [
-                "eingereicht",
-                "angenommen",
-                "abgelehnt"
-              ]
+              "$ref": "#/components/schemas/FLBewerbungStatus"
             },
             "title": "Anzahl Je Status",
             "type": "object"
@@ -20646,7 +20618,7 @@
     },
     "/api/v0/bewerbungen/sweep": {
       "get": {
-        "description": "Answer every season's id, oldest first, so the caller runs the clocks one season at a time, and the day each pass last ran.\n\nSystem tier rather than the base one: a season taking applications is `future`, which the base tier is never served,\nand the two clocks that matter run over exactly those seasons.\n\nNull against this database means no pass has ever run, never that the last one found nothing to do: a pass that reminds\nnobody and deletes nothing records the day exactly as a busy one does. Reading it writes nothing.",
+        "description": "Answer every season's id, oldest first, so the caller runs the clocks one season at a time.\n\nSystem tier rather than the base one: a season taking applications is `future`, which the base tier is never served,\nand the two clocks that matter run over exactly those seasons.",
         "operationId": "bewerbungen_get_sweep_saisons",
         "responses": {
           "200": {
@@ -20713,7 +20685,7 @@
     },
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
-        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. A seat whose address the ban list holds is\nsent nothing and has nothing written: it stays due, so every pass asks the ban list for it again until its deadline, and\nreminds it once a lift comes first; each pass logs how many mailboxes it withheld, never which. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n\nOne call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline\nfirst; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transactions, so no later step\nof the same call can answer an error in their place; where the request's deadline cuts them after one has committed, the call\nanswers what committed and warns once.\n\nAn application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,\nis passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it\nagain and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks\npassed over: a day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.\n\n404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,\nthough it logs the count of withheld seats again.\n\nThe accepted clock and the contact block run once a later season has ended while this one is not `active`, the moment the\nseason-after rule stops keeping this season's pupils: a running season keeps both, and a later season planned and never run\nholds neither back. A season whose id is not a four-digit year fails the whole pass rather than running the four clocks\nthat need no later season, because a pass that skipped those two quietly would leave both stopped for ever with nothing\nanywhere saying so. From that moment every pass also strips, on the rows and in their log images, the season's fixture\nconfirmation rows of every seat's link entry, each reason and a contact's holder digest, and its match\nreports of their remarks and every card's reason; the answers' way, day and role and the reports' scorers, cards and\nresult stay as the record. Each strip is its own transaction after the blocks' share: one that fails is\nlogged under the season's id and counted in `fehlgeschlagen`, and the blocks clear all the same.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
+        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. A seat whose address the ban list holds is\nsent nothing and has nothing written: it stays due, so every pass asks the ban list for it again until its deadline, and\nreminds it once a lift comes first; each pass logs how many mailboxes it withheld, never which. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n\nOne call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline\nfirst; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transactions, so no later step\nof the same call can answer an error in their place; where the request's deadline cuts them after one has committed, the call\nanswers what committed and warns once.\n\nAn application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,\nis passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it\nagain and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks\npassed over.\n\n404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,\nthough it logs the count of withheld seats again.\n\nThe accepted clock and the contact block run once a later season has ended while this one is not `active`, the moment the\nseason-after rule stops keeping this season's pupils: a running season keeps both, and a later season planned and never run\nholds neither back. A season whose id is not a four-digit year fails the whole pass rather than running the four clocks\nthat need no later season, because a pass that skipped those two quietly would leave both stopped for ever with nothing\nanywhere saying so. From that moment every pass also strips, on the rows and in their log images, the season's fixture\nconfirmation rows of every seat's link entry, each reason and a contact's holder digest, and its match\nreports of their remarks and every card's reason; the answers' way, day and role and the reports' scorers, cards and\nresult stay as the record. Each strip is its own transaction after the blocks' share: one that fails is\nlogged under the season's id and counted in `fehlgeschlagen`, and the blocks clear all the same.",
         "operationId": "bewerbungen_sweep_saison",
         "parameters": [
           {
@@ -23769,7 +23741,7 @@
     },
     "/api/v0/registrierungen/sweep/{saison_id}": {
       "post": {
-        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nA declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over. The confirmed ones\namong them are listed in `benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is\ntold neither before nor after, its address never having been confirmed. A call whose erasure names somebody to tell answers once\nthat erasure has committed, so the rest of the season's registrations wait for the next call; the two clocks below do not run\nfor a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age, earliest deadline first: a fresh link is minted and\n`erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and the link already\nin that inbox stays valid beside the fresh one. One call reminds a bounded share of the registrations due; the rest stay due and\nthe calls after it remind them. A registration whose last message the mail provider refused is not chased at all, and one whose\naddress the ban list holds is sent nothing and has nothing written: it stays due, so every pass asks the ban list for it again\nuntil its deadline, and reminds it once a lift comes first; each pass logs how many it withheld, never which. Every removal\nnames this season alone, is made inside a transaction and takes its log rows with it.\n\nWhatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transactions, so no later step of the same\ncall can answer an error in their place; where the request's deadline cuts them after one has committed, the call answers what\ncommitted and warns once.\n\nA registration whose write fails, the database refusing it or anything else, or one the answer cannot carry, is passed over\nalone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it again and one\nfailing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over: a\nday stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.\n\n404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes\nnothing, though it logs the count of withheld registrations again.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record\nnothing.",
+        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nA declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over. The confirmed ones\namong them are listed in `benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is\ntold neither before nor after, its address never having been confirmed. A call whose erasure names somebody to tell answers once\nthat erasure has committed, so the rest of the season's registrations wait for the next call; the two clocks below do not run\nfor a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age, earliest deadline first: a fresh link is minted and\n`erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and the link already\nin that inbox stays valid beside the fresh one. One call reminds a bounded share of the registrations due; the rest stay due and\nthe calls after it remind them. A registration whose last message the mail provider refused is not chased at all, and one whose\naddress the ban list holds is sent nothing and has nothing written: it stays due, so every pass asks the ban list for it again\nuntil its deadline, and reminds it once a lift comes first; each pass logs how many it withheld, never which. Every removal\nnames this season alone, is made inside a transaction and takes its log rows with it.\n\nWhatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transactions, so no later step of the same\ncall can answer an error in their place; where the request's deadline cuts them after one has committed, the call answers what\ncommitted and warns once.\n\nA registration whose write fails, the database refusing it or anything else, or one the answer cannot carry, is passed over\nalone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it again and one\nfailing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.\n\n404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes\nnothing, though it logs the count of withheld registrations again.",
         "operationId": "registrierungen_sweep_registrierungen",
         "parameters": [
           {
