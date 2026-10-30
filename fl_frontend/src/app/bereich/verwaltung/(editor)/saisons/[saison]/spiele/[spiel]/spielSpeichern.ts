@@ -8,7 +8,7 @@ import { spielePatchSpielData } from "@/core/generated/client/sdk";
 import { SpielePatchSpielDataBody, SpielePatchSpielDataParams } from "@/core/generated/zod/inputs";
 import { admitsShootOut } from "@/features/spiele/draftStatus";
 import { getAdminSpiel } from "@/features/spiele/queries";
-import { describeMovedSpiele, spielStateKey, toStoredSide } from "@/features/spiele/utils";
+import { describeMovedSpiele, toStoredSide } from "@/features/spiele/utils";
 
 import { KEIN_SONDEREREIGNIS, werteOf } from "./spielWerte";
 
@@ -17,6 +17,8 @@ import type { ActionAnswer } from "@/kit/useFormAction";
 
 const { shape } = SpielePatchSpielDataBody;
 const [ortShape] = shape.ort.options;
+// The write's version as a number alone: the editor's save always sends the one it read.
+const [versionShape] = shape.version.unwrap().options;
 
 /** A price box's text: empty is no price, digits alone a figure, anything else stays text the price refuses. */
 const preis = z.preprocess(
@@ -27,7 +29,8 @@ const preis = z.preprocess(
 /** What the editor's boxes send, each held to the match write's own published rule for it. */
 const SpielSpeichern = z.object({
   id: SpielePatchSpielDataParams.shape.spiel_id,
-  fingerprint: z.string(),
+  // The fixture's version as the editor read it, which the editor holds as text.
+  fingerprint: z.preprocess((wert) => (typeof wert === "string" && /^\d+$/.test(wert) ? Number(wert) : wert), versionShape),
   changes: z
     .object({
       datum: shape.datum,
@@ -94,9 +97,9 @@ function payloadOf(gespeichert: FLSpielJoinedAdmin, changes: Aenderungen): FLPat
 }
 
 /**
- * Saves the match editor's changes, answering the fingerprint of the fixture as it now stands. The fingerprint
- * sent is the stored fixture the editor was read from: where the fixture has changed since, the save is refused
- * as stale rather than writing over it. Otherwise the changes go over the fixture as it stands.
+ * Saves the match editor's changes, answering the fixture's new version, which the editor takes as its own. The
+ * version sent is the one the editor was read at: where the fixture has changed since, the write refuses the save
+ * as stale (`DB-COMMON-003`) rather than writing over it, in the one update that stores it.
  */
 export const spielSpeichern = action({
   lane: "admin",
@@ -117,20 +120,18 @@ export const spielSpeichern = action({
   },
   examples: { "changes.mietpreis": COPY.verwaltung.spielort.mietpreisBeispiel },
   run: async ({ id, fingerprint, changes }): Promise<ActionAnswer<string>> => {
+    // Read for the fields the editor does not show, which the wholesale write sends as stored.
     const gelesen = await getAdminSpiel(id);
-    if (gelesen === null || spielStateKey(gelesen.spiel) !== fingerprint) return { ok: false, reason: COPY.shared.fehler.veraltet };
+    if (gelesen === null) return { ok: false, reason: COPY.shared.fehler.veraltet };
 
     const payload = payloadOf(gelesen.spiel, changes);
     if ("ok" in payload) return payload;
 
-    const geschrieben = await spielePatchSpielData(id, payload);
-    // Read again for the fingerprint of what the write stored, which the editor takes as its own.
-    const gespeichert = await getAdminSpiel(id);
-    if (gespeichert === null) return { ok: false, reason: COPY.shared.fehler.veraltet };
+    const geschrieben = await spielePatchSpielData(id, { ...payload, version: fingerprint });
 
     // What the write did to other fixtures, a later round's occupant or result among them, in today's editor's words.
     const folgen = describeMovedSpiele(geschrieben.advanced_to, geschrieben.bracket_faults, geschrieben.released_sides);
-    const value = spielStateKey(gespeichert.spiel);
+    const value = String(geschrieben.version);
     return folgen === undefined ? { ok: true, value } : { ok: true, value, note: COPY.verwaltung.spiel.gespeichertMitFolgen(folgen) };
   },
 });

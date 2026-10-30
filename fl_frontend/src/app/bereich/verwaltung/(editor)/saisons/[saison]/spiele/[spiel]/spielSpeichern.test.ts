@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
-import { spielStateKey } from "@/features/spiele/utils";
 
 import { spielSpeichern } from "./spielSpeichern";
 import { KEIN_SONDEREREIGNIS } from "./spielWerte";
@@ -31,26 +30,22 @@ const GESPEICHERT: FLSpielJoinedAdmin = {
   saison_id: "2027",
   notiz: "Flutlicht",
   ansetzung_bestaetigt: null,
+  version: 3,
 };
 
-/** The fixture once the write stored the new time. */
-const NACHHER: FLSpielJoinedAdmin = { ...GESPEICHERT, uhrzeit: "18:00:00" };
-
-/** The write's answer where it moved no other fixture. */
+/** The write's answer where it moved no other fixture: the fixture's version after the save. */
 const NICHTS_BEWEGT: FLPatchSpielDataResponse = {
   advanced_to: [],
   released_sides: [],
   bracket_faults: [],
+  version: 4,
+  bericht_uebernommen: null,
 };
 
-/** The fixture the save reads before and after its write, every payload it sends, and what the write answers. */
+/** The fixture the save reads before its write, every payload it sends, and what the write answers. */
 const stand = vi.hoisted(() => ({
   gelesen: null as unknown,
-  /** The fixture as the write stored it, read again for its fingerprint. */
-  gespeichert: null as unknown,
   gesendet: [] as unknown[],
-  /** The save's write landed, so its next read is of the stored fixture. */
-  geschrieben: false,
   ablehnung: null as unknown,
   antwort: null as unknown,
 }));
@@ -60,17 +55,13 @@ vi.mock("next/cache", () => ({ updateTag: () => undefined }));
 vi.mock("@/core/auth", () => ({ judgeAdminRequest: async () => ({ session: {} }) }));
 
 vi.mock("@/features/spiele/queries", () => ({
-  getAdminSpiel: async () => {
-    const spiel = stand.geschrieben ? stand.gespeichert : stand.gelesen;
-    return spiel === null ? null : { spiel };
-  },
+  getAdminSpiel: async () => (stand.gelesen === null ? null : { spiel: stand.gelesen }),
 }));
 
 vi.mock("@/core/generated/client/sdk", () => ({
   spielePatchSpielData: async (_id: string, payload: unknown) => {
     stand.gesendet.push(payload);
     if (stand.ablehnung !== null) throw stand.ablehnung;
-    stand.geschrieben = true;
     return stand.antwort;
   },
 }));
@@ -89,20 +80,19 @@ const refusal = (serverErrorCode: Code) =>
 
 beforeEach(() => {
   stand.gelesen = GESPEICHERT;
-  stand.gespeichert = NACHHER;
   stand.gesendet = [];
-  stand.geschrieben = false;
   stand.ablehnung = null;
   stand.antwort = NICHTS_BEWEGT;
 });
 
-const FINGERPRINT = spielStateKey(GESPEICHERT);
+/** The version the editor was read at, as the editor holds it. */
+const FINGERPRINT = String(GESPEICHERT.version);
 
 describe("the match editor's save", () => {
-  it("sends the changes over every field the editor does not show, as stored, answering the stored fixture's fingerprint", async () => {
+  it("sends the changes over every field the editor does not show, as stored, on the version it read, answering the new one", async () => {
     const answer = await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { uhrzeit: "18:00:00" } });
 
-    expect(answer).toEqual({ ok: true, value: spielStateKey(NACHHER) });
+    expect(answer).toEqual({ ok: true, value: "4" });
     expect(stand.gesendet).toEqual([
       {
         datum: "2027-03-14",
@@ -117,6 +107,7 @@ describe("the match editor's save", () => {
         sonderereignis: null,
         notiz: "Flutlicht",
         schiedsrichter_stand: "64b000000000000000000006",
+        version: 3,
       } satisfies FLPatchSpielDataPayload,
     ]);
   });
@@ -139,15 +130,15 @@ describe("the match editor's save", () => {
 
     expect(answer).toEqual({
       ok: true,
-      value: spielStateKey(NACHHER),
+      value: "4",
       note: COPY.verwaltung.spiel.gespeichertMitFolgen(
         "Die Paarung in Spiel 31 wurde ebenfalls aktualisiert. Das eingetragene Ergebnis in Spiel 31 wurde dabei gelöscht.",
       ),
     });
   });
 
-  it("refuses as stale a save on a fixture changed since the editor read it, writing nothing", async () => {
-    stand.gelesen = { ...GESPEICHERT, datum: "2027-03-21" };
+  it("answers as stale a fixture gone since the editor read it, writing nothing", async () => {
+    stand.gelesen = null;
 
     const answer = await spielSpeichern({ id: SPIEL_ID, fingerprint: FINGERPRINT, changes: { uhrzeit: "18:00:00" } });
 
@@ -170,12 +161,11 @@ describe("the match editor's save", () => {
       elfmeterschiessen: null,
       sonderereignis: "nichtantreten_team2",
     };
-    const fingerprint = spielStateKey(nichtangetreten);
+    const fingerprint = String(nichtangetreten.version);
 
     stand.gelesen = nichtangetreten;
     for (const sonderereignis of [KEIN_SONDEREREIGNIS, "annulliert", "nichtantreten_team1"]) {
       // Each save is made on the no-show as stored.
-      stand.geschrieben = false;
       await spielSpeichern({ id: SPIEL_ID, fingerprint, changes: { sonderereignis } });
     }
 
@@ -225,5 +215,9 @@ describe("the match editor's save", () => {
 
     stand.ablehnung = refusal("REQ-BOOKING-003");
     expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "REQ-BOOKING-003", reason: COPY.shared.fehler.veraltet });
+
+    // The fixture changed since the editor read it: the write refused the version it was sent.
+    stand.ablehnung = refusal("DB-COMMON-003");
+    expect(await spielSpeichern(save)).toEqual({ ok: false, errorCode: "DB-COMMON-003", reason: COPY.shared.fehler.veraltet });
   });
 });

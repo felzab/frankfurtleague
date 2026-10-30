@@ -6,7 +6,6 @@ import { FLSonderereignis } from "@/core/generated/client/types";
 import { SpielePatchSpielDataBody, spielePatchSpielDataBodyNotizOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { getAdminSpiel } from "@/features/spiele/queries";
-import { spielStateKey } from "@/features/spiele/utils";
 import { getSpielorte } from "@/features/spielorte/queries";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import { pageMetadata } from "@/shared/utils/metadata";
@@ -85,7 +84,7 @@ async function Editor({ params }: Pick<Props, "params">) {
   return (
     <SpielEditor
       title={{ record: nameOf(gespeichert) }}
-      record={{ id: gespeichert.id, fingerprint: spielStateKey(gespeichert), values: werteOf(gespeichert) }}
+      record={{ id: gespeichert.id, fingerprint: String(gespeichert.version), values: werteOf(gespeichert) }}
       save={spielSpeichern}
       spielorte={waehlbar.map((ort) => ({
         // The match's own retired venue stays in the list, marked and not to be chosen again once left.

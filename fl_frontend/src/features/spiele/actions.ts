@@ -20,7 +20,13 @@ type MovedFixtures = {
   releasedFixtures?: number[];
 };
 
-export async function patchAdminSpielDataAction(rawPayload: unknown, rawUebernimmtBericht: unknown): Promise<ActionResult<MovedFixtures>> {
+/**
+ * What the SAVE answers on top of that: whether the report adoption it was asked for was stamped, `false` where the
+ * report changed since the editor was seeded from it, `null` where none was asked.
+ */
+type SavedFixtures = MovedFixtures & { berichtUebernommen?: boolean | null };
+
+export async function patchAdminSpielDataAction(rawPayload: unknown, rawUebernimmtBericht: unknown): Promise<ActionResult<SavedFixtures>> {
   return runAdminMutation("patchAdminSpielDataAction", async () => {
     const validated = FLPatchSpielDataPayloadSchema.safeParse(rawPayload);
 
@@ -55,6 +61,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawUebernim
       // own forfeit, so `voided_sonderereignis` never travels without the result it produced.
       voidedFixtures: patch_operation.advanced_to.filter((advancement) => advancement.voided_ergebnis !== null).map((entry) => entry.spiel_nr),
       releasedFixtures: patch_operation.released_sides.map((released) => released.spiel_nr),
+      berichtUebernommen: patch_operation.bericht_uebernommen,
     };
   });
 }

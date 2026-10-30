@@ -41,6 +41,7 @@ const STORED: FLSpielJoinedAdmin = {
   elfmeterschiessen: null,
   notiz: null,
   ansetzung_bestaetigt: null,
+  version: 1,
 };
 
 function makeStored(overrides: Partial<FLSpielJoinedAdmin> = {}): FLSpielJoinedAdmin {
