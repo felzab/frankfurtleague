@@ -119,7 +119,7 @@ that serves the site and stops when it stops. A pass runs each job in turn: the 
 (`fl_frontend/src/features/saisons/sweep.ts :: runLoeschungSweep`), the fixture confirmations
 (`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`) and the grants' notices
 (`fl_frontend/src/features/berechtigungen/abgleich.ts :: runBerechtigungenAbgleich`). Then the
-Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainPostausgang`) sends what they owed; a
+Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainOutbox`) sends what they owed; a
 write that owes a mail drains at once besides. **No switch holds one job back**: every job runs
 wherever a production build runs, the local stack included (§1.5), and a `next dev` process arms
 nothing. **`RESTORE_HOLD=on` in `fl_frontend/.env` holds them all, for a restore alone**
@@ -178,7 +178,7 @@ host file's own owner and mode are what the container sees (Docker's Compose fil
 | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- | ----- |
 | `tunnel_token`                                                                                                                         | uid and gid 65532, the connector | `400` |
 | `frontend_mongodb_uri`, `auth_secret`, `auth_resend_key`, `resend_webhook_secret`, `turnstile_secret_key`, `betterstack_heartbeat_url` | uid and gid 1001, the frontend   | `400` |
-| `backend_mongodb_uri`, `sperrliste_schluessel`                                                                                         | uid and gid 1002, the backend    | `400` |
+| `backend_mongodb_uri`, `sperrliste_key`                                                                                                | uid and gid 1002, the backend    | `400` |
 | `internal_api_key_base`, `internal_api_key_system`, `internal_api_key_admin`                                                           | root, group 1003                 | `440` |
 
 **The three internal keys are one file each, read by both application services**, which run as

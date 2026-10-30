@@ -41,7 +41,7 @@ reads like a constant of this league is nearly always one some season chose for 
   (`sperrliste`), one address's access to the administration (`berechtigungen`), what the
   administrators have been told of it (`berechtigungen_angekuendigt`) and a grant waiting on a
   second administrator's approval (`berechtigungen_antraege`), one mail the league owes one
-  recipient (`postausgang`), and one recorded write (`aktionen`).
+  recipient (`outbox`), and one recorded write (`aktionen`).
 
 A school's kind survives the year and its Trainer does not, which is what puts those two on different
 documents.
@@ -95,7 +95,7 @@ brought up to date.
 - **Created** — always `future`. Nothing an admin submits sets `status`, and the activation below is the only
   code path in the system that writes it.
 - **Applications** — a school applies while the season's own window is open and the season has not ended
-  (`bewerbung_fenster_geschlossen`). Accepting
+  (`bewerbung_window_closed`). Accepting
   one creates the club where it is new and writes its junction row, held to the same entry rules a direct
   entry meets.
 - **Registration** — the season records a second window of its own, `registrierung`, set on the season editor
@@ -315,7 +315,7 @@ no later feature can come to depend on a flag.
   awarded or the match replayed, and this competition names no rule between them; the editor warns that a
   decided score counts for the table.
 - **A pupil whose age no squad rule judges.** The age is judged once, at the registration's confirmation
-  (`bestaetigung_alter`); entering, moving or bringing back a squad row judges none.
+  (`confirmation_age`); entering, moving or bringing back a squad row judges none.
 - **A person holding no squad row, and a person retired while holding a live one.** The first is reachable only
   by a database edit, and `GET /spieler/saisons` serves such a person with an empty list, which is the
   surface that repairs it. The two retirements are independent, so retiring a person never asks for every squad
