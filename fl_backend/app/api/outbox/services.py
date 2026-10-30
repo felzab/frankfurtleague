@@ -54,7 +54,7 @@ SIGN_IN_ARTEN: Final[frozenset[FLOutboxArt]] = frozenset({"sign_in_code", "passk
 UNGESPERRT: Final[frozenset[FLOutboxArt]] = frozenset({"sperre"})
 
 # The final state each reported outcome settles a row in; a send to be tried again ends there only where it may not be.
-ENDSTAND: Final[Mapping[FLOutboxResultArt, FLOutboxRowState]] = {
+FINAL_STATE: Final[Mapping[FLOutboxResultArt, FLOutboxRowState]] = {
     "sent": "sent",
     "held": "held",
     "abandon": "abandoned",
@@ -173,14 +173,14 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
     }
 
 
-def final_update(stand: FLOutboxRowState, *, now: datetime, message_id: str | None = None) -> Mapping[str, Any]:
+def final_update(state: FLOutboxRowState, *, now: datetime, message_id: str | None = None) -> Mapping[str, Any]:
     """A row's final state: the claim released, the data and any secret removed, deleted a retention from now.
 
     `$min`, so a sign-in row keeps its own lapse, which is sooner, and an ordinary row's retention dates from this state.
     """
 
     return {
-        "$set": {"state": stand, "message_id": message_id, "lease": None, "leased_until": None},
+        "$set": {"state": state, "message_id": message_id, "lease": None, "leased_until": None},
         "$unset": {"data": "", "secret": ""},
         "$min": {"erase_at": now + RETENTION},
     }

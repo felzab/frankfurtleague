@@ -18,7 +18,7 @@ from app.api.outbox.schemas import (
     FLOutboxSignInPayload,
 )
 from app.api.outbox.services import (
-    ENDSTAND,
+    FINAL_STATE,
     FOLGT_AUF,
     LEASE_DURATION,
     SEITE,
@@ -227,12 +227,12 @@ async def post_result(
         return result.modified_count > 0
 
     result = result_data.result
-    stand = ENDSTAND[result]
+    state = FINAL_STATE[result]
     # A send to be tried again ends here only where it may not be: a sign-in mail, or one past its deadline.
     endet = {"$or": [{"art": {"$in": list(SIGN_IN_ARTEN)}}, {"frist": {"$lte": now}}]} if result == "retry" else {}
     counted: str
-    if await settled(final_update(stand, now=now, message_id=result_data.message_id), endet):
-        counted = stand
+    if await settled(final_update(state, now=now, message_id=result_data.message_id), endet):
+        counted = state
     elif result == "retry" and await settled(retry_update(now=now), {}):
         counted = "repeated"
     else:

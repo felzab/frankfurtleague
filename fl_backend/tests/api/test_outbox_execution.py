@@ -259,7 +259,7 @@ class TestTheDrain:
             dropped = [*emptied.mails, *handed_on.mails]
             return minted, first, record, dropped, [(await stored(database, row_id))["state"] for row_id in (empty, continued)]
 
-        minted, first, record, dropped, staende = on_a_database(mongo_replica_set_url, body)
+        minted, first, record, dropped, states = on_a_database(mongo_replica_set_url, body)
 
         (mail,) = first.mails
         assert mail.id == minted and mail.token is not None
@@ -267,7 +267,7 @@ class TestTheDrain:
         assert [record["kontakte"][seat]["token_hashes"] for seat in ("trainer", "betreuer")] == [[hash_token(mail.token)]] * 2
         # Bookkeeping, as an anchor is: an editor read before the drain still saves.
         assert record["version"] == 0
-        assert (dropped, staende) == ([], ["dropped", "dropped"])
+        assert (dropped, states) == ([], ["dropped", "dropped"])
 
     def test_a_mail_to_a_barred_address_stops_at_the_hand_out_and_the_bans_own_notice_goes(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -278,9 +278,9 @@ class TestTheDrain:
 
             return [mail.id for mail in answer.mails], sperre, (await stored(database, code))["state"]
 
-        handed, sperre, stand = on_a_database(mongo_replica_set_url, body)
+        handed, sperre, state = on_a_database(mongo_replica_set_url, body)
 
-        assert (handed, stand) == ([sperre], "barred")
+        assert (handed, state) == ([sperre], "barred")
 
     def test_a_failed_send_waits_and_goes_again_its_refusal_on_the_row_until_a_send_goes(self, mongo_replica_set_url: str):
         """The row is a send's one record, so the provider's name for its refusal is the only answer to why it waited."""
@@ -318,11 +318,11 @@ class TestTheDrain:
 
             return second, later, record, (await stored(database, older))["state"]
 
-        second, later, record, older_stand = on_a_database(mongo_replica_set_url, body)
+        second, later, record, older_state = on_a_database(mongo_replica_set_url, body)
 
         (mail,) = second.mails
         assert mail.token is not None
-        assert (later.mails, older_stand) == ([], "dropped")
+        assert (later.mails, older_state) == ([], "dropped")
         assert record is not None and record["token_hashes"] == [hash_token(mail.token)]
 
 
@@ -390,8 +390,8 @@ class TestTheDeliveryEvent:
             row_id = await owe(database, client, "sperre/1", link=True)
             answer = await claimed(database, client)
 
-            async def event(stand: FLOutboxDeliveryState, row: ObjectId = row_id) -> bool:
-                payload = FLOutboxEventPayload(id=row, state=stand, grund=None, am=NOW)
+            async def event(state: FLOutboxDeliveryState, row: ObjectId = row_id) -> bool:
+                payload = FLOutboxEventPayload(id=row, state=state, grund=None, am=NOW)
                 return (await post_event(event_data=payload, outbox_collection=database[Collection.OUTBOX])).applied
 
             # The provider's event can outrun the send's own report, which has then recorded nothing of the message.
