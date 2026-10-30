@@ -35,8 +35,7 @@ import { pruefeInhaberAction } from "../../../actions";
 import { genehmigerText } from "../../../genehmiger";
 import { CodeConfirmation } from "../../ui/CodeConfirmation";
 
-import type { FLVerwaltung } from "@/features/berechtigungen/schemas";
-import type { FLKontoAdresswechselOffen, FLKontoAdresswechselResponse } from "@/features/konto/schemas";
+import type { FLKontoAdresswechselOffen, FLKontoAdresswechselResponse, FLVerwaltung } from "@/core/generated/client/types";
 import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
 import type { ActionFailure } from "@/shared/types/types";
 import type { VersandTitel } from "@/shared/utils/linkVersandToast";

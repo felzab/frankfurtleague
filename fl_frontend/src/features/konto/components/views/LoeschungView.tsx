@@ -29,20 +29,17 @@ import { loescheKontoAction } from "../../personActions";
 import { LETZTE_INHABERIN } from "../../refusals";
 import { registrierungTitel, schiedsrichterTitel, sitzTitel, SPIELER_TITEL } from "../forms/EinwilligungForm/kontoWorte";
 
-import type { FLSelbstErasureAnsichtResponse } from "@/core/schemas";
+import type { FLSelbstErasureAnsichtResponse } from "@/core/generated/client/types";
 import type { StepUp } from "@/shared/components/ui/stepUp";
 import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
 import type { ReactNode } from "react";
-
-/** Every record the erasure would reach, as the backend answered it, the transport's own field left behind. */
-type LoeschungAnsicht = Omit<FLSelbstErasureAnsichtResponse, "acknowledged">;
 
 /**
  * What the page opens on. The token rides only where a press can spend it: a browser holding no session
  * completes nothing here, and is sent to sign in and open the link again.
  */
 export type LoeschungStart =
-  | { zustand: "bereit"; token: string; email: string; ansicht: LoeschungAnsicht }
+  | { zustand: "bereit"; token: string; email: string; ansicht: FLSelbstErasureAnsichtResponse }
   | { zustand: "anmelden" }
   | { zustand: "ohnePasskey" }
   | { zustand: "unvollstaendig" };
@@ -70,7 +67,15 @@ const PROTOKOLL_ZEILE = "Deine Adresse im Änderungsprotokoll und als Urheberin 
 const BEGRUENDUNGEN_ZEILE = "Deine Begründungen zu Spielterminen, die Du über einen Bestätigungslink abgegeben hast";
 
 /** Each record in the words the account page heads it with, so the list names what its reader already knows there. */
-function zeilenOf({ spieler, schiedsrichter, sitze, bewerbungen, registrierungen, adresswechsel, verwaltung }: LoeschungAnsicht): string[] {
+function zeilenOf({
+  spieler,
+  schiedsrichter,
+  sitze,
+  bewerbungen,
+  registrierungen,
+  adresswechsel,
+  verwaltung,
+}: FLSelbstErasureAnsichtResponse): string[] {
   return [
     ...spieler.map(({ vorname, nachname }) => `${SPIELER_TITEL}: ${nachname === null ? vorname : `${vorname} ${nachname}`}`),
     ...schiedsrichter.map(({ name }) => (name === null ? "Als Schiedsrichterin oder Schiedsrichter" : schiedsrichterTitel({ name: name }))),

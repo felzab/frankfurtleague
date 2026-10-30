@@ -27,7 +27,7 @@ import {
   spielerWorte,
 } from "../forms/EinwilligungForm/kontoWorte";
 
-import type { FLSitzBestaetigt } from "../../schemas";
+import type { FLSitzBestaetigt } from "@/core/generated/client/types";
 import type { EinwilligungEintrag } from "../forms/EinwilligungForm/EinwilligungPanel";
 import type { Fuellung } from "../forms/EinwilligungForm/kontoWorte";
 
