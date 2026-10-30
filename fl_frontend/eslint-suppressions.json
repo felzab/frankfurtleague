@@ -642,11 +642,6 @@
       "count": 20
     }
   },
-  "src/features/adresswechsel/notifications.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/features/aktionen/components/collections/AdminAktionenTable.tsx": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 13
@@ -813,7 +808,7 @@
   },
   "src/features/berechtigungen/components/views/AdminBerechtigungenView.tsx": {
     "@typescript-eslint/no-restricted-imports": {
-      "count": 2
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 3
@@ -1156,16 +1151,6 @@
     }
   },
   "src/features/bewerbungen/duplicates.ts": {
-    "@typescript-eslint/no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/features/bewerbungen/notifications.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/features/bewerbungen/zustellung.ts": {
     "@typescript-eslint/no-restricted-imports": {
       "count": 1
     }
@@ -1834,13 +1819,13 @@
       "count": 12
     },
     "no-restricted-syntax": {
-      "count": 28
+      "count": 26
     },
     "react/forbid-component-props": {
       "count": 4
     },
     "react/jsx-no-literals": {
-      "count": 7
+      "count": 6
     }
   },
   "src/features/saisons/components/forms/AdminSaisonEditForm/FormGruppenSwapSection.tsx": {
@@ -3902,11 +3887,6 @@
     },
     "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "src/features/zustellung/notifications.ts": {
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "src/shared/components/layout/footer/Footer.tsx": {
