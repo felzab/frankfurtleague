@@ -35,7 +35,7 @@ export function TeamCard({ teamData }: { teamData: FLTeam }) {
         <div className="min-w-0">
           {/* Level two, under the page's `h1`: `render` is the only way to move HeroUI's `h3`, and that
               function is what makes this card a CLIENT component — a Server Component may not hand one
-              to `Card.Title` (`.claude/rules/frontend.md`). */}
+              to `Card.Title`. */}
           <Card.Title<"h2">
             render={({ children, ...props }) => <h2 {...props}>{children}</h2>}
             className={`fluid-base font-bold ${NAME_WRAP_CLASSES}`}>

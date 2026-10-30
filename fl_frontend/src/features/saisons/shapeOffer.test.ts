@@ -53,9 +53,9 @@ const refusalOf = (options: readonly { id: string; refusal: string | null }[], c
   options.find((row) => row.id === String(count))?.refusal;
 
 describe("the group count offer", () => {
-  /* The whole claim, one row at a time: an open row the create refuses is the offer
-     `.claude/rules/cross-surface.md`'s **saisons** clause bars, and a closed row it would have taken
-     is an offer narrowed past the rules. */
+  /* The whole claim, one row at a time: an open row the create refuses offers what the write path
+     refuses, which a ratified decision bars, and a closed row it would have taken is an offer
+     narrowed past the rules. */
   it("opens exactly the counts a create saves", () => {
     for (const qualifiers of SHAPE_COUNT_UNIVERSE) {
       for (const row of groupCountOptions({ groups: 1, qualifiers, occupancy: NOBODY_ENTERED })) {

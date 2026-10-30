@@ -28,8 +28,8 @@ beforeEach(() => {
 });
 
 describe("whether a page shows a finished season", () => {
-  /* The page without `?saison_id=` shows the running season, and `.claude/rules/frontend.md`'s
-   **saisons** clause keeps the season list unread on exactly that path. */
+  /* The page without `?saison_id=` shows the running season, and a ratified decision keeps the
+   season list unread on exactly that path. */
   it("answers no for the running season without reading the season list", async () => {
     expect(await resolveIsFinishedSaison(undefined)).toBe(false);
     expect(reads.count, "the absent id read the season list").toBe(0);

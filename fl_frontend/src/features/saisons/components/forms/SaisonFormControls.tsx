@@ -74,8 +74,8 @@ export function SaisonRuleNumberField({
 
 /**
  * `number_of_groups` and `qualifiers_per_group`, whose legal values SKIP: a floor and a ceiling can
- * only describe a set that skips by admitting the values between, which is the offer
- * `.claude/rules/cross-surface.md`'s **saisons** clause bars.
+ * only describe a set that skips by admitting the values between, which offers a value the write
+ * path refuses, as a ratified decision bars.
  */
 export function SaisonCountSelect({
   name,
