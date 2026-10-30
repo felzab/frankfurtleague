@@ -5813,11 +5813,10 @@ export interface FLSpielbestaetigungSweepResponse {
 }
 
 /**
- * The `active` seasons a pass visits, and the day a pass last ran over any of them.
+ * The `active` seasons a pass visits, oldest first.
  */
 export interface FLSpielbestaetigungSweepSaisonsResponse {
   saison_ids: string[];
-  spiel_sweep_gelaufen_am: string | null;
 }
 
 export interface FLSpielbestaetigungVerwerfenResponse {
@@ -5825,10 +5824,9 @@ export interface FLSpielbestaetigungVerwerfenResponse {
 }
 
 /**
- * The rows newest first, closed ones included, and the named season's own last pass.
+ * The rows newest first, closed ones included.
  */
 export interface FLSpielbestaetigungenListResponse {
-  spiel_sweep_gelaufen_am: string | null;
   spielbestaetigungen: FLSpielbestaetigung[];
   vollstaendig: boolean;
 }

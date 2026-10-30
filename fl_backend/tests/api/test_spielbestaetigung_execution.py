@@ -997,7 +997,6 @@ async def lesen(
 ) -> FLSpielbestaetigungenListResponse:
     return await get_spielbestaetigungen(
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
-        saisons_collection=database[Collection.SAISONS],
         filters=FLSpielbestaetigungenFilterParams(saison_id=SAISON_ID, spiel_id=spiel_id, limit=limit),
     )
 
@@ -1159,7 +1158,6 @@ class TestWhatTheAdministratorsReadServes:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ablehnen(database, client, token(TEAM1, "stellvertretung"), PROPOSAL, begruendung=REASON)
-            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"spiel_sweep_gelaufen_am": TODAY}})
             recorded = ReadsRecorded(database[Collection.SPIELBESTAETIGUNGEN])
             season = await lesen(database, spielbestaetigungen=recorded)
 
@@ -1170,7 +1168,7 @@ class TestWhatTheAdministratorsReadServes:
         # The premise: the row read holds both in the database.
         assert stored["antwort"]["von"]["halter"] == KLARA and stored["kontakte"]["trainer"]["token_hashes"]
         assert [row.id for row in season.spielbestaetigungen] == [NEIGHBOURS_ROW, ROW2, ROW1]
-        assert (season.vollstaendig, season.spiel_sweep_gelaufen_am) == (True, TODAY)
+        assert season.vollstaendig
         assert not [path for document in loaded for path in leaf_paths(document) if path.rsplit(".", 1)[-1] in ADMIN_READ_WITHHOLDS]
         assert [row.id for row in one_fixture.spielbestaetigungen] == [NEIGHBOURS_ROW]
 
@@ -1189,10 +1187,9 @@ class TestWhatTheAdministratorsReadServes:
 
         served = on_a_fixture(mongo_replica_set_url, body, rows=rows)
 
-        assert ([row.id for row in served.spielbestaetigungen], served.vollstaendig, served.spiel_sweep_gelaufen_am) == (
+        assert ([row.id for row in served.spielbestaetigungen], served.vollstaendig) == (
             [rows[3]["_id"], rows[2]["_id"], overdue["_id"]],
             False,
-            None,
         )
 
     def test_a_row_closing_between_the_two_reads_is_served_closed(self, mongo_replica_set_url: str):
