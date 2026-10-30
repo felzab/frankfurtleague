@@ -174,9 +174,9 @@ const FRISTEN = [
   { daten: "Kontaktdaten der Kontaktpersonen einer Saison", frist: "Dieselbe Frist wie die angenommene Bewerbung" },
   {
     daten:
-      "Antwort eines Teams auf eine Spielbestätigung: Zusage oder Absage mit Datum und Rolle, dazu eine Begründung als freier Text, in dem auch der Name einer Person stehen kann, ein vorgeschlagener Termin, ein unlesbarer Schlüssel der antwortenden Person, die Bestätigungslinks als unlesbare Schlüssel und der Zustellstand ihrer E-Mails",
+      "Antwort eines Teams auf eine Spielbestätigung: Zusage oder Absage mit Datum und Rolle, dazu eine Begründung als freier Text, in dem auch der Name einer Person stehen kann, ein vorgeschlagener Termin, ein unlesbarer Schlüssel der antwortenden Person, die Bestätigungslinks als unlesbare Schlüssel",
     frist:
-      "Begründung, Schlüssel, Links und Zustellstand bis zum Ende der Saison, die auf die Saison des Spiels folgt, zusammen mit den Kontaktdaten dieser Saison. Zusage oder Absage, Datum, Rolle und vorgeschlagener Termin bleiben als Chronik der Saison bestehen. Wechselt die Person auf einem Platz, gilt ihr Link nicht mehr. Wird eine Kontaktperson auf Wunsch gelöscht, löschen wir auch die Begründungen, die sie geschrieben hat",
+      "Begründung, Schlüssel und Links bis zum Ende der Saison, die auf die Saison des Spiels folgt, zusammen mit den Kontaktdaten dieser Saison. Zusage oder Absage, Datum, Rolle und vorgeschlagener Termin bleiben als Chronik der Saison bestehen. Wechselt die Person auf einem Platz, gilt ihr Link nicht mehr. Wird eine Kontaktperson auf Wunsch gelöscht, löschen wir auch die Begründungen, die sie geschrieben hat",
   },
   {
     daten: "Registrierungslink eines Teams: der Link als unlesbarer Schlüssel, dazu das Datum und die anlegende Person aus der Verwaltung",
@@ -210,7 +210,7 @@ const FRISTEN = [
   {
     daten:
       "Änderung der E-Mail-Adresse eines Kontos, ein Eintrag je bisheriger Adresse: die neue Adresse, solange sie nicht gilt, dazu ihr Link und der Stopp-Link an die bisherige Adresse als unlesbare Schlüssel, das Versanddatum, die Frist, gegebenenfalls die Freigabe oder die Genehmigung durch die Verwaltung, der Grund der Verwaltung, die Bestätigung und der Zeitpunkt, ab dem sie gilt",
-    frist: `Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird, die Verwaltung sie verwirft, eine neuere Änderung derselben Adresse sie ersetzt, die Daten der bisherigen oder der neuen Adresse gelöscht werden oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund aus dem Eintrag; es bleibt ein Vermerk ohne Adresse, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach ${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Endet die Änderung, ohne zu gelten, löschen wir beides auch aus dem Änderungsprotokoll; gilt sie, bleibt der Grund dort zwölf Monate ab seinem Eintrag, damit nachvollziehbar bleibt, warum die Verwaltung die Adresse geändert hat. Die Nachricht, dass die Änderung gilt oder nicht gelten kann, halten wir mit den Adressen, die sie braucht, nur bis zu ihrem Versand bereit. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem Versand, der Stopp-Link bis die Änderung gilt. Ist eine Frist abgelaufen, endet die Änderung innerhalb einer Stunde. Hat die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung; kann sie dann nicht gelten, schreiben wir der neuen Adresse, dass sie nicht gilt, ohne den Grund zu nennen`,
+    frist: `Bis die Änderung gilt, über einen der Links abgelehnt oder gestoppt wird, in Deinem Konto gestoppt wird, die Verwaltung sie verwirft, eine neuere Änderung derselben Adresse sie ersetzt, die Daten der bisherigen oder der neuen Adresse gelöscht werden oder ihre Frist abläuft. Mit ihrem Ende löschen wir die neue Adresse und den Grund aus dem Eintrag; es bleibt ein Vermerk, wie die Änderung endete, damit beide Links das noch sagen können, und den löschen wir nach ${String(ADRESSWECHSEL_NACHLAUF_TAGE)} Tagen. Gilt die Änderung, behält der Vermerk bis dahin beide Adressen als unlesbare Schlüssel, damit eine Löschung der neuen Adresse auch die Nachrichten an die bisherige erreicht, und, wenn wir dein Konto auf die neue Adresse umtragen, beide Adressen selbst, bis das geschehen ist. Endet die Änderung, ohne zu gelten, löschen wir beides auch aus dem Änderungsprotokoll; gilt sie, bleibt der Grund dort zwölf Monate ab seinem Eintrag, damit nachvollziehbar bleibt, warum die Verwaltung die Adresse geändert hat. Die Nachricht, dass die Änderung gilt oder nicht gelten kann, halten wir mit den Adressen, die sie braucht, nur bis zu ihrem Versand bereit; danach behalten wir nur die Adresse, an die sie ging, und ihren Zustellstand, 30 Tage lang. Jeder Link gilt ${String(ADRESSWECHSEL_GUELTIG_STUNDEN)} Stunden ab dem Versand, der Stopp-Link bis die Änderung gilt. Ist eine Frist abgelaufen, endet die Änderung innerhalb einer Stunde. Hat die Verwaltung die Änderung ohne die bisherige Adresse eingetragen, gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung; kann sie dann nicht gelten, schreiben wir der neuen Adresse, dass sie nicht gilt, ohne den Grund zu nennen`,
   },
   {
     daten: "Gesperrte E-Mail-Adresse, als unlesbarer Schlüssel, dazu der Grund, das Datum und die eintragende Person aus der Verwaltung",
@@ -219,13 +219,14 @@ const FRISTEN = [
   },
   {
     daten: "Zugang zur Verwaltung: E-Mail-Adresse, Stufe, Datum und die Person aus der Verwaltung, die ihn erteilt hat",
-    frist: "Bis der Zugang entzogen wird; eine Benachrichtigung über eine Änderung nur, bis sie versandt ist",
+    frist:
+      "Bis der Zugang entzogen wird; eine Benachrichtigung über eine Änderung, bis sie versandt ist, danach nur noch die Adresse, an die sie ging, und ihren Zustellstand, 30 Tage lang",
   },
   {
     daten:
       "Antrag auf einen Zugang zur Verwaltung oder darauf, Inhaberin oder Inhaber zu werden: E-Mail-Adresse, Stufe, Zeitpunkt und die Person aus der Verwaltung, die ihn gestellt hat",
     // The approval window of the address change, which a request shares (`fl_backend/app/api/berechtigungen/antraege.py :: compose_antrag`).
-    frist: `Bis eine zweite Person aus der Verwaltung ihn genehmigt oder ablehnt, die Person, die ihn gestellt hat, ihn zurückzieht, die Adresse, für die er gestellt ist, durch eine Änderung wechselt oder die Daten einer der beiden Personen gelöscht werden, längstens ${GENEHMIGUNG_DAUER}; danach löschen wir ihn, eine Benachrichtigung über seine Ablehnung oder sein Ende an die Person, die ihn gestellt hat, sobald sie versandt ist. Ist er entschieden, bleibt er wie jede Änderung der Verwaltung zwölf Monate im Änderungsprotokoll`,
+    frist: `Bis eine zweite Person aus der Verwaltung ihn genehmigt oder ablehnt, die Person, die ihn gestellt hat, ihn zurückzieht, die Adresse, für die er gestellt ist, durch eine Änderung wechselt oder die Daten einer der beiden Personen gelöscht werden, längstens ${GENEHMIGUNG_DAUER}; danach löschen wir ihn. Die Benachrichtigung an die Personen, die ihn genehmigen können, halten wir bereit, bis sie versandt ist oder der Antrag endet; danach behalten wir nur die Adresse, an die sie gerichtet war, und gegebenenfalls ihren Zustellstand, 30 Tage lang. Ist er entschieden, bleibt er wie jede Änderung der Verwaltung zwölf Monate im Änderungsprotokoll`,
   },
   {
     daten: "Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey",
@@ -391,8 +392,8 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>
             Alle E-Mails der Liga versenden wir über Resend. Unser Vertragspartner dafür ist die Plus Five Five, Inc. mit Sitz in den
             Vereinigten Staaten, die den Dienst unter diesem Namen betreibt. Absender ist no-reply@frankfurtleague.de. Zu Resend gelangen die
-            Empfängeradresse, der Betreff, der vollständige Inhalt der Nachricht und eine Kennung, mit der wir eine Zustellmeldung dem Eintrag
-            zuordnen, um den es geht. Wie lange Resend diese Daten aufbewahrt, steht in Abschnitt 13.
+            Empfängeradresse, der Betreff, der vollständige Inhalt der Nachricht und eine Kennung, mit der wir eine Zustellmeldung der Nachricht
+            zuordnen, zu der sie gehört. Wie lange Resend diese Daten aufbewahrt, steht in Abschnitt 13.
           </p>
           <p className={ABSATZ_CLASSES}>
             Resend speichert diese Daten in den Vereinigten Staaten. Das ist eine Übermittlung in ein Drittland. Sie stützt sich auf die
@@ -407,13 +408,9 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>
             Resend meldet uns aber zurück, was mit der Zustellung selbst geschehen ist: ob eine Nachricht angenommen, zugestellt oder verzögert
             wurde, ob sie unzustellbar war, ob Resend sie zurückgehalten hat und ob sie als Spam gemeldet wurde. Diesen Zustellstand speichern
-            wir bei dem Eintrag, um den es in der Nachricht geht. So sieht die Verwaltung, wen sie nicht erreicht. Gehört eine Nachricht zu
-            keinem Eintrag, den wir aufbewahren, etwa ein Anmeldecode oder der Hinweis, dass Du nicht mehr als Kontaktperson eingetragen bist,
-            schreiben wir jeden Zustellstand außer „zugestellt“ ohne Deine Adresse in das Betriebsprotokoll der Anwendung. Einige Hinweise
-            versenden wir ohne Kennung, etwa die zu Deinen Passkeys oder zu einer Änderung Deiner E-Mail-Adresse; ihren Zustellstand speichern
-            wir nirgends. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, zu erkennen, wen unsere Nachrichten
-            nicht erreichen. Der Zustellstand wird zusammen mit diesem Eintrag gelöscht; beim Registrierungslink eines Teams, dessen Eintrag
-            bestehen bleibt (Abschnitt 13), bleibt er bestehen. Im Betriebsprotokoll bleibt er so lange wie das Protokoll selbst (Abschnitt 13).
+            wir bei der Nachricht selbst, über die Kennung, die sie trägt. So sieht die Verwaltung, wen sie nicht erreicht. Rechtsgrundlage ist
+            Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, zu erkennen, wen unsere Nachrichten nicht erreichen. Der Zustellstand
+            wird mit der Nachricht gelöscht, 30 Tage nach ihrem Versand, bei einem Anmeldecode schon mit dessen Ablauf.
           </p>
         </LegalSection>
 
