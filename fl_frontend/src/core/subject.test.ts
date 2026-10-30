@@ -268,6 +268,12 @@ describe("who the seam answers for", () => {
   it("answers the three lists, the two flags and the grant alone, carrying nothing else the backend answers", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
     arriveAs(cookie);
+    const { konto: _konto, ...records } = RECORDS.get(ADMIN_EMAIL) ?? assert.fail("the administrator holds no records here");
+    // A key no contract names, as a later backend could answer one beside the records.
+    nextAnswer = new Response(JSON.stringify({ ...records, beigefuegt: "kein Feld des Vertrags" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
 
     const answer = await getSubjectSession();
 

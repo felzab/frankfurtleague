@@ -38,7 +38,6 @@ const TEAMS = ["1", "2", "3", "4"].map((digit) => ({ id: digit.repeat(24), email
 const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 
 const VERSAND = {
-  acknowledged: 1,
   saison_id: SAISON_ID,
   zeilen: TEAMS.map(({ id, email }) => ({
     team_id: id,
@@ -59,9 +58,9 @@ const mails: { signal: AbortSignal }[] = [];
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
   if (url === `${API_URL}${getSaisonsPostEinladungenVersandUrl(SAISON_ID)}`) return json(VERSAND);
-  if (url === `${API_URL}${getZustellungAngenommenZustellungUrl()}`) return json({ acknowledged: 1, angewendet: true });
+  if (url === `${API_URL}${getZustellungAngenommenZustellungUrl()}`) return json({ angewendet: true });
   // The mailer's gate, answered at once: no address of this press is barred, and its read spends no time.
-  if (url === `${API_URL}${getIdentitaetGetGesperrtUrl()}`) return json({ acknowledged: 1, gesperrt: false });
+  if (url === `${API_URL}${getIdentitaetGetGesperrtUrl()}`) return json({ gesperrt: false });
   // Every other call is the provider's, whose address `mail.ts` alone names.
   assert.ok(!url.startsWith(API_URL), `the press reached a backend route nothing here answers: ${url}`);
 
