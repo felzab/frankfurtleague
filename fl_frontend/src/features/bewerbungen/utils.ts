@@ -15,7 +15,6 @@ import type {
   FLBewerbungFensterResponse,
   FLTrainerZugleich,
 } from "@/core/generated/client/types";
-import type { KontaktRolle } from "@/features/teams/constants";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { BewerbungHerkunft } from "./constants";
 import type {
@@ -388,16 +387,6 @@ export const buildEmptyBewerbungDraft = (saisonId: string, textVersion: string):
  */
 export function mirrorBewerbungTrainer(kontakte: BewerbungKontakteDraft): BewerbungKontakteDraft {
   return mirrorTrainerSeat(kontakte);
-}
-
-/**
- * The seats the submission's receipt answers for, so the link fan-out withholds them.
- *
- * The submitter's own, and the seat `trainer_ist_zugleich` mirrors onto it: the backend's
- * `paired_seat` lets either press answer both, so a second message asks one reader twice.
- */
-export function empfangsSitze(trainerIstZugleich: FLTrainerZugleich | null): readonly KontaktRolle[] {
-  return trainerIstZugleich === "ansprechperson" ? ["ansprechperson", "trainer"] : ["ansprechperson"];
 }
 
 /**

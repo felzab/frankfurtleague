@@ -1,14 +1,11 @@
 import {
   bewerbungenAblehnenBewerbung,
-  bewerbungenAngekuendigtBewerbungen,
-  bewerbungenAngenommenZustellung,
   bewerbungenAnnehmenBewerbung,
   bewerbungenBesetzeKontaktSitz,
   bewerbungenErneutEinwilligung,
   bewerbungenGetEinwilligungAnsicht,
   bewerbungenGetSweepSaisons,
   bewerbungenKorrigiereKontaktEmail,
-  bewerbungenLoeschenBewerbungen,
   bewerbungenPostBewerbung,
   bewerbungenPostEinwilligung,
   bewerbungenPostZustellung,
@@ -29,12 +26,8 @@ import type {
   FLBewerbungKontaktEmailResponse,
   FLBewerbungKontaktSitzPayload,
   FLBewerbungKontaktSitzResponse,
-  FLBewerbungSweepAngekuendigtResponse,
-  FLBewerbungSweepAuswahlPayload,
-  FLBewerbungSweepLoeschenResponse,
   FLBewerbungSweepResponse,
   FLBewerbungSweepSaisonsResponse,
-  FLBewerbungZustellungAngenommenPayload,
   FLBewerbungZustellungEreignisPayload,
   FLBewerbungZustellungResponse,
   FLKontaktRolle,
@@ -128,15 +121,7 @@ export async function besetzenKontaktSitz({
   });
 }
 
-/** The system tier: a delivery event carries no session, and the send sites reporting an acceptance include two public route handlers and a timer. */
-export async function meldeZustellungAngenommen(payload: FLBewerbungZustellungAngenommenPayload): Promise<FLBewerbungZustellungResponse> {
-  return bewerbungenAngenommenZustellung(payload);
-}
-
-/**
- * Its own endpoint beside the acceptance above, because the two are judged differently: an
- * acceptance is stopped by a newer acceptance alone, and an event only where it beats what the seat holds.
- */
+/** The system tier: a delivery event carries no session; judged only where it beats what the seat holds. */
 export async function meldeZustellEreignis(payload: FLBewerbungZustellungEreignisPayload): Promise<FLBewerbungZustellungResponse> {
   return bewerbungenPostZustellung(payload);
 }
@@ -152,30 +137,9 @@ export async function getBewerbungSweepSaisons(): Promise<FLBewerbungSweepSaison
 }
 
 /**
- * Runs one season's retention clocks: the reminders are stamped before this answers, the silent
- * clocks have acted, and the deletion candidates are still standing.
+ * Runs one season's retention clocks: every erasure is done and every reminder and deletion notice owed before this
+ * answers, the drain sending them.
  */
 export async function postBewerbungSweep(saisonId: string): Promise<FLBewerbungSweepResponse> {
   return bewerbungenSweepSaison(saisonId);
-}
-
-/**
- * Records that the deletion notice reached these applications, before anything is erased.
- *
- * Without the stamp a run that mailed and then failed to erase would mail the same people again on
- * every tick after it.
- */
-export async function postBewerbungSweepAngekuendigt(
-  saisonId: string,
-  payload: FLBewerbungSweepAuswahlPayload,
-): Promise<FLBewerbungSweepAngekuendigtResponse> {
-  return bewerbungenAngekuendigtBewerbungen(saisonId, payload);
-}
-
-/** Erases the announced candidates. The backend re-selects them, so a stale or unannounced id is skipped rather than refused. */
-export async function postBewerbungSweepLoeschen(
-  saisonId: string,
-  payload: FLBewerbungSweepAuswahlPayload,
-): Promise<FLBewerbungSweepLoeschenResponse> {
-  return bewerbungenLoeschenBewerbungen(saisonId, payload);
 }

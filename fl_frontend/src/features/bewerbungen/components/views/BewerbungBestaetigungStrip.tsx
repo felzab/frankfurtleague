@@ -20,7 +20,7 @@ import { adressenAndererPersonen, istOffen, linkAngebot, loeschungsSatz, sitzAng
 import { FESTE_WERTE } from "@/features/bewerbungen/components/ui/Gefuellt";
 import { ADRESSE_KORRIGIEREN, ERNEUT_OHNE_ADRESSE } from "@/features/bewerbungen/constants";
 import { FLBewerbungKontaktEmailPayloadSchema, FLBewerbungKontaktSitzPayloadSchema } from "@/features/bewerbungen/schemas";
-import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
+import { zustellungChip } from "@/features/bewerbungen/zustellLage";
 import { gleicheAdresse } from "@/features/teams/kontaktePersonen";
 import { Leer } from "@/shared/components/ui/Angabe";
 import { labelBadge } from "@/shared/components/ui/badges";
@@ -44,7 +44,6 @@ import { benannt } from "@/shared/utils/benannt";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { nichtHinterlegt } from "@/shared/utils/format";
-import { LINK_TITEL, meldeLinkVersand } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
 
@@ -55,7 +54,6 @@ import type { SitzBestaetigung } from "@/features/bewerbungen/bestaetigungStand"
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { RaiseFailure } from "@/shared/hooks/useServerFieldErrors";
-import type { VersandTitel } from "@/shared/utils/linkVersandToast";
 import type { KontaktFassung } from "./BestaetigungHinweise";
 
 /**
@@ -101,24 +99,13 @@ const KORREKTUR_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. St
 /** Unlike a re-send, a second reseat over a seat already filled is refused, so the row, reloaded, decides. */
 const BESETZUNG_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch niemand, besetze die Rolle erneut.";
 
-const ERNEUT_TITEL: VersandTitel = { ...LINK_TITEL, gesendet: "Link erneut gesendet" };
-
-/** Each says the address moved, the strip's re-send raising the bare link titles for a link alone. */
-const KORREKTUR_TITEL: VersandTitel = {
-  gesendet: "Adresse korrigiert",
-  fehlgeschlagen: "Adresse korrigiert, Link nicht verschickt",
-  abgelegt: "Adresse korrigiert, Link zurückgehalten",
-};
-
 /**
- * Its own titles, never the correction's: one title names one outcome, and these say the seat is filled
- * where those say an address moved.
+ * Each press's title: its write owed the mail, which leaves after the response, so what became of it is the seat's
+ * delivery chip's to say on the next read. The correction's says the address moved, the reseat's that the seat is filled.
  */
-const NEUBESETZUNG_TITEL: VersandTitel = {
-  gesendet: "Rolle neu besetzt",
-  fehlgeschlagen: "Rolle besetzt, Link nicht verschickt",
-  abgelegt: "Rolle besetzt, Link zurückgehalten",
-};
+const ERNEUT_TITEL = "Link erneut gesendet";
+const KORREKTUR_TITEL = "Adresse korrigiert";
+const NEUBESETZUNG_TITEL = "Rolle neu besetzt";
 
 /** Which of the two editors one row has open. One at a time for the whole strip. */
 type Bearbeitung = "korrektur" | "neubesetzung";
@@ -206,7 +193,7 @@ export function BewerbungBestaetigungStrip({
     }
 
     landing.landed();
-    meldeLinkVersand(res.versand, ERNEUT_TITEL, res.message);
+    appToast.success(ERNEUT_TITEL, { description: res.message });
   };
 
   return (
@@ -309,7 +296,7 @@ function SitzZeile({
   onSchliessen: () => void;
 }) {
   const Glyph = STAND_ICON[sitz.stand.art];
-  const zustellung = sitz.zustellung === null ? null : ZUSTELLUNG_CHIP[sitz.zustellung.stand];
+  const zustellung = zustellungChip(sitz.zustellung);
   const erneutLabel = benannt("Link erneut senden", sitz.label);
   const besetzenLabel = benannt("Neu besetzen", sitz.label);
 
@@ -554,7 +541,7 @@ function AdresseKorrigieren({
     }
 
     schliesse(landing);
-    meldeLinkVersand(res.versand, KORREKTUR_TITEL, res.message);
+    appToast.success(KORREKTUR_TITEL, { description: res.message });
   };
 
   return (
@@ -739,7 +726,7 @@ function SitzNeuBesetzen({
     }
 
     schliesse(landing);
-    meldeLinkVersand(res.versand, NEUBESETZUNG_TITEL, res.message);
+    appToast.success(NEUBESETZUNG_TITEL, { description: res.message });
   };
 
   return (

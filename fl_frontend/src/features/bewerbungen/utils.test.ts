@@ -19,7 +19,6 @@ import {
   bewerbungTeamName,
   buildBewerbungRows,
   describeAufnahme,
-  empfangsSitze,
   fensterZustand,
   geburtsdatumSpanne,
   KUERZEL_PRUEFUNG,
@@ -299,17 +298,6 @@ describe("the birthdate window a contact person's date has to fall in", () => {
         `${String(mindestalter)}: a day younger than the offer is accepted`,
       ).toBe(false);
     }
-  });
-});
-
-describe("which seats the submission's receipt answers for", () => {
-  /* The mirrored seat is the same person on the same mailbox, and `paired_seat` lets either press
-     answer both, so a link message for it asks one reader twice; the receipt that mailbox gets names
-     both roles (`fl_frontend/src/features/bewerbungen/notifications.test.ts`). */
-  it("withholds the Trainer seat only where it mirrors the Ansprechperson", () => {
-    expect(empfangsSitze("ansprechperson")).toStrictEqual(["ansprechperson", "trainer"]);
-    expect(empfangsSitze("stellvertretung")).toStrictEqual(["ansprechperson"]);
-    expect(empfangsSitze(null)).toStrictEqual(["ansprechperson"]);
   });
 });
 
