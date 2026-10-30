@@ -125,11 +125,16 @@ async def reported(
     ergebnis: FLPostausgangErgebnisArt,
     *,
     now: datetime = NOW,
+    grund: str | None = None,
 ) -> FLPostausgangErgebnisResponse:
     assert beanspruchung is not None
     return await post_ergebnis(
         ergebnis_data=FLPostausgangErgebnisPayload(
-            beanspruchung=beanspruchung, id=row_id, ergebnis=ergebnis, nachricht_id=f"msg-{row_id}" if ergebnis == "gesendet" else None
+            beanspruchung=beanspruchung,
+            id=row_id,
+            ergebnis=ergebnis,
+            nachricht_id=f"msg-{row_id}" if ergebnis == "gesendet" else None,
+            grund=grund,
         ),
         postausgang_collection=database[Collection.POSTAUSGANG],
         now=now,
@@ -277,19 +282,24 @@ class TestTheDrain:
 
         assert (handed, stand) == ([sperre], "gesperrt")
 
-    def test_a_failed_send_waits_and_goes_again(self, mongo_replica_set_url: str):
+    def test_a_failed_send_waits_and_goes_again_its_refusal_on_the_row_until_a_send_goes(self, mongo_replica_set_url: str):
+        """The row is a send's one record, so the provider's name for its refusal is the only answer to why it waited."""
+
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             row_id = await owe(database, client, "sperre/1")
             first = await claimed(database, client)
-            failed = await reported(database, first.beanspruchung, row_id, "wiederholen")
+            failed = await reported(database, first.beanspruchung, row_id, "wiederholen", grund="rate_limit_exceeded")
             waiting = await claimed(database, client, now=NOW + WIEDERHOLUNG_NACH - timedelta(seconds=1))
+            refused = (await stored(database, row_id))["grund"]
             again = await claimed(database, client, now=NOW + WIEDERHOLUNG_NACH)
+            await reported(database, again.beanspruchung, row_id, "gesendet", now=NOW + WIEDERHOLUNG_NACH)
 
-            return failed.wiederholt, waiting.mails, [mail.id for mail in again.mails], row_id
+            return failed.wiederholt, waiting.mails, [mail.id for mail in again.mails], row_id, refused, await stored(database, row_id)
 
-        wiederholt, waiting, again, row_id = on_a_database(mongo_replica_set_url, body)
+        wiederholt, waiting, again, row_id, refused, row = on_a_database(mongo_replica_set_url, body)
 
         assert (wiederholt, waiting, again) == (1, [], [row_id])
+        assert (refused, row["stand"], row["grund"]) == ("rate_limit_exceeded", "gesendet", None)
 
     def test_a_mail_whose_link_supersedes_drops_the_older_one_still_waiting_to_go_again(self, mongo_replica_set_url: str):
         """Handed out after the newer mail, the older one would supersede the newer link, and the newest mail opens nothing."""

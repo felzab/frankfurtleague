@@ -168,6 +168,7 @@ def row_of(mail: OwedMail, *, now: datetime, geheim: str | None, gueltig_bis: da
         "beansprucht_bis": None,
         "versuche": 0,
         "nachricht_id": None,
+        "grund": None,
         "zustellung": None,
     }
 

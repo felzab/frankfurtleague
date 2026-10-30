@@ -9544,6 +9544,19 @@
             "title": "Ergebnis",
             "type": "string"
           },
+          "grund": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          },
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Id",
@@ -9567,7 +9580,8 @@
           "beanspruchung",
           "id",
           "ergebnis",
-          "nachricht_id"
+          "nachricht_id",
+          "grund"
         ],
         "title": "FLPostausgangErgebnisPayload",
         "type": "object"
@@ -21539,7 +21553,7 @@
     },
     "/api/v0/postausgang/ergebnis": {
       "post": {
-        "description": "Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.\n\n`gesendet` records the provider's message id; `zurueckgehalten` a deployment that sends no mail; `aufgeben` a\nrefusal every send would meet, any 4xx but a 429. `wiederholen`, for a 429, a 5xx or a send that never reached the\nprovider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a\nmail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not\nhold -- unknown, settled already, or claimed since by another drain after this claim lapsed -- is left alone and\ncounted in `ignoriert`; the answer counts one outcome. Each write names the claim, so its check and the outcome are\none atomic operation on one row, needing no transaction; a settled row keeps no facts and no secret.",
+        "description": "Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.\n\n`gesendet` records the provider's message id; `zurueckgehalten` a deployment that sends no mail; `aufgeben` a\nrefusal every send would meet, any 4xx but a 429. A failed send's `grund`, the provider's own name for the refusal,\nis recorded on the row, the send's one record of why. `wiederholen`, for a 429, a 5xx or a send that never reached the\nprovider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a\nmail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not\nhold -- unknown, settled already, or claimed since by another drain after this claim lapsed -- is left alone and\ncounted in `ignoriert`; the answer counts one outcome. Each write names the claim, so its check and the outcome are\none atomic operation on one row, needing no transaction; a settled row keeps no facts and no secret.",
         "operationId": "postausgang_post_ergebnis",
         "requestBody": {
           "content": {

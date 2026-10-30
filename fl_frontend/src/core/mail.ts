@@ -12,6 +12,7 @@ import { isOneBareMailbox, withAsciiDomain } from "./emailAddress";
 import { renderMail } from "./emailShell";
 import { APINetworkError, MailSendError } from "./errors";
 import { postausgangPostAusgabe, postausgangPostErgebnis } from "./generated/client/sdk";
+import { PostausgangPostErgebnisBody } from "./generated/zod/inputs";
 import { logger } from "./logging";
 import { mailFor, POSTAUSGANG_TAG } from "./mailKinds";
 import { boundCall, getRequestTraceId, recordWriteSent } from "./requestScope";
@@ -109,18 +110,6 @@ class MailRecipientError extends Error {
     super("The recipient is not one mailbox with an ASCII domain.");
 
     this.name = "MailRecipientError";
-  }
-}
-
-/**
- * Nothing reached the provider: the request's deadline ran out first, which writes a line of its own. Not an
- * `APINetworkError`, which may be a message that went.
- */
-class MailUnsentError extends Error {
-  constructor() {
-    super("Nothing reached the provider, so the message was not sent.");
-
-    this.name = "MailUnsentError";
   }
 }
 
@@ -292,7 +281,10 @@ async function drainen(): Promise<void> {
     if (beanspruchung === null) return;
 
     for (const mail of mails) {
-      const antwort = await postausgangPostErgebnis({ beanspruchung: beanspruchung, ...(await zustellen(mail)) });
+      const bericht = { beanspruchung: beanspruchung, ...(await zustellen(mail)) };
+      // The provider's name for a refusal is its own token, kept only where the endpoint takes it: the outcome stands
+      // without one, as `fl_frontend/src/app/api/mail/zustellung/route.ts` keeps a delivery event's.
+      const antwort = await postausgangPostErgebnis(PostausgangPostErgebnisBody.safeParse(bericht).data ?? { ...bericht, grund: null });
       for (const feld of Object.keys(antwort) as (keyof DrainZaehlung)[]) seitDemLetztenDurchlauf[feld] += antwort[feld];
     }
   }
@@ -313,13 +305,13 @@ async function zustellen(mail: FLPostausgangAusgabe): Promise<Omit<FLPostausgang
     // Given up rather than thrown: sealed under a key since replaced, the row would stop every drain until it lapses,
     // each claiming it first. The error's name alone, which quotes no value.
     logger.error("postausgang.geheim_unlesbar", undefined, { art: mail.daten.art, name: error instanceof Error ? error.name : undefined });
-    return { id: mail.id, ergebnis: "aufgeben", nachricht_id: null };
+    return { id: mail.id, ergebnis: "aufgeben", nachricht_id: null, grund: null };
   }
   const nachricht = mailFor(mail.daten.art, mail.daten, { token: mail.token, geheim: geheim, origin: frontend_config.AUTH_URL });
   if (nachricht === undefined) {
     // Handed back rather than given up: the row waits until its deadline for a deployment that builds its kind.
     logger.error("postausgang.art_ohne_vorlage", undefined, { art: mail.daten.art });
-    return { id: mail.id, ergebnis: "wiederholen", nachricht_id: null };
+    return { id: mail.id, ergebnis: "wiederholen", nachricht_id: null, grund: null };
   }
 
   try {
@@ -329,21 +321,27 @@ async function zustellen(mail: FLPostausgangAusgabe): Promise<Omit<FLPostausgang
       tags: { [POSTAUSGANG_TAG]: mail.id },
       idempotencyKey: `postausgang/${mail.id}/${String(mail.versuch)}`,
     });
-    return { id: mail.id, ergebnis: "gesendet", nachricht_id: id };
+    return { id: mail.id, ergebnis: "gesendet", nachricht_id: id, grund: null };
   } catch (error) {
-    return { id: mail.id, ergebnis: ergebnisOf(error), nachricht_id: null };
+    // The row is the send's one record: the provider's own name for a refusal goes onto it, and no line.
+    return {
+      id: mail.id,
+      ergebnis: ergebnisOf(error),
+      nachricht_id: null,
+      grund: error instanceof MailSendError ? (error.providerErrorName ?? null) : null,
+    };
   }
 }
 
 /**
- * A failed send's outcome. A refusal the provider names temporary, its quota among them, a send that broke off and one
- * that never left are tried again and never count toward giving up; any other refusal is one every send would meet.
+ * A failed send's outcome. A refusal the provider names temporary, its quota among them, and a send that broke off are
+ * tried again and never count toward giving up; any other refusal is one every send would meet.
  */
 function ergebnisOf(error: unknown): Exclude<FLPostausgangErgebnisPayloadErgebnis, "gesendet"> {
   if (error instanceof MailWithheldError) return "zurueckgehalten";
   if (error instanceof MailRecipientError) return "aufgeben";
   if (error instanceof MailSendError) return error.isTransient ? "wiederholen" : "aufgeben";
-  if (error instanceof APINetworkError || error instanceof MailUnsentError) return "wiederholen";
+  if (error instanceof APINetworkError) return "wiederholen";
 
   // A fault of this code rather than of the send: the drain stops, and the row returns once its lease lapses.
   throw error;
@@ -382,16 +380,6 @@ async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: O
       traceId: traceId,
       originalError: error,
     });
-
-  // Logged where the detail exists: a caller on the sign-in path records the error's NAME alone, so
-  // a status and the provider's code reach no stream otherwise. The recipient never travels on
-  // either line.
-  const logNetwork = (failure: APINetworkError) => {
-    logger.error("mail.send_failed", undefined, {
-      is_timeout: failure.isTimeout,
-      trace_id: traceId,
-    });
-  };
 
   const headers: Record<string, string> = {
     // The narrowed local, never the config read again: a template literal renders an absent key as
@@ -455,37 +443,11 @@ async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: O
     });
   };
 
-  /** The line a refusal nobody will retry leaves. `failNetwork` writes its own, so this one is the provider's alone. */
-  const logRefusal = (refusal: MailSendError) => {
-    logger.error("mail.send_failed", undefined, {
-      status: refusal.statusCode,
-      provider_error_name: refusal.providerErrorName,
-      trace_id: traceId,
-    });
-  };
-
-  // Refused unsent once the request's deadline is spent.
-  if (signal.aborted) {
-    logger.error("mail.send_failed", undefined, { is_timeout: true, trace_id: traceId });
-    throw new MailUnsentError();
-  }
-
-  /** The line a failure nobody will retry leaves, the provider's refusal or the broken request. */
-  const logGivenUp = (error: unknown) => {
-    if (error instanceof MailSendError) logRefusal(error);
-    else if (error instanceof APINetworkError) logNetwork(error);
-  };
-
   // The first attempt that broke off, which the provider may have accepted: a refusal answering a
   // later attempt says nothing about it, so the send ends as that network failure, of unknown outcome.
   let brokeOff: APINetworkError | undefined;
   const giveUp = (error: unknown): never => {
-    logGivenUp(error);
-    // A last attempt that broke off is already the network failure to end on, and its line is written.
-    if (brokeOff === undefined || error instanceof APINetworkError) throw error;
-
-    logNetwork(brokeOff);
-    throw brokeOff;
+    throw brokeOff === undefined || error instanceof APINetworkError ? error : brokeOff;
   };
 
   for (let attemptNumber = 1; ; attemptNumber++) {
@@ -500,12 +462,6 @@ async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: O
 
       // An aborted budget ends it too: the timeout that cut the attempt leaves nothing to retry in.
       if (!repeatable || attemptNumber >= MAIL_ATTEMPTS || signal.aborted) giveUp(error);
-
-      logger.warn("mail.send_retried", {
-        status: error instanceof MailSendError ? error.statusCode : undefined,
-        provider_error_name: error instanceof MailSendError ? error.providerErrorName : undefined,
-        trace_id: traceId,
-      });
 
       await pause(MAIL_RETRY_DELAY_MS, signal);
 

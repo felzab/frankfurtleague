@@ -27,7 +27,7 @@ async def drained(database: AsyncDatabase, client: AsyncMongoClient, *, now: dat
         for mail in answer.mails:
             await post_ergebnis(
                 ergebnis_data=FLPostausgangErgebnisPayload(
-                    beanspruchung=answer.beanspruchung, id=mail.id, ergebnis="gesendet", nachricht_id=None
+                    beanspruchung=answer.beanspruchung, id=mail.id, ergebnis="gesendet", nachricht_id=None, grund=None
                 ),
                 postausgang_collection=database[Collection.POSTAUSGANG],
                 now=now,

@@ -209,7 +209,8 @@ async def post_ergebnis(
     Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.
 
     `gesendet` records the provider's message id; `zurueckgehalten` a deployment that sends no mail; `aufgeben` a
-    refusal every send would meet, any 4xx but a 429. `wiederholen`, for a 429, a 5xx or a send that never reached the
+    refusal every send would meet, any 4xx but a 429. A failed send's `grund`, the provider's own name for the refusal,
+    is recorded on the row, the send's one record of why. `wiederholen`, for a 429, a 5xx or a send that never reached the
     provider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a
     mail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not
     hold -- unknown, settled already, or claimed since by another drain after this claim lapsed -- is left alone and
@@ -220,7 +221,9 @@ async def post_ergebnis(
     held = {"_id": ergebnis_data.id, "beanspruchung": ergebnis_data.beanspruchung, "stand": "offen"}
 
     async def settled(update: Mapping[str, Any], narrowed: Mapping[str, Any]) -> bool:
-        result = await patch_many_in_db(collection=postausgang_collection, db_filter={**held, **narrowed}, update=update)
+        # Every report writes its refusal or none, so a mail sent after a failed send keeps no reason it no longer has.
+        with_grund = {**update, "$set": {**update["$set"], "grund": ergebnis_data.grund}}
+        result = await patch_many_in_db(collection=postausgang_collection, db_filter={**held, **narrowed}, update=with_grund)
         return result.modified_count > 0
 
     ergebnis = ergebnis_data.ergebnis

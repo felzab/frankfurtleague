@@ -1671,8 +1671,9 @@ carries the address. Ask when they tried and read that window:
 - `auth.sign_in_gate_address_refused`: the backend refused the address as none
   its own rule accepts, though the sign-in form took it; the two address rules disagree.
 - `auth.code_send_failed` or `auth.sign_in_failed`: the gate admitted the
-  address, and the send or the library call around it failed; `mail.send_failed` under the same trace id
-  is the provider refusing the message.
+  address, and the send or the library call around it failed; the code's own Postausgang row
+  (`art: "anmeldecode"`) reading `aufgegeben` is the provider refusing it, its `grund` the provider's own
+  name for the refusal.
 - `auth.code_mail_capped`, an info line: five codes had been asked for the address inside the
   hour, so this one was sent nothing. The five count every request,
   a stranger's and one the gate refused included, so an address can be capped with nothing mailed;

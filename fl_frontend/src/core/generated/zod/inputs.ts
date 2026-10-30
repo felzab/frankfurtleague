@@ -1314,7 +1314,8 @@ export const PostausgangPostEreignisBody = zod
  * Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.
  *
  * `gesendet` records the provider's message id; `zurueckgehalten` a deployment that sends no mail; `aufgeben` a
- * refusal every send would meet, any 4xx but a 429. `wiederholen`, for a 429, a 5xx or a send that never reached the
+ * refusal every send would meet, any 4xx but a 429. A failed send's `grund`, the provider's own name for the refusal,
+ * is recorded on the row, the send's one record of why. `wiederholen`, for a 429, a 5xx or a send that never reached the
  * provider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a
  * mail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not
  * hold -- unknown, settled already, or claimed since by another drain after this claim lapsed -- is left alone and
@@ -1323,6 +1324,9 @@ export const PostausgangPostEreignisBody = zod
  * @summary Settle one mail a claim handed out
  */
 
+export const postausgangPostErgebnisBodyGrundOneMax = 128;
+
+export const postausgangPostErgebnisBodyGrundOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 export const postausgangPostErgebnisBodyIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 export const postausgangPostErgebnisBodyNachrichtIdOneMax = 128;
 
@@ -1330,6 +1334,7 @@ export const PostausgangPostErgebnisBody = zod
   .object({
     beanspruchung: zod.string().min(1),
     ergebnis: zod.enum(["gesendet", "wiederholen", "aufgeben", "zurueckgehalten"]),
+    grund: zod.union([zod.string().max(postausgangPostErgebnisBodyGrundOneMax).regex(postausgangPostErgebnisBodyGrundOneRegExp), zod.null()]),
     id: zod.string().regex(postausgangPostErgebnisBodyIdRegExp),
     nachricht_id: zod.union([zod.string().min(1).max(postausgangPostErgebnisBodyNachrichtIdOneMax), zod.null()]),
   })

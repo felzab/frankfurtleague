@@ -3991,6 +3991,7 @@ export interface FLPostausgangErgebnisPayload {
   /** @minLength 1 */
   beanspruchung: string;
   ergebnis: FLPostausgangErgebnisPayloadErgebnis;
+  grund: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   nachricht_id: string | null;

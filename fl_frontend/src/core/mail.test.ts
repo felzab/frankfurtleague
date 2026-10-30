@@ -121,8 +121,8 @@ describe("one drain of the Postausgang", () => {
       [{ name: "postausgang_id", value: handed(2).id }],
     ]);
     expect(reports()).toStrictEqual([
-      { id: handed(1).id, ergebnis: "gesendet", nachricht_id: "re-1" },
-      { id: handed(2).id, ergebnis: "gesendet", nachricht_id: "re-1" },
+      { id: handed(1).id, ergebnis: "gesendet", nachricht_id: "re-1", grund: null },
+      { id: handed(2).id, ergebnis: "gesendet", nachricht_id: "re-1", grund: null },
     ]);
     // The claim's own give-ups count with the reports', which is what the heartbeat reads.
     expect(takeDrainCounts()).toMatchObject({ gesendet: 2, aufgegeben: 1 });
@@ -152,7 +152,7 @@ describe("one drain of the Postausgang", () => {
 
     await expect(failing).rejects.toThrow("deadline");
     await expect(waiting).resolves.toBeUndefined();
-    expect(reports()).toStrictEqual([{ id: handed(1).id, ergebnis: "gesendet", nachricht_id: "re-1" }]);
+    expect(reports()).toStrictEqual([{ id: handed(1).id, ergebnis: "gesendet", nachricht_id: "re-1", grund: null }]);
   });
 
   /* The row arrives sealed under the frontend's own key (`fl_frontend/src/core/auth.ts :: oweSignInMail`): a builder
@@ -184,20 +184,22 @@ describe("one drain of the Postausgang", () => {
   });
 
   /* Read the wrong way round, the league's daily quota would give up every mail queued behind it, and a refusal no
-     send can repair would be retried until its deadline. */
+     send can repair would be retried until its deadline. The provider's name for a refusal is the row's one record of
+     why, no line beside it; a name the endpoint would refuse is dropped rather than failing the report. */
   it.each([
-    ["a rate limit", () => Response.json({ name: "rate_limit_exceeded" }, { status: 429 }), "wiederholen"],
-    ["the daily quota", () => Response.json({ name: "daily_quota_exceeded" }, { status: 429 }), "wiederholen"],
-    ["an outage", () => new Response(null, { status: 503 }), "wiederholen"],
-    ["a broken connection", () => Promise.reject(new TypeError("fetch failed")), "wiederholen"],
-    ["a refusal of the message itself", () => Response.json({ name: "validation_error" }, { status: 422 }), "aufgeben"],
-  ] as const)("reports %s as %s", async (_name, answer, ergebnis) => {
+    ["a rate limit", () => Response.json({ name: "rate_limit_exceeded" }, { status: 429 }), "wiederholen", "rate_limit_exceeded"],
+    ["the daily quota", () => Response.json({ name: "daily_quota_exceeded" }, { status: 429 }), "wiederholen", "daily_quota_exceeded"],
+    ["an outage", () => new Response(null, { status: 503 }), "wiederholen", null],
+    ["a broken connection", () => Promise.reject(new TypeError("fetch failed")), "wiederholen", null],
+    ["a refusal of the message itself", () => Response.json({ name: "validation_error" }, { status: 422 }), "aufgeben", "validation_error"],
+    ["a refusal named past the endpoint's bound", () => Response.json({ name: "x".repeat(200) }, { status: 422 }), "aufgeben", null],
+  ] as const)("reports %s as %s", async (_name, answer, ergebnis, grund) => {
     claims = [{ mails: [handed(1)], aufgegeben: 0 }];
     provider = answer;
 
     await drainPostausgang();
 
-    expect(reports()).toStrictEqual([{ id: handed(1).id, ergebnis: ergebnis, nachricht_id: null }]);
+    expect(reports()).toStrictEqual([{ id: handed(1).id, ergebnis: ergebnis, nachricht_id: null, grund: grund }]);
   });
 
   it("reports a deployment that sends nothing as withheld, and reaches no provider", async () => {
@@ -207,6 +209,6 @@ describe("one drain of the Postausgang", () => {
     await drainPostausgang();
 
     expect(sends()).toStrictEqual([]);
-    expect(reports()).toStrictEqual([{ id: handed(1).id, ergebnis: "zurueckgehalten", nachricht_id: null }]);
+    expect(reports()).toStrictEqual([{ id: handed(1).id, ergebnis: "zurueckgehalten", nachricht_id: null, grund: null }]);
   });
 });

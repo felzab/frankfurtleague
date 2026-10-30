@@ -441,6 +441,9 @@ class FLPostausgangZeile(BaseModel):
     # How many claims have handed the row out; each claim raises it in its own transaction.
     versuche: int = Field(ge=0)
     nachricht_id: str | None
+    # The provider's own name for the refusal the last failed send met; defaulted, as a row a send never failed holds
+    # none and a row owed before the field was written has none stored.
+    grund: str | None = Field(default=None)
     zustellung: FLPostausgangZustellung | None
 
 
@@ -483,13 +486,17 @@ class FLPostausgangErgebnisPayload(BaseModel):
     # page or `GET /emails/{id}` (https://resend.com/docs/api-reference/emails/retrieve-email), the provider offering no
     # search by tag. No event needs it, each finding its row by the row's own id.
     nachricht_id: CustomNachrichtId | None
+    # The provider's own name for the refusal a failed send met, the row's one record of why.
+    grund: CustomZustellGrund | None
 
     # Only a sent mail names a message, and a sent one may name none: the provider accepted it, and its answer carried no
-    # readable id.
+    # readable id. Only a failed send names a refusal, and one that never reached the provider names none.
     @model_validator(mode="after")
-    def only_a_sent_mail_names_a_message(self) -> Self:
+    def each_outcome_names_only_its_own(self) -> Self:
         if self.nachricht_id is not None and self.ergebnis != "gesendet":
-            raise ValueError("Nur eine gesendete Mail nennt eine Nachricht.")
+            raise ValueError("Only a sent mail names a message.")
+        if self.grund is not None and self.ergebnis not in ("wiederholen", "aufgeben"):
+            raise ValueError("Only a failed send names a refusal.")
 
         return self
 
@@ -518,7 +525,7 @@ class FLPostausgangAnmeldungPayload(BaseModel):
     @model_validator(mode="after")
     def a_secret_names_when_it_lapses(self) -> Self:
         if self.geheim is not None and self.gueltig_bis is None:
-            raise ValueError("Ein Geheimnis nennt, wann es verfällt.")
+            raise ValueError("A secret names when it lapses.")
 
         return self
 
