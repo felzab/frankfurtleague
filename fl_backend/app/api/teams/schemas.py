@@ -574,8 +574,14 @@ class FLPostSaisonTeamPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # Stripped before the width is counted, for `app/shared/schemas/custom.py :: CustomStrippedNonEmptyString`'s reason.
-    saison_id: Annotated[str, StringConstraints(strip_whitespace=True, min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)]
+    # The width counted on arrival, then the strip, then the width again: a padded id is refused rather
+    # than stored, and the published `maxLength` is what the backend accepts.
+    saison_id: Annotated[
+        str,
+        StringConstraints(max_length=SAISON_ID_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        AfterValidator(str.strip),
+        StringConstraints(min_length=SAISON_ID_LENGTH),
+    ]
     gruppe: FLGruppenNames
 
 

@@ -262,24 +262,20 @@ def find_saison_span_refusal(
     return None
 
 
+# The two rules a stated shape can break while the value they weigh is a stored one: the forfeit
+# award, once the shape's qualifiers give the season a bracket, and the span, once its matchdays
+# outgrow it. The draw answers each as a conflict with the season. Every other rule a draw asks
+# reads the shape alone, or a stored value only a hand-edited document breaks.
 DRAW_TWINS: Mapping[Code, Code] = {
-    Code.RULES_BRACKET_IMPOSSIBLE: Code.RULES_BRACKET_IMPOSSIBLE_AS_STORED,
-    Code.RULES_QUALIFIERS_ABOVE_GROUP: Code.RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED,
-    Code.RULES_DRAW_OUTVALUES_WIN: Code.RULES_DRAW_OUTVALUES_WIN_AS_STORED,
     Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT: Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED,
-    Code.RULES_FIXTURES_OVER_ONE_READ: Code.RULES_FIXTURES_OVER_ONE_READ_AS_STORED,
     Code.SAISON_SPAN_BELOW_SCHEDULE: Code.SAISON_SPAN_BELOW_SCHEDULE_AS_STORED,
 }
 
-# The three that read nothing but the shape's own three numbers: a shape in the payload makes them
-# judge the payload, which keeps the shared 422.
-SHAPE_ONLY_CODES = frozenset({Code.RULES_BRACKET_IMPOSSIBLE, Code.RULES_QUALIFIERS_ABOVE_GROUP, Code.RULES_FIXTURES_OVER_ONE_READ})
 
+def as_the_draw_answers(refusal: WriteRefusal | None) -> WriteRefusal | None:
+    """`refusal` as the draw answers it: under its twin where it weighed a stored value, else unchanged."""
 
-def as_the_draw_answers(refusal: WriteRefusal | None, *, shape_stated: bool) -> WriteRefusal | None:
-    """`refusal` as the draw answers it: under its twin where it read a stored value, else unchanged."""
-
-    if refusal is None or refusal.error_code not in DRAW_TWINS or (shape_stated and refusal.error_code in SHAPE_ONLY_CODES):
+    if refusal is None or refusal.error_code not in DRAW_TWINS:
         return refusal
 
     return WriteRefusal(error_code=DRAW_TWINS[refusal.error_code], status=HTTPStatus.CONFLICT)

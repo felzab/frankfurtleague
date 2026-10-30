@@ -3796,6 +3796,7 @@ export interface FLPostSaisonTeamPayload {
   /**
    * @minLength 4
    * @maxLength 4
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   saison_id: string;
 }

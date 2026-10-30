@@ -9330,6 +9330,7 @@
           "saison_id": {
             "maxLength": 4,
             "minLength": 4,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Saison Id",
             "type": "string"
           }
