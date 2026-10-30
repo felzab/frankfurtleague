@@ -6,8 +6,8 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
-import { EDGE_REFUSAL_BODY } from "@/shared/utils/actionError";
 
+import { EDGE_REFUSAL_BODY } from "./edgeRefusal";
 import { answering, statusOf, useFormAction } from "./useFormAction";
 
 import type { ActionAnswer } from "@/core/action";

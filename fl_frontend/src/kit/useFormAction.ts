@@ -4,7 +4,8 @@ import { startTransition, useActionState, useLayoutEffect, useRef, useState } fr
 import { unstable_rethrow, useRouter } from "next/navigation";
 
 import { COPY } from "@/core/copy";
-import { edgeRefusedSend } from "@/shared/utils/actionError";
+
+import { isEdgeRefusal } from "./edgeRefusal";
 
 import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
@@ -25,7 +26,7 @@ export function answering<Payload, Value>(
     } catch (thrown) {
       // A redirect or a not-found is how the action leads on; React hands it to Next's boundary.
       unstable_rethrow(thrown);
-      if (edgeRefusedSend(thrown) !== null) return { ok: false, reason: COPY.shared.fehler.zuVieleVersuche };
+      if (isEdgeRefusal(thrown)) return { ok: false, reason: COPY.shared.fehler.zuVieleVersuche };
       refresh();
       return { ok: false, reason: COPY.shared.fehler.veraltet };
     }
