@@ -4803,14 +4803,6 @@ export const FLSpielStatus = {
   unbekannt: "unbekannt",
 } as const;
 
-export type FLSpielberichtAdminResponseSeitenGeaendertItem =
-  (typeof FLSpielberichtAdminResponseSeitenGeaendertItem)[keyof typeof FLSpielberichtAdminResponseSeitenGeaendertItem];
-
-export const FLSpielberichtAdminResponseSeitenGeaendertItem = {
-  team1: "team1",
-  team2: "team2",
-} as const;
-
 export interface FLSpielberichtVonSchiedsrichter {
   art: "schiedsrichter";
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -4818,12 +4810,12 @@ export interface FLSpielberichtVonSchiedsrichter {
 }
 
 /**
- * An administrator who wrote the block first, naming nobody, as an administrator's settle does.
+ * An administrator's act, naming nobody: the record keeps how a thing was settled, not who typed it.
  */
-export const FLSpielberichtVonAdminValue = {
+export const FLVonAdminValue = {
   art: "admin",
 } as const;
-export type FLSpielberichtVonAdmin = typeof FLSpielberichtVonAdminValue;
+export type FLVonAdmin = typeof FLVonAdminValue;
 
 export type FLSpielberichtVorschlagSonderereignis =
   (typeof FLSpielberichtVorschlagSonderereignis)[keyof typeof FLSpielberichtVorschlagSonderereignis] | null;
@@ -4847,13 +4839,6 @@ export interface FLSpielberichtVorschlag {
   team2_tore: number | null;
 }
 
-export type FLSpielberichtKarteSeite = (typeof FLSpielberichtKarteSeite)[keyof typeof FLSpielberichtKarteSeite];
-
-export const FLSpielberichtKarteSeite = {
-  team1: "team1",
-  team2: "team2",
-} as const;
-
 /**
  * One card as stored, its reason null on a red card and on every card once the end of the season after the match strips the reasons.
  */
@@ -4862,7 +4847,7 @@ export interface FLSpielberichtKarte {
   grund: FLKartenGrund | null;
   /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
-  seite: FLSpielberichtKarteSeite;
+  seite: FLSpielSeite;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieler_id: string;
 }
@@ -4877,13 +4862,6 @@ export interface FLSpielberichtSeiten {
   team2: string | null;
 }
 
-export type FLSpielberichtTorschuetzeSeite = (typeof FLSpielberichtTorschuetzeSeite)[keyof typeof FLSpielberichtTorschuetzeSeite];
-
-export const FLSpielberichtTorschuetzeSeite = {
-  team1: "team1",
-  team2: "team2",
-} as const;
-
 /**
  * One goal. A null `spieler_id` is a scorer nobody named and nothing else: an erasure never nulls an entry, which would read as one.
  */
@@ -4891,14 +4869,9 @@ export interface FLSpielberichtTorschuetze {
   eigentor: boolean;
   /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
-  seite: FLSpielberichtTorschuetzeSeite;
+  seite: FLSpielSeite;
   spieler_id: string | null;
 }
-
-export const FLSpielberichtUebernommenVonValue = {
-  art: "admin",
-} as const;
-export type FLSpielberichtUebernommenVon = typeof FLSpielberichtUebernommenVonValue;
 
 /**
  * The referee's account of one match, one proposal, a correction after its adoption reading `abweichend`.
@@ -4909,14 +4882,14 @@ export type FLSpielberichtUebernommenVon = typeof FLSpielberichtUebernommenVonVa
 export interface FLSpielberichtBericht {
   bemerkungen: string | null;
   eingereicht_am: string;
-  eingereicht_von: FLSpielberichtVonSchiedsrichter | FLSpielberichtVonAdmin;
+  eingereicht_von: FLSpielberichtVonSchiedsrichter | FLVonAdmin;
   ergebnis_vorschlag: FLSpielberichtVorschlag;
   geaendert_am: string;
   karten: FLSpielberichtKarte[];
   seiten: FLSpielberichtSeiten;
   torschuetzen: FLSpielberichtTorschuetze[];
   uebernommen_am: string | null;
-  uebernommen_von: FLSpielberichtUebernommenVon | null;
+  uebernommen_von: FLVonAdmin | null;
   uebernommene_version: number | null;
   version: number;
 }
@@ -4980,18 +4953,11 @@ export interface FLSpielberichtAdminResponse {
   bericht: FLSpielberichtBericht | null;
   genannt: FLSpielberichtSpieler[];
   kader: FLSpielberichtKader;
-  seiten_geaendert: FLSpielberichtAdminResponseSeitenGeaendertItem[];
+  seiten_geaendert: FLSpielSeite[];
   spiel: FLSpielberichtSpiel;
   version: number | null;
   zustand: FLSpielberichtZustand | null;
 }
-
-export type FLSpielberichtKartePayloadSeite = (typeof FLSpielberichtKartePayloadSeite)[keyof typeof FLSpielberichtKartePayloadSeite];
-
-export const FLSpielberichtKartePayloadSeite = {
-  team1: "team1",
-  team2: "team2",
-} as const;
 
 /**
  * One card as a write sends it: a caution names its reason unless the stored card's reason was stripped.
@@ -5001,7 +4967,7 @@ export interface FLSpielberichtKartePayload {
   grund: FLKartenGrund | null;
   /** @pattern ^[0-9]{1,3}(\+[0-9]{1,2})?$ */
   minute: string;
-  seite: FLSpielberichtKartePayloadSeite;
+  seite: FLSpielSeite;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieler_id: string;
 }
@@ -5051,14 +5017,6 @@ export interface FLSpielberichtPersonFruehererEintrag {
   uhrzeit: string | null;
 }
 
-export type FLSpielberichtSchiedsrichterResponseSeitenGeaendertItem =
-  (typeof FLSpielberichtSchiedsrichterResponseSeitenGeaendertItem)[keyof typeof FLSpielberichtSchiedsrichterResponseSeitenGeaendertItem];
-
-export const FLSpielberichtSchiedsrichterResponseSeitenGeaendertItem = {
-  team1: "team1",
-  team2: "team2",
-} as const;
-
 /**
  * The booked referee's form: the remarks and the card reasons included, and no `zustand`.
  */
@@ -5067,7 +5025,7 @@ export interface FLSpielberichtSchiedsrichterResponse {
   bericht: FLSpielberichtBericht | null;
   genannt: FLSpielberichtSpieler[];
   kader: FLSpielberichtKader;
-  seiten_geaendert: FLSpielberichtSchiedsrichterResponseSeitenGeaendertItem[];
+  seiten_geaendert: FLSpielSeite[];
   spiel: FLSpielberichtSpiel;
   version: number | null;
 }

@@ -11,7 +11,6 @@ from app.api.aktionen.crud import redact_images_in_session
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
-    FLSpielberichtSeite,
     FLSpielberichtSpieler,
     FLSpielberichtVon,
     FLSpielberichtZustandEintrag,
@@ -51,6 +50,7 @@ from app.core.crud import (
 )
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.literals import FLSpielSeite
 
 
 async def pull_bericht_lage(
@@ -301,7 +301,7 @@ async def stamp_the_adoption(
     spiel_id: CustomObjectId,
     version: int,
     # The clubs the save leaves on the fixture: a report written about others credits neither.
-    seiten: Mapping[FLSpielberichtSeite, ObjectId | None],
+    seiten: Mapping[FLSpielSeite, ObjectId | None],
     now: datetime,
     # REQUIRED: the fixture save's own, so a save that does not commit takes its stamp back with it.
     session: AsyncClientSession,

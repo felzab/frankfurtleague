@@ -13369,11 +13369,7 @@
           },
           "seiten_geaendert": {
             "items": {
-              "enum": [
-                "team1",
-                "team2"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLSpielSeite"
             },
             "title": "Seiten Geaendert",
             "type": "array"
@@ -13438,7 +13434,7 @@
           "eingereicht_von": {
             "discriminator": {
               "mapping": {
-                "admin": "#/components/schemas/FLSpielberichtVonAdmin",
+                "admin": "#/components/schemas/FLVonAdmin",
                 "schiedsrichter": "#/components/schemas/FLSpielberichtVonSchiedsrichter"
               },
               "propertyName": "art"
@@ -13448,7 +13444,7 @@
                 "$ref": "#/components/schemas/FLSpielberichtVonSchiedsrichter"
               },
               {
-                "$ref": "#/components/schemas/FLSpielberichtVonAdmin"
+                "$ref": "#/components/schemas/FLVonAdmin"
               }
             ],
             "title": "Eingereicht Von"
@@ -13493,7 +13489,7 @@
           "uebernommen_von": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSpielberichtUebernommenVon"
+                "$ref": "#/components/schemas/FLVonAdmin"
               },
               {
                 "type": "null"
@@ -13625,12 +13621,7 @@
             "type": "string"
           },
           "seite": {
-            "enum": [
-              "team1",
-              "team2"
-            ],
-            "title": "Seite",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielSeite"
           },
           "spieler_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -13671,12 +13662,7 @@
             "type": "string"
           },
           "seite": {
-            "enum": [
-              "team1",
-              "team2"
-            ],
-            "title": "Seite",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielSeite"
           },
           "spieler_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -13909,11 +13895,7 @@
           },
           "seiten_geaendert": {
             "items": {
-              "enum": [
-                "team1",
-                "team2"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLSpielSeite"
             },
             "title": "Seiten Geaendert",
             "type": "array"
@@ -14146,12 +14128,7 @@
             "type": "string"
           },
           "seite": {
-            "enum": [
-              "team1",
-              "team2"
-            ],
-            "title": "Seite",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielSeite"
           },
           "spieler_id": {
             "anyOf": [
@@ -14173,35 +14150,6 @@
           "eigentor"
         ],
         "title": "FLSpielberichtTorschuetze",
-        "type": "object"
-      },
-      "FLSpielberichtUebernommenVon": {
-        "properties": {
-          "art": {
-            "const": "admin",
-            "title": "Art",
-            "type": "string"
-          }
-        },
-        "required": [
-          "art"
-        ],
-        "title": "FLSpielberichtUebernommenVon",
-        "type": "object"
-      },
-      "FLSpielberichtVonAdmin": {
-        "description": "An administrator who wrote the block first, naming nobody, as an administrator's settle does.",
-        "properties": {
-          "art": {
-            "const": "admin",
-            "title": "Art",
-            "type": "string"
-          }
-        },
-        "required": [
-          "art"
-        ],
-        "title": "FLSpielberichtVonAdmin",
         "type": "object"
       },
       "FLSpielberichtVonSchiedsrichter": {
@@ -17717,6 +17665,21 @@
           "administration"
         ],
         "type": "string"
+      },
+      "FLVonAdmin": {
+        "description": "An administrator's act, naming nobody: the record keeps how a thing was settled, not who typed it.",
+        "properties": {
+          "art": {
+            "const": "admin",
+            "title": "Art",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art"
+        ],
+        "title": "FLVonAdmin",
+        "type": "object"
       },
       "FLZustellungAbgewiesenPayload": {
         "additionalProperties": false,
