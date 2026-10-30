@@ -810,14 +810,6 @@ export interface FLAdresswechselAnsichtNeu {
   zustand: FLAdresswechselAnsichtNeuZustand;
 }
 
-export interface FLAdresswechselAnsichtPayload {
-  /**
-   * @minLength 1
-   * @maxLength 128
-   */
-  token: string;
-}
-
 /**
  * What one address link opens: never a name, either address or the id.
  */
@@ -837,6 +829,7 @@ export interface FLAdresswechselAntwortPayload {
   /**
    * @minLength 1
    * @maxLength 128
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   token: string;
 }
@@ -864,12 +857,11 @@ export interface FLAdresswechselGenehmigungResponse {
   wirksam: boolean;
 }
 
-export type FLAdresswechselGenehmigungStandVerwaltung =
-  (typeof FLAdresswechselGenehmigungStandVerwaltung)[keyof typeof FLAdresswechselGenehmigungStandVerwaltung];
+export type FLVerwaltung = (typeof FLVerwaltung)[keyof typeof FLVerwaltung];
 
-export const FLAdresswechselGenehmigungStandVerwaltung = {
-  administration: "administration",
+export const FLVerwaltung = {
   owner: "owner",
+  administration: "administration",
 } as const;
 
 /**
@@ -878,7 +870,7 @@ export const FLAdresswechselGenehmigungStandVerwaltung = {
 export interface FLAdresswechselGenehmigungStand {
   bis: string;
   genehmigt: boolean;
-  verwaltung: FLAdresswechselGenehmigungStandVerwaltung;
+  verwaltung: FLVerwaltung;
 }
 
 export interface FLAdresswechselIdResponse {
@@ -919,14 +911,6 @@ export interface FLAdresswechselPostausgangResponse {
   mitteilungen: FLAdresswechselPostausgangZeile[];
 }
 
-export interface FLAdresswechselStoppPayload {
-  /**
-   * @minLength 1
-   * @maxLength 128
-   */
-  token: string;
-}
-
 export const FLAdresswechselStoppResponseValue = {
   gestoppt: true,
 } as const;
@@ -953,19 +937,11 @@ export interface FLAdresswechselVerwaltungAnsichtPayload {
   adresswechsel_id?: string | null;
 }
 
-export type FLAdresswechselVerwaltungBestandBerechtigung =
-  (typeof FLAdresswechselVerwaltungBestandBerechtigung)[keyof typeof FLAdresswechselVerwaltungBestandBerechtigung] | null;
-
-export const FLAdresswechselVerwaltungBestandBerechtigung = {
-  administration: "administration",
-  owner: "owner",
-} as const;
-
 /**
  * What the address holds that a change moves, counted: the tool names the kinds, the editors the records.
  */
 export interface FLAdresswechselVerwaltungBestand {
-  berechtigung: FLAdresswechselVerwaltungBestandBerechtigung;
+  berechtigung: FLVerwaltung | null;
   /** @minimum 0 */
   bewerbungssitze: number;
   /** @minimum 0 */
@@ -978,14 +954,6 @@ export interface FLAdresswechselVerwaltungBestand {
   spieler: number;
 }
 
-export type FLAdresswechselVerwaltungGenehmigungVerwaltung =
-  (typeof FLAdresswechselVerwaltungGenehmigungVerwaltung)[keyof typeof FLAdresswechselVerwaltungGenehmigungVerwaltung];
-
-export const FLAdresswechselVerwaltungGenehmigungVerwaltung = {
-  administration: "administration",
-  owner: "owner",
-} as const;
-
 /**
  * The approval a change moving a grant waits on, read-only here: the administrators page approves it.
  *
@@ -994,7 +962,7 @@ export const FLAdresswechselVerwaltungGenehmigungVerwaltung = {
 export interface FLAdresswechselVerwaltungGenehmigung {
   bis: string;
   genehmigt_am: string | null;
-  verwaltung: FLAdresswechselVerwaltungGenehmigungVerwaltung;
+  verwaltung: FLVerwaltung;
 }
 
 export type FLAdresswechselWartetAuf = (typeof FLAdresswechselWartetAuf)[keyof typeof FLAdresswechselWartetAuf];
@@ -1214,13 +1182,6 @@ export interface FLAktionenListResponse {
   anzahl_je_operation: FLAktionenListResponseAnzahlJeOperation;
   vollstaendig: boolean;
 }
-
-export type FLVerwaltung = (typeof FLVerwaltung)[keyof typeof FLVerwaltung];
-
-export const FLVerwaltung = {
-  owner: "owner",
-  administration: "administration",
-} as const;
 
 /**
  * The sign-in gate's whole answer: the records' two flags, the ban and the grant, and no record itself.
@@ -6289,6 +6250,18 @@ export interface FLTeamsMembershipsResponse {
 export interface FLTeamsSingleResponse {
   format: "single";
   team: FLTeam;
+}
+
+/**
+ * The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.
+ */
+export interface FLTokenPayload {
+  /**
+   * @minLength 1
+   * @maxLength 128
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  token: string;
 }
 
 /**

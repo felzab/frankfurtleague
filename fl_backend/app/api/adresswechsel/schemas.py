@@ -3,10 +3,11 @@ from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-from app.api.adresswechsel.services import FLAdresswechselBisherigZustand, FLAdresswechselNeuZustand, FLAdresswechselVerwaltung
+from app.api.adresswechsel.services import FLAdresswechselBisherigZustand, FLAdresswechselNeuZustand
 from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.sperrliste.schemas import refuse_an_address_in_the_reason
-from app.shared.schemas.bounds import BEWERBUNG_TOKEN_MAX_LENGTH, ERASURE_ANLASS_MAX_LENGTH, LIST_LIMIT_DEFAULT
+from app.shared.schemas.bestaetigung import CustomToken
+from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import (
     SINGLE_LINE_PATTERN,
     CustomDateString,
@@ -15,14 +16,11 @@ from app.shared.schemas.custom import (
     CustomStrippedNonEmptyString,
 )
 from app.shared.schemas.kontakt import CustomEmail
-from app.shared.schemas.literals import FLAdresswechselEndeArt, FLAdresswechselWartetAuf, FLAdresswechselWeg
+from app.shared.schemas.literals import FLAdresswechselEndeArt, FLAdresswechselWartetAuf, FLAdresswechselWeg, FLVerwaltung
 from app.shared.schemas.responses import BaseAPIResponse
 from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 type FLAdresswechselAntwort = Literal["bestaetigt", "abgelehnt"]
-
-# The raw token as it arrives on the base-tier endpoints, under the one ceiling every link this application mints is spelled to.
-CustomAdresswechselToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TOKEN_MAX_LENGTH)]
 
 # How an administrator checked who asks, where the address on file is gone: the erasure occasion's ceiling, being
 # copied onto the start's log row as that occasion is. An address typed here would outlive every redaction of the change.
@@ -42,7 +40,7 @@ CustomAdresswechselGrund = Annotated[
 class FLAdresswechselGenehmigung(BaseModel):
     """The approval a change moving a grant waits on."""
 
-    verwaltung: FLAdresswechselVerwaltung
+    verwaltung: FLVerwaltung
     angefragt_am: datetime
     bis: datetime
     gestartet_von: str
@@ -155,7 +153,7 @@ class FLAdresswechselAdressePayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    token: CustomAdresswechselToken | None = None
+    token: CustomToken | None = None
     adresswechsel_id: CustomObjectId | None = None
 
     @model_validator(mode="after")
@@ -177,18 +175,12 @@ class FLAdresswechselGenehmigungStand(BaseModel):
     """The approval a change of the person's own grant waits on, as their account page reads it: never who gave it."""
 
     # `owner`: another owner approves.
-    verwaltung: FLAdresswechselVerwaltung
+    verwaltung: FLVerwaltung
     genehmigt: bool
     bis: FLUtcInstant
 
 
 # --- The two links, public.
-
-
-class FLAdresswechselAnsichtPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    token: CustomAdresswechselToken
 
 
 class FLAdresswechselAnsichtNeu(BaseModel):
@@ -233,7 +225,7 @@ class FLAdresswechselAnsichtResponse(BaseAPIResponse):
 class FLAdresswechselAntwortPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    token: CustomAdresswechselToken
+    token: CustomToken
     # Required rather than defaulted: a page that omitted it would have the model answer for the person whether a mailbox is theirs.
     antwort: FLAdresswechselAntwort
 
@@ -248,12 +240,6 @@ class FLAdresswechselAntwortResponse(BaseAPIResponse):
     genehmigung_offen: bool
     # Set where the change took effect: its notice is queued (`FLAdresswechselPostausgangZeile`), never answered here.
     wirksam: bool
-
-
-class FLAdresswechselStoppPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    token: CustomAdresswechselToken
 
 
 class FLAdresswechselStoppResponse(BaseAPIResponse):
@@ -287,7 +273,7 @@ class FLAdresswechselVerwaltungBestand(BaseModel):
     sitze: int = Field(ge=0)
     bewerbungssitze: int = Field(ge=0)
     registrierungen: int = Field(ge=0)
-    berechtigung: FLAdresswechselVerwaltung | None
+    berechtigung: FLVerwaltung | None
 
 
 class FLAdresswechselVerwaltungGenehmigung(BaseModel):
@@ -296,7 +282,7 @@ class FLAdresswechselVerwaltungGenehmigung(BaseModel):
     Never who approved: a barred administrator's address is answered on no read.
     """
 
-    verwaltung: FLAdresswechselVerwaltung
+    verwaltung: FLVerwaltung
     bis: FLUtcInstant
     genehmigt_am: FLUtcInstant | None
 

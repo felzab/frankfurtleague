@@ -26,9 +26,7 @@ from app.api.adresswechsel.admin_router import (
 )
 from app.api.adresswechsel.router import get_adresswechsel_ansicht, post_adresswechsel_antwort, post_adresswechsel_stopp
 from app.api.adresswechsel.schemas import (
-    FLAdresswechselAnsichtPayload,
     FLAdresswechselAntwortPayload,
-    FLAdresswechselStoppPayload,
     FLAdresswechselSweepParams,
     FLAdresswechselVerwaltungAnsichtPayload,
     FLAdresswechselVerwaltungPayload,
@@ -41,6 +39,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.core.security import PASSKEY_FACTOR, StepUpCheck, get_person_confirmation_check
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import ADRESSWECHSEL_WARTEZEIT_TAGE
 from tests import documents
 from tests.actor_tokens import verified_actor
@@ -335,11 +334,11 @@ def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, antwor
 
 
 def stop_by_link(database: AsyncDatabase, client: AsyncMongoClient, token: str, **given: Any) -> Awaitable[Any]:
-    return call(post_adresswechsel_stopp, database, client, stopp_data=FLAdresswechselStoppPayload(token=token), **given)
+    return call(post_adresswechsel_stopp, database, client, stopp_data=FLTokenPayload(token=token), **given)
 
 
 def view(database: AsyncDatabase, client: AsyncMongoClient, token: str, **given: Any) -> Awaitable[Any]:
-    return call(get_adresswechsel_ansicht, database, client, ansicht_data=FLAdresswechselAnsichtPayload(token=token), **given)
+    return call(get_adresswechsel_ansicht, database, client, ansicht_data=FLTokenPayload(token=token), **given)
 
 
 def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any = None, **given: Any) -> Awaitable[Any]:

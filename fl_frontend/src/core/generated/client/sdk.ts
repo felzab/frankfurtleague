@@ -14,14 +14,12 @@ import type {
   FLActivateSaisonResponse,
   FLAdresswechselAdressePayload,
   FLAdresswechselAdresseResponse,
-  FLAdresswechselAnsichtPayload,
   FLAdresswechselAnsichtResponse,
   FLAdresswechselAntwortPayload,
   FLAdresswechselAntwortResponse,
   FLAdresswechselGenehmigungResponse,
   FLAdresswechselIdResponse,
   FLAdresswechselPostausgangResponse,
-  FLAdresswechselStoppPayload,
   FLAdresswechselStoppResponse,
   FLAdresswechselSweepResponse,
   FLAdresswechselVerwaltungAnsichtPayload,
@@ -225,6 +223,7 @@ import type {
   FLTeamsMembershipsResponse,
   FLTeamsSingleResponse,
   FLTeamWriteResponse,
+  FLTokenPayload,
   FLUndrawSpielplanResponse,
   FLZustellungAbgewiesenPayload,
   FLZustellungAngenommenPayload,
@@ -426,7 +425,7 @@ export const getAdresswechselGetAdresswechselAnsichtUrl = () => {
  * @summary What one address link opens
  */
 export const adresswechselGetAdresswechselAnsicht = async (
-  fLAdresswechselAnsichtPayload: FLAdresswechselAnsichtPayload,
+  fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLAdresswechselAnsichtResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -445,7 +444,7 @@ export const adresswechselGetAdresswechselAnsicht = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAdresswechselAnsichtPayload),
+    body: JSON.stringify(fLTokenPayload),
   });
 };
 
@@ -461,7 +460,7 @@ export const getAdresswechselPostAdresswechselStoppUrl = () => {
  * @summary Stop a pending address change
  */
 export const adresswechselPostAdresswechselStopp = async (
-  fLAdresswechselStoppPayload: FLAdresswechselStoppPayload,
+  fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLAdresswechselStoppResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -480,7 +479,7 @@ export const adresswechselPostAdresswechselStopp = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAdresswechselStoppPayload),
+    body: JSON.stringify(fLTokenPayload),
   });
 };
 

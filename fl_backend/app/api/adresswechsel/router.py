@@ -19,11 +19,9 @@ from app.api.adresswechsel.schemas import (
     FLAdresswechselAnsichtBeendet,
     FLAdresswechselAnsichtBisherig,
     FLAdresswechselAnsichtNeu,
-    FLAdresswechselAnsichtPayload,
     FLAdresswechselAnsichtResponse,
     FLAdresswechselAntwortPayload,
     FLAdresswechselAntwortResponse,
-    FLAdresswechselStoppPayload,
     FLAdresswechselStoppResponse,
 )
 from app.api.adresswechsel.services import (
@@ -67,6 +65,7 @@ from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
+from app.shared.schemas.bestaetigung import FLTokenPayload
 
 # The token is the whole credential, so these endpoints are base-tier and bind the public actor.
 router = APIRouter(
@@ -97,7 +96,7 @@ _NICHT_BESTAETIGBAR = frozenset({"ersetzte_gesperrt", "vergeben", "nicht_gedeckt
     summary="What one address link opens",
 )
 async def get_adresswechsel_ansicht(
-    ansicht_data: Annotated[FLAdresswechselAnsichtPayload, Body()],
+    ansicht_data: Annotated[FLTokenPayload, Body()],
     adresswechsel_collection: AdresswechselCollection,
     records: SubjektLookup,
     spieler_collection: SpielerCollection,
@@ -350,7 +349,7 @@ async def post_adresswechsel_antwort(
     summary="Stop a pending address change",
 )
 async def post_adresswechsel_stopp(
-    stopp_data: Annotated[FLAdresswechselStoppPayload, Body()],
+    stopp_data: Annotated[FLTokenPayload, Body()],
     adresswechsel_collection: AdresswechselCollection,
     aktionen_collection: AktionenCollection,
     db: DBClient,
