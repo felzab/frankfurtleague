@@ -460,8 +460,8 @@ def ansicht_snapshot_of(
     )
 
 
-# Its own label under the `sperrliste_schluessel` master, beside the ban list's, the log's, the journal's and the anchors'
-# (`app/core/adressanker.py :: ADRESSANKER_VERSION`): under theirs a holder would equal one of their digests.
+# Its own label under the `sperrliste_schluessel` master, beside the ban list's, the log's and the journal's: under
+# theirs a holder would equal one of their digests.
 HALTER_VERSION: Final = "halter-v1"
 
 

@@ -16,9 +16,12 @@ CustomEmail = Annotated[str, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENG
 # held to refuse what that form refuses, a referee's whole name among them.
 CustomKontaktName = Annotated[
     str,
-    # Stripped first, so the padding the pattern's trailing space class admits is never stored and
-    # never shown wherever the name is read back, a pupil's squad sheet among them.
-    StringConstraints(strip_whitespace=True, min_length=1, max_length=KONTAKT_NAME_MAX_LENGTH, pattern=PERSON_NAME_PATTERN),
+    # The ceiling and the pattern count what arrives, so a name opening on a space is refused and the
+    # published schema is what the backend accepts. The strip then takes the trailing spaces the
+    # pattern's class admits, so they are never stored nor shown wherever the name is read back.
+    StringConstraints(max_length=KONTAKT_NAME_MAX_LENGTH, pattern=PERSON_NAME_PATTERN),
+    AfterValidator(str.strip),
+    StringConstraints(min_length=1),
 ]
 
 

@@ -76,9 +76,14 @@ and the generated types is the first thing to check when behaviour looks impossi
 
 ## Rendering
 
-Data-fetching pages call `await connection()` before fetching. This looks like it defeats static
-rendering and is deliberate: the Docker builder stage has **no reachable backend**, so a page that
-tried to prerender its data would fail the image build.
+**Every read waits for a real request with `await connection()` in the few functions the reads share**,
+never in a page: the session reads (`fl_frontend/src/core/auth.ts :: readRequestSession` and the
+sign-in landing's), `fl_frontend/src/shared/utils/traceScope.ts :: runWithIncomingTrace`, which every
+admin, person and uncached public read passes, and each component that reaches a `"use cache"` read
+or the clock before the URL or any of those. This looks like it defeats static rendering and is
+deliberate: the Docker builder stage has **no reachable backend or sign-in store**, so a page that
+tried to prerender its data would fail the image build, and a prefetched shell carries nothing a
+read past the wait decides. A `"use cache"` body may not call it, so the wait stands at its caller.
 
 ## Styling and copy
 

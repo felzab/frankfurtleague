@@ -255,7 +255,6 @@ async def register(
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         sperrliste=ban_list(database),
-        adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
         today=TODAY,
     )

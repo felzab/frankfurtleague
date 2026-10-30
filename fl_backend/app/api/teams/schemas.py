@@ -20,7 +20,6 @@ from pydantic import (
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
-    EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
@@ -41,7 +40,12 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
     validate_external_url,
 )
-from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLEinwilligungStandPayload
+from app.shared.schemas.einwilligung import (
+    CustomEinwilligungTextVersion,
+    FLEinwilligungNachweise,
+    FLEinwilligungStand,
+    FLEinwilligungStandPayload,
+)
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.literals import (
     KONTAKT_ROLLEN,
@@ -314,9 +318,8 @@ def kontakte_stand_of(block: Any) -> str:
 class FLKontaktKenntnisnahmePayload(_KontaktKenntnisnahmeWritable):
     model_config = ConfigDict(extra="forbid")
 
-    # Stripped before the floor counts it, as the names below are: a record whose wording version is
-    # spaces cites no text at all, and `min_length` counts characters.
-    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
+    # A record whose wording version is spaces cites no text at all.
+    text_version: CustomEinwilligungTextVersion
 
 
 # Private for `_TeamWritable`'s reason, and a base rather than `FLKontaktperson` itself because
@@ -419,8 +422,7 @@ class FLTeamStatistik(BaseReadModel):
 class _TeamWritable(BaseModel):
     name: CustomNonEmptyString
     shorthand: CustomShorthand
-    # Capped so the public page and the editor's textarea agree on what fits; the bound stays out of
-    # the database validator.
+    # Capped so the public page and the editor's textarea agree on what fits.
     description: str = Field(max_length=TEAM_DESCRIPTION_MAX_LENGTH)
     full_name: CustomNonEmptyString
     # NO default here, so the payloads inherit none: `PATCH` replaces the club wholesale, and an
@@ -538,11 +540,19 @@ class _TeamPayload(_TeamWritable):
 
     address: FLAddressPayload
     # Stripped and CEILINGED on the WRITE side alone, so a stored value reads as it stands;
-    # `name` reaches a league table row, where a space would show.
-    # Ceilings and single-line class are the application's, refused alike.
-    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)]
+    # `name` reaches a league table row, where a space would show. The ceiling counts what arrives and
+    # the strip runs after it, so the published `maxLength` is what the backend accepts.
+    name: Annotated[
+        str,
+        StringConstraints(max_length=TEAM_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        AfterValidator(str.strip),
+        StringConstraints(min_length=1),
+    ]
     full_name: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_FULL_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)
+        str,
+        StringConstraints(max_length=TEAM_FULL_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        AfterValidator(str.strip),
+        StringConstraints(min_length=1),
     ]
     shorthand: CustomShorthand
     # Stripped on the WRITE side too: `validate_external_url` leaves surrounding whitespace on the
@@ -551,7 +561,8 @@ class _TeamPayload(_TeamWritable):
     website_url: Annotated[
         Annotated[
             str,
-            StringConstraints(strip_whitespace=True, max_length=TEAM_WEBSITE_URL_MAX_LENGTH),
+            StringConstraints(max_length=TEAM_WEBSITE_URL_MAX_LENGTH),
+            AfterValidator(str.strip),
             AfterValidator(validate_external_url),
         ]
         | None,
@@ -629,7 +640,7 @@ class SitzEinwilligungPayload(BaseModel):
     umfang: FLKontaktKenntnisnahmeUmfang
     medien: bool
     # The label of the account page's seat control the press was given under, recorded on its evidence.
-    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
+    text_version: CustomEinwilligungTextVersion
     # The row's `nachweis_stand` as the page was served it.
     nachweis_stand: FLEinwilligungStandPayload
 

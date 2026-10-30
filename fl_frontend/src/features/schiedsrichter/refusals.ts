@@ -1,6 +1,6 @@
 import { ADRESSWECHSEL_EINTRAG } from "@/features/admin/constants";
 import { SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_ADRESSE_GESPERRT_FELD } from "@/features/sperrliste/constants";
-import { isRefusal, KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
+import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -99,13 +99,3 @@ const BESTAETIGTE_ADRESSE = buildRefusal({
   reason: `Seit Du die Seite geöffnet hast, hat die Person bestätigt oder ihre Adresse hat sich geändert. Die Adresse einer bestätigten Schiedsrichterin oder eines bestätigten Schiedsrichters ändert die Person selbst in ihrem Konto oder die Verwaltung unter „${ADRESSWECHSEL_EINTRAG.label}“`,
   repair: LADE_DIE_SEITE_NEU,
 });
-
-/** Worded for the undo: the save's own sentences send an admin to a form this toast has not got. */
-export const SCHIEDSRICHTER_REPLAY_REFUSALS: Readonly<Record<string, string>> = {
-  "REQ-SCHIEDSRICHTER-007":
-    "Die frühere E-Mail-Adresse steht auf der Sperrliste, und zurückschreiben würde ihr einen neuen Bestätigungslink schicken.",
-  "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
-  // Both causes, as `BESTAETIGTE_ADRESSE` names them: an address change landing inside the undo window refuses the
-  // replay of a referee confirmed throughout, who would otherwise read as having just confirmed.
-  "REQ-SCHIEDSRICHTER-011": `Seit dem Speichern hat die Person bestätigt oder ihre Adresse hat sich geändert. Ihre Adresse ändert sie jetzt selbst in ihrem Konto oder die Verwaltung unter „${ADRESSWECHSEL_EINTRAG.label}“.`,
-};

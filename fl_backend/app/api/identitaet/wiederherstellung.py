@@ -57,7 +57,6 @@ from app.core.collections import Collection
 from app.core.config import EnvironmentValidationError, get_config  # noqa: TID251
 from app.core.crud import patch_one_in_db, post_one_to_db
 from app.core.db import SERVER_SELECTION_TIMEOUT_MS
-from app.core.drosselung import build_counts_filter, erase_counts_in_session
 from app.core.exceptions import APIError
 from app.core.journal import JournalLine, parse_line
 from app.core.logging import trace_id_var
@@ -528,9 +527,7 @@ async def _plan_adresswechsel_wirksam(
             einladungen_collection=database[Collection.EINLADUNGEN],
             sperrliste_collection=database[Collection.SPERRLISTE],
             adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
-            drosselung_collection=database[Collection.DROSSELUNG],
             aktionen_collection=database[Collection.AKTIONEN],
-            adressanker_collection=database[Collection.ADRESSANKER],
             schluessel=schluessel,
             now=now,
             session=session,
@@ -539,13 +536,10 @@ async def _plan_adresswechsel_wirksam(
     return Plan("to replay", rewrite_the_effect)
 
 
-async def pseudonym_traces(database: AsyncDatabase, pseudonym: str, *, session: AsyncClientSession | None) -> tuple[list[Any], int]:
-    """The log rows an erased person's pseudonym still marks, by id, and how many day counts it still keys."""
+async def pseudonym_traces(database: AsyncDatabase, pseudonym: str, *, session: AsyncClientSession | None) -> list[Any]:
+    """The log rows an erased person's pseudonym still marks, by id."""
 
-    rows = [row["_id"] async for row in database[Collection.AKTIONEN].find({"actor.pseudonym": pseudonym}, {"_id": 1}, session=session)]
-    counts = await database[Collection.DROSSELUNG].count_documents(build_counts_filter(pseudonym), session=session)
-
-    return rows, counts
+    return [row["_id"] async for row in database[Collection.AKTIONEN].find({"actor.pseudonym": pseudonym}, {"_id": 1}, session=session)]
 
 
 async def _plan_pseudonym(line: JournalLine, database: AsyncDatabase, *, session: AsyncClientSession | None, now: datetime) -> Plan:
@@ -555,7 +549,7 @@ async def _plan_pseudonym(line: JournalLine, database: AsyncDatabase, *, session
     """
 
     pseudonym, halter = line.pseudonym, line.halter
-    rows, counts = ([], 0) if pseudonym is None else await pseudonym_traces(database, pseudonym, session=session)
+    rows = [] if pseudonym is None else await pseudonym_traces(database, pseudonym, session=session)
     # The rows, and the log's images an undraw's removal left of rows standing nowhere now.
     reasons = (
         0
@@ -563,20 +557,19 @@ async def _plan_pseudonym(line: JournalLine, database: AsyncDatabase, *, session
         else await database[Collection.SPIELBESTAETIGUNGEN].count_documents(build_contact_reasons_filter([halter]), session=session)
         + await database[Collection.AKTIONEN].count_documents(build_contact_reason_images_filter([halter]), session=session)
     )
-    if not rows and not counts and not reasons:
+    if not rows and not reasons:
         return Plan("already done", detail="its address is held nowhere in the restored database, and nothing keyed on its person is left")
 
     shown = ", ".join(str(row_id) for row_id in rows[:3]) + (", …" if len(rows) > 3 else "")
     detail = (
         f"its address is held nowhere in the restored database, but its pseudonym still marks {len(rows)} log row(s)"
-        f"{f' ({shown})' if rows else ''} and {counts} day count(s), and {reasons} confirmation(s) or log image(s) hold a reason of theirs"
+        f"{f' ({shown})' if rows else ''}, and {reasons} confirmation(s) or log image(s) hold a reason of theirs"
     )
 
     # The erasure's own pseudonym and reason steps, and the one row the log keeps of an act writing none of the logged collections.
     async def rewrite_pseudonym(session: AsyncClientSession) -> Any:
         if pseudonym is not None:
             await unattribute_pseudonym_in_session(aktionen_collection=database[Collection.AKTIONEN], pseudonym=pseudonym, session=session)
-            await erase_counts_in_session(drosselung_collection=database[Collection.DROSSELUNG], pseudonym=pseudonym, session=session)
             await post_one_to_db(
                 collection=database[Collection.AKTIONEN], document=act_row("pseudonyme", operation="patch_many"), session=session
             )

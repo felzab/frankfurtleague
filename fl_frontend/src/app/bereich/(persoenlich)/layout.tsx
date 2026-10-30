@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { funktionenOf } from "@/core/funktionen";
 import { getSubjectSession } from "@/core/subject";
@@ -50,9 +49,6 @@ export default function PersoenlichLayout({ children }: { children: React.ReactN
 }
 
 async function PersonEntries() {
-  // Its own, whatever is mounted above: the builder stage reaches no sign-in store, so a session read
-  // ahead of this runs at build time.
-  await connection();
   // The hold's own read, memoised per render; a refused session keeps the fallback, the page turning it away.
   const subject = await getSubjectSession();
   if (subject === null) return <PersonSidemenuEntries structure={personStructureFor(new Set(["landing"]))} />;

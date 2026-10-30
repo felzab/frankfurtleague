@@ -1,5 +1,3 @@
-import { connection } from "next/server";
-
 import { runningSaisonId } from "@/app/dashboard/canonicalSaison";
 
 import { resolveIsFinishedSaison, resolveSaisonId } from "@/features/saisons/resolvers";
@@ -21,7 +19,6 @@ export async function generateMetadata(props: NextPageProps): Promise<Metadata> 
 }
 
 export default async function TeamDetailsSelectionPage(props: NextPageProps) {
-  await connection();
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);
 
   const [teamsRes, isFinishedSaison] = await Promise.all([

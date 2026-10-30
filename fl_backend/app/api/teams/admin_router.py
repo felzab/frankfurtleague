@@ -86,7 +86,6 @@ from app.api.teams.services import (
     seats_one_link_answers,
     voids_a_live_link,
 )
-from app.core.adressanker import anchor_the_addresses
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -102,7 +101,6 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
-    AdressankerCollection,
     AdresswechselCollection,
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
@@ -621,7 +619,6 @@ async def patch_saison_team_kontakte(
     saisons_collection: SaisonsCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     sperrliste: SperrlisteLookup,
-    adressanker_collection: AdressankerCollection,
     db: DBClient,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     today: str = Depends(get_german_date_str),
@@ -751,14 +748,6 @@ async def patch_saison_team_kontakte(
         await void_moved_seats(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             voids=[seat_void_of(saison_id=saison_id, team_id=team_id, stored_kontakte=stored.get("kontakte"), kontakte=kontakte)],
-            session=session,
-        )
-        # The addresses entering here, which an erasure of one running now never read: the
-        # newly seated alone, a kept seat's being on this row, which that erasure writes already.
-        await anchor_the_addresses(
-            [adresse for seats in owed for adresse in seat_adressen(kontakte=kontakte, seats=seats)],
-            adressanker_collection=adressanker_collection,
-            schluessel=sperrliste.schluessel,
             session=session,
         )
 

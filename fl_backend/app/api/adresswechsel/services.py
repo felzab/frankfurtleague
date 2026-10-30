@@ -503,23 +503,6 @@ def find_unveraendert_refusal(*, adresse: str, folded: str) -> WriteRefusal | No
     )
 
 
-def find_name_im_grund_refusal(*, nennt_namen: bool) -> WriteRefusal | None:
-    """`REQ-ADRESSWECHSEL-008`: no name of the records the change moves stands in its reason, which the log keeps a year.
-
-    Judged by `app/api/identitaet/services.py :: holds_a_name`, which the caller asks.
-    """
-
-    if not nennt_namen:
-        return None
-
-    # Naming none of them: the message reaches the refusal's log line.
-    return WriteRefusal(
-        error_code=Code.ADRESSWECHSEL_NAME_IM_GRUND,
-        status=HTTPStatus.UNPROCESSABLE_CONTENT,
-        fields=(("grund",),),
-    )
-
-
 def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
     """`REQ-ADRESSWECHSEL-009`: no link an administrator mints goes to an address the ban list holds. Worded for them."""
 

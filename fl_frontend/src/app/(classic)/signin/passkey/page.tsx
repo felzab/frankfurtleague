@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { connection } from "next/server";
 
 import { getPasskeyStep } from "@/core/auth";
 import { ROUTES } from "@/core/routes";
@@ -29,8 +28,6 @@ export default function PasskeyPage() {
 }
 
 async function PasskeyInhalt() {
-  await connection();
-
   // Which control stands here is the guard's answer and never this page's: the requirement it
   // enforces is judged per request, beside the session lifetimes.
   const schritt = await getPasskeyStep();

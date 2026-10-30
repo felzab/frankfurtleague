@@ -6,7 +6,7 @@ import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSch
 
 import { SAISON_ID_LENGTH } from "../saisons/constants";
 import { FLSaisonPhaseSchema } from "../saisons/schemas";
-import { NOTIZ_MAX_LENGTH, PAARUNGEN_MAX } from "./constants";
+import { NOTIZ_MAX_LENGTH } from "./constants";
 
 export const FLSpielStatusSchema = z.enum(["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"], { error: "FLSpielStatus is invalid" });
 export type FLSpielStatus = z.infer<typeof FLSpielStatusSchema>;
@@ -536,95 +536,6 @@ export const FLSpielReleasedSideSchema = z.object({
 });
 export type FLSpielReleasedSide = z.infer<typeof FLSpielReleasedSideSchema>;
 
-/** Every wholesale-payload field outside the Paarung, which is the whole of what a save can move and a resolution cannot. */
-export const FLSpielRestorableFieldSchema = z.enum(["team1_quelle", "team2_quelle", "datum", "uhrzeit", "ort", "schiedsrichter", "notiz"], {
-  // German because the closed-set guards ask it of every set a payload binds, and no control binds
-  // this one: the undo's action answers its own sentence for an unreadable body, so nobody reads this.
-  error: "Eine Rücknahme kann nur Felder zurücksetzen, die ein Spiel hat.",
-});
-export type FLSpielRestorableField = z.infer<typeof FLSpielRestorableFieldSchema>;
-
-/**
- * **The venue and the referee a restore names, identical on the wire to the payload blocks above** —
- * the backend splits them because a class a read parses may not refuse an undeclared key. One schema,
- * so no key drifts.
- */
-export const FLSpielPriorOrtSchema = FLSpielOrtFieldPayloadSchema;
-export type FLSpielPriorOrt = z.infer<typeof FLSpielPriorOrtSchema>;
-
-export const FLSpielPriorSchiedsrichterSchema = FLSpielSchiedsrichterFieldPayloadSchema;
-export type FLSpielPriorSchiedsrichter = z.infer<typeof FLSpielPriorSchiedsrichterSchema>;
-
-/**
- * One fixture's fields outside the Paarung as they stood before a save, and which of them that save
- * REPLACED. `replaced` alone is what the restore writes, so a field moved after the save is not
- * reverted by undoing it.
- */
-export const FLSpielPriorOtherFieldsSchema = z.object({
-  replaced: z.array(FLSpielRestorableFieldSchema).min(1),
-
-  team1_quelle: FLPatchSpielDataPayloadSchema.shape.team1_quelle,
-  team2_quelle: FLPatchSpielDataPayloadSchema.shape.team2_quelle,
-  datum: FLPatchSpielDataPayloadSchema.shape.datum,
-  uhrzeit: FLPatchSpielDataPayloadSchema.shape.uhrzeit,
-  ort: FLSpielPriorOrtSchema.nullable(),
-  schiedsrichter: FLSpielPriorSchiedsrichterSchema.nullable(),
-  notiz: FLPatchSpielDataPayloadSchema.shape.notiz,
-});
-export type FLSpielPriorOtherFields = z.infer<typeof FLSpielPriorOtherFieldsSchema>;
-
-/**
- * One fixture a save changed, as it stood before that save — everything an undo of it has to put back,
- * and nothing else, so a date or a note somebody moved in between survives the undo.
- */
-export const FLSpielPriorPaarungSchema = z.object({
-  spiel_id: CustomObjectIdStringSchema,
-  team1: FLSpielTeamFieldPayloadSchema.nullable(),
-  team2: FLSpielTeamFieldPayloadSchema.nullable(),
-  elfmeterschiessen: FLSpielElfmeterschiessenSchema.nullable(),
-  sonderereignis: FLSonderereignisSchema.nullable(),
-  // Null on every fixture but the one the save named: a bracket resolution reaches the Paarung alone.
-  other_fields: FLSpielPriorOtherFieldsSchema.nullable(),
-});
-export type FLSpielPriorPaarung = z.infer<typeof FLSpielPriorPaarungSchema>;
-
-/**
- * **The report above IS one entry of the body the restore sends**, `spiel_id` included: naming the
- * shape twice is what would let one end gain a field the other never carries.
- */
-export const FLPatchSpielPaarungPayloadSchema = FLSpielPriorPaarungSchema;
-export type FLPatchSpielPaarungPayload = z.infer<typeof FLPatchSpielPaarungPayloadSchema>;
-
-// German though no person types these: the undo answers a body it cannot read with its own sentence.
-export const FLSpielPriorBerichtVonSchema = z.object({ art: z.literal("admin", { error: "Die Übernahme nennt keinen gültigen Urheber." }) });
-
-/**
- * The Spielbericht adoption a save stamped over, as the save answers it and its undo sends it back untouched. The
- * instant stays the wire's string: parsed here, it would come back in another spelling of the same moment.
- */
-export const FLSpielPriorBerichtSchema = z.object({
-  spiel_id: CustomObjectIdStringSchema,
-  version: z.int({ error: "Der Stand des Spielberichts fehlt." }).min(1, { error: "Der Stand des Spielberichts fehlt." }),
-  uebernommen_am: z.string().nullable(),
-  uebernommen_von: FLSpielPriorBerichtVonSchema.nullable(),
-  uebernommene_version: z
-    .int({ error: "Die frühere Übernahme nennt keinen Stand." })
-    .min(1, { error: "Die frühere Übernahme nennt keinen Stand." })
-    .nullable(),
-});
-export type FLSpielPriorBericht = z.infer<typeof FLSpielPriorBerichtSchema>;
-
-/** Every fixture one save moved, in the order it reported them — one request, and one transaction behind it. */
-export const FLPatchSpielePaarungenPayloadSchema = z.object({
-  // Never empty: the report this replays leads with the fixture the save named, so an empty list is
-  // a body no save produced and a replay over it would answer as a restore having written nothing.
-  paarungen: z.array(FLPatchSpielPaarungPayloadSchema).min(1).max(PAARUNGEN_MAX),
-  // The save's `prior_bericht`, null where it stamped nothing: the report it adopted reads adopted until this goes back.
-  bericht: FLSpielPriorBerichtSchema.nullable(),
-});
-
-export type FLPatchSpielePaarungenPayload = z.infer<typeof FLPatchSpielePaarungenPayloadSchema>;
-
 /**
  * **`dry_run=true` answers with this same shape**, one schema being what stops a preview parsing
  * differently to the save it previews. **Declared rather than left to `BaseAPIResponseSchema`**,
@@ -636,23 +547,6 @@ export const FLPatchSpielDataResponseSchema = BaseAPIResponseSchema.extend({
   advanced_to: z.array(FLSpielAdvancementSchema),
   released_sides: z.array(FLSpielReleasedSideSchema),
   bracket_faults: z.array(FLBracketFaultSchema),
-
-  // The three above are what an admin READS; this is what the undo SENDS. One entry per fixture, so
-  // a fixture both of the first two name is restored once rather than twice.
-  prior_paarungen: z.array(FLSpielPriorPaarungSchema),
-  prior_bericht: FLSpielPriorBerichtSchema.nullable(),
 });
 
 export type FLPatchSpielDataResponse = z.infer<typeof FLPatchSpielDataResponseSchema>;
-
-/**
- * What a whole replay cost fixtures it was not asked to restore, and the faults the season it
- * committed carries. No `prior_paarungen`: an undo is not itself undoable.
- */
-export const FLPatchSpielePaarungenResponseSchema = BaseAPIResponseSchema.extend({
-  advanced_to: z.array(FLSpielAdvancementSchema),
-  released_sides: z.array(FLSpielReleasedSideSchema),
-  bracket_faults: z.array(FLBracketFaultSchema),
-});
-
-export type FLPatchSpielePaarungenResponse = z.infer<typeof FLPatchSpielePaarungenResponseSchema>;

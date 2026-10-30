@@ -342,7 +342,7 @@ describe("a contacts save from a session past the step-up window", () => {
     ).toStrictEqual([]);
   });
 
-  /* The same people with a corrected telephone mint nothing, so the edit keeps its undo and asks nothing. */
+  /* The same people with a corrected telephone mint nothing, so the edit asks nothing. */
   it("is let through where every seat keeps its person", async () => {
     setFresh(false);
 

@@ -1125,9 +1125,6 @@ RECORDED_EDITS: Mapping[str, RecordedEdit] = {
         ko={"team2_quelle": None},
     ),
     "ergebnis": RecordedEdit(why="a result", gruppe={"ergebnis": "2:1"}),
-    # Beside a result rather than behind it: `apply_payload_to_spiel` keeps a shoot-out only where it
-    # stores a result too, so one standing alone came by the hand edit route the goals above did.
-    "elfmeterschiessen": RecordedEdit(why="a shoot-out standing without a result", gruppe={"elfmeterschiessen": {"team1": 4, "team2": 3}}),
     # The value awarding NOTHING on purpose: `has_taken_place` reads it as untouched, so reaching for
     # that narrower question instead of this window is the mistake this entry is here to fail.
     "sonderereignis": RecordedEdit(why="a cancellation, which awards nothing and is still a record", gruppe={"sonderereignis": "ausgefallen"}),
@@ -1312,7 +1309,7 @@ class TestTheDrawAnswersStoredValuesUnderItsTwins:
     """A rule a stated shape breaks against a STORED value is a conflict with the season, so it answers 409 under a code of its own."""
 
     def test_the_forfeit_and_the_span_answer_under_their_twins(self):
-        """The shape's qualifiers can give the season a bracket its stored level forfeit cannot decide, and its matchdays can outgrow the stored span."""
+        """A shape's qualifiers can make a bracket the stored level forfeit cannot decide; its matchdays can outgrow the stored span."""
 
         assert on_the_draw(Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT) == (Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED, HTTPStatus.CONFLICT)
         assert on_the_draw(Code.SAISON_SPAN_BELOW_SCHEDULE) == (Code.SAISON_SPAN_BELOW_SCHEDULE_AS_STORED, HTTPStatus.CONFLICT)

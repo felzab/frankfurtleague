@@ -160,7 +160,6 @@ async def create(database: AsyncDatabase, client: AsyncMongoClient, *, email: st
         schiedsrichter_data=FLPostSchiedsrichterPayload.model_validate(payload_body(email=email)),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         sperrliste=ban_list(database),
-        adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
         today=today,
     )
@@ -173,7 +172,6 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
         sperrliste=ban_list(database),
-        adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
         today=today,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,

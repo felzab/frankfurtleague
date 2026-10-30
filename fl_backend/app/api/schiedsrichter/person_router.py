@@ -30,7 +30,6 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.drosselung import Drossel
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.routing import by_id
@@ -80,7 +79,6 @@ async def patch_einwilligung(
     schiedsrichter_collection: SchiedsrichterCollection,
     records: SubjektLookup,
     db: DBClient,
-    drossel: Drossel,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -99,8 +97,7 @@ async def patch_einwilligung(
     (`REQ-EINWILLIGUNG-003`); a grant on a retired record (`REQ-EINWILLIGUNG-004`); a `text_version` naming no version of
     the account page's referee control, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`);
     `medien` moving to `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing
-    (`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), which
-    counts grants alone, so a withdrawal is never refused for it. Each refusal writes nothing.
+    (`REQ-EINWILLIGUNG-002`). Each refusal writes nothing.
 
     **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
     """
@@ -132,7 +129,6 @@ async def patch_einwilligung(
             text_version=einwilligung_data.text_version,
             seite=KONTO_SEITE_SCHIEDSRICHTER,
             darf_erteilen=darf_erteilen,
-            drossel=drossel,
             today=today,
         )
 
