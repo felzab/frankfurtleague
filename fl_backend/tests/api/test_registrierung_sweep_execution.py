@@ -594,7 +594,7 @@ class TestOneRowHoldsBackNoOther:
         assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Registration", str(EXPIRED_OID), "deadline", f"{REFUSED_TRACE_ID}")]
 
     def test_a_reminder_the_answer_cannot_carry(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """An empty address, which the validator stores and the answer's model refuses before any stamp is written."""
+        """An empty address, which the answer's model refuses before any stamp is written."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.REGISTRIERUNGEN].insert_one(registrierung(SECOND_OID, email=""))

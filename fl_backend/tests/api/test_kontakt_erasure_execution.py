@@ -259,9 +259,9 @@ async def a_bewerbung_with_a_history(database: AsyncDatabase, row_id: ObjectId) 
 
 
 def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
-    """The REAL validators and support indexes, so a namespace a transaction cannot create is there.
+    """The shipped support indexes, so a namespace a transaction cannot create is there.
 
-    `mutates_schema=True` where the body narrows one of those validators (`tests/database.py :: a_clean_database`).
+    `mutates_schema=True` where the body plants a validator of its own to make one write fail.
     """
 
     async def _run() -> Any:
@@ -557,7 +557,7 @@ def test_the_rows_naming_nobody_erased_are_not_reached(mongo_replica_set_url: st
 
 @pytest.mark.db
 def test_the_block_survives_with_all_four_of_its_keys(mongo_replica_set_url: str):
-    """Kills clearing by `$unset`, which satisfies the cases above on a database without the validator."""
+    """Kills clearing by `$unset`, which would satisfy the cases above."""
 
     _, rows, _ = after_erasing(mongo_replica_set_url)
 
@@ -883,7 +883,7 @@ def test_the_pattern_takes_every_spelling_the_fold_claims_and_no_other_local_par
     assert [email for email in missed if matches(email)] == []
 
 
-# What a stored address may hold, past the validator as a hand-typed or older row is: blanks the fold trims, regex
+# What a stored address may hold, as a hand-typed or older row may: blanks the fold trims, regex
 # metacharacters, a NUL, case partners outside ASCII, and near misses of each identifier below. Built from code points.
 SERVER_CORPUS: tuple[str, ...] = (
     *("", chr(0x20), chr(0x20) * 3, chr(0xA0), f"{chr(0x20)}{chr(0xA0)}{chr(0x09)}", chr(0x3000), chr(0xFEFF), chr(0x85)),

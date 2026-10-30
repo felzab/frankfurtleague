@@ -2764,7 +2764,8 @@
         "required": [
           "verschickt_am",
           "erinnert_am",
-          "frist"
+          "frist",
+          "zustellung"
         ],
         "title": "FLBestaetigung",
         "type": "object"
@@ -2972,7 +2973,8 @@
         "required": [
           "verschickt_am",
           "erinnert_am",
-          "abgelehnt_am"
+          "abgelehnt_am",
+          "zustellung"
         ],
         "title": "FLBewerbungBestaetigung",
         "type": "object"
@@ -5150,6 +5152,9 @@
             ]
           }
         },
+        "required": [
+          "zustellung"
+        ],
         "title": "FLEinladungVersand",
         "type": "object"
       },
@@ -5454,6 +5459,7 @@
           "erstellt_am",
           "erstellt_von",
           "widerrufen_am",
+          "versand",
           "erstellt_von_gesperrt"
         ],
         "title": "FLEinladungZeile",
@@ -5629,7 +5635,8 @@
         },
         "required": [
           "am",
-          "text_version"
+          "text_version",
+          "erteilt_zuvor"
         ],
         "title": "FLEinwilligungNachweis",
         "type": "object"
@@ -5658,6 +5665,10 @@
             ]
           }
         },
+        "required": [
+          "umfang",
+          "medien"
+        ],
         "title": "FLEinwilligungNachweise",
         "type": "object"
       },
@@ -6872,7 +6883,8 @@
           "datum",
           "bestaetigt_am",
           "medien",
-          "eingetragen_von"
+          "eingetragen_von",
+          "nachweis"
         ],
         "title": "FLKontaktKenntnisnahme",
         "type": "object"
@@ -10166,8 +10178,12 @@
           }
         },
         "required": [
+          "umfang",
+          "datum",
           "bestaetigt_am",
-          "text_version"
+          "text_version",
+          "medien",
+          "nachweis"
         ],
         "title": "FLRegistrierungEinwilligung",
         "type": "object"
@@ -10596,6 +10612,7 @@
           "registrierung",
           "id",
           "status",
+          "spielplan",
           "schedule"
         ],
         "title": "FLSaison",
@@ -11038,6 +11055,7 @@
           "verschickt_am",
           "frist",
           "abgelehnt_am",
+          "zustellung",
           "abgelaufen"
         ],
         "title": "FLSaisonTeamBestaetigungAnsicht",
@@ -17034,6 +17052,7 @@
           "austritt",
           "trikot_farbe",
           "kontakte",
+          "bestaetigungen",
           "adresswechsel",
           "kontakte_stand"
         ],
@@ -17228,6 +17247,16 @@
             "type": "integer"
           }
         },
+        "required": [
+          "anzahl_gespielte_spiele",
+          "siege",
+          "niederlagen",
+          "unentschieden",
+          "tore_geschossen",
+          "tore_kassiert",
+          "punkte",
+          "anzahl_abgesagte_spiele"
+        ],
         "title": "FLTeamStatistik",
         "type": "object"
       },

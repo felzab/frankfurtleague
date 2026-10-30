@@ -1403,7 +1403,7 @@ class TestOneRowHoldsBackNoOther:
         ]
 
     def test_a_candidate_the_answer_cannot_carry(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """A deadline a hand edit left malformed: the validator stores any string, and the answer's model refuses it."""
+        """A deadline a hand edit left malformed, which the answer's model refuses."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].insert_one(application(SECOND_OID, bestaetigungsfrist="2026-03-1"))
