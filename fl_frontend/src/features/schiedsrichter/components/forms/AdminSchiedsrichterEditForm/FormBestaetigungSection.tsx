@@ -34,7 +34,7 @@ import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
-import type { FLConfirmation, FLEinwilligung, FLOutboxState } from "@/core/generated/client/types";
+import type { FLConfirmation, FLEinwilligung, FLOutboxStatus } from "@/core/generated/client/types";
 
 /**
  * The re-send's accessible name, its link named for this panel as the address change's panel names its
@@ -53,7 +53,7 @@ function LinkStand({
 }: {
   confirmation: FLConfirmation;
   offenUndAbgelaufen: boolean;
-  delivery: FLOutboxState | null;
+  delivery: FLOutboxStatus | null;
 }) {
   return (
     <dl className={FIELD_PAIR_CLASSES}>
@@ -142,7 +142,7 @@ export function FormBestaetigungSection({
   /** The read's judgement of the link's deadline, never this browser's day. */
   istAbgelaufen: boolean;
   /** What became of the last confirmation mail, off the Postausgang; null where none was owed. */
-  delivery: FLOutboxState | null;
+  delivery: FLOutboxStatus | null;
   einwilligung: FLEinwilligung | null;
   /** Whether the registry holds the stored label, resolved by the page through the words read. */
   istFassungBekannt: boolean | null;

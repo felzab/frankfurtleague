@@ -85,17 +85,17 @@ type MailAccepted = { id: string | null };
  * Raised where the deployment does not mail. Not a `MailSendError` and not in `errors.ts`: nothing
  * here reached a provider, so there is no status to carry and no retry decision to read off one.
  */
-class MailWithheldError extends Error {
+class MailHeldError extends Error {
   constructor() {
     super("This deployment does not send mail.");
 
-    this.name = "MailWithheldError";
+    this.name = "MailHeldError";
   }
 }
 
 /**
  * Raised where the recipient is not one bare mailbox, or its domain has no ASCII form. Beside
- * `MailWithheldError` rather than in `errors.ts` for its reason, and carrying no address for the same one.
+ * `MailHeldError` rather than in `errors.ts` for its reason, and carrying no address for the same one.
  */
 class MailRecipientError extends Error {
   constructor() {
@@ -206,7 +206,7 @@ function recipientOf(to: string): string {
 /** What drains settled: the backend's counts, summed over every report they made. */
 type DrainCount = Record<keyof FLOutboxResultResponse, number>;
 
-const no = (): DrainCount => ({ sent: 0, repeated: 0, abandoned: 0, withheld: 0, ignored: 0 });
+const no = (): DrainCount => ({ sent: 0, repeated: 0, abandoned: 0, held: 0, ignored: 0 });
 
 /** Every drain's counts since the hourly pass last took them, whichever started the drain: a write's or the pass. */
 let sinceLastPass = no();
@@ -319,7 +319,7 @@ async function sendHandedOut(mail: FLOutboxHandout): Promise<Omit<FLOutboxResult
  * tried again and never count toward giving up; any other refusal is one every send would meet.
  */
 function resultOf(error: unknown): Exclude<FLOutboxResultPayloadResult, "sent"> {
-  if (error instanceof MailWithheldError) return "withheld";
+  if (error instanceof MailHeldError) return "held";
   if (error instanceof MailRecipientError) return "abandon";
   if (error instanceof MailSendError) return error.isTransient ? "retry" : "abandon";
   if (error instanceof APINetworkError) return "retry";
@@ -346,7 +346,7 @@ async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }
     if (frontend_config.APP_ENV !== "production") await writeToSink({ to, subject, html, text, sender, tags, idempotencyKey }, traceId);
 
     // No line of its own: the row's `zurueckgehalten` is the record, and the filed copy carries the row's id among its tags.
-    throw new MailWithheldError();
+    throw new MailHeldError();
   }
 
   const signal = boundCall(MAIL_TIMEOUT_MS);

@@ -10,9 +10,9 @@ import type { CalendarDay, Uhrzeit } from "./format";
 import type {
   FLSpielEinteilungData,
   FLSpielEinteilungLiftedData,
-  FLSpielHinweisData,
-  FLSpielHinweisDataRecipient,
   FLSpielMailAnsetzung,
+  FLSpielNoticeData,
+  FLSpielNoticeDataRecipient,
   FLSpielRequestData,
   FLSpielVorschlagDiscardedData,
 } from "./generated/client/types";
@@ -150,7 +150,7 @@ export function buildSpielEinteilungEmail({ ansetzung: facts }: FLSpielEinteilun
 }
 
 /** What became of the earlier word, and what follows it, per reader: a team was asked, a referee booked. */
-const NEU_SAETZE: Record<FLSpielHinweisDataRecipient, readonly [string, string]> = {
+const NEU_SAETZE: Record<FLSpielNoticeDataRecipient, readonly [string, string]> = {
   team: [
     "Die Anfrage zum bisherigen Termin und ihr Link gelten nicht mehr.",
     "Bleibt Dein Team in diesem Spiel, bekommst Du für einen neuen Termin nach dem heutigen Tag eine neue Anfrage.",
@@ -162,7 +162,7 @@ const NEU_SAETZE: Record<FLSpielHinweisDataRecipient, readonly [string, string]>
 };
 
 /** What the call-off ends for each reader, and what a reinstated fixture brings: a team was asked, a referee booked. */
-const ABGESAGT_SAETZE: Record<FLSpielHinweisDataRecipient, readonly [string, string, string]> = {
+const ABGESAGT_SAETZE: Record<FLSpielNoticeDataRecipient, readonly [string, string, string]> = {
   team: [
     "Die Anfrage zu diesem Spiel und ihr Link gelten nicht mehr.",
     "Du musst nichts tun.",
@@ -180,7 +180,7 @@ const ABGESAGT_SAETZE: Record<FLSpielHinweisDataRecipient, readonly [string, str
  * it knows. A move names no new slot, the next request stating it; a call-off has no button and no name, nothing being
  * left to answer and the address perhaps having changed hands since the request.
  */
-export function buildSpielHinweisEmail({ art, recipient: empfaenger, appointment: alt }: FLSpielHinweisData, { origin }: MailOrt): Mail {
+export function buildSpielHinweisEmail({ art, recipient: empfaenger, appointment: alt }: FLSpielNoticeData, { origin }: MailOrt): Mail {
   const { team1, team2 } = alt;
 
   if (art === "spiel_new_angesetzt") {

@@ -10,8 +10,8 @@ import type { Mail, Paragraph } from "./emailShell";
 import type {
   FLAddressChangeDiscardedData,
   FLAddressChangeEffectiveData,
-  FLAddressChangeHinweisData,
   FLAddressChangeLinkData,
+  FLAddressChangeNoticeData,
   FLAddressChangeWay,
 } from "./generated/client/types";
 import type { MailLink, MailOrt } from "./mailKinds";
@@ -87,7 +87,7 @@ function anlassAbsatz(weg: FLAddressChangeWay, gueltigBis: string): Paragraph {
  * somebody else's mistake or a pretext, and this mailbox is owed the word, never the other mailbox's name.
  */
 export function buildAdresswechselHinweisEmail(
-  { way: weg, valid_until: gueltigBis, vorname }: FLAddressChangeHinweisData,
+  { way: weg, valid_until: gueltigBis, vorname }: FLAddressChangeNoticeData,
   { origin, token: stoppToken }: MailLink,
 ): Mail {
   const site = mailOrigin(origin);

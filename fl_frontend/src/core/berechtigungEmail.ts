@@ -6,7 +6,7 @@ import { GELOESCHT_ACTOR_MARKER } from "./geloeschtActor";
 import { OFFENE_ANTRAEGE } from "./seitenNamen";
 
 import type { Mail, Run } from "./emailShell";
-import type { FLGrantData, FLGrantDataChange, FLGrantDataWithheld, FLGrantStand } from "./generated/client/types";
+import type { FLGrantData, FLGrantDataChange, FLGrantDataWithheld, FLGrantSnapshot } from "./generated/client/types";
 import type { MailOrt } from "./mailKinds";
 
 const BETREFF = "Änderung beim Zugang zur Verwaltung";
@@ -117,7 +117,7 @@ function urheberSatz(urheber: Urheber, verb: string): readonly Run[] {
 }
 
 /** A grant's address as the notice names it, or why it is withheld: a barred one, or an erased person's. */
-function adresseOf(daten: FLGrantData, stand: FLGrantStand | null): string | Vorenthalten {
+function adresseOf(daten: FLGrantData, stand: FLGrantSnapshot | null): string | Vorenthalten {
   return stand?.adresse ?? { withheld: daten.withheld ?? "barred" };
 }
 

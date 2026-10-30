@@ -169,7 +169,7 @@ describe("the admin lane", () => {
         lane: "admin",
         name: "kontakte",
         input: z.object({ kontakte: z.array(z.object({ email: z.string() })), datum: z.string() }),
-        ownWords: { kontakt_email_twice: "kontakte", date_not_in_calendar: "datum", gute_spieler_exceed_kader: true },
+        ownWords: { kontakt_email_twice: "kontakte", date_not_in_calendar: "datum", good_spieler_exceed_kader: true },
         run: async () => {
           throw wirft;
         },
@@ -183,10 +183,10 @@ describe("the admin lane", () => {
       errorCode: "payload_refused",
       fieldErrors: { kontakte: SERVER_COPY.regel.kontakt_email_twice, datum: SERVER_COPY.regel.date_not_in_calendar },
     });
-    expect(await kontakte(refusedPayload([bodyField([], "gute_spieler_exceed_kader")]))(input)).toStrictEqual({
+    expect(await kontakte(refusedPayload([bodyField([], "good_spieler_exceed_kader")]))(input)).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
-      reason: SERVER_COPY.regel.gute_spieler_exceed_kader,
+      reason: SERVER_COPY.regel.good_spieler_exceed_kader,
     });
     // One rule the screen does not word, a published bound among them: the page is older than the API.
     for (const kind of ["kontakt_telefon_twice", "string_too_long"]) {

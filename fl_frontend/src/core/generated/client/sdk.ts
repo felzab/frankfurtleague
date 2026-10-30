@@ -128,8 +128,8 @@ import type {
   FLRegistrierungConfirmationResponse,
   FLRegistrierungConfirmationViewResponse,
   FLRegistrierungDeclinePayload,
+  FLRegistrierungDeclineResponse,
   FLRegistrierungenListResponse,
-  FLRegistrierungRefusalResponse,
   FLRegistrierungSweepResponse,
   FLReplaceSaisonTeamPayload,
   FLReplaceSaisonTeamResponse,
@@ -2089,7 +2089,7 @@ export const getOutboxPostResultUrl = () => {
 /**
  * Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.
  *
- * `sent` records the provider's message id; `withheld` a deployment that sends no mail; `abandon` a
+ * `sent` records the provider's message id; `held` a deployment that sends no mail; `abandon` a
  * refusal every send would meet, any 4xx but a 429. A failed send's `grund`, the provider's own name for the refusal,
  * is recorded on the row, the send's one record of why. `retry`, for a 429, a 5xx or a send that never reached the
  * provider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a
@@ -2509,7 +2509,7 @@ export const registrierungenDecline = async (
   registrierungId: string,
   fLRegistrierungDeclinePayload: FLRegistrierungDeclinePayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLRegistrierungRefusalResponse> => {
+): Promise<FLRegistrierungDeclineResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -2522,7 +2522,7 @@ export const registrierungenDecline = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLRegistrierungRefusalResponse>(getRegistrierungenDeclineUrl(registrierungId), {
+  return adminKeyTransport<FLRegistrierungDeclineResponse>(getRegistrierungenDeclineUrl(registrierungId), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },

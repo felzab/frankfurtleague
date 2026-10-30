@@ -273,7 +273,7 @@ export const FLVerwaltung = {
 /**
  * The approval a change of the person's own grant waits on, as their account page reads it: never who gave it.
  */
-export interface FLAddressChangeApprovalStand {
+export interface FLAddressChangeApprovalState {
   approved: boolean;
   bis: string;
   verwaltung: FLVerwaltung;
@@ -300,7 +300,7 @@ export const FLAddressChangeWay = {
  * The address's live change as its own account page reads it.
  */
 export interface FLAccountAddressChangeOpen {
-  approval: FLAddressChangeApprovalStand | null;
+  approval: FLAddressChangeApprovalState | null;
   effective_from: string | null;
   email: string;
   expired: boolean;
@@ -777,20 +777,20 @@ export const FLActionLogEntryHerkunft = {
   public: "public",
 } as const;
 
-export type FLActionLogEntryWithStandBefore = { [key: string]: unknown } | { [key: string]: unknown }[] | null;
+export type FLActionLogEntryWithBeforeBefore = { [key: string]: unknown } | { [key: string]: unknown }[] | null;
 
-export type FLActionLogEntryWithStandDbFilter = { [key: string]: string } | null;
+export type FLActionLogEntryWithBeforeDbFilter = { [key: string]: string } | null;
 
 /**
  * One recorded write with the document it replaced, which only the single-row read serves.
  */
-export interface FLActionLogEntryWithStand {
+export interface FLActionLogEntryWithBefore {
   actor: FLActorWithAdresseRow | FLActorPerson;
   anlass: string | null;
   at: string;
-  before: FLActionLogEntryWithStandBefore;
+  before: FLActionLogEntryWithBeforeBefore;
   collection: string;
-  db_filter: FLActionLogEntryWithStandDbFilter;
+  db_filter: FLActionLogEntryWithBeforeDbFilter;
   document_id: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
@@ -803,7 +803,7 @@ export interface FLActionLogEntryWithStand {
 }
 
 export interface FLActionLogEntrySingleResponse {
-  action_log_entry: FLActionLogEntryWithStand;
+  action_log_entry: FLActionLogEntryWithBefore;
 }
 
 export type FLActionLogListResponseCountPerCollection = { [key: string]: number };
@@ -915,16 +915,6 @@ export const FLAddressChangeEndArt = {
   discarded: "discarded",
 } as const;
 
-/**
- * The address on file's notice of an address change, its stop link minted at the hand-out into `stop.token_hashes`.
- */
-export interface FLAddressChangeHinweisData {
-  art: "address_change_hinweis";
-  valid_until: string;
-  vorname: string | null;
-  way: FLAddressChangeWay;
-}
-
 export interface FLAddressChangeIdResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
@@ -967,6 +957,16 @@ export interface FLAddressChangeOpenMove {
  */
 export interface FLAddressChangeMovesResponse {
   moves: FLAddressChangeOpenMove[];
+}
+
+/**
+ * The address on file's notice of an address change, its stop link minted at the hand-out into `stop.token_hashes`.
+ */
+export interface FLAddressChangeNoticeData {
+  art: "address_change_notice";
+  valid_until: string;
+  vorname: string | null;
+  way: FLAddressChangeWay;
 }
 
 export const FLAddressChangeStopResponseValue = {
@@ -1027,9 +1027,9 @@ export interface FLAddressChangeVerwaltungMintResponse {
   way: FLAddressChangeWay;
 }
 
-export type FLOutboxDeliveryStand = (typeof FLOutboxDeliveryStand)[keyof typeof FLOutboxDeliveryStand];
+export type FLOutboxDeliveryState = (typeof FLOutboxDeliveryState)[keyof typeof FLOutboxDeliveryState];
 
-export const FLOutboxDeliveryStand = {
+export const FLOutboxDeliveryState = {
   delivered: "delivered",
   delayed: "delayed",
   undeliverable: "undeliverable",
@@ -1040,15 +1040,15 @@ export const FLOutboxDeliveryStand = {
 export interface FLOutboxDelivery {
   am: string;
   grund: string | null;
-  stand: FLOutboxDeliveryStand;
+  state: FLOutboxDeliveryState;
 }
 
-export type FLOutboxStateStand = (typeof FLOutboxStateStand)[keyof typeof FLOutboxStateStand];
+export type FLOutboxStatusState = (typeof FLOutboxStatusState)[keyof typeof FLOutboxStatusState];
 
-export const FLOutboxStateStand = {
+export const FLOutboxStatusState = {
   open: "open",
   sent: "sent",
-  withheld: "withheld",
+  held: "held",
   barred: "barred",
   dropped: "dropped",
   abandoned: "abandoned",
@@ -1057,9 +1057,9 @@ export const FLOutboxStateStand = {
 /**
  * What became of the last mail owed about one record and seat, as an editor reads it beside the link.
  */
-export interface FLOutboxState {
+export interface FLOutboxStatus {
   delivery: FLOutboxDelivery | null;
-  stand: FLOutboxStateStand;
+  state: FLOutboxStatusState;
   /**
    * Whether the mail did not arrive: given up, or refused, suppressed or marked as spam by its recipient.
    *
@@ -1074,7 +1074,7 @@ export interface FLOutboxState {
 export interface FLAddressChangeVerwaltungOpen {
   approval: FLAddressChangeVerwaltungApproval | null;
   confirmed_at: string | null;
-  delivery: FLOutboxState | null;
+  delivery: FLOutboxStatus | null;
   effective_from: string | null;
   email: string;
   expired: boolean;
@@ -1261,7 +1261,7 @@ export interface FLAustrittPayload {
  */
 export interface FLBewerbungConfirmation {
   declined_at: string | null;
-  delivery: FLOutboxState | null;
+  delivery: FLOutboxStatus | null;
   reminded_at: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   sent_at: string;
@@ -1815,15 +1815,15 @@ export interface FLBewerbungSingleResponse {
  * One season's pass: each clock's count, every reminder and deletion notice owed in the write it belongs to.
  */
 export interface FLBewerbungSweepResponse {
-  accepted_erased: number;
-  declined_erased: number;
   erased: number;
+  erased_accepted: number;
+  erased_declined: number;
+  erased_without_decision: number;
   failed: number;
   kontakt_blocks_emptied: number;
   redacted_action_log: number;
   reminded: number;
   saison_id: string;
-  without_decision_erased: number;
 }
 
 /**
@@ -2551,7 +2551,7 @@ export const FLGrantDataWithheld = {
 /**
  * One grant's address and tier at one moment.
  */
-export interface FLGrantStand {
+export interface FLGrantSnapshot {
   adresse: string | null;
   verwaltung: FLVerwaltung;
 }
@@ -2562,11 +2562,11 @@ export interface FLGrantStand {
 export interface FLGrantData {
   art: "grant";
   author: FLGrantDataAuthor;
-  before: FLGrantStand | null;
+  before: FLGrantSnapshot | null;
   change: FLGrantDataChange;
   changed_at: string | null;
   changed_by: string | null;
-  now: FLGrantStand | null;
+  now: FLGrantSnapshot | null;
   withheld: FLGrantDataWithheld;
 }
 
@@ -2675,8 +2675,8 @@ export type FLInvitationDispatchGrund = (typeof FLInvitationDispatchGrund)[keyof
 
 export const FLInvitationDispatchGrund = {
   austritt_entered: "austritt_entered",
-  erzeugung_failed: "erzeugung_failed",
-  erzeugung_uncertain: "erzeugung_uncertain",
+  mint_failed: "mint_failed",
+  mint_uncertain: "mint_uncertain",
   no_kontaktblock: "no_kontaktblock",
   no_confirmed_kontaktperson: "no_confirmed_kontaktperson",
   kontakte_barred: "kontakte_barred",
@@ -2788,7 +2788,7 @@ export interface FLInvitationRow {
   created_at: string;
   created_by: string | null;
   created_by_barred: boolean;
-  delivery: FLOutboxState | null;
+  delivery: FLOutboxStatus | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   /** @minLength 1 */
@@ -3025,7 +3025,7 @@ export interface FLOutboxEventPayload {
   grund: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  stand: FLOutboxDeliveryStand;
+  state: FLOutboxDeliveryState;
 }
 
 /**
@@ -3128,16 +3128,16 @@ export interface FLSpielMailAppointment {
   uhrzeit: string;
 }
 
-export type FLSpielHinweisDataArt = (typeof FLSpielHinweisDataArt)[keyof typeof FLSpielHinweisDataArt];
+export type FLSpielNoticeDataArt = (typeof FLSpielNoticeDataArt)[keyof typeof FLSpielNoticeDataArt];
 
-export const FLSpielHinweisDataArt = {
+export const FLSpielNoticeDataArt = {
   spiel_new_angesetzt: "spiel_new_angesetzt",
   spiel_abgesagt: "spiel_abgesagt",
 } as const;
 
-export type FLSpielHinweisDataRecipient = (typeof FLSpielHinweisDataRecipient)[keyof typeof FLSpielHinweisDataRecipient];
+export type FLSpielNoticeDataRecipient = (typeof FLSpielNoticeDataRecipient)[keyof typeof FLSpielNoticeDataRecipient];
 
-export const FLSpielHinweisDataRecipient = {
+export const FLSpielNoticeDataRecipient = {
   team: "team",
   schiedsrichter: "schiedsrichter",
 } as const;
@@ -3145,10 +3145,10 @@ export const FLSpielHinweisDataRecipient = {
 /**
  * A party's word that a fixture it was asked about moved or was called off: the slot it was asked about.
  */
-export interface FLSpielHinweisData {
+export interface FLSpielNoticeData {
   appointment: FLSpielMailAppointment;
-  art: FLSpielHinweisDataArt;
-  recipient: FLSpielHinweisDataRecipient;
+  art: FLSpielNoticeDataArt;
+  recipient: FLSpielNoticeDataRecipient;
 }
 
 /**
@@ -3210,13 +3210,13 @@ export interface FLOutboxHandout {
     | FLSperreData
     | FLGrantData
     | FLAddressChangeLinkData
-    | FLAddressChangeHinweisData
+    | FLAddressChangeNoticeData
     | FLAddressChangeEffectiveData
     | FLAddressChangeDiscardedData
     | FLSchiedsrichterConfirmationData
     | FLSpielRequestData
     | FLSpielEinteilungData
-    | FLSpielHinweisData
+    | FLSpielNoticeData
     | FLSpielEinteilungLiftedData
     | FLSpielVorschlagDiscardedData
     | FLRegistrierungLinkData
@@ -3251,7 +3251,7 @@ export const FLOutboxResultPayloadResult = {
   sent: "sent",
   retry: "retry",
   abandon: "abandon",
-  withheld: "withheld",
+  held: "held",
 } as const;
 
 /**
@@ -3271,13 +3271,13 @@ export interface FLOutboxResultResponse {
   /** @minimum 0 */
   abandoned: number;
   /** @minimum 0 */
+  held: number;
+  /** @minimum 0 */
   ignored: number;
   /** @minimum 0 */
   repeated: number;
   /** @minimum 0 */
   sent: number;
-  /** @minimum 0 */
-  withheld: number;
 }
 
 /**
@@ -4077,7 +4077,7 @@ export interface FLRegistrierungDeclinePayload {
 /**
  * The declined registration, and the first name the seat holder is told the decision by.
  */
-export interface FLRegistrierungRefusalResponse {
+export interface FLRegistrierungDeclineResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   registrierung_id: string;
   /** @minLength 1 */
@@ -4270,7 +4270,7 @@ export interface FLSaisonTeamAddressChange {
  */
 export interface FLSaisonTeamConfirmationView {
   declined_at: string | null;
-  delivery: FLOutboxState | null;
+  delivery: FLOutboxStatus | null;
   expired: boolean;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   frist: string;
@@ -4443,7 +4443,7 @@ export interface FLSchiedsrichterSingleResponse {
   address_change_id: string | null;
   address_change_viewable_denied: FLAddressChangeViewableDenied | null;
   confirmation_expired: boolean;
-  delivery: FLOutboxState | null;
+  delivery: FLOutboxStatus | null;
   schiedsrichter: FLSchiedsrichter;
 }
 
@@ -5025,7 +5025,7 @@ export interface FLSpielbestaetigungClosed {
  * every live link's hash through the admin read.
  */
 export interface FLSpielbestaetigungSeat {
-  delivery: FLOutboxState | null;
+  delivery: FLOutboxStatus | null;
 }
 
 /**

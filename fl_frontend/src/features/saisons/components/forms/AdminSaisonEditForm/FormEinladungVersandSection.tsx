@@ -42,8 +42,8 @@ const UEBERSPRUNGEN_SATZ: Record<FLInvitationDispatchGrund, string> = {
   // reads that route (`fl_frontend/src/features/teams/constants.ts :: AUSTRITT_OPTIONS` holds its
   // German), so naming one here would report a fact nothing judges.
   austritt_entered: "Austritt eingetragen",
-  erzeugung_failed: "Registrierungslink nicht angelegt",
-  erzeugung_uncertain: "Unklar, ob ein neuer Registrierungslink angelegt wurde",
+  mint_failed: "Registrierungslink nicht angelegt",
+  mint_uncertain: "Unklar, ob ein neuer Registrierungslink angelegt wurde",
   no_kontaktblock: nichtHinterlegt("Kontaktdaten"),
   no_confirmed_kontaktperson: "Niemand hat die Kontaktdaten bisher selbst bestätigt",
   kontakte_barred: "Jede bestätigte Adresse steht auf der Sperrliste",
@@ -71,9 +71,9 @@ const UNGEWISS_BISHERIGER = "Der bisherige Link dieses Teams gilt vielleicht nic
 /** A mint that failed or may have, where the league's own write and not the team is why nothing reached it, and what each leaves standing. */
 const folgeSaetze = (zeile: FLInvitationDispatchRow): readonly string[] => {
   // `true` alone: a null says the press failed before it read the team's link, which is no evidence of one.
-  if (zeile.skipped === "erzeugung_failed")
+  if (zeile.skipped === "mint_failed")
     return zeile.had_link === true ? [FEHLGESCHLAGEN_BISHERIGER, FEHLGESCHLAGEN_FOLGE] : [FEHLGESCHLAGEN_FOLGE];
-  if (zeile.skipped === "erzeugung_uncertain") return zeile.replaced_link ? [UNGEWISS_BISHERIGER, UNGEWISS_FOLGE] : [UNGEWISS_FOLGE];
+  if (zeile.skipped === "mint_uncertain") return zeile.replaced_link ? [UNGEWISS_BISHERIGER, UNGEWISS_FOLGE] : [UNGEWISS_FOLGE];
   return [];
 };
 

@@ -1276,14 +1276,14 @@ export const OutboxPostEventBody = zod
     am: zod.iso.datetime({ offset: true }),
     grund: zod.union([zod.string().max(outboxPostEventBodyGrundOneMax).regex(outboxPostEventBodyGrundOneRegExp), zod.null()]),
     id: zod.string().regex(outboxPostEventBodyIdRegExp),
-    stand: zod.enum(["delivered", "delayed", "undeliverable", "suppressed", "complaint"]),
+    state: zod.enum(["delivered", "delayed", "undeliverable", "suppressed", "complaint"]),
   })
   .describe("One delivery event about a message the provider accepted, named by the row the message was sent from.");
 
 /**
  * Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.
  *
- * `sent` records the provider's message id; `withheld` a deployment that sends no mail; `abandon` a
+ * `sent` records the provider's message id; `held` a deployment that sends no mail; `abandon` a
  * refusal every send would meet, any 4xx but a 429. A failed send's `grund`, the provider's own name for the refusal,
  * is recorded on the row, the send's one record of why. `retry`, for a 429, a 5xx or a send that never reached the
  * provider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a
@@ -1306,7 +1306,7 @@ export const OutboxPostResultBody = zod
     id: zod.string().regex(outboxPostResultBodyIdRegExp),
     lease: zod.string().min(1),
     message_id: zod.union([zod.string().min(1).max(outboxPostResultBodyMessageIdOneMax), zod.null()]),
-    result: zod.enum(["sent", "retry", "abandon", "withheld"]),
+    result: zod.enum(["sent", "retry", "abandon", "held"]),
   })
   .describe("The outcome of one handed-out mail's send, reported as the send returns.");
 

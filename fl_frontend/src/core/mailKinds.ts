@@ -111,7 +111,7 @@ const MAIL_KINDS: { [A in OutboxArt]: MailBuilder<A> } = {
   grant: buildBerechtigungEmail,
   address_change_link: (data, handout) => buildAdresswechselEmail(data, minted(handout)),
   // The stop link, minted into the change's `stopp.token_hashes`.
-  address_change_hinweis: (data, handout) => buildAdresswechselHinweisEmail(data, minted(handout)),
+  address_change_notice: (data, handout) => buildAdresswechselHinweisEmail(data, minted(handout)),
   address_change_effective: buildAdresswechselWirksamEmail,
   address_change_discarded: buildAdresswechselNichtWirksamEmail,
   bewerbung_received: (data, handout) => buildBewerbungEingangEmail(data, minted(handout)),

@@ -1,7 +1,7 @@
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLBewerbung, FLOutboxState } from "@/core/generated/client/types";
+import type { FLBewerbung, FLOutboxStatus } from "@/core/generated/client/types";
 import type { KontaktRolle } from "@/features/teams/constants";
 
 /** Narrowed to the two blocks a confirmation moves, so a caller holding a queue row rather than a whole application still reads its seats. */
@@ -34,7 +34,7 @@ export type SitzBestaetigung = {
    * What became of the last mail owed this seat, `null` where none was. **Beside `stand` and never inside it**: a seat
    * can be `bestaetigt` and have had an earlier link bounce.
    */
-  delivery: FLOutboxState | null;
+  delivery: FLOutboxStatus | null;
   /** Rendered here rather than by each surface: the strip and the fact panel say one thing about one seat. */
   satz: string;
 };
