@@ -1,5 +1,5 @@
 """
-API · a write keeping a person's seat while that person's erasure runs, against the shipped validators and the whole database
+API · a write keeping a person's seat while that person's erasure runs, against the shipped indexes and the whole database
 
 Each case runs one write to its commit inside the erasure, after the erasure's first read, and asks the whole
 database what holds the address once the erasure has answered.

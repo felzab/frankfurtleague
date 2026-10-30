@@ -25,10 +25,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
-from app.api.identitaet.schemas import FLErasure, FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
+from app.api.identitaet.schemas import FLErasure, FLErasureAdressePayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
-from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -37,7 +36,7 @@ from app.core.db import DEAD_GRANT, collection_dependency
 from app.core.journal import JOURNAL_TOKEN
 from app.core.recording import Actor
 from app.core.security import get_recent_confirmation_check
-from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
+from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH
 from tests.actor_tokens import FRESH_ADMIN_ACTOR, SignedActor
@@ -104,7 +103,7 @@ GRANT_ID_OF = {row["adresse"]: row["_id"] for row in grants_for_the_suite()}
 
 ANLASS = "Mail vom 30.03.2026, Betreff: Bitte löscht alle meine Daten"
 
-# An address a hand edit gave both sentinels, which no erasure may reach through them.
+# An address a hand edit gave the referees' sentinel, which no erasure may reach through it.
 SENTINEL_ADDRESS = "von.hand@example.com"
 
 # A grant typed in the person's capitals, which admits nobody and goes with their erasure.
@@ -132,7 +131,7 @@ def _built_before_any_case() -> None:
 
 
 def on_a_league(url: str, body: Body) -> Any:
-    """The person holding everything, beside the suite's grants, on the shipped validators and indexes."""
+    """The person holding everything, beside the suite's grants, on the shipped indexes."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
@@ -192,7 +191,7 @@ async def revealed(database: AsyncDatabase, client: AsyncMongoClient, email: str
     """The reveal's own function outside a request, as `OPERATOR`, for a league holding no grant to sign in through."""
 
     return await get_erasure_ansicht_auf_anfrage(
-        ansicht_data=FLErasureAnsichtPayload(email=email),
+        ansicht_data=FLErasureAdressePayload(email=email),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
@@ -810,13 +809,12 @@ class TestAnotherAdministratorsAddress:
 
 @pytest.mark.db
 class TestRowsNoMailboxNames:
-    """What no request may reach through this route: the two sentinels."""
+    """What no request may reach through this route: the referees' sentinel."""
 
-    def test_the_sentinels_given_an_address_by_hand_are_reached_by_neither_request(self, mongo_replica_set_url: str):
-        """Each step selects by id past the sentinel, the address notwithstanding: the route inherits the registry's exclusion."""
+    def test_the_referees_sentinel_given_an_address_by_hand_is_reached_by_neither_request(self, mongo_replica_set_url: str):
+        """The referee step selects by id past the sentinel, the address notwithstanding: the route inherits the registry's exclusion."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].insert_one({**build_ghost_spieler(), "email": SENTINEL_ADDRESS})
             ghost = build_ghost_schiedsrichter()
             await database[Collection.SCHIEDSRICHTER].insert_one({**ghost, "kontakt": {**ghost["kontakt"], "email": SENTINEL_ADDRESS}})
             ansicht = await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(SENTINEL_ADDRESS))
@@ -825,14 +823,13 @@ class TestRowsNoMailboxNames:
             return (
                 ansicht.json(),
                 erasure.json(),
-                await database[Collection.SPIELER].count_documents({"_id": GHOST_SPIELER_ID}),
                 await database[Collection.SCHIEDSRICHTER].count_documents({"_id": GHOST_SCHIEDSRICHTER_ID}),
             )
 
-        ansicht, erased, pupils, referees = on_a_league_of_its_own(mongo_replica_set_url, body)
+        ansicht, erased, referees = on_a_league_of_its_own(mongo_replica_set_url, body)
 
-        assert (ansicht["spieler"], ansicht["schiedsrichter"]) == ([], [])
-        assert (erased["spieler"], erased["schiedsrichter"], pupils, referees) == (0, 0, 1, 1)
+        assert ansicht["schiedsrichter"] == []
+        assert (erased["schiedsrichter"], referees) == (0, 1)
 
 
 @pytest.mark.db

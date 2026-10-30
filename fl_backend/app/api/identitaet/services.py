@@ -21,12 +21,12 @@ from app.api.schiedsrichter.services import (
     build_selbst_referee_filter,
     build_unplayed_assignment_filter,
 )
-from app.api.spieler.services import build_real_spieler_filter, build_selbst_pupil_filter
+from app.api.spieler.services import build_selbst_pupil_filter
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
-from app.shared.folding import is_stored_identifier, sign_in_identifier
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAdresswechselEinsehbarVerwehrt, FLSaisonStatus, FLVerwaltung
 
 # --- The SELECTIONS, each shared with its record's own person-tier reads rather than spelled again.
@@ -652,7 +652,7 @@ def build_pupil_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[
     """`build_selbst_pupil_filter`'s equality over a batch, its `$type` term the unique index's partial filter, which `$in` does not imply."""
 
     return [
-        {"$match": {"email": {"$in": sorted(set(identifiers)), "$type": "string"}, **build_real_spieler_filter()}},
+        {"$match": {"email": {"$in": sorted(set(identifiers)), "$type": "string"}}},
         {"$project": {"email": 1}},
     ]
 
@@ -769,19 +769,18 @@ def loeschung_faellig(*, email: Any, kader_saison_ids: Iterable[str], offene: Ab
     A retired squad row keeps its pupil as a live one does: removing a player retires the row.
     """
 
-    # Folding a hand-typed address instead would erase by a spelling the stored row does not hold, and remove nobody.
-    return behalten is not None and is_stored_identifier(email) and email not in offene and behalten.isdisjoint(kader_saison_ids)
+    return behalten is not None and isinstance(email, str) and email not in offene and behalten.isdisjoint(kader_saison_ids)
 
 
 def build_loeschung_pipeline(*, behalten: frozenset[str], offene: AbstractSet[str]) -> list[Mapping[str, Any]]:
-    """Every due pupil's id and address: `loeschung_faellig` as one read, its stored-address test excepted, which no stage spells.
+    """Every due pupil's id and address: `loeschung_faellig` as one read.
 
     An addressless pupil is never read: the registry erases by address.
     """
 
     return [
-        # The sentinel twice, by id and by holding no address: either term alone keeps it out.
-        {"$match": build_real_spieler_filter({"email": {"$type": "string", "$nin": sorted(offene)}})},
+        # The sentinel holds no address, so the `$type` term keeps it out.
+        {"$match": {"email": {"$type": "string", "$nin": sorted(offene)}}},
         {
             "$lookup": {
                 "from": DbCollection.SAISON_SPIELER,
@@ -812,9 +811,3 @@ def build_loeschung_seite_pipeline(
 
 def build_loeschung_anzahl_pipeline(*, behalten: frozenset[str], offene: AbstractSet[str]) -> list[Mapping[str, Any]]:
     return [*build_loeschung_pipeline(behalten=behalten, offene=offene), {"$count": "anzahl"}]
-
-
-def ohne_passende_adresse(rows: Iterable[Mapping[str, Any]]) -> list[Any]:
-    """The ids among `rows` whose stored address no request matches (`app/shared/folding.py :: is_stored_identifier`)."""
-
-    return [row["_id"] for row in rows if not is_stored_identifier(row.get("email"))]

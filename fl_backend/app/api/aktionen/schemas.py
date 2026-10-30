@@ -8,11 +8,12 @@ from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, TypeAdap
 from app.core.recording import AktorFunktion
 from app.shared.schemas.bounds import AKTEUR_PSEUDONYM_SHOWN, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.literals import FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse
 
 # One alias for both the row and the filter: without it the two hand-copies drift, and a filter
 # narrower than the rows answers a legal `?operation=` with a 422 that no test would catch.
-FLAktionOperation = Literal["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
+type FLAktionOperation = Literal["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
 
 
 def _stringify_oids(value: Any) -> Any:
@@ -42,7 +43,7 @@ FLAktionHerkunft = Literal["person", "system", "public"]
 
 
 class FLAktorMitAdresse(BaseModel):
-    """An actor the row names by `email`: an administrator's address, or a sentinel. Mirrors `app/core/recording.py :: Actor`."""
+    """An actor the row names by `email`: an administrator's address, or a sentinel."""
 
     kind: Literal["admin_session", "system", "public"]
     email: str
@@ -61,10 +62,7 @@ def _served_prefix(pseudonym: str) -> str:
 
 
 class FLAktorPerson(BaseModel):
-    """A signed-in person, named by a pseudonym and the kind of person the write was made as.
-
-    Mirrors `app/core/recording.py :: PersonActor`, and carries no address.
-    """
+    """A signed-in person, named by a pseudonym prefix and the kind of person the write was made as, and never by an address."""
 
     kind: Literal["person_session"]
     pseudonym: Annotated[str, AfterValidator(_served_prefix)]
@@ -109,13 +107,10 @@ class FLAktionRequest(BaseModel):
 
 
 class FLAktion(BaseModel):
-    """One recorded write.
+    """One recorded write."""
 
-    A read model, so nothing here refuses a stored value: this
-    collection holds copies of documents from every other one, and a row it cannot serve is a row
-    nobody can see was recorded.
-    """
-
+    # A read model, so nothing here refuses a stored value: the log holds copies of documents from
+    # every other collection, and a row it cannot serve is a write nobody can see was recorded.
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     at: str
     # As served, so a row reaches the wire only through
@@ -160,10 +155,7 @@ class FLAktion(BaseModel):
 
 
 class FLAktionMitStand(FLAktion):
-    """One row WITH the document its write replaced, which only `GET /aktionen/{aktion_id}` serves.
-
-    Its own model so the list cannot carry an image by accident.
-    """
+    """One recorded write with the document it replaced, which only the single-row read serves."""
 
     # A list is `delete_many`'s: a removal follows no write a restore could replay, so one row
     # carries every image it took.
@@ -241,7 +233,7 @@ class FLAktionenFilterParams(BaseModel):
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     # Newest first, and no `sort_by`: every other order over a log of recorded writes is a report
     # rather than a page, and one of them would have to be the default anyway.
-    order: Literal["asc", "desc"] = Field(default="desc")
+    order: FLSortOrder = Field(default="desc")
 
 
 class FLAktionenListResponse(BaseAPIResponse):

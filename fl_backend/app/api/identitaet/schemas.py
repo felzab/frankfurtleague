@@ -263,20 +263,24 @@ def refuse_an_address_in_the_anlass(value: str) -> str:
     return value
 
 
-class FLErasureAnsichtPayload(BaseModel):
-    """The mailbox the reveal is read for, in the BODY for `FLSubjektPayload`'s reason."""
+class FLErasureAdressePayload(BaseModel):
+    """The mailbox an erasure, its preview or a sign-out of every session is looked up by."""
 
     model_config = ConfigDict(extra="forbid")
 
+    # In the BODY for `FLSubjektPayload`'s reason.
     email: ErasureAdresse
 
 
-class FLErasurePayload(FLErasureAnsichtPayload):
+class FLErasurePayload(FLErasureAdressePayload):
     """The mailbox, and the request the erasure answers, which every log row the erasure files keeps."""
 
+    # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
     anlass: Annotated[
         str,
-        StringConstraints(strip_whitespace=True, min_length=1, max_length=ERASURE_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        StringConstraints(max_length=ERASURE_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        AfterValidator(str.strip),
+        StringConstraints(min_length=1),
         AfterValidator(refuse_an_address_in_the_anlass),
     ]
 
@@ -368,14 +372,6 @@ class FLErasureAnsichtResponse(FLErasureAnsicht, BaseAPIResponse):
     verwaltung: FLVerwaltung | None
     # Whether a standing ban holds the address, which the erasure leaves standing: the ban's dialog refuses it before its press.
     gesperrt: bool
-
-
-class FLAbmeldungPayload(BaseModel):
-    """The mailbox whose every session the page ends next, looked up as the erasure looks one up."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    email: ErasureAdresse
 
 
 class FLAbmeldungResponse(BaseAPIResponse):

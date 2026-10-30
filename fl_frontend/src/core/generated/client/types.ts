@@ -500,17 +500,6 @@ export interface FLAblehnenBewerbungResponse {
 }
 
 /**
- * The mailbox whose every session the page ends next, looked up as the erasure looks one up.
- */
-export interface FLAbmeldungPayload {
-  /**
-   * @maxLength 254
-   * @pattern @
-   */
-  email: string;
-}
-
-/**
  * The envelope alone: the log row it filed names no address to answer with.
  */
 export interface FLAbmeldungResponse {
@@ -1030,17 +1019,6 @@ export interface FLAdresswechselZugestelltResponse {
 
 export type FLAktionDbFilter = { [key: string]: string } | null;
 
-export type FLAktionOperation = (typeof FLAktionOperation)[keyof typeof FLAktionOperation];
-
-export const FLAktionOperation = {
-  insert: "insert",
-  insert_many: "insert_many",
-  patch_one: "patch_one",
-  patch_many: "patch_many",
-  delete_many: "delete_many",
-  erase_many: "erase_many",
-} as const;
-
 export type FLAktorMitAdresseZeileKind = (typeof FLAktorMitAdresseZeileKind)[keyof typeof FLAktorMitAdresseZeileKind];
 
 export const FLAktorMitAdresseZeileKind = {
@@ -1067,15 +1045,24 @@ export const FLAktorPersonFunktion = {
 } as const;
 
 /**
- * A signed-in person, named by a pseudonym and the kind of person the write was made as.
- *
- * Mirrors `app/core/recording.py :: PersonActor`, and carries no address.
+ * A signed-in person, named by a pseudonym prefix and the kind of person the write was made as, and never by an address.
  */
 export interface FLAktorPerson {
   funktion: FLAktorPersonFunktion;
   kind: "person_session";
   pseudonym: string;
 }
+
+export type FLAktionOperation = (typeof FLAktionOperation)[keyof typeof FLAktionOperation];
+
+export const FLAktionOperation = {
+  insert: "insert",
+  insert_many: "insert_many",
+  patch_one: "patch_one",
+  patch_many: "patch_many",
+  delete_many: "delete_many",
+  erase_many: "erase_many",
+} as const;
 
 export interface FLAktionRequest {
   method: string;
@@ -1084,10 +1071,6 @@ export interface FLAktionRequest {
 
 /**
  * One recorded write.
- *
- * A read model, so nothing here refuses a stored value: this
- * collection holds copies of documents from every other one, and a row it cannot serve is a row
- * nobody can see was recorded.
  */
 export interface FLAktion {
   actor: FLAktorMitAdresseZeile | FLAktorPerson;
@@ -1110,21 +1093,8 @@ export type FLAktionMitStandBefore = { [key: string]: unknown } | { [key: string
 
 export type FLAktionMitStandDbFilter = { [key: string]: string } | null;
 
-export type FLAktionMitStandOperation = (typeof FLAktionMitStandOperation)[keyof typeof FLAktionMitStandOperation];
-
-export const FLAktionMitStandOperation = {
-  insert: "insert",
-  insert_many: "insert_many",
-  patch_one: "patch_one",
-  patch_many: "patch_many",
-  delete_many: "delete_many",
-  erase_many: "erase_many",
-} as const;
-
 /**
- * One row WITH the document its write replaced, which only `GET /aktionen/{aktion_id}` serves.
- *
- * Its own model so the list cannot carry an image by accident.
+ * One recorded write with the document it replaced, which only the single-row read serves.
  */
 export interface FLAktionMitStand {
   actor: FLAktorMitAdresseZeile | FLAktorPerson;
@@ -1137,7 +1107,7 @@ export interface FLAktionMitStand {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   modified_count: number | null;
-  operation: FLAktionMitStandOperation;
+  operation: FLAktionOperation;
   redacted_at: string | null;
   request: FLAktionRequest | null;
   stand_gesichert: boolean;
@@ -2494,6 +2464,17 @@ export interface FLEinwilligungStandPayload {
 }
 
 /**
+ * The mailbox an erasure, its preview or a sign-out of every session is looked up by.
+ */
+export interface FLErasureAdressePayload {
+  /**
+   * @maxLength 254
+   * @pattern @
+   */
+  email: string;
+}
+
+/**
  * Another address's live change naming this one as its new address: the change ends, its address's records standing.
  */
 export interface FLErasureAnsichtAdresswechsel {
@@ -2545,17 +2526,6 @@ export interface FLErasureAnsichtKader {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   team_name: string | null;
-}
-
-/**
- * The mailbox the reveal is read for, in the BODY for `FLSubjektPayload`'s reason.
- */
-export interface FLErasureAnsichtPayload {
-  /**
-   * @maxLength 254
-   * @pattern @
-   */
-  email: string;
 }
 
 export type FLRegistrierungStatus = (typeof FLRegistrierungStatus)[keyof typeof FLRegistrierungStatus];
@@ -3091,13 +3061,13 @@ export interface FLKontoRegistrierungEinwilligung {
 }
 
 /**
- * One referee record on the account page, for `FLKontoSpielerEinwilligung`'s reasons.
+ * One referee record on the account page: its stored data and the consent the page moves.
  */
 export interface FLKontoSchiedsrichterEinwilligung {
   bestaetigt_text_version: string;
   einwilligung: FLEinwilligung;
   erteilbar: boolean;
-  geburtsdatum?: string | null;
+  geburtsdatum: string | null;
   honorar: number;
   inactive_since: string | null;
   kontakt: FLKontakt;
@@ -6063,15 +6033,8 @@ export type AktionenGetAktionenParams = {
    * @maximum 1024
    */
   limit?: number;
-  order?: AktionenGetAktionenOrder;
+  order?: FLSortOrder;
 };
-
-export type AktionenGetAktionenOrder = (typeof AktionenGetAktionenOrder)[keyof typeof AktionenGetAktionenOrder];
-
-export const AktionenGetAktionenOrder = {
-  asc: "asc",
-  desc: "desc",
-} as const;
 
 export type BewerbungenGetBewerbungenParams = {
   saison_id?: string | null;

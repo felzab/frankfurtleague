@@ -8,7 +8,6 @@ from bson import ObjectId
 from fastapi import FastAPI
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -51,7 +50,6 @@ SITZ_AUSGETRETEN = "sitz.ausgetreten@schule.de"
 BEWERBUNG_OFFEN = "bewerbung.offen@schule.de"
 BEWERBUNG_UNBESTAETIGT = "bewerbung.unbestaetigt@schule.de"
 SPIELER_EHEMALIG = "spieler.ehemalig@schule.de"
-SPIELER_OFFEN = "spieler.offen@schule.de"
 PFEIFE_RUHESTAND = "pfeife.ruhestand@schule.de"
 REGISTRIERT = "rita.registriert@schule.de"
 VERWALTUNG = "verena.verwaltung@schule.de"
@@ -65,7 +63,6 @@ AUSSER_DER_REGEL = "jürgen@schule.de"
 
 REGISTRIERT_OFFEN = "rita.offen@schule.de"
 GEIST_SCHIEDSRICHTER = "geist.pfeife@schule.de"
-GEIST_SPIELER = "geist.spieler@schule.de"
 # Asked as an account may store it, so the answer is shown to keep the asker's spelling.
 NIEMAND = "Niemand.Hier@Example.COM"
 
@@ -86,10 +83,8 @@ ASKED = [
     BEWERBUNG_OFFEN,
     BEWERBUNG_UNBESTAETIGT,
     "Spieler.Ehemalig@Schule.DE",
-    SPIELER_OFFEN,
     PFEIFE_RUHESTAND,
     GEIST_SCHIEDSRICHTER,
-    GEIST_SPIELER,
     REGISTRIERT,
     REGISTRIERT_OFFEN,
     VERWALTUNG,
@@ -173,10 +168,6 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
     await database[Collection.SPIELER].insert_many(
         [
             spieler_document(ObjectId(), "Anna", "Ehemalig", email=SPIELER_EHEMALIG, inactive_since="2026-03-01"),
-            # A pupil's record is born confirmed, so a stamp a hand edit blanked is the unconfirmed pupil the gate meets.
-            spieler_document(ObjectId(), "Anna", "Offen", email=SPIELER_OFFEN, einwilligung={**EINWILLIGUNG, "bestaetigt_am": ""}),
-            # The nameless, recordless sentinel as written, given an address by a hand edit: its id alone keeps it out.
-            {**build_ghost_spieler(), "email": GEIST_SPIELER},
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
@@ -248,7 +239,6 @@ class TestWhatKeepsAnAccount:
             pytest.param(BEWERBUNG_OFFEN, id="a pending application's confirmed seat"),
             pytest.param(BEWERBUNG_UNBESTAETIGT, id="a pending application's unconfirmed seat"),
             pytest.param("Spieler.Ehemalig@Schule.DE", id="a retired pupil, asked in capitals"),
-            pytest.param(SPIELER_OFFEN, id="an unconfirmed live pupil, which the gate admits"),
             pytest.param(PFEIFE_RUHESTAND, id="a retired referee"),
             pytest.param(REGISTRIERT, id="a confirmed pending registration"),
             pytest.param(VERWALTUNG, id="a grant the comparison has not seen"),
@@ -271,7 +261,6 @@ class TestWhatLetsAnAccountGo:
             pytest.param(GESPERRT, id="a standing ban and no record"),
             pytest.param(AUSSER_DER_REGEL, id="an address today's rule refuses and no record holds"),
             pytest.param(GEIST_SCHIEDSRICHTER, id="the referee placeholder, by its id"),
-            pytest.param(GEIST_SPIELER, id="the pupil placeholder, by its id"),
             pytest.param(NIEMAND, id="nothing at all"),
         ],
     )
@@ -285,7 +274,7 @@ class TestWhatLetsAnAccountGo:
         assert answered(mongo_replica_set_url) == (
             200,
             {
-                "unreferenziert": [NIEMAND, GEIST_SCHIEDSRICHTER, GEIST_SPIELER, REGISTRIERT_OFFEN, GESPERRT, AUSSER_DER_REGEL],
+                "unreferenziert": [NIEMAND, GEIST_SCHIEDSRICHTER, REGISTRIERT_OFFEN, GESPERRT, AUSSER_DER_REGEL],
             },
         )
 

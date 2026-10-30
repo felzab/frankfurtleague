@@ -286,31 +286,14 @@ export const AdresswechselPostAdresswechselGenehmigungParams = zod.object({
 });
 
 /**
- * List what administrators changed, newest first; `vollstaendig` is false on a cut answer.
+ * List recorded writes newest first, `vollstaendig` false where `limit` cut them, an actor's `email` null where the ban list holds it.
  *
- * Admin-tier twice over: every recorded write across every collection is here, public or not,
- * and each row names the administrator behind it — `null` beside `actor.email_gesperrt` where the
- * ban list holds that address, as no barred address is served in plain.
- *
- * `collection`, `operation` and `herkunft` each take a comma-joined selection, or the parameter
- * repeated, and all three narrow this read. `herkunft` names no stored field: it is the category the
- * actor's kind is filed under, `person` covering every kind that authenticates somebody.
- *
- * `anzahl_je_collection`, `anzahl_je_operation` and `anzahl_je_herkunft` count every row `trace_id`
- * and `document_id` leave, with the other two facets applied and their own ignored, so a caller
- * narrowed to one area still knows what asking for another would fetch; a value nothing was recorded
- * under is absent rather than zero. While either of those two terms is in force the counts are that
- * trace's or that document's and not the log's.
- *
- * `trace_id` selects one request's whole fan-out, which this read serves under the same cap as any
- * other; a write made outside a request carries the sentinel `SYSTEM` there, which gathers every
- * such write rather than one (`docs/glossary.md :: Vorgangsnummer`).
+ * `collection`, `operation` and `herkunft` take a comma-joined or repeated selection, and each
+ * `anzahl_je_*` count applies every filter but its own facet, a value nothing was recorded under absent.
  * @summary List recorded admin actions
  */
 export const aktionenGetAktionenQueryLimitDefault = 1024;
 export const aktionenGetAktionenQueryLimitMax = 1024;
-
-export const aktionenGetAktionenQueryOrderDefault = `desc`;
 
 export const AktionenGetAktionenQueryParams = zod.object({
   collection: zod.string().optional(),
@@ -319,14 +302,11 @@ export const AktionenGetAktionenQueryParams = zod.object({
   trace_id: zod.union([zod.string(), zod.null()]).optional(),
   document_id: zod.union([zod.string(), zod.null()]).optional(),
   limit: zod.int().min(1).max(aktionenGetAktionenQueryLimitMax).default(aktionenGetAktionenQueryLimitDefault),
-  order: zod.enum(["asc", "desc"]).default(aktionenGetAktionenQueryOrderDefault),
+  order: zod.enum(["asc", "desc"]).optional(),
 });
 
 /**
- * One row with the document its write replaced, which the list withholds.
- *
- * The read a restore of one write would start from, so the image is served as recorded, every
- * address in it included; the actor is withheld as the list withholds it.
+ * One recorded write with the document it replaced, served as recorded; the actor is withheld as the list withholds it.
  * @summary One recorded admin action
  */
 export const aktionenGetAktionByIdPathAktionIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1203,23 +1183,12 @@ export const IdentitaetPostAbmeldungBody = zod
   .object({
     email: zod.string().max(identitaetPostAbmeldungBodyEmailMax).regex(identitaetPostAbmeldungBodyEmailRegExp),
   })
-  .describe("The mailbox whose every session the page ends next, looked up as the erasure looks one up.");
+  .describe("The mailbox an erasure, its preview or a sign-out of every session is looked up by.");
 
 /**
- * Answer what the sign-in gate decides on for one mailbox: its own records, its pending confirmation, its ban and its grant.
+ * Answer what the sign-in gate decides on for one mailbox: two flags, its ban and its grant's tier, and never a record.
  *
- * No record, name or id is answered, only flags and the grant's tier. Stores nothing, and a POST for `POST /identitaet/subjekt`'s
- * reason. The address is folded on arrival and compared as that endpoint compares it, and `unbestaetigt`, `gesperrt` and
- * `verwaltung` are that endpoint's own answers.
- *
- * `konto` is true exactly where the mailbox holds a record its own person confirmed: a contact seat on any season row, a past
- * season's and a withdrawn team's included; a contact seat on a pending application; a pupil or referee record, a retired one
- * included, never the placeholder every erased referee's fixtures name; and a pending registration whose pupil confirmed it with
- * a choice. A decided application, a declined registration and every unconfirmed record count for nothing. It holds wherever
- * `POST /identitaet/subjekt` answers a record, and also where the only records are ones granting no panel.
- *
- * The ban narrows neither flag: a barred address holding records is answered `gesperrt` and `konto` both, and refusing it is the
- * caller's. A mailbox the league holds nothing for is answered both flags false rather than a 404.
+ * The address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with both flags false.
  * @summary Say whether one mailbox may be offered a sign-in
  */
 export const identitaetGetAnmeldungBodyEmailMax = 254;
@@ -1305,7 +1274,7 @@ export const IdentitaetGetErasureAnsichtAufAnfrageBody = zod
   .object({
     email: zod.string().max(identitaetGetErasureAnsichtAufAnfrageBodyEmailMax).regex(identitaetGetErasureAnsichtAufAnfrageBodyEmailRegExp),
   })
-  .describe("The mailbox the reveal is read for, in the BODY for `FLSubjektPayload`'s reason.");
+  .describe("The mailbox an erasure, its preview or a sign-out of every session is looked up by.");
 
 /**
  * Answer whether a standing ban holds the one address the frontend's mailer is about to send to.
@@ -1337,9 +1306,7 @@ export const IdentitaetGetGesperrtBody = zod
  * The rule, read from the seasons' stored statuses at each call: a pupil is due once they hold no squad row, live or retired,
  * in the latest `past` season, in any season with a greater id or in the running one, and no registration still `eingereicht`
  * at their address, compared as the sign-in folds it. While no season is `past` nobody is due, and `abgeschlossene_saison_id`
- * is null. A pupil holding no address is never due: nothing else erases by a name. A pupil whose stored address no request
- * matches, empty, unfolded or refused by the address rule, is passed over and named by id in a warning: a hand correction
- * left it so, and an erasure by another spelling would remove nobody.
+ * is null. A pupil holding no address is never due: nothing else erases by a name.
  *
  * Each pupil is deleted in a transaction of their own, which first judges them again: one who has gained a squad row or a
  * pending registration since this call read them, the two committing before that transaction writes included, or whom another
@@ -1371,35 +1338,9 @@ export const IdentitaetPostLoeschungLaufQueryParams = zod.object({
 });
 
 /**
- * Answer which of the addresses asked about no league record references, so the sign-in account each names may be deleted.
+ * Answer which of these sign-in addresses no league record references, each once and in the spelling it was asked in.
  *
- * Stores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the addresses travel in the body.
- *
- * An address is referenced, and so never answered, while any of these holds:
- *
- * - a contact seat on any season row holds it, a `past` season's and a withdrawn team's included, confirmed or not;
- * - a contact seat on a pending application holds it, confirmed or not;
- * - a pupil or referee record holds it, confirmed or not and live or retired; the placeholder every erased referee's fixtures
- *   name and the one every erased pupil's entries name hold nothing;
- * - a pending registration holds it that its pupil confirmed;
- * - a grant in `berechtigungen` holds it, as stored, before the comparison has seen it too;
- * - an address change that took effect replaced it, and the notice owing its sign-in account's carry to the new address is
- *   not yet delivered.
- *
- * A ban holds nothing: a barred address is answered as any other once none of these holds it. A pending address change holds
- * nothing either: its new address admits no sign-in until the change takes effect, and the address it replaces stays on the
- * records until then.
- *
- * That is wider than what `POST /identitaet/anmeldung` admits a sign-in on, so no account answered here is one the sign-in
- * would admit again: an unconfirmed seat on a `past` season and an unconfirmed retired record keep an account the gate admits
- * no sign-in for, until the block is cleared or the row removed.
- *
- * The whole batch is refused, `REQ-REFERENZEN-001`, while no live grant in `berechtigungen` is an `owner`'s. A league always
- * holds one, so such a database is empty or another one, and answering from it would call every address unreferenced.
- *
- * Each address is compared as `POST /identitaet/subjekt` compares one, on the sign-in fold, and answered in the spelling it was
- * asked in, once however often it was asked. An address today's address rule refuses is judged as any other and never
- * refused, since one refused address would refuse the whole batch. A batch past its published ceiling is refused whole.
+ * The whole batch is refused while no live grant is an owner's, since such a database would call every address unreferenced.
  * @summary Say which of these sign-in addresses no record references
  */
 export const identitaetGetReferenzenBodyIdentifiersMax = 250;
@@ -1411,49 +1352,10 @@ export const IdentitaetGetReferenzenBody = zod
   .describe("The sign-in addresses a pass of the account sweep asks about.");
 
 /**
- * Answer which confirmed contact seats, pupil records and referee records the league holds for one mailbox.
+ * Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its ban and its grant.
  *
- * Stores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an
- * access line, which is `POST /identitaet/erasure/ansicht`'s reason too.
- *
- * The address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival
- * and matched by equality, every record storing its address in that form: `Anna.Mueller@Schule.de` asked answers for the
- * `anna.mueller@schule.de` a contact seat stores, and a domain asked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß`
- * is not folded to `ss`, so `poststrasse.de` and `poststraße.de` are two domains here as they are at sign-in.
- *
- * A record is answered only once its own person has confirmed it -- a seat's `einwilligung.bestaetigt_am`, judged per seat, and the
- * same stamp on a pupil's and a referee's consent record, an empty stamp confirming nothing -- and only while its row is live: a
- * retired pupil or referee is answered nothing, and so is the placeholder every erased referee's fixtures name. A seat on a season
- * its team withdrew from, by disqualification or withdrawal alike, is answered nothing either; its seats on other seasons stand.
- * A seat on a `past` season is still answered, carrying its `saison_status`: which seasons grant a panel is each caller's to decide.
- *
- * `unbestaetigt` is true exactly where the mailbox holds records that could grant a panel -- a live pupil or referee row, or a seat
- * on an `active` or `future` season -- and none of them is confirmed, so an unconfirmed person is told apart from one the league
- * holds nothing for. A seat on a `past` season counts toward neither answer: confirming it would open nothing.
- *
- * `gesperrt` says whether the address is on the ban list, judged as a sign-up is: the address in any spelling that folds to the same
- * mailbox, and a ban only while the running season is within its bound. It narrows none of the records beside it.
- *
- * `verwaltung` is the grant the mailbox holds in `berechtigungen` -- `owner`, `administration`, or null for none -- matched on the
- * folded identifier alone, the one spelling a grant is stored in. It is the one stored answer here: whether a person is an
- * administrator is decided by a grant rather than derived from a league record, and it narrows none of the records beside it. A
- * promotion to `owner` made in the database is answered `administration` until `POST /berechtigungen/abgleich` finds it.
- *
- * `berechtigt_seit` is when that grant took effect, null exactly where `verwaltung` is: the moment `POST /berechtigungen/abgleich`
- * first found a grant made in the database directly, the grant's own `erteilt_am` for one made through the application, and for one
- * made in the database that no call to that endpoint has read yet, its `erteilt_am` or the moment its id was generated, whichever is
- * later. A row changed in the database after that endpoint read it -- an address changed in place, a spelling no request matched
- * made one that does, a row put back after its removal was found -- is no grant, `verwaltung` null, until that endpoint finds the
- * change. A tier change leaves it standing. An admin-tier request from a sign-in older than it is refused.
- *
- * `inhaber_seit` is when the `owner` tier took effect, null exactly where `verwaltung` is not `owner`: the moment the tier change
- * made the grant an owner's, or that endpoint found a promotion made in the database, and never earlier than `berechtigt_seit`. A
- * sign-in older than it administers and holds no owner's power, so the revoke and the tier change it asks for are refused. A
- * demotion takes the tier at once.
- *
- * Each list may be empty and each may hold more than one entry: one person holds seats at two clubs, and nothing enforces one pupil
- * record per address.
- * An address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.
+ * The address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with three empty lists rather
+ * than a 404.
  * @summary Say which league records one mailbox holds
  */
 export const identitaetGetSubjektBodyEmailMax = 254;

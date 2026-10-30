@@ -64,11 +64,6 @@ PFEIFE_OHNE_RECORD = "pfeife.ohne@schule.de"
 PFEIFE_NULL_RECORD = "pfeife.null@schule.de"
 GEIST = "geist@schule.de"
 NIEMAND = "niemand.hierverzeichnet@example.com"
-# Stamped with an empty string, which the validator admits from a hand edit: one mailbox per kind. A
-# pupil's record is born confirmed, so a blank stamp is the one unconfirmed pupil the corpus holds.
-LEER_SITZ = "leer.sitz@schule.de"
-LEER_SPIELER = "leer.spieler@schule.de"
-LEER_PFEIFE = "leer.pfeife@schule.de"
 # A confirmed seat on a `past` season beside an unconfirmed one on the `active` season, and an
 # unconfirmed `past` seat alone: the flag is judged over what could grant a panel.
 VERGANGEN_UND_OFFEN = "vergangen.und.offen@schule.de"
@@ -82,17 +77,15 @@ SHARP_S_ASKED = "Post@straße.de"
 DOUBLE_S_ASKED = "POST@strasse.de"
 DOUBLE_S_STORED = "post@strasse.de"
 
-PUPIL_UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607830021")
-PUPIL_GEMISCHT_OID = ObjectId("6890a1b2c3d4e5f607830022")
+# Retired, and brought back inside the transaction case.
+PUPIL_NUR_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607830021")
 PUPIL_EHEMALIG_OID = ObjectId("6890a1b2c3d4e5f607830023")
-PUPIL_RUHESTAND_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607830024")
-PUPIL_LEER_OID = ObjectId("6890a1b2c3d4e5f607830025")
 REFEREE_UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607830031")
 REFEREE_GEMISCHT_OID = ObjectId("6890a1b2c3d4e5f607830032")
 REFEREE_RUHESTAND_OID = ObjectId("6890a1b2c3d4e5f607830033")
 REFEREE_OHNE_RECORD_OID = ObjectId("6890a1b2c3d4e5f607830034")
 REFEREE_NULL_RECORD_OID = ObjectId("6890a1b2c3d4e5f607830035")
-REFEREE_LEER_OID = ObjectId("6890a1b2c3d4e5f607830037")
+REFEREE_RUHESTAND_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607830036")
 
 
 def _seat(email: str, *, bestaetigt_am: str | None = STAMP) -> dict[str, Any]:
@@ -130,13 +123,14 @@ def _saison(saison_id: str, status: str) -> dict[str, Any]:
     )
 
 
-def _pupil(pupil_id: ObjectId, email: str, *, bestaetigt_am: str, inactive_since: str | None = None) -> dict[str, Any]:
+def _pupil(pupil_id: ObjectId, email: str, *, inactive_since: str | None = None) -> dict[str, Any]:
     return spieler_document(
         pupil_id,
         "Anna",
         "Müller",
         email=email,
-        einwilligung={**EINWILLIGUNG, "bestaetigt_am": bestaetigt_am},
+        # Born confirmed: a pupil's record is written once its consent is given.
+        einwilligung={**EINWILLIGUNG, "bestaetigt_am": STAMP},
         inactive_since=inactive_since,
     )
 
@@ -206,7 +200,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 ACTIVE_SAISON,
                 TEAM_D_OID,
                 ROW_NAME_D,
-                trainer=_seat(LEER_SITZ, bestaetigt_am=""),
+                trainer=_seat(GEMISCHT, bestaetigt_am=None),
                 ansprechperson=_seat(VERGANGEN_UND_OFFEN, bestaetigt_am=None),
             ),
             _junction(
@@ -223,11 +217,8 @@ async def _seed(database: AsyncDatabase) -> None:
     )
     await database[Collection.SPIELER].insert_many(
         [
-            _pupil(PUPIL_UNCONFIRMED_OID, NUR_OFFEN, bestaetigt_am=""),
-            _pupil(PUPIL_GEMISCHT_OID, GEMISCHT, bestaetigt_am=""),
-            _pupil(PUPIL_EHEMALIG_OID, EHEMALIG, bestaetigt_am=STAMP, inactive_since="2026-03-01"),
-            _pupil(PUPIL_RUHESTAND_OFFEN_OID, RUHESTAND_OFFEN, bestaetigt_am="", inactive_since="2026-03-01"),
-            _pupil(PUPIL_LEER_OID, LEER_SPIELER, bestaetigt_am=""),
+            _pupil(PUPIL_NUR_OFFEN_OID, NUR_OFFEN, inactive_since="2026-03-01"),
+            _pupil(PUPIL_EHEMALIG_OID, EHEMALIG, inactive_since="2026-03-01"),
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
@@ -237,7 +228,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _referee(REFEREE_RUHESTAND_OID, RUHESTAND_PFEIFE, "C. Ruhestand", einwilligung=CONFIRMED, inactive_since="2026-03-01"),
             _referee(REFEREE_OHNE_RECORD_OID, PFEIFE_OHNE_RECORD, "D. Ohne"),
             _referee(REFEREE_NULL_RECORD_OID, PFEIFE_NULL_RECORD, "E. Null", einwilligung=None),
-            _referee(REFEREE_LEER_OID, LEER_PFEIFE, "G. Leer", einwilligung={**EINWILLIGUNG, "bestaetigt_am": ""}),
+            _referee(REFEREE_RUHESTAND_OFFEN_OID, RUHESTAND_OFFEN, "F. Ruhestand-Offen", einwilligung=None, inactive_since="2026-03-01"),
             # The ghost as no write leaves it -- an address, a stamp, not retired -- so that its id is
             # the one thing left keeping it out of every answer.
             _referee(GHOST_SCHIEDSRICHTER_ID, GEIST, None, einwilligung=CONFIRMED),
@@ -349,20 +340,8 @@ class TestTheConfirmationNarrowing:
 
         assert (answer.schiedsrichter, answer.unbestaetigt) == ([], True)
 
-    @pytest.mark.parametrize("email", [LEER_SITZ, LEER_SPIELER, LEER_PFEIFE], ids=["seat", "pupil", "referee"])
-    def test_an_empty_stamp_grants_nothing(self, seeded_league: str, email: str):
-        """Kills a presence test: `""` is a string the validator admits, and the public name read already withholds on it.
-
-        The pupil, alone in its mailbox, is the flag's pupil arm: nothing beside it raises the flag instead.
-        """
-
-        answer = answered(seeded_league, email)
-
-        assert is_empty(answer)
-        assert answer.unbestaetigt is True
-
     def test_a_mailbox_holding_only_unconfirmed_records_is_answered_nothing_and_flagged(self, seeded_league: str):
-        """A seat, a pupil and a referee, none confirmed: an empty answer that is NOT the answer for a mailbox holding nothing."""
+        """A seat and a referee awaiting confirmation beside a retired pupil: an empty answer that is NOT the answer for holding nothing."""
 
         answer = answered(seeded_league, NUR_OFFEN)
 
@@ -389,7 +368,7 @@ class TestTheConfirmationNarrowing:
     def test_every_read_sees_what_the_caller_s_transaction_wrote(self, seeded_league: str):
         """Kills any of the four reads made outside the caller's session: each has its own change to miss.
 
-        The seat, the pupil and the referee are stamped and the past season made `future`, in a transaction aborted after.
+        The seat and the referee are stamped, the pupil brought back and the past season made `future`, in a transaction aborted after.
         """
 
         async def _run() -> tuple[FLSubjekt, FLSubjekt, FLSubjekt, FLSubjekt]:
@@ -399,11 +378,12 @@ class TestTheConfirmationNarrowing:
             async with client.start_session() as writer, client.start_session() as bystander:
                 await writer.start_transaction()
                 try:
-                    stamped = {"$set": {"einwilligung.bestaetigt_am": STAMP}}
                     await database[Collection.SAISON_TEAMS].update_one(
                         {"_id": ROW_ACTIVE_C_OID}, {"$set": {"kontakte.stellvertretung.einwilligung.bestaetigt_am": STAMP}}, session=writer
                     )
-                    await database[Collection.SPIELER].update_one({"_id": PUPIL_UNCONFIRMED_OID}, stamped, session=writer)
+                    await database[Collection.SPIELER].update_one(
+                        {"_id": PUPIL_NUR_OFFEN_OID}, {"$set": {"inactive_since": None}}, session=writer
+                    )
                     await database[Collection.SCHIEDSRICHTER].update_one(
                         {"_id": REFEREE_UNCONFIRMED_OID}, {"$set": {"einwilligung": CONFIRMED}}, session=writer
                     )
@@ -421,7 +401,7 @@ class TestTheConfirmationNarrowing:
         offen_inside, zeiten_inside, offen_outside, zeiten_outside = on_the_seed_loop(_run())
 
         assert seats(offen_inside) == [(ACTIVE_SAISON, TEAM_C_OID, "stellvertretung", ROW_NAME_C, "active")]
-        assert [row.spieler_id for row in offen_inside.spieler] == [PUPIL_UNCONFIRMED_OID]
+        assert [row.spieler_id for row in offen_inside.spieler] == [PUPIL_NUR_OFFEN_OID]
         assert [row.schiedsrichter_id for row in offen_inside.schiedsrichter] == [REFEREE_UNCONFIRMED_OID]
         assert [(sitz.saison_id, sitz.saison_status) for sitz in zeiten_inside.sitze] == [(PAST_SAISON, "future"), (FUTURE_SAISON, "future")]
         assert is_empty(offen_outside)

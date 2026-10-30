@@ -11,9 +11,8 @@ from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.services import lebendige
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, ErasureJournal, erase_everything, resolve_subject
 from app.api.identitaet.schemas import (
-    FLAbmeldungPayload,
     FLAbmeldungResponse,
-    FLErasureAnsichtPayload,
+    FLErasureAdressePayload,
     FLErasureAnsichtResponse,
     FLErasurePayload,
     FLErasureResponse,
@@ -81,7 +80,7 @@ router = APIRouter(
     summary="Show what an erasure of an address would remove",
 )
 async def get_erasure_ansicht_auf_anfrage(
-    ansicht_data: Annotated[FLErasureAnsichtPayload, Body()],
+    ansicht_data: Annotated[FLErasureAdressePayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
     bewerbungen_collection: BewerbungenCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
@@ -373,7 +372,7 @@ async def erase_auf_anfrage(
     dependencies=[Depends(verify_step_up)],
 )
 async def post_abmeldung(
-    abmeldung_data: Annotated[FLAbmeldungPayload, Body()],
+    abmeldung_data: Annotated[FLErasureAdressePayload, Body()],
     aktionen_collection: AktionenCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,

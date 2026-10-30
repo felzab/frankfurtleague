@@ -35,8 +35,7 @@ FLAktionenFilters = Annotated[FLAktionenFilterParams, Query()]
 # row per (area, operation, kind) the log holds.
 FACET_TALLY: Final[Sequence[Mapping[str, Any]]] = (
     # Asked for in `aktionen_facets`'s key order, which is what makes the planner reach for it: the
-    # `$group` alone scans the log, images and all
-    # (`fl_backend/tests/core/test_constraints_execution.py :: AKTIONEN_TALLY_FILTERS`).
+    # `$group` alone scans the log, images and all.
     {"$sort": {"collection": ASCENDING, "operation": ASCENDING, "actor.kind": ASCENDING}},
     {
         "$group": {
@@ -125,25 +124,10 @@ async def get_aktionen(
     sperrliste: SperrlisteLookup,
     filters: FLAktionenFilters,
 ) -> FLAktionenListResponse:
-    """List what administrators changed, newest first; `vollstaendig` is false on a cut answer.
+    """List recorded writes newest first, `vollstaendig` false where `limit` cut them, an actor's `email` null where the ban list holds it.
 
-    Admin-tier twice over: every recorded write across every collection is here, public or not,
-    and each row names the administrator behind it — `null` beside `actor.email_gesperrt` where the
-    ban list holds that address, as no barred address is served in plain.
-
-    `collection`, `operation` and `herkunft` each take a comma-joined selection, or the parameter
-    repeated, and all three narrow this read. `herkunft` names no stored field: it is the category the
-    actor's kind is filed under, `person` covering every kind that authenticates somebody.
-
-    `anzahl_je_collection`, `anzahl_je_operation` and `anzahl_je_herkunft` count every row `trace_id`
-    and `document_id` leave, with the other two facets applied and their own ignored, so a caller
-    narrowed to one area still knows what asking for another would fetch; a value nothing was recorded
-    under is absent rather than zero. While either of those two terms is in force the counts are that
-    trace's or that document's and not the log's.
-
-    `trace_id` selects one request's whole fan-out, which this read serves under the same cap as any
-    other; a write made outside a request carries the sentinel `SYSTEM` there, which gathers every
-    such write rather than one (`docs/glossary.md :: Vorgangsnummer`).
+    `collection`, `operation` and `herkunft` take a comma-joined or repeated selection, and each
+    `anzahl_je_*` count applies every filter but its own facet, a value nothing was recorded under absent.
     """
 
     # Every term the three facets do not write, so the tally below narrows by these and by nothing else.
@@ -192,11 +176,7 @@ async def get_aktion_by_id(
     aktionen_collection: AktionenCollection,
     sperrliste: SperrlisteLookup,
 ) -> FLAktionSingleResponse:
-    """One row with the document its write replaced, which the list withholds.
-
-    The read a restore of one write would start from, so the image is served as recorded, every
-    address in it included; the actor is withheld as the list withholds it.
-    """
+    """One recorded write with the document it replaced, served as recorded; the actor is withheld as the list withholds it."""
 
     aktion_raw = await pull_one_from_db(collection=aktionen_collection, db_filter={"_id": aktion_id})
     [served] = await _as_served([aktion_raw], sperrliste=sperrliste)

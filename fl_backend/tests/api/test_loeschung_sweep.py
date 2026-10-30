@@ -1,5 +1,5 @@
 """
-API · the season-after rule's run and its preview, against the shipped validators and the whole database
+API · the season-after rule's run and its preview, against the shipped indexes and the whole database
 
 The league has two seasons ended, one running and one planned, so the rule keeps a squad row in the
 latest ended one and every later one. Every pupil a case seeds is held against what the rule says of
@@ -150,7 +150,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAGUE, mutates_schema: bool = False) -> Any:
-    """The shipped validators, the seasons, one team, and both sentinels as an erasure writes them."""
+    """The shipped indexes, the seasons, one team, and both sentinels as an erasure writes them."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
@@ -313,10 +313,7 @@ class TestThePopulation:
         assert on_a_league(mongo_replica_set_url, body) == [LABELS[TWO_SEASONS_BACK], LABELS[DECLINED_ALONE]]
 
     def test_neither_sentinel_is_read_or_touched(self, mongo_replica_set_url: str):
-        """Seeded as an erasure writes them. The pupils' sentinel is kept out twice, by its id and by holding no address.
-
-        Either term alone keeps it out, so only both removed turn this red.
-        """
+        """Seeded as an erasure writes them: the pupils' sentinel holds no address, which keeps it out."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             named = await population(database)
@@ -329,27 +326,6 @@ class TestThePopulation:
         assert named == []
         assert answer["spieler"] == 0
         assert ghost == build_ghost_spieler()
-
-    def test_the_pupils_sentinel_given_an_address_by_hand_is_kept_out_by_its_id(self, mongo_replica_set_url: str):
-        """The id term alone, which the case above cannot tell from the address term.
-
-        Named, the sentinel is counted in the press's „bis zu“ and read again, and passed over, on every pass.
-        """
-
-        by_hand = "von.hand@beispielschule.de"
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELER].update_one({"_id": build_ghost_spieler()["_id"]}, {"$set": {"email": by_hand}})
-            named = await population(database)
-            answer = await run(database, client)
-
-            return named, counts(answer), await database[Collection.SPIELER].find_one({"_id": build_ghost_spieler()["_id"]})
-
-        named, answer, ghost = on_a_league(mongo_replica_set_url, body)
-
-        assert named == []
-        assert (answer["spieler"], answer["uebersprungen"], answer["verbleibend"]) == (0, 0, 0)
-        assert ghost == {**build_ghost_spieler(), "email": by_hand}
 
 
 # --- The run.
@@ -500,50 +476,6 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
 
         assert (answer["spieler"], answer["registrierungen"], standing) == (1, 1, 0)
         assert registrations == [stranger]
-
-
-# --- A stored address no request matches: a hand correction left it unfolded.
-
-UNFOLDED = "Thessaly.Okonkwo@beispielschule.de"
-
-
-class TestAStoredAddressNoRequestMatchesIsPassedOver:
-    def test_the_pupil_stands_and_a_warning_names_them_by_id(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
-        """Read the page without the leave-out and no warning names them."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seeded(database, a_due_pupil(1), a_due_pupil(2))
-            await database[Collection.SPIELER].update_one({"_id": numbered(1)}, {"$set": {"email": UNFOLDED}})
-            answer = await run(database, client)
-
-            return counts(answer), answer.nach, await database[Collection.SPIELER].count_documents({"_id": numbered(1)})
-
-        with caplog.at_level(logging.WARNING):
-            answer, nach, standing = on_a_league(mongo_replica_set_url, body)
-
-        assert (answer["spieler"], answer["uebersprungen"], answer["verbleibend"], nach, standing) == (1, 0, 1, None, 1)
-        warnings = [record for record in caplog.records if getattr(record, "error_code", None) == Code.STORED_DATA_INVALID]
-        assert [(record.getMessage(), getattr(record, "spieler_ids", None)) for record in warnings] == [
-            ("identitaet.loeschung_unaddressed", [str(numbered(1))])
-        ]
-        assert not [record for record in warnings if "thessaly" in JSONFormatter().format(record).lower()]
-
-    def test_one_corrected_so_after_the_read_is_judged_again_and_stands(self, mongo_replica_set_url: str):
-        """The transaction's own judgement: drop its stored-address test and the erasure runs on a spelling no row holds folded."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await seeded(database, a_due_pupil(1))
-
-            async def correct_it() -> None:
-                await database[Collection.SPIELER].update_one({"_id": numbered(1)}, {"$set": {"email": address_of(1).capitalize()}})
-
-            answer = await run(database, client, spieler_collection=WrittenAfterThePopulationRead(database[Collection.SPIELER], correct_it))
-
-            return counts(answer), await database[Collection.SPIELER].count_documents({"_id": numbered(1)})
-
-        answer, standing = on_a_league(mongo_replica_set_url, body)
-
-        assert (answer["spieler"], answer["uebersprungen"], standing) == (0, 1, 1)
 
 
 # --- A rival committing INSIDE a pupil's transaction, after its snapshot and before its first write.
