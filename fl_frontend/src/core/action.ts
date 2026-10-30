@@ -40,8 +40,8 @@ export type ActionAnswer<Value = undefined> =
 /** A code the catalogue words in a person's own terms, `SERVER_COPY.ablehnung`'s keys. */
 type WordedCode = keyof typeof SERVER_COPY.ablehnung;
 
-/** A rule the catalogue words, by the kind a refused payload's field names it with, `COPY.shared.regel`'s keys. */
-type WordedRule = keyof typeof COPY.shared.regel;
+/** A rule the catalogue words, by the kind a refused payload's field names it with, `SERVER_COPY.regel`'s keys. */
+type WordedRule = keyof typeof SERVER_COPY.regel;
 
 /** The dotted path of every leaf of an input, a list counting as one leaf: the key its box's message is answered by. */
 type Field<T, Above extends string = ""> = T extends readonly unknown[]
@@ -201,7 +201,7 @@ function parsed<Schema extends z.ZodType>(
   return { answer: unplaced ? UNEXPECTED : { ok: false, fieldErrors } };
 }
 
-const isWordedRule = (kind: string): kind is WordedRule => Object.hasOwn(COPY.shared.regel, kind);
+const isWordedRule = (kind: string): kind is WordedRule => Object.hasOwn(SERVER_COPY.regel, kind);
 
 /**
  * A refused payload in this screen's words, each broken rule on the box the screen names for it, or `undefined` where
@@ -215,8 +215,8 @@ function brokenRules<Schema extends z.ZodType>(declared: Declared<Schema>, field
     const placed = isWordedRule(kind) ? declared.ownWords?.[kind] : undefined;
     if (placed === undefined || !isWordedRule(kind)) return undefined;
     // The first rule a box broke is the one it shows.
-    if (typeof placed === "string") fieldErrors[placed] ??= COPY.shared.regel[kind];
-    else reason ??= COPY.shared.regel[kind];
+    if (typeof placed === "string") fieldErrors[placed] ??= SERVER_COPY.regel[kind];
+    else reason ??= SERVER_COPY.regel[kind];
   }
   return {
     ok: false,

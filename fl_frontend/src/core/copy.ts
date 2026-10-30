@@ -97,35 +97,6 @@ export const COPY = katalog({
       zugangUngeprueft: "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen. Versuch es erneut.",
     },
 
-    /**
-     * A rule's own words, by the kind the backend refuses a payload with (`fields[].kind`), for a rule its published
-     * schema cannot carry and a person can break: placed as `ablehnung` places a code. A field's rule is a field's
-     * phrase; a rule over several fields is its reason and its repair.
-     */
-    regel: {
-      saison_year_out_of_range: "Ein Jahr von 2026 bis zum nächsten Jahr",
-      address_in_free_text: "Ohne E-Mail-Adresse",
-      email_not_accepted: "Eine Adresse ohne Umlaute oder Akzente vor dem @",
-      date_not_in_calendar: "Ein Datum, das es im Kalender gibt",
-      url_not_accepted: "Eine Webadresse, die mit http:// oder https:// beginnt",
-      saison_ends_before_start: "Die Saison endet vor ihrem Beginn. Wähle ein Ende nach dem Beginn.",
-      bewerbung_window_ends_before_start: "Die Bewerbungsfrist endet vor ihrem Beginn. Wähle ein Ende nach dem Beginn.",
-      registrierung_window_ends_before_start: "Die Registrierungsfrist endet vor ihrem Beginn. Wähle ein Ende nach dem Beginn.",
-      spieltag_ends_before_start: "Der Spieltag endet vor seinem Beginn. Wähle ein Ende nach dem Beginn.",
-      gute_spieler_exceed_kader:
-        "Es sind mehr gute Spieler angegeben, als der Kader voraussichtlich Spieler hat. Gib höchstens so viele an wie die voraussichtliche Kadergröße.",
-      kontakt_email_twice: "Zwei Kontaktpersonen haben dieselbe E-Mail-Adresse. Gib jeder Person ihre eigene.",
-      kontakt_telefon_twice: "Zwei Kontaktpersonen haben dieselbe Telefonnummer. Gib jeder Person ihre eigene.",
-      elfmeterschiessen_without_winner: "Ein Elfmeterschießen endet nicht unentschieden. Trag für eine Seite mehr Treffer ein.",
-      nichtantreten_with_tore: "Bei einem Nichtantreten stehen keine Tore im Bericht, das Ergebnis setzt die Liga. Lösche die Tore.",
-      nichtantreten_with_torschuetzen: "Bei einem Nichtantreten gibt es keine Torschützen. Lösche die Einträge.",
-      ergebnis_missing_tore: "Zum Ergebnis gehören die Tore beider Teams. Trag sie für beide Teams ein.",
-      elfmeterschiessen_without_draw: "Ein Elfmeterschießen folgt nur auf ein Unentschieden. Lösche es, oder trag ein Unentschieden ein.",
-      torschuetzen_not_matching_tore: "Die Torschützen ergeben ein anderes Ergebnis als die Tore. Trag für jedes Tor genau einen Eintrag ein.",
-      decline_without_proposal: "Wer absagt, schlägt einen anderen Termin vor. Wähle einen Termin.",
-      decline_without_reason: "Wer absagt, nennt einen Grund. Schreib kurz, warum.",
-    },
-
     /** Beside the save button once the record is stored. */
     gespeichert: "Gespeichert",
 
