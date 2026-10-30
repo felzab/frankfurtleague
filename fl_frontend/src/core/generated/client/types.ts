@@ -2861,24 +2861,6 @@ export interface FLKaderResponse {
   team_id: string;
 }
 
-/**
- * The row as a representative's edit or austragen left it, its shirt marker judged against the squad after the write.
- */
-export interface FLKaderZeileResponse {
-  inactive_since: string | null;
-  ist_nachnominiert: boolean;
-  nachname: string | null;
-  nummer: string | null;
-  nummer_doppelt: boolean;
-  position: FLSpielerPosition | null;
-  rolle: FLSpielerRolle | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spieler_id: string;
-  stufe: FLSpielerStufe | null;
-  /** @minLength 1 */
-  vorname: string;
-}
-
 export interface FLKontakt {
   email: string | null;
   telefon: string | null;

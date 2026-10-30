@@ -6646,107 +6646,6 @@
         "title": "FLKaderZeile",
         "type": "object"
       },
-      "FLKaderZeileResponse": {
-        "description": "The row as a representative's edit or austragen left it, its shirt marker judged against the squad after the write.",
-        "properties": {
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
-          },
-          "ist_nachnominiert": {
-            "title": "Ist Nachnominiert",
-            "type": "boolean"
-          },
-          "nachname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nachname"
-          },
-          "nummer": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nummer"
-          },
-          "nummer_doppelt": {
-            "title": "Nummer Doppelt",
-            "type": "boolean"
-          },
-          "position": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerPosition"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "rolle": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerRolle"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "spieler_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spieler Id",
-            "type": "string"
-          },
-          "stufe": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerStufe"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "vorname": {
-            "minLength": 1,
-            "title": "Vorname",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spieler_id",
-          "vorname",
-          "nachname",
-          "nummer",
-          "position",
-          "stufe",
-          "rolle",
-          "ist_nachnominiert",
-          "inactive_since",
-          "nummer_doppelt"
-        ],
-        "title": "FLKaderZeileResponse",
-        "type": "object"
-      },
       "FLKontakt": {
         "properties": {
           "email": {
@@ -28352,7 +28251,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLKaderZeileResponse"
+                  "$ref": "#/components/schemas/FLKaderZeile"
                 }
               }
             },
@@ -28458,7 +28357,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLKaderZeileResponse"
+                  "$ref": "#/components/schemas/FLKaderZeile"
                 }
               }
             },

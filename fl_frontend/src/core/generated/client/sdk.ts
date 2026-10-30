@@ -86,7 +86,7 @@ import type {
   FLGesperrtPayload,
   FLGesperrtResponse,
   FLKaderResponse,
-  FLKaderZeileResponse,
+  FLKaderZeile,
   FLKontaktEinladenResponse,
   FLKontoAdresswechselFreigabePayload,
   FLKontoAdresswechselFreigabeResponse,
@@ -4543,8 +4543,8 @@ export const spielerDeleteKaderZeile = async (
   saisonId: string,
   spielerId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLKaderZeileResponse> => {
-  return adminKeyTransport<FLKaderZeileResponse>(getSpielerDeleteKaderZeileUrl(teamId, saisonId, spielerId), {
+): Promise<FLKaderZeile> => {
+  return adminKeyTransport<FLKaderZeile>(getSpielerDeleteKaderZeileUrl(teamId, saisonId, spielerId), {
     ...options,
     method: "DELETE",
   });
@@ -4570,7 +4570,7 @@ export const spielerPatchKaderZeile = async (
   spielerId: string,
   fLPatchKaderZeilePayload: FLPatchKaderZeilePayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLKaderZeileResponse> => {
+): Promise<FLKaderZeile> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -4583,7 +4583,7 @@ export const spielerPatchKaderZeile = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLKaderZeileResponse>(getSpielerPatchKaderZeileUrl(teamId, saisonId, spielerId), {
+  return adminKeyTransport<FLKaderZeile>(getSpielerPatchKaderZeileUrl(teamId, saisonId, spielerId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },

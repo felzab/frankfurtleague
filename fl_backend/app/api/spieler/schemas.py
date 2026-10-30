@@ -343,7 +343,7 @@ class FLSpielerMembershipsResponse(BaseAPIResponse):
     spieler: list[FLSpielerWithMemberships]
 
 
-class FLKaderZeile(BaseModel):
+class FLKaderZeile(BaseAPIResponse):
     """One squad row as its team's seat holder reads it (`READ-KADER-001`).
 
     Declared from nothing rather than a public model unmasked, so the whole surname reaches no
@@ -377,10 +377,6 @@ class FLKaderResponse(BaseAPIResponse):
     # publishes what the season guarantees.
     erlaubte_stufen: list[FLSpielerStufe] = Field(min_length=1)
     kader: list[FLKaderZeile]
-
-
-class FLKaderZeileResponse(FLKaderZeile, BaseAPIResponse):
-    """The row as a representative's edit or austragen left it, its shirt marker judged against the squad after the write."""
 
 
 class FLPatchKaderZeilePayload(BaseModel):
