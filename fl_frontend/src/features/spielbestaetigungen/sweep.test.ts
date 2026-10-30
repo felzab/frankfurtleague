@@ -24,14 +24,13 @@ const ANGEFRAGT = (saisonId: string) => `/spielbestaetigungen/sweep/${saisonId}/
 const MITGETEILT = (saisonId: string) => `/spielbestaetigungen/sweep/${saisonId}/mitgeteilt`;
 
 /** The listing's answer, and each season's pass's, which a case sets. */
-let listeAnswer: () => unknown = () => ({ acknowledged: 1, saison_ids: [], spiel_sweep_gelaufen_am: null });
+let listeAnswer: () => unknown = () => ({ saison_ids: [] });
 let passAnswer: (saisonId: string) => unknown = (saisonId) => leererPass(saisonId);
 
 /** Ids in the `_id` alphabet, one per row a case names. */
 const id = (n: number): string => n.toString(16).padStart(24, "a");
 
 const leererPass = (saisonId: string) => ({
-  acknowledged: 1,
   saison_id: saisonId,
   anfragen: [],
   erinnerungen: [],
@@ -89,10 +88,10 @@ const einteilung = (n: number, address: string) => ({ spielbestaetigung_id: id(n
 doubleApiClient(async (call: ApiCall, schema) => {
   // The grants' pass is armed by the same boot and answers to its own suite: here it claims nothing and is not recorded.
   if (call.endpoint.startsWith("/berechtigungen")) {
-    return schema.parse({ acknowledged: 1, beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 });
+    return schema.parse({ beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 });
   }
   // The delivery record an accepted send files, which the backend applies; not this pass's own call.
-  if (call.endpoint.startsWith("/zustellung/")) return schema.parse({ acknowledged: 1, angewendet: true });
+  if (call.endpoint.startsWith("/zustellung/")) return schema.parse({ angewendet: true });
 
   const body: unknown = call.body === undefined ? undefined : JSON.parse(call.body);
   ereignisse.push({ art: "api", endpoint: call.endpoint, body: body });
@@ -101,13 +100,13 @@ doubleApiClient(async (call: ApiCall, schema) => {
   const angefragt = /^\/spielbestaetigungen\/sweep\/(\d+)\/angefragt$/.exec(call.endpoint);
   if (angefragt !== null) {
     const ids = (body as { spielbestaetigung_ids: string[] }).spielbestaetigung_ids;
-    return schema.parse({ acknowledged: 1, saison_id: angefragt[1], angefragt: ids.length, fehlgeschlagen: 0 });
+    return schema.parse({ saison_id: angefragt[1], angefragt: ids.length, fehlgeschlagen: 0 });
   }
   const mitgeteilt = /^\/spielbestaetigungen\/sweep\/(\d+)\/mitgeteilt$/.exec(call.endpoint);
   if (mitgeteilt !== null) {
     if (mitgeteiltScheitert) throw new Error("the notices' stamp went unanswered");
     const ids = (body as { spielbestaetigung_ids: string[] }).spielbestaetigung_ids;
-    return schema.parse({ acknowledged: 1, saison_id: mitgeteilt[1], mitgeteilt: ids.length });
+    return schema.parse({ saison_id: mitgeteilt[1], mitgeteilt: ids.length });
   }
   const pass = /^\/spielbestaetigungen\/sweep\/(\d+)$/.exec(call.endpoint);
   assert.ok(pass !== null, `the pass reached a route nothing here answers: ${call.endpoint}`);
@@ -182,7 +181,7 @@ beforeEach(() => {
   sweepSwitch = "on";
   mitgeteiltScheitert = false;
   appEnv = "production";
-  listeAnswer = () => ({ acknowledged: 1, saison_ids: ["2627"], spiel_sweep_gelaufen_am: null });
+  listeAnswer = () => ({ saison_ids: ["2627"] });
   passAnswer = (saisonId) => leererPass(saisonId);
   mail.answerWith((sent) => {
     // Recorded here as well, so a message and a call stay in the order they ran.
@@ -623,7 +622,7 @@ describe("what one pass mails", () => {
 
   /* Never in parallel: a fan-out would put every season's mail on the transport at once. */
   it("visits the seasons one at a time, in the order listed", async () => {
-    listeAnswer = () => ({ acknowledged: 1, saison_ids: ["2627", "2728"], spiel_sweep_gelaufen_am: null });
+    listeAnswer = () => ({ saison_ids: ["2627", "2728"] });
     passAnswer = (saisonId) => ({ ...leererPass(saisonId), anfragen: [anfrage(saisonId === "2627" ? 1 : 2, `${saisonId}@schule.de`)] });
 
     await runSpielSweep();
@@ -703,7 +702,7 @@ describe("the pass's lines", () => {
   });
 
   it("files a season it could not sweep under its own code, and goes on to the next", async () => {
-    listeAnswer = () => ({ acknowledged: 1, saison_ids: ["2627", "2728"], spiel_sweep_gelaufen_am: null });
+    listeAnswer = () => ({ saison_ids: ["2627", "2728"] });
     passAnswer = (saisonId) => {
       if (saisonId === "2627") throw new Error("the pass was refused");
       return leererPass(saisonId);
@@ -725,8 +724,7 @@ describe("the pass's lines", () => {
   /* A pass slower than the hour would otherwise mail beside itself before either reached its stamp. */
   it("skips a tick that finds the previous pass still running, with one line and no call", async () => {
     const gehalten: (() => void)[] = [];
-    listeAnswer = () =>
-      new Promise((resolve) => void gehalten.push(() => resolve({ acknowledged: 1, saison_ids: [], spiel_sweep_gelaufen_am: null })));
+    listeAnswer = () => new Promise((resolve) => void gehalten.push(() => resolve({ saison_ids: [] })));
 
     const laufend = runSpielSweep();
     await runSpielSweep();
