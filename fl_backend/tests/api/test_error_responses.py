@@ -38,7 +38,7 @@ APP = application()
 
 def client() -> TestClient:
     # No context manager, so the lifespan must not run: a client that never opens the database makes
-    # the first guarded read raise a real `DB-CONN-001` rather than a hand-mocked exception.
+    # the first guarded read raise a real `no_database_client` rather than a hand-mocked exception.
     return TestClient(APP, raise_server_exceptions=False)
 
 
@@ -83,7 +83,7 @@ async def refuse_a_nested_field(payload: NestedPayload) -> dict[str, bool]:
 
 
 # A code of a rule no route here enforces, so only this case's own route answers it.
-PLANTED_REFUSAL = Code.RULES_GROUPS_IN_USE
+PLANTED_REFUSAL = Code.RULES_GRUPPEN_IN_USE
 JUDGED_PATH = ("kontakt", "email")
 
 
@@ -124,14 +124,14 @@ class TestFailureBodies:
 
         assert response.status_code == 401
         body = response.json()
-        assert body["error_code"] == Code.MISSING_TOKEN
+        assert body["error_code"] == Code.ACCESS_KEY_REFUSED
         assert re.fullmatch(r"[a-f0-9]{32}", body["trace_id"])
         assert response.headers["WWW-Authenticate"] == "Bearer"
 
     def test_a_wrong_key_is_distinguishable_by_code(self):
         response = client().get("/api/v0/spiele", headers={"Authorization": "Bearer wrong"})
 
-        assert (response.status_code, response.json()["error_code"]) == (401, Code.WRONG_BASE_KEY)
+        assert (response.status_code, response.json()["error_code"]) == (401, Code.ACCESS_KEY_REFUSED)
 
     def test_an_unavailable_database_is_503_with_its_code(self):
         response = client().get("/api/v0/spiele", headers=BASE_AUTH)
@@ -227,7 +227,7 @@ class TestTheAccessLineCarriesTheRefusal:
     """A refusal writes no line of its own, so the access line is the one record of which code a request answered."""
 
     def test_a_refusal_s_code_rides_its_access_line(self, caplog):
-        assert access_codes(caplog, lambda: client().get("/api/v0/spiele")) == [Code.MISSING_TOKEN]
+        assert access_codes(caplog, lambda: client().get("/api/v0/spiele")) == [Code.ACCESS_KEY_REFUSED]
 
     def test_a_success_s_access_line_carries_no_code(self, caplog):
         assert access_codes(caplog, lambda: client().get("/")) == [None]

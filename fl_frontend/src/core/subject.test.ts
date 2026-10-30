@@ -406,7 +406,7 @@ describe("the request the seam makes", () => {
   it("throws where the backend answers a status rather than records", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    nextAnswer = new Response(JSON.stringify({ error_code: "REQ-VAL-001" }), {
+    nextAnswer = new Response(JSON.stringify({ error_code: "payload_refused" }), {
       status: 500,
       headers: { "content-type": "application/json" },
     });

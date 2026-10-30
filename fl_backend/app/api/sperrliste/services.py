@@ -72,7 +72,7 @@ def compose_gesperrt_bis_saison_id(*, massgebliche_saison_id: str) -> str:
 
 
 def find_keine_saison_refusal(*, massgebliche_saison_id: str | None) -> WriteRefusal | None:
-    """`REQ-SPERRLISTE-002`: while no season is running there is nothing to count five seasons from.
+    """`sperrliste_keine_saison`: while no season is running there is nothing to count five seasons from.
 
     A ban written there would need an unbounded row, which is the shape the lapse exists to refuse.
     """
@@ -108,7 +108,7 @@ def berechtigte_hashes(administrators: Iterable[str], *, schluessel: SecretStr) 
 
 
 def find_verwaltung_refusal(*, gehasht: str, berechtigt: set[str]) -> WriteRefusal | None:
-    """`REQ-SPERRLISTE-003`: the address holds a grant in `berechtigungen`, which is revoked first.
+    """`sperrliste_verwaltung`: the address holds a grant in `berechtigungen`, which is revoked first.
 
     The target's state, so 409: the ban is refused for what the address is, and revoking the grant
     is what changes it.
@@ -124,7 +124,7 @@ def find_verwaltung_refusal(*, gehasht: str, berechtigt: set[str]) -> WriteRefus
 
 
 def find_sperrliste_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-SPERRLISTE-001`: the list already holds this address.
+    """`duplicate_key`: the list already holds this address.
 
     Takes the answer rather than the lookup, so the caller's read runs in the caller's transaction.
     """
@@ -133,6 +133,6 @@ def find_sperrliste_refusal(*, gesperrt: bool) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=Code.SPERRLISTE_ADRESSE_GESPERRT,
+        error_code=Code.DUPLICATE_KEY,
         status=HTTPStatus.CONFLICT,
     )

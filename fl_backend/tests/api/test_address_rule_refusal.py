@@ -1,5 +1,6 @@
 import asyncio
 import importlib
+import json
 import pkgutil
 import warnings
 from collections.abc import Callable, Iterator, Mapping
@@ -17,9 +18,8 @@ from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.shared.folding import league_address
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
-from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
-from tests.config import ADMIN_KEY, ADMINISTRATORS, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI
+from tests.config import BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI
 
 # Built from code points rather than spelled: each renders like the ASCII character beside it, and a
 # reader fixing the "typo" would leave every case below comparing ASCII with ASCII.
@@ -48,60 +48,31 @@ UNICODE_DOMAIN = f"anna@m{chr(0xFC)}ller.de"
 UNICODE_DOMAIN_STORED = "anna@xn--mller-kva.de"
 
 # The control's answer: a well-formed request that got past validation and reached the database. The
-# refusal's is `REQ-VAL-001`, and a keying crash answers `SRV-FAIL-001`. Either database code, since
-# which one a cut write answers is `app/core/exception_handlers.py :: db_exception_handler`'s question.
+# refusal's is `payload_refused`, and a keying crash answers `unhandled_crash`.
 UNREACHED_DATABASE = {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
 
-ADMIN_HEADERS = SignedActor("admin@frankfurtleague.de", ADMIN_KEY)
 
-REFEREE_ID = "6890a1b2c3d4e5f607830001"
+def registered(email: str) -> Response:
+    body = {"token": "x" * 43, "vorname": "Anna", "nachname": "Müller", "email": email, "position": None, "nummer": None, "stufe": None}
 
-
-def _referee(email: str) -> dict[str, Any]:
-    return {"name": "Anna Pfeife", "schule": None, "default_payment": 20, "kontakt": {"telefon": None, "email": email}}
-
-
-def _registration(email: str) -> dict[str, Any]:
-    return {"token": "x" * 43, "vorname": "Anna", "nachname": "Müller", "email": email, "position": None, "nummer": None, "stufe": None}
-
-
-# The four routes that key an address a request carries on the ban list, each with the body it needs
-# and the headers its guards ask for: a guard refusing first would answer 401 and hide the judgement.
-ROUTES = {
-    "POST /registrierungen": ("POST", "/registrierungen", BASE_AUTH, _registration),
-    "POST /sperrliste": (
-        "POST",
-        "/sperrliste",
-        ADMIN_HEADERS,
-        lambda email: {"email": email, "grund": "Falsche Angabe", "benachrichtigen": False},
-    ),
-    "POST /schiedsrichter": ("POST", "/schiedsrichter", ADMIN_HEADERS, _referee),
-    "PATCH /schiedsrichter/{schiedsrichter_id}": ("PATCH", f"/schiedsrichter/{REFEREE_ID}", ADMIN_HEADERS, _referee),
-}
-
-
-def answered(route: str, email: str) -> Response:
-    method, path, headers, body = ROUTES[route]
-
-    return requested(method, path, headers, json=body(email))
-
-
-def requested(method: str, path: str, headers: Mapping[str, str], **sent: Any) -> Response:
     async def _answered() -> Response:
-        async with app_client(UNANSWERED_URI, admitting=ADMINISTRATORS) as http:
-            # The app's deadline would hold each control against this unanswered server; nested in
-            # this one it cannot extend it. With `admitting` answering the actor check, a refused
-            # body touches no driver, so no deadline turns a 422 into the control's.
+        async with app_client(UNANSWERED_URI) as http:
+            # The app's deadline would hold the control against this unanswered server; nested in
+            # this one it cannot extend it. A refused body touches no driver, so no deadline turns a
+            # 422 into the control's.
             with pymongo.timeout(UNANSWERED_DEADLINE_S):
-                return await http.request(method, f"/api/v{API_VERSION}{path}", headers=headers, **sent)
+                return await http.post(f"/api/v{API_VERSION}/registrierungen", headers=BASE_AUTH, json=body)
 
     return asyncio.run(_answered())
 
 
-class TestEveryKeyingRouteRefusesALocalPartBeyondAscii:
+class TestARegistrationRefusesALocalPartBeyondAscii:
     """A 422 at the box, never a 500 at the ban list's keying.
 
-    The two routes keying a STORED address are held by `app/api/schiedsrichter/services.py :: find_missing_address_refusal` instead.
+    The one route keying an address a request carries that no actor check stands before, so a server
+    answering nothing still shows where the refusal falls. The administrators' keying payloads are
+    held by `TestEveryAddressPayloadHoldsTheSameRule` below, and the two routes keying a STORED
+    address by `app/api/schiedsrichter/services.py :: find_missing_address_refusal`.
     """
 
     @pytest.mark.parametrize("email", BEYOND_ASCII)
@@ -110,19 +81,17 @@ class TestEveryKeyingRouteRefusesALocalPartBeyondAscii:
 
         TypeAdapter(EmailStr).validate_python(email)
 
-    @pytest.mark.parametrize("route", list(ROUTES))
-    def test_the_address_is_refused_before_anything_is_keyed(self, route: str):
-        """One shape per route: `TestEveryAddressPayloadHoldsTheSameRule` crosses every shape with every field these routes take."""
+    def test_the_address_is_refused_before_anything_is_keyed(self):
+        """One shape: `TestEveryAddressPayloadHoldsTheSameRule` crosses every shape with every field."""
 
-        response = answered(route, UMLAUT_LOCAL_PART)
+        response = registered(UMLAUT_LOCAL_PART)
 
         assert (response.status_code, response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
 
-    @pytest.mark.parametrize("route", list(ROUTES))
-    def test_an_address_above_ascii_in_its_domain_alone_reaches_the_database(self, route: str):
-        """The control: without it, a route refusing every body would pass the matrix above."""
+    def test_an_address_above_ascii_in_its_domain_alone_reaches_the_database(self):
+        """The control: without it, a route refusing every body would pass the case above."""
 
-        response = answered(route, UNICODE_DOMAIN)
+        response = registered(UNICODE_DOMAIN)
 
         assert response.status_code == 500, response.json()
         assert response.json()["error_code"] in UNREACHED_DATABASE, response.json()
@@ -205,7 +174,7 @@ KNOWN_ADDRESS_FIELDS = {
 
 
 class TestEveryAddressPayloadHoldsTheSameRule:
-    """The four routes above key a ban; every other payload stores or joins the same address, so one keyed later crashes there."""
+    """The routes taking these payloads key a ban; every other payload stores or joins the same address, so one keyed later crashes there."""
 
     def test_the_sweep_finds_the_payloads_it_is_for(self):
         assert KNOWN_ADDRESS_FIELDS <= set(ADDRESS_FIELDS)
@@ -221,7 +190,7 @@ class TestEveryAddressPayloadHoldsTheSameRule:
         assert ADDRESS_FIELDS[field].validate_python(UNICODE_DOMAIN) == UNICODE_DOMAIN_STORED
 
     def test_the_refusal_quotes_nothing_of_the_address(self):
-        """The message reaches the log line `REQ-VAL-001` writes, and an erasure reaches no log sink."""
+        """The message reaches the log line `payload_refused` writes, and an erasure reaches no log sink."""
 
         local_part = "zorbanax"
         with pytest.raises(ValidationError) as raised:
@@ -261,39 +230,36 @@ class TestTheErasureLooksUpWhatAnyRuleStored:
             payload(email)
 
 
-# The routes whose `email` reaches a `$regex` under no address rule. Raw bytes, because a lone
-# surrogate is a JSON escape no encoder of a `str` writes.
-FREE_STRING_ROUTES = {
-    "POST /identitaet/erasure/ansicht": ("/identitaet/erasure/ansicht", ""),
-    "POST /identitaet/erasure": ("/identitaet/erasure", ', "anlass": "Mail vom 30.03.2026"'),
+# The payloads whose `email` reaches a `$regex` under no address rule, each with what its route's body
+# carries beside it. Raw JSON, because a lone surrogate is a JSON escape no encoder of a `str` writes.
+FREE_STRING_PAYLOADS: Mapping[str, tuple[type[FLErasureAdressePayload], str]] = {
+    "the lookup": (FLErasureAdressePayload, ""),
+    "the erasure": (FLErasurePayload, ', "anlass": "Mail vom 30.03.2026"'),
 }
 
 PLAIN_ADDRESS = "a@schule.de"
 
 
-def posted_raw(route: str, value: str) -> Response:
-    """`value` is JSON string content, escapes included, placed between the quotes unchanged."""
+def validated_raw(payload: str, value: str) -> FLErasureAdressePayload:
+    """`value` is JSON string content, escapes included, decoded as the route decodes its body before validating it."""
 
-    path, rest = FREE_STRING_ROUTES[route]
-    body = f'{{"email": "{value}"{rest}}}'.encode("ascii")
+    model, rest = FREE_STRING_PAYLOADS[payload]
 
-    return requested("POST", path, {**ADMIN_HEADERS, "content-type": "application/json"}, content=body)
+    return model.model_validate(json.loads(f'{{"email": "{value}"{rest}}}'))
 
 
 class TestAStringNoDatabaseStoresIsRefusedAtTheBox:
     """A lone surrogate reaching the driver fails its encoding as a 500; the payload refuses it first."""
 
-    @pytest.mark.parametrize("route", list(FREE_STRING_ROUTES))
-    def test_a_lone_surrogate_is_refused(self, route: str):
-        response = posted_raw(route, "a\\ud800@schule.de")
+    @pytest.mark.parametrize("payload", list(FREE_STRING_PAYLOADS))
+    def test_a_lone_surrogate_is_refused(self, payload: str):
+        with pytest.raises(ValidationError) as raised:
+            validated_raw(payload, "a\\ud800@schule.de")
 
-        assert (response.status_code, response.json()["error_code"]) == (422, Code.PAYLOAD_REFUSED)
+        assert [error["loc"] for error in raised.value.errors()] == [("email",)]
 
-    @pytest.mark.parametrize("route", list(FREE_STRING_ROUTES))
-    def test_the_same_body_spelled_plainly_reaches_the_database(self, route: str):
-        """The control: without it, a route refusing every raw body would pass the case above."""
+    @pytest.mark.parametrize("payload", list(FREE_STRING_PAYLOADS))
+    def test_the_same_body_spelled_plainly_is_taken(self, payload: str):
+        """The control: without it, a payload refusing every raw body would pass the case above."""
 
-        response = posted_raw(route, PLAIN_ADDRESS)
-
-        assert response.status_code == 500, response.json()
-        assert response.json()["error_code"] in UNREACHED_DATABASE, response.json()
+        assert validated_raw(payload, PLAIN_ADDRESS).email == PLAIN_ADDRESS

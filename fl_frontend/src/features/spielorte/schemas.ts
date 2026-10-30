@@ -5,7 +5,7 @@ import { CustomObjectIdStringSchema, FLAddressPayloadSchema } from "@/shared/sch
 /** Shared by create and patch, which mirror one backend class: the patch replaces the venue wholesale. */
 const spielortPayloadFields = {
   // Trimmed before the floor counts it, as `fl_backend/app/api/spielorte/schemas.py :: _SpielortPayload`
-  // is: the API refuses a name of spaces alone with a `REQ-VAL-001` marking the box with a generic
+  // is: the API refuses a name of spaces alone with a `payload_refused` marking the box with a generic
   // sentence, so a looser mirror loses the floor's German.
   name: z.string().trim().nonempty({ error: "Bitte gib einen Namen ein." }),
   default_mietpreis: z

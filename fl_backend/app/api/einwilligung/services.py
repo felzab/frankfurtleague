@@ -83,7 +83,7 @@ def find_selbst_medien_refusal(*, gespeichert: Any, medien: bool, geburtsdatum: 
         return None
 
     return WriteRefusal(
-        error_code=Code.SELBST_MEDIEN_ALTER,
+        error_code=Code.MEDIEN_ALTER,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         fields=(("medien",),),
     )

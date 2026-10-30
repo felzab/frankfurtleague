@@ -268,7 +268,7 @@ describe("POST /api/mail/zustellung where the backend does not take the event", 
      endpoint's standing with the provider. */
   it("answers 200 where the row no longer exists, and writes one line", async () => {
     answer = () => {
-      throw refused("DB-COMMON-001");
+      throw refused("document_not_found");
     };
 
     expect(await statusFor(eventFor("email.delivered"))).toBe(200);
@@ -297,13 +297,13 @@ describe("POST /api/mail/zustellung where the backend does not take the event", 
         traceId: "t".repeat(32),
       });
 
-    expect(await answered(badStatus(409, "DB-COMMON-002")), "an event the store already holds was sent back").toBe(200);
+    expect(await answered(badStatus(409, "duplicate_key")), "an event the store already holds was sent back").toBe(200);
     for (const [statusCode, code] of [
-      [404, "REQ-ROUTE-001"],
-      [405, "REQ-ROUTE-002"],
+      [404, "no_route"],
+      [405, "method_not_served"],
       [404, undefined],
-      [401, "REQ-AUTH-003"],
-      [422, "REQ-VAL-001"],
+      [401, "access_key_refused"],
+      [422, "payload_refused"],
       [500, undefined],
     ] as const) {
       expect(await answered(badStatus(statusCode, code)), `${String(code)} at ${String(statusCode)} settled the event`).toBe(503);

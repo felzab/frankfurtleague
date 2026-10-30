@@ -198,7 +198,7 @@ class TestTheWholeSeason:
 
 
 class TestTheLargestLegalSeasonFitsInOneRead:
-    """Why `REQ-RULES-013` refuses a shape the field bounds each accept.
+    """Why `rules_spiele_over_one_read` refuses a shape the field bounds each accept.
 
     Past `LIST_LIMIT_DEFAULT` a season-scoped read is truncated, and every refusal `find_rules_refusal` computes over one would then be
     judging a partial season.
@@ -210,10 +210,10 @@ class TestTheLargestLegalSeasonFitsInOneRead:
         refusal = refusal_for(widest_legal_rules())
 
         assert refusal is not None
-        assert refusal.error_code == Code.RULES_FIXTURES_OVER_ONE_READ
+        assert refusal.error_code == Code.RULES_SPIELE_OVER_ONE_READ
 
     def test_the_widest_season_is_a_shape_a_season_can_actually_be_saved_in(self):
-        """Guards the case above: a product the bracket refuses would answer with `REQ-RULES-001` and prove nothing about this one."""
+        """Guards the case above: a product the bracket refuses would answer `rules_bracket_impossible` and prove nothing about this one."""
 
         assert qualifier_count(widest_legal_rules()) == MAX_QUALIFIERS
         assert knockout_phases_for(MAX_QUALIFIERS) == KNOCKOUT_PHASES
@@ -240,7 +240,7 @@ class TestTheLargestLegalSeasonFitsInOneRead:
         accepted = 0
         for groups in range(1, ceiling("number_of_groups") + 1):
             for per_group in range(2, ceiling("teams_per_group") + 1):
-                # `REQ-RULES-007` refuses every qualifier count over the group's size, so the sweep
+                # `rules_qualifiers_above_gruppe` refuses every qualifier count over the group's size, so the sweep
                 # stops there rather than at a bound `qualifiers_per_group` does not carry.
                 for qualifiers in range(1, per_group + 1):
                     shape = rules(groups=groups, per_group=per_group, qualifiers=qualifiers)

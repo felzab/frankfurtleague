@@ -192,7 +192,7 @@ export function adressenAndererPersonen(staende: readonly SitzBestaetigung[], si
 }
 
 /**
- * In `annehmen_bewerbung`'s own order, `REQ-BEWERBUNG-002` before `REQ-BEWERBUNG-013`: the reason
+ * In `annehmen_bewerbung`'s own order, `bewerbung_subject_unresolved` before `bewerbung_kontakte_unconfirmed`: the reason
  * under the closed control is the one the write would answer with. Four sentences, because each
  * names a different way out — and an erasure is the only one with none.
  */

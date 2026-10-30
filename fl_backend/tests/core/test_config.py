@@ -372,6 +372,16 @@ class TestTheSecretFiles:
 
         assert read_environment() is None
 
+    def test_the_preflight_names_a_refused_credential_line_as_the_variable_it_is(self, monkeypatch, tmp_path):
+        """No file was read, so the value came from the environment or the dotenv file, which is where the operator looks."""
+        an_environment(monkeypatch, tmp_path, INTERNAL_API_KEY_BASE="short")
+        monkeypatch.setenv("SECRETS_DIR", str(tmp_path / "nowhere"))
+
+        with pytest.raises(EnvironmentValidationError) as raised:
+            read_environment()
+
+        assert str(raised.value) == "Invalid environment variables: INTERNAL_API_KEY_BASE"
+
     def test_every_declared_file_is_one_the_directory_is_handed(self):
         """The fixture above writes exactly the files the class reads, so a field added without a file fails here first."""
         assert sorted(SECRET_FILES) == sorted(FILES)
@@ -569,7 +579,7 @@ class TestTheStartupPing:
 
         assert str(raised.value) == UNREACHABLE.sentence
         assert UNROUTABLE_HOST not in caplog.text
-        assert MONGODB_URI_FILE in caplog.text
+        assert getattr(caplog.records[-1], "file", None) == MONGODB_URI_FILE
 
     def test_the_boot_opens_the_settings_the_application_was_built_with(self, monkeypatch, tmp_path, caplog):
         """Never the files': an application built with other settings would serve one database and boot against another."""
@@ -592,10 +602,9 @@ class TestTheStartupPing:
                 boot()
 
         assert str(raised.value) == NO_SERVER.sentence
-        assert MONGODB_URI_FILE in caplog.text
-        # The `extra=` reaching the record is what puts `error_code` in the envelope,
-        # which is the field an operator greps a boot failure by.
-        assert caplog.records[-1].error_code == NO_SERVER.error_code
+        assert getattr(caplog.records[-1], "file", None) == MONGODB_URI_FILE
+        # The line's key is what an operator greps a boot failure by.
+        assert caplog.records[-1].getMessage() == NO_SERVER.event
 
 
 def booted(config: BackendConfig) -> None:
@@ -675,8 +684,8 @@ class TestWhichRefusalACauseEarns:
         """One opening for the three, so an operator who greps the file's name is handed whichever of them the boot raised."""
         assert all(refusal.sentence.startswith(f"{MONGODB_URI_FILE}: ") for refusal in (UNREACHABLE, NO_SERVER, REJECTED))
 
-    def test_no_two_refusals_share_a_code(self):
-        """A code copied onto a second sentence answers a grep with the other incident, which is worse than no code at all."""
-        codes = [refusal.error_code for refusal in (UNREACHABLE, NO_SERVER, REJECTED)]
+    def test_no_two_refusals_share_a_key(self):
+        """A key copied onto a second sentence answers a grep with the other incident, which is worse than no key at all."""
+        events = [refusal.event for refusal in (UNREACHABLE, NO_SERVER, REJECTED)]
 
-        assert len(set(codes)) == len(codes)
+        assert len(set(events)) == len(events)

@@ -103,24 +103,24 @@ export const COPY = katalog({
      * words are a field's phrase; anywhere else they are the status line's reason and its repair.
      */
     ablehnung: {
-      "DB-COMMON-002": SCHON_VERGEBEN,
-      "REQ-DATE-001": "Außerhalb des Spieltags",
-      "REQ-STATE-002": "Nur ohne eingetragene Tore",
-      "REQ-STATE-003": "Nur mit beiden Teams",
-      "REQ-BOOKING-001":
+      duplicate_key: SCHON_VERGEBEN,
+      spiel_outside_spieltag: "Außerhalb des Spieltags",
+      state_ergebnis_on_a_non_event: "Nur ohne eingetragene Tore",
+      state_nichtantreten_without_two_sides: "Nur mit beiden Teams",
+      booking_unknown_resource:
         "Spielort oder Schiedsrichter ist stillgelegt oder gelöscht und kann keinem Spiel neu zugeteilt werden, auch keinem, dessen Absage oder Ergebnis du gerade entfernst. Wähle einen anderen, oder reaktiviere den Eintrag, falls er nur stillgelegt ist.",
-      "REQ-BOOKING-002":
+      booking_unconfirmed_schiedsrichter:
         "Diese Schiedsrichterin oder dieser Schiedsrichter hat den eigenen Eintrag noch nicht bestätigt. Teile jemand anderen ein, oder warte auf die Bestätigung.",
-      "REQ-CLASH-001":
+      spiel_double_booked:
         "Spielort oder Schiedsrichter ist zu dieser Zeit schon für ein anderes Spiel eingeteilt. Wähle eine Uhrzeit mit mindestens vier Stunden Abstand, oder teile das Spiel anders ein.",
-      "REQ-RESULT-001":
+      ergebnis_side_emptied:
         "Dieses Spiel hat ein Ergebnis, deshalb lässt sich das Team nicht entfernen. Wähle ein anderes Team, oder lösche zuerst die Tore.",
-      "REQ-SPIELTAG-001": "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel. Wähle ein anderes Team oder einen anderen Tag.",
-      "REQ-SPIELTAG-002":
+      spieltag_occupied: "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel. Wähle ein anderes Team oder einen anderen Tag.",
+      spieltag_occupied_by_the_resolution:
         "Mit dieser Änderung würde der KO-Baum ein Team in zwei Spielen desselben Spieltags aufstellen. Gib einer der beiden Seiten eine andere Herkunft, oder nimm ein von Hand gesetztes Team aus einem der beiden Spiele.",
-      "REQ-ELIGIBILITY-001":
+      eligibility_disqualified:
         "Dieses Team ist aus der Saison ausgeschieden und darf ab seinem Austritt nicht mehr aufgestellt sein. Wähle einen Tag vor dem Austritt oder ein anderes Team.",
-      "REQ-ELIGIBILITY-002": "Dieses Team nimmt nicht an dieser Saison teil. Wähle ein Team dieser Saison.",
+      eligibility_team_not_in_saison: "Dieses Team nimmt nicht an dieser Saison teil. Wähle ein Team dieser Saison.",
     } satisfies Partial<Record<Code, string>>,
 
     /** Beside the save button once the record is stored. */

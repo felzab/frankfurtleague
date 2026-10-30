@@ -419,7 +419,7 @@ class TestPostManyToDb:
         ],
     )
     def test_a_batch_a_unique_index_refused_raises_what_one_insert_would(self, landed: int, session: AsyncClientSession | None):
-        """`DuplicateKeyError`, which the handler answers 409 `DB-COMMON-002`, still naming the index it logs."""
+        """`DuplicateKeyError`, which the handler answers 409 `duplicate_key`, still naming the index it logs."""
 
         failure = refused_batch(DUPLICATE_ERROR, landed=landed)
         raised, _ = batch_raised(failure, session=session)

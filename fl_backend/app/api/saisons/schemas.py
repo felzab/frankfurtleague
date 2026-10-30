@@ -18,7 +18,7 @@ class FLSaisonForfeitErgebnis(BaseModel):
     """What a fixture is awarded when one side does not appear.
 
     Both sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.
-    A LEVEL award needs a season with no knockout round (`REQ-RULES-010`).
+    A LEVEL award needs a season with no knockout round (`rules_forfeit_draws_a_knockout`).
     """
 
     sieger_tore: int = Field(ge=0)
@@ -32,7 +32,7 @@ QualifiersPerGroup = Annotated[int, Field(gt=0)]
 # -- and only while it has room.
 NumberOfGroups = Annotated[int, Field(gt=0, le=MAX_NUMBER_OF_GROUPS)]
 # The floor stops a group phase generating no fixture at all; the ceiling bounds one GROUP, where
-# what a whole season may play is `REQ-RULES-013`, weighing every group and the bracket at once.
+# what a whole season may play is `rules_spiele_over_one_read`, weighing every group and the bracket at once.
 TeamsPerGroup = Annotated[int, Field(ge=2, le=16)]
 
 
@@ -182,6 +182,17 @@ class FLSaisonRecord(_SaisonStored):
 FLSaisonListAdapter = TypeAdapter(list[FLSaison])
 
 
+class FLSaisonAdmin(FLSaison):
+    """The same season for the admin surfaces, with whether it has started."""
+
+    # DERIVED per read by `app/api/saisons/crud.py :: has_started`, the predicate every start lock
+    # reads, so a control closed on it closes exactly what the endpoint refuses.
+    begonnen: bool
+
+
+FLSaisonAdminListAdapter = TypeAdapter(list[FLSaisonAdmin])
+
+
 class FLSaisonsFilterParams(BaseModel):
     # No `saison_id`: this narrows a list, where `GET /saisons/{saison_id}` names one.
     status: FLSaisonStatus | None = None
@@ -206,7 +217,7 @@ def refuse_a_saison_year_outside_the_league(value: str) -> str:
     # `int` is total only because the pattern ran first: drop it and `int`'s own message carries the
     # rejected value into the log.
     if not FIRST_SAISON_YEAR <= int(value) <= newest:
-        # German, as `refuse_reversed_span` beside it is: the 422 answers REQ-VAL-001 with where the
+        # German, as `refuse_reversed_span` beside it is: the 422 answers payload_refused with where the
         # field sits and pydantic's error type, never a sentence, so this one reaches the log and any
         # form mirroring it, never the response body.
         raise ValueError(f"Die Saison-ID muss ein Jahr zwischen {FIRST_SAISON_YEAR} und {newest} sein.")
@@ -270,6 +281,11 @@ class FLSaisonsListResponse(BaseAPIResponse):
     saisons: list[FLSaison]
 
 
+class FLSaisonsAdminListResponse(BaseAPIResponse):
+    format: Literal["list"] = "list"
+    saisons: list[FLSaisonAdmin]
+
+
 class FLSaisonsSingleResponse(BaseAPIResponse):
     format: Literal["single"] = "single"
     saison: FLSaison
@@ -308,7 +324,7 @@ class FLGenerateSpielplanPayload(BaseModel):
     """Whether this draw may REPLACE what the season already holds, and the shape it runs from.
 
     An absent body is a first draw off the season's own rules: nothing is destroyed and no
-    number moves by omission. `REQ-SPIELPLAN-005` bounds a confirmed one.
+    number moves by omission. `spielplan_replace_outside_its_window` bounds a confirmed one.
     """
 
     # The payload the rule was found on: a misspelled `shape` validates as

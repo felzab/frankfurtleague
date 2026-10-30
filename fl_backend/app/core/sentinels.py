@@ -5,7 +5,7 @@ An erasure deletes the person's document, so every entry that named them has to 
 else: a reference the write path can still resolve, rather than a null each reader would branch on.
 Each sentinel is that row for its collection, and nameless.
 
-The referee's ghost is permanently retired, so `REQ-BOOKING-001` refuses it every new fixture, and
+The referee's ghost is permanently retired, so `booking_unknown_resource` refuses it every new fixture, and
 each fixture surface reads it through the null-name path it already has. The pupils' sentinel also
 carries no consent record, so no count of consent records includes it, and no read serves it: every
 served model requires a forename, so each read excludes the sentinel by its id.

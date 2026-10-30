@@ -389,7 +389,7 @@ class FLKaderResponse(BaseAPIResponse):
 
     team_id: CustomObjectId
     saison_id: str
-    # What the editor may offer, the PATCH refusing anything else it was not already holding (`REQ-SQUAD-005`).
+    # What the editor may offer, the PATCH refusing anything else it was not already holding (`kader_stufe_nicht_erlaubt`).
     # The floor `app/api/saisons/schemas.py :: FLSaisonRules.erlaubte_stufen` writes, so the document
     # publishes what the season guarantees.
     erlaubte_stufen: list[FLSpielerStufe] = Field(min_length=1)

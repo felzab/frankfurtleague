@@ -35,12 +35,12 @@ export default async function SchiedsrichterSpielberichtPage({ params }: NextPag
     // The record went between the page's own check and the backend's: the panel's own landing.
     if (isFunktionLost(error)) redirect("/bereich");
     if (isRecordMissing(error)) notFound();
-    if (isRefusal(error) && error.serverErrorCode === "REQ-BERICHT-002")
+    if (isRefusal(error) && error.serverErrorCode === "bericht_nicht_geleitet")
       return <SpielberichtZustandView title="Dieses Spiel leitest Du nicht mehr." />;
     throw error;
   }
 
-  // After the fixture's season the referee reads the report and writes it no more (`REQ-BERICHT-007`).
+  // After the fixture's season the referee reads the report and writes it no more (`saison_past`).
   if (read.abgeschlossen) return <SpielberichtLesenView lesen={read} />;
 
   const { spiel } = read;

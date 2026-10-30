@@ -125,7 +125,7 @@ async def delete_spielort(
     Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.
 
     Matches embed a copy, so a hard delete would orphan every historical match that used it. Refused
-    while an unplayed fixture is still booked here (`REQ-RETIRE-003`).
+    while an unplayed fixture is still booked here (`spielort_still_booked`).
     """
 
     async def retire_the_venue(session: AsyncClientSession) -> Mapping[str, Any]:

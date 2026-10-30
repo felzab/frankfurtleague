@@ -63,7 +63,7 @@ async def pull_bericht_lage(
 ) -> BerichtLage:
     """The fixture, its season's status and both clubs' squads, under `session`.
 
-    `DB-COMMON-001` for a fixture that does not exist.
+    `document_not_found` for a fixture that does not exist.
     """
 
     spiel = await pull_one_from_db(collection=spiele_collection, db_filter={"_id": spiel_id}, projection=dict(SPIEL_FIELDS), session=session)

@@ -119,12 +119,12 @@ async def patch_einwilligung(
     to `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the
     person confirmed a seat on, a past season's included.
 
-    Refuses, in this order: a row on which the address holds no confirmed seat (`REQ-FUNKTION-001`); a
+    Refuses, in this order: a row on which the address holds no confirmed seat (`funktion_nicht_gehalten`); a
     `nachweis_stand` other than the held seats' own, either choice having moved since the page was served
-    (`REQ-EINWILLIGUNG-003`); a grant where the row grants no panel (`REQ-EINWILLIGUNG-004`); a `text_version` naming no
-    version of the account page's seat control, or a grant naming any but its running one (`REQ-EINWILLIGUNG-001`);
+    (`fassung_unzulaessig`); a grant where the row grants no panel (`erteilung_nicht_zugelassen`); a `text_version` naming no
+    version of the account page's seat control, or a grant naming any but its running one (`fassung_unzulaessig`);
     `medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is
-    missing (`REQ-EINWILLIGUNG-002`). Each refusal writes nothing.
+    missing (`medien_alter`). Each refusal writes nothing.
     """
 
     gedrueckt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}

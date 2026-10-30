@@ -146,7 +146,7 @@ def season(fixture_at: Callable[..., dict[str, Any]]) -> list[dict[str, Any]]:
 def resolved_knockout(season: list[dict[str, Any]], fixture_at: Callable[..., dict[str, Any]]) -> list[dict[str, Any]]:
     """`season` with spiel 30 holding BOTH occupants.
 
-    A no-show is refused beside an unresolved slot by `REQ-STATE-003`, which runs first, so a knockout
+    A no-show is refused beside an unresolved slot by `state_nichtantreten_without_two_sides`, which runs first, so a knockout
     case built on the empty shape tests a payload no save can carry.
     """
 
@@ -399,7 +399,7 @@ class TestComposingTheDisplayCopies:
         assert (patched.team1.name, patched.team1.shorthand) == ("Adler-Schule", "ASX")
 
     def test_a_side_the_season_holds_no_row_for_keeps_the_name_the_fixture_stores(self, season):
-        """`REQ-ELIGIBILITY-002` refuses a NEWLY fielded club holding no row, so this is one already standing here."""
+        """`eligibility_team_not_in_saison` refuses a NEWLY fielded club holding no row, so this is one already standing here."""
 
         patched = patched_spiel(season, 1, resolved=ResolvedReferences(teams={}))
 
@@ -468,7 +468,7 @@ def booking_refusal_for(season_docs: list[dict[str, Any]], nr: int, resolved: Re
 
 
 class TestTheBookingRefusal:
-    """`REQ-BOOKING-001`: a fixture is booked into a venue and a referee the league still has, and only a MOVED reference is judged."""
+    """`booking_unknown_resource`: a fixture is booked into a venue and a referee the league still has, and only a MOVED reference is judged."""
 
     def test_saving_a_fixture_unchanged_books_nothing(self, season):
         assert booking_refusal_for(season, 1, references()) is None
@@ -485,7 +485,7 @@ class TestTheBookingRefusal:
         assert booking_refusal_for(season, 1, references(ort=LIVE_VENUE), ort=A_DIFFERENT_VENUE) is None
 
     def test_a_retired_venue_the_fixture_already_holds_refuses_nothing(self, season):
-        """`REQ-RETIRE-003` lets a venue retire while only played fixtures still name it, so refusing their edits would be a false refusal."""
+        """`spielort_still_booked` lets a venue retire while only played fixtures name it, so refusing their edits would be a false refusal."""
 
         assert booking_refusal_for(season, 1, references(ort=RETIRED_VENUE), uhrzeit="19:00:00") is None
 
@@ -535,7 +535,7 @@ REOPENING_SAVES = [
 
 
 class TestAFixtureReopenedBooksWhatItKeeps:
-    """`REQ-BOOKING-001` on a kept reference: a save putting its fixture back among those still to be played books it again."""
+    """`booking_unknown_resource` on a kept reference: a save putting its fixture back among those still to be played books it again."""
 
     @pytest.mark.parametrize(("seasoned", "nr", "overrides"), REOPENING_SAVES)
     @pytest.mark.parametrize("slot", ["ort", "schiedsrichter"])
@@ -564,12 +564,12 @@ class TestAFixtureReopenedBooksWhatItKeeps:
 
 
 class TestAnUnconfirmedRefereeIsNeverBooked:
-    """`REQ-BOOKING-002`: a referee is booked only once their own confirmation stands, judged on what `REQ-BOOKING-001` judges."""
+    """`booking_unconfirmed_schiedsrichter`: a referee is booked only once confirmed, judged on what `booking_unknown_resource` judges."""
 
     def test_a_newly_assigned_unconfirmed_referee_is_refused(self, season):
         resolved = references(schiedsrichter=UNCONFIRMED_REFEREE)
 
-        assert booking_refusal_for(season, 1, resolved, schiedsrichter=A_DIFFERENT_REFEREE) == Code.BOOKING_UNCONFIRMED_REFEREE
+        assert booking_refusal_for(season, 1, resolved, schiedsrichter=A_DIFFERENT_REFEREE) == Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER
 
     def test_a_newly_assigned_confirmed_referee_passes(self, season):
         assert booking_refusal_for(season, 1, references(schiedsrichter=LIVE_REFEREE), schiedsrichter=A_DIFFERENT_REFEREE) is None
@@ -578,7 +578,7 @@ class TestAnUnconfirmedRefereeIsNeverBooked:
     def test_a_save_reopening_the_fixture_books_the_unconfirmed_referee_it_kept(self, season, seasoned, nr, overrides):
         resolved = references(ort=LIVE_VENUE, schiedsrichter=UNCONFIRMED_REFEREE)
 
-        assert booking_refusal_for(seasoned(season), nr, resolved, **overrides) == Code.BOOKING_UNCONFIRMED_REFEREE
+        assert booking_refusal_for(seasoned(season), nr, resolved, **overrides) == Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER
 
     def test_an_edit_keeping_the_referee_on_a_fixture_still_to_play_books_nothing(self, season):
         """The reference stored before is no booking this save makes, as a retired row it keeps is none."""
@@ -586,7 +586,7 @@ class TestAnUnconfirmedRefereeIsNeverBooked:
         assert booking_refusal_for(season, 1, references(schiedsrichter=UNCONFIRMED_REFEREE), uhrzeit="19:00:00") is None
 
     def test_a_retired_unconfirmed_referee_meets_the_retirement_first(self, season):
-        """The order the ghost relies on: its sentence is `REQ-BOOKING-001`'s, never a wait for a confirmation nobody can give."""
+        """The order the ghost relies on: its sentence is `booking_unknown_resource`'s, never a wait for a confirmation nobody can give."""
 
         retired = BookedReferee(name="B. Whistle", inactive_since="2026-02-01", bestaetigt=False)
 
@@ -648,7 +648,7 @@ class TestTheGhostIsToldFromAnyOtherNamelessRow:
         assert (fault.booking, fault.booking_id) == ("ort", ObjectId(ANOTHER_SPIELORT))
 
     def test_the_ghost_claims_no_slot_where_a_nameless_referee_still_does(self, season):
-        """`REQ-CLASH-001` asks whether one person is in two places, and every erased referee's fixtures share the ghost's id.
+        """`spiel_double_booked` asks whether one person is in two places, and every erased referee's fixtures share the ghost's id.
 
         Counted, it would report two strangers' matches as one person double-booked and refuse a
         save that merely re-times either.
@@ -667,7 +667,7 @@ class TestTheGhostIsToldFromAnyOtherNamelessRow:
 
 
 class TestTheGhostIsRefusedAsAnyRetiredRowIs:
-    """`REQ-BOOKING-001` meets the ghost where it meets any retired referee.
+    """`booking_unknown_resource` meets the ghost where it meets any retired referee.
 
     Its own class because the ghost is the one retired row with no name, and the sentence a named
     row gets offers a reactivation it never takes.
@@ -731,7 +731,7 @@ class TestTheReferencesASaveAnchors:
     @pytest.mark.parametrize(
         ("seasoned", "nr", "overrides"),
         [
-            # The race `REQ-BOOKING-001` never sees: neither reference moves, and both claims do.
+            # The race `booking_unknown_resource` never sees: neither reference moves, and both claims do.
             pytest.param(as_seeded, 1, {"uhrzeit": "10:00:00"}, id="a kept booking moved to another hour"),
             pytest.param(as_seeded, 1, {"datum": "2026-03-14"}, id="a kept booking moved to another day"),
             pytest.param(untimed_first, 1, {"uhrzeit": "18:00:00"}, id="an untimed fixture given its time"),
@@ -865,12 +865,13 @@ class TestEligibility:
         )
 
     def test_a_group_fixture_recording_an_absence_still_needs_a_membership(self, season):
-        """The carve-out reaches the disqualification rule alone; `REQ-ELIGIBILITY-002` is a different fact."""
+        """The carve-out reaches the disqualification rule alone; `eligibility_team_not_in_saison` is a different fact."""
 
         missing: dict[str, str | None] = {team_id: None for team_id in (ADLER, BIEBER, DORNBUSCH)}
 
         assert (
-            eligibility_for(season, 1, missing, team1=team(CRONBERG, "Cronberg"), sonderereignis="annulliert") == Code.ELIGIBILITY_NO_MEMBERSHIP
+            eligibility_for(season, 1, missing, team1=team(CRONBERG, "Cronberg"), sonderereignis="annulliert")
+            == Code.ELIGIBILITY_TEAM_NOT_IN_SAISON
         )
 
     def test_a_disqualified_team_already_stored_stays_editable(self, season):
@@ -966,7 +967,7 @@ class TestEligibility:
         assert eligibility_for(cancelled, 1, {**ALL_ELIGIBLE, ADLER: BEFORE_THE_FIXTURE}, sonderereignis="nichtantreten_team1") is None
 
     def test_re_dating_a_fixture_whose_occupant_holds_no_row_stays_permitted(self, season):
-        """`REQ-ELIGIBILITY-002` keeps to a NEWLY fielded club: widening it here would trap the very fixture that needs correcting."""
+        """`eligibility_team_not_in_saison` keeps to a NEWLY fielded club: widening it would trap the very fixture that needs correcting."""
 
         missing: dict[str, str | None] = {team_id: None for team_id in (BIEBER, CRONBERG, DORNBUSCH)}
 
@@ -975,7 +976,7 @@ class TestEligibility:
     def test_a_knockout_walkover_against_a_departed_club_is_permitted(self, resolved_knockout):
         """A departed semi-finalist that did not appear, which the phase gate made unreachable.
 
-        BOTH sides stand: `REQ-STATE-003` refuses a no-show beside an unresolved slot, so a payload
+        BOTH sides stand: `state_nichtantreten_without_two_sides` refuses a no-show beside an unresolved slot, so a payload
         the step before this one rejects would prove nothing here.
         """
 
@@ -993,17 +994,17 @@ class TestEligibility:
     def test_a_team_with_no_row_for_the_season_is_refused(self, season):
         """A dangling reference rather than an odd draw: the form offers only the season's teams."""
         missing: dict[str, str | None] = {team_id: None for team_id in (ADLER, BIEBER, DORNBUSCH)}
-        assert eligibility_for(season, 30, missing, team1=team(CRONBERG, "Cronberg")) == Code.ELIGIBILITY_NO_MEMBERSHIP
+        assert eligibility_for(season, 30, missing, team1=team(CRONBERG, "Cronberg")) == Code.ELIGIBILITY_TEAM_NOT_IN_SAISON
 
     def test_a_missing_row_is_refused_whatever_the_date(self, season):
         """No date makes fielding a club outside the season legal."""
 
         missing: dict[str, str | None] = {team_id: None for team_id in (ADLER, BIEBER, DORNBUSCH)}
-        assert eligibility_for(season, 30, missing, team1=team(CRONBERG, "Cronberg"), datum="2020-01-01") == Code.ELIGIBILITY_NO_MEMBERSHIP
+        assert eligibility_for(season, 30, missing, team1=team(CRONBERG, "Cronberg"), datum="2020-01-01") == Code.ELIGIBILITY_TEAM_NOT_IN_SAISON
 
     def test_the_two_refusals_are_distinct(self):
         """Different advice, so different codes."""
-        assert Code.ELIGIBILITY_DISQUALIFIED != Code.ELIGIBILITY_NO_MEMBERSHIP
+        assert Code.ELIGIBILITY_DISQUALIFIED != Code.ELIGIBILITY_TEAM_NOT_IN_SAISON
 
 
 class TestSpieltagOccupancy:
@@ -1125,7 +1126,7 @@ class TestApplyingARelease:
         ids=["the-emptied-side-stayed-away", "the-side-that-stays-stayed-away", "an-abandonment-survives", "a-called-off-match-survives"],
     )
     def test_a_no_show_goes_with_the_slot_it_needs(self, season, stored_event, after_the_release):
-        """`REQ-STATE-003` refuses a no-show beside an unresolved slot — either slot — so one left behind is a fixture no save can repair."""
+        """`state_nichtantreten_without_two_sides` refuses a no-show beside either unresolved slot: one left behind no save could repair."""
 
         released = released_fixture(
             season,
@@ -1267,7 +1268,7 @@ class TestTheDisqualifiedOccupantFault:
 
     @pytest.mark.parametrize("sonderereignis", [*SONDEREREIGNIS_WITHOUT_A_RESULT, "nichtantreten_team1"])
     def test_a_group_fixture_recording_the_absence_is_clean(self, sonderereignis):
-        """The state `REQ-ELIGIBILITY-001`'s message tells the admin to record, which is why it clears the fault too."""
+        """The state `eligibility_disqualified`'s message tells the admin to record, which is why it clears the fault too."""
 
         assert occupant_faults(joined(nr=1, datum="2026-04-01", side_disqualified_from="2026-03-15", sonderereignis=sonderereignis)) == []
 
@@ -1332,7 +1333,7 @@ def double_entries(*fixtures: dict[str, Any]) -> list:
 
 
 class TestTheClubFieldedTwiceFault:
-    """`REQ-SPIELTAG-001` refuses this shape at the write, so a stored one arrived another way and is REPORTED rather than refused."""
+    """`spieltag_occupied` refuses this shape at the write, so a stored one arrived another way and is REPORTED rather than refused."""
 
     def test_a_spieltag_fielding_each_club_once_is_clean(self, season):
         assert double_entries(*season) == []
@@ -1519,7 +1520,7 @@ class _SeasonCollection:
 
 
 class TestTheResolutionNeverFieldsAClubTwice:
-    """`REQ-SPIELTAG-002`. The advance fields its own sides from the wiring, and `judge_spieltag_occupancy` sees only what a REQUEST fields."""
+    """`spieltag_occupied_by_the_resolution`. The advance fields its sides from the wiring; `judge_spieltag_occupancy` sees only a REQUEST's."""
 
     def test_a_resolution_seating_a_club_beside_itself_is_refused(self, unresolved_slot_beside_a_hand_set_one):
         """Gruppe A's first place settles on Adler, which the slot then seats on the Spieltag Adler already stands on."""
@@ -1538,7 +1539,7 @@ class TestTheResolutionNeverFieldsAClubTwice:
         assert advancement_refusal(season, advancement(season, 30, team1=team(CRONBERG, "Cronberg"))) is None
 
     def test_a_pair_the_season_already_holds_is_left_to_be_repaired(self, fixture_at):
-        """`REQ-SWAP-005`'s line, at this write: refusing over a standing fault would block every edit that could clear it."""
+        """`swap_spieltag_clash`'s line, at this write: refusing over a standing fault would block every edit that could clear it."""
 
         stored = [
             fixture_at(29, "halbfinale", SPIELTAG_TWO, team1=team(ADLER, "Adler"), team2=None),
@@ -1587,7 +1588,7 @@ class TestTheResolutionNeverFieldsAClubTwice:
 
 
 class TestTheClashComparesRealTime:
-    """`REQ-CLASH-001` across a date boundary, and the read that has to fetch the fixtures the comparison now reaches."""
+    """`spiel_double_booked` across a date boundary, and the read that has to fetch the fixtures the comparison now reaches."""
 
     def slot(self, datum: str, uhrzeit: str, nr: int = 3) -> BookedSlot:
         return BookedSlot(spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=nr, datum=datum, uhrzeit=uhrzeit, resource="Spielort")
@@ -1597,7 +1598,7 @@ class TestTheClashComparesRealTime:
 
         refusal = find_clash_refusal(datum="2026-03-08", uhrzeit="00:30:00", booked=[self.slot("2026-03-07", "23:30:00")])
 
-        assert refusal is not None and refusal.error_code == Code.FIXTURE_DOUBLE_BOOKED
+        assert refusal is not None and refusal.error_code == Code.SPIEL_DOUBLE_BOOKED
 
     def test_the_same_hour_a_day_apart_still_passes(self):
         """The other direction of the same change: a whole day's separation must not become a clash."""
@@ -1670,7 +1671,7 @@ class TestRemovingATeamFromAPlayedFixture:
         return None if refusal is None else refusal.error_code
 
     def test_emptying_a_side_that_carries_goals_is_refused(self, season):
-        assert self.removal(season, 2, team1=None) == Code.RESULT_SIDE_EMPTIED
+        assert self.removal(season, 2, team1=None) == Code.ERGEBNIS_SIDE_EMPTIED
 
     def test_switching_the_team_on_that_side_is_permitted(self, season):
         assert self.removal(season, 2, team1=team(ADLER, "Adler", tore=3)) is None
@@ -1681,7 +1682,7 @@ class TestRemovingATeamFromAPlayedFixture:
         assert self.removal(season, 1, team1=None) is None
 
     def test_the_other_side_is_checked_too(self, season):
-        assert self.removal(season, 2, team2=None) == Code.RESULT_SIDE_EMPTIED
+        assert self.removal(season, 2, team2=None) == Code.ERGEBNIS_SIDE_EMPTIED
 
     def test_resubmitting_the_fixture_unchanged_is_permitted(self, season):
         """The clause every occupant rule here turns on: a no-op edit is always legal."""
@@ -1696,14 +1697,14 @@ def state_refusal_for(season_docs: list[dict[str, Any]], nr: int, **overrides: A
 
 
 class TestAnEventThatAwardsNothingCarriesNoResult:
-    """`REQ-STATE-002`: the goals are somebody's typing, so a save that silently discarded them is how a real result disappears."""
+    """`state_ergebnis_on_a_non_event`: the goals are somebody's typing, so a save silently discarding them is how a real result disappears."""
 
     @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_WITHOUT_A_RESULT)
     def test_goals_submitted_beside_it_are_refused(self, season, sonderereignis):
         refusal = state_refusal_for(season, 1, sonderereignis=sonderereignis, team1=team(ADLER, "Adler", tore=2))
 
         assert refusal is not None
-        assert refusal.error_code == Code.STATE_RESULT_ON_A_NON_EVENT
+        assert refusal.error_code == Code.STATE_ERGEBNIS_ON_A_NON_EVENT
 
     @pytest.mark.parametrize("sonderereignis", SONDEREREIGNIS_WITHOUT_A_RESULT)
     def test_the_same_fixture_with_no_goals_passes(self, season, sonderereignis):
@@ -1717,7 +1718,7 @@ class TestAnEventThatAwardsNothingCarriesNoResult:
         refusal = state_refusal_for(season, 1, sonderereignis="ausgefallen", team1=team(ADLER, "Adler", tore=0))
 
         assert refusal is not None
-        assert refusal.error_code == Code.STATE_RESULT_ON_A_NON_EVENT
+        assert refusal.error_code == Code.STATE_ERGEBNIS_ON_A_NON_EVENT
 
     def test_an_abandoned_fixture_may_carry_its_goals(self, season):
         """The distinction the boolean hid: play started and a score stood, so this state is unconstrained."""
@@ -1729,7 +1730,7 @@ class TestAnEventThatAwardsNothingCarriesNoResult:
 
 
 class TestANoShowNeedsBothSides:
-    """`REQ-STATE-003`: an unresolved slot has nobody who could have failed to appear, and the award would have no side to land on."""
+    """`state_nichtantreten_without_two_sides`: an unresolved slot has nobody who could fail to appear, and the award no side to land on."""
 
     @pytest.mark.parametrize("sonderereignis", ["nichtantreten_team1", "nichtantreten_team2"])
     def test_a_fixture_with_two_clubs_passes(self, season, sonderereignis):
@@ -1742,7 +1743,7 @@ class TestANoShowNeedsBothSides:
         refusal = state_refusal_for(season, 1, sonderereignis="nichtantreten_team1", **{emptied: None})
 
         assert refusal is not None
-        assert refusal.error_code == Code.STATE_NO_SHOW_WITHOUT_TWO_SIDES
+        assert refusal.error_code == Code.STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES
 
     def test_an_unresolved_slot_is_no_bar_to_any_other_event(self, season):
         """Fixture 30 holds neither club, and calling off a match nobody was drawn into is a legitimate entry."""
@@ -1752,4 +1753,4 @@ class TestANoShowNeedsBothSides:
     def test_the_two_state_refusals_are_distinct(self):
         """Different advice — one says remove the goals, the other says fill the slot — so different codes."""
 
-        assert Code.STATE_RESULT_ON_A_NON_EVENT != Code.STATE_NO_SHOW_WITHOUT_TWO_SIDES
+        assert Code.STATE_ERGEBNIS_ON_A_NON_EVENT != Code.STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES

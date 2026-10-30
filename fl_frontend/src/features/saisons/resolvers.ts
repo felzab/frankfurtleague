@@ -8,7 +8,7 @@ import { SAISON_ID_LENGTH } from "./constants";
 import { getAdminSaisons, getSaisons } from "./queries";
 import { searchWithoutSaisonId } from "./utils";
 
-import type { FLSaison, FLSaisonStatus } from "@/core/generated/client/types";
+import type { FLSaisonAdmin, FLSaisonStatus } from "@/core/generated/client/types";
 import type { NextPageProps } from "@/shared/types/types";
 
 // Untrimmed: `SaisonSelector` matches the raw parameter, so a padded id it cannot find is malformed
@@ -66,7 +66,7 @@ export function selectSaison<T extends { id: string; status: FLSaisonStatus }>(
 }
 
 /** Every admin page's season; `undefined` only for a league holding none. */
-export async function resolveAdminSaison(searchParamsPromise: NextPageProps["searchParams"]): Promise<FLSaison | undefined> {
+export async function resolveAdminSaison(searchParamsPromise: NextPageProps["searchParams"]): Promise<FLSaisonAdmin | undefined> {
   const requestedSaisonId = await resolveSaisonId(searchParamsPromise, "admin");
   // The list even where the URL names no season: the running season alone leaves a league before its
   // first activation with nothing to show.
@@ -76,7 +76,7 @@ export async function resolveAdminSaison(searchParamsPromise: NextPageProps["sea
 }
 
 /** For a page whose reads name a season: a league holding none is sent to the page that creates one. */
-export async function requireAdminSaison(searchParamsPromise: NextPageProps["searchParams"]): Promise<FLSaison> {
+export async function requireAdminSaison(searchParamsPromise: NextPageProps["searchParams"]): Promise<FLSaisonAdmin> {
   return (await resolveAdminSaison(searchParamsPromise)) ?? redirect("/bereich/admin/saisons");
 }
 

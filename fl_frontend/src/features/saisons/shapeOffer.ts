@@ -25,7 +25,7 @@ function powersOfTwoUpTo(ceiling: number): number[] {
 }
 
 /**
- * `REQ-RULES-001` asks the PRODUCT to be a power of two, and a product of two positives is one
+ * `rules_bracket_impossible` asks the PRODUCT to be a power of two, and a product of two positives is one
  * exactly when both factors are: membership here is that rule read once rather than a second copy of
  * the schema's refinement.
  */
@@ -34,7 +34,7 @@ export const SHAPE_COUNT_UNIVERSE: readonly number[] = powersOfTwoUpTo(MAX_QUALI
 /** Narrower than the universe only where the closed name set is smaller than the bracket. */
 export const GROUP_COUNT_UNIVERSE: readonly number[] = SHAPE_COUNT_UNIVERSE.filter((count) => count <= MAX_GROUPS);
 
-/** Two kinds for `REQ-RULES-001` and not one: a bracket too large comes down, one too small goes up. */
+/** Two kinds for `rules_bracket_impossible` and not one: a bracket too large comes down, one too small goes up. */
 export type ShapeRefusal = "noBracket" | "bracketTooLarge" | "overQualifies" | "groupsInUse" | "gruppenOffSize";
 
 /**
@@ -66,7 +66,7 @@ function fullestGruppe(occupancy: SaisonGruppenOccupancy): number {
 }
 
 /**
- * `REQ-RULES-002`, mirroring `find_rules_refusal`'s `stranded`: a count that stops running a group
+ * `rules_gruppen_in_use`, mirroring `find_rules_refusal`'s `stranded`: a count that stops running a group
  * the season's clubs stand in.
  */
 function groupsInUseRefusal(groups: number, occupancy: SaisonGruppenOccupancy): ShapeRefusal | null {
@@ -74,8 +74,8 @@ function groupsInUseRefusal(groups: number, occupancy: SaisonGruppenOccupancy): 
 }
 
 /**
- * `REQ-SPIELPLAN-004` over one shape, in the order `find_spielplan_refusal` composes its message: a
- * group off its size ahead of a club outside the offered groups, which is `REQ-RULES-002`'s own fact
+ * `spielplan_gruppen_off_rules` over one shape, in the order `find_spielplan_refusal` composes its message: a
+ * group off its size ahead of a club outside the offered groups, which is `rules_gruppen_in_use`'s own fact
  * and takes its note.
  */
 export function drawGruppenRefusal({
@@ -94,7 +94,7 @@ export function drawGruppenRefusal({
   return groupsInUseRefusal(groups, occupancy);
 }
 
-/** `REQ-RULES-001` over a pair, size bound first: too large and no bracket send a reader opposite ways. */
+/** `rules_bracket_impossible` over a pair, size bound first: too large and no bracket send a reader opposite ways. */
 function bracketRefusal(groups: number, qualifiers: number): ShapeRefusal | null {
   const bracket = groups * qualifiers;
 
@@ -108,7 +108,7 @@ function bracketRefusal(groups: number, qualifiers: number): ShapeRefusal | null
 }
 
 /**
- * In `find_rules_refusal`'s own order — `REQ-RULES-007` ahead of `REQ-RULES-001` — so a closed row's
+ * In `find_rules_refusal`'s own order — `rules_qualifiers_above_gruppe` ahead of `rules_bracket_impossible` — so a closed row's
  * note is the refusal the endpoint would have named. A `null` team count is an emptied box, which
  * has answered nothing and constrains nothing.
  */
@@ -130,7 +130,7 @@ function countOptions(universe: readonly number[], held: number, refusalOf: (cou
 }
 
 /**
- * The RULES patch's offer: `REQ-RULES-001` ahead of `REQ-RULES-002`, as `find_rules_refusal` judges
+ * The RULES patch's offer: `rules_bracket_impossible` ahead of `rules_gruppen_in_use`, as `find_rules_refusal` judges
  * them. The team count reaches no row here — it bounds the qualifiers and never the groups.
  */
 export function groupCountOptions({
@@ -147,8 +147,8 @@ export function groupCountOptions({
 
 /**
  * The DRAW's offer for the same count, occupancy FIRST: that endpoint runs `find_spielplan_refusal`
- * ahead of `find_rules_refusal`, and passes the latter `stored=None`, which drops `REQ-RULES-002` and
- * `REQ-RULES-003` from the draw altogether.
+ * ahead of `find_rules_refusal`, and passes the latter `stored=None`, which drops `rules_gruppen_in_use` and
+ * `rules_capacity_below_use` from the draw altogether.
  */
 export function drawGroupCountOptions({
   groups,
@@ -182,7 +182,7 @@ export function fitsAnOfferedShape(occupancy: SaisonGruppenOccupancy): boolean {
 
 /**
  * The draw's refusal of the numbers a REPLACE carries, in the endpoint's order: `find_spielplan_refusal`
- * before `find_rules_refusal`, whose `REQ-RULES-001` is the bracket's half.
+ * before `find_rules_refusal`, whose `rules_bracket_impossible` is the bracket's half.
  */
 export function drawShapeRefusal({ shape, occupancy }: { shape: FLSpielplanShape; occupancy: SaisonGruppenOccupancy }): ShapeRefusal | null {
   return (
@@ -227,8 +227,8 @@ export function qualifierCountOptions({
 }
 
 /**
- * `REQ-RULES-007` from below, and two at the least, or the group generates no fixture at all. The
- * fullest group joins them for `REQ-RULES-003`, and the draw refuses a count under it too
+ * `rules_qualifiers_above_gruppe` from below, and two at the least, or the group generates no fixture at all. The
+ * fullest group joins them for `rules_capacity_below_use`, and the draw refuses a count under it too
  * (`drawGruppenRefusal`).
  */
 export function teamsPerGroupFloor({

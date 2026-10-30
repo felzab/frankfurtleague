@@ -19,7 +19,7 @@ const GESCHLOSSEN_SATZ: Record<Exclude<FLKontaktZeile, "offen">, string> = {
 
 /**
  * What the page takes and how long the link holds. No re-send on a closed row: the backend refuses
- * one there (`REQ-KONTAKT-005`), so the message promises none.
+ * one there (`kontakt_zeile_ohne_saison`), so the message promises none.
  */
 function linkAbsatz(zeile: FLKontaktZeile, frist: string): Absatz {
   const gueltig: Satz = ["Der Link ist bis zum ", { stark: frist }, " gültig und funktioniert nur einmal."];

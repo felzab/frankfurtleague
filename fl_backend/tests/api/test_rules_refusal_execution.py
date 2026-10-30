@@ -161,7 +161,7 @@ async def patch_the_rules(database: AsyncDatabase, *, today: str = THE_DAY_BEFOR
 
 
 class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
-    """`REQ-RULES-009` over the aggregation that produces its figure.
+    """`rules_kader_below_use` over the aggregation that produces its figure.
 
     Every other case hands `largest_squad` in already counted, so the `inactive_since` match, the
     season match and the grouping by team reach nothing without a database behind them.
@@ -192,10 +192,10 @@ class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
 
 
 class TestTheDrawItselfIsWhatFreezesTheShape:
-    """`REQ-RULES-011` through the endpoint, whose count of the season's fixtures is the whole of what the rule turns on."""
+    """`rules_shape_after_spielplan` through the endpoint, whose count of the season's fixtures is the whole of what the rule turns on."""
 
     def test_widening_a_group_after_the_draw_is_refused(self, mongo_replica_set_url: str):
-        """A widening crosses no other bound: `REQ-RULES-003` reads the narrowing direction and the matchday stays under the wider count."""
+        """A widening crosses no other bound: `rules_capacity_below_use` reads the narrowing direction, and the matchday stays under it."""
 
         async def body(database: AsyncDatabase) -> APIError:
             with pytest.raises(APIError) as refusal:
@@ -205,7 +205,7 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
 
         refusal = on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
 
-        assert refusal.error_code == Code.RULES_SHAPE_AFTER_DRAW
+        assert refusal.error_code == Code.RULES_SHAPE_AFTER_SPIELPLAN
 
     def test_the_same_edit_goes_through_while_nothing_is_drawn(self, mongo_replica_set_url: str):
         """The same season and the same matchday, minus its fixtures: a season still being set up widens freely."""
@@ -219,7 +219,7 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
 
 
 class TestTheStartIsWhatFreezesTheScoring:
-    """`REQ-RULES-005` through the endpoint, whose read of the season's start is what the rule turns on."""
+    """`rules_saison_started` through the endpoint, whose read of the season's start is what the rule turns on."""
 
     def test_the_points_freeze_on_the_first_fixtures_day(self, mongo_replica_set_url: str):
         """The table is derived, so a scoring change on a season under way would rewrite standings already played."""
@@ -232,7 +232,7 @@ class TestTheStartIsWhatFreezesTheScoring:
 
         refusal = on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
 
-        assert refusal.error_code == Code.RULES_SAISON_FINISHED
+        assert refusal.error_code == Code.RULES_SAISON_STARTED
 
     def test_the_same_edit_goes_through_the_day_before(self, mongo_replica_set_url: str):
         """The boundary: an activated season waiting for its first fixture still takes a corrected rule."""

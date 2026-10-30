@@ -7,7 +7,7 @@ import type { Code } from "@/core/generated/client/types.ts";
 import type { FieldErrors } from "@/shared/utils/validation.ts";
 
 /** The unique index's refusal, and the one code the shared reader's fallback words. */
-export const DUPLICATE_KEY = "DB-COMMON-002" satisfies Code;
+export const DUPLICATE_KEY = "duplicate_key" satisfies Code;
 
 /**
  * The rule codes a case judges, as the backend's service for one operation raises them: a list the case states
@@ -16,7 +16,7 @@ export const DUPLICATE_KEY = "DB-COMMON-002" satisfies Code;
 export const refusalCodes = (...codes: readonly Code[]): Code[] => [...codes];
 
 /** A rule's code the shared reader words with its fallback alone, as it words every rule no table of its names. */
-const UNCLAIMED = "REQ-ACTIVATE-001" satisfies Code;
+const UNCLAIMED = "activate_saison_unfinished" satisfies Code;
 
 /**
  * The refusal the API client raises for `code`, or for none: `fl_frontend/src/core/api.ts` reads a code the contract
@@ -26,7 +26,7 @@ const UNCLAIMED = "REQ-ACTIVATE-001" satisfies Code;
  */
 export function refused(
   code: Code | undefined,
-  statusCode = code === "DB-COMMON-001" ? 404 : code?.startsWith("REQ-VAL-") === true ? 422 : 409,
+  statusCode = code === "document_not_found" ? 404 : code === "payload_refused" || code === "body_unreadable" ? 422 : 409,
 ): APIBadStatusError {
   return raised(code, statusCode);
 }

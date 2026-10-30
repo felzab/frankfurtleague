@@ -271,31 +271,31 @@ def zustand_of(
 
 
 def find_unknown_link_refusal(*, seat: FLKontaktRolle | None) -> WriteRefusal | None:
-    """`REQ-ANSETZUNG-001`: ONE answer for a guess and a voided link, which a stranger's guess must not tell apart."""
+    """`link_ungueltig`: ONE answer for a guess and a voided link, which a stranger's guess must not tell apart."""
 
     if seat is not None:
         return None
 
     return WriteRefusal(
-        error_code=Code.ANSETZUNG_TOKEN_UNKNOWN,
+        error_code=Code.LINK_UNGUELTIG,
         status=HTTPStatus.NOT_FOUND,
     )
 
 
 def find_gesperrt_link_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`REQ-ANSETZUNG-011`: asked at the press, however old the link, ahead of every state of its row."""
+    """`link_gesperrt`: asked at the press, however old the link, ahead of every state of its row."""
 
     if not gesperrt:
         return None
 
     return WriteRefusal(
-        error_code=Code.ANSETZUNG_GESPERRT,
+        error_code=Code.LINK_GESPERRT,
         status=HTTPStatus.FORBIDDEN,
     )
 
 
 def first_press_refusal() -> WriteRefusal:
-    """`REQ-ANSETZUNG-002`, built here alone: by the spent-link judgement and by the answer whose filtered write matched nothing."""
+    """`ansetzung_beantwortet`, built here alone: by the spent-link judgement and by the answer whose filtered write matched nothing."""
 
     return WriteRefusal(
         error_code=Code.ANSETZUNG_BEANTWORTET,
@@ -304,7 +304,7 @@ def first_press_refusal() -> WriteRefusal:
 
 
 def ansetzung_verlassen_refusal() -> WriteRefusal:
-    """`REQ-ANSETZUNG-004`, built here alone: by the spent-link judgement and by a referee's decline whose fixture write matched nothing."""
+    """`ansetzung_geaendert`, built here alone: by the spent-link judgement and by a referee's decline whose fixture write matched nothing."""
 
     return WriteRefusal(
         error_code=Code.ANSETZUNG_GEAENDERT,
@@ -315,7 +315,8 @@ def ansetzung_verlassen_refusal() -> WriteRefusal:
 def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: AnsetzungLage, today: str) -> WriteRefusal | None:
     """Why this row takes no answer now, or `None`: answered, closed unanswered, what the close would shut it for, then the deadline.
 
-    An answered row whose Ansetzung moved answers `-002` and reads `ungueltig`: the page re-reads the view on `-002`.
+    An answered row whose Ansetzung moved answers `ansetzung_beantwortet` and reads `ungueltig`: the page re-reads the view on
+    `ansetzung_beantwortet`.
     """
 
     if spielbestaetigung_raw.get("antwort") is not None:
@@ -355,7 +356,7 @@ def find_spent_link_refusal(*, spielbestaetigung_raw: Mapping[str, Any], lage: A
 
 
 def find_vorschlag_vergangen_refusal(*, vorschlag: FLSpielbestaetigungTermin, today: str) -> WriteRefusal | None:
-    """`REQ-ANSETZUNG-007`: a proposal names a day still to come or today."""
+    """`ansetzung_vorschlag_vergangen`: a proposal names a day still to come or today."""
 
     if vorschlag.datum >= today:
         return None
@@ -522,7 +523,7 @@ ADMIN_FIELDS: Mapping[str, int] = {
 
 
 def eintragen_refusal() -> WriteRefusal:
-    """`REQ-ANSETZUNG-013`, built here alone: by the check on the row read and by the settle whose filtered write matched nothing."""
+    """`ansetzung_nicht_eintragbar`, built here alone: by the check on the row read and by the settle whose filtered write matched nothing."""
 
     return WriteRefusal(
         error_code=Code.ANSETZUNG_NICHT_EINTRAGBAR,
@@ -555,7 +556,7 @@ def build_verwerfbar_filter() -> dict[str, Any]:
 
 
 def verwerfen_refusal() -> WriteRefusal:
-    """`REQ-ANSETZUNG-014`, built here alone: by the check on the row read and by the discard whose filtered write matched nothing."""
+    """`ansetzung_nicht_verwerfbar`, built here alone: by the check on the row read and by the discard whose filtered write matched nothing."""
 
     return WriteRefusal(
         error_code=Code.ANSETZUNG_NICHT_VERWERFBAR,
@@ -607,7 +608,7 @@ GRUND_EIGENE_ABSAGE: Final = "schiedsrichter_abgelehnt"
 
 
 def find_fremde_zeile_refusal(*, spielbestaetigung_raw: Mapping[str, Any] | None, schiedsrichter_ids: Iterable[Any]) -> WriteRefusal | None:
-    """`REQ-ANSETZUNG-015`: ONE answer for an id naming no row and a row naming somebody else, so no id is confirmed to exist."""
+    """`ansetzung_fremde_zeile`: ONE answer for an id naming no row and a row naming somebody else, so no id is confirmed to exist."""
 
     partei = (spielbestaetigung_raw or {}).get("partei") or {}
     if partei.get("art") == "schiedsrichter" and partei.get("schiedsrichter_id") in set(schiedsrichter_ids):

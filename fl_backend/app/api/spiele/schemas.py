@@ -41,7 +41,7 @@ SONDEREREIGNIS_RECORDING_AN_ABSENCE: tuple[FLSonderereignis, ...] = (
     "annulliert",
 )
 
-# `REQ-STATE-002`'s subject, and by construction also the fixtures that can never award a point: a
+# `state_ergebnis_on_a_non_event`'s subject, and by construction also the fixtures that can never award a point: a
 # state barred from carrying a result reaches no figure the table is scored on.
 SONDEREREIGNIS_WITHOUT_A_RESULT: tuple[FLSonderereignis, ...] = ("ausgefallen", "annulliert")
 
@@ -78,9 +78,10 @@ SONDEREREIGNIS_NO_SHOW: Mapping[str, FLSpielSeite] = {
 
 
 def records_an_absence(*, side: str, sonderereignis: FLSonderereignis | None, saison_phase: FLSaisonPhase) -> bool:
-    """Whether this state accounts for the named side's absence -- `REQ-ELIGIBILITY-001`'s carve-out.
+    """Whether this state accounts for the named side's absence -- `eligibility_disqualified`'s carve-out.
 
-    ONE question with three askers -- the refusal, its report and `REQ-SWAP-006` -- so the state clearing the 409 clears the other two.
+    ONE question with three askers -- the refusal, its report and `swap_fields_disqualified` -- so the state clearing the 409 clears the other
+    two.
     """
 
     # Directional, because a no-show COMPOSES a result the table scores: exempting the side that
@@ -94,12 +95,12 @@ def records_an_absence(*, side: str, sonderereignis: FLSonderereignis | None, sa
 
     # Only `awards_nothing` takes the phase gate: a cancelled knockout advances nobody, where a
     # no-show names the absent side and composes a result advancing the other -- which rests on
-    # `REQ-RULES-010` barring a level forfeit here.
+    # `rules_forfeit_draws_a_knockout` barring a level forfeit here.
     return stayed_away or (awards_nothing and saison_phase == "gruppenphase")
 
 
 def is_unplayed(*, ergebnis: str | None, sonderereignis: FLSonderereignis | None) -> bool:
-    """Whether a fixture is still to be played, which every retirement, the rollover and `REQ-BOOKING-001` ask alike.
+    """Whether a fixture is still to be played, which every retirement, the rollover and `booking_unknown_resource` ask alike.
 
     `unplayed_filter` is the same partition asked of stored fixtures.
     """
@@ -461,7 +462,7 @@ class FLSpielBooking(BaseModel):
 
 
 class FLSpielSlotHolder(FLSpielBooking):
-    """Any fixture's claim on a venue or a referee, read across every season by `REQ-CLASH-001` and by its report alike."""
+    """Any fixture's claim on a venue or a referee, read across every season by `spiel_double_booked` and by its report alike."""
 
     id: CustomObjectId = Field(validation_alias="_id")
     # Unbounded, as a model echoing a stored id is: this read spans every

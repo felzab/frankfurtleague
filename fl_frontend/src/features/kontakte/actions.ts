@@ -132,7 +132,7 @@ export async function einladeKontaktAction(rawPayload: { team_id: string; saison
 
 /**
  * The one read serving a stored block, memoised for the request. A block moving between it and the
- * write is refused there (`REQ-KONTAKT-001`), so the race costs a sentence rather than a stale judgement.
+ * write is refused there (`kontakte_moved_under_the_save`), so the race costs a sentence rather than a stale judgement.
  */
 async function gespeicherteKontakte({ team_id, saison_id }: Pick<KontakteSpeichernEingabe, "team_id" | "saison_id">) {
   const { teams } = await getTeamMemberships();

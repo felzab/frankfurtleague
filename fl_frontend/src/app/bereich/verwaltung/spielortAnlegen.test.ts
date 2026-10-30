@@ -59,7 +59,7 @@ describe("the venue dialog's create", () => {
       message: "refused",
       url: "http://backend/api/v0/spielorte",
       statusCode: 409,
-      serverErrorCode: "DB-COMMON-002",
+      serverErrorCode: "duplicate_key",
       endpoint: "/spielorte",
       method: "POST",
       readOnly: false,
@@ -68,7 +68,7 @@ describe("the venue dialog's create", () => {
 
     expect(await spielortAnlegen(formular())).toStrictEqual({
       ok: false,
-      errorCode: "DB-COMMON-002",
+      errorCode: "duplicate_key",
       fieldErrors: { name: COPY.shared.feld.schonVergeben },
     });
   });

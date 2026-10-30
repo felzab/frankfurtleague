@@ -122,7 +122,7 @@ describe("deriveSaisonDraftStatus", () => {
   });
 
   it("carries a field error onto its own row", () => {
-    // `REQ-RULES-002`'s own sentence, against the narrowing that raises it: a fixture stating a
+    // `rules_gruppen_in_use`'s own sentence, against the narrowing that raises it: a fixture stating a
     // ceiling of its own reads as false to anyone who checks what the group offer admits.
     const groupHoldsTeams = "Eine Gruppe, die noch Teams hält, kann nicht wegfallen.";
     const status = deriveSaisonDraftStatus({

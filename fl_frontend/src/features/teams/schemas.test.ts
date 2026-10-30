@@ -72,7 +72,7 @@ describe("FLSaisonTeamKontaktePayloadSchema", () => {
     expect(pathsRefused(FLSaisonTeamKontaktePayloadSchema, withAddress("käthe@beispiel.de"))).toStrictEqual(["trainer.email"]);
   });
 
-  /* The API answers a hyphen-final label with a REQ-VAL-001 that marks the box with a generic
+  /* The API answers a hyphen-final label with a payload_refused that marks the box with a generic
      sentence, which never tells the admin what to change. */
   it("refuses a seat whose address the API would refuse", () => {
     expect(
@@ -181,7 +181,7 @@ const junctionPayload = (overrides: Record<string, unknown> = {}) => ({
 });
 
 /* Every field the API strips before its floor counts. An untrimmed mirror takes a value of spaces
-   alone, which the endpoint then refuses with a `REQ-VAL-001` marking the box without the floor's German. */
+   alone, which the endpoint then refuses with a `payload_refused` marking the box without the floor's German. */
 describe("the write payloads' floors, against the stripped floors at the API", () => {
   const SPACES = "   ";
 

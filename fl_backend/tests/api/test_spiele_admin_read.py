@@ -1,6 +1,6 @@
 import asyncio
 import functools
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterator, Mapping
 from typing import Any
 
 import pymongo
@@ -16,15 +16,15 @@ from app.core.config import API_VERSION
 from app.main import create_app
 from tests import documents
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, ADMINISTRATORS, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
+from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database_sync
 
 from .conftest import unwritten
 
 # Which guard refused, and so which route answered: `verify_access_base` guards the public router
 # and `verify_access_admin` the admin one, and no key satisfies both.
-BASE_GUARD_REFUSED = Code.WRONG_BASE_KEY
-ADMIN_GUARD_REFUSED = Code.WRONG_ADMIN_KEY
+BASE_GUARD_REFUSED = Code.ACCESS_KEY_REFUSED
+ADMIN_GUARD_REFUSED = Code.ACCESS_KEY_REFUSED
 
 # Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure,
 # the harness's own included.
@@ -84,9 +84,9 @@ def _served() -> FastAPI:
     return create_app(build_test_config())
 
 
-def answered(uri: str, path: str, headers: Mapping[str, str], *, admitting: Iterable[str] | None = None) -> Response:
+def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
     async def _answered() -> Response:
-        async with app_client(uri, app=_served(), admitting=admitting) as http:
+        async with app_client(uri, app=_served()) as http:
             with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
                 return await http.get(path, headers=dict(headers))
 
@@ -142,9 +142,8 @@ REACHING_CASES = [
 def test_the_matching_key_clears_the_guard_and_reaches_the_database(path: str, headers: Mapping[str, str]):
     """The control for the pair above: without it, a refusal from a route that does not exist would read as the guard's."""
 
-    # The actor check answered from the set, so the admin path's 500 is the handler's own read:
-    # against the unreachable grants, the check's read would answer it before the handler ran.
-    response = answered(UNANSWERED_URI, path, headers, admitting=ADMINISTRATORS)
+    # On the admin path the 500 is the actor check's grant read, which runs only once the key has cleared.
+    response = answered(UNANSWERED_URI, path, headers)
 
     assert response.status_code == 500
     assert response.json()["error_code"] == UNREACHED_DATABASE

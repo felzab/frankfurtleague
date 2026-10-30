@@ -7,10 +7,10 @@ import type { FieldErrors } from "@/shared/utils/validation";
 export function mapSpieltagRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  if (error.serverErrorCode === "REQ-DATE-002") {
+  if (error.serverErrorCode === "spieltag_outside_saison") {
     return { fieldErrors: { beginn: "Dieser Zeitraum liegt außerhalb des Zeitraums der Saison." } };
   }
-  if (error.serverErrorCode === "REQ-DATE-003") {
+  if (error.serverErrorCode === "spieltag_span_below_spiele") {
     return {
       error: buildRefusal({
         reason: "Mindestens ein Spiel dieses Spieltags liegt außerhalb des neuen Zeitraums",
@@ -21,7 +21,7 @@ export function mapSpieltagRefusal(error: unknown): { error?: string; fieldError
   // One code carries both arms and the wire names neither, so the remedy is pinned to the matchday
   // the admin means to play later, the one referent that lands right in both. `ende` is the field
   // the rule leaves free, and only the dated rows are named.
-  if (error.serverErrorCode === "REQ-DATE-008") {
+  if (error.serverErrorCode === "spieltag_beginn_out_of_order") {
     return {
       error:
         "Der Beginn dieses Spieltags muss in die Reihenfolge der Spieltage seiner Phase passen, die schon einen Zeitraum haben. " +

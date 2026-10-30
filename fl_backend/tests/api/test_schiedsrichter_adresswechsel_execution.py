@@ -180,7 +180,7 @@ async def refused_code(call: Awaitable[Any]) -> str:
 
 
 class TestTheSaveOnAConfirmedReferee:
-    """`REQ-SCHIEDSRICHTER-011`: a confirmed referee's address is who signs in as them, and the save moves it never."""
+    """`schiedsrichter_adresse_nur_per_wechsel`: a confirmed referee's address is who signs in as them, and the save moves it never."""
 
     @pytest.mark.parametrize("retired", [False, True], ids=["serving", "retired"])
     def test_a_save_moving_it_is_refused_and_nothing_of_the_save_lands(self, mongo_replica_set_url: str, retired: bool):

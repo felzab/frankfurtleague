@@ -233,7 +233,7 @@ class TestTheGhostTheFixturesAreHandedTo:
         assert build_ghost_schiedsrichter()["kontakt"] == dict.fromkeys(FLKontakt.model_fields)
 
     def test_it_is_retired(self):
-        """`REQ-BOOKING-001` reads this field and nothing else, and it is the whole of what keeps the ghost off a new fixture."""
+        """`booking_unknown_resource` reads this field and nothing else, and it is the whole of what keeps the ghost off a new fixture."""
 
         assert build_ghost_schiedsrichter()["inactive_since"] == GHOST_INACTIVE_SINCE
 
@@ -299,7 +299,7 @@ def booking_refusal(booked: BookedReferee, schiedsrichter_id: ObjectId):
 
 
 class TestTheGhostTakesNoNewFixture:
-    """The erasure retires nobody, and `REQ-BOOKING-001` still holds: the ghost is retired for good.
+    """The erasure retires nobody, and `booking_unknown_resource` still holds: the ghost is retired for good.
 
     Driven here rather than beside the venue's cases: these pin a consequence of the erasure, where
     the refusal is one mechanism serving both references.
@@ -684,7 +684,7 @@ def after_erasing_one_fixture_left_to_play(url: str) -> tuple[dict[Any, Mapping[
 
 @pytest.mark.db
 def test_an_unplayed_fixture_does_not_stop_the_erasure_and_takes_the_ghost(mongo_replica_set_url: str):
-    """`DELETE` owes `REQ-RETIRE-004` and this does not: a request to be forgotten is not something a booking may block.
+    """`DELETE` owes `schiedsrichter_still_assigned` and this does not: a request to be forgotten is not something a booking may block.
 
     Kills consulting that refusal here, and kills leaving an erased person named on work still to come.
     """

@@ -13,7 +13,7 @@ export function mapNameRefusal(error: unknown): { error?: string; fieldErrors?: 
   if (!isRefusal(error)) return null;
 
   // No repair sentence: the box carrying the message is itself the way out.
-  if (error.serverErrorCode === "DB-COMMON-002") {
+  if (error.serverErrorCode === "duplicate_key") {
     return { fieldErrors: { name: "Diesen Namen gibt es schon." } };
   }
   return null;
@@ -23,7 +23,7 @@ export function mapNameRefusal(error: unknown): { error?: string; fieldErrors?: 
 export function mapRetireRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
-  if (error.serverErrorCode === "REQ-RETIRE-004") {
+  if (error.serverErrorCode === "schiedsrichter_still_assigned") {
     return buildRefusal({
       reason: "Diese Person ist noch für Spiele eingeteilt, die kein Ergebnis haben",
       repair: "Teile die Spiele jemand anderem zu oder sage sie ab",
@@ -36,14 +36,16 @@ export function mapRetireRefusal(error: unknown): string | null {
 export function mapReactivateRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "REQ-SCHIEDSRICHTER-007" ? SPERRLISTE_ADRESSE_GESPERRT : null;
+  return error.serverErrorCode === "schiedsrichter_adresse_gesperrt" ? SPERRLISTE_ADRESSE_GESPERRT : null;
 }
 
 /** `null` where the refusal is something else. It lands on the address box, which is the value the list refused. */
 export function mapGesperrteAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "REQ-SCHIEDSRICHTER-007" ? { fieldErrors: { "kontakt.email": SPERRLISTE_ADRESSE_GESPERRT_FELD } } : null;
+  return error.serverErrorCode === "schiedsrichter_adresse_gesperrt"
+    ? { fieldErrors: { "kontakt.email": SPERRLISTE_ADRESSE_GESPERRT_FELD } }
+    : null;
 }
 
 /** The re-send's own two refusals, or `null`. Neither lands on a field: the control is a panel button, not a form. */
@@ -51,18 +53,18 @@ export function mapEinladenRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
-    case "REQ-SCHIEDSRICHTER-001":
+    case "schiedsrichter_retired":
       return buildRefusal({
         // A retired row takes no booking, so what the link would collect is consent for a role
         // nobody can give this person.
         reason: "Diese Person ist stillgelegt und wird zu keinem Spiel mehr eingeteilt",
         repair: "Reaktiviere den Eintrag, bevor Du einen Link sendest",
       });
-    case "REQ-SCHIEDSRICHTER-004":
+    case "bestaetigung_vorhanden":
       return SCHON_BESTAETIGT;
-    case "REQ-SCHIEDSRICHTER-006":
+    case "schiedsrichter_keine_adresse":
       return KEINE_ADRESSE;
-    case "REQ-SCHIEDSRICHTER-007":
+    case "schiedsrichter_adresse_gesperrt":
       return SPERRLISTE_ADRESSE_GESPERRT;
     default:
       return null;
@@ -91,7 +93,7 @@ export const KEINE_ADRESSE = buildRefusal({
 export function mapBestaetigteAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "REQ-SCHIEDSRICHTER-011" ? { error: BESTAETIGTE_ADRESSE } : null;
+  return error.serverErrorCode === "schiedsrichter_adresse_nur_per_wechsel" ? { error: BESTAETIGTE_ADRESSE } : null;
 }
 
 // Both causes named: on the second the administrator touched no address, so the rule alone explains a change they never made.

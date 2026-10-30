@@ -17,7 +17,7 @@ import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
 import type { SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 
 /**
- * A confirmed referee's address, which the save refuses to move (`REQ-SCHIEDSRICHTER-011`): shown, with the
+ * A confirmed referee's address, which the save refuses to move (`schiedsrichter_adresse_nur_per_wechsel`): shown, with the
  * change pending at it, and changed nowhere on this page, as the pupil editor shows its own.
  */
 export type BestaetigteAdresse = { email: string; adresswechselId: string | null; adresswechselVerwehrt: EinsehbarVerwehrt | null };

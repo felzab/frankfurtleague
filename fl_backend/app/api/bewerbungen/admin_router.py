@@ -122,7 +122,7 @@ async def annehmen_bewerbung(
 
     IRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an
     `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
-    confirm their own seat (`REQ-BEWERBUNG-013`), so every seat enters the season as its person confirmed it.
+    confirm their own seat (`bewerbung_kontakte_unconfirmed`), so every seat enters the season as its person confirmed it.
     The acceptance is owed to every person of the application in the same transaction, naming the seats each holds.
     """
 
@@ -146,7 +146,7 @@ async def annehmen_bewerbung(
 
         saison_id = str(bewerbung_raw["saison_id"])
         # In-session, as the season's own patch reads it: `activate_saison` moves `status` in a
-        # transaction of its own, and entry is refused outside `future` (`REQ-ENTER-001`).
+        # transaction of its own, and entry is refused outside `future` (`entry_saison_not_future`).
         saison_raw = await pull_one_from_db(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status", "rules"], session=session
         )
@@ -212,7 +212,7 @@ async def annehmen_bewerbung(
                 "trikot_farbe": annahme_data.trikot_farbe,
                 # The three people arrive WITH the row rather than in a later write: they are what the
                 # application was, and `/bereich/admin/kontakte` reads them from here. Copied whole, each seat
-                # confirmed by its own person before acceptance was allowed (`REQ-BEWERBUNG-013`).
+                # confirmed by its own person before acceptance was allowed (`bewerbung_kontakte_unconfirmed`).
                 "kontakte": bewerbung_raw["kontakte"],
                 # Copied rather than joined on read.
                 "name": name,
@@ -364,7 +364,7 @@ async def erneut_einwilligung(
     The application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat
     is judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a
     decision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list
-    holds is refused `REQ-BEWERBUNG-019`. A path naming no seat is a 404.
+    holds is refused `bewerbung_kontakt_gesperrt`. A path naming no seat is a 404.
     """
 
     db_filter = {"_id": bewerbung_id}
@@ -496,11 +496,11 @@ async def korrigiere_kontakt_email(
     The fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because
     its notice could not arrive is a deletion candidate again once that mail is not refused.
 
-    Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this write would reach that is already
+    Refused on an application already decided (`bewerbung_already_decided`), on any seat this write would reach that is already
     confirmed, already answered with a Widerspruch, or holding nothing to confirm — the mirrored seat included
-    (`REQ-BEWERBUNG-011`) — on a seat holding another address than `bisherige_email`, the address the caller's page
-    showed, as after a Widerspruch and a reseat (`REQ-BEWERBUNG-021`), and on an address another contact person on this
-    application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming
+    (`bewerbung_sitz_already_answered`) — on a seat holding another address than `bisherige_email`, the address the caller's page
+    showed, as after a Widerspruch and a reseat (`bewerbung_sitz_anders_besetzt`), and on an address another contact person on this
+    application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds (`bewerbung_kontakt_gesperrt`). A path naming
     no seat is a 404.
     """
 
@@ -611,11 +611,11 @@ async def besetze_kontakt_sitz(
     restarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens
     nothing, seating them for a confirmation they cannot give.
 
-    Refused on an application already decided (`REQ-BEWERBUNG-001`); on any seat this write would reach that nobody
+    Refused on an application already decided (`bewerbung_already_decided`); on any seat this write would reach that nobody
     stepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included
-    (`REQ-BEWERBUNG-011`); and on an address another
-    contact person on this application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds
-    (`REQ-BEWERBUNG-019`); and on any label but the application form's running one (`REQ-EINWILLIGUNG-001`), the person
+    (`bewerbung_sitz_already_answered`); and on an address another
+    contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds
+    (`bewerbung_kontakt_gesperrt`); and on any label but the application form's running one (`fassung_unzulaessig`), the person
     seated being a new acceptance. A path naming no seat is a 404.
     """
 

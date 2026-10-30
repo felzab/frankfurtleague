@@ -17,9 +17,9 @@ import type { CalendarDate } from "@internationalized/date";
 import type { SaisonBanner } from "./banners";
 
 /**
- * **The season contains its matchdays, both directions enforced**: `REQ-DATE-002` outward and
- * `REQ-DATE-004` inward, which `spieltagBound` greys out below. A fixture is held to its MATCHDAY's
- * span (`REQ-DATE-001`) and never to the season.
+ * **The season contains its matchdays, both directions enforced**: `spieltag_outside_saison` outward and
+ * `saison_span_below_spieltage` inward, which `spieltagBound` greys out below. A fixture is held to its MATCHDAY's
+ * span (`spiel_outside_spieltag`) and never to the season.
  */
 export function FormZeitraumSection({
   startDate,

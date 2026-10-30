@@ -72,7 +72,7 @@ async def get_bestaetigung_ansicht(
 
     A POST, so the token travels in the body. A confirmed or expired link is served in that state, `gesperrt` ranking first,
     and `bestaetigung_spieler_wiederkehrend` opens the returning pupil's page; only a token no registration holds is refused
-    (`REQ-REGISTRIERUNG-004`).
+    (`link_ungueltig`).
     """
 
     token_hash = hash_token(ansicht_data.token)
@@ -121,8 +121,8 @@ async def post_bestaetigung(
 ) -> FLRegistrierungBestaetigungResponse:
     """Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
 
-    Refuses, writing nothing: `REQ-REGISTRIERUNG-004`, `-005`, `-006`, `-007`, `-010`, `-012`, `-017` and
-    `REQ-EINWILLIGUNG-001`.
+    Refuses, writing nothing: `link_ungueltig`, `link_abgelaufen`, `bestaetigung_vorhanden`, `bestaetigung_alter`, `medien_alter`,
+    `link_gesperrt`, `registrierung_wahlen_unpassend` and `fassung_unzulaessig`.
     """
 
     token_hash = hash_token(antwort_data.token)

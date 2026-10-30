@@ -80,9 +80,9 @@ export function FormEinladungSection({
 }: {
   teamId: string;
   saisonId: string;
-  /** `REQ-EINLADUNG-001` in the form: a link belongs to a junction row, so a club outside the season has none. */
+  /** `einladung_team_nicht_eingetragen` in the form: a link belongs to a junction row, so a club outside the season has none. */
   isMember: boolean;
-  /** `REQ-EINLADUNG-002`: a finished season hands out no further links, and the panel explains instead of offering. */
+  /** `saison_past`: a finished season hands out no further links, and the panel explains instead of offering. */
   isFinishedSaison: boolean;
   einladung: FLEinladungZeile | null;
   /** Whether the registration window is open today, which is the link's only expiry. */

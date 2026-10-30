@@ -166,7 +166,7 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
   const backend = BACKENDS.get(email) ?? (email === ADMIN_EMAIL ? A_GRANT : NOTHING_HELD);
   if (backend === "throws") throw new TypeError("fetch failed");
   if (backend === "refuses") {
-    const refusal = { error_code: "REQ-VAL-001", trace_id: "0".repeat(32), fields: [] };
+    const refusal = { error_code: "payload_refused", trace_id: "0".repeat(32), fields: [] };
     return new Response(JSON.stringify(refusal), { status: 422, headers: { "content-type": "application/json" } });
   }
 
@@ -3470,7 +3470,7 @@ async function erasureRefused(): Promise<Error> {
     message: "API returned a bad status.",
     url: `${API_ORIGIN}/api/v0/identitaet/selbst/erasure`,
     statusCode: 403,
-    serverErrorCode: "REQ-AUTH-008",
+    serverErrorCode: "person_barred",
     endpoint: "/identitaet/selbst/erasure",
     method: "POST",
     readOnly: false,

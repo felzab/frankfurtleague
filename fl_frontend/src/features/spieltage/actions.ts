@@ -20,8 +20,8 @@ export async function patchSpieltagAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    // The span is the whole payload, so `REQ-DATE-002` lands on `beginn`; `REQ-DATE-003` and
-    // `REQ-DATE-008` land on the form, each naming a row this page does not show.
+    // The span is the whole payload, so `spieltag_outside_saison` lands on `beginn`; `spieltag_span_below_spiele` and
+    // `spieltag_beginn_out_of_order` land on the form, each naming a row this page does not show.
     let patchOperation;
     try {
       patchOperation = await patchSpieltag(validated.data);

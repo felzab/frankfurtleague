@@ -95,7 +95,7 @@ async def post_schiedsrichter(
     whether this person is asked, because a referee nobody asked is a name nobody consented to
     publish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.
 
-    Refused `REQ-SCHIEDSRICHTER-007` where the address given is on the ban list.
+    Refused `schiedsrichter_adresse_gesperrt` where the address given is on the ban list.
     """
 
     email = schiedsrichter_data.kontakt.email
@@ -108,7 +108,7 @@ async def post_schiedsrichter(
         """Ask the ban list, then write. The check is handed the transaction's session, so a retry re-asks it."""
 
         # The season stays `None` while no season is running, and the ban list is asked on the
-        # hash alone, as the correction and the re-send ask it (`REQ-SCHIEDSRICHTER-007`).
+        # hash alone, as the correction and the re-send ask it (`schiedsrichter_adresse_gesperrt`).
         gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
@@ -171,14 +171,14 @@ async def patch_schiedsrichter(
     new address, named in `bestaetigung`: the old link was posted to a mailbox nobody reads, and
     leaving it live is a credential in the wrong inbox.
 
-    **A CONFIRMED referee's address is refused here** (`REQ-SCHIEDSRICHTER-011`), retired or not: it is who signs in as the
+    **A CONFIRMED referee's address is refused here** (`schiedsrichter_adresse_nur_per_wechsel`), retired or not: it is who signs in as the
     person, and moves only through an address change: the address tool, `POST /adresswechsel`, or the person's own account page.
     A save keeping it lands, a pending change standing.
 
     **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
     collected for a role nobody gives them. Their old link is retired all the same, and the
     reactivation mints the fresh one. Where a link is minted, a banned new address is refused
-    `REQ-SCHIEDSRICHTER-007`. A save retiring or minting a link is refused `REQ-AUTH-009` from a
+    `schiedsrichter_adresse_gesperrt`. A save retiring or minting a link is refused `confirmation_required` from a
     sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.
 
     The ghost answers 404 here as it does to every read: a name written onto it would appear on the
@@ -207,7 +207,7 @@ async def patch_schiedsrichter(
         update, minted = compose_korrektur_update(stored=stored, payload=payload, payload_email=email, today=today)
 
         # The season is NOT a condition here: it is `None` while no season is running, and the
-        # ban list is asked on the hash alone then (`REQ-SCHIEDSRICHTER-007`).
+        # ban list is asked on the hash alone then (`schiedsrichter_adresse_gesperrt`).
         if minted:
             gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
             refuse(find_gesperrt_refusal(gesperrt=gesperrt))
@@ -329,8 +329,8 @@ async def reactivate_schiedsrichter(
     retired referee's save stores a new address and mails nothing, so coming back is what
     asks them. A row holding no address a link can go to comes back unasked, and so does one whose
     person has answered. Where a link is minted, an address on the ban list is refused
-    `REQ-SCHIEDSRICHTER-007` and the row stays retired, and one from a sign-in or confirmation older than
-    `STEP_UP_WINDOW_HOURS` is refused `REQ-AUTH-009`.
+    `schiedsrichter_adresse_gesperrt` and the row stays retired, and one from a sign-in or confirmation older than
+    `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
 
     The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
     person behind it.
@@ -410,10 +410,10 @@ async def einladen_schiedsrichter(
 
     It replaces the whole block, so the previous link stops working at once. The deadline restarts from today.
 
-    Refused where the referee is retired (`REQ-SCHIEDSRICHTER-001`), where they have already
-    answered (`REQ-SCHIEDSRICHTER-004`), where they carry no email address
-    (`REQ-SCHIEDSRICHTER-006`), and where that address is on the ban list
-    (`REQ-SCHIEDSRICHTER-007`). 404 for an id no referee holds, an erased referee's among them, and
+    Refused where the referee is retired (`schiedsrichter_retired`), where they have already
+    answered (`bestaetigung_vorhanden`), where they carry no email address
+    (`schiedsrichter_keine_adresse`), and where that address is on the ban list
+    (`schiedsrichter_adresse_gesperrt`). 404 for an id no referee holds, an erased referee's among them, and
     for the ghost, which every by-id route filters out.
 
     **A referee who has already answered is refused rather than sent a second link**: the

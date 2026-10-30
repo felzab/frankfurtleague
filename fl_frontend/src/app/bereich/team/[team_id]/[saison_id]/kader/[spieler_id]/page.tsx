@@ -36,7 +36,7 @@ export default async function KaderZeilePage({ params }: NextPageProps<{ team_id
     );
   }
 
-  // Live rows alone, as the write path counts them (`REQ-SQUAD-004`), and never the edited row's own.
+  // Live rows alone, as the write path counts them (`kader_rolle_taken`), and never the edited row's own.
   const heldRollen: Partial<Record<FLSpielerRolle, string>> = {};
   for (const other of kader.kader) {
     if (other.spieler_id !== spieler_id && other.inactive_since === null && other.rolle !== null) heldRollen[other.rolle] ??= kaderName(other);

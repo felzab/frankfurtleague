@@ -84,7 +84,7 @@ export async function handlePublicRequest<T extends { success: boolean }>(
       if (isRuleRefusal(error)) {
         // Any other code is a rule no mapper here words. Never the shared reader's reload: it discards the
         // entries a visitor typed, which the sentence answered promises are intact.
-        return error.serverErrorCode === "DB-COMMON-002"
+        return error.serverErrorCode === "duplicate_key"
           ? { success: false, error: SCHON_VORLIEGEND }
           : refusedFailure(error, UNHANDLED_FIELD_REFUSAL);
       }

@@ -34,8 +34,8 @@ describe("what an administrator's card says of its report", () => {
 describe("a write composed on a report that has changed since", () => {
   /* The reload draws the form anew, so each reader is told to enter the change again, and who else writes the report. */
   it("tells each reader to reload and enter the change again, naming the other writer", () => {
-    const schiedsrichter = mapSpielberichtRefusal(refused("REQ-BERICHT-006"), "schiedsrichter");
-    const admin = mapSpielberichtRefusal(refused("REQ-BERICHT-006"), "admin");
+    const schiedsrichter = mapSpielberichtRefusal(refused("bericht_inzwischen_geaendert"), "schiedsrichter");
+    const admin = mapSpielberichtRefusal(refused("bericht_inzwischen_geaendert"), "admin");
 
     for (const answer of [schiedsrichter, admin]) {
       expect(answer?.error ?? "").toMatch(
@@ -51,7 +51,7 @@ describe("a referee's write on a fixture called off since the page opened", () =
   /* A report may stand from before the call-off, so the refusal says the fixture takes none, never that none exists, and
      sends the referee to the reload that shows the fixture as it is. */
   it("says the fixture takes no report, and how to see it as it stands", () => {
-    const answer = mapSpielberichtRefusal(refused("REQ-BERICHT-004"), "schiedsrichter");
+    const answer = mapSpielberichtRefusal(refused("bericht_abgesagt"), "schiedsrichter");
 
     expect(answer?.error).toBe(
       "Dieses Spiel ist inzwischen als ausgefallen oder annulliert eingetragen und nimmt keinen Spielbericht an. Lade die Seite neu.",

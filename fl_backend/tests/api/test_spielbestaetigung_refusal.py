@@ -111,7 +111,7 @@ DISCARDED_DECLINE = {
 
 
 class TestASpentLinkMeetsTheCodeThatNamesWhy:
-    """Each code alone, then every pair in the order the answer meets them: a row both answered and moved is `-002`."""
+    """Each code alone, then every pair in the order the answer meets them: a row both answered and moved is `ansetzung_beantwortet`."""
 
     @pytest.mark.parametrize(
         ("row", "situation", "today", "code"),

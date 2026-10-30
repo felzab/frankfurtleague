@@ -407,7 +407,7 @@ ResolvedSides = tuple[FLSpielTeamField | None, FLSpielTeamField | None, bool]
 def voided_no_show(sonderereignis: FLSonderereignis | None) -> FLSonderereignis | None:
     """The event a write that rewrites a side destroys, or `None`.
 
-    A no-show alone names a side and composes its result, and `REQ-STATE-003` refuses one left
+    A no-show alone names a side and composes its result, and `state_nichtantreten_without_two_sides` refuses one left
     beside an emptied slot -- so a fixture keeping it is one no later save can repair.
     """
 
@@ -417,7 +417,7 @@ def voided_no_show(sonderereignis: FLSonderereignis | None) -> FLSonderereignis 
 def reopens(stored: FLSpielCommon, *, ergebnis: str | None, sonderereignis: FLSonderereignis | None) -> bool:
     """Whether a write leaving this fixture with `ergebnis` and `sonderereignis` puts it back among those still to be played.
 
-    ONE question for a save and a rewrite alike, so `REQ-BOOKING-001` and the reports over a rewrite cannot disagree.
+    ONE question for a save and a rewrite alike, so `booking_unknown_resource` and the reports over a rewrite cannot disagree.
     """
 
     return not is_unplayed(ergebnis=stored.ergebnis, sonderereignis=stored.sonderereignis) and is_unplayed(
@@ -868,7 +868,7 @@ def _composed_side(
 ) -> FLSpielTeamField | None:
     """One side as the DOCUMENT will hold it.
 
-    The junction first and the stored side second: `REQ-ELIGIBILITY-002` refuses a NEWLY fielded club
+    The junction first and the stored side second: `eligibility_team_not_in_saison` refuses a NEWLY fielded club
     holding no junction row, so a side reaching the fallback is one already standing here.
     """
 
@@ -890,7 +890,7 @@ def _composed_ort(
 ) -> FLSpielOrtField | None:
     """The venue as the DOCUMENT will hold it.
 
-    `booked` is `None` only where the id resolves to no row, which `REQ-BOOKING-001` refuses for a
+    `booked` is `None` only where the id resolves to no row, which `booking_unknown_resource` refuses for a
     NEW reference -- so the fallback covers an unchanged reference alone, and keeps what it recorded.
     """
 
@@ -939,7 +939,7 @@ class ComposedResult:
 
 
 def compose_result(payload: FLPatchSpielDataPayload, rules: FLSaisonRules) -> ComposedResult:
-    """The result as the save composes it, for the document and for `REQ-BOOKING-001`'s question whether it stays unplayed."""
+    """The result as the save composes it, for the document and for `booking_unknown_resource`'s question whether it stays unplayed."""
 
     # An unresolved slot has nobody to score, so an unresolved fixture carries NO goals rather than
     # the partial result `build_statistik_lookup_stage` has to filter against.
@@ -948,7 +948,7 @@ def compose_result(payload: FLPatchSpielDataPayload, rules: FLSaisonRules) -> Co
     team2_tore = payload.team2.tore if both_sides_known and payload.team2 is not None else None
 
     # `both_sides_known` again, so this function keeps the invariant its first lines state rather
-    # than resting on `REQ-STATE-003` refusing the same shape one layer up.
+    # than resting on `state_nichtantreten_without_two_sides` refusing the same shape one layer up.
     absent_side = SONDEREREIGNIS_NO_SHOW.get(payload.sonderereignis or "") if both_sides_known else None
     if absent_side is not None:
         # The award is COMPOSED for the same reason `ergebnis` is: a figure the client supplied can
@@ -1022,7 +1022,7 @@ def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
     # them without saying so is how a real result disappears.
     if payload.sonderereignis in SONDEREREIGNIS_WITHOUT_A_RESULT and submitted_goals:
         return WriteRefusal(
-            error_code=Code.STATE_RESULT_ON_A_NON_EVENT,
+            error_code=Code.STATE_ERGEBNIS_ON_A_NON_EVENT,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
         )
 
@@ -1030,7 +1030,7 @@ def find_state_refusal(payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
     # no side to land on.
     if payload.sonderereignis in SONDEREREIGNIS_NO_SHOW and (payload.team1 is None or payload.team2 is None):
         return WriteRefusal(
-            error_code=Code.STATE_NO_SHOW_WITHOUT_TWO_SIDES,
+            error_code=Code.STATE_NICHTANTRETEN_WITHOUT_TWO_SIDES,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
         )
 
@@ -1058,7 +1058,7 @@ def find_eligibility_refusal(
         # this very fixture, and refusing every save of it would trap that correction.
         if not stays and member is None:
             return WriteRefusal(
-                error_code=Code.ELIGIBILITY_NO_MEMBERSHIP,
+                error_code=Code.ELIGIBILITY_TEAM_NOT_IN_SAISON,
                 status=HTTPStatus.CONFLICT,
             )
 
@@ -1129,7 +1129,7 @@ def find_fixture_date_refusal(*, datum: str | None, spieltag_beginn: str | None,
         return None
 
     return WriteRefusal(
-        error_code=Code.FIXTURE_OUTSIDE_SPIELTAG,
+        error_code=Code.SPIEL_OUTSIDE_SPIELTAG,
         status=HTTPStatus.CONFLICT,
     )
 
@@ -1154,7 +1154,7 @@ def _chosen_references(spiel: BookedFixture | FLPatchSpielDataPayload | FLSpielS
 
 
 def find_new_bookings(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: FLSaisonRules) -> BookedReferences:
-    """Which references `REQ-BOOKING-001` judges: each one this payload moves, and each one it keeps on a fixture it reopens."""
+    """Which references `booking_unknown_resource` judges: each one this payload moves, and each one it keeps on a fixture it reopens."""
 
     chosen = _chosen_references(payload)
     held = _chosen_references(stored)
@@ -1170,7 +1170,7 @@ def find_new_bookings(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: 
 
 
 def find_referee_stand_refusal(stored: FLSpiel, payload: FLPatchSpielDataPayload) -> WriteRefusal | None:
-    """`REQ-BOOKING-003`: the payload keeps the referee its editor was served, and the fixture books another or none since.
+    """`booking_schiedsrichter_moved`: the payload keeps the referee its editor was served, and the fixture books another or none since.
 
     Never a payload naming another referee or none, a decision about the slot as it stands.
     """
@@ -1180,7 +1180,7 @@ def find_referee_stand_refusal(stored: FLSpiel, payload: FLPatchSpielDataPayload
         return None
 
     return WriteRefusal(
-        error_code=Code.BOOKING_REFEREE_MOVED,
+        error_code=Code.BOOKING_SCHIEDSRICHTER_MOVED,
         status=HTTPStatus.CONFLICT,
     )
 
@@ -1218,7 +1218,7 @@ def find_booking_refusal(
     # After both arms above, so the ghost, retired and never confirmed, meets the retirement.
     if new.schiedsrichter_id is not None and resolved.schiedsrichter is not None and not resolved.schiedsrichter.bestaetigt:
         return WriteRefusal(
-            error_code=Code.BOOKING_UNCONFIRMED_REFEREE,
+            error_code=Code.BOOKING_UNCONFIRMED_SCHIEDSRICHTER,
             status=HTTPStatus.CONFLICT,
         )
 
@@ -1240,7 +1240,7 @@ class BookedSlot:
 
 @dataclass(frozen=True)
 class SlotClaim:
-    """One venue or referee a fixture holds at the hour `REQ-CLASH-001` measures from."""
+    """One venue or referee a fixture holds at the hour `spiel_double_booked` measures from."""
 
     resource: Literal["Spielort", "Schiedsrichter"]
     #: The `spiele` path holding the reference, which the read of the other fixtures is keyed on.
@@ -1251,7 +1251,7 @@ class SlotClaim:
 
 
 def find_slot_claims(spiel: BookedFixture | FLPatchSpielDataPayload) -> list[SlotClaim]:
-    """Every venue and referee `REQ-CLASH-001` judges on this fixture, asked of a payload and of the fixture it replaces alike."""
+    """Every venue and referee `spiel_double_booked` judges on this fixture, asked of a payload and of the fixture it replaces alike."""
 
     # The same partition the read of the other fixtures filters on: an event that frees the slot cannot
     # double-book anything, and judging it would make the admin move the fixture before recording
@@ -1277,7 +1277,7 @@ def find_slot_claims(spiel: BookedFixture | FLPatchSpielDataPayload) -> list[Slo
 def find_claims_made(stored: BookedFixture, payload: FLPatchSpielDataPayload) -> list[SlotClaim]:
     """Every claim this payload makes that the stored fixture did not already make.
 
-    The one set `REQ-CLASH-001` judges and the save anchors, so neither covers a claim the other misses.
+    The one set `spiel_double_booked` judges and the save anchors, so neither covers a claim the other misses.
     """
 
     # A claim the fixture already made was in every rival's snapshot, or its maker anchored it. Judging
@@ -1323,7 +1323,7 @@ def slots_booked_against(claim: SlotClaim, holders: Sequence[FLSpielSlotHolder],
 
 
 def find_references_to_anchor(stored: FLSpiel, payload: FLPatchSpielDataPayload, rules: FLSaisonRules) -> BookedReferences:
-    """Every reference the save anchors: each `REQ-BOOKING-001` judges, and each `REQ-CLASH-001` claim `find_claims_made` names.
+    """Every reference the save anchors: each `booking_unknown_resource` judges, and each `spiel_double_booked` claim `find_claims_made` names.
 
     Read off the two functions the rules read, so no anchor misses a reference a rule judged.
     """
@@ -1352,7 +1352,7 @@ def find_clash_refusal(*, datum: str | None, uhrzeit: str | None, booked: Sequen
     slot, gap = clash
 
     return WriteRefusal(
-        error_code=Code.FIXTURE_DOUBLE_BOOKED,
+        error_code=Code.SPIEL_DOUBLE_BOOKED,
         status=HTTPStatus.CONFLICT,
     )
 
@@ -1379,7 +1379,7 @@ def find_result_removal_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielD
             continue
 
         return WriteRefusal(
-            error_code=Code.RESULT_SIDE_EMPTIED,
+            error_code=Code.ERGEBNIS_SIDE_EMPTIED,
             status=HTTPStatus.CONFLICT,
         )
 
@@ -1397,7 +1397,7 @@ def find_departed_occupants(spiele: Sequence[FLSpielJoinedInternal]) -> list[FLB
                 continue
 
             # The internal fixture: the ordering is against the DAY a club left, which no served
-            # side carries. The date rule is `REQ-ELIGIBILITY-001`'s.
+            # side carries. The date rule is `eligibility_disqualified`'s.
             effective = occupant.austritt.datum
             if spiel.datum is not None and spiel.datum < effective:
                 continue
@@ -1423,7 +1423,7 @@ def find_departed_occupants(spiele: Sequence[FLSpielJoinedInternal]) -> list[FLB
 
 
 def find_double_entries(spiele: Sequence[FLSpielCommon]) -> list[FLBracketFaultSpieltag]:
-    """`REQ-SPIELTAG-001`'s state, wherever a double entry got stored.
+    """`spieltag_occupied`'s state, wherever a double entry got stored.
 
     Grouped by matchday, never by season: nothing ties a fixture's `saison_id` to its matchday's.
     Sides rather than matches, so both sides of ONE fixture clash too.
@@ -1465,12 +1465,12 @@ def find_retired_bookings(
     retired_venues: Mapping[CustomObjectId, str],
     retired_referees: Mapping[CustomObjectId, str],
 ) -> list[FLBracketFaultBooking]:
-    """`REQ-BOOKING-001`'s state on a fixture still to be played, wherever it got stored."""
+    """`booking_unknown_resource`'s state on a fixture still to be played, wherever it got stored."""
 
     faults: list[FLBracketFaultBooking] = []
 
     for spiel in sorted(spiele, key=lambda entry: (entry.saison_id, entry.spiel_nr)):
-        # A played or called-off fixture keeps a retired row lawfully: `REQ-RETIRE-003` lets the row retire past it.
+        # A played or called-off fixture keeps a retired row lawfully: `spielort_still_booked` lets the row retire past it.
         if not is_unplayed(ergebnis=spiel.ergebnis, sonderereignis=spiel.sonderereignis):
             continue
 
@@ -1504,7 +1504,7 @@ def find_retired_bookings(
 
 
 def find_double_bookings(spiele: Sequence[BookedFixture], holders: Sequence[FLSpielSlotHolder]) -> list[FLBracketFaultClash]:
-    """`REQ-CLASH-001`'s state wherever stored; `holders` is every fixture of any season claiming one of these rows.
+    """`spiel_double_booked`'s state wherever stored; `holders` is every fixture of any season claiming one of these rows.
 
     Each fixture is judged as a save of it would be, so the report names the match that 409 names.
     """
@@ -1640,7 +1640,7 @@ def find_advancement_occupancy_refusal(season: Sequence[FLSpielCommon], advancem
     # standing twice is decided in one place, and the fault the report shows is this one.
     standing = {(fault.spieltag_id, fault.team_id) for fault in find_double_entries(season)}
 
-    # A pair already stored is skipped, as `REQ-SWAP-005` skips a Spieltag already broken: refusing
+    # A pair already stored is skipped, as `swap_spieltag_clash` skips a Spieltag already broken: refusing
     # over a standing fault would block every edit that could repair it.
     broken: dict[tuple[CustomObjectId, CustomObjectId], list[FLBracketFaultSpieltag]] = {}
     for fault in find_double_entries(resolved):

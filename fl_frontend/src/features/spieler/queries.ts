@@ -45,7 +45,7 @@ export const getSpielerNachnominierung = cache(async (saisonId: string): Promise
 );
 
 /**
- * One team's squad as its seat holder reads it, refused `REQ-FUNKTION-001` where the backend does not
+ * One team's squad as its seat holder reads it, refused `funktion_nicht_gehalten` where the backend does not
  * find the seat the page's own check found.
  */
 // Never `"use cache"`, for `getSpielerMemberships`' reason: what it answers is the reading person's.
@@ -54,7 +54,7 @@ export const getKader = cache(async (teamId: string, saisonId: string): Promise<
 );
 
 /**
- * The signed-in pupil's own record, refused `REQ-FUNKTION-001` where the backend holds no confirmed
+ * The signed-in pupil's own record, refused `funktion_nicht_gehalten` where the backend holds no confirmed
  * pupil row for the address the page's own check passed.
  */
 // Never `"use cache"`, for `getSpielerMemberships`' reason: what it answers is the reading person's.

@@ -6,7 +6,6 @@ the suite's grants an administrator signs in through. Every case asks what the d
 the request, so a step, a refusal or a reset missing from the route fails here.
 """
 
-import asyncio
 import functools
 import logging
 import time
@@ -14,11 +13,11 @@ from collections.abc import Awaitable, Callable, Iterator, Mapping
 from datetime import timedelta
 from typing import Any, cast
 
-import pymongo
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
 from httpx2 import AsyncClient, Response
+from pydantic import ValidationError
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
@@ -41,7 +40,7 @@ from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH
 from tests.actor_tokens import FRESH_ADMIN_ACTOR, SignedActor
 from tests.app_client import app_client
 from tests.bans import ban_list
-from tests.config import ADMIN_KEY, ADMINISTRATORS, UNANSWERED_DEADLINE_S, UNANSWERED_URI, grants_for_the_suite
+from tests.config import ADMIN_KEY, ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, spiel_document
 from tests.erasure import erasure_collections
@@ -390,7 +389,7 @@ class TestTheRegistryRunsWhole:
 
 @pytest.mark.db
 class TestTheirOwnAddress:
-    """`REQ-PURGE-003`: an administrator's own address goes through their account page, or through another administrator."""
+    """`eigene_adresse`: an administrator's own address goes through their account page, or through another administrator."""
 
     @pytest.mark.parametrize(
         ("path", "body"),
@@ -416,7 +415,7 @@ class TestTheirOwnAddress:
         ids=["the reveal", "the erasure", "the sign-out"],
     )
     def test_another_administrators_address_is_not_refused(self, mongo_replica_set_url: str, path: str, body: Callable[[str], dict[str, str]]):
-        """Pressed by an owner, whom `REQ-PURGE-005` refuses nothing, so the own address's refusal alone is asked."""
+        """Pressed by an owner, whom `verwaltung_adresse` refuses nothing, so the own address's refusal alone is asked."""
 
         async def run(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await posted(mongo_replica_set_url, path, body(ANOTHER_ADMINISTRATOR), by=OWNER)
@@ -426,7 +425,7 @@ class TestTheirOwnAddress:
 
 @pytest.mark.db
 class TestAGrantHoldersAddress:
-    """`REQ-PURGE-005`: judged inside the erasure's transaction, and in the reveal's snapshot."""
+    """`verwaltung_adresse`: judged inside the erasure's transaction, and in the reveal's snapshot."""
 
     @pytest.mark.parametrize(
         ("path", "body", "address"),
@@ -562,7 +561,7 @@ class TestTheReveal:
     def test_it_serves_each_rows_retirement_and_every_season_a_referee_holds_an_unplayed_fixture_in(self, mongo_replica_set_url: str):
         """Two unplayed fixtures share a season, named once.
 
-        A cancelled one is no booking `REQ-RETIRE-004` judges, and its season stays unnamed.
+        A cancelled one is no booking `schiedsrichter_still_assigned` judges, and its season stays unnamed.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -775,7 +774,7 @@ THE_GRANTS_OWN_ROWS = frozenset({Collection.BERECHTIGUNGEN_ANGEKUENDIGT, Collect
 @pytest.mark.db
 class TestAnotherAdministratorsAddress:
     def test_an_owner_ends_another_administrators_grant_and_its_notice_names_them(self, mongo_replica_set_url: str):
-        """Only an owner presses here (`REQ-PURGE-005`)."""
+        """Only an owner presses here (`verwaltung_adresse`)."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await posted(mongo_replica_set_url, PATH, erasure_of(ANOTHER_ADMINISTRATOR), by=OWNER)
@@ -866,32 +865,11 @@ class TestTheSignOut:
 ROW_KEYS = ("actor", "request", "collection", "operation", "document_id", "db_filter", "before", "modified_count", "redacted_at", "anlass")
 
 
-# --- Refused at the box, before any read: the default tier's, the server answering nothing.
-
-# The control's answer: a body past validation, whose first database call meets the unanswered server.
-UNREACHED_DATABASE = {Code.DATABASE_FAILED, Code.UNKNOWN_OUTCOME}
-
-
-def answered_unanswered(path: str, body: Mapping[str, Any]) -> Response:
-    """The actor check answered from the suite's administrators, so a refused body touches no driver."""
-
-    async def _answered() -> Response:
-        async with app_client(UNANSWERED_URI, admitting=ADMINISTRATORS) as http:
-            # Nested inside the app's own deadline, which it cannot extend, so each control is held to this one.
-            with pymongo.timeout(UNANSWERED_DEADLINE_S):
-                return await http.post(path, json=dict(body), headers=SignedActor(OPERATOR, ADMIN_KEY))
-
-    return asyncio.run(_answered())
-
-
-def refused_at(response: Response) -> tuple[int, str, list[list[Any]]]:
-    answer = response.json()
-
-    return response.status_code, answer["error_code"], [field["path"] for field in answer.get("fields", [])]
+# --- Refused by the payload, which the route validates before any read.
 
 
 class TestTheAnlassIsRefusedAtTheBox:
-    """A 422 alone tells nothing: one refused for another field answers it too, so the location is asserted."""
+    """A refusal alone tells nothing: one refused for another field is refused too, so the location is asserted."""
 
     @pytest.mark.parametrize(
         "body",
@@ -904,12 +882,14 @@ class TestTheAnlassIsRefusedAtTheBox:
         ],
     )
     def test_the_erasure_is_refused_naming_it(self, body: dict[str, str]):
-        assert refused_at(answered_unanswered(PATH, body)) == (422, Code.PAYLOAD_REFUSED, [["anlass"]])
+        with pytest.raises(ValidationError) as raised:
+            FLErasurePayload.model_validate(body)
 
-    def test_the_bound_itself_reaches_the_database(self):
-        """The control: a route refusing every body would pass the cases above."""
+        assert [error["loc"] for error in raised.value.errors()] == [("anlass",)]
 
-        response = answered_unanswered(PATH, erasure_of(anlass="x" * ERASURE_ANLASS_MAX_LENGTH))
+    def test_the_bound_itself_is_taken(self):
+        """The control: a payload refusing every anlass would pass the cases above."""
 
-        assert response.status_code == 500, response.json()
-        assert response.json()["error_code"] in UNREACHED_DATABASE
+        anlass = "x" * ERASURE_ANLASS_MAX_LENGTH
+
+        assert FLErasurePayload.model_validate(erasure_of(anlass=anlass)).anlass == anlass

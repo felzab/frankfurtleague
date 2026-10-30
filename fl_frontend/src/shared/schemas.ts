@@ -147,7 +147,7 @@ export const FLAddressPayloadSchema = z.object({
 
 /**
  * Re-exported from `core`, where `isDeliverableAddress` holds the same ceiling: applied here so an
- * over-long address is refused in German at the keystroke, the API's `REQ-VAL-001` marking the box
+ * over-long address is refused in German at the keystroke, the API's `payload_refused` marking the box
  * with a generic sentence rather than the ceiling's own.
  */
 export { KONTAKT_EMAIL_MAX_LENGTH };

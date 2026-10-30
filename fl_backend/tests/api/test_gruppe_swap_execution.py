@@ -48,7 +48,7 @@ def junction(team_id: ObjectId, gruppe: str) -> dict[str, Any]:
     return saison_team_document(SAISON_ID, team_id, name, shorthand, gruppe=gruppe)
 
 
-# Only `datum` decides `REQ-SWAP-006`; the type and the reason are what a surface reports.
+# Only `datum` decides `swap_fields_disqualified`; the type and the reason are what a surface reports.
 AUSTRITT = {"type": "disqualifikation", "grund": "Regelverstoss", "datum": "2026-04-01"}
 # A day after `AUSTRITT`, so the date half is satisfied and the EVENT is what each case turns on.
 AFTER_THE_EXIT = "2026-05-01"
@@ -75,7 +75,7 @@ def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
     return {"team_id": team_id, "name": name, "shorthand": shorthand, "tore": tore}
 
 
-# Sharing one matchday is what makes a `REQ-SWAP-005` clash reachable; the second is for cases needing two.
+# Sharing one matchday is what makes a `swap_spieltag_clash` clash reachable; the second is for cases needing two.
 SPIELTAG = ObjectId("6890a1b2c3d4e5f6072100ff")
 OTHER_SPIELTAG = ObjectId("6890a1b2c3d4e5f6072100fe")
 # The bracket's own, so a knockout fixture shares a matchday with nothing unless a case says so.
@@ -319,7 +319,7 @@ class TestTheDrawnFixturesMoveWithTheClubs:
         assert rewritten == 1
 
     def test_no_club_is_fielded_twice_on_one_matchday(self, mongo_replica_set_url: str):
-        """Group fixtures only; a mixed Spieltag is `REQ-SWAP-005`'s. The before count is asserted so an illegal seed cannot pass."""
+        """Group fixtures only; a mixed Spieltag is `swap_spieltag_clash`'s. The before count is asserted so an illegal seed cannot pass."""
 
         async def occupancy(database: AsyncDatabase) -> int:
             """The most matches any one club is fielded in on a single matchday."""
@@ -396,7 +396,7 @@ class TestTheRefusalsReadTheRealDocuments:
 
         code, sides = on_a_seeded_season(mongo_replica_set_url, body, spiele=list(DRAWN_ROUND_ROBIN), saison_status="past")
 
-        assert code == Code.SWAP_SAISON_FINISHED
+        assert code == Code.SAISON_PAST
         assert sides == {1: (ALPHA, ALPHA_RIVAL), 2: (BETA_RIVAL, BETA)}, "a refused swap rewrote a fixture"
 
     def test_a_group_fixture_dated_today_closes_the_window(self, mongo_replica_set_url: str):
@@ -413,7 +413,7 @@ class TestTheRefusalsReadTheRealDocuments:
             spiele=[gruppen_fixture(1, ALPHA, ALPHA_RIVAL, datum=TODAY), gruppen_fixture(2, BETA_RIVAL, BETA)],
         )
 
-        assert code == Code.SWAP_KNOCKOUT_STARTED
+        assert code == Code.SWAP_SAISON_STARTED
         assert stored[ALPHA] == "A" and stored[BETA] == "B", "a refused swap moved a junction row"
         assert sides == {1: (ALPHA, ALPHA_RIVAL), 2: (BETA_RIVAL, BETA)}, "a refused swap rewrote a fixture"
 
@@ -448,7 +448,7 @@ class TestTheRefusalsReadTheRealDocuments:
         assert stored[ALPHA] == "B" and stored[BETA] == "A"
 
     def test_a_swap_that_would_field_a_club_twice_on_one_matchday_is_refused(self, mongo_replica_set_url: str):
-        """`REQ-SWAP-005`: the rewrite moves group sides only, so Alpha takes Beta's fixture and stands twice — what a swap could bypass."""
+        """`swap_spieltag_clash`: the rewrite moves group sides only, so Alpha takes Beta's fixture and plays twice: what a swap could dodge."""
 
         manual_pick = {**knockout_fixture(ergebnis=None, spieltag_id=SPIELTAG), "spiel_nr": 9, "team1": side(ALPHA), "team2": None}
 
@@ -521,7 +521,7 @@ class TestTheRefusalsReadTheRealDocuments:
         assert sides[1] == (BETA, ALPHA_RIVAL), "the fixture that made the matchday legal again did not move"
 
     def test_a_swap_landing_a_departed_club_on_a_later_fixture_is_refused(self, mongo_replica_set_url: str):
-        """`REQ-SWAP-006` against real documents: the junction read supplies the exit day and the projection the fixture's date."""
+        """`swap_fields_disqualified` against real documents: the junction read supplies the exit day and the projection the fixture's date."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await record_an_austritt(database, ALPHA)

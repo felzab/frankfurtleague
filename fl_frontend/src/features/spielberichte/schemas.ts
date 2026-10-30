@@ -38,7 +38,7 @@ const FLSpielSeiteSchema = z.enum(["team1", "team2"], { error: "Bitte wähle das
 
 /**
  * The three events a match that took place can end in. A no-show's goals are the league's to compose, and a fixture
- * called off or struck out has no report (`REQ-BERICHT-004`).
+ * called off or struck out has no report (`bericht_abgesagt`).
  */
 const FLSpielberichtSonderereignisSchema = z.enum(["abgebrochen", "nichtantreten_team1", "nichtantreten_team2"], {
   error: "Bitte wähle ein Sonderereignis.",
@@ -79,7 +79,7 @@ export type KartenSchluessel = {
 };
 
 /**
- * Whether each card may name no reason (`REQ-BERICHT-008`): each caution the season-end strip left reasonless in the
+ * Whether each card may name no reason (`bericht_grund_fehlt`): each caution the season-end strip left reasonless in the
  * stored report excuses one equal caution, those listed earlier without a reason using it first, as the backend counts.
  */
 export const gruendeErlassen = (bestand: readonly KartenSchluessel[], karten: readonly KartenSchluessel[]): boolean[] => {
@@ -166,7 +166,7 @@ const berichtPayload = <TTor extends z.ZodType<string | null>, TKarten extends z
 export const FLSpielberichtPayloadSchema = z.object({
   // A null scorer is a goal nobody was named for, never an erased pupil, whose entry keeps their id.
   bericht: berichtPayload({ torschuetze: CustomObjectIdStringSchema.nullable(), karten: kartenListe(karte(CustomObjectIdStringSchema)) }),
-  // The version the form opened on, `null` where no report stood: one composed on another is refused (`REQ-BERICHT-006`).
+  // The version the form opened on, `null` where no report stood: one composed on another is refused (`bericht_inzwischen_geaendert`).
   bericht_stand: z.int().nullable(),
 });
 

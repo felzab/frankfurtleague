@@ -380,7 +380,7 @@ describe("resolveTeamSaisonMembership", () => {
   });
 
   /* The narrowing is by field, so one left out reaches the editor as `undefined`. A save carrying no
-     token is then refused for a row nothing has touched (`REQ-KONTAKT-001`). */
+     token is then refused for a row nothing has touched (`kontakte_moved_under_the_save`). */
   it("carries the token the save is judged against", () => {
     const resolved = resolveTeamSaisonMembership([membership("2025")], { id: "2025", status: "active" });
 

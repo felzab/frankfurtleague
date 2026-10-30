@@ -14,7 +14,7 @@ export type NamedTeam = { id: string; name: string };
 
 /**
  * One row of the triage list: the application as stored, plus the club it names resolved for
- * display. `null` where it names neither a school nor a club — the row `REQ-BEWERBUNG-002` refuses.
+ * display. `null` where it names neither a school nor a club — the row `bewerbung_subject_unresolved` refuses.
  */
 export type AdminBewerbungRow = FLBewerbung & {
   teamName: string | null;
@@ -49,7 +49,7 @@ export type BewerbungSchuleDraft = Omit<FLBewerbungSchulePayload, "schulform"> &
 
 /**
  * The public form's whole draft. **`auswahl` is the whole of „welche Schule“**: one field holds a
- * club id or the sentinel, so the both-at-once shape `REQ-BEWERBUNG-005` refuses cannot be composed.
+ * club id or the sentinel, so the both-at-once shape `bewerbung_submission_subject_unresolved` refuses cannot be composed.
  * A widened null is a control nobody has answered.
  */
 export type BewerbungFormDraft = {

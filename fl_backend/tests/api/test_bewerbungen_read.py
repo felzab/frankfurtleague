@@ -514,7 +514,7 @@ class TestWhatCountsAsOneCollisionKey:
         assert dubletten_schluessel_of(cells) == []
 
     def test_a_cell_naming_neither_a_club_nor_a_kuerzel_is_passed_over(self):
-        """The row `REQ-BEWERBUNG-002` refuses, and two of them are not a pair."""
+        """The row `bewerbung_subject_unresolved` refuses, and two of them are not a pair."""
 
         cells = [{"_id": {"saison_id": SAISON_ID, "team_id": None, "shorthand": None}, "anzahl": 4}]
 

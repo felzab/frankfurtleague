@@ -513,7 +513,7 @@ class TestTheOutgoingPeopleLeaveTheLog:
 
 
 class TestTheOutgoingClubsSquadIsRetired:
-    """The fifth surface, the one that does not move: `REQ-SQUAD-001` refuses a squad row whose club holds no junction row for the season."""
+    """The fifth surface, the one that does not move: `kader_team_not_in_saison` refuses a squad row whose club has no junction row there."""
 
     def test_the_live_rows_are_stamped_with_the_day_of_the_replacement(self, mongo_replica_set_url: str):
         """Kills leaving them standing: a season-and-team read of `GET /spieler` goes on serving the outgoing club's squad."""
@@ -655,24 +655,24 @@ class TestAStartedSeasonIsNotReplaced:
             spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, datum=REPLACED_ON), gruppen_fixture(2, RIVAL, WITHDRAWN)],
         )
 
-        assert code == Code.REPLACE_OUTGOING_HAS_A_RECORD
+        assert code == Code.REPLACE_SAISON_STARTED
         assert row is not None, "the junction row was handed over anyway"
         assert spiele[2]["team2"] == side(WITHDRAWN), "the fan-out ran before the refusal, or outside the transaction"
 
 
 class TestTheSeasonGateOnTheRoute:
     def test_a_finished_season_refuses_it_and_writes_nothing(self, mongo_replica_set_url: str):
-        """`REQ-REPLACE-001` through the route: a past season's fixtures are the record of who played."""
+        """`saison_past` through the route: a past season's fixtures are the record of who played."""
 
         code, row, spiele = on_a_seeded_season(mongo_replica_set_url, _refused, saison_status="past")
 
-        assert code == Code.REPLACE_SAISON_FINISHED
+        assert code == Code.SAISON_PAST
         assert row is not None
         assert spiele[1]["team1"] == side(WITHDRAWN)
 
     @pytest.mark.parametrize("saison_status", ["future", "active"])
     def test_a_planned_or_activated_season_permits_it(self, mongo_replica_set_url: str, saison_status: str):
-        """Kills borrowing the entry gate's `future`-only window (`REQ-ENTER-001`): an activated season is open until its first fixture."""
+        """Kills borrowing the entry gate's `future`-only window (`entry_saison_not_future`): an active season is open to its first fixture."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_replace(database, client)
@@ -683,7 +683,7 @@ class TestTheSeasonGateOnTheRoute:
 
 class TestWhoMayArrive:
     def test_a_club_already_in_the_season_is_refused(self, mongo_replica_set_url: str):
-        """`REQ-REPLACE-003`. Without it the write hits `uniq_saison_id_team_id` and answers a duplicate-key error instead."""
+        """`replace_incoming_already_entered`. Without it the write hits `uniq_saison_id_team_id` and answers a duplicate-key error instead."""
 
         code, row, _ = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=ENTERED))
 
@@ -691,11 +691,11 @@ class TestWhoMayArrive:
         assert row is not None
 
     def test_one_club_named_on_both_ends_is_refused_as_the_payload(self, mongo_replica_set_url: str):
-        """`REQ-REPLACE-004`, judged before any read, so the row and the fixtures are left alone."""
+        """`replace_one_team_on_both_ends`, judged before any read, so the row and the fixtures are left alone."""
 
         code, row, _ = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=WITHDRAWN))
 
-        assert code == Code.REPLACE_ONE_CLUB_ON_BOTH_ENDS
+        assert code == Code.REPLACE_ONE_TEAM_ON_BOTH_ENDS
         assert row is not None
 
     def test_a_club_that_left_the_league_is_refused(self, mongo_replica_set_url: str):
@@ -703,7 +703,7 @@ class TestWhoMayArrive:
 
         code, _, _ = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=RETIRED))
 
-        assert code == Code.CLUB_RETIRED
+        assert code == Code.TEAM_RETIRED
 
     def test_an_id_naming_no_club_is_a_404(self, mongo_replica_set_url: str):
         """Kills pointing the row at a club that is not there -- which is the phantom this endpoint exists to repair."""

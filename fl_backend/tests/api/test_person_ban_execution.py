@@ -1,8 +1,8 @@
 """
-API · `REQ-AUTH-008` over the real ban read, on a route declaring a person's binder
+API · `person_barred` over the real ban read, on a route declaring a person's binder
 
-`tests/api/test_actor_binding.py :: TestThePersonBinderOverAServedRequest` proves the check's order
-and its code with the read answered from a set; this proves the read itself, against a stored ban.
+`tests/api/test_actor_binding.py :: TestThePersonsSession` proves what the binder binds and what is
+refused before the read; this proves the read itself, against a stored ban.
 """
 
 from typing import Any
@@ -39,13 +39,13 @@ def _probe() -> dict[str, bool]:
     return {"erreicht": True}
 
 
-def answered(url: str, email: str, *, bis: str) -> tuple[int, Any]:
-    """One request naming `email` as a person, a season running and a ban on `BARRED` standing to `bis`."""
+def answered(url: str, email: str, *, bis: str, barred: str = BARRED) -> tuple[int, Any]:
+    """One request naming `email` as a person, a season running and a ban on `barred` standing to `bis`."""
 
     async def _run() -> tuple[int, Any]:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await database[Collection.SAISONS].insert_one(saison_document(RUNNING, "active", rules=rules_document()))
-            await database[Collection.SPERRLISTE].insert_one(ban_document(BARRED, bis=bis))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(barred, bis=bis))
 
             app = create_app(CONFIG)
             app.add_api_route(PROBE, _probe, methods=["GET"], dependencies=[Depends(PERSON_ACTOR_BINDERS["spieler"])])
@@ -58,8 +58,18 @@ def answered(url: str, email: str, *, bis: str) -> tuple[int, Any]:
     return on_the_seed_loop(_run())
 
 
-def test_a_person_a_standing_ban_holds_is_refused(mongo_url: str):
-    status, body = answered(mongo_url, BARRED.upper(), bis="2031")
+@pytest.mark.parametrize("email", [BARRED, BARRED.upper()], ids=("as stored", "in another case"))
+def test_a_person_a_standing_ban_holds_is_refused(mongo_url: str, email: str):
+    status, body = answered(mongo_url, email, bis="2031")
+
+    assert (status, body["error_code"]) == (403, Code.PERSON_BARRED)
+    assert BARRED not in str(body).lower()
+
+
+def test_an_address_beyond_ascii_reaches_the_ban_read_decoded_and_folded(mongo_url: str):
+    """Percent-encoded as the frontend sends it, and asked in the punycode spelling every record stores."""
+
+    status, body = answered(mongo_url, "anna@müller.de", bis="2031", barred="anna@xn--mller-kva.de")
 
     assert (status, body["error_code"]) == (403, Code.PERSON_BARRED)
 

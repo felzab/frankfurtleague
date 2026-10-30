@@ -99,7 +99,7 @@ export const KADER_ABSCHNITT = "Kader";
 export const RETIREMENT_KEEPS_SQUAD_ROWS = "Die Kadereinträge dieser Person bleiben erhalten.";
 
 /**
- * `REQ-SQUAD-001` in German for a reader standing where it is repaired — the REPAIR rather than the
+ * `kader_team_not_in_saison` in German for a reader standing where it is repaired — the REPAIR rather than the
  * state, which the banner beside the control carries. `actions.ts` words it for a reader elsewhere,
  * and one sentence cannot point both ways.
  */
@@ -117,7 +117,7 @@ export const LIST_REACTIVATION_NEEDS_A_TEAM_IN_SAISON =
 // One sentence for both readers, where the club refusal above needed one each: the repair is another
 // player's page or the season's rules, so neither the list nor the editor could point within itself.
 /**
- * `REQ-SQUAD-003` in German, word for word the sentence `actions.ts` toasts for the code, so a
+ * `kader_full` in German, word for word the sentence `actions.ts` toasts for the code, so a
  * press that got past a stale gate reads as the state this control already showed.
  */
 export const REACTIVATION_NEEDS_ROOM_IN_SQUAD =
@@ -189,7 +189,7 @@ export function kaderName({ vorname, nachname }: { vorname: string; nachname: st
 }
 
 /**
- * `REQ-SQUAD-005` in German. The form offers only the season's levels, so a seat holder meets it where
+ * `kader_stufe_nicht_erlaubt` in German. The form offers only the season's levels, so a seat holder meets it where
  * the season was narrowed under the open page, and the picker is where it is repaired.
  */
 export const STUFE_NICHT_ZUGELASSEN = "Diese Stufe ist in dieser Saison nicht zugelassen.";

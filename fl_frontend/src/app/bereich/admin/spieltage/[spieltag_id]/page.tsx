@@ -27,7 +27,7 @@ export default function AdminSpieltagEditPage(props: NextPageProps<{ spieltag_id
 
 /**
  * Two rounds of reads, because the first answers which season to ask about: its span bounds the date
- * pickers (`REQ-DATE-002`), and its matchday list is what a knockout round's label is numbered
+ * pickers (`spieltag_outside_saison`), and its matchday list is what a knockout round's label is numbered
  * against.
  */
 async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ spieltag_id: string }>["params"] }) {

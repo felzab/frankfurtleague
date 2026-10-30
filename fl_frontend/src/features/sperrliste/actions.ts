@@ -18,7 +18,7 @@ import type { FLSperrlisteKeyPayload, SperreEntwurf } from "./schemas";
 
 /**
  * Every record the address holds, as the erasure's reveal names them. No grant and no ban among them: the read answers an
- * address holding either with the ban's own refusal (`REQ-SPERRLISTE-003`, `REQ-SPERRLISTE-001`).
+ * address holding either with the ban's own refusal (`sperrliste_verwaltung`, `duplicate_key`).
  */
 export type SperreAnsicht = Omit<FLErasureAnsichtResponse, "verwaltung" | "gesperrt">;
 

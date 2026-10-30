@@ -4,6 +4,7 @@ import { buildRefusal, LADE_DIE_SEITE_NEU, UNKNOWN_REFUSAL, VERSUCHE_ES_ERNEUT_S
 import { toFieldErrors, VALIDATION_FAILED } from "./validation";
 
 import type { SentRequest } from "@/core/errors";
+import type { Code } from "@/core/generated/client/types";
 import type { ActionFailure } from "@/shared/types/types";
 import type { ZodError } from "zod";
 import type { FieldErrors } from "./validation";
@@ -38,11 +39,11 @@ export const SITZ_WEG = "Du bist in dieser Saison nicht mehr in diesem Team eing
  */
 export const FELD_ABGELEHNT = "Diese Angabe wurde so nicht übernommen.";
 
-/** The unique index's refusal (`DB-COMMON-002`): the conflict is the same one whichever write met it. */
+/** The unique index's refusal (`duplicate_key`): the conflict is the same one whichever write met it. */
 const KONFLIKT_MIT_BESTEHENDEM = "Der Eintrag steht im Konflikt mit einem, den es schon gibt.";
 
 /**
- * An admin editor's answer to a `REQ-VAL-001` no rendered control takes, which only a page older than
+ * An admin editor's answer to a `payload_refused` no rendered control takes, which only a page older than
  * the running API can send: a retry resends the refused body, and a reload fetches the page that fits.
  */
 const EINZELNE_ANGABEN_ABGELEHNT = buildRefusal({ reason: "Einzelne Angaben wurden nicht übernommen", repair: LADE_DIE_SEITE_NEU });
@@ -56,11 +57,11 @@ export function isRefusal(error: unknown): error is APIBadStatusError {
 }
 
 /**
- * Whether the backend found the Funktion the request acts in not held (`REQ-FUNKTION-001`): a write
+ * Whether the backend found the Funktion the request acts in not held (`funktion_nicht_gehalten`): a write
  * answers it with `SITZ_WEG`, and a page reading for that seat renders the forbidden panel.
  */
 export function isFunktionLost(error: unknown): error is APIBadStatusError {
-  return isRefusal(error) && error.serverErrorCode === "REQ-FUNKTION-001";
+  return isRefusal(error) && error.serverErrorCode === "funktion_nicht_gehalten";
 }
 
 /**
@@ -73,7 +74,7 @@ export function isRuleRefusal(error: unknown): error is APIBadStatusError {
 }
 
 /**
- * The body fields a refusal names, a `REQ-VAL-001`'s or a rule's, keyed as the inputs are named, or `null`
+ * The body fields a refusal names, a `payload_refused`'s or a rule's, keyed as the inputs are named, or `null`
  * where it names none. A form showing nothing under any of them is `useServerFieldErrors`'s to announce.
  */
 function refusedFieldErrors(error: APIBadStatusError): FieldErrors | null {
@@ -123,20 +124,20 @@ export function refusedFailure(error: APIBadStatusError, sentence: string): Acti
 
 /**
  * The Spiel refusals `fl_frontend/src/features/spiele/refusals.ts :: mapSpielRefusal` does not map.
- * Three name an OCCUPANT, which the form places at fault; the two REQ-STATE codes name none, so
+ * Three name an OCCUPANT, which the form places at fault; the two `state_*` codes name none, so
  * their code rides back unused and the message lands as a toast.
  */
-const OCCUPANT_REFUSALS: Record<string, string> = {
+const OCCUPANT_REFUSALS: Readonly<Partial<Record<Code, string>>> = {
   // Three triggers: a re-dating or a changed Sonderereignis fires the rule as a new club does. Its
   // remedies ride the match editor's rail, from
   // `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/banners.ts`.
-  "REQ-ELIGIBILITY-001": "Dieses Team ist aus der Saison ausgeschieden und darf ab seinem Austritt nicht mehr aufgestellt sein.",
+  eligibility_disqualified: "Dieses Team ist aus der Saison ausgeschieden und darf ab seinem Austritt nicht mehr aufgestellt sein.",
 
-  "REQ-ELIGIBILITY-002": "Dieses Team nimmt nicht an dieser Saison teil.",
-  "REQ-STATE-002": "Ein Spiel mit diesem Sonderereignis wird nicht gewertet. Entferne zuerst die Tore.",
-  "REQ-STATE-003": "Ein Nichtantreten braucht beide Teams. Besetze zuerst den offenen Platz.",
+  eligibility_team_not_in_saison: "Dieses Team nimmt nicht an dieser Saison teil.",
+  state_ergebnis_on_a_non_event: "Ein Spiel mit diesem Sonderereignis wird nicht gewertet. Entferne zuerst die Tore.",
+  state_nichtantreten_without_two_sides: "Ein Nichtantreten braucht beide Teams. Besetze zuerst den offenen Platz.",
   // The repair is on the OTHER fixture, so it rides the same rail rather than this field.
-  "REQ-SPIELTAG-001": "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel.",
+  spieltag_occupied: "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel.",
 };
 
 /** The sentence of a write that may or may not have landed. */
@@ -230,17 +231,17 @@ export function unansweredRead(): ActionFailure {
 /** A refusal in the words its code is given here, or `null` for one no arm words and no rule made. */
 function refusedAnswer(error: APIBadStatusError): ActionFailure | null {
   // A request the running API does not take, naming only a query parameter or the body whole, or
-  // unreadable (`REQ-VAL-002`): the page that fits it comes with a reload, where a retry resends it
+  // unreadable (`body_unreadable`): the page that fits it comes with a reload, where a retry resends it
   // unchanged.
-  if (error.serverErrorCode === "REQ-VAL-001" || error.serverErrorCode === "REQ-VAL-002") {
+  if (error.serverErrorCode === "payload_refused" || error.serverErrorCode === "body_unreadable") {
     return refusedFailure(error, EINZELNE_ANGABEN_ABGELEHNT);
   }
 
-  if (error.serverErrorCode === "REQ-WIRING-001") {
+  if (error.serverErrorCode === "wiring_unsupported") {
     // The form does not offer these shapes, so the request was built against a season that has since moved.
     return { success: false, error: "Die Saison wurde inzwischen geändert. Lade die Seite neu." };
   }
-  if (error.serverErrorCode === "REQ-WIRING-002") {
+  if (error.serverErrorCode === "wiring_seed_past_the_opening_round") {
     // NOT the reload above: the form offered this answer and a reload only closes it, so what the
     // admin wanted needs a different source rather than a fresh page.
     return {
@@ -252,7 +253,7 @@ function refusedAnswer(error: APIBadStatusError): ActionFailure | null {
       }),
     };
   }
-  if (error.serverErrorCode === "REQ-WIRING-003") {
+  if (error.serverErrorCode === "wiring_gruppe_not_run") {
     // The picker offers only the season's own groups, so this arriving means the season was
     // redrawn narrower under the open form: the offer itself is stale, and a reload renews it.
     return {
@@ -272,7 +273,7 @@ function refusedAnswer(error: APIBadStatusError): ActionFailure | null {
       return { success: false, error: occupantRefusal, errorCode: error.serverErrorCode };
     }
   }
-  if (error.serverErrorCode === "DB-COMMON-002") {
+  if (error.serverErrorCode === "duplicate_key") {
     // The ordinary outcome of a create hitting a unique index, possibly a retired row keeping its slot.
     return { success: false, error: KONFLIKT_MIT_BESTEHENDEM };
   }
@@ -292,9 +293,9 @@ function refusedAnswer(error: APIBadStatusError): ActionFailure | null {
 export function toActionErrorResult(error: unknown, answering?: SentRequest): ActionFailure {
   if (error instanceof APIBadStatusError) {
     // Raised by the actor check before any handler, so nothing was written: the grant went after the guard read it.
-    if (error.serverErrorCode === "REQ-AUTH-006") return { success: false, error: ZUGANG_WEG };
+    if (error.serverErrorCode === "actor_not_admin") return { success: false, error: ZUGANG_WEG };
     // The person binder reads the ban per request, so a ban entered since the session was judged.
-    if (error.serverErrorCode === "REQ-AUTH-008") return { success: false, error: GESPERRT_KEINE_AENDERUNG };
+    if (error.serverErrorCode === "person_barred") return { success: false, error: GESPERRT_KEINE_AENDERUNG };
   }
   // A rule's code, so ahead of the rule fallback below, which would name no reason for it.
   if (isFunktionLost(error)) return { success: false, error: SITZ_WEG };
@@ -306,14 +307,14 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
   }
 
   if (error instanceof APIBadStatusError) {
-    if (error.statusCode === 500 && error.serverErrorCode === "DB-FAIL-002") {
+    if (error.statusCode === 500 && error.serverErrorCode === "unknown_outcome") {
       // A commit went unanswered, or the deadline cut a write, so the write may stand: "try again"
       // would repeat it, and the retry then meets its own "already exists".
       return outcomeUnknown();
     }
-    // Only `DB-FAIL-001` says the write failed: any other 5xx can follow a commit, an unhandled crash
+    // Only `database_failed` says the write failed: any other 5xx can follow a commit, an unhandled crash
     // or a proxy's own answer among them.
-    if (error.statusCode >= 500 && error.serverErrorCode !== "DB-FAIL-001" && mayHaveWritten(error)) return outcomeUnknown();
+    if (error.statusCode >= 500 && error.serverErrorCode !== "database_failed" && mayHaveWritten(error)) return outcomeUnknown();
 
     return { success: false, error: `Der Server hat mit einem Fehler geantwortet. ${VERSUCHE_ES_ERNEUT_SATZ}` };
   }

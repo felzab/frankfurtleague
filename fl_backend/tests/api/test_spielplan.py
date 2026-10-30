@@ -915,26 +915,26 @@ class TestASeasonReadyToBeDrawn:
 
 
 class TestASeasonHoldingMatchdays:
-    """`REQ-SPIELPLAN-002`: the draw writes the whole matchday list, so it cannot join one already there."""
+    """`spielplan_spieltage_held`: the draw writes the whole matchday list, so it cannot join one already there."""
 
     def test_a_matchday_without_fixtures_refuses_the_draw(self):
         refusal = refusal_for(spieltage_held=1)
 
         assert refusal is not None
-        assert refusal.error_code == Code.SPIELPLAN_MATCHDAYS_HELD
+        assert refusal.error_code == Code.SPIELPLAN_SPIELTAGE_HELD
 
 
 class TestAFinishedSeason:
-    """`REQ-SPIELPLAN-003`: a finished season's table is the record of what happened, and a draw would reopen it."""
+    """`saison_past`: a finished season's table is the record of what happened, and a draw would reopen it."""
 
     def test_a_past_season_refuses_the_draw(self):
         refusal = refusal_for(saison_status="past")
 
         assert refusal is not None
-        assert refusal.error_code == Code.SPIELPLAN_SAISON_FINISHED
+        assert refusal.error_code == Code.SAISON_PAST
 
     def test_a_running_season_is_permitted(self):
-        """The pair to `REQ-ACTIVATE-003`, and the whole reason this refuses `past` alone.
+        """The pair to `activate_target_undrawn`, and the whole reason this refuses `past` alone.
 
         Activation writes `status` one way, so refusing a running season here would leave one
         activated before its draw unschedulable for good rather than merely out of order.
@@ -944,7 +944,7 @@ class TestAFinishedSeason:
 
 
 class TestWhetherEveryOfferedGroupHoldsItsSize:
-    """`REQ-SPIELPLAN-004`, and all three answers it gives.
+    """`spielplan_gruppen_off_rules`, and all three answers it gives.
 
     A group short of `teams_per_group`, a group past it, and a club standing in a group the season
     does not offer -- one class, because `Rule.tested_by` cites one.
@@ -967,7 +967,7 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
     def test_a_group_beyond_the_offered_ones_refuses_the_draw(self):
         """A club in a group the season does not run draws into no round robin at all.
 
-        `REQ-ENTER-002` closes every entry and `REQ-RULES-002` the rules patch; this rule closes the
+        `entry_gruppe_not_offered` closes every entry and `rules_gruppen_in_use` the rules patch; this rule closes the
         draw's own `shape`, judged with `stored` as `None`.
         """
 
@@ -1007,7 +1007,7 @@ class TestWhetherEveryOfferedGroupHoldsItsSize:
 
 
 class TestAConfirmedReplaceStepsPastWhatItDeletes:
-    """`REQ-SPIELPLAN-001` and `REQ-SPIELPLAN-002` name what a replace is about to remove, so neither may turn one away."""
+    """`spielplan_already_drawn` and `spielplan_spieltage_held` name what a replace is about to remove, so neither may turn one away."""
 
     def test_a_season_already_holding_a_whole_spielplan_is_replaced(self):
         """Drop `and not replace` from the fixture guard and this fails, the replace refused over the rows it deletes."""
@@ -1020,7 +1020,7 @@ class TestAConfirmedReplaceStepsPastWhatItDeletes:
         assert refusal_for(replace=True, spieltage_held=8) is None
 
     def test_a_group_off_its_size_still_refuses_a_confirmed_replace(self):
-        """Gate `REQ-SPIELPLAN-004` on `replace` too and this fails: a replace draws the same fixtures, so it needs the same groups."""
+        """Gate `spielplan_gruppen_off_rules` on `replace` too and this fails: a replace draws the same fixtures, so needs the same groups."""
 
         refusal = refusal_for(replace=True, fixtures_drawn=67, spieltage_held=8, occupancy={**FULL, "B": 4})
 
@@ -1115,7 +1115,7 @@ RECORDED_EDITS: Mapping[str, RecordedEdit] = {
     "team1.tore": RecordedEdit(why="a goal count standing without a result", gruppe={"team1": {"team_id": ADLER, "tore": 0}}),
     "team2.tore": RecordedEdit(why="the same count on the other side", gruppe={"team2": {"team_id": BIEBER, "tore": 0}}),
     "team1_quelle": RecordedEdit(
-        why="wiring `REQ-WIRING-001` refuses on a group fixture, and a bracket slot whose wiring an admin cleared",
+        why="wiring `wiring_unsupported` refuses on a group fixture, and a bracket slot whose wiring an admin cleared",
         gruppe={"team1_quelle": {"type": "gruppe", "gruppe": "A", "platz": 1}},
         ko={"team1_quelle": None},
     ),
@@ -1142,7 +1142,7 @@ INVERTED_BY_THE_DRAW: frozenset[str] = frozenset(
 
 
 class TestWhatCountsAsRecordedAgainstAFixture:
-    """`holds_a_recorded_fact`, which is what the endpoint counts for `REQ-SPIELPLAN-005`.
+    """`holds_a_recorded_fact`, which is what the endpoint counts for `spielplan_replace_outside_its_window`.
 
     The refusal reads a COUNT, so no test of it reaches this: the window closes on a cancellation
     and on a booking as well as on a result.
@@ -1312,7 +1312,7 @@ class TestTheDrawAnswersStoredValuesUnderItsTwins:
         """A shape's qualifiers can make a bracket the stored level forfeit cannot decide; its matchdays can outgrow the stored span."""
 
         assert on_the_draw(Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT) == (Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED, HTTPStatus.CONFLICT)
-        assert on_the_draw(Code.SAISON_SPAN_BELOW_SCHEDULE) == (Code.SAISON_SPAN_BELOW_SCHEDULE_AS_STORED, HTTPStatus.CONFLICT)
+        assert on_the_draw(Code.SAISON_SPAN_BELOW_SPIELPLAN) == (Code.SAISON_SPAN_BELOW_SPIELPLAN_AS_STORED, HTTPStatus.CONFLICT)
 
     def test_a_rule_reading_the_shape_alone_keeps_the_shared_code(self):
         """The payload's own three numbers are all such a rule reads, so it is the payload the draw refuses."""

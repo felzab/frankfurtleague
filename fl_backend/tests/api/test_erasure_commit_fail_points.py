@@ -179,7 +179,7 @@ class TestThePersonsOwnErasure:
             refused, removed = on_their_league(mongo_replica_set_url, body)
 
         lines = [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
-        warnings = [getattr(record, "error_code", None) for record in caplog.records].count(NO_OWNER.error_code)
+        warnings = [record.getMessage() for record in caplog.records].count(NO_OWNER)
 
         assert (len(lines), warnings) == (1, 1)
         # The premise last: one commit refused, so the line counted above is the second attempt's alone.
@@ -318,7 +318,7 @@ class TestAPersonsOwnPress:
 
         refusal, pressed = served(mongo_replica_set_url, steps)
 
-        assert refusal == (409, Code.EINWILLIGUNG_STAND_VERALTET, 0, True)
+        assert refusal == (409, Code.FASSUNG_UNZULAESSIG, 0, True)
         # The control: the capture reads the line a press that lands leaves.
         assert (pressed, len(journalled(caplog))) == (200, 1)
 

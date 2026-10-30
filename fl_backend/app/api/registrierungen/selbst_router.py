@@ -48,8 +48,8 @@ async def patch_einwilligung(
 ) -> FLRegistrierungSelbstEinwilligungResponse:
     """Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
 
-    A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `REQ-FUNKTION-001`,
-    `REQ-EINWILLIGUNG-003` (the choices moved since the page was served), `REQ-EINWILLIGUNG-004` and `REQ-EINWILLIGUNG-001`.
+    A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `funktion_nicht_gehalten`,
+    `fassung_unzulaessig` (the wording or the choices moved since the page was served) and `erteilung_nicht_zugelassen`.
     """
 
     gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}

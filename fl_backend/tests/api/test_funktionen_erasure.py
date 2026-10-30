@@ -54,7 +54,6 @@ from tests.actor_tokens import SignedActor, actor_headers
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY
-from tests.core.app_source import DRIVER_WRITES
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import (
     ban_document,
@@ -1149,7 +1148,7 @@ class TestOneTransaction:
         assert (seat, pending, their_rows, stamped, on_the_ghost) == (IDENTIFIER, IDENTIFIER, 2, 0, 0)
         # And no journal line nor floor warning: an erasure rolled back is no erasure a replay may repeat.
         assert not [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
-        assert NO_OWNER.error_code not in [getattr(record, "error_code", None) for record in caplog.records]
+        assert NO_OWNER not in [record.getMessage() for record in caplog.records]
 
 
 class TestTheGrantsLeftBehind:
@@ -1165,7 +1164,7 @@ class TestTheGrantsLeftBehind:
             removed = on_a_league(mongo_replica_set_url, body)
 
         assert removed == 1
-        assert [getattr(record, "error_code", None) for record in caplog.records].count(NO_OWNER.error_code) == 1
+        assert [record.getMessage() for record in caplog.records].count(NO_OWNER) == 1
 
 
 class TestTheJournal:
@@ -1198,7 +1197,7 @@ class OwnersErasingAtOnce(InterleavedCollection):
 
 
 class TestTheLastOwner:
-    """`REQ-PURGE-004`: nobody but an owner makes an owner, so the last one does not leave by erasing themselves."""
+    """`letzter_inhaber_loeschung`: nobody but an owner makes an owner, so the last one does not leave by erasing themselves."""
 
     def test_the_last_owner_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1211,7 +1210,7 @@ class TestTheLastOwner:
         with caplog.at_level(logging.INFO):
             outcome, untouched = on_a_league(mongo_replica_set_url, body)
 
-        assert (outcome, untouched) == (Code.LETZTER_INHABER_ERASURE, True)
+        assert (outcome, untouched) == (Code.LETZTER_INHABER_LOESCHUNG, True)
         assert not [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
 
     def test_a_barred_second_owner_is_no_owner_to_leave_behind(self, mongo_replica_set_url: str):
@@ -1226,7 +1225,7 @@ class TestTheLastOwner:
 
             return await outcome_of(erased_by_the_handler(database, client))
 
-        assert on_a_league(mongo_replica_set_url, body) == Code.LETZTER_INHABER_ERASURE
+        assert on_a_league(mongo_replica_set_url, body) == Code.LETZTER_INHABER_LOESCHUNG
 
     def test_one_of_two_owners_goes_and_the_other_stands(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1256,7 +1255,7 @@ class TestTheLastOwner:
 
         grants, outcome, rival, owners = on_a_league(mongo_replica_set_url, body)
 
-        assert (rival, outcome, owners) == ([COMMITTED], Code.LETZTER_INHABER_ERASURE, 1)
+        assert (rival, outcome, owners) == ([COMMITTED], Code.LETZTER_INHABER_LOESCHUNG, 1)
         # The premise last: a read, the rival, the anchor's read meeting the conflict, then the retry's read and its anchor's.
         grants.assert_landed_inside(serially=2)
 
@@ -1307,6 +1306,24 @@ def _running_step() -> str | None:
         step = _STEP_OF_CODE.get(frame.f_code, step)
         frame = frame.f_back
     return step
+
+
+# The driver's own writes, which every write helper of `app/core/crud.py` ends in, so no write a step makes passes unseen.
+DRIVER_WRITES = frozenset(
+    {
+        "bulk_write",
+        "delete_many",
+        "delete_one",
+        "find_one_and_delete",
+        "find_one_and_replace",
+        "find_one_and_update",
+        "insert_many",
+        "insert_one",
+        "replace_one",
+        "update_many",
+        "update_one",
+    }
+)
 
 
 class WritesRecorded:
@@ -1589,4 +1606,4 @@ class TestThePreview:
         status, foretold, pressed = on_a_league(mongo_replica_set_url, body)
 
         assert (status, foretold) == (200, letzter_inhaber)
-        assert pressed == (Code.LETZTER_INHABER_ERASURE if letzter_inhaber else COMMITTED)
+        assert pressed == (Code.LETZTER_INHABER_LOESCHUNG if letzter_inhaber else COMMITTED)

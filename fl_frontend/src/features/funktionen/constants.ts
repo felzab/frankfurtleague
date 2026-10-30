@@ -11,7 +11,7 @@ import type { TeamSeat } from "./teamSeats";
 
 /**
  * The erasure's `anlass` bound, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Bound here too because the endpoint's
- * `REQ-VAL-001` marks an over-long box with a generic sentence rather than the bound's German.
+ * `payload_refused` marks an over-long box with a generic sentence rather than the bound's German.
  */
 export const ERASURE_ANLASS_MAX_LENGTH = 200;
 

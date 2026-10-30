@@ -123,7 +123,7 @@ export const FLPatchSpielDataPayloadSchema = z.object({
   sonderereignis: FLSonderereignisSchema.nullable(),
 
   // The referee the editor was served, never one it picked: the save is refused where the fixture books another or
-  // none since (`REQ-BOOKING-003`), so a referee's own decline is not undone by an editor opened before it.
+  // none since (`booking_schiedsrichter_moved`), so a referee's own decline is not undone by an editor opened before it.
   schiedsrichter_stand: CustomObjectIdStringSchema.nullable(),
 });
 

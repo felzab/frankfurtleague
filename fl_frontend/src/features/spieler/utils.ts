@@ -7,7 +7,7 @@ import type { RowReturn, SpielerTeamOption } from "./types";
  * Who holds each squad role in one season, by team, excluding one player's own rows.
  *
  * **Retired rows are excluded** — a player who left the squad is not leading it, which is the same
- * live-rows-only count the write path takes (`REQ-SQUAD-004`).
+ * live-rows-only count the write path takes (`kader_rolle_taken`).
  */
 export function collectHeldRollen({
   spieler,
@@ -38,7 +38,7 @@ export function collectHeldRollen({
 /**
  * Live rows per team in one season — the same count the write path takes
  * (`fl_backend/app/api/spieler/services.py :: build_live_squad_filter`), so a surface reading it
- * predicts `REQ-SQUAD-003` rather than approximating it. A retired row gave its place back.
+ * predicts `kader_full` rather than approximating it. A retired row gave its place back.
  */
 export function countLiveSquadRows({
   spieler,
@@ -72,7 +72,7 @@ export function countLiveSquadRows({
 }
 
 /**
- * Judged on the season's own junction rows, the one collection `REQ-SQUAD-001` counts, and in the
+ * Judged on the season's own junction rows, the one collection `kader_team_not_in_saison` counts, and in the
  * endpoint's order: a full squad is no fact worth reporting about a club the season does not hold.
  */
 export function judgeRowReturn(teamId: string, saisonTeams: readonly SpielerTeamOption[]): RowReturn {

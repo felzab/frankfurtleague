@@ -85,7 +85,7 @@ async def get_spielbestaetigung_ansicht(
     The state, which side the reader's club plays, the fixture as it stands now (or, where it moved since the link, the
     Ansetzung the link asked about), the row's deadline, the other club's proposal and which role answered. A POST that
     reads, so the token travels in a body and never in a second URL. Refuses only a token no seat of any row holds
-    (`REQ-ANSETZUNG-001`), a guess and a link voided when its seat changed hands alike: an answered, closed, moved,
+    (`link_ungueltig`), a guess and a link voided when its seat changed hands alike: an answered, closed, moved,
     decided or expired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The
     state is `gesperrt`, ahead of every other, wherever the ban list holds the address the seat's links were mailed to.
     `vorschlag` is the state of an open link while the other club's decline proposes another date for the same
@@ -162,17 +162,17 @@ async def post_spielbestaetigung(
     Record one club's answer about one Ansetzung, from whichever of its three seats presses first, and the seat it came from.
 
     The first press binds: a second seat pressing at once conflicts with it, and its retry finds the row answered
-    (`REQ-ANSETZUNG-002`). Writes no fixture: a proposal is the administrator's to act on.
+    (`ansetzung_beantwortet`). Writes no fixture: a proposal is the administrator's to act on.
 
-    Refuses, in this order: a token no seat holds (`REQ-ANSETZUNG-001`); a link whose seat's address the ban list holds
-    now, whenever it was minted (`REQ-ANSETZUNG-011`); a row already answered, closed since or not
-    (`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club
-    (`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the link (`REQ-ANSETZUNG-004`), each
-    as the confirmation pass's close judges the row; an answer after the deadline's day (`REQ-ANSETZUNG-003`); a
-    proposal dated before today (`REQ-ANSETZUNG-007`); and a proposal the administrator's own save of that date would be
+    Refuses, in this order: a token no seat holds (`link_ungueltig`); a link whose seat's address the ban list holds
+    now, whenever it was minted (`link_gesperrt`); a row already answered, closed since or not
+    (`ansetzung_beantwortet`); one closed unanswered (`ansetzung_geschlossen`); a fixture decided, called off or left by a club
+    (`ansetzung_entschieden`), then one whose date, time, ground or sides moved since the link (`ansetzung_geaendert`), each
+    as the confirmation pass's close judges the row; an answer after the deadline's day (`ansetzung_frist_vorbei`); a
+    proposal dated before today (`ansetzung_vorschlag_vergangen`); and a proposal the administrator's own save of that date would be
     refused, judged on what it newly claims and in that save's order: on or after a club's exit
-    (`REQ-ELIGIBILITY-001`), outside the matchday (`REQ-DATE-001`), or within four hours of the ground's or the referee's
-    other fixture (`REQ-CLASH-001`). The reason is stored as typed. Every refusal after the ban's is asked again outside
+    (`eligibility_disqualified`), outside the matchday (`spiel_outside_spieltag`), or within four hours of the ground's or the referee's
+    other fixture (`spiel_double_booked`). The reason is stored as typed. Every refusal after the ban's is asked again outside
     the transaction just before answering, so a write landing mid-answer on what was judged refuses the answer rather
     than letting it stand.
     """

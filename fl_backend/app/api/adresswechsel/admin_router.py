@@ -111,7 +111,7 @@ async def _refuse_the_address(
 ) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]]]:
     """The erasure tool's two refusals about who asks, judged on the grants read here, which the caller reuses.
 
-    The administrator's own address (`REQ-PURGE-003`), and a grant holder's unless they hold an owner's power (`REQ-PURGE-005`).
+    The administrator's own address (`eigene_adresse`), and a grant holder's unless they hold an owner's power (`verwaltung_adresse`).
     """
 
     refuse(find_eigene_adresse_refusal(identifier=identifier, akteur=akteur))
@@ -129,7 +129,7 @@ async def _refuse_the_address(
 async def _pull_the_change(
     adresswechsel_collection: AsyncCollection, adresswechsel_id: Any, *, session: AsyncClientSession | None
 ) -> Mapping[str, Any]:
-    """The change an id names, ended or not: 404 where none is kept, `REQ-ADRESSWECHSEL-002` where it ended."""
+    """The change an id names, ended or not: 404 where none is kept, `adresswechsel_beendet` where it ended."""
 
     record = await adresswechsel_collection.find_one({"_id": adresswechsel_id}, session=session)
     if record is None:
@@ -193,9 +193,9 @@ async def get_adresswechsel_verwaltung_ansicht(
     ADMIN TIER, the address tool's read, keyed by the address the administrator types or by a change a page links to;
     never a hash. `moeglich` where the address holds anything a change moves, a grant included. Stores nothing.
 
-    Refused as the erasure's reveal is: the administrator's own address (`REQ-PURGE-003`), and an address holding a live
-    grant unless the administrator holds an owner's power (`REQ-PURGE-005`). A change id answers 404 where no change is
-    kept, and `REQ-ADRESSWECHSEL-002` where it ended.
+    Refused as the erasure's reveal is: the administrator's own address (`eigene_adresse`), and an address holding a live
+    grant unless the administrator holds an owner's power (`verwaltung_adresse`). A change id answers 404 where no change is
+    kept, and `adresswechsel_beendet` where it ended.
     """
 
     akteur = sign_in_identifier(operator)
@@ -241,7 +241,7 @@ async def _refuse_without_genehmiger(
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
-    """Refused `-011` where nobody but the start's actor could approve a change of this address's grant."""
+    """Refused `adresswechsel_kein_genehmiger` where nobody but the start's actor could approve a change of this address's grant."""
 
     assert bestand.berechtigung is not None
     gesperrt = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in grants], session=session)
@@ -288,11 +288,11 @@ async def post_adresswechsel_verwaltung(
     confirms. Where the address holds a grant, the change also waits on another administrator's approval, never this
     one's. No link is answered. The address's live change ends replaced.
 
-    Refused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power
-    (`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds
-    (`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the
-    change moves a pupil (`-006`), a new address any entry names, confirmed or not (`-018`), and a grant nobody could
-    approve (`-011`).
+    Refused the administrator's own address (`eigene_adresse`), a grant holder's without an owner's power
+    (`verwaltung_adresse`), the address on file typed again (`adresswechsel_unveraendert`), a new address the ban list holds
+    (`adresswechsel_gesperrt`), an address holding nothing a change moves (`adresswechsel_nichts`), a new address another pupil signs in on
+    where the change moves a pupil (`adresswechsel_vergeben`), a new address any entry names, confirmed or not (`adresswechsel_belegt`), and a
+    grant nobody could approve (`adresswechsel_kein_genehmiger`).
     """
 
     identifier, email, grund = sign_in_identifier(str(adresswechsel_data.adresse)), str(adresswechsel_data.email), adresswechsel_data.grund
@@ -427,11 +427,11 @@ async def einladen_adresswechsel(
     next hourly pass ends it. Acts on the change the id names alone, so a page showing a change since replaced re-sends
     nothing.
 
-    Refused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), where the ban list holds the pending address
-    (`REQ-ADRESSWECHSEL-009`), where another pupil has come to sign in on it (`-006`), where an entry has come to name it,
-    confirmed or not (`-018`), where a grant's approval week has passed (`-003`), and where the change ended (`-002`). 404 for
-    an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on file's approval,
-    or confirmed, has no link to re-send.
+    Refused as the start is about who asks (`eigene_adresse`, `verwaltung_adresse`), where the ban list holds the pending address
+    (`adresswechsel_gesperrt`), where another pupil has come to sign in on it (`adresswechsel_vergeben`), where an entry has come to name it,
+    confirmed or not (`adresswechsel_belegt`), where a grant's approval week has passed (`link_abgelaufen`), and where the change ended
+    (`adresswechsel_beendet`). 404 for an id naming no change, and unless the change waits on the new mailbox: one awaiting the address on
+    file's approval, or confirmed, has no link to re-send.
     """
 
     akteur = sign_in_identifier(operator)
@@ -535,8 +535,8 @@ async def delete_adresswechsel(
     bring back a change confirmed in its waiting time to take effect. Nothing is mailed. Acts on the change the id names
     alone, so a page showing a change since replaced discards nothing.
 
-    Refused as the start is about who asks (`REQ-PURGE-003`, `REQ-PURGE-005`), and where the change ended
-    (`REQ-ADRESSWECHSEL-002`); 404 for an id naming no change.
+    Refused as the start is about who asks (`eigene_adresse`, `verwaltung_adresse`), and where the change ended
+    (`adresswechsel_beendet`); 404 for an id naming no change.
     """
 
     akteur = sign_in_identifier(operator)
@@ -621,13 +621,13 @@ async def post_adresswechsel_genehmigung(
     in this transaction. Otherwise the approval is recorded and the change takes effect at its confirmation
     or at the end of its waiting time. **An approval refused writes nothing**: the change stands unapproved.
 
-    Refused where the change asks no approval or was given it (`REQ-ADRESSWECHSEL-012`), where its seven days have passed
-    (`-003`), to the changed address and to the administrator who started it (`-013`), to anyone but an owner, signed in
-    since becoming one, where the grant is an owner's (`-014`), and where the change ended (`-002`); and, where it would
-    take effect, as the confirmation is (`-004`, `-005`, `-006`, `-015`, `-016`, `-018`). A change whose address has come to hold
-    nothing to move ends discarded, its new address told it did not take effect, answering `-010`. 404 for an id naming no
-    change. A sign-in or confirmation older than
-    `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as a grant's is.
+    Refused where the change asks no approval or was given it (`adresswechsel_keine_genehmigung_offen`), where its seven days have passed
+    (`link_abgelaufen`), to the changed address and to the administrator who started it (`adresswechsel_genehmigung_verwehrt`), to anyone but an
+    owner, signed in since becoming one, where the grant is an owner's (`adresswechsel_genehmigung_inhaber`), and where the change ended
+    (`adresswechsel_beendet`); and, where it would take effect, as the confirmation is (`link_gesperrt`, `adresswechsel_ersetzte_gesperrt`,
+    `adresswechsel_vergeben`, `adresswechsel_nicht_gedeckt`, `adresswechsel_neue_berechtigt`, `adresswechsel_belegt`). A change whose address
+    has come to hold nothing to move ends discarded, its new address told it did not take effect, answering `adresswechsel_nichts`. 404 for an
+    id naming no change. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `confirmation_required`, as a grant's is.
     """
 
     akteur = sign_in_identifier(operator)

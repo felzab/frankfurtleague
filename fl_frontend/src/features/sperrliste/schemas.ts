@@ -16,7 +16,7 @@ export const FLPostSperrlistePayloadSchema = z.object({
   // converts: an address this turned away is one that would never have been banned.
   email: KontaktEmailSchema,
   // Trimmed before any bound counts it, as at the API, which refuses a blank reason, one over the
-  // ceiling and one holding a line break with a generic `REQ-VAL-001` sentence: a looser draft
+  // ceiling and one holding a line break with a generic `payload_refused` sentence: a looser draft
   // loses each bound's German.
   grund: einzeiligerName(
     z

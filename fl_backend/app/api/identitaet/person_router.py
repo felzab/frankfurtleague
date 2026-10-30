@@ -85,8 +85,8 @@ async def erase_selbst(
     Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.
 
     PERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one
-    (`REQ-PURGE-004`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest
-    from a passkey sign-in `ENROLMENT_WINDOW_MINUTES` old at most, as a revoke asks, else `REQ-AUTH-009`. No other
+    (`letzter_inhaber_loeschung`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest
+    from a passkey sign-in `ENROLMENT_WINDOW_MINUTES` old at most, as a revoke asks, else `confirmation_required`. No other
     precondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still
     to be played included. Nothing is counted against the person's day.
 
@@ -203,7 +203,7 @@ async def get_erasure_ansicht(
     grant ended, which every administrator is sent. `verwaltung` is the tier of the live grant the address holds, or
     null; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.
 
-    `letzter_inhaber` says whether the press would be refused `REQ-PURGE-004` as the grants stand at this read: the address
+    `letzter_inhaber` says whether the press would be refused `letzter_inhaber_loeschung` as the grants stand at this read: the address
     holds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;
     the press judges again, and its answer alone decides.
     """

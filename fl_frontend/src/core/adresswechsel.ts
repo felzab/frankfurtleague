@@ -29,6 +29,6 @@ export const GENEHMIGUNG_DAUER = ({ 7: "eine Woche" } as const)[GENEHMIGUNG_TAGE
 
 /**
  * Why the address tool refuses its reader a change, as every read linking one into it serves it: the reader's own
- * address (`REQ-PURGE-003`), or a grant holder's without an owner's power (`REQ-PURGE-005`).
+ * address (`eigene_adresse`), or a grant holder's without an owner's power (`verwaltung_adresse`).
  */
 export const ADRESSWECHSEL_EINSEHBAR_VERWEHRT = ["eigene", "verwaltung"] as const;

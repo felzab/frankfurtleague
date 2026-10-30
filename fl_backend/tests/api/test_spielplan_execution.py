@@ -89,7 +89,7 @@ def saison_document(
     start_date: str = "2026-01-01",
     end_date: str = "2026-06-30",
 ) -> dict[str, Any]:
-    """The default span is half a year, so `REQ-DATE-005` is what no case not about it can be refused on."""
+    """The default span is half a year, so `saison_span_below_spielplan` is what no case not about it can be refused on."""
 
     return documents.saison_document(saison_id, status, start_date=start_date, end_date=end_date, rules=rules or rules_document())
 
@@ -129,7 +129,7 @@ def entry_rows(
 
 
 def a_stored_matchday() -> dict[str, Any]:
-    """Undated, which is the shape the draw itself leaves: `REQ-SPIELPLAN-002` counts rows and reads no field of one."""
+    """Undated, which is the shape the draw itself leaves: `spielplan_spieltage_held` counts rows and reads no field of one."""
 
     return {
         "_id": STORED_SPIELTAG_OID,
@@ -249,7 +249,7 @@ async def stored_rules(database: AsyncDatabase) -> dict[str, Any]:
 async def call_patch_rules(database: AsyncDatabase, **overrides: Any) -> FLPatchSaisonResponse:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it changes.
 
-    The seed's own dates, so `REQ-DATE-004` and `REQ-DATE-005` cannot be what a refusal is about.
+    The seed's own dates, so `saison_span_below_spieltage` and `saison_span_below_spielplan` cannot be what a refusal is about.
     """
 
     seeded = saison_document()
@@ -297,7 +297,7 @@ def bracket_rounds(rules: FLSaisonRules) -> tuple[int, ...]:
     that function would agree with a draw one round short.
     """
 
-    # `REQ-RULES-001` refuses a product that is no power of two, so the halving always lands on 1.
+    # `rules_bracket_impossible` refuses a product that is no power of two, so the halving always lands on 1.
     remaining = rules.number_of_groups * rules.qualifiers_per_group
 
     sizes: list[int] = []
@@ -624,10 +624,10 @@ class TestEachRefusalIsReachedThroughTheRoute:
         ("code", "seed"),
         [
             pytest.param(Code.SPIELPLAN_ALREADY_DRAWN, Seed(spiele=[a_stored_fixture()]), id="a season already holding a fixture"),
-            pytest.param(Code.SPIELPLAN_MATCHDAYS_HELD, Seed(spieltage=[a_stored_matchday()]), id="a season already holding a matchday"),
-            pytest.param(Code.SPIELPLAN_SAISON_FINISHED, Seed(saison=saison_document(status="past")), id="a season already finished"),
+            pytest.param(Code.SPIELPLAN_SPIELTAGE_HELD, Seed(spieltage=[a_stored_matchday()]), id="a season already holding a matchday"),
+            pytest.param(Code.SAISON_PAST, Seed(saison=saison_document(status="past")), id="a season already finished"),
             pytest.param(Code.SPIELPLAN_GRUPPEN_OFF_RULES, Seed(entered=entry_rows(short_gruppe="D")), id="a group short of a club"),
-            # The other half of `REQ-SPIELPLAN-004`: these clubs stand in groups the season does not
+            # The other half of `spielplan_gruppen_off_rules`: these clubs stand in groups the season does not
             # offer, so the draw would put them in no round robin at all.
             pytest.param(
                 Code.SPIELPLAN_GRUPPEN_OFF_RULES,
@@ -827,7 +827,7 @@ A_BOOKED_SCHIEDSRICHTER: dict[str, Any] = {
     "payment": 40,
 }
 
-# One fixture carrying one of these closes the window `REQ-SPIELPLAN-005` opens. Only the first is
+# One fixture carrying one of these closes the window `spielplan_replace_outside_its_window` opens. Only the first is
 # played by `has_taken_place`, so the four under it are what say the window reads
 # `holds_a_recorded_fact` instead.
 RECORDS_CLOSING_THE_WINDOW = (
@@ -838,8 +838,8 @@ RECORDS_CLOSING_THE_WINDOW = (
     pytest.param({"notiz": A_NOTE}, id="an admin's note"),
 )
 
-# Wider than the drawn shape, so `REQ-RULES-003` and `REQ-RULES-006` both read the other way and
-# `REQ-RULES-011` is the only rule that can answer.
+# Wider than the drawn shape, so `rules_capacity_below_use` and `rules_spieltag_over_its_phase` both read the other way and
+# `rules_shape_after_spielplan` is the only rule that can answer.
 WIDER_PER_GROUP = 6
 
 
@@ -952,7 +952,7 @@ class BerichteRunningARivalBeforeTheirRemoval(InterleavedCollection):
 
 
 class TestASubmittedReportKeepsTheSpielplanFromAReplace:
-    """`REQ-SPIELPLAN-007` wired: the replace counts the season's submitted reports in its transaction and again outside it."""
+    """`spielplan_berichte_eingereicht` wired: the replace counts the season's submitted reports in its transaction and again outside it."""
 
     def test_the_replace_is_refused_and_removes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1208,7 +1208,7 @@ class TestAReplaceTakesTheSeasonsConfirmations:
 
 
 class TestAConfirmedReplaceRedrawsTheWholeSeason:
-    """`REQ-SPIELPLAN-005`'s write half: the season's two lists are removed and drawn again inside one transaction."""
+    """`spielplan_replace_outside_its_window`'s write half: the season's two lists are removed and drawn again inside one transaction."""
 
     def test_no_document_of_the_first_draw_survives(self, mongo_replica_set_url: str):
         """Drop either delete and this fails: a replace is these rows being GONE, never as many fresh ones standing beside them."""
@@ -1394,7 +1394,7 @@ class TestAnAbortedReplaceLeavesTheSeasonStanding:
 
 
 class TestTheReplaceWindowIsReachedThroughTheRoute:
-    """`REQ-SPIELPLAN-005` WIRED: the endpoint reads the season's status and its own fixtures inside the transaction."""
+    """`spielplan_replace_outside_its_window` WIRED: the endpoint reads the season's status and its own fixtures inside the transaction."""
 
     def test_a_running_season_is_refused_the_replace_and_keeps_its_draw(self, mongo_replica_set_url: str):
         """Wire `replace` past the window and this fails: an active league would lose the schedule it is playing."""
@@ -1436,7 +1436,7 @@ class TestTheReplaceWindowIsReachedThroughTheRoute:
 
 
 class TestTheDrawIsTheOnlyThingThatMovesTheShape:
-    """`REQ-RULES-011` WIRED, over the season the cases above judge the replace on.
+    """`rules_shape_after_spielplan` WIRED, over the season the cases above judge the replace on.
 
     The patch writes the whole `rules` object, so a shape reaching it would stand beside fixtures no
     longer drawn from it. The draw is where the three move instead.
@@ -1455,7 +1455,7 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
 
         refused, rules = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert refused.error_code == Code.RULES_SHAPE_AFTER_DRAW
+        assert refused.error_code == Code.RULES_SHAPE_AFTER_SPIELPLAN
         # Read back, not inferred from the refusal: a rule raised after the write would refuse and store.
         assert rules["teams_per_group"] == TEAMS_PER_GROUP
 
@@ -1474,7 +1474,7 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
 
         refused, rules = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert refused.error_code == Code.RULES_SHAPE_AFTER_DRAW
+        assert refused.error_code == Code.RULES_SHAPE_AFTER_SPIELPLAN
         assert rules["teams_per_group"] == TEAMS_PER_GROUP
 
     def test_the_rest_of_the_rules_still_go_through_on_a_drawn_season(self, mongo_replica_set_url: str):
@@ -1491,7 +1491,7 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
 
 
 # The narrowing that repairs a season drawn from the wrong numbers, and the one nothing else lets
-# through: `REQ-RULES-004` reads the bracket's own wiring and `REQ-RULES-006` its own matchdays, so
+# through: `rules_qualifiers_below_wiring` reads the bracket's own wiring and `rules_spieltag_over_its_phase` its own matchdays, so
 # each refuses this exact step on the patch.
 NARROWED_QUALIFIERS = 1
 
@@ -1561,7 +1561,7 @@ class TestADrawStoresTheShapeItRanFrom:
     """
 
     def test_a_first_draw_narrows_the_placeholder_shape_the_season_was_created_with(self, mongo_replica_set_url: str):
-        """Judge `REQ-SPIELPLAN-004` off the stored rules and this fails: six clubs across two groups fill no group of four."""
+        """Judge `spielplan_gruppen_off_rules` off the stored rules and this fails: six clubs across two groups fill no group of four."""
 
         drawn = a_season_drawn_from(mongo_replica_set_url, seed=a_short_seed(), shape=the_short_shape())
         expected = expected_counts(
@@ -1610,10 +1610,10 @@ class TestADrawStoresTheShapeItRanFrom:
 
 
 class TestAReplaceRedrawsTheSeasonFromTheShapeItCarries:
-    """The operation `REQ-RULES-011` names as the repair: the numbers and the fixtures move together, or neither moves."""
+    """The operation `rules_shape_after_spielplan` names as the repair: the numbers and the fixtures move together, or neither moves."""
 
     def test_a_narrower_qualifier_count_is_stored_and_drawn(self, mongo_replica_set_url: str):
-        """The step no patch of a drawn season permits: `REQ-RULES-004` and `REQ-RULES-006` each refuse this exact one there."""
+        """No patch of a drawn season permits this step: `rules_qualifiers_below_wiring` and `rules_spieltag_over_its_phase` each refuse it."""
 
         replaced = a_season_drawn_from(mongo_replica_set_url, seed=Seed(), shape=a_shape(qualifiers=NARROWED_QUALIFIERS), replace=True)
         expected = expected_counts(FLSaisonRules.model_validate(rules_document(qualifiers=NARROWED_QUALIFIERS)))
@@ -1703,7 +1703,7 @@ TIGHT_GROUPS = 2
 TIGHT_PER_GROUP = 4
 TIGHT_SPAN = ("2026-05-01", "2026-05-04")
 
-# The free lever: `REQ-SPIELPLAN-004` pins the other two to the clubs standing in the groups, while
+# The free lever: `spielplan_gruppen_off_rules` pins the other two to the clubs standing in the groups, while
 # each doubling of `number_of_groups` x `qualifiers_per_group` adds a knockout round.
 WIDENED_QUALIFIERS = 4
 
@@ -1726,10 +1726,10 @@ def the_tight_shape(*, qualifiers: int) -> FLSpielplanShape:
 
 
 class TestASeasonIsNeverDrawnMoreMatchdaysThanItHasDays:
-    """`REQ-DATE-009`, the draw's twin of `REQ-DATE-005`, WIRED over the draw's own three, which decide how many matchdays a season takes.
+    """`saison_span_below_spielplan_as_stored`, the draw's twin of `saison_span_below_spielplan`, WIRED over the draw's own three.
 
-    `POST /saisons` measured the span against the rules the season was created with, and the draw
-    replaces three of them.
+    Those three decide how many matchdays a season takes. `POST /saisons` measured the span against the rules the season was
+    created with, and the draw replaces three of them.
     """
 
     def test_a_shape_implying_more_matchdays_than_the_season_has_days_is_refused(self, mongo_replica_set_url: str):
@@ -1744,10 +1744,10 @@ class TestASeasonIsNeverDrawnMoreMatchdaysThanItHasDays:
         refused, rules, counts, watermark = on_a_seeded_saison(mongo_replica_set_url, body, seed=a_tight_seed())
 
         # The draw twin: the span weighed is the stored one, which a season patch can widen.
-        assert refused.error_code == Code.SAISON_SPAN_BELOW_SCHEDULE_AS_STORED
+        assert refused.error_code == Code.SAISON_SPAN_BELOW_SPIELPLAN_AS_STORED
         assert counts == (0, 0), "a refused draw wrote a schedule the season has no room for"
         # Read back rather than inferred from the refusal: the shape stored beside no fixtures would
-        # come back `REQ-DATE-005` on the next patch of any rule at all.
+        # come back `saison_span_below_spielplan` on the next patch of any rule at all.
         assert rules == rules_document(groups=TIGHT_GROUPS, teams=TIGHT_PER_GROUP, qualifiers=NARROWED_QUALIFIERS)
         assert watermark is None
 

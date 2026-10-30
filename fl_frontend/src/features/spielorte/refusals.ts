@@ -11,7 +11,7 @@ export function mapNameRefusal(error: unknown): { error?: string; fieldErrors?: 
   if (!isRefusal(error)) return null;
 
   // No repair sentence: the box carrying the message is itself the way out.
-  if (error.serverErrorCode === "DB-COMMON-002") {
+  if (error.serverErrorCode === "duplicate_key") {
     return { fieldErrors: { name: "Diesen Namen gibt es schon." } };
   }
   return null;
@@ -21,7 +21,7 @@ export function mapNameRefusal(error: unknown): { error?: string; fieldErrors?: 
 export function mapRetireRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
-  if (error.serverErrorCode === "REQ-RETIRE-003") {
+  if (error.serverErrorCode === "spielort_still_booked") {
     return buildRefusal({
       reason: "Für diesen Spielort sind noch Spiele angesetzt, die kein Ergebnis haben",
       repair: "Verlege diese Spiele auf einen anderen Spielort oder sage sie ab",

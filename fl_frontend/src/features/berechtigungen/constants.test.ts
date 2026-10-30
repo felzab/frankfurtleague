@@ -58,10 +58,16 @@ describe("the words the grants page names the owner tier in", () => {
       ),
     );
     const refusals = [
-      ...refusalCodes("REQ-BERECHTIGUNG-002", "REQ-BERECHTIGUNG-004", "REQ-BERECHTIGUNG-005").map((code) => mapEntziehenRefusal(refused(code))),
-      ...refusalCodes("DB-COMMON-002", "REQ-BERECHTIGUNG-003", "REQ-BERECHTIGUNG-005", "REQ-BERECHTIGUNG-007", "REQ-BERECHTIGUNG-008").map(
-        (code) => mapStufeRefusal(refused(code)),
+      ...refusalCodes("berechtigung_inhaber", "berechtigung_mindestzahl", "berechtigung_nur_inhaber").map((code) =>
+        mapEntziehenRefusal(refused(code)),
       ),
+      ...refusalCodes(
+        "duplicate_key",
+        "berechtigung_gesperrt",
+        "berechtigung_nur_inhaber",
+        "berechtigung_letzter_inhaber",
+        "berechtigung_antrag_offen",
+      ).map((code) => mapStufeRefusal(refused(code))),
     ];
     const worte = [
       INHABER_LABEL,
@@ -105,13 +111,13 @@ describe("a refusal of an owner's power", () => {
    * promotion among them, with the code its service raises for it.
    */
   const WORDED_BY = [
-    [mapErasureRefusal, "REQ-PURGE-005"],
-    [mapAbmeldungRefusal, "REQ-PURGE-005"],
-    [mapEntziehenRefusal, "REQ-BERECHTIGUNG-005"],
-    [mapStufeRefusal, "REQ-BERECHTIGUNG-005"],
-    [alsFehler(mapVerwaltungAnsichtRefusal), "REQ-PURGE-005"],
-    [mapVerwaltungStartRefusal, "REQ-PURGE-005"],
-    [alsFehler(mapVerwaltungLinkRefusal), "REQ-PURGE-005"],
+    [mapErasureRefusal, "verwaltung_adresse"],
+    [mapAbmeldungRefusal, "verwaltung_adresse"],
+    [mapEntziehenRefusal, "berechtigung_nur_inhaber"],
+    [mapStufeRefusal, "berechtigung_nur_inhaber"],
+    [alsFehler(mapVerwaltungAnsichtRefusal), "verwaltung_adresse"],
+    [mapVerwaltungStartRefusal, "verwaltung_adresse"],
+    [alsFehler(mapVerwaltungLinkRefusal), "verwaltung_adresse"],
   ] as const satisfies readonly (readonly [(error: unknown) => { error?: string } | null, Code])[];
 
   /* An owner whose session predates the promotion is refused in the code an administrator is, and reads the sentence

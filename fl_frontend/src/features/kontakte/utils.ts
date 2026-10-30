@@ -158,7 +158,7 @@ export function teamPageHref(teamId: string, saisonId: string): string {
 /**
  * The state that fixes what a link minted on the row opens: once its season is over or its team has
  * left it, the backend mints a newcomer a link taking the Widerspruch alone and sends no fresh one
- * (`REQ-KONTAKT-005`).
+ * (`kontakt_zeile_ohne_saison`).
  */
 export function kontaktZeile(saisonStatus: TeamSaisonMembership["saisonStatus"], austritt: FLAustritt | null): FLKontaktZeile {
   if (saisonStatus === "past") return "saison_vorbei";

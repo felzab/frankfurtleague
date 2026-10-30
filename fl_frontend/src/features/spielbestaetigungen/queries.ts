@@ -25,7 +25,7 @@ export async function getSpielbestaetigungen(
 }
 
 /**
- * The signed-in referee's own rows, refused `REQ-FUNKTION-001` where the backend holds no confirmed referee record
+ * The signed-in referee's own rows, refused `funktion_nicht_gehalten` where the backend holds no confirmed referee record
  * for the address the page's own check passed.
  */
 // Never `"use cache"`, which keys on the arguments rather than the caller.

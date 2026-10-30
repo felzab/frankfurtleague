@@ -62,7 +62,7 @@ async def refuse_a_full_squad(
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> None:
-    """Refuse `REQ-SQUAD-003` when this team's squad for this season is already at the season's cap.
+    """Refuse `kader_full` when this team's squad for this season is already at the season's cap.
 
     Shared by create, transfer and reactivate: the cap is a property of the DESTINATION squad, not
     of the verb.
@@ -104,7 +104,7 @@ async def refuse_a_taken_rolle(
     # REQUIRED for `refuse_a_full_squad`'s reason: the anchor below closes the race.
     session: AsyncClientSession,
 ) -> None:
-    """Refuse `REQ-SQUAD-004` when another live row in this squad already holds `rolle`.
+    """Refuse `kader_rolle_taken` when another live row in this squad already holds `rolle`.
 
     Shared by every squad write for the reason the cap is: the role belongs to the DESTINATION squad,
     never to the verb.
@@ -142,7 +142,7 @@ async def another_pupil_holds(
     # The writing transaction's, so the judgement is read where the write lands; `None` for the link's view alone.
     session: AsyncClientSession | None,
 ) -> bool:
-    """Whether a pupil other than this one signs in on the address, which `REQ-ADRESSWECHSEL-006` refuses and the view reads alike."""
+    """Whether a pupil other than this one signs in on the address, which `adresswechsel_vergeben` refuses and the view reads alike."""
 
     # One holder at most, `uniq_spieler_email` being unique, so the one read is compared rather than
     # narrowed by an `_id` term the composed filter would part from the address under `$and`.

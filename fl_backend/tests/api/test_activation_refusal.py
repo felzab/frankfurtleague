@@ -78,4 +78,4 @@ class TestAFinishedSeasonIsNeverPromotedBack:
         refusal = find_activation_refusal(undated_spieltage=0, target_status="past", target_fixtures=60, outgoing_unplayed=[3, 7])
 
         assert refusal is not None
-        assert refusal.error_code == Code.ACTIVATE_TARGET_PAST
+        assert refusal.error_code == Code.SAISON_PAST

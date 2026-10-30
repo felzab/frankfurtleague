@@ -134,7 +134,7 @@ class TestTheTierTheseReadsAreServedAt:
         response = answered(seeded_url, path, headers={})
 
         assert response.status_code == 401
-        assert response.json()["error_code"] == Code.MISSING_TOKEN
+        assert response.json()["error_code"] == Code.ACCESS_KEY_REFUSED
 
     def test_the_admin_list_at_this_prefix_still_refuses_the_base_key(self, seeded_url: str):
         """The control: a base-tier router joining an admin prefix must not have widened the two routers already there."""

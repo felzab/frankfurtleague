@@ -96,20 +96,20 @@ const ANNEHMEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/annehmen";
 const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/ablehnen";
 
 /** The season's entry rules, which `annehmen_bewerbung` reaches rather than restating, and so the ones an acceptance can answer. */
-const REUSED_ENTRY_CODES: Code[] = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"];
+const REUSED_ENTRY_CODES: Code[] = ["entry_saison_not_future", "entry_gruppe_not_offered", "entry_gruppe_full", "team_retired"];
 
 describe("the triage's refusals against the codes its endpoints publish", () => {
   it("answers every code the acceptance publishes through the triage's mapper", async () => {
     const published = refusalCodes(
-      "DB-COMMON-002",
-      "REQ-BEWERBUNG-001",
-      "REQ-BEWERBUNG-002",
-      "REQ-BEWERBUNG-003",
-      "REQ-BEWERBUNG-013",
-      "REQ-ENTER-001",
-      "REQ-ENTER-002",
-      "REQ-ENTER-003",
-      "REQ-ENTER-005",
+      "duplicate_key",
+      "bewerbung_already_decided",
+      "bewerbung_subject_unresolved",
+      "bewerbung_schule_unusable",
+      "bewerbung_kontakte_unconfirmed",
+      "entry_saison_not_future",
+      "entry_gruppe_not_offered",
+      "entry_gruppe_full",
+      "team_retired",
     );
 
     for (const code of published) {
@@ -117,15 +117,15 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
     }
     await assertEachAnswered({
       codes: refusalCodes(
-        "DB-COMMON-002",
-        "REQ-BEWERBUNG-001",
-        "REQ-BEWERBUNG-002",
-        "REQ-BEWERBUNG-003",
-        "REQ-BEWERBUNG-013",
-        "REQ-ENTER-001",
-        "REQ-ENTER-002",
-        "REQ-ENTER-003",
-        "REQ-ENTER-005",
+        "duplicate_key",
+        "bewerbung_already_decided",
+        "bewerbung_subject_unresolved",
+        "bewerbung_schule_unusable",
+        "bewerbung_kontakte_unconfirmed",
+        "entry_saison_not_future",
+        "entry_gruppe_not_offered",
+        "entry_gruppe_full",
+        "team_retired",
       ),
       refuseWith: answerWith,
       act: () => annehmenBewerbungAction(ANNAHME),
@@ -134,14 +134,14 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
   });
 
   it("answers every code the decline publishes through the triage's mapper", async () => {
-    const published = refusalCodes("REQ-BEWERBUNG-001");
+    const published = refusalCodes("bewerbung_already_decided");
 
-    expect(published).toStrictEqual(["REQ-BEWERBUNG-001"]);
+    expect(published).toStrictEqual(["bewerbung_already_decided"]);
     for (const code of published) {
       expect(answerShown(code, declineMapped), `${code} is published on the decline and reaches the admin unmapped`).not.toBe(null);
     }
     await assertEachAnswered({
-      codes: refusalCodes("REQ-BEWERBUNG-001"),
+      codes: refusalCodes("bewerbung_already_decided"),
       refuseWith: answerWith,
       act: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, grund: "Die Liga ist voll." }),
       mapped: declineMapped,
@@ -209,7 +209,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
      fails never reaches the wire, so the message names the candidates, and no edit path turns the
      application into a shape acceptance takes. */
   it("names the school's own fields, and a repair that exists, when no club can be created", () => {
-    const refusal = acceptanceMapped(refused("REQ-BEWERBUNG-003"))?.error ?? "";
+    const refusal = acceptanceMapped(refused("bewerbung_schule_unusable"))?.error ?? "";
 
     expect(refusal, "the refusal names no field an administrator could look at").toMatch(
       /Team, vollständiger Name, Kürzel, Adresse oder Website/,
@@ -220,7 +220,7 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
   /* `fl_backend/app/api/bewerbungen/services.py :: find_unconfirmed_kontakte_refusal`'s code. A code the
      mapper misses falls through to the shared fallback, which names no reason. */
   it("answers the acceptance's refusal over an unconfirmed seat", () => {
-    expect(acceptanceMapped(refused("REQ-BEWERBUNG-013"))?.error ?? "").toMatch(/Kontaktperson/);
+    expect(acceptanceMapped(refused("bewerbung_kontakte_unconfirmed"))?.error ?? "").toMatch(/Kontaktperson/);
   });
 });
 
@@ -402,7 +402,7 @@ describe("what a decision says of its mails", () => {
 
   it("owes nothing where the API write is refused", async () => {
     for (const { where, press } of DECISIONS) {
-      answerWith(() => Promise.reject(refused("REQ-BEWERBUNG-001")));
+      answerWith(() => Promise.reject(refused("bewerbung_already_decided")));
 
       expect((await press()).success, `${where} reports a refused decision as taken`).toBe(false);
     }
@@ -465,10 +465,10 @@ const retiredBannerOn = (saisonStatus: TeamSaisonMembership["saisonStatus"]): Re
 const SAISON_STATUSES = ["future", "active", "past"] as const satisfies readonly TeamSaisonMembership["saisonStatus"][];
 
 const RETIRED_RENDERINGS = renderingsOf([
-  ...renderedBy("the triage", mapTriageRefusal(refused("REQ-ENTER-005"), "bestehendes_team")),
-  ...renderedBy("the club editor's entry", mapEntryRefusal(refused("REQ-ENTER-005"))),
-  ...renderedBy("the team create's entry", mapCreatedClubEntryRefusal(refused("REQ-ENTER-005"))),
-  ...renderedBy("the club editor's replacement", mapReplacementRefusal(refused("REQ-ENTER-005"))),
+  ...renderedBy("the triage", mapTriageRefusal(refused("team_retired"), "bestehendes_team")),
+  ...renderedBy("the club editor's entry", mapEntryRefusal(refused("team_retired"))),
+  ...renderedBy("the team create's entry", mapCreatedClubEntryRefusal(refused("team_retired"))),
+  ...renderedBy("the club editor's replacement", mapReplacementRefusal(refused("team_retired"))),
   ...SAISON_STATUSES.flatMap(retiredBannerOn),
 ]);
 
@@ -530,19 +530,19 @@ describe("the German one refusal code is given", () => {
   it("finds every rendering of the retired-club refusal before judging one", () => {
     expect(
       RETIRED_RENDERINGS.length,
-      `REQ-ENTER-005 is rendered in ${String(RETIRED_RENDERINGS.length)} places, not the seven this case reads`,
+      `team_retired is rendered in ${String(RETIRED_RENDERINGS.length)} places, not the seven this case reads`,
     ).toBe(7);
     for (const { where, sentences } of RETIRED_RENDERINGS) {
       expect(sentences.length, `${where} holds no rendered sentence`).not.toBe(0);
     }
   });
 
-  /* `REQ-ENTER-005` is `inactive_since`, whose verb pair `docs/glossary.md :: inactive_since` fixes:
+  /* `team_retired` is `inactive_since`, whose verb pair `docs/glossary.md :: inactive_since` fixes:
      _stilllegen_ retires the club across the league, _austragen_ takes one squad row out of one
      season. „Verlassen“ is an `austritt`, a third record on a third page. */
   it("calls a retired club stillgelegt in every branch that answers it", () => {
     for (const { where, german } of RETIRED_RENDERINGS) {
-      assert.ok(german.includes("stillgelegt"), `${where} gives REQ-ENTER-005 a state word other than „stillgelegt“`);
+      assert.ok(german.includes("stillgelegt"), `${where} gives team_retired a state word other than „stillgelegt“`);
       expect(german, `${where} names the club as something other than a „Team“`).toMatch(/\bTeam\b/);
 
       for (const banned of ["usgeschieden", "usgetragen", "verlassen", "Verein"]) {
@@ -560,10 +560,10 @@ describe("the German one refusal code is given", () => {
 });
 
 /**
- * The entry rules an acceptance and the club editor both answer. `REQ-ENTER-004` is not among them:
+ * The entry rules an acceptance and the club editor both answer. `entry_gruppe_locked` is not among them:
  * it guards a group MOVE, which no acceptance performs.
  */
-const SHARED_ENTRY_CODES: Code[] = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003"];
+const SHARED_ENTRY_CODES: Code[] = ["entry_saison_not_future", "entry_gruppe_not_offered", "entry_gruppe_full"];
 
 const ENTRY_RENDERINGS = SHARED_ENTRY_CODES.map((code) => ({
   code: code,
@@ -657,20 +657,20 @@ describe("the re-sent confirmation link", () => {
   /* The button carries no address box, so the repairs' „Trage eine andere Adresse ein“ would name a
      field that is not there: the sentence names the correction control beside it instead. */
   it("words a barred address with the control the administrator can use from the button", () => {
-    const answered = mapEinwilligungErneutRefusal(refused("REQ-BEWERBUNG-019", 409));
+    const answered = mapEinwilligungErneutRefusal(refused("bewerbung_kontakt_gesperrt", 409));
 
     assert.ok(String(answered).includes(`„${ADRESSE_KORRIGIEREN}“`), "the sentence names a control the strip does not label so");
     expect(String(answered)).not.toMatch(/Trage eine andere Adresse ein/);
   });
 
   it("answers every code the re-send publishes through its own mapper", async () => {
-    for (const code of refusalCodes("REQ-BEWERBUNG-001", "REQ-BEWERBUNG-011", "REQ-BEWERBUNG-019")) {
+    for (const code of refusalCodes("bewerbung_already_decided", "bewerbung_sitz_already_answered", "bewerbung_kontakt_gesperrt")) {
       expect(answerShown(code, mapEinwilligungErneutRefusal), `${code} is published on the re-send and reaches the admin unmapped`).not.toBe(
         null,
       );
     }
     await assertEachAnswered({
-      codes: refusalCodes("REQ-BEWERBUNG-001", "REQ-BEWERBUNG-011", "REQ-BEWERBUNG-019"),
+      codes: refusalCodes("bewerbung_already_decided", "bewerbung_sitz_already_answered", "bewerbung_kontakt_gesperrt"),
       refuseWith: answerWith,
       act: () => einwilligungErneutSendenAction({ id: BEWERBUNG_ID, rolle: "ansprechperson" }),
       mapped: mapEinwilligungErneutRefusal,
@@ -735,11 +735,23 @@ describe("the re-sent confirmation link", () => {
 
 describe("the corrected contact address", () => {
   it("answers every code the correction publishes through its own mapper", async () => {
-    for (const code of refusalCodes("REQ-BEWERBUNG-001", "REQ-BEWERBUNG-011", "REQ-BEWERBUNG-014", "REQ-BEWERBUNG-019", "REQ-BEWERBUNG-021")) {
+    for (const code of refusalCodes(
+      "bewerbung_already_decided",
+      "bewerbung_sitz_already_answered",
+      "bewerbung_kontakt_email_taken",
+      "bewerbung_kontakt_gesperrt",
+      "bewerbung_sitz_anders_besetzt",
+    )) {
       expect(answerShown(code, mapKontaktEmailRefusal), `${code} is published on the correction and reaches the admin unmapped`).not.toBe(null);
     }
     await assertEachAnswered({
-      codes: refusalCodes("REQ-BEWERBUNG-001", "REQ-BEWERBUNG-011", "REQ-BEWERBUNG-014", "REQ-BEWERBUNG-019", "REQ-BEWERBUNG-021"),
+      codes: refusalCodes(
+        "bewerbung_already_decided",
+        "bewerbung_sitz_already_answered",
+        "bewerbung_kontakt_email_taken",
+        "bewerbung_kontakt_gesperrt",
+        "bewerbung_sitz_anders_besetzt",
+      ),
       refuseWith: answerWith,
       act: () => kontaktEmailKorrigierenAction(KORREKTUR),
       mapped: mapKontaktEmailRefusal,
@@ -750,16 +762,22 @@ describe("the corrected contact address", () => {
 describe("the person seated where one stepped out", () => {
   it("answers every code the reseat publishes through its own mapper", async () => {
     for (const code of refusalCodes(
-      "REQ-BEWERBUNG-001",
-      "REQ-BEWERBUNG-011",
-      "REQ-BEWERBUNG-014",
-      "REQ-BEWERBUNG-019",
-      "REQ-EINWILLIGUNG-001",
+      "bewerbung_already_decided",
+      "bewerbung_sitz_already_answered",
+      "bewerbung_kontakt_email_taken",
+      "bewerbung_kontakt_gesperrt",
+      "fassung_unzulaessig",
     )) {
       expect(answerShown(code, mapKontaktSitzRefusal), `${code} is published on the reseat and reaches the admin unmapped`).not.toBe(null);
     }
     await assertEachAnswered({
-      codes: refusalCodes("REQ-BEWERBUNG-001", "REQ-BEWERBUNG-011", "REQ-BEWERBUNG-014", "REQ-BEWERBUNG-019", "REQ-EINWILLIGUNG-001"),
+      codes: refusalCodes(
+        "bewerbung_already_decided",
+        "bewerbung_sitz_already_answered",
+        "bewerbung_kontakt_email_taken",
+        "bewerbung_kontakt_gesperrt",
+        "fassung_unzulaessig",
+      ),
       refuseWith: answerWith,
       act: () =>
         besetzeKontaktSitzAction({

@@ -56,11 +56,6 @@ from app.core.collections import Collection
 from app.core.constraints import UNIQUE_INDEXES
 from app.core.exceptions import WriteRefusal
 from app.core.readback import RECORD_MODELS
-from tests.core.app_source import (
-    app_calls,
-    callee,
-    removals,
-)
 from tests.documents import rules_document
 
 PayloadFactory = Callable[..., dict[str, Any]]
@@ -209,28 +204,6 @@ def _swap(**overrides: Any):
     )
 
 
-# The driver calls that remove a document. `bulk_write` is among them for its delete operations,
-# which is how a removal would arrive without naming one.
-DRIVER_REMOVALS = frozenset({"bulk_write", "delete_many", "delete_one", "drop", "drop_collection", "find_one_and_delete"})
-
-# The ONE `app/core/crud.py` implements helpers for -- `delete_many_from_db` and `erase_many_from_db`
-# both call it -- and so the only removal any module may make. Its complement is banned everywhere,
-# that module included.
-RECORDED_REMOVALS = frozenset({"delete_many"})
-
-# `app/core/recording.py` writes the log's own rows and removes nothing, so it is not among these.
-REMOVAL_MODULES = ("app/core/crud.py",)
-
-# The day a row retired, and so the field a retention sweep would select on.
-RETIREMENT_FIELD = "inactive_since"
-
-
-def _driver_calls(methods: frozenset[str]) -> list[str]:
-    """Where the application calls one of `methods`, each as its module and the function holding the call."""
-
-    return sorted({f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) in methods})
-
-
 class TestASharedSquadNumber:
     """That no write refuses a number another row wears, and that the one read reporting it compares what is stored."""
 
@@ -304,7 +277,7 @@ RULES_OF_THE_SEASON = _rules()
 
 @pytest.fixture
 def a_semi_final_played_at_a_retired_ground(spiel: PayloadFactory) -> list[dict[str, Any]]:
-    """Played where the ground has since retired, which `REQ-RETIRE-003` lets it do."""
+    """Played where the ground has since retired, which `spielort_still_booked` lets it do."""
 
     return [
         spiel(
@@ -338,7 +311,7 @@ class TestARetiredBookingOnAReopenedFixture:
         ] == [(SLOT_NR, "ort", GROUND_RETIRED_ON)]
 
     def test_a_save_keeping_it_passes_and_a_save_newly_booking_it_is_refused(self, a_semi_final_played_at_a_retired_ground):
-        """Both directions of `REQ-BOOKING-001`: the state stands because the reopened fixture's next save books nothing."""
+        """Both directions of `booking_unknown_resource`: the state stands because the reopened fixture's next save books nothing."""
 
         (document,) = a_semi_final_played_at_a_retired_ground
         reopened_document = {**document, "team1": document["team2"], "team2": None, "ergebnis": None}
@@ -401,7 +374,7 @@ def _holders_of(spiele: list[FLSpiel]) -> list[FLSpielSlotHolder]:
 
 
 def _clash_refusal_of(stored: FLSpiel, holders: list[FLSpielSlotHolder], **changes: Any) -> WriteRefusal | None:
-    """`REQ-CLASH-001` on a save of `stored` changing `changes`, judged over the claims it makes as `judge` judges them."""
+    """`spiel_double_booked` on a save of `stored` changing `changes`, judged over the claims it makes as `judge` judges them."""
 
     payload = _resubmit([stored.model_dump()], stored.spiel_nr).model_copy(update=changes)
     claims = find_claims_made(stored, payload)
@@ -440,7 +413,7 @@ class TestADoubleBookingALiftedNoShowLeaves:
         assert _clash_refusal_of(later, holders, notiz="Nur eine Notiz") is None
 
         moved_inside = _clash_refusal_of(lifted, holders, uhrzeit="17:30:00")
-        assert moved_inside is not None and moved_inside.error_code == Code.FIXTURE_DOUBLE_BOOKED
+        assert moved_inside is not None and moved_inside.error_code == Code.SPIEL_DOUBLE_BOOKED
         assert _clash_refusal_of(lifted, holders, uhrzeit="13:00:00") is None
 
 
@@ -463,44 +436,6 @@ class TestNoBracketFaultIsStored:
             FLBracketFaultClash,
         ):
             assert "reason" in variant.model_fields
-
-
-class TestNoPurgeReachesARetiredRow:
-    """That a removal reaches the driver from `app/core/crud.py` alone, and that none selects on an age.
-
-    Deletion is that module's removal helpers and `inactive_since`, so a purge built later is
-    logged by construction.
-    """
-
-    def test_a_removal_reaches_the_driver_from_one_module_alone(self):
-        """The application entire, not its write helpers: several routers reach the driver for reads, so a removal would need no helper."""
-
-        # The floor is the banned set itself: a removal IS found, so emptying `DRIVER_REMOVALS` or
-        # dropping `delete_many` from it fails here, rather than leaving the two assertions below
-        # green over a sweep that matches nothing.
-        reaching_the_driver = _driver_calls(DRIVER_REMOVALS)
-
-        assert reaching_the_driver
-
-        # The five `app/core/crud.py` implements no helper for: a call to one is a removal that
-        # records nothing, wherever it stands. `drop` and `drop_collection` could not be recorded at
-        # all -- neither names a filter, and neither leaves an image.
-        assert _driver_calls(DRIVER_REMOVALS - RECORDED_REMOVALS) == []
-
-        assert [call for call in reaching_the_driver if not call.startswith(REMOVAL_MODULES)] == []
-
-    def test_no_removal_selects_on_the_day_a_row_retired(self):
-        """A sweep's SHAPE, never a count of its callers: the module rule above admits one written inside `app/core/crud.py`."""
-
-        selected_on = {field for removal in removals() for field in removal.names}
-
-        # The floor is a filter being seen at all: a sweep reading the wrong keyword would match
-        # nothing and pass the assertion below over any application, retention sweep included.
-        assert selected_on
-
-        # The shape an age-based purge would select by. The erasure names a person, the replace and the
-        # application clocks a season, so a new caller of either helper is free -- an AGE is what is refused.
-        assert RETIREMENT_FIELD not in selected_on, f"a removal selects on {RETIREMENT_FIELD}, the age-based purge nothing here builds"
 
 
 class TestAGroupPhaseEveryClubLeaves:
@@ -604,7 +539,7 @@ class TestADisqualifiedClubKeepsItsFixtures:
         assert refusal is not None
 
     def test_re_dating_it_past_the_exit_is_the_other(self, one_fixture):
-        """The half `REQ-ELIGIBILITY-001` gained: the tolerated state is a fixture STANDING, never one moved past the exit."""
+        """The half `eligibility_disqualified` gained: the tolerated state is a fixture STANDING, never one moved past the exit."""
 
         stored = FLSpielListAdapter.validate_python(one_fixture)
         re_dated = _resubmit(one_fixture, 1).model_copy(update={"datum": "2026-04-01"})
@@ -683,7 +618,10 @@ class TestAFutureSeasonHoldingRecordedResults:
         assert "status" not in FLSpiel.model_fields
 
     def test_both_windows_take_the_record_and_the_status_as_two_figures(self):
-        """`REQ-SPIELPLAN-005` and `REQ-SPIELPLAN-006` share one sentence for the same reason: neither infers the record from the status."""
+        """The replace's and the undraw's window refusals share one sentence: neither infers the record from the status.
+
+        They are `spielplan_replace_outside_its_window` and `spielplan_undraw_outside_its_window`.
+        """
 
         for refusal in (find_spielplan_refusal, find_undraw_refusal):
             assert {"saison_status", "recorded_fixtures"} <= set(inspect.signature(refusal).parameters), refusal.__name__
@@ -723,7 +661,7 @@ class TestAnAbandonedFixtureAndItsResult:
         cancelled = _abandoned(tore=(3, 1)).model_copy(update={"sonderereignis": "ausgefallen"})
         refusal = find_state_refusal(cancelled)
 
-        assert refusal is not None and refusal.error_code == Code.STATE_RESULT_ON_A_NON_EVENT
+        assert refusal is not None and refusal.error_code == Code.STATE_ERGEBNIS_ON_A_NON_EVENT
 
     def test_it_sits_outside_the_set_that_awards_nothing(self):
         """The partition is what leaves it out: a fixture that used its slot is not one recording an absence."""

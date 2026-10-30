@@ -26,7 +26,7 @@ export const FLPatchSpieltagPayloadSchema = z
   .refine((spieltag) => spieltag.ende >= spieltag.beginn, endsAfterItBegins);
 
 /**
- * The same payload with the season's own span folded in, mirroring `REQ-DATE-002`. A FACTORY because the span is
+ * The same payload with the season's own span folded in, mirroring `spieltag_outside_saison`. A FACTORY because the span is
  * the edited season's rather than a constant, and a rule the schema holds is judged on the blur.
  */
 export function buildPatchSpieltagPayloadSchema(saisonSpan?: { start: string; end: string }) {

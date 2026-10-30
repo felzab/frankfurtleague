@@ -19,7 +19,7 @@ from .conftest import MINIMUM_EXPECTED_MUTATIONS
 # Module level because pytest resolves parametrisation during collection, before a fixture could run.
 APP = application()
 
-MISSING_BEARER_TOKEN = Code.MISSING_TOKEN
+MISSING_BEARER_TOKEN = Code.ACCESS_KEY_REFUSED
 
 HTTP_METHODS = frozenset({"get", "post", "patch", "delete", "put", "head", "options", "trace"})
 
@@ -355,7 +355,7 @@ def test_a_public_write_is_base_tier(path: str, method: str):
 def test_a_public_write_is_unreachable_without_the_base_key(path: str, method: str):
     """Public here means no SESSION, never no key: the edge reaches this application through the frontend.
 
-    A request carrying no bearer token answers `REQ-AUTH-001` before the body is parsed.
+    A request carrying no bearer token answers `access_key_refused` before the body is parsed.
     """
 
     response = TestClient(APP, raise_server_exceptions=False).request(method, path, json={})

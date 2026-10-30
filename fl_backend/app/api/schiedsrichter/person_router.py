@@ -58,7 +58,7 @@ async def get_selbst(
     PERSON TIER: the fee set for them per fixture as `honorar`, never the confirmation link's bookkeeping. A retired
     record is served too. Its consent is the account page's (`GET /konto/einwilligungen`), so none is served here.
 
-    Refuses an address holding no confirmed referee record (`REQ-FUNKTION-001`).
+    Refuses an address holding no confirmed referee record (`funktion_nicht_gehalten`).
     """
 
     rows = await aggregate_many_from_db(collection=schiedsrichter_collection, pipeline=build_selbst_referee_pipeline(identifier))
@@ -93,12 +93,12 @@ async def patch_einwilligung(
     list's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to
     `kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
 
-    Refuses, in this order: an id that is no confirmed referee record of this address (`REQ-FUNKTION-001`); a
+    Refuses, in this order: an id that is no confirmed referee record of this address (`funktion_nicht_gehalten`); a
     `nachweis_stand` other than the record's own, either choice having moved since the page was served
-    (`REQ-EINWILLIGUNG-003`); a grant on a retired record (`REQ-EINWILLIGUNG-004`); a `text_version` naming no version of
-    the account page's referee control, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`);
+    (`fassung_unzulaessig`); a grant on a retired record (`erteilung_nicht_zugelassen`); a `text_version` naming no version of
+    the account page's referee control, or a grant naming any but the page's running one (`fassung_unzulaessig`);
     `medien` moving to `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing
-    (`REQ-EINWILLIGUNG-002`). Each refusal writes nothing.
+    (`medien_alter`). Each refusal writes nothing.
 
     **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
     """

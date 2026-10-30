@@ -142,7 +142,7 @@ export const RECORDED_FACTS_NONE =
 export const RECORDED_FACTS_ANY = "ein Ergebnis, ein Ausfall, ein Ort, ein Schiedsrichter, eine Notiz oder eine von Hand geänderte Herkunft";
 
 /**
- * `REQ-SPIELPLAN-007`, for the Spielplan panel's closed control and for the refusal alike: no page takes a report
+ * `spielplan_berichte_eingereicht`, for the Spielplan panel's closed control and for the refusal alike: no page takes a report
  * back, so the way on is the one the draw does not need, editing the fixtures.
  */
 export const SPIELBERICHTE_HALTEN_DEN_SPIELPLAN =
@@ -159,7 +159,7 @@ export const SPIELPLAN_ZURUECKNEHMEN = "Zurücknehmen";
 
 /**
  * Here rather than in `actions.ts`, which as a `"use server"` module exports actions alone: the draw's
- * `REQ-SPIELPLAN-004` refusal and the press closed ahead of it read this one sentence, so neither can
+ * `spielplan_gruppen_off_rules` refusal and the press closed ahead of it read this one sentence, so neither can
  * say what the other does not.
  */
 export const GRUPPEN_OFF_RULES =
@@ -167,7 +167,7 @@ export const GRUPPEN_OFF_RULES =
   `einer Gruppe stehen, die diese Saison nicht anbietet. Passe die Gruppen unter „${TEAMS_EINTRAG.label}“ an.`;
 
 /**
- * `REQ-ACTIVATE-004`'s one sentence, here for `GRUPPEN_OFF_RULES`' reason: the rollover's blocked
+ * `activate_spieltage_undated`'s one sentence, here for `GRUPPEN_OFF_RULES`' reason: the rollover's blocked
  * reason and the action's arm both return it. The backend raises the code in English, as its three
  * siblings do, so this is the only German for it.
  */

@@ -101,7 +101,7 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
       spieler={rows}
       // The facet's options and both gates on the row reactivate read this: a filter naming
       // another season's club narrows to nothing, and a wider list would offer a reactivate
-      // `REQ-SQUAD-001` refuses.
+      // `kader_team_not_in_saison` refuses.
       teams={saisonTeams}
       selectedSaisonId={selectedSaisonId}
     />
