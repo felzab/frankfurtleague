@@ -336,11 +336,7 @@ export const BerechtigungenPostBerechtigungBody = zod.object({
 });
 
 /**
- * Remove each named change from the queue, where the named claim still holds it, and nothing else.
- *
- * A change the claim does not hold -- unknown, removed already, or claimed since by another call after this claim lapsed -- is
- * left alone and counted in `ignoriert`, so a caller can mark as told only what the server itself holds as queued under its own
- * claim. A repeated id counts once. One transaction, recorded under the system actor.
+ * Remove from the queue each named change the named claim still holds, counting every other id once in `ignoriert`.
  * @summary Remove the announced changes a claim holds
  */
 
