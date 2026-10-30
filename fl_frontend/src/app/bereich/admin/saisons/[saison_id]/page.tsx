@@ -15,7 +15,7 @@ import {
 import { getSpielberichteZustaende } from "@/features/spielberichte/queries";
 import { getAdminSpiele } from "@/features/spiele/queries";
 import { getAdminSpieltage } from "@/features/spieltage/queries";
-import { getAdminTeams, getTeamMemberships } from "@/features/teams/queries";
+import { getAdminTeams, getTeamSaisons } from "@/features/teams/queries";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
@@ -86,7 +86,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
       getAdminSpiele({ saison_id: saison.id, saison_phase: "gruppenphase" }),
       // The league-wide read, for the replacement's incoming side alone: a club arriving into this
       // season is by definition in none of its reads. Skipped where `saison_past` closes the panel.
-      saison.status === "past" ? Promise.resolve(null) : getTeamMemberships(),
+      saison.status === "past" ? Promise.resolve(null) : getTeamSaisons(),
       // The reports `spielplan_berichte_eingereicht` counts, for the planned season alone: any other closes both controls already.
       // Degraded, as an unread count closes nothing and the press meets the refusal's own sentence.
       saison.status === "future"

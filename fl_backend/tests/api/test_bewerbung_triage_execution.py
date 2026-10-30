@@ -15,12 +15,12 @@ from pymongo.errors import OperationFailure
 from app.api.bewerbungen.admin_router import (
     ablehnen_bewerbung,
     annehmen_bewerbung,
-    besetze_kontakt_sitz,
     erneut_einwilligung,
-    korrigiere_kontakt_email,
+    get_bewerbungen,
+    post_kontakt_email,
+    post_kontakt_sitz,
 )
-from app.api.bewerbungen.einwilligung_router import post_einwilligung
-from app.api.bewerbungen.router import get_bewerbungen
+from app.api.bewerbungen.public_router import post_einwilligung
 from app.api.bewerbungen.schemas import (
     FLAblehnenBewerbungPayload,
     FLAnnehmenBewerbungPayload,
@@ -63,8 +63,8 @@ from tests.documents import (
     saison_team_document,
     team_document,
 )
-from tests.erasure import erased
 from tests.isolation import InterleavedCollection, Rival
+from tests.loeschung import geloescht
 from tests.postausgang import MAIL_NOW, drained
 from tests.worker import worker_database
 from tests.zustellung import a_mail_that_bounced
@@ -1277,7 +1277,7 @@ async def correct(
     bisherige_email: str | None = None,
 ) -> Any:
     shown = bisherige_email if bisherige_email is not None else await shown_on(database, bewerbung_id, seat)
-    return await korrigiere_kontakt_email(
+    return await post_kontakt_email(
         bewerbung_id=bewerbung_id,
         seat=seat,
         email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": email, "bisherige_email": shown}),
@@ -1602,8 +1602,8 @@ async def object_to_the_link(database: AsyncDatabase, client: AsyncMongoClient) 
     await answer_for(database, client, "ansprechperson")
 
 
-async def erase_the_person(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-    await erased(database, client, KONTAKTE["ansprechperson"]["email"], germany_now=NOW)
+async def loeschen_the_person(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await geloescht(database, client, KONTAKTE["ansprechperson"]["email"], germany_now=NOW)
 
 
 @pytest.mark.db
@@ -1615,7 +1615,7 @@ class TestAResendRacingAnAnswer:
         [
             pytest.param(object_to_the_link, id="a Widerspruch"),
             pytest.param(answer_the_link, id="a confirmation"),
-            pytest.param(erase_the_person, id="an erasure"),
+            pytest.param(loeschen_the_person, id="an erasure"),
         ],
     )
     def test_what_landed_after_the_read_stands_and_the_resend_is_refused(self, mongo_replica_set_url: str, landing: Body):
@@ -1653,7 +1653,7 @@ class TestAResendRacingAnAnswer:
             await seed_an_open_ansprechperson_seat(database)
 
             async def the_correction() -> None:
-                await korrigiere_kontakt_email(
+                await post_kontakt_email(
                     bewerbung_id=ERNEUT_BEWERBUNG,
                     seat="ansprechperson",
                     email_data=FLBewerbungKontaktEmailPayload.model_validate(
@@ -1775,7 +1775,7 @@ async def reseat(
     email: str = RESEAT_PERSON["email"],
     text_version: str = RESEAT_TEXT_VERSION,
 ) -> Any:
-    return await besetze_kontakt_sitz(
+    return await post_kontakt_sitz(
         bewerbung_id=RESEAT_BEWERBUNG,
         seat=seat,
         sitz_data=FLBewerbungKontaktSitzPayload.model_validate({**RESEAT_PERSON, "email": email, "text_version": text_version}),
@@ -1793,7 +1793,7 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
     """A hand-built block would let this suite agree with itself while disagreeing with the endpoint.
 
     The state a reseat runs on is whatever the Widerspruch actually leaves
-    (`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung`).
+    (`fl_backend/app/api/bewerbungen/public_router.py :: post_einwilligung`).
     """
 
     return await post_einwilligung(
@@ -1967,12 +1967,12 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         assert code == Code.BEWERBUNG_SITZ_ALREADY_ANSWERED
         assert after == before
 
-    def test_a_seat_erased_at_its_persons_request_takes_nobody_else(self, mongo_replica_set_url: str):
+    def test_a_seat_geloescht_at_its_persons_request_takes_nobody_else(self, mongo_replica_set_url: str):
         """An erasure is a door the league cannot reopen, and the only thing parting it from a Widerspruch is the entry it took with it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_an_application_a_seat_was_declined_on(database, client)
-            await erased(database, client, KONTAKTE["stellvertretung"]["email"], germany_now=NOW)
+            await geloescht(database, client, KONTAKTE["stellvertretung"]["email"], germany_now=NOW)
             emptied = await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
             with pytest.raises(APIError) as refused:

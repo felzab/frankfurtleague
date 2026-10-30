@@ -9,7 +9,7 @@ from bson import ObjectId
 from pydantic import ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.schemas import FLErasureResponse
+from app.api.identitaet.schemas import FLLoeschungResponse
 from app.api.teams.admin_router import patch_saison_team_kontakte
 from app.api.teams.schemas import (
     FLKontaktKenntnisnahmePayload,
@@ -30,8 +30,8 @@ from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, saison_document, saison_team_document
-from tests.erasure import erased
 from tests.isolation import InterleavedCollection
+from tests.loeschung import geloescht
 from tests.postausgang import MAIL_NOW
 from tests.worker import worker_database
 
@@ -196,8 +196,8 @@ UNDATED_SEEDED: dict[str, Any] = {
     **{slot: {**SEEDED_KONTAKTE[slot], "geburtsdatum": None} for slot in ("trainer", "ansprechperson", "stellvertretung")},
 }
 
-ERASED_SEAT = "ansprechperson"
-ERASED_EMAIL = str(RESAVED_AS_RENDERED[ERASED_SEAT]["email"])
+GELOESCHT_SEAT = "ansprechperson"
+GELOESCHT_EMAIL = str(RESAVED_AS_RENDERED[GELOESCHT_SEAT]["email"])
 
 
 def junction_document(saison_id: str, kontakte: dict[str, Any] | None) -> dict[str, Any]:
@@ -255,10 +255,10 @@ async def write_kontakte(
     )
 
 
-async def erase_the_seats_person(database: AsyncDatabase) -> FLErasureResponse:
-    """The erasure of the person holding `ERASED_SEAT`, in a transaction of its own."""
+async def loeschen_the_seats_person(database: AsyncDatabase) -> FLLoeschungResponse:
+    """The erasure of the person holding `GELOESCHT_SEAT`, in a transaction of its own."""
 
-    return await erased(database, database.client, ERASED_EMAIL, germany_now=NOW)
+    return await geloescht(database, database.client, GELOESCHT_EMAIL, germany_now=NOW)
 
 
 class JunctionRunningAHookBeforeTheWrite(InterleavedCollection):
@@ -489,35 +489,35 @@ class TestTheWriteIsRecorded:
 
 
 @pytest.mark.db
-class TestAnErasureLandingMidSaveIsNotUndone:
+class TestAnLoeschungLandingMidSaveIsNotUndone:
     """Two administrators on one row: an erasure empties a seat while the editor holds the block it rendered.
 
     The editor replaces the block whole, so its payload puts the seat back unless the endpoint
     judges the row first.
     """
 
-    def test_a_seat_erased_under_the_save_is_refused_rather_than_put_back(self, mongo_replica_set_url: str):
+    def test_a_seat_geloescht_under_the_save_is_refused_rather_than_put_back(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            erasures: list[Any] = []
+            loeschungen: list[Any] = []
 
-            async def erase_between() -> None:
-                erasures.append(await erase_the_seats_person(database))
+            async def loeschen_between() -> None:
+                loeschungen.append(await loeschen_the_seats_person(database))
 
-            junction = JunctionRunningAHookBeforeTheWrite(database[Collection.SAISON_TEAMS], erase_between)
+            junction = JunctionRunningAHookBeforeTheWrite(database[Collection.SAISON_TEAMS], loeschen_between)
             with pytest.raises(APIError) as refused:
                 await write_kontakte(database, RESAVED_AS_RENDERED, saison_teams_collection=junction)
             # An erasure committing first refuses the save at its read, before it reaches the write.
             junction.assert_landed_inside(serially=0)
 
-            return erasures[0], refused.value, await row_now(database)
+            return loeschungen[0], refused.value, await row_now(database)
 
-        erasure, refusal, stored = on_a_league(mongo_replica_set_url, body)
+        loeschung, refusal, stored = on_a_league(mongo_replica_set_url, body)
 
-        assert erasure.kontakt_sitze == 1, "the interference emptied no seat, so the save had nothing to undo"
+        assert loeschung.kontakt_sitze == 1, "the interference emptied no seat, so the save had nothing to undo"
         assert refusal.error_code == Code.KONTAKTE_MOVED_UNDER_THE_SAVE
-        assert stored["kontakte"][ERASED_SEAT] is None, "the save put the person who asked to be forgotten back on the row"
+        assert stored["kontakte"][GELOESCHT_SEAT] is None, "the save put the person who asked to be forgotten back on the row"
 
-    def test_the_same_save_lands_the_seat_where_no_erasure_interferes(self, mongo_replica_set_url: str):
+    def test_the_same_save_lands_the_seat_where_no_loeschung_interferes(self, mongo_replica_set_url: str):
         """The control: without it the case above would pass on an endpoint that stored this seat for nobody."""
 
         async def body(database: AsyncDatabase) -> Any:
@@ -529,7 +529,7 @@ class TestAnErasureLandingMidSaveIsNotUndone:
 
         # The seeded row's own date rides along: the address is the same person's, and the payload
         # names none for the composition to prefer.
-        assert stored["kontakte"][ERASED_SEAT] == as_kept(SEEDED_KONTAKTE[ERASED_SEAT])
+        assert stored["kontakte"][GELOESCHT_SEAT] == as_kept(SEEDED_KONTAKTE[GELOESCHT_SEAT])
 
 
 @pytest.mark.db
@@ -864,7 +864,7 @@ class TestTheTokenNamesWhatTheEditorWasServed:
         ("moved", "id_of"),
         [
             pytest.param(PARTLY_CONFIRMED, "a seat confirmed since", id="a stamp arriving"),
-            pytest.param({**SEEDED_KONTAKTE, ERASED_SEAT: None}, "a seat emptied since", id="an erasure"),
+            pytest.param({**SEEDED_KONTAKTE, GELOESCHT_SEAT: None}, "a seat emptied since", id="an erasure"),
             pytest.param({**SEEDED_KONTAKTE, "trainer_ist_zugleich": "stellvertretung"}, "a claim made since", id="the shared seat"),
             pytest.param(None, "a block cleared since", id="a cleared block"),
         ],

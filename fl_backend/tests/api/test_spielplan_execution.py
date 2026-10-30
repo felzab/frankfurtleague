@@ -11,7 +11,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure, PyMongoError
 
-from app.api.saisons.admin_router import generate_spielplan, patch_saison, undraw_spielplan
+from app.api.saisons.admin_router import delete_spielplan, patch_saison, post_spielplan
 from app.api.saisons.schedule import group_matchdays, total_group_matches
 from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
@@ -204,7 +204,7 @@ async def call_draw(
     spielberichte_collection: Any = None,
     saisons_collection: Any = None,
 ) -> FLGenerateSpielplanResponse:
-    return await generate_spielplan(
+    return await post_spielplan(
         saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS] if saisons_collection is None else saisons_collection,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -220,7 +220,7 @@ async def call_draw(
 
 
 async def call_undraw(database: AsyncDatabase, client: AsyncMongoClient, *, spielberichte_collection: Any = None) -> FLUndrawSpielplanResponse:
-    return await undraw_spielplan(
+    return await delete_spielplan(
         saison_id=SAISON_ID,
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
@@ -1327,7 +1327,7 @@ class TestAConfirmedReplaceReachesNoOtherSeason:
     """That the replace's two deletes are bounded by their `saison_id`, proved against a season standing beside the one redrawn."""
 
     def test_the_neighbours_fixtures_all_survive(self, mongo_replica_set_url: str):
-        """Empty the fixture delete's `db_filter` in `generate_spielplan` and this fails; with one season seeded, nothing does."""
+        """Empty the fixture delete's `db_filter` in `post_spielplan` and this fails; with one season seeded, nothing does."""
 
         neighbours = a_season_replaced_beside_another(mongo_replica_set_url)
 

@@ -834,7 +834,7 @@ def build_decided_standings(
     }
 
 
-def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
+def build_team_saisons_pipeline() -> list[Mapping[str, Any]]:
     """Every club with every junction row it holds.
 
     UNLIKE `build_team_pipeline`: no season resolution, no strict join, no statistics -- the

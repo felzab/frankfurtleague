@@ -42,14 +42,14 @@ router = APIRouter(
 )
 
 
-# Two static segments, matching `GET /saisons/list/admin`. Declared before `{spieltag_id}/admin`,
+# Two static segments, matching `GET /saisons/list/verwaltung`. Declared before `{spieltag_id}/verwaltung`,
 # whose only separation from this path is the `objectid` convertor.
 @router.get(
-    "/list/admin",
+    "/list/verwaltung",
     response_model=FLSpieltageListResponse,
     summary="Spieltage for the admin surfaces",
 )
-async def get_spieltage_for_admin(
+async def get_spieltage_verwaltung(
     spieltage_collection: SpieltageCollection,
     saisons_collection: SaisonsCollection,
     filters: FLSpieltageFilterParams = Depends(),
@@ -61,7 +61,7 @@ async def get_spieltage_for_admin(
     are drawn while it is planned, and dating them is what this list is for.
     """
 
-    # Mirrors `app/api/spieltage/router.py :: get_spieltage`, which cannot be called here: the gate
+    # Mirrors `app/api/spieltage/public_router.py :: get_spieltage`, which cannot be called here: the gate
     # is inside it, and refusing the planned season is the one thing this must not do.
     filters.saison_id, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 
@@ -86,11 +86,11 @@ async def get_spieltage_for_admin(
 # A static suffix rather than a second `GET /{spieltag_id}`, as the Spiel editor's read has: the
 # public router owns that path at this same prefix, so whichever router registered first would answer both.
 @router.get(
-    f"{by_id('spieltag_id')}/admin",
+    f"{by_id('spieltag_id')}/verwaltung",
     response_model=FLSpieltageSingleResponse,
     summary="One Spieltag for the admin editor",
 )
-async def get_spieltag_for_admin(
+async def get_spieltag_verwaltung(
     spieltag_id: CustomRouteObjectId,
     spieltage_collection: SpieltageCollection,
     saisons_collection: SaisonsCollection,

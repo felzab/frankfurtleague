@@ -18,7 +18,7 @@ class FLSaisonForfeitErgebnis(BaseModel):
     """What a fixture is awarded when one side does not appear.
 
     Both sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.
-    A LEVEL award needs a season with no knockout round (`rules_forfeit_draws_a_knockout`).
+    A LEVEL award needs a season with no knockout round (`rules_forfeit_unentschieden_in_a_knockout`).
     """
 
     sieger_tore: int = Field(ge=0)

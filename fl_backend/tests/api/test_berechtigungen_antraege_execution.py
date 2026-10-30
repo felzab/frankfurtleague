@@ -34,10 +34,10 @@ from app.api.berechtigungen.antraege import (
     antrag_line,
     compose_antrag,
     end_the_antraege_about_in_session,
-    erase_antraege_in_session,
+    loeschen_antraege_in_session,
 )
 from app.api.berechtigungen.schemas import FLPatchBerechtigungPayload, FLPostBerechtigungPayload
-from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich
+from app.api.berechtigungen.system_router import post_berechtigungen_abgleich
 from app.api.identitaet.wiederherstellung import Window, plan_replay
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.codes import Code
@@ -717,11 +717,11 @@ async def annas_grant_revoked(database: AsyncDatabase, client: AsyncMongoClient,
     return await revoke(database, client, ANNA_ID)
 
 
-async def anna_erased(database: AsyncDatabase, client: AsyncMongoClient, _: ObjectId) -> Any:
-    """The erasure's request step on its own transaction, as `erase_everything` runs it for Anna."""
+async def anna_geloescht(database: AsyncDatabase, client: AsyncMongoClient, _: ObjectId) -> Any:
+    """The erasure's request step on its own transaction, as `loeschen_everything` runs it for Anna."""
 
     async def step(session: AsyncClientSession) -> int:
-        return await erase_antraege_in_session(
+        return await loeschen_antraege_in_session(
             berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
             postausgang_collection=database[Collection.POSTAUSGANG],
             identifier=ANNA,
@@ -742,8 +742,8 @@ class TestTheRacesEndInOneState:
     def test_a_refusal_beside_an_approval_leaves_no_grant(self, mongo_replica_set_url: str):
         assert raced(mongo_replica_set_url, refused_by_bernd) == (COMMITTED, NOT_FOUND, [], 0)
 
-    def test_the_requesters_erasure_beside_an_approval_leaves_no_grant(self, mongo_replica_set_url: str):
-        assert raced(mongo_replica_set_url, anna_erased) == (COMMITTED, NOT_FOUND, [], 0)
+    def test_the_requesters_loeschung_beside_an_approval_leaves_no_grant(self, mongo_replica_set_url: str):
+        assert raced(mongo_replica_set_url, anna_geloescht) == (COMMITTED, NOT_FOUND, [], 0)
 
     def test_the_requesters_revoke_beside_an_approval_leaves_no_grant(self, mongo_replica_set_url: str):
         """Refused rather than removed: the request stands for an administrator to refuse, as one its requester left does."""
@@ -854,7 +854,7 @@ class TestTheReplayEndsTheRestoredRequest:
         assert on_a_league(mongo_replica_set_url, body) == ([], [])
 
 
-class TestTheErasureTakesEveryRequestOfTheAddress:
+class TestTheLoeschungTakesEveryRequestOfTheAddress:
     """A request outlives neither its subject nor its requester, lapsed or not."""
 
     def test_a_request_about_the_address_and_every_one_made_by_it_go_imageless(self, mongo_replica_set_url: str):
@@ -875,7 +875,7 @@ class TestTheErasureTakesEveryRequestOfTheAddress:
             async def step(session: AsyncClientSession) -> list[int]:
                 collection = database[Collection.BERECHTIGUNGEN_ANTRAEGE]
                 return [
-                    await erase_antraege_in_session(
+                    await loeschen_antraege_in_session(
                         berechtigungen_antraege_collection=collection,
                         postausgang_collection=database[Collection.POSTAUSGANG],
                         identifier=identifier,
@@ -886,9 +886,9 @@ class TestTheErasureTakesEveryRequestOfTheAddress:
                 ]
 
             async with transaction_session(client) as session:
-                erased = await session.with_transaction(step)
+                geloescht = await session.with_transaction(step)
             logged = await database[Collection.AKTIONEN].find({}, sort=[("_id", 1)]).skip(before).to_list()
-            return erased, await antraege(database), [(row["operation"], row.get("before")) for row in logged]
+            return geloescht, await antraege(database), [(row["operation"], row.get("before")) for row in logged]
 
         # Anna's own request and the lapsed one she made, then the request about the second address: one log row per
         # removal, neither holding an image.

@@ -11,7 +11,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel_data
+from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel
 from app.api.spiele.crud import apply_release_to_spiel
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_NO_SHOW,
@@ -440,7 +440,7 @@ async def call_patch(
     dry_run: bool = False,
     uebernimmt_bericht: int | None = None,
 ) -> FLPatchSpielDataResponse:
-    return await patch_spiel_data(
+    return await patch_spiel(
         spiel_id=spiel_id,
         spiel_data=spiel_data,
         db=client,
@@ -1433,7 +1433,7 @@ class TestOnlyALandedSaveStamps:
 
     @pytest.mark.parametrize("dry_run", [pytest.param(False, id="refused-spiel_outside_spieltag"), pytest.param(True, id="dry-run")])
     def test_a_refused_save_and_a_preview_stamp_nothing(self, mongo_replica_set_url: str, dry_run: bool):
-        """The same seed and version as the accepted save; a refused commit is `fl_backend/tests/api/test_erasure_commit_fail_points.py`'s."""
+        """The same seed and version as the accepted save; a refused commit is `fl_backend/tests/api/test_loeschung_commit_fail_points.py`'s."""
 
         spiele, reports = a_bracket_with_reports(quarter_final_at=SEEDED_VERSION)
 

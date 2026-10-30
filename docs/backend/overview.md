@@ -19,12 +19,14 @@ sessions, and why this service sets no cache headers of its own.
 | `tests/`           | The test suite, in two tiers (below)                                                                       |
 | `openapi.json`     | The published contract, which `app/openapi_document.py` writes from the routes, committed                  |
 
-A slice carries only the files it needs. **A router declares one access tier**, so a slice reached at
-two tiers has two routers: `router.py` for its reads, at the tier its readers need, `admin_router.py`
-for the administration, and further routers named for their caller, such as
-`bewerbungen/public_router.py` for the public application form or a `sweep_router.py` for a
-retention pass. `app/main.py` mounts them all, each under its slice's tag, which with the handler's
-name makes the operation's id in `openapi.json`.
+A slice carries only the files it needs. **A router declares one access tier, and its file is named
+for that tier**: `public_router.py` for the base key, the public reads and the anonymous link writes
+alike; `person_router.py` for a signed-in person's own records; `admin_router.py` for the
+administration; and `system_router.py` for the frontend process's own calls, such as a retention
+pass. `system/router.py`, holding the liveness probe, is the one router without a guard. A person's
+file binding two Funktionen holds one `APIRouter` per binder (`spieler/person_router.py`).
+`app/main.py` mounts them all, each under its slice's tag, which with the handler's name makes the
+operation's id in `openapi.json`.
 
 ## Authorization
 
@@ -55,7 +57,7 @@ needs a secret fails for the wrong reasons, and the service's root `/`.
 **The application refuses to start unless MongoDB answers and its indexes build**
 (`fl_backend/app/core/db.py :: lifespan`, `fl_backend/app/core/constraints.py`). Nothing in the
 database refuses a document's shape: each collection's record model states it
-(`fl_backend/app/core/readback.py :: RECORD_MODELS`), and `python -m app.core.readback` reads every
+(`fl_backend/app/readback.py :: RECORD_MODELS`), and `python -m app.readback` reads every
 stored document back through it after a migration paste.
 
 **Every write that records a domain fact goes through the helpers in

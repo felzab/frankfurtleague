@@ -201,14 +201,14 @@ the machine is outside the repository. What it does tell you:
 
 ## 2. Before deploying a change to a stored shape or an index
 
-**What a stored document may hold is its record model** — the model `fl_backend/app/core/readback.py ::
+**What a stored document may hold is its record model** — the model `fl_backend/app/readback.py ::
 RECORD_MODELS` maps its collection to — and nothing in the database refuses a document of another
 shape: the boot builds the indexes alone (`fl_backend/app/core/constraints.py`). So a change to a
 stored shape lands with the Playground paste that moves every stored document into it, and the
 read-back command is what says they all moved:
 
 ```bash
-docker compose -f docker-compose.yml exec -T backend python -m app.core.readback
+docker compose -f docker-compose.yml exec -T backend python -m app.readback
 ```
 
 On the server, from the checkout. It reads every document through its record model, writes nothing,
@@ -308,16 +308,16 @@ administration is shut while it is down. Each of these is easy to get wrong:
 - **The database is written directly for two things alone: the first owner, before anybody can sign
   in, and recovery when no owner can sign in.** Write in MongoDB Playground, never
   `mongosh`, into the `berechtigungen` collection of the application database (`DB_BASE_NAME`,
-  which `fl_backend/.env` names). The row holds four fields, each typed by the validator: `adresse`,
+  which `fl_backend/.env` names). The row holds five fields: `adresse`,
   the address in the form the sign-in stores it (`fl_backend/app/shared/folding.py ::
 sign_in_identifier`) — trimmed, the letters of both halves lower-case, the domain in punycode —
   which the application then reads as typed; `verwaltung`, `owner` or `administration`; `erteilt_von`, a marker naming the
-  paste, such as `PLAYGROUND`; and `erteilt_am`, a date rather than a string. Removing the row by its
+  paste, such as `PLAYGROUND`; `erteilt_am`, a date rather than a string; and `version: 0`, which
+  the tier change takes into its filter, so on a row without it every tier change is refused as stale. Removing the row by its
   folded address revokes it. A paste asks nobody's approval, which is why it serves these two cases
   alone. The statement itself is kept off this public repository.
 - **Paste only into a database a boot of the release carrying `berechtigungen` has reached.** That
-  boot creates the validator and the unique index; a paste before it creates the collection with
-  neither, and a duplicate address in it then fails the next boot's index build (`db.indexes_failed`).
+  boot creates the unique index; a paste before it creates the collection without it, and a duplicate address in it then fails the next boot's index build (`db.indexes_failed`).
   Until the paste lands no address holds a grant, so the site admits no administrator; the public
   site is untouched.
 - **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer, the tier change to leave no owner, and the Playground refuses nothing: the boot warns with
@@ -392,7 +392,7 @@ ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `erteilt_am`, or by
 
 **The state announces itself, and the read degrades rather than refusing.** `GET /bewerbungen` serves at most
 `LIST_LIMIT_DEFAULT` rows and reads one row past that to answer whether more exist, so it never counts the
-filtered set (`fl_backend/app/api/bewerbungen/router.py :: get_bewerbungen`). Where more do exist it answers
+filtered set (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen`). Where more do exist it answers
 `vollstaendig: false` and the triage page raises a standing warning that cannot be dismissed
 (`fl_frontend/src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.tsx ::
 BewerbungenUnvollstaendigNotice`). Answering short and saying so is the deliberate choice over refusing past a
@@ -432,7 +432,7 @@ would mean a backend call, and the edge carries exactly one backend path
 the backend container. Nothing in this repository wraps that.
 
 **Declining does not shrink the working set.** A decided application stays listed, the record being what the
-decision was taken against (`fl_backend/app/api/bewerbungen/router.py :: get_bewerbungen`), so an operator who declines down the queue and sees the
+decision was taken against (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen`), so an operator who declines down the queue and sees the
 notice unchanged has not found a fault. Removal is not an alternative either: the collection's whole write
 surface is the two decisions (`fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung` and
 `:: ablehnen_bewerbung`) plus the public submission, so a flooded row stays.
@@ -625,7 +625,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   no booking to consent for; reactivating them later mints a fresh link and mails it to the
   corrected address.
 - **A contact seat.** Correct it through
-  `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`, which rewrites the
+  `fl_backend/app/api/bewerbungen/admin_router.py :: post_kontakt_email`, which rewrites the
   address and nothing else of the person. It mints the fresh link, voids the old one and restarts the
   confirmation deadline, and where one person holds two seats it corrects both. It refuses a seat its
   person confirmed or answered, and a decided application, and never reaches a season row. A seat
@@ -645,15 +645,15 @@ arriving by mail at the control for its record, which the person reaches by sign
 address that record holds:
 
 - **A referee's publication scope and media consent:**
-  `PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung`.
+  `PATCH /schiedsrichter/konto/{schiedsrichter_id}/einwilligung`.
 - **A seat's WhatsApp scope and media consent on a team's season row:**
-  `PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`, for every seat the address holds
+  `PATCH /teams/{team_id}/saisons/{saison_id}/konto/einwilligung`, for every seat the address holds
   on that row.
 - **A seat's WhatsApp scope and media consent on a pending application:**
-  `PATCH /bewerbungen/{bewerbung_id}/person/einwilligung`, which withdraws them and never grants
+  `PATCH /bewerbungen/{bewerbung_id}/konto/einwilligung`, which withdraws them and never grants
   either.
 - **A pending registration's publication scope and media consent:**
-  `PATCH /registrierungen/selbst/{registrierung_id}/einwilligung`, which withdraws them and grants
+  `PATCH /registrierungen/konto/{registrierung_id}/einwilligung`, which withdraws them and grants
   neither. The admission deletes the registration, and its choices then move on the pupil's own
   control above.
 - **A pupil's:** the paragraph below.
@@ -664,7 +664,7 @@ that seat's own link, not by the person's role; a seat on a team's season row is
 
 - **The seat is unanswered and its link still works.** Their own Widerspruch, on the confirmation
   page the link opens, empties the seat at once and tells the submitter so the school can name
-  somebody else (`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung`).
+  somebody else (`fl_backend/app/api/bewerbungen/public_router.py :: post_einwilligung`).
   Send them the link again rather than erasing for them; the record then says the person refused
   rather than that an administrator removed them. **An address the ban list holds takes no second
   link** (`bewerbung_kontakt_gesperrt`), and the link it already holds opens on the ban's sentence alone,
@@ -693,7 +693,7 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   already answered, the route is „Löschung auf Anfrage“.
 
 **A pupil withdrawing the consent that publishes their name does it on their account page.**
-`PATCH /spieler/selbst/einwilligung` moves the record, and no administrator route writes it. A request arriving
+`PATCH /spieler/konto/einwilligung` moves the record, and no administrator route writes it. A request arriving
 by mail instead has two answers, and which one you give is the person's to choose:
 
 - **They want off the website and out of the league.** „Löschung auf Anfrage“ on the address their
@@ -1238,7 +1238,7 @@ matches** — empty, not in the form sign-in folds it to, or refused by the addr
 a hand edit of the record leaves.
 The run passes those pupils over on every pass until their address is stored in that form. **No
 route repairs one**: the address tool and the account page find a pupil by the folded address alone
-(`fl_backend/app/api/spieler/services.py :: build_selbst_pupil_filter`), so a change started for it
+(`fl_backend/app/api/spieler/services.py :: build_self_pupil_filter`), so a change started for it
 finds nothing to move (`adresswechsel_nichts`), and the tool takes no address the rule refuses.
 Rewrite it by hand as a MongoDB Playground paste kept in the operator's checklist (§2): a spelling
 that differs from its fold only in case, surrounding spaces or the domain's form to that fold, and
@@ -1521,7 +1521,7 @@ review`, the restored database holding no change to move: ask the person to star
   it again too.
 - **An address an administrator corrected inside the window**: a referee's who had not confirmed,
   retired or not, in the referee editor, or a contact seat's through
-  `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`. No line records an
+  `fl_backend/app/api/bewerbungen/admin_router.py :: post_kontakt_email`. No line records an
   administrator's correction, so the tool cannot list these either: the restored record holds the
   replaced address again, and the link the correction voided, which the mailbox it went to can
   answer again until its deadline. The mail thread that asked for each correction is its record:

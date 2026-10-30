@@ -298,7 +298,7 @@ class FLSpielberichtPersonFruehererEintrag(FLSpielberichtPersonEintrag):
     datum: CustomDateString | None
 
 
-class FLSpielberichtePersonResponse(BaseAPIResponse):
+class FLSpielberichteSelfResponse(BaseAPIResponse):
     """`spiele` of the running season, which the referee reports on; `fruehere` of ended ones, each holding a report they only read."""
 
     spiele: list[FLSpielberichtPersonEintrag]

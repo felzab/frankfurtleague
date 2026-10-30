@@ -4,7 +4,7 @@ import { unstable_rethrow } from "next/navigation";
 
 import { drainSoon } from "@/core/afterResponse";
 import { APIBadStatusError } from "@/core/errors";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { logActionFailure } from "@/shared/utils/actionFailure";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { explainsItself } from "@/shared/utils/degradedRead";
@@ -42,7 +42,7 @@ import type { BewerbungHerkunft } from "./constants";
 async function resolveBewerbungTeamName(bewerbung: FLBewerbung): Promise<string | null> {
   // The club list is asked for only where the application picked a club: a proposed school carries
   // its own name, and nothing else has to be read.
-  const teams = bewerbung.schule === null && bewerbung.team_id !== null ? (await getTeamMemberships()).teams : [];
+  const teams = bewerbung.schule === null && bewerbung.team_id !== null ? (await getTeamSaisons()).teams : [];
 
   return bewerbungTeamName(bewerbung, teams);
 }

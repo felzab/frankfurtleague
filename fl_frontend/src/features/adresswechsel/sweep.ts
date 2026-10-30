@@ -25,7 +25,7 @@ export async function sweepAdresswechsel(): Promise<number> {
     verworfen += antwort.verworfen;
     wirksam += antwort.wirksam;
     // The pass's one end and its guard against a place not past the one sent, as the pupils' deletion's
-    // (`fl_frontend/src/features/saisons/loeschung.ts :: loeschungLaufen`).
+    // (`fl_frontend/src/features/saisons/loeschung.ts :: sweepLoeschung`).
     if (nach !== null && antwort.nach !== null && antwort.nach <= nach) {
       throw new ContractBreakError("The lapsed addresses answered a place not past the one they were sent.");
     }

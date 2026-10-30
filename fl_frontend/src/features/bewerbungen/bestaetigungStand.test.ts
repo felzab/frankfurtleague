@@ -93,7 +93,7 @@ const seatOf = (stands: readonly SitzBestaetigung[], rolle: KontaktRolle): SitzB
 
 /* The erasure's own shape (`fl_backend/app/api/kontakte/services.py :: build_clearing_update`): the
    slot and the bookkeeping entry beside it are nulled in one update. */
-const ERASED = seatsOf({
+const GELOESCHT = seatsOf({
   ansprechperson: null,
   bestaetigungen: { ansprechperson: null, stellvertretung: OFFEN, trainer: OFFEN },
 });
@@ -102,7 +102,7 @@ describe("a seat an erasure emptied", () => {
   /* `seat_is_answered` returns true on a seat with no bookkeeping entry, so the re-send endpoint
      refuses it; reading the state as `ausstehend` armed a control for a press it would refuse. */
   it("is its own terminal state rather than an outstanding one", () => {
-    const seat2 = seatOf(standsOf2(ERASED), "ansprechperson");
+    const seat2 = seatOf(standsOf2(GELOESCHT), "ansprechperson");
 
     expect(seat2.stand.art).toBe("geloescht");
     expect(seat2.satz).toBe("Keine Bestätigung mehr möglich");
@@ -117,22 +117,22 @@ describe("a seat an erasure emptied", () => {
       bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
     });
 
-    expect(seatOf(standsOf2(ERASED), "ansprechperson").nameSatz).toBe("Auf eigenen Wunsch gelöscht");
+    expect(seatOf(standsOf2(GELOESCHT), "ansprechperson").nameSatz).toBe("Auf eigenen Wunsch gelöscht");
     expect(seatOf(standsOf2(declined), "ansprechperson").nameSatz).toBe("Niemand mehr in der Bewerbung");
-    expect(seatOf(standsOf2(ERASED), "trainer").nameSatz).toBe("Clara Meier");
+    expect(seatOf(standsOf2(GELOESCHT), "trainer").nameSatz).toBe("Clara Meier");
   });
 
   /* The count is over the seats that have CONFIRMED, and an erased seat has not: „1 von 3“ over a
      row nobody can complete is still the true count of what the acceptance is waiting for. */
   it("counts as open, so the acceptance stays closed against it", () => {
-    const stands = standsOf2(ERASED);
+    const stands = standsOf2(GELOESCHT);
 
     expect(stands.filter(istOffen).length).toBe(3);
     expect(istOffen(seatOf(stands, "ansprechperson"))).toBe(true);
   });
 
   it("is offered no link, no link being mintable for it", () => {
-    expect([...linkAngebot(standsOf2(ERASED))].sort()).toStrictEqual(["stellvertretung", "trainer"]);
+    expect([...linkAngebot(standsOf2(GELOESCHT))].sort()).toStrictEqual(["stellvertretung", "trainer"]);
   });
 
   /* Two empty slots and one repair between them: the seat its own person stepped out of takes
@@ -143,7 +143,7 @@ describe("a seat an erasure emptied", () => {
       bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
     });
 
-    expect(zusageHindernis(standsOf2(ERASED), TEAM)).toBe(
+    expect(zusageHindernis(standsOf2(GELOESCHT), TEAM)).toBe(
       "Eine Kontaktperson hat ihren Eintrag löschen lassen. Diese Bewerbung kann nur noch abgelehnt werden.",
     );
     expect(zusageHindernis(standsOf2(declined), TEAM)).toBe(
@@ -166,7 +166,7 @@ describe("a seat an erasure emptied", () => {
   /* The reader meets this satz under a row calling the seat an Eintrag gelöscht, and a second
      wording would read as a second state. Roots rather than the chip's form: the satz says who did what. */
   it("states the cause in the words its own rows use", () => {
-    const satz = zusageHindernis(standsOf2(ERASED), TEAM) ?? "";
+    const satz = zusageHindernis(standsOf2(GELOESCHT), TEAM) ?? "";
 
     for (const rootOf of ["Eintrag", "lösch"]) {
       assert.ok(satz.includes(rootOf), `the reason drops „${rootOf}“, which is the root the row above it uses`);
@@ -185,7 +185,7 @@ describe("the seats another person may be put in", () => {
      an erasure took with the person, and a control over an erased seat is a press the write refuses. */
   it("offers the seat its own person stepped out of, and no seat in any other state", () => {
     expect([...sitzAngebot(standsOf2(DECLINED))]).toStrictEqual(["ansprechperson"]);
-    expect([...sitzAngebot(standsOf2(ERASED))]).toStrictEqual([]);
+    expect([...sitzAngebot(standsOf2(GELOESCHT))]).toStrictEqual([]);
     expect([...sitzAngebot(standsOf2(seatsOf()))]).toStrictEqual([]);
   });
 
@@ -281,7 +281,7 @@ describe("what the queue says of an application no answer can complete", () => {
   /* „2 von 3 bestätigt“ over a row whose third seat is gone sends an administrator waiting for an
      answer nobody can give. Both terminal states take the count's place, each in its own word. */
   it("names the state that ended it rather than counting towards an answer", () => {
-    expect(endstand(standsOf2(ERASED))).toBe("Eintrag gelöscht");
+    expect(endstand(standsOf2(GELOESCHT))).toBe("Eintrag gelöscht");
     expect(endstand(standsOf2(DECLINED))).toBe("Widerspruch");
   });
 
@@ -338,7 +338,7 @@ describe("the reason the Zusage is closed", () => {
   /* `bewerbung_subject_unresolved` is judged before `bewerbung_kontakte_unconfirmed`, so the reason under the control is
      the one the write would answer with rather than the first one this page happens to find. */
   it("answers the row naming no club before it answers a seat", () => {
-    expect(zusageHindernis(standsOf2(ERASED), null) ?? "").toMatch(/^Ohne eine neue Schule/);
+    expect(zusageHindernis(standsOf2(GELOESCHT), null) ?? "").toMatch(/^Ohne eine neue Schule/);
   });
 
   it("closes nothing once every seat has confirmed", () => {
@@ -370,7 +370,7 @@ describe("the two seats one person holds", () => {
   const twinned = person("Anna", null);
   const PAAR = seatsOf({ ansprechperson: twinned, trainer: twinned, zugleich: "ansprechperson" });
 
-  /* One answer writes both seats (`fl_backend/app/api/bewerbungen/einwilligung_router.py`), so two
+  /* One answer writes both seats (`fl_backend/app/api/bewerbungen/public_router.py`), so two
      controls would put two messages in one mailbox over one decision. */
   it("are offered one link, on the Trainer's own row", () => {
     expect([...linkAngebot(standsOf2(PAAR))].sort()).toStrictEqual(["stellvertretung", "trainer"]);
@@ -421,7 +421,7 @@ describe("what became of the last message to a seat", () => {
     const emptyBlock = seatsOf({ ansprechperson: { ...person("Anna", null)!, email: "" } });
 
     expect(seatOf(standsOf2(emptyBlock), "ansprechperson").email).toBe(null);
-    expect(seatOf(standsOf2(ERASED), "ansprechperson").email).toBe(null);
+    expect(seatOf(standsOf2(GELOESCHT), "ansprechperson").email).toBe(null);
   });
 });
 
@@ -538,7 +538,7 @@ describe("the addresses a correction may not take", () => {
   });
 
   it("leaves out a seat that holds no address", () => {
-    const stands = standsOf2(ERASED);
+    const stands = standsOf2(GELOESCHT);
 
     expect(adressenAndererPersonen(stands, seatOf(stands, "trainer"))).toStrictEqual(["bernd@schule.example"]);
   });

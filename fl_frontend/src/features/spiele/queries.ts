@@ -2,7 +2,7 @@ import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { isRecordMissing } from "@/core/errors";
-import { spieleGetSpiele, spieleGetSpieleForAdmin, spieleGetSpielForAdmin } from "@/core/generated/client/sdk";
+import { spieleGetSpiele, spieleGetSpieleVerwaltung, spieleGetSpielVerwaltung } from "@/core/generated/client/sdk";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
@@ -10,8 +10,8 @@ import type {
   FLSpieleAdminListResponse,
   FLSpieleAdminSingleResponse,
   FLSpieleListResponse,
-  SpieleGetSpieleForAdminParams,
   SpieleGetSpieleParams,
+  SpieleGetSpieleVerwaltungParams,
 } from "@/core/generated/client/types";
 
 export async function getSpiele(filters: SpieleGetSpieleParams = {}): Promise<FLSpieleListResponse> {
@@ -30,14 +30,14 @@ const adminSpieleInFlight = cache((): Map<string, Promise<FLSpieleAdminListRespo
  * A season's fixtures for the admin surfaces, a planned season's included — `getSpiele` lists that
  * season as empty. **Uncached, and it stays uncached**.
  */
-export function getAdminSpiele(filters: SpieleGetSpieleForAdminParams = {}): Promise<FLSpieleAdminListResponse> {
+export function getAdminSpiele(filters: SpieleGetSpieleVerwaltungParams = {}): Promise<FLSpieleAdminListResponse> {
   // Keyed on the filters SERIALIZED, never on the object: React's `cache` compares an argument by
   // identity, so a literal written at the call site would miss every time and memoize nothing.
   const key = JSON.stringify(filters, Object.keys(filters).sort());
   const held = adminSpieleInFlight().get(key);
   if (held !== undefined) return held;
 
-  const started = runAdminRead(() => spieleGetSpieleForAdmin(filters));
+  const started = runAdminRead(() => spieleGetSpieleVerwaltung(filters));
   adminSpieleInFlight().set(key, started);
 
   return started;
@@ -54,7 +54,7 @@ export async function getAdminSpiel(spielId: string): Promise<FLSpieleAdminSingl
   return runAdminRead(() =>
     // `null` for "no such fixture", which the editor page turns into `notFound()`. Every other
     // status still throws.
-    spieleGetSpielForAdmin(spielId).catch((error: unknown) => {
+    spieleGetSpielVerwaltung(spielId).catch((error: unknown) => {
       if (isRecordMissing(error)) return null;
       throw error;
     }),

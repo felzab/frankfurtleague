@@ -5,7 +5,7 @@ import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { AdminCreateTeamModal } from "@/features/teams/components/modals/AdminCreateTeamModal";
 import { AdminTeamsView } from "@/features/teams/components/views/AdminTeamsView";
 import { TEAMS_CRUD_COPY } from "@/features/teams/constants";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { buildGruppeOffer, isRetireable, publicTeamSaisonId } from "@/features/teams/utils";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { CreateTriggerPlaceholder } from "@/shared/components/ui/AdminCrudLoading";
@@ -39,11 +39,7 @@ export default function AdminTeamsPage(props: NextPageProps) {
 }
 
 async function CreateTeamModalLoader({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
-  const [viewedSaison, saisonsRes, membershipsRes] = await Promise.all([
-    resolveAdminSaison(searchParams),
-    getAdminSaisons(),
-    getTeamMemberships(),
-  ]);
+  const [viewedSaison, saisonsRes, membershipsRes] = await Promise.all([resolveAdminSaison(searchParams), getAdminSaisons(), getTeamSaisons()]);
 
   // PLANNED seasons only: a club enters a season before it starts. Each carries its groups' fill
   // state, so the form can disable a full group up front.
@@ -65,11 +61,11 @@ async function CreateTeamModalLoader({ searchParams }: { searchParams: NextPageP
 
 /**
  * EVERY club across every season, each row carrying the SELECTED season's junction data
- * (`fl_frontend/src/features/teams/queries.ts :: getTeamMemberships`); a club in no season is listed too.
+ * (`fl_frontend/src/features/teams/queries.ts :: getTeamSaisons`); a club in no season is listed too.
  */
 async function TeamsTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   const [membershipsRes, saisonsRes, selectedSaison] = await Promise.all([
-    getTeamMemberships(),
+    getTeamSaisons(),
     getAdminSaisons(),
     resolveAdminSaison(searchParams),
   ]);

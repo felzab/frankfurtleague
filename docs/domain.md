@@ -195,7 +195,7 @@ finished season, correcting a mistyped one changing nothing anybody competed for
   qualified for anything, and entering a result is what fills the slots downstream.
 - **A level knockout fixture is settled by a shoot-out**, whose own scoreline is stored beside the result and
   never inside it. A no-show is awarded a scoreline the season configures, and a season that plays a knockout
-  round may not configure that award level (`rules_forfeit_draws_a_knockout`) — a drawn forfeit would leave the round with
+  round may not configure that award level (`rules_forfeit_unentschieden_in_a_knockout`) — a drawn forfeit would leave the round with
   nobody to advance.
 - **A club leaves one season, never the league.** An `austritt` record says which of the two routes out it
   took, and the club's own document is untouched by it.
@@ -317,7 +317,7 @@ no later feature can come to depend on a flag.
 - **A pupil whose age no squad rule judges.** The age is judged once, at the registration's confirmation
   (`bestaetigung_alter`); entering, moving or bringing back a squad row judges none.
 - **A person holding no squad row, and a person retired while holding a live one.** The first is reachable only
-  by a database edit, and `GET /spieler/memberships` serves such a person with an empty list, which is the
+  by a database edit, and `GET /spieler/saisons` serves such a person with an empty list, which is the
   surface that repairs it. The two retirements are independent, so retiring a person never asks for every squad
   they played in to be emptied, and the list badges both.
 - **A retired row kept indefinitely.** No sweep selects on `inactive_since`, which records when a row retired

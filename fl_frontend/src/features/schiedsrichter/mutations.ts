@@ -10,17 +10,17 @@ import {
 } from "@/core/generated/client/sdk";
 
 import type {
+  FLKontoEinwilligungPayload,
   FLPatchSchiedsrichterResponse,
   FLPostSchiedsrichterPayload,
   FLPostSchiedsrichterResponse,
   FLSchiedsrichterBestaetigungAnsichtResponse,
   FLSchiedsrichterBestaetigungPayload,
   FLSchiedsrichterBestaetigungResponse,
+  FLSchiedsrichterKontoEinwilligungResponse,
   FLSchiedsrichterMintResponse,
   FLSchiedsrichterReactivateResponse,
-  FLSchiedsrichterSelbstEinwilligungResponse,
   FLSchiedsrichterWriteResponse,
-  FLSelbstEinwilligungPayload,
   FLTokenPayload,
 } from "@/core/generated/client/types";
 import type { FLPatchSchiedsrichterPayload, FLSchiedsrichterEinladenPayload, FLSchiedsrichterKeyPayload } from "./schemas";
@@ -71,9 +71,9 @@ export async function postSchiedsrichterBestaetigung(
 
 // The referee's own press on the account page, under the person lane's actor; the record is named in
 // the path because one address may hold several referee rows.
-export async function patchSchiedsrichterSelbstEinwilligung(
+export async function patchSchiedsrichterKontoEinwilligung(
   schiedsrichterId: string,
-  payload: FLSelbstEinwilligungPayload,
-): Promise<FLSchiedsrichterSelbstEinwilligungResponse> {
+  payload: FLKontoEinwilligungPayload,
+): Promise<FLSchiedsrichterKontoEinwilligungResponse> {
   return schiedsrichterPatchEinwilligung(schiedsrichterId, payload);
 }

@@ -10,11 +10,11 @@ import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { ausgetragenSeit, kaderName, NUMMER_NICHT_HINTERLEGT, rolleLabel } from "../../constants";
 
-import type { FLSpielerSelbst, FLSpielerSelbstKaderZeile } from "@/core/generated/client/types";
+import type { FLSpielerSelf, FLSpielerSelfKaderZeile } from "@/core/generated/client/types";
 import type { ReactNode } from "react";
 
 /** One squad row, linked to the squad where everyone reads it rather than repeated here. */
-function KaderEintrag({ zeile }: { zeile: FLSpielerSelbstKaderZeile }) {
+function KaderEintrag({ zeile }: { zeile: FLSpielerSelfKaderZeile }) {
   const fakten: readonly (readonly [string, ReactNode])[] = [
     ["nummer", zeile.nummer === null ? <Leer>{NUMMER_NICHT_HINTERLEGT}</Leer> : `Nummer ${zeile.nummer}`],
     ["position", zeile.position ?? <Leer>{nichtHinterlegt("Position")}</Leer>],
@@ -67,7 +67,7 @@ const KADER_TITEL_CLASSES = { h3: FORM_SECTION_HEADING_CLASSES, h5: "fluid-sm fo
  * What the league stores on a pupil's record, read-only: the pupil's own page and the account page
  * show the same facts. `kaderEbene` is the squad list's heading rung, one below whatever heads the facts.
  */
-export function SpielerAngaben({ spieler, kaderEbene }: { spieler: FLSpielerSelbst; kaderEbene: keyof typeof KADER_TITEL_CLASSES }) {
+export function SpielerAngaben({ spieler, kaderEbene }: { spieler: FLSpielerSelf; kaderEbene: keyof typeof KADER_TITEL_CLASSES }) {
   const KaderTitel = kaderEbene;
 
   return (

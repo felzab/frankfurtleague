@@ -3,7 +3,7 @@
 import { drainSoon } from "@/core/afterResponse";
 import { accountStandsAt, endSessionsOfAddress } from "@/core/auth";
 import { logger } from "@/core/logging";
-import { readErasureAnsicht } from "@/features/funktionen/mutations";
+import { readLoeschungAnsicht } from "@/features/funktionen/mutations";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -12,7 +12,7 @@ import { deleteSperre, postSperre } from "./mutations";
 import { mapAnsichtRefusal, mapSperreRefusal, schonGesperrtAmFeld, verwaltungAmFeld } from "./refusals";
 import { FLPostSperrlistePayloadSchema, FLSperrlisteKeyPayloadSchema } from "./schemas";
 
-import type { FLErasureAnsichtResponse } from "@/core/generated/client/types";
+import type { FLLoeschungAnsichtResponse } from "@/core/generated/client/types";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type { FLSperrlisteKeyPayload, SperreEntwurf } from "./schemas";
 
@@ -20,7 +20,7 @@ import type { FLSperrlisteKeyPayload, SperreEntwurf } from "./schemas";
  * Every record the address holds, as the erasure's reveal names them. No grant and no ban among them: the read answers an
  * address holding either with the ban's own refusal (`sperrliste_verwaltung`, `duplicate_key`).
  */
-export type SperreAnsicht = Omit<FLErasureAnsichtResponse, "verwaltung" | "gesperrt">;
+export type SperreAnsicht = Omit<FLLoeschungAnsichtResponse, "verwaltung" | "gesperrt">;
 
 /** The ban's own address rule, never the erasure's looser lookup: no list is read for an address the ban would refuse. */
 const AnsichtPayloadSchema = FLPostSperrlistePayloadSchema.pick({ email: true });
@@ -78,9 +78,9 @@ export async function readSperreAnsichtAction(rawPayload: Pick<SperreEntwurf, "e
       };
     }
 
-    let gelesen: FLErasureAnsichtResponse;
+    let gelesen: FLLoeschungAnsichtResponse;
     try {
-      gelesen = await readErasureAnsicht(validated.data);
+      gelesen = await readLoeschungAnsicht(validated.data);
     } catch (error) {
       const refusal = mapAnsichtRefusal(error);
       if (refusal !== null) return refusalResult(refusal);

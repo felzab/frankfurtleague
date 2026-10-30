@@ -15,11 +15,11 @@ from fastapi import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.spielberichte.admin_router import get_spielbericht_admin, get_spielberichte, patch_spielbericht
+from app.api.spielberichte.admin_router import get_spielbericht_verwaltung, get_spielberichte, patch_spielbericht
 from app.api.spielberichte.crud import count_eingereichte_berichte
-from app.api.spielberichte.person_router import get_spielbericht_bericht, get_spielberichte_person, put_spielbericht_bericht
+from app.api.spielberichte.person_router import get_self, get_spielbericht_bericht, put_spielbericht_bericht
 from app.api.spielberichte.schemas import FLSpielberichtPayload
-from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel_data
+from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel
 from app.api.spiele.schemas import (
     FLPatchSpielDataPayload,
 )
@@ -581,16 +581,16 @@ class PupilsRunningARivalBeforeTheAnchor(InterleavedCollection):
         return await self._collection.update_many(*args, **kwargs)
 
 
-class TestAPupilErasedMidWriteConflictsWithTheAnchor:
-    def test_the_write_retries_and_is_refused_on_the_squad_the_erasure_left(self, mongo_replica_set_url: str):
+class TestAPupilGeloeschtMidWriteConflictsWithTheAnchor:
+    def test_the_write_retries_and_is_refused_on_the_squad_the_loeschung_left(self, mongo_replica_set_url: str):
         """The erasure removes the squad row and the person after this write judged them: the anchor on the person conflicts."""
 
-        async def erase_lina(database: AsyncDatabase) -> None:
+        async def loeschen_lina(database: AsyncDatabase) -> None:
             await database[Collection.SAISON_SPIELER].delete_one({"spieler_id": LINA})
             await database[Collection.SPIELER].delete_one({"_id": LINA})
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler = PupilsRunningARivalBeforeTheAnchor(database[Collection.SPIELER], lambda: erase_lina(database))
+            spieler = PupilsRunningARivalBeforeTheAnchor(database[Collection.SPIELER], lambda: loeschen_lina(database))
             berichte = BerichteRunningARivalBeforeTheirWrite(database[Collection.SPIELBERICHTE], lambda: nothing(database))
             outcome = await outcome_of(put(database, client, bericht(), spieler_collection=spieler, spielberichte_collection=berichte))
             spieler.assert_landed_inside(serially=0)
@@ -610,10 +610,10 @@ class TestThePanelsReadServesTheSquadsOnlyWhereAsked:
         """The editor's panel reads every render and picks no pupil; the correction's form asks for the squads it picks from."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            ohne_bericht = await get_spielbericht_admin(spiel_id=SPIEL, db=client, **handles(database))
+            ohne_bericht = await get_spielbericht_verwaltung(spiel_id=SPIEL, db=client, **handles(database))
             await put(database, client, bericht())
-            panel = await get_spielbericht_admin(spiel_id=SPIEL, db=client, **handles(database))
-            korrektur = await get_spielbericht_admin(spiel_id=SPIEL, db=client, kader=True, **handles(database))
+            panel = await get_spielbericht_verwaltung(spiel_id=SPIEL, db=client, **handles(database))
+            korrektur = await get_spielbericht_verwaltung(spiel_id=SPIEL, db=client, kader=True, **handles(database))
             return ohne_bericht, panel, korrektur
 
         ohne_bericht, panel, korrektur = on_the_league(mongo_replica_set_url, body)
@@ -666,11 +666,11 @@ class TestTheReads:
     @pytest.mark.parametrize(
         "lesen",
         [
-            pytest.param(lambda database, client: get_spielbericht_admin(spiel_id=SPIEL, db=client, **handles(database)), id="the-panel"),
+            pytest.param(lambda database, client: get_spielbericht_verwaltung(spiel_id=SPIEL, db=client, **handles(database)), id="the-panel"),
             pytest.param(form_read, id="the-referee-s-form"),
         ],
     )
-    def test_a_pupil_off_both_squads_is_named_off_their_record_and_an_erased_one_by_nobody(
+    def test_a_pupil_off_both_squads_is_named_off_their_record_and_an_geloescht_one_by_nobody(
         self, mongo_replica_set_url: str, lesen: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
     ):
         """The two arms past the squad rows on both reads a page renders: no bare id shown, an erased pupil's entry still holding it."""
@@ -722,7 +722,7 @@ class TestTheReads:
             )
 
             def listed() -> Any:
-                return get_spielberichte_person(
+                return get_self(
                     identifier=REFEREE_EMAIL,
                     spiele_collection=database[Collection.SPIELE],
                     saisons_collection=database[Collection.SAISONS],
@@ -776,7 +776,7 @@ class TestTheReads:
             )
             await put(database, client, bericht())
 
-            return await get_spielberichte_person(
+            return await get_self(
                 identifier=REFEREE_EMAIL,
                 spiele_collection=database[Collection.SPIELE],
                 saisons_collection=database[Collection.SAISONS],
@@ -811,11 +811,11 @@ class TestTheAdministratorReadsTheStateAReportIsIn:
                     saison_id=SAISON_ID,
                 )
 
-            empty = await get_spielbericht_admin(spiel_id=SPIEL, db=client, **handles(database))
+            empty = await get_spielbericht_verwaltung(spiel_id=SPIEL, db=client, **handles(database))
             await put(database, client, bericht())
             proposed = await states()
             await save_the_result(database, 0, 1)
-            admin = await get_spielbericht_admin(spiel_id=SPIEL, db=client, **handles(database))
+            admin = await get_spielbericht_verwaltung(spiel_id=SPIEL, db=client, **handles(database))
 
             return empty, proposed, await states(), admin
 
@@ -940,7 +940,7 @@ async def correct_the_feeder(database: AsyncDatabase, client: AsyncMongoClient, 
     stored_spiel = await database[Collection.SPIELE].find_one({"_id": SPIEL})
     assert stored_spiel is not None, "the seed holds no fixture"
     spiel_data = spiel_patch_body(stored_spiel, team1={**side(TEAM1), "tore": team1}, team2={**side(TEAM2), "tore": team2})
-    await patch_spiel_data(
+    await patch_spiel(
         spiel_id=SPIEL,
         spiel_data=FLPatchSpielDataPayload.model_validate(spiel_data),
         uebernimmt_bericht=None,
@@ -983,7 +983,7 @@ class TestAReportOutlivingItsFixturesClub:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def zustaende() -> Any:
-                admin = await get_spielbericht_admin(spiel_id=VIERTELFINALE, db=client, **handles(database))
+                admin = await get_spielbericht_verwaltung(spiel_id=VIERTELFINALE, db=client, **handles(database))
                 season = await get_spielberichte(
                     spielberichte_collection=database[Collection.SPIELBERICHTE],
                     saisons_collection=database[Collection.SAISONS],

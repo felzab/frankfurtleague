@@ -25,7 +25,7 @@ from app.api.spielbestaetigungen.services import (
 )
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, anchor_in_db, erase_many_from_db, patch_many_in_db, pull_many_from_db
+from app.core.crud import aggregate_many_from_db, anchor_in_db, loeschen_many_from_db, patch_many_in_db, pull_many_from_db
 from app.core.recording import build_redaction_filter, build_redaction_update
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -283,7 +283,7 @@ async def strip_the_seasons_confirmations(
 # --- The REFEREE'S ERASURE, the registry's member for their confirmation rows.
 
 
-async def erase_referee_confirmations_in_session(
+async def loeschen_referee_confirmations_in_session(
     *,
     spielbestaetigungen_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
@@ -308,16 +308,16 @@ async def erase_referee_confirmations_in_session(
         session=session,
     )
 
-    erased = 0
+    geloescht = 0
     if rows:
         # Removed, never repointed as the fixtures are: the sweep mints the ghost no row.
         # Ids and their seasons alone, never the referee's id: the log keeps an erasure's filter as text.
-        removed = await erase_many_from_db(
+        removed = await loeschen_many_from_db(
             collection=spielbestaetigungen_collection,
             db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in rows})}, "_id": {"$in": [row["_id"] for row in rows]}},
             session=session,
         )
-        erased = removed.deleted_count
+        geloescht = removed.deleted_count
         # Whole, as every record an erasure removes: the row is theirs, so its earlier states are too.
         await patch_many_in_db(
             collection=aktionen_collection,
@@ -336,7 +336,7 @@ async def erase_referee_confirmations_in_session(
         session=session,
     )
 
-    return erased
+    return geloescht
 
 
 # --- The PASS's mint.

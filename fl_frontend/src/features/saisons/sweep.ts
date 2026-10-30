@@ -2,8 +2,8 @@ import "server-only";
 
 import { logger } from "@/core/logging";
 
-import { loeschungLaufen } from "./loeschung";
-import { postLoeschungLauf } from "./mutations";
+import { sweepLoeschung } from "./loeschung";
+import { postLoeschungSweep } from "./mutations";
 
 /**
  * One pass over the pupils the season-after rule makes due, for the scheduler
@@ -14,7 +14,7 @@ import { postLoeschungLauf } from "./mutations";
  * the line counting what the calls before it erased; resolves to the pupils the pass left due.
  */
 export async function runLoeschungSweep(): Promise<number> {
-  const lauf = await loeschungLaufen(postLoeschungLauf);
+  const lauf = await sweepLoeschung(postLoeschungSweep);
 
   // Counts and the season the rule kept, never a person: the backend's own lines name a failed person's id.
   // A finished pass's remainder is the pupils it failed or passed over; one cut short knows only its failures.

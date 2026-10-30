@@ -2,15 +2,15 @@ import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { isRecordMissing } from "@/core/errors";
-import { spieltageGetSpieltage, spieltageGetSpieltageForAdmin, spieltageGetSpieltagForAdmin } from "@/core/generated/client/sdk";
+import { spieltageGetSpieltage, spieltageGetSpieltageVerwaltung, spieltageGetSpieltagVerwaltung } from "@/core/generated/client/sdk";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
 import type {
   FLSpieltageListResponse,
   FLSpieltageSingleResponse,
-  SpieltageGetSpieltageForAdminParams,
   SpieltageGetSpieltageParams,
+  SpieltageGetSpieltageVerwaltungParams,
 } from "@/core/generated/client/types";
 
 export async function getSpieltage(filters: SpieltageGetSpieltageParams = {}): Promise<FLSpieltageListResponse> {
@@ -29,13 +29,13 @@ const adminSpieltageInFlight = cache((): Map<string, Promise<FLSpieltageListResp
  * A season's matchdays for the admin surfaces, a planned season's included — `getSpieltage` refuses
  * that season, though a matchday is dated before it. **Uncached**.
  */
-export function getAdminSpieltage(filters: SpieltageGetSpieltageForAdminParams = {}): Promise<FLSpieltageListResponse> {
+export function getAdminSpieltage(filters: SpieltageGetSpieltageVerwaltungParams = {}): Promise<FLSpieltageListResponse> {
   // Keyed on the filters SERIALIZED, for the reason `fl_frontend/src/features/spiele/queries.ts :: getAdminSpiele` gives.
   const key = JSON.stringify(filters, Object.keys(filters).sort());
   const held = adminSpieltageInFlight().get(key);
   if (held !== undefined) return held;
 
-  const started = runAdminRead(() => spieltageGetSpieltageForAdmin(filters));
+  const started = runAdminRead(() => spieltageGetSpieltageVerwaltung(filters));
   adminSpieltageInFlight().set(key, started);
 
   return started;
@@ -47,7 +47,7 @@ export function getAdminSpieltage(filters: SpieltageGetSpieltageForAdminParams =
  */
 export const getAdminSpieltagById = cache(async (spieltagId: string): Promise<FLSpieltageSingleResponse | null> =>
   runAdminRead(() =>
-    spieltageGetSpieltagForAdmin(spieltagId).catch((error: unknown) => {
+    spieltageGetSpieltagVerwaltung(spieltagId).catch((error: unknown) => {
       if (isRecordMissing(error)) return null;
       throw error;
     }),

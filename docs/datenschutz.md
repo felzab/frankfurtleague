@@ -331,7 +331,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   `DatenschutzView.tsx :: Bist Du jünger als`); each confirmation refuses a
   `true` from anyone younger (`fl_backend/app/api/registrierungen/services.py :: find_medien_refusal`,
   `fl_backend/app/api/schiedsrichter/services.py :: find_medien_refusal`,
-  `fl_backend/app/api/einwilligung/services.py :: find_selbst_medien_refusal` for a contact person, against
+  `fl_backend/app/api/einwilligung/services.py :: find_self_medien_refusal` for a contact person, against
   `fl_backend/app/shared/schemas/bounds.py :: MEDIEN_MIN_AGE_YEARS`). Such media is published on this
   website and on the league's Instagram account; ruled 2026-09-23.
 - **The organisers named on the public Organisation page each fully agreed to be listed**, having confirmed
@@ -355,9 +355,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
 
 - **Anyone — player, referee, contact person, administrator — can have their data deleted, with
   the least asymmetry between roles.** The mechanisms today are a person's own
-  `POST /identitaet/selbst/erasure`, which reaches every record the address holds in one write
+  `POST /identitaet/konto/loeschung`, which reaches every record the address holds in one write
   and refuses only the administration's last live owner, until they
-  make another administrator an owner, and the administrator's `POST /identitaet/erasure`,
+  make another administrator an owner, and the administrator's `POST /identitaet/loeschung`,
   which runs that same erasure for a person who asked by mail and refuses nothing about them, only
   the administrator's own address and the address of anyone holding a grant to an administrator
   holding no owner's power. The referee path deletes the document
@@ -623,7 +623,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   and a past season all keep their rows, and a player who left a squad keeps theirs until the
   season after their last squad season has ended; a person's row goes only by an erasure, for a
   pupil by that season-after rule of [section 6](#6-retention-is-bounded-where-a-bound-was-chosen);
-  a person asks for their own erasure through `POST /identitaet/selbst/erasure`. Nothing purges a
+  a person asks for their own erasure through `POST /identitaet/konto/loeschung`. Nothing purges a
   retired row, and an erasure asks no retirement first. An application is not a retired row and does not take this rule: its
   clocks are [section 6](#6-retention-is-bounded-where-a-bound-was-chosen)'s. **Datenschutzexperte
   consulted.** Ruled 2026-08 and re-confirmed 2026-09-02. For a referee I ruled on 2026-09-22 that
@@ -673,10 +673,10 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
     stored address. One reminder goes out inside it and moves nothing (`:: compose_erinnerung_update`),
     and none goes to an address the mail provider has already refused.
   - **Confirmed but undecided, it is deleted once the season it was made for has ended**, whatever
-    the pupil answered (`:: undecided_erasure_is_due`), and a pupil who confirmed is told afterwards
+    the pupil answered (`:: undecided_loeschung_is_due`), and a pupil who confirmed is told afterwards
     that it happened and why — never before it, a notice being unable to prolong a row nobody
     decided.
-  - **Declined, it goes one calendar month after the decision** (`:: decline_erasure_is_due`), and
+  - **Declined, it goes one calendar month after the decision** (`:: decline_loeschung_is_due`), and
     the decision it keeps until then names the seat holder who declined it by their address
     (`entscheidung.von`, written by `:: compose_ablehnung_update`), which every administrator is
     served beside the date and the reason while the ban list does not hold it
@@ -691,7 +691,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   those three people's contact details and every birthdate on it included, whatever its contact
   persons answered and whether or not its deletion notice could be delivered.** The sweep reads the
   season's own `status` rather than counting a period from a day
-  (`fl_backend/app/api/bewerbungen/services.py :: undecided_erasure_is_due`), so an application is
+  (`fl_backend/app/api/bewerbungen/services.py :: undecided_loeschung_is_due`), so an application is
   kept exactly as long as a decision could still be taken. This is the bound for every
   application the fourteen-day clock above leaves standing: one every contact person confirmed and
   nobody judged, one whose window no stored deadline bounds, and one held because the notice was
@@ -805,7 +805,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   database deletes it no later than thirty days after that, the period the mail provider keeps its own copy
   (`fl_backend/app/api/postausgang/services.py :: NACHLAUF`). An erasure of its recipient deletes it
   at once, sent or owed, the sign-in library's deletion link alone excepted
-  (`fl_backend/app/api/identitaet/crud.py :: erase_the_mails_in_session`; `docs/glossary.md ::
+  (`fl_backend/app/api/identitaet/crud.py :: loeschen_the_mails_in_session`; `docs/glossary.md ::
 Zustellstand`). No record the message was about carries it, so a row can outlive that record by
   its thirty days, and no longer. Ruled 2026-10-26. **A Widerspruch empties the seat and keeps its
   link entry**, on an application until the application goes and on a team's season row until a
@@ -826,7 +826,7 @@ Zustellstand`). No record the message was about carries it, so a row can outlive
   season row's page promises them. Ruled 2026-10-15.
 - **A season's contact persons follow the accepted application's clock**: their contact block is
   cleared when the season after the one they were collected for ends, and the confirmation links
-  beside it with it (`fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison`). The consent text scopes
+  beside it with it (`fl_backend/app/api/bewerbungen/system_router.py :: sweep_saison`). The consent text scopes
   itself to one season, and the clearing uses the mechanism the erasure already had. Ruled
   2026-09-02.
 - **A season's fixture confirmations keep the clubs' answers as the season's record, and lose from
@@ -836,7 +836,7 @@ Zustellstand`). No record the message was about carries it, so a row can outlive
   their seats' link hashes and their delivery records, on the rows and in the log's images, until
   nothing of them is left. The strip is a transaction of its own after the blocks'
   share, so a failing strip holds back no block and is tried again on the next pass
-  (`fl_backend/app/api/bewerbungen/sweep_router.py :: strip_the_confirmations`). Which way each club answered,
+  (`fl_backend/app/api/bewerbungen/system_router.py :: strip_the_confirmations`). Which way each club answered,
   its day, the answering role and a proposed date stay, naming nobody, and the rows have no clock of
   their own, a season's fixtures being kept as the league's record. A person's erasure or
   Widerspruch takes their part sooner ([section 5](#5-erasure-reaches-everyone-who-asks)). A
@@ -856,16 +856,16 @@ Zustellstand`). No record the message was about carries it, so a row can outlive
   loses on that same clearing what characterises the pupils' conduct**: from the pass that clears the
   contact blocks, every pass strips the season's `spielberichte` of the remarks and every
   card's reason, on the reports and in the log's images, in a transaction of its own after the
-  confirmations' strip (`fl_backend/app/api/bewerbungen/sweep_router.py :: strip_the_reports`). The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`).
+  confirmations' strip (`fl_backend/app/api/bewerbungen/system_router.py :: strip_the_reports`). The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`).
   Ruled 2026-10-20.
 - **The frontend process's hourly scheduler is what turns those clocks from an intention into a mechanism**
   (`fl_frontend/src/instrumentation-node.ts :: armScheduler`, running
   `fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`, which calls
-  `fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison` and
-  `fl_backend/app/api/registrierungen/sweep_router.py :: sweep_registrierungen` per season, then
-  `fl_backend/app/api/adresswechsel/sweep_router.py :: sweep_adresswechsel`, `POST /adresswechsel/sweep`; and
+  `fl_backend/app/api/bewerbungen/system_router.py :: sweep_saison` and
+  `fl_backend/app/api/registrierungen/system_router.py :: sweep_registrierungen` per season, then
+  `fl_backend/app/api/adresswechsel/system_router.py :: sweep_adresswechsel`, `POST /adresswechsel/sweep`; and
   `fl_frontend/src/features/saisons/sweep.ts :: runLoeschungSweep`, which calls
-  `fl_backend/app/api/identitaet/sweep_router.py :: post_loeschung_lauf`). Every job runs on every pass, with no
+  `fl_backend/app/api/identitaet/system_router.py :: sweep_loeschung`). Every job runs on every pass, with no
   switch to hold one back. A pass pings the heartbeat monitor, and `/fail` naming each job that threw or left an owed
   deletion or erasure, so a claim that one of their periods was honoured rests on that report and on each job's
   per-pass line in the frontend's log rather than on reading the data

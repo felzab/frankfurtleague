@@ -110,7 +110,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
         "rules_bracket_impossible",
         "rules_qualifiers_above_gruppe",
         "rules_unentschieden_outvalues_win",
-        "rules_forfeit_draws_a_knockout",
+        "rules_forfeit_unentschieden_in_a_knockout",
         "rules_spiele_over_one_read",
       ),
       refuseWith: answerWith,
@@ -146,7 +146,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
       "rules_qualifiers_above_gruppe",
       "rules_unentschieden_outvalues_win",
       "rules_kader_below_use",
-      "rules_forfeit_draws_a_knockout",
+      "rules_forfeit_unentschieden_in_a_knockout",
       "rules_shape_after_spielplan",
       "rules_spiele_over_one_read",
     )) {
@@ -165,7 +165,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
         "rules_qualifiers_above_gruppe",
         "rules_unentschieden_outvalues_win",
         "rules_kader_below_use",
-        "rules_forfeit_draws_a_knockout",
+        "rules_forfeit_unentschieden_in_a_knockout",
         "rules_shape_after_spielplan",
         "rules_spiele_over_one_read",
       ),
@@ -224,7 +224,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
       "rules_bracket_impossible",
       "rules_qualifiers_above_gruppe",
       "rules_spiele_over_one_read",
-      "rules_forfeit_draws_a_knockout_as_stored",
+      "rules_forfeit_unentschieden_in_a_knockout_as_stored",
       "spielplan_already_drawn",
       "spielplan_spieltage_held",
       "saison_past",
@@ -255,7 +255,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
           "rules_bracket_impossible",
           "rules_qualifiers_above_gruppe",
           "rules_spiele_over_one_read",
-          "rules_forfeit_draws_a_knockout_as_stored",
+          "rules_forfeit_unentschieden_in_a_knockout_as_stored",
           "spielplan_already_drawn",
           "spielplan_spieltage_held",
           "saison_past",
@@ -419,15 +419,16 @@ describe("the German each widened refusal renders", () => {
   /* A draw never carries the forfeit, so its twin of the editor's fault states the editor's own rule and
      sends the admin to the panel holding it. */
   it("states the editor's forfeit rule on the draw, repaired in the rules panel", () => {
-    const rule = mapRulesRefusal(refused("rules_forfeit_draws_a_knockout"))?.fieldErrors?.["rules.forfeit_ergebnis.sieger_tore"] ?? "";
+    const rule =
+      mapRulesRefusal(refused("rules_forfeit_unentschieden_in_a_knockout"))?.fieldErrors?.["rules.forfeit_ergebnis.sieger_tore"] ?? "";
 
     expect(rule, "the editor seats no forfeit rule, so the draw's twin is compared with nothing").not.toBe("");
     for (const carriedShape of [false, true]) {
       assert.ok(
-        drawAnswer("rules_forfeit_draws_a_knockout_as_stored", carriedShape).startsWith(rule),
+        drawAnswer("rules_forfeit_unentschieden_in_a_knockout_as_stored", carriedShape).startsWith(rule),
         "the draw words its rule apart from the editor",
       );
-      expect(drawAnswer("rules_forfeit_draws_a_knockout_as_stored", carriedShape)).toMatch(/Abschnitt Regeln/);
+      expect(drawAnswer("rules_forfeit_unentschieden_in_a_knockout_as_stored", carriedShape)).toMatch(/Abschnitt Regeln/);
     }
   });
 
@@ -464,7 +465,7 @@ describe("the German each widened refusal renders", () => {
   });
 });
 
-const LAUF = "/identitaet/loeschung/lauf";
+const LAUF = "/identitaet/loeschung/sweep";
 
 /** A deletion call: the generated call carries its `nach` in the endpoint's query. */
 const isLauf = ({ endpoint }: ApiCall): boolean => endpoint.split("?")[0] === LAUF;

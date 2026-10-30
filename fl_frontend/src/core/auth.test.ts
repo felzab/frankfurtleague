@@ -3464,14 +3464,14 @@ const heldOf = ({ userId, pending }: { userId: string; pending: readonly string[
 });
 
 /** The backend's refusal of the erasure for a ban entered since the request was judged, as the API client raises one. */
-async function erasureRefused(): Promise<Error> {
+async function loeschungRefused(): Promise<Error> {
   const { APIBadStatusError } = await import("./errors.ts");
   return new APIBadStatusError({
     message: "API returned a bad status.",
-    url: `${API_ORIGIN}/api/v0/identitaet/selbst/erasure`,
+    url: `${API_ORIGIN}/api/v0/identitaet/konto/loeschung`,
     statusCode: 403,
     serverErrorCode: "person_barred",
-    endpoint: "/identitaet/selbst/erasure",
+    endpoint: "/identitaet/konto/loeschung",
     method: "POST",
     readOnly: false,
     traceId: "0".repeat(32),
@@ -3506,17 +3506,17 @@ describe("a person's own account deletion", () => {
   it("deletes the account, its sessions, its passkeys and every pending row of its address once the records are erased, and nobody else's", async () => {
     const bystander = await seedAccount("unbeteiligt-loeschung@example.org");
     const person = await seedAccount("loeschende@example.org");
-    const erasures: string[] = [];
+    const loeschungen: string[] = [];
 
     const answer = await asPerson("loeschende@example.org", () =>
       deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
-        erasures.push("erased");
+        loeschungen.push("erased");
         return Promise.resolve({});
       }),
     );
 
     expect(answer).toBe("deleted");
-    expect(erasures, "the league's records were not erased exactly once").toStrictEqual(["erased"]);
+    expect(loeschungen, "the league's records were not erased exactly once").toStrictEqual(["erased"]);
     expect(heldOf(person)).toStrictEqual({ user: 0, sessions: 0, passkeys: 0, pending: 0 });
     expect(heldOf(bystander)).toStrictEqual({ user: 1, sessions: 1, passkeys: 1, pending: 7 });
   });
@@ -3525,19 +3525,19 @@ describe("a person's own account deletion", () => {
      would leave the same rows standing. */
   it("leaves the account and its passkeys standing where the backend refuses the erasure, having asked it", async () => {
     const person = await seedAccount("verweigert-loeschung@example.org");
-    const refusal = await erasureRefused();
-    const erasures: string[] = [];
+    const refusal = await loeschungRefused();
+    const loeschungen: string[] = [];
 
     await expect(
       asPerson("verweigert-loeschung@example.org", () =>
         deleteOwnAccount(person.token, new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
-          erasures.push("asked");
+          loeschungen.push("asked");
           return Promise.reject(refusal);
         }),
       ),
     ).rejects.toSatisfy((thrown) => thrown === refusal);
 
-    expect(erasures, "the backend was never asked, so the refusal proves nothing").toStrictEqual(["asked"]);
+    expect(loeschungen, "the backend was never asked, so the refusal proves nothing").toStrictEqual(["asked"]);
     const held = heldOf(person);
     expect([held.user, held.sessions, held.passkeys]).toStrictEqual([1, 1, 1]);
   });
@@ -3546,13 +3546,13 @@ describe("a person's own account deletion", () => {
      one through was told of a deletion while a fresh link went out instead. */
   it("answers an empty token as no link, mailing, erasing and deleting nothing", async () => {
     const person = await seedAccount("leerer-link@example.org");
-    const erasures: string[] = [];
+    const loeschungen: string[] = [];
     const mailed = sent.length;
     const tokens = store.verification.filter((held) => held.identifier.startsWith("delete-account-")).length;
 
     const answer = await asPerson("leerer-link@example.org", () =>
       deleteOwnAccount("", new Headers({ ...ORIGIN, cookie: person.cookie }), () => {
-        erasures.push("erased");
+        loeschungen.push("erased");
         return Promise.resolve({});
       }),
     );
@@ -3560,7 +3560,7 @@ describe("a person's own account deletion", () => {
     expect(answer).toBe("linkRefused");
     expect(sent.length, "an empty token mailed a new link").toBe(mailed);
     expect(store.verification.filter((held) => held.identifier.startsWith("delete-account-")).length).toBe(tokens);
-    expect(erasures).toStrictEqual([]);
+    expect(loeschungen).toStrictEqual([]);
     expect(heldOf(person).user).toBe(1);
   });
 
@@ -3569,17 +3569,17 @@ describe("a person's own account deletion", () => {
   it("refuses a link minted for another account, erasing and deleting nothing", async () => {
     const holder = await seedAccount("linkhalterin@example.org");
     const other = await signIn("andere-sitzung@example.org");
-    const erasures: string[] = [];
+    const loeschungen: string[] = [];
 
     const answer = await asPerson("andere-sitzung@example.org", () =>
       deleteOwnAccount(holder.token, new Headers({ ...ORIGIN, cookie: other.cookie }), () => {
-        erasures.push("erased");
+        loeschungen.push("erased");
         return Promise.resolve({});
       }),
     );
 
     expect(answer).toBe("linkRefused");
-    expect(erasures).toStrictEqual([]);
+    expect(loeschungen).toStrictEqual([]);
     expect(heldOf(holder).user).toStrictEqual(1);
     expect(store.user.filter((user) => user.id === other.row.userId).length).toBe(1);
   });
@@ -3589,24 +3589,24 @@ describe("a person's own account deletion", () => {
   it("deletes nothing where no erasure was handed in, or where the request acts for another person", async () => {
     const person = await seedAccount("ohne-loeschung@example.org");
     const headers = new Headers({ ...ORIGIN, cookie: person.cookie });
-    const erasures: string[] = [];
+    const loeschungen: string[] = [];
 
     await expect(
       asPerson("ohne-loeschung@example.org", () => auth.api.deleteUser({ body: { token: person.token }, headers })),
-    ).rejects.toSatisfy((thrown: Error) => thrown.name === "DeletionWithoutErasure");
+    ).rejects.toSatisfy((thrown: Error) => thrown.name === "DeletionWithoutLoeschung");
     expect(heldOf(person).user).toBe(1);
 
     await requestAccountDeletion(headers);
     await expect(
       asPerson("jemand-anderes@example.org", () =>
         deleteOwnAccount(mailedToken("ohne-loeschung@example.org"), headers, () => {
-          erasures.push("erased");
+          loeschungen.push("erased");
           return Promise.resolve({});
         }),
       ),
-    ).rejects.toSatisfy((thrown: Error) => thrown.name === "DeletionWithoutErasure");
+    ).rejects.toSatisfy((thrown: Error) => thrown.name === "DeletionWithoutLoeschung");
 
-    expect(erasures, "another person's records were erased").toStrictEqual([]);
+    expect(loeschungen, "another person's records were erased").toStrictEqual([]);
     const held = heldOf(person);
     expect([held.user, held.sessions, held.passkeys]).toStrictEqual([1, 1, 1]);
   });

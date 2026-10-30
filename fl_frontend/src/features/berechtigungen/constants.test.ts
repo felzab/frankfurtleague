@@ -1,7 +1,7 @@
 import { refusalCodes, refused } from "@/test-support/refusals.ts";
 import { assert, describe, expect, it } from "vitest";
 
-import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
+import { GELOESCHT_ACTOR_MARKER } from "@/core/geloeschtActor.ts";
 import { mapVerwaltungAnsichtRefusal, mapVerwaltungLinkRefusal, mapVerwaltungStartRefusal } from "@/features/adresswechsel/refusals.ts";
 import {
   GELOESCHTE_PERSON,
@@ -15,7 +15,7 @@ import {
   vonOderGesperrt,
 } from "@/features/berechtigungen/constants.ts";
 import { mapEntziehenRefusal, mapStufeRefusal } from "@/features/berechtigungen/refusals.ts";
-import { mapAbmeldungRefusal, mapErasureRefusal } from "@/features/funktionen/refusals.ts";
+import { mapAbmeldungRefusal, mapLoeschungAufAnfrageRefusal } from "@/features/funktionen/refusals.ts";
 
 import type { Code } from "@/core/generated/client/types.ts";
 
@@ -38,7 +38,7 @@ describe("the actor an admin card names", () => {
   // The marker names nobody, so printed as it is served it would read as an address; and the person is
   // erased rather than barred.
   it("names an erased administrator by that state, never the marker and never as barred", () => {
-    expect(vonOderGesperrt(ERASED_ACTOR_MARKER, false)).toBe(GELOESCHTE_PERSON);
+    expect(vonOderGesperrt(GELOESCHT_ACTOR_MARKER, false)).toBe(GELOESCHTE_PERSON);
   });
 });
 
@@ -111,7 +111,7 @@ describe("a refusal of an owner's power", () => {
    * promotion among them, with the code its service raises for it.
    */
   const WORDED_BY = [
-    [mapErasureRefusal, "verwaltung_adresse"],
+    [mapLoeschungAufAnfrageRefusal, "verwaltung_adresse"],
     [mapAbmeldungRefusal, "verwaltung_adresse"],
     [mapEntziehenRefusal, "berechtigung_nur_inhaber"],
     [mapStufeRefusal, "berechtigung_nur_inhaber"],

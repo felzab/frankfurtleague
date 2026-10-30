@@ -1,4 +1,5 @@
-import type { FLSonderereignis, FLSpielStatus } from "@/core/generated/client/types";
+import type { FLSonderereignis } from "@/core/generated/client/types";
+import type { SpielStatus } from "./types";
 
 /**
  * The note's bound, mirroring the backend's `SPIEL_NOTIZ_MAX_LENGTH`
@@ -48,7 +49,7 @@ export const SONDEREREIGNIS_LABELS: Record<FLSonderereignis, string> = {
  * two spellings of one state read as two. Not the schema value, which would couple the visible German
  * to the API contract.
  */
-export const SPIEL_STATUS_LABELS: Record<FLSpielStatus, string> = {
+export const SPIEL_STATUS_LABELS: Record<SpielStatus, string> = {
   ausstehend: "Ausstehend",
   heute: "Heute",
   vergangen: "Vergangen",

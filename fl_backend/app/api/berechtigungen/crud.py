@@ -32,7 +32,7 @@ from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
     delete_many_from_db,
-    erase_many_from_db,
+    loeschen_many_from_db,
     patch_many_in_db,
     post_one_to_db,
 )
@@ -183,7 +183,7 @@ async def owe_in_session(
 
     The holders are read after the caller's write, on its session, so a new grant's holder is among them and a removed one
     is told through the notice's `vorher`. A barred recipient is stopped at the hand-out, not here
-    (`app/api/postausgang/router.py :: post_ausgabe`).
+    (`app/api/postausgang/system_router.py :: post_ausgabe`).
     """
 
     if not mitteilungen:
@@ -335,7 +335,7 @@ async def revoke_in_session(
     await delete_many_from_db(collection=berechtigungen_collection, db_filter={"_id": grant["_id"]}, session=session)
     # The grant keeps its image, the administrator's act; its announced row is bookkeeping and keeps
     # none.
-    await erase_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": grant["_id"]}, session=session)
+    await loeschen_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": grant["_id"]}, session=session)
     # After the removal, so the holders told are the ones who remain, and the revoked one through the notice's `vorher`.
     await owe_in_session(
         mitteilungen,

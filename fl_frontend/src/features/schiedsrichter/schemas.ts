@@ -2,7 +2,7 @@ import z from "zod";
 
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
-import { FLSpielerSelbstEinwilligungPayloadSchema, LinkAntwortTextVersionSchema } from "@/features/spieler/schemas";
+import { FLSpielerKontoEinwilligungPayloadSchema, LinkAntwortTextVersionSchema } from "@/features/spieler/schemas";
 import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, FLKontaktPayloadSchema, PersonNameSchema } from "@/shared/schemas";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -128,4 +128,4 @@ export const buildSchiedsrichterBestaetigungPayloadSchema = (mindestalter: numbe
 
 // Redesign: goes with its last importer.
 /** The pupil's payload, as the backend publishes one declaration under two names: the two writes cannot drift. */
-export const FLSchiedsrichterSelbstEinwilligungPayloadSchema = FLSpielerSelbstEinwilligungPayloadSchema;
+export const FLSchiedsrichterKontoEinwilligungPayloadSchema = FLSpielerKontoEinwilligungPayloadSchema;

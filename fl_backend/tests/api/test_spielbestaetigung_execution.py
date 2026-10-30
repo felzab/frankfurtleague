@@ -22,8 +22,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import hash_token
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielbestaetigungen.admin_router import eintragen_spielbestaetigung, get_spielbestaetigungen, verwerfen_spielbestaetigung
-from app.api.spielbestaetigungen.person_router import get_eigene_spielbestaetigungen, post_schiedsrichter_antwort
-from app.api.spielbestaetigungen.router import get_spielbestaetigung_ansicht, post_spielbestaetigung
+from app.api.spielbestaetigungen.person_router import get_self, post_schiedsrichter_antwort
+from app.api.spielbestaetigungen.public_router import get_spielbestaetigung_ansicht, post_spielbestaetigung
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnsichtResponse,
     FLSpielbestaetigungAntwortPayload,
@@ -38,7 +38,7 @@ from app.api.spielbestaetigungen.schemas import (
 from app.api.spielbestaetigungen.services import (
     build_held_filter,
 )
-from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel_data
+from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel
 from app.api.spiele.crud import advance_bracket_winners
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.teams.admin_router import replace_saison_team
@@ -52,8 +52,8 @@ from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.loeschung import geloescht
 from tests.payloads import spiel_patch_body
 from tests.plans import plans_of_sent_reads
 from tests.postausgang import MAIL_NOW
@@ -1316,7 +1316,7 @@ class TestTheQueueListsAFixtureItsConfirmationsPutThere:
 
 # The answering Trainer's address, and the clock their erasure stamps its redactions with.
 IDA = "ida@example.com"
-ERASED_AT = datetime(2027, 5, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
+GELOESCHT_AT = datetime(2027, 5, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 
 
 class ConfirmationsRunningARivalBeforeTheFirstFanOut(InterleavedCollection):
@@ -1327,20 +1327,20 @@ class ConfirmationsRunningARivalBeforeTheFirstFanOut(InterleavedCollection):
         return await self._collection.update_many(*args, **kwargs)
 
 
-class TestAnAnswerAndItsWritersErasureCross:
+class TestAnAnswerAndItsWritersLoeschungCross:
     """The answer writes its row and the erasure voids the writer's entry on it, so one retries.
 
     Without that conflict a holder digest stored under an erasure's snapshot would stand until the season's end.
     """
 
-    def test_an_erasure_landing_inside_the_answer_leaves_the_link_dead_and_nothing_stored(self, mongo_replica_set_url: str):
+    def test_an_loeschung_landing_inside_the_answer_leaves_the_link_dead_and_nothing_stored(self, mongo_replica_set_url: str):
         """The answer run again finds no seat holding its link: the void took it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def erase_the_trainer() -> None:
-                await erased(database, client, IDA, germany_now=ERASED_AT)
+            async def loeschen_the_trainer() -> None:
+                await geloescht(database, client, IDA, germany_now=GELOESCHT_AT)
 
-            confirmations = ConfirmationsRunningARivalBeforeTheWrite(database[Collection.SPIELBESTAETIGUNGEN], erase_the_trainer)
+            confirmations = ConfirmationsRunningARivalBeforeTheWrite(database[Collection.SPIELBESTAETIGUNGEN], loeschen_the_trainer)
             outcome = await outcome_of(
                 ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON, spielbestaetigungen=confirmations)
             )
@@ -1353,7 +1353,7 @@ class TestAnAnswerAndItsWritersErasureCross:
         assert passes == 1
         assert (outcome, row["antwort"], row["kontakte"]["trainer"]) == (Code.LINK_UNGUELTIG, None, None)
 
-    def test_an_answer_landing_inside_the_erasure_has_its_reason_and_digest_taken(self, mongo_replica_set_url: str):
+    def test_an_answer_landing_inside_the_loeschung_has_its_reason_and_digest_taken(self, mongo_replica_set_url: str):
         """The erasure run again finds the digest the answer stored, and nulls it with the reason; the way and the role stay."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1361,7 +1361,7 @@ class TestAnAnswerAndItsWritersErasureCross:
                 await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
 
             confirmations = ConfirmationsRunningARivalBeforeTheFirstFanOut(database[Collection.SPIELBESTAETIGUNGEN], answer_as_the_trainer)
-            await erased(database, client, IDA, germany_now=ERASED_AT, spielbestaetigungen_collection=confirmations)
+            await geloescht(database, client, IDA, germany_now=GELOESCHT_AT, spielbestaetigungen_collection=confirmations)
 
             return confirmations, await row_now(database, ROW1)
 
@@ -1451,7 +1451,7 @@ def on_a_refereed_fixture(url: str, body: Body, *, rows: list[dict[str, Any]] | 
 
 
 async def eigene(database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = OTTO, today: str = TODAY) -> Any:
-    return await get_eigene_spielbestaetigungen(
+    return await get_self(
         identifier=identifier,
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         spiele_collection=database[Collection.SPIELE],
@@ -1582,7 +1582,7 @@ class TestARefereesOwnRowsAreReadThroughTheirIndex:
         "read",
         [
             pytest.param(lambda watched, watching: eigene(watched, watching), id="the panel"),
-            pytest.param(lambda watched, watching: erased(watched, watching, OTTO, germany_now=ERASED_AT), id="the erasure"),
+            pytest.param(lambda watched, watching: geloescht(watched, watching, OTTO, germany_now=GELOESCHT_AT), id="the erasure"),
         ],
     )
     def test_the_read_walks_the_referee_index_past_a_season_of_other_rows(
@@ -1651,7 +1651,7 @@ async def speichern(
 ) -> Any:
     """The administrator's save from an editor that loaded `geladen`, changing what `overrides` names."""
 
-    return await patch_spiel_data(
+    return await patch_spiel(
         spiel_id=SPIEL,
         spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(geladen, **overrides)),
         db=client,

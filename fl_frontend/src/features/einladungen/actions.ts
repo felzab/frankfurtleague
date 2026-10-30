@@ -6,7 +6,7 @@ import { frontend_config } from "@/core/config";
 import { einladungsLink } from "@/core/einladungEmail";
 import { isRecordMissing } from "@/core/errors";
 import { KONTAKTE_ABSCHNITT } from "@/features/teams/constants";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -77,7 +77,7 @@ export async function mailEinladungAction(rawPayload: z.input<typeof EinladungMa
     }
 
     const { team_id, saison_id } = validated.data;
-    const memberships = await getTeamMemberships();
+    const memberships = await getTeamSaisons();
     const membership =
       memberships.teams.find((candidate) => candidate.id === team_id)?.memberships.find((candidate) => candidate.saison_id === saison_id) ??
       null;

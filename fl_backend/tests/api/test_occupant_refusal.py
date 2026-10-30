@@ -241,7 +241,7 @@ def patched_spiel(
     resolved: ResolvedReferences | None = None,
     **overrides: Any,
 ) -> FLSpiel:
-    """The fixture as this patch leaves it — the one function `patch_spiel_data` applies for the save and for the `dry_run` preview alike."""
+    """The fixture as this patch leaves it — the one function `patch_spiel` applies for the save and for the `dry_run` preview alike."""
 
     stored = FLSpiel.model_validate(stored_spiel(season_docs, nr))
 

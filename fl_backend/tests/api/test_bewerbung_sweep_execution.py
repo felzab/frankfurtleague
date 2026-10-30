@@ -15,13 +15,13 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.admin_router import erneut_einwilligung
-from app.api.bewerbungen.einwilligung_router import get_einwilligung_ansicht
+from app.api.bewerbungen.public_router import get_einwilligung_ansicht
 from app.api.bewerbungen.services import (
     SWEEP_PAGE,
     compose_confirmation_update,
     hash_token,
 )
-from app.api.bewerbungen.sweep_router import (
+from app.api.bewerbungen.system_router import (
     BLOCKS_CLEARED_PER_PASS,
     REMINDERS_PER_PASS,
     get_sweep_saisons,
@@ -235,7 +235,7 @@ async def log_rows_naming(database: AsyncDatabase, collection: Collection, row_i
     return await database[Collection.AKTIONEN].find({"collection": str(collection), "document_id": row_id}).to_list(length=None)
 
 
-async def erasure_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
+async def loeschung_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     return await database[Collection.AKTIONEN].find({"operation": "erase_many"}).sort("_id", 1).to_list(length=None)
 
 
@@ -440,7 +440,7 @@ class TestTheReminderClock:
 
 
 class TestTheFourteenDayClock:
-    def test_the_pass_erases_the_candidate_and_owes_the_submitter_the_notice_naming_who_never_answered(self, mongo_replica_set_url: str):
+    def test_the_pass_loescht_the_candidate_and_owes_the_submitter_the_notice_naming_who_never_answered(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await sweep(database, client, now=MAIL_NOW)
 
@@ -468,7 +468,7 @@ class TestTheFourteenDayClock:
         # First names alone: nothing else of the people outlives the application in the notice.
         assert NACHNAME not in str(notices)
 
-    def test_the_erasure_takes_exactly_the_due_application_and_redacts_its_rows(self, mongo_replica_set_url: str):
+    def test_the_loeschung_takes_exactly_the_due_application_and_redacts_its_rows(self, mongo_replica_set_url: str):
         """An application still inside its deadline, or another season's, stands."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -479,17 +479,17 @@ class TestTheFourteenDayClock:
                 await stored(database, REMIND_OID),
                 await stored(database, OTHER_SEASON_OID),
                 await log_rows_naming(database, Collection.BEWERBUNGEN, DELETE_OID),
-                await erasure_rows(database),
+                await loeschung_rows(database),
             )
 
-        response, kept, other, rows, erasures = on_a_league(mongo_replica_set_url, body)
+        response, kept, other, rows, loeschungen = on_a_league(mongo_replica_set_url, body)
 
         assert response.geloescht == 1
         assert kept is not None and other is not None
         assert rows and all(row["before"] is None and row["redacted_at"] == REDACTED_AT for row in rows)
         # The erasure's own rows: no image, a filter naming the season and the ids and nothing else, the system as actor.
         # The filter is stored as text, so the id is found in it as text.
-        fourteen_day = [row for row in erasures if str(DELETE_OID) in row["db_filter"]["_id"]]
+        fourteen_day = [row for row in loeschungen if str(DELETE_OID) in row["db_filter"]["_id"]]
         assert len(fourteen_day) == 1
         assert fourteen_day[0]["before"] is None
         assert set(fourteen_day[0]["db_filter"]) == {"saison_id", "_id"}
@@ -506,7 +506,7 @@ class TestTheFourteenDayClock:
 
         assert on_a_league(mongo_replica_set_url, body) == (1, [])
 
-    def test_an_emptied_ansprechperson_slot_is_erased_with_nobody_told(self, mongo_replica_set_url: str):
+    def test_an_emptied_ansprechperson_slot_is_geloescht_with_nobody_told(self, mongo_replica_set_url: str):
         """No mailbox is left to tell, which is not a refused address: the application cannot complete and goes."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -633,7 +633,7 @@ class TestTheClocksQueriesReadAStampAsThePredicateDoes:
 
 
 class TestTheOneMonthClock:
-    def test_a_declined_application_a_month_old_is_erased_and_its_rows_redacted_in_the_first_call(self, mongo_replica_set_url: str):
+    def test_a_declined_application_a_month_old_is_geloescht_and_its_rows_redacted_in_the_first_call(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await sweep(database, client)
 
@@ -650,21 +650,21 @@ class TestTheOneMonthClock:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await sweep(database, client)
 
-            return await stored(database, OTHER_SEASON_OID), await erasure_rows(database)
+            return await stored(database, OTHER_SEASON_OID), await loeschung_rows(database)
 
-        other, erasures = on_a_league(mongo_replica_set_url, body)
+        other, loeschungen = on_a_league(mongo_replica_set_url, body)
 
         assert other is not None
         # Floored as the case above floors its own rows: `all` over an empty corpus is true, so a sweep
         # that erased nothing would pass this while proving the opposite of what it claims.
-        assert erasures, "the sweep erased nothing, so this proves no season was spared"
-        assert all(row["db_filter"]["saison_id"] == SAISON_ID for row in erasures)
+        assert loeschungen, "the sweep erased nothing, so this proves no season was spared"
+        assert all(row["db_filter"]["saison_id"] == SAISON_ID for row in loeschungen)
 
 
 class TestTheSeasonsOwnEndClock:
     """The bound on an application nobody decided, which the fourteen-day clock drops as soon as every seat confirms."""
 
-    def test_an_application_every_seat_confirmed_and_nobody_decided_is_erased_and_its_rows_redacted(self, mongo_replica_set_url: str):
+    def test_an_application_every_seat_confirmed_and_nobody_decided_is_geloescht_and_its_rows_redacted(self, mongo_replica_set_url: str):
         """Both submitted rows go, the confirmed one and the one past its deadline; a decided one is this clock's business at all."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -677,10 +677,10 @@ class TestTheSeasonsOwnEndClock:
                 await stored(database, DELETE_OID),
                 await stored(database, ACCEPTED_OID),
                 await log_rows_naming(database, Collection.BEWERBUNGEN, REMIND_OID),
-                await erasure_rows(database),
+                await loeschung_rows(database),
             )
 
-        response, confirmed, past_its_deadline, accepted, rows, erasures = on_a_league(
+        response, confirmed, past_its_deadline, accepted, rows, loeschungen = on_a_league(
             mongo_replica_set_url, body, status="past", next_status="active"
         )
 
@@ -688,7 +688,7 @@ class TestTheSeasonsOwnEndClock:
         # The accepted one is the successor season's business, and that season still runs.
         assert accepted is not None
         assert rows and all(row["before"] is None and row["redacted_at"] == REDACTED_AT for row in rows)
-        assert all(row["db_filter"]["saison_id"] == SAISON_ID for row in erasures)
+        assert all(row["db_filter"]["saison_id"] == SAISON_ID for row in loeschungen)
 
     def test_nothing_goes_while_the_season_still_runs(self, mongo_replica_set_url: str):
         """The row every other clock leaves standing: confirmed by all three, decided by nobody, and its deadline behind it."""
@@ -923,7 +923,7 @@ class ActivatedAfterTheClocksRead(InterleavedCollection):
 DRAIN_BOUND_S = 60.0
 
 
-class TestAnActivationInsideAnErasingTransactionKeepsTheSeasonsRows:
+class TestAnActivationInsideAnLoeschenTransactionKeepsTheSeasonsRows:
     @pytest.mark.parametrize(
         ("collection", "clocks_read", "expected"),
         [
@@ -1026,7 +1026,7 @@ class TestASeasonNobodyHas:
             with pytest.raises(DocumentNotFoundError):
                 await sweep(database, client, saison_id="1999")
 
-            return await database[Collection.BEWERBUNGEN].count_documents({}), await erasure_rows(database)
+            return await database[Collection.BEWERBUNGEN].count_documents({}), await loeschung_rows(database)
 
         assert on_a_league(mongo_replica_set_url, body) == (5, [])
 
@@ -1098,7 +1098,7 @@ def passed_over(caplog: pytest.LogCaptureFixture) -> list[tuple[Any, ...]]:
 class TestOneRowHoldsBackNoOther:
     """One case per write the call makes: with the site's isolation gone the whole call raises, every hour."""
 
-    def test_a_refused_erasure_at_the_seasons_end(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_a_refused_loeschung_at_the_seasons_end(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await refuse_the_redaction_of(database, Collection.BEWERBUNGEN, REMIND_OID)
             answer = await sweep(database, client)
@@ -1117,7 +1117,7 @@ class TestOneRowHoldsBackNoOther:
         assert (refused is not None, other) == (True, None)
         assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(REMIND_OID), "season's end", f"{REFUSED_TRACE_ID}")]
 
-    def test_a_refused_erasure_by_the_decline_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_a_refused_loeschung_by_the_decline_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].insert_one(application(SECOND_OID, **DECLINED))
             await refuse_the_redaction_of(database, Collection.BEWERBUNGEN, DECLINED_OID)
@@ -1134,7 +1134,7 @@ class TestOneRowHoldsBackNoOther:
         assert (chased, answer.geloescht) == ({REMIND_OID}, 1)
         assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(DECLINED_OID), "decline", f"{REFUSED_TRACE_ID}")]
 
-    def test_a_refused_erasure_by_the_acceptance_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_a_refused_loeschung_by_the_acceptance_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].insert_one(
                 application(SECOND_OID, status="angenommen", entscheidung={"getroffen_am": "2026-03-01", "von": "admin", "grund": None})
@@ -1173,7 +1173,7 @@ class TestOneRowHoldsBackNoOther:
             ("ERROR", Code.DATABASE_FAILED, "Season team", str(JUNCTION_OID), "contact block", f"{REFUSED_TRACE_ID}")
         ]
 
-    def test_a_refused_fourteen_day_erasure(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_a_refused_fourteen_day_loeschung(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.BEWERBUNGEN].insert_one(application(SECOND_OID, bestaetigungsfrist=YESTERDAY))
             await refuse_the_redaction_of(database, Collection.BEWERBUNGEN, DELETE_OID)
@@ -1183,9 +1183,9 @@ class TestOneRowHoldsBackNoOther:
             return (answer.geloescht, answer.fehlgeschlagen), await stored(database, DELETE_OID), await stored(database, SECOND_OID), notices
 
         with caplog.at_level(logging.ERROR, logger=FL_LOGGER_NAME):
-            erased, refused, other, notices = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
+            geloeschte, refused, other, notices = on_a_league(mongo_replica_set_url, body, mutates_schema=True)
 
-        assert (erased, refused is not None, other) == ((1, 1), True, None)
+        assert (geloeschte, refused is not None, other) == ((1, 1), True, None)
         # The refused row's notice went with its transaction: nobody is told of an erasure that did not happen.
         assert [notice["schluessel"] for notice in notices] == [f"{Collection.BEWERBUNGEN}/{SECOND_OID}/loeschung"]
         assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Application", str(DELETE_OID), "fourteen-day", f"{REFUSED_TRACE_ID}")]
@@ -1278,7 +1278,7 @@ def through_the_app(url: str, path: str, body: Mapping[str, Any] | None, *, auth
 class TestTheSystemTierOverTheWire:
     """On the replica set: the erasure runs in a transaction, which a standalone mongod refuses outright."""
 
-    def test_the_erasure_records_the_system_actor_and_the_route_template(self, mongo_replica_set_url: str):
+    def test_the_loeschung_records_the_system_actor_and_the_route_template(self, mongo_replica_set_url: str):
         """What `bind_system_actor` buys: the row names the machine and the endpoint, not an invented person or a raw path."""
 
         status, rows = through_the_app(mongo_replica_set_url, f"/bewerbungen/sweep/{SAISON_ID}", None, auth=SYSTEM_AUTH)
@@ -1483,7 +1483,7 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
 
         assert (twice - few) / FEW == budget.ROUND_TRIPS_A_ROW
 
-    def test_an_erased_application_costs_nothing_a_row(self, mongo_replica_set_url: str):
+    def test_an_geloescht_application_costs_nothing_a_row(self, mongo_replica_set_url: str):
         """The fourteen-day clock writes a page in its commands, never a command a row: no share bounds it."""
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:

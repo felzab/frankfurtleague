@@ -208,7 +208,7 @@ export const NUMMER_NICHT_HINTERLEGT = nichtHinterlegt("Nummer");
 
 /**
  * The day a squad row was taken out, in the one sentence the admin editor's banner, a seat holder's
- * squad and the pupil's own page (`SpielerSelbstView`) all state it in.
+ * squad and the pupil's own page (`SpielerSelfView`) all state it in.
  */
 export function ausgetragenSeit(inactiveSince: string): string {
   return `Ausgetragen seit ${formatSpielDatum(inactiveSince)}`;

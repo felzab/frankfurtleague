@@ -1,21 +1,21 @@
 import { cache } from "react";
 
 import {
-  spielberichteGetSpielberichtAdmin,
+  spielberichteGetSelf,
   spielberichteGetSpielberichtBericht,
   spielberichteGetSpielberichte,
-  spielberichteGetSpielberichtePerson,
+  spielberichteGetSpielberichtVerwaltung,
 } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
 
 import type {
   FLSpielberichtAdminResponse,
-  FLSpielberichtePersonResponse,
   FLSpielberichteSaisonResponse,
+  FLSpielberichteSelfResponse,
   FLSpielberichtSchiedsrichterResponse,
-  SpielberichteGetSpielberichtAdminParams,
   SpielberichteGetSpielberichteParams,
+  SpielberichteGetSpielberichtVerwaltungParams,
 } from "@/core/generated/client/types";
 
 /**
@@ -24,9 +24,9 @@ import type {
  */
 export async function getAdminSpielbericht(
   spielId: string,
-  params: SpielberichteGetSpielberichtAdminParams = {},
+  params: SpielberichteGetSpielberichtVerwaltungParams = {},
 ): Promise<FLSpielberichtAdminResponse> {
-  return runAdminRead(() => spielberichteGetSpielberichtAdmin(spielId, params));
+  return runAdminRead(() => spielberichteGetSpielberichtVerwaltung(spielId, params));
 }
 
 /** Every report of a season holding a block, each with its state: what the season editor counts. */
@@ -40,6 +40,6 @@ export async function getSchiedsrichterSpielbericht(spielId: string): Promise<FL
 }
 
 /** The played fixtures booked to the signed-in referee, the panel's list. */
-export const getSchiedsrichterSpielberichte = cache(async (): Promise<FLSpielberichtePersonResponse> =>
-  runPersonRead(() => spielberichteGetSpielberichtePerson()),
+export const getSchiedsrichterSpielberichte = cache(async (): Promise<FLSpielberichteSelfResponse> =>
+  runPersonRead(() => spielberichteGetSelf()),
 );

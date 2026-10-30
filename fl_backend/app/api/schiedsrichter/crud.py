@@ -19,7 +19,7 @@ from app.api.schiedsrichter.services import (
     build_referee_filter,
 )
 from app.core.collections import Collection
-from app.core.crud import erase_many_from_db, patch_many_in_db, post_one_to_db, pull_one_from_db
+from app.core.crud import loeschen_many_from_db, patch_many_in_db, post_one_to_db, pull_one_from_db
 from app.core.recording import build_redaction_filter, build_redaction_update
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.custom import CustomObjectId
@@ -75,7 +75,7 @@ async def ensure_ghost_schiedsrichter(
     return ghost
 
 
-async def erase_referee_in_session(
+async def loeschen_referee_in_session(
     *,
     schiedsrichter_collection: AsyncCollection,
     spiele_collection: AsyncCollection,
@@ -109,9 +109,9 @@ async def erase_referee_in_session(
         session=session,
     )
 
-    # `erase_many_from_db` and never `delete_many_from_db`: the second keeps every image, which
+    # `loeschen_many_from_db` and never `delete_many_from_db`: the second keeps every image, which
     # here would file the person's whole document into the log this call exists to clear.
-    await erase_many_from_db(
+    await loeschen_many_from_db(
         collection=schiedsrichter_collection,
         db_filter={"_id": schiedsrichter_id},
         session=session,

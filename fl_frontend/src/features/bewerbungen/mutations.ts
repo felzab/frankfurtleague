@@ -1,13 +1,13 @@
 import {
   bewerbungenAblehnenBewerbung,
   bewerbungenAnnehmenBewerbung,
-  bewerbungenBesetzeKontaktSitz,
   bewerbungenErneutEinwilligung,
   bewerbungenGetEinwilligungAnsicht,
   bewerbungenGetSweepSaisons,
-  bewerbungenKorrigiereKontaktEmail,
   bewerbungenPostBewerbung,
   bewerbungenPostEinwilligung,
+  bewerbungenPostKontaktEmail,
+  bewerbungenPostKontaktSitz,
   bewerbungenSweepSaison,
 } from "@/core/generated/client/sdk";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
@@ -96,7 +96,7 @@ export async function korrigierenKontaktEmail({
   email,
   bisherige_email,
 }: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktEmailPayload): Promise<FLBewerbungKontaktEmailResponse> {
-  return bewerbungenKorrigiereKontaktEmail(id, rolle, { email: email, bisherige_email: bisherige_email });
+  return bewerbungenPostKontaktEmail(id, rolle, { email: email, bisherige_email: bisherige_email });
 }
 
 /** The one path that writes a NAME onto a submitted application, and it runs on a seat its own holder emptied. */
@@ -109,7 +109,7 @@ export async function besetzenKontaktSitz({
   telefon,
   text_version,
 }: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktSitzPayload): Promise<FLBewerbungKontaktSitzResponse> {
-  return bewerbungenBesetzeKontaktSitz(id, rolle, {
+  return bewerbungenPostKontaktSitz(id, rolle, {
     vorname: vorname,
     nachname: nachname,
     email: email,

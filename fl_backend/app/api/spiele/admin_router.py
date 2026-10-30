@@ -6,7 +6,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.saisons.crud import pull_current_saison_id, pull_saison_id_and_rules
+from app.api.saisons.crud import pull_active_saison_id, pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielberichte.crud import pull_zustaende, stamp_the_adoption
 from app.api.spielberichte.schemas import FLSpieleActionRequiredResponse
@@ -88,14 +88,14 @@ router = APIRouter(
 )
 
 
-# Two static segments, matching `GET /saisons/list/admin`. Declared before `{spiel_id}/admin`, whose
+# Two static segments, matching `GET /saisons/list/verwaltung`. Declared before `{spiel_id}/verwaltung`, whose
 # only separation from this path is the `objectid` convertor.
 @router.get(
-    "/list/admin",
+    "/list/verwaltung",
     response_model=FLSpieleAdminListResponse,
     summary="Spiele for the admin surfaces",
 )
-async def get_spiele_for_admin(
+async def get_spiele_verwaltung(
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
     filters: FLSpieleFilterParams = Depends(),
@@ -107,10 +107,10 @@ async def get_spiele_for_admin(
     Each referee carries their whole name, and each booking its money.
     """
 
-    # Mirrors `app/api/spiele/router.py :: get_spiele`, which cannot be called here: the gate is
+    # Mirrors `app/api/spiele/public_router.py :: get_spiele`, which cannot be called here: the gate is
     # inside it, and emptying the planned season is the one thing this must not do.
     if filters.saison_id is None:
-        filters.saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)
+        filters.saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
 
     # The joined pipeline, for `get_spiele_action_required`'s reason: a plain `find` drops `austritt`.
     spiele_raw = await aggregate_many_from_db(
@@ -154,7 +154,7 @@ async def get_spiele_action_required(
     # Resolved as every other admin read resolves an omitted season: the selector sends none for the
     # running one, so spanning the archive here would bury its queue under every other season's.
     if saison_id is None:
-        saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)
+        saison_id = await pull_active_saison_id(saisons_collection=saisons_collection)
 
     # The joined pipeline, as the public reads use: the raw shape carries no `austritt`, so
     # this list would silently omit a badge the grids show.
@@ -234,11 +234,11 @@ async def get_spiele_action_required(
 # A static suffix rather than a second `GET /{spiel_id}`: the public router owns that path at this
 # same prefix, so whichever router registered first would answer both.
 @router.get(
-    f"{by_id('spiel_id')}/admin",
+    f"{by_id('spiel_id')}/verwaltung",
     response_model=FLSpieleAdminSingleResponse,
     summary="One Spiel for the admin editor",
 )
-async def get_spiel_for_admin(spiel_id: CustomRouteObjectId, spiele_collection: SpieleCollection) -> FLSpieleAdminSingleResponse:
+async def get_spiel_verwaltung(spiel_id: CustomRouteObjectId, spiele_collection: SpieleCollection) -> FLSpieleAdminSingleResponse:
     """Return one match in the admin shape, money included, for the editor."""
 
     spiele_raw = await aggregate_many_from_db(
@@ -263,7 +263,7 @@ async def previewing(
     response_model=FLPatchSpielDataResponse,
     summary="Update a Spiel",
 )
-async def patch_spiel_data(
+async def patch_spiel(
     spiel_id: CustomRouteObjectId,
     spiel_data: Annotated[FLPatchSpielDataPayload, Body()],
     db: DBClient,

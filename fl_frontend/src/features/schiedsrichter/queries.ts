@@ -1,7 +1,7 @@
 import { cache } from "react";
 
 import { isRecordMissing } from "@/core/errors";
-import { schiedsrichterGetSchiedsrichter, schiedsrichterGetSchiedsrichterById, schiedsrichterGetSelbst } from "@/core/generated/client/sdk";
+import { schiedsrichterGetSchiedsrichter, schiedsrichterGetSchiedsrichterById, schiedsrichterGetSelf } from "@/core/generated/client/sdk";
 import { medienNochNicht } from "@/features/bewerbungen/utils";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { runAdminRead } from "@/shared/utils/adminRead";
@@ -14,7 +14,7 @@ import { postSchiedsrichterBestaetigungAnsicht } from "./mutations";
 
 import type {
   FLSchiedsrichterListResponse,
-  FLSchiedsrichterSelbstResponse,
+  FLSchiedsrichterSelfResponse,
   FLSchiedsrichterSingleResponse,
   SchiedsrichterGetSchiedsrichterParams,
 } from "@/core/generated/client/types";
@@ -165,6 +165,4 @@ export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promi
  * referee row for the address the page's own check passed.
  */
 // Never `"use cache"`, which keys on the arguments rather than the caller.
-export const getSchiedsrichterSelbst = cache(async (): Promise<FLSchiedsrichterSelbstResponse> =>
-  runPersonRead(() => schiedsrichterGetSelbst()),
-);
+export const getSchiedsrichterSelf = cache(async (): Promise<FLSchiedsrichterSelfResponse> => runPersonRead(() => schiedsrichterGetSelf()));

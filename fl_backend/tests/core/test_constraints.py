@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from app.core.collections import Collection
 from app.core.constraints import TTL_INDEXES, TTLIndex, _apply_concurrently
-from app.core.readback import RECORD_MODELS
+from app.readback import RECORD_MODELS
 
 # The TTL index keyed on a date a live row never holds: the row expires once ended, its key's parent then written whole.
 # MongoDB expires no row lacking a date there (https://www.mongodb.com/docs/manual/core/index-ttl/, which moves without us;

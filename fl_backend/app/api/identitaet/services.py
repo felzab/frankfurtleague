@@ -14,14 +14,14 @@ from bson import ObjectId
 
 from app.api.berechtigungen.services import OWNER, holds_an_owners_power, verwaltung_des
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
-from app.api.identitaet.schemas import FLErasureAnsicht, FLSelbstErasureAnsicht, FLSubjekt, FLSubjektSitz
+from app.api.identitaet.schemas import FLKontoLoeschungAnsicht, FLLoeschungAnsicht, FLSubjekt, FLSubjektSitz
 from app.api.kontakte.services import rows_seating
-from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_erasure_registrierung_filter
+from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_loeschung_registrierung_filter
 from app.api.schiedsrichter.services import (
-    build_selbst_referee_filter,
+    build_self_referee_filter,
     build_unplayed_assignment_filter,
 )
-from app.api.spieler.services import build_selbst_pupil_filter
+from app.api.spieler.services import build_self_pupil_filter
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
@@ -59,7 +59,7 @@ def build_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """The stored address rides along so `folds_to` can judge it, and the stamp so the confirmation can; nothing else of the person does."""
 
     return [
-        {"$match": build_selbst_referee_filter(identifier)},
+        {"$match": build_self_referee_filter(identifier)},
         {"$project": {"kontakt.email": 1, "einwilligung.bestaetigt_am": 1, "inactive_since": 1}},
         {"$sort": {"_id": 1}},
     ]
@@ -69,10 +69,10 @@ def build_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 # preview and the erasure name one set and the narrowing above takes nothing out of either.
 
 # What a seat is named by in the preview, beside the address the fold judges it on.
-ERASURE_SEAT_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
+LOESCHUNG_SEAT_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
 
 
-def build_erasure_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+def build_loeschung_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every season row or application one of whose seats names the address, whatever its status.
 
     `bestaetigungen` rides along whole: the clearing nulls a seat's bookkeeping only where the block
@@ -88,28 +88,28 @@ def build_erasure_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "team_id": 1,
                 "name": 1,
                 "bestaetigungen": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ERASURE_SEAT_FIELDS},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in LOESCHUNG_SEAT_FIELDS},
             }
         },
         {"$sort": {"saison_id": 1, "_id": 1}},
     ]
 
 
-def build_erasure_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+def build_loeschung_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     return [
-        {"$match": build_selbst_referee_filter(identifier)},
+        {"$match": build_self_referee_filter(identifier)},
         {"$project": {"name": 1, "kontakt.email": 1, "inactive_since": 1}},
         {"$sort": {"_id": 1}},
     ]
 
 
-def build_erasure_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    return [{"$match": build_selbst_pupil_filter(identifier)}, {"$project": {"vorname": 1, "nachname": 1}}, {"$sort": {"_id": 1}}]
+def build_loeschung_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+    return [{"$match": build_self_pupil_filter(identifier)}, {"$project": {"vorname": 1, "nachname": 1}}, {"$sort": {"_id": 1}}]
 
 
-def build_erasure_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+def build_loeschung_registrierung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     return [
-        {"$match": build_erasure_registrierung_filter(identifier)},
+        {"$match": build_loeschung_registrierung_filter(identifier)},
         {"$project": {"saison_id": 1, "team_id": 1, "status": 1, "email": 1, "vorname": 1, "nachname": 1}},
         {"$sort": {"saison_id": 1, "_id": 1}},
     ]
@@ -148,7 +148,7 @@ def build_unplayed_saison_pipeline(schiedsrichter_ids: Iterable[Any]) -> list[Ma
     ]
 
 
-def build_erasure_kader_pipeline(spieler_ids: Iterable[Any]) -> list[Mapping[str, Any]]:
+def build_loeschung_kader_pipeline(spieler_ids: Iterable[Any]) -> list[Mapping[str, Any]]:
     """Every squad row of these pupils, a retired one included, as the pupil's step selects what it removes."""
 
     return [
@@ -198,7 +198,7 @@ def _kader_entry(row: Mapping[str, Any], team_names: Mapping[tuple[Any, Any], An
     }
 
 
-def compose_erasure_ansicht(
+def compose_loeschung_ansicht(
     identifier: str,
     *,
     saison_team_rows: Sequence[Mapping[str, Any]],
@@ -208,12 +208,12 @@ def compose_erasure_ansicht(
     registrierung_rows: Sequence[Mapping[str, Any]],
     adresswechsel_rows: Sequence[Mapping[str, Any]],
     team_rows: Sequence[Mapping[str, Any]],
-) -> FLSelbstErasureAnsicht:
+) -> FLKontoLoeschungAnsicht:
     """The preview, from the rows the erasure's own subject read holds; no address and no birthdate reaches it."""
 
     team_names = _team_names(team_rows)
 
-    return FLSelbstErasureAnsicht.model_validate(
+    return FLKontoLoeschungAnsicht.model_validate(
         {
             "spieler": [_pupil_entry(row) for row in pupil_rows],
             "schiedsrichter": [_referee_entry(row) for row in referee_rows],
@@ -225,7 +225,7 @@ def compose_erasure_ansicht(
     )
 
 
-def compose_erasure_ansicht_auf_anfrage(
+def compose_loeschung_ansicht_auf_anfrage(
     identifier: str,
     *,
     saison_team_rows: Sequence[Mapping[str, Any]],
@@ -241,7 +241,7 @@ def compose_erasure_ansicht_auf_anfrage(
     kader_rows: Sequence[Mapping[str, Any]],
     team_rows: Sequence[Mapping[str, Any]],
     unplayed_rows: Sequence[Mapping[str, Any]],
-) -> FLErasureAnsicht:
+) -> FLLoeschungAnsicht:
     """The administrator's reveal, from the rows the erasure's own subject read holds, by the ids the page links each record by.
 
     The pending changes are named, never counted: the page links each row to the tool acting on it.
@@ -249,7 +249,7 @@ def compose_erasure_ansicht_auf_anfrage(
 
     team_names = _team_names(team_rows)
 
-    return FLErasureAnsicht.model_validate(
+    return FLLoeschungAnsicht.model_validate(
         {
             "spieler": [
                 {
@@ -299,7 +299,7 @@ def build_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Equality and no pattern: `spieler.email` stores the folded form."""
 
     return [
-        {"$match": build_selbst_pupil_filter(identifier)},
+        {"$match": build_self_pupil_filter(identifier)},
         {"$project": {"einwilligung.bestaetigt_am": 1, "inactive_since": 1}},
         {"$sort": {"_id": 1}},
     ]
@@ -489,7 +489,9 @@ def holds_an_owner_grant(identifier: str, grants: Iterable[Mapping[str, Any]]) -
     return any(grant["adresse"] == identifier and grant["verwaltung"] == OWNER for grant in grants)
 
 
-def find_letzter_inhaber_erasure_refusal(*, identifier: str, grants: Iterable[Mapping[str, Any]], barred: Iterable[str]) -> WriteRefusal | None:
+def find_letzter_inhaber_loeschung_refusal(
+    *, identifier: str, grants: Iterable[Mapping[str, Any]], barred: Iterable[str]
+) -> WriteRefusal | None:
     """`letzter_inhaber_loeschung`: the address holding the last live, unbarred `owner` grant erases itself only once another holds one.
 
     `grants` are the live ones. A barred `owner` admits nobody, so it is no owner here, as for a demotion.
@@ -644,13 +646,13 @@ def build_referee_references_pipeline(identifiers: Iterable[str]) -> list[Mappin
     """Retired rows too: a retired referee's account signs in to take back a consent."""
 
     return [
-        {"$match": build_selbst_referee_filter(*identifiers)},
+        {"$match": build_self_referee_filter(*identifiers)},
         {"$project": {"kontakt.email": 1}},
     ]
 
 
 def build_pupil_references_pipeline(identifiers: Iterable[str]) -> list[Mapping[str, Any]]:
-    """`build_selbst_pupil_filter`'s equality over a batch, its `$type` term the unique index's partial filter, which `$in` does not imply."""
+    """`build_self_pupil_filter`'s equality over a batch, its `$type` term the unique index's partial filter, which `$in` does not imply."""
 
     return [
         {"$match": {"email": {"$in": sorted(set(identifiers)), "$type": "string"}}},

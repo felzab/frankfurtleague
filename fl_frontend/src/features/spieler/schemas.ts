@@ -163,10 +163,10 @@ export const WAHL_UNBEKANNT = "Diese Wahl kennen wir nicht. Lade die Seite neu."
 
 // Redesign: goes with its last importer.
 /**
- * Mirrors `FLSpielerSelbstEinwilligungPayload`, and the referee's payload is this same schema: the two
+ * Mirrors `FLSpielerKontoEinwilligungPayload`, and the referee's payload is this same schema: the two
  * writes are one shape, so the one consent control cannot send either a member the other lacks.
  */
-export const FLSpielerSelbstEinwilligungPayloadSchema = z.object({
+export const FLSpielerKontoEinwilligungPayloadSchema = z.object({
   umfang: z.enum(["kader_oeffentlich", "intern"], { error: WAHL_UNBEKANNT }),
   medien: z.boolean(),
   // The account page's own label, never the one the record was confirmed under: the backend judges it

@@ -3,9 +3,9 @@ import { Suspense } from "react";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { AdminSpielerView } from "@/features/spieler/components/views/AdminSpielerView";
 import { kaderName, SPIELER_CRUD_COPY } from "@/features/spieler/constants";
-import { getSpielerMemberships } from "@/features/spieler/queries";
+import { getSpielerSaisons } from "@/features/spieler/queries";
 import { countLiveSquadRows, squadIsFull } from "@/features/spieler/utils";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
@@ -42,13 +42,13 @@ export default function AdminSpielerPage(props: NextPageProps) {
 
 /**
  * EVERY player across every season, each row carrying the SELECTED season's squad row
- * (`fl_frontend/src/features/spieler/queries.ts :: getSpielerMemberships`); a player in no squad is listed too.
+ * (`fl_frontend/src/features/spieler/queries.ts :: getSpielerSaisons`); a player in no squad is listed too.
  */
 async function SpielerTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   const [membershipsRes, selectedSaison, teamsRes] = await Promise.all([
-    getSpielerMemberships(),
+    getSpielerSaisons(),
     resolveAdminSaison(searchParams),
-    getTeamMemberships(),
+    getTeamSaisons(),
   ]);
   const selectedSaisonId = selectedSaison?.id ?? "";
 

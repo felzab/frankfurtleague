@@ -2,7 +2,7 @@ import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formatEuro, formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLSchiedsrichterSelbst } from "@/core/generated/client/types";
+import type { FLSchiedsrichterSelf } from "@/core/generated/client/types";
 import type { ReactNode } from "react";
 
 const adresseVon = (email: string | null): ReactNode => (email === null || email === "" ? <Leer /> : email);
@@ -11,7 +11,7 @@ const adresseVon = (email: string | null): ReactNode => (email === null || email
  * What the league stores on one referee row, read-only, as the referee's confirmation page lists it:
  * the referee's own page and the account page show the same facts.
  */
-export function SchiedsrichterAngaben({ eintrag }: { eintrag: FLSchiedsrichterSelbst }) {
+export function SchiedsrichterAngaben({ eintrag }: { eintrag: FLSchiedsrichterSelf }) {
   return (
     <dl className={FIELD_PAIR_CLASSES}>
       <Angabe label="Name">{eintrag.name}</Angabe>

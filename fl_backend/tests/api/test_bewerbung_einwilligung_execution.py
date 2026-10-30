@@ -8,9 +8,8 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.admin_router import erneut_einwilligung
-from app.api.bewerbungen.einwilligung_router import get_einwilligung_ansicht, post_einwilligung
-from app.api.bewerbungen.router import get_bewerbung_by_id, get_bewerbungen
+from app.api.bewerbungen.admin_router import erneut_einwilligung, get_bewerbung, get_bewerbungen
+from app.api.bewerbungen.public_router import get_einwilligung_ansicht, post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload, FLBewerbungenFilterParams
 from app.api.bewerbungen.services import hash_token
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
@@ -903,7 +902,7 @@ class TestNoHashReachesAnAdminRead:
         reminded["bestaetigungen"]["trainer"] |= {"token_hashes": [HASHES["trainer"], erinnert_hash], "erinnert_am": TODAY}
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            one = await get_bewerbung_by_id(
+            one = await get_bewerbung(
                 bewerbung_id=BEWERBUNG_OID,
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
                 postausgang_collection=database[Collection.POSTAUSGANG],
@@ -935,7 +934,7 @@ class TestTheEditorsRead:
     @pytest.mark.parametrize(("frist", "abgelaufen"), [(TODAY, False), (YESTERDAY, True)], ids=["due-today", "due-yesterday"])
     def test_it_answers_whether_the_confirmation_deadline_has_passed(self, mongo_replica_set_url: str, frist: str, abgelaufen: bool):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            return await get_bewerbung_by_id(
+            return await get_bewerbung(
                 bewerbung_id=BEWERBUNG_OID,
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
                 postausgang_collection=database[Collection.POSTAUSGANG],

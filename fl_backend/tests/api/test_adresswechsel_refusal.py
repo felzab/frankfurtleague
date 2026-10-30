@@ -28,7 +28,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.constraints import SUPPORT_INDEXES, UNIQUE_INDEXES
-from app.core.recording import ERASED_ACTOR_MARKER
+from app.core.recording import GELOESCHT_ACTOR_MARKER
 from app.shared.folding import canonical_address
 from app.shared.schemas.responses import BaseAPIResponse
 from tests.config import BASE_AUTH
@@ -114,7 +114,7 @@ class TestTheSystemsReadOfTheNewAddress:
         """The links' own key: a browser-facing route holding it would hand any link holder the new mailbox."""
 
         response = TestClient(application(), raise_server_exceptions=False).post(
-            f"/api/v{API_VERSION}/adresswechsel/sweep/adresse", headers=BASE_AUTH, json={"token": "t" * 43}
+            f"/api/v{API_VERSION}/adresswechsel/adresse", headers=BASE_AUTH, json={"token": "t" * 43}
         )
 
         assert (response.status_code, response.json()["error_code"]) == (401, Code.ACCESS_KEY_REFUSED)
@@ -285,7 +285,7 @@ class TestWhetherAnApprovalStillStands:
                 id="an owner's change, its approver demoted since",
             ),
             pytest.param(
-                a_change(gestartet_von=CHANGED, genehmigt_von=ERASED_ACTOR_MARKER), GRANTS, set(), False, id="its approver erased since"
+                a_change(gestartet_von=CHANGED, genehmigt_von=GELOESCHT_ACTOR_MARKER), GRANTS, set(), False, id="its approver erased since"
             ),
             # The effect of their own change carried `genehmigt_von` to the row it granted afresh.
             pytest.param(

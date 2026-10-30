@@ -1311,7 +1311,10 @@ class TestTheDrawAnswersStoredValuesUnderItsTwins:
     def test_the_forfeit_and_the_span_answer_under_their_twins(self):
         """A shape's qualifiers can make a bracket the stored level forfeit cannot decide; its matchdays can outgrow the stored span."""
 
-        assert on_the_draw(Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT) == (Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED, HTTPStatus.CONFLICT)
+        assert on_the_draw(Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT) == (
+            Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT_AS_STORED,
+            HTTPStatus.CONFLICT,
+        )
         assert on_the_draw(Code.SAISON_SPAN_BELOW_SPIELPLAN) == (Code.SAISON_SPAN_BELOW_SPIELPLAN_AS_STORED, HTTPStatus.CONFLICT)
 
     def test_a_rule_reading_the_shape_alone_keeps_the_shared_code(self):

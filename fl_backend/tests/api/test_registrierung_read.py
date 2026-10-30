@@ -5,7 +5,7 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.registrierungen.router import get_registrierungen
+from app.api.registrierungen.admin_router import get_registrierungen
 from app.api.registrierungen.schemas import FLRegistrierungenFilterParams
 from app.core.collections import Collection
 from tests.bans import ban_list

@@ -26,7 +26,7 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.literals import FLAustrittType, FLGruppenNames, FLSaisonPhase, FLSonderereignis, FLSortOrder, FLSpielSeite
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
-type FLSpielStatus = Literal["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"]
+type FLSpielStatus = Literal["ab_heute", "vergangen", "heute", "abgesagt", "unbekannt"]
 
 # Each tuple below answers ONE consumer's question. They are deliberately NOT one predicate: a single
 # boolean would make independent consumers agree by accident, and a field telling five events apart
@@ -95,7 +95,7 @@ def records_an_absence(*, side: str, sonderereignis: FLSonderereignis | None, sa
 
     # Only `awards_nothing` takes the phase gate: a cancelled knockout advances nobody, where a
     # no-show names the absent side and composes a result advancing the other -- which rests on
-    # `rules_forfeit_draws_a_knockout` barring a level forfeit here.
+    # `rules_forfeit_unentschieden_in_a_knockout` barring a level forfeit here.
     return stayed_away or (awards_nothing and saison_phase == "gruppenphase")
 
 
@@ -644,7 +644,7 @@ FLSpielJoinedInternalListAdapter = TypeAdapter(list[FLSpielJoinedInternal])
 
 class FLSpieleFilterParams(BaseModel):
     # None and never the current season: which season is current is a database read, which only the
-    # route can make (`get_spiele`, `get_spiele_for_admin`).
+    # route can make (`get_spiele`, `get_spiele_verwaltung`).
     saison_id: str | None = None
     saison_phase: Literal["playoffs"] | FLSaisonPhase | None = None
     spiel_status: FLSpielStatus | None = None

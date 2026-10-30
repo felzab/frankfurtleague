@@ -12,9 +12,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identitaet import crud as identitaet_crud
 from app.api.identitaet.crud import find_subjekt
-from app.api.identitaet.router import get_anmeldung
 from app.api.identitaet.schemas import FLAnmeldungResponse, FLSubjektPayload
 from app.api.identitaet.services import eigene_eintraege
+from app.api.identitaet.system_router import get_anmeldung
 from app.api.registrierungen.services import compose_confirmation_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION

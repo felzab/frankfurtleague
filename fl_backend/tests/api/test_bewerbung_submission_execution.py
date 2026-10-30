@@ -14,8 +14,7 @@ from httpx2 import Response
 from pymongo import MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.einwilligung_router import get_einwilligung_ansicht
-from app.api.bewerbungen.public_router import post_bewerbung
+from app.api.bewerbungen.public_router import get_einwilligung_ansicht, post_bewerbung
 from app.api.bewerbungen.schemas import FLPostBewerbungPayload
 from app.api.bewerbungen.services import (
     bestaetigungsfrist_from,

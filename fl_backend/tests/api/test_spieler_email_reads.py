@@ -12,25 +12,25 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.adresswechsel.admin_router import post_adresswechsel_verwaltung
 from app.api.adresswechsel.schemas import FLAdresswechselVerwaltungPayload
 from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
-from app.api.identitaet.person_router import get_erasure_ansicht
-from app.api.konto.router import get_einwilligungen
-from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
+from app.api.identitaet.person_router import get_konto_loeschung_ansicht
+from app.api.konto.person_router import get_einwilligungen
 from app.api.registrierungen.person_router import aufnehmen, get_offene_registrierungen
+from app.api.registrierungen.public_router import get_bestaetigung_ansicht
 from app.api.registrierungen.schemas import (
     FLOffeneRegistrierungenParams,
     FLRegistrierungAufnehmenPayload,
 )
-from app.api.spieler.selbst_router import get_selbst, patch_einwilligung
+from app.api.spieler.person_router import get_self, patch_einwilligung
 from app.core.collections import Collection
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
 from app.shared.schemas.bestaetigung import FLTokenPayload
-from app.shared.schemas.einwilligung import FLSelbstEinwilligungPayload
+from app.shared.schemas.einwilligung import FLKontoEinwilligungPayload
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.erasure import erased
+from tests.loeschung import geloescht
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
 from tests.worker import worker_database
@@ -186,12 +186,12 @@ async def the_account_read(database: AsyncDatabase, client: AsyncMongoClient, re
 
 
 async def the_own_record_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await get_selbst(identifier=FOLDED_EMAIL, spieler_collection=database[Collection.SPIELER])
+    return await get_self(identifier=FOLDED_EMAIL, spieler_collection=database[Collection.SPIELER])
 
 
 async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
     return await patch_einwilligung(
-        einwilligung_data=FLSelbstEinwilligungPayload.model_validate(
+        einwilligung_data=FLKontoEinwilligungPayload.model_validate(
             {
                 "umfang": "intern",
                 "medien": False,
@@ -210,8 +210,8 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
     )
 
 
-async def the_erasure_preview(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await get_erasure_ansicht(
+async def the_loeschung_preview(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+    return await get_konto_loeschung_ansicht(
         identifier=FOLDED_EMAIL,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
@@ -225,8 +225,8 @@ async def the_erasure_preview(database: AsyncDatabase, client: AsyncMongoClient,
     )
 
 
-async def the_erasure(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await erased(database, client, FOLDED_EMAIL, germany_now=NOW)
+async def the_loeschung(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+    return await geloescht(database, client, FOLDED_EMAIL, germany_now=NOW)
 
 
 async def the_address_change_request(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
@@ -296,8 +296,8 @@ class TestEveryAddressReadUsesTheIndex:
             the_account_read,
             the_own_record_read,
             the_own_record_press,
-            the_erasure_preview,
-            the_erasure,
+            the_loeschung_preview,
+            the_loeschung,
             the_address_change_request,
         ],
         ids=lambda reader: reader.__name__,

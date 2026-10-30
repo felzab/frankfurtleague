@@ -1,6 +1,6 @@
 import type {
   FLSpielberichtAdminResponse,
-  FLSpielberichtePersonResponse,
+  FLSpielberichteSelfResponse,
   FLSpielberichtSchiedsrichterResponse,
 } from "@/core/generated/client/types";
 
@@ -16,7 +16,7 @@ export type SpielberichtAnsicht = FLSpielberichtAdminResponse | FLSpielberichtSc
  * The referee panel's reports: the running season's played fixtures and the ended seasons' reports, or why none is
  * listed. `unlesbar` where the read failed, which leaves the rest of the panel standing.
  */
-export type SchiedsrichterSpielberichte = Pick<FLSpielberichtePersonResponse, "spiele" | "fruehere"> | "unlesbar";
+export type SchiedsrichterSpielberichte = Pick<FLSpielberichteSelfResponse, "spiele" | "fruehere"> | "unlesbar";
 
 /** Whether the editor's draft holds a seeded proposal: of the report's version standing now, of an older one, or none. */
 export type Eingesetzt = "aktuell" | "veraltet" | null;

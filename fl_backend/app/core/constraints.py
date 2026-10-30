@@ -183,7 +183,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     ),
     # `actor.pseudonym` leads: an erasure for a person's request matches on it alone, and the pupils' pass,
     # running for a whole season at once, on both (`app/api/identitaet/crud.py :: unattribute_in_session`,
-    # `:: erase_pupil_actor_in_session`).
+    # `:: loeschen_pupil_actor_in_session`).
     SupportIndex(
         Collection.AKTIONEN,
         "aktionen_actor_pseudonym",
@@ -259,13 +259,6 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "registrierungen_saison_id_team_id_queue",
         (("saison_id", ASCENDING), ("team_id", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING), ("status", ASCENDING)),
         "one team's pending registrations for one season, newest first, narrowed by status or not",
-    ),
-    # Multikey, the array holding the one link the last hand-out minted.
-    SupportIndex(
-        Collection.SCHIEDSRICHTER,
-        "schiedsrichter_bestaetigung_token_hashes",
-        (("bestaetigung.token_hashes", ASCENDING),),
-        "a referee's confirmation page, driven by strangers",
     ),
     SupportIndex(
         Collection.SPIELBESTAETIGUNGEN,

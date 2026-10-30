@@ -13,7 +13,7 @@ from pydantic import BaseModel, EmailStr, TypeAdapter, ValidationError
 from pydantic.warnings import UnsupportedFieldAttributeWarning
 
 import app
-from app.api.identitaet.schemas import FLErasureAdressePayload, FLErasurePayload
+from app.api.identitaet.schemas import FLLoeschungAdressePayload, FLLoeschungPayload
 from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.shared.folding import league_address
@@ -202,18 +202,18 @@ class TestEveryAddressPayloadHoldsTheSameRule:
 
 
 # The lookup the reveal and the sign-out take, and the erasure's, which takes it beside the request it answers.
-ERASURE_PAYLOADS: Mapping[str, Callable[[str], Any]] = {
-    "the lookup": lambda email: FLErasureAdressePayload(email=email),
-    "the erasure": lambda email: FLErasurePayload(email=email, anlass="Mail vom 30.03.2026"),
+LOESCHUNG_PAYLOADS: Mapping[str, Callable[[str], Any]] = {
+    "the lookup": lambda email: FLLoeschungAdressePayload(email=email),
+    "the erasure": lambda email: FLLoeschungPayload(email=email, anlass="Mail vom 30.03.2026"),
 }
 
 
-class TestTheErasureLooksUpWhatAnyRuleStored:
+class TestTheLoeschungLooksUpWhatAnyRuleStored:
     """GDPR Art. 17: a seat stored before today's rules may hold an address they refuse, and refusing it here leaves that person unerasable."""
 
-    @pytest.mark.parametrize("payload", list(ERASURE_PAYLOADS.values()), ids=list(ERASURE_PAYLOADS))
+    @pytest.mark.parametrize("payload", list(LOESCHUNG_PAYLOADS.values()), ids=list(LOESCHUNG_PAYLOADS))
     @pytest.mark.parametrize("email", [*BEYOND_ASCII, pytest.param("anna..mueller@schule.de", id="an address the installed EmailStr refuses")])
-    def test_the_erasure_takes_an_address_no_address_rule_admits(self, email: str, payload: Callable[[str], Any]):
+    def test_the_loeschung_takes_an_address_no_address_rule_admits(self, email: str, payload: Callable[[str], Any]):
         assert payload(email).email == email
 
     @pytest.mark.parametrize(
@@ -224,23 +224,23 @@ class TestTheErasureLooksUpWhatAnyRuleStored:
             pytest.param(f"{'a' * KONTAKT_EMAIL_MAX_LENGTH}@schule.de", id="past the ceiling"),
         ],
     )
-    @pytest.mark.parametrize("payload", list(ERASURE_PAYLOADS.values()), ids=list(ERASURE_PAYLOADS))
-    def test_the_erasure_refuses_what_names_no_stored_seat(self, email: str, payload: Callable[[str], Any]):
+    @pytest.mark.parametrize("payload", list(LOESCHUNG_PAYLOADS.values()), ids=list(LOESCHUNG_PAYLOADS))
+    def test_the_loeschung_refuses_what_names_no_stored_seat(self, email: str, payload: Callable[[str], Any]):
         with pytest.raises(ValidationError):
             payload(email)
 
 
 # The payloads whose `email` reaches a `$regex` under no address rule, each with what its route's body
 # carries beside it. Raw JSON, because a lone surrogate is a JSON escape no encoder of a `str` writes.
-FREE_STRING_PAYLOADS: Mapping[str, tuple[type[FLErasureAdressePayload], str]] = {
-    "the lookup": (FLErasureAdressePayload, ""),
-    "the erasure": (FLErasurePayload, ', "anlass": "Mail vom 30.03.2026"'),
+FREE_STRING_PAYLOADS: Mapping[str, tuple[type[FLLoeschungAdressePayload], str]] = {
+    "the lookup": (FLLoeschungAdressePayload, ""),
+    "the erasure": (FLLoeschungPayload, ', "anlass": "Mail vom 30.03.2026"'),
 }
 
 PLAIN_ADDRESS = "a@schule.de"
 
 
-def validated_raw(payload: str, value: str) -> FLErasureAdressePayload:
+def validated_raw(payload: str, value: str) -> FLLoeschungAdressePayload:
     """`value` is JSON string content, escapes included, decoded as the route decodes its body before validating it."""
 
     model, rest = FREE_STRING_PAYLOADS[payload]

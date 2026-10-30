@@ -78,7 +78,7 @@ def build_spiele_filter(filters: FLSpieleFilterParams, today: str) -> dict[str, 
             compiled["datum"] = today
         case "vergangen":
             compiled["datum"] = {"$lt": today}
-        case "ausstehend":
+        case "ab_heute":
             compiled["datum"] = {"$gte": today}
         case "abgesagt":
             # An abandonment is not among them: it took place, so it keeps whatever the date says.

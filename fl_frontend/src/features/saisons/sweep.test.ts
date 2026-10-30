@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /** Every line as it was written, its fields whole: what a pass reports, and the code its failure carries. */
 const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
 
-const LAUF = "/identitaet/loeschung/lauf";
+const LAUF = "/identitaet/loeschung/sweep";
 
 /** Each deletion call's answer, handed the place the call carried, null on a pass's first. */
 let laufAnswer: (nach: string | null) => unknown = () => gelaufen(0, 0);

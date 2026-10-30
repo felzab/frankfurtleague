@@ -1,6 +1,6 @@
 import { assert, describe, expect, it } from "vitest";
 
-import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
+import { GELOESCHT_ACTOR_MARKER } from "@/core/geloeschtActor.ts";
 import { FLAktorPersonFunktion } from "@/core/generated/client/types.ts";
 import { GELOESCHTE_PERSON } from "@/features/berechtigungen/constants.ts";
 
@@ -139,7 +139,7 @@ describe("personAkteurLabel", () => {
 
   /* The redacted actor of a person erased since: the marker read as a pseudonym's start would name somebody. */
   it("names a person erased since in the admin cards' words, keeping the Funktion", () => {
-    expect(personAkteurLabel({ kind: "person_session", pseudonym: ERASED_ACTOR_MARKER, funktion: "spieler" })).toBe(
+    expect(personAkteurLabel({ kind: "person_session", pseudonym: GELOESCHT_ACTOR_MARKER, funktion: "spieler" })).toBe(
       `Spieler · ${GELOESCHTE_PERSON}`,
     );
   });

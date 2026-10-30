@@ -310,7 +310,7 @@ class TestAContactRecordReadsBackHoweverItWasStored:
     """On the model where breaking it locks itself in.
 
     Nothing in the database types these, so an import can store a value no payload would take
-    -- and `GET /teams/memberships` is the only route to repairing the row.
+    -- and `GET /teams/saisons` is the only route to repairing the row.
     """
 
     # A title's `.`, an address the address rule refuses, and 21 characters where `PHONE_REGEX` allows 20

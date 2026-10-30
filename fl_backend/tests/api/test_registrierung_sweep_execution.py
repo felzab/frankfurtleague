@@ -15,7 +15,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.registrierungen.services import SWEEP_PAGE
-from app.api.registrierungen.sweep_router import REMINDERS_PER_PASS, sweep_registrierungen
+from app.api.registrierungen.system_router import REMINDERS_PER_PASS, sweep_registrierungen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -235,7 +235,7 @@ class TestTheReminderClock:
 
 
 class TestTheDeadlineClock:
-    def test_it_erases_the_day_after_the_deadline_and_not_on_it(self, mongo_replica_set_url: str):
+    def test_it_loescht_the_day_after_the_deadline_and_not_on_it(self, mongo_replica_set_url: str):
         """The two rows part on one day: the link answers on its deadline, so the erasure waits.
 
         Both carry a null consent record, which is what says the page's consent term reads one.
@@ -301,7 +301,7 @@ class TestTheSeasonsOwnEnd:
 
 
 class TestTheOneMonthClock:
-    def test_it_erases_a_declined_registration_a_month_after_the_decision(self, mongo_replica_set_url: str):
+    def test_it_loescht_a_declined_registration_a_month_after_the_decision(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await sweep(database, client)
 
@@ -370,7 +370,7 @@ def passed_over(caplog: pytest.LogCaptureFixture) -> list[tuple[Any, ...]]:
 class TestOneRowHoldsBackNoOther:
     """One case per write the call makes: with the site's isolation gone the whole call raises, every hour."""
 
-    def test_a_refused_erasure_by_the_decline_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_a_refused_loeschung_by_the_decline_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.REGISTRIERUNGEN].insert_one(
                 registrierung(SECOND_OID, status="abgelehnt", entscheidung={"getroffen_am": "2026-02-15", "von": "admin", "grund": None})
@@ -388,7 +388,7 @@ class TestOneRowHoldsBackNoOther:
         assert (DECLINED_OID in left, SECOND_OID in left) == (True, False)
         assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Registration", str(DECLINED_OID), "decline", f"{REFUSED_TRACE_ID}")]
 
-    def test_a_refused_erasure_at_the_seasons_end(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_a_refused_loeschung_at_the_seasons_end(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await refuse_the_redaction_of(database, REMIND_OID)
             answer = await sweep(database, client)
@@ -402,7 +402,7 @@ class TestOneRowHoldsBackNoOther:
         assert left == [REMIND_OID, OTHER_SEASON_OID]
         assert passed_over(caplog) == [("ERROR", Code.DATABASE_FAILED, "Registration", str(REMIND_OID), "season's end", f"{REFUSED_TRACE_ID}")]
 
-    def test_a_seasons_end_whose_every_erasure_fails_counts_them(self, mongo_replica_set_url: str):
+    def test_a_seasons_end_whose_every_loeschung_fails_counts_them(self, mongo_replica_set_url: str):
         """No half commits: the count is all that tells this pass from a clean one."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -414,7 +414,7 @@ class TestOneRowHoldsBackNoOther:
 
         assert on_a_league(mongo_replica_set_url, body, status="past", mutates_schema=True) == (0, 1)
 
-    def test_a_refused_erasure_by_the_deadline_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_a_refused_loeschung_by_the_deadline_clock(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.REGISTRIERUNGEN].insert_one(
                 registrierung(SECOND_OID, bestaetigung=bestaetigung(SECOND_OID, frist=YESTERDAY))
@@ -508,9 +508,9 @@ class TestAPageAndOneMoreIsDrainedRatherThanRefused:
 
             return getattr(response, counted), await database[Collection.REGISTRIERUNGEN].count_documents({"saison_id": SAISON_ID})
 
-        erased, left = on_a_league(mongo_replica_set_url, body, status=status)
+        geloescht, left = on_a_league(mongo_replica_set_url, body, status=status)
 
-        assert (erased, left) == (OVERFLOW, 0), f"the {clock} clock left rows the next pass would read into the same full page"
+        assert (geloescht, left) == (OVERFLOW, 0), f"the {clock} clock left rows the next pass would read into the same full page"
 
 
 # Under the driver's first batch, so a page read is one command however many rows it holds.
@@ -668,7 +668,7 @@ def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tuple[in
 class TestTheSystemTierOverTheWire:
     """On the replica set: the erasure runs in a transaction, which a standalone mongod refuses outright."""
 
-    def test_the_erasure_records_the_system_actor_and_the_route_template(self, mongo_replica_set_url: str):
+    def test_the_loeschung_records_the_system_actor_and_the_route_template(self, mongo_replica_set_url: str):
         """What `bind_system_actor` buys: the row names the machine and the endpoint, not an invented person or a raw path."""
 
         status, rows = through_the_app(mongo_replica_set_url, f"/registrierungen/sweep/{SAISON_ID}", auth=SYSTEM_AUTH)

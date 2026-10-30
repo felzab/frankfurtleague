@@ -55,7 +55,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.constraints import UNIQUE_INDEXES
 from app.core.exceptions import WriteRefusal
-from app.core.readback import RECORD_MODELS
+from app.readback import RECORD_MODELS
 from tests.documents import rules_document
 
 PayloadFactory = Callable[..., dict[str, Any]]

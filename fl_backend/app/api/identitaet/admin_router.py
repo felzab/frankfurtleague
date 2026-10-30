@@ -8,22 +8,22 @@ from app.api.adresswechsel.crud import others_naming
 from app.api.berechtigungen.antraege import read_the_antraege_of
 from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, ErasureJournal, erase_everything, resolve_subject
+from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, LoeschungJournal, loeschen_everything, resolve_subject
 from app.api.identitaet.schemas import (
     FLAbmeldungResponse,
-    FLErasureAdressePayload,
-    FLErasureAnsichtResponse,
-    FLErasurePayload,
-    FLErasureResponse,
+    FLLoeschungAdressePayload,
+    FLLoeschungAnsichtResponse,
+    FLLoeschungPayload,
+    FLLoeschungResponse,
 )
 from app.api.identitaet.services import (
     JEDE_VERWALTUNG,
     NUR_INHABER,
     adresswechsel_einsehbar_verwehrt,
-    build_erasure_kader_pipeline,
+    build_loeschung_kader_pipeline,
     build_season_team_pipeline,
     build_unplayed_saison_pipeline,
-    compose_erasure_ansicht_auf_anfrage,
+    compose_loeschung_ansicht_auf_anfrage,
     find_eigene_adresse_refusal,
     find_fremder_adresswechsel_refusal,
     find_verwaltung_adresse_refusal,
@@ -74,12 +74,12 @@ router = APIRouter(
 
 
 @router.post(
-    "/erasure/ansicht",
-    response_model=FLErasureAnsichtResponse,
+    "/loeschung/ansicht",
+    response_model=FLLoeschungAnsichtResponse,
     summary="Show what an erasure of an address would remove",
 )
-async def get_erasure_ansicht_auf_anfrage(
-    ansicht_data: Annotated[FLErasureAdressePayload, Body()],
+async def get_loeschung_ansicht(
+    ansicht_data: Annotated[FLLoeschungAdressePayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
     bewerbungen_collection: BewerbungenCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
@@ -96,9 +96,9 @@ async def get_erasure_ansicht_auf_anfrage(
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLErasureAnsichtResponse:
+) -> FLLoeschungAnsichtResponse:
     """
-    Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.
+    Answer which of this address's records `POST /identitaet/loeschung` would remove or empty, by kind, name and the ids a page links each by.
 
     ADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names
     every one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,
@@ -157,7 +157,7 @@ async def get_erasure_ansicht_auf_anfrage(
         kader_rows = (
             await aggregate_many_from_db(
                 collection=saison_spieler_collection,
-                pipeline=build_erasure_kader_pipeline(row["_id"] for row in subject.spieler),
+                pipeline=build_loeschung_kader_pipeline(row["_id"] for row in subject.spieler),
                 session=session,
             )
             if subject.spieler
@@ -199,7 +199,7 @@ async def get_erasure_ansicht_auf_anfrage(
     # A grant holder's change is withheld from whoever the tool refuses it, as the administrators page withholds it: named
     # here, a typed address would answer whether it is that change's new one.
     naming = [row for row in others_naming(subject.adresswechsel, identifier) if verwehrt.get(str(row["adresse"])) != "verwaltung"]
-    ansicht = compose_erasure_ansicht_auf_anfrage(
+    ansicht = compose_loeschung_ansicht_auf_anfrage(
         identifier,
         saison_team_rows=subject.saison_teams,
         bewerbung_rows=subject.bewerbungen,
@@ -217,17 +217,17 @@ async def get_erasure_ansicht_auf_anfrage(
     # A live row is its own fold, so equality is the fold's judgement.
     own = next((grant for grant in grants if grant["adresse"] == identifier), None)
 
-    return FLErasureAnsichtResponse(**ansicht.model_dump(), verwaltung=None if own is None else own["verwaltung"], gesperrt=bool(gesperrt))
+    return FLLoeschungAnsichtResponse(**ansicht.model_dump(), verwaltung=None if own is None else own["verwaltung"], gesperrt=bool(gesperrt))
 
 
 @router.post(
-    "/erasure",
-    response_model=FLErasureResponse,
+    "/loeschung",
+    response_model=FLLoeschungResponse,
     summary="Erase every record an address holds, on that person's request",
     dependencies=[Depends(verify_step_up)],
 )
-async def erase_auf_anfrage(
-    erasure_data: Annotated[FLErasurePayload, Body()],
+async def post_loeschung(
+    loeschung_data: Annotated[FLLoeschungPayload, Body()],
     spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -252,11 +252,11 @@ async def erase_auf_anfrage(
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLErasureResponse:
+) -> FLLoeschungResponse:
     """
     Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.
 
-    ADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/selbst/erasure` runs and refuses nothing about the
+    ADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/konto/loeschung` runs and refuses nothing about the
     person's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.
     Three refusals are about who asks. The administrator's own address is refused (`eigene_adresse`): their account page
     serves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,
@@ -274,12 +274,12 @@ async def erase_auf_anfrage(
     the caller's, once this has answered.
     """
 
-    identifier = sign_in_identifier(erasure_data.email)
+    identifier = sign_in_identifier(loeschung_data.email)
     akteur = sign_in_identifier(operator)
     # Before the transaction: who asks is known from the token alone.
     refuse(find_eigene_adresse_refusal(identifier=identifier, akteur=akteur))
 
-    async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
+    async def loeschen_the_address(session: AsyncClientSession) -> FLLoeschungResponse:
         grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
         announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
         refuse(
@@ -314,7 +314,7 @@ async def erase_auf_anfrage(
             )
         )
 
-        erased = await erase_everything(
+        geloescht = await loeschen_everything(
             identifier,
             scope=JEDE_PERSONENGRUPPE,
             spieler_collection=spieler_collection,
@@ -342,18 +342,18 @@ async def erase_auf_anfrage(
             session=session,
         )
 
-        return FLErasureResponse(**erased.model_dump())
+        return FLLoeschungResponse(**geloescht.model_dump())
 
-    journal = ErasureJournal[FLErasureResponse](
+    journal = LoeschungJournal[FLLoeschungResponse](
         identifier, schluessel=config.sperrliste_schluessel, berechtigungen_collection=berechtigungen_collection
     )
     async with journal:
         # Around the whole transaction, every retry inside it, and reset in a `finally`: a value left
         # standing would land on whatever this context records next.
-        anlass = anlass_var.set(erasure_data.anlass)
+        anlass = anlass_var.set(loeschung_data.anlass)
         try:
             async with transaction_session(db) as session:
-                answer = journal.took(await session.with_transaction(erase_the_address))
+                answer = journal.took(await session.with_transaction(loeschen_the_address))
         finally:
             anlass_var.reset(anlass)
 
@@ -369,7 +369,7 @@ async def erase_auf_anfrage(
     dependencies=[Depends(verify_step_up)],
 )
 async def post_abmeldung(
-    abmeldung_data: Annotated[FLErasureAdressePayload, Body()],
+    abmeldung_data: Annotated[FLLoeschungAdressePayload, Body()],
     aktionen_collection: AktionenCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,

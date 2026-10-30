@@ -64,15 +64,15 @@ from app.api.teams.schemas import (
     FLTeamsFilterParams,
     FLTeamsGroupedResponse,
     FLTeamsListResponse,
-    FLTeamsMembershipsResponse,
     FLTeamsResponse,
+    FLTeamsSaisonsResponse,
     FLTeamWithMembershipsListAdapter,
     FLTeamWriteResponse,
 )
 from app.api.teams.services import (
     build_gruppen,
-    build_team_memberships_pipeline,
     build_team_pipeline,
+    build_team_saisons_pipeline,
     compose_bestaetigungen_mit,
     compose_bestaetigungen_nach,
     compose_kontakt_bestaetigung,
@@ -191,8 +191,8 @@ async def _rewrite_the_outgoing_clubs_sides(
 
 # A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
 # capture this one whatever the declaration order.
-@router.get("/memberships", response_model=FLTeamsMembershipsResponse, summary="Every team with its season memberships")
-async def get_team_memberships(
+@router.get("/saisons", response_model=FLTeamsSaisonsResponse, summary="Every team with its season memberships")
+async def get_team_saisons(
     teams_collection: TeamsCollection,
     adresswechsel_collection: AdresswechselCollection,
     berechtigungen_collection: BerechtigungenCollection,
@@ -201,7 +201,7 @@ async def get_team_memberships(
     today: str = Depends(get_german_date_str),
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
-) -> FLTeamsMembershipsResponse:
+) -> FLTeamsSaisonsResponse:
     """
     Every team, retired ones included, each with every season membership it holds. Sorted by name.
 
@@ -211,9 +211,7 @@ async def get_team_memberships(
     ever owed.
     """
 
-    teams_raw = await aggregate_many_from_db(
-        collection=teams_collection, pipeline=build_team_memberships_pipeline(), collation=GERMAN_COLLATION
-    )
+    teams_raw = await aggregate_many_from_db(collection=teams_collection, pipeline=build_team_saisons_pipeline(), collation=GERMAN_COLLATION)
     adressen = seated_identifiers(teams_raw)
     live = (
         {
@@ -237,21 +235,21 @@ async def get_team_memberships(
 
     lagen = await lagen_of(postausgang_collection=postausgang_collection, sammlung=Collection.SAISON_TEAMS, ids=membership_row_ids(teams_raw))
 
-    return FLTeamsMembershipsResponse(
+    return FLTeamsSaisonsResponse(
         teams=FLTeamWithMembershipsListAdapter.validate_python(
             mit_adresswechseln(mit_linkstand(teams_raw, today=today, lagen=lagen), live=live, verwehrt=verwehrt)
         )
     )
 
 
-# Two static segments, as `GET /saisons/list/admin` has, so the admin tier lists every season-scoped
+# Two static segments, as `GET /saisons/list/verwaltung` has, so the admin tier lists every season-scoped
 # resource under one shape. No id route at this prefix ends in `/admin`, so none can shadow this one.
 @router.get(
-    "/list/admin",
+    "/list/verwaltung",
     response_model=FLTeamsResponse,
     summary="Teams for a Saison, for the admin surfaces",
 )
-async def get_teams_for_admin(
+async def get_teams_verwaltung(
     teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
@@ -264,7 +262,7 @@ async def get_teams_for_admin(
     season is still planned, so an admin who cannot see one cannot enter it.
     """
 
-    # The whole body below mirrors `app/api/teams/router.py :: get_teams`, which cannot be called
+    # The whole body below mirrors `app/api/teams/public_router.py :: get_teams`, which cannot be called
     # here: the gate is inside it, and refusing the planned season is the one thing this must not do.
     filters.saison_id, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 
@@ -684,7 +682,7 @@ async def patch_saison_team_kontakte(
 
     async def rewrite_the_block(session: AsyncClientSession) -> FLPatchSaisonTeamKontakteResponse:
         # In session, so the precondition judges what this write will land on. Read outside one, an
-        # erasure (`app/api/identitaet/crud.py :: erase_everything`) committing between the
+        # erasure (`app/api/identitaet/crud.py :: loeschen_everything`) committing between the
         # judgement and the `$set` puts the seat it cleared back with nothing refusing it.
         stored = await pull_one_from_db(
             collection=saison_teams_collection,

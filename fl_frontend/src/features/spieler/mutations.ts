@@ -13,10 +13,10 @@ import {
 
 import type {
   FLKaderZeile,
+  FLKontoEinwilligungPayload,
   FLSaisonSpielerResponse,
-  FLSelbstEinwilligungPayload,
   FLSpielerAdminSingleResponse,
-  FLSpielerSelbstEinwilligungResponse,
+  FLSpielerKontoEinwilligungResponse,
 } from "@/core/generated/client/types";
 import type {
   FLDeleteSpielerPayload,
@@ -76,6 +76,6 @@ export async function deleteKaderZeile({ team_id, saison_id, spieler_id }: FLKad
 
 // The pupil's own press, under the person lane's actor. No id in the path: an address holds at most
 // one pupil row, so the signed-in person names the record.
-export async function patchSpielerSelbstEinwilligung(payload: FLSelbstEinwilligungPayload): Promise<FLSpielerSelbstEinwilligungResponse> {
+export async function patchSpielerKontoEinwilligung(payload: FLKontoEinwilligungPayload): Promise<FLSpielerKontoEinwilligungResponse> {
   return spielerPatchEinwilligung(payload);
 }

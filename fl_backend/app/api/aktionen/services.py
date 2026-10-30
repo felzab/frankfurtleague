@@ -8,7 +8,7 @@ from app.api.kontakte.services import same_address
 from app.api.sperrliste.services import withheld_actor
 from app.core.collections import Collection as DbCollection
 from app.core.crud import build_sort
-from app.core.recording import ERASED_ACTOR_MARKER
+from app.core.recording import GELOESCHT_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import parse_object_id
 
@@ -79,12 +79,12 @@ IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = Mappin
     {
         DbCollection.BERECHTIGUNGEN: (
             ImageAddress("adresse", "adresse", None),
-            ImageAddress("erteilt_von", "erteilt_von", ERASED_ACTOR_MARKER),
+            ImageAddress("erteilt_von", "erteilt_von", GELOESCHT_ACTOR_MARKER),
         ),
-        DbCollection.SPERRLISTE: (ImageAddress("erstellt_von", "erstellt_von", ERASED_ACTOR_MARKER),),
-        DbCollection.EINLADUNGEN: (ImageAddress("erstellt_von", "erstellt_von", ERASED_ACTOR_MARKER),),
-        DbCollection.BEWERBUNGEN: (ImageAddress("entscheidung.von", "entscheidung.von", ERASED_ACTOR_MARKER),),
-        DbCollection.REGISTRIERUNGEN: (ImageAddress("entscheidung.von", "entscheidung.von", ERASED_ACTOR_MARKER),),
+        DbCollection.SPERRLISTE: (ImageAddress("erstellt_von", "erstellt_von", GELOESCHT_ACTOR_MARKER),),
+        DbCollection.EINLADUNGEN: (ImageAddress("erstellt_von", "erstellt_von", GELOESCHT_ACTOR_MARKER),),
+        DbCollection.BEWERBUNGEN: (ImageAddress("entscheidung.von", "entscheidung.von", GELOESCHT_ACTOR_MARKER),),
+        DbCollection.REGISTRIERUNGEN: (ImageAddress("entscheidung.von", "entscheidung.von", GELOESCHT_ACTOR_MARKER),),
         # A row since re-addressed: the referee step reaches only the rows naming the person now.
         DbCollection.SCHIEDSRICHTER: (ImageAddress("kontakt.email", "kontakt.email", None),),
         DbCollection.SPIELER: (ImageAddress("email", "email", None),),
@@ -92,13 +92,13 @@ IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = Mappin
         DbCollection.ADRESSWECHSEL: (
             ImageAddress("adresse", "adresse", None),
             ImageAddress("email", "email", None),
-            ImageAddress("genehmigung.gestartet_von", "genehmigung.gestartet_von", ERASED_ACTOR_MARKER),
-            ImageAddress("genehmigung.genehmigt_von", "genehmigung.genehmigt_von", ERASED_ACTOR_MARKER),
+            ImageAddress("genehmigung.gestartet_von", "genehmigung.gestartet_von", GELOESCHT_ACTOR_MARKER),
+            ImageAddress("genehmigung.genehmigt_von", "genehmigung.genehmigt_von", GELOESCHT_ACTOR_MARKER),
         ),
         # A decided request's: the address it was about, and the administrator who made it, whose marker keeps the image valid.
         DbCollection.BERECHTIGUNGEN_ANTRAEGE: (
             ImageAddress("adresse", "adresse", None),
-            ImageAddress("genehmigung.gestartet_von", "genehmigung.gestartet_von", ERASED_ACTOR_MARKER),
+            ImageAddress("genehmigung.gestartet_von", "genehmigung.gestartet_von", GELOESCHT_ACTOR_MARKER),
         ),
     }
 )
@@ -111,7 +111,8 @@ def carried_by_the_effect(addresses: Sequence[ImageAddress], neue: str) -> tuple
     """
 
     return tuple(
-        ImageAddress(address.path, address.overwritten, neue if address.replacement == ERASED_ACTOR_MARKER else None) for address in addresses
+        ImageAddress(address.path, address.overwritten, neue if address.replacement == GELOESCHT_ACTOR_MARKER else None)
+        for address in addresses
     )
 
 
@@ -123,7 +124,7 @@ EFFECT_IMAGE_COLLECTIONS: Final = (DbCollection.ADRESSWECHSEL, DbCollection.BERE
 def build_address_images_filter(collection: DbCollection, identifier: str) -> Mapping[str, Any]:
     """The log rows of one collection whose images hold this address; `address_image_edits` decides which field."""
 
-    # A grant's images by pattern, as its rows are read (`app/api/berechtigungen/erasure.py`): a pasted row keeps its
+    # A grant's images by pattern, as its rows are read (`app/api/berechtigungen/loeschung.py`): a pasted row keeps its
     # typed spelling into the image its revoke files. Every other image holds a fold a write stored.
     matched = same_address(identifier) if collection == DbCollection.BERECHTIGUNGEN else sign_in_identifier(identifier)
 

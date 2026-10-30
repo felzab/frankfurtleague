@@ -31,7 +31,7 @@ FLBerechtigungMitteilungArt = Literal[FLBerechtigungAenderungArt, Literal["beant
 FLBerechtigungUrheber = Literal["anwendung", "datenbank"]
 
 # Why a queued notice's GRANT address is withheld: its holder barred, or erased. Never the actor's,
-# whose `geaendert_von` says it alone: null for a ban, `app/core/recording.py :: ERASED_ACTOR_MARKER`
+# whose `geaendert_von` says it alone: null for a ban, `app/core/recording.py :: GELOESCHT_ACTOR_MARKER`
 # for an erasure.
 FLBerechtigungVorenthalten = Literal["gesperrt", "geloescht"]
 
@@ -50,7 +50,7 @@ class FLBerechtigung(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     adresse: CustomNonEmptyString
     verwaltung: FLVerwaltung
-    # An administrator's address for a grant made here, `app/core/recording.py :: ERASED_ACTOR_MARKER`
+    # An administrator's address for a grant made here, `app/core/recording.py :: GELOESCHT_ACTOR_MARKER`
     # once they are erased, and the marker the paste names itself by for one made in the Playground.
     erteilt_von: CustomNonEmptyString
     erteilt_am: datetime

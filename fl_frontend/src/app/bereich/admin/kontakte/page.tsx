@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { AdminKontakteView } from "@/features/teams/components/views/AdminKontakteView";
 import { KONTAKTE_CRUD_COPY } from "@/features/teams/constants";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { buildKontaktRows } from "@/features/teams/utils";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
@@ -37,7 +37,7 @@ export default function AdminKontaktePage(props: NextPageProps) {
  * are: a school's staff turns over, and a finished season records who was reachable while it ran.
  */
 async function KontakteTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
-  const [membershipsRes, selectedSaison] = await Promise.all([getTeamMemberships(), resolveAdminSaison(searchParams)]);
+  const [membershipsRes, selectedSaison] = await Promise.all([getTeamSaisons(), resolveAdminSaison(searchParams)]);
 
   const rows = buildKontaktRows(membershipsRes.teams, selectedSaison?.id);
 

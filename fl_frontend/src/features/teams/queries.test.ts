@@ -17,13 +17,13 @@ vi.doMock("@/shared/utils/adminRead.ts", async (importOriginal) => ({
 /** Every request the doubled client was asked for, cumulative across every pass in this file. */
 const reads = doubleApiClient(() => ({ teams: [], spieler: [] }));
 
-const TEAMS_ENDPOINT = "/teams/memberships";
-const SPIELER_ENDPOINT = "/spieler/memberships";
+const TEAMS_ENDPOINT = "/teams/saisons";
+const SPIELER_ENDPOINT = "/spieler/saisons";
 
 serveServerReact();
 
-const { getTeamMemberships } = await import("./queries.ts");
-const { getSpielerMemberships } = await import("../spieler/queries.ts");
+const { getTeamSaisons } = await import("./queries.ts");
+const { getSpielerSaisons } = await import("../spieler/queries.ts");
 
 const countOf = (endpoint: string): number => reads.filter((read) => read.endpoint === endpoint).length;
 
@@ -36,8 +36,8 @@ describe("the admin membership lists across a render pass", () => {
     const before = countOf(TEAMS_ENDPOINT);
 
     // What the create modal's boundary and the table's each do, and the shape that paid twice.
-    await getTeamMemberships();
-    await getTeamMemberships();
+    await getTeamSaisons();
+    await getTeamSaisons();
 
     expect(countOf(TEAMS_ENDPOINT) - before, "the admin club list went to the backend twice in one render pass").toBe(1);
   });
@@ -48,8 +48,8 @@ describe("the admin membership lists across a render pass", () => {
     const beforeSpieler = countOf(SPIELER_ENDPOINT);
 
     // Both boundaries read both lists: a squad row names the club the create form also offers.
-    await Promise.all([getTeamMemberships(), getSpielerMemberships()]);
-    await Promise.all([getSpielerMemberships(), getTeamMemberships()]);
+    await Promise.all([getTeamSaisons(), getSpielerSaisons()]);
+    await Promise.all([getSpielerSaisons(), getTeamSaisons()]);
 
     expect(countOf(TEAMS_ENDPOINT) - beforeTeams, "the admin club list went to the backend twice in one render pass").toBe(1);
     expect(countOf(SPIELER_ENDPOINT) - beforeSpieler, "the admin player list went to the backend twice in one render pass").toBe(1);
@@ -59,13 +59,13 @@ describe("the admin membership lists across a render pass", () => {
     // Primed here rather than leaning on the tests above: a leak is only visible against a pass that
     // already read, and `it` order is not something this should depend on.
     beginRenderPass();
-    await Promise.all([getTeamMemberships(), getSpielerMemberships()]);
+    await Promise.all([getTeamSaisons(), getSpielerSaisons()]);
     const beforeTeams = countOf(TEAMS_ENDPOINT);
     const beforeSpieler = countOf(SPIELER_ENDPOINT);
 
     beginRenderPass();
-    await Promise.all([getTeamMemberships(), getSpielerMemberships()]);
-    await Promise.all([getTeamMemberships(), getSpielerMemberships()]);
+    await Promise.all([getTeamSaisons(), getSpielerSaisons()]);
+    await Promise.all([getTeamSaisons(), getSpielerSaisons()]);
 
     // Split, so each way of being wrong names itself: 0 is the cross-request leak `"use cache"`
     // would open on these reads, and 2 is no memoization at all.

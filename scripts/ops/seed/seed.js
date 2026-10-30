@@ -23,7 +23,7 @@
 // mongosh INSIDE the stack's own database container, at `mongodb://127.0.0.1:27017/<DB_BASE_NAME>`
 // with `directConnection=true`: no other server is reachable by that address, so this script cannot
 // write anywhere but the stack it is handed to. The backend has booted first, so every index is in
-// place, and `python -m app.core.readback` judges every document afterwards; the frontend starts
+// place, and `python -m app.readback` judges every document afterwards; the frontend starts
 // only once it has passed (`docs/ops/spec.md` §1.5).
 //
 // Invariants:

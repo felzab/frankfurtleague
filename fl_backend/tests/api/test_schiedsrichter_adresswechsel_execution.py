@@ -19,9 +19,8 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.adresswechsel.admin_router import post_adresswechsel_verwaltung
 from app.api.adresswechsel.schemas import FLAdresswechselVerwaltungPayload
 from app.api.bewerbungen.services import hash_token
-from app.api.schiedsrichter.admin_router import einladen_schiedsrichter, patch_schiedsrichter
-from app.api.schiedsrichter.bestaetigung_router import post_bestaetigung
-from app.api.schiedsrichter.router import get_schiedsrichter_by_id
+from app.api.schiedsrichter.admin_router import einladen_schiedsrichter, get_schiedsrichter_by_id, patch_schiedsrichter
+from app.api.schiedsrichter.public_router import post_bestaetigung
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterBestaetigungPayload
 from app.api.schiedsrichter.services import BESTAETIGUNG_FELD
 from app.core.codes import Code

@@ -9,9 +9,9 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
-import { eraseAufAnfrageAction, readErasureAnsichtAction } from "@/features/funktionen/actions";
-import { isErasureRefusal } from "@/features/funktionen/refusals";
-import { FLErasurePayloadSchema } from "@/features/funktionen/schemas";
+import { loeschenAufAnfrageAction, readLoeschungAnsichtAction } from "@/features/funktionen/actions";
+import { isLoeschungRefusal } from "@/features/funktionen/refusals";
+import { FLLoeschungPayloadSchema } from "@/features/funktionen/schemas";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
@@ -27,14 +27,14 @@ import { appToast } from "@/shared/utils/appToast";
 
 import { FormLoeschungAnsicht } from "./FormLoeschungAnsicht";
 
-import type { FLErasureAnsichtResponse } from "@/core/generated/client/types";
+import type { FLLoeschungAnsichtResponse } from "@/core/generated/client/types";
 
 /**
  * What the arming read left the reveal holding, carried WITH the address it was read for. A refusal's `reason` is
  * whole, said once for the reveal's body and the closed press alike, so the two cannot part.
  */
 type Gelesen = { adresse: string } & (
-  { status: "reading" } | { status: "read"; ansicht: FLErasureAnsichtResponse } | { status: "refused"; reason: string }
+  { status: "reading" } | { status: "read"; ansicht: FLLoeschungAnsichtResponse } | { status: "refused"; reason: string }
 );
 
 type Fehler = { email?: string; anlass?: string };
@@ -45,7 +45,7 @@ const ohneUebersicht = (reason: string): string =>
 
 /** Each box's verdict in the write's own words, judged at the press and never between keystrokes. */
 function fehlerIn(email: string, anlass: string): Fehler {
-  const geprueft = FLErasurePayloadSchema.safeParse({ email: email, anlass: anlass });
+  const geprueft = FLLoeschungPayloadSchema.safeParse({ email: email, anlass: anlass });
   if (geprueft.success) return {};
 
   const fehler: Fehler = {};
@@ -106,7 +106,7 @@ export function FormPersonLoeschenSection() {
 
     // Settled, never awaited bare: outside a transition a rejected action leaves the placeholder up and the write
     // closed beneath it for good.
-    const [settled] = await Promise.allSettled([readErasureAnsichtAction({ email: gelesenFuer })]);
+    const [settled] = await Promise.allSettled([readLoeschungAnsichtAction({ email: gelesenFuer })]);
     if (lesung !== letzteLesung.current) return;
     const res = settled.status === "rejected" ? unansweredRead() : settled.value;
 
@@ -127,7 +127,7 @@ export function FormPersonLoeschenSection() {
 
     const satz = res.unplacedError ?? res.error;
     // The erasure's own rule alone: that reveal loaded, and a list „not loaded“ invites a retry the rule refuses again.
-    setGelesen({ adresse: gelesenFuer, status: "refused", reason: isErasureRefusal(satz) ? satz : ohneUebersicht(satz) });
+    setGelesen({ adresse: gelesenFuer, status: "refused", reason: isLoeschungRefusal(satz) ? satz : ohneUebersicht(satz) });
   };
 
   const handlePress = () => {
@@ -144,7 +144,7 @@ export function FormPersonLoeschenSection() {
     const gesendet = { email: adresse, anlass: anlass };
     confirm.press(async () => {
       // A rejected action may still have erased, and uncaught here it takes the page down with it.
-      const res = await eraseAufAnfrageAction(gesendet).catch(rejectedWrite(router));
+      const res = await loeschenAufAnfrageAction(gesendet).catch(rejectedWrite(router));
 
       // Wrapped again: the press runs this inside its transition, and React leaves an update after an `await` outside it.
       startTransition(() => {

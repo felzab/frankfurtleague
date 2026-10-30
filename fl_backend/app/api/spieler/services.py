@@ -139,7 +139,7 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams, withheld_saison_ids: 
     """`withheld_saison_ids` are the seasons whose rows this read may not serve.
 
     Empty is the honest default -- a league planning none withholds none -- so the caller that joins
-    across seasons is the one supplying them (`app/api/spieler/router.py`).
+    across seasons is the one supplying them (`app/api/spieler/public_router.py`).
     """
 
     # First, ahead of the loose join below, which keeps a person holding no squad row.
@@ -218,7 +218,7 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams, withheld_saison_ids: 
     return pipeline
 
 
-def build_spieler_memberships_pipeline() -> list[Mapping[str, Any]]:
+def build_spieler_saisons_pipeline() -> list[Mapping[str, Any]]:
     """Every player with every squad row they hold.
 
     UNLIKE `build_spieler_pipeline`: no caller's filters, no `$unwind`, no strict join. Sorted by FORENAME
@@ -433,7 +433,7 @@ def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, erl
 # `app/api/konto/services.py`'s.
 
 
-def build_selbst_pupil_filter(identifier: str) -> Mapping[str, Any]:
+def build_self_pupil_filter(identifier: str) -> Mapping[str, Any]:
     """The one pupil row this address holds, retired or not, a withdrawal reaching it either way.
 
     The `$type` term is the unique index's partial filter, which an equality alone does not imply.
@@ -442,14 +442,14 @@ def build_selbst_pupil_filter(identifier: str) -> Mapping[str, Any]:
     return {"email": {"$eq": identifier, "$type": "string"}}
 
 
-def build_selbst_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+def build_self_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """This address's pupil row with every squad row it holds and the name each club played that season under.
 
     An allow-list: the sign-in address is the caller's own and still not served back.
     """
 
     return [
-        {"$match": build_selbst_pupil_filter(identifier)},
+        {"$match": build_self_pupil_filter(identifier)},
         {"$project": {"vorname": 1, "nachname": 1, "geburtsdatum": 1, "inactive_since": 1, "einwilligung": 1}},
         {
             "$lookup": {

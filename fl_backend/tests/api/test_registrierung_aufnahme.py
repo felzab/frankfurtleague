@@ -13,15 +13,15 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.konto.services import compose_person_move
-from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.registrierungen.person_router import ablehnen, aufnehmen, get_offene_registrierungen
+from app.api.registrierungen.person_router import patch_einwilligung as patch_registrierung_einwilligung
+from app.api.registrierungen.public_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.registrierungen.schemas import (
     FLOffeneRegistrierungenParams,
     FLRegistrierungAblehnenPayload,
     FLRegistrierungAufnehmenPayload,
     FLRegistrierungBestaetigungPayload,
 )
-from app.api.registrierungen.selbst_router import patch_einwilligung as patch_registrierung_einwilligung
 from app.api.registrierungen.services import (
     compose_confirmation_update,
 )
@@ -36,15 +36,15 @@ from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
 from app.shared.schemas.bestaetigung import FLTokenPayload
-from app.shared.schemas.einwilligung import FLSelbstEinwilligungPayload
+from app.shared.schemas.einwilligung import FLKontoEinwilligungPayload
 from tests import documents
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.loeschung import geloescht
 from tests.postausgang import MAIL_NOW
 from tests.records import record_collections
 from tests.whole_database import where_held
@@ -768,7 +768,7 @@ class TestThePersonAnAdmissionNames:
             registrierung_id = await seed(database, registrierung_document(einwilligung=bestaetigt))
             await patch_registrierung_einwilligung(
                 registrierung_id=registrierung_id,
-                einwilligung_data=FLSelbstEinwilligungPayload.model_validate(
+                einwilligung_data=FLKontoEinwilligungPayload.model_validate(
                     {
                         "umfang": "intern",
                         "medien": False,
@@ -901,7 +901,7 @@ class TestAReturningRegistration:
         assert code == Code.REGISTRIERUNG_PERSON_FEHLT
         assert after == before
 
-    def test_its_person_erased_before_the_admission_takes_the_registration_with_them(self, mongo_replica_set_url: str):
+    def test_its_person_geloescht_before_the_admission_takes_the_registration_with_them(self, mongo_replica_set_url: str):
         """The erasure is keyed on the address the registration holds too, so the admission finds nothing to admit."""
 
         stored_id = ObjectId()
@@ -910,7 +910,7 @@ class TestAReturningRegistration:
             await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
             registrierung_id = await seed(database, registrierung_document(confirmed=False))
             await confirm_as_returning(database, client)
-            gone = await erased(database, client, TYPED_EMAIL, germany_now=NOW)
+            gone = await geloescht(database, client, TYPED_EMAIL, germany_now=NOW)
             before = await snapshot(database)
             with pytest.raises(DocumentNotFoundError):
                 await admit(database, client, registrierung_id, spieler_id=None)

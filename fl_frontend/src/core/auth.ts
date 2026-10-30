@@ -825,7 +825,7 @@ const userOptions = {
     enabled: true,
     deleteTokenExpiresIn: LOESCHUNG_LINK_GUELTIG_STUNDEN * 60 * 60,
     sendDeleteAccountVerification: sendDeletionLink,
-    beforeDelete: eraseBeforeTheAccount,
+    beforeDelete: loeschenBeforeTheAccount,
   },
 } satisfies BetterAuthOptions["user"];
 
@@ -839,8 +839,8 @@ async function sendDeletionLink({ user, token }: { user: { email: string }; toke
 }
 
 /** Named, because the library's failure line records an error's name and nothing else. */
-class DeletionWithoutErasure extends Error {
-  override name = "DeletionWithoutErasure";
+class DeletionWithoutLoeschung extends Error {
+  override name = "DeletionWithoutLoeschung";
 }
 
 /** The library's answer to a link it completed (`better-auth/api :: deleteUser`), its one answer that deletes. */
@@ -854,22 +854,23 @@ class DeletionNotAnswered extends Error {
 // Our own dependency injection, never a compensation for the library: the hook takes no per-call
 // value, the backend's write lives in a slice's mutations module, and `core` imports no slice.
 /** The erasure of the league's records one press hands `deleteOwnAccount`, for the deletion that call makes. */
-const ownErasure = new AsyncLocalStorage<() => Promise<unknown>>();
+const ownLoeschung = new AsyncLocalStorage<() => Promise<unknown>>();
 
 /**
  * Runs after the library has checked the token against the signed-in user and before it deletes anything:
  * an account never goes while the league's records of its address stand.
  */
-async function eraseBeforeTheAccount(user: { id: string; email: string }): Promise<void> {
-  const erase = ownErasure.getStore();
+async function loeschenBeforeTheAccount(user: { id: string; email: string }): Promise<void> {
+  const loeschen = ownLoeschung.getStore();
   // The backend erases the request's person and the library deletes the session's user, so the two must
   // be one address; with no erasure handed in, no deletion goes ahead at all.
   const actor = getRequestActor();
-  if (erase === undefined || actor?.lane !== "person" || actor.email !== asSignInIdentifier(user.email)) throw new DeletionWithoutErasure();
+  if (loeschen === undefined || actor?.lane !== "person" || actor.email !== asSignInIdentifier(user.email))
+    throw new DeletionWithoutLoeschung();
 
   // Thrown on as it came, so the press reads the backend's refusal, or a write of unknown outcome, as every
   // person write does; the account and its passkeys stand for a fresh link.
-  await erase();
+  await loeschen();
 
   // Before the library deletes the user row: a failure past here leaves that row for the account sweep,
   // never passkeys whose account is gone.
@@ -1971,19 +1972,19 @@ export const requestAccountDeletion = (requestHeaders: Headers) => auth.api.dele
 export type OwnAccountDeletion = "deleted" | "linkRefused";
 
 /**
- * Completes a mailed deletion link for the session `requestHeaders` names, `eraseRecords` erasing that
+ * Completes a mailed deletion link for the session `requestHeaders` names, `loeschenRecords` erasing that
  * person's league records first; a throw of the erasure, or of the store past it, comes back as thrown.
  */
 export async function deleteOwnAccount(
   token: string,
   requestHeaders: Headers,
-  eraseRecords: () => Promise<unknown>,
+  loeschenRecords: () => Promise<unknown>,
 ): Promise<OwnAccountDeletion> {
   // The library reads an empty token as a request for a new link, which it would mint and mail: no link at all.
   if (token === "") return "linkRefused";
 
   try {
-    const answer = await ownErasure.run(eraseRecords, () => auth.api.deleteUser({ body: { token: token }, headers: requestHeaders }));
+    const answer = await ownLoeschung.run(loeschenRecords, () => auth.api.deleteUser({ body: { token: token }, headers: requestHeaders }));
     // The library's own word for a deletion, never the absence of a throw. Its one other answer, a link's, comes
     // only for an empty token, which the guard above refuses first: no case reaches this check alone.
     if (answer.message !== ACCOUNT_DELETED) throw new DeletionNotAnswered();

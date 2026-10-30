@@ -26,12 +26,12 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.crud import faellige_seite, saison_statuses
-from app.api.identitaet.schemas import FLLoeschungLaufParams
-from app.api.identitaet.sweep_router import LOESCHUNGEN_PER_PASS, post_loeschung_lauf
+from app.api.identitaet.schemas import FLLoeschungSweepParams
+from app.api.identitaet.system_router import LOESCHUNGEN_PER_PASS, sweep_loeschung
 from app.api.registrierungen.public_router import post_registrierung
 from app.api.registrierungen.schemas import FLPostRegistrierungPayload
 from app.api.registrierungen.services import compose_ablehnung_update
-from app.api.saisons.admin_router import activate_saison, preview_loeschung
+from app.api.saisons.admin_router import activate_saison, get_loeschung_vorschau
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.admin_router import post_saison_spieler
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
@@ -60,8 +60,8 @@ from tests.documents import (
     spieler_document,
     team_document,
 )
-from tests.erasure import erasure_collections
 from tests.isolation import InterleavedCollection
+from tests.loeschung import loeschung_collections
 from tests.whole_database import where_held
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
@@ -74,7 +74,7 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_loeschung_sweep_test")
 CONFIG = config_for(DATABASE_NAME)
 
-PATH = f"/api/v{API_VERSION}/identitaet/loeschung/lauf"
+PATH = f"/api/v{API_VERSION}/identitaet/loeschung/sweep"
 
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2026-04-01"
@@ -165,9 +165,9 @@ def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAGUE, mu
 
 
 async def run(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any = None, **replaced: Any) -> Any:
-    return await post_loeschung_lauf(
-        params=FLLoeschungLaufParams(nach=nach),
-        **erasure_collections(database, **({"saisons_collection": database[Collection.SAISONS]} | replaced)),
+    return await sweep_loeschung(
+        params=FLLoeschungSweepParams(nach=nach),
+        **loeschung_collections(database, **({"saisons_collection": database[Collection.SAISONS]} | replaced)),
         sperrliste=ban_list(database),
         db=client,
         config=CONFIG,
@@ -449,7 +449,7 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
 
         assert (answer["spieler"], answer["uebersprungen"], answer["verbleibend"], standing) == (0, 1, 0, 1)
 
-    def test_an_address_corrected_by_hand_is_erased_as_it_stands_now(self, mongo_replica_set_url: str):
+    def test_an_address_corrected_by_hand_is_geloescht_as_it_stands_now(self, mongo_replica_set_url: str):
         """Carry the read's address into the erasure and this fails: the pupil stands, and a stranger's registration goes."""
 
         corrected = "quintessa.neu@beispielschule.de"
@@ -641,7 +641,7 @@ BELOW_THE_ENDED = {PLANNED_BELOW: "future", "2024": "active", "2025": "past"}
 
 class TestAnActivationInsideThePupilsTransactionKeepsThem:
     def test_the_pupil_stands(self, mongo_replica_set_url: str):
-        """Remove the planned season's anchor in `erase_if_still_due` and the pupil goes.
+        """Remove the planned season's anchor in `loeschen_if_still_due` and the pupil goes.
 
         The pupil's only row is in the planned season, which activating it keeps; the transaction read it planned.
         """
@@ -678,7 +678,7 @@ class TestAnActivationInsideThePupilsTransactionKeepsThem:
 
 
 class TestOneRecordHoldsBackNobody:
-    def test_a_refused_erasure_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_a_refused_loeschung_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A log image refusing the redaction's update, a real failure under strict validation.
 
         Remove the catch and the call fails, the second pupil standing.
@@ -854,7 +854,7 @@ class TestEachCallTakesAShare:
         assert answers == [(0, LOESCHUNGEN_PER_PASS), (1, 0)]
         assert standing == 0
 
-    def test_two_calls_at_once_erase_each_pupil_once(self, mongo_replica_set_url: str):
+    def test_two_calls_at_once_loeschen_each_pupil_once(self, mongo_replica_set_url: str):
         """Count the attempts rather than the erasures and the sum exceeds the pupils; a conflict surfacing as a failure fails it too."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -874,7 +874,7 @@ class TestEachCallTakesAShare:
 
 
 class TestNothingIsDueBeforeASeasonHasEnded:
-    def test_a_league_with_no_past_season_erases_nobody(self, mongo_replica_set_url: str):
+    def test_a_league_with_no_past_season_loescht_nobody(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(pupil(numbered(1), address_of(1)))
 
@@ -896,9 +896,9 @@ class TestNoJournalLine:
             return (await run(database, client)).spieler
 
         with caplog.at_level(logging.INFO):
-            erased = on_a_league(mongo_replica_set_url, body)
+            geloescht = on_a_league(mongo_replica_set_url, body)
 
-        assert erased == 1
+        assert geloescht == 1
         assert not [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
 
 
@@ -959,8 +959,8 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
 FUTURE = "2027"
 
 
-class TestThePreviewCountsWhomTheNextActivationsRunErases:
-    def test_the_run_after_the_activation_erases_the_count_the_preview_answered(self, mongo_replica_set_url: str):
+class TestThePreviewCountsWhomTheNextActivationsRunLoescht:
+    def test_the_run_after_the_activation_loescht_the_count_the_preview_answered(self, mongo_replica_set_url: str):
         """Read on today's statuses, the preview counts one pupil short: the row in 2025 keeps its pupil until 2026 ends."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -976,7 +976,7 @@ class TestThePreviewCountsWhomTheNextActivationsRunErases:
                 )
             )
 
-            vorschau = await preview_loeschung(
+            vorschau = await get_loeschung_vorschau(
                 saison_id=FUTURE,
                 saisons_collection=database[Collection.SAISONS],
                 spieler_collection=database[Collection.SPIELER],
@@ -1001,7 +1001,7 @@ class TestThePreviewCountsWhomTheNextActivationsRunErases:
     def test_an_unknown_season_is_not_found(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentNotFoundError):
-                await preview_loeschung(
+                await get_loeschung_vorschau(
                     saison_id="2099",
                     saisons_collection=database[Collection.SAISONS],
                     spieler_collection=database[Collection.SPIELER],

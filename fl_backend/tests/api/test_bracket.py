@@ -240,7 +240,7 @@ class TestResolveBracket:
         assert resolved(spiele) == {29: ("Team 1", "Team 6")}
 
     def test_a_shootout_is_ignored_where_the_goals_already_decided_it(self, fixture_at: FixtureFactory, side: SideFactory):
-        """A hand edit only: `patch_spiel_data` discards it and no validator holds a cross-field rule. Reading it advances the loser."""
+        """A hand edit only: `patch_spiel` discards it and no validator holds a cross-field rule. Reading it advances the loser."""
 
         spiele = [
             fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis="3:1", elfmeterschiessen={"team1": 2, "team2": 4}),

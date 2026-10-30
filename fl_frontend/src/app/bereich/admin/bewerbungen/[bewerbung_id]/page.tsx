@@ -9,7 +9,7 @@ import { resolveBewerbungId } from "@/features/bewerbungen/resolvers";
 import { bewerbungTeamName } from "@/features/bewerbungen/utils";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { getMedienFragen } from "@/features/spieler/medienFragen";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { buildGruppeOffer } from "@/features/teams/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
@@ -48,7 +48,7 @@ async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewer
   // team is taken into (`entry_saison_not_future`) and the one the base read withholds.
   const [saisonsRes, teamsRes, medienFragen, neubesetzung] = await Promise.all([
     getAdminSaisons(),
-    getTeamMemberships(),
+    getTeamSaisons(),
     runWithIncomingTrace(() => getMedienFragen(bewerbung.kontakte)),
     // `null` where either registry read failed: the reseat alone needs them, so it closes and the
     // decision above it stands. Words it cannot key reach the error boundary.

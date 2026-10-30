@@ -70,7 +70,7 @@ LINES = {
 }
 
 
-def test_an_erasure_is_spelled_as_the_export_and_the_restore_read_it():
+def test_an_loeschung_is_spelled_as_the_export_and_the_restore_read_it():
     """Written out rather than composed: a change to the line's spelling is a change to every day file's."""
     assert LINES["an erasure"].text() == f"{JOURNAL_TOKEN} {PERSON} loeschung pseudonym={PSEUDONYM} halter={HALTER}"
     assert LINES["an erasure naming no holder"].text() == f"{JOURNAL_TOKEN} {PERSON} loeschung pseudonym={PSEUDONYM}"

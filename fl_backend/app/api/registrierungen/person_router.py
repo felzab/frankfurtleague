@@ -9,6 +9,9 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.identitaet.crud import refuse_without_a_seat
 from app.api.identitaet.lookup import SubjektLookup
+from app.api.identitaet.services import ist_eigene_registrierung
+from app.api.konto.crud import press_widerruf
+from app.api.konto.services import KONTO_SEITE_SPIELER, compose_person_move, find_eigener_eintrag_refusal, widerruf_line
 from app.api.postausgang.schemas import FLPostausgangBezug, FLRegistrierungAbsageDaten
 from app.api.postausgang.services import enqueue_mail
 from app.api.registrierungen.crud import (
@@ -25,6 +28,7 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungAblehnungResponse,
     FLRegistrierungAufnahmeResponse,
     FLRegistrierungAufnehmenPayload,
+    FLRegistrierungKontoEinwilligungResponse,
 )
 from app.api.registrierungen.services import (
     compose_ablehnung_update,
@@ -40,14 +44,15 @@ from app.api.registrierungen.services import (
     nummern_im_kader,
     person_weicht_ab,
     registrierung_ist_bestaetigt,
+    traegt_wahlen,
 )
-from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier, SpielerIdentifier
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spieler.crud import refuse_a_full_squad
 from app.api.spieltage.crud import nachnominierung_laeuft_in
 from app.core.collections import Collection
-from app.core.config import API_VERSION
-from app.core.crud import erase_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.crud import loeschen_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     AktionenCollection,
     DBClient,
@@ -61,12 +66,15 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
+from app.core.journal import Journal
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.routing import by_id
-from app.core.security import verify_access_admin
+from app.core.security import loeschung_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
+from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.einwilligung import FLKontoEinwilligungPayload
 
 # The person lane's binder in place of `bind_actor`: a seat holder signs in by code and holds no
 # grant, so the administrator's actor check would refuse every one of them.
@@ -307,7 +315,7 @@ async def aufnehmen(
 
         # An ID filter alone: the log keeps a filter as text, so one naming the pupil would keep
         # what this erasure destroys.
-        await erase_many_from_db(
+        await loeschen_many_from_db(
             collection=registrierungen_collection, db_filter={"_id": registrierung_id, "saison_id": saison_id}, session=session
         )
         await patch_many_in_db(
@@ -410,3 +418,100 @@ async def ablehnen(
 
     async with transaction_session(db) as session:
         return await session.with_transaction(decline_for_the_team)
+
+
+# A router of its own, for `app/api/spieler/person_router.py :: spieler_router`'s reason: `router`
+# binds the `kontakt` Funktion at router level, and a pending registrant writes as the pupil they
+# registered as.
+spieler_router = APIRouter(
+    prefix=f"/api/v{API_VERSION}/registrierungen/konto",
+    dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["spieler"])],
+)
+
+
+@spieler_router.patch(
+    f"{by_id('registrierung_id')}/einwilligung",
+    response_model=FLRegistrierungKontoEinwilligungResponse,
+    summary="Withdraw a pupil's own publication and media consent on their pending registration",
+)
+async def patch_einwilligung(
+    registrierung_id: CustomRouteObjectId,
+    einwilligung_data: Annotated[FLKontoEinwilligungPayload, Body()],
+    identifier: SpielerIdentifier,
+    registrierungen_collection: RegistrierungenCollection,
+    db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
+    germany_now: datetime = Depends(get_germany_now),
+) -> FLRegistrierungKontoEinwilligungResponse:
+    """Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
+
+    A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `funktion_nicht_gehalten`,
+    `fassung_unzulaessig` (the wording or the choices moved since the page was served) and `erteilung_nicht_zugelassen`.
+    """
+
+    gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
+    # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
+    am = log_stamp(germany_now)
+    journal = Journal()
+
+    @journal.attempted
+    async def write(session: AsyncClientSession) -> FLRegistrierungKontoEinwilligungResponse:
+        # By the id alone: the predicate judges the status, the fold, the confirmation and the choices.
+        row = await registrierungen_collection.find_one(
+            {"_id": registrierung_id}, projection={"status": 1, "email": 1, "einwilligung": 1}, session=session
+        )
+        # A returning pupil's is the address's own and holds no choice to withdraw, its person's own record holding them.
+        refuse(
+            find_eigener_eintrag_refusal(
+                gehalten=row is not None and ist_eigene_registrierung(row, identifier) and traegt_wahlen(row["einwilligung"])
+            )
+        )
+        assert row is not None
+        gespeichert = row["einwilligung"]
+
+        # Withdraw-only: a pending registration grants no panel to answer a grant against.
+        await press_widerruf(
+            bloecke=[gespeichert],
+            gewaehlt=gewaehlt,
+            nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
+            text_version=einwilligung_data.text_version,
+            seite=KONTO_SEITE_SPIELER,
+        )
+
+        update = compose_person_move(gespeichert=gespeichert, gewaehlt=gewaehlt, am=am, text_version=einwilligung_data.text_version)
+        updated = (
+            None
+            if update is None
+            else await patch_one_in_db(
+                collection=registrierungen_collection,
+                db_filter={"_id": row["_id"]},
+                update=update,
+                session=session,
+                return_document=ReturnDocument.AFTER,
+            )
+        )
+        line = widerruf_line(
+            person_hash=loeschung_journal_hash(identifier, schluessel=config.sperrliste_schluessel),
+            collection=Collection.REGISTRIERUNGEN,
+            record_id=row["_id"],
+            bloecke=[gespeichert],
+            gewaehlt=gewaehlt,
+            am=am,
+            text_version=einwilligung_data.text_version,
+        )
+        if line is not None:
+            journal.note(line)
+        # A press moving neither choice is no act, so nothing was written and the record answers as stored.
+        einwilligung = gespeichert if updated is None else updated["einwilligung"]
+
+        return FLRegistrierungKontoEinwilligungResponse.model_validate(
+            {
+                "registrierung_id": row["_id"],
+                "einwilligung": einwilligung,
+                "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung]),
+            }
+        )
+
+    async with journal:
+        async with transaction_session(db) as session:
+            return await session.with_transaction(write)

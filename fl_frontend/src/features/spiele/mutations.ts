@@ -1,4 +1,4 @@
-import { spielePatchSpielData } from "@/core/generated/client/sdk";
+import { spielePatchSpiel } from "@/core/generated/client/sdk";
 
 import type { FLPatchSpielDataResponse } from "@/core/generated/client/types";
 import type { FLPatchSpielDataPayloadWithId } from "./types";
@@ -12,7 +12,7 @@ export const patchAdminSpielData = async (
   uebernimmtBericht: number | null,
 ): Promise<FLPatchSpielDataResponse> =>
   // Left out unseeded: sent, it adopts whatever report stands at that version.
-  spielePatchSpielData(spiel_id, fields, uebernimmtBericht === null ? {} : { uebernimmt_bericht: uebernimmtBericht });
+  spielePatchSpiel(spiel_id, fields, uebernimmtBericht === null ? {} : { uebernimmt_bericht: uebernimmtBericht });
 
 /**
  * **Deliberately the same endpoint, payload and answer as the save.** Its own would be a second implementation of
@@ -20,4 +20,4 @@ export const patchAdminSpielData = async (
  */
 export const previewAdminSpielData = async ({ spiel_id, ...fields }: FLPatchSpielDataPayloadWithId): Promise<FLPatchSpielDataResponse> =>
   // Sent as changing nothing, so the spine clears no cached read on a keystroke.
-  spielePatchSpielData(spiel_id, fields, { dry_run: true }, { readOnly: true });
+  spielePatchSpiel(spiel_id, fields, { dry_run: true }, { readOnly: true });

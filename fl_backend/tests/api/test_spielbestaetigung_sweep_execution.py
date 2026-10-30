@@ -13,7 +13,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import SWEEP_PAGE, days_after, hash_token
 from app.api.postausgang.schemas import FLPostausgangZustellung
 from app.api.spielbestaetigungen.person_router import post_schiedsrichter_antwort
-from app.api.spielbestaetigungen.router import post_spielbestaetigung
+from app.api.spielbestaetigungen.public_router import post_spielbestaetigung
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAntwortPayload,
     FLSpielbestaetigungSchiedsrichterAntwortPayload,
@@ -29,12 +29,12 @@ from app.api.spielbestaetigungen.services import (
     seat_holding,
     seite_of,
 )
-from app.api.spielbestaetigungen.sweep_router import (
+from app.api.spielbestaetigungen.system_router import (
     CLOSES_PER_PASS,
-    get_spiel_sweep_saisons,
+    get_sweep_saisons,
     sweep_spielbestaetigungen,
 )
-from app.api.spiele.admin_router import patch_spiel_data
+from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.spiele.services import ANSETZUNG_BESTAETIGT, build_spiele_pipeline
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
@@ -52,8 +52,8 @@ from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, kontaktperson_document
-from tests.erasure import erased
 from tests.isolation import InterleavedCollection
+from tests.loeschung import geloescht
 from tests.payloads import spiel_patch_body
 from tests.postausgang import MAIL_NOW, drained
 from tests.records import record_collections
@@ -426,7 +426,7 @@ async def move(database: AsyncDatabase, client: AsyncMongoClient, spiel_id: Obje
 
     stored = await database[Collection.SPIELE].find_one({"_id": spiel_id})
     assert stored is not None
-    await patch_spiel_data(
+    await patch_spiel(
         spiel_id=spiel_id,
         spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(stored, **overrides)),
         db=client,
@@ -510,7 +510,7 @@ class TestTheSweepAsksAboutNothingItCannotHelp:
         junctions = [junction(team_id, saison_id=saison_id) for saison_id in (SAISON_ID, PAST_SAISON_ID) for team_id in (ALPHA, BETA)]
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            listing = await get_spiel_sweep_saisons(saisons_collection=database[Collection.SAISONS])
+            listing = await get_sweep_saisons(saisons_collection=database[Collection.SAISONS])
             # As the timer runs it, and the past season asked directly as a mistyped call would.
             answers = [await sweep(database, client, saison_id=saison_id) for saison_id in [*listing.saison_ids, PAST_SAISON_ID]]
 
@@ -1493,30 +1493,30 @@ class TestAnEmptiedEntryFilledBesideAHandoverIsMintedForTheNewHolder:
         interleaved.assert_landed_inside(serially=1)
 
 
-class TestARefereeErasedBesideTheMintIsToldNothing:
+class TestARefereeGeloeschtBesideTheMintIsToldNothing:
     """The erasure deletes the referee's rows its snapshot holds, and the mint's is not yet one."""
 
-    def test_the_mint_runs_again_and_writes_the_erased_referee_no_row(self, mongo_replica_set_url: str):
+    def test_the_mint_runs_again_and_writes_the_geloescht_referee_no_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def erase_the_referee() -> None:
-                await erased(database, client, REFEREE_EMAIL, germany_now=NOW)
+            async def loeschen_the_referee() -> None:
+                await geloescht(database, client, REFEREE_EMAIL, germany_now=NOW)
 
-            interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SCHIEDSRICHTER], erase_the_referee)
+            interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SCHIEDSRICHTER], loeschen_the_referee)
             answer = await a_pass_through(database, client, schiedsrichter=cast(Any, interleaved))
 
-            erased_since = await database[Collection.SCHIEDSRICHTER].count_documents({"_id": SCHIEDSRICHTER}) == 0
-            return interleaved, erased_since, answer, await rows(database)
+            geloescht_since = await database[Collection.SCHIEDSRICHTER].count_documents({"_id": SCHIEDSRICHTER}) == 0
+            return interleaved, geloescht_since, answer, await rows(database)
 
-        interleaved, erased_since, answer, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
+        interleaved, geloescht_since, answer, stored = on_a_league(mongo_replica_set_url, body, spiele=[fixture(SPIEL, 1, NEXT_WEEK)])
 
         # The premise: the erasure committed under the mint's read, the first a fresh league's pass makes of the referees;
         # the mint run again reads none, the fixture now booked onto the ghost.
-        assert (interleaved.passes, erased_since) == (1, True)
+        assert (interleaved.passes, geloescht_since) == (1, True)
         assert answer.einteilungen == []
         assert [row["partei"]["art"] for row in stored] == ["team", "team"]
 
 
-class TestAnErasedContactIsNotToldTheirFixtureMoved:
+class TestAnGeloeschtContactIsNotToldTheirFixtureMoved:
     """A seat holding no link on the closed row is one the erasure's void writes nothing for."""
 
     def _told(self, url: str, interleaving: Callable[[Any, Callable[[], Awaitable[None]]], Any], serially: int) -> set[str]:
@@ -1528,10 +1528,10 @@ class TestAnErasedContactIsNotToldTheirFixtureMoved:
             await database[Collection.SPIELBESTAETIGUNGEN].update_many({"partei.team_id": ALPHA}, {"$set": {"kontakte.trainer": None}})
             await database[Collection.SPIELE].update_one({"_id": SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
 
-            async def erase_the_trainer() -> None:
-                await erased(database, client, address(ALPHA, "trainer"), germany_now=NOW)
+            async def loeschen_the_trainer() -> None:
+                await geloescht(database, client, address(ALPHA, "trainer"), germany_now=NOW)
 
-            interleaved = interleaving(database[Collection.SAISON_TEAMS], erase_the_trainer)
+            interleaved = interleaving(database[Collection.SAISON_TEAMS], loeschen_the_trainer)
             answer = await a_pass_through(database, client, saison_teams=cast(Any, interleaved))
 
             return interleaved, answer
@@ -1544,7 +1544,7 @@ class TestAnErasedContactIsNotToldTheirFixtureMoved:
         assert address(ALPHA, "ansprechperson") in told
         return told
 
-    def test_the_close_runs_again_and_leaves_the_erased_trainer_out(self, mongo_replica_set_url: str):
+    def test_the_close_runs_again_and_leaves_the_geloescht_trainer_out(self, mongo_replica_set_url: str):
         """The erasure lands inside the close, after its read of the season rows: only the close's anchor conflicts with it."""
 
         assert address(ALPHA, "trainer") not in self._told(mongo_replica_set_url, ThenTheRivalAfterTheFirstSessionRead, serially=1)
@@ -1687,7 +1687,7 @@ class TestARefereeTakenOffIsToldOnlyWhereTheyWereTold:
         assert (second.geschlossen, second.schiedsrichter_gewechselt) == (0, [])
 
 
-class ConfirmationsRunningARivalAtTheErasuresRead(InterleavedCollection):
+class ConfirmationsRunningARivalAtTheLoeschungenRead(InterleavedCollection):
     """The confirmations a referee's erasure reads its rows off, a rival run once after that read and before its removal."""
 
     async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
@@ -1696,17 +1696,17 @@ class ConfirmationsRunningARivalAtTheErasuresRead(InterleavedCollection):
         return cursor
 
 
-class TestATakenOffRefereesErasureAndTheCloseCross:
+class TestATakenOffRefereesLoeschungAndTheCloseCross:
     """The close and the notice step each write the very row the erasure removes, so the two conflict and one runs again."""
 
-    def test_an_erasure_landing_inside_the_notice_step_leaves_nobody_told(self, mongo_replica_set_url: str):
+    def test_an_loeschung_landing_inside_the_notice_step_leaves_nobody_told(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await told_and_taken_off(database, client)
 
-            async def erase_the_referee() -> None:
-                await erased(database, client, REFEREE_EMAIL, germany_now=NOW)
+            async def loeschen_the_referee() -> None:
+                await geloescht(database, client, REFEREE_EMAIL, germany_now=NOW)
 
-            interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SCHIEDSRICHTER], erase_the_referee)
+            interleaved = ThenTheRivalAfterTheFirstSessionRead(database[Collection.SCHIEDSRICHTER], loeschen_the_referee)
             answer = await a_pass_through(database, client, schiedsrichter=cast(Any, interleaved))
 
             return interleaved, answer, await rows(database, **{"partei.art": "schiedsrichter"})
@@ -1719,7 +1719,7 @@ class TestATakenOffRefereesErasureAndTheCloseCross:
         assert answer.schiedsrichter_gewechselt == []
         assert [row["partei"]["schiedsrichter_id"] for row in stored] == [OTHER_SCHIEDSRICHTER]
 
-    def test_a_close_landing_inside_the_erasure_leaves_no_row_of_theirs(self, mongo_replica_set_url: str):
+    def test_a_close_landing_inside_the_loeschung_leaves_no_row_of_theirs(self, mongo_replica_set_url: str):
         """The close commits first and its notice stands, the order being close then erasure; the row it closed goes with them."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1729,8 +1729,8 @@ class TestATakenOffRefereesErasureAndTheCloseCross:
             async def a_pass() -> None:
                 answers.append(await sweep(database, client))
 
-            interleaved = ConfirmationsRunningARivalAtTheErasuresRead(database[Collection.SPIELBESTAETIGUNGEN], a_pass)
-            await erased(database, client, REFEREE_EMAIL, germany_now=NOW, spielbestaetigungen_collection=interleaved)
+            interleaved = ConfirmationsRunningARivalAtTheLoeschungenRead(database[Collection.SPIELBESTAETIGUNGEN], a_pass)
+            await geloescht(database, client, REFEREE_EMAIL, germany_now=NOW, spielbestaetigungen_collection=interleaved)
 
             return interleaved, answers, await rows(database, **{"partei.schiedsrichter_id": SCHIEDSRICHTER})
 

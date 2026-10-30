@@ -1,5 +1,5 @@
-import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
 import { ZEITZONE } from "@/core/format";
+import { GELOESCHT_ACTOR_MARKER } from "@/core/geloeschtActor";
 import { GELOESCHTE_PERSON, vonOderGesperrt } from "@/features/berechtigungen/constants";
 
 import { AKTION_COLLECTION_LABELS, AKTION_HERKUNFT_LABELS, AKTOR_FUNKTION_LABELS, AKTOR_HERKUNFT } from "./constants";
@@ -21,7 +21,7 @@ export function herkunftOfAktor(actor: FLAktion["actor"]): AktionHerkunft {
  * admin cards' word for one erased since.
  */
 export function personAkteurLabel(actor: FLAktorPerson): string {
-  const wer = actor.pseudonym === ERASED_ACTOR_MARKER ? GELOESCHTE_PERSON : actor.pseudonym;
+  const wer = actor.pseudonym === GELOESCHT_ACTOR_MARKER ? GELOESCHTE_PERSON : actor.pseudonym;
 
   return `${AKTOR_FUNKTION_LABELS[actor.funktion]} · ${wer}`;
 }

@@ -4,7 +4,7 @@ import { AdminRegistrierungenView } from "@/features/registrierungen/components/
 import { REGISTRIERUNGEN_CRUD_COPY } from "@/features/registrierungen/constants";
 import { getAdminRegistrierungen } from "@/features/registrierungen/queries";
 import { buildAdminRegistrierungRows } from "@/features/registrierungen/utils";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
@@ -45,7 +45,7 @@ async function Registrierungen({ searchParams }: { searchParams: NextPageProps["
   const richtung = parseLeserichtung(params);
 
   // The clubs for their names alone, a registration storing its team as an id.
-  const [teamsRes, registrierungenRes] = await Promise.all([getTeamMemberships(), getAdminRegistrierungen(richtung)]);
+  const [teamsRes, registrierungenRes] = await Promise.all([getTeamSaisons(), getAdminRegistrierungen(richtung)]);
 
   return (
     <AdminRegistrierungenView

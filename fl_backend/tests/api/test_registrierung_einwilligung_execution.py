@@ -11,7 +11,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.einwilligung import services as einwilligung_services
-from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht, post_bestaetigung
+from app.api.registrierungen.public_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungPayload
 from app.api.registrierungen.services import (
     SEITE_NEU,

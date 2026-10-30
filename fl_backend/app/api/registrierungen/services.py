@@ -590,7 +590,7 @@ def build_erinnerung_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
 
 
 def build_decline_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
-    """Every declined row whose month is behind it, as `decline_erasure_is_due` judges it.
+    """Every declined row whose month is behind it, as `decline_loeschung_is_due` judges it.
 
     In the query: a page of decisions still inside their month would fill the read ahead of a due
     one, and the stall refuses the pass.
@@ -623,7 +623,7 @@ def erinnerung_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bo
     return days_after(day=verschickt_am, days=REGISTRIERUNG_ERINNERUNG_TAGE) <= today
 
 
-def bestaetigung_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:
+def bestaetigung_loeschung_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:
     """Whether the deadline clock takes this registration, strictly past its `frist`.
 
     STRICTLY, because the link still answers on the deadline's own day. No notice goes out either
@@ -641,7 +641,7 @@ def bestaetigung_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: 
     return isinstance(frist, str) and frist < today
 
 
-def undecided_erasure_is_due(*, registrierung_raw: Mapping[str, Any], saison_status: Any) -> bool:
+def undecided_loeschung_is_due(*, registrierung_raw: Mapping[str, Any], saison_status: Any) -> bool:
     """Whether the season's own end takes this registration.
 
     Whatever the pupil answered and whether or not a message could reach them: no admission can be
@@ -651,7 +651,7 @@ def undecided_erasure_is_due(*, registrierung_raw: Mapping[str, Any], saison_sta
     return registrierung_raw.get("status") == SUBMITTED and season_has_ended(saison_status=saison_status)
 
 
-def decline_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:
+def decline_loeschung_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:
     """Whether the one-month clock takes this declined registration, counted from the day the decision was taken."""
 
     if registrierung_raw.get("status") != DECLINED:
@@ -681,10 +681,10 @@ def build_offene_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
 def build_eigene_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
     """Every pending registration of these addresses, on `registrierungen_email_status`."""
 
-    return {**build_erasure_registrierung_filter(*identifiers), "status": SUBMITTED}
+    return {**build_loeschung_registrierung_filter(*identifiers), "status": SUBMITTED}
 
 
-def build_erasure_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
+def build_loeschung_registrierung_filter(*identifiers: str) -> Mapping[str, Any]:
     """Every registration of these addresses, of every status: a declined row holds the same person until its month is out."""
 
     # Folded here, the form every registration stores.

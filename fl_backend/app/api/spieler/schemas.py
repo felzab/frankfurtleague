@@ -352,7 +352,7 @@ class FLSpielerWithMemberships(_SpielerPerson, BaseReadModel):
     memberships: list[FLSpielerMembership]
 
 
-class FLSpielerMembershipsResponse(BaseAPIResponse):
+class FLSpielerSaisonsResponse(BaseAPIResponse):
     """Every player, retired ones included, each with their squad rows. Sorted by name."""
 
     spieler: list[FLSpielerWithMemberships]
@@ -414,7 +414,7 @@ class FLPatchKaderZeilePayload(BaseModel):
     version: int | None = None
 
 
-class FLSpielerSelbstKaderZeile(BaseModel):
+class FLSpielerSelfKaderZeile(BaseModel):
     """One squad row as its own pupil reads it, with the name the club played that season under."""
 
     team_id: CustomObjectId
@@ -441,7 +441,7 @@ class FLSpielerKontext(BaseModel):
     saison: str | None
 
 
-class FLSpielerSelbst(_SpielerPerson):
+class FLSpielerSelf(_SpielerPerson):
     """One pupil record's stored data as its own person reads it: the whole surname and the birthdate, never masked.
 
     Its consent is the account page's, whose entry extends this (`app/api/konto/schemas.py :: FLKontoSpielerEinwilligung`).
@@ -449,16 +449,16 @@ class FLSpielerSelbst(_SpielerPerson):
 
     spieler_id: CustomObjectId
     geburtsdatum: CustomDateString
-    kader: list[FLSpielerSelbstKaderZeile]
+    kader: list[FLSpielerSelfKaderZeile]
 
 
-class FLSpielerSelbstResponse(BaseAPIResponse):
+class FLSpielerSelfResponse(BaseAPIResponse):
     """The signed-in address's own pupil record: one at most, `spieler.email` being unique."""
 
-    spieler: FLSpielerSelbst
+    spieler: FLSpielerSelf
 
 
-class FLSpielerSelbstEinwilligungResponse(BaseAPIResponse):
+class FLSpielerKontoEinwilligungResponse(BaseAPIResponse):
     """The record as it stands after the write, everything the person did not move unchanged."""
 
     spieler_id: CustomObjectId

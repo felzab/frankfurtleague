@@ -81,8 +81,8 @@ PUBLIC_SCHIEDSRICHTER_NAME = "Ada K."
 
 LIST_PATH = f"/api/v{API_VERSION}/spiele"
 SINGLE_PATH = f"{LIST_PATH}/{SPIEL_ID}"
-ADMIN_PATH = f"{SINGLE_PATH}/admin"
-ADMIN_LIST_PATH = f"{LIST_PATH}/list/admin?saison_id={SAISON_ID}"
+ADMIN_PATH = f"{SINGLE_PATH}/verwaltung"
+ADMIN_LIST_PATH = f"{LIST_PATH}/list/verwaltung?saison_id={SAISON_ID}"
 
 AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag", "datum": "2026-03-14"}
 

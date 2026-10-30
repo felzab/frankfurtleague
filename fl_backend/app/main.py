@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from http import HTTPStatus
-from typing import Any
+from typing import Any, Final
 
 from fastapi import APIRouter, FastAPI
 from fastapi.openapi.utils import get_openapi
@@ -8,62 +8,56 @@ from fastapi.routing import APIRoute
 from pydantic.json_schema import models_json_schema
 
 from app.api.adresswechsel.admin_router import router as adresswechsel_admin_router
-from app.api.adresswechsel.router import router as adresswechsel_router
-from app.api.adresswechsel.sweep_router import router as adresswechsel_sweep_router
+from app.api.adresswechsel.public_router import router as adresswechsel_public_router
+from app.api.adresswechsel.system_router import router as adresswechsel_system_router
 from app.api.aktionen.admin_router import router as aktionen_admin_router
 from app.api.berechtigungen.admin_router import router as berechtigungen_admin_router
-from app.api.berechtigungen.sweep_router import router as berechtigungen_sweep_router
+from app.api.berechtigungen.system_router import router as berechtigungen_system_router
 from app.api.bewerbungen.admin_router import router as bewerbungen_admin_router
-from app.api.bewerbungen.einwilligung_router import router as bewerbungen_einwilligung_router
 from app.api.bewerbungen.person_router import router as bewerbungen_person_router
 from app.api.bewerbungen.public_router import router as bewerbungen_public_router
-from app.api.bewerbungen.router import router as bewerbungen_router
-from app.api.bewerbungen.sweep_router import router as bewerbungen_sweep_router
-from app.api.einwilligung.router import router as einwilligung_router
+from app.api.bewerbungen.system_router import router as bewerbungen_system_router
+from app.api.einwilligung.public_router import router as einwilligung_public_router
 from app.api.identitaet.admin_router import router as identitaet_admin_router
 from app.api.identitaet.person_router import router as identitaet_person_router
-from app.api.identitaet.router import router as identitaet_router
-from app.api.identitaet.sweep_router import router as identitaet_sweep_router
-from app.api.konto.router import router as konto_router
-from app.api.postausgang.router import router as postausgang_router
-from app.api.registrierungen.einwilligung_router import router as registrierungen_einwilligung_router
+from app.api.identitaet.system_router import router as identitaet_system_router
+from app.api.konto.person_router import router as konto_person_router
+from app.api.postausgang.system_router import router as postausgang_system_router
+from app.api.registrierungen.admin_router import router as registrierungen_admin_router
 from app.api.registrierungen.person_router import router as registrierungen_person_router
+from app.api.registrierungen.person_router import spieler_router as registrierungen_person_spieler_router
 from app.api.registrierungen.public_router import router as registrierungen_public_router
-from app.api.registrierungen.router import router as registrierungen_router
-from app.api.registrierungen.selbst_router import router as registrierungen_selbst_router
-from app.api.registrierungen.sweep_router import router as registrierungen_sweep_router
+from app.api.registrierungen.system_router import router as registrierungen_system_router
 from app.api.saisons.admin_router import router as saisons_admin_router
-from app.api.saisons.router import router as saisons_router
+from app.api.saisons.public_router import router as saisons_public_router
 from app.api.schiedsrichter.admin_router import router as schiedsrichter_admin_router
-from app.api.schiedsrichter.bestaetigung_router import router as schiedsrichter_bestaetigung_router
 from app.api.schiedsrichter.person_router import router as schiedsrichter_person_router
-from app.api.schiedsrichter.router import router as schiedsrichter_router
+from app.api.schiedsrichter.public_router import router as schiedsrichter_public_router
 from app.api.sperrliste.admin_router import router as sperrliste_admin_router
 from app.api.spielberichte.admin_router import router as spielberichte_admin_router
 from app.api.spielberichte.person_router import router as spielberichte_person_router
 from app.api.spielbestaetigungen.admin_router import router as spielbestaetigungen_admin_router
 from app.api.spielbestaetigungen.person_router import router as spielbestaetigungen_person_router
-from app.api.spielbestaetigungen.router import router as spielbestaetigungen_router
-from app.api.spielbestaetigungen.sweep_router import router as spielbestaetigungen_sweep_router
+from app.api.spielbestaetigungen.public_router import router as spielbestaetigungen_public_router
+from app.api.spielbestaetigungen.system_router import router as spielbestaetigungen_system_router
 from app.api.spiele.admin_router import router as spiele_admin_router
-from app.api.spiele.router import router as spiele_router
+from app.api.spiele.public_router import router as spiele_public_router
 from app.api.spieler.admin_router import router as spieler_admin_router
 from app.api.spieler.person_router import router as spieler_person_router
-from app.api.spieler.router import router as spieler_router
-from app.api.spieler.selbst_router import router as spieler_selbst_router
+from app.api.spieler.person_router import spieler_router as spieler_person_spieler_router
+from app.api.spieler.public_router import router as spieler_public_router
 from app.api.spielorte.admin_router import router as spielorte_admin_router
-from app.api.spielorte.router import router as spielorte_router
 from app.api.spieltage.admin_router import router as spieltage_admin_router
-from app.api.spieltage.router import router as spieltage_router
+from app.api.spieltage.public_router import router as spieltage_public_router
 from app.api.system.router import root_router
 from app.api.system.router import router as system_router
 from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.person_router import router as teams_person_router
-from app.api.teams.router import router as teams_router
+from app.api.teams.public_router import router as teams_public_router
 from app.core.config import BackendConfig
 from app.core.db import lifespan
 from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, register_exception_handlers
-from app.core.logging import setup_logging
+from app.core.logging import fl_logger, setup_logging
 from app.core.middlewares import TracedApp
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
@@ -71,45 +65,37 @@ from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 # is `<tag>_<handler>`: a handler's name is unique within its slice. Which key a router takes its
 # guard publishes, as the operation's `security`.
 ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
-    "adresswechsel": (adresswechsel_router, adresswechsel_admin_router, adresswechsel_sweep_router),
+    "adresswechsel": (adresswechsel_public_router, adresswechsel_admin_router, adresswechsel_system_router),
     "aktionen": (aktionen_admin_router,),
-    "berechtigungen": (berechtigungen_admin_router, berechtigungen_sweep_router),
-    "bewerbungen": (
-        bewerbungen_router,
-        bewerbungen_admin_router,
-        bewerbungen_public_router,
-        bewerbungen_einwilligung_router,
-        bewerbungen_person_router,
-        bewerbungen_sweep_router,
-    ),
-    "einwilligung": (einwilligung_router,),
-    "identitaet": (identitaet_router, identitaet_admin_router, identitaet_person_router, identitaet_sweep_router),
-    "konto": (konto_router,),
-    "postausgang": (postausgang_router,),
+    "berechtigungen": (berechtigungen_admin_router, berechtigungen_system_router),
+    "bewerbungen": (bewerbungen_admin_router, bewerbungen_public_router, bewerbungen_person_router, bewerbungen_system_router),
+    "einwilligung": (einwilligung_public_router,),
+    "identitaet": (identitaet_system_router, identitaet_admin_router, identitaet_person_router),
+    "konto": (konto_person_router,),
+    "postausgang": (postausgang_system_router,),
     "registrierungen": (
-        registrierungen_router,
+        registrierungen_admin_router,
         registrierungen_public_router,
-        registrierungen_einwilligung_router,
         registrierungen_person_router,
-        registrierungen_selbst_router,
-        registrierungen_sweep_router,
+        registrierungen_person_spieler_router,
+        registrierungen_system_router,
     ),
-    "saisons": (saisons_router, saisons_admin_router),
-    "schiedsrichter": (schiedsrichter_router, schiedsrichter_admin_router, schiedsrichter_bestaetigung_router, schiedsrichter_person_router),
+    "saisons": (saisons_public_router, saisons_admin_router),
+    "schiedsrichter": (schiedsrichter_admin_router, schiedsrichter_public_router, schiedsrichter_person_router),
     "sperrliste": (sperrliste_admin_router,),
     "spielberichte": (spielberichte_admin_router, spielberichte_person_router),
     "spielbestaetigungen": (
-        spielbestaetigungen_router,
+        spielbestaetigungen_public_router,
         spielbestaetigungen_admin_router,
         spielbestaetigungen_person_router,
-        spielbestaetigungen_sweep_router,
+        spielbestaetigungen_system_router,
     ),
-    "spiele": (spiele_router, spiele_admin_router),
-    "spieler": (spieler_router, spieler_admin_router, spieler_person_router, spieler_selbst_router),
-    "spielorte": (spielorte_router, spielorte_admin_router),
-    "spieltage": (spieltage_router, spieltage_admin_router),
+    "spiele": (spiele_public_router, spiele_admin_router),
+    "spieler": (spieler_public_router, spieler_admin_router, spieler_person_router, spieler_person_spieler_router),
+    "spielorte": (spielorte_admin_router,),
+    "spieltage": (spieltage_public_router, spieltage_admin_router),
     "system": (root_router, system_router),
-    "teams": (teams_router, teams_admin_router, teams_person_router),
+    "teams": (teams_public_router, teams_admin_router, teams_person_router),
 }
 
 
@@ -187,6 +173,11 @@ def mount_api(app: FastAPI) -> None:
     publish_document(app)
 
 
+# The exit a settings refusal ends the boot with, the code the frontend's boot refusal and
+# `scripts/lib/_lib.sh :: BACKEND_BOOT_CHECK` take, apart from a fault's 1.
+BOOT_REFUSED: Final = 3
+
+
 def create_app(config: BackendConfig | None = None) -> FastAPI:
     """Build the application.
 
@@ -196,12 +187,18 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     """
     # Here rather than at module scope, so `app.main` holds no `get_config` for a caller to import;
     # the ruff ban names that path too, since ruff matches the path an import spells.
-    from app.core.config import get_config  # noqa: TID251
+    from app.core.config import EnvironmentValidationError, get_config  # noqa: TID251
 
-    config = config or get_config()
-
-    # Before the app exists, so a failure while constructing it is logged in the right format.
+    # Before the settings are read, so their refusal is logged in the right format.
     setup_logging()
+
+    try:
+        config = config or get_config()
+    except EnvironmentValidationError as refusal:
+        # Its message names variables, files and failure types, never a value. An exit rather than
+        # the error, whose traceback uvicorn would print as plain text beside the JSON lines.
+        fl_logger.critical("system.config_refused", extra={"refusal": str(refusal)})
+        raise SystemExit(BOOT_REFUSED) from None
 
     app = TracedApp(lifespan=lifespan)
     app.state.config = config

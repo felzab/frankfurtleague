@@ -21,19 +21,19 @@ const MEDIEN_ALTER = 21;
 const MAPPERS = [
   [
     "a pupil's, a referee's or a season's seats",
-    "PATCH /spieler/selbst/einwilligung",
+    "PATCH /spieler/konto/einwilligung",
     (error: unknown) => mapEigeneEinwilligungRefusal(error, MEDIEN_ALTER),
     EINTRAG_WEG,
   ],
   [
     "a pending application's seats",
-    "PATCH /bewerbungen/{bewerbung_id}/person/einwilligung",
+    "PATCH /bewerbungen/{bewerbung_id}/konto/einwilligung",
     mapBewerbungEinwilligungRefusal,
     BEWERBUNG_NICHT_MEHR_OFFEN,
   ],
   [
     "a pending registration",
-    "PATCH /registrierungen/selbst/{registrierung_id}/einwilligung",
+    "PATCH /registrierungen/konto/{registrierung_id}/einwilligung",
     mapRegistrierungEinwilligungRefusal,
     REGISTRIERUNG_NICHT_MEHR_OFFEN,
   ],
@@ -50,18 +50,18 @@ const GETEILT = [
 const GRANT_CODES = refusalCodes("fassung_unzulaessig", "medien_alter", "erteilung_nicht_zugelassen");
 const WITHDRAW_CODES = refusalCodes("fassung_unzulaessig", "erteilung_nicht_zugelassen");
 const CODES: ReadonlyMap<string, ReadonlySet<string>> = new Map([
-  ["PATCH /spieler/selbst/einwilligung", new Set(GRANT_CODES)],
-  ["PATCH /bewerbungen/{bewerbung_id}/person/einwilligung", new Set(WITHDRAW_CODES)],
-  ["PATCH /registrierungen/selbst/{registrierung_id}/einwilligung", new Set(WITHDRAW_CODES)],
-  ["PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung", new Set(GRANT_CODES)],
-  ["PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung", new Set(GRANT_CODES)],
+  ["PATCH /spieler/konto/einwilligung", new Set(GRANT_CODES)],
+  ["PATCH /bewerbungen/{bewerbung_id}/konto/einwilligung", new Set(WITHDRAW_CODES)],
+  ["PATCH /registrierungen/konto/{registrierung_id}/einwilligung", new Set(WITHDRAW_CODES)],
+  ["PATCH /schiedsrichter/konto/{schiedsrichter_id}/einwilligung", new Set(GRANT_CODES)],
+  ["PATCH /teams/{team_id}/saisons/{saison_id}/konto/einwilligung", new Set(GRANT_CODES)],
 ]);
 const codesOf = (operation: string): ReadonlySet<string> => CODES.get(operation) ?? assert.fail(`no codes stated for ${operation}`);
 
 /** The consent PATCHes the eigene mapper serves beside the pupil's. */
 const EIGENE_WEITERE = [
-  "PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung",
-  "PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung",
+  "PATCH /schiedsrichter/konto/{schiedsrichter_id}/einwilligung",
+  "PATCH /teams/{team_id}/saisons/{saison_id}/konto/einwilligung",
 ];
 
 describe("the consent writes' mappers", () => {
@@ -103,7 +103,7 @@ describe("the consent writes' mappers", () => {
 
   /* The floor is the record's, handed to the mapper by its write: a number typed into the sentence would
      name another age the day the backend's rule moves. Only the three writes taking a grant publish it. */
-  for (const operation of ["PATCH /spieler/selbst/einwilligung", ...EIGENE_WEITERE]) {
+  for (const operation of ["PATCH /spieler/konto/einwilligung", ...EIGENE_WEITERE]) {
     it(`names the media floor its record was served on ${operation}, and asks for a reload, at any status`, () => {
       for (const status of [403, 409, 422, 429]) {
         expect(mapEigeneEinwilligungRefusal(refused("medien_alter", status), MEDIEN_ALTER)).toStrictEqual({

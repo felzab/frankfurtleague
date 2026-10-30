@@ -8,7 +8,7 @@ import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { buildGruppenSwapContext } from "@/features/saisons/utils";
 import { getAdminSpiele } from "@/features/spiele/queries";
 import { AdminTeamEditView } from "@/features/teams/components/views/AdminTeamEditView";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
 import { buildGruppeOffer, isRetireable } from "@/features/teams/utils";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
@@ -45,7 +45,7 @@ async function AdminTeamEditContent({
 
   // Every season's status for the retirement's refusal: the request-cached list the season's resolution reads anyway.
   const [membershipsRes, selectedSaison, saisonsRes] = await Promise.all([
-    getTeamMemberships(),
+    getTeamSaisons(),
     resolveAdminSaison(searchParams),
     getAdminSaisons(),
   ]);

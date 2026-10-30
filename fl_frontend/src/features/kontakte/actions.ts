@@ -4,7 +4,7 @@ import { drainSoon } from "@/core/afterResponse";
 import { isFreshlySignedIn } from "@/core/auth";
 import { getLaufendesLabel } from "@/core/einwilligung";
 import { formatAufzaehlung } from "@/core/format";
-import { getTeamMemberships } from "@/features/teams/queries";
+import { getTeamSaisons } from "@/features/teams/queries";
 import { refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -75,7 +75,7 @@ export async function patchSaisonTeamKontakteAction(
     }
 
     // No tag moves: no cached read holds a contact person.
-    // `fl_frontend/src/features/teams/queries.ts :: getTeamMemberships` is memoised per render pass
+    // `fl_frontend/src/features/teams/queries.ts :: getTeamSaisons` is memoised per render pass
     // and not across requests, no public team read carries `kontakte`, and the admin's own list is
     // uncached.
 
@@ -135,7 +135,7 @@ export async function einladeKontaktAction(rawPayload: { team_id: string; saison
  * write is refused there (`kontakte_moved_under_the_save`), so the race costs a sentence rather than a stale judgement.
  */
 async function gespeicherteKontakte({ team_id, saison_id }: Pick<KontakteSpeichernEingabe, "team_id" | "saison_id">) {
-  const { teams } = await getTeamMemberships();
+  const { teams } = await getTeamSaisons();
   const gespeichert: FLSaisonTeamKontakte | null =
     teams.find(({ id }) => id === team_id)?.memberships.find((membership) => membership.saison_id === saison_id)?.kontakte ?? null;
 

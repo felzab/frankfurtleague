@@ -68,7 +68,7 @@ def total_season_fixtures(rules: FLSaisonRules) -> int:
     return sum(entry.matchdays * entry.matches_per_matchday for entry in schedule_for(rules))
 
 
-def _forfeit_draws_a_knockout(rules: FLSaisonRules) -> bool:
+def _forfeit_unentschieden_in_a_knockout(rules: FLSaisonRules) -> bool:
     """Whether these rules compose a knockout no-show as a level result.
 
     `knockout_phases_for` again rather than a second reading of the product, so this and
@@ -173,9 +173,9 @@ def find_rules_refusal(
     # No shoot-out can break it: a composed forfeit discards one, so a level award leaves
     # `app/api/spiele/services.py :: _outcome_of` advancing nobody. Only the step that pairs the two
     # is refused.
-    if _forfeit_draws_a_knockout(proposed) and (stored is None or not _forfeit_draws_a_knockout(stored)):
+    if _forfeit_unentschieden_in_a_knockout(proposed) and (stored is None or not _forfeit_unentschieden_in_a_knockout(stored)):
         return WriteRefusal(
-            error_code=Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT,
+            error_code=Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
         )
 
@@ -267,7 +267,7 @@ def find_saison_span_refusal(
 # outgrow it. The draw answers each as a conflict with the season. Every other rule a draw asks
 # reads the shape alone, or a stored value only a hand-edited document breaks.
 DRAW_TWINS: Mapping[Code, Code] = {
-    Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT: Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED,
+    Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT: Code.RULES_FORFEIT_UNENTSCHIEDEN_IN_A_KNOCKOUT_AS_STORED,
     Code.SAISON_SPAN_BELOW_SPIELPLAN: Code.SAISON_SPAN_BELOW_SPIELPLAN_AS_STORED,
 }
 

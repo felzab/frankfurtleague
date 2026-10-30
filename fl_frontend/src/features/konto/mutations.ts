@@ -1,25 +1,25 @@
 import {
-  identitaetEraseSelbst,
+  identitaetPostKontoLoeschung,
   kontoDeleteAdresswechsel,
   kontoPostAdresswechsel,
   kontoPostAdresswechselFreigabe,
 } from "@/core/generated/client/sdk";
 
 import type {
-  FLErasureResponse,
   FLKontoAdresswechselFreigabePayload,
   FLKontoAdresswechselFreigabeResponse,
   FLKontoAdresswechselMintResponse,
   FLKontoAdresswechselPayload,
   FLKontoAdresswechselResponse,
+  FLLoeschungResponse,
 } from "@/core/generated/client/types";
 
 /**
  * Erases every league record of the person the request's actor names, the actor and nothing in the body
  * saying whom: the press reaches the library's account deletion only once this has answered.
  */
-export async function eraseEigeneDaten(): Promise<FLErasureResponse> {
-  return identitaetEraseSelbst();
+export async function loeschenEigeneDaten(): Promise<FLLoeschungResponse> {
+  return identitaetPostKontoLoeschung();
 }
 
 /**

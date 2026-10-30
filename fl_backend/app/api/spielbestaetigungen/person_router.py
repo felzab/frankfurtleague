@@ -16,10 +16,10 @@ from app.api.spielbestaetigungen.crud import (
     pull_spielorte_public,
 )
 from app.api.spielbestaetigungen.schemas import (
-    FLSpielbestaetigungenSelbstResponse,
+    FLSpielbestaetigungenSelfResponse,
     FLSpielbestaetigungSchiedsrichterAntwortPayload,
     FLSpielbestaetigungSchiedsrichterAntwortResponse,
-    FLSpielbestaetigungSelbst,
+    FLSpielbestaetigungSelf,
 )
 from app.api.spielbestaetigungen.services import (
     ansetzung_verlassen_refusal,
@@ -65,8 +65,8 @@ router = APIRouter(
 )
 
 
-@router.get("/selbst", response_model=FLSpielbestaetigungenSelbstResponse, summary="A signed-in referee's own fixture assignments")
-async def get_eigene_spielbestaetigungen(
+@router.get("/self", response_model=FLSpielbestaetigungenSelfResponse, summary="A signed-in referee's own fixture assignments")
+async def get_self(
     identifier: SchiedsrichterIdentifier,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spiele_collection: SpieleCollection,
@@ -77,7 +77,7 @@ async def get_eigene_spielbestaetigungen(
     records: SubjektLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> FLSpielbestaetigungenSelbstResponse:
+) -> FLSpielbestaetigungenSelfResponse:
     """
     Answer each fixture's newest confirmation row naming one of the signed-in address's live, confirmed referee records.
 
@@ -100,7 +100,7 @@ async def get_eigene_spielbestaetigungen(
         subjekt = await funktionen_of(identifier, records, session=session)
         refuse(find_eigener_eintrag_refusal(gehalten=bool(subjekt.schiedsrichter)))
 
-        # The seasons the pass mints in, as `app/api/spielbestaetigungen/sweep_router.py :: get_spiel_sweep_saisons` lists them.
+        # The seasons the pass mints in, as `app/api/spielbestaetigungen/system_router.py :: get_sweep_saisons` lists them.
         saisons = await pull_many_from_db(
             collection=saisons_collection, db_filter={"status": "active"}, projection=["_id"], limit=LIST_LIMIT_MAX, session=session
         )
@@ -134,7 +134,7 @@ async def get_eigene_spielbestaetigungen(
             session=session,
         )
 
-    def eintrag_of(row: Mapping[str, Any]) -> FLSpielbestaetigungSelbst:
+    def eintrag_of(row: Mapping[str, Any]) -> FLSpielbestaetigungSelf:
         lage = lagen[row["_id"]]
         ansetzung = (
             ansicht_snapshot_of(
@@ -144,7 +144,7 @@ async def get_eigene_spielbestaetigungen(
             else ansicht_ansetzung_of(lage.spiel)
         )
 
-        return FLSpielbestaetigungSelbst.model_validate(
+        return FLSpielbestaetigungSelf.model_validate(
             {
                 "_id": row["_id"],
                 "spiel_id": row["spiel_id"],
@@ -161,7 +161,7 @@ async def get_eigene_spielbestaetigungen(
     kommend = sorted((e for e in eintraege if not e.vergangen), key=lambda e: (e.zustand != "gueltig", e.ansetzung.datum, str(e.id)))
     vergangen = sorted((e for e in eintraege if e.vergangen), key=lambda e: (e.ansetzung.datum, str(e.id)), reverse=True)
 
-    return FLSpielbestaetigungenSelbstResponse(spielbestaetigungen=[*kommend, *vergangen])
+    return FLSpielbestaetigungenSelfResponse(spielbestaetigungen=[*kommend, *vergangen])
 
 
 @router.post(

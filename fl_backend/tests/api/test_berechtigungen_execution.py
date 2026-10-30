@@ -30,14 +30,14 @@ from app.api.berechtigungen.admin_router import (
     post_berechtigung,
 )
 from app.api.berechtigungen.crud import owe_in_session
-from app.api.berechtigungen.erasure import erase_grants_and_authorship_in_session
+from app.api.berechtigungen.loeschung import loeschen_grants_and_authorship_in_session
 from app.api.berechtigungen.schemas import (
     FLBerechtigungStand,
     FLPatchBerechtigungPayload,
     FLPostBerechtigungPayload,
 )
 from app.api.berechtigungen.services import compose_mitteilung
-from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich
+from app.api.berechtigungen.system_router import post_berechtigungen_abgleich
 from app.api.sperrliste.admin_router import delete_sperrliste_eintrag
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.codes import Code
@@ -45,7 +45,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD
 from app.core.exceptions import APIError, DocumentNotFoundError
-from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR, Actor, actor_var
+from app.core.recording import GELOESCHT_ACTOR_MARKER, SYSTEM_ACTOR, Actor, actor_var
 from app.core.security import PASSKEY_FACTOR
 from app.main import create_app
 from tests.actor_tokens import SignedActor, session_headers
@@ -1220,7 +1220,7 @@ class TestTheComparison:
         ]
         assert later == []
 
-    def test_an_erased_holders_notices_are_answered_as_erased_and_never_as_barred(self, mongo_replica_set_url: str):
+    def test_an_geloescht_holders_notices_are_answered_as_geloescht_and_never_as_barred(self, mongo_replica_set_url: str):
         """Her grant's end withheld under `geloescht`, the grant she made by the marker: no flag says barred."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[tuple[Any, ...]], str]:
@@ -1228,7 +1228,7 @@ class TestTheComparison:
             await grant(database, client, als=BERND)
 
             async def step(session: AsyncClientSession) -> Any:
-                return await erase_grants_and_authorship_in_session(
+                return await loeschen_grants_and_authorship_in_session(
                     berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
                     berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
                     postausgang_collection=database[Collection.POSTAUSGANG],
@@ -1263,7 +1263,7 @@ class TestTheComparison:
         changes, served = on_a_league(mongo_replica_set_url, body)
 
         assert changes == [
-            ("erteilt", NEU, None, ERASED_ACTOR_MARKER, False, False, False),
+            ("erteilt", NEU, None, GELOESCHT_ACTOR_MARKER, False, False, False),
             ("entzogen", None, None, OWNER, False, False, True),
         ]
         assert ANNA not in served

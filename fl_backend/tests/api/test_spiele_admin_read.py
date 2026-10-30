@@ -45,7 +45,7 @@ MIETPREIS = 80
 PAYMENT = 30
 
 PUBLIC_PATH = f"/api/v{API_VERSION}/spiele/{SPIEL_ID}"
-ADMIN_PATH = f"{PUBLIC_PATH}/admin"
+ADMIN_PATH = f"{PUBLIC_PATH}/verwaltung"
 
 # Joined onto `team2`, which is how a response proves it came through `build_spiele_pipeline` rather
 # than through a plain `find`.
@@ -153,7 +153,7 @@ def test_the_matching_key_clears_the_guard_and_reaches_the_database(path: str, h
 def test_a_malformed_id_is_a_404_on_the_admin_path_too(spiel_id: str):
     """`by_id`, not a bare `{spiel_id}`: the convertor is what keeps a malformed path id off the 422 a query id gets."""
 
-    path = f"/api/v{API_VERSION}/spiele/{spiel_id}/admin"
+    path = f"/api/v{API_VERSION}/spiele/{spiel_id}/verwaltung"
 
     assert answered(UNANSWERED_URI, path, ADMIN_AUTH).status_code == 404
 
@@ -181,7 +181,7 @@ def test_an_id_naming_no_fixture_is_a_404(seeded_url: str):
 
     response = answered(
         seeded_url,
-        f"/api/v{API_VERSION}/spiele/{ABSENT_SPIEL_ID}/admin",
+        f"/api/v{API_VERSION}/spiele/{ABSENT_SPIEL_ID}/verwaltung",
         ADMIN_AUTH,
     )
 

@@ -49,14 +49,14 @@ class TestASlotAndItsBookkeepingMoveTogether:
             assert update[f"bestaetigungen.{seat}.abgelehnt_am"] == TODAY
 
     @pytest.mark.parametrize("slots", [("trainer",), ("trainer", "ansprechperson"), KONTAKT_ROLLEN])
-    def test_an_erasure_over_an_application_nulls_the_entry_beside_every_slot(self, slots: tuple[str, ...]):
+    def test_an_loeschung_over_an_application_nulls_the_entry_beside_every_slot(self, slots: tuple[str, ...]):
         update = written(build_clearing_update(slots, bestaetigungen=True))
 
         for slot in slots:
             assert update[f"kontakte.{slot}"] is None
             assert update[f"bestaetigungen.{slot}"] is None
 
-    def test_an_erasure_finding_no_block_moves_no_bookkeeping(self):
+    def test_an_loeschung_finding_no_block_moves_no_bookkeeping(self):
         """The flag's other side: a junction row no link was minted for has no entry to null."""
 
         update = written(build_clearing_update(KONTAKT_ROLLEN))

@@ -1,7 +1,7 @@
 import {
   spielbestaetigungenEintragenSpielbestaetigung,
   spielbestaetigungenGetSpielbestaetigungAnsicht,
-  spielbestaetigungenGetSpielSweepSaisons,
+  spielbestaetigungenGetSweepSaisons,
   spielbestaetigungenPostSchiedsrichterAntwort,
   spielbestaetigungenPostSpielbestaetigung,
   spielbestaetigungenSweepSpielbestaetigungen,
@@ -48,7 +48,7 @@ export async function postSpielbestaetigungAntwort(
  * invented actor for a machine is what `fl_backend/app/core/recording.py :: SYSTEM_ACTOR` exists to avoid.
  */
 export async function getSpielbestaetigungSweepSaisons(): Promise<FLSpielbestaetigungSweepSaisonsResponse> {
-  return spielbestaetigungenGetSpielSweepSaisons();
+  return spielbestaetigungenGetSweepSaisons();
 }
 
 /** One season's pass: rows closed, asked and reminded, each mail it owed left in the Postausgang for the drain. */

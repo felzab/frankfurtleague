@@ -56,4 +56,4 @@ class WriteRefusal:
 
 # RFC 9110's 401 must carry a challenge, and `Bearer` would name the tier key, which passed: the
 # scheme names the actor's own headers instead.
-ACTOR_TOKEN_CHALLENGE = "FL-Actor"
+ACTOR_CHALLENGE = "FL-Actor"

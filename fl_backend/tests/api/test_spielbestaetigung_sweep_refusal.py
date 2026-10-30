@@ -12,7 +12,7 @@ from app.api.spielbestaetigungen.services import (
     grund_to_close,
     seats_link,
 )
-from app.api.spielbestaetigungen.sweep_router import CLOSES_PER_PASS, MINTS_PER_PASS, REMINDERS_PER_PASS
+from app.api.spielbestaetigungen.system_router import CLOSES_PER_PASS, MINTS_PER_PASS, REMINDERS_PER_PASS
 from app.core.middlewares import REQUEST_DEADLINE_S
 
 TODAY = "2026-04-01"

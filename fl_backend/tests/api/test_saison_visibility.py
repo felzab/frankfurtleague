@@ -5,8 +5,8 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.admin_router import get_saisons_for_admin
-from app.api.saisons.router import get_saison, get_saisons
+from app.api.saisons.admin_router import get_saisons_verwaltung
+from app.api.saisons.public_router import get_saison, get_saisons
 from app.api.saisons.schemas import FLSaisonsFilterParams
 from app.api.saisons.services import base_tier_status_term
 from app.core.collections import Collection
@@ -137,7 +137,7 @@ class TestTheAdminTierReadsEverySeason:
 
 def admin_read(filters: FLSaisonsFilterParams) -> Body:
     async def body(database: AsyncDatabase) -> Any:
-        return await get_saisons_for_admin(
+        return await get_saisons_verwaltung(
             saisons_collection=database[Collection.SAISONS], spiele_collection=database[Collection.SPIELE], filters=filters, today=TODAY
         )
 

@@ -7,7 +7,7 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.admin_router import activate_saison, generate_spielplan, patch_saison, undraw_spielplan
+from app.api.saisons.admin_router import activate_saison, delete_spielplan, patch_saison, post_spielplan
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
@@ -164,7 +164,7 @@ def on_a_league(
 async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str) -> Any:
     """No `shape` on the payload, so the draw runs on the rules the season already carries and moves none of them."""
 
-    return await generate_spielplan(
+    return await post_spielplan(
         saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -180,7 +180,7 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, saison_id
 
 
 async def call_undraw(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str) -> Any:
-    return await undraw_spielplan(
+    return await delete_spielplan(
         saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],

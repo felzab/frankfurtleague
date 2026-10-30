@@ -2,7 +2,7 @@ import { cache } from "react";
 
 import { isRecordMissing } from "@/core/errors";
 import {
-  bewerbungenGetBewerbungById,
+  bewerbungenGetBewerbung,
   bewerbungenGetBewerbungen,
   bewerbungenGetFenster,
   bewerbungenGetKuerzel,
@@ -58,7 +58,7 @@ export async function getBewerbungenQueue(
 // `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments.
 export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBewerbungSingleResponse | null> =>
   runAdminRead(() =>
-    bewerbungenGetBewerbungById(bewerbungId).catch((error: unknown) => {
+    bewerbungenGetBewerbung(bewerbungId).catch((error: unknown) => {
       if (isRecordMissing(error)) return null;
       throw error;
     }),

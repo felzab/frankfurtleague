@@ -8,7 +8,7 @@ from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.postausgang.schemas import FLPostausgangLage
 from app.api.sperrliste.schemas import refuse_an_address_in_the_reason
 from app.shared.schemas.bestaetigung import CustomToken
-from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, LIST_LIMIT_DEFAULT
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LOESCHUNG_ANLASS_MAX_LENGTH
 from app.shared.schemas.custom import (
     SINGLE_LINE_PATTERN,
     CustomDateString,
@@ -26,7 +26,7 @@ type FLAdresswechselAntwort = Literal["bestaetigt", "abgelehnt"]
 # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
 CustomAdresswechselGrund = Annotated[
     str,
-    StringConstraints(max_length=ERASURE_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+    StringConstraints(max_length=LOESCHUNG_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
     AfterValidator(str.strip),
     StringConstraints(min_length=1),
     AfterValidator(refuse_an_address_in_the_reason),

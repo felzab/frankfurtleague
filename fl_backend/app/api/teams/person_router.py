@@ -19,7 +19,7 @@ from app.api.konto.services import (
     widerruf_line,
 )
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
-from app.api.teams.schemas import FLSaisonTeamPersonEinwilligungResponse, FLTeamSitz, FLTeamSitzeResponse
+from app.api.teams.schemas import FLSaisonTeamKontoEinwilligungResponse, FLTeamSitz, FLTeamSitzeResponse
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
@@ -59,9 +59,9 @@ def _as_sitz(kontakte: Mapping[str, Any], slot: str) -> FLTeamSitz:
     )
 
 
-# `/person/sitze`, its own segment: the admin router serves this team and season under its own paths,
+# `/self/sitze`, its own segment: the admin router serves this team and season under its own paths,
 # and one path in both routers would be answered by whichever was mounted first.
-@router.get("/{team_id:objectid}/saisons/{saison_id}/person/sitze", response_model=FLTeamSitzeResponse, summary="A team's seats in one season")
+@router.get("/{team_id:objectid}/saisons/{saison_id}/self/sitze", response_model=FLTeamSitzeResponse, summary="A team's seats in one season")
 async def get_team_sitze(
     team_id: CustomRouteObjectId,
     saison_id: str,
@@ -93,8 +93,8 @@ async def get_team_sitze(
 
 
 @router.patch(
-    "/{team_id:objectid}/saisons/{saison_id}/person/einwilligung",
-    response_model=FLSaisonTeamPersonEinwilligungResponse,
+    "/{team_id:objectid}/saisons/{saison_id}/konto/einwilligung",
+    response_model=FLSaisonTeamKontoEinwilligungResponse,
     summary="Change a seat holder's own WhatsApp and media consent on one team's season",
 )
 async def patch_einwilligung(
@@ -108,7 +108,7 @@ async def patch_einwilligung(
     config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLSaisonTeamPersonEinwilligungResponse:
+) -> FLSaisonTeamKontoEinwilligungResponse:
     """
     Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.
 
@@ -128,12 +128,12 @@ async def patch_einwilligung(
     """
 
     gedrueckt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
-    # For `app/api/spieler/selbst_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
+    # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
     am = log_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted
-    async def write(session: AsyncClientSession) -> FLSaisonTeamPersonEinwilligungResponse:
+    async def write(session: AsyncClientSession) -> FLSaisonTeamKontoEinwilligungResponse:
         row = await saison_teams_collection.find_one(
             {"saison_id": saison_id, "team_id": team_id},
             {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "geburtsdatum", "einwilligung")},
@@ -193,7 +193,7 @@ async def patch_einwilligung(
         bloecke = [kontakte[slot]["einwilligung"] for slot in rollen]
 
         # The row as the next read serves it: an unpressed choice its seats answered apart stays apart.
-        return FLSaisonTeamPersonEinwilligungResponse.model_validate(
+        return FLSaisonTeamKontoEinwilligungResponse.model_validate(
             {
                 "team_id": team_id,
                 "saison_id": saison_id,

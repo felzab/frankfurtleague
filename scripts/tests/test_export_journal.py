@@ -285,7 +285,7 @@ def test_a_line_no_source_holds_any_more_stays_in_its_file_beside_the_new_ones()
     assert fixture.day(YESTERDAY) == [line("yesterday"), line("yesterday later")], output
 
 
-def test_a_day_the_logs_hold_gets_its_file_with_no_erasure_and_a_day_they_do_not_hold_gets_none() -> None:
+def test_a_day_the_logs_hold_gets_its_file_with_no_loeschung_and_a_day_they_do_not_hold_gets_none() -> None:
     """An empty file says the logs held that day and no erasure fell on it; a missing one, that no pass read any line of it."""
     fixture = _Fixture()
     fixture.stream(line("not the journal"))

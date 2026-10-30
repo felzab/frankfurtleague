@@ -105,8 +105,8 @@ class BackendConfig(BaseSettings, _SecretFields):
     # would otherwise open a namespace no other tool on this host can name.
     db_base_name: str = Field(pattern=r"^[A-Za-z0-9_-]+$", description="Base DB name")
 
-    # The image's version from its build argument (`fl_backend/Dockerfile`), which the start-up line logs; absent from a
-    # build handed none and from a run outside an image.
+    # The image's version from its build argument (`fl_backend/Dockerfile`), which the start-up line logs; unset in a run
+    # outside an image, and empty, so read as unset, in a build handed none.
     app_version: str | None = Field(default=None, min_length=1, description="The image's version")
 
     model_config = SettingsConfigDict(
@@ -118,6 +118,9 @@ class BackendConfig(BaseSettings, _SecretFields):
         # default serves production. Only the dotenv source hands this class an undeclared name, and it
         # drops one carrying no value.
         extra="forbid",
+        # An empty variable reads as unset: an image built without an argument carries its `ENV` as the
+        # empty string, which Docker cannot leave unset. A secret file is judged as written either way.
+        env_ignore_empty=True,
     )
 
     # Declared, or a type checker reads the fields as the constructor's arguments and demands the

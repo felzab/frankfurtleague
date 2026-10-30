@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { connection } from "next/server";
 
-import { getCurrentSaisonOrNull } from "@/features/saisons/queries";
+import { getActiveSaisonOrNull } from "@/features/saisons/queries";
 import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { ctaButton } from "@/shared/components/ui/formButtons";
@@ -125,12 +125,12 @@ export async function RecentAndUpcomingSpieleGrid() {
   await connection();
   // The season first: with none active `/spiele` answers 404 for want of a default, and the catch
   // below would render that as a failed load rather than as a league with nothing scheduled.
-  const saison = await getCurrentSaisonOrNull();
+  const saison = await getActiveSaisonOrNull();
   const [upcomingSpieleRes, recentSpieleRes] =
     saison === null
       ? [KEINE_SPIELE, KEINE_SPIELE]
       : await Promise.all([
-          runWithIncomingTrace(() => getSpiele({ spiel_status: "ausstehend", limit: 6 }).catch(nullUnlessContractBreak)),
+          runWithIncomingTrace(() => getSpiele({ spiel_status: "ab_heute", limit: 6 }).catch(nullUnlessContractBreak)),
           runWithIncomingTrace(() =>
             getSpiele({ spiel_status: "vergangen", sort_by: "datum", order: "desc", limit: 6 }).catch(nullUnlessContractBreak),
           ),
