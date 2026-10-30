@@ -317,7 +317,7 @@ no later feature can come to depend on a flag.
 - **A pupil whose age no squad rule judges.** The age is judged once, at the registration's confirmation
   (`bestaetigung_alter`); entering, moving or bringing back a squad row judges none.
 - **A person holding no squad row, and a person retired while holding a live one.** The first is reachable only
-  by a database edit, and `GET /spieler/memberships` serves such a person with an empty list, which is the
+  by a database edit, and `GET /spieler/saisons` serves such a person with an empty list, which is the
   surface that repairs it. The two retirements are independent, so retiring a person never asks for every squad
   they played in to be emptied, and the list badges both.
 - **A retired row kept indefinitely.** No sweep selects on `inactive_since`, which records when a row retired

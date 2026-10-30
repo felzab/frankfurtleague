@@ -424,7 +424,7 @@ async def ablehnen(
 # binds the `kontakt` Funktion at router level, and a pending registrant writes as the pupil they
 # registered as.
 spieler_router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/registrierungen/selbst",
+    prefix=f"/api/v{API_VERSION}/registrierungen/konto",
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["spieler"])],
 )
 

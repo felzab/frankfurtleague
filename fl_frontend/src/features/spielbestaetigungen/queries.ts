@@ -1,7 +1,7 @@
 import { cache } from "react";
 
 import { ContractBreakError } from "@/core/errors";
-import { spielbestaetigungenGetEigeneSpielbestaetigungen, spielbestaetigungenGetSpielbestaetigungen } from "@/core/generated/client/sdk";
+import { spielbestaetigungenGetSelf, spielbestaetigungenGetSpielbestaetigungen } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { runPersonRead } from "@/shared/utils/personRead";
@@ -30,7 +30,7 @@ export async function getSpielbestaetigungen(
  */
 // Never `"use cache"`, which keys on the arguments rather than the caller.
 export const getEigeneSpielbestaetigungen = cache(async (): Promise<FLSpielbestaetigungenSelbstResponse> =>
-  runPersonRead(() => spielbestaetigungenGetEigeneSpielbestaetigungen()),
+  runPersonRead(() => spielbestaetigungenGetSelf()),
 );
 
 /**

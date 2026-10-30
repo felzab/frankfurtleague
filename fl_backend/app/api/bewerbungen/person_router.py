@@ -37,9 +37,9 @@ router = APIRouter(
 )
 
 
-# `/person/einwilligung`, its own segment, for `app/api/teams/person_router.py :: get_team_sitze`'s reason.
+# `/konto/einwilligung`, its own segment, for `app/api/teams/person_router.py :: get_team_sitze`'s reason.
 @router.patch(
-    "/{bewerbung_id:objectid}/person/einwilligung",
+    "/{bewerbung_id:objectid}/konto/einwilligung",
     response_model=FLBewerbungPersonEinwilligungResponse,
     summary="Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung",
 )

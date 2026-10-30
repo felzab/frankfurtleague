@@ -46,17 +46,17 @@ from app.core.transactions import transaction_session
 # `kontakt` bound, as the account page's router binds it: a person erases themselves holding no
 # Funktion at all, and the erasure's own log rows lose this actor to the marker before it commits.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/identitaet/selbst",
+    prefix=f"/api/v{API_VERSION}/identitaet/konto",
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["kontakt"])],
 )
 
 
 @router.post(
-    "/erasure",
+    "/loeschung",
     response_model=FLErasureResponse,
     summary="Erase every record the signed-in address holds",
 )
-async def erase_selbst(
+async def post_konto_loeschung(
     identifier: KontaktIdentifier,
     spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
@@ -166,11 +166,11 @@ async def erase_selbst(
 
 
 @router.get(
-    "/erasure/ansicht",
+    "/loeschung/ansicht",
     response_model=FLSelbstErasureAnsichtResponse,
     summary="Show what an erasure of the signed-in address would remove",
 )
-async def get_erasure_ansicht(
+async def get_konto_loeschung_ansicht(
     identifier: KontaktIdentifier,
     saison_teams_collection: SaisonTeamsCollection,
     bewerbungen_collection: BewerbungenCollection,
@@ -183,7 +183,7 @@ async def get_erasure_ansicht(
     config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> FLSelbstErasureAnsichtResponse:
     """
-    Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.
+    Answer what `POST /identitaet/konto/loeschung` would remove for the signed-in address, by kind and by name.
 
     Read through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure
     removes or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address

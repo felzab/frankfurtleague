@@ -3,10 +3,10 @@ import { cacheLife, cacheTag } from "next/cache";
 
 import {
   spielerGetKader,
-  spielerGetSelbst,
+  spielerGetSelf,
   spielerGetSpieler,
-  spielerGetSpielerMemberships,
   spielerGetSpielerNachnominierung,
+  spielerGetSpielerSaisons,
 } from "@/core/generated/client/sdk";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 import { runAdminRead } from "@/shared/utils/adminRead";
@@ -34,9 +34,7 @@ export async function getSpieler(filters: SpielerGetSpielerParams = {}): Promise
  * `getSpieler` cannot serve the admin surfaces at any filter setting.
  */
 // Never `"use cache"` here, which keys on the arguments rather than the caller.
-export const getSpielerMemberships = cache(async (): Promise<FLSpielerMembershipsResponse> =>
-  runAdminRead(() => spielerGetSpielerMemberships()),
-);
+export const getSpielerMemberships = cache(async (): Promise<FLSpielerMembershipsResponse> => runAdminRead(() => spielerGetSpielerSaisons()));
 
 /** Whether the squad create would mark an entry into this season a Nachnominierung today. */
 // Never `"use cache"`, for `getSpielerMemberships`' reason, and because the answer turns over at midnight.
@@ -58,4 +56,4 @@ export const getKader = cache(async (teamId: string, saisonId: string): Promise<
  * pupil row for the address the page's own check passed.
  */
 // Never `"use cache"`, for `getSpielerMemberships`' reason: what it answers is the reading person's.
-export const getSpielerSelbst = cache(async (): Promise<FLSpielerSelbstResponse> => runPersonRead(() => spielerGetSelbst()));
+export const getSpielerSelbst = cache(async (): Promise<FLSpielerSelbstResponse> => runPersonRead(() => spielerGetSelf()));

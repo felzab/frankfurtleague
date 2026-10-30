@@ -59,7 +59,7 @@ vi.mock("@/features/spiele/queries", () => ({
 }));
 
 vi.mock("@/core/generated/client/sdk", () => ({
-  spielePatchSpielData: async (_id: string, payload: unknown) => {
+  spielePatchSpiel: async (_id: string, payload: unknown) => {
     stand.gesendet.push(payload);
     if (stand.ablehnung !== null) throw stand.ablehnung;
     return stand.antwort;

@@ -182,7 +182,7 @@ async def get_bewerbungen(
 
 
 @router.get(by_id("bewerbung_id"), response_model=FLBewerbungSingleResponse, summary="One Bewerbung")
-async def get_bewerbung_by_id(
+async def get_bewerbung(
     bewerbung_id: CustomRouteObjectId,
     bewerbungen_collection: BewerbungenCollection,
     postausgang_collection: PostausgangCollection,
@@ -601,7 +601,7 @@ async def erneut_einwilligung(
     summary="Correct one contact person's email address and re-send their link",
     dependencies=[Depends(verify_step_up)],
 )
-async def korrigiere_kontakt_email(
+async def post_kontakt_email(
     bewerbung_id: CustomRouteObjectId,
     seat: str,
     email_data: Annotated[FLBewerbungKontaktEmailPayload, Body()],
@@ -714,7 +714,7 @@ async def korrigiere_kontakt_email(
     summary="Seat another person where a contact person stepped out",
     dependencies=[Depends(verify_step_up)],
 )
-async def besetze_kontakt_sitz(
+async def post_kontakt_sitz(
     bewerbung_id: CustomRouteObjectId,
     seat: str,
     sitz_data: Annotated[FLBewerbungKontaktSitzPayload, Body()],

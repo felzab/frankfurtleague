@@ -309,12 +309,12 @@ const BACKGROUND_PASSES = [
     runners: ["src/features/funktionen/sweep.ts"],
   },
   {
-    operations: ["identitaet_post_loeschung_lauf"],
+    operations: ["identitaet_sweep_loeschung"],
     wrapper: { file: "src/features/saisons/mutations.ts", regex: moduleNamed("mutations"), names: ["postLoeschungLauf"] },
     runners: ["src/features/saisons/sweep.ts", "src/features/saisons/actions.ts"],
   },
   {
-    operations: ["spielbestaetigungen_get_spiel_sweep_saisons", "spielbestaetigungen_sweep_spielbestaetigungen"],
+    operations: ["spielbestaetigungen_get_sweep_saisons", "spielbestaetigungen_sweep_spielbestaetigungen"],
     wrapper: {
       file: "src/features/spielbestaetigungen/mutations.ts",
       regex: moduleNamed("mutations"),

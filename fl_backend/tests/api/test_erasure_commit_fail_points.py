@@ -251,7 +251,7 @@ class TestAnErasureOnRequest:
 
 
 # The pupil's own consent page, whose withdrawal is journalled.
-CONSENT_PRESS = f"{V}/spieler/selbst/einwilligung"
+CONSENT_PRESS = f"{V}/spieler/konto/einwilligung"
 
 
 def _as_app(url: str, app_name: str) -> str:

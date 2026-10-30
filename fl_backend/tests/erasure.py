@@ -6,7 +6,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identitaet.crud import ERASURE_STEPS
-from app.api.identitaet.person_router import erase_selbst
+from app.api.identitaet.person_router import post_konto_loeschung
 from app.api.identitaet.schemas import FLErasureResponse
 from app.core.collections import Collection
 from app.shared.folding import sign_in_identifier
@@ -36,7 +36,7 @@ async def erased(
     Folded here as the route's binder folds the signed address: handed on as typed, it would match no stored record.
     """
 
-    return await erase_selbst(
+    return await post_konto_loeschung(
         identifier=sign_in_identifier(address),
         **erasure_collections(database, **replaced),
         sperrliste=ban_list(database),

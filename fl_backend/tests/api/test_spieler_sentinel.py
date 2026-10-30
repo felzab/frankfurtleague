@@ -8,7 +8,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter, build_real_referees_filter
-from app.api.spieler.admin_router import delete_spieler, get_spieler_memberships, patch_spieler, post_saison_spieler, reactivate_spieler
+from app.api.spieler.admin_router import delete_spieler, get_spieler_saisons, patch_spieler, post_saison_spieler, reactivate_spieler
 from app.api.spieler.public_router import get_spieler, get_spieler_by_id
 from app.api.spieler.schemas import FLPatchSpielerPayload, FLPostSaisonSpielerPayload, FLSpielerFilterParams
 from app.api.spieler.services import build_ghost_spieler, build_real_spieler_filter
@@ -154,7 +154,7 @@ def test_neither_collection_read_serves_the_sentinel_and_a_person_holding_no_squ
         listed = await get_spieler(
             spieler_collection=database[Collection.SPIELER], saisons_collection=database[Collection.SAISONS], filters=FLSpielerFilterParams()
         )
-        memberships = await get_spieler_memberships(
+        memberships = await get_spieler_saisons(
             spieler_collection=database[Collection.SPIELER],
             berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],

@@ -88,7 +88,7 @@ DATABASE_NAME = worker_database("fl_funktionen_erasure_test")
 
 CONFIG = config_for(DATABASE_NAME)
 
-PATH = f"/api/v{API_VERSION}/identitaet/selbst/erasure"
+PATH = f"/api/v{API_VERSION}/identitaet/konto/loeschung"
 
 # A century ahead of the real clock: the TTL monitor deletes an expired tombstone, request or day's count at its next
 # pass, under a case reading it back. Every seeded day moves with it.

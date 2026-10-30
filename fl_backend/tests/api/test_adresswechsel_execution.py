@@ -31,7 +31,7 @@ from app.api.berechtigungen.antraege import compose_antrag
 from app.api.berechtigungen.crud import live_unbarred_grant_since
 from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung
-from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
+from app.api.identitaet.admin_router import get_loeschung_ansicht, post_loeschung
 from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
 from app.api.identitaet.schemas import FLErasureAdressePayload, FLErasurePayload
 from app.api.identitaet.wiederherstellung import Read, Window, plan_replay, replay_line
@@ -39,9 +39,9 @@ from app.api.registrierungen.public_router import get_bestaetigung_ansicht
 from app.api.registrierungen.services import compose_ablehnung_update, erinnerung_is_due
 from app.api.schiedsrichter.admin_router import get_schiedsrichter_by_id
 from app.api.spielbestaetigungen.services import halter_of
-from app.api.spieler.admin_router import get_spieler_memberships
+from app.api.spieler.admin_router import get_spieler_saisons
 from app.api.spieler.services import build_spieler_memberships_pipeline
-from app.api.teams.admin_router import get_team_memberships
+from app.api.teams.admin_router import get_team_saisons
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -539,7 +539,7 @@ class TestTheSystemsReadOfTheNewAddress:
             async with app_client(mongo_replica_set_url, app=create_app(config_for(DATABASE_NAME))) as http:
                 capfd.readouterr()
                 response = await http.post(
-                    f"/api/v{API_VERSION}/adresswechsel/sweep/adresse", headers=SYSTEM_AUTH, json={"token": minted.token}
+                    f"/api/v{API_VERSION}/adresswechsel/adresse", headers=SYSTEM_AUTH, json={"token": minted.token}
                 )
                 written = capfd.readouterr()
             return response.status_code, response.json(), written.out + written.err
@@ -547,7 +547,7 @@ class TestTheSystemsReadOfTheNewAddress:
         status, answered, written = on_a_person(mongo_replica_set_url, body)
 
         assert (status, answered["email"]) == (200, NEW_EMAIL)
-        assert f'"path": "/api/v{API_VERSION}/adresswechsel/sweep/adresse", "status": 200' in written, (
+        assert f'"path": "/api/v{API_VERSION}/adresswechsel/adresse", "status": 200' in written, (
             "the request's own line was not captured, so the absence below holds of nothing"
         )
         assert NEW_EMAIL not in written.lower()
@@ -1432,7 +1432,7 @@ class TestTheContactsEditorsRead:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def seats() -> Any:
-                read = await call(get_team_memberships, database, client, today=TODAY)
+                read = await call(get_team_saisons, database, client, today=TODAY)
                 [row] = [row for team in read.teams for row in team.memberships if row.saison_id == SAISON_ID and team.id == TEAM_OID]
                 return row.adresswechsel
 
@@ -1472,15 +1472,13 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
             except APIError as refused:
                 verwehrt = {Code.EIGENE_ADRESSE: "eigene", Code.VERWALTUNG_ADRESSE: "verwaltung"}[refused.error_code]
 
-            pupils = await call(get_spieler_memberships, database, client, operator=reader)
+            pupils = await call(get_spieler_saisons, database, client, operator=reader)
             referee = await call(get_schiedsrichter_by_id, database, client, schiedsrichter_id=REFEREE_OID, today=TODAY, operator=reader)
-            teams = await call(get_team_memberships, database, client, today=TODAY, operator=reader)
+            teams = await call(get_team_saisons, database, client, today=TODAY, operator=reader)
             [seats] = [
                 row.adresswechsel for team in teams.teams for row in team.memberships if row.saison_id == SAISON_ID and team.id == TEAM_OID
             ]
-            reveal = await call(
-                get_erasure_ansicht_auf_anfrage, database, client, ansicht_data=FLErasureAdressePayload(email=NEW_EMAIL), operator=reader
-            )
+            reveal = await call(get_loeschung_ansicht, database, client, ansicht_data=FLErasureAdressePayload(email=NEW_EMAIL), operator=reader)
             served = {
                 "pupils": [
                     (player.adresswechsel_id, player.adresswechsel_einsehbar_verwehrt) for player in pupils.spieler if player.id == SPIELER_OID
@@ -2452,7 +2450,7 @@ def erased(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> Any
     """The erasure on request, as an owner whose step-up window the HTTP suites hold."""
 
     return call(
-        erase_auf_anfrage,
+        post_loeschung,
         database,
         client,
         erasure_data=FLErasurePayload(email=email, anlass="Auf Anfrage per Brief"),

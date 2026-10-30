@@ -17,8 +17,8 @@ vi.doMock("@/shared/utils/adminRead.ts", async (importOriginal) => ({
 /** Every request the doubled client was asked for, cumulative across every pass in this file. */
 const reads = doubleApiClient(() => ({ teams: [], spieler: [] }));
 
-const TEAMS_ENDPOINT = "/teams/memberships";
-const SPIELER_ENDPOINT = "/spieler/memberships";
+const TEAMS_ENDPOINT = "/teams/saisons";
+const SPIELER_ENDPOINT = "/spieler/saisons";
 
 serveServerReact();
 

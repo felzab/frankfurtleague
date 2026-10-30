@@ -1,8 +1,8 @@
 import {
-  identitaetEraseAufAnfrage,
-  identitaetGetErasureAnsichtAufAnfrage,
+  identitaetGetLoeschungAnsicht,
   identitaetGetReferenzen,
   identitaetPostAbmeldung,
+  identitaetPostLoeschung,
 } from "@/core/generated/client/sdk";
 
 import type {
@@ -28,12 +28,12 @@ export async function postReferenzen(payload: FLReferenzenPayload): Promise<FLRe
  * Hence a POST even for the read, a GET's body having no defined semantics (RFC 9110 §9.3.1).
  */
 export async function readErasureAnsicht(payload: FLErasureAdressePayload): Promise<FLErasureAnsichtResponse> {
-  return identitaetGetErasureAnsichtAufAnfrage(payload, { readOnly: true });
+  return identitaetGetLoeschungAnsicht(payload, { readOnly: true });
 }
 
 /** Erases every league record of the address, the sign-in account left to the caller once this has answered. */
 export async function eraseAufAnfrage(payload: FLErasurePayload): Promise<FLErasureResponse> {
-  return identitaetEraseAufAnfrage(payload);
+  return identitaetPostLoeschung(payload);
 }
 
 /** Files the sign-out on the log, naming no address, before the caller ends a single session. */

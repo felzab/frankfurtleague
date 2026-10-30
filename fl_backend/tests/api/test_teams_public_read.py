@@ -8,7 +8,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import advance_bracket_winners
-from app.api.teams.admin_router import get_teams_for_admin
+from app.api.teams.admin_router import get_teams_verwaltung
 from app.api.teams.public_router import get_team, get_teams
 from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamsFilterParams, FLTeamSingleFilterParams
 from app.api.teams.services import build_team_pipeline
@@ -54,14 +54,14 @@ KONTAKT_GEBURTSDATUM = "1984-05-09"
 # The models the two endpoints DECLARE: FastAPI builds the query parameters from these, so what a
 # caller may ask for is settled here rather than by anything a handler body does with the answer.
 BASE_FILTERS: type[BaseModel] = get_type_hints(get_teams)["filters"]
-ADMIN_FILTERS: type[BaseModel] = get_type_hints(get_teams_for_admin)["filters"]
+ADMIN_FILTERS: type[BaseModel] = get_type_hints(get_teams_verwaltung)["filters"]
 
 # What a caller may actually SEND, read off the app's own schema: a model's fields plus anything the
 # handler declares beside them. Constructing a filter object asks for nothing -- `extra="ignore"`
 # drops an undeclared key before any read sees it.
 _PUBLISHED_PATHS = build_document()["paths"]
 BASE_QUERY_PARAMETERS = {parameter["name"] for parameter in _PUBLISHED_PATHS[f"/api/v{API_VERSION}/teams"]["get"]["parameters"]}
-ADMIN_QUERY_PARAMETERS = {parameter["name"] for parameter in _PUBLISHED_PATHS[f"/api/v{API_VERSION}/teams/list/admin"]["get"]["parameters"]}
+ADMIN_QUERY_PARAMETERS = {parameter["name"] for parameter in _PUBLISHED_PATHS[f"/api/v{API_VERSION}/teams/list/verwaltung"]["get"]["parameters"]}
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
@@ -164,7 +164,7 @@ async def read_teams(database: AsyncDatabase, filters: Any) -> Any:
 
 
 async def read_teams_for_admin(database: AsyncDatabase, filters: FLTeamsFilterParams) -> Any:
-    return await get_teams_for_admin(
+    return await get_teams_verwaltung(
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],

@@ -64,9 +64,9 @@ const ERASED = {
 let erasureAnswer: () => Response = () => Response.json(ERASED);
 const erasures: { method: string; actor: string | null }[] = [];
 
-const ERASURE_PATH = "/api/v0/identitaet/selbst/erasure";
+const ERASURE_PATH = "/api/v0/identitaet/konto/loeschung";
 
-const ANSICHT_PATH = "/api/v0/identitaet/selbst/erasure/ansicht";
+const ANSICHT_PATH = "/api/v0/identitaet/konto/loeschung/ansicht";
 
 /** Whether the preview reads the press as the last owner's, and how often it was read since the case began. */
 let letzterInhaber = false;

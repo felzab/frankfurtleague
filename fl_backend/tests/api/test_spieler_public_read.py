@@ -148,7 +148,7 @@ class TestTheBaseTierShape:
 
     @pytest.mark.parametrize("field", ["stufe", "team_id", "ist_nachnominiert", "rolle", "inactive_since"])
     def test_the_admin_membership_read_keeps_every_field(self, field: str):
-        """`GET /spieler/memberships` is admin-tier: narrowing it would leave the squad editor unable to read back what it writes."""
+        """`GET /spieler/saisons` is admin-tier: narrowing it would leave the squad editor unable to read back what it writes."""
         assert field in FLSpielerMembership.model_fields
 
     def test_the_squad_fields_default_where_the_join_supplies_neither(self):

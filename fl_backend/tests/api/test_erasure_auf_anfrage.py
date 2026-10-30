@@ -23,7 +23,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.berechtigungen.antraege import compose_antrag
-from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansicht_auf_anfrage
+from app.api.identitaet.admin_router import get_loeschung_ansicht, post_loeschung
 from app.api.identitaet.schemas import FLErasure, FLErasureAdressePayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
@@ -90,7 +90,7 @@ DATABASE_NAME = worker_database("fl_erasure_auf_anfrage_test")
 
 CONFIG = config_for(DATABASE_NAME)
 
-PATH = f"/api/v{API_VERSION}/identitaet/erasure"
+PATH = f"/api/v{API_VERSION}/identitaet/loeschung"
 ANSICHT_PATH = f"{PATH}/ansicht"
 ABMELDUNG_PATH = f"/api/v{API_VERSION}/identitaet/abmeldung"
 
@@ -169,7 +169,7 @@ async def erased_by_the_handler(
 ) -> FLErasureResponse:
     """The route's own function outside a request, as `OPERATOR` signed in a minute ago, for a case driving the driver itself."""
 
-    return await erase_auf_anfrage(
+    return await post_loeschung(
         erasure_data=FLErasurePayload(email=email, anlass=anlass),
         **erasure_collections(database, **replaced),
         sperrliste=ban_list(database),
@@ -186,7 +186,7 @@ async def erased_by_the_handler(
 async def revealed(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> FLErasureAnsichtResponse:
     """The reveal's own function outside a request, as `OPERATOR`, for a league holding no grant to sign in through."""
 
-    return await get_erasure_ansicht_auf_anfrage(
+    return await get_loeschung_ansicht(
         ansicht_data=FLErasureAdressePayload(email=email),
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],

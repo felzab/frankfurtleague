@@ -464,7 +464,7 @@ describe("the German each widened refusal renders", () => {
   });
 });
 
-const LAUF = "/identitaet/loeschung/lauf";
+const LAUF = "/identitaet/loeschung/sweep";
 
 /** A deletion call: the generated call carries its `nach` in the endpoint's query. */
 const isLauf = ({ endpoint }: ApiCall): boolean => endpoint.split("?")[0] === LAUF;

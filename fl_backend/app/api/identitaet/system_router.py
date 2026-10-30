@@ -225,11 +225,11 @@ async def _erase_one(
 
 
 @router.post(
-    "/loeschung/lauf",
+    "/loeschung/sweep",
     response_model=FLLoeschungLaufResponse,
     summary="Delete one share of the pupils the season-after rule makes due",
 )
-async def post_loeschung_lauf(
+async def sweep_loeschung(
     params: Annotated[FLLoeschungLaufParams, Query()],
     saisons_collection: SaisonsCollection,
     spieler_collection: SpielerCollection,

@@ -337,7 +337,7 @@ async def a_grant_holder(database: AsyncDatabase) -> None:
 class TestAGrantHoldersOwnErasure:
     """A person's erasure asks the revoke's passkey window on the calls taking a live grant."""
 
-    URL = f"/api/v{API_VERSION}/identitaet/selbst/erasure"
+    URL = f"/api/v{API_VERSION}/identitaet/konto/loeschung"
 
     def test_an_erasure_from_a_passkey_past_the_window_is_refused_and_erases_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, int]:
@@ -446,7 +446,7 @@ def an_erasure_of(email: str) -> dict[str, str]:
 class TestAnErasureOnRequestEndingAGrant:
     """An administrator's erasure asks the revoke's window on the calls taking a live grant."""
 
-    URL = f"/api/v{API_VERSION}/identitaet/erasure"
+    URL = f"/api/v{API_VERSION}/identitaet/loeschung"
 
     def test_an_erasure_ending_a_grant_from_a_sign_in_past_that_window_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, int, int]:

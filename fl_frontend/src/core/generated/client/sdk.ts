@@ -208,27 +208,27 @@ import type {
   FLTeamWriteResponse,
   FLTokenPayload,
   FLUndrawSpielplanResponse,
-  IdentitaetPostLoeschungLaufParams,
+  IdentitaetSweepLoeschungParams,
   RegistrierungenGetOffeneRegistrierungenParams,
   RegistrierungenGetRegistrierungenParams,
-  SaisonsGetSaisonsForAdminParams,
+  SaisonsGetEinladungenVersandVorschauParams,
   SaisonsGetSaisonsParams,
-  SaisonsPreviewEinladungenVersandParams,
+  SaisonsGetSaisonsVerwaltungParams,
   SchiedsrichterGetSchiedsrichterParams,
-  SpielberichteGetSpielberichtAdminParams,
   SpielberichteGetSpielberichteParams,
+  SpielberichteGetSpielberichtVerwaltungParams,
   SpielbestaetigungenGetSpielbestaetigungenParams,
   SpieleGetSpieleActionRequiredParams,
-  SpieleGetSpieleForAdminParams,
   SpieleGetSpieleParams,
-  SpielePatchSpielDataParams,
+  SpieleGetSpieleVerwaltungParams,
+  SpielePatchSpielParams,
   SpielerGetSpielerParams,
   SpielorteGetSpielorteParams,
-  SpieltageGetSpieltageForAdminParams,
   SpieltageGetSpieltageParams,
+  SpieltageGetSpieltageVerwaltungParams,
   TeamsGetTeamParams,
-  TeamsGetTeamsForAdminParams,
   TeamsGetTeamsParams,
+  TeamsGetTeamsVerwaltungParams,
 } from "./types.ts";
 
 export const getSystemRootUrl = () => {
@@ -288,6 +288,44 @@ export const adresswechselPostAdresswechselVerwaltung = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLAdresswechselVerwaltungPayload),
+  });
+};
+
+export const getAdresswechselGetAdresswechselAdresseUrl = () => {
+  return `/api/v0/adresswechsel/adresse`;
+};
+
+/**
+ * Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.
+ *
+ * For the frontend's server alone, which asks its sign-in store whether an account stands there before a press, a link's
+ * view or an approval; the link's own view never serves the address. A token or id naming no live change -- unknown,
+ * ended, or the stop link's token -- is answered null rather than refused, so a lapsed or answered link costs no
+ * error. Stores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the token travels in the body, and the
+ * address only in the answer.
+ * @summary Say which address a live change would move to
+ */
+export const adresswechselGetAdresswechselAdresse = async (
+  fLAdresswechselAdressePayload: FLAdresswechselAdressePayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLAdresswechselAdresseResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return systemKeyTransport<FLAdresswechselAdresseResponse>(getAdresswechselGetAdresswechselAdresseUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLAdresswechselAdressePayload),
   });
 };
 
@@ -500,44 +538,6 @@ export const adresswechselSweepAdresswechsel = async (
   });
 };
 
-export const getAdresswechselGetAdresswechselAdresseUrl = () => {
-  return `/api/v0/adresswechsel/sweep/adresse`;
-};
-
-/**
- * Answer the new address of the live change the new mailbox's link token or the change's id names, folded to the sign-in identifier.
- *
- * For the frontend's server alone, which asks its sign-in store whether an account stands there before a press, a link's
- * view or an approval; the link's own view never serves the address. A token or id naming no live change -- unknown,
- * ended, or the stop link's token -- is answered null rather than refused, so a lapsed or answered link costs no
- * error. Stores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the token travels in the body, and the
- * address only in the answer.
- * @summary Say which address a live change would move to
- */
-export const adresswechselGetAdresswechselAdresse = async (
-  fLAdresswechselAdressePayload: FLAdresswechselAdressePayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLAdresswechselAdresseResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return systemKeyTransport<FLAdresswechselAdresseResponse>(getAdresswechselGetAdresswechselAdresseUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLAdresswechselAdressePayload),
-  });
-};
-
 export const getAdresswechselGetAdresswechselUmzuegeUrl = () => {
   return `/api/v0/adresswechsel/sweep/umzuege`;
 };
@@ -702,7 +702,7 @@ export const aktionenGetAktionen = async (
   });
 };
 
-export const getAktionenGetAktionByIdUrl = (aktionId: string) => {
+export const getAktionenGetAktionUrl = (aktionId: string) => {
   return `/api/v0/aktionen/${encodeURIComponent(String(aktionId))}`;
 };
 
@@ -710,11 +710,11 @@ export const getAktionenGetAktionByIdUrl = (aktionId: string) => {
  * One recorded write with the document it replaced, served as recorded; the actor is withheld as the list withholds it.
  * @summary One recorded admin action
  */
-export const aktionenGetAktionById = async (
+export const aktionenGetAktion = async (
   aktionId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLAktionSingleResponse> => {
-  return adminKeyTransport<FLAktionSingleResponse>(getAktionenGetAktionByIdUrl(aktionId), {
+  return adminKeyTransport<FLAktionSingleResponse>(getAktionenGetAktionUrl(aktionId), {
     ...options,
     method: "GET",
   });
@@ -1232,7 +1232,7 @@ export const bewerbungenGetTrikotfarben = async (
   });
 };
 
-export const getBewerbungenGetBewerbungByIdUrl = (bewerbungId: string) => {
+export const getBewerbungenGetBewerbungUrl = (bewerbungId: string) => {
   return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}`;
 };
 
@@ -1242,11 +1242,11 @@ export const getBewerbungenGetBewerbungByIdUrl = (bewerbungId: string) => {
  * `bestaetigungsfrist_abgelaufen` says whether its confirmation deadline has passed today.
  * @summary One Bewerbung
  */
-export const bewerbungenGetBewerbungById = async (
+export const bewerbungenGetBewerbung = async (
   bewerbungId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLBewerbungSingleResponse> => {
-  return adminKeyTransport<FLBewerbungSingleResponse>(getBewerbungenGetBewerbungByIdUrl(bewerbungId), {
+  return adminKeyTransport<FLBewerbungSingleResponse>(getBewerbungenGetBewerbungUrl(bewerbungId), {
     ...options,
     method: "GET",
   });
@@ -1352,7 +1352,7 @@ export const bewerbungenErneutEinwilligung = async (
   });
 };
 
-export const getBewerbungenBesetzeKontaktSitzUrl = (bewerbungId: string, seat: string) => {
+export const getBewerbungenPostKontaktSitzUrl = (bewerbungId: string, seat: string) => {
   return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}/kontakte/${encodeURIComponent(String(seat))}`;
 };
 
@@ -1376,7 +1376,7 @@ export const getBewerbungenBesetzeKontaktSitzUrl = (bewerbungId: string, seat: s
  * seated being a new acceptance. A path naming no seat is a 404.
  * @summary Seat another person where a contact person stepped out
  */
-export const bewerbungenBesetzeKontaktSitz = async (
+export const bewerbungenPostKontaktSitz = async (
   bewerbungId: string,
   seat: string,
   fLBewerbungKontaktSitzPayload: FLBewerbungKontaktSitzPayload,
@@ -1394,7 +1394,7 @@ export const bewerbungenBesetzeKontaktSitz = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLBewerbungKontaktSitzResponse>(getBewerbungenBesetzeKontaktSitzUrl(bewerbungId, seat), {
+  return adminKeyTransport<FLBewerbungKontaktSitzResponse>(getBewerbungenPostKontaktSitzUrl(bewerbungId, seat), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1402,7 +1402,7 @@ export const bewerbungenBesetzeKontaktSitz = async (
   });
 };
 
-export const getBewerbungenKorrigiereKontaktEmailUrl = (bewerbungId: string, seat: string) => {
+export const getBewerbungenPostKontaktEmailUrl = (bewerbungId: string, seat: string) => {
   return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}/kontakte/${encodeURIComponent(String(seat))}/email`;
 };
 
@@ -1424,7 +1424,7 @@ export const getBewerbungenKorrigiereKontaktEmailUrl = (bewerbungId: string, sea
  * no seat is a 404.
  * @summary Correct one contact person's email address and re-send their link
  */
-export const bewerbungenKorrigiereKontaktEmail = async (
+export const bewerbungenPostKontaktEmail = async (
   bewerbungId: string,
   seat: string,
   fLBewerbungKontaktEmailPayload: FLBewerbungKontaktEmailPayload,
@@ -1442,7 +1442,7 @@ export const bewerbungenKorrigiereKontaktEmail = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLBewerbungKontaktEmailResponse>(getBewerbungenKorrigiereKontaktEmailUrl(bewerbungId, seat), {
+  return adminKeyTransport<FLBewerbungKontaktEmailResponse>(getBewerbungenPostKontaktEmailUrl(bewerbungId, seat), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1451,7 +1451,7 @@ export const bewerbungenKorrigiereKontaktEmail = async (
 };
 
 export const getBewerbungenPatchEinwilligungUrl = (bewerbungId: string) => {
-  return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}/person/einwilligung`;
+  return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}/konto/einwilligung`;
 };
 
 /**
@@ -1596,14 +1596,94 @@ export const identitaetGetAnmeldung = async (
   });
 };
 
-export const getIdentitaetEraseAufAnfrageUrl = () => {
-  return `/api/v0/identitaet/erasure`;
+export const getIdentitaetPostKontoLoeschungUrl = () => {
+  return `/api/v0/identitaet/konto/loeschung`;
+};
+
+/**
+ * Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.
+ *
+ * PERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one
+ * (`letzter_inhaber_loeschung`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest
+ * from a passkey sign-in `ENROLMENT_WINDOW_MINUTES` old at most, as a revoke asks, else `confirmation_required`. No other
+ * precondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still
+ * to be played included. Nothing is counted against the person's day.
+ *
+ * Removed: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record,
+ * every fixture it was booked on moving to the one row that holds no person and keeping its own fee, and every
+ * confirmation it was asked for, answered or not; every registration at the address, pending or declined; another
+ * address's pending change naming this one as its new address, every record it would move standing at its own; every
+ * grant the address holds, an `owner` grant and the last two among them, every administrator being told it ended.
+ * Emptied: every contact seat the address holds on a team's season row and on an application of any status, the row
+ * and its other seats standing, an emptied seat's links on its team's open match confirmations stopping to answer.
+ * Every reason the person typed answering a match confirmation, from any seat they held, goes from its row and its log
+ * images, the answer standing. Every match report the referee record sent stands, its remarks and entries included,
+ * naming the row that holds no person in its place, in its log images too. Every record the person made as an
+ * administrator or decided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's
+ * decision -- and every log row they wrote name a fixed marker in their place, this erasure's own rows included. The
+ * log images of the removed records are emptied, and every other image holding the address loses it, the people beside
+ * them keeping theirs.
+ *
+ * An address holding nothing is answered with every count zero rather than refused. The 409 answers only a database
+ * changed by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by
+ * id, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not
+ * touched here: deleting it is the caller's, once this has answered.
+ * @summary Erase every record the signed-in address holds
+ */
+export const identitaetPostKontoLoeschung = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLErasureResponse> => {
+  return adminKeyTransport<FLErasureResponse>(getIdentitaetPostKontoLoeschungUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getIdentitaetGetKontoLoeschungAnsichtUrl = () => {
+  return `/api/v0/identitaet/konto/loeschung/ansicht`;
+};
+
+/**
+ * Answer what `POST /identitaet/konto/loeschung` would remove for the signed-in address, by kind and by name.
+ *
+ * Read through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure
+ * removes or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address
+ * and no birthdate is answered. Another address's pending change naming this one is counted and not named, once its link
+ * has reached this mailbox: its records are not this address's until it takes effect. Reached and not named: the fixtures booking
+ * their referee record, which move onto the ghost, and their name in each of those fixtures' log images, which goes; the
+ * confirmations their referee record was asked for, which go, and its id and reason in a removed season's log images;
+ * the match reports their referee record sent, which stand naming the ghost, in their log images too;
+ * the links their contact seats were mailed on their teams' match confirmations, answered and closed ones too, which stop
+ * answering, and those links and their mails' delivery records in the confirmations' log images, which go; every reason
+ * they typed answering a match confirmation, from any seat they held, which goes from its row and its log images, the
+ * answer standing; what the person made or decided for others, which names a marker in their place; every
+ * request for a grant about their address or made by it, which goes; their rows in the
+ * log; every log image of a record the erasure removes, emptied whole whether or not it holds the address, and every
+ * other log image holding the address; each grant's announced row, and an announced row holding the address under
+ * another grant's id; and the address in every notice still queued, withheld. Written besides: the notice that their
+ * grant ended, which every administrator is sent. `verwaltung` is the tier of the live grant the address holds, or
+ * null; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.
+ *
+ * `letzter_inhaber` says whether the press would be refused `letzter_inhaber_loeschung` as the grants stand at this read: the address
+ * holds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;
+ * the press judges again, and its answer alone decides.
+ * @summary Show what an erasure of the signed-in address would remove
+ */
+export const identitaetGetKontoLoeschungAnsicht = async (
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSelbstErasureAnsichtResponse> => {
+  return adminKeyTransport<FLSelbstErasureAnsichtResponse>(getIdentitaetGetKontoLoeschungAnsichtUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getIdentitaetPostLoeschungUrl = () => {
+  return `/api/v0/identitaet/loeschung`;
 };
 
 /**
  * Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.
  *
- * ADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/selbst/erasure` runs and refuses nothing about the
+ * ADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/konto/loeschung` runs and refuses nothing about the
  * person's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.
  * Three refusals are about who asks. The administrator's own address is refused (`eigene_adresse`): their account page
  * serves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,
@@ -1621,7 +1701,7 @@ export const getIdentitaetEraseAufAnfrageUrl = () => {
  * the caller's, once this has answered.
  * @summary Erase every record an address holds, on that person's request
  */
-export const identitaetEraseAufAnfrage = async (
+export const identitaetPostLoeschung = async (
   fLErasurePayload: FLErasurePayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLErasureResponse> => {
@@ -1637,7 +1717,7 @@ export const identitaetEraseAufAnfrage = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLErasureResponse>(getIdentitaetEraseAufAnfrageUrl(), {
+  return adminKeyTransport<FLErasureResponse>(getIdentitaetPostLoeschungUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1645,12 +1725,12 @@ export const identitaetEraseAufAnfrage = async (
   });
 };
 
-export const getIdentitaetGetErasureAnsichtAufAnfrageUrl = () => {
-  return `/api/v0/identitaet/erasure/ansicht`;
+export const getIdentitaetGetLoeschungAnsichtUrl = () => {
+  return `/api/v0/identitaet/loeschung/ansicht`;
 };
 
 /**
- * Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.
+ * Answer which of this address's records `POST /identitaet/loeschung` would remove or empty, by kind, name and the ids a page links each by.
  *
  * ADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names
  * every one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,
@@ -1681,7 +1761,7 @@ export const getIdentitaetGetErasureAnsichtAufAnfrageUrl = () => {
  * the administrator holds an owner's power (`verwaltung_adresse`).
  * @summary Show what an erasure of an address would remove
  */
-export const identitaetGetErasureAnsichtAufAnfrage = async (
+export const identitaetGetLoeschungAnsicht = async (
   fLErasureAdressePayload: FLErasureAdressePayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLErasureAnsichtResponse> => {
@@ -1697,7 +1777,7 @@ export const identitaetGetErasureAnsichtAufAnfrage = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLErasureAnsichtResponse>(getIdentitaetGetErasureAnsichtAufAnfrageUrl(), {
+  return adminKeyTransport<FLErasureAnsichtResponse>(getIdentitaetGetLoeschungAnsichtUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1705,10 +1785,10 @@ export const identitaetGetErasureAnsichtAufAnfrage = async (
   });
 };
 
-export const getIdentitaetPostLoeschungLaufUrl = (params?: IdentitaetPostLoeschungLaufParams) => {
+export const getIdentitaetSweepLoeschungUrl = (params?: IdentitaetSweepLoeschungParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/identitaet/loeschung/lauf?${stringifiedParams}` : `/api/v0/identitaet/loeschung/lauf`;
+  return stringifiedParams.length > 0 ? `/api/v0/identitaet/loeschung/sweep?${stringifiedParams}` : `/api/v0/identitaet/loeschung/sweep`;
 };
 
 /**
@@ -1742,11 +1822,11 @@ export const getIdentitaetPostLoeschungLaufUrl = (params?: IdentitaetPostLoeschu
  * handler; this call counts that failure as any other and never answers it.
  * @summary Delete one share of the pupils the season-after rule makes due
  */
-export const identitaetPostLoeschungLauf = async (
-  params?: IdentitaetPostLoeschungLaufParams,
+export const identitaetSweepLoeschung = async (
+  params?: IdentitaetSweepLoeschungParams,
   options?: Parameters<typeof systemKeyTransport>[1],
 ): Promise<FLLoeschungLaufResponse> => {
-  return systemKeyTransport<FLLoeschungLaufResponse>(getIdentitaetPostLoeschungLaufUrl(params), {
+  return systemKeyTransport<FLLoeschungLaufResponse>(getIdentitaetSweepLoeschungUrl(params), {
     ...options,
     method: "POST",
   });
@@ -1783,86 +1863,6 @@ export const identitaetGetReferenzen = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLReferenzenPayload),
-  });
-};
-
-export const getIdentitaetEraseSelbstUrl = () => {
-  return `/api/v0/identitaet/selbst/erasure`;
-};
-
-/**
- * Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.
- *
- * PERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one
- * (`letzter_inhaber_loeschung`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest
- * from a passkey sign-in `ENROLMENT_WINDOW_MINUTES` old at most, as a revoke asks, else `confirmation_required`. No other
- * precondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still
- * to be played included. Nothing is counted against the person's day.
- *
- * Removed: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record,
- * every fixture it was booked on moving to the one row that holds no person and keeping its own fee, and every
- * confirmation it was asked for, answered or not; every registration at the address, pending or declined; another
- * address's pending change naming this one as its new address, every record it would move standing at its own; every
- * grant the address holds, an `owner` grant and the last two among them, every administrator being told it ended.
- * Emptied: every contact seat the address holds on a team's season row and on an application of any status, the row
- * and its other seats standing, an emptied seat's links on its team's open match confirmations stopping to answer.
- * Every reason the person typed answering a match confirmation, from any seat they held, goes from its row and its log
- * images, the answer standing. Every match report the referee record sent stands, its remarks and entries included,
- * naming the row that holds no person in its place, in its log images too. Every record the person made as an
- * administrator or decided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's
- * decision -- and every log row they wrote name a fixed marker in their place, this erasure's own rows included. The
- * log images of the removed records are emptied, and every other image holding the address loses it, the people beside
- * them keeping theirs.
- *
- * An address holding nothing is answered with every count zero rather than refused. The 409 answers only a database
- * changed by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by
- * id, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not
- * touched here: deleting it is the caller's, once this has answered.
- * @summary Erase every record the signed-in address holds
- */
-export const identitaetEraseSelbst = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLErasureResponse> => {
-  return adminKeyTransport<FLErasureResponse>(getIdentitaetEraseSelbstUrl(), {
-    ...options,
-    method: "POST",
-  });
-};
-
-export const getIdentitaetGetErasureAnsichtUrl = () => {
-  return `/api/v0/identitaet/selbst/erasure/ansicht`;
-};
-
-/**
- * Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.
- *
- * Read through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure
- * removes or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address
- * and no birthdate is answered. Another address's pending change naming this one is counted and not named, once its link
- * has reached this mailbox: its records are not this address's until it takes effect. Reached and not named: the fixtures booking
- * their referee record, which move onto the ghost, and their name in each of those fixtures' log images, which goes; the
- * confirmations their referee record was asked for, which go, and its id and reason in a removed season's log images;
- * the match reports their referee record sent, which stand naming the ghost, in their log images too;
- * the links their contact seats were mailed on their teams' match confirmations, answered and closed ones too, which stop
- * answering, and those links and their mails' delivery records in the confirmations' log images, which go; every reason
- * they typed answering a match confirmation, from any seat they held, which goes from its row and its log images, the
- * answer standing; what the person made or decided for others, which names a marker in their place; every
- * request for a grant about their address or made by it, which goes; their rows in the
- * log; every log image of a record the erasure removes, emptied whole whether or not it holds the address, and every
- * other log image holding the address; each grant's announced row, and an announced row holding the address under
- * another grant's id; and the address in every notice still queued, withheld. Written besides: the notice that their
- * grant ended, which every administrator is sent. `verwaltung` is the tier of the live grant the address holds, or
- * null; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.
- *
- * `letzter_inhaber` says whether the press would be refused `letzter_inhaber_loeschung` as the grants stand at this read: the address
- * holds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;
- * the press judges again, and its answer alone decides.
- * @summary Show what an erasure of the signed-in address would remove
- */
-export const identitaetGetErasureAnsicht = async (
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSelbstErasureAnsichtResponse> => {
-  return adminKeyTransport<FLSelbstErasureAnsichtResponse>(getIdentitaetGetErasureAnsichtUrl(), {
-    ...options,
-    method: "GET",
   });
 };
 
@@ -2394,7 +2394,7 @@ export const registrierungenGetOffeneRegistrierungen = async (
 };
 
 export const getRegistrierungenPatchEinwilligungUrl = (registrierungId: string) => {
-  return `/api/v0/registrierungen/selbst/${encodeURIComponent(String(registrierungId))}/einwilligung`;
+  return `/api/v0/registrierungen/konto/${encodeURIComponent(String(registrierungId))}/einwilligung`;
 };
 
 /**
@@ -2569,7 +2569,7 @@ export const getSaisonsGetSaisonsUrl = (params?: SaisonsGetSaisonsParams) => {
  * List the seasons the public may read, optionally narrowed to `past` or `active`.
  *
  * Unlike the other resources, this does NOT default to the current season. A `future` season is
- * withheld here and served by `GET /saisons/list/admin`.
+ * withheld here and served by `GET /saisons/list/verwaltung`.
  * @summary List Saisons
  */
 export const saisonsGetSaisons = async (
@@ -2617,25 +2617,25 @@ export const saisonsPostSaison = async (
   });
 };
 
-export const getSaisonsGetCurrentSaisonUrl = () => {
-  return `/api/v0/saisons/current`;
+export const getSaisonsGetActiveSaisonUrl = () => {
+  return `/api/v0/saisons/active`;
 };
 
 /**
  * Return the season currently marked active -- what every other endpoint resolves an omitted `saison_id` against.
  * @summary The active Saison
  */
-export const saisonsGetCurrentSaison = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSaisonsSingleResponse> => {
-  return baseKeyTransport<FLSaisonsSingleResponse>(getSaisonsGetCurrentSaisonUrl(), {
+export const saisonsGetActiveSaison = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSaisonsSingleResponse> => {
+  return baseKeyTransport<FLSaisonsSingleResponse>(getSaisonsGetActiveSaisonUrl(), {
     ...options,
     method: "GET",
   });
 };
 
-export const getSaisonsGetSaisonsForAdminUrl = (params?: SaisonsGetSaisonsForAdminParams) => {
+export const getSaisonsGetSaisonsVerwaltungUrl = (params?: SaisonsGetSaisonsVerwaltungParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/saisons/list/admin?${stringifiedParams}` : `/api/v0/saisons/list/admin`;
+  return stringifiedParams.length > 0 ? `/api/v0/saisons/list/verwaltung?${stringifiedParams}` : `/api/v0/saisons/list/verwaltung`;
 };
 
 /**
@@ -2646,11 +2646,11 @@ export const getSaisonsGetSaisonsForAdminUrl = (params?: SaisonsGetSaisonsForAdm
  * start lock refuses on, the swap's, the replacement's and the rules freeze's.
  * @summary Every Saison for the admin surfaces
  */
-export const saisonsGetSaisonsForAdmin = async (
-  params?: SaisonsGetSaisonsForAdminParams,
+export const saisonsGetSaisonsVerwaltung = async (
+  params?: SaisonsGetSaisonsVerwaltungParams,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSaisonsAdminListResponse> => {
-  return adminKeyTransport<FLSaisonsAdminListResponse>(getSaisonsGetSaisonsForAdminUrl(params), {
+  return adminKeyTransport<FLSaisonsAdminListResponse>(getSaisonsGetSaisonsVerwaltungUrl(params), {
     ...options,
     method: "GET",
   });
@@ -2787,7 +2787,7 @@ export const saisonsPostEinladungenVersand = async (
   });
 };
 
-export const getSaisonsPreviewEinladungenVersandUrl = (saisonId: string, params?: SaisonsPreviewEinladungenVersandParams) => {
+export const getSaisonsGetEinladungenVersandVorschauUrl = (saisonId: string, params?: SaisonsGetEinladungenVersandVorschauParams) => {
   const stringifiedParams = serializeQuery(params);
 
   return stringifiedParams.length > 0
@@ -2812,12 +2812,12 @@ export const getSaisonsPreviewEinladungenVersandUrl = (saisonId: string, params?
  * no team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.
  * @summary Who the send would reach
  */
-export const saisonsPreviewEinladungenVersand = async (
+export const saisonsGetEinladungenVersandVorschau = async (
   saisonId: string,
-  params?: SaisonsPreviewEinladungenVersandParams,
+  params?: SaisonsGetEinladungenVersandVorschauParams,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLEinladungVersandVorschauResponse> => {
-  return adminKeyTransport<FLEinladungVersandVorschauResponse>(getSaisonsPreviewEinladungenVersandUrl(saisonId, params), {
+  return adminKeyTransport<FLEinladungVersandVorschauResponse>(getSaisonsGetEinladungenVersandVorschauUrl(saisonId, params), {
     ...options,
     method: "GET",
   });
@@ -2859,12 +2859,12 @@ export const saisonsSwapGruppen = async (
   });
 };
 
-export const getSaisonsPreviewLoeschungUrl = (saisonId: string) => {
+export const getSaisonsGetLoeschungVorschauUrl = (saisonId: string) => {
   return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/loeschung/vorschau`;
 };
 
 /**
- * How many pupils `POST /identitaet/loeschung/lauf` deletes once this season is activated, and which season that activation closes.
+ * How many pupils `POST /identitaet/loeschung/sweep` deletes once this season is activated, and which season that activation closes.
  *
  * Judged by the run's own rule over the statuses the activation leaves: the season now `active` turned `past`, this one
  * `active`, every other as it stands. A count and never a name, and writes nothing. It judges none of the activation's own
@@ -2873,17 +2873,17 @@ export const getSaisonsPreviewLoeschungUrl = (saisonId: string) => {
  * `abgeschlossene_saison_id` is null where no season but this one is `active`. 404 where no season holds that id.
  * @summary How many pupils activating this season would delete
  */
-export const saisonsPreviewLoeschung = async (
+export const saisonsGetLoeschungVorschau = async (
   saisonId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLLoeschungVorschauResponse> => {
-  return adminKeyTransport<FLLoeschungVorschauResponse>(getSaisonsPreviewLoeschungUrl(saisonId), {
+  return adminKeyTransport<FLLoeschungVorschauResponse>(getSaisonsGetLoeschungVorschauUrl(saisonId), {
     ...options,
     method: "GET",
   });
 };
 
-export const getSaisonsUndrawSpielplanUrl = (saisonId: string) => {
+export const getSaisonsDeleteSpielplanUrl = (saisonId: string) => {
   return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spielplan`;
 };
 
@@ -2897,17 +2897,17 @@ export const getSaisonsUndrawSpielplanUrl = (saisonId: string) => {
  * an entry.
  * @summary Undraw this Saison's Spielplan
  */
-export const saisonsUndrawSpielplan = async (
+export const saisonsDeleteSpielplan = async (
   saisonId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLUndrawSpielplanResponse> => {
-  return adminKeyTransport<FLUndrawSpielplanResponse>(getSaisonsUndrawSpielplanUrl(saisonId), {
+  return adminKeyTransport<FLUndrawSpielplanResponse>(getSaisonsDeleteSpielplanUrl(saisonId), {
     ...options,
     method: "DELETE",
   });
 };
 
-export const getSaisonsGenerateSpielplanUrl = (saisonId: string) => {
+export const getSaisonsPostSpielplanUrl = (saisonId: string) => {
   return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spielplan`;
 };
 
@@ -2921,7 +2921,7 @@ export const getSaisonsGenerateSpielplanUrl = (saisonId: string) => {
  * the removed rows back.
  * @summary Draw this Saison's Spielplan
  */
-export const saisonsGenerateSpielplan = async (
+export const saisonsPostSpielplan = async (
   saisonId: string,
   fLGenerateSpielplanPayload?: FLGenerateSpielplanPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
@@ -2938,7 +2938,7 @@ export const saisonsGenerateSpielplan = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLGenerateSpielplanResponse>(getSaisonsGenerateSpielplanUrl(saisonId), {
+  return adminKeyTransport<FLGenerateSpielplanResponse>(getSaisonsPostSpielplanUrl(saisonId), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -3100,28 +3100,8 @@ export const schiedsrichterGetBestaetigungAnsicht = async (
   });
 };
 
-export const getSchiedsrichterGetSelbstUrl = () => {
-  return `/api/v0/schiedsrichter/selbst`;
-};
-
-/**
- * Answer every confirmed referee record the signed-in address holds, with its stored contact details.
- *
- * PERSON TIER: the fee set for them per fixture as `honorar`, never the confirmation link's bookkeeping. A retired
- * record is served too. Its consent is the account page's (`GET /konto/einwilligungen`), so none is served here.
- *
- * Refuses an address holding no confirmed referee record (`funktion_nicht_gehalten`).
- * @summary A signed-in referee's own records
- */
-export const schiedsrichterGetSelbst = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSchiedsrichterSelbstResponse> => {
-  return adminKeyTransport<FLSchiedsrichterSelbstResponse>(getSchiedsrichterGetSelbstUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string) => {
-  return `/api/v0/schiedsrichter/selbst/${encodeURIComponent(String(schiedsrichterId))}/einwilligung`;
+  return `/api/v0/schiedsrichter/konto/${encodeURIComponent(String(schiedsrichterId))}/einwilligung`;
 };
 
 /**
@@ -3165,6 +3145,26 @@ export const schiedsrichterPatchEinwilligung = async (
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLSelbstEinwilligungPayload),
+  });
+};
+
+export const getSchiedsrichterGetSelfUrl = () => {
+  return `/api/v0/schiedsrichter/self`;
+};
+
+/**
+ * Answer every confirmed referee record the signed-in address holds, with its stored contact details.
+ *
+ * PERSON TIER: the fee set for them per fixture as `honorar`, never the confirmation link's bookkeeping. A retired
+ * record is served too. Its consent is the account page's (`GET /konto/einwilligungen`), so none is served here.
+ *
+ * Refuses an address holding no confirmed referee record (`funktion_nicht_gehalten`).
+ * @summary A signed-in referee's own records
+ */
+export const schiedsrichterGetSelf = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSchiedsrichterSelbstResponse> => {
+  return adminKeyTransport<FLSchiedsrichterSelbstResponse>(getSchiedsrichterGetSelfUrl(), {
+    ...options,
+    method: "GET",
   });
 };
 
@@ -3437,8 +3437,8 @@ export const spielberichteGetSpielberichte = async (
   });
 };
 
-export const getSpielberichteGetSpielberichtePersonUrl = () => {
-  return `/api/v0/spielberichte/person`;
+export const getSpielberichteGetSelfUrl = () => {
+  return `/api/v0/spielberichte/self`;
 };
 
 /**
@@ -3453,10 +3453,8 @@ export const getSpielberichteGetSpielberichtePersonUrl = () => {
  * Refused `funktion_nicht_gehalten` where the address holds no confirmed, live referee record.
  * @summary The fixtures a signed-in referee reports on
  */
-export const spielberichteGetSpielberichtePerson = async (
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielberichtePersonResponse> => {
-  return adminKeyTransport<FLSpielberichtePersonResponse>(getSpielberichteGetSpielberichtePersonUrl(), {
+export const spielberichteGetSelf = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielberichtePersonResponse> => {
+  return adminKeyTransport<FLSpielberichtePersonResponse>(getSpielberichteGetSelfUrl(), {
     ...options,
     method: "GET",
   });
@@ -3509,34 +3507,6 @@ export const spielberichtePatchSpielbericht = async (
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLSpielberichtPayload),
-  });
-};
-
-export const getSpielberichteGetSpielberichtAdminUrl = (spielId: string, params?: SpielberichteGetSpielberichtAdminParams) => {
-  const stringifiedParams = serializeQuery(params);
-
-  return stringifiedParams.length > 0
-    ? `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}/admin?${stringifiedParams}`
-    : `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}/admin`;
-};
-
-/**
- * One fixture's report as the editor's panel reads it, whole, with the state it reads in.
- *
- * Beside it the fixture and the pupils the report names, by name. Both clubs' live squads of the season only with
- * `kader`, which the correction's form picks from: the panel reads no pupil the report does not name, so a fixture
- * holding no report serves none. The report and its state are null where no report stands; `document_not_found` only for
- * a fixture that does not exist.
- * @summary One fixture's report, whole, for an administrator
- */
-export const spielberichteGetSpielberichtAdmin = async (
-  spielId: string,
-  params?: SpielberichteGetSpielberichtAdminParams,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielberichtAdminResponse> => {
-  return adminKeyTransport<FLSpielberichtAdminResponse>(getSpielberichteGetSpielberichtAdminUrl(spielId, params), {
-    ...options,
-    method: "GET",
   });
 };
 
@@ -3621,6 +3591,34 @@ export const spielberichtePutSpielberichtBericht = async (
     method: "PUT",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLSpielberichtPayload),
+  });
+};
+
+export const getSpielberichteGetSpielberichtVerwaltungUrl = (spielId: string, params?: SpielberichteGetSpielberichtVerwaltungParams) => {
+  const stringifiedParams = serializeQuery(params);
+
+  return stringifiedParams.length > 0
+    ? `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}/verwaltung?${stringifiedParams}`
+    : `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}/verwaltung`;
+};
+
+/**
+ * One fixture's report as the editor's panel reads it, whole, with the state it reads in.
+ *
+ * Beside it the fixture and the pupils the report names, by name. Both clubs' live squads of the season only with
+ * `kader`, which the correction's form picks from: the panel reads no pupil the report does not name, so a fixture
+ * holding no report serves none. The report and its state are null where no report stands; `document_not_found` only for
+ * a fixture that does not exist.
+ * @summary One fixture's report, whole, for an administrator
+ */
+export const spielberichteGetSpielberichtVerwaltung = async (
+  spielId: string,
+  params?: SpielberichteGetSpielberichtVerwaltungParams,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielberichtAdminResponse> => {
+  return adminKeyTransport<FLSpielberichtAdminResponse>(getSpielberichteGetSpielberichtVerwaltungUrl(spielId, params), {
+    ...options,
+    method: "GET",
   });
 };
 
@@ -3737,8 +3735,8 @@ export const spielbestaetigungenGetSpielbestaetigungAnsicht = async (
   });
 };
 
-export const getSpielbestaetigungenGetEigeneSpielbestaetigungenUrl = () => {
-  return `/api/v0/spielbestaetigungen/selbst`;
+export const getSpielbestaetigungenGetSelfUrl = () => {
+  return `/api/v0/spielbestaetigungen/self`;
 };
 
 /**
@@ -3757,16 +3755,16 @@ export const getSpielbestaetigungenGetEigeneSpielbestaetigungenUrl = () => {
  * Refuses an address holding no live, confirmed referee record (`funktion_nicht_gehalten`).
  * @summary A signed-in referee's own fixture assignments
  */
-export const spielbestaetigungenGetEigeneSpielbestaetigungen = async (
+export const spielbestaetigungenGetSelf = async (
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpielbestaetigungenSelbstResponse> => {
-  return adminKeyTransport<FLSpielbestaetigungenSelbstResponse>(getSpielbestaetigungenGetEigeneSpielbestaetigungenUrl(), {
+  return adminKeyTransport<FLSpielbestaetigungenSelbstResponse>(getSpielbestaetigungenGetSelfUrl(), {
     ...options,
     method: "GET",
   });
 };
 
-export const getSpielbestaetigungenGetSpielSweepSaisonsUrl = () => {
+export const getSpielbestaetigungenGetSweepSaisonsUrl = () => {
   return `/api/v0/spielbestaetigungen/sweep`;
 };
 
@@ -3778,10 +3776,10 @@ export const getSpielbestaetigungenGetSpielSweepSaisonsUrl = () => {
  * bookkeeping, asked by the process running the pass and by no page. Reading it writes nothing.
  * @summary Every season the confirmation pass visits
  */
-export const spielbestaetigungenGetSpielSweepSaisons = async (
+export const spielbestaetigungenGetSweepSaisons = async (
   options?: Parameters<typeof systemKeyTransport>[1],
 ): Promise<FLSpielbestaetigungSweepSaisonsResponse> => {
-  return systemKeyTransport<FLSpielbestaetigungSweepSaisonsResponse>(getSpielbestaetigungenGetSpielSweepSaisonsUrl(), {
+  return systemKeyTransport<FLSpielbestaetigungSweepSaisonsResponse>(getSpielbestaetigungenGetSweepSaisonsUrl(), {
     ...options,
     method: "GET",
   });
@@ -4017,10 +4015,10 @@ export const spieleGetSpieleActionRequired = async (
   });
 };
 
-export const getSpieleGetSpieleForAdminUrl = (params?: SpieleGetSpieleForAdminParams) => {
+export const getSpieleGetSpieleVerwaltungUrl = (params?: SpieleGetSpieleVerwaltungParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spiele/list/admin?${stringifiedParams}` : `/api/v0/spiele/list/admin`;
+  return stringifiedParams.length > 0 ? `/api/v0/spiele/list/verwaltung?${stringifiedParams}` : `/api/v0/spiele/list/verwaltung`;
 };
 
 /**
@@ -4029,11 +4027,11 @@ export const getSpieleGetSpieleForAdminUrl = (params?: SpieleGetSpieleForAdminPa
  * Each referee carries their whole name, and each booking its money.
  * @summary Spiele for the admin surfaces
  */
-export const spieleGetSpieleForAdmin = async (
-  params?: SpieleGetSpieleForAdminParams,
+export const spieleGetSpieleVerwaltung = async (
+  params?: SpieleGetSpieleVerwaltungParams,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpieleAdminListResponse> => {
-  return adminKeyTransport<FLSpieleAdminListResponse>(getSpieleGetSpieleForAdminUrl(params), {
+  return adminKeyTransport<FLSpieleAdminListResponse>(getSpieleGetSpieleVerwaltungUrl(params), {
     ...options,
     method: "GET",
   });
@@ -4054,7 +4052,7 @@ export const spieleGetSpiel = async (spielId: string, options?: Parameters<typeo
   });
 };
 
-export const getSpielePatchSpielDataUrl = (spielId: string, params?: SpielePatchSpielDataParams) => {
+export const getSpielePatchSpielUrl = (spielId: string, params?: SpielePatchSpielParams) => {
   const stringifiedParams = serializeQuery(params);
 
   return stringifiedParams.length > 0
@@ -4070,10 +4068,10 @@ export const getSpielePatchSpielDataUrl = (spielId: string, params?: SpielePatch
  * `dry_run` answers the same report and writes nothing.
  * @summary Update a Spiel
  */
-export const spielePatchSpielData = async (
+export const spielePatchSpiel = async (
   spielId: string,
   fLPatchSpielDataPayload: FLPatchSpielDataPayload,
-  params?: SpielePatchSpielDataParams,
+  params?: SpielePatchSpielParams,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLPatchSpielDataResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -4088,7 +4086,7 @@ export const spielePatchSpielData = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLPatchSpielDataResponse>(getSpielePatchSpielDataUrl(spielId, params), {
+  return adminKeyTransport<FLPatchSpielDataResponse>(getSpielePatchSpielUrl(spielId, params), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -4096,19 +4094,19 @@ export const spielePatchSpielData = async (
   });
 };
 
-export const getSpieleGetSpielForAdminUrl = (spielId: string) => {
-  return `/api/v0/spiele/${encodeURIComponent(String(spielId))}/admin`;
+export const getSpieleGetSpielVerwaltungUrl = (spielId: string) => {
+  return `/api/v0/spiele/${encodeURIComponent(String(spielId))}/verwaltung`;
 };
 
 /**
  * Return one match in the admin shape, money included, for the editor.
  * @summary One Spiel for the admin editor
  */
-export const spieleGetSpielForAdmin = async (
+export const spieleGetSpielVerwaltung = async (
   spielId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpieleAdminSingleResponse> => {
-  return adminKeyTransport<FLSpieleAdminSingleResponse>(getSpieleGetSpielForAdminUrl(spielId), {
+  return adminKeyTransport<FLSpieleAdminSingleResponse>(getSpieleGetSpielVerwaltungUrl(spielId), {
     ...options,
     method: "GET",
   });
@@ -4232,73 +4230,8 @@ export const spielerPatchKaderZeile = async (
   });
 };
 
-export const getSpielerGetSpielerMembershipsUrl = () => {
-  return `/api/v0/spieler/memberships`;
-};
-
-/**
- * Every player, retired ones included, each with every squad row they hold.
- *
- * `GET /spieler` answers it at no setting: the junction join is strict with a `saison_id`, and
- * without one a player with no live row has `nummer` and `position` null.
- *
- * `adresswechsel_id` names the live change of the pupil's address, which the address tool shows, and
- * `adresswechsel_einsehbar_verwehrt` why the tool refuses it this administrator, null where it opens it.
- * @summary Every Spieler with their squad rows
- */
-export const spielerGetSpielerMemberships = async (
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielerMembershipsResponse> => {
-  return adminKeyTransport<FLSpielerMembershipsResponse>(getSpielerGetSpielerMembershipsUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getSpielerGetSpielerNachnominierungUrl = (saisonId: string) => {
-  return `/api/v0/spieler/nachnominierung/${encodeURIComponent(String(saisonId))}`;
-};
-
-/**
- * Whether a player entered into this season's squads today would be marked a Nachnominierung.
- *
- * `POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the first
- * day of matchday 1 of the season's first phase. A season whose matchday 1 is undated, or which
- * holds none yet, answers `false`. 404 where no season has this id.
- * @summary Whether a squad entry into a season today is a Nachnominierung
- */
-export const spielerGetSpielerNachnominierung = async (
-  saisonId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielerNachnominierungResponse> => {
-  return adminKeyTransport<FLSpielerNachnominierungResponse>(getSpielerGetSpielerNachnominierungUrl(saisonId), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getSpielerGetSelbstUrl = () => {
-  return `/api/v0/spieler/selbst`;
-};
-
-/**
- * Answer the signed-in address's own pupil record's stored data with every squad row it holds.
- *
- * PERSON TIER: the whole surname and the birthdate, never masked, and never the sign-in address itself. A retired
- * record is served too. Its consent is the account page's (`GET /konto/einwilligungen`), so none is served here.
- *
- * Refuses an address holding no confirmed pupil record (`funktion_nicht_gehalten`).
- * @summary A signed-in pupil's own record
- */
-export const spielerGetSelbst = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerSelbstResponse> => {
-  return adminKeyTransport<FLSpielerSelbstResponse>(getSpielerGetSelbstUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getSpielerPatchEinwilligungUrl = () => {
-  return `/api/v0/spieler/selbst/einwilligung`;
+  return `/api/v0/spieler/konto/einwilligung`;
 };
 
 /**
@@ -4341,6 +4274,69 @@ export const spielerPatchEinwilligung = async (
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLSelbstEinwilligungPayload),
+  });
+};
+
+export const getSpielerGetSpielerNachnominierungUrl = (saisonId: string) => {
+  return `/api/v0/spieler/nachnominierung/${encodeURIComponent(String(saisonId))}`;
+};
+
+/**
+ * Whether a player entered into this season's squads today would be marked a Nachnominierung.
+ *
+ * `POST /spieler/{spieler_id}/saisons` derives the stored marker from this same test: from the first
+ * day of matchday 1 of the season's first phase. A season whose matchday 1 is undated, or which
+ * holds none yet, answers `false`. 404 where no season has this id.
+ * @summary Whether a squad entry into a season today is a Nachnominierung
+ */
+export const spielerGetSpielerNachnominierung = async (
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLSpielerNachnominierungResponse> => {
+  return adminKeyTransport<FLSpielerNachnominierungResponse>(getSpielerGetSpielerNachnominierungUrl(saisonId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSpielerGetSpielerSaisonsUrl = () => {
+  return `/api/v0/spieler/saisons`;
+};
+
+/**
+ * Every player, retired ones included, each with every squad row they hold.
+ *
+ * `GET /spieler` answers it at no setting: the junction join is strict with a `saison_id`, and
+ * without one a player with no live row has `nummer` and `position` null.
+ *
+ * `adresswechsel_id` names the live change of the pupil's address, which the address tool shows, and
+ * `adresswechsel_einsehbar_verwehrt` why the tool refuses it this administrator, null where it opens it.
+ * @summary Every Spieler with their squad rows
+ */
+export const spielerGetSpielerSaisons = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerMembershipsResponse> => {
+  return adminKeyTransport<FLSpielerMembershipsResponse>(getSpielerGetSpielerSaisonsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSpielerGetSelfUrl = () => {
+  return `/api/v0/spieler/self`;
+};
+
+/**
+ * Answer the signed-in address's own pupil record's stored data with every squad row it holds.
+ *
+ * PERSON TIER: the whole surname and the birthdate, never masked, and never the sign-in address itself. A retired
+ * record is served too. Its consent is the account page's (`GET /konto/einwilligungen`), so none is served here.
+ *
+ * Refuses an address holding no confirmed pupil record (`funktion_nicht_gehalten`).
+ * @summary A signed-in pupil's own record
+ */
+export const spielerGetSelf = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLSpielerSelbstResponse> => {
+  return adminKeyTransport<FLSpielerSelbstResponse>(getSpielerGetSelfUrl(), {
+    ...options,
+    method: "GET",
   });
 };
 
@@ -4483,7 +4479,7 @@ export const getSpielerDeleteSaisonSpielerUrl = (spielerId: string, saisonId: st
  * Take a player out of a season's squad. SOFT: the row stays.
  *
  * The row records that this player wore this number in this squad, which stays true after they
- * leave. `GET /spieler/memberships` is where an admin reads it back, marked by `inactive_since`.
+ * leave. `GET /spieler/saisons` is where an admin reads it back, marked by `inactive_since`.
  * @summary Remove a Spieler from a squad
  */
 export const spielerDeleteSaisonSpieler = async (
@@ -4730,10 +4726,10 @@ export const spieltageGetSpieltage = async (
   });
 };
 
-export const getSpieltageGetSpieltageForAdminUrl = (params?: SpieltageGetSpieltageForAdminParams) => {
+export const getSpieltageGetSpieltageVerwaltungUrl = (params?: SpieltageGetSpieltageVerwaltungParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spieltage/list/admin?${stringifiedParams}` : `/api/v0/spieltage/list/admin`;
+  return stringifiedParams.length > 0 ? `/api/v0/spieltage/list/verwaltung?${stringifiedParams}` : `/api/v0/spieltage/list/verwaltung`;
 };
 
 /**
@@ -4743,11 +4739,11 @@ export const getSpieltageGetSpieltageForAdminUrl = (params?: SpieltageGetSpielta
  * are drawn while it is planned, and dating them is what this list is for.
  * @summary Spieltage for the admin surfaces
  */
-export const spieltageGetSpieltageForAdmin = async (
-  params?: SpieltageGetSpieltageForAdminParams,
+export const spieltageGetSpieltageVerwaltung = async (
+  params?: SpieltageGetSpieltageVerwaltungParams,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpieltageListResponse> => {
-  return adminKeyTransport<FLSpieltageListResponse>(getSpieltageGetSpieltageForAdminUrl(params), {
+  return adminKeyTransport<FLSpieltageListResponse>(getSpieltageGetSpieltageVerwaltungUrl(params), {
     ...options,
     method: "GET",
   });
@@ -4810,8 +4806,8 @@ export const spieltagePatchSpieltag = async (
   });
 };
 
-export const getSpieltageGetSpieltagForAdminUrl = (spieltagId: string) => {
-  return `/api/v0/spieltage/${encodeURIComponent(String(spieltagId))}/admin`;
+export const getSpieltageGetSpieltagVerwaltungUrl = (spieltagId: string) => {
+  return `/api/v0/spieltage/${encodeURIComponent(String(spieltagId))}/verwaltung`;
 };
 
 /**
@@ -4821,11 +4817,11 @@ export const getSpieltageGetSpieltagForAdminUrl = (spieltagId: string) => {
  * matchday to date it, and that happens before its season is ever activated.
  * @summary One Spieltag for the admin editor
  */
-export const spieltageGetSpieltagForAdmin = async (
+export const spieltageGetSpieltagVerwaltung = async (
   spieltagId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpieltageSingleResponse> => {
-  return adminKeyTransport<FLSpieltageSingleResponse>(getSpieltageGetSpieltagForAdminUrl(spieltagId), {
+  return adminKeyTransport<FLSpieltageSingleResponse>(getSpieltageGetSpieltagVerwaltungUrl(spieltagId), {
     ...options,
     method: "GET",
   });
@@ -4905,10 +4901,10 @@ export const teamsPostTeam = async (
   });
 };
 
-export const getTeamsGetTeamsForAdminUrl = (params?: TeamsGetTeamsForAdminParams) => {
+export const getTeamsGetTeamsVerwaltungUrl = (params?: TeamsGetTeamsVerwaltungParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/teams/list/admin?${stringifiedParams}` : `/api/v0/teams/list/admin`;
+  return stringifiedParams.length > 0 ? `/api/v0/teams/list/verwaltung?${stringifiedParams}` : `/api/v0/teams/list/verwaltung`;
 };
 
 /**
@@ -4918,18 +4914,18 @@ export const getTeamsGetTeamsForAdminUrl = (params?: TeamsGetTeamsForAdminParams
  * season is still planned, so an admin who cannot see one cannot enter it.
  * @summary Teams for a Saison, for the admin surfaces
  */
-export const teamsGetTeamsForAdmin = async (
-  params?: TeamsGetTeamsForAdminParams,
+export const teamsGetTeamsVerwaltung = async (
+  params?: TeamsGetTeamsVerwaltungParams,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLTeamsListResponse | FLTeamsGroupedResponse> => {
-  return adminKeyTransport<FLTeamsListResponse | FLTeamsGroupedResponse>(getTeamsGetTeamsForAdminUrl(params), {
+  return adminKeyTransport<FLTeamsListResponse | FLTeamsGroupedResponse>(getTeamsGetTeamsVerwaltungUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getTeamsGetTeamMembershipsUrl = () => {
-  return `/api/v0/teams/memberships`;
+export const getTeamsGetTeamSaisonsUrl = () => {
+  return `/api/v0/teams/saisons`;
 };
 
 /**
@@ -4941,8 +4937,8 @@ export const getTeamsGetTeamMembershipsUrl = () => {
  * ever owed.
  * @summary Every team with its season memberships
  */
-export const teamsGetTeamMemberships = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLTeamsMembershipsResponse> => {
-  return adminKeyTransport<FLTeamsMembershipsResponse>(getTeamsGetTeamMembershipsUrl(), {
+export const teamsGetTeamSaisons = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLTeamsMembershipsResponse> => {
+  return adminKeyTransport<FLTeamsMembershipsResponse>(getTeamsGetTeamSaisonsUrl(), {
     ...options,
     method: "GET",
   });
@@ -5330,7 +5326,7 @@ export const teamsEinladenKontakt = async (
 };
 
 export const getTeamsPatchEinwilligungUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/person/einwilligung`;
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/konto/einwilligung`;
 };
 
 /**
@@ -5377,28 +5373,6 @@ export const teamsPatchEinwilligung = async (
   });
 };
 
-export const getTeamsGetTeamSitzeUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/person/sitze`;
-};
-
-/**
- * The team's three seats in this season, each with its holder's name and whether that person has confirmed it.
- *
- * Always three lines, an empty slot answered with no name. No seat's address, telephone number, birthdate or
- * confirmation date is served, whoever asks.
- * @summary A team's seats in one season
- */
-export const teamsGetTeamSitze = async (
-  teamId: string,
-  saisonId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLTeamSitzeResponse> => {
-  return adminKeyTransport<FLTeamSitzeResponse>(getTeamsGetTeamSitzeUrl(teamId, saisonId), {
-    ...options,
-    method: "GET",
-  });
-};
-
 export const getTeamsReplaceSaisonTeamUrl = (teamId: string, saisonId: string) => {
   return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/replace`;
 };
@@ -5433,5 +5407,27 @@ export const teamsReplaceSaisonTeam = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLReplaceSaisonTeamPayload),
+  });
+};
+
+export const getTeamsGetTeamSitzeUrl = (teamId: string, saisonId: string) => {
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/self/sitze`;
+};
+
+/**
+ * The team's three seats in this season, each with its holder's name and whether that person has confirmed it.
+ *
+ * Always three lines, an empty slot answered with no name. No seat's address, telephone number, birthdate or
+ * confirmation date is served, whoever asks.
+ * @summary A team's seats in one season
+ */
+export const teamsGetTeamSitze = async (
+  teamId: string,
+  saisonId: string,
+  options?: Parameters<typeof adminKeyTransport>[1],
+): Promise<FLTeamSitzeResponse> => {
+  return adminKeyTransport<FLTeamSitzeResponse>(getTeamsGetTeamSitzeUrl(teamId, saisonId), {
+    ...options,
+    method: "GET",
   });
 };

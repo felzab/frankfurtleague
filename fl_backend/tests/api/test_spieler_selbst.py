@@ -38,7 +38,7 @@ DATABASE_NAME = worker_database("fl_spieler_selbst_test")
 
 CONFIG = config_for(DATABASE_NAME)
 
-PATH = f"/api/v{API_VERSION}/spieler/selbst"
+PATH = f"/api/v{API_VERSION}/spieler/self"
 PATCH_PATH = f"{PATH}/einwilligung"
 # The account page's read, which serves the consent the self read leaves to it.
 KONTO_PATH = f"/api/v{API_VERSION}/konto/einwilligungen"

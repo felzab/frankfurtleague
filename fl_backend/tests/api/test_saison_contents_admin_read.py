@@ -6,13 +6,13 @@ from bson import ObjectId
 from fastapi.routing import APIRoute
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.spiele.admin_router import get_spiel_for_admin, get_spiele_for_admin
+from app.api.spiele.admin_router import get_spiel_verwaltung, get_spiele_verwaltung
 from app.api.spiele.public_router import get_spiele
 from app.api.spiele.schemas import FLSpieleFilterParams
-from app.api.spieltage.admin_router import get_spieltag_for_admin, get_spieltage_for_admin
+from app.api.spieltage.admin_router import get_spieltag_verwaltung, get_spieltage_verwaltung
 from app.api.spieltage.public_router import get_spieltage
 from app.api.spieltage.schemas import FLSpieltageFilterParams
-from app.api.teams.admin_router import get_teams_for_admin
+from app.api.teams.admin_router import get_teams_verwaltung
 from app.api.teams.public_router import get_teams
 from app.api.teams.schemas import FLTeamsFilterParams
 from app.core.collections import Collection
@@ -132,7 +132,7 @@ def raised_by(url: str, body: Body) -> DocumentNotFoundError:
 
 
 async def admin_teams(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_teams_for_admin(
+    return await get_teams_verwaltung(
         teams_collection=database[Collection.TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
@@ -141,7 +141,7 @@ async def admin_teams(database: AsyncDatabase, saison_id: str) -> Any:
 
 
 async def admin_spiele(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_spiele_for_admin(
+    return await get_spiele_verwaltung(
         spiele_collection=database[Collection.SPIELE],
         saisons_collection=database[Collection.SAISONS],
         filters=FLSpieleFilterParams(saison_id=saison_id),
@@ -150,7 +150,7 @@ async def admin_spiele(database: AsyncDatabase, saison_id: str) -> Any:
 
 
 async def admin_spieltage(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_spieltage_for_admin(
+    return await get_spieltage_verwaltung(
         spieltage_collection=database[Collection.SPIELTAGE],
         saisons_collection=database[Collection.SAISONS],
         filters=FLSpieltageFilterParams(saison_id=saison_id),
@@ -158,7 +158,7 @@ async def admin_spieltage(database: AsyncDatabase, saison_id: str) -> Any:
 
 
 async def admin_spieltag(database: AsyncDatabase, saison_id: str) -> Any:
-    return await get_spieltag_for_admin(
+    return await get_spieltag_verwaltung(
         spieltag_id=an_id("3", saison_id),
         spieltage_collection=database[Collection.SPIELTAGE],
         saisons_collection=database[Collection.SAISONS],
@@ -281,11 +281,11 @@ ROUTES = list(api_routes(application()))
 # Concrete ids, never `{spieltag_id}`: what is asked here is which route a REQUEST lands on, and a
 # literal segment reaching an id route is the failure these paths are shaped to rule out.
 ADMIN_TIER_ROUTES: list[tuple[str, Callable[..., Any]]] = [
-    ("/api/v0/teams/list/admin", get_teams_for_admin),
-    ("/api/v0/spiele/list/admin", get_spiele_for_admin),
-    ("/api/v0/spieltage/list/admin", get_spieltage_for_admin),
-    (f"/api/v0/spieltage/{an_id('3', PLANNED)}/admin", get_spieltag_for_admin),
-    (f"/api/v0/spiele/{an_id('2', PLANNED)}/admin", get_spiel_for_admin),
+    ("/api/v0/teams/list/verwaltung", get_teams_verwaltung),
+    ("/api/v0/spiele/list/verwaltung", get_spiele_verwaltung),
+    ("/api/v0/spieltage/list/verwaltung", get_spieltage_verwaltung),
+    (f"/api/v0/spieltage/{an_id('3', PLANNED)}/verwaltung", get_spieltag_verwaltung),
+    (f"/api/v0/spiele/{an_id('2', PLANNED)}/verwaltung", get_spiel_verwaltung),
 ]
 
 ADMIN_TIER_ROUTE_IDS = [endpoint.__name__ for _, endpoint in ADMIN_TIER_ROUTES]
@@ -333,8 +333,10 @@ def test_the_inventory_names_every_admin_tier_read_of_a_seasons_contents():
     mounted = {
         route.path
         for route in ROUTES
-        if "GET" in (route.methods or set()) and route.path.endswith("/admin") and route.path.startswith(GATED_PREFIXES)
+        if "GET" in (route.methods or set()) and route.path.endswith("/verwaltung") and route.path.startswith(GATED_PREFIXES)
     }
     covered = {route.path for route in (answering(path) for path, _ in ADMIN_TIER_ROUTES) if route is not None}
 
+    # Not empty, so a suffix the routes no longer end in cannot pass by matching nothing on either side.
+    assert mounted
     assert covered == mounted

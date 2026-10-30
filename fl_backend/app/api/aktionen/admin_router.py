@@ -172,7 +172,7 @@ async def get_aktionen(
 
 
 @router.get(by_id("aktion_id"), response_model=FLAktionSingleResponse, summary="One recorded admin action")
-async def get_aktion_by_id(
+async def get_aktion(
     aktion_id: CustomRouteObjectId,
     aktionen_collection: AktionenCollection,
     sperrliste: SperrlisteLookup,

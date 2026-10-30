@@ -91,8 +91,8 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
 
 # A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
 # capture this one whatever the declaration order.
-@router.get("/memberships", response_model=FLSpielerMembershipsResponse, summary="Every Spieler with their squad rows")
-async def get_spieler_memberships(
+@router.get("/saisons", response_model=FLSpielerMembershipsResponse, summary="Every Spieler with their squad rows")
+async def get_spieler_saisons(
     spieler_collection: SpielerCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
@@ -406,7 +406,7 @@ async def delete_saison_spieler(
     Take a player out of a season's squad. SOFT: the row stays.
 
     The row records that this player wore this number in this squad, which stays true after they
-    leave. `GET /spieler/memberships` is where an admin reads it back, marked by `inactive_since`.
+    leave. `GET /spieler/saisons` is where an admin reads it back, marked by `inactive_since`.
     """
 
     async def take_the_player_out(session: AsyncClientSession) -> Mapping[str, Any]:

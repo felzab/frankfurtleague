@@ -59,7 +59,7 @@ DATABASE_NAME = worker_database("fl_konto_einwilligung_test")
 
 CONFIG = config_for(DATABASE_NAME)
 
-PATH = f"/api/v{API_VERSION}/schiedsrichter/selbst"
+PATH = f"/api/v{API_VERSION}/schiedsrichter/self"
 
 NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
@@ -448,7 +448,7 @@ class TestThePressesOrder:
         assert after == before
 
 
-SPIELER_PATCH_PATH = f"/api/v{API_VERSION}/spieler/selbst/einwilligung"
+SPIELER_PATCH_PATH = f"/api/v{API_VERSION}/spieler/konto/einwilligung"
 
 
 async def _withdrawn_then_granted(http: AsyncClient, path: str, payload: Callable[[bool, Any], dict[str, Any]], email: str) -> Any:
@@ -508,7 +508,7 @@ class TestErteilbarIsTheGrantThePressTakes:
             for sitz in body["sitze"]:
                 granted = await _withdrawn_then_granted(
                     http,
-                    f"/api/v{API_VERSION}/teams/{sitz['team_id']}/saisons/{sitz['saison_id']}/person/einwilligung",
+                    f"/api/v{API_VERSION}/teams/{sitz['team_id']}/saisons/{sitz['saison_id']}/konto/einwilligung",
                     lambda medien, stand, sitz=sitz: {
                         "umfang": sitz["umfang"],
                         "medien": medien,
@@ -652,7 +652,7 @@ HELD_SEATS = {(TEAM_A_OID, PAST_SAISON): 2, (TEAM_B_OID, ACTIVE_SAISON): 1, (TEA
 
 
 def _seat_path(team_id: ObjectId, saison_id: str) -> str:
-    return f"/api/v{API_VERSION}/teams/{team_id}/saisons/{saison_id}/person/einwilligung"
+    return f"/api/v{API_VERSION}/teams/{team_id}/saisons/{saison_id}/konto/einwilligung"
 
 
 async def _rows(database: AsyncDatabase) -> dict[Any, Any]:
@@ -1014,7 +1014,7 @@ async def _applications(database: AsyncDatabase) -> None:
 
 
 def _application_path(bewerbung_id: ObjectId) -> str:
-    return f"/api/v{API_VERSION}/bewerbungen/{bewerbung_id}/person/einwilligung"
+    return f"/api/v{API_VERSION}/bewerbungen/{bewerbung_id}/konto/einwilligung"
 
 
 def _withdrawal(*, stand: Any = None, label: str = SEAT_RUNNING_LABEL, medien: bool = False) -> dict[str, Any]:
@@ -1232,7 +1232,7 @@ async def _registrierungen(database: AsyncDatabase, **choices: Any) -> None:
 
 
 def _registrierung_path(registrierung_id: ObjectId) -> str:
-    return f"/api/v{API_VERSION}/registrierungen/selbst/{registrierung_id}/einwilligung"
+    return f"/api/v{API_VERSION}/registrierungen/konto/{registrierung_id}/einwilligung"
 
 
 async def _registrierung_docs(database: AsyncDatabase) -> dict[Any, Any]:

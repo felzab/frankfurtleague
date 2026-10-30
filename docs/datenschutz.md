@@ -355,9 +355,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
 
 - **Anyone — player, referee, contact person, administrator — can have their data deleted, with
   the least asymmetry between roles.** The mechanisms today are a person's own
-  `POST /identitaet/selbst/erasure`, which reaches every record the address holds in one write
+  `POST /identitaet/konto/loeschung`, which reaches every record the address holds in one write
   and refuses only the administration's last live owner, until they
-  make another administrator an owner, and the administrator's `POST /identitaet/erasure`,
+  make another administrator an owner, and the administrator's `POST /identitaet/loeschung`,
   which runs that same erasure for a person who asked by mail and refuses nothing about them, only
   the administrator's own address and the address of anyone holding a grant to an administrator
   holding no owner's power. The referee path deletes the document
@@ -623,7 +623,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   and a past season all keep their rows, and a player who left a squad keeps theirs until the
   season after their last squad season has ended; a person's row goes only by an erasure, for a
   pupil by that season-after rule of [section 6](#6-retention-is-bounded-where-a-bound-was-chosen);
-  a person asks for their own erasure through `POST /identitaet/selbst/erasure`. Nothing purges a
+  a person asks for their own erasure through `POST /identitaet/konto/loeschung`. Nothing purges a
   retired row, and an erasure asks no retirement first. An application is not a retired row and does not take this rule: its
   clocks are [section 6](#6-retention-is-bounded-where-a-bound-was-chosen)'s. **Datenschutzexperte
   consulted.** Ruled 2026-08 and re-confirmed 2026-09-02. For a referee I ruled on 2026-09-22 that
@@ -865,7 +865,7 @@ Zustellstand`). No record the message was about carries it, so a row can outlive
   `fl_backend/app/api/registrierungen/system_router.py :: sweep_registrierungen` per season, then
   `fl_backend/app/api/adresswechsel/system_router.py :: sweep_adresswechsel`, `POST /adresswechsel/sweep`; and
   `fl_frontend/src/features/saisons/sweep.ts :: runLoeschungSweep`, which calls
-  `fl_backend/app/api/identitaet/system_router.py :: post_loeschung_lauf`). Every job runs on every pass, with no
+  `fl_backend/app/api/identitaet/system_router.py :: sweep_loeschung`). Every job runs on every pass, with no
   switch to hold one back. A pass pings the heartbeat monitor, and `/fail` naming each job that threw or left an owed
   deletion or erasure, so a claim that one of their periods was honoured rests on that report and on each job's
   per-pass line in the frontend's log rather than on reading the data

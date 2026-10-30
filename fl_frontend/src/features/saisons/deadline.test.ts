@@ -138,7 +138,7 @@ describe("an activation whose deletion call the request's deadline cuts", () => 
     advance(CALL_MS);
 
     const cut = await untilCall(3);
-    assert.ok(cut.url.endsWith(`/identitaet/loeschung/lauf?nach=${ERSTER_LAUF.nach}`));
+    assert.ok(cut.url.endsWith(`/identitaet/loeschung/sweep?nach=${ERSTER_LAUF.nach}`));
     advance(LEFT_FOR_THE_CUT_MS - 1);
     expect(cut.signal.aborted, "the deletion call was aborted before the deadline").toBe(false);
     advance(1);

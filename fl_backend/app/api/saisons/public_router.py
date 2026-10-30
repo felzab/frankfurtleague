@@ -26,7 +26,7 @@ async def get_saisons(saisons_collection: SaisonsCollection, filters: FLSaisonsF
     List the seasons the public may read, optionally narrowed to `past` or `active`.
 
     Unlike the other resources, this does NOT default to the current season. A `future` season is
-    withheld here and served by `GET /saisons/list/admin`.
+    withheld here and served by `GET /saisons/list/verwaltung`.
     """
 
     # `compiled` last, so the narrowing replaces the raw `status` the dump wrote for the caller.
@@ -44,8 +44,8 @@ async def get_saisons(saisons_collection: SaisonsCollection, filters: FLSaisonsF
     return FLSaisonsListResponse(saisons=saisons)
 
 
-@router.get("/current", response_model=FLSaisonsSingleResponse, summary="The active Saison")
-async def get_current_saison(
+@router.get("/active", response_model=FLSaisonsSingleResponse, summary="The active Saison")
+async def get_active_saison(
     saisons_collection: SaisonsCollection,
 ) -> FLSaisonsSingleResponse:
     """Return the season currently marked active -- what every other endpoint resolves an omitted `saison_id` against."""

@@ -10,7 +10,7 @@ from app.api.bewerbungen.services import find_saison_frist_refusal, hash_token
 from app.api.postausgang.schemas import FLPostausgangEreignisPayload, FLPostausgangZustellStand
 from app.api.postausgang.services import enqueue_mails
 from app.api.postausgang.system_router import post_ereignis
-from app.api.teams.admin_router import get_team_memberships
+from app.api.teams.admin_router import get_team_saisons
 from app.api.teams.schemas import FLTeamMembership, FLTeamsMembershipsResponse
 from app.api.teams.services import build_team_memberships_pipeline, compose_kontakt_bestaetigung, owed_kontakt_link
 from app.core.collections import Collection
@@ -118,7 +118,7 @@ def read_the_links(
                     ereignis = FLPostausgangEreignisPayload(id=mail.id, stand=event, grund=None, am=MAIL_NOW)
                     await post_ereignis(ereignis_data=ereignis, postausgang_collection=database[Collection.POSTAUSGANG])
             roh = await aggregate_many_from_db(collection=database[Collection.TEAMS], pipeline=build_team_memberships_pipeline())
-            return roh, await get_team_memberships(
+            return roh, await get_team_saisons(
                 teams_collection=database[Collection.TEAMS],
                 adresswechsel_collection=database[Collection.ADRESSWECHSEL],
                 today=TODAY,

@@ -2,7 +2,7 @@ import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { isRecordMissing } from "@/core/errors";
-import { teamsGetTeam, teamsGetTeamMemberships, teamsGetTeams, teamsGetTeamsForAdmin } from "@/core/generated/client/sdk";
+import { teamsGetTeam, teamsGetTeams, teamsGetTeamSaisons, teamsGetTeamsVerwaltung } from "@/core/generated/client/sdk";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
@@ -12,8 +12,8 @@ import type {
   FLTeamsMembershipsResponse,
   FLTeamsSingleResponse,
   TeamsGetTeamParams,
-  TeamsGetTeamsForAdminParams,
   TeamsGetTeamsParams,
+  TeamsGetTeamsVerwaltungParams,
 } from "@/core/generated/client/types";
 
 /** The list read's two shapes, told apart by `format`: `in_gruppen` asks for the grouped one. */
@@ -54,13 +54,13 @@ const adminTeamsInFlight = cache((): Map<string, Promise<FLTeamsResponse>> => ne
  * A season's clubs for the admin surfaces, a planned season's included — `getTeams` refuses that
  * season, though a club is entered into one while planned. **Uncached**.
  */
-export function getAdminTeams(filters: TeamsGetTeamsForAdminParams = {}): Promise<FLTeamsResponse> {
+export function getAdminTeams(filters: TeamsGetTeamsVerwaltungParams = {}): Promise<FLTeamsResponse> {
   // Keyed on the filters SERIALIZED, for the reason `fl_frontend/src/features/spiele/queries.ts :: getAdminSpiele` gives.
   const key = JSON.stringify(filters, Object.keys(filters).sort());
   const held = adminTeamsInFlight().get(key);
   if (held !== undefined) return held;
 
-  const started = runAdminRead(() => teamsGetTeamsForAdmin(filters));
+  const started = runAdminRead(() => teamsGetTeamsVerwaltung(filters));
   adminTeamsInFlight().set(key, started);
 
   return started;
@@ -71,4 +71,4 @@ export function getAdminTeams(filters: TeamsGetTeamsForAdminParams = {}): Promis
  * club-centric question.
  */
 // Never `"use cache"` here, which keys on the arguments rather than the caller.
-export const getTeamMemberships = cache(async (): Promise<FLTeamsMembershipsResponse> => runAdminRead(() => teamsGetTeamMemberships()));
+export const getTeamMemberships = cache(async (): Promise<FLTeamsMembershipsResponse> => runAdminRead(() => teamsGetTeamSaisons()));

@@ -1,6 +1,6 @@
 import { cache } from "react";
 
-import { identitaetGetErasureAnsicht, kontoGetAdresswechsel, kontoGetEinwilligungen } from "@/core/generated/client/sdk";
+import { identitaetGetKontoLoeschungAnsicht, kontoGetAdresswechsel, kontoGetEinwilligungen } from "@/core/generated/client/sdk";
 import { runPersonRead } from "@/shared/utils/personRead";
 
 import type {
@@ -19,7 +19,7 @@ export const getKontoEinwilligungen = cache(async (): Promise<FLKontoEinwilligun
 /** Every record the signed-in person's erasure would reach, read off the backend rather than inferred here, so the list shown is the list erased. */
 // Never `"use cache"`, for `getKontoEinwilligungen`'s reason.
 export const getLoeschungAnsicht = cache(async (): Promise<FLSelbstErasureAnsichtResponse> =>
-  runPersonRead(() => identitaetGetErasureAnsicht()),
+  runPersonRead(() => identitaetGetKontoLoeschungAnsicht()),
 );
 
 /**

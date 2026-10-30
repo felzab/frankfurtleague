@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { COPY } from "@/core/copy";
 import { FLSonderereignis } from "@/core/generated/client/types";
-import { SpielePatchSpielDataBody, spielePatchSpielDataBodyNotizOneMax } from "@/core/generated/zod/inputs";
+import { SpielePatchSpielBody, spielePatchSpielBodyNotizOneMax } from "@/core/generated/zod/inputs";
 import { ROUTES } from "@/core/routes";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { getSpielorte } from "@/features/spielorte/queries";
@@ -95,8 +95,8 @@ async function Editor({ params }: Pick<Props, "params">) {
         mietpreis: ort.default_mietpreis,
       }))}
       sonderereignisse={sonderereignisse}
-      notizHoechstens={spielePatchSpielDataBodyNotizOneMax}
-      mietpreisPflicht={!SpielePatchSpielDataBody.shape.ort.options[0].shape.mietpreis.safeParse(null).success}
+      notizHoechstens={spielePatchSpielBodyNotizOneMax}
+      mietpreisPflicht={!SpielePatchSpielBody.shape.ort.options[0].shape.mietpreis.safeParse(null).success}
       spielortAnlegen={spielortAnlegen}
       spielortRegeln={SPIELORT_REGELN}
     />

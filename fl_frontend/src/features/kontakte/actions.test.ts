@@ -27,7 +27,7 @@ let memberships: Answer;
 
 function answerFor({ endpoint }: ApiCall): unknown {
   if (endpoint === "/einwilligung/seiten") return einwilligungAnswer(endpoint);
-  if (endpoint === "/teams/memberships") return memberships();
+  if (endpoint === "/teams/saisons") return memberships();
   return endpoint.endsWith("/bestaetigung/einladen") ? resend() : save();
 }
 

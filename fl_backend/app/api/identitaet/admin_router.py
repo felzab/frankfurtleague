@@ -74,11 +74,11 @@ router = APIRouter(
 
 
 @router.post(
-    "/erasure/ansicht",
+    "/loeschung/ansicht",
     response_model=FLErasureAnsichtResponse,
     summary="Show what an erasure of an address would remove",
 )
-async def get_erasure_ansicht_auf_anfrage(
+async def get_loeschung_ansicht(
     ansicht_data: Annotated[FLErasureAdressePayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
     bewerbungen_collection: BewerbungenCollection,
@@ -98,7 +98,7 @@ async def get_erasure_ansicht_auf_anfrage(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLErasureAnsichtResponse:
     """
-    Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.
+    Answer which of this address's records `POST /identitaet/loeschung` would remove or empty, by kind, name and the ids a page links each by.
 
     ADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names
     every one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,
@@ -221,12 +221,12 @@ async def get_erasure_ansicht_auf_anfrage(
 
 
 @router.post(
-    "/erasure",
+    "/loeschung",
     response_model=FLErasureResponse,
     summary="Erase every record an address holds, on that person's request",
     dependencies=[Depends(verify_step_up)],
 )
-async def erase_auf_anfrage(
+async def post_loeschung(
     erasure_data: Annotated[FLErasurePayload, Body()],
     spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
@@ -256,7 +256,7 @@ async def erase_auf_anfrage(
     """
     Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.
 
-    ADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/selbst/erasure` runs and refuses nothing about the
+    ADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/konto/loeschung` runs and refuses nothing about the
     person's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.
     Three refusals are about who asks. The administrator's own address is refused (`eigene_adresse`): their account page
     serves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,

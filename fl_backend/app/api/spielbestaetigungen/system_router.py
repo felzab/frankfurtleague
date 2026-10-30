@@ -275,7 +275,7 @@ class _Owed:
 
 
 @router.get("", response_model=FLSpielbestaetigungSweepSaisonsResponse, summary="Every season the confirmation pass visits")
-async def get_spiel_sweep_saisons(saisons_collection: SaisonsCollection) -> FLSpielbestaetigungSweepSaisonsResponse:
+async def get_sweep_saisons(saisons_collection: SaisonsCollection) -> FLSpielbestaetigungSweepSaisonsResponse:
     """
     Answer every `active` season's id, oldest first.
 

@@ -93,11 +93,11 @@ async def get_spielberichte(
 
 
 @router.get(
-    f"{by_id('spiel_id')}/admin",
+    f"{by_id('spiel_id')}/verwaltung",
     response_model=FLSpielberichtAdminResponse,
     summary="One fixture's report, whole, for an administrator",
 )
-async def get_spielbericht_admin(
+async def get_spielbericht_verwaltung(
     spiel_id: CustomRouteObjectId,
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,

@@ -11,7 +11,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel_data
+from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel
 from app.api.spiele.crud import apply_release_to_spiel
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_NO_SHOW,
@@ -440,7 +440,7 @@ async def call_patch(
     dry_run: bool = False,
     uebernimmt_bericht: int | None = None,
 ) -> FLPatchSpielDataResponse:
-    return await patch_spiel_data(
+    return await patch_spiel(
         spiel_id=spiel_id,
         spiel_data=spiel_data,
         db=client,

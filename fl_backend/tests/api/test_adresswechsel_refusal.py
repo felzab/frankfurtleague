@@ -114,7 +114,7 @@ class TestTheSystemsReadOfTheNewAddress:
         """The links' own key: a browser-facing route holding it would hand any link holder the new mailbox."""
 
         response = TestClient(application(), raise_server_exceptions=False).post(
-            f"/api/v{API_VERSION}/adresswechsel/sweep/adresse", headers=BASE_AUTH, json={"token": "t" * 43}
+            f"/api/v{API_VERSION}/adresswechsel/adresse", headers=BASE_AUTH, json={"token": "t" * 43}
         )
 
         assert (response.status_code, response.json()["error_code"]) == (401, Code.ACCESS_KEY_REFUSED)

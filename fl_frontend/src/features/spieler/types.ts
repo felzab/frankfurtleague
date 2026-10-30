@@ -106,7 +106,7 @@ export type SpielerTeamOption = {
 
 /**
  * One row of the admin player list: EVERY player across every season, carrying the selected season's
- * squad row where one exists. Assembled from `GET /spieler/memberships`.
+ * squad row where one exists. Assembled from `GET /spieler/saisons`.
  */
 export type AdminSpielerRow = {
   id: string;

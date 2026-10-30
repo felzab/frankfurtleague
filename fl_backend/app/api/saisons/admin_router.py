@@ -223,8 +223,8 @@ async def _rewrite_gruppenphase_sides(
 
 # Two segments, because `GET /saisons/{saison_id}` is declared first and would answer a single static
 # one: a season id is a plain four-character string, so the `objectid` convertor cannot separate them.
-@router.get("/list/admin", response_model=FLSaisonsAdminListResponse, summary="Every Saison for the admin surfaces")
-async def get_saisons_for_admin(
+@router.get("/list/verwaltung", response_model=FLSaisonsAdminListResponse, summary="Every Saison for the admin surfaces")
+async def get_saisons_verwaltung(
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
     filters: FLSaisonsFilterParams = Depends(),
@@ -730,7 +730,7 @@ async def swap_gruppen(
     status_code=201,
     summary="Draw this Saison's Spielplan",
 )
-async def generate_spielplan(
+async def post_spielplan(
     saison_id: str,
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -884,7 +884,7 @@ async def generate_spielplan(
         )
 
         # Both collections together, fixtures first for
-        # `undraw_spielplan`'s reason.
+        # `delete_spielplan`'s reason.
         removed_spieltage = 0
         removed_spiele = 0
 
@@ -894,7 +894,7 @@ async def generate_spielplan(
             # The season a report's first write anchors, so the two conflict: the watermark's `$set` below can change
             # nothing on a same-day redraw, and the report's insert meets no delete here.
             await anchor_the_season_reported_in(saisons_collection=saisons_collection, saison_id=saison_id, session=session)
-            # NOT extracted, though `undraw_spielplan` repeats it: two sites are no pattern yet.
+            # NOT extracted, though `delete_spielplan` repeats it: two sites are no pattern yet.
             await delete_many_from_db(collection=spielbestaetigungen_collection, db_filter={"saison_id": saison_id}, session=session)
             await delete_many_from_db(collection=spielberichte_collection, db_filter={"saison_id": saison_id}, session=session)
             removed_spiele = (
@@ -964,7 +964,7 @@ async def generate_spielplan(
     summary="Undraw this Saison's Spielplan",
     dependencies=[Depends(verify_step_up)],
 )
-async def undraw_spielplan(
+async def delete_spielplan(
     saison_id: str,
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,
@@ -1239,7 +1239,7 @@ async def _mail_one_team(
     response_model=FLEinladungVersandVorschauResponse,
     summary="Who the send would reach",
 )
-async def preview_einladungen_versand(
+async def get_einladungen_versand_vorschau(
     saison_id: str,
     saison_teams_collection: SaisonTeamsCollection,
     einladungen_collection: EinladungenCollection,
@@ -1311,14 +1311,14 @@ async def preview_einladungen_versand(
     response_model=FLLoeschungVorschauResponse,
     summary="How many pupils activating this season would delete",
 )
-async def preview_loeschung(
+async def get_loeschung_vorschau(
     saison_id: str,
     saisons_collection: SaisonsCollection,
     spieler_collection: SpielerCollection,
     registrierungen_collection: RegistrierungenCollection,
 ) -> FLLoeschungVorschauResponse:
     """
-    How many pupils `POST /identitaet/loeschung/lauf` deletes once this season is activated, and which season that activation closes.
+    How many pupils `POST /identitaet/loeschung/sweep` deletes once this season is activated, and which season that activation closes.
 
     Judged by the run's own rule over the statuses the activation leaves: the season now `active` turned `past`, this one
     `active`, every other as it stands. A count and never a name, and writes nothing. It judges none of the activation's own

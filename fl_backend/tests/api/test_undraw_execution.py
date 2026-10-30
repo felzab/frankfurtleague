@@ -9,7 +9,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.saisons.admin_router import generate_spielplan, patch_saison, undraw_spielplan
+from app.api.saisons.admin_router import delete_spielplan, patch_saison, post_spielplan
 from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
     FLGenerateSpielplanResponse,
@@ -18,7 +18,7 @@ from app.api.saisons.schemas import (
     FLSaisonRules,
     FLUndrawSpielplanResponse,
 )
-from app.api.spiele.admin_router import patch_spiel_data
+from app.api.spiele.admin_router import patch_spiel
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.teams.admin_router import post_saison_team
 from app.api.teams.schemas import FLPostSaisonTeamPayload, FLSaisonTeamResponse
@@ -168,7 +168,7 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutate
 
 
 async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, *, saison_id: str = SAISON_ID) -> FLGenerateSpielplanResponse:
-    return await generate_spielplan(
+    return await post_spielplan(
         saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -186,7 +186,7 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, *, saison
 async def call_undraw(
     database: AsyncDatabase, client: AsyncMongoClient, *, saison_id: str = SAISON_ID, spielberichte_collection: Any = None
 ) -> FLUndrawSpielplanResponse:
-    return await undraw_spielplan(
+    return await delete_spielplan(
         saison_id=saison_id,
         saisons_collection=database[Collection.SAISONS],
         spiele_collection=database[Collection.SPIELE],
@@ -745,7 +745,7 @@ class TestTheWindowIsReachedThroughTheRoute:
 
 
 async def call_patch_spiel(database: AsyncDatabase, client: AsyncMongoClient, *, spiel_id: Any, payload: FLPatchSpielDataPayload) -> Any:
-    return await patch_spiel_data(
+    return await patch_spiel(
         spiel_id=spiel_id,
         spiel_data=payload,
         db=client,

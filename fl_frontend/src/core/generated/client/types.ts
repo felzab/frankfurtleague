@@ -5858,7 +5858,7 @@ export type BewerbungenGetBewerbungenParams = {
   order?: FLSortOrder;
 };
 
-export type IdentitaetPostLoeschungLaufParams = {
+export type IdentitaetSweepLoeschungParams = {
   nach?: string | null;
 };
 
@@ -5910,33 +5910,33 @@ export const SaisonsGetSaisonsOrder = {
   desc: "desc",
 } as const;
 
-export type SaisonsGetSaisonsForAdminParams = {
+export type SaisonsGetSaisonsVerwaltungParams = {
   status?: FLSaisonStatus | null;
   /**
    * @minimum 1
    * @maximum 1024
    */
   limit?: number;
-  sort_by?: SaisonsGetSaisonsForAdminSortBy;
-  order?: SaisonsGetSaisonsForAdminOrder;
+  sort_by?: SaisonsGetSaisonsVerwaltungSortBy;
+  order?: SaisonsGetSaisonsVerwaltungOrder;
 };
 
-export type SaisonsGetSaisonsForAdminSortBy = (typeof SaisonsGetSaisonsForAdminSortBy)[keyof typeof SaisonsGetSaisonsForAdminSortBy];
+export type SaisonsGetSaisonsVerwaltungSortBy = (typeof SaisonsGetSaisonsVerwaltungSortBy)[keyof typeof SaisonsGetSaisonsVerwaltungSortBy];
 
-export const SaisonsGetSaisonsForAdminSortBy = {
+export const SaisonsGetSaisonsVerwaltungSortBy = {
   _id: "_id",
   start_date: "start_date",
   end_date: "end_date",
 } as const;
 
-export type SaisonsGetSaisonsForAdminOrder = (typeof SaisonsGetSaisonsForAdminOrder)[keyof typeof SaisonsGetSaisonsForAdminOrder];
+export type SaisonsGetSaisonsVerwaltungOrder = (typeof SaisonsGetSaisonsVerwaltungOrder)[keyof typeof SaisonsGetSaisonsVerwaltungOrder];
 
-export const SaisonsGetSaisonsForAdminOrder = {
+export const SaisonsGetSaisonsVerwaltungOrder = {
   asc: "asc",
   desc: "desc",
 } as const;
 
-export type SaisonsPreviewEinladungenVersandParams = {
+export type SaisonsGetEinladungenVersandVorschauParams = {
   erneut?: boolean;
 };
 
@@ -5972,7 +5972,7 @@ export type SpielberichteGetSpielberichteParams = {
   saison_id?: string | null;
 };
 
-export type SpielberichteGetSpielberichtAdminParams = {
+export type SpielberichteGetSpielberichtVerwaltungParams = {
   /**
    * Serve both clubs' live squads of the season, for a form picking from them
    */
@@ -6023,7 +6023,7 @@ export type SpieleGetSpieleActionRequiredParams = {
   saison_id?: string | null;
 };
 
-export type SpieleGetSpieleForAdminParams = {
+export type SpieleGetSpieleVerwaltungParams = {
   saison_id?: string | null;
   saison_phase?: "playoffs" | FLSaisonPhase | null;
   spiel_status?: FLSpielStatus | null;
@@ -6033,27 +6033,27 @@ export type SpieleGetSpieleForAdminParams = {
    * @maximum 1024
    */
   limit?: number;
-  sort_by?: SpieleGetSpieleForAdminSortBy;
-  order?: SpieleGetSpieleForAdminOrder;
+  sort_by?: SpieleGetSpieleVerwaltungSortBy;
+  order?: SpieleGetSpieleVerwaltungOrder;
 };
 
-export type SpieleGetSpieleForAdminSortBy = (typeof SpieleGetSpieleForAdminSortBy)[keyof typeof SpieleGetSpieleForAdminSortBy];
+export type SpieleGetSpieleVerwaltungSortBy = (typeof SpieleGetSpieleVerwaltungSortBy)[keyof typeof SpieleGetSpieleVerwaltungSortBy];
 
-export const SpieleGetSpieleForAdminSortBy = {
+export const SpieleGetSpieleVerwaltungSortBy = {
   datum: "datum",
   uhrzeit: "uhrzeit",
   spiel_nr: "spiel_nr",
   saison_phase: "saison_phase",
 } as const;
 
-export type SpieleGetSpieleForAdminOrder = (typeof SpieleGetSpieleForAdminOrder)[keyof typeof SpieleGetSpieleForAdminOrder];
+export type SpieleGetSpieleVerwaltungOrder = (typeof SpieleGetSpieleVerwaltungOrder)[keyof typeof SpieleGetSpieleVerwaltungOrder];
 
-export const SpieleGetSpieleForAdminOrder = {
+export const SpieleGetSpieleVerwaltungOrder = {
   asc: "asc",
   desc: "desc",
 } as const;
 
-export type SpielePatchSpielDataParams = {
+export type SpielePatchSpielParams = {
   /**
    * The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted
    */
@@ -6136,7 +6136,7 @@ export const SpieltageGetSpieltageOrder = {
   desc: "desc",
 } as const;
 
-export type SpieltageGetSpieltageForAdminParams = {
+export type SpieltageGetSpieltageVerwaltungParams = {
   saison_id?: string | null;
   saison_phase?: "playoffs" | FLSaisonPhase | null;
   /**
@@ -6144,22 +6144,23 @@ export type SpieltageGetSpieltageForAdminParams = {
    * @maximum 1024
    */
   limit?: number;
-  sort_by?: SpieltageGetSpieltageForAdminSortBy;
-  order?: SpieltageGetSpieltageForAdminOrder;
+  sort_by?: SpieltageGetSpieltageVerwaltungSortBy;
+  order?: SpieltageGetSpieltageVerwaltungOrder;
 };
 
-export type SpieltageGetSpieltageForAdminSortBy =
-  (typeof SpieltageGetSpieltageForAdminSortBy)[keyof typeof SpieltageGetSpieltageForAdminSortBy];
+export type SpieltageGetSpieltageVerwaltungSortBy =
+  (typeof SpieltageGetSpieltageVerwaltungSortBy)[keyof typeof SpieltageGetSpieltageVerwaltungSortBy];
 
-export const SpieltageGetSpieltageForAdminSortBy = {
+export const SpieltageGetSpieltageVerwaltungSortBy = {
   natural: "natural",
   beginn: "beginn",
   ende: "ende",
 } as const;
 
-export type SpieltageGetSpieltageForAdminOrder = (typeof SpieltageGetSpieltageForAdminOrder)[keyof typeof SpieltageGetSpieltageForAdminOrder];
+export type SpieltageGetSpieltageVerwaltungOrder =
+  (typeof SpieltageGetSpieltageVerwaltungOrder)[keyof typeof SpieltageGetSpieltageVerwaltungOrder];
 
-export const SpieltageGetSpieltageForAdminOrder = {
+export const SpieltageGetSpieltageVerwaltungOrder = {
   asc: "asc",
   desc: "desc",
 } as const;
@@ -6194,34 +6195,34 @@ export const TeamsGetTeamsOrder = {
   desc: "desc",
 } as const;
 
-export type TeamsGetTeamsForAdminParams = {
+export type TeamsGetTeamsVerwaltungParams = {
   saison_id?: string | null;
   gruppe?: FLGruppenNames | null;
   has_austritt?: boolean | null;
   austritt_type?: FLAustrittType | null;
   in_gruppen?: boolean | null;
-  statistik_scope?: TeamsGetTeamsForAdminStatistikScope;
+  statistik_scope?: TeamsGetTeamsVerwaltungStatistikScope;
   /**
    * @minimum 1
    * @maximum 1024
    */
   limit?: number;
   sort_by?: "name";
-  order?: TeamsGetTeamsForAdminOrder;
+  order?: TeamsGetTeamsVerwaltungOrder;
   include_inactive?: boolean;
 };
 
-export type TeamsGetTeamsForAdminStatistikScope =
-  (typeof TeamsGetTeamsForAdminStatistikScope)[keyof typeof TeamsGetTeamsForAdminStatistikScope];
+export type TeamsGetTeamsVerwaltungStatistikScope =
+  (typeof TeamsGetTeamsVerwaltungStatistikScope)[keyof typeof TeamsGetTeamsVerwaltungStatistikScope];
 
-export const TeamsGetTeamsForAdminStatistikScope = {
+export const TeamsGetTeamsVerwaltungStatistikScope = {
   gruppenphase: "gruppenphase",
   gesamt: "gesamt",
 } as const;
 
-export type TeamsGetTeamsForAdminOrder = (typeof TeamsGetTeamsForAdminOrder)[keyof typeof TeamsGetTeamsForAdminOrder];
+export type TeamsGetTeamsVerwaltungOrder = (typeof TeamsGetTeamsVerwaltungOrder)[keyof typeof TeamsGetTeamsVerwaltungOrder];
 
-export const TeamsGetTeamsForAdminOrder = {
+export const TeamsGetTeamsVerwaltungOrder = {
   asc: "asc",
   desc: "desc",
 } as const;

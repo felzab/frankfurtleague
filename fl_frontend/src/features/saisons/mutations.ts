@@ -1,11 +1,11 @@
 import {
-  identitaetPostLoeschungLauf,
+  identitaetSweepLoeschung,
   saisonsActivateSaison,
-  saisonsGenerateSpielplan,
+  saisonsDeleteSpielplan,
   saisonsPatchSaison,
   saisonsPostSaison,
+  saisonsPostSpielplan,
   saisonsSwapGruppen,
-  saisonsUndrawSpielplan,
 } from "@/core/generated/client/sdk";
 
 import type {
@@ -64,7 +64,7 @@ export async function generateSpielplan({
 }: FLGenerateSpielplanPayload & { id: string }): Promise<FLGenerateSpielplanResponse> {
   // `{}` where the caller named no flag, which the endpoint reads as the first draw: a key left `undefined` is
   // dropped by the serialisation.
-  return saisonsGenerateSpielplan(id, { replace, shape });
+  return saisonsPostSpielplan(id, { replace, shape });
 }
 
 /**
@@ -72,7 +72,7 @@ export async function generateSpielplan({
  * inverse**. No body: the id is the whole argument.
  */
 export async function undrawSpielplan({ id }: { id: string }): Promise<FLUndrawSpielplanResponse> {
-  return saisonsUndrawSpielplan(id);
+  return saisonsDeleteSpielplan(id);
 }
 
 /**
@@ -94,5 +94,5 @@ export async function swapGruppen({
  */
 export async function postLoeschungLauf(nach: string | null): Promise<FLLoeschungLaufResponse> {
   // Left out on a pass's first call: the server takes `nach` as an id wherever it is present.
-  return identitaetPostLoeschungLauf(nach === null ? {} : { nach: nach });
+  return identitaetSweepLoeschung(nach === null ? {} : { nach: nach });
 }

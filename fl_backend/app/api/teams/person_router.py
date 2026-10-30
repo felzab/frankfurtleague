@@ -59,9 +59,9 @@ def _as_sitz(kontakte: Mapping[str, Any], slot: str) -> FLTeamSitz:
     )
 
 
-# `/person/sitze`, its own segment: the admin router serves this team and season under its own paths,
+# `/self/sitze`, its own segment: the admin router serves this team and season under its own paths,
 # and one path in both routers would be answered by whichever was mounted first.
-@router.get("/{team_id:objectid}/saisons/{saison_id}/person/sitze", response_model=FLTeamSitzeResponse, summary="A team's seats in one season")
+@router.get("/{team_id:objectid}/saisons/{saison_id}/self/sitze", response_model=FLTeamSitzeResponse, summary="A team's seats in one season")
 async def get_team_sitze(
     team_id: CustomRouteObjectId,
     saison_id: str,
@@ -93,7 +93,7 @@ async def get_team_sitze(
 
 
 @router.patch(
-    "/{team_id:objectid}/saisons/{saison_id}/person/einwilligung",
+    "/{team_id:objectid}/saisons/{saison_id}/konto/einwilligung",
     response_model=FLSaisonTeamPersonEinwilligungResponse,
     summary="Change a seat holder's own WhatsApp and media consent on one team's season",
 )

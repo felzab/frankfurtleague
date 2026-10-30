@@ -12,7 +12,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.adresswechsel.admin_router import post_adresswechsel_verwaltung
 from app.api.adresswechsel.schemas import FLAdresswechselVerwaltungPayload
 from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
-from app.api.identitaet.person_router import get_erasure_ansicht
+from app.api.identitaet.person_router import get_konto_loeschung_ansicht
 from app.api.konto.person_router import get_einwilligungen
 from app.api.registrierungen.person_router import aufnehmen, get_offene_registrierungen
 from app.api.registrierungen.public_router import get_bestaetigung_ansicht
@@ -20,7 +20,7 @@ from app.api.registrierungen.schemas import (
     FLOffeneRegistrierungenParams,
     FLRegistrierungAufnehmenPayload,
 )
-from app.api.spieler.person_router import get_selbst, patch_einwilligung
+from app.api.spieler.person_router import get_self, patch_einwilligung
 from app.core.collections import Collection
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
@@ -186,7 +186,7 @@ async def the_account_read(database: AsyncDatabase, client: AsyncMongoClient, re
 
 
 async def the_own_record_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await get_selbst(identifier=FOLDED_EMAIL, spieler_collection=database[Collection.SPIELER])
+    return await get_self(identifier=FOLDED_EMAIL, spieler_collection=database[Collection.SPIELER])
 
 
 async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
@@ -211,7 +211,7 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
 
 
 async def the_erasure_preview(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await get_erasure_ansicht(
+    return await get_konto_loeschung_ansicht(
         identifier=FOLDED_EMAIL,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],

@@ -24,7 +24,7 @@ serveServerReact();
 const { getAdminSaisons, getLoeschungVorschau } = await import("./queries.ts");
 const { resolveSaisonId } = await import("./resolvers.ts");
 
-const adminReads = (): number => reads.filter(({ endpoint }) => endpoint === "/saisons/list/admin").length;
+const adminReads = (): number => reads.filter(({ endpoint }) => endpoint === "/saisons/list/verwaltung").length;
 
 describe("the admin season list across a render pass", () => {
   /* First, so a scope that failed to take fails here rather than under every count below. */

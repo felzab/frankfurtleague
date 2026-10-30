@@ -128,7 +128,7 @@ async def sweep_registrierungen(
                 collection=registrierungen_collection,
                 db_filter=batch.within(build_undecided_filter(saison_id=saison_id)),
                 projection=["status"],
-                # One over the page, as `app/api/saisons/admin_router.py :: undraw_spielplan` reads: a
+                # One over the page, as `app/api/saisons/admin_router.py :: delete_spielplan` reads: a
                 # full page is a page that may be truncated, and a clock cannot see what it never read.
                 limit=SWEEP_PAGE + 1,
                 session=session,

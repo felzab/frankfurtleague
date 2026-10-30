@@ -273,13 +273,13 @@ async def delete_kader_zeile(
 # second binder on one of its routes would record these writes under the wrong Funktion, nothing
 # failing.
 spieler_router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/spieler/selbst",
+    prefix=f"/api/v{API_VERSION}/spieler",
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["spieler"])],
 )
 
 
-@spieler_router.get("", response_model=FLSpielerSelbstResponse, summary="A signed-in pupil's own record")
-async def get_selbst(identifier: SpielerIdentifier, spieler_collection: SpielerCollection) -> FLSpielerSelbstResponse:
+@spieler_router.get("/self", response_model=FLSpielerSelbstResponse, summary="A signed-in pupil's own record")
+async def get_self(identifier: SpielerIdentifier, spieler_collection: SpielerCollection) -> FLSpielerSelbstResponse:
     """
     Answer the signed-in address's own pupil record's stored data with every squad row it holds.
 
@@ -298,7 +298,7 @@ async def get_selbst(identifier: SpielerIdentifier, spieler_collection: SpielerC
 
 
 @spieler_router.patch(
-    "/einwilligung",
+    "/konto/einwilligung",
     response_model=FLSpielerSelbstEinwilligungResponse,
     summary="Change a signed-in pupil's own publication and media consent",
 )

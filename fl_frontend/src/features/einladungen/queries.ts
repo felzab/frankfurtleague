@@ -1,6 +1,6 @@
 import { cache } from "react";
 
-import { saisonsPreviewEinladungenVersand, teamsGetEinladung } from "@/core/generated/client/sdk";
+import { saisonsGetEinladungenVersandVorschau, teamsGetEinladung } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
 import type { FLEinladungResponse, FLEinladungVersandVorschauResponse } from "@/core/generated/client/types";
@@ -19,5 +19,5 @@ export const getEinladung = cache(async (teamId: string, saisonId: string): Prom
  * with it true, so a list read without the value the press will carry describes a different press.
  */
 export async function getEinladungVersandVorschau(saisonId: string, erneut: boolean): Promise<FLEinladungVersandVorschauResponse> {
-  return runAdminRead(() => saisonsPreviewEinladungenVersand(saisonId, { erneut: erneut }));
+  return runAdminRead(() => saisonsGetEinladungenVersandVorschau(saisonId, { erneut: erneut }));
 }

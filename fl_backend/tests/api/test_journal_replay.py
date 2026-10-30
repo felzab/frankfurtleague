@@ -272,7 +272,7 @@ async def _registration_withdrawal(http: AsyncClient, database: AsyncDatabase) -
     assert stored is not None
     body = {**_withdrawal("konto_spieler", umfang="intern", medien=True), "nachweis_stand": nachweis_stand_of(bloecke=[stored["einwilligung"]])}
 
-    return await http.patch(f"{V}/registrierungen/selbst/{REGISTRATION_OID}/einwilligung", json=body, headers=_person(REGISTRANT))
+    return await http.patch(f"{V}/registrierungen/konto/{REGISTRATION_OID}/einwilligung", json=body, headers=_person(REGISTRANT))
 
 
 def _declined(token: str) -> dict[str, Any]:
@@ -286,7 +286,7 @@ ANSWER = f"{V}/adresswechsel/bestaetigung"
 PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     "a pupil's withdrawal": (
         lambda http, _database: http.patch(
-            f"{V}/spieler/selbst/einwilligung",
+            f"{V}/spieler/konto/einwilligung",
             json=_withdrawal("konto_spieler", umfang="intern", medien=False),
             headers=_person(PERSON),
         ),
@@ -295,7 +295,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     ),
     "a referee's withdrawal": (
         lambda http, _database: http.patch(
-            f"{V}/schiedsrichter/selbst/{REFEREE_OID}/einwilligung",
+            f"{V}/schiedsrichter/konto/{REFEREE_OID}/einwilligung",
             json=_withdrawal("konto_schiedsrichter", umfang="kader_oeffentlich", medien=False),
             headers=_person(PERSON),
         ),
@@ -304,7 +304,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     ),
     "a season seat's withdrawal": (
         lambda http, _database: http.patch(
-            f"{V}/teams/{TEAM_OID}/saisons/{SAISON_ID}/person/einwilligung",
+            f"{V}/teams/{TEAM_OID}/saisons/{SAISON_ID}/konto/einwilligung",
             json=_withdrawal("konto_kontakt", umfang="kontaktdaten", medien=True),
             headers=_person(PERSON),
         ),
@@ -313,7 +313,7 @@ PRESSES: dict[str, tuple[Press, Collection, ObjectId]] = {
     ),
     "a pending application seat's withdrawal": (
         lambda http, _database: http.patch(
-            f"{V}/bewerbungen/{APPLICATION_OID}/person/einwilligung",
+            f"{V}/bewerbungen/{APPLICATION_OID}/konto/einwilligung",
             json=_withdrawal("konto_kontakt", umfang="kontaktdaten_whatsapp", medien=False),
             headers=_person(PERSON),
         ),
@@ -487,7 +487,7 @@ class TestEachPressAndItsReplay:
         async def steps(http: AsyncClient, database: AsyncDatabase, _client: AsyncMongoClient) -> list[int]:
             await database[Collection.SCHIEDSRICHTER].update_one({"_id": REFEREE_OID}, {"$set": {"einwilligung.medien": False}})
             path, body = (
-                f"{V}/schiedsrichter/selbst/{REFEREE_OID}/einwilligung",
+                f"{V}/schiedsrichter/konto/{REFEREE_OID}/einwilligung",
                 {
                     **_withdrawal("konto_schiedsrichter", umfang="kader_oeffentlich", medien=True),
                     "nachweis_stand": nachweis_stand_of(bloecke=[{**_own(), "medien": False}]),
@@ -614,7 +614,7 @@ class TestTheListing:
             assert KEY.get_secret_value() not in output
 
 
-ERASURE = f"{V}/identitaet/selbst/erasure"
+ERASURE = f"{V}/identitaet/konto/loeschung"
 # An hour after the presses: the person's own later act.
 AN_HOUR_LATER = datetime(2126, 10, 3, 13, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 PSEUDONYM = akteur_pseudonym(PERSON, schluessel=KEY)
@@ -640,7 +640,7 @@ async def _withdrawn_and_granted_again(http: AsyncClient, database: AsyncDatabas
     # The app's clock moved on; `app_client` puts back the overrides it found as it leaves.
     _app().dependency_overrides[get_germany_now] = lambda: AN_HOUR_LATER
     body = {**_withdrawal("konto_spieler", umfang="intern", medien=True), "nachweis_stand": withdrawn.json()["nachweis_stand"]}
-    granted = await http.patch(f"{V}/spieler/selbst/einwilligung", json=body, headers=_person(PERSON))
+    granted = await http.patch(f"{V}/spieler/konto/einwilligung", json=body, headers=_person(PERSON))
     assert (withdrawn.status_code, granted.status_code) == (200, 200), granted.text
 
     return line

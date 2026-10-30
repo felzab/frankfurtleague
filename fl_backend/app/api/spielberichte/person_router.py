@@ -68,8 +68,8 @@ PERSON_EINTRAG_FIELDS = ["datum", "uhrzeit", "team1.name", "team2.name"]
 SPIELE_NEUESTE_ZUERST = [("datum", -1), ("uhrzeit", -1), ("_id", 1)]
 
 
-@router.get("/person", response_model=FLSpielberichtePersonResponse, summary="The fixtures a signed-in referee reports on")
-async def get_spielberichte_person(
+@router.get("/self", response_model=FLSpielberichtePersonResponse, summary="The fixtures a signed-in referee reports on")
+async def get_self(
     identifier: SchiedsrichterIdentifier,
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,

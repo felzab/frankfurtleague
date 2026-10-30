@@ -1,6 +1,6 @@
 "use server";
 
-import { SpielePatchSpielDataQueryParams } from "@/core/generated/zod/inputs";
+import { SpielePatchSpielQueryParams } from "@/core/generated/zod/inputs";
 import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -39,7 +39,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawUebernim
     }
 
     // A failed parse costs the adoption, never the edit: the report reads not adopted, and adopting it again repairs that.
-    const uebernimmtBericht = SpielePatchSpielDataQueryParams.shape.uebernimmt_bericht.safeParse(rawUebernimmtBericht);
+    const uebernimmtBericht = SpielePatchSpielQueryParams.shape.uebernimmt_bericht.safeParse(rawUebernimmtBericht);
 
     // A refusal reaches the form rather than the error page: it is about what was submitted, and
     // the editor is where the wrong value still sits.

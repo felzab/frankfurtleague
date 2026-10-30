@@ -43,15 +43,13 @@ from app.shared.schemas.einwilligung import FLSelbstEinwilligungPayload
 # A person's own router, apart from the admin one and the confirmation one, each binding its own actor
 # at router level: this one records every write under the referee's Funktion.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/schiedsrichter/selbst",
+    prefix=f"/api/v{API_VERSION}/schiedsrichter",
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["schiedsrichter"])],
 )
 
 
-@router.get("", response_model=FLSchiedsrichterSelbstResponse, summary="A signed-in referee's own records")
-async def get_selbst(
-    identifier: SchiedsrichterIdentifier, schiedsrichter_collection: SchiedsrichterCollection
-) -> FLSchiedsrichterSelbstResponse:
+@router.get("/self", response_model=FLSchiedsrichterSelbstResponse, summary="A signed-in referee's own records")
+async def get_self(identifier: SchiedsrichterIdentifier, schiedsrichter_collection: SchiedsrichterCollection) -> FLSchiedsrichterSelbstResponse:
     """
     Answer every confirmed referee record the signed-in address holds, with its stored contact details.
 
@@ -69,7 +67,7 @@ async def get_selbst(
 
 
 @router.patch(
-    f"{by_id('schiedsrichter_id')}/einwilligung",
+    f"/konto{by_id('schiedsrichter_id')}/einwilligung",
     response_model=FLSchiedsrichterSelbstEinwilligungResponse,
     summary="Change a signed-in referee's own publication and media consent",
 )

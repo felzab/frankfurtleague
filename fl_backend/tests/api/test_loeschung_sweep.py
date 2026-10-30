@@ -27,11 +27,11 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.crud import faellige_seite, saison_statuses
 from app.api.identitaet.schemas import FLLoeschungLaufParams
-from app.api.identitaet.system_router import LOESCHUNGEN_PER_PASS, post_loeschung_lauf
+from app.api.identitaet.system_router import LOESCHUNGEN_PER_PASS, sweep_loeschung
 from app.api.registrierungen.public_router import post_registrierung
 from app.api.registrierungen.schemas import FLPostRegistrierungPayload
 from app.api.registrierungen.services import compose_ablehnung_update
-from app.api.saisons.admin_router import activate_saison, preview_loeschung
+from app.api.saisons.admin_router import activate_saison, get_loeschung_vorschau
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter
 from app.api.spieler.admin_router import post_saison_spieler
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
@@ -74,7 +74,7 @@ pytestmark = pytest.mark.db
 DATABASE_NAME = worker_database("fl_loeschung_sweep_test")
 CONFIG = config_for(DATABASE_NAME)
 
-PATH = f"/api/v{API_VERSION}/identitaet/loeschung/lauf"
+PATH = f"/api/v{API_VERSION}/identitaet/loeschung/sweep"
 
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2026-04-01"
@@ -165,7 +165,7 @@ def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAGUE, mu
 
 
 async def run(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any = None, **replaced: Any) -> Any:
-    return await post_loeschung_lauf(
+    return await sweep_loeschung(
         params=FLLoeschungLaufParams(nach=nach),
         **erasure_collections(database, **({"saisons_collection": database[Collection.SAISONS]} | replaced)),
         sperrliste=ban_list(database),
@@ -976,7 +976,7 @@ class TestThePreviewCountsWhomTheNextActivationsRunErases:
                 )
             )
 
-            vorschau = await preview_loeschung(
+            vorschau = await get_loeschung_vorschau(
                 saison_id=FUTURE,
                 saisons_collection=database[Collection.SAISONS],
                 spieler_collection=database[Collection.SPIELER],
@@ -1001,7 +1001,7 @@ class TestThePreviewCountsWhomTheNextActivationsRunErases:
     def test_an_unknown_season_is_not_found(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             with pytest.raises(DocumentNotFoundError):
-                await preview_loeschung(
+                await get_loeschung_vorschau(
                     saison_id="2099",
                     saisons_collection=database[Collection.SAISONS],
                     spieler_collection=database[Collection.SPIELER],

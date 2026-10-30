@@ -4,8 +4,8 @@ import { z } from "zod";
 
 import { action } from "@/core/action";
 import { COPY } from "@/core/copy";
-import { spielePatchSpielData } from "@/core/generated/client/sdk";
-import { SpielePatchSpielDataBody, SpielePatchSpielDataParams } from "@/core/generated/zod/inputs";
+import { spielePatchSpiel } from "@/core/generated/client/sdk";
+import { SpielePatchSpielBody, SpielePatchSpielParams } from "@/core/generated/zod/inputs";
 import { admitsShootOut } from "@/features/spiele/draftStatus";
 import { getAdminSpiel } from "@/features/spiele/queries";
 import { describeMovedSpiele, toStoredSide } from "@/features/spiele/utils";
@@ -15,7 +15,7 @@ import { KEIN_SONDEREREIGNIS, werteOf } from "./spielWerte";
 import type { FLPatchSpielDataPayload, FLSonderereignis, FLSpielJoinedAdmin } from "@/core/generated/client/types";
 import type { ActionAnswer } from "@/kit/useFormAction";
 
-const { shape } = SpielePatchSpielDataBody;
+const { shape } = SpielePatchSpielBody;
 const [ortShape] = shape.ort.options;
 // The write's version as a number alone: the editor's save always sends the one it read.
 const [versionShape] = shape.version.unwrap().options;
@@ -28,7 +28,7 @@ const preis = z.preprocess(
 
 /** What the editor's boxes send, each held to the match write's own published rule for it. */
 const SpielSpeichern = z.object({
-  id: SpielePatchSpielDataParams.shape.spiel_id,
+  id: SpielePatchSpielParams.shape.spiel_id,
   // The fixture's version as the editor read it, which the editor holds as text.
   fingerprint: z.preprocess((wert) => (typeof wert === "string" && /^\d+$/.test(wert) ? Number(wert) : wert), versionShape),
   changes: z
@@ -127,7 +127,7 @@ export const spielSpeichern = action({
     const payload = payloadOf(gelesen.spiel, changes);
     if ("ok" in payload) return payload;
 
-    const geschrieben = await spielePatchSpielData(id, { ...payload, version: fingerprint });
+    const geschrieben = await spielePatchSpiel(id, { ...payload, version: fingerprint });
 
     // What the write did to other fixtures, a later round's occupant or result among them, in today's editor's words.
     const folgen = describeMovedSpiele(geschrieben.advanced_to, geschrieben.bracket_faults, geschrieben.released_sides);

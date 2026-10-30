@@ -22,7 +22,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import hash_token
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielbestaetigungen.admin_router import eintragen_spielbestaetigung, get_spielbestaetigungen, verwerfen_spielbestaetigung
-from app.api.spielbestaetigungen.person_router import get_eigene_spielbestaetigungen, post_schiedsrichter_antwort
+from app.api.spielbestaetigungen.person_router import get_self, post_schiedsrichter_antwort
 from app.api.spielbestaetigungen.public_router import get_spielbestaetigung_ansicht, post_spielbestaetigung
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnsichtResponse,
@@ -38,7 +38,7 @@ from app.api.spielbestaetigungen.schemas import (
 from app.api.spielbestaetigungen.services import (
     build_held_filter,
 )
-from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel_data
+from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel
 from app.api.spiele.crud import advance_bracket_winners
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.teams.admin_router import replace_saison_team
@@ -1451,7 +1451,7 @@ def on_a_refereed_fixture(url: str, body: Body, *, rows: list[dict[str, Any]] | 
 
 
 async def eigene(database: AsyncDatabase, client: AsyncMongoClient, *, identifier: str = OTTO, today: str = TODAY) -> Any:
-    return await get_eigene_spielbestaetigungen(
+    return await get_self(
         identifier=identifier,
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         spiele_collection=database[Collection.SPIELE],
@@ -1651,7 +1651,7 @@ async def speichern(
 ) -> Any:
     """The administrator's save from an editor that loaded `geladen`, changing what `overrides` names."""
 
-    return await patch_spiel_data(
+    return await patch_spiel(
         spiel_id=SPIEL,
         spiel_data=FLPatchSpielDataPayload.model_validate(spiel_patch_body(geladen, **overrides)),
         db=client,

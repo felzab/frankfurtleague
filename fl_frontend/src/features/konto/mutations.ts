@@ -1,5 +1,5 @@
 import {
-  identitaetEraseSelbst,
+  identitaetPostKontoLoeschung,
   kontoDeleteAdresswechsel,
   kontoPostAdresswechsel,
   kontoPostAdresswechselFreigabe,
@@ -19,7 +19,7 @@ import type {
  * saying whom: the press reaches the library's account deletion only once this has answered.
  */
 export async function eraseEigeneDaten(): Promise<FLErasureResponse> {
-  return identitaetEraseSelbst();
+  return identitaetPostKontoLoeschung();
 }
 
 /**

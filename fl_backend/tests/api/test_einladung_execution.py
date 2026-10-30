@@ -17,7 +17,7 @@ from app.api.einladungen.services import (
     find_unknown_einladung_refusal,
 )
 from app.api.postausgang.services import enqueue_mails, final_update
-from app.api.saisons.admin_router import post_einladungen_versand, preview_einladungen_versand
+from app.api.saisons.admin_router import get_einladungen_versand_vorschau, post_einladungen_versand
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import delete_einladung, get_einladung, post_einladung, post_einladung_versand
 from app.core.codes import Code
@@ -192,7 +192,7 @@ async def read_state(database: AsyncDatabase, team_id: ObjectId, *, today: str =
 
 
 async def preview(database: AsyncDatabase, *, erneut: bool = False) -> Any:
-    return await preview_einladungen_versand(
+    return await get_einladungen_versand_vorschau(
         saison_id=SAISON_ID,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         einladungen_collection=database[Collection.EINLADUNGEN],

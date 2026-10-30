@@ -65,7 +65,7 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 # System tier and the system actor: the clock ends a lapsed change and makes a due one take effect, and no administrator
 # pressed anything.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/adresswechsel/sweep",
+    prefix=f"/api/v{API_VERSION}/adresswechsel",
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
@@ -238,7 +238,7 @@ async def _make_the_due_change_take_effect(
 
 
 @router.post(
-    "",
+    "/sweep",
     response_model=FLAdresswechselSweepResponse,
     summary="End the lapsed address changes, and make the due ones take effect",
 )
@@ -395,7 +395,7 @@ async def sweep_adresswechsel(
     )
 
 
-@router.get("/umzuege", response_model=FLAdresswechselUmzuegeResponse, summary="List the sign-in accounts the effects still owe to carry")
+@router.get("/sweep/umzuege", response_model=FLAdresswechselUmzuegeResponse, summary="List the sign-in accounts the effects still owe to carry")
 async def get_adresswechsel_umzuege(adresswechsel_collection: AdresswechselCollection) -> FLAdresswechselUmzuegeResponse:
     """
     List, oldest first and a page at a time, the ended changes still owing to carry a sign-in account to their new address.
@@ -419,7 +419,11 @@ async def get_adresswechsel_umzuege(adresswechsel_collection: AdresswechselColle
     )
 
 
-@router.post("/umzuege/erledigt", response_model=FLAdresswechselUmzuegeErledigtResponse, summary="Take the carries done off their changes")
+@router.post(
+    "/sweep/umzuege/erledigt",
+    response_model=FLAdresswechselUmzuegeErledigtResponse,
+    summary="Take the carries done off their changes",
+)
 async def post_adresswechsel_umzuege_erledigt(
     erledigt_data: Annotated[FLAdresswechselUmzuegeErledigtPayload, Body()],
     adresswechsel_collection: AdresswechselCollection,

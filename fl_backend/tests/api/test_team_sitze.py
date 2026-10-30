@@ -55,7 +55,7 @@ def sitze_read(url: str, *, identifier: str, team_id: ObjectId = TEAM_OID, saiso
             await seed(database)
             async with app_client(url, app=_served(), now=NOW) as http:
                 response = await http.get(
-                    f"/api/v{API_VERSION}/teams/{team_id}/saisons/{saison_id}/person/sitze",
+                    f"/api/v{API_VERSION}/teams/{team_id}/saisons/{saison_id}/self/sitze",
                     headers=SignedActor(identifier, ADMIN_KEY, lane="person"),
                 )
 

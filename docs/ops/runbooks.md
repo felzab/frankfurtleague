@@ -625,7 +625,7 @@ seat, registration and grant the address holds, so one sign-in stays whole.
   no booking to consent for; reactivating them later mints a fresh link and mails it to the
   corrected address.
 - **A contact seat.** Correct it through
-  `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`, which rewrites the
+  `fl_backend/app/api/bewerbungen/admin_router.py :: post_kontakt_email`, which rewrites the
   address and nothing else of the person. It mints the fresh link, voids the old one and restarts the
   confirmation deadline, and where one person holds two seats it corrects both. It refuses a seat its
   person confirmed or answered, and a decided application, and never reaches a season row. A seat
@@ -645,15 +645,15 @@ arriving by mail at the control for its record, which the person reaches by sign
 address that record holds:
 
 - **A referee's publication scope and media consent:**
-  `PATCH /schiedsrichter/selbst/{schiedsrichter_id}/einwilligung`.
+  `PATCH /schiedsrichter/konto/{schiedsrichter_id}/einwilligung`.
 - **A seat's WhatsApp scope and media consent on a team's season row:**
-  `PATCH /teams/{team_id}/saisons/{saison_id}/person/einwilligung`, for every seat the address holds
+  `PATCH /teams/{team_id}/saisons/{saison_id}/konto/einwilligung`, for every seat the address holds
   on that row.
 - **A seat's WhatsApp scope and media consent on a pending application:**
-  `PATCH /bewerbungen/{bewerbung_id}/person/einwilligung`, which withdraws them and never grants
+  `PATCH /bewerbungen/{bewerbung_id}/konto/einwilligung`, which withdraws them and never grants
   either.
 - **A pending registration's publication scope and media consent:**
-  `PATCH /registrierungen/selbst/{registrierung_id}/einwilligung`, which withdraws them and grants
+  `PATCH /registrierungen/konto/{registrierung_id}/einwilligung`, which withdraws them and grants
   neither. The admission deletes the registration, and its choices then move on the pupil's own
   control above.
 - **A pupil's:** the paragraph below.
@@ -693,7 +693,7 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   already answered, the route is „Löschung auf Anfrage“.
 
 **A pupil withdrawing the consent that publishes their name does it on their account page.**
-`PATCH /spieler/selbst/einwilligung` moves the record, and no administrator route writes it. A request arriving
+`PATCH /spieler/konto/einwilligung` moves the record, and no administrator route writes it. A request arriving
 by mail instead has two answers, and which one you give is the person's to choose:
 
 - **They want off the website and out of the league.** „Löschung auf Anfrage“ on the address their
@@ -1521,7 +1521,7 @@ review`, the restored database holding no change to move: ask the person to star
   it again too.
 - **An address an administrator corrected inside the window**: a referee's who had not confirmed,
   retired or not, in the referee editor, or a contact seat's through
-  `fl_backend/app/api/bewerbungen/admin_router.py :: korrigiere_kontakt_email`. No line records an
+  `fl_backend/app/api/bewerbungen/admin_router.py :: post_kontakt_email`. No line records an
   administrator's correction, so the tool cannot list these either: the restored record holds the
   replaced address again, and the link the correction voided, which the mailbox it went to can
   answer again until its deadline. The mail thread that asked for each correction is its record:

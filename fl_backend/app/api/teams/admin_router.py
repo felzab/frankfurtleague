@@ -191,8 +191,8 @@ async def _rewrite_the_outgoing_clubs_sides(
 
 # A static path beside `by_id` routes: the id convertor takes 24 hex characters, so no id route can
 # capture this one whatever the declaration order.
-@router.get("/memberships", response_model=FLTeamsMembershipsResponse, summary="Every team with its season memberships")
-async def get_team_memberships(
+@router.get("/saisons", response_model=FLTeamsMembershipsResponse, summary="Every team with its season memberships")
+async def get_team_saisons(
     teams_collection: TeamsCollection,
     adresswechsel_collection: AdresswechselCollection,
     berechtigungen_collection: BerechtigungenCollection,
@@ -244,14 +244,14 @@ async def get_team_memberships(
     )
 
 
-# Two static segments, as `GET /saisons/list/admin` has, so the admin tier lists every season-scoped
+# Two static segments, as `GET /saisons/list/verwaltung` has, so the admin tier lists every season-scoped
 # resource under one shape. No id route at this prefix ends in `/admin`, so none can shadow this one.
 @router.get(
-    "/list/admin",
+    "/list/verwaltung",
     response_model=FLTeamsResponse,
     summary="Teams for a Saison, for the admin surfaces",
 )
-async def get_teams_for_admin(
+async def get_teams_verwaltung(
     teams_collection: TeamsCollection,
     saisons_collection: SaisonsCollection,
     spiele_collection: SpieleCollection,

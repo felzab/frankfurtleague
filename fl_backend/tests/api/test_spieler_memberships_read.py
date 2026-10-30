@@ -327,7 +327,7 @@ def squads(mongo_database: Database) -> Database:
 class TestTheMembershipsPipelineExecuted:
     def _by_surname(self, squads: Database) -> dict[str, FLSpielerWithMemberships]:
         raw = list(squads.spieler.aggregate(build_spieler_memberships_pipeline()))
-        # With the key the read composes after the pipeline (`app/api/spieler/admin_router.py :: get_spieler_memberships`).
+        # With the key the read composes after the pipeline (`app/api/spieler/admin_router.py :: get_spieler_saisons`).
         parsed = (FLSpielerWithMemberships.model_validate({**row, "adresswechsel_einsehbar_verwehrt": None}) for row in raw)
         return {player.nachname or "": player for player in parsed}
 

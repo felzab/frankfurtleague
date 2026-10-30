@@ -3468,10 +3468,10 @@ async function erasureRefused(): Promise<Error> {
   const { APIBadStatusError } = await import("./errors.ts");
   return new APIBadStatusError({
     message: "API returned a bad status.",
-    url: `${API_ORIGIN}/api/v0/identitaet/selbst/erasure`,
+    url: `${API_ORIGIN}/api/v0/identitaet/konto/loeschung`,
     statusCode: 403,
     serverErrorCode: "person_barred",
-    endpoint: "/identitaet/selbst/erasure",
+    endpoint: "/identitaet/konto/loeschung",
     method: "POST",
     readOnly: false,
     traceId: "0".repeat(32),
