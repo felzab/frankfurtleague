@@ -23,7 +23,6 @@ from app.api.registrierungen.services import (
     find_bestaetigung_gesperrt_refusal,
     find_expired_token_refusal,
     find_medien_refusal,
-    find_ohne_geburtsdatum_refusal,
     find_unknown_token_refusal,
     find_wahlen_refusal,
     gespeichertes_geburtsdatum,
@@ -122,7 +121,7 @@ async def post_bestaetigung(
 ) -> FLRegistrierungBestaetigungResponse:
     """Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
 
-    Refuses, writing nothing: `REQ-REGISTRIERUNG-004`, `-005`, `-006`, `-007`, `-010`, `-012`, `-017`, `-019` and
+    Refuses, writing nothing: `REQ-REGISTRIERUNG-004`, `-005`, `-006`, `-007`, `-010`, `-012`, `-017` and
     `REQ-EINWILLIGUNG-001`.
     """
 
@@ -161,8 +160,7 @@ async def post_bestaetigung(
                 geburtsdatum=antwort_data.geburtsdatum,
             )
         )
-        refuse(find_ohne_geburtsdatum_refusal(seite=seite, gespeichert=gespeichert))
-        # Exactly one of the two is set once the refusals above have passed.
+        # Exactly one of the two is set once the refusals above have passed: every stored person carries a birthdate.
         geburtsdatum = antwort_data.geburtsdatum or gespeichert
         assert geburtsdatum is not None
         # Asked at the press rather than only at the mint: a ban entered after the link went out

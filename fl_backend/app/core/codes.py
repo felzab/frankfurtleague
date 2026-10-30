@@ -211,7 +211,6 @@ class Code(StrEnum):
     REGISTRIERUNG_SCHON_AUFGENOMMEN = "REQ-REGISTRIERUNG-016"
     REGISTRIERUNG_WAHLEN_UNPASSEND = "REQ-REGISTRIERUNG-017"
     REGISTRIERUNG_PERSON_FEHLT = "REQ-REGISTRIERUNG-018"
-    REGISTRIERUNG_OHNE_GEBURTSDATUM = "REQ-REGISTRIERUNG-019"
     # A replacement is neither an entry nor a swap: ONE junction row changes hands and the season's
     # fixtures follow it, so it carries codes of its own.
     REPLACE_SAISON_FINISHED = "REQ-REPLACE-001"

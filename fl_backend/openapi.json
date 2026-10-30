@@ -280,7 +280,6 @@
           "REQ-REGISTRIERUNG-016",
           "REQ-REGISTRIERUNG-017",
           "REQ-REGISTRIERUNG-018",
-          "REQ-REGISTRIERUNG-019",
           "REQ-REPLACE-001",
           "REQ-REPLACE-002",
           "REQ-REPLACE-003",
@@ -23244,7 +23243,7 @@
     },
     "/api/v0/registrierungen/bestaetigung": {
       "post": {
-        "description": "Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.\n\nRefuses, writing nothing: `REQ-REGISTRIERUNG-004`, `-005`, `-006`, `-007`, `-010`, `-012`, `-017`, `-019` and\n`REQ-EINWILLIGUNG-001`.",
+        "description": "Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.\n\nRefuses, writing nothing: `REQ-REGISTRIERUNG-004`, `-005`, `-006`, `-007`, `-010`, `-012`, `-017` and\n`REQ-EINWILLIGUNG-001`.",
         "operationId": "registrierungen_post_bestaetigung",
         "requestBody": {
           "content": {

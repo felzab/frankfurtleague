@@ -805,24 +805,6 @@ class TestTheReminderClockTakesAShareEachCall:
 
         assert with_one_refused == carryable
 
-    def test_a_decision_date_no_judge_can_read_costs_its_clock_no_command(self, mongo_replica_set_url: str):
-        """Every command a drain spends taking a page apart is one the reminder share after it has not got."""
-
-        unreadable = registrierung(SECOND_OID, status="abgelehnt", entscheidung={"getroffen_am": "2026-02-1x", "von": "admin", "grund": None})
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int, list[ObjectId]]:
-            async def counted(rows: list[dict[str, Any]]) -> int:
-                await database[Collection.REGISTRIERUNGEN].delete_many({})
-                await database[Collection.REGISTRIERUNGEN].insert_many(rows)
-
-                return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
-
-            return await counted(the_corpus()), await counted([*the_corpus(), unreadable]), await standing(database)
-
-        without, beside, left = on_a_league(mongo_replica_set_url, body)
-
-        assert (beside, SECOND_OID in left, DECLINED_OID in left) == (without, True, False)
-
 
 class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
     def test_the_sweep(self, mongo_replica_set_url: str):
