@@ -29,6 +29,7 @@ from app.api.einladungen.services import (
 from app.api.identitaet.crud import faellige_anzahl, saison_statuses
 from app.api.identitaet.schemas import FLLoeschungVorschauResponse
 from app.api.identitaet.services import geschlossen_durch, statuses_after_activating
+from app.api.saisons.crud import has_started
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
@@ -52,6 +53,7 @@ from app.api.saisons.services import (
     as_the_draw_answers,
     find_activation_refusal,
     find_berichte_refusal,
+    find_rules_freeze_refusal,
     find_rules_refusal,
     find_saison_span_refusal,
     find_spielplan_refusal,
@@ -68,7 +70,6 @@ from app.api.teams.services import (
     find_gruppe_swap_refusal,
     find_swap_pair_refusal,
     fixtures_newly_fielding_a_departed_club,
-    has_taken_place,
 )
 from app.core.codes import Code
 from app.core.config import API_VERSION
@@ -122,7 +123,7 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
-# No `tore`: goals belong to whoever scored them, and `has_taken_place` leaves none to move.
+# No `tore`: goals belong to whoever scored them, and a swap runs only before the season has started.
 SWAPPED_SIDE_KEYS: tuple[str, ...] = ("team_id", "name", "shorthand")
 
 
@@ -268,7 +269,6 @@ async def post_saison(
 
     refuse(
         find_rules_refusal(
-            saison_status="future",
             stored=None,
             proposed=saison_data.rules,
             occupancy_by_gruppe={},
@@ -307,7 +307,7 @@ class MovableFigures(NamedTuple):
 
     largest_squad: int
     spieltag_spans: Sequence[tuple[str, str]]
-    played_knockout: int
+    started: bool
 
 
 @router.patch(
@@ -324,6 +324,7 @@ async def patch_saison(
     spieltage_collection: SpieltageCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     db: DBClient,
+    today: str = Depends(get_german_date_str),
 ) -> FLPatchSaisonResponse:
     """
     Update a season's dates and rules. `status` is on no payload.
@@ -413,40 +414,31 @@ async def patch_saison(
                 )
             ]
 
-            # The FIXTURE's own phase, never its matchday's: the bracket was seeded from the
-            # placings `REQ-RULES-012` protects. The phase narrows the query and `has_taken_place`
-            # reads whole documents, so nothing here restates the predicate and drifts from it.
-            played_knockout = 0
-            async for spiel in spiele_collection.find(
-                {"saison_id": saison_id, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}},
-                # Every key the predicate reads is fetched: one left out reads `None` on every
-                # fixture, so the branch deciding this count is the one nobody sees fail.
-                {"ergebnis": 1, "elfmeterschiessen": 1, "sonderereignis": 1, "team1.tore": 1, "team2.tore": 1},
-                session=figures_session,
-            ):
-                if has_taken_place(spiel):
-                    played_knockout += 1
-
             return MovableFigures(
                 largest_squad=int(largest_squad_rows[0]["held"]) if largest_squad_rows else 0,
                 spieltag_spans=spieltag_spans,
-                played_knockout=played_knockout,
+                # Movable too: re-dating a fixture writes `spiele` alone.
+                started=await has_started(spiele_collection=spiele_collection, saison_id=saison_id, today=today, session=figures_session),
             )
 
         def judge(figures: MovableFigures) -> None:
+            # Validated, not read raw: a season missing a rules key fails here rather than comparing
+            # against a default nobody chose.
+            stored_rules = FLSaisonRules.model_validate(stored_raw["rules"])
+            refuse(
+                find_rules_freeze_refusal(
+                    saison_status=str(stored_raw["status"]), started=figures.started, stored=stored_rules, proposed=saison_data.rules
+                )
+            )
             refuse(
                 find_rules_refusal(
-                    saison_status=str(stored_raw["status"]),
-                    # Validated, not read raw: a season missing a rules key fails here rather than comparing
-                    # against a default nobody chose.
-                    stored=FLSaisonRules.model_validate(stored_raw["rules"]),
+                    stored=stored_rules,
                     proposed=saison_data.rules,
                     occupancy_by_gruppe=occupancy,
                     highest_wired_platz=highest_platz,
                     largest_squad=figures.largest_squad,
                     attached_by_phase=attached_by_phase,
                     drawn_fixtures=drawn_fixtures,
-                    played_knockout_fixtures=figures.played_knockout,
                 )
             )
             refuse(
@@ -469,7 +461,7 @@ async def patch_saison(
         )
 
         # Re-judged OUTSIDE the session before answering: the write set is `saisons` alone, so a
-        # knockout result raises no conflict, where a squad entry or a matchday re-dating advances
+        # fixture's new date raises no conflict, where a squad entry or a matchday re-dating advances
         # `bounded_writes` and does. One landing after this read still slips.
         judge(await movable_figures(None))
 
@@ -636,6 +628,7 @@ async def swap_gruppen(
     spiele_collection: SpieleCollection,
     teams_collection: TeamsCollection,
     db: DBClient,
+    today: str = Depends(get_german_date_str),
 ) -> FLSwapGruppenResponse:
     """
     Exchange the groups of two clubs entered in this season, as one write.
@@ -673,8 +666,7 @@ async def swap_gruppen(
             collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=session
         )
 
-        # LISTED rather than counted: one read answers `REQ-SWAP-004` and supplies what the rewrite
-        # moves, so the two cannot disagree.
+        # The fixtures the rewrite moves, read once for the refusals below too, so the two cannot disagree.
         gruppenphase_spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={
@@ -682,35 +674,15 @@ async def swap_gruppen(
                 "saison_phase": "gruppenphase",
                 "$or": [{"team1.team_id": {"$in": both_ids}}, {"team2.team_id": {"$in": both_ids}}],
             },
-            projection=[
-                "spieltag_id",
-                "datum",
-                "team1.team_id",
-                "team1.tore",
-                "team2.team_id",
-                "team2.tore",
-                "ergebnis",
-                "elfmeterschiessen",
-                "sonderereignis",
-            ],
+            projection=["spieltag_id", "datum", "team1.team_id", "team2.team_id", "sonderereignis"],
             session=session,
         )
 
-        # Listed too, so both windows are decided by `has_taken_place` rather than by one predicate
-        # here and a `$or` filter there.
+        # The bracket's fixtures stay with the club holding them, so they are read for the clash count alone.
         knockout_spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}},
-            projection=[
-                "spieltag_id",
-                "team1.team_id",
-                "team1.tore",
-                "team2.team_id",
-                "team2.tore",
-                "ergebnis",
-                "elfmeterschiessen",
-                "sonderereignis",
-            ],
+            projection=["spieltag_id", "team1.team_id", "team2.team_id"],
             session=session,
         )
 
@@ -719,8 +691,7 @@ async def swap_gruppen(
                 team1_gruppe=gruppe_of.get(swap_data.team1_id),
                 team2_gruppe=gruppe_of.get(swap_data.team2_id),
                 saison_status=str(saison_raw["status"]),
-                played_knockout_fixtures=sum(1 for spiel in knockout_spiele if has_taken_place(spiel)),
-                played_gruppenphase_fixtures=sum(1 for spiel in gruppenphase_spiele if has_taken_place(spiel)),
+                started=await has_started(spiele_collection=spiele_collection, saison_id=saison_id, today=today, session=session),
                 clashing_spieltage=_spieltag_clashes(
                     team_ids=both_ids,
                     gruppenphase_spiele=gruppenphase_spiele,
@@ -893,7 +864,6 @@ async def generate_spielplan(
         refuse(
             as_the_draw_answers(
                 find_rules_refusal(
-                    saison_status=str(saison_raw["status"]),
                     stored=None,
                     proposed=rules,
                     occupancy_by_gruppe=occupancy,

@@ -15,7 +15,7 @@ from app.api.saisons.schemas import (
     FLPatchSaisonResponse,
     FLSaisonRules,
 )
-from app.api.spiele.schemas import KNOCKOUT_PHASES, SONDEREREIGNIS_WITHOUT_A_RESULT
+from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.api.teams.services import offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -272,28 +272,21 @@ async def call_patch_rules(
         spieltage_collection=database[Collection.SPIELTAGE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         db=client,
+        today=TODAY,
     )
 
 
-async def call_abandon_a_knockout(database: AsyncDatabase) -> None:
-    """The rival write: one drawn knockout fixture of the target is marked abandoned, straight into `spiele`.
+async def call_date_a_group_fixture_today(database: AsyncDatabase) -> None:
+    """The rival write: one drawn group fixture of the target is dated today, straight into `spiele`, which starts the season."""
 
-    Not through the fixture route: a knockout slot drawn from a `quelle` names no teams yet, so
-    there is no result for that route to take.
-    """
+    fixture = await database[Collection.SPIELE].find_one({"saison_id": TARGET, "saison_phase": "gruppenphase"})
+    assert fixture is not None, "the draw left the target no group fixture to date"
 
-    fixture = await database[Collection.SPIELE].find_one({"saison_id": TARGET, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}})
-    assert fixture is not None, "the draw left the target no knockout fixture to record against"
-
-    await database[Collection.SPIELE].update_one({"_id": fixture["_id"]}, {"$set": {"sonderereignis": "abgebrochen"}})
+    await database[Collection.SPIELE].update_one({"_id": fixture["_id"]}, {"$set": {"datum": TODAY}})
 
 
-async def abandoned_knockouts_now(database: AsyncDatabase) -> int:
-    """The records the rival leaves, counted where `app/api/teams/services.py :: has_taken_place` would answer True."""
-
-    return await database[Collection.SPIELE].count_documents(
-        {"saison_id": TARGET, "saison_phase": {"$in": list(KNOCKOUT_PHASES)}, "sonderereignis": "abgebrochen"}
-    )
+async def group_fixtures_dated_today(database: AsyncDatabase) -> int:
+    return await database[Collection.SPIELE].count_documents({"saison_id": TARGET, "saison_phase": "gruppenphase", "datum": TODAY})
 
 
 async def tiebreak_now(database: AsyncDatabase) -> str:
@@ -489,34 +482,34 @@ class TestTheRolloverStillCommitsWithNothingInterfering:
         assert (response.updated_document.id, response.updated_document.status) == (TARGET, "active")
 
 
-class TestAKnockoutResultLandingMidPatchIsJudgedAgain:
-    """Two administrators on one season: no knockout fixture holds a record when the patch judges, and one does when it writes.
+class TestAStartLandingMidPatchIsJudgedAgain:
+    """Two administrators on one season: it has not started when the patch judges, and has when it writes.
 
     The rival writes `spiele`, which the callback only reads: no conflict, no retry; the
     out-of-session re-judgement refuses.
     """
 
-    def test_the_reorder_is_refused_on_the_record_left_under_it(self, mongo_replica_set_url: str):
+    def test_the_reorder_is_refused_on_the_start_dated_under_it(self, mongo_replica_set_url: str):
         """Drop the re-judgement `patch_saison` makes after its transaction and this fails."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            async def abandon_between() -> None:
-                await call_abandon_a_knockout(database)
+            async def date_between() -> None:
+                await call_date_a_group_fixture_today(database)
 
-            seasons = SeasonsRunningOneHook(database[Collection.SAISONS], abandon_between)
+            seasons = SeasonsRunningOneHook(database[Collection.SAISONS], date_between)
 
             with pytest.raises(APIError) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, tiebreak_order=REORDERED_TIEBREAK)
 
-            return refusal.value, seasons.season_reads, await tiebreak_now(database), await abandoned_knockouts_now(database)
+            return refusal.value, seasons.season_reads, await tiebreak_now(database), await group_fixtures_dated_today(database)
 
-        refusal, season_reads, tiebreak, abandoned = on_a_league(
+        refusal, season_reads, tiebreak, dated = on_a_league(
             mongo_replica_set_url, body, saisons=[seeded_saison(TARGET, "future")], entered=(TARGET,), drawn=(TARGET,)
         )
 
-        # `REQ-RULES-012` weighs the knockout fixtures holding a record, and there were none when
-        # this request first judged: the refusal can only come from the re-judgement after the write.
-        assert refusal.error_code == Code.RULES_TIEBREAK_AFTER_KNOCKOUT
+        # The draw dates nothing, so the season had not started when this request first judged: the
+        # refusal can only come from the re-judgement after the write.
+        assert refusal.error_code == Code.RULES_SAISON_FINISHED
         # TWO, and neither is a retry: the judgement's read, then the echo read the write itself
         # makes -- the rival touched `spiele` alone, so nothing conflicted.
         assert season_reads == 2, (
@@ -524,8 +517,8 @@ class TestAKnockoutResultLandingMidPatchIsJudgedAgain:
             "one is a rival that landed before the patch judged, a third a conflict this case says cannot happen"
         )
 
-        assert tiebreak == SEEDED_TIEBREAK, "the reorder landed on top of the rival's record"
-        assert abandoned == 1, "the rival's record was lost, so the refusal above had nothing to refuse"
+        assert tiebreak == SEEDED_TIEBREAK, "the reorder landed on a season the rival had started"
+        assert dated == 1, "the rival's date was lost, so the refusal above had nothing to refuse"
 
 
 class TestARolloverLandingMidPatchIsJudgedAgain:
