@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Literal, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 from pydantic_core import PydanticCustomError
@@ -57,7 +57,7 @@ type FLBewerbungStatus = Literal["eingereicht", "angenommen", "abgelehnt"]
 # Which seasons a read covers, RELATIVE to the `saison_id` beside it and never a season of its own:
 # the triage bar asks about the season an administrator came here about, and no stored field carries
 # that answer.
-FLBewerbungSaisonbezug = Literal["diese_saison", "andere_saison"]
+type FLBewerbungSaisonbezug = Literal["diese_saison", "andere_saison"]
 
 # One key, and it is the one every `bewerbungen` index sorts on: the collection grows with each
 # submission and no path removes a row, so a second order would plan a blocking sort over an archive
@@ -198,37 +198,16 @@ class FLBewerbungRecord(FLBewerbung):
 FLBewerbungListAdapter = TypeAdapter(list[FLBewerbung])
 
 
-def parse_status_list(value: Any) -> Any:
-    """Comma-joined as well as repeated, so the page forwards the parameter it read rather than re-encoding it.
-
-    `fl_frontend/src/core/api.ts :: apiClient` sends one value per key, and the queue's URL spells a
-    multi-select selection comma-joined.
-    """
-
-    if value is None:
-        return None
-
-    picked: list[Any] = []
-    for item in value if isinstance(value, list) else [value]:
-        # A non-string is passed on untouched, so Pydantic refuses it rather than this splitter
-        # dropping it into a narrowing nobody asked for.
-        picked.extend(item.split(",") if isinstance(item, str) else [item])
-
-    # `None` and never `[]`: an emptied parameter is the facet turned off, and `$in: []` would
-    # answer that with a page holding nothing.
-    return [part for part in picked if part != ""] or None
-
-
 class FLBewerbungenFilterParams(BaseModel):
     """What the triage list may narrow on."""
 
     saison_id: str | None = None
     # A list for `status`'s reason below, the facet offering these being multi-select. What each
     # value narrows to is published at `app/api/bewerbungen/admin_router.py :: get_bewerbungen`.
-    saisonbezug: Annotated[list[FLBewerbungSaisonbezug] | None, BeforeValidator(parse_status_list, json_schema_input_type=str)] = None
-    # A LIST, because the facet offering these is multi-select and a two-status selection has no
-    # other request that expresses it. Published as the STRING it arrives as.
-    status: Annotated[list[FLBewerbungStatus] | None, BeforeValidator(parse_status_list, json_schema_input_type=str)] = None
+    saisonbezug: list[FLBewerbungSaisonbezug] | None = None
+    # A LIST, because the facet offering these is multi-select: one key per value, FastAPI's repeated
+    # query parameter. Absent is the facet turned off, `$in` of no value answering nothing.
+    status: list[FLBewerbungStatus] | None = None
 
     # Bounded on BOTH sides, and no null sentinel: this is the one list an anonymous party writes
     # rows into, so `le` caps a caller naming more rather than obeying it, and the default is the

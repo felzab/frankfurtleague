@@ -1,9 +1,10 @@
-import { readFacetSelectionFromRoute } from "@/shared/utils/facets";
+import { FLAktionHerkunft, FLAktionOperation } from "@/core/generated/client/types";
+import { pickedOf, readFacetSelectionFromRoute } from "@/shared/utils/facets";
 
 import { AKTION_COLLECTION_LABELS, AKTION_HERKUNFT_LABELS, AKTION_OPERATION_LABELS } from "./constants";
 import { herkunftOfAktor } from "./utils";
 
-import type { FLAktion, FLAktionenListResponse } from "@/core/generated/client/types";
+import type { AktionenGetAktionenParams, FLAktion, FLAktionenListResponse } from "@/core/generated/client/types";
 import type { Facet, FacetCounts } from "@/shared/utils/facets";
 
 /**
@@ -52,20 +53,19 @@ export const AKTIONEN_FACETS: readonly Facet<FLAktion>[] = [
 ];
 
 /**
- * What `GET /aktionen` is asked to narrow to, comma-joined for the wire and `undefined` for everything.
- * The bar's own reader answers it, so the served rows and the pills cannot disagree about one query string.
+ * What `GET /aktionen` is asked to narrow to, a list per facet and `undefined` for everything. The bar's own
+ * reader answers it, so the served rows and the pills cannot disagree about one query string.
  */
-export function aktionenLogFacetTerms(params: Readonly<Record<string, string | string[] | undefined>>): {
-  collection?: string;
-  operation?: string;
-  herkunft?: string;
-} {
+export function aktionenLogFacetTerms(
+  params: Readonly<Record<string, string | string[] | undefined>>,
+): Pick<AktionenGetAktionenParams, "collection" | "operation" | "herkunft"> {
   const selection = readFacetSelectionFromRoute(AKTIONEN_FACETS, params);
 
   return {
-    collection: selection[AKTIONEN_COLLECTION_PARAM]?.join(","),
-    operation: selection[AKTIONEN_OPERATION_PARAM]?.join(","),
-    herkunft: selection[AKTIONEN_HERKUNFT_PARAM]?.join(","),
+    // A collection name rather than a value of the contract: the log keeps the names of collections since retired.
+    collection: selection[AKTIONEN_COLLECTION_PARAM]?.slice(),
+    operation: pickedOf(FLAktionOperation, selection[AKTIONEN_OPERATION_PARAM]),
+    herkunft: pickedOf(FLAktionHerkunft, selection[AKTIONEN_HERKUNFT_PARAM]),
   };
 }
 

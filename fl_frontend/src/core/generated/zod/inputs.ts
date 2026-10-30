@@ -290,9 +290,11 @@ export const aktionenGetAktionenQueryLimitDefault = 1024;
 export const aktionenGetAktionenQueryLimitMax = 1024;
 
 export const AktionenGetAktionenQueryParams = zod.object({
-  collection: zod.string().optional(),
-  operation: zod.string().optional(),
-  herkunft: zod.string().optional(),
+  collection: zod.union([zod.array(zod.string()), zod.null()]).optional(),
+  operation: zod
+    .union([zod.array(zod.enum(["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"])), zod.null()])
+    .optional(),
+  herkunft: zod.union([zod.array(zod.enum(["person", "system", "public"])), zod.null()]).optional(),
   trace_id: zod.union([zod.string(), zod.null()]).optional(),
   document_id: zod.union([zod.string(), zod.null()]).optional(),
   limit: zod.int().min(1).max(aktionenGetAktionenQueryLimitMax).default(aktionenGetAktionenQueryLimitDefault),
@@ -433,8 +435,8 @@ export const bewerbungenGetBewerbungenQuerySortByDefault = `eingereicht_am`;
 
 export const BewerbungenGetBewerbungenQueryParams = zod.object({
   saison_id: zod.union([zod.string(), zod.null()]).optional(),
-  saisonbezug: zod.string().optional(),
-  status: zod.string().optional(),
+  saisonbezug: zod.union([zod.array(zod.enum(["diese_saison", "andere_saison"])), zod.null()]).optional(),
+  status: zod.union([zod.array(zod.enum(["eingereicht", "angenommen", "abgelehnt"])), zod.null()]).optional(),
   limit: zod.int().min(1).max(bewerbungenGetBewerbungenQueryLimitMax).default(bewerbungenGetBewerbungenQueryLimitDefault),
   sort_by: zod.literal("eingereicht_am").default(bewerbungenGetBewerbungenQuerySortByDefault).meta({ title: "Sort By" }),
   order: zod.enum(["asc", "desc"]).optional(),

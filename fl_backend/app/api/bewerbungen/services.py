@@ -1614,7 +1614,7 @@ def build_bewerbungen_saison_term(*, saison_id: str | None, saisonbezug: Sequenc
     if saisonbezug is None:
         return {"saison_id": saison_id}
 
-    picked = [relation for relation in get_args(FLBewerbungSaisonbezug) if relation in saisonbezug]
+    picked = [relation for relation in get_args(FLBewerbungSaisonbezug.__value__) if relation in saisonbezug]
 
     # Every relation picked is every season, and so the facet turned off.
     if len(picked) != 1:

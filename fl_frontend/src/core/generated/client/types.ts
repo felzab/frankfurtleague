@@ -855,6 +855,14 @@ export interface FLAktion {
   trace_id: string;
 }
 
+export type FLAktionHerkunft = (typeof FLAktionHerkunft)[keyof typeof FLAktionHerkunft];
+
+export const FLAktionHerkunft = {
+  person: "person",
+  system: "system",
+  public: "public",
+} as const;
+
 export type FLAktionMitStandBefore = { [key: string]: unknown } | { [key: string]: unknown }[] | null;
 
 export type FLAktionMitStandDbFilter = { [key: string]: string } | null;
@@ -1742,6 +1750,13 @@ export interface FLBewerbungLoeschungDaten {
   saison_id: string;
 }
 
+export type FLBewerbungSaisonbezug = (typeof FLBewerbungSaisonbezug)[keyof typeof FLBewerbungSaisonbezug];
+
+export const FLBewerbungSaisonbezug = {
+  diese_saison: "diese_saison",
+  andere_saison: "andere_saison",
+} as const;
+
 /**
  * One club as the public form offers it: its id and its name.
  */
@@ -1846,7 +1861,7 @@ export interface FLBewerbungZusageDaten {
  * `dubletten_schluessel` is taken over every open application, so a pair the cap parted is named at both ends.
  */
 export interface FLBewerbungenListResponse {
-  anzahl_je_saisonbezug: Partial<Record<"diese_saison" | "andere_saison", number>>;
+  anzahl_je_saisonbezug: Partial<Record<FLBewerbungSaisonbezug, number>>;
   anzahl_je_status: Partial<Record<FLBewerbungStatus, number>>;
   bewerbungen: FLBewerbung[];
   dubletten_schluessel: string[];
@@ -5777,9 +5792,9 @@ export type AdresswechselSweepAdresswechselParams = {
 };
 
 export type AktionenGetAktionenParams = {
-  collection?: string;
-  operation?: string;
-  herkunft?: string;
+  collection?: string[] | null;
+  operation?: FLAktionOperation[] | null;
+  herkunft?: FLAktionHerkunft[] | null;
   trace_id?: string | null;
   document_id?: string | null;
   /**
@@ -5792,8 +5807,8 @@ export type AktionenGetAktionenParams = {
 
 export type BewerbungenGetBewerbungenParams = {
   saison_id?: string | null;
-  saisonbezug?: string;
-  status?: string;
+  saisonbezug?: FLBewerbungSaisonbezug[] | null;
+  status?: FLBewerbungStatus[] | null;
   /**
    * @minimum 1
    * @maximum 1024

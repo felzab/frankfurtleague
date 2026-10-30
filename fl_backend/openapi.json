@@ -1554,6 +1554,14 @@
         "title": "FLAktion",
         "type": "object"
       },
+      "FLAktionHerkunft": {
+        "enum": [
+          "person",
+          "system",
+          "public"
+        ],
+        "type": "string"
+      },
       "FLAktionMitStand": {
         "description": "One recorded write with the document it replaced, which only the single-row read serves.",
         "properties": {
@@ -3588,6 +3596,13 @@
         "title": "FLBewerbungPerson",
         "type": "object"
       },
+      "FLBewerbungSaisonbezug": {
+        "enum": [
+          "diese_saison",
+          "andere_saison"
+        ],
+        "type": "string"
+      },
       "FLBewerbungSchule": {
         "description": "The club a new school proposes, in the shape acceptance will create it in.\n\nWhile the application is `eingereicht`, exactly one of this and `team_id` carries a value.",
         "properties": {
@@ -3978,10 +3993,7 @@
               "type": "integer"
             },
             "propertyNames": {
-              "enum": [
-                "diese_saison",
-                "andere_saison"
-              ]
+              "$ref": "#/components/schemas/FLBewerbungSaisonbezug"
             },
             "title": "Anzahl Je Saisonbezug",
             "type": "object"
@@ -17967,8 +17979,18 @@
             "name": "collection",
             "required": false,
             "schema": {
-              "title": "Collection",
-              "type": "string"
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Collection"
             }
           },
           {
@@ -17976,8 +17998,18 @@
             "name": "operation",
             "required": false,
             "schema": {
-              "title": "Operation",
-              "type": "string"
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/FLAktionOperation"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation"
             }
           },
           {
@@ -17985,8 +18017,18 @@
             "name": "herkunft",
             "required": false,
             "schema": {
-              "title": "Herkunft",
-              "type": "string"
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/FLAktionHerkunft"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Herkunft"
             }
           },
           {
@@ -18708,8 +18750,18 @@
             "name": "saisonbezug",
             "required": false,
             "schema": {
-              "title": "Saisonbezug",
-              "type": "string"
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/FLBewerbungSaisonbezug"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Saisonbezug"
             }
           },
           {
@@ -18717,8 +18769,18 @@
             "name": "status",
             "required": false,
             "schema": {
-              "title": "Status",
-              "type": "string"
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/components/schemas/FLBewerbungStatus"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
             }
           },
           {
