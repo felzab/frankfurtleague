@@ -227,7 +227,7 @@ async def accept(
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=TODAY,
         von=ADMIN_EMAIL,
@@ -251,7 +251,7 @@ async def decline(database: AsyncDatabase, bewerbung_id: ObjectId, *, grund: str
         ablehnung_data=FLDeclineBewerbungPayload(grund=grund),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         today=TODAY,
         von=ADMIN_EMAIL,
         db=database.client,
@@ -737,7 +737,7 @@ class TestADuplicateShorthandIsAConflictAndNotHalfAClub:
         """Through a served request, because the code asserted on is the exception handler's rather than any refusal's."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await through_the_app(mongo_replica_set_url, CLASHING_BEWERBUNG, "annehmen", {"gruppe": "A", "trikot_farbe": "rot"})
+            response = await through_the_app(mongo_replica_set_url, CLASHING_BEWERBUNG, "accept", {"gruppe": "A", "trikot_farbe": "rot"})
 
             return (
                 response.status_code,
@@ -765,7 +765,7 @@ class TestWhoTheDecisionNames:
         """Catches `get_actor_email` resolving BEFORE the router-level binder, which would file every decision under SYSTEM."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "annehmen", {"gruppe": "A", "trikot_farbe": "rot"})
+            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "accept", {"gruppe": "A", "trikot_farbe": "rot"})
             stored = await stored_bewerbung(database, PICKED_BEWERBUNG)
 
             return response.status_code, stored["decision"]
@@ -782,7 +782,7 @@ class TestWhoTheDecisionNames:
         """The pairing the field exists for: two sources for one name is two names waiting to disagree."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "annehmen", {"gruppe": "A", "trikot_farbe": "rot"})
+            await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "accept", {"gruppe": "A", "trikot_farbe": "rot"})
             rows = await database[Collection.ACTION_LOG].find({"collection": str(Collection.BEWERBUNGEN)}).to_list(length=None)
 
             return rows, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]
@@ -800,7 +800,7 @@ class TestWhoTheDecisionNames:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "ablehnen", {"grund": GRUND})
+            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"grund": GRUND})
 
             return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]
 
@@ -880,7 +880,7 @@ class TestADeclineTouchesNothingElse:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "ablehnen", {"grund": grund})
+            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"grund": grund})
 
             return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]["grund"]
 
@@ -902,7 +902,7 @@ class TestADeclineTouchesNothingElse:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "ablehnen", {"grund": grund})
+            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"grund": grund})
 
             return response.status_code, await stored_bewerbung(database, PICKED_BEWERBUNG)
 
@@ -920,7 +920,7 @@ class TestADeclineTouchesNothingElse:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "ablehnen", {"grund": f"  {GRUND}\n"})
+            response = await through_the_app(mongo_replica_set_url, PICKED_BEWERBUNG, "decline", {"grund": f"  {GRUND}\n"})
 
             return response.status_code, (await stored_bewerbung(database, PICKED_BEWERBUNG))["decision"]["grund"]
 
@@ -1015,7 +1015,7 @@ class TestTwoDeclinesAtOnce:
                     ablehnung_data=FLDeclineBewerbungPayload(grund=OTHER_GRUND),
                     bewerbungen_collection=cast(AsyncCollection, racing),
                     teams_collection=database[Collection.TEAMS],
-                    postausgang_collection=database[Collection.OUTBOX],
+                    outbox_collection=database[Collection.OUTBOX],
                     germany_now=MAIL_NOW,
                     today=TODAY,
                     von=OTHER_ADMIN_EMAIL,
@@ -1042,7 +1042,7 @@ class TestTwoDeclinesAtOnce:
                     ablehnung_data=FLDeclineBewerbungPayload(grund=OTHER_GRUND),
                     bewerbungen_collection=database[Collection.BEWERBUNGEN],
                     teams_collection=database[Collection.TEAMS],
-                    postausgang_collection=database[Collection.OUTBOX],
+                    outbox_collection=database[Collection.OUTBOX],
                     germany_now=MAIL_NOW,
                     today=TODAY,
                     von=OTHER_ADMIN_EMAIL,
@@ -1069,7 +1069,7 @@ class TestTheQueueTheTriageIsWorkedDown:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await get_bewerbungen(
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                postausgang_collection=database[Collection.OUTBOX],
+                outbox_collection=database[Collection.OUTBOX],
                 sperrliste=ban_list(database),
                 filters=FLBewerbungenFilterParams(),
             )
@@ -1225,7 +1225,7 @@ class TestADeclineLandingInsideAnAcceptance:
                     teams_collection=database[Collection.TEAMS],
                     saison_teams_collection=database[Collection.SAISON_TEAMS],
                     saisons_collection=database[Collection.SAISONS],
-                    postausgang_collection=database[Collection.OUTBOX],
+                    outbox_collection=database[Collection.OUTBOX],
                     germany_now=MAIL_NOW,
                     db=client,
                     today=TODAY,
@@ -1280,7 +1280,7 @@ async def correct(
         email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": email, "previous_email": shown}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         germany_now=MAIL_NOW,
         sperrliste=ban_list(database),
         db=client,
@@ -1556,7 +1556,7 @@ async def resend(database: AsyncDatabase, seat: str, *, bewerbungen: Any = None,
         seat=seat,
         bewerbungen_collection=collection,
         teams_collection=database[Collection.TEAMS],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         germany_now=MAIL_NOW,
         sperrliste=ban_list(database, saisons=saisons),
         db=database.client,
@@ -1658,7 +1658,7 @@ class TestAResendRacingAnAnswer:
                     ),
                     bewerbungen_collection=database[Collection.BEWERBUNGEN],
                     teams_collection=database[Collection.TEAMS],
-                    postausgang_collection=database[Collection.OUTBOX],
+                    outbox_collection=database[Collection.OUTBOX],
                     sperrliste=ban_list(database),
                     db=client,
                     today=TODAY,
@@ -1778,7 +1778,7 @@ async def reseat(
         sitz_data=FLBewerbungKontaktSeatPayload.model_validate({**RESEAT_PERSON, "email": email, "text_version": text_version}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         germany_now=MAIL_NOW,
         sperrliste=ban_list(database),
         db=client,
@@ -1803,7 +1803,7 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
         saisons_collection=database[Collection.SAISONS],
         aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         config=build_test_config(),

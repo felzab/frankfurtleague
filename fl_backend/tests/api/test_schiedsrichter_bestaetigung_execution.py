@@ -168,7 +168,7 @@ async def create(database: AsyncDatabase, client: AsyncMongoClient, *, email: st
     answer = await post_schiedsrichter(
         schiedsrichter_data=FLPostSchiedsrichterPayload.model_validate(payload_body(email=email)),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         today=today,
@@ -184,7 +184,7 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
         schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate(payload_body(email=email)),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         today=today,
@@ -201,7 +201,7 @@ async def resend(
     answer = await invite_schiedsrichter(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         today=today,
@@ -601,7 +601,7 @@ async def reactivate(database: AsyncDatabase, client: AsyncMongoClient) -> Maile
     answer = await reactivate_schiedsrichter(
         schiedsrichter_id=SCHIEDSRICHTER_OID,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,

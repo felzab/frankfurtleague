@@ -106,12 +106,12 @@ async def _as_served(
     rows: Sequence[Mapping[str, Any]],
     *,
     sperrliste: BanList,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
 ) -> list[dict[str, Any]]:
     # Concurrently: the ban list and the Postausgang are two collections, and neither read waits on the other.
     barred, lagen = await asyncio.gather(
         adressen_gesperrt(sperrliste, entscheider_adressen(rows)),
-        states_of(outbox_collection=postausgang_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows]),
+        states_of(outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows]),
     )
 
     return [mit_zustellung(mit_vorenthaltener_entscheidung(row, barred), lagen) for row in rows]
@@ -120,7 +120,7 @@ async def _as_served(
 @router.get("", response_model=FLBewerbungenListResponse, summary="List Bewerbungen")
 async def get_bewerbungen(
     bewerbungen_collection: BewerbungenCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     filters: FLBewerbungenFilters,
 ) -> FLBewerbungenListResponse:
@@ -171,7 +171,7 @@ async def get_bewerbungen(
     # administrator a usable list, and `complete` reports the cut.
     return FLBewerbungenListResponse(
         bewerbungen=FLBewerbungListAdapter.validate_python(
-            await _as_served(served, sperrliste=sperrliste, postausgang_collection=postausgang_collection)
+            await _as_served(served, sperrliste=sperrliste, outbox_collection=outbox_collection)
         ),
         complete=len(read) <= filters.limit,
         count_per_status=dict(zip(get_args(FLBewerbungStatus.__value__), counted, strict=True)),
@@ -184,7 +184,7 @@ async def get_bewerbungen(
 async def get_bewerbung(
     bewerbung_id: CustomRouteObjectId,
     bewerbungen_collection: BewerbungenCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungSingleResponse:
@@ -194,7 +194,7 @@ async def get_bewerbung(
     """
 
     bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=WITHOUT_TOKEN_HASHES)
-    [served] = await _as_served([bewerbung_raw], sperrliste=sperrliste, postausgang_collection=postausgang_collection)
+    [served] = await _as_served([bewerbung_raw], sperrliste=sperrliste, outbox_collection=outbox_collection)
 
     return FLBewerbungSingleResponse(
         bewerbung=FLBewerbung(**served),
@@ -237,7 +237,7 @@ async def accept_bewerbung(
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     von: str = Depends(get_actor_email),
@@ -362,7 +362,7 @@ async def accept_bewerbung(
             return_document=ReturnDocument.BEFORE,
         )
         await enqueue_mails(
-            outbox_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[
                 OwedMail(
@@ -411,7 +411,7 @@ async def decline_bewerbung(
     ablehnung_data: Annotated[FLDeclineBewerbungPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     von: str = Depends(get_actor_email),
@@ -444,7 +444,7 @@ async def decline_bewerbung(
         )
         team = await _schule_text(bewerbung_raw=stored_raw, teams_collection=teams_collection, session=session)
         await enqueue_mails(
-            outbox_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[
                 OwedMail(
@@ -476,7 +476,7 @@ async def resend_einwilligung(
     seat: str,
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -556,7 +556,7 @@ async def resend_einwilligung(
             # address this link is mailed to.
             await refuse_a_barred_address(matched, seats, massgebliche_saison_id=massgebliche_saison_id, session=session)
             await enqueue_mails(
-                outbox_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 session=session,
                 mails=[
                     owed_link(
@@ -606,7 +606,7 @@ async def post_kontakt_email(
     email_data: Annotated[FLBewerbungKontaktEmailPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -683,7 +683,7 @@ async def post_kontakt_email(
             return_document=ReturnDocument.AFTER,
         )
         await enqueue_mails(
-            outbox_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[
                 owed_link(
@@ -719,7 +719,7 @@ async def post_kontakt_seat(
     sitz_data: Annotated[FLBewerbungKontaktSeatPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -803,7 +803,7 @@ async def post_kontakt_seat(
             return_document=ReturnDocument.AFTER,
         )
         await enqueue_mails(
-            outbox_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[
                 owed_link(

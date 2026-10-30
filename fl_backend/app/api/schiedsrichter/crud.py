@@ -26,7 +26,7 @@ from app.shared.schemas.custom import CustomObjectId
 
 async def owe_the_bestaetigung(
     *,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     schiedsrichter_id: Any,
     email: str,
     frist: str,
@@ -43,7 +43,7 @@ async def owe_the_bestaetigung(
     """
 
     await enqueue_mails(
-        outbox_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         session=session,
         mails=[
             OwedMail(

@@ -274,7 +274,7 @@ async def post_event(
     The row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds
     it all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before
     anything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later
-    one changes nothing. Both answer `angewendet: false`, as does an id no row has, rather than a refusal the provider
+    one changes nothing. Both answer `applied: false`, as does an id no row has, rather than a refusal the provider
     would retry for hours.
     """
 

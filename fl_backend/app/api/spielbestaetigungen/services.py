@@ -99,7 +99,7 @@ def compose_ansetzung(spiel: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def build_answerable_filter() -> dict[str, Any]:
-    """A row the answer may write: neither answered nor closed, the reach of `uniq_spielbestaetigung_offen`.
+    """A row the answer may write: neither answered nor closed, the reach of `uniq_spielbestaetigung_open`.
 
     Repeated on the write after the read's judgement; a rival answer committing between them conflicts, and the retry
     judges.

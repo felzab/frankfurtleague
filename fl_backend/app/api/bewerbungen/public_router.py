@@ -322,7 +322,7 @@ async def post_bewerbung(
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
@@ -453,7 +453,7 @@ async def post_bewerbung(
         )
 
         await enqueue_mails(
-            outbox_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=owed_at_submission(
                 bewerbung_id=created.inserted_id,
@@ -605,7 +605,7 @@ async def post_einwilligung(
     saisons_collection: SaisonsCollection,
     aktionen_collection: ActionLogCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -851,7 +851,7 @@ async def post_einwilligung(
         if abgelehnt_email is not None:
             # In the decline's own transaction, which stamped the notice as the deletion's: one cannot stand without the other.
             await enqueue_mails(
-                outbox_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 session=session,
                 mails=[
                     OwedMail(

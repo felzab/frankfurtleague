@@ -141,7 +141,7 @@ async def get_schiedsrichter_by_id(
     adresswechsel_collection: AddressChangeCollection,
     berechtigungen_collection: GrantsCollection,
     berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     today: str = Depends(get_german_date_str),
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
@@ -177,7 +177,7 @@ async def get_schiedsrichter_by_id(
         address_change_id=None if offen is None else offen["_id"],
         address_change_viewable_denied=None if identifier is None else verwehrt.get(identifier),
         delivery=await state_of(
-            outbox_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             reference=FLOutboxReference(collection=Collection.SCHIEDSRICHTER, id=schiedsrichter_raw["_id"], seat=None),
         ),
     )
@@ -193,7 +193,7 @@ async def get_schiedsrichter_by_id(
 async def post_schiedsrichter(
     schiedsrichter_data: Annotated[FLPostSchiedsrichterPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -233,7 +233,7 @@ async def post_schiedsrichter(
             session=session,
         )
         await owe_the_bestaetigung(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             schiedsrichter_id=created.inserted_id,
             email=email,
             frist=bestaetigung_frist_from(today=today),
@@ -267,7 +267,7 @@ async def patch_schiedsrichter(
     schiedsrichter_data: Annotated[FLPatchSchiedsrichterPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     actor: Annotated[SessionActor, Depends(verify_admin_actor)],
@@ -337,7 +337,7 @@ async def patch_schiedsrichter(
             # The CORRECTED address this transaction wrote, never the stored one it replaced: mailing the link to the
             # address the save moved away from is the defect the fresh link exists to end.
             await owe_the_bestaetigung(
-                postausgang_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 schiedsrichter_id=updated_document.id,
                 email=email,
                 frist=bestaetigung_frist_from(today=today),
@@ -427,7 +427,7 @@ async def delete_schiedsrichter(
 async def reactivate_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     actor: Annotated[SessionActor, Depends(verify_admin_actor)],
@@ -480,7 +480,7 @@ async def reactivate_schiedsrichter(
         )
         if email is not None:
             await owe_the_bestaetigung(
-                postausgang_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 schiedsrichter_id=updated["_id"],
                 email=email,
                 frist=bestaetigung_frist_from(today=today),
@@ -509,7 +509,7 @@ async def reactivate_schiedsrichter(
 async def invite_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -568,7 +568,7 @@ async def invite_schiedsrichter(
             return_document=ReturnDocument.AFTER,
         )
         await owe_the_bestaetigung(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             schiedsrichter_id=updated["_id"],
             email=str(email),
             frist=bestaetigung_frist_from(today=today),

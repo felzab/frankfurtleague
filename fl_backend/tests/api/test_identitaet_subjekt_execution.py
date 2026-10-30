@@ -612,7 +612,7 @@ class TestTheGrant:
 
         answer = on_a_league(mongo_replica_set_url, repointed)
 
-        assert (answer.verwaltung, answer.berechtigt_seit) == (None, None)
+        assert (answer.verwaltung, answer.granted_since) == (None, None)
 
     def test_only_the_owners_grant_is_answered_with_when_its_tier_took_effect(self, mongo_replica_set_url: str):
         assert [answered(mongo_replica_set_url, email).inhaber_seit for email in (VERWALTUNG_INHABER, VERWALTUNG_ASKED)] == [
@@ -630,7 +630,7 @@ class TestTheGrant:
 
         answer = on_a_league(mongo_replica_set_url, promoted)
 
-        assert (answer.verwaltung, answer.berechtigt_seit, answer.inhaber_seit) == ("owner", GRANT_FOUND, GRANT_PROMOTED)
+        assert (answer.verwaltung, answer.granted_since, answer.inhaber_seit) == ("owner", GRANT_FOUND, GRANT_PROMOTED)
 
     def test_a_promotion_made_in_the_database_is_answered_as_the_administrator_until_the_reconciliation_finds_it(
         self, mongo_replica_set_url: str
@@ -644,7 +644,7 @@ class TestTheGrant:
 
         answer = on_a_league(mongo_replica_set_url, raised)
 
-        assert (answer.verwaltung, answer.berechtigt_seit, answer.inhaber_seit) == ("administration", GRANT_TYPED, None)
+        assert (answer.verwaltung, answer.granted_since, answer.inhaber_seit) == ("administration", GRANT_TYPED, None)
 
     def test_a_row_the_reconciliation_saw_that_stands_without_its_record_is_answered_no_grant(self, mongo_replica_set_url: str):
         """As a row put back after the reconciliation erased its record stands: every date it carries predates its return."""
@@ -657,7 +657,7 @@ class TestTheGrant:
 
         answer = on_a_league(mongo_replica_set_url, put_back)
 
-        assert (answer.verwaltung, answer.berechtigt_seit) == (None, None)
+        assert (answer.verwaltung, answer.granted_since) == (None, None)
 
     def test_a_paste_no_reconciliation_has_found_is_dated_no_earlier_than_its_id(self, mongo_replica_set_url: str):
         """Typed long before it was pasted, so the frontend's guard would admit sessions older than the paste."""
@@ -671,7 +671,7 @@ class TestTheGrant:
 
         answer = on_a_league(mongo_replica_set_url, pasted_late)
 
-        assert (answer.verwaltung, answer.berechtigt_seit) == ("administration", pasted)
+        assert (answer.verwaltung, answer.granted_since) == ("administration", pasted)
 
     def test_the_instant_is_served_with_its_offset(self, mongo_replica_set_url: str):
         """The driver reads a stored instant back with no offset, which the frontend would compare as its own local time."""

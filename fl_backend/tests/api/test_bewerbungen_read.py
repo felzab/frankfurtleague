@@ -201,7 +201,7 @@ def run_list(collection: _ArchiveCollection, **filters: Any) -> Any:
     return asyncio.run(
         get_bewerbungen(
             bewerbungen_collection=cast(AsyncCollection, collection),
-            postausgang_collection=cast(AsyncCollection, _NothingStored()),
+            outbox_collection=cast(AsyncCollection, _NothingStored()),
             sperrliste=ban_list({Collection.SPERRLISTE: _NothingStored(), Collection.SAISONS: _NothingStored()}),
             filters=FLBewerbungenFilterParams.model_validate(filters),
         )
@@ -563,7 +563,7 @@ class TestTheCollisionSurvivesTheReadsCap:
 
                 return await get_bewerbungen(
                     bewerbungen_collection=collection,
-                    postausgang_collection=database[Collection.OUTBOX],
+                    outbox_collection=database[Collection.OUTBOX],
                     sperrliste=ban_list(database),
                     filters=FLBewerbungenFilterParams.model_validate({}),
                 )

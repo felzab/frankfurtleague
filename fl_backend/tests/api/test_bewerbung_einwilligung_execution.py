@@ -169,7 +169,7 @@ async def answer(
         saisons_collection=database[Collection.SAISONS],
         aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         config=build_test_config(),
@@ -184,7 +184,7 @@ async def resend(database: AsyncDatabase, seat: str, bewerbung_id: ObjectId = BE
         seat=seat,
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=database.client,
         today=TODAY,
@@ -898,13 +898,13 @@ class TestNoHashReachesAnAdminRead:
             one = await get_bewerbung(
                 bewerbung_id=BEWERBUNG_OID,
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                postausgang_collection=database[Collection.OUTBOX],
+                outbox_collection=database[Collection.OUTBOX],
                 sperrliste=ban_list(database),
                 today=TODAY,
             )
             many = await get_bewerbungen(
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                postausgang_collection=database[Collection.OUTBOX],
+                outbox_collection=database[Collection.OUTBOX],
                 sperrliste=ban_list(database),
                 filters=FLBewerbungenFilterParams(),
             )
@@ -930,7 +930,7 @@ class TestTheEditorsRead:
             return await get_bewerbung(
                 bewerbung_id=BEWERBUNG_OID,
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                postausgang_collection=database[Collection.OUTBOX],
+                outbox_collection=database[Collection.OUTBOX],
                 sperrliste=ban_list(database),
                 today=TODAY,
             )

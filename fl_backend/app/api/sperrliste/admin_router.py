@@ -121,7 +121,7 @@ async def post_sperrliste_entry(
     sperrliste_collection: SperrlisteCollection,
     saisons_collection: SaisonsCollection,
     berechtigungen_collection: GrantsCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     sperrliste: SperrlisteLookup,
@@ -180,14 +180,14 @@ async def post_sperrliste_entry(
         }
 
         # Every grant notice still owed loses the address in this transaction, so no other administrator is mailed it.
-        await withhold_in_the_postausgang(postausgang_collection=postausgang_collection, adresse=identifier, session=session)
+        await withhold_in_the_postausgang(outbox_collection=outbox_collection, adresse=identifier, session=session)
 
         # A LAPSED row for this hash passes the check above and is refused HERE on the index, which
         # reads no bound. No route leaves one: the activation that lapses a ban removes it.
         created = await post_one_to_db(collection=sperrliste_collection, document=document, session=session)
         if sperrliste_data.notify:
             await enqueue_mails(
-                outbox_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 session=session,
                 mails=[
                     OwedMail(

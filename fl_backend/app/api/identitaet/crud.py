@@ -521,7 +521,7 @@ async def _replaced_addresses(
 
 async def loeschen_the_mails_in_session(
     *,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     adresswechsel_collection: AsyncCollection,
     identifier: str,
     key: SecretStr,
@@ -544,7 +544,7 @@ async def loeschen_the_mails_in_session(
         return folded == identifier or erasure_journal_hash(folded, key=key) in replaced
 
     rows = await aggregate_many_from_db(
-        collection=postausgang_collection,
+        collection=outbox_collection,
         pipeline=[
             {"$match": {"art": {"$ne": "account_erasure"}}},
             {"$project": {"an": 1, "art": 1, "stand": 1, "data.now": 1, "data.before": 1, "data.changed_by": 1}},
@@ -553,7 +553,7 @@ async def loeschen_the_mails_in_session(
     )
     ids = [row["_id"] for row in rows if theirs(row["an"])]
     if ids:
-        await erase_many_from_db(collection=postausgang_collection, db_filter={"_id": {"$in": ids}}, session=session)
+        await erase_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": ids}}, session=session)
 
     # The person's own address the grants' step withholds; a replaced one only this chain finds.
     for row in rows:
@@ -567,7 +567,7 @@ async def loeschen_the_mails_in_session(
         if theirs(daten.get("changed_by")):
             withheld["data.changed_by"] = ERASED_ACTOR_MARKER
         if withheld:
-            await patch_many_in_db(collection=postausgang_collection, db_filter={"_id": row["_id"]}, update={"$set": withheld}, session=session)
+            await patch_many_in_db(collection=outbox_collection, db_filter={"_id": row["_id"]}, update={"$set": withheld}, session=session)
 
     # The chain served its one reader: nothing links the erased person's addresses past this erasure.
     if effects:
@@ -693,7 +693,7 @@ async def loeschen_everything(
     aktionen_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
     adresswechsel_collection: AsyncCollection,
@@ -755,7 +755,7 @@ async def loeschen_everything(
     if _runs(end_the_address_changes_in_session, scope):
         adresswechsel = await end_the_address_changes_in_session(
             adresswechsel_collection=adresswechsel_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             aktionen_collection=aktionen_collection,
             identifier=identifier,
             rows=subject.adresswechsel,
@@ -843,7 +843,7 @@ async def loeschen_everything(
     if _runs(loeschen_antraege_in_session, scope):
         berechtigungen_antraege = await loeschen_antraege_in_session(
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             identifier=identifier,
             now=now,
             session=session,
@@ -855,7 +855,7 @@ async def loeschen_everything(
             await loeschen_grants_and_authorship_in_session(
                 berechtigungen_collection=berechtigungen_collection,
                 berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-                postausgang_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 bewerbungen_collection=bewerbungen_collection,
                 registrierungen_collection=registrierungen_collection,
                 einladungen_collection=einladungen_collection,
@@ -870,7 +870,7 @@ async def loeschen_everything(
 
     if _runs(loeschen_the_mails_in_session, scope):
         await loeschen_the_mails_in_session(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             adresswechsel_collection=adresswechsel_collection,
             identifier=identifier,
             key=key,
@@ -1081,7 +1081,7 @@ async def loeschen_if_still_due(
     aktionen_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
     adresswechsel_collection: AsyncCollection,
@@ -1147,7 +1147,7 @@ async def loeschen_if_still_due(
         aktionen_collection=aktionen_collection,
         berechtigungen_collection=berechtigungen_collection,
         berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-        postausgang_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         einladungen_collection=einladungen_collection,
         sperrliste_collection=sperrliste_collection,
         adresswechsel_collection=adresswechsel_collection,

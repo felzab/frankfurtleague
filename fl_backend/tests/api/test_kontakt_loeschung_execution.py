@@ -1075,7 +1075,7 @@ def test_a_seat_asked_for_in_another_spelling_of_its_domain_is_named_and_cleared
 
     ansicht, trainer = on_a_league(mongo_replica_set_url, body)
 
-    assert [(sitz.nachname, sitz.saison_id) for sitz in ansicht.sitze] == [(UNREACHED_NACHNAME, LATER_SAISON)]
+    assert [(sitz.nachname, sitz.saison_id) for sitz in ansicht.seats] == [(UNREACHED_NACHNAME, LATER_SAISON)]
     assert trainer is None
 
 
@@ -1098,7 +1098,7 @@ def test_an_address_holding_a_nul_names_nobody_and_clears_nothing(mongo_replica_
 
     ansicht, response, rows, stamped = on_a_league(mongo_replica_set_url, body)
 
-    assert (ansicht.sitze, ansicht.bewerbungen) == ([], [])
+    assert (ansicht.seats, ansicht.bewerbungen) == ([], [])
     assert (response.kontakt_seats, stamped) == (0, 0)
     assert all(rows[row_id]["kontakte"] == LIVE_BLOCKS[row_id] for row_id in (*SAISON_TEAM_OIDS, *BEWERBUNG_OIDS))
 
@@ -1122,7 +1122,7 @@ def test_a_label_decoding_to_a_lone_surrogate_names_nobody_and_clears_nothing(mo
 
     ansicht, response, rows, stamped = on_a_league(mongo_replica_set_url, body)
 
-    assert (ansicht.sitze, ansicht.bewerbungen) == ([], [])
+    assert (ansicht.seats, ansicht.bewerbungen) == ([], [])
     assert (response.kontakt_seats, stamped) == (0, 0)
     assert all(rows[row_id]["kontakte"] == LIVE_BLOCKS[row_id] for row_id in (*SAISON_TEAM_OIDS, *BEWERBUNG_OIDS))
 
@@ -1287,7 +1287,7 @@ def test_the_reveal_lists_exactly_the_seats_the_loeschung_then_clears(mongo_repl
         return await call_ansicht(database, client), await call_loeschung(database, client)
 
     ansicht, response = on_a_league(mongo_replica_set_url, body)
-    named = len(ansicht.sitze) + len(ansicht.bewerbungen)
+    named = len(ansicht.seats) + len(ansicht.bewerbungen)
 
     # Against the table above as well as the count: two figures agreeing on zero agree on nothing.
     assert named == sum(EXPECTED_SLOTS.values())

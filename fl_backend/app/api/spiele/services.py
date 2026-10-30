@@ -211,14 +211,14 @@ def _ansetzung_bestaetigt() -> Mapping[str, Any]:
     proposal as its club's agreement.
     """
 
-    team_rows = {"$filter": {"input": f"${SPIELBESTAETIGUNGEN_AS_NAME}", "cond": {"$eq": ["$$this.partei.art", "team"]}}}
+    team_rows = {"$filter": {"input": f"${SPIELBESTAETIGUNGEN_AS_NAME}", "cond": {"$eq": ["$$this.party.art", "team"]}}}
     current_rows = {"$filter": {"input": "$$team_rows", "cond": f"$$this.{_AKTUELL}"}}
     all_agreed = {"$allElementsTrue": [{"$map": {"input": "$$current_rows", "in": f"$$this.{_TEAM_ZUGESTIMMT}"}}]}
     # `$ifNull` for the side lookup's reason; a null side matches no row's snapshot, so it never confirms.
     sides = [{"$ifNull": [f"${ANSETZUNG_QUELLEN[key]}", None]} for key in ("team1_id", "team2_id")]
     # The agreeing CLUBS are the two sides, never merely two rows: two answers of one club leave the
     # other's agreement missing.
-    both_clubs = {"$setEquals": [{"$map": {"input": "$$current_rows", "in": "$$this.partei.team_id"}}, sides]}
+    both_clubs = {"$setEquals": [{"$map": {"input": "$$current_rows", "in": "$$this.party.team_id"}}, sides]}
 
     return {
         "$let": {
@@ -271,13 +271,13 @@ def _einsatz_bestaetigt() -> Mapping[str, Any]:
             "input": f"${SPIELBESTAETIGUNGEN_AS_NAME}",
             "cond": {
                 "$and": [
-                    {"$eq": ["$$this.partei.art", "schiedsrichter"]},
-                    {"$eq": ["$$this.partei.schiedsrichter_id", "$schiedsrichter.schiedsrichter_id"]},
+                    {"$eq": ["$$this.party.art", "schiedsrichter"]},
+                    {"$eq": ["$$this.party.schiedsrichter_id", "$schiedsrichter.schiedsrichter_id"]},
                 ]
             },
         }
     }
-    open_rows = {"$filter": {"input": "$$own_rows", "cond": {"$eq": [{"$ifNull": ["$$this.geschlossen", None]}, None]}}}
+    open_rows = {"$filter": {"input": "$$own_rows", "cond": {"$eq": [{"$ifNull": ["$$this.closed", None]}, None]}}}
     answered = {"$filter": {"input": "$$own_rows", "cond": {"$ne": [{"$ifNull": ["$$this.antwort.art", None]}, None]}}}
 
     def agreed(row: str) -> Mapping[str, Any]:

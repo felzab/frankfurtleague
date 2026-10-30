@@ -106,7 +106,7 @@ async def _end_the_lapsed_change(
     row: Mapping[str, Any],
     *,
     adresswechsel_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     db: AsyncMongoClient,
     now: datetime,
@@ -130,7 +130,7 @@ async def _end_the_lapsed_change(
         # A confirmed change lapsing on its owed approval: its new mailbox was told it waits on the administration, so it is
         # told it did not take effect, as a refused due change's is.
         if stored.get("confirmed_at") is not None:
-            await owe_the_refusal_notice_in_session(stored, postausgang_collection=postausgang_collection, now=now, session=session)
+            await owe_the_refusal_notice_in_session(stored, outbox_collection=outbox_collection, now=now, session=session)
 
     async with transaction_session(db) as session:
         await session.with_transaction(end_the_lapsed_change)
@@ -151,7 +151,7 @@ async def _make_the_due_change_take_effect(
     spielbestaetigungen_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     berechtigungen_antraege_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
@@ -188,7 +188,7 @@ async def _make_the_due_change_take_effect(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
@@ -229,7 +229,7 @@ async def _make_the_due_change_take_effect(
                     key=key,
                 )
             )
-            await owe_the_refusal_notice_in_session(record, postausgang_collection=postausgang_collection, now=now, session=session)
+            await owe_the_refusal_notice_in_session(record, outbox_collection=outbox_collection, now=now, session=session)
         return "discarded"
 
     async with journal:
@@ -254,7 +254,7 @@ async def sweep_address_change(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     berechtigungen_collection: GrantsCollection,
     berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     einladungen_collection: InvitationsCollection,
     sperrliste_collection: SperrlisteCollection,
@@ -323,7 +323,7 @@ async def sweep_address_change(
                     spielbestaetigungen_collection=spielbestaetigungen_collection,
                     berechtigungen_collection=berechtigungen_collection,
                     berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-                    postausgang_collection=postausgang_collection,
+                    outbox_collection=outbox_collection,
                     berechtigungen_antraege_collection=berechtigungen_antraege_collection,
                     einladungen_collection=einladungen_collection,
                     sperrliste_collection=sperrliste_collection,
@@ -337,7 +337,7 @@ async def sweep_address_change(
                 await _end_the_lapsed_change(
                     row,
                     adresswechsel_collection=adresswechsel_collection,
-                    postausgang_collection=postausgang_collection,
+                    outbox_collection=outbox_collection,
                     aktionen_collection=aktionen_collection,
                     db=db,
                     now=germany_now,

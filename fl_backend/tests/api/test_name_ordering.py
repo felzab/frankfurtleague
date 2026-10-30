@@ -154,7 +154,7 @@ class TestEveryNameListIsOrderedAsGermanReads:
                 adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
                 berechtigungen_collection=database[Collection.GRANTS],
                 berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-                postausgang_collection=database[Collection.OUTBOX],
+                outbox_collection=database[Collection.OUTBOX],
                 operator=ADMINISTRATORS[0],
                 auth_time=int(time.time()),
             )

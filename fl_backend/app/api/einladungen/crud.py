@@ -40,11 +40,11 @@ def owed_einladung_mails(
 
 
 async def versendete_einladungen(
-    *, postausgang_collection: AsyncCollection, einladung_ids: Sequence[Any], session: AsyncClientSession | None = None
+    *, outbox_collection: AsyncCollection, einladung_ids: Sequence[Any], session: AsyncClientSession | None = None
 ) -> set[Any]:
     """The invites whose last mail is still owed or went out, `einladung_ist_versendet` of each, in one read."""
 
-    lagen = await states_of(outbox_collection=postausgang_collection, collection=Collection.INVITATIONS, ids=einladung_ids, session=session)
+    lagen = await states_of(outbox_collection=outbox_collection, collection=Collection.INVITATIONS, ids=einladung_ids, session=session)
 
     # Keyed by the invite and its seat, which an invite's mails leave empty.
     return {einladung_id for (einladung_id, _), lage in lagen.items() if einladung_ist_versendet(lage=lage)}

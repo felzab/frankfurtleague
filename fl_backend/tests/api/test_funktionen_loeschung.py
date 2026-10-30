@@ -651,7 +651,7 @@ async def what_elsewhere_holds(database: AsyncDatabase) -> dict[str, int]:
         ),
         "grant": await database[Collection.GRANTS].count_documents({"_id": ELSEWHERE_GRANT_OID, "adresse": ELSEWHERE}),
         "announced": await database[Collection.GRANTS_ANNOUNCED].count_documents({"_id": ELSEWHERE_GRANT_OID, "adresse": ELSEWHERE}),
-        "notices": await database[Collection.OUTBOX].count_documents({"key": {"$regex": f"^berechtigung/{ELSEWHERE_GRANT_OID}/"}}),
+        "notices": await database[Collection.OUTBOX].count_documents({"key": {"$regex": f"^grant/{ELSEWHERE_GRANT_OID}/"}}),
         "referee_change": await changes.count_documents({"_id": REFEREE_MOVING_ELSEWHERE_CHANGE_OID, "email": ELSEWHERE}),
         "pupil_change": await changes.count_documents({"_id": PUPIL_MOVING_ELSEWHERE_CHANGE_OID, "email": ELSEWHERE}),
         "log_actor": await database[Collection.ACTION_LOG].count_documents({"collection": str(Collection.SPIELE), "actor.email": ELSEWHERE}),
@@ -1560,7 +1560,7 @@ class TestThePreview:
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
                 preview = (await http.get(f"{PATH}/view", headers=as_person(TYPED))).json()["address_change"]
 
-            return preview, (await geloescht_by_the_handler(database, client)).adresswechsel
+            return preview, (await geloescht_by_the_handler(database, client)).address_change
 
         # The seed's two changes alone; the press still ends all three, nothing of the asked one being this address's.
         assert on_a_league(mongo_replica_set_url, body) == (2, 3)
@@ -1573,7 +1573,7 @@ class TestThePreview:
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
                 verwaltung = (await http.get(f"{PATH}/view", headers=as_person(TYPED))).json()["verwaltung"]
 
-            return verwaltung, (await geloescht_by_the_handler(database, client)).berechtigungen
+            return verwaltung, (await geloescht_by_the_handler(database, client)).grants
 
         assert on_a_league(mongo_replica_set_url, body) == (None, 1)
 

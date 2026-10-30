@@ -387,9 +387,9 @@ class TestWhatTheListServes:
 
             return sorted(rows[0])
 
-        # Sorted, so the order is the codepoint one rather than the projection's: `gesperrt_…`
-        # precedes `grund`.
-        assert on_a_clean_list(mongo_replica_set_url, body) == ["_id", "created_at", "created_by", "barred_until_saison_id", "grund"]
+        # Sorted, so the order is the codepoint one rather than the projection's: `barred_…`
+        # precedes `created_…`.
+        assert on_a_clean_list(mongo_replica_set_url, body) == ["_id", "barred_until_saison_id", "created_at", "created_by", "grund"]
 
     def test_the_newest_ban_is_served_first(self, mongo_replica_set_url: str):
         """Two rows on ONE day, which is the case `created_at` alone cannot order and an administrator meets first."""

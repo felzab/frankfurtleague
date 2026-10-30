@@ -75,7 +75,7 @@ def build_seat_images_filter(identifier: str) -> Mapping[str, Any]:
     """
 
     return {
-        # `collection` first, the one half of this an index serves: `aktionen_target` is a prefix
+        # `collection` first, the one half of this an index serves: `action_log_target` is a prefix
         # match here, and nothing indexes inside `before`.
         "collection": {"$in": [str(collection) for collection in SEAT_IMAGE_COLLECTIONS]},
         "$or": [{f"before.kontakte.{slot}.email": sign_in_identifier(identifier)} for slot in KONTAKT_ROLLEN],

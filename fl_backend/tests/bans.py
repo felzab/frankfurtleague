@@ -45,7 +45,7 @@ async def ban_through_the_route(
         sperrliste=ban_list(database, saisons=saisons),
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
         berechtigungen_collection=database[Collection.GRANTS] if grants is None else grants,
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         db=client,
         config=_CONFIG,
         created_by=von,

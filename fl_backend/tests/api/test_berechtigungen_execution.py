@@ -176,7 +176,7 @@ async def approved(
             approval_request_id=approval_request_id,
             berechtigungen_collection=database[Collection.GRANTS],
             berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-            postausgang_collection=database[Collection.OUTBOX],
+            outbox_collection=database[Collection.OUTBOX],
             berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
             sperrliste=ban_list(database),
             db=client,
@@ -205,7 +205,7 @@ async def grant(
             berechtigung_data=FLPostGrantPayload(email=email),
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.GRANTS],
             berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-            postausgang_collection=database[Collection.OUTBOX],
+            outbox_collection=database[Collection.OUTBOX],
             berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
             sperrliste=ban_list(database),
             db=client,
@@ -230,7 +230,7 @@ async def revoke(
             grant_id=grant_id,
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.GRANTS],
             berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-            postausgang_collection=database[Collection.OUTBOX],
+            outbox_collection=database[Collection.OUTBOX],
             berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
             sperrliste=ban_list(database),
             db=client,
@@ -261,7 +261,7 @@ async def change(
             berechtigung_data=FLPatchGrantPayload.model_validate({"verwaltung": verwaltung}),
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.GRANTS],
             berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-            postausgang_collection=database[Collection.OUTBOX],
+            outbox_collection=database[Collection.OUTBOX],
             berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
             sperrliste=ban_list(database),
             db=client,
@@ -403,7 +403,7 @@ async def compared(database: AsyncDatabase, client: AsyncMongoClient, *, now: da
         return await post_grants_reconciliation(
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.GRANTS],
             berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-            postausgang_collection=database[Collection.OUTBOX],
+            outbox_collection=database[Collection.OUTBOX],
             sperrliste=ban_list(database),
             db=client,
             now=now,
@@ -503,7 +503,7 @@ class TestAReplayOwesNothingTwice:
             async def owe(session: AsyncClientSession) -> None:
                 await owe_in_session(
                     [mitteilung],
-                    postausgang_collection=database[Collection.OUTBOX],
+                    outbox_collection=database[Collection.OUTBOX],
                     berechtigungen_collection=database[Collection.GRANTS],
                     now=NOW,
                     session=session,
@@ -533,7 +533,7 @@ class TestTheNoticeMovesWithItsChange:
                     berechtigung_data=FLPostGrantPayload(email=NEU_TYPED),
                     berechtigungen_collection=database[Collection.GRANTS],
                     berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-                    postausgang_collection=postausgang,
+                    outbox_collection=postausgang,
                     berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
                     sperrliste=ban_list(database),
                     db=client,
@@ -547,7 +547,7 @@ class TestTheNoticeMovesWithItsChange:
                     approval_request_id=approval_request_id,
                     berechtigungen_collection=database[Collection.GRANTS],
                     berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-                    postausgang_collection=aborting,
+                    outbox_collection=aborting,
                     berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
                     sperrliste=ban_list(database),
                     db=client,
@@ -585,7 +585,7 @@ class TestTheNoticeMovesWithItsChange:
                     berechtigungen_angekuendigt_collection=cast(
                         AsyncCollection, Aborting(database[Collection.GRANTS_ANNOUNCED], "delete_many")
                     ),
-                    postausgang_collection=database[Collection.OUTBOX],
+                    outbox_collection=database[Collection.OUTBOX],
                     berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
                     sperrliste=ban_list(database),
                     db=client,
@@ -629,7 +629,7 @@ class TestTheListWithholdsABarredAddress:
             await database[Collection.SPERRLISTE].insert_one(ban_document(BERND, bis=STANDING))
             listed = await list_the_grants(database, client)
 
-            return [(row.adresse, row.barred, row.verwaltung) for row in listed.berechtigungen]
+            return [(row.adresse, row.barred, row.verwaltung) for row in listed.grants]
 
         assert on_a_league(mongo_replica_set_url, body) == [
             (ANNA, False, "administration"),
@@ -646,7 +646,7 @@ class TestTheListWithholdsABarredAddress:
             await database[Collection.SPERRLISTE].insert_one(ban_document(ANNA, bis=STANDING))
             listed = await list_the_grants(database, client)
 
-            return [(row.adresse, row.granted_by, row.granted_by_barred) for row in listed.berechtigungen]
+            return [(row.adresse, row.granted_by, row.granted_by_barred) for row in listed.grants]
 
         assert on_a_league(mongo_replica_set_url, body) == [
             (BERND, "PLAYGROUND", False),
@@ -1229,7 +1229,7 @@ class TestTheComparison:
                 return await loeschen_grants_and_authorship_in_session(
                     berechtigungen_collection=database[Collection.GRANTS],
                     berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-                    postausgang_collection=database[Collection.OUTBOX],
+                    outbox_collection=database[Collection.OUTBOX],
                     bewerbungen_collection=database[Collection.BEWERBUNGEN],
                     registrierungen_collection=database[Collection.REGISTRIERUNGEN],
                     einladungen_collection=database[Collection.INVITATIONS],

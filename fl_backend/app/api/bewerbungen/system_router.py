@@ -136,7 +136,7 @@ async def sweep_saison(
     aktionen_collection: ActionLogCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -211,7 +211,7 @@ async def sweep_saison(
         )
         # Each seat's last mail, read in the same transaction: a seat whose mail did not arrive is not chased.
         lagen = await states_of(
-            outbox_collection=postausgang_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
+            outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
         )
         # One mail a person: an address is one person, whose one link answers every seat they hold.
         personen_of = {
@@ -263,7 +263,7 @@ async def sweep_saison(
             )
         # In the stamps' own transaction: a stamp never stands without its mail, nor a mail without its stamp.
         await enqueue_mails(
-            outbox_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[mail for _, mails in taken for mail in mails],
             now=germany_now,
@@ -288,7 +288,7 @@ async def sweep_saison(
         # The submitter's last mail, read in the same transaction: a bounce it reports holds the application for the
         # administrator to correct the address.
         lagen = await states_of(
-            outbox_collection=postausgang_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
+            outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
         )
 
         def due(row: Mapping[str, Any]) -> bool:
@@ -307,7 +307,7 @@ async def sweep_saison(
         # Owed in the erasure's own write, the notice carrying what it names: nothing of the application is left to
         # read once this commits.
         await enqueue_mails(
-            outbox_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[notice for _, notice in owed if notice is not None],
             now=germany_now,

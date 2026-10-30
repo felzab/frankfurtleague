@@ -437,7 +437,7 @@ async def owed(database: AsyncDatabase) -> list[dict[str, Any]]:
     )
     return [
         {
-            "art": row["art"].removeprefix("adresswechsel_"),
+            "art": row["art"].removeprefix("address_change_"),
             "an": row["an"],
             **({"vorname": row["data"]["vorname"]} if "vorname" in row["data"] else {}),
         }

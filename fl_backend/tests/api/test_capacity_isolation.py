@@ -452,7 +452,7 @@ class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
                     teams_collection=database[Collection.TEAMS],
                     saison_teams_collection=database[Collection.SAISON_TEAMS],
                     saisons_collection=saisons,
-                    postausgang_collection=database[Collection.OUTBOX],
+                    outbox_collection=database[Collection.OUTBOX],
                     db=client,
                     today=ACCEPTED_ON,
                     von=ACCEPTED_BY,

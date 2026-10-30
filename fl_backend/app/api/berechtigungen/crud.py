@@ -170,7 +170,7 @@ OFFENE_MITTEILUNG: Final[Mapping[str, Any]] = {"stand": "open", "art": "grant"}
 async def owe_in_session(
     mitteilungen: Sequence[Mitteilung],
     *,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
@@ -208,21 +208,21 @@ async def owe_in_session(
             )
             for adresse in sorted(set(an) if an is not None else holders | genannt)
         )
-    await enqueue_mails(outbox_collection=postausgang_collection, session=session, mails=mails, now=now)
+    await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
 
 
-async def withhold_in_the_postausgang(*, postausgang_collection: AsyncCollection, adresse: str, session: AsyncClientSession) -> None:
+async def withhold_in_the_postausgang(*, outbox_collection: AsyncCollection, adresse: str, session: AsyncClientSession) -> None:
     """Every grant notice still owed naming this folded address, as a grant's address or as its actor, withheld in place."""
 
     for site in ("now", "before"):
         await patch_many_in_db(
-            collection=postausgang_collection,
+            collection=outbox_collection,
             db_filter={**OFFENE_MITTEILUNG, f"data.{site}.adresse": adresse},
             update={"$set": {f"data.{site}.adresse": None, "data.withheld": "barred"}},
             session=session,
         )
     await patch_many_in_db(
-        collection=postausgang_collection,
+        collection=outbox_collection,
         db_filter={**OFFENE_MITTEILUNG, "data.changed_by": adresse},
         # No reason: it is the grant address's, and a null actor on an application's change says it alone.
         update={"$set": {"data.changed_by": None}},
@@ -248,7 +248,7 @@ async def grant_in_session(
     barred: Set[str],
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
     # A move's alone: the replaced row's since-whens (`app/api/berechtigungen/services.py :: compose_fortgefuehrt`).
@@ -290,7 +290,7 @@ async def grant_in_session(
                 barred=barred,
             )
         ],
-        postausgang_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         berechtigungen_collection=berechtigungen_collection,
         now=now,
         session=session,
@@ -308,7 +308,7 @@ async def revoke_in_session(
     barred: Set[str],
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
@@ -340,7 +340,7 @@ async def revoke_in_session(
     # After the removal, so the holders told are the ones who remain, and the revoked one through the notice's `before`.
     await owe_in_session(
         mitteilungen,
-        postausgang_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         berechtigungen_collection=berechtigungen_collection,
         now=now,
         session=session,

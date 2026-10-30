@@ -197,7 +197,7 @@ async def post_registrierung(
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
@@ -312,7 +312,7 @@ async def post_registrierung(
         registrierung_id = created.inserted_id
 
         await enqueue_mails(
-            outbox_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[
                 OwedMail(

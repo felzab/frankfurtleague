@@ -177,7 +177,7 @@ async def contacts_saved(database: AsyncDatabase, client: AsyncMongoClient, kont
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         actor=fresh_admin_actor(),

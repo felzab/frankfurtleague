@@ -401,7 +401,7 @@ async def _plan_adresswechsel(
         )
         # Owed again, under the key the end owed it by: a restored row of it, sent or not, is found rather than doubled.
         if line.art == "adresswechsel_verworfen_mitgeteilt":
-            await owe_the_refusal_notice_in_session(record, postausgang_collection=database[Collection.OUTBOX], now=now, session=session)
+            await owe_the_refusal_notice_in_session(record, outbox_collection=database[Collection.OUTBOX], now=now, session=session)
         return stored
 
     return Plan("to replay", rewrite_the_ending)
@@ -426,7 +426,7 @@ async def _plan_antrag_ende(
         # The request's notice the restore brought back is settled with it, as the end settled it.
         await remove_the_antrag_in_session(
             berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-            postausgang_collection=database[Collection.OUTBOX],
+            outbox_collection=database[Collection.OUTBOX],
             approval_request_id=antrag["_id"],
             now=now,
             session=session,
@@ -516,7 +516,7 @@ async def _plan_adresswechsel_wirksam(
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
             berechtigungen_collection=database[Collection.GRANTS],
             berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-            postausgang_collection=database[Collection.OUTBOX],
+            outbox_collection=database[Collection.OUTBOX],
             berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
             einladungen_collection=database[Collection.INVITATIONS],
             sperrliste_collection=database[Collection.SPERRLISTE],

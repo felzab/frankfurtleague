@@ -57,7 +57,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # 2026-09-21).
     UniqueIndex(
         Collection.INVITATIONS,
-        "uniq_einladung_live",
+        "uniq_invitation_live",
         ("saison_id", "team_id"),
         "one live invite per team per season",
         partial_filter={"widerrufen_am": {"$type": "null"}},
@@ -66,14 +66,14 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # keyless submission would collide with the first.
     UniqueIndex(
         Collection.BEWERBUNGEN,
-        "uniq_bewerbung_idempotenz_schluessel",
+        "uniq_bewerbung_idempotency_key",
         ("idempotency_key",),
         "one application per submission key",
         partial_filter={"idempotency_key": {"$type": "string"}},
     ),
     UniqueIndex(
         Collection.REGISTRIERUNGEN,
-        "uniq_registrierung_idempotenz_schluessel",
+        "uniq_registrierung_idempotency_key",
         ("idempotency_key",),
         "one registration per submission key",
         partial_filter={"idempotency_key": {"$type": "string"}},
@@ -82,7 +82,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # is gone. Filtered for the reason above: a squad row an administrator wrote carries none.
     UniqueIndex(
         Collection.SAISON_SPIELER,
-        "uniq_saison_spieler_idempotenz_schluessel",
+        "uniq_saison_spieler_idempotency_key",
         ("idempotency_key",),
         "one admitted registration per submission key",
         partial_filter={"idempotency_key": {"$type": "string"}},
@@ -103,13 +103,13 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     UniqueIndex(Collection.SAISONS, "uniq_saison_active", ("status",), "at most one season is active", partial_filter={"status": "active"}),
     # Also the READ path of every admin-tier request (`app/api/berechtigungen/guard.py :: verify_actor_is_admin`),
     # and what refuses a second grant a Playground paste adds for an address already holding one.
-    UniqueIndex(Collection.GRANTS, "uniq_berechtigung_adresse", ("adresse",), "one grant per address"),
+    UniqueIndex(Collection.GRANTS, "uniq_grant_adresse", ("adresse",), "one grant per address"),
     # What makes a pass run twice mint once, and a second decline need a new stand rather than a
     # refusal. Both party ids are keys, the one a row lacks indexing as null. `$type` for
-    # `uniq_einladung_live`'s reason.
+    # `uniq_invitation_live`'s reason.
     UniqueIndex(
         Collection.SPIELBESTAETIGUNGEN,
-        "uniq_spielbestaetigung_offen",
+        "uniq_spielbestaetigung_open",
         ("spiel_id", "party.art", "party.team_id", "party.schiedsrichter_id", "ansetzung.stand"),
         "one open confirmation per party per Ansetzung",
         partial_filter={"antwort": {"$type": "null"}, "closed": {"$type": "null"}},
@@ -121,14 +121,14 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # or the planner scans.
     UniqueIndex(
         Collection.ADDRESS_CHANGES,
-        "uniq_adresswechsel_adresse",
+        "uniq_address_change_adresse",
         ("adresse",),
         "one live change per address",
         partial_filter={"ended": {"$type": "null"}, "adresse": {"$type": "string"}},
     ),
     # Two requests about one address meet here. Unfiltered, a lapsed row too: the write asking anew removes that one first
     # (`app/api/berechtigungen/antraege.py :: clear_the_address_in_session`), the TTL monitor passing up to a minute late.
-    UniqueIndex(Collection.GRANT_APPROVAL_REQUESTS, "uniq_berechtigung_antrag_adresse", ("adresse",), "one request per address"),
+    UniqueIndex(Collection.GRANT_APPROVAL_REQUESTS, "uniq_grant_approval_request_adresse", ("adresse",), "one request per address"),
     # Also the READ path of every enqueue, which finds a replay's row by it (`app/api/outbox/services.py :: enqueue_mails`).
     UniqueIndex(Collection.OUTBOX, "uniq_outbox_key", ("key",), "one row per owed mail"),
 )
@@ -156,19 +156,19 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # (`app/api/aktionen/admin_router.py :: get_aktionen`).
     SupportIndex(
         Collection.ACTION_LOG,
-        "aktionen_queue",
+        "action_log_queue",
         (("at", DESCENDING), ("_id", DESCENDING)),
         "the log page reads newest first",
     ),
     SupportIndex(
         Collection.ACTION_LOG,
-        "aktionen_trace_id",
+        "action_log_trace_id",
         (("trace_id", ASCENDING),),
         "a write and its fan-out are read as one action",
     ),
     SupportIndex(
         Collection.ACTION_LOG,
-        "aktionen_target",
+        "action_log_target",
         (("collection", ASCENDING), ("document_id", ASCENDING)),
         "one document's history, and the rows a person's erasure must redact",
     ),
@@ -177,7 +177,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # images and all (`app/api/aktionen/admin_router.py :: FACET_TALLY`).
     SupportIndex(
         Collection.ACTION_LOG,
-        "aktionen_facets",
+        "action_log_facets",
         (("collection", ASCENDING), ("operation", ASCENDING), ("actor.kind", ASCENDING)),
         "the counts the log page's three facets are told, over every recorded row",
     ),
@@ -186,7 +186,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # `:: loeschen_pupil_actor_in_session`).
     SupportIndex(
         Collection.ACTION_LOG,
-        "aktionen_actor_pseudonym",
+        "action_log_actor_pseudonym",
         (("actor.pseudonym", ASCENDING), ("actor.funktion", ASCENDING)),
         "the rows a person wrote, which their erasure marks inside its transaction",
     ),
@@ -203,13 +203,13 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # hashes, so each link answers how its change ended.
     SupportIndex(
         Collection.ADDRESS_CHANGES,
-        "adresswechsel_token_hashes",
+        "address_change_token_hashes",
         (("token_hashes", ASCENDING),),
         "the address page's lookup, driven by strangers",
     ),
     SupportIndex(
         Collection.ADDRESS_CHANGES,
-        "adresswechsel_stopp_token_hashes",
+        "address_change_stop_token_hashes",
         (("stop.token_hashes", ASCENDING),),
         "the address page's stop lookup, driven by strangers",
     ),
@@ -218,14 +218,14 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # link and every mailed one.
     SupportIndex(
         Collection.INVITATIONS,
-        "einladungen_token_hashes",
+        "invitations_token_hashes",
         (("token_hashes", ASCENDING),),
         "the invite page's lookup, driven by strangers",
     ),
     # Multikey, the row keeping every link it was mailed.
     SupportIndex(
         Collection.REGISTRIERUNGEN,
-        "registrierungen_bestaetigung_token_hashes",
+        "registrierungen_confirmation_token_hashes",
         (("confirmation.token_hashes", ASCENDING),),
         "the confirmation page's lookup, driven by strangers",
     ),
@@ -234,7 +234,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     *(
         SupportIndex(
             Collection.SAISON_TEAMS,
-            f"saison_teams_bestaetigungen_{seat}_token_hashes",
+            f"saison_teams_confirmations_{seat}_token_hashes",
             ((f"confirmations.{seat}.token_hashes", ASCENDING),),
             "a contact seat's confirmation page, through the season row's lookup, driven by strangers",
         )
@@ -244,7 +244,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     *(
         SupportIndex(
             Collection.BEWERBUNGEN,
-            f"bewerbungen_bestaetigungen_{seat}_token_hashes",
+            f"bewerbungen_confirmations_{seat}_token_hashes",
             ((f"confirmations.{seat}.token_hashes", ASCENDING),),
             "a contact seat's confirmation page, through the application's lookup, driven by strangers",
         )
@@ -288,7 +288,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # fixture the season-leading index could narrow by.
     SupportIndex(
         Collection.SPIELBESTAETIGUNGEN,
-        "spielbestaetigungen_partei_schiedsrichter_id_saison_id",
+        "spielbestaetigungen_party_schiedsrichter_id_saison_id",
         (("party.schiedsrichter_id", ASCENDING), ("saison_id", ASCENDING)),
         "a referee's own rows, on their panel and at their erasure",
     ),
@@ -301,7 +301,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # For `spielbestaetigungen_antwort_von_halter`'s reason: the reports are kept with no retention bound.
     SupportIndex(
         Collection.SPIELBERICHTE,
-        "spielberichte_eingereicht_von_schiedsrichter_id",
+        "spielberichte_submitted_by_schiedsrichter_id",
         (("bericht.submitted_by.schiedsrichter_id", ASCENDING),),
         "the reports a leaving referee sent, read inside their erasure's transaction",
     ),
@@ -343,7 +343,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     ),
     SupportIndex(
         Collection.ADDRESS_CHANGES,
-        "adresswechsel_email",
+        "address_change_email",
         (("email", ASCENDING),),
         "the changes naming an address as their new one, which every erasure and its preview read",
     ),
@@ -392,7 +392,7 @@ TTL_INDEXES: Sequence[TTLIndex] = (
     # then expire nothing under, for as long as anyone left it there.
     TTLIndex(
         Collection.ACTION_LOG,
-        "aktionen_retention",
+        "action_log_retention",
         "at_date",
         ACTION_LOG_ENTRY_RETENTION_SECONDS,
         "a log row is kept for twelve months after the write it recorded",
@@ -401,7 +401,7 @@ TTL_INDEXES: Sequence[TTLIndex] = (
     # log images, which a TTL deletion never would.
     TTLIndex(
         Collection.ADDRESS_CHANGES,
-        "adresswechsel_beendet_am",
+        "address_change_ended_at",
         "ended.am",
         ADDRESS_CHANGE_RETENTION_DAYS * 86400,
         "an ended address change is removed once its tombstone's retention has passed",
@@ -409,7 +409,7 @@ TTL_INDEXES: Sequence[TTLIndex] = (
     # Zero: a lapsed request decides nothing, and every read already treats it as gone.
     TTLIndex(
         Collection.GRANT_APPROVAL_REQUESTS,
-        "berechtigungen_antraege_bis",
+        "grants_approval_requests_until",
         "approval.bis",
         0,
         "a request nobody decided is removed once the TTL monitor next passes after it lapsed",
@@ -500,7 +500,7 @@ async def _apply_concurrently(declared: Sequence[tuple[str, _Runner]]) -> None:
     lanes: dict[str, list[tuple[int, _Runner]]] = {}
     # Numbered BEFORE the split, so a rank is the DECLARED position and not the position within a lane:
     # a later-declared operation opening its own lane would rank 0 there, and per-lane numbering would
-    # report it over an earlier one standing second in its lane, as `aktionen_trace_id` does.
+    # report it over an earlier one standing second in its lane, as `action_log_trace_id` does.
     for position, (namespace, run) in enumerate(declared):
         lanes.setdefault(namespace, []).append((position, run))
 

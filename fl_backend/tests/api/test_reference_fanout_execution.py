@@ -279,7 +279,7 @@ async def rename_the_schiedsrichter(
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,

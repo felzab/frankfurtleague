@@ -72,10 +72,10 @@ APPROVAL_REQUEST_FILED = datetime(2126, 1, 1, tzinfo=UTC)
 IDEMPOTENCY_KEY = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
 
 # One declared support index, planted under different keys so its build is the one that fails.
-CONFLICTING_SUPPORT_INDEX = "aktionen_trace_id"
+CONFLICTING_SUPPORT_INDEX = "action_log_trace_id"
 # The same planting for the TTL kind, over `at`: the name is claimed and the keys disagree, which is
 # also the shape of the mistake this index exists against.
-CONFLICTING_TTL_INDEX = "aktionen_retention"
+CONFLICTING_TTL_INDEX = "action_log_retention"
 # A name no collection holds, the case only `tests/database.py :: _foreign` catches: a view over a
 # dropped collection's name is already in `_moved`'s `gone` set, and one over a live name is a
 # namespace MongoDB refuses.
@@ -254,7 +254,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "created_at": "2026-03-15",
             "barred_until_saison_id": "2031",
         },
-        # `widerrufen_am` is null rather than absent because `uniq_einladung_live` reaches the rows
+        # `widerrufen_am` is null rather than absent because `uniq_invitation_live` reaches the rows
         # holding null.
         "einladungen": {
             "_id": INVITATION_OID,
@@ -408,23 +408,23 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     ),
     # Both rows live, which is the reach the `partialFilterExpression` narrows the rule to: a pair
     # whose second row carried a revocation date would pass while the filter matched anything.
-    "uniq_einladung_live": (
+    "uniq_invitation_live": (
         valid_documents()["einladungen"],
         valid_document("einladungen", _id=TEAM_OID, token_hash="c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80910000"),
     ),
     # Both rows keyed alike and differing in their digest: the index refuses on the key alone, and a
     # pair carrying no key at all would pass while the partial filter matched nothing.
-    "uniq_bewerbung_idempotenz_schluessel": (
+    "uniq_bewerbung_idempotency_key": (
         valid_document("bewerbungen", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
         valid_document("bewerbungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
     ),
-    "uniq_registrierung_idempotenz_schluessel": (
+    "uniq_registrierung_idempotency_key": (
         valid_document("registrierungen", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
         valid_document("registrierungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
     ),
     # Two persons' rows in one season, keyed alike: the index refuses on the key alone, where the
     # junction's own index would refuse a pair sharing the person.
-    "uniq_saison_spieler_idempotenz_schluessel": (
+    "uniq_saison_spieler_idempotency_key": (
         valid_document("saison_spieler", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
         valid_document("saison_spieler", _id=TEAM_OID, spieler_id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
     ),
@@ -435,13 +435,13 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     ),
     # The second row differs in its tier and its author: the index refuses on the address alone, which
     # is what refuses a paste granting an address a route already granted.
-    "uniq_berechtigung_adresse": (
+    "uniq_grant_adresse": (
         valid_documents()["berechtigungen"],
         valid_document("berechtigungen", _id=TEAM_OID, verwaltung="administration", granted_by="zweite@example.invalid"),
     ),
     # Both rows open, one party, one stand, differing in their seats: the index refuses on its five keys
     # alone, and a pair the partial filter reached on neither side would pass.
-    "uniq_spielbestaetigung_offen": (
+    "uniq_spielbestaetigung_open": (
         valid_documents()["spielbestaetigungen"],
         valid_document("spielbestaetigungen", _id=TEAM_OID, kontakte={"trainer": None, "ansprechperson": None, "stellvertretung": None}),
     ),
@@ -451,12 +451,12 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_document("spielberichte", _id=TEAM_OID, bericht=bericht_document(bemerkungen="Zweiter Bericht")),
     ),
     # Two live changes of one address, to two mailboxes: the index refuses on the address alone, both rows in its filter.
-    "uniq_adresswechsel_adresse": (
+    "uniq_address_change_adresse": (
         valid_documents()["adresswechsel"],
         valid_document("adresswechsel", _id=TEAM_OID, email="zweite@example.invalid", token_hash="b" * 64, stop_hash="c" * 64),
     ),
     # Two requests about one address from two requesters: the index refuses on the address alone.
-    "uniq_berechtigung_antrag_adresse": (
+    "uniq_grant_approval_request_adresse": (
         valid_documents()["berechtigungen_antraege"],
         valid_document(
             "berechtigungen_antraege",
@@ -504,9 +504,9 @@ def test_two_ended_changes_of_one_address_are_both_kept(mongo_url: str):
     ended = {"adresse": None, "email": None, "ended": {"art": "declined", "am": datetime(2026, 3, 17, tzinfo=UTC)}}
 
     async def body(database: AsyncDatabase) -> int:
-        await database.address_change.insert_one(valid_document("adresswechsel", **ended))
-        await database.address_change.insert_one(valid_document("adresswechsel", _id=TEAM_OID, stop_hash="c" * 64, **ended))
-        return await database.address_change.count_documents({})
+        await database.adresswechsel.insert_one(valid_document("adresswechsel", **ended))
+        await database.adresswechsel.insert_one(valid_document("adresswechsel", _id=TEAM_OID, stop_hash="c" * 64, **ended))
+        return await database.adresswechsel.count_documents({})
 
     assert on_the_shipped_schema(mongo_url, body) == 2
 
@@ -629,7 +629,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_support_index(mon
     async def body(database: AsyncDatabase) -> str:
         # The same name over different keys: `create_index` refuses rather than replacing, which is
         # the one way a declared support index fails on a database holding no documents.
-        await database.action_log.create_index([("at", ASCENDING)], name=CONFLICTING_SUPPORT_INDEX)
+        await database.aktionen.create_index([("at", ASCENDING)], name=CONFLICTING_SUPPORT_INDEX)
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
@@ -643,7 +643,7 @@ def test_the_startup_apply_fails_rather_than_skipping_a_broken_ttl_index(mongo_u
     """The third kind, and the one whose absence shows in nothing: a log that keeps every row reads exactly like a log being expired."""
 
     async def body(database: AsyncDatabase) -> str:
-        await database.action_log.create_index([("at", ASCENDING)], name=CONFLICTING_TTL_INDEX)
+        await database.aktionen.create_index([("at", ASCENDING)], name=CONFLICTING_TTL_INDEX)
         try:
             await apply_constraints(database)
         except RuntimeError as failure:
@@ -690,7 +690,7 @@ ACTION_LOG_QUEUE_FILTERS: list[dict[str, Any]] = [
     {"collection": "teams"},
     {"operation": "patch_one"},
     {"collection": "teams", "operation": "patch_one"},
-    # A row's history action sends this one alone, and `aktionen_target` leads on `collection`, so
+    # A row's history action sends this one alone, and `action_log_target` leads on `collection`, so
     # nothing here is a prefix of it: what this pins is that the sort index still carries the read.
     {"document_id": TEAM_OID},
 ]
@@ -944,7 +944,7 @@ def test_the_facet_tally_walks_index_keys_rather_than_the_whole_log(mongo_url: s
         return planned
 
     # `SORT` among the banned: the `$sort` is what makes the planner reach for an index at all, and it is free only while
-    # one provides the order; without `aktionen_facets` the same stage sorts the log in memory instead.
+    # one provides the order; without `action_log_facets` the same stage sorts the log in memory instead.
     assert misplanned(on_the_shipped_schema(mongo_url, body)) == []
 
 

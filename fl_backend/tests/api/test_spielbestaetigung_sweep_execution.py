@@ -306,7 +306,7 @@ class Pass:
     vorschlag_verworfen: list[TeamNotice] = dataclasses.field(default_factory=list)
 
     @property
-    def geschlossen(self) -> int:
+    def closed(self) -> int:
         return self.answer.closed
 
     @property
@@ -406,7 +406,7 @@ async def a_pass(
         saison_teams_collection=collections.get("saison_teams", database[Collection.SAISON_TEAMS]),
         saisons_collection=database[Collection.SAISONS],
         schiedsrichter_collection=collections.get("schiedsrichter", database[Collection.SCHIEDSRICHTER]),
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         today=today,
@@ -1079,7 +1079,7 @@ async def hand_alphas_trainer_to(database: AsyncDatabase, client: AsyncMongoClie
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         actor=fresh_admin_actor(),

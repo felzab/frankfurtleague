@@ -307,7 +307,7 @@ async def sweep_spielbestaetigungen(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -465,7 +465,7 @@ async def sweep_spielbestaetigungen(
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
-        await enqueue_mails(outbox_collection=postausgang_collection, session=session, mails=mails, now=now)
+        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
 
         return _Closed(closed=len(taken), mails=len(mails))
 
@@ -630,7 +630,7 @@ async def sweep_spielbestaetigungen(
                     return_document=ReturnDocument.BEFORE,
                 )
         mails = [mail for _, plan in taken for mail in plan.mails]
-        await enqueue_mails(outbox_collection=postausgang_collection, session=session, mails=mails, now=now)
+        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
 
         return _Minted(
             written=sum(plan.written for _, plan in taken),
@@ -662,7 +662,7 @@ async def sweep_spielbestaetigungen(
         austritte = _austritte(junctions)
         gesperrt = await _gesperrt(sperrliste=sperrliste, junctions=junctions, massgebliche_saison_id=massgebliche_saison_id, session=session)
         lagen = await states_of(
-            outbox_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             collection=Collection.SPIELBESTAETIGUNGEN,
             ids=[row["_id"] for row in rows],
             session=session,
@@ -723,7 +723,7 @@ async def sweep_spielbestaetigungen(
                 return_document=ReturnDocument.BEFORE,
             )
         await enqueue_mails(
-            outbox_collection=postausgang_collection, session=session, mails=[mail for _, owed in taken for mail in owed.mails], now=now
+            outbox_collection=outbox_collection, session=session, mails=[mail for _, owed in taken for mail in owed.mails], now=now
         )
 
         return [owed for _, owed in taken]

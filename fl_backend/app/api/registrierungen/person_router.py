@@ -361,7 +361,7 @@ async def decline(
     identifier: KontaktIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     records: SubjektLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -405,7 +405,7 @@ async def decline(
 
         if registrierung_ist_bestaetigt(einwilligung=registrierung_raw.get("einwilligung")):
             await enqueue_mails(
-                outbox_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 session=session,
                 mails=[
                     OwedMail(

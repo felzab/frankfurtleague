@@ -67,7 +67,7 @@ async def sweep_registrierungen(
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
     aktionen_collection: ActionLogCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -198,7 +198,7 @@ async def sweep_registrierungen(
             )
         # The stamps and the mails commit together; the ban is judged when each mail is handed out.
         await enqueue_mails(
-            outbox_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[
                 OwedMail(

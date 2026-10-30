@@ -35,7 +35,7 @@ router = APIRouter(
 async def post_grants_reconciliation(
     berechtigungen_collection: GrantsCollection,
     berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     now: datetime = Depends(get_germany_now),
@@ -68,7 +68,7 @@ async def post_grants_reconciliation(
                     compose_mitteilung(grant_id=grant_id, art=art, jetzt=jetzt, before=vorher, changed_by=None, now=now, barred=barred)
                     for grant_id, art, jetzt, vorher in changes
                 ],
-                postausgang_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 berechtigungen_collection=berechtigungen_collection,
                 now=now,
                 session=session,

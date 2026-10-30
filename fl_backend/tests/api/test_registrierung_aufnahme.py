@@ -297,7 +297,7 @@ async def decline(
         identifier=identifier,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN] if registrierungen is None else registrierungen,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         records=record_collections(database),
         db=client,
         today=TODAY,

@@ -124,7 +124,7 @@ class Bestand:
 async def live_grant_of(
     identifier: str, *, berechtigungen_collection: AsyncCollection, session: AsyncClientSession | None
 ) -> Mapping[str, Any] | None:
-    """The grant this folded address holds, by `uniq_berechtigung_adresse`'s equality."""
+    """The grant this folded address holds, by `uniq_grant_adresse`'s equality."""
 
     return await berechtigungen_collection.find_one({"adresse": identifier}, session=session)
 
@@ -328,7 +328,7 @@ async def start_the_change_in_session(
         )
         journal.note(ending_line(art="adresswechsel_verworfen", neue=str(replaced["email"]), record_id=replaced["_id"], am=stamp, key=key))
 
-    # Two starts on one address meet at `uniq_adresswechsel_adresse` as a write conflict, which the transaction retries.
+    # Two starts on one address meet at `uniq_address_change_adresse` as a write conflict, which the transaction retries.
     created = await post_one_to_db(collection=adresswechsel_collection, document=record, session=session)
 
     return created.inserted_id
@@ -358,11 +358,11 @@ def _bezug(address_change_id: ObjectId) -> FLOutboxReference:
 
 
 async def lage_of_the_link(
-    *, postausgang_collection: AsyncCollection, address_change_id: ObjectId, session: AsyncClientSession | None = None
+    *, outbox_collection: AsyncCollection, address_change_id: ObjectId, session: AsyncClientSession | None = None
 ) -> FLOutboxState | None:
     """What became of the new mailbox's last link mail, never the address on file's notice owed about the same change."""
 
-    newest = await postausgang_collection.find_one(
+    newest = await outbox_collection.find_one(
         {**_bezug_filter(address_change_id), "art": "address_change_link"},
         {"stand": 1, "delivery": 1},
         sort=[("recorded_at", DESCENDING), ("_id", DESCENDING)],
@@ -383,7 +383,7 @@ async def owe_the_link_in_session(
     email: str,
     way: FLAddressChangeWay,
     valid_until: datetime,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
@@ -394,7 +394,7 @@ async def owe_the_link_in_session(
     """
 
     await enqueue_mails(
-        outbox_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         session=session,
         mails=[
             OwedMail(
@@ -416,14 +416,14 @@ async def owe_the_hinweis_in_session(
     way: FLAddressChangeWay,
     valid_until: datetime,
     vorname: str | None,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
     """Owe the address on file its notice of the change, with the stop link, minted beside any earlier hand-out's."""
 
     await enqueue_mails(
-        outbox_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         session=session,
         mails=[
             OwedMail(
@@ -439,7 +439,7 @@ async def owe_the_hinweis_in_session(
 
 
 async def owe_the_refusal_notice_in_session(
-    record: Mapping[str, Any], *, postausgang_collection: AsyncCollection, now: datetime, session: AsyncClientSession
+    record: Mapping[str, Any], *, outbox_collection: AsyncCollection, now: datetime, session: AsyncClientSession
 ) -> None:
     """A confirmed change's notice that it did not take effect, owed in its end's transaction.
 
@@ -447,7 +447,7 @@ async def owe_the_refusal_notice_in_session(
     """
 
     await enqueue_mails(
-        outbox_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         session=session,
         mails=[
             OwedMail(
@@ -570,7 +570,7 @@ async def take_effect_in_session(
     spielbestaetigungen_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     berechtigungen_antraege_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
@@ -639,7 +639,7 @@ async def take_effect_in_session(
             session=session,
         )
         if mitteilen:
-            await owe_the_refusal_notice_in_session(record, postausgang_collection=postausgang_collection, now=now, session=session)
+            await owe_the_refusal_notice_in_session(record, outbox_collection=outbox_collection, now=now, session=session)
         # Journalled: what the address held may have gone after a snapshot a restore brings the change back from.
         journal.note(
             ending_line(
@@ -665,7 +665,7 @@ async def take_effect_in_session(
         spielbestaetigungen_collection=spielbestaetigungen_collection,
         berechtigungen_collection=berechtigungen_collection,
         berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-        postausgang_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         berechtigungen_antraege_collection=berechtigungen_antraege_collection,
         einladungen_collection=einladungen_collection,
         sperrliste_collection=sperrliste_collection,
@@ -696,7 +696,7 @@ async def move_the_address_in_session(
     spielbestaetigungen_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     berechtigungen_antraege_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
@@ -777,7 +777,7 @@ async def move_the_address_in_session(
             sperrliste=sperrliste,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             now=now,
             session=session,
         )
@@ -804,7 +804,7 @@ async def move_the_address_in_session(
     # Before the images' carry below, which takes the replaced address out of the image an ended request keeps.
     beendet = await end_the_antraege_about_in_session(
         berechtigungen_antraege_collection=berechtigungen_antraege_collection,
-        postausgang_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         adresse=holdings.identifier,
         now=now,
         session=session,
@@ -858,7 +858,7 @@ async def move_the_address_in_session(
             update={"$set": {"move.nach": neu}},
             session=session,
         )
-    await _carry_the_mail(postausgang_collection, alt, neu, session=session)
+    await _carry_the_mail(outbox_collection, alt, neu, session=session)
     # The journal's pair on the tombstone, so an erasure at the new address finds the mail the replaced one still holds.
     # A change that waited carries no account: whatever its old mailbox's holder enrolled meanwhile would follow. The carry
     # is owed on the ended record itself, in this transaction, so a commit whose answer was lost still owes it.
@@ -877,7 +877,7 @@ async def move_the_address_in_session(
         session=session,
     )
     await enqueue_mails(
-        outbox_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         session=session,
         mails=[
             OwedMail(
@@ -896,7 +896,7 @@ async def move_the_address_in_session(
     return beendet
 
 
-async def _carry_the_mail(postausgang_collection: AsyncCollection, alt: str, neu: str, *, session: AsyncClientSession) -> None:
+async def _carry_the_mail(outbox_collection: AsyncCollection, alt: str, neu: str, *, session: AsyncClientSession) -> None:
     """The person's mail follows them: what is owed the replaced address goes to the new one, and what was sent there goes.
 
     A sent mail's delivery state describes the replaced mailbox, which on the lost-mailbox way may be a stranger's. The
@@ -905,17 +905,15 @@ async def _carry_the_mail(postausgang_collection: AsyncCollection, alt: str, neu
     """
 
     rows = await aggregate_many_from_db(
-        collection=postausgang_collection,
+        collection=outbox_collection,
         pipeline=[{"$match": {"art": {"$nin": sorted(SIGN_IN_ARTEN)}, "an": same_address(alt)}}, {"$project": {"an": 1, "stand": 1}}],
         session=session,
     )
     held = [row for row in rows if sign_in_identifier(str(row["an"])) == alt]
     if offen := [row["_id"] for row in held if row["stand"] == "open"]:
-        await patch_many_in_db(
-            collection=postausgang_collection, db_filter={"_id": {"$in": offen}}, update={"$set": {"an": neu}}, session=session
-        )
+        await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": offen}}, update={"$set": {"an": neu}}, session=session)
     if gesendet := [row["_id"] for row in held if row["stand"] != "open"]:
-        await erase_many_from_db(collection=postausgang_collection, db_filter={"_id": {"$in": gesendet}}, session=session)
+        await erase_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": gesendet}}, session=session)
 
 
 async def _seats_staying_at(identifier: str, *, collections: Sequence[AsyncCollection], session: AsyncClientSession) -> set[tuple[Any, str]]:
@@ -939,7 +937,7 @@ async def _move_the_grant(
     sperrliste: BanList,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
@@ -959,7 +957,7 @@ async def _move_the_grant(
         barred=gesperrt,
         berechtigungen_collection=berechtigungen_collection,
         berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-        postausgang_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         now=now,
         session=session,
     )
@@ -970,7 +968,7 @@ async def _move_the_grant(
         barred=gesperrt,
         berechtigungen_collection=berechtigungen_collection,
         berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-        postausgang_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         now=now,
         session=session,
         # The four-eyes rule dates the person, not the mailbox.
@@ -1107,7 +1105,7 @@ _GENEHMIGUNG_AKTEURE: Final = ("approval.started_by", "approval.approved_by")
 async def end_the_address_changes_in_session(
     *,
     adresswechsel_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     identifier: str,
     # The subject's rows, read before the erasure's first write.
@@ -1125,7 +1123,7 @@ async def end_the_address_changes_in_session(
 
     if rows:
         await erase_many_from_db(
-            collection=postausgang_collection,
+            collection=outbox_collection,
             db_filter={
                 "reference.collection": str(Collection.ADDRESS_CHANGES),
                 "reference.id": {"$in": [row["_id"] for row in rows]},

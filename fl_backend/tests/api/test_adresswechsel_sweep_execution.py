@@ -167,7 +167,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any 
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         berechtigungen_collection=database[Collection.GRANTS],
         berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
         einladungen_collection=database[Collection.INVITATIONS],
         sperrliste_collection=database[Collection.SPERRLISTE],

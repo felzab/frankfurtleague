@@ -985,7 +985,7 @@ async def verwerfen(database: AsyncDatabase, client: AsyncMongoClient, row_id: O
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
         spiele_collection=database[Collection.SPIELE],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=TODAY,
         now=MAIL_NOW,
@@ -997,7 +997,7 @@ async def lesen(
 ) -> FLSpielbestaetigungenListResponse:
     return await get_spielbestaetigungen(
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         filters=FLSpielbestaetigungenFilterParams(saison_id=SAISON_ID, spiel_id=spiel_id, limit=limit),
     )
 
@@ -1554,7 +1554,7 @@ class TestARefereesDeclineReturnsTheFixture:
 # Enough of the season's other referees' rows that a walk of the season-leading index costs the planner a season.
 OTHER_REFEREES_ROWS = 2000
 
-REFEREE_INDEX_SCAN = "IXSCAN { partei.schiedsrichter_id: 1, saison_id: 1 }"
+REFEREE_INDEX_SCAN = "IXSCAN { party.schiedsrichter_id: 1, saison_id: 1 }"
 
 
 def reads_a_referees_rows(collection: str, command: Mapping[str, Any]) -> bool:
@@ -1894,7 +1894,7 @@ class TestTheRefereesOwnRows:
 
         _, [(_, plan)] = on_a_refereed_fixture(mongo_replica_set_url, body)
 
-        assert plan == "IXSCAN { partei.schiedsrichter_id: 1, saison_id: 1 }", plan
+        assert plan == "IXSCAN { party.schiedsrichter_id: 1, saison_id: 1 }", plan
 
     def test_the_days_to_come_first_open_ahead_then_the_days_gone_by_latest_first(self, mongo_replica_set_url: str):
         """By day alone a past fixture would lead an upcoming one, and a season's twelfth past card the next Saturday's.

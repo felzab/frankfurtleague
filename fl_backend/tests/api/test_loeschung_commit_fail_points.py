@@ -173,7 +173,7 @@ class TestThePersonsOwnLoeschung:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await refusing.close()
 
-            return commits.answered, answer.berechtigungen
+            return commits.answered, answer.grants
 
         with caplog.at_level(logging.INFO):
             refused, removed = on_their_league(mongo_replica_set_url, body)
@@ -438,7 +438,7 @@ class TestAConfirmationMintWhoseCommitAnswerIsLost:
             ("team", "19:00:00", confirmations.TODAY),
             ("team", "19:00:00", confirmations.TODAY),
         ]
-        assert sorted(mail["art"] for mail in owed) == ["spiel_request"] * 6 + ["spiel_einteilung"]
+        assert sorted(mail["art"] for mail in owed) == ["spiel_einteilung"] + ["spiel_request"] * 6
         assert (nxt.asked, nxt.mails) == (0, 0)
 
 

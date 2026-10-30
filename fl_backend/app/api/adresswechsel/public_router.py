@@ -189,7 +189,7 @@ async def get_address_change_view(
     "",
     response_model=FLAddressChangeAntwortResponse,
     summary="Confirm or decline a pending address",
-    # `uniq_spieler_email` and `uniq_berechtigung_adresse` are published by the duplicate-key trace and stay unreached: the
+    # `uniq_spieler_email` and `uniq_grant_adresse` are published by the duplicate-key trace and stay unreached: the
     # in-session reads of another pupil and of the new address's grant include every row either index holds.
 )
 async def post_address_change_antwort(
@@ -204,7 +204,7 @@ async def post_address_change_antwort(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     berechtigungen_collection: GrantsCollection,
     berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     einladungen_collection: InvitationsCollection,
     sperrliste_collection: SperrlisteCollection,
@@ -290,7 +290,7 @@ async def post_address_change_antwort(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,

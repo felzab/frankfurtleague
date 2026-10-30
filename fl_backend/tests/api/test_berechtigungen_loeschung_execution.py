@@ -237,7 +237,7 @@ async def geloescht(
         return await loeschen_grants_and_authorship_in_session(
             berechtigungen_collection=database[Collection.GRANTS],
             berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-            postausgang_collection=database[Collection.OUTBOX],
+            outbox_collection=database[Collection.OUTBOX],
             bewerbungen_collection=database[Collection.BEWERBUNGEN],
             registrierungen_collection=database[Collection.REGISTRIERUNGEN],
             einladungen_collection=database[Collection.INVITATIONS],
@@ -261,7 +261,7 @@ async def queued_for(database: AsyncDatabase, grant_id: ObjectId) -> list[Mappin
     """The notices about one grant this erasure owed, each once whoever it is owed to, in the order it owed them."""
 
     notices: dict[str, Mapping[str, Any]] = {}
-    async for row in database[Collection.OUTBOX].find({"key": {"$regex": f"^berechtigung/{grant_id}/"}, "recorded_at": NOW}).sort("_id", 1):
+    async for row in database[Collection.OUTBOX].find({"key": {"$regex": f"^grant/{grant_id}/"}, "recorded_at": NOW}).sort("_id", 1):
         daten = row["data"]
         notices.setdefault(
             row["key"].rpartition("/")[0],

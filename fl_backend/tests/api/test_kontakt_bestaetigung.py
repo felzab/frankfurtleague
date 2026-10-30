@@ -242,7 +242,7 @@ async def save(
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=database.client,
         actor=actor or fresh_admin_actor(),
@@ -260,7 +260,7 @@ async def resend(database: AsyncDatabase, seat: str, *, today: str = TODAY) -> M
         seat=seat,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=database.client,
         today=today,
@@ -330,7 +330,7 @@ async def answer(
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
         aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=database.client,
         config=build_test_config(),
@@ -536,7 +536,7 @@ class TestABarredAddressIsRefused:
 
             return await resend(database, "trainer")
 
-        assert on_a_league(mongo_replica_set_url, body, kontakte=STORED_UNCONFIRMED).confirmation.rollen == ["trainer"]
+        assert on_a_league(mongo_replica_set_url, body, kontakte=STORED_UNCONFIRMED).bestaetigung.rollen == ["trainer"]
 
 
 class TestTheResend:
@@ -548,12 +548,12 @@ class TestTheResend:
 
         response, row, view = on_a_league(mongo_replica_set_url, body, kontakte=STORED_UNCONFIRMED)
 
-        assert (response.confirmation.rollen, response.confirmation.email, response.confirmation.frist) == (
+        assert (response.bestaetigung.rollen, response.bestaetigung.email, response.bestaetigung.frist) == (
             ["ansprechperson"],
             "jonas@example.com",
             FRIST,
         )
-        assert response.confirmation.schule == TEAM_NAME
+        assert response.bestaetigung.schule == TEAM_NAME
         assert (row["confirmations"]["trainer"], row["confirmations"]["stellvertretung"]) == (None, None)
         assert (view.rolle, view.state) == ("ansprechperson", "valid")
 
@@ -567,7 +567,7 @@ class TestTheResend:
         first, again, code, row = on_a_league(mongo_replica_set_url, body)
 
         assert code == Code.LINK_INVALID
-        assert row["confirmations"]["trainer"]["frist"] == bestaetigungsfrist_from(today="2026-04-05") == again.confirmation.frist
+        assert row["confirmations"]["trainer"]["frist"] == bestaetigungsfrist_from(today="2026-04-05") == again.bestaetigung.frist
         # The two seats the re-send did not name keep the links already in their inboxes.
         assert row["confirmations"]["ansprechperson"]["token_hashes"] == [hash_token(first.confirmations[1].token)]
 
@@ -581,7 +581,7 @@ class TestTheResend:
 
         response, row = on_a_league(mongo_replica_set_url, body, kontakte=paired)
 
-        assert response.confirmation.rollen == ["trainer", "stellvertretung"]
+        assert response.bestaetigung.rollen == ["trainer", "stellvertretung"]
         assert row["confirmations"]["trainer"] == row["confirmations"]["stellvertretung"] is not None
 
     @pytest.mark.parametrize(

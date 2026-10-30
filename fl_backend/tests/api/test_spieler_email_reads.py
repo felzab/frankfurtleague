@@ -239,7 +239,7 @@ async def the_address_change_request(database: AsyncDatabase, client: AsyncMongo
         spieler_collection=database[Collection.SPIELER],
         berechtigungen_collection=database[Collection.GRANTS],
         berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
         sperrliste=ban_list(database),
         aktionen_collection=database[Collection.ACTION_LOG],

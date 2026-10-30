@@ -35,7 +35,7 @@ FLAktionenFilters = Annotated[FLAktionenFilterParams, Query()]
 # One `$group` over the three the bar narrows on: every dimension's counts off a single pass, and a
 # row per (area, operation, kind) the log holds.
 FACET_TALLY: Final[Sequence[Mapping[str, Any]]] = (
-    # Asked for in `aktionen_facets`'s key order, which is what makes the planner reach for it: the
+    # Asked for in `action_log_facets`'s key order, which is what makes the planner reach for it: the
     # `$group` alone scans the log, images and all.
     {"$sort": {"collection": ASCENDING, "operation": ASCENDING, "actor.kind": ASCENDING}},
     {
@@ -136,7 +136,7 @@ async def get_action_log(
 
     # Gathered, so the tally costs no round trip of its own.
     grouped, read = await asyncio.gather(
-        # Counted per option instead, this is a read per option, and `aktionen_target` indexes the
+        # Counted per option instead, this is a read per option, and `action_log_target` indexes the
         # area alone: every operation's own count would scan the log.
         aggregate_many_from_db(
             collection=aktionen_collection,

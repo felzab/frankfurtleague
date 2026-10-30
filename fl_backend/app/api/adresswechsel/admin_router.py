@@ -178,7 +178,7 @@ def _bestand(holdings: Bestand) -> FLAddressChangeVerwaltungHoldings:
 async def get_address_change_verwaltung_view(
     ansicht_data: Annotated[FLAddressChangeVerwaltungViewPayload, Body()],
     adresswechsel_collection: AddressChangeCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     records: SubjektLookup,
     berechtigungen_collection: GrantsCollection,
     berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
@@ -220,7 +220,7 @@ async def get_address_change_verwaltung_view(
         zustellung = (
             None
             if offen is None
-            else await lage_of_the_link(postausgang_collection=postausgang_collection, address_change_id=offen["_id"], session=session)
+            else await lage_of_the_link(outbox_collection=outbox_collection, address_change_id=offen["_id"], session=session)
         )
 
     return FLAddressChangeVerwaltungViewResponse(
@@ -269,7 +269,7 @@ async def post_address_change_verwaltung(
     spieler_collection: SpielerCollection,
     berechtigungen_collection: GrantsCollection,
     berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: ActionLogCollection,
@@ -374,7 +374,7 @@ async def post_address_change_verwaltung(
             valid_until=record["valid_until"],
             # Greeting nobody on the lost-mailbox way: the address on file may have passed to a stranger.
             vorname=None if weg == "waiting_period" else bestand.vorname,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             now=germany_now,
             session=session,
         )
@@ -384,7 +384,7 @@ async def post_address_change_verwaltung(
                 email=email,
                 way=weg,
                 valid_until=record["valid_until"],
-                postausgang_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 now=germany_now,
                 session=session,
             )
@@ -407,7 +407,7 @@ async def post_address_change_verwaltung(
 async def invite_address_change(
     address_change_id: CustomRouteObjectId,
     adresswechsel_collection: AddressChangeCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     records: SubjektLookup,
     spieler_collection: SpielerCollection,
     berechtigungen_collection: GrantsCollection,
@@ -498,7 +498,7 @@ async def invite_address_change(
             email=email,
             way=updated["way"],
             valid_until=gueltig_bis,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             now=germany_now,
             session=session,
         )
@@ -600,7 +600,7 @@ async def post_address_change_approval(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     berechtigungen_collection: GrantsCollection,
     berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     einladungen_collection: InvitationsCollection,
     sperrliste_collection: SperrlisteCollection,
@@ -673,7 +673,7 @@ async def post_address_change_approval(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,

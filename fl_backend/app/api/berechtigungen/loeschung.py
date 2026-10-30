@@ -103,10 +103,10 @@ def _withheld(mitteilung: Mitteilung, identifier: str) -> Mitteilung:
     return Mitteilung(grant_id=mitteilung.grant_id, data=daten)
 
 
-async def _withhold_queued(postausgang_collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> int:
+async def _withhold_queued(outbox_collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> int:
     """Every grant notice still owed naming this person, written by id and grouped by what each loses."""
 
-    rows = await _rows_naming(postausgang_collection, _QUEUED_SITES, identifier, session, also=OFFENE_MITTEILUNG)
+    rows = await _rows_naming(outbox_collection, _QUEUED_SITES, identifier, session, also=OFFENE_MITTEILUNG)
 
     by_update: dict[tuple[tuple[str, Any], ...], list[ObjectId]] = {}
     for row in rows:
@@ -114,9 +114,7 @@ async def _withhold_queued(postausgang_collection: AsyncCollection, identifier: 
         by_update.setdefault(update, []).append(row["_id"])
 
     for update, ids in by_update.items():
-        await patch_many_in_db(
-            collection=postausgang_collection, db_filter={"_id": {"$in": ids}}, update={"$set": dict(update)}, session=session
-        )
+        await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": ids}}, update={"$set": dict(update)}, session=session)
 
     return len(rows)
 
@@ -167,7 +165,7 @@ async def loeschen_grants_and_authorship_in_session(
     *,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     bewerbungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
@@ -235,7 +233,7 @@ async def loeschen_grants_and_authorship_in_session(
     ]
 
     # Owed before this erasure's own: they are not yet withheld, and this erasure's carry no address of the person.
-    withheld = await _withhold_queued(postausgang_collection, identifier, session)
+    withheld = await _withhold_queued(outbox_collection, identifier, session)
 
     # No image of either: a grant's image is the address itself, and the announced record is bookkeeping.
     if grant_ids:
@@ -248,7 +246,7 @@ async def loeschen_grants_and_authorship_in_session(
     # After the removals, so the person is no holder told: every administrator who remains is.
     await owe_in_session(
         mitteilungen,
-        postausgang_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         berechtigungen_collection=berechtigungen_collection,
         now=now,
         session=session,

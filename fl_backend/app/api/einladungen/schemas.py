@@ -17,7 +17,7 @@ class FLEinladung(BaseReadModel):
     created_at: CustomDateString
     # The bound actor, on no payload: a link and its `aktionen` row cannot then name two people.
     created_by: CustomNonEmptyString
-    # Required as a KEY and null while the invite stands: `uniq_einladung_live` reaches the rows
+    # Required as a KEY and null while the invite stands: `uniq_invitation_live` reaches the rows
     # holding null, so a row that could omit it would fall outside the one-live-invite rule.
     widerrufen_am: CustomOptionalDateString
 

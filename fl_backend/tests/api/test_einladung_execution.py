@@ -185,7 +185,7 @@ async def read_state(database: AsyncDatabase, team_id: ObjectId, *, today: str =
         saison_id=SAISON_ID,
         einladungen_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         today=today,
     )
@@ -197,7 +197,7 @@ async def preview(database: AsyncDatabase, *, resend: bool = False) -> Any:
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         einladungen_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         resend=resend,
     )
@@ -210,7 +210,7 @@ async def press(database: AsyncDatabase, *, resend: bool = False) -> Any:
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         einladungen_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=database.client,
         created_by=ADMIN,
@@ -378,7 +378,7 @@ class TestTwoMintsAtOnce:
     """The read and the write are not one statement, so two administrators pressing together both pass the read."""
 
     def test_two_mints_for_one_team_leave_exactly_one_live_invitation(self, mongo_replica_set_url: str):
-        """Whichever way the two transactions interleave, `uniq_einladung_live` is what decides, and it decides alone."""
+        """Whichever way the two transactions interleave, `uniq_invitation_live` is what decides, and it decides alone."""
 
         async def body(database: AsyncDatabase) -> Any:
             outcomes = await asyncio.gather(mint(database, TWO_SEATS), mint(database, TWO_SEATS), return_exceptions=True)
@@ -442,7 +442,7 @@ class _HoldsAfterItsRevoke(HeldCollection):
 
 
 class TestTheRuleOfOneLiveInvitation:
-    """`uniq_einladung_live`, this tree's first partial index: the rule reaches the rows holding a null `widerrufen_am`.
+    """`uniq_invitation_live`, this tree's first partial index: the rule reaches the rows holding a null `widerrufen_am`.
 
     Written straight to the collection, which is what a second transaction committing between a
     read and a write amounts to.
@@ -727,7 +727,7 @@ async def mail(database: AsyncDatabase, team_id: ObjectId, invitation_id: Any) -
         mail_data=FLInvitationMailPayload(invitation_id=invitation_id),
         einladungen_collection=database[Collection.INVITATIONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
-        postausgang_collection=database[Collection.OUTBOX],
+        outbox_collection=database[Collection.OUTBOX],
         db=database.client,
         today=TODAY,
         germany_now=MAIL_NOW,
@@ -1034,7 +1034,7 @@ class TestTheSeasonWidePress:
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 einladungen_collection=collection,
                 saisons_collection=database[Collection.SAISONS],
-                postausgang_collection=database[Collection.OUTBOX],
+                outbox_collection=database[Collection.OUTBOX],
                 sperrliste=ban_list(database),
                 db=database.client,
                 created_by=ADMIN,

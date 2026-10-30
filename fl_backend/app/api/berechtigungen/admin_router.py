@@ -269,7 +269,7 @@ async def post_grant(
     berechtigung_data: Annotated[FLPostGrantPayload, Body()],
     berechtigungen_collection: GrantsCollection,
     berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
@@ -329,7 +329,7 @@ async def post_grant(
                 started_by=granted_by,
                 genehmiger=genehmiger,
                 berechtigungen_collection=berechtigungen_collection,
-                postausgang_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 now=now,
                 session=session,
             )
@@ -343,7 +343,7 @@ async def post_grant(
             barred=frozenset(),
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             now=now,
             session=session,
         )
@@ -364,7 +364,7 @@ async def _queue_the_request(
     started_by: str,
     genehmiger: Sequence[str],
     berechtigungen_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
@@ -383,7 +383,7 @@ async def _queue_the_request(
                 barred=frozenset(),
             )
         ],
-        postausgang_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         berechtigungen_collection=berechtigungen_collection,
         now=now,
         session=session,
@@ -423,7 +423,7 @@ async def delete_grant(
     grant_id: CustomRouteObjectId,
     berechtigungen_collection: GrantsCollection,
     berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
@@ -471,13 +471,13 @@ async def delete_grant(
             barred=barred,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             now=now,
             session=session,
         )
         await settle_the_requesters_notices_in_session(
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             started_by=str(grant["adresse"]),
             verwaltung=None,
             now=now,
@@ -501,7 +501,7 @@ async def patch_grant(
     berechtigung_data: Annotated[FLPatchGrantPayload, Body()],
     berechtigungen_collection: GrantsCollection,
     berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
@@ -581,7 +581,7 @@ async def patch_grant(
                     started_by=changed_by,
                     genehmiger=genehmiger,
                     berechtigungen_collection=berechtigungen_collection,
-                    postausgang_collection=postausgang_collection,
+                    outbox_collection=outbox_collection,
                     now=now,
                     session=session,
                 )
@@ -599,14 +599,14 @@ async def patch_grant(
             changed_by=changed_by,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             now=now,
             session=session,
         )
         if verwaltung != OWNER:
             await settle_the_requesters_notices_in_session(
                 berechtigungen_antraege_collection=berechtigungen_antraege_collection,
-                postausgang_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 started_by=str(grant["adresse"]),
                 verwaltung=OWNER,
                 now=now,
@@ -632,7 +632,7 @@ async def _move_the_tier_in_session(
     changed_by: str,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
@@ -682,7 +682,7 @@ async def _move_the_tier_in_session(
                 barred=barred,
             ),
         ],
-        postausgang_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         berechtigungen_collection=berechtigungen_collection,
         now=now,
         session=session,
@@ -707,7 +707,7 @@ async def post_approval_request_approval(
     approval_request_id: CustomRouteObjectId,
     berechtigungen_collection: GrantsCollection,
     berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
@@ -760,7 +760,7 @@ async def post_approval_request_approval(
         # Removed by the write that reads it, so a second approval, a refusal or an erasure beside this one conflicts and finds none.
         await remove_the_antrag_in_session(
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             approval_request_id=approval_request_id,
             now=now,
             session=session,
@@ -776,7 +776,7 @@ async def post_approval_request_approval(
                 barred=frozenset(),
                 berechtigungen_collection=berechtigungen_collection,
                 berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-                postausgang_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 now=now,
                 session=session,
             )
@@ -798,7 +798,7 @@ async def post_approval_request_approval(
                 changed_by=operator,
                 berechtigungen_collection=berechtigungen_collection,
                 berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-                postausgang_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 now=now,
                 session=session,
             )
@@ -822,7 +822,7 @@ async def delete_approval_request(
     berechtigungen_collection: GrantsCollection,
     berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
     berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
-    postausgang_collection: OutboxCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -869,7 +869,7 @@ async def delete_approval_request(
 
         await remove_the_antrag_in_session(
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             approval_request_id=approval_request_id,
             now=now,
             session=session,

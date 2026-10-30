@@ -90,7 +90,7 @@ class TestARetriedMint:
 
                 zeile = await _mail_one_team(
                     einladungen_collection=cast(AsyncCollection, _RetryFailsBeforeItsRead(database[Collection.INVITATIONS])),
-                    postausgang_collection=database[Collection.OUTBOX],
+                    outbox_collection=database[Collection.OUTBOX],
                     db=cast(AsyncMongoClient, client),
                     saison_id=SAISON_ID,
                     team=TEAM,

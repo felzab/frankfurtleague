@@ -7,7 +7,7 @@ records it moves is read from the address when it takes effect (`app/api/adressw
 Invariants:
 - Every instant is stored as a BSON date and compared as one; a filter on one always carries `$type: "date"`, so a null
   never compares.
-- Every read of a live change carries `LIVE_TERMS`, the filter `uniq_adresswechsel_adresse` indexes.
+- Every read of a live change carries `LIVE_TERMS`, the filter `uniq_address_change_adresse` indexes.
 """
 
 import unicodedata
@@ -37,7 +37,7 @@ ADRESSWECHSEL_ENDE_ARTEN: Final[tuple[str, ...]] = get_args(FLAddressChangeEndAr
 # The tier of the grant a change moves ranked, and so who may approve it: `owner` another owner alone.
 _RANG: Final[Mapping[str, int]] = {"administration": 0, "owner": 1}
 
-# The one filter every read of a live change carries: `uniq_adresswechsel_adresse` indexes these rows alone.
+# The one filter every read of a live change carries: `uniq_address_change_adresse` indexes these rows alone.
 LIVE_TERMS: Final[Mapping[str, Any]] = {"ended": {"$type": "null"}}
 
 # A `$lookup` joining on the address carries these beside its key, for `build_address_filter`'s reason.
@@ -183,7 +183,7 @@ def build_live_filter(address_change_id: Any, terms: Mapping[str, Any] | None = 
 
 
 def build_address_filter(adresse: str) -> dict[str, Any]:
-    """The live change of one folded address, which `uniq_adresswechsel_adresse` answers by equality.
+    """The live change of one folded address, which `uniq_address_change_adresse` answers by equality.
 
     The key's type stated beside its value: the planner reads an equality as no subset of the index's `$type` term.
     """
@@ -254,7 +254,7 @@ def build_due_terms(now: datetime) -> dict[str, Any]:
     }
 
 
-# Where a `$lookup` of the address's grant row lands, the unique index serving it (`uniq_berechtigung_adresse`).
+# Where a `$lookup` of the address's grant row lands, the unique index serving it (`uniq_grant_adresse`).
 GEHALTEN: Final = "_berechtigung"
 
 

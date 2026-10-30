@@ -387,7 +387,7 @@ async def compared(database: AsyncDatabase, client: AsyncMongoClient, *, now: da
         await post_grants_reconciliation(
             berechtigungen_collection=database[Collection.GRANTS],
             berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
-            postausgang_collection=database[Collection.OUTBOX],
+            outbox_collection=database[Collection.OUTBOX],
             sperrliste=ban_list(database),
             db=client,
             now=now,
@@ -726,7 +726,7 @@ async def anna_geloescht(database: AsyncDatabase, client: AsyncMongoClient, _: O
     async def step(session: AsyncClientSession) -> int:
         return await loeschen_antraege_in_session(
             berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-            postausgang_collection=database[Collection.OUTBOX],
+            outbox_collection=database[Collection.OUTBOX],
             identifier=ANNA,
             now=NOW,
             session=session,
@@ -880,7 +880,7 @@ class TestTheLoeschungTakesEveryRequestOfTheAddress:
                 return [
                     await loeschen_antraege_in_session(
                         berechtigungen_antraege_collection=collection,
-                        postausgang_collection=database[Collection.OUTBOX],
+                        outbox_collection=database[Collection.OUTBOX],
                         identifier=identifier,
                         now=NOW,
                         session=session,
@@ -962,7 +962,7 @@ async def ended(database: AsyncDatabase, client: AsyncMongoClient, adresse: str)
     async def step(session: AsyncClientSession) -> list[Mapping[str, Any]]:
         return await end_the_antraege_about_in_session(
             berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
-            postausgang_collection=database[Collection.OUTBOX],
+            outbox_collection=database[Collection.OUTBOX],
             adresse=adresse,
             now=NOW,
             session=session,
