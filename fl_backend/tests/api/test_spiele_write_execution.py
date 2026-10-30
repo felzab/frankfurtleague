@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
@@ -396,6 +396,19 @@ def one_venue_twice(*, sonderereignis: str | None) -> list[dict[str, Any]]:
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
+
+
+# The save's own bookkeeping, which neither a pure model nor a preview carries: the count of writes it raises, and
+# whether it stamped an adoption.
+SAVE_ONLY = frozenset({"version", "bericht_uebernommen"})
+
+
+def but_its_bookkeeping(stored: Any) -> Any:
+    """A model or a raw document without `SAVE_ONLY`, so it compares with what the pure model or the preview predicts."""
+
+    raw = stored.model_dump() if isinstance(stored, BaseModel) else stored
+
+    return {key: value for key, value in raw.items() if key not in SAVE_ONLY}
 
 
 def on_a_seeded_season(url: str, body: Body, *, spiele: list[dict[str, Any]], mutates_schema: bool = False) -> Any:
@@ -839,6 +852,25 @@ class TestASavedResultCarriesThroughTheBracket:
         assert spiele[HALBFINALE_NR]["elfmeterschiessen"] == {"team1": 4, "team2": 3}
 
 
+class TestASaveOpenedOnAnOlderVersionIsRefused:
+    """The editor's save carries the `version` it was served, and the save answers the one its next save sends."""
+
+    def test_a_save_on_the_version_the_first_save_raised_is_refused(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            opened = await payload_for(database, VIERTELFINALE, version=0)
+            first = await call_patch(database, client, VIERTELFINALE, opened)
+            with pytest.raises(APIError) as refused:
+                await call_patch(database, client, VIERTELFINALE, opened.model_copy(update={"notiz": "veraltet"}))
+
+            return first, refused.value, await spiele_now(database)
+
+        first, refusal, spiele = on_a_seeded_season(mongo_replica_set_url, body, spiele=bracket_season())
+
+        assert first.version == 1
+        assert (refusal.status_code, refusal.error_code) == (409, Code.VERSION_STALE)
+        assert (spiele[VIERTELFINALE_NR]["notiz"], spiele[VIERTELFINALE_NR]["version"]) == (None, 1)
+
+
 class TestAMidFlightFailureTakesTheWholeSaveBack:
     def test_neither_the_edit_nor_the_advancement_survives(self, mongo_replica_set_url: str):
         """A validator admitting only a string `ergebnis` refuses the advancement's null, after the admin's own edit has landed."""
@@ -952,9 +984,9 @@ class TestAReleaseWritesWhatThePureModelPredicts:
             spiele=one_spieltag(opponent=opponent, ergebnis=ergebnis, tore=tore, sonderereignis=sonderereignis),
         )
 
-        assert run.after_save == run.predicted
+        assert but_its_bookkeeping(run.after_save) == but_its_bookkeeping(run.predicted)
         assert run.after_preview == run.before, "the dry run wrote something"
-        assert run.saved == run.preview, "the preview answered differently from the save it previews"
+        assert but_its_bookkeeping(run.saved) == but_its_bookkeeping(run.preview), "the preview answered differently from the save it previews"
 
         (released,) = run.saved.released_sides
         assert (released.spiel_nr, released.side, released.team_name) == (GRUPPE_HELD_NR, "team1", "Alpha")
@@ -1013,10 +1045,10 @@ class TestAReleaseWritesWhatThePureModelPredicts:
             spiele=one_spieltag(opponent=BETA, ergebnis="2:1", tore=(2, 1)),
         )
 
-        assert run.after_save == run.predicted
+        assert but_its_bookkeeping(run.after_save) == but_its_bookkeeping(run.predicted)
         assert (run.after_save.team1, run.after_save.team2, run.after_save.ergebnis) == (None, None, None)
         assert run.after_preview == run.before, "the dry run wrote something"
-        assert run.saved == run.preview, "the preview answered differently from the save it previews"
+        assert but_its_bookkeeping(run.saved) == but_its_bookkeeping(run.preview), "the preview answered differently from the save it previews"
 
         # Two rows, because both clubs left this fixture and the admin is told about each.
         assert [(entry.spiel_nr, entry.side, entry.team_name) for entry in run.saved.released_sides] == [
@@ -1054,7 +1086,9 @@ class TestAReleaseWritesWhatThePureModelPredicts:
 
         run = on_a_seeded_season(mongo_replica_set_url, body, spiele=two_held_fixtures())
 
-        assert run.after_save == run.predicted
+        assert {nr: but_its_bookkeeping(spiel) for nr, spiel in run.after_save.items()} == {
+            nr: but_its_bookkeeping(spiel) for nr, spiel in run.predicted.items()
+        }
 
         for spiel_nr in (GRUPPE_HELD_NR, GRUPPE_HELD_OTHER_NR):
             after = run.after_save[spiel_nr]
@@ -1105,7 +1139,7 @@ class TestAResultThatReordersItsGroupIsPreviewedAsItIsSaved:
 
         advanced = [(entry.spiel_nr, entry.voided_ergebnis) for entry in run.saved.advanced_to]
         assert advanced == [(HALBFINALE_FROM_GRUPPE_NR, "2:1")]
-        assert run.preview == run.saved, "the preview answered differently from the save it previews"
+        assert but_its_bookkeeping(run.preview) == but_its_bookkeeping(run.saved), "the preview answered differently from the save it previews"
 
 
 # The quarter-final corrected so Alpha won it, which hands Alpha the semi-final's first slot and voids
@@ -1193,7 +1227,7 @@ class TestAFixtureTheResolutionReopensKeepsARetiredBooking:
         )
 
         assert len(run.saved.advanced_to) == 1
-        assert run.preview == run.saved, "the preview answered differently from the save it previews"
+        assert but_its_bookkeeping(run.preview) == but_its_bookkeeping(run.saved), "the preview answered differently from the save it previews"
 
         assert (booking_faults(run.faults), booking_faults(run.saved.bracket_faults)) == (reported, [])
 
@@ -1392,7 +1426,9 @@ class TestOnlyALandedSaveStamps:
 
         before, spiele_after, after = on_a_seeded_season(mongo_replica_set_url, body, spiele=spiele)
 
-        assert spiele_after[VIERTELFINALE_NR] == before[VIERTELFINALE_NR], "the premise: this save changes nothing on the fixture"
+        assert but_its_bookkeeping(spiele_after[VIERTELFINALE_NR]) == but_its_bookkeeping(before[VIERTELFINALE_NR]), (
+            "the premise: this save changes nothing on the fixture"
+        )
         assert after[VIERTELFINALE]["uebernommene_version"] == SEEDED_VERSION, "a save changing nothing on the fixture adopted nothing"
 
     @pytest.mark.parametrize("dry_run", [pytest.param(False, id="refused-REQ-DATE-001"), pytest.param(True, id="dry-run")])

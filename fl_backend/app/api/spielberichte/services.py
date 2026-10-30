@@ -19,7 +19,7 @@ from app.api.spielberichte.schemas import (
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielElfmeterschiessen
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import refuse
+from app.core.crud import VERSION_FIELD, refuse
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 
@@ -429,6 +429,7 @@ def compose_ansicht(
         "bericht": bericht,
         # Served rather than re-derived by the forms, which mark these sides' entries and offer none of their old pupils.
         "seiten_geaendert": [] if bericht is None else sorted(seiten_geaendert(bericht["seiten"], spiel)),
+        "version": None if dokument is None else dokument.get(VERSION_FIELD, 0),
     }
 
 
