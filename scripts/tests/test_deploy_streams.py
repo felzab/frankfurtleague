@@ -639,7 +639,7 @@ SCHEMA_SHAPES: Final = [
     pytest.param("SECRETS_DIR=/run/secrets", id="path"),
     pytest.param("SECRETS_DIR=../secrets", id="relative-path"),
     pytest.param("DB_BASE_NAME=fl_db-1", id="database-name"),
-    pytest.param("BEWERBUNG_SWEEP=", id="empty"),
+    pytest.param("APP_VERSION=", id="empty"),
 ]
 
 

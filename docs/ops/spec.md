@@ -246,6 +246,7 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | `/_next/static/`                      | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`, and the server-action pair, which meters no GET                                                                                                    |
 | `/bestaetigung/`                      | `frontend:3000` | Every link page under it, a PREFIX: paired `limit_req` `zone=linkseite burst=60` and `zone=linkseite48 burst=600` on every request, beside `/`'s ceiling and action pair                                 |
 | `= /registrierung` and `= /loeschung` | `frontend:3000` | The two link pages outside that segment, a team's invite and the deletion link: `/bestaetigung/`'s lines, each with its twin                                                                             |
+| `= /bereich/konto`                    | `frontend:3000` | The account page: paired `limit_req` `zone=konto burst=10` and `zone=konto48 burst=100` on its POSTs, beside `/`'s ceiling and action pair, with its twin                                                |
 | `/`                                   | `frontend:3000` | Catch-all — `limit_conn conn 50`, and the server-action pair, which meters nothing else                                                                                                                  |
 
 **The edge reaches each upstream by its service name as it serves, never by an address read at
