@@ -33,20 +33,23 @@ const SDK_DOUBLE = {
   },
 };
 
+const AUTH_SECRET = "fabricated-test-secret-not-a-credential";
+
 const CONFIG_DOUBLE = {
   frontend_config: { APP_ENV: "production", AUTH_URL: "https://league.invalid" },
   authResendKey: () => apiKey,
+  authSecret: () => AUTH_SECRET,
 };
 
-// The map is each cutover's to fill: one kind stands in, rendered as any mail is.
+// The map is each cutover's to fill: one kind stands in, rendered as any mail is, printing the secret it is handed.
 const KINDS_DOUBLE = {
   POSTAUSGANG_TAG: "postausgang_id",
-  mailFor: (_art: string, daten: { grund: string }, { origin }: { origin: string }) => ({
+  mailFor: (_art: string, daten: { grund: string }, { origin, geheim }: { origin: string; geheim: string | null }) => ({
     art: "mitteilung",
     betreff: "Sperre",
     origin: origin,
     vorname: "",
-    absaetze: [[daten.grund]],
+    absaetze: [[daten.grund], ...(geheim === null ? [] : [[geheim]])],
   }),
 };
 
@@ -114,6 +117,19 @@ describe("one drain of the Postausgang", () => {
     ]);
     // The claim's own give-ups count with the reports', which is what the heartbeat reads.
     expect(zaehlung).toMatchObject({ gesendet: 2, aufgegeben: 1 });
+  });
+
+  /* The row arrives sealed under the frontend's own key (`fl_frontend/src/core/auth.ts :: oweSignInMail`): a builder
+     handed the ciphertext would mail a code nobody can type. */
+  it("opens a sealed secret under the frontend's key before its kind's builder renders it", async () => {
+    const { symmetricEncrypt } = await import("better-auth/crypto");
+    const geheim = await symmetricEncrypt({ key: AUTH_SECRET, data: "123456" });
+    claims = [{ mails: [{ ...handed(1), geheim: geheim }], aufgegeben: 0 }];
+
+    await drainPostausgang();
+
+    expect(sends().map(({ body }) => String(body["text"]).includes("123456"))).toStrictEqual([true]);
+    expect(String(sends()[0]?.body["text"])).not.toContain(geheim);
   });
 
   /* Read the wrong way round, the league's daily quota would give up every mail queued behind it, and a refusal no

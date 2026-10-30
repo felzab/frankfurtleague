@@ -263,7 +263,7 @@ type Settings = Readonly<Pick<typeof validated, keyof typeof environment>>;
 
 /**
  * The settings, and no secret: any server module may import this, so each secret is handed out by its
- * own reader below, which `fl_frontend/eslint.config.mjs :: SECRET_READERS` lets its owner alone import.
+ * own reader below, which `fl_frontend/eslint.config.mjs :: SECRET_READERS` lets its owners alone import.
  */
 export const frontend_config = Object.fromEntries(Object.entries(validated).filter(([name]) => !isSecretKey(name))) as Settings;
 

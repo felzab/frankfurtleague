@@ -1,5 +1,9 @@
 import "server-only";
 
+import { buildCodeEmail } from "./authEmail";
+import { buildLoeschungEmail } from "./loeschungEmail";
+import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
+
 import type { Mail } from "./emailShell";
 import type { FLPostausgangAusgabe } from "./generated/client/types";
 
@@ -24,7 +28,7 @@ type DatenJeArt = { [A in PostausgangArt]: Mitglied<PostausgangDaten, A> };
 interface Ausgabe {
   /** The raw link token minted for this hand-out, or null where the mail carries no link. */
   readonly token: string | null;
-  /** The row's secret, encrypted by the frontend before it was owed, or null. */
+  /** The row's secret, opened by the drain (`fl_frontend/src/core/mail.ts :: zustellen`), or null where it holds none. */
   readonly geheim: string | null;
   /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not production mails no production link. */
   readonly origin: string;
@@ -33,7 +37,21 @@ interface Ausgabe {
 type MailBuilder<A extends PostausgangArt> = (daten: DatenJeArt[A], ausgabe: Ausgabe) => Mail;
 
 /** Each kind's builder, which renders through the shell (`fl_frontend/src/core/emailShell.ts :: renderMail`). */
-const MAIL_KINDS: { [A in PostausgangArt]?: MailBuilder<A> } = {};
+const MAIL_KINDS: { [A in PostausgangArt]?: MailBuilder<A> } = {
+  anmeldecode: (_daten, { geheim, origin }) => buildCodeEmail(geheimDerArt(geheim), origin),
+  passkey_hinzugefuegt: ({ zeitpunkt, konto }, { origin }) =>
+    buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date(zeitpunkt), origin: origin, konto: konto }),
+  passkey_geloescht: ({ zeitpunkt, konto }, { origin }) =>
+    buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(zeitpunkt), origin: origin, konto: konto }),
+  konto_loeschung: (_daten, { geheim, origin }) => buildLoeschungEmail({ origin: origin, token: geheimDerArt(geheim) }),
+};
+
+/** A secret kind's secret, which its every row carries (`fl_frontend/src/core/auth.ts :: oweSignInMail`). */
+function geheimDerArt(geheim: string | null): string {
+  if (geheim === null) throw new Error("The mail's kind carries a secret, and its row holds none.");
+
+  return geheim;
+}
 
 /**
  * The mail one hand-out owes, or `undefined` where its kind has no builder. Indexed by the kind itself, so the builder
