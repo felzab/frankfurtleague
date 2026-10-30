@@ -574,9 +574,10 @@ class TestTheConfirmation:
 
         assert answered.wirksam
         assert notices == [{"art": "wirksam", "bisherige_email": EMAIL, "email": NEW_EMAIL, "vorname": "Lenore", "weg": "konto"}]
-        assert after["pupil"] == {**before["pupil"], "email": NEW_EMAIL}
+        # Each moved record is written once, and the seed carries no version, so the one write leaves it at 1.
+        assert after["pupil"] == {**before["pupil"], "email": NEW_EMAIL, "version": 1}
         # The confirmed referee row moves, its consent link's delivery state with the address it described.
-        referee = {**before["referee"], "kontakt": {**before["referee"]["kontakt"], "email": NEW_EMAIL}}
+        referee = {**before["referee"], "kontakt": {**before["referee"]["kontakt"], "email": NEW_EMAIL}, "version": 1}
         referee["bestaetigung"] = {key: value for key, value in before["referee"]["bestaetigung"].items() if key != "zustellung"}
         assert after["referee"] == referee
         assert after["unconfirmed referee"] == before["unconfirmed referee"]
