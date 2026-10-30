@@ -117,7 +117,7 @@ async def get_grants(
     `address_change` names the change of a grant's address waiting on an administrator's approval: its new address, how it was
     started (`way`), the administrator who started it and the reason they recorded, and why this administrator may not approve
     it, where they may not: their own, one they started, or an owner's without an owner's power
-    (`POST /adresswechsel/{adresswechsel_id}/genehmigung`); and why the address tool refuses it them (`viewable_denied`). An
+    (`POST /address_change/{address_change_id}/approval`); and why the address tool refuses it them (`viewable_denied`). An
     owner's change withholds its new address, starter and reason from that non-owner, as the address tool refuses them an
     owner's address; a barred new address or starter is withheld as on a grant's row. A change any step of which lapsed is
     left out: its approval is refused, and the next hourly pass ends it.
@@ -281,7 +281,7 @@ async def post_grant(
 
     **Four eyes**: where another administrator could approve it -- a live, unbarred grant in effect now, neither this administrator
     nor the address -- the grant is not made: a request is, answered with `requested` set and its id, and the grant takes effect
-    only on that approval (`POST /berechtigungen/antraege/{antrag_id}/genehmigung`). A lone administrator grants alone.
+    only on that approval (`POST /grants/approval_requests/{approval_request_id}/approval`). A lone administrator grants alone.
 
     The address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live
     grant already holds the address (`grant_exists`), where the ban list
@@ -517,7 +517,7 @@ async def patch_grant(
 
     **Four eyes on a promotion**: where another owner could approve it -- a live, unbarred `owner` grant in effect now, neither this
     owner nor the promoted address -- the tier is not moved: a request is, answered with `requested` set, and the promotion takes
-    effect only on that approval (`POST /berechtigungen/antraege/{antrag_id}/genehmigung`). A lone owner promotes alone. A demotion
+    effect only on that approval (`POST /grants/approval_requests/{approval_request_id}/approval`). A lone owner promotes alone. A demotion
     and a step-down take effect at once.
 
     A promotion holds for a sign-in after it alone: the promoted administrator's older sessions keep administering and take no owner's
@@ -526,7 +526,7 @@ async def patch_grant(
     (`grant_approval_request_open`), and a demotion leaving no live, unbarred owner (`grant_last_owner`). Naming the tier the grant
     holds changes nothing and answers 200. The change reaches the next request; its announcement is queued in the same transaction, after
     any change to the row made in the database and not yet announced, and a grant found that way is stamped `gefunden_am` as
-    `POST /berechtigungen/abgleich` stamps one. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused
+    `POST /grants/reconciliation` stamps one. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused
     `confirmation_required`, as the grant's is.
     """
 
@@ -839,7 +839,7 @@ async def delete_approval_request(
     the request back only until the replay of its journal line.
 
     A refusal queues, in the same transaction, a notice to the request's requester naming the address and tier it asked for and
-    nobody who refused it, for `POST /berechtigungen/abgleich` to hand out; a withdrawal tells nobody.
+    nobody who refused it, for `POST /grants/reconciliation` to hand out; a withdrawal tells nobody.
     """
 
     akteur = sign_in_identifier(operator)

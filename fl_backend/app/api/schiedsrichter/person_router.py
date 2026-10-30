@@ -54,7 +54,7 @@ async def get_self(identifier: SchiedsrichterIdentifier, schiedsrichter_collecti
     Answer every confirmed referee record the signed-in address holds, with its stored contact details.
 
     PERSON TIER: the fee set for them per fixture as `honorar`, never the confirmation link's bookkeeping. A retired
-    record is served too. Its consent is the account page's (`GET /konto/einwilligungen`), so none is served here.
+    record is served too. Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.
 
     Refuses an address holding no confirmed referee record (`role_not_held`).
     """

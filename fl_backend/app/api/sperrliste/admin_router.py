@@ -230,7 +230,7 @@ async def delete_sperrliste_entry(
     **The action log keeps a copy of the removed row** — the hash, its key label, the reason and the
     administrator who entered it, and no address of the person it barred — for the twelve months
     the rule gives every log row. The lifted ban is therefore readable
-    at `GET /aktionen` for that period and enforced by nothing from the moment this answers.
+    at `GET /action_log` for that period and enforced by nothing from the moment this answers.
     """
 
     async def lift_the_ban(session: AsyncClientSession) -> None:

@@ -1081,7 +1081,7 @@ async def post_invitation(
 
     **The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of
     this response is lost and the repair is another mint. Mailing the team's link is a separate press
-    (`POST /teams/{team_id}/saisons/{saison_id}/einladung/versand`), whose mails mint links of their own beside this one.
+    (`POST /teams/{team_id}/saisons/{saison_id}/invitation/dispatch`), whose mails mint links of their own beside this one.
 
     The reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left
     holding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh

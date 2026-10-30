@@ -4,7 +4,7 @@ API · no admin-tier read answers a barred administrator's address in plain, a l
 Every admin-tier read is named here once: with the request showing it a row a barred administrator
 wrote, or with why no answer of it names an administrator. The two listings agree with the mounted
 routes, so a new read fails until someone says which it is. The
-image `GET /aktionen/{aktion_id}` serves is the document as the write replaced it, barred addresses
+image `GET /action_log/{action_log_entry_id}` serves is the document as the write replaced it, barred addresses
 included, since a restore starts from it: the seeded log row
 carries none, and one holding the barred address would fail this sweep by design.
 """

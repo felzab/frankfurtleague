@@ -198,7 +198,7 @@ async def _judged(
 async def find_subjekt(identifier: str, records: RecordCollections) -> FLSubjekt:
     """Every confirmed, live record this folded identifier matches, and whether its granting records are all unconfirmed.
 
-    Its reads gathered and outside any transaction, for `POST /identitaet/subjekt`; a caller inside one
+    Its reads gathered and outside any transaction, for `POST /identity/subject`; a caller inside one
     reads through `find_subjekt_in_session`.
     """
 

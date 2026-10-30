@@ -183,7 +183,7 @@ async def owe_in_session(
 
     The holders are read after the caller's write, on its session, so a new grant's holder is among them and a removed one
     is told through the notice's `before`. A barred recipient is stopped at the hand-out, not here
-    (`app/api/postausgang/system_router.py :: post_handout`).
+    (`app/api/outbox/system_router.py :: post_handout`).
     """
 
     if not mitteilungen:

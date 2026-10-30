@@ -92,7 +92,7 @@ async def post_handout(
     the record the mail is about and the raw token answered once, in `token`; a record gone since, or one no longer
     holding the mail's address where its link names it, stops the mail as `dropped`. A second call inside the lease is
     answered none of these rows. The caller sends each under the idempotency key its `attempt` names and reports every
-    outcome, with `lease`, to `POST /postausgang/ergebnis`;
+    outcome, with `lease`, to `POST /outbox/result`;
     where the lease lapses first, the next call hands the row out again with a fresh link and number, every earlier link
     staying valid unless the mail's link supersedes them. Server to server alone: the answer names addresses, live links
     and secrets.
@@ -125,12 +125,12 @@ async def post_handout(
         # The ban is judged here, at the last moment before the send, rather than when the mail was owed.
         judged = {str(row["an"]) for row in due if row["art"] not in UNGESPERRT}
         barred = await adressen_gesperrt(sperrliste, judged, session=session) if judged else set()
-        barred = [row["_id"] for row in due if row["art"] not in UNGESPERRT and row["an"] in barred]
+        barred_ids = [row["_id"] for row in due if row["art"] not in UNGESPERRT and row["an"] in barred]
         entfallen: list[Any] = []
 
         tokens: dict[Any, str] = {}
         for row in due:
-            if row["_id"] in barred or row["link"] is None:
+            if row["_id"] in barred_ids or row["link"] is None:
                 continue
             raw, token_hash = mint_token()
             minted = await stamp_in_db(
@@ -144,10 +144,10 @@ async def post_handout(
                 continue
             tokens[row["_id"]] = raw
 
-        if barred:
+        if barred_ids:
             await patch_many_in_db(
                 collection=outbox_collection,
-                db_filter={"_id": {"$in": barred}},
+                db_filter={"_id": {"$in": barred_ids}},
                 update=final_update("barred", now=now),
                 session=session,
             )
@@ -159,7 +159,7 @@ async def post_handout(
                 session=session,
             )
 
-        handed = [row for row in due if row["_id"] not in barred and row["_id"] not in entfallen]
+        handed = [row for row in due if row["_id"] not in barred_ids and row["_id"] not in entfallen]
         if not handed:
             return [], None, overdue.modified_count
 

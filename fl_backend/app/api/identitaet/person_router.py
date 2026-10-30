@@ -181,7 +181,7 @@ async def get_account_erasure_view(
     config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> FLAccountErasureViewResponse:
     """
-    Answer what `POST /identitaet/konto/loeschung` would remove for the signed-in address, by kind and by name.
+    Answer what `POST /identity/account/erasure` would remove for the signed-in address, by kind and by name.
 
     Read through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure
     removes or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address

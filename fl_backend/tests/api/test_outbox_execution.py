@@ -49,7 +49,7 @@ from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_postausgang_test")
+DATABASE_NAME = worker_database("fl_outbox_test")
 
 # A century ahead of the real clock: the TTL monitor deletes a row whose delete date has passed, under a case reading it.
 NOW = datetime(2126, 4, 16, 12, 30, tzinfo=UTC)
@@ -161,12 +161,12 @@ class TestTheEnqueue:
 
     def test_a_batch_replayed_owes_only_the_mails_its_first_run_did_not(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
-            async def batch(*key: str) -> None:
+            async def batch(*keys: str) -> None:
                 async def write(session: Any) -> None:
                     await enqueue_mails(
                         outbox_collection=database[Collection.OUTBOX],
                         session=session,
-                        mails=[OwedMail(key=key, an=NORA, data=SPERRE) for key in key],
+                        mails=[OwedMail(key=key, an=NORA, data=SPERRE) for key in keys],
                         now=NOW,
                     )
 

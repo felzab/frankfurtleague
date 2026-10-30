@@ -82,7 +82,7 @@ def _find_subject(reads: _Reads, session: object = None) -> FLSubjekt:
 
 
 class TestTheSubjectLookupsReads:
-    """`POST /identitaet/subjekt` answers every signed-in render, so its reads are paid in latency on every page."""
+    """`POST /identity/subject` answers every signed-in render, so its reads are paid in latency on every page."""
 
     def test_the_records_the_ban_and_the_grant_are_read_at_once(self, monkeypatch: pytest.MonkeyPatch):
         reads = _Reads()
@@ -169,7 +169,7 @@ class TestTheSubjectLookupsReads:
 
 
 class TestTheSignInGatesReads:
-    """`POST /identitaet/anmeldung` answers a sign-in rather than a render, and is the one read paying for the two kinds granting no panel."""
+    """`POST /identity/sign_in` answers a sign-in rather than a render, and is the one read paying for the two kinds granting no panel."""
 
     def test_the_five_record_reads_are_in_flight_together(self, monkeypatch: pytest.MonkeyPatch):
         reads = _Reads()

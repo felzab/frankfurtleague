@@ -15,7 +15,7 @@ from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 # sentence: a date where the mail prints one, a seat where it names one. A kind joins with the write that owes it, its
 # member written from the facts that write holds.
 
-# --- The sign-in library's mails, each owed through `POST /postausgang/anmeldung` and never by a league write. Each
+# --- The sign-in library's mails, each owed through `POST /outbox/sign_in` and never by a league write. Each
 # secret one rides in the row's `secret`, never here.
 
 
@@ -40,7 +40,7 @@ FLOutboxSignInData = Annotated[FLSignInCodeData | FLPasskeyData | FLAccountErasu
 
 
 class FLSperreData(BaseModel):
-    """The ban's own notice, the one mail a ban does not stop (`app/api/postausgang/services.py :: UNGESPERRT`)."""
+    """The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNGESPERRT`)."""
 
     art: Literal["sperre"]
     grund: str

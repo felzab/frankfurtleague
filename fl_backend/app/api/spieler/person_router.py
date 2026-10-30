@@ -285,7 +285,7 @@ async def get_self(identifier: SpielerIdentifier, spieler_collection: SpielerCol
     Answer the signed-in address's own pupil record's stored data with every squad row it holds.
 
     PERSON TIER: the whole surname and the birthdate, never masked, and never the sign-in address itself. A retired
-    record is served too. Its consent is the account page's (`GET /konto/einwilligungen`), so none is served here.
+    record is served too. Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.
 
     Refuses an address holding no confirmed pupil record (`role_not_held`).
     """

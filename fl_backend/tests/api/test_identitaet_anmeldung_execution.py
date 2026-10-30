@@ -313,7 +313,7 @@ class TestWhatCountsAsAnOwnRecord:
 @pytest.mark.db
 class TestTheFlagsBesideIt:
     def test_records_awaiting_confirmation_raise_the_subject_s_flag_and_admit_nothing_else(self, mongo_replica_set_url: str):
-        """The flag is `POST /identitaet/subjekt`'s own; only the records granting a panel raise it."""
+        """The flag is `POST /identity/subject`'s own; only the records granting a panel raise it."""
 
         assert [(answered(mongo_replica_set_url, email).unconfirmed) for email in (SITZ_OFFEN, BEWERBUNG_UNBESTAETIGT)] == [
             True,

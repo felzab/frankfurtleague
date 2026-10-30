@@ -284,7 +284,7 @@ async def patch_schiedsrichter(
     leaving it live is a credential in the wrong inbox.
 
     **A CONFIRMED referee's address is refused here** (`schiedsrichter_adresse_only_per_change`), retired or not: it is who signs in as the
-    person, and moves only through an address change: the address tool, `POST /adresswechsel`, or the person's own account page.
+    person, and moves only through an address change: the address tool, `POST /address_change`, or the person's own account page.
     A save keeping it lands, a pending change standing.
 
     **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is

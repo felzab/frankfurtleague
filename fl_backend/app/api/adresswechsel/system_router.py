@@ -401,7 +401,7 @@ async def get_address_change_moves(adresswechsel_collection: AddressChangeCollec
     List, oldest first and a page at a time, the ended changes still owing to carry a sign-in account to their new address.
 
     Each effect owed its carry in its own transaction, so a lost answer loses none. The caller moves each account and
-    hands the ids it moved to `POST /adresswechsel/sweep/umzuege/erledigt`; one it could not move is listed again by the
+    hands the ids it moved to `POST /address_change/sweep/moves/done`; one it could not move is listed again by the
     next call. Moving one twice finds no account left, so no claim holds them. Server to server alone: the answer names
     addresses.
     """
@@ -455,7 +455,7 @@ async def get_address_change_adresse(
     For the frontend's server alone, which asks its sign-in store whether an account stands there before a press, a link's
     view or an approval; the link's own view never serves the address. A token or id naming no live change -- unknown,
     ended, or the stop link's token -- is answered null rather than refused, so a lapsed or answered link costs no
-    error. Stores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the token travels in the body, and the
+    error. Stores nothing, and a POST for `POST /identity/subject`'s reason: the token travels in the body, and the
     address only in the answer.
     """
 

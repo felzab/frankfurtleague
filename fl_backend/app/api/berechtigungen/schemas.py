@@ -24,7 +24,7 @@ FLUtcInstant = Annotated[datetime, AfterValidator(as_utc)]
 FLBerechtigungAenderungArt = Literal["granted", "revoked", "changed"]
 
 # What a grant's notice tells: a change to a grant, or, no change of one yet, a grant or promotion asked for, waiting on
-# an approval (`app/api/postausgang/schemas.py :: FLGrantData`).
+# an approval (`app/api/outbox/schemas.py :: FLGrantData`).
 FLBerechtigungMitteilungArt = Literal[FLBerechtigungAenderungArt, Literal["requested"]]
 
 # Who made a queued change: an administrator through the application, or an edit in the database.

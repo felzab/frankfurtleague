@@ -1289,7 +1289,7 @@ def compose_erinnerung_update(*, seats: Sequence[str], today: str) -> Mapping[st
 def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str, undeliverable: bool) -> bool:
     """Whether the fourteen-day clock takes this application: submitted, past its deadline, a seat outstanding, the notice deliverable.
 
-    `undeliverable` is `app/api/postausgang/schemas.py :: FLOutboxState.unzustellbar` of the last mail owed the Ansprechperson: the
+    `undeliverable` is `app/api/outbox/schemas.py :: FLOutboxState.undeliverable` of the last mail owed the Ansprechperson: the
     deletion notice could not reach the submitter. An EMPTY Ansprechperson slot is not this case: no mailbox is left to
     tell, and the deadline takes the application unannounced.
 
@@ -1448,7 +1448,7 @@ def bewerbung_bezug(bewerbung_id: Any, seats: Sequence[FLKontaktRolle]) -> FLOut
 
 
 def lage_unzustellbar(lage: FLOutboxState | None) -> bool:
-    """`app/api/postausgang/schemas.py :: FLOutboxState.unzustellbar` of the last mail owed one seat, `False` where none was owed."""
+    """`app/api/outbox/schemas.py :: FLOutboxState.undeliverable` of the last mail owed one seat, `False` where none was owed."""
 
     return lage is not None and lage.undeliverable
 

@@ -98,7 +98,7 @@ async def get_erasure_view(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLErasureViewResponse:
     """
-    Answer which of this address's records `POST /identitaet/loeschung` would remove or empty, by kind, name and the ids a page links each by.
+    Answer which of this address's records `POST /identity/erasure` would remove or empty, by kind, name and the ids a page links each by.
 
     ADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names
     every one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,
@@ -256,7 +256,7 @@ async def post_erasure(
     """
     Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.
 
-    ADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/konto/loeschung` runs and refuses nothing about the
+    ADMIN TIER, a step-up write. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the
     person's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.
     Three refusals are about who asks. The administrator's own address is refused (`own_adresse`): their account page
     serves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,

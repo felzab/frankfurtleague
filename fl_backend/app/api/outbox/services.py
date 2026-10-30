@@ -76,7 +76,7 @@ FOLGT_AUF: Final[Mapping[FLOutboxDeliveryStand, tuple[FLOutboxDeliveryStand | No
 class OwedMail:
     """One mail a league write owes one recipient.
 
-    `data` is the kind's member of `app/api/postausgang/schemas.py :: FLOutboxData`, whose `art` is the row's.
+    `data` is the kind's member of `app/api/outbox/schemas.py :: FLOutboxData`, whose `art` is the row's.
     `key` is the mail's identity: the same on a replay of the write, so the replay finds the row its first run
     wrote and owes nothing twice, and distinct for every recipient and every mail the write owes. `link` mints a link at
     the hand-out on the record `reference` names.

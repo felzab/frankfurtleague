@@ -1311,7 +1311,7 @@ async def get_erasure_preview(
     registrierungen_collection: RegistrierungenCollection,
 ) -> FLErasurePreviewResponse:
     """
-    How many pupils `POST /identitaet/loeschung/sweep` deletes once this season is activated, and which season that activation closes.
+    How many pupils `POST /identity/erasure/sweep` deletes once this season is activated, and which season that activation closes.
 
     Judged by the run's own rule over the statuses the activation leaves: the season now `active` turned `past`, this one
     `active`, every other as it stands. A count and never a name, and writes nothing. It judges none of the activation's own

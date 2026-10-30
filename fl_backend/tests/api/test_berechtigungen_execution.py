@@ -720,7 +720,7 @@ class TestTheOwnersRow:
 
 
 class TestAnOwnerChangesATier:
-    """`PATCH /berechtigungen/{berechtigung_id}`: an owner promotes, demotes and steps down, each announced and logged."""
+    """`PATCH /grants/{grant_id}`: an owner promotes, demotes and steps down, each announced and logged."""
 
     def test_a_promotion_moves_the_tier_queues_its_notice_moves_the_record_and_is_logged(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
