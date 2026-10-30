@@ -825,16 +825,15 @@ export interface FLAdresswechselAnsichtResponse {
   ansicht: FLAdresswechselAnsichtNeu | FLAdresswechselAnsichtBisherig | FLAdresswechselAnsichtBeendet;
 }
 
-export type FLAdresswechselAntwortPayloadAntwort =
-  (typeof FLAdresswechselAntwortPayloadAntwort)[keyof typeof FLAdresswechselAntwortPayloadAntwort];
+export type FLAdresswechselAntwort = (typeof FLAdresswechselAntwort)[keyof typeof FLAdresswechselAntwort];
 
-export const FLAdresswechselAntwortPayloadAntwort = {
+export const FLAdresswechselAntwort = {
   bestaetigt: "bestaetigt",
   abgelehnt: "abgelehnt",
 } as const;
 
 export interface FLAdresswechselAntwortPayload {
-  antwort: FLAdresswechselAntwortPayloadAntwort;
+  antwort: FLAdresswechselAntwort;
   /**
    * @minLength 1
    * @maxLength 128
@@ -842,19 +841,11 @@ export interface FLAdresswechselAntwortPayload {
   token: string;
 }
 
-export type FLAdresswechselAntwortResponseAntwort =
-  (typeof FLAdresswechselAntwortResponseAntwort)[keyof typeof FLAdresswechselAntwortResponseAntwort];
-
-export const FLAdresswechselAntwortResponseAntwort = {
-  bestaetigt: "bestaetigt",
-  abgelehnt: "abgelehnt",
-} as const;
-
 /**
  * The answer recorded, and no address of the change: the notices an effect owes are queued, never answered.
  */
 export interface FLAdresswechselAntwortResponse {
-  antwort: FLAdresswechselAntwortResponseAntwort;
+  antwort: FLAdresswechselAntwort;
   genehmigung_offen: boolean;
   wirksam: boolean;
   wirksam_ab: string | null;
