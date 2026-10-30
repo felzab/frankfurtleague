@@ -860,7 +860,6 @@ async def generate_spielplan(
         # `stored=None` is the create's reading, and the one this wants: every rule judging the
         # numbers alone fires on the payload's own, and every rule judging a standing fixture is
         # skipped, each of those weighing a draw about to cease to exist.
-        shape_stated = spielplan_data.shape is not None
         refuse(
             as_the_draw_answers(
                 find_rules_refusal(
@@ -869,7 +868,6 @@ async def generate_spielplan(
                     occupancy_by_gruppe=occupancy,
                     highest_wired_platz=0,
                 ),
-                shape_stated=shape_stated,
             )
         )
 
@@ -884,7 +882,6 @@ async def generate_spielplan(
                     rules=rules,
                     spieltag_spans=[],
                 ),
-                shape_stated=shape_stated,
             )
         )
 

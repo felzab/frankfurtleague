@@ -635,9 +635,9 @@ class TestEachRefusalIsReachedThroughTheRoute:
                 id="clubs in a group the season does not offer",
             ),
             # `find_rules_refusal`, the OTHER call, the groups matching the rules so nothing above answers
-            # first: six qualifiers make no bracket, and with no shape stated the draw twin answers.
+            # first: six qualifiers make no bracket.
             pytest.param(
-                Code.RULES_BRACKET_IMPOSSIBLE_AS_STORED,
+                Code.RULES_BRACKET_IMPOSSIBLE,
                 Seed(saison=saison_document(rules=rules_document(groups=2, qualifiers=3)), entered=entry_rows(groups=2)),
                 id="rules whose product is no bracket",
             ),
