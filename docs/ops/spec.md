@@ -110,55 +110,34 @@ adds any back**: four, each one its master, starting as root, fails to start wit
 which lets every user bind below 1024 (read 2026-09-27, on engine 29.8.0). With `NET_RAW` in no
 container, none can read the traffic crossing `frankfurtleague-app` (§4).
 
-**The frontend container is also what runs the retention sweep.**
-`fl_frontend/src/instrumentation-node.ts :: registerOnNode` arms
-`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep` under a production build with
-`BEWERBUNG_SWEEP` on, and it then runs one pass a minute after start and then hourly, so every
-retention clock runs in the process that serves the site and stops when it stops. Production
-declares no replicas, so one process arms one timer, and a tick finding the previous pass
-still running skips with one line rather than overlapping it. The clocks that write inside the pass
-select on dates or on season statuses and are idempotent,
-so a redeploy, a restart and a double-arm each cost nothing; the deletion notice is idempotent to one
-floor, a crash between a delivery and its stamp repeating that one notice once. Ending an address change whose step lapsed is the
-pass's alone, and so, but for an approval pressed after it, is making one take effect once its
-waiting time ends: each happens only while `BEWERBUNG_SWEEP` arms the timer
-([`runbooks.md`](runbooks.md) §9). `BEWERBUNG_SWEEP` is what turns the
-pass off on a production build (§1.5); a `next dev` process arms nothing whatever that switch says,
-its default being on. Each of those is a way for the sweep to be absent, and `GET /bewerbungen/sweep`
-is what tells one from a pass that found nothing to do: it answers the day the last pass ran, null
-where none ever has. The half after the season
-loop stamps no day, so its per-pass log line is its record. [`runbooks.md`](runbooks.md) §9 is the
-call.
+**The frontend container is also what runs the background jobs, from one scheduler.**
+`fl_frontend/src/instrumentation-node.ts :: registerOnNode` arms `:: armScheduler` under a production
+build, and it runs one pass a minute after start and then hourly, so every job runs in the process
+that serves the site and stops when it stops. A pass runs each job in turn: the retention sweep
+(`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`), the account sweep
+(`fl_frontend/src/features/funktionen/sweep.ts :: runKontoSweep`), the pupils' deletion
+(`fl_frontend/src/features/saisons/sweep.ts :: runLoeschungSweep`), the fixture confirmations
+(`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`) and the grants' notices
+(`fl_frontend/src/features/berechtigungen/abgleich.ts :: runBerechtigungenAbgleich`). Then the
+Postausgang's drain (`fl_frontend/src/core/mail.ts :: drainPostausgang`) sends what they owed; a
+write that owes a mail drains at once besides. **No switch holds a job back**: every job runs
+wherever a production build runs, the local stack included (§1.5), and a `next dev` process arms
+nothing. Production declares no replicas, so one process arms one timer, and an hour that finds the
+previous pass still running is skipped with one line rather than overlapping it. Every job selects
+on dates, lapses or season statuses and is idempotent, so a redeploy, a restart and a missed hour
+each cost nothing, and a job that throws stops none of the others. The deletion notice is
+idempotent to one floor: a crash between a delivery and its stamp repeats that one notice once.
+Ending an address change whose step lapsed is the retention sweep's alone, and so, but for an
+approval pressed after it, is making one take effect once its waiting time ends. A pupils' deletion
+beside an activation's own deletes nobody twice, the backend judging each pupil again in a
+transaction of their own, and the account sweep counts an account already gone as such.
 
-**It runs the account sweep too, on a timer and a switch of its own.**
-`fl_frontend/src/instrumentation-node.ts :: registerOnNode` arms
-`fl_frontend/src/features/funktionen/sweep.ts :: armKontoSweep` under a production build with
-`KONTO_SWEEP` on, on the same schedule, a minute after start and then hourly: an operator stops
-account deletion without stopping the retention clocks, and a slow retention pass delays none of
-it. A pass deletes the sign-in account of every address no record references, and a pass repeated costs nothing, an
-account already gone being counted as such. Nothing stores that a pass ran, so its completion line
-in the frontend's log is the answer ([`runbooks.md`](runbooks.md) §9 reads it).
-
-**And it runs the pupils' deletion, on a timer of its own under `LOESCHUNG_SWEEP`.**
-`fl_frontend/src/instrumentation-node.ts :: registerOnNode` arms
-`fl_frontend/src/features/saisons/sweep.ts :: armLoeschungSweep` under a production build with
-`LOESCHUNG_SWEEP` on, off by default, on the same schedule, whatever `BEWERBUNG_SWEEP` reads:
-activating a season deletes under that switch first and tells the administrator the next hourly pass
-finishes the rest, so no other switch may hold that pass back. Each pass drops the squad cache after
-its last call, and a pass beside an
-activation's calls deletes nobody twice, the backend
-judging each pupil again in a transaction of their own. Its per-pass line is its record
-([`runbooks.md`](runbooks.md) §9).
-
-**And the fixture confirmations, on a timer of their own under `SPIEL_SWEEP`.**
-`fl_frontend/src/instrumentation-node.ts :: registerOnNode` arms
-`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: armSpielSweep` under a production build
-with `SPIEL_SWEEP` on, off by default, on the same schedule, whatever any other switch reads. Off is deliberate: the first armed passes
-mail every fixture of the running season inside the answer window, so a deploy never starts the
-league's fixture mail, and the switch alone stops it for every season at once. A pass mails before
-it stamps a first request and drops the fixtures cache after its last call. `GET /spielbestaetigungen/sweep`
-answers the day the last pass ran, and its per-pass line is its record
-([`runbooks.md`](runbooks.md) §9).
+**After every pass the scheduler pings Better Stack's heartbeat**, at the address
+`secrets/betterstack_heartbeat_url` holds. It appends `/fail` and names each job where a job threw,
+left owed deletions or erasures, or the drain gave a mail up. The monitor alerts on a failed ping
+and on a missing one, so the heartbeat is what answers whether the passes run, and each job's
+per-pass line in the frontend's log says what it did ([`runbooks.md`](runbooks.md) §9). The ping
+never fails the pass.
 
 **Note:** `API_VERSION` is a constant of the code rather than a setting, so bumping it is a code change — and the
 version is spelled again outside the code, at sites a commit does not all reach. §4 names the sites
@@ -608,13 +587,12 @@ check and before the daemon is asked anything, ending 0 where none refuses.
 config**, `docker-compose.local.yml :: local_mongodb_uri`, mounted where each reads its login: it
 names the stack's `mongo` service and holds no credential, so no machine needs a login to run it and
 no run is left aimed at the wrong cluster.
-The same override sets `BEWERBUNG_SWEEP` and `KONTO_SWEEP` off and `APP_ENV` to `local`, and hands
-the frontend no key to the mail provider. The database is a copy of production, so
-an armed pass here deletes real applications and stamps real rows, and an armed account sweep
-deletes every account signed in here that no record references; `APP_ENV` is what keeps the
-notices it raises off the people those rows name, each landing in the sink instead but one to an
-address the ban list holds, which is filed nowhere. One checked-in line is what a developer
-flips to exercise the sweep (§1.1). **Every start empties the sink of what earlier runs filed**, so
+The same override sets `APP_ENV` to `local` and hands the frontend no key to the mail provider. The
+database is a copy of production, and every job runs here as it does there (§1.1): a pass deletes
+real applications and stamps real rows in the copy, and the account sweep deletes every account
+signed in here that no record references. `APP_ENV` is what keeps the notices they raise off the
+people those rows name, each landing in the sink instead but one to an address the ban list holds,
+which is filed nowhere. **Every start empties the sink of what earlier runs filed**, so
 no code there reads as current that is not (`scripts/ops/local.sh :: empty_mail_sink`): the
 directory is compose's own bind source for the frontend's sink, refused outside the checkout, and
 only a name the sink writes is removed.

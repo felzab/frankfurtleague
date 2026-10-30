@@ -2,12 +2,10 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
-import { frontend_config } from "@/core/config";
 import { isRecordMissing } from "@/core/errors";
 import { kontextOf } from "@/features/spielberichte/components/forms/SpielberichtForm/spielberichtDraft";
 import { SpielberichtForm } from "@/features/spielberichte/components/forms/SpielberichtForm/SpielberichtForm";
 import { SpielberichtZustandView } from "@/features/spielberichte/components/views/SpielberichtZustandView";
-import { SPIELBERICHT_GESCHLOSSEN_ADMIN } from "@/features/spielberichte/constants";
 import { getAdminSpielbericht } from "@/features/spielberichte/queries";
 import { berichtSperre } from "@/features/spielberichte/utils";
 import { resolveSpielId } from "@/features/spiele/resolvers";
@@ -34,8 +32,7 @@ async function AdminSpielberichtContent({ params }: { params: NextPageProps<{ sp
   await connection();
   const spielId = await resolveSpielId(params);
 
-  // Read whatever the switch says: the admin read is where a refused session is turned away, and an unknown
-  // fixture answers its 404 before any closed state names it.
+  // The admin read is where a refused session is turned away, and an unknown fixture answers its 404.
   let lesen;
   try {
     lesen = await getAdminSpielbericht(spielId, { kader: true });
@@ -46,16 +43,6 @@ async function AdminSpielberichtContent({ params }: { params: NextPageProps<{ sp
 
   // The fixture's own season rides along, as every admin link carries the season being worked in.
   const zumSpiel = { href: withSaisonId(`/bereich/admin/spiele/${spielId}`, lesen.spiel.saison_id), label: "Zum Spiel" };
-
-  // The correction enters pupils into a report as the referee's form does, so the switch closes it too.
-  if (frontend_config.SPIELBERICHT_EINGABE !== "on") {
-    return (
-      <SpielberichtZustandView
-        title={SPIELBERICHT_GESCHLOSSEN_ADMIN}
-        aktion={zumSpiel}
-      />
-    );
-  }
 
   // The write's refusals the fixture already shows, stated before a whole report is typed, as on the referee's page. A
   // report may predate the move or call-off, so the hints say when it is edited, never that none exists.

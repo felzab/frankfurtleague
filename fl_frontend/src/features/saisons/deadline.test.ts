@@ -11,7 +11,6 @@ const CONFIG = {
     API_URL: API_URL,
     APP_ENV: "production",
     AUTH_URL: "https://liga.example.de",
-    LOESCHUNG_SWEEP: "on",
   },
   internalApiKeyBase: () => "base-key-double",
   internalApiKeySystem: () => "system-key-double",

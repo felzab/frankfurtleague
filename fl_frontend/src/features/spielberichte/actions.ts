@@ -1,11 +1,9 @@
 "use server";
 
-import { frontend_config } from "@/core/config";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import { SPIELBERICHT_GESCHLOSSEN_REFUSAL } from "./constants";
 import { patchAdminSpielbericht } from "./mutations";
 import { FLSpielberichtPayloadSchema } from "./schemas";
 import { mapSpielberichtRefusal } from "./utils";
@@ -22,9 +20,6 @@ export async function patchAdminSpielberichtAction(
   rawPayload: z.input<typeof FLSpielberichtPayloadSchema>,
 ): Promise<ActionResult> {
   return runAdminMutation("patchAdminSpielberichtAction", { stepUp: true }, async () => {
-    // Inside the spine, never ahead of it: a caller the guard turns away is the spine's to answer whatever the switch reads.
-    if (frontend_config.SPIELBERICHT_EINGABE !== "on") return { success: false, error: SPIELBERICHT_GESCHLOSSEN_REFUSAL };
-
     const id = CustomObjectIdStringSchema.safeParse(spielId);
     const validated = FLSpielberichtPayloadSchema.safeParse(rawPayload);
     if (!id.success || !validated.success) {

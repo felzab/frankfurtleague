@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
-import { frontend_config } from "@/core/config";
 import { buildReplacementContext } from "@/features/saisons/components/forms/AdminSaisonEditForm/replacementOffer";
 import { AdminSaisonEditView } from "@/features/saisons/components/views/AdminSaisonEditView";
 import { getAdminSaisons, getLoeschungVorschau } from "@/features/saisons/queries";
@@ -47,8 +46,6 @@ function loeschungsVorschau(gelesen: FLLoeschungVorschauResponse | "unlesbar" | 
   return {
     abgeschlosseneSaisonId: gelesen.abgeschlossene_saison_id,
     spieler: gelesen.spieler,
-    // The same comparison the press makes, so the panel never says a deletion the press skips.
-    eingeschaltet: frontend_config.LOESCHUNG_SWEEP === "on",
   };
 }
 

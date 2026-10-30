@@ -2,7 +2,7 @@ import { cacheCalls, doubleActionRequest, loggedLines } from "@/test-support/act
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, refusalCodes, refused } from "@/test-support/refusals.ts";
 import { saisonRules } from "@/test-support/saisonRules.ts";
-import { assert, beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { SITE_CACHE_TAG } from "@/core/siteCache.ts";
 import { TEAMS_EINTRAG } from "@/features/admin/constants.ts";
@@ -13,27 +13,12 @@ import { mapActivateRefusal, mapRulesRefusal, mapSaisonIdRefusal, mapSpielplanRe
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 import type { FLSaisonRules } from "./schemas.ts";
 
-/** The deletion's switch as the doubled config answers it, which a case sets: off where it sets nothing, as production. */
-let loeschungSwitch: string | undefined = "off";
-
 /* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
 doubleActionRequest();
-// A getter, so a case can move the switch the one loaded module reads.
-vi.doMock("@/core/config.ts", () => ({
-  frontend_config: {
-    get LOESCHUNG_SWEEP() {
-      return loeschungSwitch;
-    },
-  },
-}));
 const { answerWith, calls } = doubleApiAnswers();
 const { activateSaisonAction, generateSpielplanAction, patchSaisonAction, postSaisonAction, swapGruppenAction, undrawSpielplanAction } =
   await import("./actions.ts");
 const { APIBadStatusError, APINetworkError } = await import("@/core/errors.ts");
-
-beforeEach(() => {
-  loeschungSwitch = "off";
-});
 
 const SAISON_ID = "2026";
 
@@ -92,7 +77,8 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
 
 describe("the season's writes", () => {
   it("reach each published path and method, the id in the path and the fields alone in the body", async () => {
-    answerWith((call) => Promise.resolve(landed(call)));
+    // The activation runs the pupils' deletion after it, which this case answers as having deleted nobody.
+    answerWith((call) => Promise.resolve(call.endpoint === LAUF ? gelaufen(0, 0) : landed(call)));
 
     await postSaisonAction(SAISON);
     await patchSaisonAction(SAISON);
@@ -106,6 +92,7 @@ describe("the season's writes", () => {
       { endpoint: "/saisons", method: "POST", body: SAISON },
       { endpoint: `/saisons/${id}`, method: "PATCH", body: fields },
       { endpoint: `/saisons/${id}/activate`, method: "POST", body: undefined },
+      { endpoint: LAUF, method: "POST", body: undefined, params: {} },
       { endpoint: `/saisons/${id}/spielplan`, method: "POST", body: { replace: true } },
       { endpoint: `/saisons/${id}/spielplan`, method: "DELETE", body: undefined },
       { endpoint: `/saisons/${id}/gruppen/swap`, method: "POST", body: { team1_id: TEAM1_ID, team2_id: TEAM2_ID } },
@@ -524,10 +511,6 @@ async function umgestellt(): Promise<string> {
 }
 
 describe("the deletion the activation runs", () => {
-  beforeEach(() => {
-    loeschungSwitch = "on";
-  });
-
   /* The spine clears the tag once the body settles: a run behind the answer lands after the clear, and a squad page
      names deleted pupils until the lifetime passes. One list reads the order rather than assuming it. */
   it("runs the pass to its end after the activation, the tag cleared after the last call's answer", async () => {
@@ -563,17 +546,6 @@ describe("the deletion the activation runs", () => {
     ]);
     expect(message).toBe(`${AKTIVIERT} 3 Spielerinnen und Spieler ohne Kadereintrag seit Saison 2025 wurden gelöscht.`);
   });
-
-  /* Unset is what a skipped validation leaves: a test negating "off" would delete there. */
-  for (const schalter of ["off", undefined]) {
-    it(`calls nothing more and answers as before where the switch reads ${String(schalter)}`, async () => {
-      loeschungSwitch = schalter;
-      aktivierungUndLaeufe(() => Promise.resolve(gelaufen(2, 0)));
-
-      expect(await umgestellt()).toBe(AKTIVIERT);
-      expect(laeufe(), `the switch reads ${String(schalter)} and the press deleted`).toBe(0);
-    });
-  }
 
   it("deletes nobody where the activation was refused", async () => {
     answerWith((call) => (call.endpoint === LAUF ? Promise.resolve(gelaufen(1, 0)) : Promise.reject(refused("REQ-ACTIVATE-001"))));

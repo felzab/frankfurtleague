@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
-import { frontend_config } from "@/core/config";
 import { AdminContextWrapper } from "@/features/admin/components/providers/AdminContextWrapper";
 import { AdminSpielEditView } from "@/features/admin/components/views/AdminSpielEditView";
 import { getAdminSpielbericht } from "@/features/spielberichte/queries";
@@ -46,11 +45,7 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
     // is `null`, which the panel says, as the confirmations' panel says its own.
     runWithIncomingTrace(() => getAdminSpielbericht(spielId).catch(nullAfterLoggingUnexplained)),
   ]);
-  const eingabeOffen = frontend_config.SPIELBERICHT_EINGABE === "on";
-  // Read whatever the switch: the triage files a standing report's fixture whatever it reads, and only the adoption
-  // here clears it. Closed, a fixture with no report shows no panel, and a standing one offers no correction.
-  const spielbericht: SpielberichtStand | null | undefined =
-    berichtRes === null ? null : eingabeOffen || berichtRes.bericht !== null ? { lesen: berichtRes, korrigierbar: eingabeOffen } : undefined;
+  const spielbericht: SpielberichtStand | null = berichtRes === null ? null : { lesen: berichtRes };
 
   if (!spielRes) {
     notFound();
@@ -73,8 +68,6 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
         key={spielStateKey(spielRes.spiel)}
         spielData={spielRes.spiel}
         today={getGermanTodayStr()}
-        // The comparison the timer is armed on, so the near-date warning never announces a request no pass sends.
-        isSpielSweepOn={frontend_config.SPIEL_SWEEP === "on"}
         bestaetigungen={
           bestaetigungenRes === null
             ? null

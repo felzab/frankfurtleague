@@ -96,7 +96,7 @@ function BerichtInhalt({
   today: string;
 }) {
   const saisonHref = useSaisonHref();
-  const { lesen, korrigierbar } = stand;
+  const { lesen } = stand;
   const { bericht, zustand, spiel } = lesen;
   // Both writes refuse a called-off fixture (`REQ-BERICHT-004`), and its result is no proposal's to set.
   const istAbgesagt = zustand === "abgesagt";
@@ -189,12 +189,10 @@ function BerichtInhalt({
         </>
       )}
 
-      {/* The correction page writes only while the switch reads on and the stored fixture takes a report; a
-          client-side navigation passes the editor's unsaved-changes guard, so a seeded draft would go unasked. */}
+      {/* The correction page writes only where the stored fixture takes a report; a client-side navigation passes the
+          editor's unsaved-changes guard, so a seeded draft would go unasked. */}
       {berichtSperre(spiel, today) === null &&
-        (!korrigierbar ? (
-          <p className="muted-hint">Solange Spielberichte nicht freigeschaltet sind, lässt sich der Bericht nicht bearbeiten.</p>
-        ) : hatEntwurf ? (
+        (hatEntwurf ? (
           <Hint
             mode="refusal"
             reason="Speichere oder verwirf zuerst Deine Änderungen am Spiel."

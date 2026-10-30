@@ -176,48 +176,6 @@ const environment = {
     return protocol === "https:" || hostname === "localhost" || hostname === "127.0.0.1";
   }, "AUTH_URL must use https:// unless it points at localhost"),
 
-  // Defaulted so no server .env is touched to arm the retention sweep, and an enum rather than
-  // `z.coerce.boolean()`, which reads the string "false" as true and settles before a default
-  // could apply.
-  BEWERBUNG_SWEEP: z
-    .string()
-    .transform((value) => value.toLowerCase())
-    .pipe(z.enum(["on", "off"]))
-    .default("on"),
-
-  // The account sweep's own switch, for `BEWERBUNG_SWEEP`'s reasons: defaulted so no server .env is
-  // touched to arm it, and an enum because `z.coerce.boolean()` reads the string "false" as true.
-  KONTO_SWEEP: z
-    .string()
-    .transform((value) => value.toLowerCase())
-    .pipe(z.enum(["on", "off"]))
-    .default("on"),
-
-  // Off where the server sets nothing, unlike `BEWERBUNG_SWEEP`: it deletes pupils, and an operator
-  // turns it on only once the season page's count is read (`docs/ops/runbooks.md` §9).
-  LOESCHUNG_SWEEP: z
-    .string()
-    .transform((value) => value.toLowerCase())
-    .pipe(z.enum(["on", "off"]))
-    .default("off"),
-
-  // Off where the server sets nothing, unlike `BEWERBUNG_SWEEP`: its first pass mails about every fixture already
-  // inside the answer window, so arming it is a day an operator chooses rather than a deploy (`docs/ops/runbooks.md` §9).
-  SPIEL_SWEEP: z
-    .string()
-    .transform((value) => value.toLowerCase())
-    .pipe(z.enum(["on", "off"]))
-    .default("off"),
-
-  // Off where the server sets nothing, so no deploy opens the report form: it opens on the day
-  // `docs/ops/runbooks.md` §9 switches it on with `SPIEL_SWEEP`. Not `SPIEL_SWEEP` widened, which stops the mail in a
-  // provider fault.
-  SPIELBERICHT_EINGABE: z
-    .string()
-    .transform((value) => value.toLowerCase())
-    .pipe(z.enum(["on", "off"]))
-    .default("off"),
-
   // Public: the bot check's widget prints it into the page. No default, so a host's file leaving it out
   // is refused before the recreate rather than at the boot.
   TURNSTILE_SITE_KEY: z.string().min(1),

@@ -913,17 +913,17 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   card's reason, on the reports and in the log's images, in a transaction of its own after the
   confirmations' strip (`fl_backend/app/api/bewerbungen/sweep_router.py :: strip_the_reports`). The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`).
   Ruled 2026-10-20.
-- **Timers in the frontend process are what turn those clocks from an intention into a mechanism**
-  (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`, calling
+- **The frontend process's hourly scheduler is what turns those clocks from an intention into a mechanism**
+  (`fl_frontend/src/instrumentation-node.ts :: armScheduler`, running
+  `fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`, which calls
   `fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison` and
   `fl_backend/app/api/registrierungen/sweep_router.py :: sweep_registrierungen` per season, then
-  `fl_backend/app/api/adresswechsel/sweep_router.py :: sweep_adresswechsel`, `POST /adresswechsel/sweep`; and, where
-  `LOESCHUNG_SWEEP` is on, `fl_frontend/src/features/saisons/sweep.ts :: armLoeschungSweep`, calling
-  `fl_backend/app/api/identitaet/sweep_router.py :: post_loeschung_lauf`).
-  A season's two sweeps record the day they ran, one that reminds nobody and deletes nothing exactly
-  as a busy one does, and `GET /bewerbungen/sweep` answers the day each last ran, so a claim that one of their periods was honoured rests on a
-  date rather than on reading the data. The lapsed addresses' removal and the pupils' deletion
-  stamp no day: their record is the line each writes per pass in the frontend's log
+  `fl_backend/app/api/adresswechsel/sweep_router.py :: sweep_adresswechsel`, `POST /adresswechsel/sweep`; and
+  `fl_frontend/src/features/saisons/sweep.ts :: runLoeschungSweep`, which calls
+  `fl_backend/app/api/identitaet/sweep_router.py :: post_loeschung_lauf`). Every job runs on every pass, with no
+  switch to hold one back. A pass pings the heartbeat monitor, and `/fail` naming each job that threw or left an owed
+  deletion or erasure, so a claim that one of their periods was honoured rests on that report and on each job's
+  per-pass line in the frontend's log rather than on reading the data
   ([`ops/runbooks.md`](ops/runbooks.md#9-checking-that-the-hourly-passes-have-run) §9).
 - **Access logs stay on the host and are kept for at most eight days. The application logs are
   bounded by size while they run, and by thirty days as the copy each deploy makes.** The access

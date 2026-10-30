@@ -1123,26 +1123,28 @@ whatever closed the host's inbound 80 and 443 is opened.
 
 ## 9. Checking that the hourly passes have run
 
-**One call answers it for the retention sweep**, on the system key, from inside the frontend container: the backend publishes
-no port on the host, and the container holds the key, so it never passes through your shell.
+**The heartbeat answers it.** After every hourly pass the scheduler
+(`fl_frontend/src/instrumentation-node.ts :: armScheduler`) pings Better Stack's heartbeat monitor,
+and pings it with `/fail` where a job threw, left owed deletions or erasures, or the drain gave a
+mail up, its output naming each: `konto failed`, `loeschung left 3`, `postausgang gave up 2`. The
+monitor alerts on a failing ping and on a missing one, so an alert names the job whose lines to read
+in the frontend's log, and `scheduler.job_failed` names a job that threw. **A missing ping means no
+pass finished**: the frontend process holds the timer, so the container can be up while the timer
+inside it is not, and a `scheduler.pass_skipped` line in every hour says a pass is stuck. Recreating
+the frontend service arms a fresh timer, and the jobs select on dates, lapses and season statuses
+rather than on the hour that ran them, so the pass that follows does whatever the missed hours owed.
+
+**Each hourly pass writes one line for each half of the retention sweep**, `bewerbung.sweep_pass`
+and `registrierung.sweep_pass`:
 
 ```bash
-docker compose exec frontend node -e "fetch('http://backend:8000/api/v0/bewerbungen/sweep',{headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim()}}).then(r=>r.text()).then(console.log)"
+docker compose logs --since 2h frontend | grep -E 'bewerbung.sweep_pass|registrierung.sweep_pass'
 ```
 
-**`sweep_gelaufen_am` and `registrierung_sweep_gelaufen_am` are the days those two passes last ran,
-and both are today or yesterday on a healthy stack.** A pass that reminds nobody and deletes nothing
-records its day exactly as a busy one does ([`spec.md`](spec.md) §1.1), so the dates are the answer
-and the absence of log lines is not.
+**A half that did not finish says why in the frontend's log.** Each files its own failure line,
+`bewerbung.sweep_failed` and `registrierung.sweep_failed`, so the event name is what names the half.
 
-**A stale date says its own pass did not finish, and the frontend's log says why.** One hourly tick
-runs the two halves of each season independently, and each files its own failure line —
-`bewerbung.sweep_failed` and `registrierung.sweep_failed` — so the event name is what names the
-half, and the date alone is not: the application's endpoint stamps its day before the calls that
-follow it, so a throw after that stamp leaves a fresh application date beside a stale registration
-one just as a failed registration call would.
-
-**A row either pass cannot write is passed over and named, and the date still moves.** The
+**A row either pass cannot write is passed over and named, and the pass goes on.** The
 backend's line names the application, the registration or the season row by id, the error's class
 and what locates it, never a person's values: `DB-FAIL-001` is a write the database refused, with
 the properties its validator refused; `SRV-VAL-001` a stored value the answer cannot carry, such as
@@ -1155,15 +1157,11 @@ names the season**, as it takes an ended season's fixture confirmations whole: i
 theirs the season's end could not strip, the contact blocks clear all the same, and every later pass
 tries again.
 
-**A fresh date beside a `bewerbung.sweep_pass` or `registrierung.sweep_pass` warning is a clock
-passing rows over, not a pass that ran clean.** A clock failing on every row still moves its date,
-so this count is the only sign of it. Each pass writes one line for each half, its `fehlgeschlagen`
-summing the rows that half's clocks passed over across every season: `INFO` at zero, and a warning
-above it. The backend's lines then name each row, as above:
-
-```bash
-docker compose logs --since 2h frontend | grep -E 'bewerbung.sweep_pass|registrierung.sweep_pass'
-```
+**A `bewerbung.sweep_pass` or `registrierung.sweep_pass` warning is a clock passing rows over, not a
+pass that ran clean.** A clock failing on every row still finishes its pass, so this count is the
+only sign of it. Each pass writes one line for each half, its `fehlgeschlagen` summing the rows that
+half's clocks passed over across every season: `INFO` at zero, and a warning above it. The
+backend's lines then name each row, as above.
 
 **A clock owing a message answers what it had done when the deadline stops it taking rows apart;
 every other clock fails the call.** The clocks owing one are the two reminder clocks and the
@@ -1171,8 +1169,7 @@ registrations' season's end. For them a warning that the database deadline passe
 no further attempt, is the call answering every half that committed, and the next pass goes on;
 where the warning names a commit unanswered, under `DB-FAIL-002`, the rows it names may have been
 written with nobody told, and a later pass meets again only those it did not write. Any other clock
-the deadline stops there fails its call with the date left stale, as a failure the dates above
-report.
+the deadline stops there fails its call, as the failure lines above report.
 
 **The half after the seasons stamps no day, so its own line is the record.** Every pass ends by
 ending the address changes whose step lapsed and making the due ones take effect, then draining the
@@ -1196,15 +1193,12 @@ docker compose logs --since 2h frontend | grep -E 'adresswechsel\.(postausgang_f
 A `konto_nicht_umgezogen` line at `WARN` needs no repair: reading `grund: "belegt"`, the new address
 held an account of its own, and the person signs in there anew.
 
-**The pupils' deletion runs on a timer of its own wherever `LOESCHUNG_SWEEP` reads `on`**, a
-minute after the frontend starts and then hourly, whatever `BEWERBUNG_SWEEP` reads
-(`fl_frontend/src/features/saisons/sweep.ts :: armLoeschungSweep`). It stamps no day either: each
+**The pupils' deletion runs on every pass**
+(`fl_frontend/src/features/saisons/sweep.ts :: runLoeschungSweep`). It stamps no day either: each
 pass deletes the pupils the season-after rule makes due, drops the squad cache after its last call,
 and writes one `loeschung.sweep_pass` line, at `INFO` where it left no pupil due and as a warning
 where it left pupils it failed or passed over; a pass whose call threw files `loeschung.sweep_failed`
-besides. A `loeschung.sweep_skipped` line says a tick found the previous pass
-still running, and one in every hour says that pass is stuck, which recreating the frontend service
-ends:
+besides:
 
 ```bash
 docker compose logs --since 2h frontend | grep loeschung.sweep_
@@ -1246,56 +1240,28 @@ an empty one or one the rule refuses to the folded address the person is establi
 [section 5](#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it) establishes a lost
 mailbox's.
 
-**Null means no pass of that kind has ever run against this database**, which on production is one
-of the ways [`spec.md`](spec.md) §1.1 lists: `BEWERBUNG_SWEEP` off,
-`fl_frontend/src/instrumentation-node.ts :: registerOnNode` not reached, or a build that is not a production
-one. `BEWERBUNG_SWEEP` arms the whole pass, so two nulls point at the frontend container's
-environment and its startup rather than at the backend. `LOESCHUNG_SWEEP` holds the pupils'
-deletion alone, its hourly timer and the activation press both, and `BEWERBUNG_SWEEP` reaches
-neither.
-
-**Two promises rest on `BEWERBUNG_SWEEP`**, both the address-change half's to keep
+**Two promises rest on the retention sweep's pass**
 (`fl_frontend/src/features/bewerbungen/sweep.ts :: sweepAdresswechsel`): the privacy notice's word
 that a change whose step lapsed ends „innerhalb einer Stunde“, and the word, in the notice and in
 both mails the change sends (`fl_frontend/src/core/adresswechselEmail.ts`), that a change an
-administrator started with a reason takes effect its waiting time after its confirmation. While `BEWERBUNG_SWEEP` is off neither is kept: a lapsed change keeps
-its new address and its reason, and a change past its waiting time takes effect only where an
-approval it still owed is pressed after it. **The activation press's message that the next hourly pass deletes what it left („Was noch
-aussteht, löscht der nächste stündliche Durchlauf“) rests on `LOESCHUNG_SWEEP` alone**: the switch
-the press deletes under arms that pass, and with it the squad cache's drop after it.
+administrator started with a reason takes effect its waiting time after its confirmation. While no
+pass runs neither is kept: a lapsed change keeps its new address and its reason, and a change past
+its waiting time takes effect only where an approval it still owed is pressed after it. **The
+activation press's message that the next hourly pass deletes what it left („Was noch aussteht,
+löscht der nächste stündliche Durchlauf“) rests on the pupils' deletion running every pass**, and
+with it the squad cache's drop after it.
 
-**A date more than a day old means the timer stopped**: the frontend process holds it
-, so the container is up and the timer inside it is not. Recreating the
-frontend service arms a fresh one, and the clocks select on dates and season statuses rather than
-on the hour that ran them, so the pass that follows does whatever the missed days owed.
+**Read the season page's count before pressing the rollover.** Beside the press it says at most
+how many pupils activating the season deletes, and which season it closes. It is a bound because it
+counts the pupils the run passes over too (`SRV-VAL-001` above). A figure naming more people than
+the league lost is the signal to hold the press and ask why, and a line saying the count is not
+available is a read that failed: reload the page until it gives a figure.
 
-**Turn the pupils' deletion on only after reading the season page's count.** `LOESCHUNG_SWEEP`
-ships off, so neither an activation nor a pass deletes a pupil until you set it.
+**The fixture confirmations run on every pass**
+(`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`).
 
-1. Open the planned season's page and read the count beside its rollover press: at most how many
-   pupils activating it would delete, and which season it closes. It is a bound because it counts
-   the pupils the run passes over too (`SRV-VAL-001` above). A figure naming more people than the
-   league lost is the signal to leave the switch off and ask why, and a line saying the count is not
-   available is a read that failed: reload the page until it gives a figure.
-2. Add `LOESCHUNG_SWEEP=on` to the server's `fl_frontend/.env` and deploy (§1). The frontend reads
-   it once as it boots, arming the hourly deletion, and the season page then says the press will
-   delete them.
-
-**Switching it off is that line set to `off`, and a deploy**: until the frontend has booted on it, a
-pass or a press can still delete.
-
-**The fixture confirmations run on a timer of their own wherever `SPIEL_SWEEP` reads `on`**, a
-minute after the frontend starts and then hourly, whatever any other switch reads
-(`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: armSpielSweep`). One call answers
-whether they ran, as the retention sweep's does:
-
-```bash
-docker compose exec frontend node -e "fetch('http://backend:8000/api/v0/spielbestaetigungen/sweep',{headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim()}}).then(r=>r.text()).then(console.log)"
-```
-
-**`spiel_sweep_gelaufen_am` is the day the last pass ran**, today or yesterday on a healthy stack
-with the switch on, and null where none ever has. Each pass that could list the seasons writes one
-`spielbestaetigung.sweep_pass` line counting the rows it closed, the first requests and Einteilungen
+**Each pass that could list the seasons writes one `spielbestaetigung.sweep_pass` line**, the
+record of what it did, counting the rows it closed, the first requests and Einteilungen
 it stamped as asked, the reminders the backend stamped for it to mail, whether or not each then
 went, the notices it stamped out, told or given up, the notices given up and the rows it passed over, at `INFO`,
 and as a warning where it passed rows over or gave a notice up. A notice of a
@@ -1310,35 +1276,19 @@ that failed files that line and no pass line. A request or an Einteilung whose s
 is asked again on every pass until one does or the row stops taking an answer (a club's after its
 deadline, a referee's after the fixture's day), each address whose last
 mail the provider refused passed over, so a stamp call failing hour after hour mails those seats
-and referees hourly: switch the confirmations off until it is repaired. Every link such a mail
-carried stays live until the deadline beside the later ones. A `spielbestaetigung.sweep_skipped` line in every hour says a pass is stuck, which
-recreating the frontend service ends:
+and referees hourly until it is repaired. Every link such a mail
+carried stays live until the deadline beside the later ones:
 
 ```bash
 docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_
 ```
 
-**Turn the confirmations on once, on a day you choose, in the same edit as the report form's switch
-below: the first armed passes are a burst.**
-`SPIEL_SWEEP` ships off, so a deploy mails no team. Armed, the passes ask about every dated fixture
-of the running season inside the answer window
+**The first passes to meet a running season's unasked fixtures are a burst**: they ask about every
+dated fixture of the running season inside the answer window
 (`fl_backend/app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE` plus
 `:: SPIEL_ANFRAGE_VORLAUF_TAGE` days ahead), every mailbox of both clubs' seats and each booked
 referee, spread over as many hourly passes as the per-pass share needs, and a fixture inside the
 deadline's own days is due the day it is asked.
-
-1. Add `SPIEL_SWEEP=on` and `SPIELBERICHT_EINGABE=on` to the server's `fl_frontend/.env` and
-   deploy (§1). The frontend reads both once as it boots.
-2. The next day, read `spiel_sweep_gelaufen_am` with the call above, and the pass lines.
-
-**Switching it off is that line set to `off`, and a deploy**, and it stops every season's fixture
-mail at once, the lever for an outage or a fault at the mail provider: until the frontend has booted
-on it, a pass can still mail.
-
-**The referee's report form opens on `SPIELBERICHT_EINGABE=on`, added to `fl_frontend/.env` in the
-same edit as `SPIEL_SWEEP=on`.** It ships off: until the frontend has booted on it, the form shows a closed state and both
-the referee's save and the administrator's refuse before any request leaves. Off again is that line
-set to `off` and a deploy; it stops no mail, which is `SPIEL_SWEEP`'s alone.
 
 **The account sweep stores no date, so its own line in the frontend's log is the answer**
 ([`spec.md`](spec.md) §1.1). Every pass that completes writes one `konto.sweep_completed` line,
@@ -1349,16 +1299,9 @@ failure left for the next pass, never naming an address:
 docker compose logs --since 2h frontend | grep konto.sweep_
 ```
 
-**`KONTO_SWEEP=off` in the server's `fl_frontend/.env`, and a deploy (§1), stop it**: the frontend
-reads the switch once as it boots, and it ships `on`, so the sweep runs wherever the file sets none.
-
 **No `konto.sweep_completed` line in two hours means no pass completed, or the line went
-unwritten.** Otherwise `KONTO_SWEEP` is
-off, the build is not a production one, or the timer stopped, which recreating the frontend service
-re-arms. A `konto.sweep_failed` line says the sign-in store could not be listed. A
-`konto.sweep_skipped` line says a tick found the previous pass still running, and one in every hour
-says that pass is stuck, which recreating the service ends too. Every failure inside a pass is a line of
-its own, and the next pass asks again.
+unwritten.** A `konto.sweep_failed` line says the sign-in store could not be listed. Every failure
+inside a pass is a line of its own, and the next pass asks again.
 
 **A `konto.referenzen_failed` line carrying `REQ-REFERENZEN-001` means the backend reads no live
 `owner` grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass still writes its

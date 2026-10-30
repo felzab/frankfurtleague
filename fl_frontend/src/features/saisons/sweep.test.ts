@@ -9,9 +9,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /** Every line as it was written, its fields whole: what a pass reports, and the code its failure carries. */
 const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
 
-/** The two switches as the doubled config answers them, which a case sets. */
-let loeschungSwitch: string | undefined = "on";
-
 const LAUF = "/identitaet/loeschung/lauf";
 
 /** Each deletion call's answer, handed the place the call carried, null on a pass's first. */
@@ -57,18 +54,7 @@ const LOGGING_DOUBLE = {
   },
 };
 
-// Getters, not values: one process holds one module registry, so a case that could not re-read a switch could only
-// ever prove one side of it.
-const CONFIG_DOUBLE = {
-  frontend_config: {
-    get LOESCHUNG_SWEEP() {
-      return loeschungSwitch;
-    },
-  },
-};
-
 vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
-vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
 
 const { runLoeschungSweep } = await import("./sweep.ts");
 
@@ -87,7 +73,6 @@ const passLines = () => lines.filter(({ event }) => event.startsWith("loeschung.
 beforeEach(() => {
   lines.length = 0;
   laufCalls.length = 0;
-  loeschungSwitch = "on";
   laufAnswer = () => gelaufen(0, 0);
 });
 

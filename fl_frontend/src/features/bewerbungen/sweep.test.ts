@@ -24,8 +24,6 @@ const logs: SweepLog[] = [];
 /** Every line as it was written, its fields whole: what a half reports per pass, and the code its failure carries. */
 const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
 
-/** The pupils' deletion switch, off where a case sets nothing, as production's default is. */
-let loeschungSwitch: string | undefined = "off";
 let appEnv = "production";
 
 let apiAnswer: (call: ApiEvent) => unknown = () => ({});
@@ -112,13 +110,10 @@ const LOGGING_DOUBLE = {
 };
 
 // A getter, not a value: one process holds one module registry, so a case that could not re-read the
-// switch could only ever prove one side of it.
+// deployment could only ever prove one side of it.
 const CONFIG_DOUBLE = {
   frontend_config: {
     AUTH_URL: "http://localhost:3000",
-    get LOESCHUNG_SWEEP() {
-      return loeschungSwitch;
-    },
     get APP_ENV() {
       return appEnv;
     },
@@ -235,7 +230,6 @@ beforeEach(() => {
     events.push({ kind: "mail", ...sent });
     return refused.has(sent.to) ? "refused" : withheld.has(sent.to) ? "withheld" : barred.has(sent.to) ? "barred" : "accepted";
   });
-  loeschungSwitch = "off";
   appEnv = "production";
   sweepAnswers({});
   adresswechselAnswer = () => entfernt(0, 0);
@@ -867,23 +861,20 @@ describe("the half after the season loop", () => {
     return (): T => answers[Math.min(turn++, answers.length - 1)] as T;
   };
 
-  /* A lapsed address is a stranger's mailbox kept past its day, so no switch holds it back. The pupils' deletion is a
-     timer of its own, and this pass deletes nobody whatever its switch reads, unset included. */
-  for (const schalter of ["on", "off", undefined]) {
-    it(`removes the lapsed addresses on every pass after the seasons, and deletes no pupil while the deletion's switch reads ${String(schalter)}`, async () => {
-      loeschungSwitch = schalter;
-      sweepAnswers({ saisonIds: ["2627"] });
+  /* A lapsed address is a stranger's mailbox kept past its day, so nothing holds it back. The pupils' deletion is a
+     job of its own, and this pass deletes nobody. */
+  it("removes the lapsed addresses on every pass after the seasons, and deletes no pupil", async () => {
+    sweepAnswers({ saisonIds: ["2627"] });
 
-      await runBewerbungSweep();
+    await runBewerbungSweep();
 
-      expect(apiCalls().map((call) => call.endpoint)).toStrictEqual([
-        "/bewerbungen/sweep",
-        "/bewerbungen/sweep/2627",
-        "/registrierungen/sweep/2627",
-        ADRESSWECHSEL,
-      ]);
-    });
-  }
+    expect(apiCalls().map((call) => call.endpoint)).toStrictEqual([
+      "/bewerbungen/sweep",
+      "/bewerbungen/sweep/2627",
+      "/registrierungen/sweep/2627",
+      ADRESSWECHSEL,
+    ]);
+  });
 
   /* No season reaches the half, so a season list the backend could not answer leaves it to run. */
   it("runs where the season list could not be read", async () => {
