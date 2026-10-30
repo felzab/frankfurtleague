@@ -1083,17 +1083,6 @@ export interface FLAdresswechselZugestelltResponse {
 
 export type FLAktionDbFilter = { [key: string]: string } | null;
 
-export type FLAktionOperation = (typeof FLAktionOperation)[keyof typeof FLAktionOperation];
-
-export const FLAktionOperation = {
-  insert: "insert",
-  insert_many: "insert_many",
-  patch_one: "patch_one",
-  patch_many: "patch_many",
-  delete_many: "delete_many",
-  erase_many: "erase_many",
-} as const;
-
 export type FLAktorMitAdresseZeileKind = (typeof FLAktorMitAdresseZeileKind)[keyof typeof FLAktorMitAdresseZeileKind];
 
 export const FLAktorMitAdresseZeileKind = {
@@ -1130,6 +1119,17 @@ export interface FLAktorPerson {
   pseudonym: string;
 }
 
+export type FLAktionOperation = (typeof FLAktionOperation)[keyof typeof FLAktionOperation];
+
+export const FLAktionOperation = {
+  insert: "insert",
+  insert_many: "insert_many",
+  patch_one: "patch_one",
+  patch_many: "patch_many",
+  delete_many: "delete_many",
+  erase_many: "erase_many",
+} as const;
+
 export interface FLAktionRequest {
   method: string;
   path: string;
@@ -1163,17 +1163,6 @@ export type FLAktionMitStandBefore = { [key: string]: unknown } | { [key: string
 
 export type FLAktionMitStandDbFilter = { [key: string]: string } | null;
 
-export type FLAktionMitStandOperation = (typeof FLAktionMitStandOperation)[keyof typeof FLAktionMitStandOperation];
-
-export const FLAktionMitStandOperation = {
-  insert: "insert",
-  insert_many: "insert_many",
-  patch_one: "patch_one",
-  patch_many: "patch_many",
-  delete_many: "delete_many",
-  erase_many: "erase_many",
-} as const;
-
 /**
  * One row WITH the document its write replaced, which only `GET /aktionen/{aktion_id}` serves.
  *
@@ -1190,7 +1179,7 @@ export interface FLAktionMitStand {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
   modified_count: number | null;
-  operation: FLAktionMitStandOperation;
+  operation: FLAktionOperation;
   redacted_at: string | null;
   request: FLAktionRequest | null;
   stand_gesichert: boolean;

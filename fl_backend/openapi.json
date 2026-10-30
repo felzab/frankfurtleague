@@ -1641,16 +1641,7 @@
             "title": "Modified Count"
           },
           "operation": {
-            "enum": [
-              "insert",
-              "insert_many",
-              "patch_one",
-              "patch_many",
-              "delete_many",
-              "erase_many"
-            ],
-            "title": "Operation",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAktionOperation"
           },
           "redacted_at": {
             "anyOf": [
@@ -1803,16 +1794,7 @@
             "title": "Modified Count"
           },
           "operation": {
-            "enum": [
-              "insert",
-              "insert_many",
-              "patch_one",
-              "patch_many",
-              "delete_many",
-              "erase_many"
-            ],
-            "title": "Operation",
-            "type": "string"
+            "$ref": "#/components/schemas/FLAktionOperation"
           },
           "redacted_at": {
             "anyOf": [
@@ -1862,6 +1844,17 @@
         ],
         "title": "FLAktionMitStand",
         "type": "object"
+      },
+      "FLAktionOperation": {
+        "enum": [
+          "insert",
+          "insert_many",
+          "patch_one",
+          "patch_many",
+          "delete_many",
+          "erase_many"
+        ],
+        "type": "string"
       },
       "FLAktionRequest": {
         "properties": {
