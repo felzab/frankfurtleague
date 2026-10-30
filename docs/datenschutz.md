@@ -52,7 +52,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   route creates a player and no administrative payload carries a consent choice, so an administrator
   can neither create one nor assume, enter or transcribe a consent on anybody's behalf. The one write that creates a player is a team's admission of a
   pupil's own confirmed registration, which carries that pupil's own answer onto the person
-  (`fl_backend/app/api/registrierungen/person_router.py :: aufnehmen`).
+  (`fl_backend/app/api/registrierungen/person_router.py :: admit`).
   **A contact person is the one seat where that consent is not the record kept:** what such a person
   answers is a Kenntnisnahme of a notice, the basis being Art. 6(1)(f) rather than an
   Einwilligung, and the only consents their block holds are the optional WhatsApp scope and the media
@@ -271,7 +271,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_backend/app/api/teams/services.py :: links_owed`), on a row whose season has ended or whose
   team has left it too, where the link takes the person's Widerspruch and no confirmation. An administrator re-sends one to any seat
   still unconfirmed while the season runs and the team is in it
-  (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`). The link lasts the application's
+  (`fl_backend/app/api/teams/admin_router.py :: invite_kontakt`). The link lasts the application's
   fourteen days, and on it the person confirms the seat or makes their Widerspruch, which empties it.
   An address the ban list holds is refused rather than seated, as an application's reseat refuses
   one, so nobody is stored whom the league may not tell
@@ -291,7 +291,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   **Datenschutzexperte consulted.** Ruled 2026-08.
 - **The address sentence stands on the acceptance screen as well as on the application form.** The
   acceptance screen is where the administrator takes the action that publishes it, which
-  `fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung` makes; the
+  `fl_backend/app/api/bewerbungen/admin_router.py :: accept_bewerbung` makes; the
   sentence sits on the arm that creates the club
   (`fl_frontend/src/features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx`), and
   the admin club forms need none. Ruled 2026-09-01.
@@ -779,7 +779,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   Ruled 2026-09-27.
 - **A grant of access to the Verwaltung is kept until it is revoked, and the notice of a change to one
   only until it is sent.** A revoke removes the grant and the announced record of it in one
-  transaction (`fl_backend/app/api/berechtigungen/admin_router.py :: delete_berechtigung`), and each
+  transaction (`fl_backend/app/api/berechtigungen/admin_router.py :: delete_grant`), and each
   notice's Postausgang row keeps no facts once it is sent or given up and is deleted thirty days
   later. The announced record leaves no image in the log, and the Postausgang none at all, while a revoked grant keeps its own under the log's twelve
   months. The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-28.
@@ -863,9 +863,9 @@ Zustellstand`). No record the message was about carries it, so a row can outlive
   `fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`, which calls
   `fl_backend/app/api/bewerbungen/system_router.py :: sweep_saison` and
   `fl_backend/app/api/registrierungen/system_router.py :: sweep_registrierungen` per season, then
-  `fl_backend/app/api/adresswechsel/system_router.py :: sweep_adresswechsel`, `POST /address_change/sweep`; and
+  `fl_backend/app/api/adresswechsel/system_router.py :: sweep_address_change`, `POST /address_change/sweep`; and
   `fl_frontend/src/features/saisons/sweep.ts :: runLoeschungSweep`, which calls
-  `fl_backend/app/api/identitaet/system_router.py :: sweep_loeschung`). Every job runs on every pass, with no
+  `fl_backend/app/api/identitaet/system_router.py :: sweep_erasure`). Every job runs on every pass, with no
   switch to hold one back. A pass pings the heartbeat monitor, and `/fail` naming each job that threw or left an owed
   deletion or erasure, so a claim that one of their periods was honoured rests on that report and on each job's
   per-pass line in the frontend's log rather than on reading the data

@@ -391,7 +391,7 @@ the `limit_conn` figure is derived from HTTP/2 semantics and never exercised (me
 **Every `429` the edge answers itself is one ASCII sentence under exactly `Content-Type: text/plain`,
 but a link page's load**, the server block's `error_page 429` sending a zone's refusal and the
 connection ceiling's alike to `nginx/shared/site.conf :: @edge_refusal`. A `GET` or `HEAD` of a
-link page goes to `:: @edge_refusal_seite` instead (`nginx/shared/http.conf :: $edge_refusal_ziel`):
+link page goes to `:: @edge_refusal_seite` instead (`nginx/shared/http.conf :: $edge_refusal_target`):
 a branded page with its way back to the site, since a sentence alone, opened from a mail, is a dead
 end. The page is written inline in the configuration, because the deploy compares every file under
 `nginx/shared/` with what nginx loaded (§1.2) and a page nginx never loads would fail every deploy;
