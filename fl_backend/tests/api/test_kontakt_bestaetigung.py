@@ -3,8 +3,7 @@ API · a contact seat an administrator types into a team's season row is mailed 
 
 The contacts save mints one link per person it newly seats, the per-seat re-send mints one for any
 seat still unconfirmed, and the application's two confirmation operations answer the link on the
-season row. Driven against the shipped validators, with the ban list asked at the mint and at the
-press as the application's links ask it.
+season row, with the ban list asked at the mint and at the press as the application's links ask it.
 """
 
 import asyncio

@@ -150,7 +150,7 @@ class FLBewerbungKader(BaseModel):
     """The school's own estimate of its squad, which nothing checks afterwards."""
 
     voraussichtliche_groesse: int
-    # Non-nullable, as the validator stores it: the form asks for a count, and none of them is zero.
+    # Non-nullable: the form asks for a count, and none of them is zero.
     gute_spieler: int
 
 
@@ -286,10 +286,9 @@ class FLAblehnenBewerbungPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # Required, and STRIPPED before either bound counts: both count characters, so spaces alone
-    # would reach the application and the applicants' email as a decline stating nothing, and a
-    # padded reason is trimmed to fit rather than refused.
-    grund: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_GRUND_MAX_LENGTH)]
+    # The ceiling counts what arrives and the floor what is left after the strip, so the published `maxLength` is what the
+    # write accepts and spaces alone are no reason.
+    grund: Annotated[str, StringConstraints(max_length=BEWERBUNG_GRUND_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)]
 
 
 class FLBewerbungenListResponse(BaseAPIResponse):
@@ -395,9 +394,10 @@ class FLBewerbungKontaktePayload(FLSaisonTeamKontaktePayload):
 class FLBewerbungAddressPayload(FLAddressPayload):
     """The school's address, with the Stadtteil required."""
 
-    # Stripped before the floor counts it, as every payload string carrying one is: `min_length`
-    # counts characters, so spaces alone would clear it.
-    stadtteil: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=ADDRESS_STADTTEIL_MAX_LENGTH)]
+    # The ceiling on what arrives, the floor after the strip, as `grund`'s.
+    stadtteil: Annotated[
+        str, StringConstraints(max_length=ADDRESS_STADTTEIL_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
+    ]
 
 
 class FLBewerbungSchulePayload(FLBewerbungSchule):
@@ -412,10 +412,16 @@ class FLBewerbungSchulePayload(FLBewerbungSchule):
     # `label: value` rows, so a name holding a CR or an LF forges a line the reader cannot tell from
     # a stated fact.
     team_name: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)
+        str,
+        StringConstraints(max_length=TEAM_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        AfterValidator(str.strip),
+        StringConstraints(min_length=1),
     ]
     full_name: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TEAM_FULL_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)
+        str,
+        StringConstraints(max_length=TEAM_FULL_NAME_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        AfterValidator(str.strip),
+        StringConstraints(min_length=1),
     ]
     shorthand: CustomShorthand
     # Required and NON-NULL here alone: the form offers the real Schulformen and no "keine
@@ -430,7 +436,8 @@ class FLBewerbungSchulePayload(FLBewerbungSchule):
     website_url: Annotated[
         Annotated[
             str,
-            StringConstraints(strip_whitespace=True, max_length=TEAM_WEBSITE_URL_MAX_LENGTH),
+            StringConstraints(max_length=TEAM_WEBSITE_URL_MAX_LENGTH),
+            AfterValidator(str.strip),
             AfterValidator(validate_external_url),
         ]
         | None,
@@ -478,8 +485,13 @@ class FLPostBewerbungPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # Stripped before the width is counted, for `CustomStrippedNonEmptyString`'s reason.
-    saison_id: Annotated[str, StringConstraints(strip_whitespace=True, min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)]
+    # The width on what arrives and again after the strip, so the published bound is what the write accepts.
+    saison_id: Annotated[
+        str,
+        StringConstraints(max_length=SAISON_ID_LENGTH),
+        AfterValidator(str.strip),
+        StringConstraints(min_length=SAISON_ID_LENGTH),
+    ]
     # The club picked off the autocomplete, null where the applicant proposed a new school;
     # `REQ-BEWERBUNG-005` holds exactly one of this and `schule` filled in.
     team_id: CustomObjectId | None
@@ -505,7 +517,11 @@ class FLPostBewerbungPayload(BaseModel):
     # No floor, `parse_empty_string_to_none` leaving nothing between null and a real name:
     # `min_length` counts characters, so spaces alone would be stored as a wish the school made.
     wunschgegner: Annotated[
-        Annotated[str, StringConstraints(strip_whitespace=True, max_length=BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN)]
+        Annotated[
+            str,
+            StringConstraints(max_length=BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+            AfterValidator(str.strip),
+        ]
         | None,
         BeforeValidator(parse_empty_string_to_none),
     ] = None
@@ -855,9 +871,8 @@ class FLBewerbungSweepResponse(BaseAPIResponse):
     fehlgeschlagen: int
 
 
-# `/angekuendigt` stamps the list in ONE transaction, three commands a row beside its other 3
-# (`tests/api/test_bewerbung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
-# 252 commands at a 38 ms round trip plus 1.31 ms take 9.91 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
+# `/angekuendigt` stamps the list in ONE transaction, three commands a row beside its other 3: 252 commands at a 38 ms
+# round trip plus 1.31 ms take 9.91 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 DELETIONS_LISTED_PER_PASS: Final = 83
 
 

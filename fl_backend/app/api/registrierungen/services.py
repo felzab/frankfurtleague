@@ -173,8 +173,8 @@ def compose_registrierung(
         "vorname": vorname,
         "nachname": nachname,
         "email": email,
-        # Written EXPLICITLY, all three: `required` in the `$jsonSchema` means the key is present,
-        # so an omitted null is a validator rejection rather than a stored null.
+        # Written EXPLICITLY, all three: the record model requires each key, so an omitted one is a
+        # document the read-back refuses rather than a stored null.
         "position": position,
         "nummer": nummer,
         "stufe": stufe,

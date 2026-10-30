@@ -119,7 +119,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, saison_status: str = "active", teams: tuple[ObjectId, ...] = tuple(TEAM_NAMES)) -> Any:
-    """The SHIPPED validators and indexes, one season, and the four teams in their four skip states.
+    """The shipped indexes, one season, and the four teams in their four skip states.
 
     `ALREADY_MAILED`'s invitation carries a delivery record, the state only
     `POST /zustellung/angenommen` writes and the only one the press skips on.

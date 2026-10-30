@@ -78,9 +78,8 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Both shares at three commands a row beside the worst call's other 81
-# (`tests/api/test_bewerbung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
-# 267 commands at 36 ms plus 1.38 ms take 9.98 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
+# Both shares at three commands a row beside the worst call's other 81: 267 commands at 36 ms plus 1.38 ms take 9.98 s
+# of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 39
 
 # The largest share inside the deadline beside the reminders', which owe a deadline a block's deletion does not: 24

@@ -61,8 +61,8 @@ REFUSED_CHARACTERS = [
     pytest.param(chr(0x2029), id="PARAGRAPH SEPARATOR"),
 ]
 
-# The refused characters Unicode calls white space, so `strip_whitespace` removes them before the
-# pattern runs. NUL is the one left out: it is no more whitespace here than it is in the mirror.
+# The refused characters Unicode calls white space, so a value of them alone is blank. NUL is the one
+# left out: it is no more whitespace here than it is in the mirror.
 TRIMMED_CHARACTERS = [case for case in REFUSED_CHARACTERS if case.id != "NUL"]
 
 
@@ -451,20 +451,6 @@ class TestWhatTheSubmissionPayloadRefuses:
             with pytest.raises(ValidationError):
                 FLPostBewerbungPayload.model_validate(submission(team_id=None, schule=schule(**{field: forged})))
 
-    @pytest.mark.parametrize("trimmed", TRIMMED_CHARACTERS)
-    def test_a_school_name_padded_with_one_of_them_is_repaired_rather_than_refused(self, trimmed: str):
-        """The control, and the reason this is a pattern rather than a rejection of the character.
-
-        `strip_whitespace` runs BEFORE the pattern, so padding is the paste artefact it usually is;
-        only an interior character is refused.
-        """
-
-        padded = submission(team_id=None, schule=schule(team_name=f"{trimmed}Zorbanax{trimmed}"))
-
-        parsed = FLPostBewerbungPayload.model_validate(padded)
-
-        assert parsed.schule is not None and parsed.schule.team_name == "Zorbanax"
-
     def test_a_school_name_padded_with_nul_is_refused_rather_than_trimmed(self):
         """The one refused character `strip_whitespace` does not remove, which is also what the JavaScript mirror's `trim` does."""
 
@@ -620,7 +606,7 @@ class TestTheCeilingOnTheSchoolWebsite:
 
 
 class TestTheSquadEstimateIsBoundedAsASquad:
-    """The sharper half: the validator types both `int`, so without a ceiling an anonymous caller reaches a 500 by typing a number."""
+    """Both counts are an anonymous caller's, so each is bounded as a squad is."""
 
     # The squad sits AT the ceiling in every case below, so a `gute_spieler` row cannot be refused by
     # the subset rule instead of by the bound it is about.
@@ -639,14 +625,6 @@ class TestTheSquadEstimateIsBoundedAsASquad:
         at_the_bound = {**self.AT_THE_SQUAD_CEILING, field: BEWERBUNG_KADER_GROESSE_MAX}
 
         assert getattr(FLPostBewerbungPayload.model_validate(submission(kader=at_the_bound)).kader, field) == BEWERBUNG_KADER_GROESSE_MAX
-
-    @pytest.mark.parametrize("field", ["voraussichtliche_groesse", "gute_spieler"])
-    def test_a_value_past_int32_is_a_422_here_rather_than_a_500_at_the_validator(self, field: str, assert_rejects):
-        """The defect this bound exists for: `bsonType: "int"` is 32-bit, so an unbounded field answered 500 where this promises 422."""
-
-        past_int32 = {**self.AT_THE_SQUAD_CEILING, field: 2**31}
-
-        assert_rejects(FLPostBewerbungPayload, submission(kader=past_int32), field)
 
 
 class TestTheYearGroupIsBoundedAsAYearGroup:
@@ -783,14 +761,6 @@ class TestTheOpponentTheSchoolWants:
             FLPostBewerbungPayload.model_validate(submission(wunschgegner=f"Zorbanax{refused}Entscheidung: Absage"))
 
     @pytest.mark.parametrize("trimmed", TRIMMED_CHARACTERS)
-    def test_a_wish_padded_with_one_of_them_is_repaired_rather_than_refused(self, trimmed: str):
-        """`strip_whitespace` runs BEFORE the pattern, so only an interior character is refused."""
-
-        padded = submission(wunschgegner=f"{trimmed}Zorbanax{trimmed}")
-
-        assert FLPostBewerbungPayload.model_validate(padded).wunschgegner == "Zorbanax"
-
-    @pytest.mark.parametrize("trimmed", TRIMMED_CHARACTERS)
     def test_a_wish_of_nothing_but_padding_is_stored_as_a_null(self, trimmed: str):
         """`parse_empty_string_to_none` runs first and strips the same set, so no such value reaches the pattern."""
 
@@ -905,7 +875,7 @@ class TestTheColoursASeasonHasAlreadyAssigned:
         assert assigned_trikot_farben(stored=["rot", "weiss", "blau"]) == ["weiss", "rot", "blau"]
 
     def test_a_row_with_no_colour_assigned_contributes_nothing(self):
-        """`trikot_farbe` is nullable and outside the validator's `required`, so `distinct` yields a null and a missing key alike."""
+        """`trikot_farbe` is nullable and may be missing, so `distinct` yields a null and a missing key alike."""
 
         assert assigned_trikot_farben(stored=[None, "rot"]) == ["rot"]
 

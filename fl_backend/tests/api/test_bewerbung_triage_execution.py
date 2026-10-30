@@ -85,7 +85,7 @@ PICKED_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920001")
 NEW_SCHOOL_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920002")
 RETIRED_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920003")
 CLASHING_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920004")
-# Seeded by the one class that needs them: no validator states the exactly-one rule, so these two
+# Seeded by the one class that needs them: nothing in the database states the exactly-one rule, so these two
 # shapes are storable and only the write path tells them apart.
 BOTH_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920005")
 NEITHER_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920006")
@@ -145,7 +145,7 @@ def schule_block(team_name: str, shorthand: str) -> dict[str, Any]:
 def bewerbung_document(
     bewerbung_id: ObjectId, *, team_id: ObjectId | None = None, schule: dict[str, Any] | None = None, **overrides: Any
 ) -> dict[str, Any]:
-    """One submitted application, undecided. Every field the validator requires, and nothing the triage writes.
+    """One submitted application, undecided. Every field the record model requires, and nothing the triage writes.
 
     Every seat is confirmed by its own person, so acceptance is not held back by `REQ-BEWERBUNG-013` unless a case opens one.
     """
@@ -174,7 +174,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, saison_status: str = "future", occupied: int = 0, mutates_schema: bool = False) -> Any:
-    """The SHIPPED validators and indexes, so a document production would refuse fails here too.
+    """A clean database carrying the shipped indexes, so a duplicate production would refuse fails here too.
 
     `occupied` fills group `A`, the only route to `REQ-ENTER-003`.
     """
@@ -515,7 +515,7 @@ UNRESOLVED = [
 class TestAnApplicationResolvingToNoOneClub:
     """`REQ-BEWERBUNG-002` reaching the acceptance.
 
-    The backend keeps the rule off the validator, so the write path is where it holds.
+    Nothing in the database holds the rule, so the write path is where it holds.
     """
 
     @pytest.mark.parametrize(("bewerbung_id", "team_id", "schule"), UNRESOLVED)
@@ -625,10 +625,10 @@ class TestAcceptanceWaitsForEverySeat:
 
 
 async def seed_the_unusable_school(database: AsyncDatabase) -> Mapping[str, Any]:
-    """One application whose school makes no club, stored through the SHIPPED validator.
+    """One application whose school makes no club, stored as it is.
 
-    Read back, because the backend keeps the format off the validator: the value
-    really does reach `teams` unless acceptance refuses it.
+    Read back, because nothing in the database judges the format: the value really does reach `teams` unless
+    acceptance refuses it.
     """
 
     await database[Collection.BEWERBUNGEN].insert_one(

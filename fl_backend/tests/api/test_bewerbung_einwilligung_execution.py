@@ -132,7 +132,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]] | None = None) -> Any:
-    """The SHIPPED validators, so a document production would refuse fails here too."""
+    """A clean database carrying the shipped indexes."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
