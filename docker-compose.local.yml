@@ -65,7 +65,7 @@ services:
       dockerfile: Dockerfile
     # Production's list without the login, which the config below replaces as the frontend's does.
     secrets: !override
-      - sperrliste_schluessel
+      - sperrliste_key
       - internal_api_key_base
       - internal_api_key_system
       - internal_api_key_admin
@@ -157,8 +157,8 @@ services:
 secrets: !override
   auth_secret:
     file: ./secrets/auth_secret
-  sperrliste_schluessel:
-    file: ./secrets/sperrliste_schluessel
+  sperrliste_key:
+    file: ./secrets/sperrliste_key
   internal_api_key_base:
     file: ./secrets/internal_api_key_base
   internal_api_key_system:

@@ -654,7 +654,7 @@ def test_a_secret_mounted_elsewhere_fails():
     """Each reader takes the default path, so a file mounted anywhere else is no file to it."""
     rendered = stack_of("production")
     rendered["services"]["backend"]["secrets"] = [
-        entry | {"target": "/etc/key"} if entry["source"] == "sperrliste_schluessel" else entry
+        entry | {"target": "/etc/key"} if entry["source"] == "sperrliste_key" else entry
         for entry in rendered["services"]["backend"]["secrets"]
     ]
 
@@ -916,11 +916,11 @@ def test_the_login_left_off_the_local_frontend_fails():
 def test_a_file_the_schema_never_reads_handed_to_the_frontend_fails():
     """One more holder of a credential nothing on that side reads."""
     frontend = handed("production")
-    frontend["secrets"] = [*frontend["secrets"], {"source": "sperrliste_schluessel"}]
+    frontend["secrets"] = [*frontend["secrets"], {"source": "sperrliste_key"}]
 
     found = checker.frontend_files(model(frontend=frontend), "p", "production", SCHEMA)
 
-    assert [finding.detail for finding in found] == ["p: compose hands the frontend ['sperrliste_schluessel'], which its schema never reads"]
+    assert [finding.detail for finding in found] == ["p: compose hands the frontend ['sperrliste_key'], which its schema never reads"]
 
 
 def test_a_file_the_schema_starts_reading_fails_until_compose_mounts_it():
@@ -1138,7 +1138,7 @@ def test_each_stack_handing_the_backend_what_its_settings_require_is_clean(stack
     assert checker.backend_files(model(backend=backend_handed(stack)), "p", SETTINGS) == []
 
 
-@pytest.mark.parametrize(("stack", "dropped"), [("production", "backend_mongodb_uri"), ("local", "sperrliste_schluessel")])
+@pytest.mark.parametrize(("stack", "dropped"), [("production", "backend_mongodb_uri"), ("local", "sperrliste_key")])
 def test_a_file_the_backend_requires_left_unmounted_fails(stack: str, dropped: str):
     """The boot refuses it, and without this only the deploy's preflight on the host, or `local.sh`, says so."""
     backend = backend_handed(stack)
@@ -1184,12 +1184,12 @@ def test_main_judges_the_backend_files_of_both_models():
         production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
         local = rendered_stack(project, "nginx/local")
         backend = ({"production": production, "local": local}[broken])["services"]["backend"]
-        backend["secrets"] = [entry for entry in backend["secrets"] if entry["source"] != "sperrliste_schluessel"]
+        backend["secrets"] = [entry for entry in backend["secrets"] if entry["source"] != "sperrliste_key"]
 
         code, said = run_main(production, local, project)
 
         assert code == 1, said
-        assert f"{broken}: the backend's schema requires ['sperrliste_schluessel']" in said, said
+        assert f"{broken}: the backend's schema requires ['sperrliste_key']" in said, said
 
 
 # --- the names the secret files replace ----------------------------------------------------------------

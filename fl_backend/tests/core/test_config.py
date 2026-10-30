@@ -55,7 +55,7 @@ FILES = {
     "internal_api_key_base": a_key_the_boot_accepts("base"),
     "internal_api_key_system": a_key_the_boot_accepts("system"),
     "internal_api_key_admin": a_key_the_boot_accepts("admin"),
-    "sperrliste_schluessel": BAN_LIST_KEY,
+    "sperrliste_key": BAN_LIST_KEY,
 }
 
 # Each credential's field, beside the file it is read from.
@@ -82,7 +82,7 @@ WELL_FORMED: dict[str, Any] = {
     "internal_api_key_base": SecretStr(a_key_the_boot_accepts("base")),
     "internal_api_key_system": SecretStr(a_key_the_boot_accepts("system")),
     "internal_api_key_admin": SecretStr(a_key_the_boot_accepts("admin")),
-    "sperrliste_schluessel": SecretStr(BAN_LIST_KEY),
+    "sperrliste_key": SecretStr(BAN_LIST_KEY),
 }
 
 
@@ -208,27 +208,27 @@ class TestTheBanListKey:
         """A rejected key reaching the container log is the whole exposure, and the value here is the one this gate would leak."""
         short = "x" * (SPERRLISTE_KEY_MIN_LENGTH - 1)
 
-        refused = refusal(monkeypatch, tmp_path, {"sperrliste_schluessel": short.encode()})
+        refused = refusal(monkeypatch, tmp_path, {"sperrliste_key": short.encode()})
 
-        assert refused == "Invalid secret files: sperrliste_schluessel"
+        assert refused == "Invalid secret files: sperrliste_key"
         assert short not in refused
 
     def test_a_key_under_the_floor_fails_the_boot(self):
         """The boot is the last cheap moment: the key can never be rotated, every stored hash having been taken under it."""
         with pytest.raises(ValidationError):
-            build(sperrliste_schluessel=SecretStr("k" * (SPERRLISTE_KEY_MIN_LENGTH - 1)))
+            build(sperrliste_key=SecretStr("k" * (SPERRLISTE_KEY_MIN_LENGTH - 1)))
 
     def test_a_key_at_the_floor_boots(self):
         """The boundary, or a floor written one past its intent refuses the value the runbook tells an operator to generate."""
         at_the_floor = "k" * SPERRLISTE_KEY_MIN_LENGTH
 
-        assert build(sperrliste_schluessel=SecretStr(at_the_floor)).sperrliste_schluessel.get_secret_value() == at_the_floor
+        assert build(sperrliste_key=SecretStr(at_the_floor)).sperrliste_key.get_secret_value() == at_the_floor
 
     def test_a_longer_key_boots(self):
         """No ceiling, deliberately: HMAC takes a key of any length, and one here would refuse a passphrase for nothing."""
         longer = "k" * (SPERRLISTE_KEY_MIN_LENGTH * 2)
 
-        assert build(sperrliste_schluessel=SecretStr(longer)).sperrliste_schluessel.get_secret_value() == longer
+        assert build(sperrliste_key=SecretStr(longer)).sperrliste_key.get_secret_value() == longer
 
 
 class TestTheSecretFiles:
@@ -294,7 +294,7 @@ class TestTheSecretFiles:
 
     def test_every_unreadable_file_is_named_beside_every_missing_or_blank_one(self, monkeypatch, tmp_path):
         """The source stops at the first read that fails, so one boot would otherwise name one fault per restart."""
-        directory = an_environment(monkeypatch, tmp_path, {MONGODB_URI_FILE: None, "sperrliste_schluessel": b" \r\n"})
+        directory = an_environment(monkeypatch, tmp_path, {MONGODB_URI_FILE: None, "sperrliste_key": b" \r\n"})
         unreadable = [directory / "internal_api_key_base", directory / "internal_api_key_admin"]
         read_text = Path.read_text
 
@@ -310,13 +310,13 @@ class TestTheSecretFiles:
 
         assert str(raised.value) == (
             f"Unreadable secret files: {unreadable[0]} (EACCES), {unreadable[1]} (EACCES); "
-            f"Invalid secret files: {MONGODB_URI_FILE}, sperrliste_schluessel"
+            f"Invalid secret files: {MONGODB_URI_FILE}, sperrliste_key"
         )
 
     def test_every_missing_or_blank_file_is_named_where_none_is_unreadable(self, monkeypatch, tmp_path):
-        refused = refusal(monkeypatch, tmp_path, {MONGODB_URI_FILE: None, "internal_api_key_system": b"", "sperrliste_schluessel": b" \r\n"})
+        refused = refusal(monkeypatch, tmp_path, {MONGODB_URI_FILE: None, "internal_api_key_system": b"", "sperrliste_key": b" \r\n"})
 
-        assert refused == f"Invalid secret files: {MONGODB_URI_FILE}, internal_api_key_system, sperrliste_schluessel"
+        assert refused == f"Invalid secret files: {MONGODB_URI_FILE}, internal_api_key_system, sperrliste_key"
 
     def test_a_directory_standing_at_a_files_path_refuses_naming_that_path(self, monkeypatch, tmp_path):
         """What Docker leaves where a bind mount's source file was missing, and a warning alone in the library."""
@@ -392,9 +392,9 @@ class TestTheSecretFiles:
 
     def test_a_missing_file_and_a_refused_value_are_named_together(self, monkeypatch, tmp_path):
         """The missing file is the preflight's to see and the short key the build's, so one restart shows both."""
-        refused = refusal(monkeypatch, tmp_path, {"internal_api_key_admin": None, "sperrliste_schluessel": b"short"})
+        refused = refusal(monkeypatch, tmp_path, {"internal_api_key_admin": None, "sperrliste_key": b"short"})
 
-        assert refused == "Invalid secret files: internal_api_key_admin, sperrliste_schluessel"
+        assert refused == "Invalid secret files: internal_api_key_admin, sperrliste_key"
 
     # The cases below lend the boot a subclass of the settings under an option the shipped class
     # leaves alone, so the library's own lookup, stand-ins included, is what the preflight is held to.
@@ -436,12 +436,12 @@ class TestTheSecretFiles:
         lent = "lent".ljust(SPERRLISTE_KEY_MIN_LENGTH, "0")
 
         class Defaulted(BackendConfig):
-            sperrliste_schluessel: SecretStr = Field(default=SecretStr(lent), min_length=SPERRLISTE_KEY_MIN_LENGTH)
+            sperrliste_key: SecretStr = Field(default=SecretStr(lent), min_length=SPERRLISTE_KEY_MIN_LENGTH)
 
         monkeypatch.setattr("app.core.config.BackendConfig", Defaulted)
-        an_environment(monkeypatch, tmp_path, {"sperrliste_schluessel": None})
+        an_environment(monkeypatch, tmp_path, {"sperrliste_key": None})
 
-        assert get_config().sperrliste_schluessel.get_secret_value() == lent
+        assert get_config().sperrliste_key.get_secret_value() == lent
 
 
 class TestTheNamesOnlyErrorPath:
@@ -487,12 +487,12 @@ class TestTheNamesOnlyErrorPath:
 
     def test_a_secret_file_the_reader_cannot_decode_refuses_with_the_failure_type_alone(self, monkeypatch, tmp_path):
         """Its decode error quotes the bytes it choked on, which are the credential's."""
-        directory = an_environment(monkeypatch, tmp_path, {"sperrliste_schluessel": b"\xff\xfe" + BAN_LIST_KEY.encode()})
+        directory = an_environment(monkeypatch, tmp_path, {"sperrliste_key": b"\xff\xfe" + BAN_LIST_KEY.encode()})
 
         with pytest.raises(EnvironmentValidationError) as raised:
             get_config()
 
-        assert str(raised.value) == f"Unreadable secret files: {directory / 'sperrliste_schluessel'} (UnicodeDecodeError)"
+        assert str(raised.value) == f"Unreadable secret files: {directory / 'sperrliste_key'} (UnicodeDecodeError)"
 
     def test_a_well_formed_environment_still_builds(self, monkeypatch, tmp_path):
         an_environment(monkeypatch, tmp_path)

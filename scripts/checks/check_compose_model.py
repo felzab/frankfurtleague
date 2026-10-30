@@ -76,7 +76,7 @@ _BACKEND: Final = frozenset({"backend"})
 _BOTH: Final = frozenset({"frontend", "backend"})
 _EITHER_STACK: Final = {
     "auth_secret": _FRONTEND,
-    "sperrliste_schluessel": _BACKEND,
+    "sperrliste_key": _BACKEND,
     "internal_api_key_base": _BOTH,
     "internal_api_key_system": _BOTH,
     "internal_api_key_admin": _BOTH,
@@ -112,7 +112,7 @@ CONFIG_HOLDERS: Final[dict[str, dict[str, frozenset[str]]]] = {
 MOVED_ENV_NAMES: Final = frozenset(
     {
         "MONGODB_URI",
-        "SPERRLISTE_SCHLUESSEL",
+        "SPERRLISTE_KEY",
         "AUTH_SECRET",
         "AUTH_RESEND_KEY",
         "RESEND_WEBHOOK_SECRET",

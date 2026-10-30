@@ -36,8 +36,8 @@ services:
     # Past a request's bound and the 30-second work behind its answer, both of which Next's server waits
     # out on a stop: killed sooner, a write or a mail already sent answers as a dropped connection. The
     # Postausgang's drain behind an answer has no such bound: a stop cuts it here, and the rows it held go
-    # to the next drain once their lease lapses (`fl_backend/app/api/postausgang/services.py ::
-    # BEANSPRUCHUNG_DAUER`).
+    # to the next drain once their lease lapses (`fl_backend/app/api/outbox/services.py ::
+    # LEASE_DURATION`).
     stop_grace_period: 61s
     secrets:
       - frontend_mongodb_uri
@@ -100,7 +100,7 @@ services:
     # The frontend's reason, and its group for the three internal keys.
     secrets:
       - backend_mongodb_uri
-      - sperrliste_schluessel
+      - sperrliste_key
       - internal_api_key_base
       - internal_api_key_system
       - internal_api_key_admin
@@ -250,8 +250,8 @@ secrets:
     file: ./secrets/resend_webhook_secret
   betterstack_heartbeat_url:
     file: ./secrets/betterstack_heartbeat_url
-  sperrliste_schluessel:
-    file: ./secrets/sperrliste_schluessel
+  sperrliste_key:
+    file: ./secrets/sperrliste_key
   internal_api_key_base:
     file: ./secrets/internal_api_key_base
   internal_api_key_system:

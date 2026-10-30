@@ -710,7 +710,7 @@ NOTHING was asked of compose or of either service."
 # shellcheck disable=SC2034  # read by the scripts that source this file
 FRONTEND_SECRETS=(frontend_mongodb_uri auth_secret auth_resend_key resend_webhook_secret internal_api_key_base internal_api_key_system internal_api_key_admin turnstile_secret_key betterstack_heartbeat_url)
 # shellcheck disable=SC2034  # read by the scripts that source this file
-BACKEND_SECRETS=(backend_mongodb_uri sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
+BACKEND_SECRETS=(backend_mongodb_uri sperrliste_key internal_api_key_base internal_api_key_system internal_api_key_admin)
 
 # The local stack sends no mail and is sent no provider event, so its frontend is handed no key to
 # the provider, and each login is an inline config naming the stack's own database
@@ -718,17 +718,18 @@ BACKEND_SECRETS=(backend_mongodb_uri sperrliste_schluessel internal_api_key_base
 # shellcheck disable=SC2034  # read by the scripts that source this file
 LOCAL_FRONTEND_SECRETS=(auth_secret internal_api_key_base internal_api_key_system internal_api_key_admin)
 # shellcheck disable=SC2034  # read by the scripts that source this file
-LOCAL_BACKEND_SECRETS=(sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
+LOCAL_BACKEND_SECRETS=(sperrliste_key internal_api_key_base internal_api_key_system internal_api_key_admin)
 
 # The environment names those files replace, `scripts/checks/check_compose_model.py :: MOVED_ENV_NAMES`
 # spelled again, since neither the deploy nor the local stack runs a Python of the host's own to read
 # it; `scripts/tests/test_check_compose_model.py` holds the two equal.
-MOVED_ENV_NAMES=(MONGODB_URI SPERRLISTE_SCHLUESSEL AUTH_SECRET AUTH_RESEND_KEY RESEND_WEBHOOK_SECRET INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN TURNSTILE_SECRET_KEY BETTERSTACK_HEARTBEAT_URL)
+MOVED_ENV_NAMES=(MONGODB_URI SPERRLISTE_KEY AUTH_SECRET AUTH_RESEND_KEY RESEND_WEBHOOK_SECRET INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN TURNSTILE_SECRET_KEY BETTERSTACK_HEARTBEAT_URL)
 
 # Names no service reads: the administrator list the stored grants replaced, whose addresses are what
-# `docker inspect` would print, and the five job switches the hourly scheduler replaced, which the
-# frontend's settings never read, so a line left standing would read as a switch still set.
-RETIRED_ENV_NAMES=(ALLOWED_ADMIN_EMAILS BEWERBUNG_SWEEP KONTO_SWEEP LOESCHUNG_SWEEP SPIEL_SWEEP SPIELBERICHT_EINGABE)
+# `docker inspect` would print, the five job switches the hourly scheduler replaced, which the
+# frontend's settings never read, so a line left standing would read as a switch still set, and the
+# credential names the naming pass renamed, whose value a line under the old name would never reach.
+RETIRED_ENV_NAMES=(ALLOWED_ADMIN_EMAILS BEWERBUNG_SWEEP KONTO_SWEEP LOESCHUNG_SWEEP SPIEL_SWEEP SPIELBERICHT_EINGABE SPERRLISTE_SCHLUESSEL)
 
 # No command, so the image's own server runs its boot gates, which `BOOT_CHECK` ends there; `$2` is
 # the deployment the boot holds `APP_ENV` to (`fl_frontend/src/instrumentation-node.ts :: registerOnNode`).
@@ -819,8 +820,8 @@ refuse_credential_lines() { # $@ the environment files
   done
   (( ${#found[@]} )) || return 0
   refuse "these lines name a value no service reads from its environment: a credential, which is its
-file's under secrets/, the administrator list the stored grants replaced, or a job switch the
-hourly scheduler replaced:
+file's under secrets/, the administrator list the stored grants replaced, a job switch the
+hourly scheduler replaced, or a name the naming pass renamed:
 $(printf '  %s\n' "${found[@]}")
 Delete them (docs/ops/runbooks.md §16). NOTHING was asked of compose or of either service."
 }
