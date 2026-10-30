@@ -54,7 +54,6 @@ from tests.actor_tokens import SignedActor, actor_headers
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY
-from tests.core.app_source import DRIVER_WRITES
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import (
     ban_document,
@@ -1307,6 +1306,24 @@ def _running_step() -> str | None:
         step = _STEP_OF_CODE.get(frame.f_code, step)
         frame = frame.f_back
     return step
+
+
+# The driver's own writes, which every write helper of `app/core/crud.py` ends in, so no write a step makes passes unseen.
+DRIVER_WRITES = frozenset(
+    {
+        "bulk_write",
+        "delete_many",
+        "delete_one",
+        "find_one_and_delete",
+        "find_one_and_replace",
+        "find_one_and_update",
+        "insert_many",
+        "insert_one",
+        "replace_one",
+        "update_many",
+        "update_one",
+    }
+)
 
 
 class WritesRecorded:

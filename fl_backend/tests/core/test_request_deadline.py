@@ -7,6 +7,7 @@ import re
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from contextvars import ContextVar
+from pathlib import Path
 from typing import Any, NamedTuple
 
 import pytest
@@ -42,10 +43,11 @@ from app.main import create_app
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, ADMINISTRATORS, TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
-from tests.core.app_source import BACKEND_ROOT
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
+
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 FETCH_CEILING = re.compile(r"const FETCH_TIMEOUT_MS = (\d+);")
 FRONTEND_API = BACKEND_ROOT.parent / "fl_frontend" / "src" / "core" / "api.ts"
