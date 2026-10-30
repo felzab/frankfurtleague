@@ -8,7 +8,7 @@ import type { FLSubjektResponse } from "./generated/client/types";
 /** The grant an address holds, its tier and when the grant and its `owner` tier took effect, as the subject lookup serves them: null together for none. */
 export type Verwaltung = Pick<FLSubjektResponse, "verwaltung" | "berechtigt_seit" | "inhaber_seit">;
 
-const KEINE: Verwaltung = { verwaltung: null, berechtigt_seit: null, inhaber_seit: null };
+const NO: Verwaltung = { verwaltung: null, berechtigt_seit: null, inhaber_seit: null };
 
 /**
  * The grant an address holds, read per request and never stamped on a session, which a revoke made
@@ -23,7 +23,7 @@ export async function verwaltungOf(email: string): Promise<Verwaltung> {
   // A barred holder is no administrator, as the backend's actor check refuses them: a grant written in
   // the database directly is the one way onto a barred address, and it admits nothing.
   return subjekt.gesperrt
-    ? KEINE
+    ? NO
     : { verwaltung: subjekt.verwaltung, berechtigt_seit: subjekt.berechtigt_seit, inhaber_seit: subjekt.inhaber_seit };
 }
 

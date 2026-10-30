@@ -10,7 +10,7 @@ import {
   sessionByCode,
 } from "@/test-support/authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
-import { answerAt, SITZ } from "@/test-support/subjectFixtures.ts";
+import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
 import { afterAll, assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { SessionRow } from "@/test-support/authDoubles.ts";
@@ -54,16 +54,16 @@ registerAuthDoubles({
 const store = memoryStore(STORE);
 
 /** One record set the league holds, and the gate's `konto` for it, as the backend answers both reads. */
-type Subjekt = Required<LookupFixture>;
+type Subject = Required<LookupFixture>;
 
-const PUPIL = { spieler_id: "b".repeat(24) };
+const SPIELER = { spieler_id: "b".repeat(24) };
 
 /* Keyed by the FOLDED identifier, as the endpoint's own join is: a guard sending the address as the
    session holds it then asks about a mailbox this holds nothing for. */
-const RECORDS = new Map<string, Subjekt>([
-  [ADMIN_EMAIL, { ...HOLDS_NOTHING, sitze: [SITZ], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z", konto: true }],
-  [PERSON_EMAIL, { ...HOLDS_NOTHING, spieler: [PUPIL], konto: true }],
-  [FOLDED_EMAIL, { ...HOLDS_NOTHING, spieler: [PUPIL], konto: true }],
+const RECORDS = new Map<string, Subject>([
+  [ADMIN_EMAIL, { ...HOLDS_NOTHING, sitze: [SEAT], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z", konto: true }],
+  [PERSON_EMAIL, { ...HOLDS_NOTHING, spieler: [SPIELER], konto: true }],
+  [FOLDED_EMAIL, { ...HOLDS_NOTHING, spieler: [SPIELER], konto: true }],
 ]);
 
 /** One call the guard put on the wire. */
@@ -191,7 +191,7 @@ describe("who the seam answers for", () => {
 
     expect(answer?.admin).toBe(false);
     expect(answer?.email).toBe(ADMIN_EMAIL);
-    expect(answer?.subjekt.sitze).toStrictEqual([SITZ]);
+    expect(answer?.subjekt.sitze).toStrictEqual([SEAT]);
   });
 
   it("marks the same address an administrator once the passkey made the session", async () => {
@@ -222,7 +222,7 @@ describe("who the seam answers for", () => {
       () =>
         void RECORDS.set(ADMIN_EMAIL, {
           ...HOLDS_NOTHING,
-          sitze: [SITZ],
+          sitze: [SEAT],
           verwaltung: "administration",
           berechtigt_seit: "2026-01-01T00:00:00Z",
           konto: true,
@@ -236,7 +236,7 @@ describe("who the seam answers for", () => {
     for (const grantedAfterMs of [60 * 1000, -60 * 1000]) {
       RECORDS.set(ADMIN_EMAIL, {
         ...HOLDS_NOTHING,
-        sitze: [SITZ],
+        sitze: [SEAT],
         verwaltung: "administration",
         berechtigt_seit: new Date(row.createdAt.getTime() + grantedAfterMs).toISOString(),
         konto: true,
@@ -244,7 +244,7 @@ describe("who the seam answers for", () => {
       beginRenderPass();
       const answer = await getSubjectSession();
       assert.ok(answer, "the person's lane refused the session its grant postdates");
-      expect(answer.subjekt.sitze).toStrictEqual([SITZ]);
+      expect(answer.subjekt.sitze).toStrictEqual([SEAT]);
       marks.push(answer.admin);
     }
 
@@ -268,7 +268,7 @@ describe("who the seam answers for", () => {
   it("answers the three lists, the two flags and the grant alone, carrying nothing else the backend answers", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
     arriveAs(cookie);
-    const { konto: _konto, ...records } = RECORDS.get(ADMIN_EMAIL) ?? assert.fail("the administrator holds no records here");
+    const { konto: _account, ...records } = RECORDS.get(ADMIN_EMAIL) ?? assert.fail("the administrator holds no records here");
     // A key no contract names, as a later backend could answer one beside the records.
     nextAnswer = new Response(JSON.stringify({ ...records, beigefuegt: "kein Feld des Vertrags" }), {
       status: 200,
@@ -322,7 +322,7 @@ describe("who the seam answers for", () => {
   it("answers a barred subject no session, and records no actor for it", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, spieler: [PUPIL], gesperrt: true }), {
+    nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, spieler: [SPIELER], gesperrt: true }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
@@ -346,7 +346,7 @@ describe("who the seam answers for", () => {
 
     expect(answer?.admin).toBe(false);
     expect(answer?.email).toBe(PERSON_EMAIL);
-    expect(answer?.subjekt.spieler).toStrictEqual([PUPIL]);
+    expect(answer?.subjekt.spieler).toStrictEqual([SPIELER]);
     expect(actor?.email, "the request scope holds a spelling the join and the log do not share").toBe(PERSON_EMAIL);
   });
 
@@ -367,7 +367,7 @@ describe("who the seam answers for", () => {
     expect(answer?.email).toBe(FOLDED_EMAIL);
     expect(actor?.email).toBe(FOLDED_EMAIL);
     expect((JSON.parse(lastSent().body) as { email: string }).email).toBe(FOLDED_EMAIL);
-    expect(answer?.subjekt.spieler, "the lookup was asked about a mailbox the league holds nothing for").toStrictEqual([PUPIL]);
+    expect(answer?.subjekt.spieler, "the lookup was asked about a mailbox the league holds nothing for").toStrictEqual([SPIELER]);
   });
 });
 

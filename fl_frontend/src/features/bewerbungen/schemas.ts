@@ -18,12 +18,12 @@ import {
   ADDRESS_STADTTEIL_MAX_LENGTH,
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
-  einzeiligerName,
   ExternalUrlSchema,
   FLAddressPayloadSchema,
   KontaktEmailSchema,
   PersonNameSchema,
   PHONE_REGEX,
+  singleLineName,
 } from "@/shared/schemas";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
@@ -150,7 +150,7 @@ const FLBewerbungAddressPayloadSchema = FLAddressPayloadSchema.extend({
  * would refuse.
  */
 const FLBewerbungSchulePayloadSchema = z.object({
-  team_name: einzeiligerName(
+  team_name: singleLineName(
     z
       .string()
       .trim()
@@ -160,7 +160,7 @@ const FLBewerbungSchulePayloadSchema = z.object({
       }),
     "Der Teamname",
   ),
-  full_name: einzeiligerName(
+  full_name: singleLineName(
     z
       .string()
       .trim()
@@ -245,7 +245,7 @@ export const FLPostBewerbungPayloadSchema = z
       .max(BEWERBUNG_STUFENGROESSE_MAX, { error: `Bitte gib höchstens ${String(BEWERBUNG_STUFENGROESSE_MAX)} an.` }),
     // The one OPTIONAL key on this payload, as the backend's one default: a client that has not asked
     // yet omits it. Line-bounded like `schule.team_name` and for its reason.
-    wunschgegner: einzeiligerName(
+    wunschgegner: singleLineName(
       z
         .string()
         .trim()

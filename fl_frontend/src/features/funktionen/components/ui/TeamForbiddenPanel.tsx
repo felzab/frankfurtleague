@@ -7,7 +7,7 @@ import { StatusPanel } from "@/shared/components/ui/StatusPanel";
 
 import { zieleOf } from "../../utils";
 
-import type { Funktion } from "@/core/funktionen";
+import type { Role } from "@/core/funktionen";
 
 const BEREICH = { href: "/bereich", label: DEIN_BEREICH_TITEL };
 
@@ -15,7 +15,7 @@ const BEREICH = { href: "/bereich", label: DEIN_BEREICH_TITEL };
  * A team and season the person holds no seat on. It names nothing of the address — who holds a seat
  * there, or whether the team or the season exists — and sends the person only to what they hold.
  */
-export function TeamForbiddenPanel({ funktionen }: { funktionen: readonly Funktion[] }) {
+export function TeamForbiddenPanel({ funktionen }: { funktionen: readonly Role[] }) {
   // One way out per team and season, however many seats there lead to it.
   const sitze = zieleOf(funktionen.filter((funktion) => funktion.art === "kontakt")).flatMap(({ href, funktionen: [erste] }) =>
     erste.art === "kontakt" ? [{ href: href, label: `${erste.team_name}, Saison ${erste.saison_id}` }] : [],

@@ -1,5 +1,5 @@
-import { doublePostausgang } from "@/test-support/mailDouble.ts";
-import { answerAt, deepFrozen, NO_RECORDS, SITZ } from "@/test-support/subjectFixtures.ts";
+import { doubleOutbox } from "@/test-support/mailDouble.ts";
+import { answerAt, deepFrozen, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { ObjectId } from "mongodb";
 import { afterAll, assert, vi } from "vitest";
@@ -94,7 +94,7 @@ type AuthDoubles = {
  * builds on, and the lookup its grant is read over. Test-only, which `no-restricted-imports` in
  * `fl_frontend/eslint.config.mjs` holds it to.
  */
-export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles = {}): ReturnType<typeof doublePostausgang> {
+export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles = {}): ReturnType<typeof doubleOutbox> {
   // The mailer is always `doublePostausgang`'s, whose record this answers. A second one is refused rather
   // than layered: two mailer hooks answer by registration order, and a suite would read whichever came last.
   if ("mail" in core) throw new Error("The mailer is doublePostausgang's: read the record registerAuthDoubles answers.");
@@ -113,7 +113,7 @@ export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles 
     vi.doMock(specifier, typeof double === "function" ? double : () => double);
   }
 
-  return doublePostausgang();
+  return doubleOutbox();
 }
 
 /** How long a held write or read waits for the requests racing it, in both db-tier suites. */
@@ -277,7 +277,7 @@ function answerTheLookup(answerFor: (email: string) => LookupFixture | null): vo
  * address `granted` names, so a suite minting a person's session gets past the gate at session creation.
  */
 export function seatEveryAddress(granted: readonly string[] = [ADMIN_EMAIL]): void {
-  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : HOLDS_NOTHING), sitze: [SITZ], konto: true }));
+  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : HOLDS_NOTHING), sitze: [SEAT], konto: true }));
 }
 
 /**

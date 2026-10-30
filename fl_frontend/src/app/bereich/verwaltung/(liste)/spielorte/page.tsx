@@ -18,7 +18,7 @@ import type { Metadata } from "next";
 
 const WORTE = COPY.verwaltung.spielort;
 
-export const metadata: Metadata = pageMetadata(ROUTES.verwaltungSpielorte, ROUTES.verwaltungSpielorte.pfad());
+export const metadata: Metadata = pageMetadata(ROUTES.verwaltungSpielorte, ROUTES.verwaltungSpielorte.path());
 
 /** One venue's row: its name, „Stillgelegt“ and muted once retired, its street and its price. */
 const zeile = (ort: FLSpielort): TableRow => ({
@@ -48,11 +48,11 @@ async function Spielorte() {
 
   return (
     <ListPage
-      head={{ area: "bereich", title: { route: "verwaltungSpielorte" } }}
+      head={{ scope: "area", title: { route: "verwaltungSpielorte" } }}
       search={{ label: WORTE.suchen }}
       create={{
         title: COPY.shared.mitObjekt(WORTE.objekt, "anlegen"),
-        act: { verb: "anlegen", objekt: WORTE.objekt },
+        act: { verb: "anlegen", object: WORTE.objekt },
         action: spielortAnlegen,
         children: <SpielortFelder regeln={SPIELORT_REGELN} />,
       }}

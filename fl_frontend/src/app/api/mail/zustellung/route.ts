@@ -8,7 +8,7 @@ import { APIBadStatusError } from "@/core/errors";
 import { postausgangPostEreignis } from "@/core/generated/client/sdk";
 import { PostausgangPostEreignisBody } from "@/core/generated/zod/inputs";
 import { logger } from "@/core/logging";
-import { POSTAUSGANG_TAG } from "@/core/mailKinds";
+import { OUTBOX_TAG } from "@/core/mailKinds";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { FLPostausgangEreignisPayload } from "@/core/generated/client/types";
@@ -24,15 +24,15 @@ const SVIX_HEADERS = ["svix-id", "svix-timestamp", "svix-signature"] as const;
  */
 // Built per call and never held at module scope: a `Response` carries a body stream that is consumed
 // once, so a shared instance answers the second request of its kind with an unusable body.
-const ANGEWENDET = (angewendet: boolean) => NextResponse.json({ angewendet: angewendet }, { status: 200 });
-const KEINE_SIGNATUR = () => NextResponse.json({ error: "signature" }, { status: 400 });
-const KEIN_BACKEND = () => NextResponse.json({ error: "backend" }, { status: 503 });
+const APPLIED = (angewendet: boolean) => NextResponse.json({ angewendet: angewendet }, { status: 200 });
+const NO_SIGNATURE = () => NextResponse.json({ error: "signature" }, { status: 400 });
+const NO_BACKEND = () => NextResponse.json({ error: "backend" }, { status: 503 });
 
 /**
  * What a Postausgang mail's event carries: the envelope's own instant, which orders it, the row's id among the tags the
  * send rode out with, and the detail each kind of event adds (https://resend.com/docs/webhooks/emails/bounced.md).
  */
-const PostausgangEreignisSchema = z.object({
+const OutboxEventSchema = z.object({
   type: z.string(),
   created_at: z.string(),
   data: z.object({
@@ -43,10 +43,10 @@ const PostausgangEreignisSchema = z.object({
   }),
 });
 
-type PostausgangEreignis = z.infer<typeof PostausgangEreignisSchema>;
+type OutboxEvent = z.infer<typeof OutboxEventSchema>;
 
 /** The state one event leaves on the row, or `null` for an event that leaves none, `email.sent` among them. */
-function postausgangStandAus({ type, data }: PostausgangEreignis): Pick<FLPostausgangEreignisPayload, "stand" | "grund"> | null {
+function outboxStandFrom({ type, data }: OutboxEvent): Pick<FLPostausgangEreignisPayload, "stand" | "grund"> | null {
   switch (type) {
     case "email.delivered":
       return { stand: "zugestellt", grund: null };
@@ -74,15 +74,15 @@ function postausgangStandAus({ type, data }: PostausgangEreignis): Pick<FLPostau
  * among them, and one that leaves no state. **Every `null` is answered 200**: the provider retries a non-200 for
  * thirty-two hours and then disables the endpoint.
  */
-function lesePostausgangEreignis(raw: unknown): FLPostausgangEreignisPayload | null {
-  const gelesen = PostausgangEreignisSchema.safeParse(raw);
-  const id = gelesen.data?.data.tags[POSTAUSGANG_TAG];
-  if (gelesen.data === undefined || id === undefined) return null;
+function readOutboxEvent(raw: unknown): FLPostausgangEreignisPayload | null {
+  const read = OutboxEventSchema.safeParse(raw);
+  const id = read.data?.data.tags[OUTBOX_TAG];
+  if (read.data === undefined || id === undefined) return null;
 
-  const stand = postausgangStandAus(gelesen.data);
+  const stand = outboxStandFrom(read.data);
   if (stand === null) return null;
 
-  const ereignis = { id: id, am: gelesen.data.created_at, ...stand };
+  const ereignis = { id: id, am: read.data.created_at, ...stand };
   // The provider's reason is its own token, kept only where the endpoint takes it: the state stands without one.
   const payload =
     PostausgangPostEreignisBody.safeParse(ereignis).data ?? PostausgangPostEreignisBody.safeParse({ ...ereignis, grund: null }).data;
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
     // 400 rather than 503: a forgery is not worth thirty-two hours of retries, and neither is a
     // timestamp outside the verifier's tolerance. Nothing of the body reaches the line.
     logger.warn("mail.zustellung_unsigniert");
-    return KEINE_SIGNATUR();
+    return NO_SIGNATURE();
   }
 
   return runWithIncomingTrace(async () => {
@@ -132,18 +132,18 @@ export async function POST(request: NextRequest) {
     } catch {
       // Signed and unreadable is the provider changing shape, which no retry repairs.
       logger.error("mail.zustellung_unlesbar");
-      return ANGEWENDET(false);
+      return APPLIED(false);
     }
 
     // Found by the row's own id among the send's tags, whatever else they hold.
-    const postausgang = lesePostausgangEreignis(ereignis);
-    if (postausgang === null) return ANGEWENDET(false);
+    const postausgang = readOutboxEvent(ereignis);
+    if (postausgang === null) return APPLIED(false);
 
     try {
       const { angewendet } = await postausgangPostEreignis(postausgang);
-      return ANGEWENDET(angewendet);
+      return APPLIED(angewendet);
     } catch (error) {
-      return unbeantwortet(error);
+      return unanswered(error);
     }
   });
 }
@@ -153,12 +153,12 @@ export async function POST(request: NextRequest) {
  * event it takes, a row gone or a state it may not follow among them, with `angewendet`, so any failure is a route
  * mid-deploy or a write that never landed, which the provider's later send repairs.
  */
-function unbeantwortet(error: unknown): NextResponse {
+function unanswered(error: unknown): NextResponse {
   // Never the tag block, the address or the provider's prose.
   logger.error("mail.zustellung_ungeschrieben", undefined, {
     name: error instanceof Error ? error.name : undefined,
     status: error instanceof APIBadStatusError ? error.statusCode : undefined,
   });
 
-  return KEIN_BACKEND();
+  return NO_BACKEND();
 }

@@ -48,27 +48,27 @@ import { tv } from "./tv";
  */
 const GLYPHS = {
   // A record created where its list shows, before the act's label.
-  anlegen: Plus,
+  create: Plus,
   // „Anmelden“ at the collapsed rail's foot: an arrow into a door frame.
-  anmelden: LogIn,
+  signin: LogIn,
   aufklappen: ChevronDown,
   // The theme row's three: the moon for the dark theme, the sun for the light, the screen for the system's.
   dunkel: Moon,
   // An outcome is a mark in a ring: the bare check is an item chosen, the bare cross a close or a clear.
   erledigt: CircleCheck,
-  fehler: CircleX,
+  error: CircleX,
   filter: ListFilter,
   haken: Check,
   hell: Sun,
   info: Info,
   kalender: Calendar,
   laedt: LoaderCircle,
-  mehr: Ellipsis,
+  more: Ellipsis,
   menue: Menu,
   // The season button collapsed to its glyph: a calendar with the cycling arrows, switching between seasons,
   // apart from the plain range of `saisons`, the page listing them.
   saison: CalendarSync,
-  schliessen: X,
+  close: X,
   // The strip's toggle folding the rail: one glyph in both states, as shadcn/ui's sidebar trigger draws
   // it; the tooltip and `aria-expanded` say which way the next press goes.
   seitenleiste: PanelLeft,
@@ -78,9 +78,9 @@ const GLYPHS = {
   uhrzeit: Clock,
   vor: ChevronRight,
   warnung: TriangleAlert,
-  zurueck: ChevronLeft,
+  back: ChevronLeft,
 
-  uebersicht: LayoutDashboard,
+  overview: LayoutDashboard,
   saisons: CalendarRange,
   // A season's matches, in the public frame and the administration's alike. A calendar with its days
   // marked reads as dated fixtures, and leaves the bare calendar to `kalender`, picking a date.
@@ -93,9 +93,9 @@ const GLYPHS = {
   registrierungen: UserPlus,
   administratoren: Shield,
   sperrliste: Ban,
-  loeschungen: Trash,
+  erasures: Trash,
   adressaenderungen: Mail,
-  protokoll: ScrollText,
+  log: ScrollText,
 };
 
 export type IconName = keyof typeof GLYPHS;

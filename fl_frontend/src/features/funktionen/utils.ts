@@ -4,12 +4,12 @@ import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
 import { teamHref } from "./teamSeats";
 
-import type { Funktion } from "@/core/funktionen";
+import type { Role } from "@/core/funktionen";
 import type { FunktionOrt } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
 import type { PersonEintrag } from "./constants";
 
 /** The address one Funktion opens on. */
-function funktionHref(funktion: Funktion): string {
+function funktionHref(funktion: Role): string {
   switch (funktion.art) {
     case "kontakt":
       return teamHref(funktion.team_id, funktion.saison_id);
@@ -23,14 +23,14 @@ function funktionHref(funktion: Funktion): string {
 }
 
 /** One address a person's Funktionen lead to, with every one of them that leads there. */
-export type FunktionZiel = { href: string; funktionen: readonly [Funktion, ...Funktion[]] };
+export type FunktionZiel = { href: string; funktionen: readonly [Role, ...Role[]] };
 
 /**
  * Grouped by address rather than listed per Funktion: two pupil rows on one mailbox, or a Trainer
  * who is also the Ansprechperson, lead to one page, and two links to it would read as two places.
  */
-export function zieleOf(funktionen: readonly Funktion[]): FunktionZiel[] {
-  const byHref = new Map<string, [Funktion, ...Funktion[]]>();
+export function zieleOf(funktionen: readonly Role[]): FunktionZiel[] {
+  const byHref = new Map<string, [Role, ...Role[]]>();
   for (const funktion of funktionen) {
     const href = funktionHref(funktion);
     const held = byHref.get(href);
@@ -66,7 +66,7 @@ export function zeilenOf(ziel: FunktionZiel): { titel: string; detail: string } 
  * The places `FunktionSwitcher` lists, labelled as the landing's cards are, in the landing's order.
  * One place is no choice to offer, so the switcher shows only from two.
  */
-export function funktionOrteOf(funktionen: readonly Funktion[]): FunktionOrt[] {
+export function funktionOrteOf(funktionen: readonly Role[]): FunktionOrt[] {
   const orte = zieleOf(funktionen).map((ziel) => ({ ziel: ziel, ...zeilenOf(ziel) }));
 
   return orte.map(({ ziel, titel, detail }) => {
@@ -83,7 +83,7 @@ export function funktionOrteOf(funktionen: readonly Funktion[]): FunktionOrt[] {
  * The landing is listed whatever is held: for a person whose one place is a team or the
  * administration, „Übersicht“ is the account page's way back.
  */
-export function personEintraegeOf(funktionen: readonly Funktion[]): ReadonlySet<PersonEintrag> {
+export function personEintraegeOf(funktionen: readonly Role[]): ReadonlySet<PersonEintrag> {
   const eintraege = new Set<PersonEintrag>(["landing"]);
   if (funktionen.some((funktion) => funktion.art === "spieler")) eintraege.add("spieler");
   if (funktionen.some((funktion) => funktion.art === "schiedsrichter")) eintraege.add("schiedsrichter");

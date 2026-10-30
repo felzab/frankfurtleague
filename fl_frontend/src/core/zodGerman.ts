@@ -13,7 +13,7 @@ export type Beispiele = Readonly<Record<string, Copy>>;
  * line rather than to Zod's English. It reads the raw issue an error map is handed, whose input and schema a parse's
  * finished issues no longer carry.
  */
-export function feldMeldung(issue: z.core.$ZodRawIssue, beispiele: Beispiele = {}): Copy {
+export function fieldMessage(issue: z.core.$ZodRawIssue, beispiele: Beispiele = {}): Copy {
   const { feld, fehler } = COPY.shared;
 
   // Every check meeting an empty box asks for a value, whichever check it was.
@@ -30,8 +30,8 @@ export function feldMeldung(issue: z.core.$ZodRawIssue, beispiele: Beispiele = {
   }
 
   // A value of the wrong shape is shown the shape: the field's own example, or the address example for an address.
-  const beispiel = beispiele[(issue.path ?? []).map(String).join(".")];
-  if (beispiel !== undefined) return feld.format(beispiel);
+  const example = beispiele[(issue.path ?? []).map(String).join(".")];
+  if (example !== undefined) return feld.format(example);
   if (issue.code === "invalid_format" && issue.format === "email") return feld.format(feld.beispielAdresse);
 
   return fehler.unerwartet;
@@ -45,5 +45,5 @@ export function feldMeldung(issue: z.core.$ZodRawIssue, beispiele: Beispiele = {
  * config on `globalThis`, so every copy of Zod a server bundle holds reads it.
  */
 export function installGermanMap(): void {
-  z.config({ customError: (issue) => feldMeldung(issue) });
+  z.config({ customError: (issue) => fieldMessage(issue) });
 }

@@ -7,7 +7,7 @@ import { unstable_rethrow } from "next/navigation";
 import { judgeAdminRequest } from "./auth";
 import { COPY } from "./copy";
 import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
-import { funktionenOf, isSeatAt } from "./funktionen";
+import { isSeatAt, rolesOf } from "./funktionen";
 import { logger } from "./logging";
 import { runWithRequestScope } from "./requestScope";
 import { SERVER_COPY } from "./serverCopy";
@@ -16,13 +16,13 @@ import { getSubjectSession } from "./subject";
 import { mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "./trace";
 import { turnstileRefusal } from "./turnstile";
 import { TURNSTILE_FIELD } from "./turnstileToken";
-import { logVerweigert } from "./verweigert";
-import { feldMeldung } from "./zodGerman";
+import { logRefused } from "./verweigert";
+import { fieldMessage } from "./zodGerman";
 
 import type { z } from "zod";
 import type { AdminRefusal } from "./auth";
 import type { Copy } from "./copy";
-import type { Funktion } from "./funktionen";
+import type { Role } from "./funktionen";
 import type { Code, FLRefusedField } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
@@ -59,7 +59,7 @@ type Field<T, Above extends string = ""> = T extends readonly unknown[]
 /** A seat a person's write claims: the team and the season it names, read off the input. */
 type SeatClaim = { readonly team_id: string; readonly saison_id: string };
 
-type Seat = Extract<Funktion, { art: "kontakt" }>;
+type Seat = Extract<Role, { art: "kontakt" }>;
 
 /** What every lane declares: its name for the failure line, its input's schema, and how its refusals are placed. */
 type Declared<Schema extends z.ZodType> = {
@@ -186,7 +186,7 @@ function parsed<Schema extends z.ZodType>(
       const path = issue.path ?? [];
       const field = fieldOf(path);
       const example = field === undefined ? undefined : examples[field];
-      const line = feldMeldung(issue, example === undefined ? {} : { [path.map(String).join(".")]: example });
+      const line = fieldMessage(issue, example === undefined ? {} : { [path.map(String).join(".")]: example });
       // The first issue on a box is the one it shows.
       if (field !== undefined) fieldErrors[field] ??= line;
       return line;
@@ -254,7 +254,7 @@ function logFailure(name: string, error: unknown): void {
 
 /** A person turned away, logged as a page's turn-away is. */
 function turnedAwayPerson(operation: string, grund: "keine_sitzung" | "kein_sitz"): ActionAnswer<never> {
-  logVerweigert(operation, grund);
+  logRefused(operation, grund);
   return { ok: false, reason: grund === "keine_sitzung" ? COPY.shared.fehler.abgelaufen : COPY.shared.fehler.veraltet };
 }
 
@@ -278,9 +278,7 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
       const claim = (read.input ?? {}) as Partial<SeatClaim>;
       const { team_id: team, saison_id: saison } = claim;
       const seats =
-        typeof team === "string" && typeof saison === "string"
-          ? funktionenOf(subject).funktionen.filter((funktion) => isSeatAt(funktion, team, saison))
-          : [];
+        typeof team === "string" && typeof saison === "string" ? rolesOf(subject).roles.filter((role) => isSeatAt(role, team, saison)) : [];
       if (seats.length === 0) return turnedAwayPerson(lane.name, "kein_sitz");
       return body(lane, () => lane.run(read.input, { subject, seats }));
     }

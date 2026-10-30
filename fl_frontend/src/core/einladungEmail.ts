@@ -23,12 +23,12 @@ export function buildEinladungEmail({ team: teamName, saison_id: saisonId }: FLE
 
   return {
     art: "mitteilung",
-    betreff: `Registrierungslink für ${teamName}`,
+    subjectLine: `Registrierungslink für ${teamName}`,
     origin: site,
     vorname: "",
     absaetze: [
       [
-        [{ stark: teamName }, ` ist in die Saison ${saisonId} der ${BRAND_NAME} aufgenommen.`],
+        [{ strong: teamName }, ` ist in die Saison ${saisonId} der ${BRAND_NAME} aufgenommen.`],
         "Über den Link unten registrieren sich die Spielerinnen und Spieler für diese Saison.",
         "Gib ihn an alle weiter, die für dieses Team spielen.",
       ],

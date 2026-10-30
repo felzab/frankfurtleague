@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-import { funktionenOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/funktionen";
 import { getSubjectSession } from "@/core/subject";
 import { PersonAreaBoundary } from "@/features/funktionen/components/providers/PersonAreaBoundary";
 import { PersonSessionHold } from "@/features/funktionen/components/providers/PersonSessionHold";
@@ -52,7 +52,7 @@ async function PersonEntries() {
   // The hold's own read, memoised per render; a refused session keeps the fallback, the page turning it away.
   const subject = await getSubjectSession();
   if (subject === null) return <PersonSidemenuEntries structure={personStructureFor(new Set(["landing"]))} />;
-  const { funktionen } = funktionenOf(subject);
+  const { roles: funktionen } = rolesOf(subject);
 
   return <PersonSidemenuEntries structure={personStructureFor(personEintraegeOf(funktionen))} />;
 }

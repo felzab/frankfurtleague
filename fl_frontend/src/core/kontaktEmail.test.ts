@@ -42,7 +42,7 @@ describe("a season row's contact link", () => {
   }
 
   it("names every seat the one person holds, in the seats' own order", () => {
-    expect(rendered(daten("offen", ["trainer", "ansprechperson"])).mail.betreff).toMatch(
+    expect(rendered(daten("offen", ["trainer", "ansprechperson"])).mail.subjectLine).toMatch(
       /^Du bist als Ansprechperson und Trainerin oder Trainer für Lessing-Kolleg eingetragen$/,
     );
   });

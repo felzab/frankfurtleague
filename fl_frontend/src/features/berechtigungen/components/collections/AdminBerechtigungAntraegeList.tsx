@@ -4,7 +4,7 @@ import { memo } from "react";
 
 import Clock from "@gravity-ui/icons/Clock";
 
-import { formatZeitpunkt } from "@/core/format";
+import { formatInstant } from "@/core/format";
 import { OFFENE_ANTRAEGE } from "@/core/seitenNamen";
 import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
 import { ANTRAG_WAS, BEANTRAGT_LABEL, GESTELLT_AM_LABEL, GESTELLT_VON_LABEL, OFFEN_BIS_LABEL } from "@/features/berechtigungen/constants";
@@ -51,7 +51,7 @@ export const AdminBerechtigungAntraegeList = memo(function AdminBerechtigungAntr
       </h2>
       <ul className="flex w-full flex-col gap-3">
         {antraege.map((antrag) => {
-          const gestelltAm = formatZeitpunkt(antrag.angefragt_am);
+          const gestelltAm = formatInstant(antrag.angefragt_am);
           // What each control's name tells the row apart by: the address, or the request's moment where it is withheld.
           const zeile = antrag.adresse ?? `Antrag vom ${gestelltAm}`;
           return (
@@ -82,7 +82,7 @@ export const AdminBerechtigungAntraegeList = memo(function AdminBerechtigungAntr
                 <Fakt
                   label={OFFEN_BIS_LABEL}
                   numeric>
-                  {formatZeitpunkt(antrag.bis)}
+                  {formatInstant(antrag.bis)}
                 </Fakt>
                 <Fakt label={GESTELLT_VON_LABEL}>
                   <VonOderGesperrt

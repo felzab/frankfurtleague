@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
-import { person, sitz } from "@/test-support/subjectFixtures.ts";
+import { person, seat } from "@/test-support/subjectFixtures.ts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -65,7 +65,7 @@ const refusal = (code: Code) =>
   });
 
 /** An admin create whose body records what it was handed, or throws `wirft`. */
-function anlegen(wirft?: unknown) {
+function create(wirft?: unknown) {
   return action({
     lane: "admin",
     name: "anlegen",
@@ -97,7 +97,7 @@ describe("the admin lane", () => {
   ])("turns a caller the guard refuses as %s away in the words of its repair, before anything else", async (refused, reason) => {
     stand.admin = { refused };
 
-    expect(await anlegen()({ name: "Nord", plz: "60438" })).toStrictEqual({ ok: false, reason });
+    expect(await create()({ name: "Nord", plz: "60438" })).toStrictEqual({ ok: false, reason });
     expect(stand.steps).toStrictEqual(["admin guard"]);
   });
 
@@ -107,18 +107,18 @@ describe("the admin lane", () => {
     // U+001F is no White_Space, which Python's `str.strip` drops all the same.
     posted.set("plz", " 60438\u001f");
 
-    expect(await anlegen()(posted)).toStrictEqual({ ok: true, value: undefined });
+    expect(await create()(posted)).toStrictEqual({ ok: true, value: undefined });
     expect(stand.steps).toStrictEqual(["admin guard", 'body {"name":"Nord","plz":"60438"}', "updateTag site"]);
   });
 
   it("keeps a character the backend's strip keeps", async () => {
     // U+FEFF is no White_Space, which JavaScript's `trim` would drop and Python's `str.strip` keeps.
-    await anlegen()({ name: "\ufeffNord", plz: "60438" });
+    await create()({ name: "\ufeffNord", plz: "60438" });
     expect(stand.steps[1]).toBe(`body {"name":"\ufeffNord","plz":"60438"}`);
   });
 
   it("places a value its schema refuses on its box in the German map's words, sending nothing", async () => {
-    expect(await anlegen()({ name: "Sportpark Nordwest", plz: "6043" })).toStrictEqual({
+    expect(await create()({ name: "Sportpark Nordwest", plz: "6043" })).toStrictEqual({
       ok: false,
       fieldErrors: { name: COPY.shared.feld.hoechstensZeichen(10), plz: COPY.shared.feld.format(COPY.verwaltung.spielort.plzBeispiel) },
     });
@@ -151,12 +151,12 @@ describe("the admin lane", () => {
   });
 
   it("answers a code its screen words on the box it names, or as the status line's reason", async () => {
-    expect(await anlegen(refusal("duplicate_key"))({ name: "Nord", plz: "60438" })).toStrictEqual({
+    expect(await create(refusal("duplicate_key"))({ name: "Nord", plz: "60438" })).toStrictEqual({
       ok: false,
       errorCode: "duplicate_key",
       fieldErrors: { name: SERVER_COPY.ablehnung["duplicate_key"] },
     });
-    expect(await anlegen(refusal("spiel_double_booked"))({ name: "Nord", plz: "60438" })).toStrictEqual({
+    expect(await create(refusal("spiel_double_booked"))({ name: "Nord", plz: "60438" })).toStrictEqual({
       ok: false,
       errorCode: "spiel_double_booked",
       reason: SERVER_COPY.ablehnung["spiel_double_booked"],
@@ -177,8 +177,8 @@ describe("the admin lane", () => {
     const input = { kontakte: [{ email: "lena@example.com" }], datum: "2027-02-30" };
 
     // A rule over several fields reports the block holding them, here the whole payload: the screen names its box.
-    const zweiRegeln = refusedPayload([bodyField([], "kontakt_email_twice"), bodyField(["datum"], "date_not_in_calendar")]);
-    expect(await kontakte(zweiRegeln)(input)).toStrictEqual({
+    const twoRules = refusedPayload([bodyField([], "kontakt_email_twice"), bodyField(["datum"], "date_not_in_calendar")]);
+    expect(await kontakte(twoRules)(input)).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
       fieldErrors: { kontakte: SERVER_COPY.regel.kontakt_email_twice, datum: SERVER_COPY.regel.date_not_in_calendar },
@@ -199,10 +199,10 @@ describe("the admin lane", () => {
   });
 
   it("answers every other code on the shared line its kind takes, and clears the tag behind each", async () => {
-    expect(await anlegen(refusal("document_not_found"))({ name: "Nord", plz: "60438" })).toMatchObject({ reason: COPY.shared.fehler.veraltet });
-    expect(await anlegen(refusal("actor_not_admin"))({ name: "Nord", plz: "60438" })).toMatchObject({ reason: COPY.shared.fehler.zugangWeg });
+    expect(await create(refusal("document_not_found"))({ name: "Nord", plz: "60438" })).toMatchObject({ reason: COPY.shared.fehler.veraltet });
+    expect(await create(refusal("actor_not_admin"))({ name: "Nord", plz: "60438" })).toMatchObject({ reason: COPY.shared.fehler.zugangWeg });
     // Worded on another screen, never on this one.
-    expect(await anlegen(refusal("spiel_outside_spieltag"))({ name: "Nord", plz: "60438" })).toStrictEqual({
+    expect(await create(refusal("spiel_outside_spieltag"))({ name: "Nord", plz: "60438" })).toStrictEqual({
       ok: false,
       errorCode: "spiel_outside_spieltag",
       reason: COPY.shared.fehler.unerwartet,
@@ -213,7 +213,7 @@ describe("the admin lane", () => {
   });
 
   it("answers any other throw as the unexpected failure, logging its name alone, and clears the tag", async () => {
-    const answer = await anlegen(new Error("lena@example.com was refused"))({ name: "Nord", plz: "60438" });
+    const answer = await create(new Error("lena@example.com was refused"))({ name: "Nord", plz: "60438" });
 
     expect(answer).toStrictEqual({ ok: false, reason: COPY.shared.fehler.unerwartet });
     expect(stand.lines).toStrictEqual([{ level: "error", message: "action.failed", meta: { action: "anlegen", name: "Error" } }]);
@@ -221,7 +221,7 @@ describe("the admin lane", () => {
   });
 
   it("hands Next's redirect on", async () => {
-    await expect(anlegen(catchRedirect())({ name: "Nord", plz: "60438" })).rejects.toMatchObject({
+    await expect(create(catchRedirect())({ name: "Nord", plz: "60438" })).rejects.toMatchObject({
       digest: expect.stringContaining("NEXT_REDIRECT"),
     });
   });
@@ -236,17 +236,17 @@ function catchRedirect(): unknown {
   }
 }
 
-const Sitz = z.object({ team_id: z.string().min(1), saison_id: z.string().min(1) });
+const Seat = z.object({ team_id: z.string().min(1), saison_id: z.string().min(1) });
 
 /** A signed-in person holding a contact seat at each team and season named, in seasons that grant a panel. */
-const sitzend = (...sitze: { team_id: string; saison_id: string }[]) => person({ sitze: sitze.map((at) => sitz(at)) });
+const sitzend = (...sitze: { team_id: string; saison_id: string }[]) => person({ sitze: sitze.map((at) => seat(at)) });
 
 describe("the person lane", () => {
   const melden = action({
     lane: "person",
     claim: "seat",
     name: "melden",
-    input: Sitz,
+    input: Seat,
     run: async (_input, { seats }) => {
       stand.steps.push(`body ${String(seats.length)}`);
       return { ok: true, value: undefined };
@@ -282,7 +282,7 @@ describe("the person lane", () => {
 });
 
 describe("the public lane", () => {
-  const senden = action({
+  const send = action({
     lane: "public",
     botCheck: true,
     name: "senden",
@@ -299,12 +299,12 @@ describe("the public lane", () => {
     posted.set("email", "keine-adresse");
     posted.set("cf-turnstile-response", "token");
 
-    expect(await senden(posted)).toStrictEqual({ ok: false, reason: COPY.shared.pruefung.bestaetigen });
+    expect(await send(posted)).toStrictEqual({ ok: false, reason: COPY.shared.pruefung.bestaetigen });
     expect(stand.steps).toStrictEqual(["bot check token"]);
   });
 
   it("parses the input once the check passed, the token no part of it", async () => {
-    expect(await senden({ email: "lena@example.com", "cf-turnstile-response": "token" } as { email: string })).toStrictEqual({
+    expect(await send({ email: "lena@example.com", "cf-turnstile-response": "token" } as { email: string })).toStrictEqual({
       ok: true,
       value: "lena@example.com",
     });

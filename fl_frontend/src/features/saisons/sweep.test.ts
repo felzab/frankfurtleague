@@ -137,7 +137,7 @@ describe("one pass of the pupils' deletion", () => {
       const lauf = await runLoeschungSweep();
 
       expect(laufCalls.map(({ params }) => params)).toStrictEqual([{}, { nach: ORT }]);
-      expect(lauf.zaehlung).toStrictEqual({
+      expect(lauf.count).toStrictEqual({
         abgeschlossene_saison_id: "2526",
         spieler: 4,
         saison_spieler: 4,

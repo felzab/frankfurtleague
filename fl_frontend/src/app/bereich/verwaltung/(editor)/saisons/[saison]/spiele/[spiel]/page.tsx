@@ -48,7 +48,7 @@ const nameOf = (spiel: FLSpielJoinedAdmin) =>
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { saison, spiel } = await params;
   const gelesen = await lesen(spiel);
-  return gelesen === null ? {} : pageMetadata(ROUTES.verwaltungSpiel, ROUTES.verwaltungSpiel.pfad(saison, spiel), nameOf(gelesen.spiel));
+  return gelesen === null ? {} : pageMetadata(ROUTES.verwaltungSpiel, ROUTES.verwaltungSpiel.path(saison, spiel), nameOf(gelesen.spiel));
 }
 
 /** The match editor, on today's match read and write. */

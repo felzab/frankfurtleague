@@ -6,7 +6,7 @@ import { Button as AriaButton } from "react-aria-components/Button";
 
 import { COPY } from "@/core/copy";
 
-import { counterpart, useFrameSeason } from "./FrameNav";
+import { counterpart, useFrameSaison } from "./FrameNav";
 import { Icon } from "./Icon";
 import { Menu } from "./Menu";
 import { useRailCollapsed } from "./RailState";
@@ -57,15 +57,15 @@ const trigger = tv({
  * season, and nothing where the frame holds no season. Each entry is the page shown, in that season, read
  * from the address on the client, so the layout placing the frame need not know the page beneath it.
  */
-export function SeasonButton({ placement }: { placement: "rail" | "band" }) {
-  const season = useFrameSeason();
+export function SaisonButton({ placement }: { placement: "rail" | "band" }) {
+  const saison = useFrameSaison();
   const collapsed = useRailCollapsed();
   const path = usePathname();
   const params = useParams();
-  if (season === null) return null;
+  if (saison === null) return null;
 
-  const { place, root, lines, name, span, arrow, glyph } = trigger({ placement, single: season.entries.length < 2 });
-  const active = season.entries.find((entry) => entry.id === season.active);
+  const { place, root, lines, name, span, arrow, glyph } = trigger({ placement, single: saison.entries.length < 2 });
+  const active = saison.entries.find((entry) => entry.id === saison.active);
   return (
     <div className={place()}>
       <Menu
@@ -76,11 +76,11 @@ export function SeasonButton({ placement }: { placement: "rail" | "band" }) {
         // In the rail the list is as wide as the button it opens from; on the band, as wide as its entries.
         width={placement === "rail" ? "trigger" : "content"}
         groups={[
-          season.entries.map(({ id }) => ({
+          saison.entries.map(({ id }) => ({
             kind: "link" as const,
             label: COPY.shared.saisonName(id),
-            href: counterpart({ path, params, to: id, home: season.home, pages: season.pages }),
-            isCurrent: id === season.active,
+            href: counterpart({ path, params, to: id, home: saison.home, pages: saison.pages }),
+            isCurrent: id === saison.active,
             // The browser's Back skips a season switch, returning to the page before the season's pages.
             routerOptions: { replace: true },
           })),
@@ -98,12 +98,12 @@ export function SeasonButton({ placement }: { placement: "rail" | "band" }) {
                   />
                 </span>
                 <span className={lines()}>
-                  <span className={name()}>{COPY.shared.saisonName(season.active)}</span>
+                  <span className={name()}>{COPY.shared.saisonName(saison.active)}</span>
                   <span className={span()}>{active?.span}</span>
                 </span>
               </>
             ) : (
-              COPY.shared.saisonName(season.active)
+              COPY.shared.saisonName(saison.active)
             )}
             <span className={arrow()}>
               <Icon

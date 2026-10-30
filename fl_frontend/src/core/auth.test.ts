@@ -15,7 +15,7 @@ import {
   sessionByCode,
   signInByCode,
 } from "@/test-support/authDoubles.ts";
-import { answerAt, NO_RECORDS, SITZ } from "@/test-support/subjectFixtures.ts";
+import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "@/test-support/testAuthenticator.ts";
 import { isAPIError } from "better-auth/api";
 import { afterAll, afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
@@ -119,7 +119,7 @@ const {
 type Backend = LookupFixture | "throws" | "refuses";
 
 const NOTHING_HELD = { ...NO_RECORDS, konto: false };
-const A_SEAT = SITZ;
+const A_SEAT = SEAT;
 
 /** Before every session a case makes, so a grant dated by it admits what it held before grants were dated. */
 const GRANTED_BEFORE_ANY_SESSION = "2026-01-01T00:00:00Z";

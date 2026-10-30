@@ -59,15 +59,15 @@ function eventFor(type: string, data: Record<string, unknown> = {}): Record<stri
       created_at: MESSAGE_AT,
       to: [ADDRESS],
       subject: "Bitte bestätige Deine Angaben",
-      tags: { postausgang_id: ROW_ID },
+      tags: { outbox_id: ROW_ID },
       ...data,
     },
   };
 }
 
 /** One signed request, as the provider sends it: the signature is over the bytes in the body. */
-function signed(payload: string, { alter = 0, headers = {} }: { alter?: number; headers?: Record<string, string> } = {}) {
-  const stamp = new Date(Date.now() - alter);
+function signed(payload: string, { age = 0, headers = {} }: { age?: number; headers?: Record<string, string> } = {}) {
+  const stamp = new Date(Date.now() - age);
   const id = "msg_2xyzABC";
 
   return new NextRequest("http://localhost/api/mail/zustellung", {
@@ -119,7 +119,7 @@ describe("what one delivery event leaves on its Postausgang row", () => {
       signed(
         JSON.stringify(
           eventFor("email.bounced", {
-            tags: { postausgang_id: ROW_ID, bewerbung_id: `${"a".repeat(23)}1`, rollen: "ansprechperson" },
+            tags: { outbox_id: ROW_ID, bewerbung_id: `${"a".repeat(23)}1`, rollen: "ansprechperson" },
             bounce: { type: "Permanent", subType: "Suppressed" },
           }),
         ),
@@ -257,8 +257,8 @@ describe("POST /api/mail/zustellung's signature", () => {
   it("answers 400 for a signature older than the verifier's tolerance", async () => {
     const body = JSON.stringify(eventFor("email.delivered"));
 
-    expect((await POST(signed(body, { alter: 4 * 60 * 1000 }))).status, "a signature inside the tolerance was refused").toBe(200);
-    expect((await POST(signed(body, { alter: 6 * 60 * 1000 }))).status).toBe(400);
+    expect((await POST(signed(body, { age: 4 * 60 * 1000 }))).status, "a signature inside the tolerance was refused").toBe(200);
+    expect((await POST(signed(body, { age: 6 * 60 * 1000 }))).status).toBe(400);
   });
 });
 

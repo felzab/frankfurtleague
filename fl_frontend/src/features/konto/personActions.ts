@@ -4,7 +4,7 @@ import { refresh } from "next/cache";
 import { headers } from "next/headers";
 
 import { deleteOwnAccount, getKontoSession } from "@/core/auth";
-import { formatZeitpunkt } from "@/core/format";
+import { formatInstant } from "@/core/format";
 import { recordWriteSent } from "@/core/requestScope";
 import { mapKontoAdresswechselRefusal, mapKontoFreigabeRefusal, mapKontoStoppRefusal } from "@/features/adresswechsel/refusals";
 import { refusalResult, stepUpRequired } from "@/shared/utils/adminMutation";
@@ -98,7 +98,7 @@ const genehmigungSatz = (verwaltung: FLVerwaltung): string =>
  * naming the ban would tell a stranger typing the address that it is known here.
  */
 function gesendetSatz(gueltigBis: string, art: "start" | "freigabe"): string {
-  const bitte = `Bestätige die neue Adresse über den Link in der E-Mail an sie, bis ${formatZeitpunkt(gueltigBis)}.`;
+  const bitte = `Bestätige die neue Adresse über den Link in der E-Mail an sie, bis ${formatInstant(gueltigBis)}.`;
   // Only the start's notice goes to the address on file; the approval's request went at the administrator's start.
   const sonst =
     art === "start"

@@ -28,7 +28,7 @@ export function buildLoeschungEmail({ origin, token }: { origin: string; token: 
 
   return {
     art: "sicherheit",
-    betreff: "Konto löschen",
+    subjectLine: "Konto löschen",
     origin: site,
     vorname: "",
     absaetze: [
@@ -36,7 +36,7 @@ export function buildLoeschungEmail({ origin, token }: { origin: string; token: 
       [
         [
           {
-            stark:
+            strong:
               "Dabei löschen wir Dein Konto und alle Angaben, die wir unter Deiner E-Mail-Adresse gespeichert haben. Zurückholen lässt sich das nicht.",
           },
         ],

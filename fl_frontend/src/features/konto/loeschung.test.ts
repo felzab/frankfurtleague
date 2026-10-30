@@ -9,7 +9,7 @@ import {
   registerAuthDoubles,
   sessionByCode,
 } from "@/test-support/authDoubles.ts";
-import { answerAt, NO_RECORDS, SITZ } from "@/test-support/subjectFixtures.ts";
+import { answerAt, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import { SITE_CACHE_TAG } from "@/core/siteCache.ts";
@@ -85,7 +85,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   }
 
   const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
-  const fixture = HELD.get(email ?? "") ?? { ...NO_RECORDS, sitze: [SITZ], konto: true };
+  const fixture = HELD.get(email ?? "") ?? { ...NO_RECORDS, sitze: [SEAT], konto: true };
   return Promise.resolve(Response.json(answerAt(path, fixture)));
 }) as typeof globalThis.fetch;
 

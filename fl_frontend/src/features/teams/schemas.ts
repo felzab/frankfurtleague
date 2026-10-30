@@ -9,12 +9,12 @@ import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import {
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
-  einzeiligerName,
   ExternalUrlSchema,
   FLAddressPayloadSchema,
   KontaktEmailSchema,
   PersonNameSchema,
   PHONE_REGEX,
+  singleLineName,
 } from "@/shared/schemas";
 
 import {
@@ -133,7 +133,7 @@ export const FLSaisonTeamKontaktePayloadSchema = z
 /** Shared by create and patch: the patch replaces them wholesale, so both carry the same field set. */
 const teamPayloadFields = {
   // The ceilings and the single-line class are the application's, so both tiers refuse alike.
-  name: einzeiligerName(
+  name: singleLineName(
     z
       .string()
       .trim()
@@ -149,7 +149,7 @@ const teamPayloadFields = {
   description: z
     .string()
     .max(DESCRIPTION_MAX_LENGTH, { error: `Die Beschreibung darf höchstens ${String(DESCRIPTION_MAX_LENGTH)} Zeichen lang sein.` }),
-  full_name: einzeiligerName(
+  full_name: singleLineName(
     z
       .string()
       .trim()

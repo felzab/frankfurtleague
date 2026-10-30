@@ -1,11 +1,11 @@
 import "server-only";
 
 import { mailOrigin } from "./emailShell";
-import { formatZeitpunkt } from "./format";
+import { formatInstant } from "./format";
 import { GELOESCHT_ACTOR_MARKER } from "./geloeschtActor";
 import { OFFENE_ANTRAEGE } from "./seitenNamen";
 
-import type { Lauf, Mail } from "./emailShell";
+import type { Mail, Run } from "./emailShell";
 import type { FLBerechtigungDaten, FLBerechtigungStand } from "./generated/client/types";
 import type { MailOrt } from "./mailKinds";
 
@@ -75,8 +75,8 @@ const GESPERRTER_URHEBER = "einer gesperrten Adresse";
 const UNGENANNTER_URHEBER = "einer nicht genannten Adresse";
 
 /** The change's sentence, a named address set in the emphasis grade. */
-function aenderungsSatz({ art, adresse, inhaber }: Zugangsaenderung): readonly Lauf[] {
-  const subjekt: Lauf = typeof adresse === "string" ? { stark: adresse } : OHNE_ADRESSE[adresse.vorenthalten];
+function aenderungsSatz({ art, adresse, inhaber }: Zugangsaenderung): readonly Run[] {
+  const subjekt: Run = typeof adresse === "string" ? { strong: adresse } : OHNE_ADRESSE[adresse.vorenthalten];
 
   switch (art) {
     case "erteilt":
@@ -103,17 +103,17 @@ function aenderungsSatz({ art, adresse, inhaber }: Zugangsaenderung): readonly L
  * The acting administrator in the notice's words, never a barred address or the erasure's marker: a named address in
  * the emphasis grade, as the change's own subject is, a withheld one plain.
  */
-function urheberName(von: string | null): Lauf {
+function urheberName(von: string | null): Run {
   if (von === null) return GESPERRTER_URHEBER;
 
-  return von === GELOESCHT_ACTOR_MARKER ? UNGENANNTER_URHEBER : { stark: von };
+  return von === GELOESCHT_ACTOR_MARKER ? UNGENANNTER_URHEBER : { strong: von };
 }
 
 /** The second sentence: who made it and when, or where a change nobody in the application made came from. */
-function urheberSatz(urheber: Urheber, verb: string): readonly Lauf[] {
+function urheberSatz(urheber: Urheber, verb: string): readonly Run[] {
   if (urheber === null) return [OHNE_VERWALTUNG];
 
-  return [`${verb} von `, urheberName(urheber.von), urheber.am === null ? "." : ` am ${formatZeitpunkt(urheber.am)}.`];
+  return [`${verb} von `, urheberName(urheber.von), urheber.am === null ? "." : ` am ${formatInstant(urheber.am)}.`];
 }
 
 /** A grant's address as the notice names it, or why it is withheld: a barred one, or an erased person's. */
@@ -148,7 +148,7 @@ export function buildBerechtigungEmail(daten: FLBerechtigungDaten, { origin: raw
 
   return {
     art: "mitteilung",
-    betreff: antrag?.betreff ?? BETREFF,
+    subjectLine: antrag?.betreff ?? BETREFF,
     origin: origin,
     vorname: "",
     absaetze: [[aenderungsSatz(aenderung)], [urheberSatz(urheber, antrag === null ? "Geändert" : "Beantragt")], antrag?.aufgabe ?? [WARNSATZ]],

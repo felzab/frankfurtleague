@@ -8,7 +8,7 @@ import {
   overriding,
   registerAuthDoubles,
 } from "@/test-support/authDoubles.ts";
-import { answerAt, SITZ } from "@/test-support/subjectFixtures.ts";
+import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
@@ -41,11 +41,11 @@ type Backend = LookupFixture | "throws";
 
 const BACKENDS: Readonly<Record<string, Backend>> = {
   [GRANTED]: { ...HOLDS_NOTHING, verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z", konto: false },
-  [BARRED]: { ...HOLDS_NOTHING, sitze: [SITZ], gesperrt: true, konto: true },
+  [BARRED]: { ...HOLDS_NOTHING, sitze: [SEAT], gesperrt: true, konto: true },
   [ACCOUNT_ONLY]: { ...HOLDS_NOTHING, konto: true },
   [UNREACHED]: "throws",
   [UNCONFIRMED]: { ...HOLDS_NOTHING, unbestaetigt: true, konto: false },
-  [SEATED]: { ...HOLDS_NOTHING, sitze: [SITZ], konto: true },
+  [SEATED]: { ...HOLDS_NOTHING, sitze: [SEAT], konto: true },
 };
 
 /** Answers the backend read for the address its body names; an address named nowhere holds nothing. */

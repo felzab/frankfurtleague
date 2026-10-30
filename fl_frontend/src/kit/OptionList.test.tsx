@@ -13,7 +13,7 @@ import { Select } from "./Select";
 const ORT = COPY.verwaltung.spielort;
 
 /** A venue field as the match editor holds it: its value held by the page, its text by the field. */
-function VenueField({ onCreate, onChange }: { onCreate: (typed: string) => void; onChange?: (id: string | null) => void }) {
+function SpielortField({ onCreate, onChange }: { onCreate: (typed: string) => void; onChange?: (id: string | null) => void }) {
   const [value, setValue] = useState<string | null>("ost");
   return (
     <ComboBox
@@ -41,7 +41,7 @@ const typeInto = async (text: string) => {
 
 describe("a combo box's create entry", () => {
   it("stands last under the hairline after the matches, and alone where nothing matches", async () => {
-    render(<VenueField onCreate={() => undefined} />);
+    render(<SpielortField onCreate={() => undefined} />);
     await typeInto("Sportplatz");
     const listbox = screen.getByRole("listbox");
     const names = screen.getAllByRole("option").map((option) => option.textContent);
@@ -68,7 +68,7 @@ describe("a combo box's create entry", () => {
     const onCreate = vi.fn();
     const onChange = vi.fn();
     render(
-      <VenueField
+      <SpielortField
         onCreate={onCreate}
         onChange={onChange}
       />,
@@ -81,7 +81,7 @@ describe("a combo box's create entry", () => {
 
   it("is reached by the arrow keys and chosen with Enter", async () => {
     const onCreate = vi.fn();
-    render(<VenueField onCreate={onCreate} />);
+    render(<SpielortField onCreate={onCreate} />);
     await typeInto("Sportpark Süd");
     await userEvent.keyboard("{ArrowDown}{Enter}");
     expect(onCreate).toHaveBeenCalledWith("Sportpark Süd");
@@ -89,7 +89,7 @@ describe("a combo box's create entry", () => {
 
   it("hands on no name where the field shows the chosen venue untouched", async () => {
     const onCreate = vi.fn();
-    render(<VenueField onCreate={onCreate} />);
+    render(<SpielortField onCreate={onCreate} />);
     await userEvent.click(screen.getByRole("button", { name: new RegExp(ORT.objekt) }));
     await userEvent.click(screen.getByRole("option", { name: ORT.anlegenEintrag }));
     expect(onCreate).toHaveBeenCalledWith("");
@@ -98,7 +98,7 @@ describe("a combo box's create entry", () => {
   it("clears the value when the text is cleared by hand, the value being the page's", async () => {
     const onChange = vi.fn();
     render(
-      <VenueField
+      <SpielortField
         onCreate={() => undefined}
         onChange={onChange}
       />,

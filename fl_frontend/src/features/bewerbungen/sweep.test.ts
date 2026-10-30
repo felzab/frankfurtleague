@@ -150,7 +150,7 @@ describe("a half that fails", () => {
   it("runs every other half, files a line naming the half and the season, and then fails", async () => {
     seasons(["2526", "2627"], { scheitert: ["/bewerbungen/sweep/2526", "/registrierungen/sweep/2627"] });
 
-    expect((await runBewerbungSweep()).fehler).toBeInstanceOf(AggregateError);
+    expect((await runBewerbungSweep()).error).toBeInstanceOf(AggregateError);
 
     expect(order()).toStrictEqual([
       "/bewerbungen/sweep",
@@ -173,7 +173,7 @@ describe("a half that fails", () => {
       throw new Error("the backend refused the season list");
     };
 
-    expect((await runBewerbungSweep()).fehler).toStrictEqual(new Error("the backend refused the season list"));
+    expect((await runBewerbungSweep()).error).toStrictEqual(new Error("the backend refused the season list"));
 
     expect(order()).toStrictEqual(["/bewerbungen/sweep", "adresswechsel"]);
   });
@@ -192,7 +192,7 @@ describe("a half that fails", () => {
 
     const lauf = await runBewerbungSweep();
 
-    expect([lauf.zaehlung.bewerbung_fehlgeschlagen, lauf.offen, lauf.fehler instanceof AggregateError]).toStrictEqual([3, 3, true]);
+    expect([lauf.count.bewerbung_fehlgeschlagen, lauf.offen, lauf.error instanceof AggregateError]).toStrictEqual([3, 3, true]);
   });
 });
 
@@ -216,7 +216,7 @@ describe("the line a failed call files", () => {
       });
     };
 
-    expect((await runBewerbungSweep()).fehler).toBeInstanceOf(AggregateError);
+    expect((await runBewerbungSweep()).error).toBeInstanceOf(AggregateError);
 
     expect(failures()).toStrictEqual([
       {
@@ -249,7 +249,7 @@ describe("the line a failed call files", () => {
       });
     };
 
-    expect((await runBewerbungSweep()).fehler).toBeInstanceOf(AggregateError);
+    expect((await runBewerbungSweep()).error).toBeInstanceOf(AggregateError);
 
     expect(failures()).toStrictEqual([
       {

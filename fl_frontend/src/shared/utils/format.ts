@@ -1,4 +1,4 @@
-import { ZEITZONE } from "@/core/format";
+import { TIME_ZONE } from "@/core/format";
 
 import type { FLAddress } from "@/core/generated/client/types";
 
@@ -27,7 +27,7 @@ export const PLACEHOLDER = {
 export const NICHT_HINTERLEGT = PLACEHOLDER.entity;
 
 /** The same where no label stands beside the value, so the words name the field. */
-export const nichtHinterlegt = (feld: string): string => `${feld} nicht hinterlegt`;
+export const nichtHinterlegt = (field: string): string => `${field} nicht hinterlegt`;
 
 const EUR = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 
@@ -72,7 +72,7 @@ export function buildMapsSearchUrl(query: string): `https://${string}` {
 // `timeZone` is what carries this: without one the runtime's zone decides, so a server in UTC and a
 // browser west of it disagree about the day a fixture falls on.
 const SPIEL_DATE_FORMATTER = new Intl.DateTimeFormat("de-DE", {
-  timeZone: ZEITZONE,
+  timeZone: TIME_ZONE,
   day: "2-digit",
   month: "2-digit",
   year: "numeric",

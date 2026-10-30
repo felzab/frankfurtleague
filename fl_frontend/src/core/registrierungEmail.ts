@@ -40,11 +40,11 @@ export function buildRegistrierungBestaetigungEmail(
     art: "erstkontakt",
     // The team is in the subject because a pupil registering for two of them gets two of these, and
     // the season alone does not tell one from the other in an inbox.
-    betreff: `Registrierung für ${teamName} bestätigen`,
+    subjectLine: `Registrierung für ${teamName} bestätigen`,
     origin: site,
     vorname: "",
     absaetze: [
-      [["Du hast Dich für ", { stark: teamName }, ` in der Saison ${saisonId} der ${BRAND_NAME} registriert.`]],
+      [["Du hast Dich für ", { strong: teamName }, ` in der Saison ${saisonId} der ${BRAND_NAME} registriert.`]],
       [
         "Über den Button unten bestätigst Du die Registrierung, trägst Dein Geburtsdatum ein und entscheidest, was mit Deinen Angaben passieren darf.",
         "Erst danach kann Dein Team Dich in den Kader aufnehmen.",
@@ -72,11 +72,11 @@ export function buildRegistrierungErinnerungEmail(
 
   return {
     art: "erstkontakt",
-    betreff: `Erinnerung: Registrierung für ${teamName} bestätigen`,
+    subjectLine: `Erinnerung: Registrierung für ${teamName} bestätigen`,
     origin: site,
     vorname: "",
     absaetze: [
-      [["Deine Registrierung für ", { stark: teamName }, ` in der Saison ${saisonId} der ${BRAND_NAME} ist noch nicht bestätigt.`]],
+      [["Deine Registrierung für ", { strong: teamName }, ` in der Saison ${saisonId} der ${BRAND_NAME} ist noch nicht bestätigt.`]],
       [
         `Die Frist von ${String(fristTage)} Tagen läuft weiter.`,
         "Diese Erinnerung verschiebt sie nicht.",
@@ -115,11 +115,11 @@ export function buildRegistrierungAbsageEmail(
 
   return {
     art: "mitteilung",
-    betreff: `Deine Registrierung für ${teamName}`,
+    subjectLine: `Deine Registrierung für ${teamName}`,
     origin: site,
     vorname: vorname,
     absaetze: [
-      [[{ stark: teamName }, ` hat Deine Registrierung für die Saison ${saisonId} der ${BRAND_NAME} abgelehnt.`]],
+      [[{ strong: teamName }, ` hat Deine Registrierung für die Saison ${saisonId} der ${BRAND_NAME} abgelehnt.`]],
       ABSAGE_WEITER[grund ?? "keiner"],
       ["Deine Angaben aus der Registrierung löschen wir einen Monat nach dieser Entscheidung."],
     ],

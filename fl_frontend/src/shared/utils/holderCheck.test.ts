@@ -71,17 +71,17 @@ async function arriveSignedIn(email: string, { byPasskey = false } = {}): Promis
 describe("which session a holder check calls the holder's", () => {
   it("answers held for the account page's holder, and not held for another person's session", async () => {
     const holder = await arriveSignedIn(PERSON_EMAIL);
-    expect(await pruefeInhaberAction(holder)).toStrictEqual({ success: true, gleich: true });
+    expect(await pruefeInhaberAction(holder)).toStrictEqual({ success: true, same: true });
 
     await arriveSignedIn(OTHER_EMAIL);
-    expect(await pruefeInhaberAction(holder)).toStrictEqual({ success: true, gleich: false });
+    expect(await pruefeInhaberAction(holder)).toStrictEqual({ success: true, same: false });
   });
 
   it("answers held for the administrator who asked, and not held for another administrator's session", async () => {
     const holder = await arriveSignedIn(ADMIN_EMAIL, { byPasskey: true });
-    expect(await pruefeAdministratorAction(holder)).toStrictEqual({ success: true, gleich: true });
+    expect(await pruefeAdministratorAction(holder)).toStrictEqual({ success: true, same: true });
 
     await arriveSignedIn(SECOND_ADMIN_EMAIL, { byPasskey: true });
-    expect(await pruefeAdministratorAction(holder)).toStrictEqual({ success: true, gleich: false });
+    expect(await pruefeAdministratorAction(holder)).toStrictEqual({ success: true, same: false });
   });
 });

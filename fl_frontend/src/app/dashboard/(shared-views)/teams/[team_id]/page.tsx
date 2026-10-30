@@ -10,7 +10,7 @@ import { getTeam } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
-import { seasonScopedMetadata } from "@/shared/utils/metadata";
+import { saisonScopedMetadata } from "@/shared/utils/metadata";
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
 import { parseObjectIdParam } from "@/shared/utils/routeParams";
 
@@ -39,7 +39,7 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
   return {
     title: teamData.name,
     description: `Teamdaten, Statistiken und Saisonspiele von ${teamData.full_name || teamData.name} in der Frankfurt League.`,
-    ...seasonScopedMetadata(`/dashboard/teams/${team_id}`, saisonId, await runningSaisonId()),
+    ...saisonScopedMetadata(`/dashboard/teams/${team_id}`, saisonId, await runningSaisonId()),
   };
 }
 

@@ -28,7 +28,7 @@ import { LINK_UNKLAR, rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { FOCUS_HEADING, focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { meldeAdresswechselVersand } from "@/shared/utils/linkVersandToast";
+import { reportAddressChangeDispatch } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLAdresswechselVerwaltungOffen, FLAdresswechselWartetAuf, FLAdresswechselWeg } from "@/core/generated/client/types";
@@ -100,7 +100,7 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAdressw
     landing.landed();
     onGeschrieben();
     // Graded as the start's press grades its link: the mail leaves behind the answer, and the earlier link dies with it.
-    meldeAdresswechselVersand(true, res.message);
+    reportAddressChangeDispatch(true, res.message);
   };
 
   const verwirf = () => {

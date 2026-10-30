@@ -1,4 +1,4 @@
-import { ZEITZONE } from "@/core/format";
+import { TIME_ZONE } from "@/core/format";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLEinwilligungBeleg, FLEinwilligungNachweis } from "@/core/generated/client/types";
@@ -6,7 +6,7 @@ import type { FLEinwilligungBeleg, FLEinwilligungNachweis } from "@/core/generat
 // Europe/Berlin, as every other date in this app is rendered: the evidence stores an instant in UTC,
 // and an administrator reading "22:30" for an act at 00:30 would put it on the day before.
 const BELEG_ZEITPUNKT = new Intl.DateTimeFormat("de-DE", {
-  timeZone: ZEITZONE,
+  timeZone: TIME_ZONE,
   day: "2-digit",
   month: "2-digit",
   year: "numeric",

@@ -17,9 +17,9 @@ export async function runLoeschungSweep() {
 
   if (!lauf.abgebrochen) {
     const { abgebrochen: _durchgelaufen, ...zahlen } = lauf;
-    return { zaehlung: zahlen, offen: zahlen.verbleibend };
+    return { count: zahlen, offen: zahlen.verbleibend };
   }
 
   const { abgebrochen: _abgebrochen, fehler, ...bisher } = lauf;
-  return { zaehlung: bisher, offen: bisher.fehlgeschlagen, fehler: fehler };
+  return { count: bisher, offen: bisher.fehlgeschlagen, error: fehler };
 }

@@ -29,7 +29,7 @@ export async function runBewerbungSweep() {
   const adressen = await sweepAdresswechsel();
 
   return {
-    zaehlung: {
+    count: {
       bewerbung_fehlgeschlagen: saisons.uebergangen.bewerbung,
       registrierung_fehlgeschlagen: saisons.uebergangen.registrierung,
       adresswechsel_entfernt: adressen.entfernt,
@@ -38,7 +38,7 @@ export async function runBewerbungSweep() {
       adresswechsel_verbleibend: adressen.verbleibend,
     },
     offen: saisons.uebergangen.bewerbung + saisons.uebergangen.registrierung + adressen.verbleibend,
-    fehler: saisons.fehler,
+    error: saisons.fehler,
   };
 }
 

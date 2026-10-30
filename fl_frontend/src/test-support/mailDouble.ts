@@ -25,7 +25,7 @@ const BACKEND = "https://backend.invalid/api/v0/postausgang/anmeldung";
  * then opened and rendered as `fl_frontend/src/core/mail.ts :: zustellen` does, under the suite's own key, and sent; every
  * other mail is owed by the backend's own write and drained by nothing here.
  */
-export function doublePostausgang(): {
+export function doubleOutbox(): {
   sent: SentMail[];
   owed: FLPostausgangAnmeldungPayload[];
   answerWith: (next: MailAnswer) => void;
@@ -43,9 +43,9 @@ export function doublePostausgang(): {
       import("@/core/emailShell.ts"),
     ]);
     const geheim = payload.geheim === null ? null : await symmetricDecrypt({ key: authSecret(), data: payload.geheim });
-    const nachricht = mailFor(payload.daten.art, payload.daten, { token: null, geheim: geheim, origin: frontend_config.AUTH_URL });
-    assert(nachricht !== undefined, `no builder renders the sign-in kind ${payload.daten.art}`);
-    const mail = { to: payload.an, ...renderMail(nachricht) };
+    const message = mailFor(payload.daten.art, payload.daten, { token: null, geheim: geheim, origin: frontend_config.AUTH_URL });
+    assert(message !== undefined, `no builder renders the sign-in kind ${payload.daten.art}`);
+    const mail = { to: payload.an, ...renderMail(message) };
 
     if ((await answering(mail)) === "lost") {
       throw new APINetworkError({ message: "Request failed.", url: BACKEND, method: "POST", readOnly: false, traceId: "0", isTimeout: false });

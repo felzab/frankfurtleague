@@ -128,7 +128,7 @@ describe("countFacetOptions", () => {
   it("reports zero for an option nothing holds rather than omitting it", () => {
     const counts = countFacetOptions([], FACETS, {}, FACETS[0]!);
 
-    expect(counts).toStrictEqual({ aktiv: 0, stillgelegt: 0 });
+    expect(counts).toStrictEqual({ active: 0, retired: 0 });
   });
 });
 
@@ -449,7 +449,7 @@ const TOLD_FACETS: readonly Facet<Row>[] = [
 ];
 
 /** Apart from both counts the served rows give, so a cell counting them instead reads as neither. */
-const TOLD = { stand: { aktiv: 4, stillgelegt: 9 } };
+const TOLD = { stand: { active: 4, retired: 9 } };
 
 const SERVED = ROWS.filter((row) => row.status === "aktiv");
 
@@ -492,9 +492,9 @@ function assertPanelOptions(expected: readonly (readonly [string, string])[]): v
 type Told = Record<string, Record<string, number>>;
 
 /** The counts told for `param`, which every facet the slice declares is handed. */
-const gezaehlt = (told: Told, param: string): Record<string, number> => told[param] ?? assert.fail(`no count is told for ${param}`);
+const counted = (told: Told, param: string): Record<string, number> => told[param] ?? assert.fail(`no count is told for ${param}`);
 
-const aktionenView = async () => (await import("@/features/aktionen/components/views/AdminAktionenView.tsx")).AdminAktionenView;
+const actionLogView = async () => (await import("@/features/aktionen/components/views/AdminAktionenView.tsx")).AdminAktionenView;
 const bewerbungenView = async () => (await import("@/features/bewerbungen/components/views/AdminBewerbungenView.tsx")).AdminBewerbungenView;
 
 /**
@@ -503,26 +503,26 @@ const bewerbungenView = async () => (await import("@/features/bewerbungen/compon
  */
 const NARROWING_VIEWS: Record<string, { load: () => Promise<ComponentType<never>>; props: (told: Told) => never }> = {
   "aktionen/AKTIONEN_FACETS": {
-    load: async () => (await aktionenView()) as ComponentType<never>,
+    load: async () => (await actionLogView()) as ComponentType<never>,
     props: (told) =>
       ({
         aktionen: [],
         vollstaendig: true,
-        anzahlJeCollection: gezaehlt(told, "collection"),
-        anzahlJeOperation: gezaehlt(told, "operation"),
-        anzahlJeHerkunft: gezaehlt(told, "herkunft"),
+        anzahlJeCollection: counted(told, "collection"),
+        anzahlJeOperation: counted(told, "operation"),
+        anzahlJeHerkunft: counted(told, "herkunft"),
         dokumentId: null,
         vorgangId: null,
         richtung: "desc",
-      }) satisfies ComponentProps<Awaited<ReturnType<typeof aktionenView>>> as never,
+      }) satisfies ComponentProps<Awaited<ReturnType<typeof actionLogView>>> as never,
   },
   "bewerbungen/BEWERBUNGEN_FACETS": {
     load: async () => (await bewerbungenView()) as ComponentType<never>,
     props: (told) =>
       ({
         bewerbungen: [],
-        anzahlJeStatus: gezaehlt(told, "status"),
-        anzahlJeSaisonbezug: gezaehlt(told, "saisonbezug"),
+        anzahlJeStatus: counted(told, "status"),
+        anzahlJeSaisonbezug: counted(told, "saisonbezug"),
         dublettenSchluessel: [],
         richtung: "desc",
       }) satisfies ComponentProps<Awaited<ReturnType<typeof bewerbungenView>>> as never,

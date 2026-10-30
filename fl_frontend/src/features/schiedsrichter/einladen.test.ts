@@ -1,6 +1,6 @@
 import { cacheCalls, doubleActionRequest } from "@/test-support/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
-import { doublePostausgang } from "@/test-support/mailDouble.ts";
+import { doubleOutbox } from "@/test-support/mailDouble.ts";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
@@ -9,7 +9,7 @@ import type { ApiCall } from "@/test-support/apiClientDouble.ts";
    are the doubles. The mailer's double also stills the drain behind the response, which the backend's Postausgang
    feeds: a write owing a link sends nothing itself. */
 doubleActionRequest();
-const mail = doublePostausgang();
+const mail = doubleOutbox();
 
 /** What each endpoint answers in this case, returned or, where it is an `Error`, thrown. */
 type Answer = () => unknown;

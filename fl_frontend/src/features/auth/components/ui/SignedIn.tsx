@@ -39,9 +39,9 @@ export function SignedIn({ address }: { address: string }) {
       satz={COPY.anmeldung.angemeldetAls}
       adresse={address}
       // A link and never a press: the landing decides where a signed-in visitor goes, as after every sign-in.
-      weiter={{ label: COPY.shared.uebersicht, href: SIGN_IN_LANDING }}
+      continue={{ label: COPY.shared.uebersicht, href: SIGN_IN_LANDING }}
       // One press, as every sign-out is.
-      abmelden={{ label: COPY.shared.verb.abmelden, isBusy: isPending, onPress: () => void abmelden() }}
+      signOut={{ label: COPY.shared.verb.abmelden, isBusy: isPending, onPress: () => void abmelden() }}
       zeile={fehler}
     />
   );

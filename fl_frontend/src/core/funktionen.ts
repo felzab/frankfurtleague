@@ -2,7 +2,7 @@ import type { FLSubjektSitz } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
 /** One contact seat on a season that grants a panel, carrying the name the club PLAYED that season under. */
-type KontaktFunktion = {
+type KontaktRole = {
   art: "kontakt";
   // The contact-seat sense of the word, never the captaincy's.
   rolle: FLSubjektSitz["rolle"];
@@ -12,15 +12,15 @@ type KontaktFunktion = {
   saison_status: FLSubjektSitz["saison_status"];
 };
 
-type SpielerFunktion = { art: "spieler"; spieler_id: string };
+type SpielerRole = { art: "spieler"; spieler_id: string };
 
-type SchiedsrichterFunktion = { art: "schiedsrichter"; schiedsrichter_id: string };
+type SchiedsrichterRole = { art: "schiedsrichter"; schiedsrichter_id: string };
 
 /** Derived from the session's own verdict rather than the stored grant alone, which a code-borne session also holds. */
-type AdministrationFunktion = { art: "administration" };
+type AdministrationRole = { art: "administration" };
 
 /** What a person IS on screen: one record the lookup matched, narrowed to what grants a panel. */
-export type Funktion = KontaktFunktion | SpielerFunktion | SchiedsrichterFunktion | AdministrationFunktion;
+export type Role = KontaktRole | SpielerRole | SchiedsrichterRole | AdministrationRole;
 
 // Held to the backend's own season predicate by `fl_backend/tests/shared/grants_a_panel.json`, which
 // both tiers' suites answer row by row.
@@ -40,8 +40,8 @@ export function grantsAPanel(status: FLSubjektSitz["saison_status"]): boolean {
  * A contact seat on exactly this team in exactly this season, the one predicate a team page and a
  * person's write both judge by: a seat on last season's team opens nothing in this one's.
  */
-export function isSeatAt(funktion: Funktion, teamId: string, saisonId: string): funktion is KontaktFunktion {
-  return funktion.art === "kontakt" && funktion.team_id === teamId && funktion.saison_id === saisonId;
+export function isSeatAt(role: Role, teamId: string, saisonId: string): role is KontaktRole {
+  return role.art === "kontakt" && role.team_id === teamId && role.saison_id === saisonId;
 }
 
 /**
@@ -49,27 +49,27 @@ export function isSeatAt(funktion: Funktion, teamId: string, saisonId: string): 
  * is passed through rather than recomputed: a second test of it would be a second definition of
  * "confirmed" for the two tiers to part on.
  */
-export function funktionenOf(subject: SubjectSession): { funktionen: Funktion[]; unbestaetigt: boolean } {
+export function rolesOf(subject: SubjectSession): { roles: Role[]; unbestaetigt: boolean } {
   const { sitze, spieler, schiedsrichter, unbestaetigt } = subject.subjekt;
 
-  const funktionen: Funktion[] = [
+  const roles: Role[] = [
     // Per seat and never per team: one junction row seats one person twice where the trainer is also
     // another seat, and each seat is its own Funktion.
     ...sitze
-      .filter((sitz) => grantsAPanel(sitz.saison_status))
-      .map((sitz): KontaktFunktion => ({
+      .filter((seat) => grantsAPanel(seat.saison_status))
+      .map((seat): KontaktRole => ({
         art: "kontakt",
-        rolle: sitz.rolle,
-        team_id: sitz.team_id,
-        saison_id: sitz.saison_id,
-        team_name: sitz.team_name,
-        saison_status: sitz.saison_status,
+        rolle: seat.rolle,
+        team_id: seat.team_id,
+        saison_id: seat.saison_id,
+        team_name: seat.team_name,
+        saison_status: seat.saison_status,
       })),
     // Neither row is season-scoped, so neither is narrowed.
-    ...spieler.map((row): SpielerFunktion => ({ art: "spieler", spieler_id: row.spieler_id })),
-    ...schiedsrichter.map((row): SchiedsrichterFunktion => ({ art: "schiedsrichter", schiedsrichter_id: row.schiedsrichter_id })),
-    ...(subject.admin ? [{ art: "administration" } satisfies AdministrationFunktion] : []),
+    ...spieler.map((row): SpielerRole => ({ art: "spieler", spieler_id: row.spieler_id })),
+    ...schiedsrichter.map((row): SchiedsrichterRole => ({ art: "schiedsrichter", schiedsrichter_id: row.schiedsrichter_id })),
+    ...(subject.admin ? [{ art: "administration" } satisfies AdministrationRole] : []),
   ];
 
-  return { funktionen: funktionen, unbestaetigt: unbestaetigt };
+  return { roles: roles, unbestaetigt: unbestaetigt };
 }

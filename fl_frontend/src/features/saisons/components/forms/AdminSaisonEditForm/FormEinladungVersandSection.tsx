@@ -22,10 +22,10 @@ import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite, unansweredRead } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { nichtHinterlegt } from "@/shared/utils/format";
-import { meldeLinkVersand, REGISTRIERUNGSLINK_TITEL } from "@/shared/utils/linkVersandToast";
+import { REGISTRIERUNGSLINK_TITEL, reportLinkDispatch } from "@/shared/utils/linkVersandToast";
 
 import type { FLEinladungVersandGrund, FLEinladungVersandVorschauZeile, FLEinladungVersandZeile } from "@/core/generated/client/types";
-import type { VersandTitel } from "@/shared/utils/linkVersandToast";
+import type { DispatchTitel } from "@/shared/utils/linkVersandToast";
 
 /** The ruling's own words, copied rather than reworded: a label a visitor navigates by is nobody's here to choose. */
 const SENDEN_LABEL = "Links an alle Teams senden";
@@ -98,7 +98,7 @@ function zustellSatz(zeile: FLEinladungVersandZeile): string {
  * One press writes to many teams, so the title says whose grade it is: one team's in its own press's words, every team's,
  * or some teams' where a link went beside one that did not.
  */
-function registrierungslinksTitel(gemeint: number, erreicht: number): VersandTitel {
+function registrierungslinksTitel(gemeint: number, erreicht: number): DispatchTitel {
   if (gemeint === 1) return REGISTRIERUNGSLINK_TITEL;
 
   const teils = erreicht > 0;
@@ -169,7 +169,7 @@ export function FormEinladungVersandSection({
           description: res.message,
         });
       else
-        meldeLinkVersand(
+        reportLinkDispatch(
           res.erreicht < res.gemeint ? "fehlgeschlagen" : "gesendet",
           registrierungslinksTitel(res.gemeint, res.erreicht),
           res.message,

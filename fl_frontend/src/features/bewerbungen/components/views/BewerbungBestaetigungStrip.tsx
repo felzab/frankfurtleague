@@ -45,7 +45,7 @@ import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { nichtHinterlegt } from "@/shared/utils/format";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
-import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
+import { WORDING_UNREADABLE } from "@/shared/utils/refusal";
 
 import { Absatz } from "./BestaetigungHinweise";
 
@@ -363,7 +363,7 @@ function SitzZeile({
           // the administration's page, whose words the box shows, and the reason says what to do.
           <Hint
             mode="refusal"
-            reason={neubesetzung === null ? FASSUNG_UNLESBAR : null}
+            reason={neubesetzung === null ? WORDING_UNREADABLE : null}
             label={besetzenLabel}
             className="shrink-0">
             <Button

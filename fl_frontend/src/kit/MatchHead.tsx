@@ -5,15 +5,15 @@ import { figures, look, NONE, sideMarks } from "./MatchRow";
 import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
-import type { Figures, MatchRowProps, MatchSide } from "./MatchRow";
+import type { Figures, SpielRowProps, SpielSide } from "./MatchRow";
 
-export type MatchHeadProps = {
+export type SpielHeadProps = {
   /** The line above the pairing, as a competition's round stands over a scoreboard: the matchday. */
   eyebrow: string;
-  home: MatchSide;
-  away: MatchSide;
+  home: SpielSide;
+  away: SpielSide;
   /** Absent until a result is entered, so an unplayed match never reads 0:0. */
-  result?: MatchRowProps["result"];
+  result?: SpielRowProps["result"];
 };
 
 const head = tv({
@@ -35,7 +35,7 @@ function Goals({ score, part }: { score: Figures; part: "home" | "away" }) {
 }
 
 /** A side as the centred look sets it: the plaque over the name. */
-function Side({ side, score, part }: { side: MatchSide; score: Figures; part: "home" | "away" }) {
+function Side({ side, score, part }: { side: SpielSide; score: Figures; part: "home" | "away" }) {
   const style = head(look(score, part));
   return (
     <span className={style.side()}>
@@ -50,7 +50,7 @@ function Side({ side, score, part }: { side: MatchSide; score: Figures; part: "h
  * plaques over their names and the score large between them, „n. E.“ under a shoot-out's score, the whole
  * on the band across the dialog's top. The one block that names a match by its two sides.
  */
-export function MatchHead({ eyebrow, home, away, result }: MatchHeadProps) {
+export function SpielHead({ eyebrow, home, away, result }: SpielHeadProps) {
   const score = figures(result);
   const shootOut = score?.shootOut === true ? COPY.shared.nachElfmeterschiessen : null;
   const style = head();

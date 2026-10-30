@@ -4,7 +4,7 @@ import { ADRESSWECHSEL_WARTEZEIT_DAUER } from "./adresswechsel";
 import { ADRESSWECHSEL_STOPPEN } from "./adresswechselAntworten";
 import { KONTAKT_EMAIL } from "./brand";
 import { BRAND_NAME, mailOrigin } from "./emailShell";
-import { formatZeitpunkt } from "./format";
+import { formatInstant } from "./format";
 
 import type { Absatz, Mail } from "./emailShell";
 import type {
@@ -36,7 +36,7 @@ export function buildAdresswechselEmail({ weg, gueltig_bis: gueltigBis }: FLAdre
 
   return {
     art: "sicherheit",
-    betreff: "Neue E-Mail-Adresse bestätigen",
+    subjectLine: "Neue E-Mail-Adresse bestätigen",
     origin: site,
     vorname: "",
     absaetze: [
@@ -45,10 +45,10 @@ export function buildAdresswechselEmail({ weg, gueltig_bis: gueltigBis }: FLAdre
         weg === "konto"
           ? `Für ein Konto bei der ${BRAND_NAME} wurde diese E-Mail-Adresse als neue angegeben.`
           : `Die Verwaltung der ${BRAND_NAME} hat diese E-Mail-Adresse für ein Konto eingetragen.`,
-        [{ stark: "Sie gilt erst, wenn Du sie bestätigst. Bis dahin schreiben wir an die bisherige Adresse." }],
+        [{ strong: "Sie gilt erst, wenn Du sie bestätigst. Bis dahin schreiben wir an die bisherige Adresse." }],
       ],
       [
-        ["Bestätige sie bis ", { stark: formatZeitpunkt(gueltigBis) }, " über diesen Link."],
+        ["Bestätige sie bis ", { strong: formatInstant(gueltigBis) }, " über diesen Link."],
         "Er funktioniert nur einmal.",
         ...(weg === "wartezeit" ? [`Nach Deiner Bestätigung gilt sie ${ADRESSWECHSEL_WARTEZEIT_DAUER} später.`] : []),
       ],
@@ -72,7 +72,7 @@ function anlassAbsatz(weg: FLAdresswechselWeg, gueltigBis: string): Absatz {
         "Sie gilt nur, wenn Du sie in Deinem Konto freigibst.",
         "Gib sie nur frei, wenn Du das selbst bei uns angefragt hast.",
         // The approval is the account page's alone, so `freigabe` names the deadline that page keeps.
-        ["Freigeben kannst Du sie bis ", { stark: formatZeitpunkt(gueltigBis) }, ", nachdem Du Dich mit dieser Adresse angemeldet hast."],
+        ["Freigeben kannst Du sie bis ", { strong: formatInstant(gueltigBis) }, ", nachdem Du Dich mit dieser Adresse angemeldet hast."],
       ];
     case "wartezeit":
       return [
@@ -96,7 +96,7 @@ export function buildAdresswechselHinweisEmail(
     art: "sicherheit",
     // One subject for every way: the approval's request exists so a real holder can refuse a pretext, and a
     // subject telling them to approve would be its first instruction.
-    betreff: "Deine E-Mail-Adresse soll sich ändern",
+    subjectLine: "Deine E-Mail-Adresse soll sich ändern",
     origin: site,
     vorname: vorname ?? "",
     absaetze: [
@@ -116,12 +116,12 @@ export function buildAdresswechselHinweisEmail(
 export function buildAdresswechselWirksamEmail({ vorname, zeitpunkt }: FLAdresswechselWirksamDaten, { origin }: MailOrt): Mail {
   return {
     art: "sicherheit",
-    betreff: "Deine E-Mail-Adresse wurde geändert",
+    subjectLine: "Deine E-Mail-Adresse wurde geändert",
     origin: mailOrigin(origin),
     vorname: vorname ?? "",
     absaetze: [
       [
-        ["Für Dein Konto bei der ", BRAND_NAME, " gilt seit ", { stark: formatZeitpunkt(zeitpunkt) }, " eine neue E-Mail-Adresse."],
+        ["Für Dein Konto bei der ", BRAND_NAME, " gilt seit ", { strong: formatInstant(zeitpunkt) }, " eine neue E-Mail-Adresse."],
         // Never says the old address stops signing in: a seat not yet confirmed stays behind and still signs in there.
         "Deine Einträge stehen jetzt unter ihr, und mit ihr meldest Du Dich an.",
       ],
@@ -136,7 +136,7 @@ export function buildAdresswechselWirksamEmail({ vorname, zeitpunkt }: FLAdressw
 export function buildAdresswechselNichtWirksamEmail(_daten: FLAdresswechselVerworfenDaten, { origin }: MailOrt): Mail {
   return {
     art: "sicherheit",
-    betreff: "Deine E-Mail-Adresse wurde nicht geändert",
+    subjectLine: "Deine E-Mail-Adresse wurde nicht geändert",
     origin: mailOrigin(origin),
     vorname: "",
     absaetze: [

@@ -13,7 +13,7 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
   // visitor holding none meets sign-in, never an area's frame. Every verdict past it is a guard's.
   if (sessionCookieOf(req.headers) === null) {
     // No return destination carried across: honouring one needs it checked against an allowlist first.
-    return inBereich(req.nextUrl.pathname) ? turnAway(req, "/signin") : NextResponse.next();
+    return inArea(req.nextUrl.pathname) ? turnAway(req, "/signin") : NextResponse.next();
   }
 
   try {
@@ -39,11 +39,11 @@ function turnAway(req: NextRequest, destination: string): NextResponse {
   return NextResponse.redirect(new URL(destination, req.nextUrl));
 }
 
-const BEREICH = "/bereich";
+const AREA = "/bereich";
 
 /** Raw and decoded both, as Next tests `config.matcher`: the area is judged on every spelling the matcher admits. */
-function inBereich(pathname: string): boolean {
-  return [pathname, decoded(pathname)].some((path) => path === BEREICH || path.startsWith(`${BEREICH}/`));
+function inArea(pathname: string): boolean {
+  return [pathname, decoded(pathname)].some((path) => path === AREA || path.startsWith(`${AREA}/`));
 }
 
 // A malformed escape is left as written, as Next leaves it: a person's address never throws here.

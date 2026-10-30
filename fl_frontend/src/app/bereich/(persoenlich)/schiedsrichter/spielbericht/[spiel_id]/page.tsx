@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
 import { isRecordMissing } from "@/core/errors";
-import { funktionenOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/funktionen";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { logPageVerweigert } from "@/features/funktionen/verweigert";
 import { kontextOf } from "@/features/spielberichte/components/forms/SpielberichtForm/spielberichtDraft";
@@ -22,7 +22,7 @@ export default async function SchiedsrichterSpielberichtPage({ params }: NextPag
   const subject = await requireSubjectSession();
 
   // To the landing rather than a 404, as the referee panel sends a person who holds no referee record.
-  if (!funktionenOf(subject).funktionen.some((funktion) => funktion.art === "schiedsrichter")) {
+  if (!rolesOf(subject).roles.some((funktion) => funktion.art === "schiedsrichter")) {
     logPageVerweigert("/bereich/schiedsrichter/spielbericht", "keine_funktion");
     redirect("/bereich");
   }

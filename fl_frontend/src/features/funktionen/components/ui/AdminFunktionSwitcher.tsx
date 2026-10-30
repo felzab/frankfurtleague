@@ -1,6 +1,6 @@
 import { getAdminSession } from "@/core/auth";
 import { asSignInIdentifier } from "@/core/emailAddress";
-import { funktionenOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/funktionen";
 import { lookUpSubjekt } from "@/core/signInGate";
 import { ADMIN_SHELL_FALLBACK } from "@/features/admin/constants";
 import { FunktionSwitcher } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
@@ -22,7 +22,7 @@ export async function AdminFunktionSwitcher() {
   // there first, and the verdict answered it with no session.
   const subjekt = await lookUpSubjekt(email);
 
-  const { funktionen } = funktionenOf({ email: email, admin: true, subjekt: subjekt });
+  const { roles: funktionen } = rolesOf({ email: email, admin: true, subjekt: subjekt });
 
   return (
     <FunktionSwitcher

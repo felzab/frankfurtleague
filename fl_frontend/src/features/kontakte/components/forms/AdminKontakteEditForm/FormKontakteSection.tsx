@@ -45,7 +45,7 @@ import { TextField } from "@/shared/components/ui/TextField";
 import { textLink } from "@/shared/components/ui/textLink";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
+import { WORDING_UNREADABLE } from "@/shared/utils/refusal";
 
 import { FormKontaktEinladen } from "./FormKontaktEinladen";
 
@@ -219,7 +219,7 @@ export function FormKontakteSection({
       )}
 
       {/* Nothing to enter people into: no block is stored and none can be built without the label. */}
-      {isMember && basis === null && <p className="muted-hint">{FASSUNG_UNLESBAR}</p>}
+      {isMember && basis === null && <p className="muted-hint">{WORDING_UNREADABLE}</p>}
 
       {/* A PANEL per person, never a rule inside one: drawn the same way, the division between two
         people and the one inside a person read alike, so neither read as a boundary. The public
@@ -375,7 +375,7 @@ function KontaktpersonFields({
             stamps that label, and the reason says how to get it back. */}
         <Hint
           mode="refusal"
-          reason={person === null && !kannLeerOeffnen ? FASSUNG_UNLESBAR : null}
+          reason={person === null && !kannLeerOeffnen ? WORDING_UNREADABLE : null}
           label={`${label} hinterlegt`}>
           <Switch
             isSelected={person !== null}

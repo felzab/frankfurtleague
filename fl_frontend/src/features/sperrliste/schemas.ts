@@ -2,7 +2,7 @@
 import z from "zod";
 
 import { SPERRLISTE_GRUND_MAX_LENGTH } from "@/features/sperrliste/constants";
-import { CustomObjectIdStringSchema, einzeiligerName, KontaktEmailSchema } from "@/shared/schemas";
+import { CustomObjectIdStringSchema, KontaktEmailSchema, singleLineName } from "@/shared/schemas";
 
 /**
  * Unanchored, character for character `fl_backend/app/api/sperrliste/schemas.py ::
@@ -19,7 +19,7 @@ export const FLPostSperrlistePayloadSchema = z.object({
   // Trimmed before any bound counts it, as at the API, which refuses a blank reason, one over the
   // ceiling and one holding a line break with a generic `payload_refused` sentence: a looser draft
   // loses each bound's German.
-  grund: einzeiligerName(
+  grund: singleLineName(
     z
       .string()
       .trim()

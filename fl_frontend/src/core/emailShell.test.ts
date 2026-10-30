@@ -8,7 +8,7 @@ const ORIGIN = "https://example.com";
 
 const MAIL: Mail = {
   art: "mitteilung",
-  betreff: "Spiel abgesagt",
+  subjectLine: "Spiel abgesagt",
   origin: ORIGIN,
   vorname: "",
   absaetze: [["Das Spiel ist abgesagt."]],
@@ -17,8 +17,8 @@ const MAIL: Mail = {
 describe("renderMail", () => {
   // A reader whose client shows the text version alone has no button to press.
   it("prints the button's link in the text version", () => {
-    const knopf = renderMail({ ...MAIL, aktion: { label: "Zum Eintrag", href: `${ORIGIN}/eintrag?token=eins` } });
-    assert.include(knopf.text, `${ORIGIN}/eintrag?token=eins`);
+    const button = renderMail({ ...MAIL, aktion: { label: "Zum Eintrag", href: `${ORIGIN}/eintrag?token=eins` } });
+    assert.include(button.text, `${ORIGIN}/eintrag?token=eins`);
   });
 
   // A link to pass on stands in its box as text a reader can copy, in both versions, and the mail draws no button.
@@ -36,10 +36,10 @@ describe("renderMail", () => {
     const boese = '<img src=x onerror="alert(1)">';
     const { html } = renderMail({
       ...MAIL,
-      betreff: boese,
+      subjectLine: boese,
       vorname: boese,
-      absaetze: [[boese, [{ stark: boese }]]],
-      block: { titel: boese, fakten: [{ label: boese, wert: boese }] },
+      absaetze: [[boese, [{ strong: boese }]]],
+      block: { titel: boese, facts: [{ label: boese, value: boese }] },
       aktion: { label: boese, href: `${ORIGIN}/"><script>` },
     });
 
@@ -49,6 +49,6 @@ describe("renderMail", () => {
 
   // A break in a header ends it, and whatever follows is a header of its own.
   it("folds the subject to one line", () => {
-    assert.notMatch(renderMail({ ...MAIL, betreff: "Spiel abgesagt\r\nBcc: fremd@example.com" }).subject, /[\r\n]/);
+    assert.notMatch(renderMail({ ...MAIL, subjectLine: "Spiel abgesagt\r\nBcc: fremd@example.com" }).subject, /[\r\n]/);
   });
 });

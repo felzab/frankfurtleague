@@ -50,10 +50,10 @@ const CONFIG_DOUBLE = {
 
 // The map is each cutover's to fill: one kind stands in, rendered as any mail is, printing the secret it is handed.
 const KINDS_DOUBLE = {
-  POSTAUSGANG_TAG: "postausgang_id",
+  OUTBOX_TAG: "postausgang_id",
   mailFor: (_art: string, daten: { grund: string }, { origin, geheim }: { origin: string; geheim: string | null }) => ({
     art: "mitteilung",
-    betreff: "Sperre",
+    subjectLine: "Sperre",
     origin: origin,
     vorname: "",
     absaetze: [[daten.grund], ...(geheim === null ? [] : [[geheim]])],
@@ -67,7 +67,7 @@ vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
 vi.doMock("@/core/mailKinds.ts", () => KINDS_DOUBLE);
 vi.doMock("@/core/logging.ts", () => LOGGING_DOUBLE);
 
-const { drainPostausgang, takeDrainCounts } = await import("./mail.ts");
+const { drainOutbox, takeDrainCounts } = await import("./mail.ts");
 
 /** One handed-out row, its id and claim number spelled from `n`. */
 const handed = (n: number, versuch = 1): FLPostausgangAusgabe => ({
@@ -109,7 +109,7 @@ describe("one drain of the Postausgang", () => {
   it("sends each mail under its hand-out's key and its row's tag, and reports it before the next goes", async () => {
     claims = [{ mails: [handed(1), handed(2, 3)], aufgegeben: 1 }];
 
-    await drainPostausgang();
+    await drainOutbox();
 
     expect(schritte.map((schritt) => schritt.art)).toStrictEqual(["send", "report", "send", "report"]);
     expect(sends().map(({ headers }) => headers.get("Idempotency-Key"))).toStrictEqual([
@@ -132,10 +132,10 @@ describe("one drain of the Postausgang", () => {
      drain's count since the last, or a mail given up behind a write never reaches `/fail`. */
   it("counts every drain's outcomes until the pass takes them, and starts again from none", async () => {
     claims = [{ mails: [], aufgegeben: 1 }];
-    await drainPostausgang();
+    await drainOutbox();
     claims = [{ mails: [handed(1)], aufgegeben: 0 }];
     provider = () => Response.json({ name: "validation_error" }, { status: 422 });
-    await drainPostausgang();
+    await drainOutbox();
 
     expect(takeDrainCounts()).toStrictEqual({ gesendet: 0, wiederholt: 0, aufgegeben: 2, zurueckgehalten: 0, ignoriert: 0 });
     expect(takeDrainCounts()).toStrictEqual({ gesendet: 0, wiederholt: 0, aufgegeben: 0, zurueckgehalten: 0, ignoriert: 0 });
@@ -147,8 +147,8 @@ describe("one drain of the Postausgang", () => {
     liveTrace = "trace-waiting";
     claims = [{ mails: [handed(1)], aufgegeben: 0 }];
 
-    const failing = runWithRequestScope({ traceId: "trace-spent" }, drainPostausgang);
-    const waiting = runWithRequestScope({ traceId: "trace-waiting" }, drainPostausgang);
+    const failing = runWithRequestScope({ traceId: "trace-spent" }, drainOutbox);
+    const waiting = runWithRequestScope({ traceId: "trace-waiting" }, drainOutbox);
 
     await expect(failing).rejects.toThrow("deadline");
     await expect(waiting).resolves.toBeUndefined();
@@ -162,7 +162,7 @@ describe("one drain of the Postausgang", () => {
     const geheim = await symmetricEncrypt({ key: AUTH_SECRET, data: "123456" });
     claims = [{ mails: [{ ...handed(1), geheim: geheim }], aufgegeben: 0 }];
 
-    await drainPostausgang();
+    await drainOutbox();
 
     expect(sends().map(({ body }) => String(body["text"]).includes("123456"))).toStrictEqual([true]);
     expect(String(sends()[0]?.body["text"])).not.toContain(geheim);
@@ -175,7 +175,7 @@ describe("one drain of the Postausgang", () => {
     const fremd = await symmetricEncrypt({ key: "a-key-since-replaced-not-a-credential", data: "123456" });
     claims = [{ mails: [{ ...handed(1), geheim: fremd }, handed(2)], aufgegeben: 0 }];
 
-    await drainPostausgang();
+    await drainOutbox();
 
     expect(reports().map(({ id, ergebnis }) => [id, ergebnis])).toStrictEqual([
       [handed(1).id, "aufgeben"],
@@ -197,7 +197,7 @@ describe("one drain of the Postausgang", () => {
     claims = [{ mails: [handed(1)], aufgegeben: 0 }];
     provider = answer;
 
-    await drainPostausgang();
+    await drainOutbox();
 
     expect(reports()).toStrictEqual([{ id: handed(1).id, ergebnis: ergebnis, nachricht_id: null, grund: grund }]);
   });
@@ -206,7 +206,7 @@ describe("one drain of the Postausgang", () => {
     apiKey = undefined;
     claims = [{ mails: [handed(1)], aufgegeben: 0 }];
 
-    await drainPostausgang();
+    await drainOutbox();
 
     expect(sends()).toStrictEqual([]);
     expect(reports()).toStrictEqual([{ id: handed(1).id, ergebnis: "zurueckgehalten", nachricht_id: null, grund: null }]);

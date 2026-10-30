@@ -1,7 +1,7 @@
 import "server-only";
 
 import { ADRESSWECHSEL_WARTEZEIT_DAUER } from "@/core/adresswechsel";
-import { formatZeitpunkt } from "@/core/format";
+import { formatInstant } from "@/core/format";
 
 import type { FLAdresswechselVerwaltungMintResponse } from "@/core/generated/client/types";
 
@@ -12,7 +12,7 @@ import type { FLAdresswechselVerwaltungMintResponse } from "@/core/generated/cli
 export function describeAdresswechselMail({ email, weg, gueltig_bis: gueltigBis }: FLAdresswechselVerwaltungMintResponse): string {
   // With no link the notice to the address on file is the request itself.
   if (weg === "freigabe") {
-    return `Die bisherige Adresse wird gebeten, die Änderung in ihrem Konto freizugeben, bis ${formatZeitpunkt(gueltigBis)}. Erst danach geht der Link an die neue.`;
+    return `Die bisherige Adresse wird gebeten, die Änderung in ihrem Konto freizugeben, bis ${formatInstant(gueltigBis)}. Erst danach geht der Link an die neue.`;
   }
   const wartezeit = weg === "wartezeit" ? ` Die neue gilt erst ${ADRESSWECHSEL_WARTEZEIT_DAUER} nach ihrer Bestätigung.` : "";
 

@@ -2,7 +2,7 @@
 import z from "zod";
 
 import { ADRESSE_IM_GRUND_REGEX } from "@/features/sperrliste/schemas";
-import { addressSchema, einzeiligerName } from "@/shared/schemas";
+import { addressSchema, singleLineName } from "@/shared/schemas";
 
 import { LOESCHUNG_ANLASS_MAX_LENGTH } from "./constants";
 
@@ -15,7 +15,7 @@ export const FLLoeschungAdressePayloadSchema = z.object({ email: addressSchema((
 /** The erasure's draft: the address, and the request the erasure answers, which every log row it files keeps. */
 export const FLLoeschungPayloadSchema = FLLoeschungAdressePayloadSchema.extend({
   // Trimmed before either bound counts it, as the API is, so a box of spaces is refused in German.
-  anlass: einzeiligerName(
+  anlass: singleLineName(
     z
       .string({ error: "Bitte gib einen Anlass ein." })
       .trim()

@@ -20,9 +20,9 @@ describe("the sign-in template", () => {
         titel={WORTE.titel}
         zeile={null}
         adresse={{ label: WORTE.adresse, value: "", onChange: () => undefined }}
-        pruefung={null}
-        senden={{ label: WORTE.codeSenden, onPress: () => undefined }}
-        oder={WORTE.oder}
+        check={null}
+        send={{ label: WORTE.codeSenden, onPress: () => undefined }}
+        or={WORTE.oder}
         passkey={{ label: WORTE.mitPasskey, onPress: () => undefined }}
       />,
     );
@@ -34,15 +34,15 @@ describe("the sign-in template", () => {
   });
 
   it("moves the focus to the address field on each of the server's refusals, so a screen reader reads it", () => {
-    const adresseView = (fehler: Readonly<Record<string, Copy>> | undefined) => (
+    const adresseView = (error: Readonly<Record<string, Copy>> | undefined) => (
       <SignInPage
         view="adresse"
         titel={WORTE.titel}
         zeile={null}
-        adresse={{ label: WORTE.adresse, value: "", onChange: () => undefined, fehler }}
-        pruefung={null}
-        senden={{ label: WORTE.codeSenden, onPress: () => undefined }}
-        oder={WORTE.oder}
+        adresse={{ label: WORTE.adresse, value: "", onChange: () => undefined, error }}
+        check={null}
+        send={{ label: WORTE.codeSenden, onPress: () => undefined }}
+        or={WORTE.oder}
         passkey={{ label: WORTE.mitPasskey, onPress: () => undefined }}
       />
     );
@@ -70,7 +70,7 @@ describe("the sign-in template", () => {
         satz={WORTE.codeUnterwegs}
         adresse={ADRESSE}
         code={{ label: WORTE.code, versuch: 0, isDisabled: false, onComplete: () => undefined }}
-        zurueck={{ label: WORTE.andereAdresse, onPress: () => undefined }}
+        back={{ label: WORTE.andereAdresse, onPress: () => undefined }}
       />,
     );
 
@@ -87,8 +87,8 @@ describe("the sign-in template", () => {
         zeile={null}
         satz={WORTE.angemeldetAls}
         adresse={ADRESSE}
-        weiter={{ label: COPY.shared.uebersicht, href: "/" }}
-        abmelden={{ label: COPY.shared.verb.abmelden, onPress: () => undefined }}
+        continue={{ label: COPY.shared.uebersicht, href: "/" }}
+        signOut={{ label: COPY.shared.verb.abmelden, onPress: () => undefined }}
       />,
     );
     const marked = screen.getByText(ADRESSE);

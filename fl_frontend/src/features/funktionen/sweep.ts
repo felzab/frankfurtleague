@@ -21,7 +21,7 @@ type Zaehlung = {
  * nothing rejects, for the heartbeat to name; the pass resolves to what it did, `offen` the accounts it could not judge
  * or delete.
  */
-export async function runKontoSweep(): Promise<{ zaehlung: Zaehlung; offen: number }> {
+export async function runKontoSweep(): Promise<{ count: Zaehlung; offen: number }> {
   const konten = await listAccounts();
   const zaehlung: Zaehlung = { unreferenziert: 0, geloescht: 0, bereits_geloescht: 0, fehlgeschlagen: 0 };
 
@@ -47,7 +47,7 @@ export async function runKontoSweep(): Promise<{ zaehlung: Zaehlung; offen: numb
     }
   }
 
-  return { zaehlung: zaehlung, offen: zaehlung.fehlgeschlagen };
+  return { count: zaehlung, offen: zaehlung.fehlgeschlagen };
 }
 
 /** One account, deleted only where the read answers its address unreferenced again, alone. */

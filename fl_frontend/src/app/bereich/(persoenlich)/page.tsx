@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { funktionenOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/funktionen";
 import { FunktionenView } from "@/features/funktionen/components/views/FunktionenView";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { zieleOf } from "@/features/funktionen/utils";
@@ -13,7 +13,7 @@ export default async function PersoenlichStartPage() {
   // sign-in or its passkey step, which `/bereich/admin` sends it on to, not a person's landing.
   if (!subject.admin && subject.subjekt.verwaltung !== null) redirect("/bereich/admin");
 
-  const { funktionen, unbestaetigt } = funktionenOf(subject);
+  const { roles: funktionen, unbestaetigt } = rolesOf(subject);
   const ziele = zieleOf(funktionen);
   const [erstes, ...weitere] = ziele;
 

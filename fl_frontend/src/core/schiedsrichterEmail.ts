@@ -4,7 +4,7 @@ import { BRAND_NAME, mailOrigin } from "./emailShell";
 import { formatDatum } from "./format";
 
 import type { Mail } from "./emailShell";
-import type { Kalendertag } from "./format";
+import type { CalendarDay } from "./format";
 import type { FLSchiedsrichterBestaetigungDaten } from "./generated/client/types";
 import type { MailLink } from "./mailKinds";
 
@@ -30,18 +30,18 @@ function schiedsrichterBestaetigungsLink(origin: string, token: string): string 
  */
 export function buildSchiedsrichterBestaetigungEmail({ frist }: FLSchiedsrichterBestaetigungDaten, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
-  const fristText = formatDatum(frist as Kalendertag);
+  const fristText = formatDatum(frist as CalendarDay);
 
   return {
     art: "erstkontakt",
-    betreff: "Dein Eintrag als Schiedsrichterin oder Schiedsrichter",
+    subjectLine: "Dein Eintrag als Schiedsrichterin oder Schiedsrichter",
     origin: site,
     vorname: "",
     absaetze: [
       [
         `Die Verwaltung der ${BRAND_NAME} hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen.`,
         [
-          { stark: "Bitte bestätige, dass das stimmt" },
+          { strong: "Bitte bestätige, dass das stimmt" },
           ": Erst danach kannst Du auf der Website Ansetzungen annehmen und Spielberichte einreichen.",
         ],
       ],
@@ -49,7 +49,7 @@ export function buildSchiedsrichterBestaetigungEmail({ frist }: FLSchiedsrichter
       // publication choice was asked something the message did not say.
       [
         "Auf der Seite trägst Du Dein Geburtsdatum ein und entscheidest, was im Spielplan von Deinem Namen zu sehen ist.",
-        ["Der Link ist bis zum ", { stark: fristText }, " gültig und funktioniert nur einmal."],
+        ["Der Link ist bis zum ", { strong: fristText }, " gültig und funktioniert nur einmal."],
         "Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen.",
       ],
     ],

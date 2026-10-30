@@ -11,7 +11,7 @@ import { pageMetadata } from "@/shared/utils/metadata";
 import type { Metadata } from "next";
 
 /** No description: a sign-in page carries none. */
-export const metadata: Metadata = pageMetadata(ROUTES.anmeldung, ROUTES.anmeldung.pfad());
+export const metadata: Metadata = pageMetadata(ROUTES.anmeldung, ROUTES.anmeldung.path());
 
 /**
  * Resolves nothing itself: the view is a function of the request's session, and a top-level await would

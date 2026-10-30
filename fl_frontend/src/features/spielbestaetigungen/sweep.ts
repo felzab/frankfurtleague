@@ -14,7 +14,7 @@ type Zaehler = Omit<FLSpielbestaetigungSweepResponse, "saison_id">;
  * it closed within the `minutes` lifetime their cached read keeps. Answers what it did, the rows it passed over owing
  * no deletion.
  */
-export async function runSpielSweep(): Promise<{ zaehlung: Zaehler; offen: number }> {
+export async function runSpielSweep(): Promise<{ count: Zaehler; offen: number }> {
   const { saison_ids: saisonIds } = await getSpielbestaetigungSweepSaisons();
 
   const zaehler: Zaehler = { geschlossen: 0, angefragt: 0, erinnert: 0, mails: 0, fehlgeschlagen: 0 };
@@ -29,5 +29,5 @@ export async function runSpielSweep(): Promise<{ zaehlung: Zaehler; offen: numbe
     zaehler.fehlgeschlagen += antwort.fehlgeschlagen;
   }
 
-  return { zaehlung: zaehler, offen: 0 };
+  return { count: zaehler, offen: 0 };
 }

@@ -28,7 +28,7 @@ const EINLEITUNG = [
 export function buildSperreEmail({ grund, gesperrt_bis_saison_id: gesperrtBisSaisonId }: FLSperreDaten, { origin }: MailOrt): Mail {
   return {
     art: "mitteilung",
-    betreff: "Deine E-Mail-Adresse ist gesperrt",
+    subjectLine: "Deine E-Mail-Adresse ist gesperrt",
     origin: mailOrigin(origin),
     vorname: "",
     absaetze: [
@@ -37,7 +37,7 @@ export function buildSperreEmail({ grund, gesperrt_bis_saison_id: gesperrtBisSai
         // „werden beendet“: the mail leaves after the sign-out was attempted and cannot know whether it held.
         "Bestehende Anmeldungen mit dieser Adresse werden beendet.",
         // INCLUSIVE, where a bare „bis“ is not: a reader told the ban ends „bis 2031“ reads the whole of that season as free.
-        [{ stark: `Die Sperre gilt bis einschließlich der Saison ${gesperrtBisSaisonId}.` }],
+        [{ strong: `Die Sperre gilt bis einschließlich der Saison ${gesperrtBisSaisonId}.` }],
         // What the form's hint promises the mail explains, so the two say one thing.
         "Danach endet die Sperre von selbst. Du musst dafür nichts tun.",
       ],

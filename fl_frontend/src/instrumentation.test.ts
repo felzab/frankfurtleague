@@ -7,7 +7,7 @@ import { COPY } from "./core/copy.ts";
 const ran: string[] = [];
 
 /** What one job did, as the scheduler reads it. */
-type Durchlauf = { zaehlung: Record<string, number | string | null>; offen: number; fehler?: unknown };
+type Durchlauf = { count: Record<string, number | string | null>; offen: number; error?: unknown };
 
 /** Each job's own answer, which a case replaces; every job resolves at once to nothing done otherwise. */
 const answers = new Map<string, () => Promise<Durchlauf | void>>();
@@ -61,12 +61,12 @@ vi.doMock("@/core/db.ts", () => ({
   },
 }));
 vi.doMock("@/features/bewerbungen/sweep.ts", () => ({ runBewerbungSweep: job("bewerbungen") }));
-vi.doMock("@/features/funktionen/sweep.ts", () => ({ runKontoSweep: job("konto") }));
-vi.doMock("@/features/saisons/sweep.ts", () => ({ runLoeschungSweep: job("loeschung") }));
+vi.doMock("@/features/funktionen/sweep.ts", () => ({ runAccountSweep: job("konto") }));
+vi.doMock("@/features/saisons/sweep.ts", () => ({ runErasureSweep: job("loeschung") }));
 vi.doMock("@/features/spielbestaetigungen/sweep.ts", () => ({ runSpielSweep: job("spielbestaetigungen") }));
-vi.doMock("@/features/berechtigungen/abgleich.ts", () => ({ runBerechtigungenAbgleich: job("berechtigungen") }));
+vi.doMock("@/features/berechtigungen/abgleich.ts", () => ({ runGrantsReconciliation: job("berechtigungen") }));
 vi.doMock("@/core/mail.ts", () => ({
-  drainPostausgang: async () => {
+  drainOutbox: async () => {
     ran.push("postausgang");
   },
   takeDrainCounts: () => {
@@ -220,12 +220,12 @@ describe("the pass's one line", () => {
      among them; a warning where the pass left anything owed, so a level above INFO still shows it. */
   it("writes one line counting every job and every drain since the last pass, a warning where one did not finish", async () => {
     answers.set("spielbestaetigungen", () =>
-      Promise.resolve({ zaehlung: { geschlossen: 1, angefragt: 2, erinnert: 0, mails: 2, fehlgeschlagen: 0 }, offen: 0 }),
+      Promise.resolve({ count: { geschlossen: 1, angefragt: 2, erinnert: 0, mails: 2, fehlgeschlagen: 0 }, offen: 0 }),
     );
     drains = { ...drains, gesendet: 3 };
     await bootAndStep("production", [MINUTE_MS]);
 
-    answers.set("loeschung", () => Promise.resolve({ zaehlung: { spieler: 4, fehlgeschlagen: 0 }, offen: 0, fehler: new TypeError("cut") }));
+    answers.set("loeschung", () => Promise.resolve({ count: { spieler: 4, fehlgeschlagen: 0 }, offen: 0, error: new TypeError("cut") }));
     answers.delete("spielbestaetigungen");
     vi.advanceTimersByTime(HOUR_MS);
     await settle();
@@ -261,7 +261,7 @@ describe("the heartbeat after each pass", () => {
     await bootAndStep("production", [MINUTE_MS]);
 
     answers.set("konto", () => Promise.reject(new TypeError("the store went away")));
-    answers.set("loeschung", () => Promise.resolve({ zaehlung: { spieler: 4, fehlgeschlagen: 3 }, offen: 3 }));
+    answers.set("loeschung", () => Promise.resolve({ count: { spieler: 4, fehlgeschlagen: 3 }, offen: 3 }));
     // Given up by a write's drain inside the hour, never the pass's own: the pass reports every drain's.
     drains = { ...drains, aufgegeben: 2 };
     vi.advanceTimersByTime(HOUR_MS);

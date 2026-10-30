@@ -1,6 +1,6 @@
 import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
-import { doublePostausgang } from "@/test-support/mailDouble.ts";
+import { doubleOutbox } from "@/test-support/mailDouble.ts";
 import { refused } from "@/test-support/refusals.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,7 +15,7 @@ let sendTeams: () => unknown = () => undefined;
 const TEAMS = { getTeamSaisons: async () => sendTeams() };
 
 // The Postausgang doubled: the mails are the backend's to owe and the drain's to send.
-doublePostausgang();
+doubleOutbox();
 doubleActionRequest();
 
 vi.doMock("@/core/config.ts", () => CONFIG);

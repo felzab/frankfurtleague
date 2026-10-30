@@ -17,14 +17,14 @@ import type { RailPageHead } from "./RailFrame";
 import type { TableProps } from "./Table";
 
 /** The matchday tabs, each with its matches, and the tab the server chose by `chosenTab`. */
-type MatchdayTabs = {
+type SpieltagTabs = {
   label: Copy;
   selectedKey: string;
   tabs: ReadonlyArray<{ id: string; label: string; panel: ReactNode }>;
 };
 
 /** The tab row, and under it the chosen matchday's matches alone: the other matchdays' matches never reach the page. */
-function Matchdays({ label, selectedKey, tabs }: MatchdayTabs) {
+function Spieltage({ label, selectedKey, tabs }: SpieltagTabs) {
   return (
     <Tabs
       label={label}
@@ -61,7 +61,7 @@ export function ListPage({
     | {
         kind: "spieltage";
         /** The matchday tabs; `null` while the season has no matchday yet. */
-        tabs: MatchdayTabs | null;
+        tabs: SpieltagTabs | null;
         /** Why there is no matchday to show, standing in the tabs' place. */
         empty: EmptyStateProps;
       };
@@ -78,7 +78,7 @@ export function ListPage({
               trigger={
                 <Button
                   variant="primary"
-                  leadingIcon="anlegen"
+                  leadingIcon="create"
                   label={actLabel(create.act)}
                 />
               }
@@ -90,7 +90,7 @@ export function ListPage({
 
   return (
     <RailPage
-      area={head.area}
+      scope={head.scope}
       title={head.title}
       chip={head.chip}>
       {list.kind === "table" ? (
@@ -109,7 +109,7 @@ export function ListPage({
               <EmptyState {...list.empty} />
             </div>
           ) : (
-            <Matchdays {...list.tabs} />
+            <Spieltage {...list.tabs} />
           )}
         </>
       )}

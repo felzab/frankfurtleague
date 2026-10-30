@@ -57,7 +57,7 @@ export function answerAt(endpoint: string, held: LookupFixture): Record<string, 
 }
 
 /** One contact seat on a running season, which grants a panel. */
-export const SITZ: FLSubjektSitz = deepFrozen({
+export const SEAT: FLSubjektSitz = deepFrozen({
   saison_id: "2526",
   team_id: "6890a1b2c3d4e5f607250011",
   rolle: "ansprechperson",
@@ -65,7 +65,7 @@ export const SITZ: FLSubjektSitz = deepFrozen({
   saison_status: "active",
 });
 
-export const sitz = (fields: Partial<FLSubjektSitz> = {}): FLSubjektSitz => ({ ...SITZ, ...fields });
+export const seat = (fields: Partial<FLSubjektSitz> = {}): FLSubjektSitz => ({ ...SEAT, ...fields });
 
 /** A person holding what `records` names and nothing else, and the administrator's verdict where `admin` is set. */
 export const person = (records: Partial<SubjectSession["subjekt"]> = {}, admin = false): SubjectSession => ({

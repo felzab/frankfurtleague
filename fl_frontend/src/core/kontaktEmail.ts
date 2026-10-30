@@ -7,7 +7,7 @@ import { DEIN_BEREICH_TITEL } from "./seitenNamen";
 import { rollenText } from "./teamVokabular";
 
 import type { Absatz, Mail, Satz } from "./emailShell";
-import type { Kalendertag } from "./format";
+import type { CalendarDay } from "./format";
 import type { FLKontaktLinkDaten, FLKontaktZeile } from "./generated/client/types";
 import type { MailLink } from "./mailKinds";
 
@@ -22,7 +22,7 @@ const GESCHLOSSEN_SATZ: Record<Exclude<FLKontaktZeile, "offen">, string> = {
  * one there (`kontakt_zeile_ohne_saison`), so the message promises none.
  */
 function linkAbsatz(zeile: FLKontaktZeile, frist: string): Absatz {
-  const gueltig: Satz = ["Der Link ist bis zum ", { stark: frist }, " gültig und funktioniert nur einmal."];
+  const gueltig: Satz = ["Der Link ist bis zum ", { strong: frist }, " gültig und funktioniert nur einmal."];
 
   return zeile === "offen"
     ? [
@@ -55,23 +55,23 @@ export function buildKontaktBestaetigungEmail(
 
   return {
     art: "erstkontakt",
-    betreff: `Du bist als ${sitze} für ${schule} eingetragen`,
+    subjectLine: `Du bist als ${sitze} für ${schule} eingetragen`,
     origin: site,
     vorname: "",
     absaetze: [
       [
         // „für {Team} in der Saison …“, as the registration messages name a team and its season.
-        ["Die Verwaltung der ", BRAND_NAME, ` hat Dich in der Saison ${saisonId} als ${sitze} für `, { stark: schule }, " eingetragen."],
+        ["Die Verwaltung der ", BRAND_NAME, ` hat Dich in der Saison ${saisonId} als ${sitze} für `, { strong: schule }, " eingetragen."],
         zeile === "offen"
           ? [
-              { stark: "Bitte bestätige, dass das stimmt" },
+              { strong: "Bitte bestätige, dass das stimmt" },
               // The signed-in area by its name on screen, and never „Zugang“: on screen that word names an
               // administrator's grant alone (`docs/glossary.md`), which a confirmed seat is not.
               `: Erst danach findest Du Dein Team nach der Anmeldung auf der Website unter „${DEIN_BEREICH_TITEL}“.`,
             ]
           : GESCHLOSSEN_SATZ[zeile],
       ],
-      linkAbsatz(zeile, formatDatum(frist as Kalendertag)),
+      linkAbsatz(zeile, formatDatum(frist as CalendarDay)),
     ],
     // Named for what the page offers: a closed row's page has nothing to confirm.
     aktion: { label: zeile === "offen" ? "Eintrag bestätigen" : "Zum Eintrag", href: kontaktBestaetigungsLink(site, token) },

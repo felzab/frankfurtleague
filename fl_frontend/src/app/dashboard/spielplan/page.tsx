@@ -6,7 +6,7 @@ import { SpielplanView } from "@/features/spieltage/components/views/SpielplanVi
 import { getSpieltage } from "@/features/spieltage/queries";
 import { joinCollections } from "@/shared/utils/data";
 import { getGermanTodayStr } from "@/shared/utils/date";
-import { seasonScopedMetadata } from "@/shared/utils/metadata";
+import { saisonScopedMetadata } from "@/shared/utils/metadata";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
@@ -15,7 +15,7 @@ export async function generateMetadata(props: NextPageProps): Promise<Metadata> 
   return {
     title: "Spielplan",
     description: "Alle Spiele der Frankfurt League, Spieltag für Spieltag, mit Datum, Uhrzeit und Ort.",
-    ...seasonScopedMetadata("/dashboard/spielplan", await resolveSaisonId(props.searchParams), await runningSaisonId()),
+    ...saisonScopedMetadata("/dashboard/spielplan", await resolveSaisonId(props.searchParams), await runningSaisonId()),
   };
 }
 

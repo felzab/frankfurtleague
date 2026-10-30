@@ -4,7 +4,7 @@ import { TeamPlaque } from "./TeamPlaque";
 import { tv } from "./tv";
 
 import type { Route } from "next";
-import type { Figures, MatchRowProps, MatchSide } from "./MatchRow";
+import type { Figures, SpielRowProps, SpielSide } from "./MatchRow";
 
 const card = tv({
   extend: sideMarks,
@@ -15,7 +15,7 @@ const card = tv({
   },
 });
 
-function Line({ side, score, part }: { side: MatchSide; score: Figures; part: "home" | "away" }) {
+function Line({ side, score, part }: { side: SpielSide; score: Figures; part: "home" | "away" }) {
   const style = card(look(score, part));
   return (
     <span className={style.line()}>
@@ -42,9 +42,9 @@ export function BracketCard({
 }: {
   href: Route;
   when: string;
-  home: MatchSide;
-  away: MatchSide;
-  result?: MatchRowProps["result"];
+  home: SpielSide;
+  away: SpielSide;
+  result?: SpielRowProps["result"];
 }) {
   const score = figures(result);
   return (

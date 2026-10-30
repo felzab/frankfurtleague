@@ -5,7 +5,7 @@ import { requestOf } from "./errors";
 import { logger } from "./logging";
 // A cycle, the drain sending through the client whose writes call `drainSoon`: each module reads the other's exports
 // only when called, never as it loads.
-import { drainPostausgang } from "./mail";
+import { drainOutbox } from "./mail";
 import { getRequestTraceId, runBehindTheResponse, runInBackground } from "./requestScope";
 import { mintTraceId } from "./trace";
 
@@ -37,7 +37,7 @@ export function drainSoon(): void {
 
 async function drain(): Promise<void> {
   try {
-    await drainPostausgang();
+    await drainOutbox();
   } catch (error) {
     // The name and the call's facts, never a mail: the hourly pass drains what this one left.
     logger.error("postausgang.drain_failed", undefined, { name: error instanceof Error ? error.name : undefined, ...requestOf(error) });

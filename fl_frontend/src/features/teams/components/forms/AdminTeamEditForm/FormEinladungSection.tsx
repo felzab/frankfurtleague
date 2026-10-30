@@ -38,7 +38,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { focusAfterWrite, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { meldeLinkVersand, REGISTRIERUNGSLINK_TITEL } from "@/shared/utils/linkVersandToast";
+import { REGISTRIERUNGSLINK_TITEL, reportLinkDispatch } from "@/shared/utils/linkVersandToast";
 
 import type { FLEinladungZeile } from "@/core/generated/client/types";
 import type { FrischeEinladung } from "@/features/einladungen/components/EinladungLinkHolder";
@@ -177,7 +177,7 @@ export function FormEinladungSection({
           return;
         }
 
-        meldeLinkVersand("gesendet", REGISTRIERUNGSLINK_TITEL, res.message);
+        reportLinkDispatch("gesendet", REGISTRIERUNGSLINK_TITEL, res.message);
       }),
     );
   };

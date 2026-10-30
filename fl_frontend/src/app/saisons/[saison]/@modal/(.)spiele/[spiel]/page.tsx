@@ -4,7 +4,7 @@ import { Callout } from "@/kit/Callout";
 import { RouteDialog } from "@/kit/Dialog";
 import { Facts } from "@/kit/Facts";
 import { Link } from "@/kit/Link";
-import { MatchHead } from "@/kit/MatchHead";
+import { SpielHead } from "@/kit/MatchHead";
 
 import { COPY } from "@/core/copy";
 import { ROUTES } from "@/core/routes";
@@ -35,17 +35,17 @@ async function Popup({ params }: { params: Promise<{ saison: string; spiel: stri
   return (
     <RouteDialog
       title={ROUTES.spiel.titel(heim.name, gast.name)}
-      beneath={ROUTES.spielplan.pfad(saison.id)}
+      beneath={ROUTES.spielplan.path(saison.id)}
       act={
         // A full page load: a client navigation to this same address is intercepted again as this pop-up.
         <Link
-          href={ROUTES.spiel.pfad(saison.id, spiel.id)}
+          href={ROUTES.spiel.path(saison.id, spiel.id)}
           placement="button"
           fullPage
           label={COPY.shared.zumSpiel}
         />
       }>
-      <MatchHead {...headOf(spiel, spieltag)} />
+      <SpielHead {...headOf(spiel, spieltag)} />
       {facts.length > 0 && (
         <Facts
           look="free"

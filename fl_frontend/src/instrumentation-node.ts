@@ -44,7 +44,7 @@ export async function registerOnNode() {
  * What one job did in a pass, by count and never by person: `offen` the owed deletions or erasures it left, and
  * `fehler` what ended a job part-way, after the work its counts record.
  */
-type Durchlauf = { readonly zaehlung: Readonly<Record<string, number | string | null>>; readonly offen: number; readonly fehler?: unknown };
+type Durchlauf = { readonly count: Readonly<Record<string, number | string | null>>; readonly offen: number; readonly error?: unknown };
 
 /**
  * One background job. It rejects, or resolves with a `fehler`, where it could not finish what it owes; each job is
@@ -78,7 +78,7 @@ async function loadJobs(): Promise<{
       { name: "spielbestaetigungen", run: spiele.runSpielSweep },
       { name: "berechtigungen", run: berechtigungen.runBerechtigungenAbgleich },
     ],
-    drain: mail.drainPostausgang,
+    drain: mail.drainOutbox,
     takeDrainCounts: mail.takeDrainCounts,
   };
 }
@@ -118,10 +118,10 @@ function armScheduler(passes: Awaited<ReturnType<typeof loadJobs>>, heartbeat: s
     }
   };
 
-  const erster = setTimeout(() => void tick(), FIRST_PASS_DELAY_MS);
+  const first = setTimeout(() => void tick(), FIRST_PASS_DELAY_MS);
   const handle = setInterval(() => void tick(), PASS_INTERVAL_MS);
   // Unreferenced, so neither holds a shutdown open: the listening socket keeps this process alive.
-  erster.unref();
+  first.unref();
   handle.unref();
 }
 
@@ -132,7 +132,7 @@ function armScheduler(passes: Awaited<ReturnType<typeof loadJobs>>, heartbeat: s
  */
 async function runPass({ jobs, drain, takeDrainCounts }: Awaited<ReturnType<typeof loadJobs>>): Promise<readonly string[]> {
   const ausfaelle: string[] = [];
-  const zaehlungen: Record<string, Durchlauf["zaehlung"]> = {};
+  const zaehlungen: Record<string, Durchlauf["count"]> = {};
 
   const failed = (name: string, error: unknown) => {
     // The job's name and the error's, never a person: a failure on any job's path can carry an address.
@@ -149,8 +149,8 @@ async function runPass({ jobs, drain, takeDrainCounts }: Awaited<ReturnType<type
       const durchlauf = await run();
       if (durchlauf === undefined) continue;
 
-      zaehlungen[name] = durchlauf.zaehlung;
-      if (durchlauf.fehler !== undefined) failed(name, durchlauf.fehler);
+      zaehlungen[name] = durchlauf.count;
+      if (durchlauf.error !== undefined) failed(name, durchlauf.error);
       else if (durchlauf.offen > 0) ausfaelle.push(`${name} left ${String(durchlauf.offen)}`);
     } catch (error) {
       failed(name, error);
@@ -167,7 +167,7 @@ async function runPass({ jobs, drain, takeDrainCounts }: Awaited<ReturnType<type
   zaehlungen["postausgang"] = postausgang;
   if (postausgang.aufgegeben > 0) ausfaelle.push(`postausgang gave up ${String(postausgang.aufgegeben)}`);
 
-  const geschehen = Object.values(zaehlungen).some((zaehlung) => Object.values(zaehlung).some((wert) => typeof wert === "number" && wert > 0));
+  const geschehen = Object.values(zaehlungen).some((count) => Object.values(count).some((value) => typeof value === "number" && value > 0));
   if (ausfaelle.length > 0) logger.warn("scheduler.pass", { ...zaehlungen, ausfaelle: ausfaelle });
   else if (geschehen) logger.info("scheduler.pass", zaehlungen);
 

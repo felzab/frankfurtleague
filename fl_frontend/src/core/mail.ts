@@ -14,7 +14,7 @@ import { APINetworkError, MailSendError } from "./errors";
 import { postausgangPostAusgabe, postausgangPostErgebnis } from "./generated/client/sdk";
 import { PostausgangPostErgebnisBody } from "./generated/zod/inputs";
 import { logger } from "./logging";
-import { mailFor, POSTAUSGANG_TAG } from "./mailKinds";
+import { mailFor, OUTBOX_TAG } from "./mailKinds";
 import { boundCall, getRequestTraceId } from "./requestScope";
 import { mintTraceId } from "./trace";
 
@@ -37,7 +37,7 @@ const ABSENDER: Readonly<Record<MailVon, string>> = {
 };
 
 /** Every sender under the league's name, which needs no quoting: it holds no comma, quote or angle bracket. */
-function absenderZeile(von: MailVon): string {
+function senderRow(von: MailVon): string {
   return `${COPY.marke.name} <${ABSENDER[von]}>`;
 }
 
@@ -140,7 +140,7 @@ function forComment(value: string): string {
 function sinkDocument({ to, subject, html, text, von, tags }: OutboundMail, traceId: string): string {
   const pairs = Object.entries(tags).map(([name, value]) => `${name}=${value}`);
   const header = [
-    `From: ${absenderZeile(von)}`,
+    `From: ${senderRow(von)}`,
     `Reply-To: ${ANTWORT_AN}`,
     `To: ${to}`,
     `Subject: ${subject}`,
@@ -209,26 +209,26 @@ function recipientOf(to: string): string {
 }
 
 /** What drains settled: the backend's counts, summed over every report they made. */
-type DrainZaehlung = Record<keyof FLPostausgangErgebnisResponse, number>;
+type DrainCount = Record<keyof FLPostausgangErgebnisResponse, number>;
 
-const keine = (): DrainZaehlung => ({ gesendet: 0, wiederholt: 0, aufgegeben: 0, zurueckgehalten: 0, ignoriert: 0 });
+const no = (): DrainCount => ({ gesendet: 0, wiederholt: 0, aufgegeben: 0, zurueckgehalten: 0, ignoriert: 0 });
 
 /** Every drain's counts since the hourly pass last took them, whichever started the drain: a write's or the pass. */
-let seitDemLetztenDurchlauf = keine();
+let seitDemLetztenDurchlauf = no();
 
 /**
  * What every drain in this process settled since the last call, `aufgegeben` the mails the heartbeat reports: a mail is
  * given up by whichever drain meets it, and most drains are a write's.
  */
-export function takeDrainCounts(): DrainZaehlung {
+export function takeDrainCounts(): DrainCount {
   const genommen = seitDemLetztenDurchlauf;
-  seitDemLetztenDurchlauf = keine();
+  seitDemLetztenDurchlauf = no();
 
   return genommen;
 }
 
 /** The one drain this process runs, and the one every call made while it runs waits on. */
-let drainLaeuft: Promise<void> | undefined;
+let drainRunning: Promise<void> | undefined;
 let drainDanach: Promise<void> | undefined;
 
 /**
@@ -239,24 +239,24 @@ let drainDanach: Promise<void> | undefined;
  * it settles. Rejects where a hand-out or a report fails, the rows it held going to the next drain once their lease
  * lapses.
  */
-export function drainPostausgang(): Promise<void> {
-  if (drainLaeuft !== undefined) {
+export function drainOutbox(): Promise<void> {
+  if (drainRunning !== undefined) {
     // Started from this call's context, so it runs under this call's scope rather than the running drain's, whose
     // deadline may be what that drain failed on.
     const danach = () => {
       drainDanach = undefined;
-      return drainPostausgang();
+      return drainOutbox();
     };
-    drainDanach ??= drainLaeuft.then(danach, danach);
+    drainDanach ??= drainRunning.then(danach, danach);
     return drainDanach;
   }
 
-  const lauf = drainen().finally(() => {
-    drainLaeuft = undefined;
+  const run = drainen().finally(() => {
+    drainRunning = undefined;
   });
-  drainLaeuft = lauf;
+  drainRunning = run;
 
-  return lauf;
+  return run;
 }
 
 /** Claims until a claim holds nothing: a mail handed back to wait its minute is no longer free, so the loop ends. */
@@ -271,7 +271,7 @@ async function drainen(): Promise<void> {
       // The provider's name for a refusal is its own token, kept only where the endpoint takes it: the outcome stands
       // without one, as `fl_frontend/src/app/api/mail/zustellung/route.ts` keeps a delivery event's.
       const antwort = await postausgangPostErgebnis(PostausgangPostErgebnisBody.safeParse(bericht).data ?? { ...bericht, grund: null });
-      for (const feld of Object.keys(antwort) as (keyof DrainZaehlung)[]) seitDemLetztenDurchlauf[feld] += antwort[feld];
+      for (const field of Object.keys(antwort) as (keyof DrainCount)[]) seitDemLetztenDurchlauf[field] += antwort[field];
     }
   }
 }
@@ -293,8 +293,8 @@ async function zustellen(mail: FLPostausgangAusgabe): Promise<Omit<FLPostausgang
     logger.error("postausgang.geheim_unlesbar", undefined, { art: mail.daten.art, name: error instanceof Error ? error.name : undefined });
     return { id: mail.id, ergebnis: "aufgeben", nachricht_id: null, grund: null };
   }
-  const nachricht = mailFor(mail.daten.art, mail.daten, { token: mail.token, geheim: geheim, origin: frontend_config.AUTH_URL });
-  if (nachricht === undefined) {
+  const message = mailFor(mail.daten.art, mail.daten, { token: mail.token, geheim: geheim, origin: frontend_config.AUTH_URL });
+  if (message === undefined) {
     // Handed back rather than given up: the row waits until its deadline for a deployment that builds its kind.
     logger.error("postausgang.art_ohne_vorlage", undefined, { art: mail.daten.art });
     return { id: mail.id, ergebnis: "wiederholen", nachricht_id: null, grund: null };
@@ -303,8 +303,8 @@ async function zustellen(mail: FLPostausgangAusgabe): Promise<Omit<FLPostausgang
   try {
     const { id } = await deliver({
       to: recipientOf(mail.an),
-      ...renderMail(nachricht),
-      tags: { [POSTAUSGANG_TAG]: mail.id },
+      ...renderMail(message),
+      tags: { [OUTBOX_TAG]: mail.id },
       idempotencyKey: `postausgang/${mail.id}/${String(mail.versuch)}`,
     });
     return { id: mail.id, ergebnis: "gesendet", nachricht_id: id, grund: null };
@@ -312,7 +312,7 @@ async function zustellen(mail: FLPostausgangAusgabe): Promise<Omit<FLPostausgang
     // The row is the send's one record: the provider's own name for a refusal goes onto it, and no line.
     return {
       id: mail.id,
-      ergebnis: ergebnisOf(error),
+      ergebnis: resultOf(error),
       nachricht_id: null,
       grund: error instanceof MailSendError ? (error.providerErrorName ?? null) : null,
     };
@@ -323,7 +323,7 @@ async function zustellen(mail: FLPostausgangAusgabe): Promise<Omit<FLPostausgang
  * A failed send's outcome. A refusal the provider names temporary, its quota among them, and a send that broke off are
  * tried again and never count toward giving up; any other refusal is one every send would meet.
  */
-function ergebnisOf(error: unknown): Exclude<FLPostausgangErgebnisPayloadErgebnis, "gesendet"> {
+function resultOf(error: unknown): Exclude<FLPostausgangErgebnisPayloadErgebnis, "gesendet"> {
   if (error instanceof MailWithheldError) return "zurueckgehalten";
   if (error instanceof MailRecipientError) return "aufgeben";
   if (error instanceof MailSendError) return error.isTransient ? "wiederholen" : "aufgeben";
@@ -376,7 +376,7 @@ async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: O
   };
 
   const body = JSON.stringify({
-    from: absenderZeile(von),
+    from: senderRow(von),
     reply_to: ANTWORT_AN,
     to: to,
     subject,

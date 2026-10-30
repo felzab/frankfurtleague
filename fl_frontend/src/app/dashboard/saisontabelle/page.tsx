@@ -3,7 +3,7 @@ import { runningSaisonId } from "@/app/dashboard/canonicalSaison";
 import { resolveIsFinishedSaison, resolveSaisonId } from "@/features/saisons/resolvers";
 import { SaisontabelleView } from "@/features/teams/components/views/SaisontabelleView";
 import { getTeams } from "@/features/teams/queries";
-import { saisonPhrase, seasonScopedMetadata } from "@/shared/utils/metadata";
+import { saisonPhrase, saisonScopedMetadata } from "@/shared/utils/metadata";
 
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
@@ -14,7 +14,7 @@ export async function generateMetadata(props: NextPageProps): Promise<Metadata> 
   return {
     title: "Saisontabelle",
     description: `Der Tabellenstand jedes Teams in seiner Gruppe in ${saisonPhrase(saisonId)} der Frankfurt League.`,
-    ...seasonScopedMetadata("/dashboard/saisontabelle", saisonId, await runningSaisonId()),
+    ...saisonScopedMetadata("/dashboard/saisontabelle", saisonId, await runningSaisonId()),
   };
 }
 
