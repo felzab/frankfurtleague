@@ -34,15 +34,15 @@ UNREAD_SPIEL_ID = ObjectId("6890a1b2c3d4e5f607209999")
 PayloadFactory = Callable[..., dict[str, Any]]
 
 
-def season_of(spiel: PayloadFactory, count: int) -> list[dict[str, Any]]:
+def saison_of(spiel: PayloadFactory, count: int) -> list[dict[str, Any]]:
     """`count` group fixtures of one season, each with its own id and number so none collapses onto another."""
 
     return [spiel(_id=MATCH_ID.format(nr), spiel_nr=nr) for nr in range(1, count + 1)]
 
 
 @pytest.fixture
-def season(spiel: PayloadFactory) -> list[FLSpiel]:
-    return FLSpielListAdapter.validate_python(season_of(spiel, 2))
+def saison(spiel: PayloadFactory) -> list[FLSpiel]:
+    return FLSpielListAdapter.validate_python(saison_of(spiel, 2))
 
 
 @pytest.fixture
@@ -61,44 +61,44 @@ class TestARefusalNeverPermitsWhatItCannotSee:
     wrong-season slice: a broken contract, not a user error a 409 could describe.
     """
 
-    def test_the_eligibility_refusal_refuses_to_judge(self, season, payload):
+    def test_the_eligibility_refusal_refuses_to_judge(self, saison, payload):
         with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
-            find_eligibility_refusal(UNREAD_SPIEL_ID, payload, season, {})
+            find_eligibility_refusal(UNREAD_SPIEL_ID, payload, saison, {})
 
-    def test_the_result_removal_refusal_refuses_to_judge(self, season, payload):
+    def test_the_result_removal_refusal_refuses_to_judge(self, saison, payload):
         with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
-            find_result_removal_refusal(UNREAD_SPIEL_ID, payload, season)
+            find_result_removal_refusal(UNREAD_SPIEL_ID, payload, saison)
 
-    def test_the_spieltag_occupancy_refuses_to_judge(self, season, payload):
+    def test_the_spieltag_occupancy_refuses_to_judge(self, saison, payload):
         """An empty verdict here would plan no release and permit the save, which is the same fail-open in a different shape."""
 
         with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
-            judge_spieltag_occupancy(UNREAD_SPIEL_ID, payload, season)
+            judge_spieltag_occupancy(UNREAD_SPIEL_ID, payload, saison)
 
-    def test_the_wiring_refusal_refuses_to_judge(self, season, payload):
+    def test_the_wiring_refusal_refuses_to_judge(self, saison, payload):
         with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
-            find_wiring_refusal(UNREAD_SPIEL_ID, payload, season, number_of_groups=4)
+            find_wiring_refusal(UNREAD_SPIEL_ID, payload, saison, number_of_gruppen=4)
 
-    def test_the_booking_refusal_refuses_to_judge(self, season, payload):
+    def test_the_booking_refusal_refuses_to_judge(self, saison, payload):
         """It compares the payload's references against the STORED ones, so a slice without them judges a move it cannot see."""
 
         with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
-            find_booking_refusal(UNREAD_SPIEL_ID, payload, season, ResolvedReferences(teams={}), RULES)
+            find_booking_refusal(UNREAD_SPIEL_ID, payload, saison, ResolvedReferences(teams={}), RULES)
 
 
-RULES = FLSaisonRules.model_validate(rules_document(max_kadergroesse=50, erlaubte_stufen=["E1", "E2"]))
+RULES = FLSaisonRules.model_validate(rules_document(max_kadergroesse=50, allowed_stufen=["E1", "E2"]))
 
 
-class _SeasonCollection:
+class _SaisonCollection:
     """One collection, called as `pull_many_from_db` calls the driver: `find`, then `limit`, then `to_list`."""
 
     def __init__(self, documents: list[dict[str, Any]]) -> None:
         self.documents = documents
 
-    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _SeasonCollection:
+    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _SaisonCollection:
         return self
 
-    def limit(self, count: int) -> _SeasonCollection:
+    def limit(self, count: int) -> _SaisonCollection:
         # Truncating rather than answering everything: this IS the silent loss under test.
         self.documents = self.documents[:count]
         return self
@@ -107,7 +107,7 @@ class _SeasonCollection:
         return self.documents if length is None else self.documents[:length]
 
 
-def run_advance(collection: _SeasonCollection) -> tuple[list[FLSpielAdvancement], list[FLBracketFault]]:
+def run_advance(collection: _SaisonCollection) -> tuple[list[FLSpielAdvancement], list[FLBracketFault]]:
     """`asyncio.run`, as the rest of the suite drives an async function; no event-loop plugin is configured.
 
     The same stand-in serves as every collection: no fixture here carries a `quelle`, so nothing but
@@ -131,7 +131,7 @@ class TestTheBracketWriteRefusesATruncatedSeason:
     """The resolution writes back what it derived, so a season it could not read whole is a wrong bracket committed."""
 
     def test_a_season_past_the_cap_is_refused(self, spiel):
-        collection = _SeasonCollection(season_of(spiel, LIST_LIMIT_DEFAULT + 1))
+        collection = _SaisonCollection(saison_of(spiel, LIST_LIMIT_DEFAULT + 1))
 
         with pytest.raises(ValueError, match=str(LIST_LIMIT_DEFAULT)):
             run_advance(collection)
@@ -139,7 +139,7 @@ class TestTheBracketWriteRefusesATruncatedSeason:
     def test_a_season_at_the_cap_still_resolves(self, spiel):
         """The boundary in the other direction: the largest readable season must not answer 500."""
 
-        advanced, faults = run_advance(_SeasonCollection(season_of(spiel, LIST_LIMIT_DEFAULT)))
+        advanced, faults = run_advance(_SaisonCollection(saison_of(spiel, LIST_LIMIT_DEFAULT)))
 
         assert (advanced, faults) == ([], [])
 
@@ -213,11 +213,11 @@ REFEREED_LATER_SPIELTAG = "6890a1b2c3d4e5f607210006"
 
 RETIRED_GROUND = "6890a1b2c3d4e5f607230001"
 RETIRED_ON = "2026-02-01"
-TWICE_BOOKED_REFEREE = "6890a1b2c3d4e5f607230002"
+TWICE_BOOKED_SCHIEDSRICHTER = "6890a1b2c3d4e5f607230002"
 
 # Two groups, so the reference below names one this season does not run: a season offering every
 # name `FLGruppenNames` spells could hold no such reference at all.
-SWEPT_RULES = FLSaisonRules.model_validate(RULES.model_dump() | {"number_of_groups": 2})
+SWEPT_RULES = FLSaisonRules.model_validate(RULES.model_dump() | {"number_of_gruppen": 2})
 UNRUN_GRUPPE = "D"
 
 
@@ -234,7 +234,7 @@ def _joined_side(team_id: str, name: str, austritt: dict[str, Any] | None = None
     }
 
 
-def faulted_season(spiel: PayloadFactory) -> list[dict[str, Any]]:
+def faulted_saison(spiel: PayloadFactory) -> list[dict[str, Any]]:
     """One fixture per sweep, and only the last carries a `quelle`.
 
     The group it names is one this season does not run, so `resolve_bracket` is handed no standing
@@ -256,7 +256,7 @@ def faulted_season(spiel: PayloadFactory) -> list[dict[str, Any]]:
                 # would otherwise double-book every fixture here against every other.
                 "ort": None,
                 "schiedsrichter": None,
-                "ansetzung_bestaetigt": None,
+                "ansetzung_confirmed": None,
                 **overrides,
             }
         )
@@ -286,7 +286,7 @@ def faulted_season(spiel: PayloadFactory) -> list[dict[str, Any]]:
             _joined_side(BYSTANDER, "Bieber"),
             _joined_side(OPPONENT, "Cronberg"),
             uhrzeit="18:00:00",
-            schiedsrichter={"schiedsrichter_id": TWICE_BOOKED_REFEREE, "name": "Anna Körner", "payment": 20},
+            schiedsrichter={"schiedsrichter_id": TWICE_BOOKED_SCHIEDSRICHTER, "name": "Anna Körner", "payment": 20},
         ),
         fixture(
             REFEREED_AN_HOUR_LATER,
@@ -294,7 +294,7 @@ def faulted_season(spiel: PayloadFactory) -> list[dict[str, Any]]:
             _joined_side(BYSTANDER, "Bieber"),
             _joined_side(OPPONENT, "Cronberg"),
             uhrzeit="19:00:00",
-            schiedsrichter={"schiedsrichter_id": TWICE_BOOKED_REFEREE, "name": "Anna Körner", "payment": 20},
+            schiedsrichter={"schiedsrichter_id": TWICE_BOOKED_SCHIEDSRICHTER, "name": "Anna Körner", "payment": 20},
         ),
     ]
 
@@ -302,7 +302,7 @@ def faulted_season(spiel: PayloadFactory) -> list[dict[str, Any]]:
 def sweep(spiel: PayloadFactory) -> tuple[list[FLBracketFault], list[Any]]:
     """`find_bracket_faults` over the corpus above, with the season row its second read needs."""
 
-    collections = cast(AsyncCollection, _SweptCollections({"_id": SAISON_ID, "rules": SWEPT_RULES.model_dump()}, faulted_season(spiel)))
+    collections = cast(AsyncCollection, _SweptCollections({"_id": SAISON_ID, "rules": SWEPT_RULES.model_dump()}, faulted_saison(spiel)))
 
     return asyncio.run(
         find_bracket_faults(

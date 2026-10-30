@@ -8,7 +8,7 @@ from app.api.kontakte.services import same_address
 from app.api.sperrliste.services import withheld_actor
 from app.core.collections import Collection as DbCollection
 from app.core.crud import build_sort
-from app.core.recording import GELOESCHT_ACTOR_MARKER
+from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import parse_object_id
 
@@ -21,7 +21,7 @@ def akteur_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:
     ]
 
 
-def mit_vorenthaltenem_akteur(row: Mapping[str, Any], gesperrt: Collection[str]) -> dict[str, Any]:
+def mit_vorenthaltenem_akteur(row: Mapping[str, Any], barred: Collection[str]) -> dict[str, Any]:
     """A stored row with its actor as both reads serve it.
 
     The stored image is left as recorded: it is what a restore of the write starts from.
@@ -31,13 +31,13 @@ def mit_vorenthaltenem_akteur(row: Mapping[str, Any], gesperrt: Collection[str])
     if not isinstance(actor, FLAktorMitAdresse):
         return dict(row)
 
-    email = withheld_actor(actor.email, gesperrt)
+    email = withheld_actor(actor.email, barred)
 
-    return {**row, "actor": {**actor.model_dump(), "email": email, "email_gesperrt": email is None}}
+    return {**row, "actor": {**actor.model_dump(), "email": email, "email_barred": email is None}}
 
 
 def document_id_term(value: str | None) -> dict[str, Any] | None:
-    """One document's history — `aktionen_target`'s first purpose.
+    """One document's history — `action_log_target`'s first purpose.
 
     Compiled rather than dumped: a row stores the id as its collection does — an `ObjectId`
     everywhere but `saisons`, whose `_id` is the season string — and text matches no `ObjectId`.
@@ -55,7 +55,7 @@ def build_aktionen_sort(*, order: str) -> list[tuple[str, int]]:
     """The log page's order. `at` is the only key: every other ordering over a log of writes is a report."""
 
     # `_id` breaks the tie in `order`'s OWN direction, so one transaction's rows read the way the log
-    # does and the pair is `aktionen_queue`'s key or its exact inverse. Pinned descending,
+    # does and the pair is `action_log_queue`'s key or its exact inverse. Pinned descending,
     # `order=asc` would match neither and scan the whole log.
     direction = 1 if order == "asc" else -1
 
@@ -77,28 +77,28 @@ class ImageAddress:
 # so a replayed image still validates.
 IMAGE_ADDRESSES: Final[Mapping[DbCollection, tuple[ImageAddress, ...]]] = MappingProxyType(
     {
-        DbCollection.BERECHTIGUNGEN: (
+        DbCollection.GRANTS: (
             ImageAddress("adresse", "adresse", None),
-            ImageAddress("erteilt_von", "erteilt_von", GELOESCHT_ACTOR_MARKER),
+            ImageAddress("granted_by", "granted_by", ERASED_ACTOR_MARKER),
         ),
-        DbCollection.SPERRLISTE: (ImageAddress("erstellt_von", "erstellt_von", GELOESCHT_ACTOR_MARKER),),
-        DbCollection.EINLADUNGEN: (ImageAddress("erstellt_von", "erstellt_von", GELOESCHT_ACTOR_MARKER),),
-        DbCollection.BEWERBUNGEN: (ImageAddress("entscheidung.von", "entscheidung.von", GELOESCHT_ACTOR_MARKER),),
-        DbCollection.REGISTRIERUNGEN: (ImageAddress("entscheidung.von", "entscheidung.von", GELOESCHT_ACTOR_MARKER),),
+        DbCollection.SPERRLISTE: (ImageAddress("created_by", "created_by", ERASED_ACTOR_MARKER),),
+        DbCollection.INVITATIONS: (ImageAddress("created_by", "created_by", ERASED_ACTOR_MARKER),),
+        DbCollection.BEWERBUNGEN: (ImageAddress("decision.von", "decision.von", ERASED_ACTOR_MARKER),),
+        DbCollection.REGISTRIERUNGEN: (ImageAddress("decision.von", "decision.von", ERASED_ACTOR_MARKER),),
         # A row since re-addressed: the referee step reaches only the rows naming the person now.
         DbCollection.SCHIEDSRICHTER: (ImageAddress("kontakt.email", "kontakt.email", None),),
         DbCollection.SPIELER: (ImageAddress("email", "email", None),),
         # Either address of a change, and the administrators who started or approved one, whose marker keeps the image valid.
-        DbCollection.ADRESSWECHSEL: (
+        DbCollection.ADDRESS_CHANGES: (
             ImageAddress("adresse", "adresse", None),
             ImageAddress("email", "email", None),
-            ImageAddress("genehmigung.gestartet_von", "genehmigung.gestartet_von", GELOESCHT_ACTOR_MARKER),
-            ImageAddress("genehmigung.genehmigt_von", "genehmigung.genehmigt_von", GELOESCHT_ACTOR_MARKER),
+            ImageAddress("approval.started_by", "approval.started_by", ERASED_ACTOR_MARKER),
+            ImageAddress("approval.approved_by", "approval.approved_by", ERASED_ACTOR_MARKER),
         ),
         # A decided request's: the address it was about, and the administrator who made it, whose marker keeps the image valid.
-        DbCollection.BERECHTIGUNGEN_ANTRAEGE: (
+        DbCollection.GRANT_APPROVAL_REQUESTS: (
             ImageAddress("adresse", "adresse", None),
-            ImageAddress("genehmigung.gestartet_von", "genehmigung.gestartet_von", GELOESCHT_ACTOR_MARKER),
+            ImageAddress("approval.started_by", "approval.started_by", ERASED_ACTOR_MARKER),
         ),
     }
 )
@@ -111,14 +111,13 @@ def carried_by_the_effect(addresses: Sequence[ImageAddress], neue: str) -> tuple
     """
 
     return tuple(
-        ImageAddress(address.path, address.overwritten, neue if address.replacement == GELOESCHT_ACTOR_MARKER else None)
-        for address in addresses
+        ImageAddress(address.path, address.overwritten, neue if address.replacement == ERASED_ACTOR_MARKER else None) for address in addresses
     )
 
 
 # The collections whose images an effect re-keys: a change's, a grant's and a request's, reached by address alone once the
 # effect has moved the person or ended the request; every other record's images are reached by their record's id.
-EFFECT_IMAGE_COLLECTIONS: Final = (DbCollection.ADRESSWECHSEL, DbCollection.BERECHTIGUNGEN, DbCollection.BERECHTIGUNGEN_ANTRAEGE)
+EFFECT_IMAGE_COLLECTIONS: Final = (DbCollection.ADDRESS_CHANGES, DbCollection.GRANTS, DbCollection.GRANT_APPROVAL_REQUESTS)
 
 
 def build_address_images_filter(collection: DbCollection, identifier: str) -> Mapping[str, Any]:
@@ -126,10 +125,10 @@ def build_address_images_filter(collection: DbCollection, identifier: str) -> Ma
 
     # A grant's images by pattern, as its rows are read (`app/api/berechtigungen/loeschung.py`): a pasted row keeps its
     # typed spelling into the image its revoke files. Every other image holds a fold a write stored.
-    matched = same_address(identifier) if collection == DbCollection.BERECHTIGUNGEN else sign_in_identifier(identifier)
+    matched = same_address(identifier) if collection == DbCollection.GRANTS else sign_in_identifier(identifier)
 
     return {
-        # `collection` first, the half `aktionen_target` serves: nothing indexes inside `before`.
+        # `collection` first, the half `action_log_target` serves: nothing indexes inside `before`.
         "collection": str(collection),
         "$or": [{f"before.{address.path}": matched} for address in IMAGE_ADDRESSES[collection]],
     }

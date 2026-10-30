@@ -5,7 +5,7 @@ from bson import ObjectId
 from pydantic import SecretStr
 
 from app.core.config import INTERNAL_API_KEY_LENGTH, MONGODB_URI_FILE, SPERRLISTE_KEY_MIN_LENGTH, BackendConfig
-from tests.actor_tokens import SignedActor
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 # The base name of the corpus the pymongo-seeded suites share. What they seed and what the app under
@@ -34,7 +34,7 @@ _KEY_ADMIN = "test-key-admin".ljust(INTERNAL_API_KEY_LENGTH, "0")
 
 # Obviously fake and padded to the boot's floor, as the three above are. A suite asserting that one
 # address hashes differently under two keys builds its own second key rather than reading this one.
-_SPERRLISTE_SCHLUESSEL = "test-sperrliste-key".ljust(SPERRLISTE_KEY_MIN_LENGTH, "0")
+_SPERRLISTE_KEY = "test-sperrliste-key".ljust(SPERRLISTE_KEY_MIN_LENGTH, "0")
 
 # Every actor a suite names on an admin-tier route, each a grant `grants_for_the_suite` seeds, or
 # `app/api/berechtigungen/guard.py :: verify_actor_is_admin` answers the request 403 before the case reaches what
@@ -49,7 +49,7 @@ SYSTEM_AUTH = {"Authorization": f"Bearer {_KEY_SYSTEM}"}
 ADMIN_KEY = {"Authorization": f"Bearer {_KEY_ADMIN}"}
 # What an administrator's request carries: the admin tier refuses one naming nobody on every method
 # (`app/core/security.py :: bind_actor`), so the key alone reaches no admin-tier handler.
-ADMIN_AUTH = SignedActor("admin@example.com", ADMIN_KEY)
+ADMIN_AUTH = StampedHeaders("admin@example.com", ADMIN_KEY)
 
 
 def build_test_config() -> BackendConfig:
@@ -66,7 +66,7 @@ def build_test_config() -> BackendConfig:
         internal_api_key_base=SecretStr(_KEY_BASE),
         internal_api_key_system=SecretStr(_KEY_SYSTEM),
         internal_api_key_admin=SecretStr(_KEY_ADMIN),
-        sperrliste_schluessel=SecretStr(_SPERRLISTE_SCHLUESSEL),
+        sperrliste_key=SecretStr(_SPERRLISTE_KEY),
     )
 
 
@@ -86,8 +86,8 @@ def grants_for_the_suite() -> list[dict[str, Any]]:
             "_id": ObjectId(ObjectId.from_datetime(pasted).binary[:4] + index.to_bytes(8, "big")),
             "adresse": adresse,
             "verwaltung": "owner" if index == 0 else "administration",
-            "erteilt_von": "PLAYGROUND",
-            "erteilt_am": pasted,
+            "granted_by": "PLAYGROUND",
+            "granted_at": pasted,
         }
         for index, adresse in enumerate(ADMINISTRATORS)
     ]

@@ -47,14 +47,14 @@ class TestSpieleFilter:
         assert build_spiele_filter(filters=filters, today=TODAY)["saison_phase"] == {"$ne": "gruppenphase"}
 
     def test_status_maps_to_a_date_comparison_against_today(self):
-        """`ab_heute` is `$gte` by intent: the upcoming list must show today's fixtures, so a tightening to `$gt` is the regression."""
-        vergangen = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "vergangen"}), today=TODAY)
-        ab_heute = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "ab_heute"}), today=TODAY)
-        heute = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "heute"}), today=TODAY)
+        """`from_today` is `$gte` by intent: the upcoming list must show today's fixtures, so a tightening to `$gt` is the regression."""
+        past = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "past"}), today=TODAY)
+        from_today = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "from_today"}), today=TODAY)
+        today = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "today"}), today=TODAY)
 
-        assert vergangen["datum"] == {"$lt": TODAY}
-        assert ab_heute["datum"] == {"$gte": TODAY}
-        assert heute["datum"] == TODAY
+        assert past["datum"] == {"$lt": TODAY}
+        assert from_today["datum"] == {"$gte": TODAY}
+        assert today["datum"] == TODAY
 
     def test_team_id_matches_either_side_of_the_fixture_as_an_objectid(self):
         """Both sides via `$or`, and as a real `ObjectId`: a string here would match nothing and return empty."""
@@ -107,7 +107,7 @@ class TestSpieltageOrder:
                 "_id": ObjectId(oid),
                 "beginn": beginn,
                 "ende": beginn,
-                "anzahl_spiele": 4,
+                "count_spiele": 4,
                 "position": position,
                 "saison_phase": phase,
                 "saison_id": "2026",

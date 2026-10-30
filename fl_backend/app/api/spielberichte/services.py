@@ -11,9 +11,9 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
     FLSpielberichtSpieler,
+    FLSpielberichtState,
     FLSpielberichtVon,
     FLSpielberichtVorschlag,
-    FLSpielberichtZustand,
 )
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, SONDEREREIGNIS_WITHOUT_A_RESULT, FLSpielElfmeterschiessen
 from app.core.codes import Code
@@ -183,14 +183,14 @@ def neu_genannt(
 
 
 def find_nicht_geleitet_refusal(*, spiel_raw: Mapping[str, Any], schiedsrichter_ids: Iterable[ObjectId]) -> WriteRefusal | None:
-    """`bericht_nicht_geleitet`: the report is the booked referee's, and the ghost or an empty slot books nobody who could write it."""
+    """`bericht_not_officiated`: the report is the booked referee's, and the ghost or an empty slot books nobody who could write it."""
 
     gebucht = (spiel_raw.get("schiedsrichter") or {}).get("schiedsrichter_id")
     if gebucht is not None and gebucht in set(schiedsrichter_ids):
         return None
 
     return WriteRefusal(
-        error_code=Code.BERICHT_NICHT_GELEITET,
+        error_code=Code.BERICHT_NOT_OFFICIATED,
         status=HTTPStatus.FORBIDDEN,
     )
 
@@ -204,13 +204,13 @@ def ist_abgesagt(*, sonderereignis: str | None) -> bool:
 
 
 def find_nicht_gespielt_refusal(*, datum: str | None, today: str) -> WriteRefusal | None:
-    """`bericht_nicht_gespielt`: a report follows the match day; the day arriving, or a date corrected, lifts it."""
+    """`bericht_not_played`: a report follows the match day; the day arriving, or a date corrected, lifts it."""
 
     if ist_gespielt(datum=datum, today=today):
         return None
 
     return WriteRefusal(
-        error_code=Code.BERICHT_NICHT_GESPIELT,
+        error_code=Code.BERICHT_NOT_PLAYED,
         status=HTTPStatus.CONFLICT,
     )
 
@@ -246,19 +246,19 @@ def find_saison_beendet_refusal(lage: BerichtLage) -> WriteRefusal | None:
 
 
 def find_elfmeter_in_der_gruppe_refusal(*, spiel_raw: Mapping[str, Any], payload: FLSpielberichtBerichtPayload) -> WriteRefusal | None:
-    """`bericht_elfmeter_in_der_gruppe`: a group fixture keeps no shoot-out, so a proposal holding one could never read adopted."""
+    """`bericht_elfmeter_in_the_gruppe`: a group fixture keeps no shoot-out, so a proposal holding one could never read adopted."""
 
     if spiel_raw["saison_phase"] != "gruppenphase" or payload.ergebnis_vorschlag.elfmeterschiessen is None:
         return None
 
     return WriteRefusal(
-        error_code=Code.BERICHT_ELFMETER_IN_DER_GRUPPE,
+        error_code=Code.BERICHT_ELFMETER_IN_THE_GRUPPE,
         status=HTTPStatus.CONFLICT,
     )
 
 
 def nimmt_einen_bericht(spiel_raw: Mapping[str, Any], *, today: str) -> bool:
-    """Whether the fixture takes a report today, as `bericht_nicht_gespielt` and `bericht_abgesagt` judge a write, refusing nothing."""
+    """Whether the fixture takes a report today, as `bericht_not_played` and `bericht_abgesagt` judge a write, refusing nothing."""
 
     return ist_gespielt(datum=spiel_raw.get("datum"), today=today) and not ist_abgesagt(sonderereignis=spiel_raw.get("sonderereignis"))
 
@@ -270,7 +270,7 @@ def kader_ist_offen(lage: BerichtLage, *, today: str) -> bool:
 
 
 def find_bericht_stand_refusal(*, stand: int | None, gespeichert: Mapping[str, Any] | None) -> WriteRefusal | None:
-    """`bericht_inzwischen_geaendert`: the write was composed on the version standing now, or on none where none stands.
+    """`bericht_meanwhile_changed`: the write was composed on the version standing now, or on none where none stands.
 
     Judged on the transaction's read: a write committing meanwhile, a crossing first one included, conflicts with this
     one, whose retry is refused.
@@ -280,19 +280,19 @@ def find_bericht_stand_refusal(*, stand: int | None, gespeichert: Mapping[str, A
         return None
 
     return WriteRefusal(
-        error_code=Code.BERICHT_INZWISCHEN_GEAENDERT,
+        error_code=Code.BERICHT_MEANWHILE_CHANGED,
         status=HTTPStatus.CONFLICT,
     )
 
 
 def find_nicht_im_kader_refusal(*, lage: BerichtLage, neu: Mapping[FLSpielSeite, set[ObjectId]]) -> WriteRefusal | None:
-    """`bericht_nicht_im_kader`: a pupil newly named on a side is in that side's live squad of the season."""
+    """`bericht_not_in_kader`: a pupil newly named on a side is in that side's live squad of the season."""
 
     for seite in SEITEN:
         kader = {row["spieler_id"] for row in live_kader(lage, seite)}
         if not neu[seite] <= kader:
             return WriteRefusal(
-                error_code=Code.BERICHT_NICHT_IM_KADER,
+                error_code=Code.BERICHT_NOT_IN_KADER,
                 status=HTTPStatus.CONFLICT,
             )
 
@@ -300,7 +300,7 @@ def find_nicht_im_kader_refusal(*, lage: BerichtLage, neu: Mapping[FLSpielSeite,
 
 
 def find_grund_fehlt_refusal(*, payload: FLSpielberichtBerichtPayload, gespeichert: Mapping[str, Any] | None) -> WriteRefusal | None:
-    """`bericht_grund_fehlt`: a caution names its reason unless the stored block holds it stripped, which a correction would otherwise invent.
+    """`bericht_grund_missing`: a caution names its reason unless the stored block holds it stripped, which a correction would otherwise invent.
 
     A card has no id: the same side, pupil and colour is the same card, its minute correctable.
     """
@@ -321,7 +321,7 @@ def find_grund_fehlt_refusal(*, payload: FLSpielberichtBerichtPayload, gespeiche
             continue
 
         return WriteRefusal(
-            error_code=Code.BERICHT_GRUND_FEHLT,
+            error_code=Code.BERICHT_GRUND_MISSING,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
             # The list, a refusal's field being a literal: the form refuses the card itself before any press.
             fields=(("bericht", "karten"),),
@@ -351,7 +351,7 @@ def vorschlag_entspricht(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[
     """Whether the stored result is what the proposal proposes.
 
     A no-show by its event alone, its goals being the forfeit's; the shoot-out too, absent or not, which no write proposes
-    where the fixture keeps none (`bericht_elfmeter_in_der_gruppe`).
+    where the fixture keeps none (`bericht_elfmeter_in_the_gruppe`).
     """
 
     if vorschlag.sonderereignis in SONDEREREIGNIS_NO_SHOW:
@@ -370,10 +370,10 @@ def vorschlag_entspricht(vorschlag: FLSpielberichtVorschlag, spiel_raw: Mapping[
 
 # The states awaiting the administrator, which the triage lists: an adopted report awaits nothing, and one on a match
 # that took no place awaits nothing anyone can do.
-BERICHT_ZUSTAENDE_OFFEN: Final[frozenset[FLSpielberichtZustand]] = frozenset({"vorgeschlagen", "abweichend", "teams_geaendert"})
+BERICHT_ZUSTAENDE_OFFEN: Final[frozenset[FLSpielberichtState]] = frozenset({"vorgeschlagen", "differing", "teams_changed"})
 
 
-def bericht_zustand_of(bericht: FLSpielberichtBericht, spiel_raw: Mapping[str, Any]) -> FLSpielberichtZustand:
+def bericht_zustand_of(bericht: FLSpielberichtBericht, spiel_raw: Mapping[str, Any]) -> FLSpielberichtState:
     """The state a report reads in, from the fixture, the adoption and the block's version.
 
     No result reads `vorgeschlagen` however the report was stamped, as after a later save emptied the result or on an
@@ -386,20 +386,20 @@ def bericht_zustand_of(bericht: FLSpielberichtBericht, spiel_raw: Mapping[str, A
     # Ahead of every comparison of the result: a proposal by side is about the clubs its last write found, and read
     # against another club's result it would credit that club.
     if seiten_geaendert(dict(bericht.seiten), spiel_raw):
-        return "teams_geaendert"
+        return "teams_changed"
 
     if spiel_raw.get("ergebnis") is None:
         return "vorgeschlagen"
 
     # Equal versions, never instants: a correction and an adoption in one second are two writes.
-    if bericht.uebernommene_version == bericht.version and vorschlag_entspricht(bericht.ergebnis_vorschlag, spiel_raw):
-        return "uebernommen"
+    if bericht.adopted_version == bericht.version and vorschlag_entspricht(bericht.ergebnis_vorschlag, spiel_raw):
+        return "adopted"
 
-    return "abweichend"
+    return "differing"
 
 
 def compose_ansicht(
-    lage: BerichtLage, *, kader_offen: bool, genannt: Sequence[FLSpielberichtSpieler], dokument: Mapping[str, Any] | None
+    lage: BerichtLage, *, kader_offen: bool, named: Sequence[FLSpielberichtSpieler], dokument: Mapping[str, Any] | None
 ) -> dict[str, Any]:
     """What the referee's form and the administrator's panel both read: the fixture, the live squads, and the stored block.
 
@@ -425,10 +425,10 @@ def compose_ansicht(
             "sonderereignis": spiel.get("sonderereignis"),
         },
         "kader": {seite: live_kader(lage, seite) if kader_offen else [] for seite in SEITEN},
-        "genannt": genannt,
+        "named": named,
         "bericht": bericht,
         # Served rather than re-derived by the forms, which mark these sides' entries and offer none of their old pupils.
-        "seiten_geaendert": [] if bericht is None else sorted(seiten_geaendert(bericht["seiten"], spiel)),
+        "seiten_changed": [] if bericht is None else sorted(seiten_geaendert(bericht["seiten"], spiel)),
         "version": None if dokument is None else dokument.get(VERSION_FIELD, 0),
     }
 
@@ -456,13 +456,13 @@ def compose_neuer_bericht(
     return {
         **payload.model_dump(context={"keep_oid": True}),
         "seiten": dict(seiten),
-        "eingereicht_am": now,
-        "eingereicht_von": von.model_dump(context={"keep_oid": True}),
-        "geaendert_am": now,
+        "submitted_at": now,
+        "submitted_by": von.model_dump(context={"keep_oid": True}),
+        "changed_at": now,
         "version": 1,
-        "uebernommen_am": None,
-        "uebernommen_von": None,
-        "uebernommene_version": None,
+        "adopted_at": None,
+        "adopted_by": None,
+        "adopted_version": None,
     }
 
 
@@ -471,12 +471,12 @@ def compose_bericht_update(
 ) -> dict[str, Any]:
     """A later write of the block: the content replaced, the version raised, who first wrote it and the adoption kept.
 
-    The adoption stays as it was, so the raised version is what returns the report to `abweichend`.
+    The adoption stays as it was, so the raised version is what returns the report to `differing`.
     """
 
     return {
         "$set": {f"bericht.{key}": value for key, value in payload.model_dump(context={"keep_oid": True}).items()}
-        | {"bericht.seiten": dict(seiten), "bericht.geaendert_am": now},
+        | {"bericht.seiten": dict(seiten), "bericht.changed_at": now},
         "$inc": {"bericht.version": 1},
     }
 
@@ -524,7 +524,7 @@ def season_end_report_image_edits(image: Mapping[str, Any], saison_id: str) -> d
 def build_referee_reports_filter(schiedsrichter_ids: Sequence[Any]) -> Mapping[str, Any]:
     """Every report one of these referees first sent."""
 
-    return {"bericht.eingereicht_von.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}
+    return {"bericht.submitted_by.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}
 
 
 def build_referee_report_images_filter(schiedsrichter_ids: Sequence[Any]) -> Mapping[str, Any]:
@@ -534,14 +534,14 @@ def build_referee_report_images_filter(schiedsrichter_ids: Sequence[Any]) -> Map
     no report naming them, while every older image, its own row's too, does.
     """
 
-    return {"collection": str(Collection.SPIELBERICHTE), "before.bericht.eingereicht_von.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}
+    return {"collection": str(Collection.SPIELBERICHTE), "before.bericht.submitted_by.schiedsrichter_id": {"$in": list(schiedsrichter_ids)}}
 
 
 def referee_report_image_edits(image: Mapping[str, Any], schiedsrichter_ids: Sequence[Any]) -> dict[str, Any]:
     """One report image naming one of these referees, repointed as the report itself is; its remarks and entries stay."""
 
-    von = (image.get("bericht") or {}).get("eingereicht_von")
+    von = (image.get("bericht") or {}).get("submitted_by")
     if not isinstance(von, Mapping) or von.get("schiedsrichter_id") not in schiedsrichter_ids:
         return {}
 
-    return {"bericht.eingereicht_von.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}
+    return {"bericht.submitted_by.schiedsrichter_id": GHOST_SCHIEDSRICHTER_ID}

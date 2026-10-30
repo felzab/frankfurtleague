@@ -17,10 +17,10 @@ from pymongo import MongoClient
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.main import create_app
-from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.database import a_clean_database_sync
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -48,19 +48,17 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
             "_id": ObjectId(),
             "adresse": GRANTED_AT_THE_SEED,
             "verwaltung": "administration",
-            "erteilt_von": "PLAYGROUND",
-            "erteilt_am": now,
+            "granted_by": "PLAYGROUND",
+            "granted_at": now,
         }
-        a_clean_database_sync(client, mongo_replica_set_url, DATABASE_NAME)[Collection.BERECHTIGUNGEN].insert_many(
-            [*grants_for_the_suite(), granted]
-        )
+        a_clean_database_sync(client, mongo_replica_set_url, DATABASE_NAME)[Collection.GRANTS].insert_many([*grants_for_the_suite(), granted])
 
         yield mongo_replica_set_url
     finally:
         client.close()
 
 
-def answered(url: str, actor: SignedActor) -> Response:
+def answered(url: str, actor: StampedHeaders) -> Response:
     async def _answered() -> Response:
         async with app_client(url, app=create_app(CONFIG)) as http:
             return await http.get(READ_PATH, headers=actor)
@@ -71,7 +69,7 @@ def answered(url: str, actor: SignedActor) -> Response:
 def test_an_actor_holding_no_grant_is_refused_by_the_real_read(seeded_url: str):
     """No challenge beside it: a fresh sign-in would hold no grant either."""
 
-    response = answered(seeded_url, SignedActor("schueler@example.com", ADMIN_KEY))
+    response = answered(seeded_url, StampedHeaders("schueler@example.com", ADMIN_KEY))
 
     assert (response.status_code, response.json()["error_code"]) == (403, Code.ACTOR_NOT_ADMIN)
     assert "www-authenticate" not in response.headers
@@ -80,7 +78,7 @@ def test_an_actor_holding_no_grant_is_refused_by_the_real_read(seeded_url: str):
 def test_a_session_signed_in_before_its_grant_is_refused(seeded_url: str):
     """The grant's date is what the session is judged against, so a sign-in older than the grant holds none of it."""
 
-    response = answered(seeded_url, SignedActor(GRANTED_AT_THE_SEED, ADMIN_KEY, signed_in_before_s=AN_HOUR_S))
+    response = answered(seeded_url, StampedHeaders(GRANTED_AT_THE_SEED, ADMIN_KEY, signed_in_before_s=AN_HOUR_S))
 
     assert (response.status_code, response.json()["error_code"]) == (401, Code.SESSION_REFUSED)
 
@@ -88,4 +86,4 @@ def test_a_session_signed_in_before_its_grant_is_refused(seeded_url: str):
 def test_an_actor_holding_a_grant_passes_the_real_read(seeded_url: str):
     """The control: a read refusing everybody passes the cases above. Spelled in capitals, as the stored grant is folded."""
 
-    assert answered(seeded_url, SignedActor(grants_for_the_suite()[1]["adresse"].upper(), ADMIN_KEY)).status_code == 200
+    assert answered(seeded_url, StampedHeaders(grants_for_the_suite()[1]["adresse"].upper(), ADMIN_KEY)).status_code == 200

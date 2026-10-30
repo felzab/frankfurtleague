@@ -19,14 +19,13 @@ from httpx2 import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.spieler.person_router import patch_kader_zeile
-from app.api.spieler.schemas import FLPatchKaderZeilePayload
+from app.api.spieler.person_router import patch_kader_row
+from app.api.spieler.schemas import FLPatchKaderRowPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
 from app.shared.schemas.literals import KONTAKT_ROLLEN
-from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
@@ -41,6 +40,7 @@ from tests.documents import (
 )
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.records import record_collections
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -91,12 +91,12 @@ PAYLOAD: Mapping[str, Any] = {"nummer": "11", "position": "Tor", "stufe": "Q1", 
 
 
 def _seat(email: str) -> dict[str, Any]:
-    return kontaktperson_document("Anna", bestaetigt_am="2026-01-06", email=email, telefon=SEAT_TELEFON)
+    return kontaktperson_document("Anna", confirmed_at="2026-01-06", email=email, telefon=SEAT_TELEFON)
 
 
 def _junction(saison_id: str, team_id: ObjectId, name: str, **slots: dict[str, Any]) -> dict[str, Any]:
     return saison_team_document(
-        saison_id, team_id, name, name[:3].upper(), kontakte={**{slot: None for slot in KONTAKT_ROLLEN}, **slots, "trainer_ist_zugleich": None}
+        saison_id, team_id, name, name[:3].upper(), kontakte={**{slot: None for slot in KONTAKT_ROLLEN}, **slots, "trainer_is_also": None}
     )
 
 
@@ -106,7 +106,7 @@ def _saison(saison_id: str, status: str) -> dict[str, Any]:
         status,
         start_date=f"20{saison_id[:2]}-08-01",
         end_date=f"20{saison_id[2:]}-06-30",
-        rules=rules_document(erlaubte_stufen=list(ERLAUBTE_STUFEN)),
+        rules=rules_document(allowed_stufen=list(ERLAUBTE_STUFEN)),
     )
 
 
@@ -185,8 +185,8 @@ def _served() -> FastAPI:
     return create_app(config_for(DATABASE_NAME))
 
 
-def as_person(email: str) -> SignedActor:
-    return SignedActor(email, ADMIN_KEY, lane="person")
+def as_person(email: str) -> StampedHeaders:
+    return StampedHeaders(email, ADMIN_KEY, lane="person")
 
 
 def squad_url(team_id: ObjectId = TEAM_A, saison_id: str = ACTIVE_SAISON) -> str:
@@ -244,14 +244,14 @@ class TestTheSquadRead:
         assert rows[str(KAPITAEN)]["nachname"] == "Kapitänsdóttir-Weber"
         assert rows[str(KAPITAEN)]["rolle"] == "kapitaen"
         assert rows[str(AUSGETRAGEN)]["inactive_since"] == "2026-02-01"
-        assert body["erlaubte_stufen"] == ERLAUBTE_STUFEN
+        assert body["allowed_stufen"] == ERLAUBTE_STUFEN
         assert (body["team_id"], body["saison_id"]) == (str(TEAM_A), ACTIVE_SAISON)
 
     def test_the_shirt_marker_compares_live_rows_by_the_stored_string(self, mongo_replica_set_url: str):
         """`7` twice live is marked; `07` is another shirt; the ausgetragen `7` wears nothing and marks nothing."""
 
         response = self._read(mongo_replica_set_url, ANSPRECH)
-        marked = {row["spieler_id"]: row["nummer_doppelt"] for row in response.json()["kader"]}
+        marked = {row["spieler_id"]: row["nummer_double"] for row in response.json()["kader"]}
 
         assert marked == {
             str(KAPITAEN): True,
@@ -297,7 +297,7 @@ ELSEWHERE = [
 
 
 class TestASeatNotHeld:
-    """`funktion_nicht_gehalten`, judged by each handler itself: drop the check from one and its three cases go red."""
+    """`role_not_held`, judged by each handler itself: drop the check from one and its three cases go red."""
 
     @pytest.mark.parametrize(("method", "path", "body"), OPERATIONS)
     @pytest.mark.parametrize(("email", "team_id", "saison_id"), ELSEWHERE)
@@ -313,7 +313,7 @@ class TestASeatNotHeld:
     ):
         answer, untouched = refused_and_untouched(mongo_replica_set_url, method, path(team_id, saison_id), email, body)
 
-        assert answer == (403, Code.FUNKTION_NICHT_GEHALTEN)
+        assert answer == (403, Code.ROLE_NOT_HELD)
         assert untouched
 
     def test_the_control_the_same_seat_reads_its_own_team(self, mongo_replica_set_url: str):
@@ -414,11 +414,11 @@ class TestAnEdit:
 
         assert response.status_code == 200, response.text
         assert (row["nummer"], row["position"], row["stufe"], row["rolle"]) == ("07", "Tor", "Q1", None)
-        assert (row["team_id"], row["ist_nachnominiert"], row["inactive_since"]) == (TEAM_A, False, None)
+        assert (row["team_id"], row["is_nachnominiert"], row["inactive_since"]) == (TEAM_A, False, None)
         # Now wearing `07` beside `NULL_SIEBEN`, judged against the squad after the write.
-        assert response.json()["nummer_doppelt"] is True
+        assert response.json()["nummer_double"] is True
 
-    @pytest.mark.parametrize("extra", [{"team_id": str(TEAM_B)}, {"ist_nachnominiert": True}], ids=["team_id", "ist_nachnominiert"])
+    @pytest.mark.parametrize("extra", [{"team_id": str(TEAM_B)}, {"is_nachnominiert": True}], ids=["team_id", "is_nachnominiert"])
     def test_a_field_the_payload_does_not_declare_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, extra: Mapping[str, Any]):
         answer, untouched = refused_and_untouched(mongo_replica_set_url, "PATCH", row_url(TEILT_DIE_SIEBEN), ANSPRECH, {**PAYLOAD, **extra})
 
@@ -427,14 +427,14 @@ class TestAnEdit:
 
 
 class TestAStufeTheSeasonDoesNotOffer:
-    """`kader_stufe_nicht_erlaubt`: a server refusal, the form's offer being no rule."""
+    """`kader_stufe_not_allowed`: a server refusal, the form's offer being no rule."""
 
     def test_a_stufe_outside_the_season_s_list_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str):
         answer, untouched = refused_and_untouched(
             mongo_replica_set_url, "PATCH", row_url(TEILT_DIE_SIEBEN), ANSPRECH, {**PAYLOAD, "stufe": "E1"}
         )
 
-        assert answer == (409, Code.KADER_STUFE_NICHT_ERLAUBT)
+        assert answer == (409, Code.KADER_STUFE_NOT_ALLOWED)
         assert untouched
 
     @pytest.mark.parametrize("stufe", ["Q4", None], ids=["the stored one", "none"])
@@ -464,11 +464,11 @@ class TestTheCaptaincy:
         async def give_the_armband(
             database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId, saisons: Any, squad_rows: Any = None
         ) -> Any:
-            return await patch_kader_zeile(
+            return await patch_kader_row(
                 team_id=TEAM_A,
                 saison_id=ACTIVE_SAISON,
                 spieler_id=spieler_id,
-                zeile_data=FLPatchKaderZeilePayload(nummer=None, position=None, stufe=None, rolle="co_kapitaen"),
+                zeile_data=FLPatchKaderRowPayload(nummer=None, position=None, stufe=None, rolle="co_kapitaen"),
                 identifier=ANSPRECH,
                 saison_spieler_collection=squad_rows if squad_rows is not None else database[Collection.SAISON_SPIELER],
                 saisons_collection=saisons,
@@ -542,4 +542,4 @@ class TestAustragen:
         assert row["inactive_since"] == TODAY
         assert person is not None and person["inactive_since"] is None
         # The live `7` it shared is the captain's alone now, and an ausgetragen row wears nothing.
-        assert response.json()["nummer_doppelt"] is False
+        assert response.json()["nummer_double"] is False

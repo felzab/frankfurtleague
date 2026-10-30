@@ -29,20 +29,20 @@ from app.api.bewerbungen.services import (
     unerreichbare_seats,
 )
 from app.api.kontakte.services import contact_block_image_edits
-from app.api.postausgang.crud import lagen_of
-from app.api.postausgang.services import OwedMail, enqueue_mails
+from app.api.outbox.crud import states_of
+from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.spielberichte.crud import strip_the_seasons_reports
 from app.api.spielbestaetigungen.crud import strip_the_seasons_confirmations
 from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.teams.crud import pull_team_names, void_moved_seats
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import anchor_in_db, loeschen_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, redact_log_rows_in_db
+from app.core.crud import anchor_in_db, erase_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, redact_log_rows_in_db
 from app.core.dependencies import (
-    AktionenCollection,
+    ActionLogCollection,
     BewerbungenCollection,
     DBClient,
-    PostausgangCollection,
+    OutboxCollection,
     SaisonsCollection,
     SaisonTeamsCollection,
     SpielberichteCollection,
@@ -133,17 +133,17 @@ async def sweep_saison(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
-    aktionen_collection: AktionenCollection,
+    aktionen_collection: ActionLogCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungSweepResponse:
     """Run one season's six retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
 
-    The drain sends what the pass owed. A row that cannot be written is passed over, counted in `fehlgeschlagen` and met
+    The drain sends what the pass owed. A row that cannot be written is passed over, counted in `failed` and met
     again by the next pass. 404 where no season has the id.
     """
 
@@ -167,7 +167,7 @@ async def sweep_saison(
         rows = await batch.saw(
             pull_many_from_db(
                 collection=bewerbungen_collection,
-                db_filter=batch.within({"saison_id": saison_id, "status": "eingereicht"}),
+                db_filter=batch.within({"saison_id": saison_id, "status": "submitted"}),
                 projection=["status"],
                 # One over the page: a full page is a page that may be truncated, and a clock cannot
                 # see what it never read.
@@ -186,11 +186,11 @@ async def sweep_saison(
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]
-        result = await loeschen_many_from_db(
+        result = await erase_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            aktionen_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
+            action_log_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -205,13 +205,13 @@ async def sweep_saison(
                 limit=SWEEP_PAGE + 1,
                 # Earliest deadline first, so the application the fourteen-day clock takes soonest is
                 # chased first; `_id` makes the page the same page whichever plan the server picks.
-                sort_by=[("bestaetigungsfrist", ASCENDING), ("_id", ASCENDING)],
+                sort_by=[("confirmation_deadline", ASCENDING), ("_id", ASCENDING)],
                 session=session,
             )
         )
         # Each seat's last mail, read in the same transaction: a seat whose mail did not arrive is not chased.
-        lagen = await lagen_of(
-            postausgang_collection=postausgang_collection, sammlung=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
+        lagen = await states_of(
+            outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
         )
         # One mail a person: an address is one person, whose one link answers every seat they hold.
         personen_of = {
@@ -233,16 +233,16 @@ async def sweep_saison(
             schule = schule_name(bewerbung_raw=row, club_names=club_names)
             return [
                 owed_link(
-                    art="bewerbung_erinnerung",
+                    art="bewerbung_reminder",
                     bewerbung_id=row["_id"],
                     kontakte=row["kontakte"],
                     seats=seats,
                     saison_id=saison_id,
                     schule=schule,
                     # The deadline the first mail gave; a reminder does not move it.
-                    frist=str(row["bestaetigungsfrist"]),
+                    frist=str(row["confirmation_deadline"]),
                     # The day too: a re-send clears the stamp, and the seat's next reminder is a mail of its own.
-                    schluessel=f"{Collection.BEWERBUNGEN}/{row['_id']}/erinnerung/{seats[0]}/{today}",
+                    key=f"{Collection.BEWERBUNGEN}/{row['_id']}/reminder/{seats[0]}/{today}",
                 )
                 for _, seats in personen_of[row["_id"]]
             ]
@@ -263,7 +263,7 @@ async def sweep_saison(
             )
         # In the stamps' own transaction: a stamp never stands without its mail, nor a mail without its stamp.
         await enqueue_mails(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[mail for _, mails in taken for mail in mails],
             now=germany_now,
@@ -287,13 +287,13 @@ async def sweep_saison(
         )
         # The submitter's last mail, read in the same transaction: a bounce it reports holds the application for the
         # administrator to correct the address.
-        lagen = await lagen_of(
-            postausgang_collection=postausgang_collection, sammlung=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
+        lagen = await states_of(
+            outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
         )
 
         def due(row: Mapping[str, Any]) -> bool:
             unzustellbar = "ansprechperson" in unerreichbare_seats(row=row, lagen=lagen)
-            return deletion_is_due(bewerbung_raw=row, today=today, unzustellbar=unzustellbar)
+            return deletion_is_due(bewerbung_raw=row, today=today, undeliverable=unzustellbar)
 
         # Each notice built before anything is written, so a row whose stored data refuses one is passed over whole.
         owed = batch.judged(
@@ -307,17 +307,17 @@ async def sweep_saison(
         # Owed in the erasure's own write, the notice carrying what it names: nothing of the application is left to
         # read once this commits.
         await enqueue_mails(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[notice for _, notice in owed if notice is not None],
             now=germany_now,
         )
         ids = [row["_id"] for row in taken]
-        result = await loeschen_many_from_db(
+        result = await erase_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            aktionen_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
+            action_log_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -331,9 +331,9 @@ async def sweep_saison(
                 # Narrowed to the decisions whose month is behind them: a page of fresh ones would fill the
                 # read ahead of a due one, and the stall would refuse the pass.
                 db_filter=batch.within(
-                    {"saison_id": saison_id, "status": "abgelehnt", "entscheidung.getroffen_am": {"$lte": latest_decision_due(today=today)}}
+                    {"saison_id": saison_id, "status": "declined", "decision.made_at": {"$lte": latest_decision_due(today=today)}}
                 ),
-                projection=["status", "entscheidung"],
+                projection=["status", "decision"],
                 limit=SWEEP_PAGE + 1,
                 session=session,
             )
@@ -346,11 +346,11 @@ async def sweep_saison(
         ids = [row["_id"] for row in taken]
         # The filter names the season and the ids and nothing else: it is stored as text, and any
         # other key would preserve what this call destroys.
-        result = await loeschen_many_from_db(
+        result = await erase_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            aktionen_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
+            action_log_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -361,7 +361,7 @@ async def sweep_saison(
         rows = await batch.saw(
             pull_many_from_db(
                 collection=bewerbungen_collection,
-                db_filter=batch.within({"saison_id": saison_id, "status": "angenommen"}),
+                db_filter=batch.within({"saison_id": saison_id, "status": "accepted"}),
                 projection=["status"],
                 limit=SWEEP_PAGE + 1,
                 session=session,
@@ -381,11 +381,11 @@ async def sweep_saison(
             return 0, 0, 0
 
         ids = [row["_id"] for row in taken]
-        result = await loeschen_many_from_db(
+        result = await erase_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            aktionen_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
+            action_log_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -398,7 +398,7 @@ async def sweep_saison(
                 collection=saison_teams_collection,
                 # Either block standing, not `kontakte` alone, so no row's links, and their delivery records,
                 # outlive its people whichever write cleared them.
-                db_filter=batch.within({"saison_id": saison_id, "$or": [{"kontakte": {"$ne": None}}, {"bestaetigungen": {"$ne": None}}]}),
+                db_filter=batch.within({"saison_id": saison_id, "$or": [{"kontakte": {"$ne": None}}, {"confirmations": {"$ne": None}}]}),
                 projection=["_id"],
                 limit=SWEEP_PAGE + 1,
                 session=session,
@@ -421,7 +421,7 @@ async def sweep_saison(
                 db_filter={"_id": row["_id"]},
                 # The links go with their people: each holds a token hash and the delivery record of the
                 # message it went out in (`docs/datenschutz.md :: "No delivery state has a clock of its own"`).
-                update={"$set": {"kontakte": None, "bestaetigungen": None}},
+                update={"$set": {"kontakte": None, "confirmations": None}},
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
@@ -524,7 +524,7 @@ async def sweep_saison(
         )
         fehlgeschlagen += len(passed)
 
-        # Each strip answers the log rows it redacted, which `redigierte_aktionen` counts with every other clock's.
+        # Each strip answers the log rows it redacted, which `redacted_action_log` counts with every other clock's.
         stripped_confirmations, passed = await run_isolated(
             db=db,
             batch=Batch(),
@@ -573,12 +573,12 @@ async def sweep_saison(
 
     return FLBewerbungSweepResponse(
         saison_id=saison_id,
-        erinnert=sum(reminded),
-        geloescht=geloescht,
-        abgelehnte_geloescht=abgelehnte,
-        angenommene_geloescht=angenommene,
-        ohne_entscheidung_geloescht=ohne_entscheidung,
-        kontaktbloecke_geleert=geleert,
-        redigierte_aktionen=redacted_declined + redacted_accepted + redacted_undecided + redacted_unconfirmed,
-        fehlgeschlagen=fehlgeschlagen,
+        reminded=sum(reminded),
+        erased=geloescht,
+        declined_erased=abgelehnte,
+        accepted_erased=angenommene,
+        without_decision_erased=ohne_entscheidung,
+        kontakt_blocks_emptied=geleert,
+        redacted_action_log=redacted_declined + redacted_accepted + redacted_undecided + redacted_unconfirmed,
+        failed=fehlgeschlagen,
     )

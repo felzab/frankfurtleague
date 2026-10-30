@@ -35,7 +35,7 @@ async def get_spiele(
     List the Spiele matching the filters, of the current season unless `saison_id` names another.
 
     A season this tier may not read lists nothing; `playoffs` means every phase but `gruppenphase`, and
-    `ab_heute` includes today.
+    `from_today` includes today.
     """
 
     # Resolved here, never as a field default, which cannot reach the database.

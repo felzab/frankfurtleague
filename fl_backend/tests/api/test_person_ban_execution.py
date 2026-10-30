@@ -15,10 +15,10 @@ from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.main import create_app
-from tests.actor_tokens import actor_headers
 from tests.config import TEST_BASE_URL
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document
+from tests.session_headers import actor_headers
 from tests.worker import worker_database
 
 from .conftest import config_for

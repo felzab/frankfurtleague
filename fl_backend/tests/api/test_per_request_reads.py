@@ -9,14 +9,14 @@ import pytest
 from bson import ObjectId
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.berechtigungen import crud as berechtigungen_crud
-from app.api.identitaet import crud as identitaet_crud
-from app.api.identitaet import system_router as identitaet_system_router
-from app.api.identitaet.schemas import FLAnmeldung, FLSubjekt, FLSubjektPayload
-from app.api.konto import person_router as konto_person_router
+from app.api.berechtigungen import crud as grants_crud
+from app.api.identitaet import crud as identity_crud
+from app.api.identitaet import system_router as identity_system_router
+from app.api.identitaet.schemas import FLAnmeldung, FLSubjectPayload, FLSubjekt
+from app.api.konto import person_router as account_person_router
 from app.core.collections import Collection
 from tests.bans import ban_list
-from tests.documents import bestaetigte_kenntnisnahme
+from tests.documents import confirmed_kenntnisnahme
 from tests.records import record_collections
 
 IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
@@ -24,7 +24,7 @@ IDENTIFIER = "ortrud.zwiebelmayer@schule.de"
 ACTIVE_SAISON = "2526"
 
 # Stand-ins for the collections, each read naming the one it was asked of.
-SAISON_TEAMS, SAISONS, SPIELER, SCHIEDSRICHTER, BERECHTIGUNGEN = "saison_teams", "saisons", "spieler", "schiedsrichter", "berechtigungen"
+SAISON_TEAMS, SAISONS, SPIELER, SCHIEDSRICHTER, GRANTS = "saison_teams", "saisons", "spieler", "schiedsrichter", "berechtigungen"
 BEWERBUNGEN, REGISTRIERUNGEN = "bewerbungen", "registrierungen"
 
 # The lookup a request holds, each handle the name its reads are recorded under.
@@ -43,7 +43,7 @@ SEAT_ROW = {
     "saison_id": ACTIVE_SAISON,
     "team_id": ObjectId("6890a1b2c3d4e5f607820001"),
     "name": "Helmholtz",
-    "kontakte": {"trainer": {"email": IDENTIFIER, "einwilligung": bestaetigte_kenntnisnahme(bestaetigt_am="2026-01-20")}},
+    "kontakte": {"trainer": {"email": IDENTIFIER, "einwilligung": confirmed_kenntnisnahme(confirmed_at="2026-01-20")}},
 }
 
 
@@ -72,38 +72,38 @@ class _Reads:
         return await self.answer(collection, self.rows.get(collection, []), session)
 
 
-def _find_subjekt(reads: _Reads, session: object = None) -> FLSubjekt:
+def _find_subject(reads: _Reads, session: object = None) -> FLSubjekt:
     """The system route's lookup with no session, the one a transaction reaches with one."""
 
     if session is None:
-        return asyncio.run(identitaet_crud.find_subjekt(IDENTIFIER, RECORDS))
+        return asyncio.run(identity_crud.find_subjekt(IDENTIFIER, RECORDS))
 
-    return asyncio.run(identitaet_crud.find_subjekt_in_session(IDENTIFIER, RECORDS, session=cast(AsyncClientSession, session)))
+    return asyncio.run(identity_crud.find_subjekt_in_session(IDENTIFIER, RECORDS, session=cast(AsyncClientSession, session)))
 
 
 class TestTheSubjectLookupsReads:
-    """`POST /identitaet/subjekt` answers every signed-in render, so its reads are paid in latency on every page."""
+    """`POST /identity/subject` answers every signed-in render, so its reads are paid in latency on every page."""
 
     def test_the_records_the_ban_and_the_grant_are_read_at_once(self, monkeypatch: pytest.MonkeyPatch):
         reads = _Reads()
 
-        async def find_subjekt(_identifier: str, _records: Any) -> FLSubjekt:
-            return await reads.answer("records", FLSubjekt(sitze=[], spieler=[], schiedsrichter=[], unbestaetigt=False))
+        async def find_subject(_identifier: str, _records: Any) -> FLSubjekt:
+            return await reads.answer("records", FLSubjekt(seats=[], spieler=[], schiedsrichter=[], unconfirmed=False))
 
-        async def hash_gesperrt(*_: Any, **__: Any) -> bool:
+        async def hash_barred(*_: Any, **__: Any) -> bool:
             return await reads.answer("ban", False)
 
         async def verwaltung_of(**_: Any) -> None:
             return await reads.answer("grant", None)
 
-        monkeypatch.setattr(identitaet_system_router, "find_subjekt", find_subjekt)
-        monkeypatch.setattr(identitaet_system_router, "hash_gesperrt", hash_gesperrt)
-        monkeypatch.setattr(identitaet_system_router, "verwaltung_of", verwaltung_of)
+        monkeypatch.setattr(identity_system_router, "find_subjekt", find_subject)
+        monkeypatch.setattr(identity_system_router, "hash_gesperrt", hash_barred)
+        monkeypatch.setattr(identity_system_router, "verwaltung_of", verwaltung_of)
 
         stand_in = cast(Any, None)
         asyncio.run(
-            identitaet_system_router.get_subjekt(
-                subjekt_data=FLSubjektPayload(email=IDENTIFIER),
+            identity_system_router.get_subject(
+                subjekt_data=FLSubjectPayload(email=IDENTIFIER),
                 records=stand_in,
                 sperrliste=ban_list({Collection.SPERRLISTE: stand_in, Collection.SAISONS: stand_in}),
                 berechtigungen_collection=stand_in,
@@ -115,9 +115,9 @@ class TestTheSubjectLookupsReads:
 
     def test_the_three_record_reads_are_in_flight_together_outside_a_transaction(self, monkeypatch: pytest.MonkeyPatch):
         reads = _Reads()
-        monkeypatch.setattr(identitaet_crud, "aggregate_many_from_db", reads.aggregate)
+        monkeypatch.setattr(identity_crud, "aggregate_many_from_db", reads.aggregate)
 
-        _find_subjekt(reads)
+        _find_subject(reads)
 
         assert reads.peak == 3, "the lookup awaited one record read before sending the next"
 
@@ -125,9 +125,9 @@ class TestTheSubjectLookupsReads:
         """The season read follows the gathered three, so made for nothing it is a second round trip on every page."""
 
         reads = _Reads()
-        monkeypatch.setattr(identitaet_crud, "aggregate_many_from_db", reads.aggregate)
+        monkeypatch.setattr(identity_crud, "aggregate_many_from_db", reads.aggregate)
 
-        _find_subjekt(reads)
+        _find_subject(reads)
 
         assert sorted(reads.issued) == [SAISON_TEAMS, SCHIEDSRICHTER, SPIELER]
 
@@ -135,47 +135,47 @@ class TestTheSubjectLookupsReads:
         """The control for the case above: a lookup reading no season at all passes it and answers no status here."""
 
         reads = _Reads({SAISON_TEAMS: [SEAT_ROW], SAISONS: [{"_id": ACTIVE_SAISON, "status": "active"}]})
-        monkeypatch.setattr(identitaet_crud, "aggregate_many_from_db", reads.aggregate)
+        monkeypatch.setattr(identity_crud, "aggregate_many_from_db", reads.aggregate)
 
-        answered = _find_subjekt(reads)
+        answered = _find_subject(reads)
 
         assert reads.issued[-1] == SAISONS
         assert reads.issued.count(SAISONS) == 1
-        assert [sitz.saison_status for sitz in answered.sitze] == ["active"]
+        assert [seat.saison_status for seat in answered.seats] == ["active"]
 
     def test_inside_a_transaction_the_reads_run_one_at_a_time_in_its_session(self, monkeypatch: pytest.MonkeyPatch):
         """PyMongo documents that one session runs one operation at a time and refuses nothing, so gathered here they would race unseen."""
 
         reads = _Reads({SAISON_TEAMS: [SEAT_ROW], SAISONS: [{"_id": ACTIVE_SAISON, "status": "active"}]})
-        monkeypatch.setattr(identitaet_crud, "aggregate_many_from_db", reads.aggregate)
+        monkeypatch.setattr(identity_crud, "aggregate_many_from_db", reads.aggregate)
         transaction = object()
 
-        _find_subjekt(reads, session=transaction)
+        _find_subject(reads, session=transaction)
 
         assert reads.peak == 1
         assert reads.sessions == [transaction] * len(reads.issued)
 
-    def test_a_person_endpoint_reads_the_three_funktion_records_in_its_session(self, monkeypatch: pytest.MonkeyPatch):
+    def test_a_person_endpoint_reads_the_three_role_records_in_its_session(self, monkeypatch: pytest.MonkeyPatch):
         """No application or registration: neither grants a panel, so a person endpoint authorising against them pays for nothing."""
 
         reads = _Reads()
-        monkeypatch.setattr(identitaet_crud, "aggregate_many_from_db", reads.aggregate)
+        monkeypatch.setattr(identity_crud, "aggregate_many_from_db", reads.aggregate)
         transaction = object()
 
-        asyncio.run(identitaet_crud.funktionen_of(IDENTIFIER, RECORDS, session=cast(AsyncClientSession, transaction)))
+        asyncio.run(identity_crud.funktionen_of(IDENTIFIER, RECORDS, session=cast(AsyncClientSession, transaction)))
 
         assert sorted(reads.issued) == [SAISON_TEAMS, SCHIEDSRICHTER, SPIELER]
         assert reads.sessions == [transaction] * 3
 
 
 class TestTheSignInGatesReads:
-    """`POST /identitaet/anmeldung` answers a sign-in rather than a render, and is the one read paying for the two kinds granting no panel."""
+    """`POST /identity/sign_in` answers a sign-in rather than a render, and is the one read paying for the two kinds granting no panel."""
 
     def test_the_five_record_reads_are_in_flight_together(self, monkeypatch: pytest.MonkeyPatch):
         reads = _Reads()
-        monkeypatch.setattr(identitaet_crud, "aggregate_many_from_db", reads.aggregate)
+        monkeypatch.setattr(identity_crud, "aggregate_many_from_db", reads.aggregate)
 
-        asyncio.run(identitaet_crud.find_anmeldung(IDENTIFIER, RECORDS))
+        asyncio.run(identity_crud.find_anmeldung(IDENTIFIER, RECORDS))
 
         assert sorted(reads.issued) == [BEWERBUNGEN, REGISTRIERUNGEN, SAISON_TEAMS, SCHIEDSRICHTER, SPIELER]
         assert reads.peak == 5, "the gate awaited one record read before sending the next"
@@ -183,23 +183,23 @@ class TestTheSignInGatesReads:
     def test_the_records_the_ban_and_the_grant_are_read_at_once(self, monkeypatch: pytest.MonkeyPatch):
         reads = _Reads()
 
-        async def find_anmeldung(_identifier: str, _records: Any) -> FLAnmeldung:
-            return await reads.answer("records", FLAnmeldung(unbestaetigt=False, konto=False))
+        async def find_sign_in(_identifier: str, _records: Any) -> FLAnmeldung:
+            return await reads.answer("records", FLAnmeldung(unconfirmed=False, account=False))
 
-        async def hash_gesperrt(*_: Any, **__: Any) -> bool:
+        async def hash_barred(*_: Any, **__: Any) -> bool:
             return await reads.answer("ban", False)
 
         async def verwaltung_of(**_: Any) -> None:
             return await reads.answer("grant", None)
 
-        monkeypatch.setattr(identitaet_system_router, "find_anmeldung", find_anmeldung)
-        monkeypatch.setattr(identitaet_system_router, "hash_gesperrt", hash_gesperrt)
-        monkeypatch.setattr(identitaet_system_router, "verwaltung_of", verwaltung_of)
+        monkeypatch.setattr(identity_system_router, "find_anmeldung", find_sign_in)
+        monkeypatch.setattr(identity_system_router, "hash_gesperrt", hash_barred)
+        monkeypatch.setattr(identity_system_router, "verwaltung_of", verwaltung_of)
 
         stand_in = cast(Any, None)
         asyncio.run(
-            identitaet_system_router.get_anmeldung(
-                anmeldung_data=FLSubjektPayload(email=IDENTIFIER),
+            identity_system_router.get_sign_in(
+                anmeldung_data=FLSubjectPayload(email=IDENTIFIER),
                 records=stand_in,
                 sperrliste=ban_list({Collection.SPERRLISTE: stand_in, Collection.SAISONS: stand_in}),
                 berechtigungen_collection=stand_in,
@@ -217,24 +217,22 @@ class TestTheActorChecksTwoReads:
         reads = _Reads()
 
         # The grant beside its record, as the one read joining the two answers it.
-        grant = {"adresse": IDENTIFIER, "erteilt_am": datetime(2026, 1, 1, tzinfo=UTC), "angekuendigt": [{"adresse": IDENTIFIER}]}
+        grant = {"adresse": IDENTIFIER, "granted_at": datetime(2026, 1, 1, tzinfo=UTC), "angekuendigt": [{"adresse": IDENTIFIER}]}
 
         async def aggregate_many_from_db(**_: Any) -> list[Mapping[str, Any]]:
-            return await reads.answer(BERECHTIGUNGEN, [grant])
+            return await reads.answer(GRANTS, [grant])
 
-        async def adressen_gesperrt(*_: Any, **__: Any) -> set[str]:
+        async def adressen_barred(*_: Any, **__: Any) -> set[str]:
             return await reads.answer("ban", set())
 
-        monkeypatch.setattr(berechtigungen_crud, "aggregate_many_from_db", aggregate_many_from_db)
-        monkeypatch.setattr(berechtigungen_crud, "adressen_gesperrt", adressen_gesperrt)
+        monkeypatch.setattr(grants_crud, "aggregate_many_from_db", aggregate_many_from_db)
+        monkeypatch.setattr(grants_crud, "adressen_gesperrt", adressen_barred)
 
         # The grant read opens its snapshot session on the collection's own client.
         grants = SimpleNamespace(database=SimpleNamespace(client=SimpleNamespace(start_session=lambda **_: nullcontext())))
-        asyncio.run(
-            berechtigungen_crud.live_unbarred_grant_since(IDENTIFIER, berechtigungen_collection=cast(Any, grants), sperrliste=cast(Any, None))
-        )
+        asyncio.run(grants_crud.live_unbarred_grant_since(IDENTIFIER, berechtigungen_collection=cast(Any, grants), sperrliste=cast(Any, None)))
 
-        assert sorted(reads.issued) == ["ban", BERECHTIGUNGEN]
+        assert sorted(reads.issued) == ["ban", GRANTS]
         assert reads.peak == 2, "the check awaited the grant before asking the ban list"
 
 
@@ -243,12 +241,12 @@ class TestTheAccountReadsReads:
         """The Funktionen the page judges a grant by come from the rows the read already holds, never a second read of them."""
 
         reads = _Reads()
-        monkeypatch.setattr(konto_person_router, "aggregate_many_from_db", reads.aggregate)
-        monkeypatch.setattr(identitaet_crud, "aggregate_many_from_db", reads.aggregate)
+        monkeypatch.setattr(account_person_router, "aggregate_many_from_db", reads.aggregate)
+        monkeypatch.setattr(identity_crud, "aggregate_many_from_db", reads.aggregate)
         snapshot = object()
 
         asyncio.run(
-            konto_person_router.get_einwilligungen(
+            account_person_router.get_einwilligungen(
                 identifier=IDENTIFIER,
                 spieler_collection=cast(Any, SPIELER),
                 schiedsrichter_collection=cast(Any, SCHIEDSRICHTER),

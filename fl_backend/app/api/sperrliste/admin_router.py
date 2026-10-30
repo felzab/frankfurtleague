@@ -8,8 +8,8 @@ from pymongo.results import InsertOneResult
 
 from app.api.berechtigungen.crud import pull_the_list_to_judge, withhold_in_the_postausgang
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.postausgang.schemas import FLSperreDaten
-from app.api.postausgang.services import OwedMail, enqueue_mails
+from app.api.outbox.schemas import FLSperreData
+from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import read_sperrliste_page
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
@@ -18,8 +18,8 @@ from app.api.sperrliste.schemas import (
     FLPostSperrlisteResponse,
     FLSperrlisteEintrag,
     FLSperrlisteListResponse,
+    FLSperrlisteRow,
     FLSperrlisteWriteResponse,
-    FLSperrlisteZeile,
 )
 from app.api.sperrliste.services import (
     SPERRLISTE_SCHLUESSEL_VERSION,
@@ -33,9 +33,9 @@ from app.api.sperrliste.services import (
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import anchor_in_db, delete_many_from_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
-    BerechtigungenCollection,
     DBClient,
-    PostausgangCollection,
+    GrantsCollection,
+    OutboxCollection,
     SaisonsCollection,
     SperrlisteCollection,
     get_german_date_str,
@@ -61,7 +61,7 @@ async def _pull_the_season_a_ban_counts_from(
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> str:
-    """The season a ban's `SPERRE_DAUER_SAISONS` are counted from, refused `sperrliste_keine_saison` while no season is running."""
+    """The season a ban's `SPERRE_DURATION_SAISONS` are counted from, refused `sperrliste_no_saison` while no season is running."""
 
     # Through the session: the rollover moves the season and sweeps the lapsed bans in one
     # transaction, and a season read outside this snapshot counts a ban one season short against
@@ -88,24 +88,24 @@ async def get_sperrliste(sperrliste_collection: SperrlisteCollection, sperrliste
     List the bans, newest first: why each was entered, by whom and on which day, with how many the list holds.
 
     No address of the person a ban bars, and nothing one can be recovered from: a row stores a keyed
-    hash of it and the read projects that away. `erstellt_von` is the administrator who entered the
-    row, and is an address — `null` beside `erstellt_von_gesperrt` where the ban list holds that
+    hash of it and the read projects that away. `created_by` is the administrator who entered the
+    row, and is an address — `null` beside `created_by_barred` where the ban list holds that
     administrator's address too, as no barred address is served in plain. **The rows are capped at
-    `LIST_LIMIT_DEFAULT` and there is no paging control**, so where `anzahl_gesamt` exceeds the rows
+    `LIST_LIMIT_DEFAULT` and there is no paging control**, so where `count_total` exceeds the rows
     served, bans are enforced that this answer does not show — and a ban nobody can see is one nobody can lift.
     """
 
     rows, anzahl_gesamt = await read_sperrliste_page(sperrliste_collection=sperrliste_collection, limit=LIST_LIMIT_DEFAULT)
     # Each row as stored first, so a row the stored shape refuses fails here rather than being served withheld.
     bans = [(row, FLSperrlisteEintrag.model_validate(row)) for row in rows]
-    barred = await adressen_gesperrt(sperrliste, [sign_in_identifier(ban.erstellt_von) for _, ban in bans])
+    barred = await adressen_gesperrt(sperrliste, [sign_in_identifier(ban.created_by) for _, ban in bans])
 
     served = []
     for row, ban in bans:
-        erstellt_von = withheld_actor(ban.erstellt_von, barred)
-        served.append(FLSperrlisteZeile.model_validate({**row, "erstellt_von": erstellt_von, "erstellt_von_gesperrt": erstellt_von is None}))
+        erstellt_von = withheld_actor(ban.created_by, barred)
+        served.append(FLSperrlisteRow.model_validate({**row, "created_by": erstellt_von, "created_by_barred": erstellt_von is None}))
 
-    return FLSperrlisteListResponse(sperrliste=served, anzahl_gesamt=anzahl_gesamt)
+    return FLSperrlisteListResponse(sperrliste=served, count_total=anzahl_gesamt)
 
 
 @router.post(
@@ -116,16 +116,16 @@ async def get_sperrliste(sperrliste_collection: SperrlisteCollection, sperrliste
     # The frontend signs the address out once this answers, and nothing undoes it.
     dependencies=[Depends(verify_step_up)],
 )
-async def post_sperrliste_eintrag(
+async def post_sperrliste_entry(
     sperrliste_data: Annotated[FLPostSperrlistePayload, Body()],
     sperrliste_collection: SperrlisteCollection,
     saisons_collection: SaisonsCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    postausgang_collection: PostausgangCollection,
+    berechtigungen_collection: GrantsCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     sperrliste: SperrlisteLookup,
-    erstellt_von: str = Depends(get_actor_email),
+    created_by: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
 ) -> FLPostSperrlisteResponse:
@@ -133,11 +133,11 @@ async def post_sperrliste_eintrag(
     Ban an address from signing up. The address is hashed under the backend key; no row and no log line holds it but its notice's.
 
     Refused where the list already holds the address (`duplicate_key`), while no season is
-    running, there being nothing to count the ban's five seasons from (`sperrliste_keine_saison`), and
+    running, there being nothing to count the ban's five seasons from (`sperrliste_no_saison`), and
     where the address is an administrator's (`sperrliste_verwaltung`). The ban covers the
     fifth season after the one running now — the last one it covers is answered as
-    `gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still owed
-    that names the address loses it in the same transaction, and where `benachrichtigen` is set the ban's
+    `barred_until_saison_id` — and it survives that person's erasure. Every grant notice still owed
+    that names the address loses it in the same transaction, and where `notify` is set the ban's
     own notice is owed to it there too, the one mail a ban does not stop.
 
     `grund` is served, mailed to the address and kept past that person's erasure.
@@ -155,7 +155,7 @@ async def post_sperrliste_eintrag(
         refuse(
             find_verwaltung_refusal(
                 gehasht=gehasht,
-                berechtigt=berechtigte_hashes([str(grant["adresse"]) for grant in grants], schluessel=config.sperrliste_schluessel),
+                berechtigt=berechtigte_hashes([str(grant["adresse"]) for grant in grants], key=config.sperrliste_key),
             )
         )
 
@@ -163,37 +163,37 @@ async def post_sperrliste_eintrag(
         gesperrt_bis_saison_id = compose_gesperrt_bis_saison_id(massgebliche_saison_id=massgebliche_saison_id)
 
         gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
-        refuse(find_sperrliste_refusal(gesperrt=gesperrt))
+        refuse(find_sperrliste_refusal(barred=gesperrt))
 
         document: dict[str, Any] = {
             "adresse_hash": gehasht,
             # Stored beside the hash rather than derived from it: which label a row was keyed under is
             # the one thing that would ever let an operator tell the rows a key cannot match.
-            "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
+            "key_version": SPERRLISTE_SCHLUESSEL_VERSION,
             "grund": sperrliste_data.grund,
             # Read from the bound actor rather than a payload, so this cannot disagree with the
             # `aktionen` row recording the same write.
-            "erstellt_von": erstellt_von,
-            "erstellt_am": today,
+            "created_by": created_by,
+            "created_at": today,
             # INCLUSIVE: the season named here is still barred, and „bis“ alone does not say so.
-            "gesperrt_bis_saison_id": gesperrt_bis_saison_id,
+            "barred_until_saison_id": gesperrt_bis_saison_id,
         }
 
         # Every grant notice still owed loses the address in this transaction, so no other administrator is mailed it.
-        await withhold_in_the_postausgang(postausgang_collection=postausgang_collection, adresse=identifier, session=session)
+        await withhold_in_the_postausgang(outbox_collection=outbox_collection, adresse=identifier, session=session)
 
         # A LAPSED row for this hash passes the check above and is refused HERE on the index, which
         # reads no bound. No route leaves one: the activation that lapses a ban removes it.
         created = await post_one_to_db(collection=sperrliste_collection, document=document, session=session)
-        if sperrliste_data.benachrichtigen:
+        if sperrliste_data.notify:
             await enqueue_mails(
-                postausgang_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 session=session,
                 mails=[
                     OwedMail(
-                        schluessel=f"sperre/{created.inserted_id}",
+                        key=f"sperre/{created.inserted_id}",
                         an=str(sperrliste_data.email),
-                        daten=FLSperreDaten(art="sperre", grund=sperrliste_data.grund, gesperrt_bis_saison_id=gesperrt_bis_saison_id),
+                        data=FLSperreData(art="sperre", grund=sperrliste_data.grund, barred_until_saison_id=gesperrt_bis_saison_id),
                     )
                 ],
                 now=now,
@@ -206,7 +206,7 @@ async def post_sperrliste_eintrag(
 
     return FLPostSperrlisteResponse(
         created_id=post_operation.inserted_id,
-        gesperrt_bis_saison_id=gesperrt_bis_saison_id,
+        barred_until_saison_id=gesperrt_bis_saison_id,
     )
 
 
@@ -216,7 +216,7 @@ async def post_sperrliste_eintrag(
     summary="Lift a ban",
     dependencies=[Depends(verify_step_up)],
 )
-async def delete_sperrliste_eintrag(
+async def delete_sperrliste_entry(
     sperrliste_id: CustomRouteObjectId,
     sperrliste_collection: SperrlisteCollection,
     db: DBClient,
@@ -230,7 +230,7 @@ async def delete_sperrliste_eintrag(
     **The action log keeps a copy of the removed row** — the hash, its key label, the reason and the
     administrator who entered it, and no address of the person it barred — for the twelve months
     the rule gives every log row. The lifted ban is therefore readable
-    at `GET /aktionen` for that period and enforced by nothing from the moment this answers.
+    at `GET /action_log` for that period and enforced by nothing from the moment this answers.
     """
 
     async def lift_the_ban(session: AsyncClientSession) -> None:

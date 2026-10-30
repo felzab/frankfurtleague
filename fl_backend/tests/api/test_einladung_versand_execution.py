@@ -12,7 +12,7 @@ from app.core.collections import Collection
 from app.shared.tokens import hash_token
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document
-from tests.postausgang import MAIL_NOW
+from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -29,10 +29,10 @@ TEAM: Mapping[str, Any] = {
     "name": "Adler",
     "austritt": None,
     "kontakte": {
-        "trainer": kontaktperson_document("Wraxlington", bestaetigt_am="2026-03-20", nachname="Mustermann", telefon="+49 69 1234567"),
+        "trainer": kontaktperson_document("Wraxlington", confirmed_at="2026-03-20", nachname="Mustermann", telefon="+49 69 1234567"),
         "ansprechperson": None,
         "stellvertretung": None,
-        "trainer_ist_zugleich": None,
+        "trainer_is_also": None,
     },
 }
 
@@ -42,8 +42,8 @@ SEEDED_LINK: Mapping[str, Any] = {
     "saison_id": SAISON_ID,
     "team_id": TEAM_ID,
     "token_hashes": [hash_token("seeded")],
-    "erstellt_am": "2026-03-15",
-    "erstellt_von": "admin@frankfurtleague.de",
+    "created_at": "2026-03-15",
+    "created_by": "admin@frankfurtleague.de",
     "widerrufen_am": None,
 }
 
@@ -86,27 +86,27 @@ class TestARetriedMint:
 
         async def body() -> Any:
             async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (client, database):
-                await database[Collection.EINLADUNGEN].insert_one(dict(SEEDED_LINK))
+                await database[Collection.INVITATIONS].insert_one(dict(SEEDED_LINK))
 
                 zeile = await _mail_one_team(
-                    einladungen_collection=cast(AsyncCollection, _RetryFailsBeforeItsRead(database[Collection.EINLADUNGEN])),
-                    postausgang_collection=database[Collection.POSTAUSGANG],
+                    einladungen_collection=cast(AsyncCollection, _RetryFailsBeforeItsRead(database[Collection.INVITATIONS])),
+                    outbox_collection=database[Collection.OUTBOX],
                     db=cast(AsyncMongoClient, client),
                     saison_id=SAISON_ID,
                     team=TEAM,
-                    erneut=False,
-                    gesperrt=set(),
-                    erstellt_von="admin@frankfurtleague.de",
+                    resend=False,
+                    barred=set(),
+                    created_by="admin@frankfurtleague.de",
                     today=TODAY,
                     now=MAIL_NOW,
                 )
 
-                live = await database[Collection.EINLADUNGEN].find({"widerrufen_am": None}).to_list(length=None)
+                live = await database[Collection.INVITATIONS].find({"widerrufen_am": None}).to_list(length=None)
 
                 return zeile, [row["_id"] for row in live]
 
         zeile, live = on_the_seed_loop(body())
 
-        assert (zeile.uebersprungen, zeile.hatte_link, zeile.ersetzt_link) == ("erzeugung_fehlgeschlagen", None, False)
+        assert (zeile.skipped, zeile.had_link, zeile.replaced_link) == ("erzeugung_failed", None, False)
         # The control: nothing committed, so the seeded link the first attempt read still opens.
         assert live == [SEEDED_EINLADUNG]

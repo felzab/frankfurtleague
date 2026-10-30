@@ -43,19 +43,19 @@ def base_tier_status_term(requested: FLSaisonStatus | None = None) -> dict[str, 
 
 
 # What a started season holds fixed: a league does not change its scoring or its seeding mid-season.
-# `erlaubte_stufen` stays editable because it bounds what a form offers, never what a stored squad
+# `allowed_stufen` stays editable because it bounds what a form offers, never what a stored squad
 # row holds.
-FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "qualifiers_per_group", "tiebreak_order")
+FROZEN_RULES_FIELDS: tuple[str, ...] = ("win_points", "draw_points", "qualifiers_per_gruppe", "tiebreak_order")
 
-# The three the fixtures were drawn from. A RAISE is what nothing else refuses: `anzahl_spiele` is
+# The three the fixtures were drawn from. A RAISE is what nothing else refuses: `count_spiele` is
 # derived per matchday, so every matchday would then expect matches nobody drew, and
 # `rules_spieltag_over_its_phase` reads the narrowing direction alone.
-SHAPE_RULES_FIELDS: tuple[str, ...] = ("number_of_groups", "teams_per_group", "qualifiers_per_group")
+SHAPE_RULES_FIELDS: tuple[str, ...] = ("number_of_gruppen", "teams_per_gruppe", "qualifiers_per_gruppe")
 
 # The one of the three a REDRAW moves. `spielplan_gruppen_off_rules` asks every offered group for exactly
-# `teams_per_group`, so a redraw carrying either of the others is refused for the groups then off
+# `teams_per_gruppe`, so a redraw carrying either of the others is refused for the groups then off
 # their size; qualifiers touch no group's occupancy at all.
-REDRAWABLE_SHAPE_FIELD = "qualifiers_per_group"
+REDRAWABLE_SHAPE_FIELD = "qualifiers_per_gruppe"
 
 
 def total_season_fixtures(rules: FLSaisonRules) -> int:
@@ -65,7 +65,7 @@ def total_season_fixtures(rules: FLSaisonRules) -> int:
     `schedule_for` would drift the moment a phase moved.
     """
 
-    return sum(entry.matchdays * entry.matches_per_matchday for entry in schedule_for(rules))
+    return sum(entry.spieltage * entry.matches_per_spieltag for entry in schedule_for(rules))
 
 
 def _forfeit_unentschieden_in_a_knockout(rules: FLSaisonRules) -> bool:
@@ -129,10 +129,10 @@ def find_rules_refusal(
 
     # Before the bracket rule, being narrower: it names two fields an admin can compare, where the
     # bracket's answer is a property of their product.
-    excess = proposed.qualifiers_per_group - proposed.teams_per_group
+    excess = proposed.qualifiers_per_gruppe - proposed.teams_per_gruppe
     # The EXCESS, against the stored one: `rules` is required on the patch, so a dates-only edit
     # resubmits a stored violation unchanged, and shrinking an excess repairs it.
-    if excess > 0 and (stored is None or excess > stored.qualifiers_per_group - stored.teams_per_group):
+    if excess > 0 and (stored is None or excess > stored.qualifiers_per_gruppe - stored.teams_per_gruppe):
         return WriteRefusal(
             error_code=Code.RULES_QUALIFIERS_ABOVE_GRUPPE,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
@@ -147,8 +147,8 @@ def find_rules_refusal(
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
         )
 
-    qualifiers = proposed.number_of_groups * proposed.qualifiers_per_group
-    stored_qualifiers = None if stored is None else stored.number_of_groups * stored.qualifiers_per_group
+    qualifiers = proposed.number_of_gruppen * proposed.qualifiers_per_gruppe
+    stored_qualifiers = None if stored is None else stored.number_of_gruppen * stored.qualifiers_per_gruppe
     # Against the stored product: an unchanged product carries an unchanged verdict, so equality
     # alone lets the dates-only edit through, `rules` being required on the patch.
     if not knockout_phases_for(qualifiers) and qualifiers != stored_qualifiers:
@@ -182,8 +182,8 @@ def find_rules_refusal(
     if stored is None:
         return None
 
-    if proposed.number_of_groups < stored.number_of_groups:
-        offered = offered_gruppen(proposed.number_of_groups)
+    if proposed.number_of_gruppen < stored.number_of_gruppen:
+        offered = offered_gruppen(proposed.number_of_gruppen)
         stranded = sorted(gruppe for gruppe, held in occupancy_by_gruppe.items() if held > 0 and gruppe not in offered)
         if stranded:
             return WriteRefusal(
@@ -191,9 +191,9 @@ def find_rules_refusal(
                 status=HTTPStatus.CONFLICT,
             )
 
-    if proposed.teams_per_group < stored.teams_per_group:
+    if proposed.teams_per_gruppe < stored.teams_per_gruppe:
         fullest = max(occupancy_by_gruppe.values(), default=0)
-        if fullest > proposed.teams_per_group:
+        if fullest > proposed.teams_per_gruppe:
             return WriteRefusal(
                 error_code=Code.RULES_CAPACITY_BELOW_USE,
                 status=HTTPStatus.CONFLICT,
@@ -209,7 +209,7 @@ def find_rules_refusal(
 
     # Only where the patch LOWERS it: `rules` is required, so a dates-only edit resubmits a count
     # already under the wiring, and refusing that would leave the season unpatchable.
-    if proposed.qualifiers_per_group < highest_wired_platz and proposed.qualifiers_per_group < stored.qualifiers_per_group:
+    if proposed.qualifiers_per_gruppe < highest_wired_platz and proposed.qualifiers_per_gruppe < stored.qualifiers_per_gruppe:
         return WriteRefusal(
             error_code=Code.RULES_QUALIFIERS_BELOW_WIRING,
             status=HTTPStatus.CONFLICT,
@@ -245,7 +245,7 @@ def find_saison_span_refusal(
 
     # Inclusive: a season running 2026-05-01 to 2026-05-01 offers one day, not zero.
     offered_days = (date.fromisoformat(end_date) - date.fromisoformat(start_date)).days + 1
-    required_days = sum(entry.matchdays for entry in schedule_for(rules))
+    required_days = sum(entry.spieltage for entry in schedule_for(rules))
     if offered_days < required_days:
         return WriteRefusal(
             error_code=Code.SAISON_SPAN_BELOW_SPIELPLAN,
@@ -466,11 +466,11 @@ def find_spielplan_refusal(
             status=HTTPStatus.CONFLICT,
         )
 
-    offered = offered_gruppen(rules.number_of_groups)
+    offered = offered_gruppen(rules.number_of_gruppen)
 
     # Rows carrying an `austritt` count as occupying, exactly as `find_entry_refusal` counts them: a
     # club that withdrew before the draw keeps its place, and the group is still the size it owes.
-    off_size = any(occupancy_by_gruppe.get(gruppe, 0) != rules.teams_per_group for gruppe in offered)
+    off_size = any(occupancy_by_gruppe.get(gruppe, 0) != rules.teams_per_gruppe for gruppe in offered)
 
     # A key outside `offered` is clubs the draw would put in no round robin at all. `_squads` raises
     # on these states too, as its own contract against a caller that skipped this rule; the endpoint
@@ -493,7 +493,7 @@ def find_berichte_refusal(*, berichte: int) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=Code.SPIELPLAN_BERICHTE_EINGEREICHT,
+        error_code=Code.SPIELPLAN_BERICHTE_SUBMITTED,
         status=HTTPStatus.CONFLICT,
     )
 

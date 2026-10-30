@@ -9,28 +9,28 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.adresswechsel.admin_router import post_adresswechsel_verwaltung
-from app.api.adresswechsel.schemas import FLAdresswechselVerwaltungPayload
+from app.api.adresswechsel.admin_router import post_address_change_verwaltung
+from app.api.adresswechsel.schemas import FLAddressChangeVerwaltungPayload
 from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
-from app.api.identitaet.person_router import get_konto_loeschung_ansicht
+from app.api.identitaet.person_router import get_account_erasure_view
 from app.api.konto.person_router import get_einwilligungen
-from app.api.registrierungen.person_router import aufnehmen, get_offene_registrierungen
-from app.api.registrierungen.public_router import get_bestaetigung_ansicht
+from app.api.registrierungen.person_router import admit, get_open_registrierungen
+from app.api.registrierungen.public_router import get_confirmation_view
 from app.api.registrierungen.schemas import (
     FLOffeneRegistrierungenParams,
-    FLRegistrierungAufnehmenPayload,
+    FLRegistrierungAdmitPayload,
 )
 from app.api.spieler.person_router import get_self, patch_einwilligung
 from app.core.collections import Collection
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
-from app.shared.schemas.bestaetigung import FLTokenPayload
-from app.shared.schemas.einwilligung import FLKontoEinwilligungPayload
+from app.shared.schemas.confirmation import FLTokenPayload
+from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.loeschung import geloescht
+from tests.erasure import erased
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
 from tests.worker import worker_database
@@ -65,9 +65,9 @@ async def seed(database: AsyncDatabase) -> ObjectId:
             "ZOX",
             kontakte={
                 "trainer": None,
-                "ansprechperson": documents.kontaktperson_document("Anna", bestaetigt_am="2026-03-21"),
+                "ansprechperson": documents.kontaktperson_document("Anna", confirmed_at="2026-03-21"),
                 "stellvertretung": None,
-                "trainer_ist_zugleich": None,
+                "trainer_is_also": None,
             },
         )
     )
@@ -88,9 +88,9 @@ async def seed(database: AsyncDatabase) -> ObjectId:
             vorname="Thessaly",
             nachname="Okonkwo-Brandt",
             token=TOKEN,
-            eingereicht_am="2026-03-30",
+            submitted_at="2026-03-30",
             frist="2026-04-06",
-            bestaetigt={
+            confirmed={
                 "geburtsdatum": "2009-05-04",
                 "umfang": "intern",
                 "medien": False,
@@ -114,20 +114,20 @@ async def the_gate_read(database: AsyncDatabase, client: AsyncMongoClient, regis
 
 async def the_references_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
     # The league's owner, without whom the read refuses before its answer.
-    await database[Collection.BERECHTIGUNGEN].insert_one(
-        {"_id": ObjectId(), "adresse": ANNA, "verwaltung": "owner", "erteilt_von": "PLAYGROUND", "erteilt_am": NOW}
+    await database[Collection.GRANTS].insert_one(
+        {"_id": ObjectId(), "adresse": ANNA, "verwaltung": "owner", "granted_by": "PLAYGROUND", "granted_at": NOW}
     )
 
     return await unreferenced_of(
         [FOLDED_EMAIL],
         record_collections(database),
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-        adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+        berechtigungen_collection=database[Collection.GRANTS],
+        adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
     )
 
 
 async def the_confirmation_view(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await get_bestaetigung_ansicht(
+    return await get_confirmation_view(
         ansicht_data=FLTokenPayload(token=TOKEN),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         teams_collection=database[Collection.TEAMS],
@@ -138,7 +138,7 @@ async def the_confirmation_view(database: AsyncDatabase, client: AsyncMongoClien
 
 
 async def the_pending_read(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await get_offene_registrierungen(
+    return await get_open_registrierungen(
         team_id=TEAM_OID,
         saison_id=SAISON_ID,
         params=FLOffeneRegistrierungenParams(),
@@ -152,9 +152,9 @@ async def the_pending_read(database: AsyncDatabase, client: AsyncMongoClient, re
 
 
 async def the_admission(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await aufnehmen(
+    return await admit(
         registrierung_id=registrierung_id,
-        aufnahme_data=FLRegistrierungAufnehmenPayload(spieler_id=None),
+        aufnahme_data=FLRegistrierungAdmitPayload(spieler_id=None),
         identifier=ANNA,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
@@ -162,7 +162,7 @@ async def the_admission(database: AsyncDatabase, client: AsyncMongoClient, regis
         spieler_collection=database[Collection.SPIELER],
         records=record_collections(database),
         spieltage_collection=database[Collection.SPIELTAGE],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
@@ -191,7 +191,7 @@ async def the_own_record_read(database: AsyncDatabase, client: AsyncMongoClient,
 
 async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
     return await patch_einwilligung(
-        einwilligung_data=FLKontoEinwilligungPayload.model_validate(
+        einwilligung_data=FLAccountEinwilligungPayload.model_validate(
             {
                 "umfang": "intern",
                 "medien": False,
@@ -211,14 +211,14 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
 
 
 async def the_loeschung_preview(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await get_konto_loeschung_ansicht(
+    return await get_account_erasure_view(
         identifier=FOLDED_EMAIL,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spieler_collection=database[Collection.SPIELER],
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        berechtigungen_collection=database[Collection.GRANTS],
         sperrliste=ban_list(database),
         db=client,
         config=build_test_config(),
@@ -226,23 +226,23 @@ async def the_loeschung_preview(database: AsyncDatabase, client: AsyncMongoClien
 
 
 async def the_loeschung(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await geloescht(database, client, FOLDED_EMAIL, germany_now=NOW)
+    return await erased(database, client, FOLDED_EMAIL, germany_now=NOW)
 
 
 async def the_address_change_request(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
     """The holder check, shared with the re-send, the link's view and its confirmation (`app/api/spieler/crud.py :: another_pupil_holds`)."""
 
-    return await post_adresswechsel_verwaltung(
-        adresswechsel_data=FLAdresswechselVerwaltungPayload(adresse=FOLDED_EMAIL, email="thessaly.neu@beispielschule.de", grund=None),
-        adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+    return await post_address_change_verwaltung(
+        adresswechsel_data=FLAddressChangeVerwaltungPayload(adresse=FOLDED_EMAIL, email="thessaly.neu@beispielschule.de", grund=None),
+        adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
         records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-        berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-        postausgang_collection=database[Collection.POSTAUSGANG],
-        berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
+        berechtigungen_collection=database[Collection.GRANTS],
+        berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+        outbox_collection=database[Collection.OUTBOX],
+        berechtigungen_antraege_collection=database[Collection.GRANT_APPROVAL_REQUESTS],
         sperrliste=ban_list(database),
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         db=client,
         operator=ANNA,
         auth_time=int(time.time()),
@@ -308,7 +308,7 @@ class TestEveryAddressReadUsesTheIndex:
         # The pending read asks `spieler` for a person only for a confirmed row it served, so a read
         # serving none skips the lookup this case is for; this names that rather than an empty list.
         if reader is the_pending_read:
-            served = [row.registrierung_id for row in answer.registrierungen if row.aufnehmbar]
+            served = [row.registrierung_id for row in answer.registrierungen if row.admissible]
             assert served == [registrierung_id], f"the pending read served {served}, not the seeded confirmed row"
 
         # The premise: a reader sending no address read would pass the next line vacuously.

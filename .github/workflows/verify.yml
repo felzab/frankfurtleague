@@ -326,7 +326,7 @@ jobs:
         run: |
           mkdir -p .tmp-e2e/secrets .tmp-e2e/mail .tmp-e2e/nginx-log
           chmod 777 .tmp-e2e/mail .tmp-e2e/nginx-log
-          for name in auth_secret sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin; do
+          for name in auth_secret sperrliste_key internal_api_key_base internal_api_key_system internal_api_key_admin; do
             openssl rand -hex 32 | tr -d '\n' > ".tmp-e2e/secrets/${name}"
           done
           chmod 644 .tmp-e2e/secrets/*

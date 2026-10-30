@@ -6,8 +6,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.crud import redact_images_in_session
-from app.api.postausgang.schemas import FLPostausgangBezug, FLPostausgangLink, FLSchiedsrichterBestaetigungDaten
-from app.api.postausgang.services import OwedMail, enqueue_mails
+from app.api.outbox.schemas import FLOutboxLink, FLOutboxReference, FLSchiedsrichterConfirmationData
+from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.schiedsrichter.services import (
     ADRESSE_PFAD,
     TOKEN_HASHES_PFAD,
@@ -19,14 +19,14 @@ from app.api.schiedsrichter.services import (
     build_referee_filter,
 )
 from app.core.collections import Collection
-from app.core.crud import loeschen_many_from_db, patch_many_in_db, post_one_to_db, pull_one_from_db, redact_log_rows_in_db
+from app.core.crud import erase_many_from_db, patch_many_in_db, post_one_to_db, pull_one_from_db, redact_log_rows_in_db
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.custom import CustomObjectId
 
 
 async def owe_the_bestaetigung(
     *,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     schiedsrichter_id: Any,
     email: str,
     frist: str,
@@ -43,15 +43,15 @@ async def owe_the_bestaetigung(
     """
 
     await enqueue_mails(
-        postausgang_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         session=session,
         mails=[
             OwedMail(
-                schluessel=f"schiedsrichter/{schiedsrichter_id}/bestaetigung/{version}",
+                key=f"schiedsrichter/{schiedsrichter_id}/confirmation/{version}",
                 an=email,
-                daten=FLSchiedsrichterBestaetigungDaten(art="schiedsrichter_bestaetigung", frist=frist),
-                bezug=FLPostausgangBezug(sammlung=Collection.SCHIEDSRICHTER, id=schiedsrichter_id, sitz=None),
-                link=FLPostausgangLink(pfade=[TOKEN_HASHES_PFAD], adressen=[ADRESSE_PFAD], ersetzt=True),
+                data=FLSchiedsrichterConfirmationData(art="schiedsrichter_confirmation", frist=frist),
+                reference=FLOutboxReference(collection=Collection.SCHIEDSRICHTER, id=schiedsrichter_id, seat=None),
+                link=FLOutboxLink(paths=[TOKEN_HASHES_PFAD], adressen=[ADRESSE_PFAD], replaced=True),
             )
         ],
         now=now,
@@ -112,16 +112,16 @@ async def loeschen_referee_in_session(
         session=session,
     )
 
-    # `loeschen_many_from_db` and never `delete_many_from_db`: the second keeps every image, which
+    # `erase_many_from_db` and never `delete_many_from_db`: the second keeps every image, which
     # here would file the person's whole document into the log this call exists to clear.
-    await loeschen_many_from_db(
+    await erase_many_from_db(
         collection=schiedsrichter_collection,
         db_filter={"_id": schiedsrichter_id},
         session=session,
     )
 
     await redact_log_rows_in_db(
-        aktionen_collection=aktionen_collection, targets=[(Collection.SCHIEDSRICHTER, [schiedsrichter_id])], at=stamp, session=session
+        action_log_collection=aktionen_collection, targets=[(Collection.SCHIEDSRICHTER, [schiedsrichter_id])], at=stamp, session=session
     )
 
     # The `spiele` rows, which the pass above cannot reach: every fixture stores a COPY of the

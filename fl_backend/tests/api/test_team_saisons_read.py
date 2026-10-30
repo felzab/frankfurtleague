@@ -7,9 +7,9 @@ import pytest
 from bson import ObjectId
 
 from app.api.bewerbungen.services import find_saison_frist_refusal
-from app.api.postausgang.schemas import FLPostausgangEreignisPayload, FLPostausgangZustellStand
-from app.api.postausgang.services import enqueue_mails
-from app.api.postausgang.system_router import post_ereignis
+from app.api.outbox.schemas import FLOutboxDeliveryStand, FLOutboxEventPayload
+from app.api.outbox.services import enqueue_mails
+from app.api.outbox.system_router import post_event
 from app.api.teams.admin_router import get_team_saisons
 from app.api.teams.schemas import FLTeamMembership, FLTeamsSaisonsResponse
 from app.api.teams.services import build_team_saisons_pipeline, compose_kontakt_bestaetigung, owed_kontakt_link
@@ -20,7 +20,7 @@ from app.shared.tokens import hash_token
 from tests.config import ADMINISTRATORS
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, saison_team_document, team_document
-from tests.postausgang import MAIL_NOW, drained
+from tests.outbox import MAIL_NOW, drained
 from tests.worker import worker_database
 
 
@@ -37,7 +37,7 @@ class TestTheSaisonsPipeline:
         assert lookup["from"] == "saison_teams"
         projection = lookup["pipeline"][0]["$project"]
         # Composed after the read, off the seats' addresses; the row's id keys the read of its links' mails.
-        composed = {"adresswechsel"}
+        composed = {"address_change"}
         assert projection == {"_id": 1} | {name: 1 for name in FLTeamMembership.model_fields if name not in composed}
 
 
@@ -70,12 +70,12 @@ ROW_OID = ObjectId("6890a1b2c3d4e5f607990011")
 TODAY = "2026-03-01"
 
 # Owed is the seats a mail's link answers, the event what the provider then reported about it, `None` for none yet.
-Owed = tuple[tuple[FLKontaktRolle, ...], FLPostausgangZustellStand | None]
+Owed = tuple[tuple[FLKontaktRolle, ...], FLOutboxDeliveryStand | None]
 
 
 def read_the_links(
     mongo_replica_set_url: str,
-    bestaetigungen: Mapping[str, Any],
+    confirmations: Mapping[str, Any],
     *,
     kontakte: Mapping[str, Any] | None = None,
     owed: Sequence[Owed] = (),
@@ -91,13 +91,13 @@ def read_the_links(
                 "trainer": kontaktperson_document("Anke"),
                 "ansprechperson": kontaktperson_document("Bert"),
                 "stellvertretung": None,
-                "trainer_ist_zugleich": None,
+                "trainer_is_also": None,
                 **(kontakte or {}),
             }
             row = {
                 "_id": ROW_OID,
                 **saison_team_document(
-                    "2026", TEAM_OID, "Muster", "MUX", kontakte=block, bestaetigungen={"stellvertretung": None, **bestaetigungen}
+                    "2026", TEAM_OID, "Muster", "MUX", kontakte=block, confirmations={"stellvertretung": None, **confirmations}
                 ),
             }
             await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, "Muster", "MUX"))
@@ -105,24 +105,24 @@ def read_the_links(
             async with client.start_session() as session:
                 for position, (seats, _) in enumerate(owed):
                     mail, _ = owed_kontakt_link(
-                        row=row, saison_id="2026", kontakte=block, seats=seats, frist=TODAY, zeile="offen", schluessel=f"case/{position}"
+                        row=row, saison_id="2026", kontakte=block, seats=seats, frist=TODAY, zeile="open", key=f"case/{position}"
                     )
-                    await enqueue_mails(postausgang_collection=database[Collection.POSTAUSGANG], session=session, mails=[mail], now=MAIL_NOW)
+                    await enqueue_mails(outbox_collection=database[Collection.OUTBOX], session=session, mails=[mail], now=MAIL_NOW)
             mails = await drained(database, client)
             # Oldest first, which is the order they were owed in.
             assert len(mails) == len(owed)
             for mail, (_, event) in zip(mails, owed, strict=True):
                 if event is not None:
-                    ereignis = FLPostausgangEreignisPayload(id=mail.id, stand=event, grund=None, am=MAIL_NOW)
-                    await post_ereignis(ereignis_data=ereignis, postausgang_collection=database[Collection.POSTAUSGANG])
+                    ereignis = FLOutboxEventPayload(id=mail.id, stand=event, grund=None, am=MAIL_NOW)
+                    await post_event(event_data=ereignis, outbox_collection=database[Collection.OUTBOX])
             roh = await aggregate_many_from_db(collection=database[Collection.TEAMS], pipeline=build_team_saisons_pipeline())
             return roh, await get_team_saisons(
                 teams_collection=database[Collection.TEAMS],
-                adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+                adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
                 today=TODAY,
-                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-                postausgang_collection=database[Collection.POSTAUSGANG],
+                berechtigungen_collection=database[Collection.GRANTS],
+                berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+                outbox_collection=database[Collection.OUTBOX],
                 operator=ADMINISTRATORS[0],
                 auth_time=int(time.time()),
             )
@@ -130,7 +130,7 @@ def read_the_links(
     roh, response = on_the_seed_loop(run())
     [membership] = response.teams[0].memberships
 
-    return roh, membership.model_dump(mode="json")["bestaetigungen"]
+    return roh, membership.model_dump(mode="json")["confirmations"]
 
 
 def link(name: str, **fields: Any) -> dict[str, Any]:
@@ -146,22 +146,22 @@ def test_each_seats_link_is_served_by_its_state_and_never_by_its_hash(mongo_repl
     roh, served = read_the_links(
         mongo_replica_set_url,
         {"trainer": link("trainer-link"), "ansprechperson": link("ansprechperson-link")},
-        owed=[(("trainer",), "unzustellbar"), (("ansprechperson",), None)],
+        owed=[(("trainer",), "undeliverable"), (("ansprechperson",), None)],
     )
 
     trainer = served["trainer"]
-    assert {key: value for key, value in trainer.items() if key != "zustellung"} == {
-        "verschickt_am": TODAY,
+    assert {key: value for key, value in trainer.items() if key != "delivery"} == {
+        "sent_at": TODAY,
         "frist": link("trainer-link")["frist"],
-        "abgelehnt_am": None,
-        "abgelaufen": False,
+        "declined_at": None,
+        "expired": False,
     }
-    assert (trainer["zustellung"]["stand"], trainer["zustellung"]["zustellung"]["stand"], trainer["zustellung"]["unzustellbar"]) == (
-        "gesendet",
-        "unzustellbar",
+    assert (trainer["delivery"]["stand"], trainer["delivery"]["delivery"]["stand"], trainer["delivery"]["undeliverable"]) == (
+        "sent",
+        "undeliverable",
         True,
     )
-    assert served["ansprechperson"]["zustellung"] == {"stand": "gesendet", "zustellung": None, "unzustellbar": False}
+    assert served["ansprechperson"]["delivery"] == {"stand": "sent", "delivery": None, "undeliverable": False}
     assert served["stellvertretung"] is None
     # Twice: the read drops the hashes, and the model declares none, so neither alone carries them to the wire.
     assert "token_hash" not in json.dumps(roh, default=str)
@@ -177,11 +177,11 @@ def test_a_trainer_one_link_holds_beside_a_second_seat_reads_that_links_mail(mon
     _, served = read_the_links(
         mongo_replica_set_url,
         {"trainer": shared, "ansprechperson": link("bert-link"), "stellvertretung": shared},
-        kontakte={"stellvertretung": paired, "trainer_ist_zugleich": "stellvertretung"},
-        owed=[(("stellvertretung", "trainer"), "beschwerde"), (("ansprechperson",), None)],
+        kontakte={"stellvertretung": paired, "trainer_is_also": "stellvertretung"},
+        owed=[(("stellvertretung", "trainer"), "complaint"), (("ansprechperson",), None)],
     )
 
-    assert [(served[seat]["zustellung"] or {}).get("zustellung") is not None for seat in ("trainer", "stellvertretung", "ansprechperson")] == [
+    assert [(served[seat]["delivery"] or {}).get("delivery") is not None for seat in ("trainer", "stellvertretung", "ansprechperson")] == [
         True,
         True,
         False,
@@ -192,7 +192,7 @@ def test_a_trainer_one_link_holds_beside_a_second_seat_reads_that_links_mail(mon
 def test_a_link_no_mail_was_owed_for_reads_as_none(mongo_replica_set_url: str):
     _, served = read_the_links(mongo_replica_set_url, {"trainer": link("seeded"), "ansprechperson": None})
 
-    assert served["trainer"]["zustellung"] is None
+    assert served["trainer"]["delivery"] is None
 
 
 @pytest.mark.db
@@ -204,7 +204,7 @@ def test_a_link_reads_as_lapsed_exactly_where_its_press_refuses(mongo_replica_se
     )
     seats = [served["trainer"], served["ansprechperson"]]
 
-    assert [seat["abgelaufen"] for seat in seats] == [False, True]
+    assert [seat["expired"] for seat in seats] == [False, True]
     assert [find_saison_frist_refusal(frist=seat["frist"], today=TODAY) is not None for seat in seats] == [False, True]
 
 
@@ -216,14 +216,14 @@ def test_an_answered_seat_reads_as_lapsed_never_once_its_deadline_passes(mongo_r
         mongo_replica_set_url,
         {
             "trainer": link("confirmed", frist="2026-02-28"),
-            "ansprechperson": link("declined", frist="2026-02-28", abgelehnt_am="2026-02-10"),
+            "ansprechperson": link("declined", frist="2026-02-28", declined_at="2026-02-10"),
             "stellvertretung": link("open", frist="2026-02-28"),
         },
         kontakte={
-            "trainer": kontaktperson_document("Anke", bestaetigt_am="2026-02-05"),
+            "trainer": kontaktperson_document("Anke", confirmed_at="2026-02-05"),
             "ansprechperson": None,
             "stellvertretung": kontaktperson_document("Cora"),
         },
     )
 
-    assert [served[seat]["abgelaufen"] for seat in ("trainer", "ansprechperson", "stellvertretung")] == [False, False, True]
+    assert [served[seat]["expired"] for seat in ("trainer", "ansprechperson", "stellvertretung")] == [False, False, True]

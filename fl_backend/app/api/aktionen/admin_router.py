@@ -7,24 +7,24 @@ from pymongo import ASCENDING
 
 from app.api.aktionen.schemas import (
     HERKUNFT_JE_KIND,
+    FLActionLogEntrySingleResponse,
+    FLActionLogEntryWithStand,
+    FLActionLogListResponse,
     FLAktionenFilterParams,
     FLAktionenListAdapter,
-    FLAktionenListResponse,
-    FLAktionMitStand,
-    FLAktionSingleResponse,
 )
 from app.api.aktionen.services import akteur_adressen, build_aktionen_sort, document_id_term, mit_vorenthaltenem_akteur
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, build_query, pull_many_from_db, pull_one_from_db
-from app.core.dependencies import AktionenCollection
+from app.core.dependencies import ActionLogCollection
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/aktionen",
+    prefix=f"/api/v{API_VERSION}/action_log",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
@@ -35,7 +35,7 @@ FLAktionenFilters = Annotated[FLAktionenFilterParams, Query()]
 # One `$group` over the three the bar narrows on: every dimension's counts off a single pass, and a
 # row per (area, operation, kind) the log holds.
 FACET_TALLY: Final[Sequence[Mapping[str, Any]]] = (
-    # Asked for in `aktionen_facets`'s key order, which is what makes the planner reach for it: the
+    # Asked for in `action_log_facets`'s key order, which is what makes the planner reach for it: the
     # `$group` alone scans the log, images and all.
     {"$sort": {"collection": ASCENDING, "operation": ASCENDING, "actor.kind": ASCENDING}},
     {
@@ -119,13 +119,13 @@ async def _as_served(rows: Sequence[Mapping[str, Any]], *, sperrliste: BanList) 
     return [mit_vorenthaltenem_akteur(row, barred) for row in rows]
 
 
-@router.get("", response_model=FLAktionenListResponse, summary="List recorded admin actions")
-async def get_aktionen(
-    aktionen_collection: AktionenCollection,
+@router.get("", response_model=FLActionLogListResponse, summary="List recorded admin actions")
+async def get_action_log(
+    aktionen_collection: ActionLogCollection,
     sperrliste: SperrlisteLookup,
     filters: FLAktionenFilters,
-) -> FLAktionenListResponse:
-    """List recorded writes newest first, `vollstaendig` false where `limit` cut them, an actor's `email` null where the ban list holds it.
+) -> FLActionLogListResponse:
+    """List recorded writes newest first, `complete` false where `limit` cut them, an actor's `email` null where the ban list holds it.
 
     `collection`, `operation` and `herkunft` take a comma-joined or repeated selection, and each
     `anzahl_je_*` count applies every filter but its own facet, a value nothing was recorded under absent.
@@ -136,7 +136,7 @@ async def get_aktionen(
 
     # Gathered, so the tally costs no round trip of its own.
     grouped, read = await asyncio.gather(
-        # Counted per option instead, this is a read per option, and `aktionen_target` indexes the
+        # Counted per option instead, this is a read per option, and `action_log_target` indexes the
         # area alone: every operation's own count would scan the log.
         aggregate_many_from_db(
             collection=aktionen_collection,
@@ -162,24 +162,24 @@ async def get_aktionen(
     served = read[: filters.limit]
     cells = _facet_cells(grouped)
 
-    return FLAktionenListResponse(
-        aktionen=FLAktionenListAdapter.validate_python(await _as_served(served, sperrliste=sperrliste)),
-        vollstaendig=len(read) <= filters.limit,
-        anzahl_je_collection=_tally(cells, counted="collection", held={"operation": filters.operation, "herkunft": filters.herkunft}),
-        anzahl_je_operation=_tally(cells, counted="operation", held={"collection": filters.collection, "herkunft": filters.herkunft}),
-        anzahl_je_herkunft=_tally(cells, counted="herkunft", held={"collection": filters.collection, "operation": filters.operation}),
+    return FLActionLogListResponse(
+        action_log=FLAktionenListAdapter.validate_python(await _as_served(served, sperrliste=sperrliste)),
+        complete=len(read) <= filters.limit,
+        count_per_collection=_tally(cells, counted="collection", held={"operation": filters.operation, "herkunft": filters.herkunft}),
+        count_per_operation=_tally(cells, counted="operation", held={"collection": filters.collection, "herkunft": filters.herkunft}),
+        count_per_herkunft=_tally(cells, counted="herkunft", held={"collection": filters.collection, "operation": filters.operation}),
     )
 
 
-@router.get(by_id("aktion_id"), response_model=FLAktionSingleResponse, summary="One recorded admin action")
-async def get_aktion(
-    aktion_id: CustomRouteObjectId,
-    aktionen_collection: AktionenCollection,
+@router.get(by_id("action_log_entry_id"), response_model=FLActionLogEntrySingleResponse, summary="One recorded admin action")
+async def get_action_log_entry(
+    action_log_entry_id: CustomRouteObjectId,
+    aktionen_collection: ActionLogCollection,
     sperrliste: SperrlisteLookup,
-) -> FLAktionSingleResponse:
+) -> FLActionLogEntrySingleResponse:
     """One recorded write with the document it replaced, served as recorded; the actor is withheld as the list withholds it."""
 
-    aktion_raw = await pull_one_from_db(collection=aktionen_collection, db_filter={"_id": aktion_id})
+    aktion_raw = await pull_one_from_db(collection=aktionen_collection, db_filter={"_id": action_log_entry_id})
     [served] = await _as_served([aktion_raw], sperrliste=sperrliste)
 
-    return FLAktionSingleResponse(aktion=FLAktionMitStand(**served))
+    return FLActionLogEntrySingleResponse(action_log_entry=FLActionLogEntryWithStand(**served))

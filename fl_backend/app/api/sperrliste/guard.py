@@ -15,8 +15,8 @@ from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.codes import Code
 from app.core.config import BackendConfig, get_app_config
 from app.core.exceptions import APIError
-from app.core.recording import AktorFunktion, PersonActor
-from app.core.security import Attribution, SessionActor, actor_binder, akteur_pseudonym, verify_person_actor
+from app.core.recording import ActorRole, PersonActor
+from app.core.security import Attribution, SessionActor, actor_binder, actor_pseudonym, verify_person_actor
 from app.shared.folding import sign_in_identifier
 
 
@@ -34,7 +34,7 @@ async def verify_person_is_unbarred(
     return actor
 
 
-def person_actor_binder(funktion: AktorFunktion) -> Callable[..., AsyncIterator[str]]:
+def person_actor_binder(funktion: ActorRole) -> Callable[..., AsyncIterator[str]]:
     """The binder a person's router declares, fixing the Funktion its writes are recorded under and yielding the folded identifier.
 
     The Funktion is never read off the request: the handler re-derives that the person holds it before
@@ -48,15 +48,15 @@ def person_actor_binder(funktion: AktorFunktion) -> Callable[..., AsyncIterator[
     ) -> Attribution[str]:
         # What the handler authorises against, so one mailbox's two spellings cannot hold two answers.
         identifier = sign_in_identifier(actor.email)
-        pseudonym = akteur_pseudonym(identifier, schluessel=config.sperrliste_schluessel)
+        pseudonym = actor_pseudonym(identifier, key=config.sperrliste_key)
 
-        return Attribution(PersonActor(pseudonym=pseudonym, funktion=funktion), identifier)
+        return Attribution(PersonActor(pseudonym=pseudonym, role=funktion), identifier)
 
     return actor_binder(the_person)
 
 
-PERSON_ACTOR_BINDERS: Final[Mapping[AktorFunktion, Callable[..., AsyncIterator[str]]]] = {
-    funktion: person_actor_binder(funktion) for funktion in get_args(AktorFunktion)
+PERSON_ACTOR_BINDERS: Final[Mapping[ActorRole, Callable[..., AsyncIterator[str]]]] = {
+    funktion: person_actor_binder(funktion) for funktion in get_args(ActorRole)
 }
 
 # A handler's folded address, from the binder its router declares, which FastAPI then runs once a

@@ -29,10 +29,10 @@ from app.core.exceptions import APIError
 from app.shared.tokens import hash_token
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    adresswechsel_document,
+    address_change_document,
     bericht_document,
     kontaktperson_document,
-    minted_bestaetigungen,
+    minted_confirmations,
     spiel_document,
     spielbericht_document,
     spielbestaetigung_document,
@@ -55,27 +55,27 @@ SPIELER_OID = ObjectId("6890a1b2c3d4e5f607200002")
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f607200003")
 SPIELORT_OID = ObjectId("6890a1b2c3d4e5f607200004")
 SCHIEDSRICHTER_OID = ObjectId("6890a1b2c3d4e5f607200005")
-AKTION_OID = ObjectId("6890a1b2c3d4e5f607200006")
+ACTION_LOG_ENTRY_OID = ObjectId("6890a1b2c3d4e5f607200006")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607200007")
 BEWERBUNG_OID = ObjectId("6890a1b2c3d4e5f607200009")
 SPERRLISTE_OID = ObjectId("6890a1b2c3d4e5f60720000a")
-EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f60720000b")
+INVITATION_OID = ObjectId("6890a1b2c3d4e5f60720000b")
 REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f60720000c")
-BERECHTIGUNG_OID = ObjectId("6890a1b2c3d4e5f60720000d")
+GRANT_OID = ObjectId("6890a1b2c3d4e5f60720000d")
 SPIELBESTAETIGUNG_OID = ObjectId("6890a1b2c3d4e5f60720000e")
 SPIEL_OID = ObjectId("6890a1b2c3d4e5f60720000f")
-ADRESSWECHSEL_OID = ObjectId("6890a1b2c3d4e5f6072000a1")
-ANTRAG_OID = ObjectId("6890a1b2c3d4e5f6072000a2")
-# Far off, so the TTL index on `genehmigung.bis` leaves a request standing through every case that inserts one.
-ANTRAG_GESTELLT = datetime(2126, 1, 1, tzinfo=UTC)
+ADDRESS_CHANGE_OID = ObjectId("6890a1b2c3d4e5f6072000a1")
+APPROVAL_REQUEST_OID = ObjectId("6890a1b2c3d4e5f6072000a2")
+# Far off, so the TTL index on `approval.bis` leaves a request standing through every case that inserts one.
+APPROVAL_REQUEST_FILED = datetime(2126, 1, 1, tzinfo=UTC)
 # A submission key as a public form mints it (`app/api/bewerbungen/public_router.py :: post_bewerbung`).
-IDEMPOTENZ_SCHLUESSEL = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
+IDEMPOTENCY_KEY = "1b4e28ba-2fa1-4d2b-883f-0016d3cca427"
 
 # One declared support index, planted under different keys so its build is the one that fails.
-CONFLICTING_SUPPORT_INDEX = "aktionen_trace_id"
+CONFLICTING_SUPPORT_INDEX = "action_log_trace_id"
 # The same planting for the TTL kind, over `at`: the name is claimed and the keys disagree, which is
 # also the shape of the mistake this index exists against.
-CONFLICTING_TTL_INDEX = "aktionen_retention"
+CONFLICTING_TTL_INDEX = "action_log_retention"
 # A name no collection holds, the case only `tests/database.py :: _foreign` catches: a view over a
 # dropped collection's name is already in `_moved`'s `gone` set, and one over a live name is a
 # namespace MongoDB refuses.
@@ -90,7 +90,7 @@ SEATED: Final = {"text_version": "v1", "datum": "2026-01-15"}
 
 def kontaktperson(vorname: str) -> dict[str, Any]:
     """A function rather than a constant: the nested consent has to be fresh per slot too, which a `dict()` of a shared one is not."""
-    return kontaktperson_document(vorname, bestaetigt_am="2026-01-16", einwilligung=SEATED, telefon="+49 69 1234567", geburtsdatum="1980-05-04")
+    return kontaktperson_document(vorname, confirmed_at="2026-01-16", einwilligung=SEATED, telefon="+49 69 1234567", geburtsdatum="1980-05-04")
 
 
 def valid_documents() -> dict[str, dict[str, Any]]:
@@ -104,14 +104,14 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "rules": {
                 "win_points": 3,
                 "draw_points": 1,
-                "qualifiers_per_group": 2,
-                "number_of_groups": 4,
-                "teams_per_group": 4,
+                "qualifiers_per_gruppe": 2,
+                "number_of_gruppen": 4,
+                "teams_per_gruppe": 4,
                 "tiebreak_order": "tordifferenz",
                 "max_kadergroesse": 18,
                 "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
                 # Which levels this season offers — a subset of the league's set.
-                "erlaubte_stufen": ["E1", "E2", "Q1", "Q2", "Q3", "Q4"],
+                "allowed_stufen": ["E1", "E2", "Q1", "Q2", "Q3", "Q4"],
             },
             "bewerbung": None,
             "registrierung": None,
@@ -144,7 +144,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "spieler_id": SPIELER_OID,
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
-            "ist_nachnominiert": False,
+            "is_nachnominiert": False,
             "rolle": None,
             "stufe": "Q2",
             "position": "Angriff",
@@ -170,7 +170,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         },
         "spieltage": {
             "_id": SPIELTAG_OID,
-            # No `name` and no `anzahl_spiele`: one is composed by the reader, the other derived, and neither stored.
+            # No `name` and no `count_spiele`: one is composed by the reader, the other derived, and neither stored.
             "beginn": "2026-03-15",
             "ende": "2026-03-15",
             "position": 1,
@@ -198,8 +198,8 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         "bewerbungen": {
             "_id": BEWERBUNG_OID,
             "saison_id": SAISON_ID,
-            "eingereicht_am": "2026-02-01",
-            "status": "eingereicht",
+            "submitted_at": "2026-02-01",
+            "status": "submitted",
             "team_id": None,
             "schule": {
                 "team_name": "Lessing",
@@ -214,20 +214,20 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 "trainer": kontaktperson("Wraxlington"),
                 "ansprechperson": kontaktperson("Quillhilde"),
                 "stellvertretung": kontaktperson("Bramblewick"),
-                "trainer_ist_zugleich": None,
+                "trainer_is_also": None,
             },
-            "trikot": {"vorhandener_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
-            "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+            "trikot": {"existing_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
+            "kader": {"expected_size": 14, "good_spieler": 3},
             "stufengroesse": 96,
             "wunschgegner": None,
-            "entscheidung": None,
-            "bestaetigungsfrist": "2026-02-15",
-            "bestaetigungen": minted_bestaetigungen(
+            "decision": None,
+            "confirmation_deadline": "2026-02-15",
+            "confirmations": minted_confirmations(
                 hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
             ),
         },
         "aktionen": {
-            "_id": AKTION_OID,
+            "_id": ACTION_LOG_ENTRY_OID,
             "at": "2026-03-15T09:30:00+00:00",
             "at_date": datetime(2026, 3, 15, 9, 30, 0, tzinfo=UTC),
             "actor": {"kind": "admin_session", "email": "admin@example.invalid"},
@@ -248,32 +248,32 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         "sperrliste": {
             "_id": SPERRLISTE_OID,
             "adresse_hash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
-            "schluessel_version": "sperrliste-v1",
+            "key_version": "sperrliste-v1",
             "grund": "Falsches Geburtsdatum bei der Anmeldung",
-            "erstellt_von": "admin@example.invalid",
-            "erstellt_am": "2026-03-15",
-            "gesperrt_bis_saison_id": "2031",
+            "created_by": "admin@example.invalid",
+            "created_at": "2026-03-15",
+            "barred_until_saison_id": "2031",
         },
-        # `widerrufen_am` is null rather than absent because `uniq_einladung_live` reaches the rows
+        # `widerrufen_am` is null rather than absent because `uniq_invitation_live` reaches the rows
         # holding null.
         "einladungen": {
-            "_id": EINLADUNG_OID,
+            "_id": INVITATION_OID,
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
             "token_hashes": ["b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819200"],
-            "erstellt_am": "2026-03-15",
-            "erstellt_von": "admin@example.invalid",
+            "created_at": "2026-03-15",
+            "created_by": "admin@example.invalid",
             "widerrufen_am": None,
         },
-        # Every key the submission writes, `geburtsdatum`, `einwilligung` and `entscheidung`
+        # Every key the submission writes, `geburtsdatum`, `einwilligung` and `decision`
         # included: each is a stored null rather than an absent key, which is what `required` means.
         "registrierungen": {
             "_id": REGISTRIERUNG_OID,
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
-            "einladung_id": EINLADUNG_OID,
-            "eingereicht_am": "2026-03-16",
-            "status": "eingereicht",
+            "invitation_id": INVITATION_OID,
+            "submitted_at": "2026-03-16",
+            "status": "submitted",
             "vorname": "Thessaly",
             "nachname": "Okonkwo-Brandt",
             "email": "thessaly@example.invalid",
@@ -282,24 +282,24 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "stufe": "Q1",
             "geburtsdatum": None,
             "einwilligung": None,
-            "bestaetigung": {
+            "confirmation": {
                 "token_hashes": ["c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80919200"],
-                "verschickt_am": "2026-03-16",
-                "erinnert_am": None,
+                "sent_at": "2026-03-16",
+                "reminded_at": None,
                 "frist": "2026-03-23",
             },
-            "entscheidung": None,
+            "decision": None,
         },
         # As the Playground paste writes one: a BSON date, and the sentinel where no administrator granted it.
         "berechtigungen": {
-            "_id": BERECHTIGUNG_OID,
+            "_id": GRANT_OID,
             "adresse": "inhaberin@example.invalid",
             "verwaltung": "owner",
-            "erteilt_von": "PLAYGROUND",
-            "erteilt_am": datetime(2026, 1, 1, tzinfo=UTC),
+            "granted_by": "PLAYGROUND",
+            "granted_at": datetime(2026, 1, 1, tzinfo=UTC),
         },
         "berechtigungen_angekuendigt": {
-            "_id": BERECHTIGUNG_OID,
+            "_id": GRANT_OID,
             "adresse": "inhaberin@example.invalid",
             "verwaltung": "owner",
             "angekuendigt_am": datetime(2026, 1, 1, 0, 5, tzinfo=UTC),
@@ -318,12 +318,12 @@ def valid_documents() -> dict[str, dict[str, Any]]:
                 uhrzeit="18:00:00",
                 ort={"spielort_id": SPIELORT_OID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": 80},
             ),
-            partei={"art": "team", "team_id": TEAM_OID},
+            party={"art": "team", "team_id": TEAM_OID},
             _id=SPIELBESTAETIGUNG_OID,
             frist="2026-03-08",
             kontakte={
                 "trainer": {"token_hashes": ["e" * 64]},
-                "ansprechperson": {"token_hashes": ["e" * 64], "zustellung": None},
+                "ansprechperson": {"token_hashes": ["e" * 64], "delivery": None},
                 "stellvertretung": None,
             },
         ),
@@ -331,19 +331,19 @@ def valid_documents() -> dict[str, dict[str, Any]]:
         # A live change as the start stores it, its instants dates, which every read takes; and the carry an earlier
         # effect of the address left owed on it, which the record keeps beside its live fields as the model reads them.
         "adresswechsel": {
-            "_id": ADRESSWECHSEL_OID,
-            **adresswechsel_document(adresse="alt@example.invalid", email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16"),
-            "umzug": {"von": "vorher@example.invalid", "nach": "alt@example.invalid"},
+            "_id": ADDRESS_CHANGE_OID,
+            **address_change_document(adresse="alt@example.invalid", email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16"),
+            "move": {"von": "vorher@example.invalid", "nach": "alt@example.invalid"},
         },
-        # A promotion asked, so `berechtigung_id` is an id rather than the null a grant's request holds.
+        # A promotion asked, so `grant_id` is an id rather than the null a grant's request holds.
         "berechtigungen_antraege": {
-            "_id": ANTRAG_OID,
+            "_id": APPROVAL_REQUEST_OID,
             **compose_antrag(
                 adresse="vorstand@example.invalid",
                 verwaltung="owner",
-                berechtigung_id=TEAM_OID,
-                gestartet_von="inhaberin@example.invalid",
-                now=ANTRAG_GESTELLT,
+                grant_id=TEAM_OID,
+                started_by="inhaberin@example.invalid",
+                now=APPROVAL_REQUEST_FILED,
             ),
         },
     }
@@ -404,31 +404,29 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     # a pair agreeing in everything would pass while keyed on anything at all.
     "uniq_sperrliste_adresse_hash": (
         valid_documents()["sperrliste"],
-        valid_document("sperrliste", _id=TEAM_OID, grund="Zweiter Eintrag", erstellt_von="zweite@example.invalid"),
+        valid_document("sperrliste", _id=TEAM_OID, grund="Zweiter Eintrag", created_by="zweite@example.invalid"),
     ),
     # Both rows live, which is the reach the `partialFilterExpression` narrows the rule to: a pair
     # whose second row carried a revocation date would pass while the filter matched anything.
-    "uniq_einladung_live": (
+    "uniq_invitation_live": (
         valid_documents()["einladungen"],
         valid_document("einladungen", _id=TEAM_OID, token_hash="c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80910000"),
     ),
     # Both rows keyed alike and differing in their digest: the index refuses on the key alone, and a
     # pair carrying no key at all would pass while the partial filter matched nothing.
-    "uniq_bewerbung_idempotenz_schluessel": (
-        valid_document("bewerbungen", idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="a" * 64),
-        valid_document("bewerbungen", _id=TEAM_OID, idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="b" * 64),
+    "uniq_bewerbung_idempotency_key": (
+        valid_document("bewerbungen", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
+        valid_document("bewerbungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
     ),
-    "uniq_registrierung_idempotenz_schluessel": (
-        valid_document("registrierungen", idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="a" * 64),
-        valid_document("registrierungen", _id=TEAM_OID, idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="b" * 64),
+    "uniq_registrierung_idempotency_key": (
+        valid_document("registrierungen", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
+        valid_document("registrierungen", _id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
     ),
     # Two persons' rows in one season, keyed alike: the index refuses on the key alone, where the
     # junction's own index would refuse a pair sharing the person.
-    "uniq_saison_spieler_idempotenz_schluessel": (
-        valid_document("saison_spieler", idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="a" * 64),
-        valid_document(
-            "saison_spieler", _id=TEAM_OID, spieler_id=TEAM_OID, idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="b" * 64
-        ),
+    "uniq_saison_spieler_idempotency_key": (
+        valid_document("saison_spieler", idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64),
+        valid_document("saison_spieler", _id=TEAM_OID, spieler_id=TEAM_OID, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="b" * 64),
     ),
     # Two persons differing in their name and sharing an address: the index refuses on the address alone.
     "uniq_spieler_email": (
@@ -437,13 +435,13 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
     ),
     # The second row differs in its tier and its author: the index refuses on the address alone, which
     # is what refuses a paste granting an address a route already granted.
-    "uniq_berechtigung_adresse": (
+    "uniq_grant_adresse": (
         valid_documents()["berechtigungen"],
-        valid_document("berechtigungen", _id=TEAM_OID, verwaltung="administration", erteilt_von="zweite@example.invalid"),
+        valid_document("berechtigungen", _id=TEAM_OID, verwaltung="administration", granted_by="zweite@example.invalid"),
     ),
     # Both rows open, one party, one stand, differing in their seats: the index refuses on its five keys
     # alone, and a pair the partial filter reached on neither side would pass.
-    "uniq_spielbestaetigung_offen": (
+    "uniq_spielbestaetigung_open": (
         valid_documents()["spielbestaetigungen"],
         valid_document("spielbestaetigungen", _id=TEAM_OID, kontakte={"trainer": None, "ansprechperson": None, "stellvertretung": None}),
     ),
@@ -453,12 +451,12 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
         valid_document("spielberichte", _id=TEAM_OID, bericht=bericht_document(bemerkungen="Zweiter Bericht")),
     ),
     # Two live changes of one address, to two mailboxes: the index refuses on the address alone, both rows in its filter.
-    "uniq_adresswechsel_adresse": (
+    "uniq_address_change_adresse": (
         valid_documents()["adresswechsel"],
-        valid_document("adresswechsel", _id=TEAM_OID, email="zweite@example.invalid", token_hash="b" * 64, stopp_hash="c" * 64),
+        valid_document("adresswechsel", _id=TEAM_OID, email="zweite@example.invalid", token_hash="b" * 64, stop_hash="c" * 64),
     ),
     # Two requests about one address from two requesters: the index refuses on the address alone.
-    "uniq_berechtigung_antrag_adresse": (
+    "uniq_grant_approval_request_adresse": (
         valid_documents()["berechtigungen_antraege"],
         valid_document(
             "berechtigungen_antraege",
@@ -466,13 +464,13 @@ DUPLICATE_PAIRS: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {
             **compose_antrag(
                 adresse="vorstand@example.invalid",
                 verwaltung="owner",
-                berechtigung_id=TEAM_OID,
-                gestartet_von="zweite@example.invalid",
-                now=ANTRAG_GESTELLT,
+                grant_id=TEAM_OID,
+                started_by="zweite@example.invalid",
+                now=APPROVAL_REQUEST_FILED,
             ),
         ),
     ),
-    "uniq_postausgang_schluessel": ({"_id": ObjectId(), "schluessel": "sperre/1"}, {"_id": ObjectId(), "schluessel": "sperre/1"}),
+    "uniq_outbox_key": ({"_id": ObjectId(), "key": "sperre/1"}, {"_id": ObjectId(), "key": "sperre/1"}),
     # Two seasons, each `active`: a second row in any other status would pass while the filter matched nothing.
     "uniq_saison_active": (valid_documents()["saisons"], valid_document("saisons", _id="2027", start_date="2027-01-01", end_date="2027-06-30")),
 }
@@ -501,13 +499,13 @@ def test_each_unique_index_refuses_the_second_document(mongo_url: str, collectio
 
 
 def test_two_ended_changes_of_one_address_are_both_kept(mongo_url: str):
-    """An ending nulls the address, so a filter on `beendet` alone would hold every tombstone under one null key."""
+    """An ending nulls the address, so a filter on `ended` alone would hold every tombstone under one null key."""
 
-    ended = {"adresse": None, "email": None, "beendet": {"art": "abgelehnt", "am": datetime(2026, 3, 17, tzinfo=UTC)}}
+    ended = {"adresse": None, "email": None, "ended": {"art": "declined", "am": datetime(2026, 3, 17, tzinfo=UTC)}}
 
     async def body(database: AsyncDatabase) -> int:
         await database.adresswechsel.insert_one(valid_document("adresswechsel", **ended))
-        await database.adresswechsel.insert_one(valid_document("adresswechsel", _id=TEAM_OID, stopp_hash="c" * 64, **ended))
+        await database.adresswechsel.insert_one(valid_document("adresswechsel", _id=TEAM_OID, stop_hash="c" * 64, **ended))
         return await database.adresswechsel.count_documents({})
 
     assert on_the_shipped_schema(mongo_url, body) == 2
@@ -578,10 +576,10 @@ def test_only_an_open_confirmation_meets_the_rule(mongo_url: str):
         await database.spielbestaetigungen.insert_one(valid_documents()["spielbestaetigungen"])
         await database.spielbestaetigungen.insert_one(valid_document("spielbestaetigungen", _id=TEAM_OID, antwort=antwort))
         await database.spielbestaetigungen.insert_one(
-            valid_document("spielbestaetigungen", _id=SPIELER_OID, geschlossen={"am": "2026-03-02", "grund": "abgesagt"})
+            valid_document("spielbestaetigungen", _id=SPIELER_OID, closed={"am": "2026-03-02", "grund": "abgesagt"})
         )
         await database.spielbestaetigungen.insert_one(
-            valid_document("spielbestaetigungen", _id=SPIELTAG_OID, partei={"art": "team", "team_id": OTHER_TEAM_OID})
+            valid_document("spielbestaetigungen", _id=SPIELTAG_OID, party={"art": "team", "team_id": OTHER_TEAM_OID})
         )
         return await database.spielbestaetigungen.count_documents({})
 
@@ -660,10 +658,8 @@ def test_the_submission_key_lookup_walks_its_partial_unique_index(mongo_url: str
     """The planner takes a partial index only for a query implying its `$type` filter, which an equality alone does not."""
 
     async def body(database: AsyncDatabase) -> list[str]:
-        await database[collection].insert_one(
-            valid_document(collection, idempotenz_schluessel=IDEMPOTENZ_SCHLUESSEL, idempotenz_fingerabdruck="a" * 64)
-        )
-        explained = await database[collection].find(build_schluessel_filter(schluessel=IDEMPOTENZ_SCHLUESSEL)).explain()
+        await database[collection].insert_one(valid_document(collection, idempotency_key=IDEMPOTENCY_KEY, idempotency_fingerprint="a" * 64))
+        explained = await database[collection].find(build_schluessel_filter(key=IDEMPOTENCY_KEY)).explain()
 
         return winning_stages(explained)
 
@@ -682,19 +678,19 @@ ROWS_ENOUGH_TO_PREFER_AN_INDEX = 2000
 # A triage tab's read, the one `bewerbungen_saison_id_status_queue` serves: one season, its status term
 # an `$in` as `build_bewerbungen_status_term` composes it.
 BEWERBUNGEN_QUEUE_FILTERS: list[dict[str, Any]] = [
-    {"saison_id": SAISON_ID, "status": {"$in": ["eingereicht"]}},
+    {"saison_id": SAISON_ID, "status": {"$in": ["submitted"]}},
 ]
 
 # What `get_bewerbungen` counts on every read of one season: one status at a time.
 BEWERBUNGEN_COUNT_FILTERS: list[dict[str, Any]] = [
-    {"saison_id": SAISON_ID, "status": "eingereicht"},
+    {"saison_id": SAISON_ID, "status": "submitted"},
 ]
-AKTIONEN_QUEUE_FILTERS: list[dict[str, Any]] = [
+ACTION_LOG_QUEUE_FILTERS: list[dict[str, Any]] = [
     {},
     {"collection": "teams"},
     {"operation": "patch_one"},
     {"collection": "teams", "operation": "patch_one"},
-    # A row's history action sends this one alone, and `aktionen_target` leads on `collection`, so
+    # A row's history action sends this one alone, and `action_log_target` leads on `collection`, so
     # nothing here is a prefix of it: what this pins is that the sort index still carries the read.
     {"document_id": TEAM_OID},
 ]
@@ -705,7 +701,7 @@ TALLY_TRACE_ID = "0123456789abcdef0123456789abcdef"
 # Every shape the tally's own `$match` can hold, the facet terms reaching the read alone
 # (`app/api/aktionen/admin_router.py :: get_aktionen`). All four, because the planner is asked afresh
 # for each.
-AKTIONEN_TALLY_FILTERS: list[dict[str, Any]] = [
+ACTION_LOG_TALLY_FILTERS: list[dict[str, Any]] = [
     {},
     {"trace_id": TALLY_TRACE_ID},
     {"document_id": TEAM_OID},
@@ -731,13 +727,13 @@ def index_reads(filters: list[dict[str, Any]]) -> list[tuple[dict[str, Any], str
     ]
 
 
-def misplanned(planned: list[tuple[str, list[str]]], *, banned: tuple[str, ...] = ("SORT", "COLLSCAN")) -> list[tuple[str, list[str]]]:
+def misplanned(planned: list[tuple[str, list[str]]], *, barred: tuple[str, ...] = ("SORT", "COLLSCAN")) -> list[tuple[str, list[str]]]:
     """Each read whose plan reaches no index or holds a banned stage, so one case names every read that regressed.
 
     One corpus serves them all: each filter and order is a query shape of its own, planned afresh.
     """
 
-    return [(read, stages) for read, stages in planned if "IXSCAN" not in stages or any(stage in stages for stage in banned)]
+    return [(read, stages) for read, stages in planned if "IXSCAN" not in stages or any(stage in stages for stage in barred)]
 
 
 def walk_stages(node: Any) -> list[str]:
@@ -827,9 +823,9 @@ def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str
                 valid_document(
                     "bewerbungen",
                     _id=ObjectId(),
-                    eingereicht_am=f"2026-02-{(row % 28) + 1:02d}",
+                    submitted_at=f"2026-02-{(row % 28) + 1:02d}",
                     saison_id=SAISON_ID if row % 2 else "2025",
-                    status="eingereicht" if row % 3 else "angenommen",
+                    status="submitted" if row % 3 else "accepted",
                 )
                 for row in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX)
             ]
@@ -839,7 +835,7 @@ def test_the_triage_queue_walks_an_index_whichever_way_it_is_read(mongo_url: str
             explained = (
                 await database["bewerbungen"]
                 .find(db_filter)
-                .sort(build_bewerbungen_sort(sort_by="eingereicht_am", order=order))
+                .sort(build_bewerbungen_sort(sort_by="submitted_at", order=order))
                 .limit(50)
                 .explain()
             )
@@ -861,9 +857,9 @@ def test_the_per_status_count_walks_index_keys_rather_than_the_archive(mongo_url
                 valid_document(
                     "bewerbungen",
                     _id=ObjectId(),
-                    eingereicht_am=f"2026-02-{(row % 28) + 1:02d}",
+                    submitted_at=f"2026-02-{(row % 28) + 1:02d}",
                     saison_id=SAISON_ID if row % 2 else "2025",
-                    status=("eingereicht", "angenommen", "abgelehnt")[row % 3],
+                    status=("submitted", "accepted", "declined")[row % 3],
                 )
                 for row in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX)
             ]
@@ -912,7 +908,7 @@ def test_the_action_log_walks_an_index_whichever_way_it_is_read(mongo_url: str):
             ]
         )
         planned = []
-        for db_filter, order in index_reads(AKTIONEN_QUEUE_FILTERS):
+        for db_filter, order in index_reads(ACTION_LOG_QUEUE_FILTERS):
             explained = await database["aktionen"].find(db_filter).sort(build_aktionen_sort(order=order)).limit(50).explain()
             planned.append((f"{read_id(db_filter)}-{order}", winning_stages(explained)))
         return planned
@@ -924,7 +920,7 @@ def test_the_facet_tally_walks_index_keys_rather_than_the_whole_log(mongo_url: s
     """`FACET_TALLY` itself, never a copy: a copy would pin a pipeline nothing issues once a group key moves."""
 
     async def body(database: AsyncDatabase) -> list[tuple[str, list[str]]]:
-        await database[Collection.AKTIONEN].insert_many(
+        await database[Collection.ACTION_LOG].insert_many(
             [
                 valid_documents()["aktionen"]
                 | {
@@ -937,10 +933,10 @@ def test_the_facet_tally_walks_index_keys_rather_than_the_whole_log(mongo_url: s
             ]
         )
         planned = []
-        for db_filter in AKTIONEN_TALLY_FILTERS:
+        for db_filter in ACTION_LOG_TALLY_FILTERS:
             explained = await database.command(
                 {
-                    "explain": {"aggregate": str(Collection.AKTIONEN), "pipeline": [{"$match": db_filter}, *FACET_TALLY], "cursor": {}},
+                    "explain": {"aggregate": str(Collection.ACTION_LOG), "pipeline": [{"$match": db_filter}, *FACET_TALLY], "cursor": {}},
                     "verbosity": "queryPlanner",
                 }
             )
@@ -948,15 +944,15 @@ def test_the_facet_tally_walks_index_keys_rather_than_the_whole_log(mongo_url: s
         return planned
 
     # `SORT` among the banned: the `$sort` is what makes the planner reach for an index at all, and it is free only while
-    # one provides the order; without `aktionen_facets` the same stage sorts the log in memory instead.
+    # one provides the order; without `action_log_facets` the same stage sorts the log in memory instead.
     assert misplanned(on_the_shipped_schema(mongo_url, body)) == []
 
 
-GERMAN_SQUAD_INDEX = "saison_spieler_saison_id_team_id_de"
+GERMAN_KADER_INDEX = "saison_spieler_saison_id_team_id_de"
 
 # The clubs and seasons the squad rows below spread over, so one club of one season is a small slice of them.
-SQUAD_TEAMS = 10
-SQUAD_SEASONS = ("2024", "2025", SAISON_ID)
+KADER_TEAMS = 10
+KADER_SAISONS = ("2024", "2025", SAISON_ID)
 
 Issued = tuple[list[Mapping[str, Any]], Mapping[str, Any] | None]
 
@@ -967,7 +963,7 @@ def count_pipeline(db_filter: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     return [{"$match": db_filter}, {"$group": {"_id": 1, "n": {"$sum": 1}}}]
 
 
-class _SentSquadReads:
+class _SentKaderReads:
     """A squad collection keeping each aggregate and count a call site sends, with its collation, so the read is explained as sent."""
 
     def __init__(self, collection: Any) -> None:
@@ -989,35 +985,35 @@ class _SentSquadReads:
 async def sent_by(database: AsyncDatabase, read: Callable[[Any, AsyncClientSession], Awaitable[Any]]) -> Issued:
     """The one squad read `read` sends; a refusal it answers after the read is beside the point here."""
 
-    squad = _SentSquadReads(database[Collection.SAISON_SPIELER])
+    kader = _SentKaderReads(database[Collection.SAISON_SPIELER])
     async with database.client.start_session() as session:
         with contextlib.suppress(APIError):
-            await read(squad, session)
-    [issued] = squad.sent
+            await read(kader, session)
+    [issued] = kader.sent
     return issued
 
 
-async def the_report_squads(database: AsyncDatabase) -> Issued:
+async def the_report_kader(database: AsyncDatabase) -> Issued:
     await database[Collection.SPIELE].insert_one(
         valid_document("spiele", _id=SPIEL_OID, team2={"team_id": OTHER_TEAM_OID, "name": "Helmholtz", "tore": 1, "shorthand": "HEX"})
     )
 
     return await sent_by(
         database,
-        lambda squad, session: pull_bericht_lage(
+        lambda kader, session: pull_bericht_lage(
             spiele_collection=database[Collection.SPIELE],
             saisons_collection=database[Collection.SAISONS],
-            saison_spieler_collection=squad,
+            saison_spieler_collection=kader,
             spiel_id=SPIEL_OID,
             session=session,
         ),
     )
 
 
-async def the_squad_page(database: AsyncDatabase) -> Issued:
+async def the_kader_page(database: AsyncDatabase) -> Issued:
     return await sent_by(
         database,
-        lambda squad, session: _read_the_squad(saison_spieler_collection=squad, team_id=TEAM_OID, saison_id=SAISON_ID, session=session),
+        lambda kader, session: _read_the_squad(saison_spieler_collection=kader, team_id=TEAM_OID, saison_id=SAISON_ID, session=session),
     )
 
 
@@ -1034,8 +1030,8 @@ def index_names(node: Any) -> list[str]:
 @pytest.mark.parametrize(
     ("issue", "index"),
     [
-        pytest.param(the_report_squads, GERMAN_SQUAD_INDEX, id="the-report-s-squads"),
-        pytest.param(the_squad_page, GERMAN_SQUAD_INDEX, id="the-squad-page"),
+        pytest.param(the_report_kader, GERMAN_KADER_INDEX, id="the-report-s-squads"),
+        pytest.param(the_kader_page, GERMAN_KADER_INDEX, id="the-squad-page"),
     ],
 )
 def test_a_clubs_squad_rows_are_read_through_the_index_of_the_reads_collation(
@@ -1047,9 +1043,9 @@ def test_a_clubs_squad_rows_are_read_through_the_index_of_the_reads_collation(
         await database[Collection.SAISON_SPIELER].insert_many(
             [
                 valid_document("saison_spieler", _id=ObjectId(), spieler_id=ObjectId(), saison_id=saison, team_id=team)
-                for saison in SQUAD_SEASONS
-                for team in (TEAM_OID, OTHER_TEAM_OID, *(ObjectId() for _ in range(SQUAD_TEAMS - 2)))
-                for _ in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX // (SQUAD_TEAMS * len(SQUAD_SEASONS)))
+                for saison in KADER_SAISONS
+                for team in (TEAM_OID, OTHER_TEAM_OID, *(ObjectId() for _ in range(KADER_TEAMS - 2)))
+                for _ in range(ROWS_ENOUGH_TO_PREFER_AN_INDEX // (KADER_TEAMS * len(KADER_SAISONS)))
             ]
         )
         pipeline, collation = await issue(database)
@@ -1084,21 +1080,21 @@ class _SentUpdates(monitoring.CommandListener):
         """Required by the listener interface; a failed update was still sent with its filter."""
 
 
-GELOESCHT_PSEUDONYM: Final = "e" * 64
+ERASED_PSEUDONYM: Final = "e" * 64
 
 
-def test_the_loeschung_marks_a_persons_log_rows_through_an_index(mongo_url: str):
+def test_the_erasure_marks_a_persons_log_rows_through_an_index(mongo_url: str):
     """The updates the two steps send, never a copy of their filters, explained over a log large enough that the planner prefers an index."""
 
     async def body(database: AsyncDatabase) -> list[tuple[dict[str, Any], list[str]]]:
-        await database[Collection.AKTIONEN].insert_many(
+        await database[Collection.ACTION_LOG].insert_many(
             [
                 valid_documents()["aktionen"]
                 | {
                     "_id": ObjectId(),
                     "actor": {
                         "kind": "person_session",
-                        "pseudonym": GELOESCHT_PSEUDONYM if row % 500 == 0 else f"{row:064x}",
+                        "pseudonym": ERASED_PSEUDONYM if row % 500 == 0 else f"{row:064x}",
                         "funktion": ("spieler", "kontakt", "schiedsrichter")[row % 3],
                     },
                 }
@@ -1109,19 +1105,19 @@ def test_the_loeschung_marks_a_persons_log_rows_through_an_index(mongo_url: str)
         listener = _SentUpdates()
         watched = AsyncMongoClient(mongo_url, event_listeners=[listener])
         try:
-            log = watched[database.name][Collection.AKTIONEN]
+            log = watched[database.name][Collection.ACTION_LOG]
             async with watched.start_session() as session:
                 await unattribute_in_session(
-                    aktionen_collection=log, identifier="ida@example.invalid", pseudonym=GELOESCHT_PSEUDONYM, session=session
+                    aktionen_collection=log, identifier="ida@example.invalid", pseudonym=ERASED_PSEUDONYM, session=session
                 )
-                await loeschen_pupil_actor_in_session(aktionen_collection=log, pseudonym=GELOESCHT_PSEUDONYM, session=session)
+                await loeschen_pupil_actor_in_session(aktionen_collection=log, pseudonym=ERASED_PSEUDONYM, session=session)
         finally:
             await watched.close()
 
         explained = [
             (statement["q"], await database.command({"explain": {"update": collection, "updates": [statement]}, "verbosity": "queryPlanner"}))
             for collection, statement in listener.sent
-            if collection == Collection.AKTIONEN
+            if collection == Collection.ACTION_LOG
         ]
         return [(db_filter, winning_stages(plan)) for db_filter, plan in explained]
 
@@ -1149,10 +1145,10 @@ class TestTwoRefereesOpenRowsOnOneStand:
                     valid_document(
                         "spielbestaetigungen",
                         _id=row_id,
-                        partei={"art": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id},
+                        party={"art": "schiedsrichter", "schiedsrichter_id": schiedsrichter_id},
                         kontakte=None,
                     )
                 )
-            return await database.spielbestaetigungen.count_documents({"antwort": None, "geschlossen": None})
+            return await database.spielbestaetigungen.count_documents({"antwort": None, "closed": None})
 
         assert on_the_shipped_schema(mongo_url, body) == 2

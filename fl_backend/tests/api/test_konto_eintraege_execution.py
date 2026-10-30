@@ -26,18 +26,17 @@ from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
-from tests.actor_tokens import SignedActor
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_AGE_YEARS
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     bewerbung_document,
-    eigene_einwilligung_document,
     kontakte_document,
     kontaktperson_document,
-    neue_schule_document,
-    registrierung_bestaetigt,
+    new_schule_document,
+    own_einwilligung_document,
+    registrierung_confirmed,
     registrierung_document,
     saison_document,
     saison_team_document,
@@ -46,6 +45,7 @@ from tests.documents import (
     team_document,
 )
 from tests.records import record_collections
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 from .conftest import AUSTRITT, config_for
@@ -54,7 +54,7 @@ DATABASE_NAME = worker_database("fl_konto_eintraege_test")
 
 CONFIG = config_for(DATABASE_NAME)
 
-KONTO_PATH = f"/api/v{API_VERSION}/konto/einwilligungen"
+KONTO_PATH = f"/api/v{API_VERSION}/account/einwilligungen"
 
 NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
@@ -116,12 +116,12 @@ EXPECTED: dict[str, set[tuple[str, str]]] = {
 }
 
 
-def _person(email: str) -> SignedActor:
-    return SignedActor(email, ADMIN_KEY, lane="person")
+def _person(email: str) -> StampedHeaders:
+    return StampedHeaders(email, ADMIN_KEY, lane="person")
 
 
 def _einwilligung(**fields: Any) -> dict[str, Any]:
-    return eigene_einwilligung_document(text_version="2026-10-schiedsrichterseite-4", bestaetigt_am="2026-09-02", **fields)
+    return own_einwilligung_document(text_version="2026-10-schiedsrichterseite-4", confirmed_at="2026-09-02", **fields)
 
 
 def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
@@ -130,10 +130,10 @@ def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict
     )
 
 
-def _seat(email: str, *, bestaetigt_am: str | None = "2026-09-03") -> dict[str, Any]:
+def _seat(email: str, *, confirmed_at: str | None = "2026-09-03") -> dict[str, Any]:
     return kontaktperson_document(
         "Wiltrudis",
-        bestaetigt_am=bestaetigt_am,
+        confirmed_at=confirmed_at,
         email=email,
         telefon="+49 69 5550101",
         geburtsdatum="2000-05-09",
@@ -151,9 +151,9 @@ def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[
         ACTIVE,
         status,
         kontakte=kontakte,
-        eingereicht_am="2026-09-01",
-        bestaetigungsfrist="2026-09-15",
-        schule=neue_schule_document(f"Schule {oid}", "SWX"),
+        submitted_at="2026-09-01",
+        confirmation_deadline="2026-09-15",
+        schule=new_schule_document(f"Schule {oid}", "SWX"),
     )
 
 
@@ -164,7 +164,7 @@ def _registrierung(oid: ObjectId, email: str, *, seite: Seite | None = "bestaeti
     bestaetigt = (
         None
         if seite is None
-        else registrierung_bestaetigt(seite, geburtsdatum="2008-05-09", today="2026-09-21", am="2026-09-21T08:00:00+00:00", **gewaehlt)
+        else registrierung_confirmed(seite, geburtsdatum="2008-05-09", today="2026-09-21", am="2026-09-21T08:00:00+00:00", **gewaehlt)
     )
 
     return registrierung_document(
@@ -175,12 +175,12 @@ def _registrierung(oid: ObjectId, email: str, *, seite: Seite | None = "bestaeti
         vorname=vorname,
         nachname="Ehrenpreis",
         token=str(oid),
-        eingereicht_am="2026-09-20",
+        submitted_at="2026-09-20",
         frist="2026-09-27",
         position="Mittelfeld",
         nummer="17",
         stufe="Q1",
-        bestaetigt=bestaetigt,
+        confirmed=bestaetigt,
     )
 
 
@@ -208,18 +208,18 @@ async def _seed(database: AsyncDatabase) -> None:
                 TEAMS[1],
                 "Schule1",
                 "SBN",
-                kontakte=_kontakte(trainer=_seat(WILTRUDIS), ansprechperson=_seat(WILTRUDIS), trainer_ist_zugleich="ansprechperson"),
+                kontakte=_kontakte(trainer=_seat(WILTRUDIS), ansprechperson=_seat(WILTRUDIS), trainer_is_also="ansprechperson"),
             ),
             # A withdrawn team's seat: its consent stands, so it stays the person's to withdraw.
             saison_team_document(ACTIVE, TEAMS[2], "Schule2", "SCN", austritt=dict(AUSTRITT), kontakte=_kontakte(trainer=_seat(WILTRUDIS))),
-            saison_team_document(ACTIVE, TEAMS[4], "Schule4", "SEN", kontakte=_kontakte(trainer=_seat(WILTRUDIS, bestaetigt_am=None))),
+            saison_team_document(ACTIVE, TEAMS[4], "Schule4", "SEN", kontakte=_kontakte(trainer=_seat(WILTRUDIS, confirmed_at=None))),
         ]
     )
     await database[Collection.BEWERBUNGEN].insert_many(
         [
-            _bewerbung(BEWERBUNG_PENDING, status="eingereicht", kontakte=_kontakte(stellvertretung=_seat(WILTRUDIS))),
-            _bewerbung(BEWERBUNG_DECIDED, status="angenommen", kontakte=_kontakte(trainer=_seat(WILTRUDIS))),
-            _bewerbung(BEWERBUNG_UNANSWERED, status="eingereicht", kontakte=_kontakte(trainer=_seat(WILTRUDIS, bestaetigt_am=None))),
+            _bewerbung(BEWERBUNG_PENDING, status="submitted", kontakte=_kontakte(stellvertretung=_seat(WILTRUDIS))),
+            _bewerbung(BEWERBUNG_DECIDED, status="accepted", kontakte=_kontakte(trainer=_seat(WILTRUDIS))),
+            _bewerbung(BEWERBUNG_UNANSWERED, status="submitted", kontakte=_kontakte(trainer=_seat(WILTRUDIS, confirmed_at=None))),
         ]
     )
     declined = _registrierung(REGISTRIERUNG_DECLINED, WILTRUDIS)
@@ -242,7 +242,7 @@ def _served(body: dict[str, Any]) -> set[tuple[str, str]]:
     return {
         *((("spieler", body["spieler"]["spieler_id"]),) if body["spieler"] is not None else ()),
         *(("schiedsrichter", entry["schiedsrichter_id"]) for entry in body["schiedsrichter"]),
-        *(("sitze", f"{entry['team_id']}/{entry['saison_id']}") for entry in body["sitze"]),
+        *(("sitze", f"{entry['team_id']}/{entry['saison_id']}") for entry in body["seats"]),
         *(("bewerbungen", entry["bewerbung_id"]) for entry in body["bewerbungen"]),
         *(("registrierungen", entry["registrierung_id"]) for entry in body["registrierungen"]),
     }
@@ -292,12 +292,12 @@ def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_rep
         "team_id": str(TEAMS[3]),
         "team_name": "Schule3",
         "saison_id": ACTIVE,
-        "bestaetigt_text_version": LAUFENDE_FASSUNGEN["bestaetigung_spieler"],
+        "confirmed_text_version": LAUFENDE_FASSUNGEN["bestaetigung_spieler"],
         "umfang": "kader_oeffentlich",
         "medien": True,
-        "mindestalter": REGISTRIERUNG_MIN_ALTER_JAHRE,
-        "medien_mindestalter": MEDIEN_MIN_AGE_YEARS,
-        "kontext": {"team": "Schule3", "schule": "Schule3-Schule", "saison": ACTIVE},
+        "minimum_age": REGISTRIERUNG_MIN_AGE_YEARS,
+        "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
+        "context": {"team": "Schule3", "schule": "Schule3-Schule", "saison": ACTIVE},
         "vorname": "Wiltrudis",
         "nachname": "Ehrenpreis",
         "geburtsdatum": "2008-05-09",

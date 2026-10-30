@@ -31,15 +31,15 @@ SPAN = {"saison_start": "2026-03-01", "saison_end": "2026-09-30"}
 
 # Every span in the containment class below is months long, so `saison_span_below_spielplan` passes.
 SAISON_RULES = FLSaisonRules(
-    number_of_groups=4,
-    teams_per_group=4,
-    qualifiers_per_group=2,
+    number_of_gruppen=4,
+    teams_per_gruppe=4,
+    qualifiers_per_gruppe=2,
     win_points=3,
     draw_points=1,
     tiebreak_order="tordifferenz",
     max_kadergroesse=18,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
-    erlaubte_stufen=["E1"],
+    allowed_stufen=["E1"],
 )
 
 # Fixed rather than generated: a failing squad-filter assertion points at the same value every run.
@@ -185,17 +185,17 @@ class TestASeasonIsLongEnoughForItsSchedule:
     def test_the_floor_follows_the_rules_rather_than_a_constant(self):
         """The same span is legal under one rules set and refused under a wider one; a hardcoded floor could not tell them apart."""
 
-        # `teams_per_group` alone differs from `SAISON_RULES`, which is the figure the floor turns on.
+        # `teams_per_gruppe` alone differs from `SAISON_RULES`, which is the figure the floor turns on.
         wider = FLSaisonRules(
-            number_of_groups=4,
-            teams_per_group=6,
-            qualifiers_per_group=2,
+            number_of_gruppen=4,
+            teams_per_gruppe=6,
+            qualifiers_per_gruppe=2,
             win_points=3,
             draw_points=1,
             tiebreak_order="tordifferenz",
             max_kadergroesse=18,
             forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
-            erlaubte_stufen=["E1"],
+            allowed_stufen=["E1"],
         )
 
         assert find_saison_span_refusal(start_date="2026-03-01", end_date="2026-03-06", rules=SAISON_RULES, spieltag_spans=[]) is None
@@ -288,11 +288,11 @@ class TestRetiringAVenueOrAReferee:
     def test_an_upcoming_fixture_refuses_it(self):
         """`retire_blocked`'s reasoning: retiring removes it from every picker while matches are scheduled against it."""
 
-        venue = find_venue_retire_refusal(upcoming_spiel_nrs=[3])
-        referee = find_referee_retire_refusal(upcoming_spiel_nrs=[3])
+        spielort = find_venue_retire_refusal(upcoming_spiel_nrs=[3])
+        schiedsrichter = find_referee_retire_refusal(upcoming_spiel_nrs=[3])
 
-        assert venue is not None and venue.error_code == Code.SPIELORT_STILL_BOOKED
-        assert referee is not None and referee.error_code == Code.SCHIEDSRICHTER_STILL_ASSIGNED
+        assert spielort is not None and spielort.error_code == Code.SPIELORT_STILL_BOOKED
+        assert schiedsrichter is not None and schiedsrichter.error_code == Code.SCHIEDSRICHTER_STILL_ASSIGNED
 
     def test_the_two_codes_are_distinct(self):
         """Different advice — move the fixture, against reassign it — so different codes."""
@@ -357,16 +357,16 @@ class TestASquadCap:
     def test_the_count_excludes_the_player_being_written(self):
         """What keeps the rule from over-reaching: an edit leaving `team_id` alone would otherwise be refused by the player's own place."""
 
-        squad_filter = build_live_squad_filter(saison_id="2026", team_id=TEAM_OID, excluding_spieler_id=SPIELER_OID)
+        kader_filter = build_live_squad_filter(saison_id="2026", team_id=TEAM_OID, excluding_spieler_id=SPIELER_OID)
 
-        assert squad_filter["spieler_id"] == {"$ne": SPIELER_OID}
+        assert kader_filter["spieler_id"] == {"$ne": SPIELER_OID}
 
     def test_the_count_is_scoped_to_one_team_in_one_season(self):
         """`max_kadergroesse` is a season's rule, so a club's squad in another season is a different squad."""
 
-        squad_filter = build_live_squad_filter(saison_id="2026", team_id=TEAM_OID, excluding_spieler_id=SPIELER_OID)
+        kader_filter = build_live_squad_filter(saison_id="2026", team_id=TEAM_OID, excluding_spieler_id=SPIELER_OID)
 
-        assert (squad_filter["saison_id"], squad_filter["team_id"]) == ("2026", TEAM_OID)
+        assert (kader_filter["saison_id"], kader_filter["team_id"]) == ("2026", TEAM_OID)
 
     def test_the_club_question_stays_out_of_this_one(self):
         """Two functions rather than two clauses.

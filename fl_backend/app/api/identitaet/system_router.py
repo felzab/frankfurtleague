@@ -13,29 +13,29 @@ from app.api.berechtigungen.crud import verwaltung_of
 from app.api.identitaet.crud import faellige_seite, find_anmeldung, find_subjekt, loeschen_if_still_due, saison_statuses, unreferenced_of
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.schemas import (
-    FLAnmeldungResponse,
+    FLErasureSweepResponse,
     FLLoeschung,
     FLLoeschungSweepParams,
-    FLLoeschungSweepResponse,
-    FLReferenzenPayload,
-    FLReferenzenResponse,
-    FLSubjektPayload,
-    FLSubjektResponse,
+    FLReferencesPayload,
+    FLReferencesResponse,
+    FLSignInResponse,
+    FLSubjectPayload,
+    FLSubjectResponse,
 )
 from app.api.identitaet.services import abgeschlossene_saison_id
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, hash_gesperrt
 from app.core.codes import Code
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.dependencies import (
-    AdresswechselCollection,
-    AktionenCollection,
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenAntraegeCollection,
-    BerechtigungenCollection,
+    ActionLogCollection,
+    AddressChangeCollection,
     BewerbungenCollection,
     DBClient,
-    EinladungenCollection,
-    PostausgangCollection,
+    GrantsAnnouncedCollection,
+    GrantsApprovalRequestsCollection,
+    GrantsCollection,
+    InvitationsCollection,
+    OutboxCollection,
     RegistrierungenCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
@@ -57,22 +57,22 @@ from app.shared.folding import sign_in_identifier
 # System tier and the system actor: the key is held by the frontend process alone, which is exactly
 # who may ask which records a mailbox matches, and no session stands behind the caller.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/identitaet",
+    prefix=f"/api/v{API_VERSION}/identity",
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
 
 @router.post(
-    "/subjekt",
-    response_model=FLSubjektResponse,
+    "/subject",
+    response_model=FLSubjectResponse,
     summary="Say which league records one mailbox holds",
 )
-async def get_subjekt(
-    subjekt_data: Annotated[FLSubjektPayload, Body()],
+async def get_subject(
+    subjekt_data: Annotated[FLSubjectPayload, Body()],
     records: SubjektLookup,
     sperrliste: SperrlisteLookup,
-    berechtigungen_collection: BerechtigungenCollection,
-) -> FLSubjektResponse:
+    berechtigungen_collection: GrantsCollection,
+) -> FLSubjectResponse:
     """Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its ban and its grant.
 
     The address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with three empty lists rather
@@ -94,59 +94,59 @@ async def get_subjekt(
     )
     verwaltung, berechtigt_seit, inhaber_seit = (None, None, None) if grant is None else grant
 
-    return FLSubjektResponse(
-        **subjekt.model_dump(), gesperrt=gesperrt, verwaltung=verwaltung, berechtigt_seit=berechtigt_seit, inhaber_seit=inhaber_seit
+    return FLSubjectResponse(
+        **subjekt.model_dump(), barred=gesperrt, verwaltung=verwaltung, granted_since=berechtigt_seit, inhaber_seit=inhaber_seit
     )
 
 
 @router.post(
-    "/anmeldung",
-    response_model=FLAnmeldungResponse,
+    "/sign_in",
+    response_model=FLSignInResponse,
     summary="Say whether one mailbox may be offered a sign-in",
 )
-async def get_anmeldung(
-    anmeldung_data: Annotated[FLSubjektPayload, Body()],
+async def get_sign_in(
+    anmeldung_data: Annotated[FLSubjectPayload, Body()],
     records: SubjektLookup,
     sperrliste: SperrlisteLookup,
-    berechtigungen_collection: BerechtigungenCollection,
-) -> FLAnmeldungResponse:
+    berechtigungen_collection: GrantsCollection,
+) -> FLSignInResponse:
     """Answer what the sign-in gate decides on for one mailbox: two flags, its ban and its grant's tier, and never a record.
 
     The address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with both flags false.
     """
 
-    # Keyed as `get_subjekt` keys, for its reason.
+    # Keyed as `get_subject` keys, for its reason.
     identifier = sign_in_identifier(str(anmeldung_data.email))
     ban_key = sperrliste.hash_of(str(anmeldung_data.email))
 
-    # Concurrently, for `get_subjekt`'s reason: a sign-in waits on this answer.
+    # Concurrently, for `get_subject`'s reason: a sign-in waits on this answer.
     anmeldung, gesperrt, grant = await asyncio.gather(
         find_anmeldung(identifier, records),
         hash_gesperrt(sperrliste, ban_key),
         verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier),
     )
 
-    return FLAnmeldungResponse(**anmeldung.model_dump(), gesperrt=gesperrt, verwaltung=None if grant is None else grant[0])
+    return FLSignInResponse(**anmeldung.model_dump(), barred=gesperrt, verwaltung=None if grant is None else grant[0])
 
 
 @router.post(
-    "/referenzen",
-    response_model=FLReferenzenResponse,
+    "/references",
+    response_model=FLReferencesResponse,
     summary="Say which of these sign-in addresses no record references",
 )
-async def get_referenzen(
-    referenzen_data: Annotated[FLReferenzenPayload, Body()],
+async def get_references(
+    referenzen_data: Annotated[FLReferencesPayload, Body()],
     records: SubjektLookup,
-    berechtigungen_collection: BerechtigungenCollection,
-    adresswechsel_collection: AdresswechselCollection,
-) -> FLReferenzenResponse:
+    berechtigungen_collection: GrantsCollection,
+    adresswechsel_collection: AddressChangeCollection,
+) -> FLReferencesResponse:
     """Answer which of these sign-in addresses no league record references, each once and in the spelling it was asked in.
 
     The whole batch is refused while no live grant is an owner's, since such a database would call every address unreferenced.
     """
 
-    return FLReferenzenResponse(
-        unreferenziert=await unreferenced_of(
+    return FLReferencesResponse(
+        unreferenced=await unreferenced_of(
             referenzen_data.identifiers,
             records,
             berechtigungen_collection=berechtigungen_collection,
@@ -179,14 +179,14 @@ async def _loeschen_one(
     aktionen_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
     adresswechsel_collection: AsyncCollection,
     berechtigungen_antraege_collection: AsyncCollection,
     sperrliste: BanList,
     db: AsyncMongoClient,
-    schluessel: SecretStr,
+    key: SecretStr,
     stamp: str,
     now: datetime,
 ) -> FLLoeschung | None:
@@ -208,13 +208,13 @@ async def _loeschen_one(
             aktionen_collection=aktionen_collection,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
             adresswechsel_collection=adresswechsel_collection,
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
             sperrliste=sperrliste,
-            schluessel=schluessel,
+            key=key,
             stamp=stamp,
             now=now,
             session=session,
@@ -225,11 +225,11 @@ async def _loeschen_one(
 
 
 @router.post(
-    "/loeschung/sweep",
-    response_model=FLLoeschungSweepResponse,
+    "/erasure/sweep",
+    response_model=FLErasureSweepResponse,
     summary="Delete one share of the pupils the season-after rule makes due",
 )
-async def sweep_loeschung(
+async def sweep_erasure(
     params: Annotated[FLLoeschungSweepParams, Query()],
     saisons_collection: SaisonsCollection,
     spieler_collection: SpielerCollection,
@@ -241,30 +241,30 @@ async def sweep_loeschung(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
     registrierungen_collection: RegistrierungenCollection,
-    aktionen_collection: AktionenCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
-    einladungen_collection: EinladungenCollection,
+    aktionen_collection: ActionLogCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    outbox_collection: OutboxCollection,
+    einladungen_collection: InvitationsCollection,
     sperrliste_collection: SperrlisteCollection,
-    adresswechsel_collection: AdresswechselCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    adresswechsel_collection: AddressChangeCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
-) -> FLLoeschungSweepResponse:
+) -> FLErasureSweepResponse:
     """
     Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.
 
     The rule, read from the seasons' stored statuses at each call: a pupil is due once they hold no squad row, live or retired,
-    in the latest `past` season, in any season with a greater id or in the running one, and no registration still `eingereicht`
-    at their address, compared as the sign-in folds it. While no season is `past` nobody is due, and `abgeschlossene_saison_id`
+    in the latest `past` season, in any season with a greater id or in the running one, and no registration still `submitted`
+    at their address, compared as the sign-in folds it. While no season is `past` nobody is due, and `completed_saison_id`
     is null. A pupil holding no address is never due: nothing else erases by a name.
 
     Each pupil is deleted in a transaction of their own, which first judges them again: one who has gained a squad row or a
     pending registration since this call read them, the two committing before that transaction writes included, or whom another
-    call deleted first, is counted `uebersprungen` and left standing. A squad entry or a registration meeting that transaction's
+    call deleted first, is counted `skipped` and left standing. A squad entry or a registration meeting that transaction's
     writes waits for it to end: the entry then finds nobody, and the registration is stored for a pupil already gone.
     Two calls at once therefore delete each pupil once. Deleted are
     the pupil's own data alone: the pupil record, every squad row it holds and every registration at the address, a declined
@@ -275,9 +275,9 @@ async def sweep_loeschung(
     **A pass is a run of calls, each handing the next the `nach` the last answered**, the first naming none; it ends at the call
     answering `nach` null. A call reaches at most a fixed share of the due pupils after `nach`, in `_id` order, and the pass
     holds no state on the server. A pupil whose deletion fails, the database refusing it or anything else, is counted
-    `fehlgeschlagen`, logged by id and passed, so a failing record holds back nobody behind it in the pass; it stays due, and
+    `failed`, logged by id and passed, so a failing record holds back nobody behind it in the pass; it stays due, and
     the next pass tries it again. Where the request's deadline cuts the call, it stops at that pupil, warns once, and answers
-    what it did; the rest stay due, and the pass goes on from the next call. `verbleibend` counts the pupils due after the
+    what it did; the rest stay due, and the pass goes on from the next call. `remaining` counts the pupils due after the
     call, those it failed or passed over among them, so it is no stopping condition. No body: the call takes no season and no
     limit.
 
@@ -323,14 +323,14 @@ async def sweep_loeschung(
                 aktionen_collection=aktionen_collection,
                 berechtigungen_collection=berechtigungen_collection,
                 berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-                postausgang_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 einladungen_collection=einladungen_collection,
                 sperrliste_collection=sperrliste_collection,
                 adresswechsel_collection=adresswechsel_collection,
                 berechtigungen_antraege_collection=berechtigungen_antraege_collection,
                 sperrliste=sperrliste,
                 db=db,
-                schluessel=config.sperrliste_schluessel,
+                key=config.sperrliste_key,
                 stamp=stamp,
                 now=germany_now,
             )
@@ -343,7 +343,7 @@ async def sweep_loeschung(
                 ungewiss = failure.has_error_label(UNKNOWN_COMMIT_RESULT)
                 # Below the handler's ERROR: no record is at fault, and every later pupil would fail the same way.
                 fl_logger.warning(
-                    "identitaet.loeschung_cut",
+                    "identity.erasure_cut",
                     extra={
                         "error_code": Code.UNKNOWN_OUTCOME if ungewiss else Code.DATABASE_FAILED,
                         "spieler_id": str(row["_id"]),
@@ -355,7 +355,7 @@ async def sweep_loeschung(
 
             # The id and what locates the failure, never a value: a line naming the pupil would outlive the erasure it reports.
             code, diagnosis = diagnosis_of(failure)
-            fl_logger.error("identitaet.loeschung_failed", extra={"error_code": code, "spieler_id": str(row["_id"]), "diagnosis": diagnosis})
+            fl_logger.error("identity.erasure_failed", extra={"error_code": code, "spieler_id": str(row["_id"]), "diagnosis": diagnosis})
             fehlgeschlagen += 1
             continue
 
@@ -372,13 +372,13 @@ async def sweep_loeschung(
         saison_spieler += geloeschte.saison_spieler
         registrierungen += geloeschte.registrierungen
 
-    return FLLoeschungSweepResponse(
-        abgeschlossene_saison_id=abgeschlossene_saison_id(statuses),
+    return FLErasureSweepResponse(
+        completed_saison_id=abgeschlossene_saison_id(statuses),
         spieler=spieler,
         saison_spieler=saison_spieler,
         registrierungen=registrierungen,
-        uebersprungen=uebersprungen,
-        fehlgeschlagen=fehlgeschlagen,
-        verbleibend=anzahl - geloescht - uebersprungen,
+        skipped=uebersprungen,
+        failed=fehlgeschlagen,
+        remaining=anzahl - geloescht - uebersprungen,
         nach=erreicht if abgebrochen or len(seite) > LOESCHUNGEN_PER_PASS else None,
     )

@@ -10,7 +10,7 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
-from app.api.identitaet.schemas import FLLoeschungResponse
+from app.api.identitaet.schemas import FLErasureResponse
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.schiedsrichter.admin_router import (
     delete_schiedsrichter,
@@ -50,14 +50,14 @@ from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
 from app.shared.tokens import hash_token
-from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list
 from tests.config import ADMINISTRATORS
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import eigene_einwilligung_document, rules_document, saison_document, spiel_document
-from tests.loeschung import geloescht
+from tests.documents import own_einwilligung_document, rules_document, saison_document, spiel_document
+from tests.erasure import erased
+from tests.outbox import MAIL_NOW
 from tests.payloads import spiel_patch_body
-from tests.postausgang import MAIL_NOW
+from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 from .adresswechsel_harness import answer as answer_the_change
@@ -120,7 +120,7 @@ TOKEN_HASHES = {oid: hash_token(f"raw-token-for-{oid}") for oid in REFEREE_NAMES
 NAME_INDEX = next(index for index in UNIQUE_INDEXES if index.collection == Collection.SCHIEDSRICHTER)
 
 # Read off the declaration rather than typed here, so renaming the index fails at its one source.
-TARGET_INDEX = next(index for index in SUPPORT_INDEXES if index.collection == Collection.AKTIONEN and "document_id" in dict(index.keys))
+TARGET_INDEX = next(index for index in SUPPORT_INDEXES if index.collection == Collection.ACTION_LOG and "document_id" in dict(index.keys))
 
 
 # Two fixtures for the erased referee, so a repoint stopping at the first row fails, and one for the
@@ -163,8 +163,8 @@ def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
         "inactive_since": None,
         # Seeded because the erasure adds no `$set` for any of the three: a row carrying none of
         # them would let a nulling write pass every case below.
-        "bestaetigung": {**compose_bestaetigung(today=MINTED_ON), "token_hashes": [TOKEN_HASHES[schiedsrichter_id]]},
-        "einwilligung": eigene_einwilligung_document(text_version="v1", bestaetigt_am=MINTED_ON, medien=True),
+        "confirmation": {**compose_bestaetigung(today=MINTED_ON), "token_hashes": [TOKEN_HASHES[schiedsrichter_id]]},
+        "einwilligung": own_einwilligung_document(text_version="v1", confirmed_at=MINTED_ON, medien=True),
         "geburtsdatum": GEBURTSDATUM,
     }
 
@@ -276,7 +276,7 @@ class TestTheRetirementKeepsTheDayItAlreadyCarries:
 # `find_booking_refusal` judges.
 A_FIXTURE_HELD_BY_THE_OTHER_REFEREE: dict[str, Any] = fixture_document(OTHER_SCHIEDSRICHTER_OID, ARCHIVED_SPIEL_OID, 9)
 
-THE_GHOST = BookedReferee(name=None, inactive_since=GHOST_INACTIVE_SINCE, bestaetigt=False)
+THE_GHOST = BookedReferee(name=None, inactive_since=GHOST_INACTIVE_SINCE, confirmed=False)
 
 
 def booking_refusal(booked: BookedReferee, schiedsrichter_id: ObjectId):
@@ -339,7 +339,7 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
@@ -392,17 +392,17 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
 
 async def loeschen_the_referee(
     database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId = SCHIEDSRICHTER_OID
-) -> FLLoeschungResponse:
+) -> FLErasureResponse:
     """The registry's erasure of the address the referee's history left them holding: the erasure is keyed on a mailbox, never on an id."""
 
-    return await geloescht(database, client, KONTAKT[schiedsrichter_id]["email"], germany_now=NOW)
+    return await erased(database, client, KONTAKT[schiedsrichter_id]["email"], germany_now=NOW)
 
 
 async def call_reactivation(database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId) -> Any:
     return await reactivate_schiedsrichter(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
@@ -434,7 +434,7 @@ async def a_validator_refusing_the_redaction(database: AsyncDatabase) -> None:
 
     await database.command(
         "collMod",
-        Collection.AKTIONEN.value,
+        Collection.ACTION_LOG.value,
         validator={"$jsonSchema": {"bsonType": "object", "properties": {"redacted_at": {"bsonType": "null"}}}},
         validationLevel="strict",
     )
@@ -458,7 +458,7 @@ async def log_rows_naming(database: AsyncDatabase, schiedsrichter_id: ObjectId) 
     A wrong filter in the endpoint cannot then make these assertions agree with it.
     """
 
-    rows = database[Collection.AKTIONEN].find({"collection": str(Collection.SCHIEDSRICHTER), "document_id": schiedsrichter_id})
+    rows = database[Collection.ACTION_LOG].find({"collection": str(Collection.SCHIEDSRICHTER), "document_id": schiedsrichter_id})
 
     return await rows.to_list(length=None)
 
@@ -485,7 +485,7 @@ def after_loeschen(url: str) -> tuple[dict[Any, Mapping[str, Any]], list[Mapping
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await loeschen_the_referee(database, client)
-        log = await database[Collection.AKTIONEN].find().sort("_id", 1).to_list(length=None)
+        log = await database[Collection.ACTION_LOG].find().sort("_id", 1).to_list(length=None)
 
         return await stored_referees(database), log
 
@@ -580,11 +580,11 @@ def test_the_single_read_answers_for_neither_the_geloescht_referee_nor_the_ghost
                 await get_schiedsrichter_by_id(
                     schiedsrichter_id=schiedsrichter_id,
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-                    adresswechsel_collection=database[Collection.ADRESSWECHSEL],
+                    adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
                     today=TODAY,
-                    berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                    berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-                    postausgang_collection=database[Collection.POSTAUSGANG],
+                    berechtigungen_collection=database[Collection.GRANTS],
+                    berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+                    outbox_collection=database[Collection.OUTBOX],
                     operator=ADMINISTRATORS[0],
                     auth_time=int(time.time()),
                 )
@@ -625,7 +625,7 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
                     ),
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                     spiele_collection=database[Collection.SPIELE],
-                    postausgang_collection=database[Collection.POSTAUSGANG],
+                    outbox_collection=database[Collection.OUTBOX],
                     sperrliste=ban_list(database),
                     db=client,
                     today=TODAY,
@@ -830,7 +830,7 @@ def test_the_removal_files_no_image_of_the_person(mongo_replica_set_url: str):
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         seeded = {row["_id"] for row in await log_rows_naming(database, SCHIEDSRICHTER_OID)}
         await loeschen_the_referee(database, client)
-        rows = database[Collection.AKTIONEN].find({"collection": str(Collection.SCHIEDSRICHTER), "operation": "erase_many"})
+        rows = database[Collection.ACTION_LOG].find({"collection": str(Collection.SCHIEDSRICHTER), "operation": "erase_many"})
 
         return seeded, await rows.to_list(length=None)
 
@@ -840,7 +840,7 @@ def test_the_removal_files_no_image_of_the_person(mongo_replica_set_url: str):
     assert len(removals) == 1, f"the erasure filed no removal row of its own: {removals}"
     assert removals[0]["before"] is None
     # The log stores a filter's values as TEXT, which is why the erasure's filter may name ids alone
-    # (`app/core/crud.py :: loeschen_many_from_db`).
+    # (`app/core/crud.py :: erase_many_from_db`).
     assert removals[0]["db_filter"] == {"_id": str(SCHIEDSRICHTER_OID)}
 
 
@@ -885,7 +885,7 @@ def test_no_value_of_theirs_survives_anywhere_in_the_log(mongo_replica_set_url: 
 async def fixture_log_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     """Every log row naming ONE fixture, the repoint's own row excluded: that one carries a count and names no document."""
 
-    rows = database[Collection.AKTIONEN].find({"collection": str(Collection.SPIELE), "document_id": {"$ne": None}})
+    rows = database[Collection.ACTION_LOG].find({"collection": str(Collection.SPIELE), "document_id": {"$ne": None}})
 
     return await rows.to_list(length=None)
 
@@ -974,7 +974,7 @@ def test_every_image_in_the_array_a_removal_files_is_repointed_too(mongo_replica
             await delete_many_from_db(collection=database[Collection.SPIELE], db_filter={"_id": {"$in": list(removed)}}, session=session)
         await loeschen_the_referee(database, client)
 
-        rows = database[Collection.AKTIONEN].find({"collection": str(Collection.SPIELE), "operation": "delete_many"})
+        rows = database[Collection.ACTION_LOG].find({"collection": str(Collection.SPIELE), "operation": "delete_many"})
 
         return await rows.to_list(length=None)
 
@@ -1038,13 +1038,13 @@ def test_the_redaction_writes_no_row_of_its_own(mongo_replica_set_url: str):
     """
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        before_count = await database[Collection.AKTIONEN].count_documents({})
+        before_count = await database[Collection.ACTION_LOG].count_documents({})
         await loeschen_the_referee(database, client)
 
         return (
             before_count,
-            await database[Collection.AKTIONEN].count_documents({}),
-            await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.AKTIONEN)}),
+            await database[Collection.ACTION_LOG].count_documents({}),
+            await database[Collection.ACTION_LOG].count_documents({"collection": str(Collection.ACTION_LOG)}),
         )
 
     before_count, after_count, self_recorded = on_a_league(mongo_replica_set_url, body)
@@ -1063,7 +1063,7 @@ def test_the_redaction_filter_reads_the_target_index(mongo_replica_set_url: str)
         plan = await database.command(
             "explain",
             {
-                "find": Collection.AKTIONEN.value,
+                "find": Collection.ACTION_LOG.value,
                 "filter": build_redaction_filter([(Collection.SCHIEDSRICHTER, [SCHIEDSRICHTER_OID])]),
             },
             verbosity="queryPlanner",

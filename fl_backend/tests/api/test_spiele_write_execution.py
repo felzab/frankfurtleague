@@ -111,7 +111,7 @@ def junction(team_id: ObjectId) -> dict[str, Any]:
 def saison_document() -> dict[str, Any]:
     """`rules` is all this path reads a season for: the points and the tiebreak decide the placings `bracket_season` resolves."""
 
-    rules = documents.rules_document(win_points=3, draw_points=1, qualifiers_per_group=2, tiebreak_order="tordifferenz")
+    rules = documents.rules_document(win_points=3, draw_points=1, qualifiers_per_gruppe=2, tiebreak_order="tordifferenz")
 
     return documents.saison_document(SAISON_ID, "active", rules=rules)
 
@@ -359,7 +359,7 @@ def referee_documents() -> list[dict[str, Any]]:
             "einwilligung": (
                 None
                 if schiedsrichter_id in (SCHIEDSRICHTER_UNBESTAETIGT, GHOST_SCHIEDSRICHTER_ID)
-                else documents.eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-01-20")
+                else documents.own_einwilligung_document(text_version="v1", confirmed_at="2026-01-20")
             ),
         }
         for schiedsrichter_id, (name, inactive_since) in REFEREES.items()
@@ -400,7 +400,7 @@ Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 # The save's own bookkeeping, which neither a pure model nor a preview carries: the count of writes it raises, and
 # whether it stamped an adoption.
-SAVE_ONLY = frozenset({"version", "bericht_uebernommen"})
+SAVE_ONLY = frozenset({"version", "bericht_adopted"})
 
 
 def but_its_bookkeeping(stored: Any) -> Any:
@@ -452,7 +452,7 @@ async def call_patch(
         spielorte_collection=database[Collection.SPIELORTE],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
-        uebernimmt_bericht=uebernimmt_bericht,
+        adopts_bericht=uebernimmt_bericht,
         now=ADOPTED_AT,
         dry_run=dry_run,
     )
@@ -1036,7 +1036,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
                 saved=saved,
                 # The action log is where a second `$set` would still show, once merging stopped it
                 # from failing: one released fixture is one row.
-                writes_against_the_held_fixture=await database[Collection.AKTIONEN].count_documents({"document_id": GRUPPE_HELD}),
+                writes_against_the_held_fixture=await database[Collection.ACTION_LOG].count_documents({"document_id": GRUPPE_HELD}),
             )
 
         run = on_a_seeded_season(
@@ -1404,12 +1404,12 @@ class TestOnlyALandedSaveStamps:
 
         assert spiele_after[VIERTELFINALE_NR]["ergebnis"] == "3:1"
         stamped = after[VIERTELFINALE]
-        assert (stamped["uebernommene_version"], stamped["version"], stamped["uebernommen_von"]) == (
+        assert (stamped["adopted_version"], stamped["version"], stamped["adopted_by"]) == (
             SEEDED_VERSION,
             SEEDED_VERSION,
             {"art": "admin"},
         )
-        assert stamped["uebernommen_am"].replace(tzinfo=UTC) == ADOPTED_AT
+        assert stamped["adopted_at"].replace(tzinfo=UTC) == ADOPTED_AT
         assert after[HALBFINALE] == before[HALBFINALE], "a save stamped a report of a fixture it did not write"
 
     def test_a_save_leaving_the_fixture_as_stored_still_stamps(self, mongo_replica_set_url: str):
@@ -1429,7 +1429,7 @@ class TestOnlyALandedSaveStamps:
         assert but_its_bookkeeping(spiele_after[VIERTELFINALE_NR]) == but_its_bookkeeping(before[VIERTELFINALE_NR]), (
             "the premise: this save changes nothing on the fixture"
         )
-        assert after[VIERTELFINALE]["uebernommene_version"] == SEEDED_VERSION, "a save changing nothing on the fixture adopted nothing"
+        assert after[VIERTELFINALE]["adopted_version"] == SEEDED_VERSION, "a save changing nothing on the fixture adopted nothing"
 
     @pytest.mark.parametrize("dry_run", [pytest.param(False, id="refused-spiel_outside_spieltag"), pytest.param(True, id="dry-run")])
     def test_a_refused_save_and_a_preview_stamp_nothing(self, mongo_replica_set_url: str, dry_run: bool):

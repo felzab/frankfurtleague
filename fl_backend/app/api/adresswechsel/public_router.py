@@ -16,13 +16,13 @@ from app.api.adresswechsel.crud import (
     take_effect_in_session,
 )
 from app.api.adresswechsel.schemas import (
-    FLAdresswechselAnsichtBeendet,
-    FLAdresswechselAnsichtBisherig,
-    FLAdresswechselAnsichtNeu,
-    FLAdresswechselAnsichtResponse,
-    FLAdresswechselAntwortPayload,
-    FLAdresswechselAntwortResponse,
-    FLAdresswechselStoppResponse,
+    FLAddressChangeAntwortPayload,
+    FLAddressChangeAntwortResponse,
+    FLAddressChangeStopResponse,
+    FLAddressChangeViewEnded,
+    FLAddressChangeViewNew,
+    FLAddressChangeViewPrevious,
+    FLAddressChangeViewResponse,
 )
 from app.api.adresswechsel.services import (
     als_utc,
@@ -40,15 +40,15 @@ from app.api.sperrliste.lookup import SperrlisteLookup, sperrliste_saison
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
-    AdresswechselCollection,
-    AktionenCollection,
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenAntraegeCollection,
-    BerechtigungenCollection,
+    ActionLogCollection,
+    AddressChangeCollection,
     BewerbungenCollection,
     DBClient,
-    EinladungenCollection,
-    PostausgangCollection,
+    GrantsAnnouncedCollection,
+    GrantsApprovalRequestsCollection,
+    GrantsCollection,
+    InvitationsCollection,
+    OutboxCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
@@ -61,12 +61,12 @@ from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
-from app.shared.schemas.bestaetigung import FLTokenPayload
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 
 # The token is the whole credential, so these endpoints are base-tier and bind the public actor.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/adresswechsel/bestaetigung",
+    prefix=f"/api/v{API_VERSION}/address_change/confirmation",
     dependencies=[Depends(verify_access_base), Depends(bind_public_actor)],
 )
 
@@ -74,13 +74,13 @@ router = APIRouter(
 _FIELDS: Mapping[str, int] = {
     "adresse": 1,
     "email": 1,
-    "weg": 1,
-    "freigegeben_am": 1,
-    "gueltig_bis": 1,
-    "bestaetigt_am": 1,
-    "wirksam_ab": 1,
-    "genehmigung": 1,
-    "beendet": 1,
+    "way": 1,
+    "released_at": 1,
+    "valid_until": 1,
+    "confirmed_at": 1,
+    "effective_from": 1,
+    "approval": 1,
+    "ended": 1,
 }
 
 # Causes the press refuses for the replaced address's sake, which the view reads alike as unconfirmable.
@@ -88,31 +88,31 @@ _NICHT_BESTAETIGBAR = frozenset({"ersetzte_gesperrt", "vergeben", "nicht_gedeckt
 
 
 @router.post(
-    "/ansicht",
-    response_model=FLAdresswechselAnsichtResponse,
+    "/view",
+    response_model=FLAddressChangeViewResponse,
     summary="What one address link opens",
 )
-async def get_adresswechsel_ansicht(
+async def get_address_change_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],
-    adresswechsel_collection: AdresswechselCollection,
+    adresswechsel_collection: AddressChangeCollection,
     records: SubjektLookup,
     spieler_collection: SpielerCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     germany_now: datetime = Depends(get_germany_now),
-) -> FLAdresswechselAnsichtResponse:
+) -> FLAddressChangeViewResponse:
     """
     Answer what this token opens: the new mailbox's link, the stop link the address on file was mailed, or how either's change ended.
 
     **Nothing else about the change**: never a name, either address or the id. A POST that reads, so the token travels in
-    a body and never in a second URL. Refuses only a token no change holds (`link_ungueltig`); an ended change's
-    links answer `beendet` and how it ended for as long as its record is kept.
+    a body and never in a second URL. Refuses only a token no change holds (`link_invalid`); an ended change's
+    links answer `ended` and how it ended for as long as its record is kept.
 
-    The new mailbox's side is served in a state: once pressed, `bestaetigt`, or `genehmigung_abgelaufen` where its
-    approval week lapsed unapproved; else `gesperrt` wherever the ban list holds the address the link was mailed to, then
-    `abgelaufen`, then `nicht_bestaetigbar` wherever the press would be refused for the address on file's sake or would
+    The new mailbox's side is served in a state: once pressed, `confirmed`, or `approval_expired` where its
+    approval week lapsed unapproved; else `barred` wherever the ban list holds the address the link was mailed to, then
+    `abgelaufen`, then `not_confirmable` wherever the press would be refused for the address on file's sake or would
     find it holding nothing to move, each a state the confirmation is refused in. Those read alike here, though the press
     answers each by its own code; what keeps the link's holder from telling them apart is the edge, where
     `nginx/shared/site.conf` routes no public call to this service. The stop side answers the step the change waits on and
@@ -122,34 +122,34 @@ async def get_adresswechsel_ansicht(
     token_hash = hash_token(ansicht_data.token)
     # `find_one` rather than `pull_one_from_db`: a miss is this endpoint's own refusal, never a 404.
     record = await adresswechsel_collection.find_one({"token_hashes": token_hash}, projection=dict(_FIELDS))
-    seite: Literal["neu", "bisherig"] = "neu"
+    seite: Literal["new", "previous"] = "new"
     if record is None:
-        record = await adresswechsel_collection.find_one({"stopp.token_hashes": token_hash}, projection=dict(_FIELDS))
-        seite = "bisherig"
+        record = await adresswechsel_collection.find_one({"stop.token_hashes": token_hash}, projection=dict(_FIELDS))
+        seite = "previous"
     refuse(find_unbekannt_refusal(found=record is not None))
     assert record is not None
 
-    beendet = record.get("beendet")
+    beendet = record.get("ended")
     if isinstance(beendet, Mapping):
-        return FLAdresswechselAnsichtResponse(ansicht=FLAdresswechselAnsichtBeendet(seite=seite, zustand="beendet", art=beendet["art"]))
+        return FLAddressChangeViewResponse(view=FLAddressChangeViewEnded(seite=seite, state="ended", art=beendet["art"]))
 
-    gueltig_bis, wirksam_ab = als_utc(record.get("gueltig_bis")), als_utc(record.get("wirksam_ab"))
-    if seite == "bisherig":
-        return FLAdresswechselAnsichtResponse(
-            ansicht=FLAdresswechselAnsichtBisherig(
-                seite="bisherig", zustand=bisherig_zustand(record), gueltig_bis=gueltig_bis, wirksam_ab=wirksam_ab, weg=record["weg"]
+    gueltig_bis, wirksam_ab = als_utc(record.get("valid_until")), als_utc(record.get("effective_from"))
+    if seite == "previous":
+        return FLAddressChangeViewResponse(
+            view=FLAddressChangeViewPrevious(
+                seite="previous", state=bisherig_zustand(record), valid_until=gueltig_bis, effective_from=wirksam_ab, way=record["way"]
             )
         )
 
     gesperrt, nicht_bestaetigbar = False, False
-    if record.get("bestaetigt_am") is None:
+    if record.get("confirmed_at") is None:
         # Every judgement the press makes, read here too, so the page never offers a confirmation the press refuses.
         bestand = await read_the_bestand(
             str(record["adresse"]), records=records, berechtigungen_collection=berechtigungen_collection, session=None
         )
         urteil = await judge_the_effect_in_session(
             record=record,
-            bestand=bestand,
+            holdings=bestand,
             records=records,
             spieler_collection=spieler_collection,
             berechtigungen_collection=berechtigungen_collection,
@@ -166,35 +166,35 @@ async def get_adresswechsel_ansicht(
             session=None,
         )
         gesperrt = urteil.ursache == "neue_gesperrt"
-        # An address left holding nothing to move too: the press ends that change discarded and answers `adresswechsel_beendet`.
+        # An address left holding nothing to move too: the press ends that change discarded and answers `address_change_ended`.
         nicht_bestaetigbar = urteil.ursache in _NICHT_BESTAETIGBAR or urteil.leer
 
-    zustand = neu_zustand(record, now=germany_now, gesperrt=gesperrt, nicht_bestaetigbar=nicht_bestaetigbar)
+    zustand = neu_zustand(record, now=germany_now, barred=gesperrt, nicht_bestaetigbar=nicht_bestaetigbar)
 
-    return FLAdresswechselAnsichtResponse(
-        ansicht=FLAdresswechselAnsichtNeu(
-            seite="neu",
-            zustand=zustand,
-            gueltig_bis=gueltig_bis,
-            wirksam_ab=wirksam_ab,
-            weg=record["weg"],
+    return FLAddressChangeViewResponse(
+        view=FLAddressChangeViewNew(
+            seite="new",
+            state=zustand,
+            valid_until=gueltig_bis,
+            effective_from=wirksam_ab,
+            way=record["way"],
             # Only once confirmed, where the page says what the change waits on: before, it would tell whoever holds a
             # mistyped link that the account holds access to the administration.
-            genehmigung_offen=genehmigung_offen(record) if zustand == "bestaetigt" else None,
+            approval_open=genehmigung_offen(record) if zustand == "confirmed" else None,
         )
     )
 
 
 @router.post(
     "",
-    response_model=FLAdresswechselAntwortResponse,
+    response_model=FLAddressChangeAntwortResponse,
     summary="Confirm or decline a pending address",
-    # `uniq_spieler_email` and `uniq_berechtigung_adresse` are published by the duplicate-key trace and stay unreached: the
+    # `uniq_spieler_email` and `uniq_grant_adresse` are published by the duplicate-key trace and stay unreached: the
     # in-session reads of another pupil and of the new address's grant include every row either index holds.
 )
-async def post_adresswechsel_antwort(
-    antwort_data: Annotated[FLAdresswechselAntwortPayload, Body()],
-    adresswechsel_collection: AdresswechselCollection,
+async def post_address_change_antwort(
+    antwort_data: Annotated[FLAddressChangeAntwortPayload, Body()],
+    adresswechsel_collection: AddressChangeCollection,
     records: SubjektLookup,
     spieler_collection: SpielerCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
@@ -202,41 +202,41 @@ async def post_adresswechsel_antwort(
     bewerbungen_collection: BewerbungenCollection,
     registrierungen_collection: RegistrierungenCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
-    einladungen_collection: EinladungenCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    outbox_collection: OutboxCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
+    einladungen_collection: InvitationsCollection,
     sperrliste_collection: SperrlisteCollection,
     sperrliste: SperrlisteLookup,
-    aktionen_collection: AktionenCollection,
+    aktionen_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
-) -> FLAdresswechselAntwortResponse:
+) -> FLAddressChangeAntwortResponse:
     """
-    Record whether the mailbox this link was sent to is the person's: `bestaetigt` confirms it, `abgelehnt` ends the change.
+    Record whether the mailbox this link was sent to is the person's: `confirmed` confirms it, `declined` ends the change.
 
     **A confirmation moves the person, not a record.** Unless the change waits -- on a waiting time an administrator's
     start with a reason asked, or on another administrator's approval of the grant it moves -- it takes effect in this
     transaction: every pupil row, confirmed referee row, confirmed contact seat, registration and grant the address on
-    file holds moves to the new one, asking no consent and writing none, and `wirksam` says so; its completion notice is
+    file holds moves to the new one, asking no consent and writing none, and `effective` says so; its completion notice is
     owed in this transaction, and so is its sign-in account's carry. A change that waits is confirmed alone,
-    answering `wirksam_ab` or `genehmigung_offen`.
+    answering `effective_from` or `approval_open`.
     Either answer spends the link, which keeps answering what became of the change.
 
-    Refuses a token no change holds (`link_ungueltig`), a link already answered or a change ended
-    (`adresswechsel_beendet`), and, in the order the link's view ranks its states, a CONFIRMATION through a link mailed to
-    an address the ban list holds now (`link_gesperrt`), one past its deadline (`link_abgelaufen`), one whose change would replace an address
-    the ban list holds now (`adresswechsel_ersetzte_gesperrt`), so a barred person cannot move their records off the address the ban keys on,
-    one moving a pupil onto an address another pupil signs in on (`adresswechsel_vergeben`), one whose address came to hold a grant its approval
-    does not cover (`adresswechsel_nicht_gedeckt`), one moving a grant onto an address holding one (`adresswechsel_neue_berechtigt`), and one
-    whose new address any entry names, confirmed or not, an open grant request among them (`adresswechsel_belegt`): moving the person onto it
+    Refuses a token no change holds (`link_invalid`), a link already answered or a change ended
+    (`address_change_ended`), and, in the order the link's view ranks its states, a CONFIRMATION through a link mailed to
+    an address the ban list holds now (`link_barred`), one past its deadline (`link_expired`), one whose change would replace an address
+    the ban list holds now (`address_change_replaced_barred`), so a barred person cannot move their records off the address the ban keys on,
+    one moving a pupil onto an address another pupil signs in on (`address_change_taken`), one whose address came to hold a grant its approval
+    does not cover (`address_change_not_covered`), one moving a grant onto an address holding one (`address_change_new_granted`), and one
+    whose new address any entry names, confirmed or not, an open grant request among them (`address_change_occupied`): moving the person onto it
     would join two people's records. **A decline is refused none of these**: it removes an address nobody proved, out of every log image of the
     change too.
 
-    A change whose address has come to hold nothing to move ends discarded, and the press answers `adresswechsel_beendet`. The codes past
-    `link_gesperrt` tell a caller what the view's `nicht_bestaetigbar` keeps alike; only the edge keeps them from the link's holder.
+    A change whose address has come to hold nothing to move ends discarded, and the press answers `address_change_ended`. The codes past
+    `link_barred` tell a caller what the view's `not_confirmable` keeps alike; only the edge keeps them from the link's holder.
     """
 
     token_hash = hash_token(antwort_data.token)
@@ -246,21 +246,21 @@ async def post_adresswechsel_antwort(
     journal = Journal()
 
     @journal.attempted
-    async def answer_for_the_mailbox(session: AsyncClientSession) -> FLAdresswechselAntwortResponse | None:
+    async def answer_for_the_mailbox(session: AsyncClientSession) -> FLAddressChangeAntwortResponse | None:
         """Judge, then write, everything judged read in-session, so a second press is refused by the spent link rather than writing twice."""
 
         record = await adresswechsel_collection.find_one({"token_hashes": token_hash}, session=session)
         refuse(find_unbekannt_refusal(found=record is not None))
         assert record is not None
-        refuse(find_beendet_refusal(offen=record.get("beendet") is None and record.get("bestaetigt_am") is None))
+        refuse(find_beendet_refusal(offen=record.get("ended") is None and record.get("confirmed_at") is None))
         db_filter = {"_id": record["_id"], **build_open_link_terms(token_hash)}
 
-        if antwort_data.antwort == "abgelehnt":
+        if antwort_data.antwort == "declined":
             await end_the_change_in_session(
                 adresswechsel_collection=adresswechsel_collection,
                 aktionen_collection=aktionen_collection,
                 db_filter=db_filter,
-                art="abgelehnt",
+                art="declined",
                 now=germany_now,
                 stamp=stamp,
                 session=session,
@@ -271,10 +271,10 @@ async def post_adresswechsel_antwort(
                     neue=str(record["email"]),
                     record_id=record["_id"],
                     am=stamp,
-                    schluessel=config.sperrliste_schluessel,
+                    key=config.sperrliste_key,
                 )
             )
-            return FLAdresswechselAntwortResponse(antwort="abgelehnt", wirksam_ab=None, genehmigung_offen=False, wirksam=False)
+            return FLAddressChangeAntwortResponse(antwort="declined", effective_from=None, approval_open=False, effective=False)
 
         urteil, wirksam = await take_effect_in_session(
             record=record,
@@ -290,24 +290,24 @@ async def post_adresswechsel_antwort(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
             aktionen_collection=aktionen_collection,
-            schluessel=config.sperrliste_schluessel,
+            key=config.sperrliste_key,
             now=germany_now,
             journal=journal,
             session=session,
             mitteilen=False,
             abgelaufen=ist_abgelaufen(record, now=germany_now),
-            jetzt=record["weg"] != "wartezeit",
+            jetzt=record["way"] != "waiting_period",
         )
         refuse(refusal_of(urteil.ursache))
         if urteil.leer:
             return None
         if wirksam:
-            return FLAdresswechselAntwortResponse(antwort="bestaetigt", wirksam_ab=None, genehmigung_offen=False, wirksam=True)
+            return FLAddressChangeAntwortResponse(antwort="confirmed", effective_from=None, approval_open=False, effective=True)
 
         bestaetigt: Mapping[str, Any] = await patch_one_in_db(
             collection=adresswechsel_collection,
@@ -316,11 +316,11 @@ async def post_adresswechsel_antwort(
             session=session,
             return_document=ReturnDocument.AFTER,
         )
-        return FLAdresswechselAntwortResponse(
-            antwort="bestaetigt",
-            wirksam_ab=als_utc(bestaetigt.get("wirksam_ab")),
-            genehmigung_offen=genehmigung_offen(bestaetigt),
-            wirksam=False,
+        return FLAddressChangeAntwortResponse(
+            antwort="confirmed",
+            effective_from=als_utc(bestaetigt.get("effective_from")),
+            approval_open=genehmigung_offen(bestaetigt),
+            effective=False,
         )
 
     async with journal:
@@ -335,22 +335,22 @@ async def post_adresswechsel_antwort(
 
 
 @router.post(
-    "/stopp",
-    response_model=FLAdresswechselStoppResponse,
+    "/stop",
+    response_model=FLAddressChangeStopResponse,
     summary="Stop a pending address change",
 )
-async def post_adresswechsel_stopp(
+async def post_address_change_stop(
     stopp_data: Annotated[FLTokenPayload, Body()],
-    adresswechsel_collection: AdresswechselCollection,
-    aktionen_collection: AktionenCollection,
+    adresswechsel_collection: AddressChangeCollection,
+    aktionen_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
-) -> FLAdresswechselStoppResponse:
+) -> FLAddressChangeStopResponse:
     """
     Stop the change the address on file was told of: its new address goes, out of every log image of the change too.
 
-    **Refused nothing but a token no change holds** (`link_ungueltig`) **and a change ended** (`adresswechsel_beendet`): a stop
+    **Refused nothing but a token no change holds** (`link_invalid`) **and a change ended** (`address_change_ended`): a stop
     hands nothing over, so it answers past every deadline, a barred address's holder too, until the change ends.
     """
 
@@ -359,17 +359,17 @@ async def post_adresswechsel_stopp(
     journal = Journal()
 
     @journal.attempted
-    async def stop_the_change(session: AsyncClientSession) -> FLAdresswechselStoppResponse:
-        record = await adresswechsel_collection.find_one({"stopp.token_hashes": stopp_hash}, {"email": 1, "beendet": 1}, session=session)
+    async def stop_the_change(session: AsyncClientSession) -> FLAddressChangeStopResponse:
+        record = await adresswechsel_collection.find_one({"stop.token_hashes": stopp_hash}, {"email": 1, "ended": 1}, session=session)
         refuse(find_unbekannt_refusal(found=record is not None))
         assert record is not None
-        refuse(find_beendet_refusal(offen=record.get("beendet") is None))
+        refuse(find_beendet_refusal(offen=record.get("ended") is None))
 
         await end_the_change_in_session(
             adresswechsel_collection=adresswechsel_collection,
             aktionen_collection=aktionen_collection,
             db_filter={"_id": record["_id"]},
-            art="gestoppt",
+            art="stopped",
             now=germany_now,
             stamp=stamp,
             session=session,
@@ -380,11 +380,11 @@ async def post_adresswechsel_stopp(
                 neue=str(record["email"]),
                 record_id=record["_id"],
                 am=stamp,
-                schluessel=config.sperrliste_schluessel,
+                key=config.sperrliste_key,
             )
         )
 
-        return FLAdresswechselStoppResponse(gestoppt=True)
+        return FLAddressChangeStopResponse(stopped=True)
 
     async with journal:
         async with transaction_session(db) as session:

@@ -94,7 +94,7 @@ class TestTheKuerzelCheck:
         response = answered(seeded_url, f"{PREFIX}/kuerzel/{shorthand}")
 
         assert response.status_code == 200
-        assert response.json()["vergeben"] is vergeben
+        assert response.json()["taken"] is vergeben
 
     def test_the_answer_names_no_club(self, seeded_url: str):
         """A shape distinguishing a retired holder from a live one would publish which schools have left."""
@@ -102,15 +102,15 @@ class TestTheKuerzelCheck:
         name, shorthand, _ = RETIRED_CLUB
         body = answered(seeded_url, f"{PREFIX}/kuerzel/{shorthand}").json()
 
-        assert set(body) == {"shorthand", "vergeben"}
+        assert set(body) == {"shorthand", "taken"}
         assert name not in answered(seeded_url, f"{PREFIX}/kuerzel/{shorthand}").text
 
 
 # Every public route, bound once: a route added to one list alone would keep its reachability test
 # and silently lose its unauthorised-answer test.
 PUBLIC_PATHS = [
-    f"{PREFIX}/fenster",
-    f"{PREFIX}/fenster/{OPEN_SAISON}",
+    f"{PREFIX}/window",
+    f"{PREFIX}/window/{OPEN_SAISON}",
     f"{PREFIX}/schulen",
     f"{PREFIX}/kuerzel/ZEX",
     f"{PREFIX}/trikotfarben/{OPEN_SAISON}",

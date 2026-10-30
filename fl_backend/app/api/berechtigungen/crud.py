@@ -24,15 +24,15 @@ from app.api.berechtigungen.services import (
     inhaber_seit,
     stand_of,
 )
-from app.api.postausgang.schemas import FLBerechtigungDaten, FLPostausgangBezug
-from app.api.postausgang.services import OwedMail, enqueue_mails
+from app.api.outbox.schemas import FLGrantData, FLOutboxReference
+from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
     delete_many_from_db,
-    loeschen_many_from_db,
+    erase_many_from_db,
     patch_many_in_db,
     post_one_to_db,
 )
@@ -85,10 +85,10 @@ async def _grant_and_its_record_in(
         pipeline=[
             {"$match": {"adresse": adresse}},
             {"$limit": 1},
-            {"$project": {field: 1 for field in [*fields, "adresse", "erteilt_am", "gefunden_am", "gesehen_am"]}},
+            {"$project": {field: 1 for field in [*fields, "adresse", "granted_at", "gefunden_am", "gesehen_am"]}},
             {
                 "$lookup": {
-                    "from": Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
+                    "from": Collection.GRANTS_ANNOUNCED,
                     "localField": "_id",
                     "foreignField": "_id",
                     "pipeline": [{"$project": {"adresse": 1, "verwaltung": 1}}],
@@ -123,7 +123,7 @@ async def verwaltung_of(*, berechtigungen_collection: AsyncCollection, adresse: 
     """
 
     grant = await _grant_and_its_record(
-        berechtigungen_collection=berechtigungen_collection, adresse=adresse, fields=["verwaltung", "ernannt_am"]
+        berechtigungen_collection=berechtigungen_collection, adresse=adresse, fields=["verwaltung", "appointed_at"]
     )
     if grant is None:
         return None
@@ -164,26 +164,26 @@ async def live_unbarred_grant_since(
 
 
 # A grant's notice still to be handed out: the one shape a ban or an erasure rewrites, a sent one being past saying.
-OFFENE_MITTEILUNG: Final[Mapping[str, Any]] = {"stand": "offen", "art": "berechtigung"}
+OFFENE_MITTEILUNG: Final[Mapping[str, Any]] = {"stand": "open", "art": "grant"}
 
 
 async def owe_in_session(
     mitteilungen: Sequence[Mitteilung],
     *,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
     # A request's approvers, in place of every holder.
     an: Sequence[str] | None = None,
     # The request a decision settles its notice by.
-    bezug: FLPostausgangBezug | None = None,
+    reference: FLOutboxReference | None = None,
 ) -> None:
     """Owe each notice, in the caller's transaction, to every live holder and to each address it names, one row apiece.
 
     The holders are read after the caller's write, on its session, so a new grant's holder is among them and a removed one
-    is told through the notice's `vorher`. A barred recipient is stopped at the hand-out, not here
-    (`app/api/postausgang/system_router.py :: post_ausgabe`).
+    is told through the notice's `before`. A barred recipient is stopped at the hand-out, not here
+    (`app/api/outbox/system_router.py :: post_handout`).
     """
 
     if not mitteilungen:
@@ -195,37 +195,37 @@ async def owe_in_session(
 
     mails: list[OwedMail] = []
     for mitteilung in mitteilungen:
-        daten = FLBerechtigungDaten.model_validate(mitteilung.daten)
-        genannt = {stand.adresse for stand in (daten.jetzt, daten.vorher) if stand is not None and stand.adresse is not None}
+        daten = FLGrantData.model_validate(mitteilung.data)
+        genannt = {stand.adresse for stand in (daten.now, daten.before) if stand is not None and stand.adresse is not None}
         mails.extend(
             OwedMail(
                 # The write's own instant and the notice's origin keep two notices about one grant apart: a revoke owes
                 # a database edit's notice beside its own (`revoke_in_session`).
-                schluessel=f"berechtigung/{mitteilung.berechtigung_id}/{daten.aenderung}/{daten.urheber}/{now.isoformat()}/{adresse}",
+                key=f"grant/{mitteilung.grant_id}/{daten.change}/{daten.author}/{now.isoformat()}/{adresse}",
                 an=adresse,
-                daten=daten,
-                bezug=bezug,
+                data=daten,
+                reference=reference,
             )
             for adresse in sorted(set(an) if an is not None else holders | genannt)
         )
-    await enqueue_mails(postausgang_collection=postausgang_collection, session=session, mails=mails, now=now)
+    await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
 
 
-async def withhold_in_the_postausgang(*, postausgang_collection: AsyncCollection, adresse: str, session: AsyncClientSession) -> None:
+async def withhold_in_the_postausgang(*, outbox_collection: AsyncCollection, adresse: str, session: AsyncClientSession) -> None:
     """Every grant notice still owed naming this folded address, as a grant's address or as its actor, withheld in place."""
 
-    for site in ("jetzt", "vorher"):
+    for site in ("now", "before"):
         await patch_many_in_db(
-            collection=postausgang_collection,
-            db_filter={**OFFENE_MITTEILUNG, f"daten.{site}.adresse": adresse},
-            update={"$set": {f"daten.{site}.adresse": None, "daten.vorenthalten": "gesperrt"}},
+            collection=outbox_collection,
+            db_filter={**OFFENE_MITTEILUNG, f"data.{site}.adresse": adresse},
+            update={"$set": {f"data.{site}.adresse": None, "data.withheld": "barred"}},
             session=session,
         )
     await patch_many_in_db(
-        collection=postausgang_collection,
-        db_filter={**OFFENE_MITTEILUNG, "daten.geaendert_von": adresse},
+        collection=outbox_collection,
+        db_filter={**OFFENE_MITTEILUNG, "data.changed_by": adresse},
         # No reason: it is the grant address's, and a null actor on an application's change says it alone.
-        update={"$set": {"daten.geaendert_von": None}},
+        update={"$set": {"data.changed_by": None}},
         session=session,
     )
 
@@ -244,11 +244,11 @@ async def grant_in_session(
     *,
     adresse: str,
     verwaltung: str,
-    erteilt_von: str,
-    gesperrt: Set[str],
+    granted_by: str,
+    barred: Set[str],
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
     # A move's alone: the replaced row's since-whens (`app/api/berechtigungen/services.py :: compose_fortgefuehrt`).
@@ -263,8 +263,8 @@ async def grant_in_session(
         "adresse": adresse,
         "verwaltung": verwaltung,
         # The bound actor rather than a payload field, so the grant and its `aktionen` row name one person.
-        "erteilt_von": erteilt_von,
-        "erteilt_am": now,
+        "granted_by": granted_by,
+        "granted_at": now,
         # Seen as it is written, so a copy of it put back after a revoke reads as an edit rather
         # than a fresh paste.
         "gesehen_am": now,
@@ -275,22 +275,22 @@ async def grant_in_session(
     stand = stand_of(document)
     await post_one_to_db(
         collection=berechtigungen_angekuendigt_collection,
-        document=compose_announced(berechtigung_id=created.inserted_id, stand=stand, now=now),
+        document=compose_announced(grant_id=created.inserted_id, stand=stand, now=now),
         session=session,
     )
     await owe_in_session(
         [
             compose_mitteilung(
-                berechtigung_id=created.inserted_id,
-                art="erteilt",
+                grant_id=created.inserted_id,
+                art="granted",
                 jetzt=stand,
-                vorher=None,
-                geaendert_von=erteilt_von,
+                before=None,
+                changed_by=granted_by,
                 now=now,
-                gesperrt=gesperrt,
+                barred=barred,
             )
         ],
-        postausgang_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         berechtigungen_collection=berechtigungen_collection,
         now=now,
         session=session,
@@ -305,10 +305,10 @@ async def revoke_in_session(
     # The grant's own announced row, or none.
     announced: Sequence[Mapping[str, Any]],
     entzogen_von: str,
-    gesperrt: Set[str],
+    barred: Set[str],
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     now: datetime,
     session: AsyncClientSession,
 ) -> None:
@@ -318,29 +318,29 @@ async def revoke_in_session(
     """
 
     mitteilungen = [
-        compose_mitteilung(berechtigung_id=changed_id, art=art, jetzt=jetzt, vorher=vorher, geaendert_von=None, now=now, gesperrt=gesperrt)
+        compose_mitteilung(grant_id=changed_id, art=art, jetzt=jetzt, before=vorher, changed_by=None, now=now, barred=barred)
         for changed_id, art, jetzt, vorher in compare(grants=[grant], announced=announced)
     ]
     mitteilungen.append(
         compose_mitteilung(
-            berechtigung_id=grant["_id"],
-            art="entzogen",
+            grant_id=grant["_id"],
+            art="revoked",
             jetzt=None,
-            vorher=stand_of(grant),
-            geaendert_von=entzogen_von,
+            before=stand_of(grant),
+            changed_by=entzogen_von,
             now=now,
-            gesperrt=gesperrt,
+            barred=barred,
         )
     )
 
     await delete_many_from_db(collection=berechtigungen_collection, db_filter={"_id": grant["_id"]}, session=session)
     # The grant keeps its image, the administrator's act; its announced row is bookkeeping and keeps
     # none.
-    await loeschen_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": grant["_id"]}, session=session)
-    # After the removal, so the holders told are the ones who remain, and the revoked one through the notice's `vorher`.
+    await erase_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": grant["_id"]}, session=session)
+    # After the removal, so the holders told are the ones who remain, and the revoked one through the notice's `before`.
     await owe_in_session(
         mitteilungen,
-        postausgang_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         berechtigungen_collection=berechtigungen_collection,
         now=now,
         session=session,

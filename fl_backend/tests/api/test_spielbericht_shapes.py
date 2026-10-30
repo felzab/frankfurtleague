@@ -112,7 +112,7 @@ class TestOnlyANewCautionOwesItsReason:
     def test_a_caution_without_a_reason_is_refused_at_its_box(self, farbe: str):
         refusal = find_grund_fehlt_refusal(payload=mit_karten(karte("rot", None), karte(farbe, None)), gespeichert=None)
 
-        assert refused_with(Code.BERICHT_GRUND_FEHLT, refusal)
+        assert refused_with(Code.BERICHT_GRUND_MISSING, refusal)
         assert refusal is not None and refusal.fields == (("bericht", "karten"),)
 
     def test_a_red_card_may_stand_without_one(self):
@@ -134,14 +134,14 @@ class TestOnlyANewCautionOwesItsReason:
     def test_any_other_caution_is_refused(self, neu: dict[str, Any]):
         stripped = {"karten": [karte("gelb", None)]}
 
-        assert refused_with(Code.BERICHT_GRUND_FEHLT, find_grund_fehlt_refusal(payload=mit_karten(neu), gespeichert=stripped))
+        assert refused_with(Code.BERICHT_GRUND_MISSING, find_grund_fehlt_refusal(payload=mit_karten(neu), gespeichert=stripped))
 
     def test_each_stripped_card_excuses_one_caution(self):
         stripped = {"karten": [karte("gelb", None)]}
 
         refusal = find_grund_fehlt_refusal(payload=mit_karten(karte("gelb", None), karte("gelb", None, minute="80")), gespeichert=stripped)
 
-        assert refused_with(Code.BERICHT_GRUND_FEHLT, refusal)
+        assert refused_with(Code.BERICHT_GRUND_MISSING, refusal)
 
     def test_a_stored_caution_reads_without_one(self):
         """A season's end strips every card's reason, and the reads serve the report after it."""
@@ -207,7 +207,7 @@ class TestAReportFollowsTheMatchDay:
 
     @pytest.mark.parametrize("datum", [None, "2027-05-15"], ids=["undated", "tomorrow"])
     def test_an_undated_or_coming_fixture_is_refused(self, datum: str | None):
-        assert refused_with(Code.BERICHT_NICHT_GESPIELT, find_nicht_gespielt_refusal(datum=datum, today=TODAY))
+        assert refused_with(Code.BERICHT_NOT_PLAYED, find_nicht_gespielt_refusal(datum=datum, today=TODAY))
 
 
 class TestACalledOffFixtureTakesNoReport:
@@ -241,7 +241,7 @@ class TestANewlyNamedPupilIsInTheSquad:
 
         neu = neu_genannt(FLSpielberichtBerichtPayload.model_validate(payload(0, 1, [tor("team2", ObjectId())])), None, spiel())
 
-        assert refused_with(Code.BERICHT_NICHT_IM_KADER, find_nicht_im_kader_refusal(lage=lage(), neu=neu))
+        assert refused_with(Code.BERICHT_NOT_IN_KADER, find_nicht_im_kader_refusal(lage=lage(), neu=neu))
 
 
 # The clubs `spiel` fields, as the report's last write found them.
@@ -261,25 +261,25 @@ def gespielt(team1: int, team2: int, **fields: Any) -> dict[str, Any]:
     )
 
 
-ADOPTED = {"uebernommen_am": NOW, "uebernommen_von": {"art": "admin"}, "uebernommene_version": 1}
+ADOPTED = {"adopted_at": NOW, "adopted_by": {"art": "admin"}, "adopted_version": 1}
 
 
 class TestTheAdoptedStateIsDerivedFromThree:
     """The adoption, the block's version and the stored result; the 1:0 proposal of `bericht_document` throughout."""
 
     def test_adopted_unchanged_and_matching_reads_uebernommen(self):
-        assert bericht_zustand_of(gespeichert(**ADOPTED), gespielt(1, 0)) == "uebernommen"
+        assert bericht_zustand_of(gespeichert(**ADOPTED), gespielt(1, 0)) == "adopted"
 
     def test_a_scorer_corrected_after_the_adoption_reads_abweichend_though_the_goals_still_match(self):
         """The case the version exists for: a result-only comparison reads it adopted."""
 
-        assert bericht_zustand_of(gespeichert(**ADOPTED, version=2), gespielt(1, 0)) == "abweichend"
+        assert bericht_zustand_of(gespeichert(**ADOPTED, version=2), gespielt(1, 0)) == "differing"
 
     def test_the_sides_swapped_read_abweichend(self):
-        assert bericht_zustand_of(gespeichert(**ADOPTED), gespielt(0, 1)) == "abweichend"
+        assert bericht_zustand_of(gespeichert(**ADOPTED), gespielt(0, 1)) == "differing"
 
     def test_a_result_the_administrator_typed_without_adopting_reads_abweichend(self):
-        assert bericht_zustand_of(gespeichert(), gespielt(1, 0)) == "abweichend"
+        assert bericht_zustand_of(gespeichert(), gespielt(1, 0)) == "differing"
 
     def test_a_fixture_holding_no_result_reads_vorgeschlagen_however_it_was_stamped(self):
         assert bericht_zustand_of(gespeichert(), spiel()) == "vorgeschlagen"
@@ -289,8 +289,8 @@ class TestTheAdoptedStateIsDerivedFromThree:
         no_show = {"team1_tore": None, "team2_tore": None, "elfmeterschiessen": None, "sonderereignis": "nichtantreten_team2"}
         bericht = gespeichert(**ADOPTED, ergebnis_vorschlag=no_show, torschuetzen=[])
 
-        assert bericht_zustand_of(bericht, gespielt(3, 0, sonderereignis="nichtantreten_team2")) == "uebernommen"
-        assert bericht_zustand_of(bericht, gespielt(0, 3, sonderereignis="nichtantreten_team1")) == "abweichend"
+        assert bericht_zustand_of(bericht, gespielt(3, 0, sonderereignis="nichtantreten_team2")) == "adopted"
+        assert bericht_zustand_of(bericht, gespielt(0, 3, sonderereignis="nichtantreten_team1")) == "differing"
 
     @pytest.mark.parametrize("sonderereignis", ["ausgefallen", "annulliert"])
     def test_a_fixture_called_off_since_the_report_reads_abgesagt(self, sonderereignis: str):
@@ -314,22 +314,22 @@ class TestAReportAboutOtherClubsReadsItsOwnState:
 
         bericht = gespeichert(**ADOPTED, seiten={**SEITEN, seite: ObjectId()})
 
-        assert bericht_zustand_of(bericht, gespielt(1, 0)) == "teams_geaendert"
-        assert bericht_zustand_of(bericht, spiel()) == "teams_geaendert"
+        assert bericht_zustand_of(bericht, gespielt(1, 0)) == "teams_changed"
+        assert bericht_zustand_of(bericht, spiel()) == "teams_changed"
 
     def test_a_slot_filled_since_an_open_one_was_reported_reads_teams_geaendert(self):
-        assert bericht_zustand_of(gespeichert(seiten={**SEITEN, "team2": None}), spiel()) == "teams_geaendert"
+        assert bericht_zustand_of(gespeichert(seiten={**SEITEN, "team2": None}), spiel()) == "teams_changed"
 
     def test_a_fixture_called_off_reads_abgesagt_first(self):
         assert bericht_zustand_of(gespeichert(seiten={**SEITEN, "team1": ObjectId()}), spiel(sonderereignis="ausgefallen")) == "abgesagt"
 
     def test_both_forms_are_served_the_sides_that_moved(self):
-        """The referee's read carries no `zustand`, so this is what its form marks a moved side's entries by."""
+        """The referee's read carries no `state`, so this is what its form marks a moved side's entries by."""
 
         dokument = {"bericht": bericht_document(seiten={**SEITEN, "team2": ObjectId()})}
 
-        assert compose_ansicht(lage(), kader_offen=True, genannt=[], dokument=dokument)["seiten_geaendert"] == ["team2"]
-        assert compose_ansicht(lage(), kader_offen=True, genannt=[], dokument=None)["seiten_geaendert"] == []
+        assert compose_ansicht(lage(), kader_offen=True, named=[], dokument=dokument)["seiten_changed"] == ["team2"]
+        assert compose_ansicht(lage(), kader_offen=True, named=[], dokument=None)["seiten_changed"] == []
 
 
 def level(team1: int, team2: int, elfmeterschiessen: dict[str, int] | None) -> FLSpielberichtBericht:
@@ -343,22 +343,22 @@ class TestAShootOutIsComparedWhereTheFixtureKeepsOne:
     """`apply_payload_to_spiel` keeps a shoot-out on a level knockout and discards it everywhere else."""
 
     @pytest.mark.parametrize(
-        ("stored", "zustand"),
+        ("stored", "state"),
         [
-            pytest.param({"team1": 4, "team2": 3}, "uebernommen", id="the-same-shoot-out"),
-            pytest.param({"team1": 3, "team2": 4}, "abweichend", id="the-other-winner"),
-            pytest.param(None, "abweichend", id="saved-without-one"),
+            pytest.param({"team1": 4, "team2": 3}, "adopted", id="the-same-shoot-out"),
+            pytest.param({"team1": 3, "team2": 4}, "differing", id="the-other-winner"),
+            pytest.param(None, "differing", id="saved-without-one"),
         ],
     )
-    def test_a_level_knockout_matches_on_its_shoot_out(self, stored: dict[str, int] | None, zustand: str):
+    def test_a_level_knockout_matches_on_its_shoot_out(self, stored: dict[str, int] | None, state: str):
         fixture = gespielt(1, 1, saison_phase="achtelfinale", elfmeterschiessen=stored)
 
-        assert bericht_zustand_of(level(1, 1, {"team1": 4, "team2": 3}), fixture) == zustand
+        assert bericht_zustand_of(level(1, 1, {"team1": 4, "team2": 3}), fixture) == state
 
     def test_a_level_knockout_proposing_none_differs_from_one_saved_with_one(self):
         fixture = gespielt(1, 1, saison_phase="achtelfinale", elfmeterschiessen={"team1": 4, "team2": 3})
 
-        assert bericht_zustand_of(level(1, 1, None), fixture) == "abweichend"
+        assert bericht_zustand_of(level(1, 1, None), fixture) == "differing"
 
 
 class TestAGroupFixtureTakesNoShootOut:
@@ -379,7 +379,7 @@ class TestAGroupFixtureTakesNoShootOut:
             judge_bericht(lage=lage(), payload=vorschlag, gespeichert=None, neu=keine, today=TODAY)
         judge_bericht(lage=lage(saison_phase="achtelfinale"), payload=vorschlag, gespeichert=None, neu=keine, today=TODAY)
 
-        assert refused.value.error_code == Code.BERICHT_ELFMETER_IN_DER_GRUPPE
+        assert refused.value.error_code == Code.BERICHT_ELFMETER_IN_THE_GRUPPE
 
 
 class TestALaterWriteRaisesTheVersionAndKeepsTheAdoption:
@@ -391,9 +391,9 @@ class TestALaterWriteRaisesTheVersionAndKeepsTheAdoption:
             now=NOW,
         )
 
-        assert (block["version"], block["uebernommene_version"], block["eingereicht_am"], block["geaendert_am"]) == (1, None, NOW, NOW)
+        assert (block["version"], block["adopted_version"], block["submitted_at"], block["changed_at"]) == (1, None, NOW, NOW)
         assert block["seiten"] == SEITEN
-        assert block["eingereicht_von"] == {"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}
+        assert block["submitted_by"] == {"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER}
 
     def test_a_correction_touches_neither_who_first_wrote_it_nor_the_adoption(self):
         update = compose_bericht_update(
@@ -408,7 +408,7 @@ class TestALaterWriteRaisesTheVersionAndKeepsTheAdoption:
             "bericht.bemerkungen",
             # Re-stamped by every write, so a report the referee sends again about the clubs playing now reads adoptable.
             "bericht.seiten",
-            "bericht.geaendert_am",
+            "bericht.changed_at",
         }
         # Stored as ObjectIds, which every lookup by id matches.
         assert update["$set"]["bericht.torschuetzen"][0]["spieler_id"] == LIVE1

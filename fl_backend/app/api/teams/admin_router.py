@@ -17,12 +17,12 @@ from app.api.bewerbungen.services import seat_adressen, seat_named
 from app.api.einladungen.crud import einladung_bezug, owed_einladung_mails
 from app.api.einladungen.schemas import (
     FLEinladung,
-    FLEinladungMailPayload,
-    FLEinladungMailResponse,
-    FLEinladungMintResponse,
-    FLEinladungResponse,
-    FLEinladungWriteResponse,
-    FLEinladungZeile,
+    FLInvitationMailPayload,
+    FLInvitationMailResponse,
+    FLInvitationMintResponse,
+    FLInvitationResponse,
+    FLInvitationRow,
+    FLInvitationWriteResponse,
 )
 from app.api.einladungen.services import (
     WITHOUT_TOKEN_HASH,
@@ -36,8 +36,8 @@ from app.api.einladungen.services import (
 from app.api.einwilligung.services import find_fassung_refusal
 from app.api.kontakte.crud import clear_seats, redact_seats_in_documents
 from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, contact_block_image_edits, seated_people
-from app.api.postausgang.crud import lage_of, lagen_of
-from app.api.postausgang.services import OwedMail, enqueue_mails
+from app.api.outbox.crud import state_of, states_of
+from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.crud import has_started, pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
@@ -47,7 +47,7 @@ from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe, void_moved_seats
 from app.api.teams.schemas import (
-    FLKontaktEinladenResponse,
+    FLKontaktInviteResponse,
     FLKontaktMint,
     FLPatchSaisonTeamKontaktePayload,
     FLPatchSaisonTeamKontakteResponse,
@@ -111,14 +111,14 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
-    AdresswechselCollection,
-    AktionenCollection,
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenCollection,
+    ActionLogCollection,
+    AddressChangeCollection,
     BewerbungenCollection,
     DBClient,
-    EinladungenCollection,
-    PostausgangCollection,
+    GrantsAnnouncedCollection,
+    GrantsCollection,
+    InvitationsCollection,
+    OutboxCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
@@ -192,10 +192,10 @@ async def _rewrite_the_outgoing_clubs_sides(
 @router.get("/saisons", response_model=FLTeamsSaisonsResponse, summary="Every team with its season memberships")
 async def get_team_saisons(
     teams_collection: TeamsCollection,
-    adresswechsel_collection: AdresswechselCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
+    adresswechsel_collection: AddressChangeCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    outbox_collection: OutboxCollection,
     today: str = Depends(get_german_date_str),
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
@@ -205,7 +205,7 @@ async def get_team_saisons(
 
     `GET /teams` cannot answer it: that read is season-scoped with a strict junction join. Each membership names the live
     change of each seat's address, which the address tool shows, and per seat why the tool refuses that change this
-    administrator. Each seat's link names what became of the last mail carrying it, `zustellung` null where none was
+    administrator. Each seat's link names what became of the last mail carrying it, `delivery` null where none was
     ever owed.
     """
 
@@ -231,11 +231,11 @@ async def get_team_saisons(
         session=None,
     )
 
-    lagen = await lagen_of(postausgang_collection=postausgang_collection, sammlung=Collection.SAISON_TEAMS, ids=membership_row_ids(teams_raw))
+    lagen = await states_of(outbox_collection=outbox_collection, collection=Collection.SAISON_TEAMS, ids=membership_row_ids(teams_raw))
 
     return FLTeamsSaisonsResponse(
         teams=FLTeamWithMembershipsListAdapter.validate_python(
-            mit_adresswechseln(mit_linkstand(teams_raw, today=today, lagen=lagen), live=live, verwehrt=verwehrt)
+            mit_adresswechseln(mit_linkstand(teams_raw, today=today, lagen=lagen), live=live, denied=verwehrt)
         )
     )
 
@@ -283,7 +283,7 @@ async def get_teams_verwaltung(
 
     return FLTeamsGroupedResponse(
         gruppen=build_gruppen(teams=teams, spiele=spiele, rules=saison_rules),
-        qualifiers_per_group=saison_rules.qualifiers_per_group,
+        qualifiers_per_gruppe=saison_rules.qualifiers_per_gruppe,
     )
 
 
@@ -629,7 +629,7 @@ async def patch_saison_team_kontakte(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     actor: Annotated[SessionActor, Depends(verify_admin_actor)],
@@ -644,16 +644,16 @@ async def patch_saison_team_kontakte(
     beside the block, and a row whose block answers to another token is refused rather than
     overwritten, an erasure between the caller's read and this write being what moves it. A clearing,
     which nothing restores, is refused `confirmation_required` from a sign-in or confirmation older than
-    `STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `eingetragen_von` and
-    `bestaetigt_am` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed
+    `STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `entered_by` and
+    `confirmed_at` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed
     on is stored as the league's entry, unconfirmed.
 
     **Each person the save newly seats is owed a confirmation link**, mailed through the Postausgang in this write's own
-    transaction and named in `bestaetigungen` by the address it goes to, never by the link: one per person, covering
+    transaction and named in `confirmations` by the address it goes to, never by the link: one per person, covering
     both seats where the Trainer holds a second. A seat keeping its person keeps their link, and a seat emptied or
     handed on loses the one it held and its links on the team's open match confirmations, so the person who left it
     holds nothing live. A save newly seating an address the ban list holds is
-    refused `kontakt_sitz_gesperrt`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the
+    refused `kontakt_seat_barred`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the
     link is how its person learns of the entry, and it takes their Widerspruch alone. A save owing a link, emptying
     or handing on a seat, or voiding a link its person could still answer, is refused `confirmation_required` as the clearing
     is; a save doing none of these is not.
@@ -661,7 +661,7 @@ async def patch_saison_team_kontakte(
     **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
     or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
     person's own write grants one. Such a seat's label must be the application form's running one
-    (`fassung_unzulaessig`). A kept seat may name its stored label back, whichever page it is a version of, or the
+    (`wording_not_allowed`). A kept seat may name its stored label back, whichever page it is a version of, or the
     running one, and its record is carried either way.
     """
 
@@ -682,14 +682,14 @@ async def patch_saison_team_kontakte(
         stored = await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter=db_filter,
-            projection=["kontakte", "bestaetigungen", "name", "austritt"],
+            projection=["kontakte", "confirmations", "name", "austritt"],
             session=session,
         )
 
         refuse(find_kontakte_precondition_refusal(erwartet=payload["kontakte_stand"], stored=stored.get("kontakte")))
         # In session too: `gehalten` reads the stored person, whom an erasure or a handover may just have moved.
         gehalten = kontakte_fassungen_gehalten(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
-        refuse(find_fassung_refusal(seite="bewerbung", genannt=kontakte_fassungen_genannt(kontakte=payload["kontakte"]), gehalten=gehalten))
+        refuse(find_fassung_refusal(seite="bewerbung", named=kontakte_fassungen_genannt(kontakte=payload["kontakte"]), gehalten=gehalten))
 
         kontakte = compose_kontakte_herkunft(kontakte=payload["kontakte"], stored=stored.get("kontakte"))
 
@@ -706,7 +706,7 @@ async def patch_saison_team_kontakte(
         )
         # Refused, never stored unmailed: that person would learn nothing of the entry. A ban landing
         # after the save is the press's.
-        refuse(find_kontakt_sitz_gesperrt_refusal(gesperrt=bool(barred)))
+        refuse(find_kontakt_sitz_gesperrt_refusal(barred=bool(barred)))
 
         entry = compose_kontakt_bestaetigung(today=today)
         minted = {seat: entry for seats in owed for seat in seats}
@@ -728,13 +728,13 @@ async def patch_saison_team_kontakte(
                     seats=seats,
                     frist=entry["frist"],
                     zeile=zeile,
-                    schluessel=f"{Collection.SAISON_TEAMS}/{stored['_id']}/kontakt/{seats[0]}/{nonce}",
+                    key=f"{Collection.SAISON_TEAMS}/{stored['_id']}/kontakt/{seats[0]}/{nonce}",
                 )
                 for seats in owed
             ]
 
         bestaetigungen = compose_bestaetigungen_nach(
-            kontakte=kontakte, stored_kontakte=stored.get("kontakte"), stored_bestaetigungen=stored.get("bestaetigungen"), minted=minted
+            kontakte=kontakte, stored_kontakte=stored.get("kontakte"), stored_bestaetigungen=stored.get("confirmations"), minted=minted
         )
 
         # Judged on what this transaction mints and voids, which aborts with the refusal: a bearer link
@@ -742,8 +742,8 @@ async def patch_saison_team_kontakte(
         voids = voids_a_live_link(
             stored_kontakte=stored.get("kontakte"),
             kontakte=kontakte,
-            stored_bestaetigungen=stored.get("bestaetigungen"),
-            bestaetigungen=bestaetigungen,
+            stored_bestaetigungen=stored.get("confirmations"),
+            confirmations=bestaetigungen,
             today=today,
         )
         if links or voids:
@@ -755,7 +755,7 @@ async def patch_saison_team_kontakte(
             # The two paths, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
             # `trikot_farbe` belong to the junction PATCH, and a `$set` carrying them would reinstate
             # whatever this caller last read. The version the editor sent is the helper's to check.
-            update={"$set": {"kontakte": kontakte, "bestaetigungen": bestaetigungen}},
+            update={"$set": {"kontakte": kontakte, "confirmations": bestaetigungen}},
             expected_version=kontakte_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
@@ -766,14 +766,14 @@ async def patch_saison_team_kontakte(
             voids=[seat_void_of(saison_id=saison_id, team_id=team_id, stored_kontakte=stored.get("kontakte"), kontakte=kontakte)],
             session=session,
         )
-        await enqueue_mails(postausgang_collection=postausgang_collection, session=session, mails=[mail for mail, _ in links], now=germany_now)
+        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=[mail for mail, _ in links], now=germany_now)
 
         return FLPatchSaisonTeamKontakteResponse(
             saison_id=saison_id,
             team_id=team_id,
             # The AFTER image, not the payload: what the row holds is the claim this echo makes.
             kontakte=updated_raw["kontakte"],
-            bestaetigungen=[mint for _, mint in links],
+            confirmations=[mint for _, mint in links],
         )
 
     # `with_transaction`, not a bare `start_transaction`: the callback re-reads the block it judges,
@@ -798,7 +798,7 @@ async def replace_saison_team(
     spiele_collection: SpieleCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     bewerbungen_collection: BewerbungenCollection,
-    aktionen_collection: AktionenCollection,
+    aktionen_collection: ActionLogCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -894,7 +894,7 @@ async def replace_saison_team(
             # `austritt` cleared: left standing it marks the INCOMING club withdrawn to
             # `swap_fields_disqualified` and `_may_hold_a_platz`; the exit survives in the logged pre-image. The
             # colour, the contacts and their links leave with the OUTGOING school.
-            update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "bestaetigungen": None}},
+            update={"$set": {**incoming_side, "austritt": None, "trikot_farbe": None, "kontakte": None, "confirmations": None}},
             session=session,
             return_document=ReturnDocument.AFTER,
         )
@@ -951,7 +951,7 @@ async def replace_saison_team(
             name=updated_raw["name"],
             shorthand=updated_raw["shorthand"],
             fanned_out_to_spiele=fanned_out,
-            ausgetragene_squad_rows=ausgetragene_squad.modified_count,
+            ausgetragene_kader_rows=ausgetragene_squad.modified_count,
         )
 
     # One transaction over every write: a row handed over while its fixtures are not leaves the
@@ -962,23 +962,23 @@ async def replace_saison_team(
 
 
 @router.post(
-    f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte/{{seat}}/bestaetigung/einladen",
-    response_model=FLKontaktEinladenResponse,
+    f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte/{{seat}}/confirmation/invite",
+    response_model=FLKontaktInviteResponse,
     summary="Send one contact seat a fresh confirmation link",
     dependencies=[Depends(verify_step_up)],
 )
-async def einladen_kontakt(
+async def invite_kontakt(
     team_id: CustomRouteObjectId,
     saison_id: str,
     seat: str,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLKontaktEinladenResponse:
+) -> FLKontaktInviteResponse:
     """
     Owe one contact seat a fresh confirmation link, mailed through the Postausgang in this write's own transaction.
 
@@ -986,8 +986,8 @@ async def einladen_kontakt(
     the previous link stops opening anything from this write on, and the deadline restarts from today. The answer names
     the address the mail is owed to, never the link.
 
-    Refused where the season has ended or the team has left it (`kontakt_zeile_ohne_saison`), where the seat holds nobody or its
-    person has already confirmed it (`kontakt_sitz_ohne_bestaetigung`), and where its address is on the ban list (`kontakt_sitz_gesperrt`).
+    Refused where the season has ended or the team has left it (`kontakt_row_without_saison`), where the seat holds nobody or its
+    person has already confirmed it (`kontakt_seat_without_confirmation`), and where its address is on the ban list (`kontakt_seat_barred`).
     404 for a team and season holding no row, and for a path naming no seat. Every call owes a bearer link, so every call from a
     sign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused `confirmation_required`.
     """
@@ -1004,13 +1004,13 @@ async def einladen_kontakt(
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
-    async def judge_and_mint(session: AsyncClientSession) -> FLKontaktEinladenResponse:
+    async def judge_and_mint(session: AsyncClientSession) -> FLKontaktInviteResponse:
         """Judge the seat, ask the ban, then replace the link and owe its mail, everything judged read in-session for a retry to re-judge."""
 
         stored = await pull_one_from_db(
             collection=saison_teams_collection,
             db_filter=db_filter,
-            projection=["kontakte", "bestaetigungen", "name", "austritt"],
+            projection=["kontakte", "confirmations", "name", "austritt"],
             session=session,
         )
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["status"], session=session)
@@ -1024,7 +1024,7 @@ async def einladen_kontakt(
         gesperrt = await adressen_gesperrt(
             sperrliste, seat_adressen(kontakte=kontakte, seats=seats), massgebliche_saison_id=massgebliche_saison_id, session=session
         )
-        refuse(find_kontakt_sitz_gesperrt_refusal(gesperrt=bool(gesperrt)))
+        refuse(find_kontakt_sitz_gesperrt_refusal(barred=bool(gesperrt)))
 
         entry = compose_kontakt_bestaetigung(today=today)
         await patch_one_in_db(
@@ -1032,8 +1032,8 @@ async def einladen_kontakt(
             db_filter=db_filter,
             update={
                 "$set": {
-                    "bestaetigungen": compose_bestaetigungen_mit(
-                        stored_bestaetigungen=stored.get("bestaetigungen"), minted=dict.fromkeys(seats, entry)
+                    "confirmations": compose_bestaetigungen_mit(
+                        stored_bestaetigungen=stored.get("confirmations"), minted=dict.fromkeys(seats, entry)
                     )
                 }
             },
@@ -1049,45 +1049,45 @@ async def einladen_kontakt(
             seats=seats,
             frist=entry["frist"],
             zeile=kontakt_zeile_of(saison_status=saison_raw.get("status"), austritt=stored.get("austritt")),
-            schluessel=f"{Collection.SAISON_TEAMS}/{stored['_id']}/erneut/{seats[0]}/{nonce}",
+            key=f"{Collection.SAISON_TEAMS}/{stored['_id']}/resend/{seats[0]}/{nonce}",
         )
-        await enqueue_mails(postausgang_collection=postausgang_collection, session=session, mails=[mail], now=germany_now)
+        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=[mail], now=germany_now)
 
-        return FLKontaktEinladenResponse(saison_id=saison_id, team_id=team_id, bestaetigung=mint)
+        return FLKontaktInviteResponse(saison_id=saison_id, team_id=team_id, confirmation=mint)
 
     async with transaction_session(db) as session:
         return await session.with_transaction(judge_and_mint)
 
 
 @router.post(
-    f"{by_id('team_id')}/saisons/{{saison_id}}/einladung",
-    response_model=FLEinladungMintResponse,
+    f"{by_id('team_id')}/saisons/{{saison_id}}/invitation",
+    response_model=FLInvitationMintResponse,
     status_code=201,
     summary="Mint this team's registration link for a season",
 )
-async def post_einladung(
+async def post_invitation(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    einladungen_collection: EinladungenCollection,
+    einladungen_collection: InvitationsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
     actor: Annotated[SessionActor, Depends(verify_admin_actor)],
-    erstellt_von: str = Depends(get_actor_email),
+    created_by: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
-) -> FLEinladungMintResponse:
+) -> FLInvitationMintResponse:
     """
     Mint the link a team's players register through, revoking whatever link that team held for this season.
 
     **The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of
     this response is lost and the repair is another mint. Mailing the team's link is a separate press
-    (`POST /teams/{team_id}/saisons/{saison_id}/einladung/versand`), whose mails mint links of their own beside this one.
+    (`POST /teams/{team_id}/saisons/{saison_id}/invitation/dispatch`), whose mails mint links of their own beside this one.
 
     The reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left
     holding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh
     every time somebody opens it, so a window moved after the mint moves this link with it.
 
-    Refused where the season holds no junction row for this team (`einladung_team_nicht_eingetragen`) and where the season has ended
+    Refused where the season holds no junction row for this team (`invitation_team_not_entered`) and where the season has ended
     (`saison_past`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.
 
     **A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an
@@ -1130,41 +1130,41 @@ async def post_einladung(
             saison_id=saison_id,
             team_id=team_id,
             token_hashes=[token_hash],
-            erstellt_von=erstellt_von,
+            created_by=created_by,
             today=today,
         )
         post_operation = await post_one_to_db(collection=einladungen_collection, document=document, session=session)
 
         return post_operation.inserted_id
 
-    # One transaction over the revoke and the mint: `uniq_einladung_live` refuses the second live row
+    # One transaction over the revoke and the mint: `uniq_invitation_live` refuses the second live row
     # outright, so the two landing apart would leave the mint failing against the team's own old link.
     async with transaction_session(db) as session:
         einladung_id = await session.with_transaction(mint_the_link)
 
-    return FLEinladungMintResponse(
+    return FLInvitationMintResponse(
         saison_id=saison_id,
         team_id=team_id,
-        einladung_id=einladung_id,
+        invitation_id=einladung_id,
         token=raw_token,
-        erstellt_am=today,
-        erstellt_von=erstellt_von,
+        created_at=today,
+        created_by=created_by,
     )
 
 
 @router.delete(
-    f"{by_id('team_id')}/saisons/{{saison_id}}/einladung",
-    response_model=FLEinladungWriteResponse,
+    f"{by_id('team_id')}/saisons/{{saison_id}}/invitation",
+    response_model=FLInvitationWriteResponse,
     summary="Revoke this team's live registration link for a season",
     dependencies=[Depends(verify_step_up)],
 )
-async def delete_einladung(
+async def delete_invitation(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    einladungen_collection: EinladungenCollection,
+    einladungen_collection: InvitationsCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> FLEinladungWriteResponse:
+) -> FLInvitationWriteResponse:
     """
     Stamp this team's live registration link revoked, so it opens nothing from here on.
 
@@ -1186,43 +1186,43 @@ async def delete_einladung(
     async with transaction_session(db) as session:
         revoked = await session.with_transaction(revoke_the_link)
 
-    return FLEinladungWriteResponse(saison_id=saison_id, team_id=team_id, einladung_id=revoked["_id"])
+    return FLInvitationWriteResponse(saison_id=saison_id, team_id=team_id, invitation_id=revoked["_id"])
 
 
 @router.post(
-    f"{by_id('team_id')}/saisons/{{saison_id}}/einladung/versand",
-    response_model=FLEinladungMailResponse,
+    f"{by_id('team_id')}/saisons/{{saison_id}}/invitation/dispatch",
+    response_model=FLInvitationMailResponse,
     summary="Mail this team's live registration link to its confirmed contact seats",
     dependencies=[Depends(verify_step_up)],
 )
-async def post_einladung_versand(
+async def post_invitation_dispatch(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    mail_data: Annotated[FLEinladungMailPayload, Body()],
-    einladungen_collection: EinladungenCollection,
+    mail_data: Annotated[FLInvitationMailPayload, Body()],
+    einladungen_collection: InvitationsCollection,
     saison_teams_collection: SaisonTeamsCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLEinladungMailResponse:
+) -> FLInvitationMailResponse:
     """
     Owe this team's live registration link to every seat of its season row whose own person has confirmed it, one mail each.
 
     The write mints nothing and revokes nothing: each mail mints a link of its own when it is handed out, so a link copied off the mint
-    stays valid beside the mailed ones. `empfaenger` names who is owed it, one entry per stored address, and is empty where nobody has
+    stays valid beside the mailed ones. `recipient` names who is owed it, one entry per stored address, and is empty where nobody has
     confirmed a seat, which owes nothing. Pressed twice on one day, the second owes nothing again; a later day's press mails the seats
     afresh. A barred address is stopped when its mail is handed out.
 
-    404 where `einladung_id` is not this team's live invite for the season, a link replaced or withdrawn since the caller read it among
+    404 where `invitation_id` is not this team's live invite for the season, a link replaced or withdrawn since the caller read it among
     them, and where the season holds no row for the team.
     """
 
-    async def owe_the_link(session: AsyncClientSession) -> FLEinladungMailResponse:
+    async def owe_the_link(session: AsyncClientSession) -> FLInvitationMailResponse:
         # The live row the caller read, never another: the filter is the judgement, and a miss is the 404.
         await pull_one_from_db(
             collection=einladungen_collection,
-            db_filter={"_id": mail_data.einladung_id, **build_live_team_filter(saison_id=saison_id, team_id=team_id)},
+            db_filter={"_id": mail_data.invitation_id, **build_live_team_filter(saison_id=saison_id, team_id=team_id)},
             projection=["_id"],
             session=session,
         )
@@ -1234,46 +1234,46 @@ async def post_einladung_versand(
         )
         empfaenger = bestaetigte_empfaenger(kontakte=row.get("kontakte"))
         await enqueue_mails(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=owed_einladung_mails(
-                einladung_id=mail_data.einladung_id,
+                invitation_id=mail_data.invitation_id,
                 team_name=str(row["name"]),
                 saison_id=saison_id,
-                empfaenger=empfaenger,
+                recipient=empfaenger,
                 anlass=f"mail/{today}",
             ),
             now=germany_now,
         )
 
-        return FLEinladungMailResponse(einladung_id=mail_data.einladung_id, empfaenger=empfaenger)
+        return FLInvitationMailResponse(invitation_id=mail_data.invitation_id, recipient=empfaenger)
 
     async with transaction_session(db) as session:
         return await session.with_transaction(owe_the_link)
 
 
 @router.get(
-    f"{by_id('team_id')}/saisons/{{saison_id}}/einladung",
-    response_model=FLEinladungResponse,
+    f"{by_id('team_id')}/saisons/{{saison_id}}/invitation",
+    response_model=FLInvitationResponse,
     summary="This team's live registration link for a season, and whether it opens anything",
 )
-async def get_einladung(
+async def get_invitation(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    einladungen_collection: EinladungenCollection,
+    einladungen_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
-) -> FLEinladungResponse:
+) -> FLInvitationResponse:
     """
     What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.
 
     **No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became
-    of the last mail owed about it — `zustellung` null means nobody was ever owed it, which is a state rather than a delivery failure.
-    The minter is `null` beside `erstellt_von_gesperrt` where the ban list holds that address, as no barred address is served in plain.
+    of the last mail owed about it — `delivery` null means nobody was ever owed it, which is a state rather than a delivery failure.
+    The minter is `null` beside `created_by_barred` where the ban list holds that address, as no barred address is served in plain.
 
-    `laeuft` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of
+    `running` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of
     the link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.
     """
 
@@ -1291,17 +1291,15 @@ async def get_einladung(
     einladung = None
     if live:
         # As stored first, so a row the stored shape refuses fails here rather than being served withheld.
-        erstellt_von = FLEinladung.model_validate(live[0]).erstellt_von
+        erstellt_von = FLEinladung.model_validate(live[0]).created_by
         barred = await adressen_gesperrt(sperrliste, [sign_in_identifier(erstellt_von)])
         withheld = withheld_actor(erstellt_von, barred)
-        lage = await lage_of(postausgang_collection=postausgang_collection, bezug=einladung_bezug(live[0]["_id"]))
-        einladung = FLEinladungZeile.model_validate(
-            {**live[0], "erstellt_von": withheld, "erstellt_von_gesperrt": withheld is None, "zustellung": lage}
-        )
+        lage = await state_of(outbox_collection=outbox_collection, reference=einladung_bezug(live[0]["_id"]))
+        einladung = FLInvitationRow.model_validate({**live[0], "created_by": withheld, "created_by_barred": withheld is None, "delivery": lage})
 
-    return FLEinladungResponse(
+    return FLInvitationResponse(
         saison_id=saison_id,
         team_id=team_id,
-        einladung=einladung,
-        laeuft=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung"), today=today),
+        invitation=einladung,
+        running=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung"), today=today),
     )

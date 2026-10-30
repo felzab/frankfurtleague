@@ -7,7 +7,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.adresswechsel.crud import known_to_the_new_mailbox, others_naming
 from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, LoeschungJournal, loeschen_everything, resolve_subject
-from app.api.identitaet.schemas import FLKontoLoeschungAnsichtResponse, FLLoeschungResponse
+from app.api.identitaet.schemas import FLAccountErasureViewResponse, FLErasureResponse
 from app.api.identitaet.services import (
     build_season_team_pipeline,
     compose_loeschung_ansicht,
@@ -19,15 +19,15 @@ from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
-    AdresswechselCollection,
-    AktionenCollection,
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenAntraegeCollection,
-    BerechtigungenCollection,
+    ActionLogCollection,
+    AddressChangeCollection,
     BewerbungenCollection,
     DBClient,
-    EinladungenCollection,
-    PostausgangCollection,
+    GrantsAnnouncedCollection,
+    GrantsApprovalRequestsCollection,
+    GrantsCollection,
+    InvitationsCollection,
+    OutboxCollection,
     RegistrierungenCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
@@ -46,17 +46,17 @@ from app.core.transactions import transaction_session
 # `kontakt` bound, as the account page's router binds it: a person erases themselves holding no
 # Funktion at all, and the erasure's own log rows lose this actor to the marker before it commits.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/identitaet/konto",
+    prefix=f"/api/v{API_VERSION}/identity/account",
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["kontakt"])],
 )
 
 
 @router.post(
-    "/loeschung",
-    response_model=FLLoeschungResponse,
+    "/erasure",
+    response_model=FLErasureResponse,
     summary="Erase every record the signed-in address holds",
 )
-async def post_konto_loeschung(
+async def post_account_erasure(
     identifier: KontaktIdentifier,
     spieler_collection: SpielerCollection,
     saison_spieler_collection: SaisonSpielerCollection,
@@ -67,25 +67,25 @@ async def post_konto_loeschung(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
     registrierungen_collection: RegistrierungenCollection,
-    aktionen_collection: AktionenCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
-    einladungen_collection: EinladungenCollection,
+    aktionen_collection: ActionLogCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    outbox_collection: OutboxCollection,
+    einladungen_collection: InvitationsCollection,
     sperrliste_collection: SperrlisteCollection,
-    adresswechsel_collection: AdresswechselCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    adresswechsel_collection: AddressChangeCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     actor: Annotated[SessionActor, Depends(verify_person_actor)],
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
-) -> FLLoeschungResponse:
+) -> FLErasureResponse:
     """
     Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.
 
     PERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one
-    (`letzter_inhaber_loeschung`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest
+    (`last_owner_erasure`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest
     from a passkey sign-in `ENROLMENT_WINDOW_MINUTES` old at most, as a revoke asks, else `confirmation_required`. No other
     precondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still
     to be played included. Nothing is counted against the person's day.
@@ -111,7 +111,7 @@ async def post_konto_loeschung(
     touched here: deleting it is the caller's, once this has answered.
     """
 
-    async def loeschen_the_address(session: AsyncClientSession) -> FLLoeschungResponse:
+    async def loeschen_the_address(session: AsyncClientSession) -> FLErasureResponse:
         grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
         # A grant holder's grants go with the rest, so the erasure asks the passkey a revoke asks. A live
         # row is its own fold, so equality is the fold's judgement.
@@ -140,24 +140,22 @@ async def post_konto_loeschung(
             aktionen_collection=aktionen_collection,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
             adresswechsel_collection=adresswechsel_collection,
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
             sperrliste=sperrliste,
-            geaendert_von=identifier,
-            schluessel=config.sperrliste_schluessel,
+            changed_by=identifier,
+            key=config.sperrliste_key,
             stamp=log_stamp(germany_now),
             now=germany_now,
             session=session,
         )
 
-        return FLLoeschungResponse(**geloescht.model_dump())
+        return FLErasureResponse(**geloescht.model_dump())
 
-    journal = LoeschungJournal[FLLoeschungResponse](
-        identifier, schluessel=config.sperrliste_schluessel, berechtigungen_collection=berechtigungen_collection
-    )
+    journal = LoeschungJournal[FLErasureResponse](identifier, key=config.sperrliste_key, berechtigungen_collection=berechtigungen_collection)
     async with journal:
         async with transaction_session(db) as session:
             answer = journal.took(await session.with_transaction(loeschen_the_address))
@@ -166,24 +164,24 @@ async def post_konto_loeschung(
 
 
 @router.get(
-    "/loeschung/ansicht",
-    response_model=FLKontoLoeschungAnsichtResponse,
+    "/erasure/view",
+    response_model=FLAccountErasureViewResponse,
     summary="Show what an erasure of the signed-in address would remove",
 )
-async def get_konto_loeschung_ansicht(
+async def get_account_erasure_view(
     identifier: KontaktIdentifier,
     saison_teams_collection: SaisonTeamsCollection,
     bewerbungen_collection: BewerbungenCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     spieler_collection: SpielerCollection,
     registrierungen_collection: RegistrierungenCollection,
-    berechtigungen_collection: BerechtigungenCollection,
+    berechtigungen_collection: GrantsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
-) -> FLKontoLoeschungAnsichtResponse:
+) -> FLAccountErasureViewResponse:
     """
-    Answer what `POST /identitaet/konto/loeschung` would remove for the signed-in address, by kind and by name.
+    Answer what `POST /identity/account/erasure` would remove for the signed-in address, by kind and by name.
 
     Read through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure
     removes or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address
@@ -203,7 +201,7 @@ async def get_konto_loeschung_ansicht(
     grant ended, which every administrator is sent. `verwaltung` is the tier of the live grant the address holds, or
     null; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.
 
-    `letzter_inhaber` says whether the press would be refused `letzter_inhaber_loeschung` as the grants stand at this read: the address
+    `last_owner` says whether the press would be refused `last_owner_erasure` as the grants stand at this read: the address
     holds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;
     the press judges again, and its answer alone decides.
     """
@@ -218,7 +216,7 @@ async def get_konto_loeschung_ansicht(
             schiedsrichter_collection=schiedsrichter_collection,
             spieler_collection=spieler_collection,
             registrierungen_collection=registrierungen_collection,
-            schluessel=config.sperrliste_schluessel,
+            key=config.sperrliste_key,
             session=session,
         )
         # A registration holds its team's id alone, and the season row is what names the club that season.
@@ -254,6 +252,6 @@ async def get_konto_loeschung_ansicht(
         team_rows=team_rows,
     )
 
-    return FLKontoLoeschungAnsichtResponse(
-        **ansicht.model_dump(), verwaltung=None if own is None else own["verwaltung"], letzter_inhaber=letzter_inhaber
+    return FLAccountErasureViewResponse(
+        **ansicht.model_dump(), verwaltung=None if own is None else own["verwaltung"], last_owner=letzter_inhaber
     )

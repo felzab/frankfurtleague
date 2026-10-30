@@ -565,7 +565,7 @@ def test_the_snippet_counts_a_key_s_line_keeping_the_dotenv_shape_and_never_name
 KEY_OUTSIDE_THE_CLASS: Final = """printf 'DB_BASE_NAME=league\\n' > fl_backend/.env
 mkdir -p fl_backend/run-secrets
 printf 'mongodb://localhost:27017/?directConnection=true' > fl_backend/run-secrets/backend_mongodb_uri
-printf 'k%.0s' {1..64} > fl_backend/run-secrets/sperrliste_schluessel
+printf 'k%.0s' {1..64} > fl_backend/run-secrets/sperrliste_key
 printf '%s %s' "$(printf 'k%.0s' {1..10})" "$(printf 'k%.0s' {1..53})" > fl_backend/run-secrets/internal_api_key_base
 printf 'k%.0s' {1..64} > fl_backend/run-secrets/internal_api_key_system
 printf 'k%.0s' {1..64} > fl_backend/run-secrets/internal_api_key_admin
@@ -910,11 +910,11 @@ def test_the_boot_runs_the_image_s_own_command_as_the_service_told_which_deploym
 
 
 def test_settings_the_backend_refuses_stop_the_run_with_nothing_recreated() -> None:
-    code, output, fixture = _run(BOOT_CHECK, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS="Invalid environment variables: SPERRLISTE_SCHLUESSEL")
+    code, output, fixture = _run(BOOT_CHECK, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS="Invalid environment variables: SPERRLISTE_KEY")
     argv = fixture.argv.read_text(encoding="utf-8").splitlines()
 
     assert code == 2, output
-    assert "SPERRLISTE_SCHLUESSEL" in output, output
+    assert "SPERRLISTE_KEY" in output, output
     assert "NOTHING has been recreated." in output, output
     run = argv.index("run")
     assert argv[run : run + 7] == ["run", "--rm", "--no-deps", "-T", "backend", "python", "-c"], argv

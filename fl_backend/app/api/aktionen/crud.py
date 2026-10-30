@@ -22,7 +22,7 @@ from app.api.aktionen.services import (
 from app.api.kontakte.services import SEAT_IMAGE_COLLECTIONS, build_seat_images_filter, seat_address_carry_edits
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, patch_many_in_db
-from app.core.recording import GELOESCHT_ACTOR_MARKER, ImageEdits, build_image_redactions
+from app.core.recording import ERASED_ACTOR_MARKER, ImageEdits, build_image_redactions
 from app.shared.folding import sign_in_identifier
 
 
@@ -172,7 +172,7 @@ async def carry_the_replaced_address_in_images(
         addresses = tuple(
             address
             for address in IMAGE_ADDRESSES[collection]
-            if collection in EFFECT_IMAGE_COLLECTIONS or address.replacement == GELOESCHT_ACTOR_MARKER
+            if collection in EFFECT_IMAGE_COLLECTIONS or address.replacement == ERASED_ACTOR_MARKER
         )
         if addresses:
             judges.setdefault(str(collection), []).append(
@@ -186,7 +186,7 @@ async def carry_the_replaced_address_in_images(
     judges.setdefault(str(Collection.SCHIEDSRICHTER), []).append(partial(_referee_address_carry_edits, alt=alt, neue=neue, held=referees_held))
     clauses.append(build_address_images_filter(Collection.SCHIEDSRICHTER, alt))
 
-    # Each clause keyed on its `collection`, the half `aktionen_target` serves; unbounded, as `read_imaged_rows` reads.
+    # Each clause keyed on its `collection`, the half `action_log_target` serves; unbounded, as `read_imaged_rows` reads.
     rows = await aggregate_many_from_db(
         collection=aktionen_collection,
         pipeline=[{"$match": {"$or": clauses, "before": {"$ne": None}}}, {"$project": {"before": 1, "collection": 1}}],

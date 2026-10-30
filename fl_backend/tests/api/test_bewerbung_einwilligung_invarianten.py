@@ -5,9 +5,9 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from app.api.bewerbungen.schemas import (
-    FLBewerbungEinwilligungAbgelehnt,
     FLBewerbungEinwilligungAntwortPayload,
-    FLBewerbungEinwilligungErteilt,
+    FLBewerbungEinwilligungDeclined,
+    FLBewerbungEinwilligungGiven,
     age_outside_the_bounds,
 )
 from app.api.bewerbungen.services import (
@@ -21,13 +21,13 @@ from app.api.bewerbungen.services import (
 )
 from app.api.kontakte.services import build_clearing_update
 from app.core.codes import Code
-from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
 )
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
-from tests.documents import kontaktperson_document, minted_bestaetigungen
+from tests.documents import kontaktperson_document, minted_confirmations
 
 TODAY = "2026-04-01"
 
@@ -37,7 +37,7 @@ def written(update: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 class TestASlotAndItsBookkeepingMoveTogether:
-    """A null `kontakte` slot beside a live `bestaetigungen` entry is a seat the confirmation would `$set` under a null parent.
+    """A null `kontakte` slot beside a live `confirmations` entry is a seat the confirmation would `$set` under a null parent.
 
     Nothing else empties a slot, so these two composers are where that state would come from.
     """
@@ -48,15 +48,15 @@ class TestASlotAndItsBookkeepingMoveTogether:
 
         for seat in seats:
             assert update[f"kontakte.{seat}"] is None
-            assert update[f"bestaetigungen.{seat}.abgelehnt_am"] == TODAY
+            assert update[f"confirmations.{seat}.declined_at"] == TODAY
 
     @pytest.mark.parametrize("slots", [("trainer",), ("trainer", "ansprechperson"), KONTAKT_ROLLEN])
     def test_an_loeschung_over_an_application_nulls_the_entry_beside_every_slot(self, slots: tuple[str, ...]):
-        update = written(build_clearing_update(slots, bestaetigungen=True))
+        update = written(build_clearing_update(slots, confirmations=True))
 
         for slot in slots:
             assert update[f"kontakte.{slot}"] is None
-            assert update[f"bestaetigungen.{slot}"] is None
+            assert update[f"confirmations.{slot}"] is None
 
     def test_an_loeschung_finding_no_block_moves_no_bookkeeping(self):
         """The flag's other side: a junction row no link was minted for has no entry to null."""
@@ -72,7 +72,7 @@ TOMORROW = "2026-04-02"
 # Fixed rather than minted, so a case names the same hash every run; the raw values are never
 # needed here, only what the database would hold.
 HASHES: Mapping[str, str] = {seat: hash_token(f"raw-{seat}") for seat in KONTAKT_ROLLEN}
-BESTAETIGUNGEN: Mapping[str, Any] = minted_bestaetigungen(hashes=HASHES, today=TODAY)
+BESTAETIGUNGEN: Mapping[str, Any] = minted_confirmations(hashes=HASHES, today=TODAY)
 
 
 def kontakte(**overrides: Any) -> dict[str, Any]:
@@ -80,7 +80,7 @@ def kontakte(**overrides: Any) -> dict[str, Any]:
         "trainer": kontaktperson_document("Quillhilde"),
         "ansprechperson": kontaktperson_document("Ansgar"),
         "stellvertretung": kontaktperson_document("Stellan"),
-        "trainer_ist_zugleich": None,
+        "trainer_is_also": None,
         **overrides,
     }
 
@@ -89,80 +89,80 @@ def application(**overrides: Any) -> dict[str, Any]:
     """One stored application inside its deadline, every seat open, that each case moves one thing of."""
 
     return {
-        "status": "eingereicht",
+        "status": "submitted",
         "saison_id": "2026",
         "schule": {"team_name": "Zorbanax"},
         "team_id": None,
         "kontakte": kontakte(),
-        "bestaetigungsfrist": TOMORROW,
-        "bestaetigungen": minted_bestaetigungen(hashes=HASHES, today="2026-03-20"),
+        "confirmation_deadline": TOMORROW,
+        "confirmations": minted_confirmations(hashes=HASHES, today="2026-03-20"),
         **overrides,
     }
 
 
 class TestWhatAReopenedLinkShows:
-    """`zustand`: the ban outranks a stamp, which outranks a decline, which outranks the deadline, which outranks nothing."""
+    """`state`: the ban outranks a stamp, which outranks a decline, which outranks the deadline, which outranks nothing."""
 
     @pytest.mark.parametrize(
-        ("stored", "zustand"),
+        ("stored", "state"),
         [
-            pytest.param(application(), "gueltig", id="open, inside the deadline"),
+            pytest.param(application(), "valid", id="open, inside the deadline"),
             pytest.param(
-                application(kontakte=kontakte(trainer=kontaktperson_document("Quillhilde", bestaetigt_am=YESTERDAY))),
-                "bestaetigt",
+                application(kontakte=kontakte(trainer=kontaktperson_document("Quillhilde", confirmed_at=YESTERDAY))),
+                "confirmed",
                 id="confirmed",
             ),
             pytest.param(
                 application(
                     kontakte=kontakte(trainer=None),
-                    bestaetigungen={
-                        **minted_bestaetigungen(hashes=HASHES, today=TODAY),
-                        "trainer": {**minted_bestaetigungen(hashes=HASHES, today=TODAY)["trainer"], "abgelehnt_am": YESTERDAY},
+                    confirmations={
+                        **minted_confirmations(hashes=HASHES, today=TODAY),
+                        "trainer": {**minted_confirmations(hashes=HASHES, today=TODAY)["trainer"], "declined_at": YESTERDAY},
                     },
                 ),
-                "abgelehnt",
+                "declined",
                 id="declined",
             ),
-            pytest.param(application(bestaetigungsfrist=YESTERDAY), "abgelaufen", id="the deadline passed"),
-            pytest.param(application(status="abgelehnt"), "abgelaufen", id="decided by the triage while open"),
+            pytest.param(application(confirmation_deadline=YESTERDAY), "expired", id="the deadline passed"),
+            pytest.param(application(status="declined"), "expired", id="decided by the triage while open"),
             pytest.param(
-                application(status="angenommen", kontakte=kontakte(trainer=kontaktperson_document("Quillhilde", bestaetigt_am=YESTERDAY))),
-                "bestaetigt",
+                application(status="accepted", kontakte=kontakte(trainer=kontaktperson_document("Quillhilde", confirmed_at=YESTERDAY))),
+                "confirmed",
                 id="confirmed, then accepted",
             ),
         ],
     )
-    def test_each_state_reads_as_the_page_expects(self, stored: Mapping[str, Any], zustand: str):
-        assert zustand_of(bewerbung_raw=stored, seat="trainer", today=TODAY, gesperrt=False) == zustand
+    def test_each_state_reads_as_the_page_expects(self, stored: Mapping[str, Any], state: str):
+        assert zustand_of(bewerbung_raw=stored, seat="trainer", today=TODAY, barred=False) == state
         # Whatever became of the link, a barred person's page shows the ban and nothing else.
-        assert zustand_of(bewerbung_raw=stored, seat="trainer", today=TODAY, gesperrt=True) == "gesperrt"
+        assert zustand_of(bewerbung_raw=stored, seat="trainer", today=TODAY, barred=True) == "barred"
 
 
 class TestWhatALinkAnswers:
     def test_a_decided_application_past_its_deadline_is_spent_rather_than_owed_a_fresh_link(self):
         """The decision is judged before the deadline, so nobody is told a re-send would reopen what nothing undoes."""
 
-        refusal = find_expired_token_refusal(bestaetigungsfrist=YESTERDAY, status="angenommen", today=TODAY)
+        refusal = find_expired_token_refusal(confirmation_deadline=YESTERDAY, status="accepted", today=TODAY)
 
         assert refusal is not None
-        assert refusal.error_code == Code.LINK_ABGELAUFEN
+        assert refusal.error_code == Code.LINK_EXPIRED
 
     def test_a_closed_season_rows_link_to_an_emptied_seat_opens_nobody(self):
         """Told apart, the page would tell a guess that someone once sat there, and offer a press the single use refuses."""
 
-        assert seat_opens_nobody(slot=None, zustand="saison_vorbei") is True
+        assert seat_opens_nobody(slot=None, state="saison_past") is True
 
     def test_a_season_row_seat_an_administrator_filled_opens_the_season_rows_page(self):
         """The view and the answer agree on whatever this names, so a wrong page is consented to and stored with no refusal."""
 
-        row = {"kontakte": {"trainer": kontaktperson_document("Quillhilde", eingetragen_von="liga")}}
+        row = {"kontakte": {"trainer": kontaktperson_document("Quillhilde", entered_by="liga")}}
 
         assert saison_kontakt_seite(row=row, seat="trainer") == "bestaetigung_kontakt_saison"
 
     def test_a_person_reaching_the_seats_floor_today_may_confirm(self):
         """The floor to the day: a contact person sixteen today is inside it."""
 
-        assert age_outside_the_bounds(geburtsdatum="2010-04-01", today=TODAY, mindestalter=16) is False
+        assert age_outside_the_bounds(geburtsdatum="2010-04-01", today=TODAY, minimum_age=16) is False
 
 
 class TestTheSeatsStillOpen:
@@ -170,7 +170,7 @@ class TestTheSeatsStillOpen:
         assert ausstehende_seats(kontakte=kontakte()) == list(KONTAKT_ROLLEN)
 
     def test_a_confirmed_seat_leaves_the_list_and_the_order_stands(self):
-        assert ausstehende_seats(kontakte=kontakte(ansprechperson=kontaktperson_document("Ansgar", bestaetigt_am=TODAY))) == [
+        assert ausstehende_seats(kontakte=kontakte(ansprechperson=kontaktperson_document("Ansgar", confirmed_at=TODAY))) == [
             "trainer",
             "stellvertretung",
         ]
@@ -185,25 +185,25 @@ class TestThePairedSeat:
     """The double-seated Trainer: one click answers for the person, whichever of their two links they opened."""
 
     def test_no_pairing_where_the_form_named_none(self):
-        assert paired_seat(kontakte=kontakte(), bestaetigungen=BESTAETIGUNGEN, seat="trainer") is None
+        assert paired_seat(kontakte=kontakte(), confirmations=BESTAETIGUNGEN, seat="trainer") is None
 
     @pytest.mark.parametrize("zugleich", ["ansprechperson", "stellvertretung"])
     def test_the_pairing_reads_in_both_directions(self, zugleich: str):
-        block = kontakte(trainer_ist_zugleich=zugleich)
+        block = kontakte(trainer_is_also=zugleich)
 
-        assert paired_seat(kontakte=block, bestaetigungen=BESTAETIGUNGEN, seat="trainer") == zugleich
-        assert paired_seat(kontakte=block, bestaetigungen=BESTAETIGUNGEN, seat=zugleich) == "trainer"
+        assert paired_seat(kontakte=block, confirmations=BESTAETIGUNGEN, seat="trainer") == zugleich
+        assert paired_seat(kontakte=block, confirmations=BESTAETIGUNGEN, seat=zugleich) == "trainer"
 
     def test_the_third_seat_is_nobodys_pair(self):
-        block = kontakte(trainer_ist_zugleich="ansprechperson")
+        block = kontakte(trainer_is_also="ansprechperson")
 
-        assert paired_seat(kontakte=block, bestaetigungen=BESTAETIGUNGEN, seat="stellvertretung") is None
+        assert paired_seat(kontakte=block, confirmations=BESTAETIGUNGEN, seat="stellvertretung") is None
 
 
 def antwort(**overrides: Any) -> dict[str, Any]:
     return {
         "token": "raw-trainer",
-        "antwort": "erteilt",
+        "antwort": "given",
         "geburtsdatum": "1984-05-09",
         "whatsapp": False,
         "medien": False,
@@ -212,7 +212,7 @@ def antwort(**overrides: Any) -> dict[str, Any]:
     }
 
 
-ANTWORT: TypeAdapter[FLBewerbungEinwilligungErteilt | FLBewerbungEinwilligungAbgelehnt] = TypeAdapter(FLBewerbungEinwilligungAntwortPayload)
+ANTWORT: TypeAdapter[FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined] = TypeAdapter(FLBewerbungEinwilligungAntwortPayload)
 
 
 def refusals(body: dict[str, Any]) -> list[tuple[tuple[Any, ...], str]]:
@@ -226,33 +226,31 @@ class TestWhatTheAnswerPayloadRefuses:
     """The answer's two shapes, told apart by `antwort`: each refusal is 422, at the tag and the field it names."""
 
     def test_the_corpus_this_class_moves_one_field_of_is_valid(self):
-        assert isinstance(ANTWORT.validate_python(antwort()), FLBewerbungEinwilligungErteilt)
-        assert isinstance(ANTWORT.validate_python({"token": "raw-trainer", "antwort": "abgelehnt"}), FLBewerbungEinwilligungAbgelehnt)
+        assert isinstance(ANTWORT.validate_python(antwort()), FLBewerbungEinwilligungGiven)
+        assert isinstance(ANTWORT.validate_python({"token": "raw-trainer", "antwort": "declined"}), FLBewerbungEinwilligungDeclined)
 
     def test_a_consent_without_a_date_is_refused(self):
         body = antwort()
         del body["geburtsdatum"]
 
-        assert refusals(body) == [(("erteilt", "geburtsdatum"), "missing")]
+        assert refusals(body) == [(("given", "geburtsdatum"), "missing")]
 
     @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "medien", "text_version"])
     def test_a_decline_carries_nothing_of_the_person(self, field: str):
         """A decline empties the slot: a date or a choice sent with one would be a value nothing writes, echoed back as stored."""
 
-        assert refusals({"token": "raw-trainer", "antwort": "abgelehnt", field: antwort()[field]}) == [
-            (("abgelehnt", field), "extra_forbidden")
-        ]
+        assert refusals({"token": "raw-trainer", "antwort": "declined", field: antwort()[field]}) == [(("declined", field), "extra_forbidden")]
 
     @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "medien", "text_version", "antwort"])
     def test_every_field_is_required(self, field: str, assert_rejects):
         body = antwort()
         del body[field]
 
-        assert_rejects(FLBewerbungEinwilligungErteilt, body, field)
+        assert_rejects(FLBewerbungEinwilligungGiven, body, field)
 
-    @pytest.mark.parametrize("model", [FLTokenPayload, FLBewerbungEinwilligungErteilt])
+    @pytest.mark.parametrize("model", [FLTokenPayload, FLBewerbungEinwilligungGiven])
     def test_a_token_past_the_bound_is_refused_and_one_at_it_taken(self, model: type, assert_rejects):
-        body = antwort() if model is FLBewerbungEinwilligungErteilt else {"token": ""}
+        body = antwort() if model is FLBewerbungEinwilligungGiven else {"token": ""}
 
         assert_rejects(model, {**body, "token": "t" * (BEWERBUNG_TOKEN_MAX_LENGTH + 1)}, "token")
         assert model.model_validate({**body, "token": "t" * BEWERBUNG_TOKEN_MAX_LENGTH}).token == "t" * BEWERBUNG_TOKEN_MAX_LENGTH

@@ -5,7 +5,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.crud import redact_images_in_session
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungTermin
+from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAppointment
 from app.api.spielbestaetigungen.services import (
     ADMIN_FIELDS,
     ANSETZUNG_QUELLEN,
@@ -28,7 +28,7 @@ from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
-    loeschen_many_from_db,
+    erase_many_from_db,
     patch_many_in_db,
     pull_many_from_db,
     redact_log_rows_in_db,
@@ -89,7 +89,7 @@ async def pull_ansetzung_lage(
 
 async def pull_vorschlag_offen(
     *, spielbestaetigungen_collection: AsyncCollection, spielbestaetigung_raw: Mapping[str, Any]
-) -> FLSpielbestaetigungTermin | None:
+) -> FLSpielbestaetigungAppointment | None:
     """The other club's proposal about this same Ansetzung while its decline stands open, its date and hour alone.
 
     Open, because a discarded proposal is in front of nobody.
@@ -99,17 +99,17 @@ async def pull_vorschlag_offen(
         {
             "saison_id": spielbestaetigung_raw["saison_id"],
             "spiel_id": spielbestaetigung_raw["spiel_id"],
-            "partei.art": "team",
-            "partei.team_id": {"$ne": spielbestaetigung_raw["partei"]["team_id"]},
+            "party.art": "team",
+            "party.team_id": {"$ne": spielbestaetigung_raw["party"]["team_id"]},
             "ansetzung.stand": spielbestaetigung_raw["ansetzung"]["stand"],
-            "antwort.art": "abgelehnt",
-            "geschlossen": None,
+            "antwort.art": "declined",
+            "closed": None,
         },
         projection={"antwort.vorschlag": 1},
     )
     vorschlag = ((other or {}).get("antwort") or {}).get("vorschlag")
 
-    return FLSpielbestaetigungTermin.model_validate(vorschlag) if isinstance(vorschlag, Mapping) else None
+    return FLSpielbestaetigungAppointment.model_validate(vorschlag) if isinstance(vorschlag, Mapping) else None
 
 
 # --- The ADMINISTRATOR's read.
@@ -146,12 +146,12 @@ async def pull_admin_rows(
 EIGENE_ZEILE_FIELDS: Mapping[str, int] = {
     "saison_id": 1,
     "spiel_id": 1,
-    "partei": 1,
+    "party": 1,
     "ansetzung": 1,
     "antwort.art": 1,
     "antwort.von.art": 1,
     "antwort.begruendung": 1,
-    "geschlossen": 1,
+    "closed": 1,
 }
 
 # The view's fields and the booked referee, whom `grund_to_close` compares a referee's row against.
@@ -318,7 +318,7 @@ async def loeschen_referee_confirmations_in_session(
     if rows:
         # Removed, never repointed as the fixtures are: the sweep mints the ghost no row.
         # Ids and their seasons alone, never the referee's id: the log keeps an erasure's filter as text.
-        removed = await loeschen_many_from_db(
+        removed = await erase_many_from_db(
             collection=spielbestaetigungen_collection,
             db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in rows})}, "_id": {"$in": [row["_id"] for row in rows]}},
             session=session,
@@ -326,7 +326,7 @@ async def loeschen_referee_confirmations_in_session(
         geloescht = removed.deleted_count
         # Whole, as every record an erasure removes: the row is theirs, so its earlier states are too.
         await redact_log_rows_in_db(
-            aktionen_collection=aktionen_collection,
+            action_log_collection=aktionen_collection,
             targets=[(Collection.SPIELBESTAETIGUNGEN, [row["_id"] for row in rows])],
             at=stamp,
             session=session,

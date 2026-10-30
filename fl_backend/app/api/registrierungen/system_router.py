@@ -6,8 +6,8 @@ from pymongo import ASCENDING, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import season_has_ended
-from app.api.postausgang.schemas import FLPostausgangBezug, FLRegistrierungLinkDaten
-from app.api.postausgang.services import OwedMail, enqueue_mails
+from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungLinkData
+from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.schemas import FLRegistrierungSweepResponse
 from app.api.registrierungen.services import (
     REGISTRIERUNG_LINK,
@@ -25,11 +25,11 @@ from app.api.registrierungen.services import (
 from app.api.teams.crud import pull_team_names
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import loeschen_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, redact_log_rows_in_db
+from app.core.crud import erase_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, redact_log_rows_in_db
 from app.core.dependencies import (
-    AktionenCollection,
+    ActionLogCollection,
     DBClient,
-    PostausgangCollection,
+    OutboxCollection,
     RegistrierungenCollection,
     SaisonsCollection,
     TeamsCollection,
@@ -39,7 +39,7 @@ from app.core.dependencies import (
 from app.core.recording import log_stamp
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated
-from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
+from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_FRIST_DAYS
 
 # System tier and the system actor, as the application sweep's own router is: this pass holds no
 # session, so `bind_actor` would refuse it.
@@ -66,8 +66,8 @@ async def sweep_registrierungen(
     registrierungen_collection: RegistrierungenCollection,
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
-    aktionen_collection: AktionenCollection,
-    postausgang_collection: PostausgangCollection,
+    aktionen_collection: ActionLogCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -80,14 +80,14 @@ async def sweep_registrierungen(
     below do not run for a `past` season, whose own end takes every row they read.
 
     Otherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having
-    named that day. Then one reminder per registration at its reminder age, earliest deadline first: `erinnert_am` is stamped and the
+    named that day. Then one reminder per registration at its reminder age, earliest deadline first: `reminded_at` is stamped and the
     reminder owed in the Postausgang in one transaction, its link joining the one already in that inbox. One call reminds a bounded
     share of the registrations due; the rest stay due and the calls after it remind them. Every removal names this season alone, is
     made inside a transaction and takes its log rows with it.
 
     A registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of
     its clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
-    nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.
+    nobody behind it. `failed` sums the rows each of the four clocks passed over.
 
     404 where no season has the id. Idempotent per day: a run after every due reminder is owed writes nothing.
     """
@@ -126,11 +126,11 @@ async def sweep_registrierungen(
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]
-        result = await loeschen_many_from_db(
+        result = await erase_many_from_db(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            aktionen_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
+            action_log_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -142,7 +142,7 @@ async def sweep_registrierungen(
             pull_many_from_db(
                 collection=registrierungen_collection,
                 db_filter=batch.within(build_unconfirmed_filter(saison_id=saison_id, today=today)),
-                projection=["status", "einwilligung", "bestaetigung"],
+                projection=["status", "einwilligung", "confirmation"],
                 limit=SWEEP_PAGE + 1,
                 session=session,
             )
@@ -158,11 +158,11 @@ async def sweep_registrierungen(
         ids = [row["_id"] for row in taken]
         # The filter names the season and the ids and nothing else: it is stored as text, and any
         # other key would preserve what this call destroys.
-        result = await loeschen_many_from_db(
+        result = await erase_many_from_db(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            aktionen_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
+            action_log_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -174,11 +174,11 @@ async def sweep_registrierungen(
             pull_many_from_db(
                 collection=registrierungen_collection,
                 db_filter=batch.within(build_erinnerung_filter(saison_id=saison_id, today=today)),
-                projection=["status", "einwilligung", "bestaetigung", "email", "team_id"],
+                projection=["status", "einwilligung", "confirmation", "email", "team_id"],
                 limit=SWEEP_PAGE + 1,
                 # Earliest deadline first, so the pupil the unconfirmed clock takes soonest is reminded
                 # first; `_id` makes the page the same page whichever plan the server picks.
-                sort_by=[("bestaetigung.frist", ASCENDING), ("_id", ASCENDING)],
+                sort_by=[("confirmation.frist", ASCENDING), ("_id", ASCENDING)],
                 session=session,
             )
         )
@@ -198,21 +198,21 @@ async def sweep_registrierungen(
             )
         # The stamps and the mails commit together; the ban is judged when each mail is handed out.
         await enqueue_mails(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[
                 OwedMail(
                     # The day too: an address change owes the moved row its reminder again, which an earlier key would swallow.
-                    schluessel=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/erinnerung/{today}",
+                    key=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/reminder/{today}",
                     an=str(row["email"]),
-                    daten=FLRegistrierungLinkDaten(
-                        art="registrierung_erinnerung",
+                    data=FLRegistrierungLinkData(
+                        art="registrierung_reminder",
                         # Empty where the team row is gone: a reminder naming no team beats a pass that stops.
                         team=team_names.get(row.get("team_id"), _TEAM_UNBEKANNT),
                         saison_id=saison_id,
-                        frist_tage=REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
+                        frist_days=REGISTRIERUNG_CONFIRMATION_FRIST_DAYS,
                     ),
-                    bezug=FLPostausgangBezug(sammlung=Collection.REGISTRIERUNGEN, id=row["_id"], sitz=None),
+                    reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=row["_id"], seat=None),
                     link=REGISTRIERUNG_LINK,
                 )
                 for row in taken
@@ -229,7 +229,7 @@ async def sweep_registrierungen(
             pull_many_from_db(
                 collection=registrierungen_collection,
                 db_filter=batch.within(build_decline_filter(saison_id=saison_id, today=today)),
-                projection=["status", "entscheidung"],
+                projection=["status", "decision"],
                 limit=SWEEP_PAGE + 1,
                 session=session,
             )
@@ -240,11 +240,11 @@ async def sweep_registrierungen(
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]
-        result = await loeschen_many_from_db(
+        result = await erase_many_from_db(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            aktionen_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
+            action_log_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -296,10 +296,10 @@ async def sweep_registrierungen(
 
     return FLRegistrierungSweepResponse(
         saison_id=saison_id,
-        erinnert=erinnert,
-        geloescht_unbestaetigt=unbestaetigt,
-        geloescht_ohne_entscheidung=ohne_entscheidung,
-        geloescht_abgelehnt=abgelehnte,
-        redigierte_aktionen=redacted_undecided + redacted_unconfirmed + redacted_declined,
-        fehlgeschlagen=fehlgeschlagen,
+        reminded=erinnert,
+        erased_unconfirmed=unbestaetigt,
+        erased_without_decision=ohne_entscheidung,
+        erased_declined=abgelehnte,
+        redacted_action_log=redacted_undecided + redacted_unconfirmed + redacted_declined,
+        failed=fehlgeschlagen,
     )

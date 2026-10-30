@@ -14,7 +14,7 @@ from bson import ObjectId
 
 from app.api.berechtigungen.services import OWNER, holds_an_owners_power, verwaltung_des
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
-from app.api.identitaet.schemas import FLKontoLoeschungAnsicht, FLLoeschungAnsicht, FLSubjekt, FLSubjektSitz
+from app.api.identitaet.schemas import FLKontoLoeschungAnsicht, FLLoeschungAnsicht, FLSubjectSeat, FLSubjekt
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_loeschung_registrierung_filter
 from app.api.schiedsrichter.services import (
@@ -27,7 +27,7 @@ from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAdresswechselEinsehbarVerwehrt, FLSaisonStatus, FLVerwaltung
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeViewableDenied, FLSaisonStatus, FLVerwaltung
 
 # --- The SELECTIONS, each shared with its record's own person-tier reads rather than spelled again.
 # Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen.
@@ -46,7 +46,7 @@ def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 "team_id": 1,
                 "name": 1,
                 "austritt": 1,
-                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung.bestaetigt_am")},
+                **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung.confirmed_at")},
             }
         },
         # Ordered in the read rather than by the reader: two clubs' seats held by one inbox are
@@ -60,7 +60,7 @@ def build_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": build_self_referee_filter(identifier)},
-        {"$project": {"kontakt.email": 1, "einwilligung.bestaetigt_am": 1, "inactive_since": 1}},
+        {"$project": {"kontakt.email": 1, "einwilligung.confirmed_at": 1, "inactive_since": 1}},
         {"$sort": {"_id": 1}},
     ]
 
@@ -75,7 +75,7 @@ LOESCHUNG_SEAT_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
 def build_loeschung_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every season row or application one of whose seats names the address, whatever its status.
 
-    `bestaetigungen` rides along whole: the clearing nulls a seat's bookkeeping only where the block
+    `confirmations` rides along whole: the clearing nulls a seat's bookkeeping only where the block
     exists (`app/api/kontakte/services.py :: build_clearing_update`).
     """
 
@@ -87,7 +87,7 @@ def build_loeschung_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                 # A season row's team, which the administrator's reveal links each seat to.
                 "team_id": 1,
                 "name": 1,
-                "bestaetigungen": 1,
+                "confirmations": 1,
                 **{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in LOESCHUNG_SEAT_FIELDS},
             }
         },
@@ -217,10 +217,10 @@ def compose_loeschung_ansicht(
         {
             "spieler": [_pupil_entry(row) for row in pupil_rows],
             "schiedsrichter": [_referee_entry(row) for row in referee_rows],
-            "sitze": [{**_seat_entry(row, slot), "team_name": row.get("name")} for row, slot in seats_naming(saison_team_rows, identifier)],
+            "seats": [{**_seat_entry(row, slot), "team_name": row.get("name")} for row, slot in seats_naming(saison_team_rows, identifier)],
             "bewerbungen": [_seat_entry(row, slot) for row, slot in seats_naming(bewerbung_rows, identifier)],
             "registrierungen": [_registrierung_entry(row, team_names) for row in registrierung_rows],
-            "adresswechsel": len(adresswechsel_rows),
+            "address_change": len(adresswechsel_rows),
         }
     )
 
@@ -235,8 +235,8 @@ def compose_loeschung_ansicht_auf_anfrage(
     registrierung_rows: Sequence[Mapping[str, Any]],
     adresswechsel_rows: Sequence[Mapping[str, Any]],
     # Each address the tool refuses this reader, and why; one absent opens.
-    verwehrt: Mapping[str, FLAdresswechselEinsehbarVerwehrt],
-    eigener_adresswechsel: Mapping[str, Any] | None,
+    denied: Mapping[str, FLAddressChangeViewableDenied],
+    own_address_change: Mapping[str, Any] | None,
     antrag_rows: Sequence[Mapping[str, Any]],
     kader_rows: Sequence[Mapping[str, Any]],
     team_rows: Sequence[Mapping[str, Any]],
@@ -264,13 +264,13 @@ def compose_loeschung_ansicht_auf_anfrage(
                     **_referee_entry(row),
                     "schiedsrichter_id": row["_id"],
                     "inactive_since": row.get("inactive_since"),
-                    "spiele_ohne_ergebnis_saison_ids": [
+                    "spiele_without_ergebnis_saison_ids": [
                         unplayed["saison_id"] for unplayed in unplayed_rows if unplayed["schiedsrichter_id"] == row["_id"]
                     ],
                 }
                 for row in referee_rows
             ],
-            "sitze": [
+            "seats": [
                 {**_seat_entry(row, slot), "team_name": row.get("name"), "team_id": row["team_id"]}
                 for row, slot in seats_naming(saison_team_rows, identifier)
             ],
@@ -279,14 +279,14 @@ def compose_loeschung_ansicht_auf_anfrage(
                 {**_registrierung_entry(row, team_names), "registrierung_id": row["_id"], "team_id": row["team_id"], "status": row["status"]}
                 for row in registrierung_rows
             ],
-            "adresswechsel": [
-                {"adresswechsel_id": row["_id"], "einsehbar_verwehrt": verwehrt.get(str(row.get("adresse")))} for row in adresswechsel_rows
+            "address_change": [
+                {"address_change_id": row["_id"], "viewable_denied": denied.get(str(row.get("adresse")))} for row in adresswechsel_rows
             ],
-            "eigener_adresswechsel": None if eigener_adresswechsel is None else {"adresswechsel_id": eigener_adresswechsel["_id"]},
-            "antraege": [
+            "own_address_change": None if own_address_change is None else {"address_change_id": own_address_change["_id"]},
+            "approval_requests": [
                 {
-                    "antrag_id": row["_id"],
-                    "verwaltung": row["genehmigung"]["verwaltung"],
+                    "approval_request_id": row["_id"],
+                    "verwaltung": row["approval"]["verwaltung"],
                     "rolle": "betroffen" if row["adresse"] == identifier else "gestellt",
                 }
                 for row in antrag_rows
@@ -300,7 +300,7 @@ def build_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": build_self_pupil_filter(identifier)},
-        {"$project": {"einwilligung.bestaetigt_am": 1, "inactive_since": 1}},
+        {"$project": {"einwilligung.confirmed_at": 1, "inactive_since": 1}},
         {"$sort": {"_id": 1}},
     ]
 
@@ -310,7 +310,7 @@ def build_bewerbung_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
     return [
         {"$match": build_eigene_bewerbung_filter(identifier)},
-        {"$project": {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung.bestaetigt_am")}},
+        {"$project": {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "einwilligung.confirmed_at")}},
     ]
 
 
@@ -446,7 +446,7 @@ def grants_a_panel(saison_status: FLSaisonStatus) -> bool:
     return saison_status in ("active", "future")
 
 
-def holds_a_seat(sitze: Iterable[FLSubjektSitz], *, team_id: ObjectId, saison_id: str) -> bool:
+def holds_a_seat(sitze: Iterable[FLSubjectSeat], *, team_id: ObjectId, saison_id: str) -> bool:
     """Whether any of these seats, already narrowed to a season granting a panel, sits on this team in this season.
 
     Any slot alike: the Trainer's seat admits to everything an Ansprechperson's does, so no slot is read here.
@@ -456,7 +456,7 @@ def holds_a_seat(sitze: Iterable[FLSubjektSitz], *, team_id: ObjectId, saison_id
 
 
 # The grant predicates, one per kind of own record: each consent PATCH grants by its record's, and each
-# read's `erteilbar` is that same predicate.
+# read's `givable` is that same predicate.
 
 
 def may_grant_on_spieler(subjekt: FLSubjekt, spieler_id: ObjectId) -> bool:
@@ -467,8 +467,8 @@ def may_grant_on_schiedsrichter(subjekt: FLSubjekt, schiedsrichter_id: ObjectId)
     return any(eintrag.schiedsrichter_id == schiedsrichter_id for eintrag in subjekt.schiedsrichter)
 
 
-def find_funktion_refusal(*, sitze: Iterable[FLSubjektSitz], team_id: ObjectId, saison_id: str) -> WriteRefusal | None:
-    """`funktion_nicht_gehalten`: the signed-in person holds no seat on this team in this season.
+def find_funktion_refusal(*, sitze: Iterable[FLSubjectSeat], team_id: ObjectId, saison_id: str) -> WriteRefusal | None:
+    """`role_not_held`: the signed-in person holds no seat on this team in this season.
 
     One answer for another team, another season and a `past` one, so the refusal tells a stranger
     nothing about which teams or seasons exist.
@@ -478,7 +478,7 @@ def find_funktion_refusal(*, sitze: Iterable[FLSubjektSitz], team_id: ObjectId, 
         return None
 
     return WriteRefusal(
-        error_code=Code.FUNKTION_NICHT_GEHALTEN,
+        error_code=Code.ROLE_NOT_HELD,
         status=HTTPStatus.FORBIDDEN,
     )
 
@@ -492,7 +492,7 @@ def holds_an_owner_grant(identifier: str, grants: Iterable[Mapping[str, Any]]) -
 def find_letzter_inhaber_loeschung_refusal(
     *, identifier: str, grants: Iterable[Mapping[str, Any]], barred: Iterable[str]
 ) -> WriteRefusal | None:
-    """`letzter_inhaber_loeschung`: the address holding the last live, unbarred `owner` grant erases itself only once another holds one.
+    """`last_owner_erasure`: the address holding the last live, unbarred `owner` grant erases itself only once another holds one.
 
     `grants` are the live ones. A barred `owner` admits nobody, so it is no owner here, as for a demotion.
     """
@@ -502,25 +502,25 @@ def find_letzter_inhaber_loeschung_refusal(
         return None
 
     return WriteRefusal(
-        error_code=Code.LETZTER_INHABER_LOESCHUNG,
+        error_code=Code.LAST_OWNER_ERASURE,
         status=HTTPStatus.CONFLICT,
     )
 
 
 def ist_eigene_adresse(*, identifier: str, akteur: str) -> bool:
-    """`eigene_adresse`'s judgement, both folded: the refusal raises on it, and a read serving whether the tool opens an address asks it."""
+    """`own_adresse`'s judgement, both folded: the refusal raises on it, and a read serving whether the tool opens an address asks it."""
 
     return identifier == akteur
 
 
 def find_eigene_adresse_refusal(*, identifier: str, akteur: str) -> WriteRefusal | None:
-    """`eigene_adresse`: an administrator's route on a mailbox refuses the mailbox they act as, both folded."""
+    """`own_adresse`: an administrator's route on a mailbox refuses the mailbox they act as, both folded."""
 
     if not ist_eigene_adresse(identifier=identifier, akteur=akteur):
         return None
 
     return WriteRefusal(
-        error_code=Code.EIGENE_ADRESSE,
+        error_code=Code.OWN_ADRESSE,
         status=HTTPStatus.FORBIDDEN,
     )
 
@@ -585,7 +585,7 @@ def find_fremder_adresswechsel_refusal(
     grants: Sequence[Mapping[str, Any]],
     announced: Sequence[Mapping[str, Any]],
 ) -> WriteRefusal | None:
-    """`fremder_adresswechsel`: without an owner's power, an erasure ends no pending change of an address holding a protected grant.
+    """`foreign_address_change`: without an owner's power, an erasure ends no pending change of an address holding a protected grant.
 
     A protected grant is one `ADRESSWECHSEL_GESCHUETZT` names. `adressen` are the changes' own addresses, never the one erased; the
     message names none of them.
@@ -600,21 +600,21 @@ def find_fremder_adresswechsel_refusal(
         return None
 
     return WriteRefusal(
-        error_code=Code.FREMDER_ADRESSWECHSEL,
+        error_code=Code.FOREIGN_ADDRESS_CHANGE,
         status=HTTPStatus.FORBIDDEN,
     )
 
 
 def adresswechsel_einsehbar_verwehrt(
     identifier: str, *, akteur: str, auth_time: int, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
-) -> FLAdresswechselEinsehbarVerwehrt | None:
+) -> FLAddressChangeViewableDenied | None:
     """Why the address tool refuses this administrator this address's change, in the order it refuses; `None` where it opens it.
 
     Their judgements, never their finders: a finder's code is published only on the operations `RULES` names.
     """
 
     if ist_eigene_adresse(identifier=identifier, akteur=akteur):
-        return "eigene"
+        return "own"
     if verwaltung_adresse_verwehrt(
         identifier=identifier, akteur=akteur, auth_time=auth_time, grants=grants, announced=announced, geschuetzt=JEDE_VERWALTUNG
     ):
@@ -691,7 +691,7 @@ def referenced_addresses(
         *(row.get("email") for row in registrierung_rows if ist_eigene_registrierung(row, folded(row.get("email")) or "")),
         *(row.get("adresse") for row in grant_rows),
         # An effect owing its account's carry: swept before it is carried, the account and its passkeys are gone.
-        *(row["umzug"]["von"] for row in carry_rows),
+        *(row["move"]["von"] for row in carry_rows),
     )
 
     return frozenset(address for address in map(folded, stored) if address is not None)
@@ -704,13 +704,13 @@ def unreferenced(identifiers: Iterable[str], *, referenced: Collection[str]) -> 
 
 
 def find_kein_inhaber_refusal(grant_rows: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
-    """`kein_inhaber`: no live grant is an `owner`'s, live as every reader of a grant reads one."""
+    """`no_owner`: no live grant is an `owner`'s, live as every reader of a grant reads one."""
 
     if any(grant.get("verwaltung") == OWNER for grant in grant_rows):
         return None
 
     return WriteRefusal(
-        error_code=Code.KEIN_INHABER,
+        error_code=Code.NO_OWNER,
         status=HTTPStatus.CONFLICT,
     )
 

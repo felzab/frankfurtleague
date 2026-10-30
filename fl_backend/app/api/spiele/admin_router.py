@@ -220,7 +220,7 @@ async def get_spiele_action_required(
     # A report awaiting the administrator sits on a fixture the read above passes over -- one played today, or one whose
     # result stands -- so it is unioned in as a fault's is; the reports' own read serves the states.
     berichte = await pull_zustaende(spielberichte_collection=spielberichte_collection, saison_id=saison_id)
-    offen = [eintrag.spiel_id for eintrag in berichte if eintrag.zustand in BERICHT_ZUSTAENDE_OFFEN and eintrag.spiel_id not in by_id]
+    offen = [eintrag.spiel_id for eintrag in berichte if eintrag.state in BERICHT_ZUSTAENDE_OFFEN and eintrag.spiel_id not in by_id]
     if offen:
         berichtet_raw = await aggregate_many_from_db(
             collection=spiele_collection, pipeline=build_spiele_pipeline(db_filter={"saison_id": saison_id, "_id": {"$in": offen}})
@@ -275,7 +275,7 @@ async def patch_spiel(
     spielorte_collection: SpielorteCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     spielberichte_collection: SpielberichteCollection,
-    uebernimmt_bericht: Annotated[
+    adopts_bericht: Annotated[
         int | None,
         Query(ge=1, description="The `version` of the fixture's Spielbericht the editor was seeded from, to stamp it adopted"),
     ] = None,
@@ -285,7 +285,7 @@ async def patch_spiel(
     """
     Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.
 
-    Every name is composed by the server. With `uebernimmt_bericht` the save also stamps the fixture's Spielbericht
+    Every name is composed by the server. With `adopts_bericht` the save also stamps the fixture's Spielbericht
     adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
     `dry_run` answers the same report and writes nothing.
     """
@@ -337,7 +337,7 @@ async def patch_spiel(
         # judgement is about, so a contradiction inside it should not be reported as a bracket fault.
         refuse(find_state_refusal(spiel_data))
 
-        refuse(find_wiring_refusal(spiel_id, spiel_data, season, number_of_groups=saison_rules.number_of_groups))
+        refuse(find_wiring_refusal(spiel_id, spiel_data, season, number_of_gruppen=saison_rules.number_of_gruppen))
 
         # Read through the session, so an austritt committed by this transaction is visible.
         membership = await pull_saison_membership(saison_teams_collection=saison_teams_collection, saison_id=saison_id, session=session)
@@ -411,7 +411,7 @@ async def patch_spiel(
             released_sides=released_sides,
             bracket_faults=bracket_faults,
             version=patched.version,
-            bericht_uebernommen=None,
+            bericht_adopted=None,
         )
 
     if dry_run:
@@ -475,11 +475,11 @@ async def patch_spiel(
         # Here and with the session, never after the commit or off it: a save refused or rolled back stamps nothing.
         uebernommen = (
             None
-            if uebernimmt_bericht is None
+            if adopts_bericht is None
             else await stamp_the_adoption(
                 spielberichte_collection=spielberichte_collection,
                 spiel_id=spiel_id,
-                version=uebernimmt_bericht,
+                version=adopts_bericht,
                 seiten=seiten_of(gespeichert),
                 now=now,
                 session=session,
@@ -491,7 +491,7 @@ async def patch_spiel(
             released_sides=released_sides,
             bracket_faults=bracket_faults,
             version=gespeichert[VERSION_FIELD],
-            bericht_uebernommen=uebernommen,
+            bericht_adopted=uebernommen,
         )
 
     # `with_transaction` rather than a bare `start_transaction`: two saves in one season can

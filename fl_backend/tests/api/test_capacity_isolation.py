@@ -16,8 +16,8 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.admin_router import annehmen_bewerbung
-from app.api.bewerbungen.schemas import FLAnnehmenBewerbungPayload
+from app.api.bewerbungen.admin_router import accept_bewerbung
+from app.api.bewerbungen.schemas import FLAcceptBewerbungPayload
 from app.api.spieler.admin_router import patch_saison_spieler, post_saison_spieler, reactivate_saison_spieler
 from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPostSaisonSpielerPayload
 from app.api.spieltage.admin_router import patch_spieltag
@@ -30,7 +30,7 @@ from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document
 from tests.isolation import COMMITTED, MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
-from tests.postausgang import MAIL_NOW
+from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -61,7 +61,7 @@ def saison_document() -> dict[str, Any]:
     """`future`, which is the one status `entry_saison_not_future` admits an entry under."""
 
     return documents.saison_document(
-        SAISON, "future", rules=documents.rules_document(teams_per_group=TEAMS_PER_GROUP, max_kadergroesse=MAX_KADERGROESSE)
+        SAISON, "future", rules=documents.rules_document(teams_per_gruppe=TEAMS_PER_GROUP, max_kadergroesse=MAX_KADERGROESSE)
     )
 
 
@@ -108,7 +108,7 @@ SEATED: Final = {"text_version": "v1", "datum": "2026-01-15"}
 
 
 def kontaktperson(vorname: str) -> dict[str, Any]:
-    return kontaktperson_document(vorname, bestaetigt_am="2026-01-16", einwilligung=SEATED, telefon="+49 69 1234567", geburtsdatum="1980-05-04")
+    return kontaktperson_document(vorname, confirmed_at="2026-01-16", einwilligung=SEATED, telefon="+49 69 1234567", geburtsdatum="1980-05-04")
 
 
 def bewerbung_document(index: int) -> dict[str, Any]:
@@ -120,13 +120,13 @@ def bewerbung_document(index: int) -> dict[str, Any]:
     return documents.bewerbung_document(
         oid(5000 + index),
         SAISON,
-        "eingereicht",
+        "submitted",
         kontakte=documents.kontakte_document(
             trainer=kontaktperson("Wraxlington"), ansprechperson=kontaktperson("Quillhilde"), stellvertretung=kontaktperson("Bramblewick")
         ),
-        eingereicht_am="2026-02-01",
+        submitted_at="2026-02-01",
         team_id=oid(index),
-        trikot={"vorhandener_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
+        trikot={"existing_satz": "16 rote Trikots, Größe M", "wunschfarbe": "rot"},
     )
 
 
@@ -445,14 +445,14 @@ class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
     def test_the_acceptance_is_refused_on_the_place_a_rival_entry_took(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def accept(saisons: Any) -> Any:
-                return await annehmen_bewerbung(
+                return await accept_bewerbung(
                     bewerbung_id=oid(5040),
-                    annahme_data=FLAnnehmenBewerbungPayload.model_validate({"gruppe": "A", "trikot_farbe": "blau"}),
+                    annahme_data=FLAcceptBewerbungPayload.model_validate({"gruppe": "A", "trikot_farbe": "blau"}),
                     bewerbungen_collection=database[Collection.BEWERBUNGEN],
                     teams_collection=database[Collection.TEAMS],
                     saison_teams_collection=database[Collection.SAISON_TEAMS],
                     saisons_collection=saisons,
-                    postausgang_collection=database[Collection.POSTAUSGANG],
+                    outbox_collection=database[Collection.OUTBOX],
                     db=client,
                     today=ACCEPTED_ON,
                     von=ACCEPTED_BY,
@@ -486,5 +486,5 @@ class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
 
         # The whole transaction goes back, so the application is still open for a group that has room:
         # accepting is irreversible, and a half-applied acceptance has no repair.
-        assert status == "eingereicht"
+        assert status == "submitted"
         assert anchor == 1

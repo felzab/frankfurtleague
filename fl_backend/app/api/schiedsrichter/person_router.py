@@ -17,7 +17,7 @@ from app.api.konto.services import (
     widerruf_line,
 )
 from app.api.schiedsrichter.schemas import (
-    FLSchiedsrichterKontoEinwilligungResponse,
+    FLSchiedsrichterAccountEinwilligungResponse,
     FLSchiedsrichterSelfResponse,
 )
 from app.api.schiedsrichter.services import EINWILLIGUNG_FELD, build_self_referee_filter, build_self_referee_pipeline
@@ -34,11 +34,11 @@ from app.core.dependencies import (
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.routing import by_id
-from app.core.security import loeschung_journal_hash, verify_access_admin
+from app.core.security import erasure_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungChoice, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
-from app.shared.schemas.einwilligung import FLKontoEinwilligungPayload
+from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
 
 # A person's own router, apart from the admin one and the confirmation one, each binding its own actor
 # at router level: this one records every write under the referee's Funktion.
@@ -54,9 +54,9 @@ async def get_self(identifier: SchiedsrichterIdentifier, schiedsrichter_collecti
     Answer every confirmed referee record the signed-in address holds, with its stored contact details.
 
     PERSON TIER: the fee set for them per fixture as `honorar`, never the confirmation link's bookkeeping. A retired
-    record is served too. Its consent is the account page's (`GET /konto/einwilligungen`), so none is served here.
+    record is served too. Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.
 
-    Refuses an address holding no confirmed referee record (`funktion_nicht_gehalten`).
+    Refuses an address holding no confirmed referee record (`role_not_held`).
     """
 
     rows = await aggregate_many_from_db(collection=schiedsrichter_collection, pipeline=build_self_referee_pipeline(identifier))
@@ -67,13 +67,13 @@ async def get_self(identifier: SchiedsrichterIdentifier, schiedsrichter_collecti
 
 
 @router.patch(
-    f"/konto{by_id('schiedsrichter_id')}/einwilligung",
-    response_model=FLSchiedsrichterKontoEinwilligungResponse,
+    f"/account{by_id('schiedsrichter_id')}/einwilligung",
+    response_model=FLSchiedsrichterAccountEinwilligungResponse,
     summary="Change a signed-in referee's own publication and media consent",
 )
 async def patch_einwilligung(
     schiedsrichter_id: CustomRouteObjectId,
-    einwilligung_data: Annotated[FLKontoEinwilligungPayload, Body()],
+    einwilligung_data: Annotated[FLAccountEinwilligungPayload, Body()],
     identifier: SchiedsrichterIdentifier,
     schiedsrichter_collection: SchiedsrichterCollection,
     records: SubjektLookup,
@@ -81,7 +81,7 @@ async def patch_einwilligung(
     config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLSchiedsrichterKontoEinwilligungResponse:
+) -> FLSchiedsrichterAccountEinwilligungResponse:
     """
     Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.
 
@@ -91,24 +91,24 @@ async def patch_einwilligung(
     list's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to
     `kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a withdrawal on a retired one too.
 
-    Refuses, in this order: an id that is no confirmed referee record of this address (`funktion_nicht_gehalten`); a
+    Refuses, in this order: an id that is no confirmed referee record of this address (`role_not_held`); a
     `nachweis_stand` other than the record's own, either choice having moved since the page was served
-    (`fassung_unzulaessig`); a grant on a retired record (`erteilung_nicht_zugelassen`); a `text_version` naming no version of
-    the account page's referee control, or a grant naming any but the page's running one (`fassung_unzulaessig`);
+    (`wording_not_allowed`); a grant on a retired record (`giving_not_allowed`); a `text_version` naming no version of
+    the account page's referee control, or a grant naming any but the page's running one (`wording_not_allowed`);
     `medien` moving to `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing
-    (`medien_alter`). Each refusal writes nothing.
+    (`medien_age`). Each refusal writes nothing.
 
     **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
     """
 
     eigener_eintrag = build_self_referee_filter(identifier, schiedsrichter_id=schiedsrichter_id)
-    gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
+    gewaehlt: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
     # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
     am = log_stamp(germany_now)
     journal = Journal()
 
     @journal.attempted
-    async def write(session: AsyncClientSession) -> FLSchiedsrichterKontoEinwilligungResponse:
+    async def write(session: AsyncClientSession) -> FLSchiedsrichterAccountEinwilligungResponse:
         row = await schiedsrichter_collection.find_one(
             eigener_eintrag, projection={"kontakt.email": 1, "geburtsdatum": 1, EINWILLIGUNG_FELD: 1}, session=session
         )
@@ -144,7 +144,7 @@ async def patch_einwilligung(
             )
         )
         line = widerruf_line(
-            person_hash=loeschung_journal_hash(identifier, schluessel=config.sperrliste_schluessel),
+            person_hash=erasure_journal_hash(identifier, key=config.sperrliste_key),
             collection=Collection.SCHIEDSRICHTER,
             record_id=row["_id"],
             bloecke=[gespeichert],
@@ -157,7 +157,7 @@ async def patch_einwilligung(
         # A press moving neither choice is no act, so nothing was written and the record answers as stored.
         einwilligung = gespeichert if updated is None else updated[EINWILLIGUNG_FELD]
 
-        return FLSchiedsrichterKontoEinwilligungResponse.model_validate(
+        return FLSchiedsrichterAccountEinwilligungResponse.model_validate(
             {
                 "schiedsrichter_id": schiedsrichter_id,
                 "einwilligung": einwilligung,

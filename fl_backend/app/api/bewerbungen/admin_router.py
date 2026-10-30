@@ -11,20 +11,20 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.bewerbungen.schemas import (
-    FLAblehnenBewerbungPayload,
-    FLAblehnenBewerbungResponse,
-    FLAnnehmenBewerbungPayload,
-    FLAnnehmenBewerbungResponse,
+    FLAcceptBewerbungPayload,
+    FLAcceptBewerbungResponse,
     FLBewerbung,
-    FLBewerbungEinwilligungErneutResponse,
+    FLBewerbungEinwilligungResendResponse,
     FLBewerbungenFilterParams,
     FLBewerbungenListResponse,
     FLBewerbungKontaktEmailPayload,
     FLBewerbungKontaktEmailResponse,
-    FLBewerbungKontaktSitzPayload,
+    FLBewerbungKontaktSeatPayload,
     FLBewerbungListAdapter,
     FLBewerbungSingleResponse,
     FLBewerbungStatus,
+    FLDeclineBewerbungPayload,
+    FLDeclineBewerbungResponse,
 )
 from app.api.bewerbungen.services import (
     WITHOUT_TOKEN_HASHES,
@@ -61,9 +61,9 @@ from app.api.bewerbungen.services import (
     seat_named,
 )
 from app.api.einwilligung.services import find_fassung_refusal
-from app.api.postausgang.crud import lagen_of
-from app.api.postausgang.schemas import FLBewerbungAbsageDaten, FLBewerbungZusageDaten
-from app.api.postausgang.services import OwedMail, enqueue_mails
+from app.api.outbox.crud import states_of
+from app.api.outbox.schemas import FLBewerbungAbsageData, FLBewerbungZusageData
+from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
@@ -74,7 +74,7 @@ from app.core.crud import aggregate_many_from_db, insert_live, patch_one_in_db, 
 from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
-    PostausgangCollection,
+    OutboxCollection,
     SaisonsCollection,
     SaisonTeamsCollection,
     TeamsCollection,
@@ -106,12 +106,12 @@ async def _as_served(
     rows: Sequence[Mapping[str, Any]],
     *,
     sperrliste: BanList,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
 ) -> list[dict[str, Any]]:
     # Concurrently: the ban list and the Postausgang are two collections, and neither read waits on the other.
     barred, lagen = await asyncio.gather(
         adressen_gesperrt(sperrliste, entscheider_adressen(rows)),
-        lagen_of(postausgang_collection=postausgang_collection, sammlung=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows]),
+        states_of(outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows]),
     )
 
     return [mit_zustellung(mit_vorenthaltener_entscheidung(row, barred), lagen) for row in rows]
@@ -120,20 +120,20 @@ async def _as_served(
 @router.get("", response_model=FLBewerbungenListResponse, summary="List Bewerbungen")
 async def get_bewerbungen(
     bewerbungen_collection: BewerbungenCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     filters: FLBewerbungenFilters,
 ) -> FLBewerbungenListResponse:
-    """Every application, newest first, narrowed by `saison_id` with `saisonbezug` and by any of the three statuses.
+    """Every application, newest first, narrowed by `saison_id` with `saison_reference` and by any of the three statuses.
 
-    `vollstaendig` is false where more rows exist than one read serves, and each count covers the values its facet left out.
-    `dubletten_schluessel` names every key two or more open applications share: the season and the club id or upper-cased
-    Kürzel, joined by `team` or `kuerzel`. A barred administrator is served as `null` beside `entscheidung.von_gesperrt`.
+    `complete` is false where more rows exist than one read serves, and each count covers the values its facet left out.
+    `duplicates_key` names every key two or more open applications share: the season and the club id or upper-cased
+    Kürzel, joined by `team` or `kuerzel`. A barred administrator is served as `null` beside `decision.by_barred`.
     """
 
     # The season term alone, because each count answers for the status it names: counted with the
     # request's own status term applied, every status the caller did not ask for would read zero.
-    beyond_status = build_bewerbungen_saison_term(saison_id=filters.saison_id, saisonbezug=filters.saisonbezug)
+    beyond_status = build_bewerbungen_saison_term(saison_id=filters.saison_id, saisonbezug=filters.saison_reference)
     # And the mirror: a relation counted with the season term applied would read zero for the side
     # the read left out, leaving the other season's queue reachable from nothing on this page.
     beyond_saison = build_bewerbungen_status_term(filters.status)
@@ -168,15 +168,15 @@ async def get_bewerbungen(
 
     # Degrades rather than refusing: the rows are written by an anonymous public form, so a tripwire
     # would hand whoever writes them the power to 500 this page. Answering short leaves the
-    # administrator a usable list, and `vollstaendig` reports the cut.
+    # administrator a usable list, and `complete` reports the cut.
     return FLBewerbungenListResponse(
         bewerbungen=FLBewerbungListAdapter.validate_python(
-            await _as_served(served, sperrliste=sperrliste, postausgang_collection=postausgang_collection)
+            await _as_served(served, sperrliste=sperrliste, outbox_collection=outbox_collection)
         ),
-        vollstaendig=len(read) <= filters.limit,
-        anzahl_je_status=dict(zip(get_args(FLBewerbungStatus.__value__), counted, strict=True)),
-        anzahl_je_saisonbezug=dict(zip(saisonbezug_terms, bezogen, strict=True)),
-        dubletten_schluessel=dubletten_schluessel_of(cells),
+        complete=len(read) <= filters.limit,
+        count_per_status=dict(zip(get_args(FLBewerbungStatus.__value__), counted, strict=True)),
+        count_per_saison_reference=dict(zip(saisonbezug_terms, bezogen, strict=True)),
+        duplicates_key=dubletten_schluessel_of(cells),
     )
 
 
@@ -184,28 +184,28 @@ async def get_bewerbungen(
 async def get_bewerbung(
     bewerbung_id: CustomRouteObjectId,
     bewerbungen_collection: BewerbungenCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungSingleResponse:
     """One application, its decision's administrator withheld as the list withholds it.
 
-    `bestaetigungsfrist_abgelaufen` says whether its confirmation deadline has passed today.
+    `confirmation_deadline_expired` says whether its confirmation deadline has passed today.
     """
 
     bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=WITHOUT_TOKEN_HASHES)
-    [served] = await _as_served([bewerbung_raw], sperrliste=sperrliste, postausgang_collection=postausgang_collection)
+    [served] = await _as_served([bewerbung_raw], sperrliste=sperrliste, outbox_collection=outbox_collection)
 
     return FLBewerbungSingleResponse(
         bewerbung=FLBewerbung(**served),
-        bestaetigungsfrist_abgelaufen=bestaetigungsfrist_passed(bestaetigungsfrist=bewerbung_raw.get("bestaetigungsfrist"), today=today),
+        confirmation_deadline_expired=bestaetigungsfrist_passed(confirmation_deadline=bewerbung_raw.get("confirmation_deadline"), today=today),
     )
 
 
 def _entscheidung(*, today: str, von: str, grund: str | None) -> dict[str, Any]:
     """The decision block both endpoints write, so the two cannot spell one field differently."""
 
-    return {"getroffen_am": today, "von": von, "grund": grund}
+    return {"made_at": today, "von": von, "grund": grund}
 
 
 async def _schule_text(*, bewerbung_raw: Mapping[str, Any], teams_collection: AsyncCollection, session: AsyncClientSession) -> str:
@@ -225,24 +225,24 @@ def _schluessel(bewerbung_id: Any, *teile: str) -> str:
 
 
 @router.post(
-    f"{by_id('bewerbung_id')}/annehmen",
-    response_model=FLAnnehmenBewerbungResponse,
+    f"{by_id('bewerbung_id')}/accept",
+    response_model=FLAcceptBewerbungResponse,
     summary="Accept a Bewerbung and enter the school into the season",
     dependencies=[Depends(verify_step_up)],
 )
-async def annehmen_bewerbung(
+async def accept_bewerbung(
     bewerbung_id: CustomRouteObjectId,
-    annahme_data: Annotated[FLAnnehmenBewerbungPayload, Body()],
+    annahme_data: Annotated[FLAcceptBewerbungPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     von: str = Depends(get_actor_email),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLAnnehmenBewerbungResponse:
+) -> FLAcceptBewerbungResponse:
     """
     Accept an application, creating the school's club where the applicant proposed a new one.
 
@@ -252,7 +252,7 @@ async def annehmen_bewerbung(
     The acceptance is owed to every person of the application in the same transaction, naming the seats each holds.
     """
 
-    async def accept_and_enter_the_school(session: AsyncClientSession) -> FLAnnehmenBewerbungResponse:
+    async def accept_and_enter_the_school(session: AsyncClientSession) -> FLAcceptBewerbungResponse:
         """Judge everything, then write. Everything judged is read in-session, so a retry re-judges it.
 
         One transaction over every write: a club created without its junction row is a school in no
@@ -357,18 +357,18 @@ async def annehmen_bewerbung(
             # `team_id` too: a new school's application named none until this write, and without it
             # nothing joins the accepted application to the club it produced. `kontakte` stays as answered:
             # only the season row's copy moves after.
-            update={"$set": {"status": "angenommen", "team_id": team_id, "entscheidung": _entscheidung(today=today, von=von, grund=None)}},
+            update={"$set": {"status": "accepted", "team_id": team_id, "decision": _entscheidung(today=today, von=von, grund=None)}},
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
         await enqueue_mails(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[
                 OwedMail(
-                    schluessel=_schluessel(bewerbung_id, "zusage", seats[0]),
+                    key=_schluessel(bewerbung_id, "zusage", seats[0]),
                     an=email,
-                    daten=FLBewerbungZusageDaten(
+                    data=FLBewerbungZusageData(
                         art="bewerbung_zusage",
                         team=name,
                         saison_id=saison_id,
@@ -384,7 +384,7 @@ async def annehmen_bewerbung(
             now=germany_now,
         )
 
-        return FLAnnehmenBewerbungResponse(
+        return FLAcceptBewerbungResponse(
             team_id=team_id,
             created_team=schule is not None,
             saison_id=saison_id,
@@ -401,26 +401,26 @@ async def annehmen_bewerbung(
 
 
 @router.post(
-    f"{by_id('bewerbung_id')}/ablehnen",
-    response_model=FLAblehnenBewerbungResponse,
+    f"{by_id('bewerbung_id')}/decline",
+    response_model=FLDeclineBewerbungResponse,
     summary="Decline a Bewerbung",
     dependencies=[Depends(verify_step_up)],
 )
-async def ablehnen_bewerbung(
+async def decline_bewerbung(
     bewerbung_id: CustomRouteObjectId,
-    ablehnung_data: Annotated[FLAblehnenBewerbungPayload, Body()],
+    ablehnung_data: Annotated[FLDeclineBewerbungPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     von: str = Depends(get_actor_email),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLAblehnenBewerbungResponse:
+) -> FLDeclineBewerbungResponse:
     """
     Decline an application, recording who decided and the reason they gave, and owe every person of it the decline.
 
-    The submission itself is untouched: a decline moves `status` and `entscheidung` and nothing else,
+    The submission itself is untouched: a decline moves `status` and `decision` and nothing else,
     so what the school wrote stays the record the decision was taken against. The mails carry the reason verbatim.
     """
 
@@ -438,19 +438,19 @@ async def ablehnen_bewerbung(
         await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter={"_id": bewerbung_id},
-            update={"$set": {"status": "abgelehnt", "entscheidung": _entscheidung(today=today, von=von, grund=ablehnung_data.grund)}},
+            update={"$set": {"status": "declined", "decision": _entscheidung(today=today, von=von, grund=ablehnung_data.grund)}},
             session=session,
             return_document=ReturnDocument.BEFORE,
         )
         team = await _schule_text(bewerbung_raw=stored_raw, teams_collection=teams_collection, session=session)
         await enqueue_mails(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[
                 OwedMail(
-                    schluessel=_schluessel(bewerbung_id, "absage", seats[0]),
+                    key=_schluessel(bewerbung_id, "absage", seats[0]),
                     an=email,
-                    daten=FLBewerbungAbsageDaten(
+                    data=FLBewerbungAbsageData(
                         art="bewerbung_absage", team=team, saison_id=str(stored_raw["saison_id"]), rollen=seats, grund=ablehnung_data.grund
                     ),
                 )
@@ -462,26 +462,26 @@ async def ablehnen_bewerbung(
     async with transaction_session(db) as session:
         await session.with_transaction(decline_the_application)
 
-    return FLAblehnenBewerbungResponse(id=bewerbung_id)
+    return FLDeclineBewerbungResponse(id=bewerbung_id)
 
 
 @router.post(
-    f"{by_id('bewerbung_id')}/einwilligung/{{seat}}/erneut",
-    response_model=FLBewerbungEinwilligungErneutResponse,
+    f"{by_id('bewerbung_id')}/einwilligung/{{seat}}/resend",
+    response_model=FLBewerbungEinwilligungResendResponse,
     summary="Re-send one seat's confirmation link",
     dependencies=[Depends(verify_step_up)],
 )
-async def erneut_einwilligung(
+async def resend_einwilligung(
     bewerbung_id: CustomRouteObjectId,
     seat: str,
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLBewerbungEinwilligungErneutResponse:
+) -> FLBewerbungEinwilligungResendResponse:
     """
     Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.
 
@@ -490,11 +490,11 @@ async def erneut_einwilligung(
     The application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat
     is judged with the pressed one, a seat an erasure emptied is refused as an answered one is, and a
     decision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list
-    holds is refused `bewerbung_kontakt_gesperrt`. A path naming no seat is a 404.
+    holds is refused `bewerbung_kontakt_barred`. A path naming no seat is a 404.
     """
 
     db_filter = {"_id": bewerbung_id}
-    judged = ["status", "kontakte", "bestaetigungen"]
+    judged = ["status", "kontakte", "confirmations"]
     bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter=db_filter, projection=judged)
 
     async def refuse_a_barred_address(
@@ -508,7 +508,7 @@ async def erneut_einwilligung(
         slots = [kontakte.get(held) for held in seats] if isinstance(kontakte, Mapping) else []
         adressen = {str(slot["email"]) for slot in slots if isinstance(slot, Mapping) and slot.get("email")}
         gesperrt = await adressen_gesperrt(sperrliste, adressen, massgebliche_saison_id=massgebliche_saison_id, session=session)
-        refuse(find_kontakt_gesperrt_refusal(gesperrt=bool(gesperrt)))
+        refuse(find_kontakt_gesperrt_refusal(barred=bool(gesperrt)))
 
     # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any
     # application has, which is a miss and not a body fault.
@@ -519,17 +519,17 @@ async def erneut_einwilligung(
     def seats_judged_on(stored: Mapping[str, Any]) -> tuple[FLKontaktRolle, ...]:
         """Refuse, or answer every seat the fresh link will open: the pressed one and the mirror the confirmation also answers."""
 
-        kontakte, bestaetigungen = stored.get("kontakte"), stored.get("bestaetigungen")
+        kontakte, bestaetigungen = stored.get("kontakte"), stored.get("confirmations")
         refuse(find_triage_refusal(status=str(stored["status"])))
-        refuse(find_already_answered_refusal(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=rolle))
+        refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=bestaetigungen, seat=rolle))
 
         # One entry left standing would keep the replaced address's link alive. The mirror is judged
         # as the correction judges it: `paired_seat` adds a seat that merely STANDS.
-        other = paired_seat(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=rolle)
+        other = paired_seat(kontakte=kontakte, confirmations=bestaetigungen, seat=rolle)
         if other is None:
             return (rolle,)
 
-        refuse(find_already_answered_refusal(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=other))
+        refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=bestaetigungen, seat=other))
 
         return (rolle, other)
 
@@ -548,7 +548,7 @@ async def erneut_einwilligung(
             matched = await patch_one_in_db(
                 collection=bewerbungen_collection,
                 db_filter=build_erneut_filter(bewerbung_id=bewerbung_id, seats=seats),
-                update=compose_erneut_update(seats=seats, today=today, bestaetigungsfrist=bestaetigungsfrist),
+                update=compose_erneut_update(seats=seats, today=today, confirmation_deadline=bestaetigungsfrist),
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
@@ -556,7 +556,7 @@ async def erneut_einwilligung(
             # address this link is mailed to.
             await refuse_a_barred_address(matched, seats, massgebliche_saison_id=massgebliche_saison_id, session=session)
             await enqueue_mails(
-                postausgang_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 session=session,
                 mails=[
                     owed_link(
@@ -566,7 +566,7 @@ async def erneut_einwilligung(
                         saison_id=str(matched["saison_id"]),
                         schule=await _schule_text(bewerbung_raw=matched, teams_collection=teams_collection, session=session),
                         frist=bestaetigungsfrist,
-                        schluessel=_schluessel(bewerbung_id, "erneut", seats[0], nonce),
+                        key=_schluessel(bewerbung_id, "resend", seats[0], nonce),
                     )
                 ],
                 now=germany_now,
@@ -589,8 +589,8 @@ async def erneut_einwilligung(
         # one more write, whose own miss is the only one answering 404.
         matched = await mint_on(seats)
 
-    return FLBewerbungEinwilligungErneutResponse(
-        rolle=rolle, email=str(matched["kontakte"][rolle]["email"]), rollen=list(seats), bestaetigungsfrist=bestaetigungsfrist
+    return FLBewerbungEinwilligungResendResponse(
+        rolle=rolle, email=str(matched["kontakte"][rolle]["email"]), rollen=list(seats), confirmation_deadline=bestaetigungsfrist
     )
 
 
@@ -606,7 +606,7 @@ async def post_kontakt_email(
     email_data: Annotated[FLBewerbungKontaktEmailPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -624,9 +624,9 @@ async def post_kontakt_email(
 
     Refused on an application already decided (`bewerbung_already_decided`), on any seat this write would reach that is already
     confirmed, already answered with a Widerspruch, or holding nothing to confirm — the mirrored seat included
-    (`bewerbung_sitz_already_answered`) — on a seat holding another address than `bisherige_email`, the address the caller's page
-    showed, as after a Widerspruch and a reseat (`bewerbung_sitz_anders_besetzt`), and on an address another contact person on this
-    application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds (`bewerbung_kontakt_gesperrt`). A path naming
+    (`bewerbung_seat_already_answered`) — on a seat holding another address than `previous_email`, the address the caller's page
+    showed, as after a Widerspruch and a reseat (`bewerbung_seat_differently_seated`), and on an address another contact person on this
+    application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds (`bewerbung_kontakt_barred`). A path naming
     no seat is a 404.
     """
 
@@ -644,7 +644,7 @@ async def post_kontakt_email(
         bewerbung_raw = await pull_one_from_db(
             collection=bewerbungen_collection,
             db_filter=db_filter,
-            projection=["status", "kontakte", "bestaetigungen", "saison_id", "schule", "team_id"],
+            projection=["status", "kontakte", "confirmations", "saison_id", "schule", "team_id"],
             session=session,
         )
 
@@ -653,37 +653,37 @@ async def post_kontakt_email(
         if rolle is None:
             raise DocumentNotFoundError()
 
-        kontakte, bestaetigungen = bewerbung_raw.get("kontakte"), bewerbung_raw.get("bestaetigungen")
+        kontakte, bestaetigungen = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
         refuse(find_triage_refusal(status=str(bewerbung_raw["status"])))
-        refuse(find_already_answered_refusal(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=rolle))
+        refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=bestaetigungen, seat=rolle))
         # After the answered check, which names an emptied seat more plainly than a holder that moved would.
-        refuse(find_sitz_inhaber_refusal(kontakte=kontakte, seat=rolle, bisherige_email=email_data.bisherige_email))
+        refuse(find_sitz_inhaber_refusal(kontakte=kontakte, seat=rolle, previous_email=email_data.previous_email))
 
-        other = paired_seat(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=rolle)
+        other = paired_seat(kontakte=kontakte, confirmations=bestaetigungen, seat=rolle)
         seats = (rolle,) if other is None else (rolle, other)
 
         # The MIRROR is judged too: `paired_seat` adds a seat that merely STANDS, and a confirmed one
         # would be re-addressed and handed a link the person's own answer has already spent.
         if other is not None:
-            refuse(find_already_answered_refusal(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=other))
+            refuse(find_already_answered_refusal(kontakte=kontakte, confirmations=bestaetigungen, seat=other))
 
         # Asked over the seats this write does NOT reach, so a mirrored pair moving to one new address
         # together is not refused for sharing it with itself.
         refuse(find_kontakt_email_refusal(kontakte=kontakte, seats=seats, email=email_data.email))
         gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
-        refuse(find_kontakt_gesperrt_refusal(gesperrt=gesperrt))
+        refuse(find_kontakt_gesperrt_refusal(barred=gesperrt))
 
         bestaetigungsfrist = bestaetigungsfrist_from(today=today)
 
         after = await patch_one_in_db(
             collection=bewerbungen_collection,
             db_filter=db_filter,
-            update=compose_kontakt_email_update(seats=seats, email=email_data.email, today=today, bestaetigungsfrist=bestaetigungsfrist),
+            update=compose_kontakt_email_update(seats=seats, email=email_data.email, today=today, confirmation_deadline=bestaetigungsfrist),
             session=session,
             return_document=ReturnDocument.AFTER,
         )
         await enqueue_mails(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[
                 owed_link(
@@ -693,13 +693,13 @@ async def post_kontakt_email(
                     saison_id=str(bewerbung_raw["saison_id"]),
                     schule=await _schule_text(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection, session=session),
                     frist=bestaetigungsfrist,
-                    schluessel=_schluessel(bewerbung_id, "korrektur", seats[0], nonce),
+                    key=_schluessel(bewerbung_id, "korrektur", seats[0], nonce),
                 )
             ],
             now=germany_now,
         )
 
-        return FLBewerbungKontaktEmailResponse(email=email_data.email, rollen=list(seats), bestaetigungsfrist=bestaetigungsfrist)
+        return FLBewerbungKontaktEmailResponse(email=email_data.email, rollen=list(seats), confirmation_deadline=bestaetigungsfrist)
 
     # A transaction where the re-send beside it takes none: this write moves an address as well as a
     # credential, so a decision landing mid-request must leave neither half standing.
@@ -713,13 +713,13 @@ async def post_kontakt_email(
     summary="Seat another person where a contact person stepped out",
     dependencies=[Depends(verify_step_up)],
 )
-async def post_kontakt_sitz(
+async def post_kontakt_seat(
     bewerbung_id: CustomRouteObjectId,
     seat: str,
-    sitz_data: Annotated[FLBewerbungKontaktSitzPayload, Body()],
+    sitz_data: Annotated[FLBewerbungKontaktSeatPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -739,9 +739,9 @@ async def post_kontakt_sitz(
 
     Refused on an application already decided (`bewerbung_already_decided`); on any seat this write would reach that nobody
     stepped out of — confirmed, still waiting or erased at its person's request, the claimed mirror included
-    (`bewerbung_sitz_already_answered`); and on an address another
+    (`bewerbung_seat_already_answered`); and on an address another
     contact person on this application already holds (`bewerbung_kontakt_email_taken`), or that the ban list holds
-    (`bewerbung_kontakt_gesperrt`); and on any label but the application form's running one (`fassung_unzulaessig`), the person
+    (`bewerbung_kontakt_barred`); and on any label but the application form's running one (`wording_not_allowed`), the person
     seated being a new acceptance. A path naming no seat is a 404.
     """
 
@@ -758,7 +758,7 @@ async def post_kontakt_sitz(
         bewerbung_raw = await pull_one_from_db(
             collection=bewerbungen_collection,
             db_filter=db_filter,
-            projection=["status", "kontakte", "bestaetigungen", "saison_id", "schule", "team_id"],
+            projection=["status", "kontakte", "confirmations", "saison_id", "schule", "team_id"],
             session=session,
         )
 
@@ -767,7 +767,7 @@ async def post_kontakt_sitz(
         if rolle is None:
             raise DocumentNotFoundError()
 
-        kontakte, bestaetigungen = bewerbung_raw.get("kontakte"), bewerbung_raw.get("bestaetigungen")
+        kontakte, bestaetigungen = bewerbung_raw.get("kontakte"), bewerbung_raw.get("confirmations")
         refuse(find_triage_refusal(status=str(bewerbung_raw["status"])))
 
         # The pair is claimed rather than read off the slots, so it is composed BEFORE the refusal
@@ -775,15 +775,15 @@ async def post_kontakt_sitz(
         other = claimed_pair_seat(kontakte=kontakte, seat=rolle)
         seats = (rolle,) if other is None else (rolle, other)
 
-        refuse(find_reseat_refusal(bestaetigungen=bestaetigungen, seats=seats))
+        refuse(find_reseat_refusal(confirmations=bestaetigungen, seats=seats))
 
         # Asked over the seats this write does NOT reach, as the correction asks it: a mirrored pair
         # is one person, and comparing them against each other would refuse every such reseat.
         refuse(find_kontakt_email_refusal(kontakte=kontakte, seats=seats, email=sitz_data.email))
         gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
-        refuse(find_kontakt_gesperrt_refusal(gesperrt=gesperrt))
+        refuse(find_kontakt_gesperrt_refusal(barred=gesperrt))
         # A new acceptance on every seat it fills: the person seated holds no label of their own to keep.
-        refuse(find_fassung_refusal(seite="bewerbung", genannt=dict.fromkeys(seats, sitz_data.text_version)))
+        refuse(find_fassung_refusal(seite="bewerbung", named=dict.fromkeys(seats, sitz_data.text_version)))
 
         bestaetigungsfrist = bestaetigungsfrist_from(today=today)
 
@@ -797,13 +797,13 @@ async def post_kontakt_sitz(
                 person=sitz_data.model_dump(mode="json", exclude={"text_version"}),
                 text_version=sitz_data.text_version,
                 today=today,
-                bestaetigungsfrist=bestaetigungsfrist,
+                confirmation_deadline=bestaetigungsfrist,
             ),
             session=session,
             return_document=ReturnDocument.AFTER,
         )
         await enqueue_mails(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[
                 owed_link(
@@ -813,13 +813,13 @@ async def post_kontakt_sitz(
                     saison_id=str(bewerbung_raw["saison_id"]),
                     schule=await _schule_text(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection, session=session),
                     frist=bestaetigungsfrist,
-                    schluessel=_schluessel(bewerbung_id, "besetzung", seats[0], nonce),
+                    key=_schluessel(bewerbung_id, "besetzung", seats[0], nonce),
                 )
             ],
             now=germany_now,
         )
 
-        return FLBewerbungKontaktEmailResponse(email=sitz_data.email, rollen=list(seats), bestaetigungsfrist=bestaetigungsfrist)
+        return FLBewerbungKontaktEmailResponse(email=sitz_data.email, rollen=list(seats), confirmation_deadline=bestaetigungsfrist)
 
     # A transaction for the correction's reason: this write seats a person as well as a credential,
     # so a decision landing mid-request must leave neither half standing.

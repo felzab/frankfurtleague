@@ -28,9 +28,9 @@ from app.core.exceptions import APIError
 from app.core.logging import trace_id_var
 from app.shared.schemas.literals import FLGruppenNames
 from tests import documents
-from tests.actor_tokens import fresh_admin_actor
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.session_headers import fresh_admin_actor
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -87,7 +87,7 @@ AKTIONEN_REFUSING_A_SAISON_ROW: dict[str, Any] = {"collection": {"$ne": str(Coll
 
 
 def rules_document(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: int = QUALIFIERS) -> dict[str, Any]:
-    return documents.rules_document(qualifiers_per_group=qualifiers, number_of_groups=groups, teams_per_group=teams)
+    return documents.rules_document(qualifiers_per_gruppe=qualifiers, number_of_gruppen=groups, teams_per_gruppe=teams)
 
 
 def saison_document(*, saison_id: str = SAISON_ID, status: str = "future", spielplan: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -296,7 +296,7 @@ def an_undrawn_season(url: str, *, dated: bool = False) -> UndrawnSeason:
             spieltage=spieltage,
             spiele=spiele,
             watermark=await watermark_now(database),
-            log=await database[Collection.AKTIONEN].find({}).sort("_id", 1).to_list(length=None),
+            log=await database[Collection.ACTION_LOG].find({}).sort("_id", 1).to_list(length=None),
         )
 
     undrawn = on_a_seeded_saison(url, body)
@@ -368,7 +368,7 @@ class TestTheRemovalKeepsEveryImage:
         patched = [row for row in undrawn.log if row["operation"] == "patch_one"][-1]
 
         assert patched["before"]["spielplan"] == {
-            "generiert_am": TODAY,
+            "generated_at": TODAY,
             "spieltage": undrawn.drawn.spieltage,
             "spiele": undrawn.drawn.spiele,
         }
@@ -410,7 +410,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
                 spieltage=spieltage,
                 spiele=spiele,
                 watermark=await watermark_now(database),
-                log=await database[Collection.AKTIONEN].count_documents({}),
+                log=await database[Collection.ACTION_LOG].count_documents({}),
             )
 
         aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
@@ -418,7 +418,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
         # On the code, so this cannot pass because the undraw fell before it removed anything.
         assert aborted.write_error == DOCUMENT_VALIDATION_FAILED, f"expected the validator to refuse the write, got {aborted.write_error}"
         assert (aborted.spieltage, aborted.spiele) == (aborted.drawn.spieltage, aborted.drawn.spiele), "a rolled-back undraw removed rows"
-        assert aborted.watermark == {"generiert_am": TODAY, "spieltage": aborted.drawn.spieltage, "spiele": aborted.drawn.spiele}
+        assert aborted.watermark == {"generated_at": TODAY, "spieltage": aborted.drawn.spieltage, "spiele": aborted.drawn.spiele}
         # The draw's three rows and nothing else: the removals record in-session, so the abort takes
         # their rows back too.
         assert aborted.log == 3
@@ -435,7 +435,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
 
             # AFTER the draw, which writes a `saisons` row of its own: attached earlier, the draw is
             # what would fall and there would be no Spielplan to undraw.
-            await database.command("collMod", str(Collection.AKTIONEN), validator=AKTIONEN_REFUSING_A_SAISON_ROW, validationLevel="strict")
+            await database.command("collMod", str(Collection.ACTION_LOG), validator=AKTIONEN_REFUSING_A_SAISON_ROW, validationLevel="strict")
 
             with pytest.raises(OperationFailure) as failure:
                 await call_undraw(database, client)
@@ -448,7 +448,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
                 spieltage=spieltage,
                 spiele=spiele,
                 watermark=await watermark_now(database),
-                log=await database[Collection.AKTIONEN].count_documents({}),
+                log=await database[Collection.ACTION_LOG].count_documents({}),
             )
 
         aborted = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
@@ -458,7 +458,7 @@ class TestAnAbortedUndrawLeavesAllThreeStanding:
 
         # The assertion that separates the two: everything else here holds with or without the
         # keyword, the two removals being bound to the transaction either way.
-        assert aborted.watermark == {"generiert_am": TODAY, "spieltage": aborted.drawn.spieltage, "spiele": aborted.drawn.spiele}
+        assert aborted.watermark == {"generated_at": TODAY, "spieltage": aborted.drawn.spieltage, "spiele": aborted.drawn.spiele}
 
         assert (aborted.spieltage, aborted.spiele) == (aborted.drawn.spieltage, aborted.drawn.spiele)
         assert aborted.log == 3
@@ -564,7 +564,7 @@ def a_confirmation(saison_id: str) -> dict[str, Any]:
         uhrzeit="18:00:00",
     )
 
-    return documents.spielbestaetigung_document(fixture, partei={"art": "team", "team_id": home})
+    return documents.spielbestaetigung_document(fixture, party={"art": "team", "team_id": home})
 
 
 class TestAnUndrawTakesTheSeasonsConfirmations:
@@ -627,7 +627,7 @@ class BerichteRunningARivalBeforeTheirRemoval(InterleavedCollection):
 
 
 class TestASubmittedReportKeepsTheSpielplan:
-    """`spielplan_berichte_eingereicht` wired: the undraw counts the season's submitted reports in its transaction and again outside it."""
+    """`spielplan_berichte_submitted` wired: the undraw counts the season's submitted reports in its transaction and again outside it."""
 
     def test_the_undraw_is_refused_and_removes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -639,7 +639,7 @@ class TestASubmittedReportKeepsTheSpielplan:
 
         drawn, outcome, counts, berichte = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert outcome == Code.SPIELPLAN_BERICHTE_EINGEREICHT
+        assert outcome == Code.SPIELPLAN_BERICHTE_SUBMITTED
         assert (counts, berichte) == ((drawn.spieltage, drawn.spiele), 1)
 
     def test_a_report_whose_fixture_is_gone_refuses_nothing(self, mongo_replica_set_url: str):
@@ -671,7 +671,7 @@ class TestASubmittedReportKeepsTheSpielplan:
 
         drawn, outcome, counts, passes = on_a_seeded_saison(mongo_replica_set_url, body)
 
-        assert (outcome, counts) == (Code.SPIELPLAN_BERICHTE_EINGEREICHT, (drawn.spieltage, drawn.spiele))
+        assert (outcome, counts) == (Code.SPIELPLAN_BERICHTE_SUBMITTED, (drawn.spieltage, drawn.spiele))
         # Once: the insert conflicts with nothing, so no retry met it.
         assert passes == 1
 
@@ -893,7 +893,7 @@ class TestAnUndrawOfASeasonHoldingNoSpielplan:
     def test_a_watermark_standing_with_no_fixtures_behind_it_is_cleared_and_reported(self, mongo_replica_set_url: str):
         """Report the clear off the counts and this fails: the claim is what is removed, and the rule says report it."""
 
-        seed = Seed(saison=saison_document(spielplan={"generiert_am": TODAY, "spieltage": 8, "spiele": 67}))
+        seed = Seed(saison=saison_document(spielplan={"generated_at": TODAY, "spieltage": 8, "spiele": 67}))
         undrawn = an_undraw_of(mongo_replica_set_url, seed=seed)
 
         assert (undrawn.response.spieltage, undrawn.response.spiele) == (0, 0)
@@ -926,13 +926,13 @@ class TestWhatAnUndrawReopens:
             await call_draw(database, client)
 
             with pytest.raises(APIError) as refused_patch:
-                await call_patch_rules(database, teams_per_group=WIDER_PER_GROUP)
+                await call_patch_rules(database, teams_per_gruppe=WIDER_PER_GROUP)
 
             with pytest.raises(APIError) as refused_entry:
                 await call_entry(database)
 
             await call_undraw(database, client)
-            await call_patch_rules(database, teams_per_group=WIDER_PER_GROUP)
+            await call_patch_rules(database, teams_per_gruppe=WIDER_PER_GROUP)
             widened = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
             assert widened is not None
 
@@ -949,6 +949,6 @@ class TestWhatAnUndrawReopens:
         assert reopened.patch_refused == Code.RULES_SHAPE_AFTER_SPIELPLAN
         assert reopened.entry_refused == Code.ENTRY_GRUPPE_FULL
         # Read off the stored document, so a rule refused after the write cannot pass this.
-        assert reopened.widened_rules["teams_per_group"] == WIDER_PER_GROUP
+        assert reopened.widened_rules["teams_per_gruppe"] == WIDER_PER_GROUP
         assert (reopened.entered.team_id, reopened.entered.gruppe) == (NEWCOMER_OID, "A")
         assert reopened.gruppe_a_holds == TEAMS_PER_GROUP + 1

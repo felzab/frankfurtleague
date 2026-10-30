@@ -655,7 +655,7 @@ class TestReportingAFault:
         """Never as a table too short: the repair is the reference, where a short table's is the group's entrants."""
 
         spiele = [fixture_at(25, team1=side(1), quelle1=gruppenplatz("C", 1))]
-        reported = find_gruppen_not_run(FLSpielListAdapter.validate_python(spiele), number_of_groups=2)
+        reported = find_gruppen_not_run(FLSpielListAdapter.validate_python(spiele), number_of_gruppen=2)
 
         assert [(fault.spiel_nr, fault.reason, fault.gruppe) for fault in reported] == [(25, "gruppe_not_run", "C")]
 
@@ -668,7 +668,7 @@ class TestReportingAFault:
 
         spiele = [fixture_at(25, team1=side(1), quelle1=gruppenplatz("C", 1))]
 
-        assert find_gruppen_not_run(FLSpielListAdapter.validate_python(spiele), number_of_groups=4) == []
+        assert find_gruppen_not_run(FLSpielListAdapter.validate_python(spiele), number_of_gruppen=4) == []
 
     def test_a_season_at_rest_reports_nothing(self, fixture_at: FixtureFactory, side: SideFactory):
         spiele = [

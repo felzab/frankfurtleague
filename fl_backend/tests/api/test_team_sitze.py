@@ -14,10 +14,10 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
 from tests import documents
-from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 # Module level: the read opens a snapshot session against a real mongod.
@@ -55,8 +55,8 @@ def sitze_read(url: str, *, identifier: str, team_id: ObjectId = TEAM_OID, saiso
             await seed(database)
             async with app_client(url, app=_served(), now=NOW) as http:
                 response = await http.get(
-                    f"/api/v{API_VERSION}/teams/{team_id}/saisons/{saison_id}/self/sitze",
-                    headers=SignedActor(identifier, ADMIN_KEY, lane="person"),
+                    f"/api/v{API_VERSION}/teams/{team_id}/saisons/{saison_id}/self/seats",
+                    headers=StampedHeaders(identifier, ADMIN_KEY, lane="person"),
                 )
 
             return response.status_code, response.json()
@@ -83,10 +83,10 @@ async def seed(database: AsyncDatabase) -> None:
                 "Zorbanax",
                 "ZOX",
                 kontakte={
-                    "trainer": documents.kontaktperson_document("Theo", bestaetigt_am="2026-03-21"),
+                    "trainer": documents.kontaktperson_document("Theo", confirmed_at="2026-03-21"),
                     "ansprechperson": documents.kontaktperson_document("Anna"),
                     "stellvertretung": None,
-                    "trainer_ist_zugleich": None,
+                    "trainer_is_also": None,
                 },
             ),
             documents.saison_team_document(
@@ -96,9 +96,9 @@ async def seed(database: AsyncDatabase) -> None:
                 "ZOX",
                 kontakte={
                     "trainer": None,
-                    "ansprechperson": documents.kontaktperson_document("Paula", bestaetigt_am="2025-03-21"),
+                    "ansprechperson": documents.kontaktperson_document("Paula", confirmed_at="2025-03-21"),
                     "stellvertretung": None,
-                    "trainer_ist_zugleich": None,
+                    "trainer_is_also": None,
                 },
             ),
             documents.saison_team_document(
@@ -108,9 +108,9 @@ async def seed(database: AsyncDatabase) -> None:
                 "ZOX",
                 kontakte={
                     "trainer": None,
-                    "ansprechperson": documents.kontaktperson_document("Nora", bestaetigt_am="2026-03-21"),
-                    "stellvertretung": documents.kontaktperson_document("Stella", bestaetigt_am="2026-03-21"),
-                    "trainer_ist_zugleich": None,
+                    "ansprechperson": documents.kontaktperson_document("Nora", confirmed_at="2026-03-21"),
+                    "stellvertretung": documents.kontaktperson_document("Stella", confirmed_at="2026-03-21"),
+                    "trainer_is_also": None,
                 },
             ),
             documents.saison_team_document(
@@ -120,9 +120,9 @@ async def seed(database: AsyncDatabase) -> None:
                 "QUX",
                 kontakte={
                     "trainer": None,
-                    "ansprechperson": documents.kontaktperson_document("Otto", bestaetigt_am="2026-03-21"),
+                    "ansprechperson": documents.kontaktperson_document("Otto", confirmed_at="2026-03-21"),
                     "stellvertretung": None,
-                    "trainer_ist_zugleich": None,
+                    "trainer_is_also": None,
                 },
             ),
         ]
@@ -146,17 +146,17 @@ class TestTheSeatRead:
         status, served = sitze_read(mongo_replica_set_url, identifier=THEO)
 
         assert status == 200
-        assert served["sitze"] == [
-            {"rolle": "trainer", "name": "Theo Theo-Mustermann", "bestaetigt": True},
-            {"rolle": "ansprechperson", "name": "Anna Anna-Mustermann", "bestaetigt": False},
-            {"rolle": "stellvertretung", "name": None, "bestaetigt": False},
+        assert served["seats"] == [
+            {"rolle": "trainer", "name": "Theo Theo-Mustermann", "confirmed": True},
+            {"rolle": "ansprechperson", "name": "Anna Anna-Mustermann", "confirmed": False},
+            {"rolle": "stellvertretung", "name": None, "confirmed": False},
         ]
 
     def test_a_stellvertretung_reads_the_lines_of_their_own_season(self, mongo_replica_set_url: str):
         status, served = sitze_read(mongo_replica_set_url, identifier=STELLA, saison_id=NEXT_SAISON_ID)
 
         assert status == 200
-        assert [(sitz["rolle"], sitz["name"]) for sitz in served["sitze"]] == [
+        assert [(sitz["rolle"], sitz["name"]) for sitz in served["seats"]] == [
             ("trainer", None),
             ("ansprechperson", "Nora Nora-Mustermann"),
             ("stellvertretung", "Stella Stella-Mustermann"),
@@ -170,7 +170,7 @@ class TestTheSeatRead:
     def test_a_seat_granting_nothing_here_is_refused(self, mongo_replica_set_url: str, identifier: str, saison_id: str):
         status, served = sitze_read(mongo_replica_set_url, identifier=identifier, saison_id=saison_id)
 
-        assert (status, served["error_code"]) == (403, "funktion_nicht_gehalten")
+        assert (status, served["error_code"]) == (403, "role_not_held")
 
     def test_no_address_telephone_or_birthdate_at_any_depth(self, mongo_replica_set_url: str):
         """Over the serialised body, keys and values both, so a nested block cannot smuggle one in.
@@ -180,6 +180,6 @@ class TestTheSeatRead:
 
         _, served = sitze_read(mongo_replica_set_url, identifier=THEO)
 
-        assert not {"email", "telefon", "geburtsdatum", "einwilligung", "bestaetigt_am"} & set(keys_at_every_depth(served))
+        assert not {"email", "telefon", "geburtsdatum", "einwilligung", "confirmed_at"} & set(keys_at_every_depth(served))
         text = json.dumps(served)
         assert not any(value in text for value in ("@", "+49", "1984-05-09", "2026-03-21"))

@@ -4,16 +4,16 @@ from fastapi import APIRouter, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.berechtigungen.crud import owe_in_session, pull_the_list_to_judge, read_berechtigungen, read_the_announced
-from app.api.berechtigungen.schemas import FLBerechtigungAbgleichResponse
+from app.api.berechtigungen.schemas import FLGrantReconciliationResponse
 from app.api.berechtigungen.services import compare, compose_announced, compose_mitteilung, ernannt, gefunden
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION
-from app.core.crud import loeschen_many_from_db, patch_many_in_db, post_many_to_db
+from app.core.crud import erase_many_from_db, patch_many_in_db, post_many_to_db
 from app.core.dependencies import (
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenCollection,
     DBClient,
-    PostausgangCollection,
+    GrantsAnnouncedCollection,
+    GrantsCollection,
+    OutboxCollection,
     get_germany_now,
 )
 from app.core.security import bind_system_actor, verify_access_system
@@ -22,28 +22,28 @@ from app.core.transactions import transaction_session
 # System tier and the system actor, as the application sweep's own router is: the pass holds no
 # session, and an out-of-band change has no administrator to attribute its rows to.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/berechtigungen/abgleich",
+    prefix=f"/api/v{API_VERSION}/grants/reconciliation",
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
 
 @router.post(
     "",
-    response_model=FLBerechtigungAbgleichResponse,
+    response_model=FLGrantReconciliationResponse,
     summary="Owe a notice of every change to the grants made in the database",
 )
-async def post_berechtigungen_abgleich(
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
+async def post_grants_reconciliation(
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     now: datetime = Depends(get_germany_now),
-) -> FLBerechtigungAbgleichResponse:
+) -> FLGrantReconciliationResponse:
     """
     Compare the grants with what the administrators were last told, and owe each change made in the database to every one of them.
 
-    A change found here names nobody (`urheber` is `datenbank`), and no barred address is named in it. A write through the
+    A change found here names nobody (`author` is `datenbank`), and no barred address is named in it. A write through the
     application owes its own notice in its own transaction, so only an edit in the database is found here, once: the record
     it is compared with moves in the same transaction.
     """
@@ -65,29 +65,25 @@ async def post_berechtigungen_abgleich(
             barred = await adressen_gesperrt(sperrliste, {str(row["adresse"]) for row in grants} | named, session=session)
             await owe_in_session(
                 [
-                    compose_mitteilung(
-                        berechtigung_id=berechtigung_id, art=art, jetzt=jetzt, vorher=vorher, geaendert_von=None, now=now, gesperrt=barred
-                    )
-                    for berechtigung_id, art, jetzt, vorher in changes
+                    compose_mitteilung(grant_id=grant_id, art=art, jetzt=jetzt, before=vorher, changed_by=None, now=now, barred=barred)
+                    for grant_id, art, jetzt, vorher in changes
                 ],
-                postausgang_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 berechtigungen_collection=berechtigungen_collection,
                 now=now,
                 session=session,
             )
             # The record now accounts for each change, its notice owed. Bookkeeping, so removed with no image: an image
             # carries the address into a log every administrator reads for twelve months.
-            await loeschen_many_from_db(
+            await erase_many_from_db(
                 collection=berechtigungen_angekuendigt_collection,
-                db_filter={"_id": {"$in": [berechtigung_id for berechtigung_id, _, _, _ in changes]}},
+                db_filter={"_id": {"$in": [grant_id for grant_id, _, _, _ in changes]}},
                 session=session,
             )
-            current = [
-                compose_announced(berechtigung_id=grant_id, stand=jetzt, now=now) for grant_id, _, jetzt, _ in changes if jetzt is not None
-            ]
+            current = [compose_announced(grant_id=grant_id, stand=jetzt, now=now) for grant_id, _, jetzt, _ in changes if jetzt is not None]
             if current:
                 await post_many_to_db(collection=berechtigungen_angekuendigt_collection, documents=current, session=session)
-            # This pass's clock and not the row's `erteilt_am`, which a paste typed and a repoint kept
+            # This pass's clock and not the row's `granted_at`, which a paste typed and a repoint kept
             # from the address before.
             if found := gefunden(changes):
                 await patch_many_in_db(
@@ -102,7 +98,7 @@ async def post_berechtigungen_abgleich(
                 await patch_many_in_db(
                     collection=berechtigungen_collection,
                     db_filter={"_id": {"$in": raised}},
-                    update={"$set": {"ernannt_am": now}},
+                    update={"$set": {"appointed_at": now}},
                     session=session,
                 )
 
@@ -122,4 +118,4 @@ async def post_berechtigungen_abgleich(
     async with transaction_session(db) as session:
         aenderungen = await session.with_transaction(compare_and_owe)
 
-    return FLBerechtigungAbgleichResponse(aenderungen=aenderungen)
+    return FLGrantReconciliationResponse(changes=aenderungen)

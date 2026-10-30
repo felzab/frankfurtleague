@@ -19,7 +19,7 @@ from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    bestaetigte_kenntnisnahme,
+    confirmed_kenntnisnahme,
     saison_document,
     saison_spieler_document,
     saison_team_document,
@@ -93,14 +93,14 @@ OUTGOING_KONTAKTPERSON = {
     "email": "a.koerner@outgoing.example.de",
     "telefon": "+49 170 1234567",
     "geburtsdatum": "1984-05-09",
-    "einwilligung": bestaetigte_kenntnisnahme(),
+    "einwilligung": confirmed_kenntnisnahme(),
 }
 
 OUTGOING_KONTAKTE = {
     "trainer": dict(OUTGOING_KONTAKTPERSON),
     "ansprechperson": dict(OUTGOING_KONTAKTPERSON),
     "stellvertretung": dict(OUTGOING_KONTAKTPERSON),
-    "trainer_ist_zugleich": "ansprechperson",
+    "trainer_is_also": "ansprechperson",
 }
 
 OUTGOING_TRIKOT_FARBE = "bordeaux"
@@ -285,7 +285,7 @@ async def call_replace(
         spiele_collection=database[Collection.SPIELE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         db=client,
         today=REPLACED_ON,
@@ -497,7 +497,7 @@ class TestTheOutgoingPeopleLeaveTheLog:
             )
             await call_replace(database, client)
 
-            return await database[Collection.AKTIONEN].find({"collection": str(Collection.SAISON_TEAMS)}).sort("_id", 1).to_list(length=None)
+            return await database[Collection.ACTION_LOG].find({"collection": str(Collection.SAISON_TEAMS)}).sort("_id", 1).to_list(length=None)
 
         rows = on_a_seeded_season(mongo_replica_set_url, body)
 
@@ -505,7 +505,7 @@ class TestTheOutgoingPeopleLeaveTheLog:
         for row in rows:
             image = row["before"]
             # The row was seeded before links existed, so its images hold no block for the redaction to add.
-            assert (image["kontakte"], "bestaetigungen" in image) == (None, False)
+            assert (image["kontakte"], "confirmations" in image) == (None, False)
             assert (image["austritt"], image["gruppe"], image["trikot_farbe"]) == (EXIT, "A", OUTGOING_TRIKOT_FARBE)
             assert row["redacted_at"] == REDACTED_AT
         assert OUTGOING_KONTAKTPERSON["email"] not in str(rows)
@@ -555,7 +555,7 @@ class TestTheOutgoingClubsSquadIsRetired:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_replace(database, client)
-            return response.ausgetragene_squad_rows, await squad_now(database)
+            return response.ausgetragene_kader_rows, await squad_now(database)
 
         ausgetragen, squad = on_a_seeded_season(mongo_replica_set_url, body)
 

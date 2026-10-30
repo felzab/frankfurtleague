@@ -17,12 +17,11 @@ from app.core.config import API_VERSION
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import NACHWEIS, nachweis_stand_of
-from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    eigene_einwilligung_document,
+    own_einwilligung_document,
     saison_document,
     saison_spieler_document,
     saison_team_document,
@@ -30,6 +29,7 @@ from tests.documents import (
     spieler_document,
     team_document,
 )
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -39,9 +39,9 @@ DATABASE_NAME = worker_database("fl_spieler_self_test")
 CONFIG = config_for(DATABASE_NAME)
 
 PATH = f"/api/v{API_VERSION}/spieler/self"
-PATCH_PATH = f"/api/v{API_VERSION}/spieler/konto/einwilligung"
+PATCH_PATH = f"/api/v{API_VERSION}/spieler/account/einwilligung"
 # The account page's read, which serves the consent the self read leaves to it.
-KONTO_PATH = f"/api/v{API_VERSION}/konto/einwilligungen"
+KONTO_PATH = f"/api/v{API_VERSION}/account/einwilligungen"
 
 NOW = datetime(2026, 10, 3, 12, 0, tzinfo=ZoneInfo("Europe/Berlin"))
 
@@ -105,7 +105,7 @@ CONFIRMED_AM = "2026-09-02T08:00:00+00:00"
 
 
 def _einwilligung(**fields: Any) -> dict[str, Any]:
-    return eigene_einwilligung_document(text_version=CONFIRMATION_LABEL, bestaetigt_am="2026-09-02", am=CONFIRMED_AM, **fields)
+    return own_einwilligung_document(text_version=CONFIRMATION_LABEL, confirmed_at="2026-09-02", am=CONFIRMED_AM, **fields)
 
 
 # What a page serves for a record seeded granting media, which the retired and the young pupil's are or become.
@@ -139,8 +139,8 @@ def _payload(
     }
 
 
-def _person(email: str) -> SignedActor:
-    return SignedActor(email, ADMIN_KEY, lane="person")
+def _person(email: str) -> StampedHeaders:
+    return StampedHeaders(email, ADMIN_KEY, lane="person")
 
 
 async def _seed(database: AsyncDatabase) -> None:
@@ -173,7 +173,7 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SAISON_SPIELER].insert_many(
         [
             saison_spieler_document(PUPIL_OID, PAST_SAISON, TEAM_A_OID, nummer="7", inactive_since="2025-06-30"),
-            saison_spieler_document(PUPIL_OID, ACTIVE_SAISON, TEAM_A_OID, nummer="07", rolle="kapitaen", ist_nachnominiert=True),
+            saison_spieler_document(PUPIL_OID, ACTIVE_SAISON, TEAM_A_OID, nummer="07", rolle="kapitaen", is_nachnominiert=True),
             saison_spieler_document(BYSTANDER_OID, ACTIVE_SAISON, TEAM_B_OID, nummer="9"),
         ]
     )
@@ -243,10 +243,10 @@ class TestTheOwnRecord:
             ADULT_BIRTHDATE,
         )
         # Its stored data alone: neither the sign-in address nor the consent, which is the account page's.
-        assert not {"email", "einwilligung", "erteilbar", "nachweis_stand"} & set(record)
+        assert not {"email", "einwilligung", "givable", "nachweis_stand"} & set(record)
         eintrag = served(mongo_replica_set_url, _read(IDENTIFIER, path=KONTO_PATH)).json()["spieler"]
-        assert (eintrag["einwilligung"]["text_version"], eintrag["bestaetigt_text_version"]) == (CONFIRMATION_LABEL, CONFIRMATION_LABEL)
-        assert (eintrag["erteilbar"], eintrag["medien_angeboten"]) == (True, True)
+        assert (eintrag["einwilligung"]["text_version"], eintrag["confirmed_text_version"]) == (CONFIRMATION_LABEL, CONFIRMATION_LABEL)
+        assert (eintrag["givable"], eintrag["medien_offered"]) == (True, True)
 
     def test_each_squad_row_carries_the_name_its_season_was_played_under(self, mongo_replica_set_url: str):
         kader = served(mongo_replica_set_url, _read(IDENTIFIER)).json()["spieler"]["kader"]
@@ -255,7 +255,7 @@ class TestTheOwnRecord:
             (ACTIVE_SAISON, ROW_NAME_A_ACTIVE, "07"),
             (PAST_SAISON, ROW_NAME_A_PAST, "7"),
         ]
-        assert (kader[0]["rolle"], kader[0]["ist_nachnominiert"], kader[0]["inactive_since"]) == ("kapitaen", True, None)
+        assert (kader[0]["rolle"], kader[0]["is_nachnominiert"], kader[0]["inactive_since"]) == ("kapitaen", True, None)
         assert kader[1]["inactive_since"] == "2025-06-30"
 
     def test_an_address_spelled_otherwise_reads_the_same_record(self, mongo_replica_set_url: str):
@@ -266,16 +266,16 @@ class TestTheOwnRecord:
     def test_a_retired_record_is_served_for_its_withdrawal_alone(self, mongo_replica_set_url: str):
         record = served(mongo_replica_set_url, _read(RETIRED, path=KONTO_PATH)).json()["spieler"]
 
-        assert (record["spieler_id"], record["inactive_since"], record["erteilbar"]) == (str(RETIRED_OID), "2026-07-01", False)
+        assert (record["spieler_id"], record["inactive_since"], record["givable"]) == (str(RETIRED_OID), "2026-07-01", False)
 
     @pytest.mark.parametrize(("email", "angeboten"), [(YOUNG, False), (IDENTIFIER, True)], ids=["seventeen", "adult"])
     def test_the_media_switch_is_offered_from_the_media_age_alone(self, mongo_replica_set_url: str, email: str, angeboten: bool):
-        assert served(mongo_replica_set_url, _read(email, path=KONTO_PATH)).json()["spieler"]["medien_angeboten"] is angeboten
+        assert served(mongo_replica_set_url, _read(email, path=KONTO_PATH)).json()["spieler"]["medien_offered"] is angeboten
 
     def test_an_address_holding_no_record_is_refused(self, mongo_replica_set_url: str):
         response = served(mongo_replica_set_url, _read(NOBODY))
 
-        assert (response.status_code, response.json()["error_code"]) == (403, Code.FUNKTION_NICHT_GEHALTEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, Code.ROLE_NOT_HELD)
 
 
 @pytest.mark.db
@@ -311,7 +311,7 @@ class TestTheTwoChoices:
     def test_a_press_moving_neither_choice_writes_nothing(self, mongo_replica_set_url: str):
         async def steps(http: AsyncClient, database: AsyncDatabase) -> Any:
             response = await http.patch(PATCH_PATH, json=_payload(), headers=_person(IDENTIFIER))
-            return response, await _records(database), await database[Collection.AKTIONEN].count_documents({})
+            return response, await _records(database), await database[Collection.ACTION_LOG].count_documents({})
 
         response, after, logged = served(mongo_replica_set_url, steps)
 
@@ -324,7 +324,7 @@ class TestARecordNotHeld:
     def test_an_address_holding_no_record_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         response, before, after, _ = served(mongo_replica_set_url, _press(NOBODY, _payload(umfang="intern")))
 
-        assert (response.status_code, response.json()["error_code"]) == (403, Code.FUNKTION_NICHT_GEHALTEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, Code.ROLE_NOT_HELD)
         assert after == before
 
 
@@ -346,7 +346,7 @@ class TestARetiredRecord:
 
         response, before, after, _ = served(mongo_replica_set_url, _press(RETIRED, _payload(medien=True), before=withdrawn_earlier))
 
-        assert (response.status_code, response.json()["error_code"]) == (403, Code.ERTEILUNG_NICHT_ZUGELASSEN)
+        assert (response.status_code, response.json()["error_code"]) == (403, Code.GIVING_NOT_ALLOWED)
         assert after == before
 
 
@@ -355,7 +355,7 @@ class TestTheMediaAge:
     def test_a_media_consent_below_the_floor_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         response, before, after, _ = served(mongo_replica_set_url, _press(YOUNG, _payload(medien=True)))
 
-        assert (response.status_code, response.json()["error_code"]) == (422, Code.MEDIEN_ALTER)
+        assert (response.status_code, response.json()["error_code"]) == (422, Code.MEDIEN_AGE)
         assert after == before
 
     def test_a_stored_media_consent_resent_unchanged_lets_the_scope_move(self, mongo_replica_set_url: str):
@@ -387,7 +387,7 @@ class TestTheLabelTheControlStamps:
     def test_a_label_naming_no_version_of_the_control_is_refused_and_writes_nothing(self, mongo_replica_set_url: str, payload: dict[str, Any]):
         response, before, after, _ = served(mongo_replica_set_url, _press(IDENTIFIER, payload))
 
-        assert (response.status_code, response.json()["error_code"]) == (409, Code.FASSUNG_UNZULAESSIG)
+        assert (response.status_code, response.json()["error_code"]) == (409, Code.WORDING_NOT_ALLOWED)
         assert after == before
 
 
@@ -408,7 +408,7 @@ class TestTheEvidence:
 
         assert response.status_code == 200, response.text
         assert after[PUPIL_OID]["einwilligung"][NACHWEIS] == {
-            "umfang": {"am": NOW_UTC, "text_version": _running_label(), "erteilt_zuvor": EARLIER_EVIDENCE["umfang"]},
+            "umfang": {"am": NOW_UTC, "text_version": _running_label(), "given_before": EARLIER_EVIDENCE["umfang"]},
             "medien": EARLIER_EVIDENCE["medien"],
         }
         assert after[PUPIL_OID]["einwilligung"]["text_version"] == CONFIRMATION_LABEL
@@ -428,7 +428,7 @@ class TestTheEvidence:
         withdrawn, between, granted, after = served(mongo_replica_set_url, steps)
 
         assert (withdrawn.status_code, granted.status_code) == (200, 200), granted.text
-        assert between["erteilt_zuvor"] == EARLIER_EVIDENCE["umfang"], "the withdrawal named no earlier grant, so this case proves nothing"
+        assert between["given_before"] == EARLIER_EVIDENCE["umfang"], "the withdrawal named no earlier grant, so this case proves nothing"
         # Bounded at one act per choice: the grant standing drops the withdrawal's earlier grant.
         assert after[PUPIL_OID]["einwilligung"][NACHWEIS] == {
             "umfang": {"am": NOW_UTC, "text_version": _running_label()},
@@ -445,7 +445,7 @@ class TestTheEvidence:
 
 @pytest.mark.db
 class TestAStalePage:
-    """`fassung_unzulaessig`: a press answers the evidence its page was served, or is refused and writes nothing."""
+    """`wording_not_allowed`: a press answers the evidence its page was served, or is refused and writes nothing."""
 
     def test_a_page_served_before_a_withdrawal_elsewhere_cannot_re_grant_it(self, mongo_replica_set_url: str):
         """Two tabs: the second withdraws the media consent, then the first, still showing it on, narrows the scope."""
@@ -465,7 +465,7 @@ class TestAStalePage:
         withdrawn, stale, before, after = served(mongo_replica_set_url, steps)
 
         assert withdrawn.status_code == 200, withdrawn.text
-        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.FASSUNG_UNZULAESSIG)
+        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.WORDING_NOT_ALLOWED)
         assert after == before
         assert after[PUPIL_OID]["einwilligung"]["medien"] is False
 
@@ -503,7 +503,7 @@ class TestAStalePage:
         withdrawn, granted, stale, before, after = served(mongo_replica_set_url, steps)
 
         assert (withdrawn.status_code, granted.status_code) == (200, 200), granted.text
-        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.FASSUNG_UNZULAESSIG)
+        assert (stale.status_code, stale.json()["error_code"]) == (409, Code.WORDING_NOT_ALLOWED)
         assert after == before
 
 
@@ -512,11 +512,11 @@ class TestTheWordsContext:
     """The agreed words render with what the record names today: the club as it is called now, never the season row's copy."""
 
     def test_the_newest_seasons_squad_row_names_the_team_school_and_season(self, mongo_replica_set_url: str):
-        kontext = served(mongo_replica_set_url, _read(IDENTIFIER, path=KONTO_PATH)).json()["spieler"]["kontext"]
+        kontext = served(mongo_replica_set_url, _read(IDENTIFIER, path=KONTO_PATH)).json()["spieler"]["context"]
 
         assert kontext == {"team": CLUB_NAME_A_NOW, "schule": f"{CLUB_NAME_A_NOW}-Schule", "saison": ACTIVE_SAISON}
 
     def test_a_record_with_no_squad_row_names_nothing(self, mongo_replica_set_url: str):
-        kontext = served(mongo_replica_set_url, _read(YOUNG, path=KONTO_PATH)).json()["spieler"]["kontext"]
+        kontext = served(mongo_replica_set_url, _read(YOUNG, path=KONTO_PATH)).json()["spieler"]["context"]
 
         assert kontext == {"team": None, "schule": None, "saison": None}

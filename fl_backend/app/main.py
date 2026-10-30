@@ -7,22 +7,22 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.routing import APIRoute
 from pydantic.json_schema import models_json_schema
 
-from app.api.adresswechsel.admin_router import router as adresswechsel_admin_router
-from app.api.adresswechsel.public_router import router as adresswechsel_public_router
-from app.api.adresswechsel.system_router import router as adresswechsel_system_router
-from app.api.aktionen.admin_router import router as aktionen_admin_router
-from app.api.berechtigungen.admin_router import router as berechtigungen_admin_router
-from app.api.berechtigungen.system_router import router as berechtigungen_system_router
+from app.api.adresswechsel.admin_router import router as address_change_admin_router
+from app.api.adresswechsel.public_router import router as address_change_public_router
+from app.api.adresswechsel.system_router import router as address_change_system_router
+from app.api.aktionen.admin_router import router as action_log_admin_router
+from app.api.berechtigungen.admin_router import router as grants_admin_router
+from app.api.berechtigungen.system_router import router as grants_system_router
 from app.api.bewerbungen.admin_router import router as bewerbungen_admin_router
 from app.api.bewerbungen.person_router import router as bewerbungen_person_router
 from app.api.bewerbungen.public_router import router as bewerbungen_public_router
 from app.api.bewerbungen.system_router import router as bewerbungen_system_router
 from app.api.einwilligung.public_router import router as einwilligung_public_router
-from app.api.identitaet.admin_router import router as identitaet_admin_router
-from app.api.identitaet.person_router import router as identitaet_person_router
-from app.api.identitaet.system_router import router as identitaet_system_router
-from app.api.konto.person_router import router as konto_person_router
-from app.api.postausgang.system_router import router as postausgang_system_router
+from app.api.identitaet.admin_router import router as identity_admin_router
+from app.api.identitaet.person_router import router as identity_person_router
+from app.api.identitaet.system_router import router as identity_system_router
+from app.api.konto.person_router import router as account_person_router
+from app.api.outbox.system_router import router as outbox_system_router
 from app.api.registrierungen.admin_router import router as registrierungen_admin_router
 from app.api.registrierungen.person_router import router as registrierungen_person_router
 from app.api.registrierungen.person_router import spieler_router as registrierungen_person_spieler_router
@@ -64,14 +64,14 @@ from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 # is `<tag>_<handler>`: a handler's name is unique within its slice. Which key a router takes its
 # guard publishes, as the operation's `security`.
 ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
-    "adresswechsel": (adresswechsel_public_router, adresswechsel_admin_router, adresswechsel_system_router),
-    "aktionen": (aktionen_admin_router,),
-    "berechtigungen": (berechtigungen_admin_router, berechtigungen_system_router),
+    "address_change": (address_change_public_router, address_change_admin_router, address_change_system_router),
+    "action_log": (action_log_admin_router,),
+    "grants": (grants_admin_router, grants_system_router),
     "bewerbungen": (bewerbungen_admin_router, bewerbungen_public_router, bewerbungen_person_router, bewerbungen_system_router),
     "einwilligung": (einwilligung_public_router,),
-    "identitaet": (identitaet_system_router, identitaet_admin_router, identitaet_person_router),
-    "konto": (konto_person_router,),
-    "postausgang": (postausgang_system_router,),
+    "identity": (identity_system_router, identity_admin_router, identity_person_router),
+    "account": (account_person_router,),
+    "outbox": (outbox_system_router,),
     "registrierungen": (
         registrierungen_admin_router,
         registrierungen_public_router,

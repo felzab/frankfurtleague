@@ -37,12 +37,12 @@ Saison = str | None | RunningSeason
 class BanList:
     sperrliste_collection: AsyncCollection
     saisons_collection: AsyncCollection
-    schluessel: SecretStr
+    key: SecretStr
 
     def hash_of(self, adresse: str) -> str:
         """The stored form of an address a payload carries, keyed from its own spelling."""
 
-        return adresse_hash(adresse, schluessel=self.schluessel)
+        return adresse_hash(adresse, key=self.key)
 
 
 async def sperrliste_saison(sperrliste: BanList, *, session: AsyncClientSession | None = None) -> str | None:
@@ -67,7 +67,7 @@ async def adressen_gesperrt(
     return await gesperrte_adressen(
         adressen,
         sperrliste_collection=sperrliste.sperrliste_collection,
-        schluessel=sperrliste.schluessel,
+        key=sperrliste.key,
         massgebliche_saison_id=await _saison(sperrliste, massgebliche_saison_id, session=session),
         session=session,
     )
@@ -114,7 +114,7 @@ def get_ban_list(
 ) -> BanList:
     """The request's ban list, keyed as every row of it is."""
 
-    return BanList(sperrliste_collection=sperrliste_collection, saisons_collection=saisons_collection, schluessel=config.sperrliste_schluessel)
+    return BanList(sperrliste_collection=sperrliste_collection, saisons_collection=saisons_collection, key=config.sperrliste_key)
 
 
 SperrlisteLookup = Annotated[BanList, Depends(get_ban_list)]

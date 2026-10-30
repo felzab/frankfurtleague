@@ -5,8 +5,8 @@ from itertools import combinations, product
 from typing import Any, get_args
 
 from app.api.bewerbungen.services import bestaetigungsfrist_from, row_takes_confirmations, saison_link_is_over, seat_is_answered
-from app.api.postausgang.schemas import FLKontaktLinkDaten, FLPostausgangBezug, FLPostausgangLage, FLPostausgangLink
-from app.api.postausgang.services import OwedMail
+from app.api.outbox.schemas import FLKontaktLinkData, FLOutboxLink, FLOutboxReference, FLOutboxState
+from app.api.outbox.services import OwedMail
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_COUNTED_AS_ABSAGE,
@@ -33,7 +33,7 @@ from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLGruppenNames, FLKontaktRolle, FLKontaktZeile
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLGruppenNames, FLKontaktRolle, FLKontaktRow
 
 AS_NAME = "saison_data"
 SAISON_PAST_AS_NAME = "saison_past_data"
@@ -96,7 +96,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
                 {
                     "$group": {
                         "_id": None,
-                        "anzahl_gespielte_spiele": {"$sum": 1},
+                        "count_gespielte_spiele": {"$sum": 1},
                         "siege": {"$sum": {"$cond": [{"$gt": ["$tore_self", "$tore_opponent"]}, 1, 0]}},
                         "unentschieden": {"$sum": {"$cond": [{"$eq": ["$tore_self", "$tore_opponent"]}, 1, 0]}},
                         "niederlagen": {"$sum": {"$cond": [{"$lt": ["$tore_self", "$tore_opponent"]}, 1, 0]}},
@@ -108,7 +108,7 @@ def build_statistik_lookup_stage(saison_id: str, rules: FLSaisonRules, scope: FL
                     # A defeat adds nothing: `FLSaisonRules` carries no `loss_points`.
                     "$project": {
                         "_id": 0,
-                        "anzahl_gespielte_spiele": 1,
+                        "count_gespielte_spiele": 1,
                         "siege": 1,
                         "unentschieden": 1,
                         "niederlagen": 1,
@@ -265,7 +265,7 @@ def build_team_pipeline(filters: FLPublicTeamsFilterParams, rules: FLSaisonRules
                         "statistik": {
                             "$mergeObjects": [
                                 {"$ifNull": [{"$first": f"${STATISTIK_AS_NAME}"}, ZERO_STATISTIK]},
-                                {"anzahl_abgesagte_spiele": {"$ifNull": [{"$first": f"${ABSAGE_AS_NAME}.{ABSAGE_COUNT_NAME}"}, 0]}},
+                                {"count_abgesagte_spiele": {"$ifNull": [{"$first": f"${ABSAGE_AS_NAME}.{ABSAGE_COUNT_NAME}"}, 0]}},
                             ]
                         }
                     }
@@ -321,7 +321,7 @@ def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRule
 
         if spiel.sonderereignis in SONDEREREIGNIS_COUNTED_AS_ABSAGE:
             for team_id in sides:
-                figures[team_id]["anzahl_abgesagte_spiele"] += 1
+                figures[team_id]["count_abgesagte_spiele"] += 1
 
         counted = _counted_goals(spiel)
         if counted is None:
@@ -334,7 +334,7 @@ def build_statistik_by_team(spiele: Iterable[FLSpielCommon], rules: FLSaisonRule
             tore_self, tore_opponent = (tore1, tore2) if team_id == team1_id else (tore2, tore1)
 
             row = figures[team_id]
-            row["anzahl_gespielte_spiele"] += 1
+            row["count_gespielte_spiele"] += 1
             row["tore_geschossen"] += tore_self
             row["tore_kassiert"] += tore_opponent
 
@@ -509,7 +509,7 @@ def _tiers(
 def _may_hold_a_platz(team: FLTeam, still_to_play: int) -> bool:
     """Whether a team can hold a placing a bracket slot could name."""
 
-    return team.austritt is None and (team.statistik.anzahl_gespielte_spiele + still_to_play) > 0
+    return team.austritt is None and (team.statistik.count_gespielte_spiele + still_to_play) > 0
 
 
 def _spiele_by_gruppe(
@@ -629,7 +629,7 @@ def _decide_one_gruppe(
     order = [team.id for team in teams]
     # Every other club is in `placeable` under every ending, so only these need asking again: a club
     # keeps its place in the set on the strength of one counted match, whatever a call-off takes.
-    fragile = [team_id for team_id in placeable if by_id[team_id].statistik.anzahl_gespielte_spiele == 0]
+    fragile = [team_id for team_id in placeable if by_id[team_id].statistik.count_gespielte_spiele == 0]
 
     # Ranked as the walk goes rather than after it, so a group deciding nothing costs one ranking:
     # this runs inside the write transaction.
@@ -637,7 +637,7 @@ def _decide_one_gruppe(
     seen: set[tuple[tuple[int, ...], frozenset[CustomObjectId]]] = set()
     for endings in product(_endings(rules), repeat=len(open_pairs)):
         punkte = dict(base)
-        # A result leaves this count alone rather than moving the fixture into `anzahl_gespielte_spiele`:
+        # A result leaves this count alone rather than moving the fixture into `count_gespielte_spiele`:
         # the walk hypothesises no `statistik`, and `_may_hold_a_platz` reads the two together.
         left_to_play = {team_id: still_to_play.get(team_id, 0) for team_id in fragile}
         for (left, right), (to_left, to_right, played) in zip(open_pairs, endings, strict=True):
@@ -708,7 +708,7 @@ def _separated_placings(
         for platz, holder in _placings(teams, lo, settled, spiele, rules, placeable).items()
         # `_placings` seeds only a club already in `placeable`, and the one way out of that set is a
         # call-off emptying what it has left to play, which takes nothing counted with it.
-        if holder.statistik.anzahl_gespielte_spiele > 0
+        if holder.statistik.count_gespielte_spiele > 0
         # Asked of EVERY club, a departed one included: `_tiers` leaves a band whole while any member
         # is unsettled, so a club that can hold no placing of its own can still cost the holder one.
         and all(other.id == holder.id or separated(holder, other) for other in teams)
@@ -754,14 +754,14 @@ def build_gruppen(teams: Iterable[FLTeam], spiele: Iterable[FLSpielCommon], rule
     gruppe_of: dict[CustomObjectId, FLGruppenNames] = {team.id: team.gruppe for team in teams}
     by_gruppe, _ = _spiele_by_gruppe(spiele, gruppe_of)
 
-    grouped: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in offered_gruppen(rules.number_of_groups)}
+    grouped: dict[FLGruppenNames, list[FLTeam]] = {name: [] for name in offered_gruppen(rules.number_of_gruppen)}
     for team in teams:
         # `model_construct` is one way round `FLGruppenNames`, a row in a group the season stopped
         # offering the other. Membership, not falsiness: `not team.gruppe` lets "X" through to a
         # KeyError, and a dropped club would go missing from a standing unnoticed.
         if team.gruppe not in grouped:
             raise ValueError(
-                f"Team {team.id} stands in group {team.gruppe}, which a season of {rules.number_of_groups} group(s) does not offer"
+                f"Team {team.id} stands in group {team.gruppe}, which a season of {rules.number_of_gruppen} group(s) does not offer"
             )
         grouped[team.gruppe].append(team)
 
@@ -793,7 +793,7 @@ def _standing_row(team: FLTeam, still_to_play: int) -> FLGruppenTeam:
         shorthand=team.shorthand,
         statistik=team.statistik,
         austritt_type=team.austritt.type if team.austritt is not None else None,
-        anzahl_ausstehende_spiele=still_to_play,
+        count_pending_spiele=still_to_play,
     )
 
 
@@ -860,13 +860,13 @@ def build_team_saisons_pipeline() -> list[Mapping[str, Any]]:
                             "austritt": 1,
                             "trikot_farbe": 1,
                             "kontakte": 1,
-                            "bestaetigungen": 1,
+                            "confirmations": 1,
                             "version": 1,
                         }
                     },
                     # Each link's state and never its hash, which only the link's own lookup reads. Unset
                     # rather than projected field by field: a sub-path projection drops a null seat's key.
-                    {"$unset": [f"bestaetigungen.{seat}.token_hashes" for seat in KONTAKT_ROLLEN]},
+                    {"$unset": [f"confirmations.{seat}.token_hashes" for seat in KONTAKT_ROLLEN]},
                 ],
                 "as": "memberships",
             }
@@ -878,7 +878,7 @@ def build_team_saisons_pipeline() -> list[Mapping[str, Any]]:
 def membership_row_ids(teams_raw: Sequence[Mapping[str, Any]]) -> list[Any]:
     """Every season row the memberships read holds a link on, whose mails `postausgang/crud.py :: lagen_of` reads."""
 
-    return [row["_id"] for team in teams_raw for row in team.get("memberships", []) if isinstance(row.get("bestaetigungen"), Mapping)]
+    return [row["_id"] for team in teams_raw for row in team.get("memberships", []) if isinstance(row.get("confirmations"), Mapping)]
 
 
 def _lage_sitz(row: Mapping[str, Any], seat: str) -> str:
@@ -888,8 +888,8 @@ def _lage_sitz(row: Mapping[str, Any], seat: str) -> str:
     and its hand-out writes the same hash into both.
     """
 
-    zugleich = (row.get("kontakte") or {}).get("trainer_ist_zugleich")
-    links = row.get("bestaetigungen") or {}
+    zugleich = (row.get("kontakte") or {}).get("trainer_is_also")
+    links = row.get("confirmations") or {}
     if seat == "trainer" and zugleich in KONTAKT_ROLLEN and links.get(zugleich) == links.get("trainer"):
         return str(zugleich)
 
@@ -897,7 +897,7 @@ def _lage_sitz(row: Mapping[str, Any], seat: str) -> str:
 
 
 def mit_linkstand(
-    teams_raw: Sequence[Mapping[str, Any]], *, today: str, lagen: Mapping[tuple[Any, str | None], FLPostausgangLage]
+    teams_raw: Sequence[Mapping[str, Any]], *, today: str, lagen: Mapping[tuple[Any, str | None], FLOutboxState]
 ) -> list[dict[str, Any]]:
     """The memberships read with each stored seat link judged as its press judges it (`saison_link_is_over`), and what became of its mail.
 
@@ -906,16 +906,16 @@ def mit_linkstand(
     """
 
     def judged(row: Mapping[str, Any]) -> Any:
-        bestaetigungen = row.get("bestaetigungen")
+        bestaetigungen = row.get("confirmations")
         if not isinstance(bestaetigungen, Mapping):
             return bestaetigungen
 
         def abgelaufen(seat: str, link: Mapping[str, Any]) -> bool:
-            offen = not seat_is_answered(kontakte=row.get("kontakte"), bestaetigungen=bestaetigungen, seat=seat)
+            offen = not seat_is_answered(kontakte=row.get("kontakte"), confirmations=bestaetigungen, seat=seat)
             return offen and saison_link_is_over(frist=link.get("frist"), today=today)
 
         return {
-            seat: {**link, "abgelaufen": abgelaufen(seat, link), "zustellung": lagen.get((row["_id"], _lage_sitz(row, seat)))}
+            seat: {**link, "expired": abgelaufen(seat, link), "delivery": lagen.get((row["_id"], _lage_sitz(row, seat)))}
             if isinstance(link, Mapping)
             else link
             for seat, link in bestaetigungen.items()
@@ -923,7 +923,7 @@ def mit_linkstand(
 
     def served(row: Mapping[str, Any]) -> dict[str, Any]:
         rest = {key: value for key, value in row.items() if key != "_id"}
-        return {**rest, "bestaetigungen": judged(row)}
+        return {**rest, "confirmations": judged(row)}
 
     return [{**team, "memberships": [served(row) for row in team.get("memberships", [])]} for team in teams_raw]
 
@@ -949,7 +949,7 @@ def seated_identifiers(teams: Sequence[Mapping[str, Any]]) -> list[str]:
     )
 
 
-def mit_adresswechseln(teams: Sequence[Mapping[str, Any]], *, live: Mapping[str, Any], verwehrt: Mapping[str, str]) -> list[dict[str, Any]]:
+def mit_adresswechseln(teams: Sequence[Mapping[str, Any]], *, live: Mapping[str, Any], denied: Mapping[str, str]) -> list[dict[str, Any]]:
     """The memberships read with each confirmed seat's live address change by id, `live` keyed by the folded address.
 
     An unconfirmed seat names none: the change moves only confirmed seats (`app/api/identitaet/services.py ::
@@ -970,12 +970,10 @@ def mit_adresswechseln(teams: Sequence[Mapping[str, Any]], *, live: Mapping[str,
 
         return {
             **ids,
-            "einsehbar_verwehrt": {
-                seat: None if ids[seat] is None else verwehrt.get(str(_seat_identifier(row, seat))) for seat in KONTAKT_ROLLEN
-            },
+            "viewable_denied": {seat: None if ids[seat] is None else denied.get(str(_seat_identifier(row, seat))) for seat in KONTAKT_ROLLEN},
         }
 
-    return [{**team, "memberships": [{**row, "adresswechsel": je_sitz(row)} for row in team.get("memberships", [])]} for team in teams]
+    return [{**team, "memberships": [{**row, "address_change": je_sitz(row)} for row in team.get("memberships", [])]} for team in teams]
 
 
 def als_unbestaetigt(einwilligung: Mapping[str, Any]) -> dict[str, Any]:
@@ -984,7 +982,7 @@ def als_unbestaetigt(einwilligung: Mapping[str, Any]) -> dict[str, Any]:
     The stamp nulled: a blank stamp is no answer.
     """
 
-    return {**einwilligung, "bestaetigt_am": None}
+    return {**einwilligung, "confirmed_at": None}
 
 
 # Which fields say WHO holds a seat. The telephone number is not one: it is a way to reach a person
@@ -1080,7 +1078,7 @@ def compose_kontakte_herkunft(*, kontakte: Mapping[str, Any] | None, stored: Any
         if einwilligung is None:
             # Born afresh: nothing of a person who left travels to the
             # one seated, and nobody filling a seat for another person may give their media consent.
-            einwilligung = {**als_unbestaetigt(seat["einwilligung"]), "medien": False, "eingetragen_von": "liga"}
+            einwilligung = {**als_unbestaetigt(seat["einwilligung"]), "medien": False, "entered_by": "liga"}
         composed[slot] = {**seat, "geburtsdatum": _geburtsdatum_held_by(stored_slot, seat=seat), "einwilligung": einwilligung}
 
     return composed
@@ -1118,17 +1116,17 @@ def compose_kontakt_bestaetigung(*, today: str) -> dict[str, Any]:
     before opens nothing from this write on. Written WHOLE wherever a link is owed.
     """
 
-    return {"token_hashes": [], "verschickt_am": today, "frist": bestaetigungsfrist_from(today=today), "abgelehnt_am": None}
+    return {"token_hashes": [], "sent_at": today, "frist": bestaetigungsfrist_from(today=today), "declined_at": None}
 
 
 def people_of(kontakte: Any) -> list[tuple[FLKontaktRolle, ...]]:
-    """Each person the block seats, as the filled seats they hold, the Trainer beside the seat `trainer_ist_zugleich` names.
+    """Each person the block seats, as the filled seats they hold, the Trainer beside the seat `trainer_is_also` names.
 
     One link per PERSON: two would leave the first answering for a seat the second already answered.
     """
 
     block = kontakte if isinstance(kontakte, Mapping) else {}
-    zugleich = block.get("trainer_ist_zugleich")
+    zugleich = block.get("trainer_is_also")
     people: list[tuple[FLKontaktRolle, ...]] = []
 
     for slot in KONTAKT_ROLLEN:
@@ -1195,15 +1193,15 @@ def compose_bestaetigungen_nach(*, kontakte: Any, stored_kontakte: Any, stored_b
     return block
 
 
-def _live_link(*, kontakte: Mapping[str, Any], bestaetigungen: Mapping[str, Any], slot: str, today: str) -> list[str] | None:
+def _live_link(*, kontakte: Mapping[str, Any], confirmations: Mapping[str, Any], slot: str, today: str) -> list[str] | None:
     """The hashes of the link this seat's person can still answer, or `None`: answered, declined, lapsed and unminted links open nothing."""
 
-    entry = bestaetigungen.get(slot)
+    entry = confirmations.get(slot)
     seat = kontakte.get(slot)
     if not isinstance(entry, Mapping) or not isinstance(seat, Mapping) or _seat_is_stamped(seat):
         return None
 
-    if entry.get("abgelehnt_am") is not None or str(entry.get("frist") or "") < today:
+    if entry.get("declined_at") is not None or str(entry.get("frist") or "") < today:
         return None
 
     token_hashes = entry.get("token_hashes")
@@ -1228,7 +1226,7 @@ def seats_changing_holder(*, stored: Any, kontakte: Any) -> tuple[FLKontaktRolle
     )
 
 
-def voids_a_live_link(*, stored_kontakte: Any, kontakte: Any, stored_bestaetigungen: Any, bestaetigungen: Any, today: str) -> bool:
+def voids_a_live_link(*, stored_kontakte: Any, kontakte: Any, stored_bestaetigungen: Any, confirmations: Any, today: str) -> bool:
     """Whether a save drops a link somebody can still answer: a bearer credential voided, as a mint is one handed out.
 
     Any seat emptied or handed on counts, a confirmed one too: its Spielbestätigung links die with it, unread here.
@@ -1239,10 +1237,10 @@ def voids_a_live_link(*, stored_kontakte: Any, kontakte: Any, stored_bestaetigun
 
     stored_slots = stored_kontakte if isinstance(stored_kontakte, Mapping) else {}
     stored_links = stored_bestaetigungen if isinstance(stored_bestaetigungen, Mapping) else {}
-    left = bestaetigungen if isinstance(bestaetigungen, Mapping) else {}
+    left = confirmations if isinstance(confirmations, Mapping) else {}
 
     for slot in KONTAKT_ROLLEN:
-        live = _live_link(kontakte=stored_slots, bestaetigungen=stored_links, slot=slot, today=today)
+        live = _live_link(kontakte=stored_slots, confirmations=stored_links, slot=slot, today=today)
         kept = left.get(slot)
         # Still reached: a kept person's seat re-minted beside a newly seated pair ends the link it held.
         if live is not None and (not isinstance(kept, Mapping) or kept.get("token_hashes") != live):
@@ -1257,10 +1255,10 @@ def compose_bestaetigungen_mit(*, stored_bestaetigungen: Any, minted: Mapping[st
     return {slot: minted[slot] if slot in minted else stored_links.get(slot) for slot in KONTAKT_ROLLEN}
 
 
-def kontakt_bezug(saison_team_id: Any, seats: Sequence[FLKontaktRolle]) -> FLPostausgangBezug:
+def kontakt_bezug(saison_team_id: Any, seats: Sequence[FLKontaktRolle]) -> FLOutboxReference:
     """The season row and the person's seat a delivery is read by: the one the Trainer mirrors, where they hold two."""
 
-    return FLPostausgangBezug(sammlung=Collection.SAISON_TEAMS, id=saison_team_id, sitz=min(seats, key=lambda seat: seat == "trainer"))
+    return FLOutboxReference(collection=Collection.SAISON_TEAMS, id=saison_team_id, seat=min(seats, key=lambda seat: seat == "trainer"))
 
 
 def owed_kontakt_link(
@@ -1270,8 +1268,8 @@ def owed_kontakt_link(
     kontakte: Mapping[str, Any],
     seats: Sequence[FLKontaktRolle],
     frist: str,
-    zeile: FLKontaktZeile,
-    schluessel: str,
+    zeile: FLKontaktRow,
+    key: str,
 ) -> tuple[OwedMail, FLKontaktMint]:
     """One person's confirmation link, owed in the write that seats or re-sends it, and the answer naming whom it is owed.
 
@@ -1284,21 +1282,21 @@ def owed_kontakt_link(
 
     return (
         OwedMail(
-            schluessel=schluessel,
+            key=key,
             an=email,
-            daten=FLKontaktLinkDaten(
-                art="kontakt_bestaetigung",
+            data=FLKontaktLinkData(
+                art="kontakt_confirmation",
                 saison_id=saison_id,
                 schule=str(row.get("name") or ""),
                 rollen=list(seats),
                 frist=frist,
-                zeile=zeile,
+                row=zeile,
             ),
-            bezug=kontakt_bezug(row["_id"], seats),
-            link=FLPostausgangLink(
-                pfade=[f"bestaetigungen.{seat}.token_hashes" for seat in seats],
+            reference=kontakt_bezug(row["_id"], seats),
+            link=FLOutboxLink(
+                paths=[f"confirmations.{seat}.token_hashes" for seat in seats],
                 adressen=[f"kontakte.{seat}.email" for seat in seats],
-                ersetzt=True,
+                replaced=True,
             ),
         ),
         FLKontaktMint(rollen=list(seats), email=email),
@@ -1315,17 +1313,17 @@ def seats_one_link_answers(*, kontakte: Any, seat: FLKontaktRolle) -> tuple[FLKo
     return (seat,)
 
 
-def kontakt_zeile_of(*, saison_status: Any, austritt: Any) -> FLKontaktZeile:
+def kontakt_zeile_of(*, saison_status: Any, austritt: Any) -> FLKontaktRow:
     """The state of the row a link is minted on, as its mail names it."""
 
     if row_takes_confirmations(saison_status=saison_status, austritt=austritt):
-        return "offen"
+        return "open"
 
-    return "saison_vorbei" if saison_status == "past" else "ausgetreten"
+    return "saison_past" if saison_status == "past" else "ausgetreten"
 
 
 def find_kontakt_zeile_refusal(*, saison_status: Any, austritt: Any) -> WriteRefusal | None:
-    """`kontakt_zeile_ohne_saison`: the row's season has ended, or its team has left it, so a link asks about a seat nobody holds.
+    """`kontakt_row_without_saison`: the row's season has ended, or its team has left it, so a link asks about a seat nobody holds.
 
     Judged before the seat, as `app/api/einladungen/services.py :: find_saison_vorbei_refusal` is: no seat repairs the row.
     """
@@ -1333,7 +1331,7 @@ def find_kontakt_zeile_refusal(*, saison_status: Any, austritt: Any) -> WriteRef
     if row_takes_confirmations(saison_status=saison_status, austritt=austritt):
         return None
 
-    return WriteRefusal(error_code=Code.KONTAKT_ZEILE_OHNE_SAISON, status=HTTPStatus.CONFLICT)
+    return WriteRefusal(error_code=Code.KONTAKT_ROW_WITHOUT_SAISON, status=HTTPStatus.CONFLICT)
 
 
 def find_kontakt_sitz_refusal(*, kontakte: Any, seat: str) -> WriteRefusal | None:
@@ -1346,30 +1344,30 @@ def find_kontakt_sitz_refusal(*, kontakte: Any, seat: str) -> WriteRefusal | Non
 
     if not isinstance(slot, Mapping):
         return WriteRefusal(
-            error_code=Code.KONTAKT_SITZ_OHNE_BESTAETIGUNG,
+            error_code=Code.KONTAKT_SEAT_WITHOUT_CONFIRMATION,
             status=HTTPStatus.CONFLICT,
         )
 
     if _seat_is_stamped(slot):
         return WriteRefusal(
-            error_code=Code.KONTAKT_SITZ_OHNE_BESTAETIGUNG,
+            error_code=Code.KONTAKT_SEAT_WITHOUT_CONFIRMATION,
             status=HTTPStatus.CONFLICT,
         )
 
     return None
 
 
-def find_kontakt_sitz_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`kontakt_sitz_gesperrt`: a seat's newly seated or re-sent address is on the ban list, so no link may be minted for it.
+def find_kontakt_sitz_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
+    """`kontakt_seat_barred`: a seat's newly seated or re-sent address is on the ban list, so no link may be minted for it.
 
     409, as every administrator's write naming a barred address is.
     """
 
-    if not gesperrt:
+    if not barred:
         return None
 
     return WriteRefusal(
-        error_code=Code.KONTAKT_SITZ_GESPERRT,
+        error_code=Code.KONTAKT_SEAT_BARRED,
         status=HTTPStatus.CONFLICT,
     )
 
@@ -1406,8 +1404,8 @@ def find_club_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | Non
     return None
 
 
-def offered_gruppen(number_of_groups: int) -> tuple[FLGruppenNames, ...]:
-    return get_args(FLGruppenNames.__value__)[:number_of_groups]
+def offered_gruppen(number_of_gruppen: int) -> tuple[FLGruppenNames, ...]:
+    return get_args(FLGruppenNames.__value__)[:number_of_gruppen]
 
 
 def find_gruppe_move_refusal(*, fixtures_drawn: int) -> WriteRefusal | None:
@@ -1439,13 +1437,13 @@ def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSais
             status=HTTPStatus.CONFLICT,
         )
 
-    if gruppe not in offered_gruppen(rules.number_of_groups):
+    if gruppe not in offered_gruppen(rules.number_of_gruppen):
         return WriteRefusal(
             error_code=Code.ENTRY_GRUPPE_NOT_OFFERED,
             status=HTTPStatus.CONFLICT,
         )
 
-    if occupied >= rules.teams_per_group:
+    if occupied >= rules.teams_per_gruppe:
         return WriteRefusal(
             error_code=Code.ENTRY_GRUPPE_FULL,
             status=HTTPStatus.CONFLICT,

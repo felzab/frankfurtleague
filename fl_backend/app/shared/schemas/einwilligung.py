@@ -21,7 +21,7 @@ class FLEinwilligungBeleg(BaseModel):
 class FLEinwilligungNachweis(FLEinwilligungBeleg, BaseReadModel):
     """The evidence one consent choice keeps: the act that set its value, and on a withdrawal the grant it ended."""
 
-    erteilt_zuvor: FLEinwilligungBeleg | None = None
+    given_before: FLEinwilligungBeleg | None = None
 
 
 class FLEinwilligungNachweise(BaseReadModel):
@@ -58,7 +58,7 @@ CustomEinwilligungTextVersion = Annotated[
 ]
 
 
-class FLKontoEinwilligungPayload(BaseModel):
+class FLAccountEinwilligungPayload(BaseModel):
     """A pupil's, a referee's or a registration's own two choices on their record.
 
     Both choices on every press, and no member defaulted: a default would let a page that forgot one
@@ -74,7 +74,7 @@ class FLKontoEinwilligungPayload(BaseModel):
     nachweis_stand: FLEinwilligungStandPayload
 
 
-class FLSitzEinwilligungPayload(BaseModel):
+class FLSeatEinwilligungPayload(BaseModel):
     """A seat holder's own two choices for every seat they hold on one row.
 
     Both choices on every press: a page that sent one alone would leave the other judged by nothing.

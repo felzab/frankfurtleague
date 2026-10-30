@@ -9,14 +9,14 @@ from app.api.berechtigungen.schemas import FLUtcInstant
 # would name a seat no other endpoint publishes.
 from app.api.sperrliste.schemas import ADDRESS_IN_FREE_TEXT
 from app.shared.folding import trimmed
-from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH, LOESCHUNG_ANLASS_MAX_LENGTH, REFERENZEN_ADRESSEN_MAX
+from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENCES_ADRESSEN_MAX
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.kontakt import CustomEmail
-from app.shared.schemas.literals import FLAdresswechselEinsehbarVerwehrt, FLKontaktRolle, FLRegistrierungStatus, FLSaisonStatus, FLVerwaltung
+from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLKontaktRolle, FLRegistrierungStatus, FLSaisonStatus, FLVerwaltung
 from app.shared.schemas.responses import BaseAPIResponse
 
 
-class FLSubjektPayload(BaseModel):
+class FLSubjectPayload(BaseModel):
     """Which mailbox is asking, folded to the one spelling the join, the header and the log agree on."""
 
     model_config = ConfigDict(extra="forbid")
@@ -26,11 +26,11 @@ class FLSubjektPayload(BaseModel):
     email: CustomEmail
 
 
-class FLSubjektSitz(BaseModel):
+class FLSubjectSeat(BaseModel):
     """One contact seat the mailbox holds on a season's junction row.
 
-    Per seat and never per person, as the erasure's `FLKontoLoeschungSitz` is: one row seats one
-    person twice where `trainer_ist_zugleich` says so.
+    Per seat and never per person, as the erasure's `FLAccountErasureSeat` is: one row seats one
+    person twice where `trainer_is_also` says so.
     """
 
     saison_id: str
@@ -46,7 +46,7 @@ class FLSubjektSitz(BaseModel):
     saison_status: FLSaisonStatus
 
 
-class FLSubjektSpieler(BaseModel):
+class FLSubjectSpieler(BaseModel):
     """One pupil record the mailbox names.
 
     The id alone: the caller composed the address it asked about, and anything else here hands a
@@ -56,8 +56,8 @@ class FLSubjektSpieler(BaseModel):
     spieler_id: CustomObjectId
 
 
-class FLSubjektSchiedsrichter(BaseModel):
-    """One referee record the mailbox names, carrying the id alone for `FLSubjektSpieler`'s reason."""
+class FLSubjectSchiedsrichter(BaseModel):
+    """One referee record the mailbox names, carrying the id alone for `FLSubjectSpieler`'s reason."""
 
     schiedsrichter_id: CustomObjectId
 
@@ -69,15 +69,15 @@ class FLSubjekt(BaseModel):
     (`docs/datenschutz.md :: "One address is one person"`).
     """
 
-    sitze: list[FLSubjektSitz]
-    spieler: list[FLSubjektSpieler]
-    schiedsrichter: list[FLSubjektSchiedsrichter]
+    seats: list[FLSubjectSeat]
+    spieler: list[FLSubjectSpieler]
+    schiedsrichter: list[FLSubjectSchiedsrichter]
     # Its own field and never read off empty lists: set, the mailbox holds records that could grant a
     # panel and none is confirmed, which empty lists alone would report as nothing held.
-    unbestaetigt: bool
+    unconfirmed: bool
 
 
-class FLSubjektResponse(FLSubjekt, BaseAPIResponse):
+class FLSubjectResponse(FLSubjekt, BaseAPIResponse):
     """Which confirmed, live records one mailbox matches, and whether the address is on the ban list.
 
     The ban narrows none of the records: whether a barred person signs in is the sign-in gate's to decide.
@@ -85,13 +85,13 @@ class FLSubjektResponse(FLSubjekt, BaseAPIResponse):
 
     # The endpoint's alone and not `FLSubjekt`'s: a person endpoint judging a Funktion reads the
     # records, and the ban is keyed under a secret only this operation needs.
-    gesperrt: bool
+    barred: bool
     # The grant this mailbox holds, or null: stored, where the lists beside it are derived, so it is
-    # the endpoint's alone for `gesperrt`'s reason too -- no person endpoint authorises against it.
+    # the endpoint's alone for `barred`'s reason too -- no person endpoint authorises against it.
     verwaltung: FLVerwaltung | None
     # Null exactly where `verwaltung` is. Named for the grant and not the tier: a tier change leaves it
     # where it stands.
-    berechtigt_seit: FLUtcInstant | None
+    granted_since: FLUtcInstant | None
     # Null exactly where `verwaltung` is not `owner`: a session older than it administers and holds no
     # owner's power.
     inhaber_seit: FLUtcInstant | None
@@ -101,19 +101,19 @@ class FLAnmeldung(BaseModel):
     """What the records one mailbox holds say about its sign-in."""
 
     # `FLSubjekt`'s own flag, from the same judgement.
-    unbestaetigt: bool
+    unconfirmed: bool
     # Whether the account page serves the mailbox anything, a Funktion or not: a person holding only
     # a retired record or a pending application still has a consent there to take back.
-    konto: bool
+    account: bool
 
 
-class FLAnmeldungResponse(FLAnmeldung, BaseAPIResponse):
+class FLSignInResponse(FLAnmeldung, BaseAPIResponse):
     """The sign-in gate's whole answer: the records' two flags, the ban and the grant, and no record itself.
 
     The ban narrows neither flag: whether a barred person signs in is the gate's to decide.
     """
 
-    gesperrt: bool
+    barred: bool
     verwaltung: FLVerwaltung | None
 
 
@@ -129,30 +129,30 @@ class FLLoeschung(BaseModel):
     # The fixtures moved onto the ghost, which stay as the league's record of the match.
     spiele: int = Field(ge=0)
     # Per seat and never per row, as both reveals name them: one row seats one person twice.
-    kontakt_sitze: int = Field(ge=0)
+    kontakt_seats: int = Field(ge=0)
     registrierungen: int = Field(ge=0)
     # Another address's pending change naming this one, ended alone: the records it would move stay that address's.
-    adresswechsel: int = Field(ge=0)
+    address_change: int = Field(ge=0)
     # The person's own grants, a dead spelling of their address among them.
-    berechtigungen: int = Field(ge=0)
+    grants: int = Field(ge=0)
     # Every request about the address or made by it, a lapsed one among them.
-    berechtigungen_antraege: int = Field(ge=0)
+    grants_approval_requests: int = Field(ge=0)
 
 
-class FLLoeschungResponse(FLLoeschung, BaseAPIResponse):
+class FLErasureResponse(FLLoeschung, BaseAPIResponse):
     pass
 
 
-class FLKontoLoeschungSpieler(BaseModel):
+class FLAccountErasureSpieler(BaseModel):
     vorname: str
     nachname: str | None
 
 
-class FLKontoLoeschungSchiedsrichter(BaseModel):
+class FLAccountErasureSchiedsrichter(BaseModel):
     name: str | None
 
 
-class FLKontoLoeschungSitz(BaseModel):
+class FLAccountErasureSeat(BaseModel):
     """One seat on a team's season row, named as the row names it."""
 
     saison_id: str
@@ -163,7 +163,7 @@ class FLKontoLoeschungSitz(BaseModel):
     nachname: str
 
 
-class FLKontoLoeschungBewerbung(BaseModel):
+class FLAccountErasureBewerbung(BaseModel):
     """One seat on an application, of any status."""
 
     saison_id: str
@@ -172,7 +172,7 @@ class FLKontoLoeschungBewerbung(BaseModel):
     nachname: str
 
 
-class FLKontoLoeschungRegistrierung(BaseModel):
+class FLAccountErasureRegistrierung(BaseModel):
     """One registration, pending or declined."""
 
     saison_id: str
@@ -185,36 +185,36 @@ class FLKontoLoeschungRegistrierung(BaseModel):
 class FLKontoLoeschungAnsicht(BaseModel):
     """What an erasure of one address would remove, by kind and by name, and never an address or a birthdate."""
 
-    spieler: list[FLKontoLoeschungSpieler]
-    schiedsrichter: list[FLKontoLoeschungSchiedsrichter]
-    sitze: list[FLKontoLoeschungSitz]
-    bewerbungen: list[FLKontoLoeschungBewerbung]
-    registrierungen: list[FLKontoLoeschungRegistrierung]
+    spieler: list[FLAccountErasureSpieler]
+    schiedsrichter: list[FLAccountErasureSchiedsrichter]
+    seats: list[FLAccountErasureSeat]
+    bewerbungen: list[FLAccountErasureBewerbung]
+    registrierungen: list[FLAccountErasureRegistrierung]
     # A count and no name: each is another address's pending change whose link reached this mailbox.
-    adresswechsel: int = Field(ge=0)
+    address_change: int = Field(ge=0)
 
 
-class FLKontoLoeschungAnsichtResponse(FLKontoLoeschungAnsicht, BaseAPIResponse):
+class FLAccountErasureViewResponse(FLKontoLoeschungAnsicht, BaseAPIResponse):
     # The tier of the live grant the address holds, read in the preview's snapshot as the press reads it.
     verwaltung: FLVerwaltung | None
-    # Advisory: read apart from the erasure's transaction, whose own `letzter_inhaber_loeschung` alone decides.
-    letzter_inhaber: bool
+    # Advisory: read apart from the erasure's transaction, whose own `last_owner_erasure` alone decides.
+    last_owner: bool
 
 
-class FLReferenzenPayload(BaseModel):
+class FLReferencesPayload(BaseModel):
     """The sign-in addresses a pass of the account sweep asks about."""
 
     model_config = ConfigDict(extra="forbid")
 
     # Each held to no address rule, nor to a length: one address refused refuses the whole batch, and every
     # pass asks again, so the sweep would delete nothing ever after.
-    identifiers: list[str] = Field(min_length=1, max_length=REFERENZEN_ADRESSEN_MAX)
+    identifiers: list[str] = Field(min_length=1, max_length=REFERENCES_ADRESSEN_MAX)
 
 
-class FLReferenzenResponse(BaseAPIResponse):
+class FLReferencesResponse(BaseAPIResponse):
     """Which of them nothing references, and nothing of the records that reference the others."""
 
-    unreferenziert: list[str]
+    unreferenced: list[str]
 
 
 # --- The ADMINISTRATOR's erasure on a mailed request, and its reveal.
@@ -244,29 +244,29 @@ def refuse_an_address_in_the_anlass(value: str) -> str:
     return value
 
 
-class FLLoeschungAdressePayload(BaseModel):
+class FLErasureAdressePayload(BaseModel):
     """The mailbox an erasure, its preview or a sign-out of every session is looked up by."""
 
     model_config = ConfigDict(extra="forbid")
 
-    # In the BODY for `FLSubjektPayload`'s reason.
+    # In the BODY for `FLSubjectPayload`'s reason.
     email: LoeschungAdresse
 
 
-class FLLoeschungPayload(FLLoeschungAdressePayload):
+class FLErasurePayload(FLErasureAdressePayload):
     """The mailbox, and the request the erasure answers, which every log row the erasure files keeps."""
 
     # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
     anlass: Annotated[
         str,
-        StringConstraints(max_length=LOESCHUNG_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        StringConstraints(max_length=ERASURE_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
         AfterValidator(str.strip),
         StringConstraints(min_length=1),
         AfterValidator(refuse_an_address_in_the_anlass),
     ]
 
 
-class FLLoeschungAnsichtKader(BaseModel):
+class FLErasureViewKader(BaseModel):
     """One squad row of a pupil the erasure reaches."""
 
     saison_id: str
@@ -277,57 +277,57 @@ class FLLoeschungAnsichtKader(BaseModel):
     inactive_since: CustomOptionalDateString
 
 
-class FLLoeschungAnsichtSpieler(FLKontoLoeschungSpieler):
+class FLErasureViewSpieler(FLAccountErasureSpieler):
     spieler_id: CustomObjectId
     # A retired row too: the pupil's step removes every squad row of the person.
-    kader: list[FLLoeschungAnsichtKader]
+    kader: list[FLErasureViewKader]
 
 
-class FLLoeschungAnsichtSchiedsrichter(FLKontoLoeschungSchiedsrichter):
+class FLErasureViewSchiedsrichter(FLAccountErasureSchiedsrichter):
     schiedsrichter_id: CustomObjectId
     # Null on a live row: a ban's dialog offers to retire only a referee still active.
     inactive_since: CustomOptionalDateString
     # Every season, in order, holding a fixture still to be played that this referee is booked on, as
     # `schiedsrichter_still_assigned` judges one: the fixture search opens on one season, so each is reached in its own.
-    spiele_ohne_ergebnis_saison_ids: list[str]
+    spiele_without_ergebnis_saison_ids: list[str]
 
 
-class FLLoeschungAnsichtSitz(FLKontoLoeschungSitz):
+class FLErasureViewSeat(FLAccountErasureSeat):
     team_id: CustomObjectId
 
 
-class FLLoeschungAnsichtBewerbung(FLKontoLoeschungBewerbung):
+class FLErasureViewBewerbung(FLAccountErasureBewerbung):
     bewerbung_id: CustomObjectId
 
 
-class FLLoeschungAnsichtRegistrierung(FLKontoLoeschungRegistrierung):
+class FLErasureViewRegistrierung(FLAccountErasureRegistrierung):
     registrierung_id: CustomObjectId
     team_id: CustomObjectId
     # The administrator's registrations list serves the pending ones alone, so a ban's dialog links no declined one.
     status: FLRegistrierungStatus
 
 
-class FLLoeschungAnsichtAdresswechsel(BaseModel):
+class FLErasureViewAddressChange(BaseModel):
     """Another address's live change naming this one as its new address: the change ends, its address's records standing."""
 
-    adresswechsel_id: CustomObjectId
+    address_change_id: CustomObjectId
     # Why the address tool refuses it this administrator, null where it opens it: the page links them there to discard it.
-    einsehbar_verwehrt: FLAdresswechselEinsehbarVerwehrt | None
+    viewable_denied: FLAddressChangeViewableDenied | None
 
 
-class FLLoeschungAnsichtEigenerAdresswechsel(BaseModel):
+class FLErasureViewOwnAddressChange(BaseModel):
     """The address's own live change, which the erasure ends with the records it would move."""
 
-    adresswechsel_id: CustomObjectId
+    address_change_id: CustomObjectId
 
 
 FLLoeschungAntragRolle = Literal["betroffen", "gestellt"]
 
 
-class FLLoeschungAnsichtAntrag(BaseModel):
+class FLErasureViewApprovalRequest(BaseModel):
     """An open request for a grant, about the address (`betroffen`) or made by it (`gestellt`), which the erasure removes."""
 
-    antrag_id: CustomObjectId
+    approval_request_id: CustomObjectId
     verwaltung: FLVerwaltung
     rolle: FLLoeschungAntragRolle
 
@@ -338,24 +338,24 @@ class FLLoeschungAnsicht(BaseModel):
     Never an address or a birthdate, at any depth.
     """
 
-    spieler: list[FLLoeschungAnsichtSpieler]
-    schiedsrichter: list[FLLoeschungAnsichtSchiedsrichter]
-    sitze: list[FLLoeschungAnsichtSitz]
-    bewerbungen: list[FLLoeschungAnsichtBewerbung]
-    registrierungen: list[FLLoeschungAnsichtRegistrierung]
-    adresswechsel: list[FLLoeschungAnsichtAdresswechsel]
-    eigener_adresswechsel: FLLoeschungAnsichtEigenerAdresswechsel | None
-    antraege: list[FLLoeschungAnsichtAntrag]
+    spieler: list[FLErasureViewSpieler]
+    schiedsrichter: list[FLErasureViewSchiedsrichter]
+    seats: list[FLErasureViewSeat]
+    bewerbungen: list[FLErasureViewBewerbung]
+    registrierungen: list[FLErasureViewRegistrierung]
+    address_change: list[FLErasureViewAddressChange]
+    own_address_change: FLErasureViewOwnAddressChange | None
+    approval_requests: list[FLErasureViewApprovalRequest]
 
 
-class FLLoeschungAnsichtResponse(FLLoeschungAnsicht, BaseAPIResponse):
+class FLErasureViewResponse(FLLoeschungAnsicht, BaseAPIResponse):
     # The tier of the live grant the address holds, which the erasure removes with the rest.
     verwaltung: FLVerwaltung | None
     # Whether a standing ban holds the address, which the erasure leaves standing: the ban's dialog refuses it before its press.
-    gesperrt: bool
+    barred: bool
 
 
-class FLAbmeldungResponse(BaseAPIResponse):
+class FLSignOutResponse(BaseAPIResponse):
     """The envelope alone: the log row it filed names no address to answer with."""
 
 
@@ -365,26 +365,26 @@ class FLLoeschungSweepParams(BaseModel):
     nach: CustomObjectId | None = None
 
 
-class FLLoeschungSweepResponse(BaseAPIResponse):
+class FLErasureSweepResponse(BaseAPIResponse):
     """One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due."""
 
     # The latest `past` season, which the rule keeps a squad row in; null where none is `past`, nobody then being due.
-    abgeschlossene_saison_id: str | None
+    completed_saison_id: str | None
     spieler: int
     saison_spieler: int
     registrierungen: int
     # Due when the call read them and not in their own transaction: a squad row or a registration arrived between.
-    uebersprungen: int
-    fehlgeschlagen: int
+    skipped: int
+    failed: int
     # The failed among them: a person whose erasure failed stays due, so a caller looping on this alone never ends.
-    verbleibend: int
+    remaining: int
     # The last pupil this call reached, for the next call's `nach`; null once it reached the end, which ends the pass.
     nach: CustomObjectId | None
 
 
-class FLLoeschungVorschauResponse(BaseAPIResponse):
+class FLErasurePreviewResponse(BaseAPIResponse):
     """How many pupils the run erases once this season is activated, counted and never named."""
 
     # The season that activation turns `past`; null where none is `active` but the target.
-    abgeschlossene_saison_id: str | None
+    completed_saison_id: str | None
     spieler: int

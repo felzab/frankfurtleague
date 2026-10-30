@@ -93,15 +93,15 @@ class TestAFullPageIsRunAgain:
         client = _Client()
         handed: list[_Session] = []
 
-        async def loeschen_a_page(session: Any, _: Batch) -> tuple[int, int, int]:
+        async def erase_a_page(session: Any, _: Batch) -> tuple[int, int, int]:
             assert session.open, "a page ran outside the session it was handed"
             handed.append(session)
             return pages[len(handed) - 1]
 
-        geloescht, redacted, _ = asyncio.run(
+        erased, redacted, _ = asyncio.run(
             drain(
                 db=cast(AsyncMongoClient, client),
-                page_of=loeschen_a_page,
+                page_of=erase_a_page,
                 page=PAGE,
                 what="Row",
                 clock="test",
@@ -110,7 +110,7 @@ class TestAFullPageIsRunAgain:
 
         assert handed == client.sessions
         assert len(handed) == len(pages)
-        assert (geloescht, redacted) == (sum(page[1] for page in pages), sum(page[2] for page in pages))
+        assert (erased, redacted) == (sum(page[1] for page in pages), sum(page[2] for page in pages))
 
 
 class _FailedInTheCallback(Exception):
@@ -150,7 +150,7 @@ class _Rows:
         self.raises = raises
         self.read: list[list[int]] = []
 
-    async def loeschen(self, _: Any, batch: Batch) -> tuple[int, int, int]:
+    async def erase(self, _: Any, batch: Batch) -> tuple[int, int, int]:
         rows = [row["_id"] for row in await batch.saw(_page(self.standing, batch))]
         self.read.append(rows)
         if (failure := self.raises(rows)) is not None:
@@ -166,7 +166,7 @@ def _isolated(rows: _Rows, *, owes: bool = False) -> tuple[list[tuple[int, int, 
         run_isolated(
             db=cast(AsyncMongoClient, _Client()),
             batch=Batch(),
-            attempt=rows.loeschen,
+            attempt=rows.erase,
             moved=lambda page: page[1],
             owes=owes,
             what="Row",
@@ -205,7 +205,7 @@ class TestARowFailingAloneIsPassedOver:
             pytest.param(
                 lambda: _FailedInTheCallback(A_STORED_VALUE),
                 Code.UNHANDLED_CRASH,
-                r"_FailedInTheCallback in loeschen at .+test_transactions\.py:\d+",
+                r"_FailedInTheCallback in erase at .+test_transactions\.py:\d+",
                 id="not the database's, located by its innermost frame",
             ),
             pytest.param(
@@ -231,17 +231,17 @@ class TestARowFailingAloneIsPassedOver:
         rows = _Rows(2 * PAGE + 1, lambda read: failure() if 1 in read else None)
 
         with caplog.at_level(logging.ERROR, logger=fl_logger.name):
-            geloescht, _, passed = asyncio.run(
+            erased, _, passed = asyncio.run(
                 drain(
                     db=cast(AsyncMongoClient, _Client()),
-                    page_of=rows.loeschen,
+                    page_of=rows.erase,
                     page=PAGE,
                     what="Row",
                     clock="test",
                 )
             )
 
-        assert (geloescht, rows.standing, passed) == (2 * PAGE, [1], [1])
+        assert (erased, rows.standing, passed) == (2 * PAGE, [1], [1])
         # The page after the one it failed in, read without it: read with it, it fails that page whole again.
         assert rows.read[-1] == [4, 5, 6]
         [record] = caplog.records
@@ -257,17 +257,17 @@ class TestARowFailingAloneIsPassedOver:
 
         rows = _Rows(2 * PAGE + 1, lambda read: _FailedInTheCallback() if 5 in read else None)
 
-        geloescht, _, passed = asyncio.run(
+        erased, _, passed = asyncio.run(
             drain(
                 db=cast(AsyncMongoClient, _Client()),
-                page_of=rows.loeschen,
+                page_of=rows.erase,
                 page=PAGE,
                 what="Row",
                 clock="test",
             )
         )
 
-        assert (rows.read[0], geloescht, rows.standing, passed) == ([0, 1, 2, 3], 2 * PAGE, [5], [5])
+        assert (rows.read[0], erased, rows.standing, passed) == ([0, 1, 2, 3], 2 * PAGE, [5], [5])
 
     @pytest.mark.parametrize("owes", [True, False], ids=("owing a message", "owing none"))
     def test_a_deadline_is_never_halved_and_is_answered_only_where_a_committed_half_owes_a_message(self, owes: bool):
@@ -416,7 +416,7 @@ class TestABatchNarrowsTheClocksOwnFilter:
     def test_a_filter_naming_its_own_ids_keeps_them_beside_the_rows_passed_over(self):
         """Merged rather than set beside, the term replaces the list's own ids and the read takes every row the rest admits."""
 
-        own = {"_id": {"$in": [1, 2]}, "status": "eingereicht"}
+        own = {"_id": {"$in": [1, 2]}, "status": "submitted"}
 
         assert Batch(passed=[3]).within(own) == {"$and": [own, {"_id": {"$nin": [3]}}]}
 
@@ -779,7 +779,7 @@ class TestARefusedTransactionalWriteRaisesNoAlarm:
                 # A client of this case's own, so the listener sees this transaction's commands and none of the seeding.
                 watched = AsyncMongoClient(mongo_replica_set_url, event_listeners=[aborts])
                 try:
-                    written = watched[DATABASE_NAME][Collection.AKTIONEN]
+                    written = watched[DATABASE_NAME][Collection.ACTION_LOG]
 
                     async def write_then_refuse(session: AsyncClientSession) -> None:
                         await written.insert_one({"_id": ObjectId()}, session=session)
@@ -815,7 +815,7 @@ class TestAFailureAfterTheCommitRaisesNoAlarm:
                 # A client of this case's own, so the listener sees this transaction's commands and none of the seeding.
                 watched = AsyncMongoClient(mongo_replica_set_url, event_listeners=[aborts])
                 try:
-                    written = watched[DATABASE_NAME][Collection.AKTIONEN]
+                    written = watched[DATABASE_NAME][Collection.ACTION_LOG]
 
                     async def write(session: AsyncClientSession) -> None:
                         await written.insert_one({"_id": ObjectId()}, session=session)

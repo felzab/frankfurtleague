@@ -29,11 +29,11 @@ A_GRANT_TAKEN = FLLoeschung(
     saison_spieler=0,
     schiedsrichter=0,
     spiele=0,
-    kontakt_sitze=0,
+    kontakt_seats=0,
     registrierungen=0,
-    adresswechsel=0,
-    berechtigungen=1,
-    berechtigungen_antraege=0,
+    address_change=0,
+    grants=1,
+    grants_approval_requests=0,
 )
 
 
@@ -55,7 +55,7 @@ def test_a_committed_loeschung_whose_grant_warning_fails_answers_and_journals(ca
     async def geloescht() -> FLLoeschung:
         journal = LoeschungJournal[FLLoeschung](
             IDENTIFIER,
-            schluessel=build_test_config().sperrliste_schluessel,
+            key=build_test_config().sperrliste_key,
             berechtigungen_collection=cast(AsyncCollection, _GrantsUnread()),
         )
         async with journal:
@@ -104,7 +104,7 @@ def test_the_pupil_scope_reads_no_other_kind_and_a_step_reading_one_raises(kind:
         resolve_subject(
             IDENTIFIER,
             **{f"{name}_collection": cast(AsyncCollection, collection) for name, collection in collections.items()},
-            schluessel=build_test_config().sperrliste_schluessel,
+            key=build_test_config().sperrliste_key,
             session=cast(AsyncClientSession, None),
             scope=frozenset({"spieler"}),
         )

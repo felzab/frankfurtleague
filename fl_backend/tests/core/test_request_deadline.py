@@ -40,11 +40,11 @@ from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import ABORT_GRACE_S, transaction_session
 from app.main import create_app
 from app.shared.tokens import hash_token
-from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -62,7 +62,7 @@ ANSWERED_WITHIN_S = SHORT_DEADLINE_S + 10
 
 FAILED = Code.DATABASE_FAILED
 
-ADMIN_HEADERS = SignedActor("admin@frankfurtleague.de", ADMIN_KEY)
+ADMIN_HEADERS = StampedHeaders("admin@frankfurtleague.de", ADMIN_KEY)
 
 DATABASE_NAME = worker_database("fl_request_deadline_test")
 
@@ -137,7 +137,7 @@ def _grants_list_answered(method: str) -> tuple[Response, float]:
     async def _answered() -> tuple[Response, float]:
         async with app_client(UNANSWERED_URI) as http:
             started = time.monotonic()
-            response = await http.request(method, f"/api/v{API_VERSION}/berechtigungen", headers=ADMIN_HEADERS)
+            response = await http.request(method, f"/api/v{API_VERSION}/grants", headers=ADMIN_HEADERS)
             return response, time.monotonic() - started
 
     return asyncio.run(_answered())
@@ -194,7 +194,7 @@ def _transacted(url: str, cut: _Cut) -> _Transacted:
     async def body() -> _Transacted:
         fresh = a_clean_database(url, DATABASE_NAME, constraints=False)
         async with fresh as (client, database):
-            written = database[Collection.AKTIONEN]
+            written = database[Collection.ACTION_LOG]
 
             sessions: list[Mapping[str, Any]] = []
 
@@ -260,8 +260,8 @@ STALL = "sleep(60000) || true"
 # Long enough that the team before the stall is minted inside it on a loaded machine.
 SHORT_REQUEST_DEADLINE_S = 1.5
 
-MINT_FAILED = "erzeugung_fehlgeschlagen"
-MINT_OUTCOME_UNKNOWN = "erzeugung_ungewiss"
+MINT_FAILED = "erzeugung_failed"
+MINT_OUTCOME_UNKNOWN = "erzeugung_uncertain"
 
 
 def _seeded_link(team_id: ObjectId) -> dict[str, Any]:
@@ -272,14 +272,14 @@ def _seeded_link(team_id: ObjectId) -> dict[str, Any]:
         "saison_id": SAISON_ID,
         "team_id": team_id,
         "token_hashes": [hash_token(f"seeded-{team_id}")],
-        "erstellt_am": "2026-03-15",
-        "erstellt_von": "admin@frankfurtleague.de",
+        "created_at": "2026-03-15",
+        "created_by": "admin@frankfurtleague.de",
         "widerrufen_am": None,
     }
 
 
 def _junction_row(team_id: ObjectId) -> dict[str, Any]:
-    trainer = kontaktperson_document(TEAM_NAMES[team_id], bestaetigt_am="2026-03-20", nachname="Mustermann", telefon="+49 69 1234567")
+    trainer = kontaktperson_document(TEAM_NAMES[team_id], confirmed_at="2026-03-20", nachname="Mustermann", telefon="+49 69 1234567")
 
     return saison_team_document(
         SAISON_ID,
@@ -287,7 +287,7 @@ def _junction_row(team_id: ObjectId) -> dict[str, Any]:
         TEAM_NAMES[team_id],
         TEAM_NAMES[team_id][:3].upper(),
         _id=ObjectId(),
-        kontakte={"trainer": trainer, "ansprechperson": None, "stellvertretung": None, "trainer_ist_zugleich": None},
+        kontakte={"trainer": trainer, "ansprechperson": None, "stellvertretung": None, "trainer_is_also": None},
     )
 
 
@@ -354,41 +354,41 @@ def _pressed(url: str, stand_in: Callable[[AsyncCollection], Any], *, seed_links
                 saison_document(
                     SAISON_ID,
                     "active",
-                    rules=rules_document(number_of_groups=2, max_kadergroesse=50, erlaubte_stufen=["E1"]),
+                    rules=rules_document(number_of_gruppen=2, max_kadergroesse=50, allowed_stufen=["E1"]),
                     registrierung={"offen": True, "von": "2026-03-01", "bis": "2026-04-30"},
                 )
             )
             await database[Collection.SAISON_TEAMS].insert_many([_junction_row(team_id) for team_id in TEAM_NAMES])
-            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             if seeded:
-                await database[Collection.EINLADUNGEN].insert_many(list(seeded.values()))
+                await database[Collection.INVITATIONS].insert_many(list(seeded.values()))
 
             served = create_app(config)
             # The tier's shared client: closing it belongs to `tests/database.py :: _release`.
             served.state.db_client = client
-            served.dependency_overrides[collection_dependency(Collection.EINLADUNGEN)] = lambda: stand_in(database[Collection.EINLADUNGEN])
+            served.dependency_overrides[collection_dependency(Collection.INVITATIONS)] = lambda: stand_in(database[Collection.INVITATIONS])
 
             transport = ASGITransport(app=served, raise_app_exceptions=False)
             async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
                 started = time.monotonic()
                 response = await http.post(
-                    f"/api/v{API_VERSION}/saisons/{SAISON_ID}/einladungen/versand", headers=ADMIN_HEADERS, json={"erneut": False}
+                    f"/api/v{API_VERSION}/saisons/{SAISON_ID}/invitations/dispatch", headers=ADMIN_HEADERS, json={"resend": False}
                 )
                 elapsed = time.monotonic() - started
 
             live = {
-                team_id: [row["_id"] async for row in database[Collection.EINLADUNGEN].find({"team_id": team_id, "widerrufen_am": None})]
+                team_id: [row["_id"] async for row in database[Collection.INVITATIONS].find({"team_id": team_id, "widerrufen_am": None})]
                 for team_id in TEAM_NAMES
             }
 
             return (
                 response.status_code,
                 elapsed,
-                {zeile["team_id"]: zeile["uebersprungen"] for zeile in response.json()["zeilen"]},
+                {row["team_id"]: row["skipped"] for row in response.json()["rows"]},
                 live,
                 {team_id: row["_id"] for team_id, row in seeded.items()},
-                {zeile["team_id"]: zeile["ersetzt_link"] for zeile in response.json()["zeilen"]},
-                {zeile["team_id"]: zeile["hatte_link"] for zeile in response.json()["zeilen"]},
+                {row["team_id"]: row["replaced_link"] for row in response.json()["rows"]},
+                {row["team_id"]: row["had_link"] for row in response.json()["rows"]},
             )
 
     return on_the_seed_loop(body())

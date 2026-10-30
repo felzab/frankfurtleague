@@ -17,7 +17,7 @@ from app.core.config import API_VERSION
 from app.openapi_document import build_document
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
-from tests.documents import bestaetigte_kenntnisnahme
+from tests.documents import confirmed_kenntnisnahme
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -70,7 +70,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 def saison_document(saison_id: str = SAISON, status: str = "active") -> dict[str, Any]:
     """The grouped read derives every figure in the table from these rules, and the finale is seeded from the placings they rank."""
 
-    rules = documents.rules_document(win_points=3, draw_points=1, qualifiers_per_group=2, tiebreak_order="tordifferenz")
+    rules = documents.rules_document(win_points=3, draw_points=1, qualifiers_per_gruppe=2, tiebreak_order="tordifferenz")
 
     return documents.saison_document(saison_id, status, rules=rules)
 
@@ -86,7 +86,7 @@ def kontaktperson(nachname: str) -> dict[str, Any]:
         "email": KONTAKT_EMAIL,
         "telefon": KONTAKT_TELEFON,
         "geburtsdatum": KONTAKT_GEBURTSDATUM,
-        "einwilligung": bestaetigte_kenntnisnahme(),
+        "einwilligung": confirmed_kenntnisnahme(),
     }
 
 
@@ -104,7 +104,7 @@ def junction_row(key: str, shorthand: str, saison_id: str = SAISON) -> dict[str,
             "trainer": kontaktperson("Trainerin"),
             "ansprechperson": kontaktperson("Ansprechpartnerin"),
             "stellvertretung": kontaktperson("Vertretung"),
-            "trainer_ist_zugleich": None,
+            "trainer_is_also": None,
         },
     )
 

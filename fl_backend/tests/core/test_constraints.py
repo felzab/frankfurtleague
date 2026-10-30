@@ -13,7 +13,7 @@ from app.readback import RECORD_MODELS
 # The TTL index keyed on a date a live row never holds: the row expires once ended, its key's parent then written whole.
 # MongoDB expires no row lacking a date there (https://www.mongodb.com/docs/manual/core/index-ttl/, which moves without us;
 # read 2026-10-20).
-ENDED_ROW_TTL_INDEXES = frozenset({"adresswechsel_beendet_am"})
+ENDED_ROW_TTL_INDEXES = frozenset({"address_change_ended_at"})
 
 
 def _model_in(annotation: Any) -> type[BaseModel]:

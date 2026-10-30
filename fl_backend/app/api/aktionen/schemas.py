@@ -5,15 +5,15 @@ from typing import Annotated, Any, Final, Literal, get_args
 from bson import ObjectId
 from pydantic import AfterValidator, BaseModel, Field, TypeAdapter, field_validator, model_validator
 
-from app.core.recording import AktorFunktion
-from app.shared.schemas.bounds import AKTEUR_PSEUDONYM_SHOWN, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
+from app.core.recording import ActorRole
+from app.shared.schemas.bounds import ACTOR_PSEUDONYM_SHOWN, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse
 
 # One alias for both the row and the filter: without it the two hand-copies drift, and a filter
 # narrower than the rows answers a legal `?operation=` with a 422 that no test would catch.
-type FLAktionOperation = Literal["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
+type FLActionLogEntryOperation = Literal["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
 
 
 def _stringify_oids(value: Any) -> Any:
@@ -39,7 +39,7 @@ FLAktorKind = Literal["admin_session", "person_session", "system", "public"]
 
 # What the origin filter narrows on, and no stored value: `person` files an administrator's session
 # and a signed-in person's alike, so the categories outlive the kinds they are derived from.
-type FLAktionHerkunft = Literal["person", "system", "public"]
+type FLActionLogEntryHerkunft = Literal["person", "system", "public"]
 
 
 class FLAktorMitAdresse(BaseModel):
@@ -49,38 +49,38 @@ class FLAktorMitAdresse(BaseModel):
     email: str
 
 
-class FLAktorMitAdresseZeile(FLAktorMitAdresse):
+class FLActorWithAdresseRow(FLAktorMitAdresse):
     """An actor named by `email` as both reads serve one: the stored actor, its address withheld where the ban list holds it."""
 
-    # Null exactly where `email_gesperrt` is set, as the grants list withholds its actors.
+    # Null exactly where `email_barred` is set, as the grants list withholds its actors.
     email: str | None
-    email_gesperrt: bool
+    email_barred: bool
 
 
 def _served_prefix(pseudonym: str) -> str:
-    return pseudonym[:AKTEUR_PSEUDONYM_SHOWN]
+    return pseudonym[:ACTOR_PSEUDONYM_SHOWN]
 
 
-class FLAktorPerson(BaseModel):
+class FLActorPerson(BaseModel):
     """A signed-in person, named by a pseudonym prefix and the kind of person the write was made as, and never by an address."""
 
     kind: Literal["person_session"]
     pseudonym: Annotated[str, AfterValidator(_served_prefix)]
-    funktion: AktorFunktion
+    funktion: ActorRole
 
 
 # On `kind`, so a person's row can never be read as carrying an address, nor an administrator's as
 # carrying none.
-FLAktor = Annotated[FLAktorMitAdresse | FLAktorPerson, Field(discriminator="kind")]
+FLAktor = Annotated[FLAktorMitAdresse | FLActorPerson, Field(discriminator="kind")]
 
 # The stored actor, judged before its address is withheld: a row the stored shape refuses fails
 # rather than being served withheld.
 FLAktorAdapter = TypeAdapter(FLAktor)
 
-FLAktorZeile = Annotated[FLAktorMitAdresseZeile | FLAktorPerson, Field(discriminator="kind")]
+FLAktorZeile = Annotated[FLActorWithAdresseRow | FLActorPerson, Field(discriminator="kind")]
 
 
-def herkunft_of_kind(kind: FLAktorKind) -> FLAktionHerkunft:
+def herkunft_of_kind(kind: FLAktorKind) -> FLActionLogEntryHerkunft:
     """A `match` with no fallback branch: a kind added beside these fails the type check here rather than falling in with the signed-in people.
 
     `fl_frontend/src/features/aktionen/constants.ts :: AKTOR_HERKUNFT` files a row the same way, and
@@ -98,15 +98,15 @@ def herkunft_of_kind(kind: FLAktorKind) -> FLAktionHerkunft:
 
 # Keyed by the stored value, which the tally reads raw: a kind no category names is absent here, and
 # an absent one counts for its area and under no origin.
-HERKUNFT_JE_KIND: Final[Mapping[str, FLAktionHerkunft]] = {kind: herkunft_of_kind(kind) for kind in get_args(FLAktorKind)}
+HERKUNFT_JE_KIND: Final[Mapping[str, FLActionLogEntryHerkunft]] = {kind: herkunft_of_kind(kind) for kind in get_args(FLAktorKind)}
 
 
-class FLAktionRequest(BaseModel):
+class FLActionLogEntryRequest(BaseModel):
     method: str
     path: str
 
 
-class FLAktion(BaseModel):
+class FLActionLogEntry(BaseModel):
     """One recorded write."""
 
     # A read model, so nothing here refuses a stored value: the log holds copies of documents from
@@ -117,14 +117,14 @@ class FLAktion(BaseModel):
     # `app/api/aktionen/services.py :: mit_vorenthaltenem_akteur`.
     actor: FLAktorZeile
     trace_id: str
-    request: FLAktionRequest | None
+    request: FLActionLogEntryRequest | None
     collection: str
-    operation: FLAktionOperation
+    operation: FLActionLogEntryOperation
     document_id: str | None
     db_filter: dict[str, str] | None
     # In the image's place, never beside it: a list page of stored pre-images is megabytes serving
     # one badge. An empty array is a removal that matched nothing, and secured nothing.
-    stand_gesichert: bool
+    stand_secured: bool
     modified_count: int | None
     redacted_at: str | None
     anlass: str | None
@@ -137,9 +137,9 @@ class FLAktion(BaseModel):
         Presence-aware, so a dropped field cannot read as a stored null.
         """
 
-        if isinstance(data, Mapping) and "stand_gesichert" not in data:
+        if isinstance(data, Mapping) and "stand_secured" not in data:
             image = data.get("before")
-            data = {**data, "stand_gesichert": len(image) > 0 if isinstance(image, list) else image is not None}
+            data = {**data, "stand_secured": len(image) > 0 if isinstance(image, list) else image is not None}
         return data
 
     @field_validator("document_id", mode="before")
@@ -154,7 +154,7 @@ class FLAktion(BaseModel):
         return None if value is None or isinstance(value, list) else str(value)
 
 
-class FLAktionMitStand(FLAktion):
+class FLActionLogEntryWithStand(FLActionLogEntry):
     """One recorded write with the document it replaced, which only the single-row read serves."""
 
     # A list is `delete_many`'s: a removal follows no write a restore could replay, so one row
@@ -174,7 +174,7 @@ class FLAktionMitStand(FLAktion):
 
 
 class FLAktionRecord(BaseModel):
-    """One row as `aktionen` stores it: its actor before any address is withheld, and no derived `stand_gesichert`."""
+    """One row as `aktionen` stores it: its actor before any address is withheld, and no derived `stand_secured`."""
 
     id: CustomObjectId = Field(validation_alias="_id")
     at: str
@@ -182,9 +182,9 @@ class FLAktionRecord(BaseModel):
     at_date: datetime
     actor: FLAktor
     trace_id: str
-    request: FLAktionRequest | None
+    request: FLActionLogEntryRequest | None
     collection: str
-    operation: FLAktionOperation
+    operation: FLActionLogEntryOperation
     # A list is `delete_many`'s, and a season's id is its string.
     document_id: CustomObjectId | str | list[CustomObjectId | str] | None
     db_filter: dict[str, str] | None
@@ -194,7 +194,7 @@ class FLAktionRecord(BaseModel):
     anlass: str | None
 
 
-FLAktionenListAdapter = TypeAdapter(list[FLAktion])
+FLAktionenListAdapter = TypeAdapter(list[FLActionLogEntry])
 
 
 class FLAktionenFilterParams(BaseModel):
@@ -202,10 +202,10 @@ class FLAktionenFilterParams(BaseModel):
     # parameter. Absent is the facet turned off, `$in` of no value answering nothing.
     # Text rather than `Collection`: a log row keeps the name of a collection since retired, which the tally offers too.
     collection: list[str] | None = None
-    operation: list[FLAktionOperation] | None = None
+    operation: list[FLActionLogEntryOperation] | None = None
     # A term of its own rather than the kinds it stands for: the bar offers the categories, and a
     # caller sending kinds would have to know a mapping this endpoint owns.
-    herkunft: list[FLAktionHerkunft] | None = None
+    herkunft: list[FLActionLogEntryHerkunft] | None = None
     trace_id: str | None = None
     # `str`, never `CustomObjectId`: `saisons` stores its season string here, which the ObjectId
     # spelling would 422. `app/api/aktionen/services.py :: document_id_term` compiles it.
@@ -217,18 +217,18 @@ class FLAktionenFilterParams(BaseModel):
     order: FLSortOrder = Field(default="desc")
 
 
-class FLAktionenListResponse(BaseAPIResponse):
-    aktionen: list[FLAktion]
-    # German for `FLBewerbungenListResponse.vollstaendig`'s reason, and load-bearing here too: the
+class FLActionLogListResponse(BaseAPIResponse):
+    action_log: list[FLActionLogEntry]
+    # German for `FLBewerbungenListResponse.complete`'s reason, and load-bearing here too: the
     # log takes a row per recorded write and keeps it twelve months, so this read reaches the cap
     # by ordinary use.
-    vollstaendig: bool
+    complete: bool
     # Open maps rather than the bar's closed sets: a stored value no option names would refuse a
     # response the page can otherwise serve, and an absent key is a value nothing was recorded under.
-    anzahl_je_collection: dict[str, int]
-    anzahl_je_operation: dict[str, int]
-    anzahl_je_herkunft: dict[str, int]
+    count_per_collection: dict[str, int]
+    count_per_operation: dict[str, int]
+    count_per_herkunft: dict[str, int]
 
 
-class FLAktionSingleResponse(BaseAPIResponse):
-    aktion: FLAktionMitStand
+class FLActionLogEntrySingleResponse(BaseAPIResponse):
+    action_log_entry: FLActionLogEntryWithStand

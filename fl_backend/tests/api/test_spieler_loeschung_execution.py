@@ -9,7 +9,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.identitaet.schemas import FLLoeschungResponse
+from app.api.identitaet.schemas import FLErasureResponse
 from app.api.spieler.admin_router import (
     delete_saison_spieler,
     delete_spieler,
@@ -21,7 +21,7 @@ from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPatchSpielerP
 from app.core.collections import Collection
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import saison_document, saison_team_document, spieler_document
-from tests.loeschung import geloescht
+from tests.erasure import erased
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -171,13 +171,13 @@ async def a_pupil_who_never_joined_a_squad(database: AsyncDatabase) -> ObjectId:
     return spieler_id
 
 
-async def loeschen_the_pupil(database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId) -> FLLoeschungResponse:
+async def loeschen_the_pupil(database: AsyncDatabase, client: AsyncMongoClient, spieler_id: ObjectId) -> FLErasureResponse:
     """The registry's erasure of the address this pupil's row holds: the erasure is keyed on a mailbox, never on an id."""
 
     person = await database[Collection.SPIELER].find_one({"_id": spieler_id}, {"email": 1})
     assert person is not None, f"no pupil {spieler_id} to erase"
 
-    return await geloescht(database, client, person["email"], germany_now=NOW)
+    return await erased(database, client, person["email"], germany_now=NOW)
 
 
 async def log_rows_naming(database: AsyncDatabase, spieler_id: ObjectId) -> list[dict[str, Any]]:
@@ -187,11 +187,11 @@ async def log_rows_naming(database: AsyncDatabase, spieler_id: ObjectId) -> list
     builds, so a wrong id list cannot make these assertions agree with it.
     """
 
-    junction_rows = await database[Collection.AKTIONEN].find({"collection": str(Collection.SAISON_SPIELER)}).to_list(length=None)
+    junction_rows = await database[Collection.ACTION_LOG].find({"collection": str(Collection.SAISON_SPIELER)}).to_list(length=None)
     squad_ids = [row["document_id"] for row in junction_rows if (row.get("before") or {}).get("spieler_id") == spieler_id]
 
     return (
-        await database[Collection.AKTIONEN]
+        await database[Collection.ACTION_LOG]
         .find(
             {
                 "$or": [
@@ -211,7 +211,7 @@ async def images_in_the_whole_log(database: AsyncDatabase) -> list[dict[str, Any
     This asks what a row CONTAINS instead.
     """
 
-    rows = await database[Collection.AKTIONEN].find({"before": {"$ne": None}}).to_list(length=None)
+    rows = await database[Collection.ACTION_LOG].find({"before": {"$ne": None}}).to_list(length=None)
 
     return [image for row in rows for image in (row["before"] if isinstance(row["before"], list) else [row["before"]])]
 
@@ -275,7 +275,7 @@ class TestARetiredPupilIsGeloeschtWhole:
             before_loeschung = await log_rows_naming(database, spieler_id)
             await loeschen_the_pupil(database, client, spieler_id)
 
-            stamped = await database[Collection.AKTIONEN].find({"redacted_at": {"$ne": None}}).to_list(length=None)
+            stamped = await database[Collection.ACTION_LOG].find({"redacted_at": {"$ne": None}}).to_list(length=None)
 
             return before_loeschung, stamped
 
@@ -310,13 +310,13 @@ class TestARetiredPupilIsGeloeschtWhole:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
-            before_count = await database[Collection.AKTIONEN].count_documents({})
+            before_count = await database[Collection.ACTION_LOG].count_documents({})
             await loeschen_the_pupil(database, client, spieler_id)
 
             return (
                 before_count,
-                await database[Collection.AKTIONEN].count_documents({}),
-                await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.AKTIONEN)}),
+                await database[Collection.ACTION_LOG].count_documents({}),
+                await database[Collection.ACTION_LOG].count_documents({"collection": str(Collection.ACTION_LOG)}),
             )
 
         before_count, after_count, self_recorded = on_a_league(mongo_replica_set_url, body)
@@ -331,7 +331,7 @@ class TestARetiredPupilIsGeloeschtWhole:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=True)
             await loeschen_the_pupil(database, client, spieler_id)
 
-            return await database[Collection.AKTIONEN].find({"operation": "erase_many"}).to_list(length=None)
+            return await database[Collection.ACTION_LOG].find({"operation": "erase_many"}).to_list(length=None)
 
         rows = on_a_league(mongo_replica_set_url, body)
 
@@ -437,7 +437,7 @@ class TestAHalfDoneLoeschungCommitsNothing:
             # rows, which are recorded with `redacted_at` null.
             await database.command(
                 "collMod",
-                Collection.AKTIONEN.value,
+                Collection.ACTION_LOG.value,
                 validator={"$jsonSchema": {"bsonType": "object", "properties": {"redacted_at": {"bsonType": "null"}}}},
                 validationLevel="strict",
             )

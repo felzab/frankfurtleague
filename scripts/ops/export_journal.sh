@@ -25,7 +25,7 @@ PASS_STAMP="${LOG_DIR}/erasure-journal.last-pass"
 
 # The token opening every journal line, `fl_backend/app/core/journal.py :: JOURNAL_TOKEN`, held to it by
 # `scripts/tests/test_export_journal.py`: a line it misses is an act no restore runs again.
-JOURNAL_TOKEN="loeschung-journal"
+JOURNAL_TOKEN="erasure-journal"
 
 # The days a pass writes, today the last. At most runbooks §7's age bound, held to it by
 # `scripts/tests/test_export_journal.py`: a day file that bound removed would otherwise be written

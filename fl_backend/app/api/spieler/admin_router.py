@@ -40,9 +40,9 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenCollection,
     DBClient,
+    GrantsAnnouncedCollection,
+    GrantsCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
@@ -82,7 +82,7 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
         nummer=document.get("nummer"),
         position=document.get("position"),
         stufe=document.get("stufe"),
-        ist_nachnominiert=document["ist_nachnominiert"],
+        is_nachnominiert=document["is_nachnominiert"],
         rolle=document["rolle"],
         inactive_since=document.get("inactive_since"),
         version=document.get(VERSION_FIELD, 0),
@@ -94,8 +94,8 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
 @router.get("/saisons", response_model=FLSpielerSaisonsResponse, summary="Every Spieler with their squad rows")
 async def get_spieler_saisons(
     spieler_collection: SpielerCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
 ) -> FLSpielerSaisonsResponse:
@@ -105,15 +105,15 @@ async def get_spieler_saisons(
     `GET /spieler` answers it at no setting: the junction join is strict with a `saison_id`, and
     without one a player with no live row has `nummer` and `position` null.
 
-    `adresswechsel_id` names the live change of the pupil's address, which the address tool shows, and
-    `adresswechsel_einsehbar_verwehrt` why the tool refuses it this administrator, null where it opens it.
+    `address_change_id` names the live change of the pupil's address, which the address tool shows, and
+    `address_change_viewable_denied` why the tool refuses it this administrator, null where it opens it.
     """
 
     spieler_raw = await aggregate_many_from_db(
         collection=spieler_collection, pipeline=build_spieler_saisons_pipeline(), collation=GERMAN_COLLATION
     )
     verwehrt = await verwehrte_adressen(
-        (str(spieler["email"]) for spieler in spieler_raw if spieler.get("adresswechsel_id") is not None),
+        (str(spieler["email"]) for spieler in spieler_raw if spieler.get("address_change_id") is not None),
         akteur=sign_in_identifier(operator),
         auth_time=auth_time,
         berechtigungen_collection=berechtigungen_collection,
@@ -123,7 +123,7 @@ async def get_spieler_saisons(
 
     return FLSpielerSaisonsResponse(
         spieler=[
-            FLSpielerWithMemberships.model_validate({**spieler, "adresswechsel_einsehbar_verwehrt": verwehrt.get(str(spieler.get("email")))})
+            FLSpielerWithMemberships.model_validate({**spieler, "address_change_viewable_denied": verwehrt.get(str(spieler.get("email")))})
             for spieler in spieler_raw
         ]
     )
@@ -252,7 +252,7 @@ async def post_saison_spieler(
 
     404 where no player has this id. One row per player per season: moving a player is a PATCH of
     `team_id`, and a repeat is a 409 even where the row is retired. A
-    squad holds each `rolle` once (`kader_rolle_taken`). `ist_nachnominiert` is derived here and never
+    squad holds each `rolle` once (`kader_rolle_taken`). `is_nachnominiert` is derived here and never
     taken from the body: it is true from the first day of the season's matchday 1, and false while
     that matchday is undated.
     """
@@ -298,7 +298,7 @@ async def post_saison_spieler(
             "spieler_id": spieler_id,
             **saison_spieler_data.model_dump(mode="json", exclude={"team_id"}),
             "team_id": saison_spieler_data.team_id,
-            "ist_nachnominiert": await nachnominierung_laeuft_in(
+            "is_nachnominiert": await nachnominierung_laeuft_in(
                 spieltage_collection=spieltage_collection, saison_id=saison_spieler_data.saison_id, today=today, session=session
             ),
             "inactive_since": None,

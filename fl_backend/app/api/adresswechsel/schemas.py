@@ -5,10 +5,10 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstra
 
 from app.api.adresswechsel.services import FLAdresswechselBisherigZustand, FLAdresswechselNeuZustand
 from app.api.berechtigungen.schemas import FLUtcInstant
-from app.api.postausgang.schemas import FLPostausgangLage
+from app.api.outbox.schemas import FLOutboxState
 from app.api.sperrliste.schemas import refuse_an_address_in_the_reason
-from app.shared.schemas.bestaetigung import CustomToken
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LOESCHUNG_ANLASS_MAX_LENGTH
+from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, LIST_LIMIT_DEFAULT
+from app.shared.schemas.confirmation import CustomToken
 from app.shared.schemas.custom import (
     SINGLE_LINE_PATTERN,
     CustomDateString,
@@ -16,17 +16,17 @@ from app.shared.schemas.custom import (
     CustomObjectId,
 )
 from app.shared.schemas.kontakt import CustomEmail
-from app.shared.schemas.literals import FLAdresswechselEndeArt, FLAdresswechselWartetAuf, FLAdresswechselWeg, FLVerwaltung
+from app.shared.schemas.literals import FLAddressChangeEndArt, FLAddressChangeWaitsOn, FLAddressChangeWay, FLVerwaltung
 from app.shared.schemas.responses import BaseAPIResponse
 
-type FLAdresswechselAntwort = Literal["bestaetigt", "abgelehnt"]
+type FLAddressChangeAntwort = Literal["confirmed", "declined"]
 
 # How an administrator checked who asks, where the address on file is gone: the erasure occasion's ceiling, being
 # copied onto the start's log row as that occasion is. An address typed here would outlive every redaction of the change.
 # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
 CustomAdresswechselGrund = Annotated[
     str,
-    StringConstraints(max_length=LOESCHUNG_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+    StringConstraints(max_length=ERASURE_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
     AfterValidator(str.strip),
     StringConstraints(min_length=1),
     AfterValidator(refuse_an_address_in_the_reason),
@@ -40,15 +40,15 @@ class FLAdresswechselGenehmigung(BaseModel):
     """The approval a change moving a grant waits on."""
 
     verwaltung: FLVerwaltung
-    angefragt_am: datetime
+    asked_at: datetime
     bis: datetime
-    gestartet_von: str
-    genehmigt_am: datetime | None
-    genehmigt_von: str | None
+    started_by: str
+    approved_at: datetime | None
+    approved_by: str | None
 
 
 class FLAdresswechselBeendet(BaseModel):
-    art: FLAdresswechselEndeArt
+    art: FLAddressChangeEndArt
     am: datetime
 
 
@@ -56,7 +56,7 @@ class FLAdresswechselUmgezogen(BaseModel):
     """The effect's two addresses as the erasure journal hashes them: the new one, and the one it replaced."""
 
     person_hash: str
-    zuvor: str
+    before: str
 
 
 class FLAdresswechselUmzug(BaseModel):
@@ -73,19 +73,19 @@ class FLAdresswechsel(BaseModel):
     # Null once ended, as `email` and `grund` are: a tombstone holds no address.
     adresse: str | None
     email: str | None
-    weg: FLAdresswechselWeg
-    verschickt_am: CustomDateString
-    gueltig_bis: datetime | None
-    freigegeben_am: datetime | None
+    way: FLAddressChangeWay
+    sent_at: CustomDateString
+    valid_until: datetime | None
+    released_at: datetime | None
     grund: str | None
-    bestaetigt_am: datetime | None
-    wirksam_ab: datetime | None
-    genehmigung: FLAdresswechselGenehmigung | None
-    beendet: FLAdresswechselBeendet | None
+    confirmed_at: datetime | None
+    effective_from: datetime | None
+    approval: FLAdresswechselGenehmigung | None
+    ended: FLAdresswechselBeendet | None
     # Set by an effect that carries the account, which the ended record keeps until the carry is done; absent otherwise.
-    umzug: FLAdresswechselUmzug | None = Field(default=None)
+    move: FLAdresswechselUmzug | None = Field(default=None)
     # Set by every effect, until the erasure of the new address takes it.
-    umgezogen: FLAdresswechselUmgezogen | None = Field(default=None)
+    moved: FLAdresswechselUmgezogen | None = Field(default=None)
 
 
 class FLAdresswechselStopp(BaseModel):
@@ -97,167 +97,165 @@ class FLAdresswechselStopp(BaseModel):
 class FLAdresswechselRecord(FLAdresswechsel):
     """One change as `adresswechsel` stores it, its two links' hashes with it, each minted as its mail is handed out."""
 
-    # Empty until the new mailbox's link is handed out, and on the `freigabe` way until the address on file approves.
+    # Empty until the new mailbox's link is handed out, and on the `release` way until the address on file approves.
     token_hashes: list[str]
-    stopp: FLAdresswechselStopp
+    stop: FLAdresswechselStopp
 
 
-class FLAdresswechselOffenerUmzug(BaseModel):
+class FLAddressChangeOpenMove(BaseModel):
     # The ended change that owes it.
     id: CustomObjectId
     von: str
     nach: str
 
 
-class FLAdresswechselUmzuegeResponse(BaseAPIResponse):
+class FLAddressChangeMovesResponse(BaseAPIResponse):
     """The sign-in accounts the effects still owe to carry, server to server alone: each names two addresses.
 
     A page at a time; a full page means more wait.
     """
 
-    umzuege: list[FLAdresswechselOffenerUmzug]
+    moves: list[FLAddressChangeOpenMove]
 
 
-class FLAdresswechselUmzuegeErledigtPayload(BaseModel):
+class FLAddressChangeMovesDonePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ids: list[CustomObjectId] = Field(min_length=1, max_length=LIST_LIMIT_DEFAULT)
 
 
-class FLAdresswechselUmzuegeErledigtResponse(BaseAPIResponse):
+class FLAddressChangeMovesDoneResponse(BaseAPIResponse):
     # The carries this call took off their changes; an id owing none is not counted.
-    erledigt: int = Field(ge=0)
+    done: int = Field(ge=0)
 
 
-class FLAdresswechselAdressePayload(BaseModel):
+class FLAddressChangeAdressePayload(BaseModel):
     """Exactly one key: the new mailbox's link token, or the change an approval names."""
 
     model_config = ConfigDict(extra="forbid")
 
     token: CustomToken | None = None
-    adresswechsel_id: CustomObjectId | None = None
+    address_change_id: CustomObjectId | None = None
 
     @model_validator(mode="after")
     def exactly_one_key(self) -> Self:
-        if (self.token is None) == (self.adresswechsel_id is None):
+        if (self.token is None) == (self.address_change_id is None):
             raise ValueError("name either the link's token or the change, and not both")
 
         return self
 
 
-class FLAdresswechselAdresseResponse(BaseAPIResponse):
+class FLAddressChangeAdresseResponse(BaseAPIResponse):
     """A live change's new address and nothing else, server to server alone."""
 
     # Folded as the sign-in store keys an account; null where the key names no live change.
     email: str | None
 
 
-class FLAdresswechselGenehmigungStand(BaseModel):
+class FLAddressChangeApprovalStand(BaseModel):
     """The approval a change of the person's own grant waits on, as their account page reads it: never who gave it."""
 
     # `owner`: another owner approves.
     verwaltung: FLVerwaltung
-    genehmigt: bool
+    approved: bool
     bis: FLUtcInstant
 
 
 # --- The two links, public.
 
 
-class FLAdresswechselAnsichtNeu(BaseModel):
+class FLAddressChangeViewNew(BaseModel):
     """What the new mailbox's link opens while the change stands."""
 
-    seite: Literal["neu"]
-    zustand: FLAdresswechselNeuZustand
+    seite: Literal["new"]
+    state: FLAdresswechselNeuZustand
     # Null exactly where the change is confirmed: it waits on no deadline of this link's.
-    gueltig_bis: FLUtcInstant | None
-    wirksam_ab: FLUtcInstant | None
-    weg: FLAdresswechselWeg
-    # Null exactly where not `bestaetigt`: whether the confirmed change waits on another administrator's approval.
-    genehmigung_offen: bool | None
+    valid_until: FLUtcInstant | None
+    effective_from: FLUtcInstant | None
+    way: FLAddressChangeWay
+    # Null exactly where not `confirmed`: whether the confirmed change waits on another administrator's approval.
+    approval_open: bool | None
 
 
-class FLAdresswechselAnsichtBisherig(BaseModel):
+class FLAddressChangeViewPrevious(BaseModel):
     """What the address on file's stop link opens: the step the change waits on, never whether it could be confirmed."""
 
-    seite: Literal["bisherig"]
-    zustand: FLAdresswechselBisherigZustand
-    gueltig_bis: FLUtcInstant | None
-    wirksam_ab: FLUtcInstant | None
-    weg: FLAdresswechselWeg
+    seite: Literal["previous"]
+    state: FLAdresswechselBisherigZustand
+    valid_until: FLUtcInstant | None
+    effective_from: FLUtcInstant | None
+    way: FLAddressChangeWay
 
 
-class FLAdresswechselAnsichtBeendet(BaseModel):
+class FLAddressChangeViewEnded(BaseModel):
     """What either link opens once its change ended, for as long as its record is kept."""
 
-    seite: Literal["neu", "bisherig"]
-    zustand: Literal["beendet"]
-    art: FLAdresswechselEndeArt
+    seite: Literal["new", "previous"]
+    state: Literal["ended"]
+    art: FLAddressChangeEndArt
 
 
-class FLAdresswechselAnsichtResponse(BaseAPIResponse):
+class FLAddressChangeViewResponse(BaseAPIResponse):
     """What one address link opens: never a name, either address or the id."""
 
-    ansicht: Annotated[
-        FLAdresswechselAnsichtNeu | FLAdresswechselAnsichtBisherig | FLAdresswechselAnsichtBeendet, Field(discriminator="zustand")
-    ]
+    view: Annotated[FLAddressChangeViewNew | FLAddressChangeViewPrevious | FLAddressChangeViewEnded, Field(discriminator="state")]
 
 
-class FLAdresswechselAntwortPayload(BaseModel):
+class FLAddressChangeAntwortPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     token: CustomToken
     # Required rather than defaulted: a page that omitted it would have the model answer for the person whether a mailbox is theirs.
-    antwort: FLAdresswechselAntwort
+    antwort: FLAddressChangeAntwort
 
 
-class FLAdresswechselAntwortResponse(BaseAPIResponse):
+class FLAddressChangeAntwortResponse(BaseAPIResponse):
     """The answer recorded, and no address of the change: the notices an effect owes are queued, never answered."""
 
-    antwort: FLAdresswechselAntwort
+    antwort: FLAddressChangeAntwort
     # Set where a change waiting after its confirmation now waits until then.
-    wirksam_ab: FLUtcInstant | None
+    effective_from: FLUtcInstant | None
     # Set where the change now waits on another administrator's approval of its grant's move.
-    genehmigung_offen: bool
+    approval_open: bool
     # Set where the change took effect: its notice is owed in the Postausgang and its account's carry on the record.
-    wirksam: bool
+    effective: bool
 
 
-class FLAdresswechselStoppResponse(BaseAPIResponse):
-    gestoppt: Literal[True]
+class FLAddressChangeStopResponse(BaseAPIResponse):
+    stopped: Literal[True]
 
 
 # --- The administrator's tool, keyed by the address it types.
 
 
-class FLAdresswechselVerwaltungAnsichtPayload(BaseModel):
+class FLAddressChangeVerwaltungViewPayload(BaseModel):
     """Exactly one key: the address typed, or the change a page links to."""
 
     model_config = ConfigDict(extra="forbid")
 
     adresse: CustomEmail | None = None
-    adresswechsel_id: CustomObjectId | None = None
+    address_change_id: CustomObjectId | None = None
 
     @model_validator(mode="after")
     def exactly_one_key(self) -> Self:
-        if (self.adresse is None) == (self.adresswechsel_id is None):
+        if (self.adresse is None) == (self.address_change_id is None):
             raise ValueError("name either the address or the change, and not both")
 
         return self
 
 
-class FLAdresswechselVerwaltungBestand(BaseModel):
+class FLAddressChangeVerwaltungHoldings(BaseModel):
     """What the address holds that a change moves, counted: the tool names the kinds, the editors the records."""
 
     spieler: int = Field(ge=0)
     schiedsrichter: int = Field(ge=0)
-    sitze: int = Field(ge=0)
-    bewerbungssitze: int = Field(ge=0)
+    seats: int = Field(ge=0)
+    bewerbung_seats: int = Field(ge=0)
     registrierungen: int = Field(ge=0)
-    berechtigung: FLVerwaltung | None
+    grant: FLVerwaltung | None
 
 
-class FLAdresswechselVerwaltungGenehmigung(BaseModel):
+class FLAddressChangeVerwaltungApproval(BaseModel):
     """The approval a change moving a grant waits on, read-only here: the administrators page approves it.
 
     Never who approved: a barred administrator's address is answered on no read.
@@ -265,37 +263,37 @@ class FLAdresswechselVerwaltungGenehmigung(BaseModel):
 
     verwaltung: FLVerwaltung
     bis: FLUtcInstant
-    genehmigt_am: FLUtcInstant | None
+    approved_at: FLUtcInstant | None
 
 
-class FLAdresswechselVerwaltungOffen(BaseModel):
+class FLAddressChangeVerwaltungOpen(BaseModel):
     """The address's live change whole, admin tier: the new address and the reason included, never a hash."""
 
     id: CustomObjectId
     email: str
-    weg: FLAdresswechselWeg
+    way: FLAddressChangeWay
     grund: str | None
-    wartet_auf: FLAdresswechselWartetAuf
-    verschickt_am: CustomDateString
-    gueltig_bis: FLUtcInstant | None
-    freigegeben_am: FLUtcInstant | None
-    bestaetigt_am: FLUtcInstant | None
-    wirksam_ab: FLUtcInstant | None
+    waits_on: FLAddressChangeWaitsOn
+    sent_at: CustomDateString
+    valid_until: FLUtcInstant | None
+    released_at: FLUtcInstant | None
+    confirmed_at: FLUtcInstant | None
+    effective_from: FLUtcInstant | None
     # What became of the new mailbox's last link mail; null where none was owed.
-    zustellung: FLPostausgangLage | None
+    delivery: FLOutboxState | None
     # Judged as the hourly pass ends one, so the tool marks a lapsed change without a clock of its own.
-    abgelaufen: bool
-    genehmigung: FLAdresswechselVerwaltungGenehmigung | None
+    expired: bool
+    approval: FLAddressChangeVerwaltungApproval | None
 
 
-class FLAdresswechselVerwaltungAnsichtResponse(BaseAPIResponse):
+class FLAddressChangeVerwaltungViewResponse(BaseAPIResponse):
     adresse: str
-    bestand: FLAdresswechselVerwaltungBestand
-    moeglich: bool
-    offen: FLAdresswechselVerwaltungOffen | None
+    holdings: FLAddressChangeVerwaltungHoldings
+    possible: bool
+    open: FLAddressChangeVerwaltungOpen | None
 
 
-class FLAdresswechselVerwaltungPayload(BaseModel):
+class FLAddressChangeVerwaltungPayload(BaseModel):
     """The address a change starts on, the address it goes to, and the reason where the address on file is gone."""
 
     model_config = ConfigDict(extra="forbid")
@@ -307,23 +305,23 @@ class FLAdresswechselVerwaltungPayload(BaseModel):
     grund: CustomAdresswechselGrund | None
 
 
-class FLAdresswechselVerwaltungMintResponse(BaseAPIResponse):
+class FLAddressChangeVerwaltungMintResponse(BaseAPIResponse):
     """A started or re-sent change, whose mails are owed in the Postausgang: no link is answered."""
 
     id: CustomObjectId
-    weg: FLAdresswechselWeg
-    gueltig_bis: FLUtcInstant
+    way: FLAddressChangeWay
+    valid_until: FLUtcInstant
     email: CustomNonEmptyString
 
 
-class FLAdresswechselIdResponse(BaseAPIResponse):
+class FLAddressChangeIdResponse(BaseAPIResponse):
     id: CustomObjectId
 
 
-class FLAdresswechselGenehmigungResponse(BaseAPIResponse):
+class FLAddressChangeApprovalResponse(BaseAPIResponse):
     id: CustomObjectId
     # Whether the approval made the change take effect, the new mailbox having confirmed and no waiting time left.
-    wirksam: bool
+    effective: bool
 
 
 # --- The hourly pass.
@@ -335,14 +333,14 @@ class FLAdresswechselSweepParams(BaseModel):
     nach: CustomObjectId | None = None
 
 
-class FLAdresswechselSweepResponse(BaseAPIResponse):
+class FLAddressChangeSweepResponse(BaseAPIResponse):
     """One call's share of the live changes whose step lapsed or whose waiting time ended."""
 
-    entfernt: int
+    removed: int
     # Due changes a judgement refused at the end of their waiting time, and due ones taken effect, each notice queued.
-    verworfen: int = Field(ge=0)
-    wirksam: int = Field(ge=0)
+    discarded: int = Field(ge=0)
+    effective: int = Field(ge=0)
     # A change whose ending or effect failed among them: it stays due, so a caller looping on this alone never ends.
-    verbleibend: int
+    remaining: int
     # The last change this call reached, for the next call's `nach`; null once it reached the end, which ends the pass.
     nach: CustomObjectId | None

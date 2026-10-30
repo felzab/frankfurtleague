@@ -13,13 +13,13 @@ from typing import Any, Final
 
 from bson import ObjectId
 
-from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungMitteilungArt, FLBerechtigungStand, as_utc
+from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungMitteilungArt, FLGrantStand, as_utc
 from app.api.sperrliste.services import withheld_actor
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.core.security import signed_in_since
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.literals import FLGenehmigungVerwehrt
+from app.shared.schemas.literals import FLApprovalDenied
 
 # An `owner` grant counts among the two, being a row no route can remove: a floor one `owner` alone
 # met would leave nobody to act while that one person is unreachable.
@@ -34,7 +34,7 @@ def berechtigt_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | No
     Two readings would let the frontend's guard and this side judge one session against two instants.
     """
 
-    seit = as_utc(row.get("gefunden_am") or row["erteilt_am"])
+    seit = as_utc(row.get("gefunden_am") or row["granted_at"])
     if angekuendigt is None:
         # Seen before and its record gone since: repointed past the pass
         # that erased its record, or put back whole. Every date it carries, its id's included, is from
@@ -62,30 +62,30 @@ def inhaber_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None)
         return None
 
     # Promoted in the database and not yet found: nothing dates the edit, so no session holds the tier
-    # until the comparison stamps `ernannt_am`. A demotion needs no find, taking the power at once.
+    # until the comparison stamps `appointed_at`. A demotion needs no find, taking the power at once.
     if angekuendigt is not None and angekuendigt.get("verwaltung") != OWNER:
         return None
 
-    ernannt_am = row.get("ernannt_am")
+    ernannt_am = row.get("appointed_at")
 
     return seit if ernannt_am is None else max(seit, as_utc(ernannt_am))
 
 
 def gefunden(
-    changes: Sequence[tuple[Any, FLBerechtigungAenderungArt, FLBerechtigungStand | None, FLBerechtigungStand | None]],
+    changes: Sequence[tuple[Any, FLBerechtigungAenderungArt, FLGrantStand | None, FLGrantStand | None]],
 ) -> list[Any]:
     """The grant ids a comparison found granted anew, an address changed in place among them, each of which is stamped `gefunden_am`."""
 
-    return [berechtigung_id for berechtigung_id, art, _, _ in changes if art == "erteilt"]
+    return [berechtigung_id for berechtigung_id, art, _, _ in changes if art == "granted"]
 
 
 def ernannt(
-    changes: Sequence[tuple[Any, FLBerechtigungAenderungArt, FLBerechtigungStand | None, FLBerechtigungStand | None]],
+    changes: Sequence[tuple[Any, FLBerechtigungAenderungArt, FLGrantStand | None, FLGrantStand | None]],
 ) -> list[Any]:
-    """The grant ids a comparison found promoted to `owner` in place, each of which is stamped `ernannt_am`."""
+    """The grant ids a comparison found promoted to `owner` in place, each of which is stamped `appointed_at`."""
 
     return [
-        berechtigung_id for berechtigung_id, art, jetzt, _ in changes if art == "geaendert" and jetzt is not None and jetzt.verwaltung == OWNER
+        berechtigung_id for berechtigung_id, art, jetzt, _ in changes if art == "changed" and jetzt is not None and jetzt.verwaltung == OWNER
     ]
 
 
@@ -96,13 +96,13 @@ def verwaltung_des(adresse: str, grants: Sequence[Mapping[str, Any]]) -> str | N
 
 
 def find_vorhanden_refusal(*, adresse: str, grants: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
-    """`berechtigung_vorhanden`: a grant already holds the address, of either tier."""
+    """`grant_exists`: a grant already holds the address, of either tier."""
 
     if verwaltung_des(adresse, grants) is None:
         return None
 
     return WriteRefusal(
-        error_code=Code.BERECHTIGUNG_VORHANDEN,
+        error_code=Code.GRANT_EXISTS,
         status=HTTPStatus.CONFLICT,
     )
 
@@ -123,7 +123,7 @@ def holds_an_owners_power(*, akteur: str, auth_time: int, grants: Sequence[Mappi
 def find_nur_inhaber_refusal(
     *, akteur: str, auth_time: int, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
 ) -> WriteRefusal | None:
-    """`berechtigung_nur_inhaber`: only an `owner`, signed in since becoming one, revokes or changes a tier.
+    """`grant_only_owner`: only an `owner`, signed in since becoming one, revokes or changes a tier.
 
     Judged inside the transaction, so one administrator cannot strip the others down to the floor and
     then shelter behind it, nor make themselves an owner.
@@ -133,40 +133,40 @@ def find_nur_inhaber_refusal(
         return None
 
     return WriteRefusal(
-        error_code=Code.BERECHTIGUNG_NUR_INHABER,
+        error_code=Code.GRANT_ONLY_OWNER,
         status=HTTPStatus.FORBIDDEN,
     )
 
 
-def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
-    """`berechtigung_gesperrt`: the address is on the ban list, which another administrator decided.
+def find_gesperrt_refusal(*, barred: bool) -> WriteRefusal | None:
+    """`grant_barred`: the address is on the ban list, which another administrator decided.
 
     The target's state, so 409: lifting the ban is what changes it.
     """
 
-    if not gesperrt:
+    if not barred:
         return None
 
     return WriteRefusal(
-        error_code=Code.BERECHTIGUNG_GESPERRT,
+        error_code=Code.GRANT_BARRED,
         status=HTTPStatus.CONFLICT,
     )
 
 
 def find_inhaber_refusal(*, grant: Mapping[str, Any]) -> WriteRefusal | None:
-    """`berechtigung_inhaber`: an `owner` row is revoked by no route; it is demoted first."""
+    """`grant_owner`: an `owner` row is revoked by no route; it is demoted first."""
 
     if grant.get("verwaltung") != OWNER:
         return None
 
     return WriteRefusal(
-        error_code=Code.BERECHTIGUNG_INHABER,
+        error_code=Code.GRANT_OWNER,
         status=HTTPStatus.CONFLICT,
     )
 
 
 def find_mindestzahl_refusal(*, remaining: int) -> WriteRefusal | None:
-    """`berechtigung_mindestzahl`: a revoke leaves at least `MINDESTZAHL` live, unbarred grants, any `owner` grant among them.
+    """`grant_minimum_count`: a revoke leaves at least `MINDESTZAHL` live, unbarred grants, any `owner` grant among them.
 
     Counted over the unbarred grants: a barred row counted would let the floor
     hold while one person alone could still act.
@@ -176,13 +176,13 @@ def find_mindestzahl_refusal(*, remaining: int) -> WriteRefusal | None:
         return None
 
     return WriteRefusal(
-        error_code=Code.BERECHTIGUNG_MINDESTZAHL,
+        error_code=Code.GRANT_MINIMUM_COUNT,
         status=HTTPStatus.CONFLICT,
     )
 
 
 def find_letzter_inhaber_refusal(*, remaining_owners: int) -> WriteRefusal | None:
-    """`berechtigung_letzter_inhaber`: a demotion leaves at least one live, unbarred `owner`.
+    """`grant_last_owner`: a demotion leaves at least one live, unbarred `owner`.
 
     Counted as the floor of two is: a barred `owner` row admits nobody, so it could demote
     nobody back and grant nothing.
@@ -192,18 +192,18 @@ def find_letzter_inhaber_refusal(*, remaining_owners: int) -> WriteRefusal | Non
         return None
 
     return WriteRefusal(
-        error_code=Code.BERECHTIGUNG_LETZTER_INHABER,
+        error_code=Code.GRANT_LAST_OWNER,
         status=HTTPStatus.CONFLICT,
     )
 
 
-def stand_of(row: Mapping[str, Any]) -> FLBerechtigungStand:
-    return FLBerechtigungStand(adresse=str(row["adresse"]), verwaltung=row["verwaltung"])
+def stand_of(row: Mapping[str, Any]) -> FLGrantStand:
+    return FLGrantStand(adresse=str(row["adresse"]), verwaltung=row["verwaltung"])
 
 
 def compare(
     *, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
-) -> list[tuple[Any, FLBerechtigungAenderungArt, FLBerechtigungStand | None, FLBerechtigungStand | None]]:
+) -> list[tuple[Any, FLBerechtigungAenderungArt, FLGrantStand | None, FLGrantStand | None]]:
     """Every grant whose state differs from the announced record, in id order.
 
     Keyed on the grant's id, never its address, or a revoke and a re-grant cancel out unannounced.
@@ -212,28 +212,28 @@ def compare(
     jetzt = {row["_id"]: stand_of(row) for row in grants}
     vorher = {row["_id"]: stand_of(row) for row in announced}
 
-    changes: list[tuple[Any, FLBerechtigungAenderungArt, FLBerechtigungStand | None, FLBerechtigungStand | None]] = []
+    changes: list[tuple[Any, FLBerechtigungAenderungArt, FLGrantStand | None, FLGrantStand | None]] = []
     for berechtigung_id in sorted(jetzt.keys() | vorher.keys()):
         now, before = jetzt.get(berechtigung_id), vorher.get(berechtigung_id)
         if before is None:
-            changes.append((berechtigung_id, "erteilt", now, None))
+            changes.append((berechtigung_id, "granted", now, None))
         elif now is None:
-            changes.append((berechtigung_id, "entzogen", None, before))
+            changes.append((berechtigung_id, "revoked", None, before))
         # Read as one tier change, a repointed address would name its new holder alone and hide whose
         # access ended.
         elif now.adresse != before.adresse:
-            changes.append((berechtigung_id, "entzogen", None, before))
-            changes.append((berechtigung_id, "erteilt", now, None))
+            changes.append((berechtigung_id, "revoked", None, before))
+            changes.append((berechtigung_id, "granted", now, None))
         elif now != before:
-            changes.append((berechtigung_id, "geaendert", now, before))
+            changes.append((berechtigung_id, "changed", now, before))
 
     return changes
 
 
-def withheld(stand: FLBerechtigungStand | None, gesperrt: Collection[str]) -> FLBerechtigungStand | None:
+def withheld(stand: FLGrantStand | None, barred: Collection[str]) -> FLGrantStand | None:
     """`stand` with its address removed where that address is barred."""
 
-    if stand is None or stand.adresse is None or stand.adresse not in gesperrt:
+    if stand is None or stand.adresse is None or stand.adresse not in barred:
         return stand
 
     return stand.model_copy(update={"adresse": None})
@@ -241,48 +241,48 @@ def withheld(stand: FLBerechtigungStand | None, gesperrt: Collection[str]) -> FL
 
 @dataclass(frozen=True)
 class Mitteilung:
-    """One notice a grants write owes: the grant or request it is keyed by, and its facts (`FLBerechtigungDaten`)."""
+    """One notice a grants write owes: the grant or request it is keyed by, and its facts (`FLGrantData`)."""
 
-    berechtigung_id: ObjectId
-    daten: dict[str, Any]
+    grant_id: ObjectId
+    data: dict[str, Any]
 
 
 def compose_mitteilung(
     *,
-    berechtigung_id: ObjectId,
+    grant_id: ObjectId,
     art: FLBerechtigungMitteilungArt,
-    jetzt: FLBerechtigungStand | None,
-    vorher: FLBerechtigungStand | None,
-    geaendert_von: str | None,
+    jetzt: FLGrantStand | None,
+    before: FLGrantStand | None,
+    changed_by: str | None,
     now: datetime,
-    gesperrt: Collection[str],
+    barred: Collection[str],
 ) -> Mitteilung:
-    """One notice, every barred address in it withheld as it is written; `geaendert_von` null is a change found in the database.
+    """One notice, every barred address in it withheld as it is written; `changed_by` null is a change found in the database.
 
     The actor stored folded, the spelling a later ban or erasure matches queued notices by.
     """
 
-    stands = (withheld(jetzt, gesperrt), withheld(vorher, gesperrt))
-    actor = None if geaendert_von is None else sign_in_identifier(geaendert_von)
+    stands = (withheld(jetzt, barred), withheld(before, barred))
+    actor = None if changed_by is None else sign_in_identifier(changed_by)
 
     return Mitteilung(
-        berechtigung_id=berechtigung_id,
-        daten={
-            "art": "berechtigung",
-            "aenderung": art,
-            "urheber": "datenbank" if geaendert_von is None else "anwendung",
-            "jetzt": None if stands[0] is None else stands[0].model_dump(),
-            "vorher": None if stands[1] is None else stands[1].model_dump(),
-            "geaendert_von": withheld_actor(actor, gesperrt),
-            "geaendert_am": None if geaendert_von is None else now,
+        grant_id=grant_id,
+        data={
+            "art": "grant",
+            "change": art,
+            "author": "datenbank" if changed_by is None else "anwendung",
+            "now": None if stands[0] is None else stands[0].model_dump(),
+            "before": None if stands[1] is None else stands[1].model_dump(),
+            "changed_by": withheld_actor(actor, barred),
+            "changed_at": None if changed_by is None else now,
             # The grant's address alone: a null actor on an application's change already says it is barred.
-            "vorenthalten": "gesperrt" if any(stand is not None and stand.adresse is None for stand in stands) else None,
+            "withheld": "barred" if any(stand is not None and stand.adresse is None for stand in stands) else None,
         },
     )
 
 
-def compose_announced(*, berechtigung_id: ObjectId, stand: FLBerechtigungStand, now: datetime) -> dict[str, Any]:
-    return {"_id": berechtigung_id, "adresse": stand.adresse, "verwaltung": stand.verwaltung, "angekuendigt_am": now}
+def compose_announced(*, grant_id: ObjectId, stand: FLGrantStand, now: datetime) -> dict[str, Any]:
+    return {"_id": grant_id, "adresse": stand.adresse, "verwaltung": stand.verwaltung, "angekuendigt_am": now}
 
 
 def vier_augen_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None, *, verwaltung: str) -> datetime | None:
@@ -294,7 +294,7 @@ def vier_augen_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | No
     seit = (inhaber_seit if verwaltung == OWNER else berechtigt_seit)(row, angekuendigt)
     getragen = (row.get("fortgefuehrt") or {}).get("inhaber_seit" if verwaltung == OWNER else "berechtigt_seit")
     # A promotion since the move dates an owner's tier afresh, as a demotion took the carried one.
-    if seit is None or getragen is None or (verwaltung == OWNER and row.get("ernannt_am") is not None):
+    if seit is None or getragen is None or (verwaltung == OWNER and row.get("appointed_at") is not None):
         return seit
 
     return min(seit, as_utc(getragen))
@@ -333,7 +333,7 @@ def genehmiger_of(
     ausgenommen: Set[str],
     grants: Sequence[Mapping[str, Any]],
     announced: Sequence[Mapping[str, Any]],
-    gesperrt: Set[str],
+    barred: Set[str],
     vor: datetime,
 ) -> list[str]:
     """Every address that could approve an act on a grant of `verwaltung` asked at `vor`.
@@ -346,7 +346,7 @@ def genehmiger_of(
         str(row["adresse"])
         for row in grants
         if row["adresse"] not in ausgenommen
-        and row["adresse"] not in gesperrt
+        and row["adresse"] not in barred
         and haelt_seit(str(row["adresse"]), verwaltung=verwaltung, vor=vor, grants=grants, announced=announced)
     ]
 
@@ -354,26 +354,26 @@ def genehmiger_of(
 def genehmigung_verwehrt(
     *,
     betroffen: Any,
-    genehmigung: Mapping[str, Any],
+    approval: Mapping[str, Any],
     akteur: str,
     inhaber: bool,
     grants: Sequence[Mapping[str, Any]],
     announced: Sequence[Mapping[str, Any]],
-) -> FLGenehmigungVerwehrt | None:
-    """Why this folded administrator may not approve the act `genehmigung` waits on, or `None`.
+) -> FLApprovalDenied | None:
+    """Why this folded administrator may not approve the act `approval` waits on, or `None`.
 
-    `inhaber` is whether their session holds an owner's power now.
+    `owner` is whether their session holds an owner's power now.
     """
 
     if betroffen == akteur:
-        return "eigene"
-    if genehmigung.get("gestartet_von") == akteur:
-        return "gestartet"
-    verwaltung = str(genehmigung.get("verwaltung"))
+        return "own"
+    if approval.get("started_by") == akteur:
+        return "started"
+    verwaltung = str(approval.get("verwaltung"))
     if verwaltung == OWNER and not inhaber:
-        return "inhaber"
-    if not haelt_seit(akteur, verwaltung=verwaltung, vor=genehmigung["angefragt_am"], grants=grants, announced=announced):
-        return "juenger"
+        return "owner"
+    if not haelt_seit(akteur, verwaltung=verwaltung, vor=approval["asked_at"], grants=grants, announced=announced):
+        return "younger"
 
     return None
 
@@ -381,18 +381,18 @@ def genehmigung_verwehrt(
 def genehmigung_steht(
     *,
     betroffen: Any,
-    genehmigung: Mapping[str, Any],
+    approval: Mapping[str, Any],
     grants: Sequence[Mapping[str, Any]],
     announced: Sequence[Mapping[str, Any]],
-    gesperrt: Set[str],
+    barred: Set[str],
 ) -> bool:
     """Whether a given approval still stands where the act takes effect: its approver may approve it now as when they did.
 
     An approval never outlives its approver's grant, their owner's tier, or a ban since.
     """
 
-    von = genehmigung.get("genehmigt_von")
-    if not isinstance(von, str) or von in gesperrt or von in {betroffen, genehmigung.get("gestartet_von")}:
+    von = approval.get("approved_by")
+    if not isinstance(von, str) or von in barred or von in {betroffen, approval.get("started_by")}:
         return False
 
-    return haelt_seit(von, verwaltung=str(genehmigung.get("verwaltung")), vor=genehmigung["angefragt_am"], grants=grants, announced=announced)
+    return haelt_seit(von, verwaltung=str(approval.get("verwaltung")), vor=approval["asked_at"], grants=grants, announced=announced)

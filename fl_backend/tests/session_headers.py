@@ -54,7 +54,7 @@ def fresh_admin_actor() -> SessionActor:
     return verified_actor("admin@example.com")
 
 
-class SignedActor(Mapping[str, str]):
+class StampedHeaders(Mapping[str, str]):
     """`base` beside the session headers, stamped when they are read.
 
     Stamped at the read, not at construction: a case collected long before it runs would otherwise

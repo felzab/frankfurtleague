@@ -4,12 +4,12 @@ from http import HTTPStatus
 from types import MappingProxyType
 from typing import Any, Final
 
-from app.api.einwilligung.schemas import FLEinwilligungFassung
+from app.api.einwilligung.schemas import FLEinwilligungWording
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN, Fassung, Seite
-from app.shared.einwilligung_nachweis import ist_erteilt
+from app.shared.einwilligung_nachweis import is_given
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 
 # The reader's own facts inside the words, spelled `{name}` in every label.
@@ -19,7 +19,7 @@ _PLATZHALTER: Final = re.compile(r"\{([A-Za-z]+)\}")
 def find_fassung_refusal(
     *,
     seite: Seite,
-    genannt: Mapping[str, str],
+    named: Mapping[str, str],
     gehalten: Mapping[str, str | None] = MappingProxyType({}),
     jede_fassung: bool = False,
 ) -> WriteRefusal | None:
@@ -32,7 +32,7 @@ def find_fassung_refusal(
     laufend = LAUFENDE_FASSUNGEN[seite]
     abgewiesen = [
         ort
-        for ort, label in genannt.items()
+        for ort, label in named.items()
         if label != laufend
         # A withdrawal may name any version of its page: taking a consent back is never harder than giving it.
         and not (jede_fassung and _version_of(label, seite=seite))
@@ -43,7 +43,7 @@ def find_fassung_refusal(
 
     if abgewiesen:
         return WriteRefusal(
-            error_code=Code.FASSUNG_UNZULAESSIG,
+            error_code=Code.WORDING_NOT_ALLOWED,
             status=HTTPStatus.CONFLICT,
         )
 
@@ -78,29 +78,29 @@ def find_self_medien_refusal(*, gespeichert: Any, medien: bool, geburtsdatum: An
     confirmation passes `None`.
     """
 
-    stand_erteilt = isinstance(gespeichert, Mapping) and ist_erteilt("medien", gespeichert.get("medien"))
+    stand_erteilt = isinstance(gespeichert, Mapping) and is_given("medien", gespeichert.get("medien"))
     if not medien or stand_erteilt or medien_angeboten(geburtsdatum=geburtsdatum, today=today):
         return None
 
     return WriteRefusal(
-        error_code=Code.MEDIEN_ALTER,
+        error_code=Code.MEDIEN_AGE,
         status=HTTPStatus.UNPROCESSABLE_CONTENT,
         fields=(("medien",),),
     )
 
 
-def served_fassung(text_version: str, fassung: Fassung) -> FLEinwilligungFassung:
+def served_fassung(text_version: str, wording: Fassung) -> FLEinwilligungWording:
     """One label as the words read serves it."""
 
-    texts = (*fassung.absaetze, fassung.schalter, *fassung.bedienelemente.values())
+    texts = (*wording.absaetze, wording.switch, *wording.controls.values())
 
-    return FLEinwilligungFassung(
+    return FLEinwilligungWording(
         text_version=text_version,
-        seite=fassung.seite,
-        gilt_ab=fassung.gilt_ab.isoformat(),
-        absaetze=list(fassung.absaetze),
-        schalter=fassung.schalter,
-        bedienelemente=dict(fassung.bedienelemente),
-        absaetze_nach_schluessel=None if fassung.absaetze_nach_schluessel is None else dict(fassung.absaetze_nach_schluessel),
-        platzhalter=sorted({name for text in texts for name in _PLATZHALTER.findall(text)}),
+        seite=wording.seite,
+        applies_from=wording.applies_from.isoformat(),
+        absaetze=list(wording.absaetze),
+        switch=wording.switch,
+        controls=dict(wording.controls),
+        absaetze_nach_schluessel=None if wording.absaetze_nach_schluessel is None else dict(wording.absaetze_nach_schluessel),
+        placeholder=sorted({name for text in texts for name in _PLATZHALTER.findall(text)}),
     )

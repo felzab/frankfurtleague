@@ -191,7 +191,7 @@ SAISON_TEAMS = [
         "Helmholtz",
         "A",
         statistik={
-            "anzahl_gespielte_spiele": 99,
+            "count_gespielte_spiele": 99,
             "siege": 99,
             "niederlagen": 99,
             "unentschieden": 99,

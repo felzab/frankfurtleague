@@ -14,13 +14,13 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.bewerbungen.admin_router import FLBewerbungenFilters, get_bewerbungen
 from app.api.bewerbungen.schemas import FLBewerbungenFilterParams
 from app.api.bewerbungen.services import dubletten_schluessel_of, mit_zustellung
-from app.api.postausgang.schemas import FLPostausgangLage
+from app.api.outbox.schemas import FLOutboxState
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from tests import documents
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import bestaetigte_kenntnisnahme
+from tests.documents import confirmed_kenntnisnahme
 from tests.worker import worker_database
 
 SAISON_ID = "2026"
@@ -34,17 +34,17 @@ KONTAKTPERSON = {
     "email": "a.koerner@example.de",
     "telefon": "+49 170 1234567",
     "geburtsdatum": "1984-05-09",
-    "einwilligung": bestaetigte_kenntnisnahme(),
+    "einwilligung": confirmed_kenntnisnahme(),
 }
 
 
 def bewerbung_document(
     index: int,
-    status: str = "eingereicht",
+    status: str = "submitted",
     saison_id: str = SAISON_ID,
     *,
     shorthand: str = "SGX",
-    eingereicht_am: str = "2026-02-01",
+    submitted_at: str = "2026-02-01",
     team_id: ObjectId | None = None,
 ) -> dict[str, Any]:
     """One stored application. Validated by the route, so every required field is here.
@@ -58,14 +58,14 @@ def bewerbung_document(
         saison_id,
         status,
         kontakte=documents.kontakte_document(trainer=dict(KONTAKTPERSON)),
-        eingereicht_am=eingereicht_am,
+        submitted_at=submitted_at,
         team_id=team_id,
         schule=None
         if team_id is not None
-        else documents.neue_schule_document(
+        else documents.new_schule_document(
             f"Schule {index}", shorthand, full_name=f"Schule {index} Gesamtschule", schulform="gesamtschule", website_url="https://example.de"
         ),
-        trikot={"vorhandener_satz": "16 rote Trikots", "wunschfarbe": "rot"},
+        trikot={"existing_satz": "16 rote Trikots", "wunschfarbe": "rot"},
     )
 
 
@@ -201,7 +201,7 @@ def run_list(collection: _ArchiveCollection, **filters: Any) -> Any:
     return asyncio.run(
         get_bewerbungen(
             bewerbungen_collection=cast(AsyncCollection, collection),
-            postausgang_collection=cast(AsyncCollection, _NothingStored()),
+            outbox_collection=cast(AsyncCollection, _NothingStored()),
             sperrliste=ban_list({Collection.SPERRLISTE: _NothingStored(), Collection.SAISONS: _NothingStored()}),
             filters=FLBewerbungenFilterParams.model_validate(filters),
         )
@@ -218,7 +218,7 @@ class TestTheListDegradesRatherThanRefusing:
         answered = run_list(_ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT + 25)))
 
         assert len(answered.bewerbungen) == LIST_LIMIT_DEFAULT
-        assert answered.vollstaendig is False
+        assert answered.complete is False
 
     def test_an_archive_past_the_cap_raises_nothing(self):
         """The whole point of the change: the old guard answered 500 here, and 500 is the attack."""
@@ -229,7 +229,7 @@ class TestTheListDegradesRatherThanRefusing:
         answered = run_list(_ArchiveCollection(archive_of(7)))
 
         assert len(answered.bewerbungen) == 7
-        assert answered.vollstaendig is True
+        assert answered.complete is True
 
     def test_an_archive_exactly_at_the_cap_is_whole(self):
         """The boundary the probe row exists for: the largest complete answer must not call itself short."""
@@ -237,12 +237,12 @@ class TestTheListDegradesRatherThanRefusing:
         answered = run_list(_ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT)))
 
         assert len(answered.bewerbungen) == LIST_LIMIT_DEFAULT
-        assert answered.vollstaendig is True
+        assert answered.complete is True
 
     def test_one_row_past_the_cap_is_the_first_incomplete_answer(self):
         """The other side of the same boundary, so the flag cannot be a constant."""
 
-        assert run_list(_ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT + 1))).vollstaendig is False
+        assert run_list(_ArchiveCollection(archive_of(LIST_LIMIT_DEFAULT + 1))).complete is False
 
     def test_the_read_asks_one_row_past_what_it_serves(self):
         """Non-vacuity: a read bounded AT the cap could never tell a full list from a truncated one."""
@@ -256,7 +256,7 @@ class TestTheListDegradesRatherThanRefusing:
         answered = run_list(_ArchiveCollection(archive_of(9)), limit=4)
 
         assert len(answered.bewerbungen) == 4
-        assert answered.vollstaendig is False
+        assert answered.complete is False
 
 
 class TestTheCallersOwnBoundIsCappedRatherThanObeyed:
@@ -273,7 +273,7 @@ class TestTheCallersOwnBoundIsCappedRatherThanObeyed:
     def test_a_named_bound_that_covers_the_archive_reports_it_whole(self):
         """A caller who asked for ten and got seven was not truncated, and must not be told they were."""
 
-        assert run_list(_ArchiveCollection(archive_of(7)), limit=10).vollstaendig is True
+        assert run_list(_ArchiveCollection(archive_of(7)), limit=10).complete is True
 
     @pytest.mark.parametrize("refused", [0, -1, LIST_LIMIT_MAX + 1, 999999])
     def test_a_bound_outside_the_range_is_refused(self, refused: int):
@@ -288,17 +288,17 @@ class TestTheFiltersStillNarrowTheRead:
 
     def test_the_filters_named_reach_the_db_filter(self):
         collection = _ArchiveCollection(archive_of(3))
-        run_list(collection, saison_id="2026", status=["eingereicht"])
+        run_list(collection, saison_id="2026", status=["submitted"])
 
-        assert collection.requested_filter == {"saison_id": "2026", "status": {"$in": ["eingereicht"]}}
+        assert collection.requested_filter == {"saison_id": "2026", "status": {"$in": ["submitted"]}}
 
     def test_two_statuses_reach_the_read_as_one_term(self):
         """The whole reason the parameter is a list: `$in` is what a multi-select facet's second click composes."""
 
         collection = _ArchiveCollection(archive_of(3))
-        run_list(collection, status=["angenommen", "abgelehnt"])
+        run_list(collection, status=["accepted", "declined"])
 
-        assert collection.requested_filter == {"status": {"$in": ["angenommen", "abgelehnt"]}}
+        assert collection.requested_filter == {"status": {"$in": ["accepted", "declined"]}}
 
     def test_an_unfiltered_read_narrows_on_nothing(self):
         """The control: a filter built from absent parameters would narrow to rows nobody asked about."""
@@ -325,14 +325,14 @@ def straddling_archive() -> list[dict[str, Any]]:
 
     # A club of its own per row between them, so the seeded pair is the only collision.
     filler = [
-        bewerbung_document(index, eingereicht_am="2026-02-15", team_id=ObjectId(f"6890a1b2c3d4e5f60700{index:04d}"))
+        bewerbung_document(index, submitted_at="2026-02-15", team_id=ObjectId(f"6890a1b2c3d4e5f60700{index:04d}"))
         for index in range(1, LIST_LIMIT_DEFAULT)
     ]
 
     return [
         *filler,
-        bewerbung_document(NEUESTE, eingereicht_am="2026-02-28", shorthand="ggx"),
-        bewerbung_document(AELTESTE, eingereicht_am="2026-02-01", shorthand="GGX"),
+        bewerbung_document(NEUESTE, submitted_at="2026-02-28", shorthand="ggx"),
+        bewerbung_document(AELTESTE, submitted_at="2026-02-01", shorthand="GGX"),
     ]
 
 
@@ -341,8 +341,8 @@ def mixed_archive() -> list[dict[str, Any]]:
 
     return [
         *(bewerbung_document(index) for index in range(1, 6)),
-        *(bewerbung_document(index, status="angenommen", saison_id="2025") for index in range(6, 9)),
-        *(bewerbung_document(index, status="abgelehnt") for index in range(9, 11)),
+        *(bewerbung_document(index, status="accepted", saison_id="2025") for index in range(6, 9)),
+        *(bewerbung_document(index, status="declined") for index in range(9, 11)),
     ]
 
 
@@ -354,30 +354,30 @@ class TestTheCountsAreTheServersRatherThanTheRowsOnHand:
     """
 
     def test_every_status_is_counted_though_the_page_holds_one(self):
-        answered = run_list(_ArchiveCollection(mixed_archive()), status=["eingereicht"])
+        answered = run_list(_ArchiveCollection(mixed_archive()), status=["submitted"])
 
-        assert [row.status for row in answered.bewerbungen] == ["eingereicht"] * 5
-        assert answered.anzahl_je_status == {"eingereicht": 5, "angenommen": 3, "abgelehnt": 2}
+        assert [row.status for row in answered.bewerbungen] == ["submitted"] * 5
+        assert answered.count_per_status == {"submitted": 5, "accepted": 3, "declined": 2}
 
     def test_a_page_holding_no_rows_still_says_what_the_others_hold(self):
         """The case that decides the shape: the counts cannot ride on the rows, because there need be none."""
 
-        answered = run_list(_ArchiveCollection(mixed_archive()), saison_id=SAISON_ID, status=["angenommen"])
+        answered = run_list(_ArchiveCollection(mixed_archive()), saison_id=SAISON_ID, status=["accepted"])
 
         assert answered.bewerbungen == []
-        assert answered.anzahl_je_status == {"eingereicht": 5, "angenommen": 0, "abgelehnt": 2}
+        assert answered.count_per_status == {"submitted": 5, "accepted": 0, "declined": 2}
 
     def test_each_count_keeps_every_term_but_the_status_it_answers_for(self):
         """A count taken with the request's own status term applied would read zero for every status nobody asked for."""
 
-        answered = run_list(_ArchiveCollection(mixed_archive()), saison_id="2026", status=["eingereicht"])
+        answered = run_list(_ArchiveCollection(mixed_archive()), saison_id="2026", status=["submitted"])
 
-        assert answered.anzahl_je_status == {"eingereicht": 5, "angenommen": 0, "abgelehnt": 2}
+        assert answered.count_per_status == {"submitted": 5, "accepted": 0, "declined": 2}
 
     def test_the_counts_name_all_three_states_whatever_is_stored(self):
         """An option missing from the answer is an option the bar has no number for, which reads as zero."""
 
-        assert sorted(run_list(_ArchiveCollection(archive_of(2))).anzahl_je_status) == ["abgelehnt", "angenommen", "eingereicht"]
+        assert sorted(run_list(_ArchiveCollection(archive_of(2))).count_per_status) == ["accepted", "declined", "submitted"]
 
 
 class TestTheSeasonRelationIsATermTheReadNarrowsOn:
@@ -388,41 +388,41 @@ class TestTheSeasonRelationIsATermTheReadNarrowsOn:
 
     def test_the_opening_relation_narrows_the_read_to_the_season_named(self):
         collection = _ArchiveCollection(mixed_archive())
-        run_list(collection, saison_id=SAISON_ID, saisonbezug=["diese_saison"], status=["eingereicht"])
+        run_list(collection, saison_id=SAISON_ID, saison_reference=["diese_saison"], status=["submitted"])
 
-        assert collection.requested_filter == {"saison_id": SAISON_ID, "status": {"$in": ["eingereicht"]}}
+        assert collection.requested_filter == {"saison_id": SAISON_ID, "status": {"$in": ["submitted"]}}
 
     def test_a_status_whose_rows_all_sit_in_another_season_is_counted_zero(self):
         """The defect this closes: three applications stand accepted, none of them in the season the bar opens on."""
 
         # Non-vacuity: unnarrowed, the same archive counts three -- which is the number the queue was
         # told while it sent no season term at all.
-        assert run_list(_ArchiveCollection(mixed_archive())).anzahl_je_status["angenommen"] == 3
+        assert run_list(_ArchiveCollection(mixed_archive())).count_per_status["accepted"] == 3
 
-        answered = run_list(_ArchiveCollection(mixed_archive()), saison_id=SAISON_ID, saisonbezug=["diese_saison"], status=["eingereicht"])
+        answered = run_list(_ArchiveCollection(mixed_archive()), saison_id=SAISON_ID, saison_reference=["diese_saison"], status=["submitted"])
 
-        assert answered.anzahl_je_status == {"eingereicht": 5, "angenommen": 0, "abgelehnt": 2}
+        assert answered.count_per_status == {"submitted": 5, "accepted": 0, "declined": 2}
 
     def test_the_complement_serves_every_other_season(self):
         collection = _ArchiveCollection(mixed_archive())
-        answered = run_list(collection, saison_id=SAISON_ID, saisonbezug=["andere_saison"], status=["angenommen"])
+        answered = run_list(collection, saison_id=SAISON_ID, saison_reference=["other_saison"], status=["accepted"])
 
-        assert collection.requested_filter == {"saison_id": {"$ne": SAISON_ID}, "status": {"$in": ["angenommen"]}}
+        assert collection.requested_filter == {"saison_id": {"$ne": SAISON_ID}, "status": {"$in": ["accepted"]}}
         assert [row.saison_id for row in answered.bewerbungen] == ["2025"] * 3
 
     def test_both_relations_at_once_narrow_on_no_season(self):
         """Every option picked is the facet turned off, and it has to reach the archive rather than nothing."""
 
         collection = _ArchiveCollection(mixed_archive())
-        run_list(collection, saison_id=SAISON_ID, saisonbezug=["diese_saison", "andere_saison"], status=["eingereicht"])
+        run_list(collection, saison_id=SAISON_ID, saison_reference=["diese_saison", "other_saison"], status=["submitted"])
 
-        assert collection.requested_filter == {"status": {"$in": ["eingereicht"]}}
+        assert collection.requested_filter == {"status": {"$in": ["submitted"]}}
 
     def test_a_relation_naming_no_season_narrows_on_nothing(self):
         """A relation to no season composes no term, and an empty page in its place would hide the queue."""
 
         collection = _ArchiveCollection(mixed_archive())
-        run_list(collection, saisonbezug=["diese_saison"])
+        run_list(collection, saison_reference=["diese_saison"])
 
         assert collection.requested_filter == {}
 
@@ -438,9 +438,9 @@ class TestTheSeasonRelationIsATermTheReadNarrowsOn:
         """A collision key carries its own season, so the complement parts no pair that the season term left whole."""
 
         collection = _ArchiveCollection(mixed_archive())
-        run_list(collection, saison_id=SAISON_ID, saisonbezug=["andere_saison"], status=["eingereicht"])
+        run_list(collection, saison_id=SAISON_ID, saison_reference=["other_saison"], status=["submitted"])
 
-        assert collection.requested_pipeline[0] == {"$match": {"saison_id": {"$ne": SAISON_ID}, "status": "eingereicht"}}
+        assert collection.requested_pipeline[0] == {"$match": {"saison_id": {"$ne": SAISON_ID}, "status": "submitted"}}
 
 
 class TestBothSidesOfTheSeasonRelationAreCounted:
@@ -450,20 +450,20 @@ class TestBothSidesOfTheSeasonRelationAreCounted:
     """
 
     def test_the_side_the_read_left_out_is_counted_all_the_same(self):
-        answered = run_list(_ArchiveCollection(mixed_archive()), saison_id=SAISON_ID, saisonbezug=["diese_saison"], status=["angenommen"])
+        answered = run_list(_ArchiveCollection(mixed_archive()), saison_id=SAISON_ID, saison_reference=["diese_saison"], status=["accepted"])
 
         assert answered.bewerbungen == []
-        assert answered.anzahl_je_saisonbezug == {"diese_saison": 0, "andere_saison": 3}
+        assert answered.count_per_saison_reference == {"diese_saison": 0, "other_saison": 3}
 
     def test_each_side_keeps_the_status_term_and_ignores_the_relation(self):
-        answered = run_list(_ArchiveCollection(mixed_archive()), saison_id=SAISON_ID, saisonbezug=["andere_saison"], status=["eingereicht"])
+        answered = run_list(_ArchiveCollection(mixed_archive()), saison_id=SAISON_ID, saison_reference=["other_saison"], status=["submitted"])
 
-        assert answered.anzahl_je_saisonbezug == {"diese_saison": 5, "andere_saison": 0}
+        assert answered.count_per_saison_reference == {"diese_saison": 5, "other_saison": 0}
 
     def test_a_request_naming_no_season_files_every_row_under_the_other_side(self):
         """No season named is no season to stand in, which is what a served row's own flag answers too."""
 
-        assert run_list(_ArchiveCollection(mixed_archive())).anzahl_je_saisonbezug == {"diese_saison": 0, "andere_saison": 10}
+        assert run_list(_ArchiveCollection(mixed_archive())).count_per_saison_reference == {"diese_saison": 0, "other_saison": 10}
 
 
 class TestTheCollisionIsAskedOverTheWholeQueue:
@@ -471,15 +471,15 @@ class TestTheCollisionIsAskedOverTheWholeQueue:
 
     def test_the_pass_ignores_the_status_the_page_was_narrowed_to(self):
         collection = _ArchiveCollection(mixed_archive())
-        run_list(collection, status=["angenommen"])
+        run_list(collection, status=["accepted"])
 
-        assert collection.requested_pipeline[0] == {"$match": {"status": "eingereicht"}}
+        assert collection.requested_pipeline[0] == {"$match": {"status": "submitted"}}
 
     def test_the_pass_keeps_the_season_the_request_named(self):
         collection = _ArchiveCollection(mixed_archive())
-        run_list(collection, saison_id=SAISON_ID, status=["eingereicht"])
+        run_list(collection, saison_id=SAISON_ID, status=["submitted"])
 
-        assert collection.requested_pipeline[0] == {"$match": {"saison_id": SAISON_ID, "status": "eingereicht"}}
+        assert collection.requested_pipeline[0] == {"$match": {"saison_id": SAISON_ID, "status": "submitted"}}
 
     def test_the_pass_carries_no_bound_of_its_own(self):
         collection = _ArchiveCollection(archive_of(2))
@@ -492,7 +492,7 @@ class TestTheCollisionIsAskedOverTheWholeQueue:
 
         collection = _ArchiveCollection([bewerbung_document(1, shorthand="ggx"), bewerbung_document(2, shorthand="GGX")])
 
-        assert run_list(collection).dubletten_schluessel == [KUERZEL_PAAR]
+        assert run_list(collection).duplicates_key == [KUERZEL_PAAR]
 
 
 class TestWhatCountsAsOneCollisionKey:
@@ -563,7 +563,7 @@ class TestTheCollisionSurvivesTheReadsCap:
 
                 return await get_bewerbungen(
                     bewerbungen_collection=collection,
-                    postausgang_collection=database[Collection.POSTAUSGANG],
+                    outbox_collection=database[Collection.OUTBOX],
                     sperrliste=ban_list(database),
                     filters=FLBewerbungenFilterParams.model_validate({}),
                 )
@@ -573,12 +573,12 @@ class TestTheCollisionSurvivesTheReadsCap:
 
         # Non-vacuity: the cap has to have cut the queue and kept exactly one half of the pair, or a
         # whole-queue answer and one taken over the page agree by accident.
-        assert answered.vollstaendig is False
+        assert answered.complete is False
         assert len(answered.bewerbungen) == LIST_LIMIT_DEFAULT
         assert ObjectId(BEWERBUNG_ID.format(NEUESTE)) in served
         assert ObjectId(BEWERBUNG_ID.format(AELTESTE)) not in served
 
-        assert answered.dubletten_schluessel == [KUERZEL_PAAR]
+        assert answered.duplicates_key == [KUERZEL_PAAR]
 
 
 # The declaration alone, mounted on a bare app: what is under test is how FastAPI fills the model, so
@@ -589,7 +589,7 @@ _probe = FastAPI()
 # The router's own alias and never a second spelling of it: the filling is what these cases judge.
 @_probe.get("/probe")
 def _read_filters(filters: FLBewerbungenFilters) -> dict[str, Any]:
-    return {"limit": filters.limit, "status": filters.status, "saisonbezug": filters.saisonbezug}
+    return {"limit": filters.limit, "status": filters.status, "saison_reference": filters.saison_reference}
 
 
 class TestNoQueryStringReachesAnUnboundedRead:
@@ -616,7 +616,7 @@ class TestTheQueueOffersOneOrderAlone:
 
     # 422 rather than 404: the value arrives in the query string, and the routing clause in
     # `.claude/rules/backend.md` keeps 404 for a path id.
-    @pytest.mark.parametrize("value", ["saison_id", "status", "eingereicht_am_desc"])
+    @pytest.mark.parametrize("value", ["saison_id", "status", "submitted_at_desc"])
     def test_an_unoffered_sort_key_is_refused(self, value: str):
         with TestClient(_probe) as client:
             assert client.get(f"/probe?sort_by={value}").status_code == 422
@@ -625,7 +625,7 @@ class TestTheQueueOffersOneOrderAlone:
         """Non-vacuity: a model refusing every value would pass the case above without offering anything."""
 
         with TestClient(_probe) as client:
-            assert client.get("/probe?sort_by=eingereicht_am").status_code == 200
+            assert client.get("/probe?sort_by=submitted_at").status_code == 200
 
 
 class TestWhatAStatusSelectionMayBeSpelledAs:
@@ -638,8 +638,8 @@ class TestWhatAStatusSelectionMayBeSpelledAs:
     @pytest.mark.parametrize(
         ("query", "picked"),
         [
-            ("status=eingereicht", ["eingereicht"]),
-            ("status=eingereicht&status=abgelehnt", ["eingereicht", "abgelehnt"]),
+            ("status=submitted", ["submitted"]),
+            ("status=submitted&status=declined", ["submitted", "declined"]),
         ],
     )
     def test_each_repeated_key_is_one_value_of_the_selection(self, query: str, picked: list[str]):
@@ -654,7 +654,7 @@ class TestWhatAStatusSelectionMayBeSpelledAs:
 
     # 422 rather than 404, the routing clause in `.claude/rules/backend.md` keeping 404 for a path id. A comma-joined
     # pair is one value outside the set.
-    @pytest.mark.parametrize("value", ["erfunden", "EINGEREICHT", "eingereicht,abgelehnt", "", "null", "0"])
+    @pytest.mark.parametrize("value", ["erfunden", "SUBMITTED", "submitted,declined", "", "null", "0"])
     def test_a_status_outside_the_set_is_refused(self, value: str):
         with TestClient(_probe) as client:
             assert client.get(f"/probe?status={value}").status_code == 422
@@ -674,53 +674,53 @@ class TestWhatASeasonRelationMayBeSpelledAs:
     @pytest.mark.parametrize(
         ("query", "picked"),
         [
-            ("saisonbezug=diese_saison", ["diese_saison"]),
-            ("saisonbezug=diese_saison&saisonbezug=andere_saison", ["diese_saison", "andere_saison"]),
+            ("saison_reference=diese_saison", ["diese_saison"]),
+            ("saison_reference=diese_saison&saison_reference=other_saison", ["diese_saison", "other_saison"]),
         ],
     )
     def test_each_repeated_key_is_one_value_of_the_selection(self, query: str, picked: list[str]):
         with TestClient(_probe) as client:
-            assert client.get(f"/probe?{query}").json()["saisonbezug"] == picked
+            assert client.get(f"/probe?{query}").json()["saison_reference"] == picked
 
     def test_an_absent_parameter_asks_for_no_relation(self):
         with TestClient(_probe) as client:
-            assert client.get("/probe").json()["saisonbezug"] is None
+            assert client.get("/probe").json()["saison_reference"] is None
 
     # 422 rather than 404, the routing clause in `.claude/rules/backend.md` keeping 404 for a path id.
     @pytest.mark.parametrize("value", ["erfunden", "DIESE_SAISON", "diese_saison,andere_saison", "", "2026"])
     def test_a_relation_outside_the_set_is_refused(self, value: str):
         with TestClient(_probe) as client:
-            assert client.get(f"/probe?saisonbezug={value}").status_code == 422
+            assert client.get(f"/probe?saison_reference={value}").status_code == 422
 
     def test_the_parameter_is_published_as_a_query_parameter(self):
         with TestClient(_probe) as client:
             published = client.get("/openapi.json").json()["paths"]["/probe"]["get"]["parameters"]
 
-        assert "saisonbezug" in [parameter["name"] for parameter in published]
+        assert "saison_reference" in [parameter["name"] for parameter in published]
 
 
 class TestEachSeatReadsItsLastMail:
-    """The join the reads serve `zustellung` by: one person is sent one mail for two seats, read by the seat it mirrors."""
+    """The join the reads serve `delivery` by: one person is sent one mail for two seats, read by the seat it mirrors."""
 
     def test_a_trainer_who_is_another_seats_person_reads_that_seats_mail_and_an_emptied_seat_reads_none(self):
-        gesendet = FLPostausgangLage(stand="gesendet", zustellung=None)
-        aufgegeben = FLPostausgangLage(stand="aufgegeben", zustellung=None)
+        gesendet = FLOutboxState(stand="sent", delivery=None)
+        aufgegeben = FLOutboxState(stand="abandoned", delivery=None)
         row = {
             "_id": "bewerbung",
-            "kontakte": {"trainer_ist_zugleich": "ansprechperson"},
-            "bestaetigungen": {
-                "trainer": {"verschickt_am": "2026-04-01"},
-                "ansprechperson": {"verschickt_am": "2026-04-01"},
+            "kontakte": {"trainer_is_also": "ansprechperson"},
+            "confirmations": {
+                "trainer": {"sent_at": "2026-04-01"},
+                "ansprechperson": {"sent_at": "2026-04-01"},
                 "stellvertretung": None,
             },
         }
 
         served = mit_zustellung(row, {("bewerbung", "ansprechperson"): gesendet, ("bewerbung", "trainer"): aufgegeben})
 
-        assert served["bestaetigungen"]["trainer"]["zustellung"] == served["bestaetigungen"]["ansprechperson"]["zustellung"] == gesendet
-        assert served["bestaetigungen"]["stellvertretung"] is None
+        assert served["confirmations"]["trainer"]["delivery"] == served["confirmations"]["ansprechperson"]["delivery"] == gesendet
+        assert served["confirmations"]["stellvertretung"] is None
 
     def test_a_seat_nobody_was_owed_a_mail_reads_null(self):
-        row = {"_id": "bewerbung", "kontakte": {"trainer_ist_zugleich": None}, "bestaetigungen": {"trainer": {"verschickt_am": "2026-04-01"}}}
+        row = {"_id": "bewerbung", "kontakte": {"trainer_is_also": None}, "confirmations": {"trainer": {"sent_at": "2026-04-01"}}}
 
-        assert mit_zustellung(row, {})["bestaetigungen"]["trainer"]["zustellung"] is None
+        assert mit_zustellung(row, {})["confirmations"]["trainer"]["delivery"] is None

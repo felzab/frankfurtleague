@@ -9,8 +9,8 @@ from app.shared.folding import sign_in_identifier
 # The fields keeping an id by design, each saying what a write or a mail was about rather than whose it
 # was: a log row's document and filter, and an owed mail's key and record, which a revoke leaves alike.
 _ABOUT: Mapping[str, tuple[str, ...]] = {
-    Collection.AKTIONEN: ("document_id", "db_filter"),
-    Collection.POSTAUSGANG: ("schluessel", "bezug"),
+    Collection.ACTION_LOG: ("document_id", "db_filter"),
+    Collection.OUTBOX: ("key", "reference"),
 }
 
 

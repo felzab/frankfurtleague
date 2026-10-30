@@ -31,7 +31,7 @@ class FLSpieltagRecord(BaseModel):
 class FLSpieltag(FLSpieltagRecord, BaseReadModel):
     # DERIVED, on no document. `ge=0`, because a matchday in a phase the bracket does not reach
     # expects none.
-    anzahl_spiele: int = Field(ge=0)
+    count_spiele: int = Field(ge=0)
 
 
 FLSpieltagListAdapter = TypeAdapter(list[FLSpieltag])
@@ -42,7 +42,7 @@ class FLSpieltageFilterParams(BaseModel):
     saison_phase: Literal["playoffs"] | FLSaisonPhase | None = None
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
-    # `natural` is the played order -- the phase, then `position`. `anzahl_spiele` is absent because
+    # `natural` is the played order -- the phase, then `position`. `count_spiele` is absent because
     # a Mongo sort cannot order by a value no document holds.
     sort_by: Literal["natural", "beginn", "ende"] = Field(default="natural")
     order: FLSortOrder = Field(default="asc")

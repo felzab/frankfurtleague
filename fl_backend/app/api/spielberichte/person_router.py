@@ -22,8 +22,8 @@ from app.api.spielberichte.crud import (
 from app.api.spielberichte.schemas import (
     FLSpielberichteSelfResponse,
     FLSpielberichtPayload,
-    FLSpielberichtPersonEintrag,
-    FLSpielberichtPersonFruehererEintrag,
+    FLSpielberichtPersonEarlierEntry,
+    FLSpielberichtPersonEntry,
     FLSpielberichtSchiedsrichterResponse,
     FLSpielberichtVonSchiedsrichter,
 )
@@ -85,9 +85,9 @@ async def get_self(
     none stands. A fixture called off or struck out is left out, having no report; `spiele` is empty while no season is
     `active`.
 
-    `fruehere` holds every fixture of an ended season booked to those records now on which a report stands, newest
+    `earlier` holds every fixture of an ended season booked to those records now on which a report stands, newest
     first, one whose date was cleared after its report last with a null `datum`: its page shows the report read-only.
-    Refused `funktion_nicht_gehalten` where the address holds no confirmed, live referee record.
+    Refused `role_not_held` where the address holds no confirmed, live referee record.
     """
 
     # A snapshot, so the fixtures served are those of the records judged; never a transaction, which a read writing
@@ -133,11 +133,11 @@ async def get_self(
         berichte = await pull_many_from_db(
             collection=spielberichte_collection,
             db_filter={"spiel_id": {"$in": [spiel["_id"] for spiel in (*laufende, *fruehere)]}, "bericht": {"$ne": None}},
-            projection=["spiel_id", "bericht.eingereicht_am"],
+            projection=["spiel_id", "bericht.submitted_at"],
             session=session,
         )
 
-    eingereicht = {bericht["spiel_id"]: bericht["bericht"]["eingereicht_am"] for bericht in berichte}
+    eingereicht = {bericht["spiel_id"]: bericht["bericht"]["submitted_at"] for bericht in berichte}
 
     def eintrag(spiel: Mapping[str, Any]) -> dict[str, Any]:
         return {
@@ -146,13 +146,13 @@ async def get_self(
             "uhrzeit": spiel.get("uhrzeit"),
             "team1_name": (spiel.get("team1") or {}).get("name"),
             "team2_name": (spiel.get("team2") or {}).get("name"),
-            "eingereicht_am": eingereicht.get(spiel["_id"]),
+            "submitted_at": eingereicht.get(spiel["_id"]),
         }
 
     return FLSpielberichteSelfResponse(
-        spiele=[FLSpielberichtPersonEintrag.model_validate(eintrag(spiel)) for spiel in laufende],
+        spiele=[FLSpielberichtPersonEntry.model_validate(eintrag(spiel)) for spiel in laufende],
         # An ended season's fixture holding no report has nothing for its read-only page to show.
-        fruehere=[FLSpielberichtPersonFruehererEintrag.model_validate(eintrag(spiel)) for spiel in fruehere if spiel["_id"] in eingereicht],
+        earlier=[FLSpielberichtPersonEarlierEntry.model_validate(eintrag(spiel)) for spiel in fruehere if spiel["_id"] in eingereicht],
     )
 
 
@@ -180,10 +180,10 @@ async def get_spielbericht_bericht(
     report, its remarks and card reasons included, or null.
 
     Served for a fixture still to come or called off too, whose page says why it takes no report, with both squads
-    empty: the pupils the stored report names are then all in `genannt`. Once the fixture's season has ended,
-    `abgeschlossen` is true and the read is the report alone, both squads empty, which its referee writes no more.
+    empty: the pupils the stored report names are then all in `named`. Once the fixture's season has ended,
+    `completed` is true and the read is the report alone, both squads empty, which its referee writes no more.
     Refused
-    `funktion_nicht_gehalten` where the address holds no confirmed, live referee record, and `bericht_nicht_geleitet` where the fixture
+    `role_not_held` where the address holds no confirmed, live referee record, and `bericht_not_officiated` where the fixture
     is booked to none of its records; `document_not_found` for a fixture that does not exist.
     """
 
@@ -217,7 +217,7 @@ async def get_spielbericht_bericht(
         )
 
     return FLSpielberichtSchiedsrichterResponse.model_validate(
-        {**compose_ansicht(lage, kader_offen=kader_offen, genannt=genannt, dokument=dokument), "abgeschlossen": abgeschlossen}
+        {**compose_ansicht(lage, kader_offen=kader_offen, named=genannt, dokument=dokument), "completed": abgeschlossen}
     )
 
 
@@ -248,26 +248,26 @@ async def put_spielbericht_bericht(
     Write the whole report of one fixture as its booked referee, replacing what stood.
 
     The proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every
-    write changing it raises its `version`, so a report the administrator adopted reads `abweichend` again until it
+    write changing it raises its `version`, so a report the administrator adopted reads `differing` again until it
     is adopted anew, and a write changing nothing writes nothing. Every write stamps the clubs the fixture fields now,
-    so a report a knockout correction re-fielded a side under reads `teams_geaendert` until it is written again. Writes
+    so a report a knockout correction re-fielded a side under reads `teams_changed` until it is written again. Writes
     no fixture: the result is the administrator's to save.
 
     `bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on
     another version would replace a report its sender never saw.
 
     Refuses, in this order, each writing nothing: an address holding no confirmed, live referee record
-    (`funktion_nicht_gehalten`); a fixture that does not exist (`document_not_found`); one booked to none of its records
-    (`bericht_nicht_geleitet`); one whose season has ended, whose report its referee only reads (`saison_past`); a
-    `bericht_stand` other than the version standing now, or than none where none stands (`bericht_inzwischen_geaendert`); one undated
-    or whose day is still to come (`bericht_nicht_gespielt`); one called off or struck out (`bericht_abgesagt`); a shoot-out
-    proposed on a group-phase fixture (`bericht_elfmeter_in_der_gruppe`); a pupil the write newly names on a side outside that side's
+    (`role_not_held`); a fixture that does not exist (`document_not_found`); one booked to none of its records
+    (`bericht_not_officiated`); one whose season has ended, whose report its referee only reads (`saison_past`); a
+    `bericht_stand` other than the version standing now, or than none where none stands (`bericht_meanwhile_changed`); one undated
+    or whose day is still to come (`bericht_not_played`); one called off or struck out (`bericht_abgesagt`); a shoot-out
+    proposed on a group-phase fixture (`bericht_elfmeter_in_the_gruppe`); a pupil the write newly names on a side outside that side's
     live squad of the season, a pupil the report already named on that side staying while the side fields the club it
-    did (`bericht_nicht_im_kader`); and a yellow or second yellow card naming no reason (`bericht_grund_fehlt`). Every refusal but
-    `bericht_inzwischen_geaendert` is asked again outside the transaction just before answering, the referee's records included, so a
+    did (`bericht_not_in_kader`); and a yellow or second yellow card naming no reason (`bericht_grund_missing`). Every refusal but
+    `bericht_meanwhile_changed` is asked again outside the transaction just before answering, the referee's records included, so a
     write landing on what was judged before that second asking refuses the report rather than letting it stand, and one
     landing after it stands beside the report; a write of the report itself landing mid-press conflicts with this one,
-    whose retry meets `bericht_inzwischen_geaendert`. Two first writes at once are two forms opened on no report: the later is
+    whose retry meets `bericht_meanwhile_changed`. Two first writes at once are two forms opened on no report: the later is
     refused.
     """
 
@@ -334,7 +334,7 @@ async def put_spielbericht_bericht(
         judge_bericht(lage=jetzt, payload=payload, gespeichert=block, neu=neu, today=today)
 
         angelegt = gespeichert is None or gespeichert.get("bericht") is None
-        ansicht = {**compose_ansicht(lage, kader_offen=True, genannt=genannt, dokument=dokument), "abgeschlossen": False}
+        ansicht = {**compose_ansicht(lage, kader_offen=True, named=genannt, dokument=dokument), "completed": False}
 
         return FLSpielberichtSchiedsrichterResponse.model_validate(ansicht), angelegt
 
