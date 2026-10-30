@@ -99,19 +99,21 @@ function aenderungsSatz({ art, adresse, inhaber }: Zugangsaenderung): readonly L
   }
 }
 
-/** The acting administrator in the notice's words, never a barred address or the erasure's marker. */
-function urheberName(von: string | null): string {
+/**
+ * The acting administrator in the notice's words, never a barred address or the erasure's marker: a named address in
+ * the emphasis grade, as the change's own subject is, a withheld one plain.
+ */
+function urheberName(von: string | null): Lauf {
   if (von === null) return GESPERRTER_URHEBER;
 
-  return von === GELOESCHT_ACTOR_MARKER ? UNGENANNTER_URHEBER : von;
+  return von === GELOESCHT_ACTOR_MARKER ? UNGENANNTER_URHEBER : { stark: von };
 }
 
 /** The second sentence: who made it and when, or where a change nobody in the application made came from. */
-function urheberSatz(urheber: Urheber, verb: string): string {
-  if (urheber === null) return OHNE_VERWALTUNG;
+function urheberSatz(urheber: Urheber, verb: string): readonly Lauf[] {
+  if (urheber === null) return [OHNE_VERWALTUNG];
 
-  const von = urheberName(urheber.von);
-  return urheber.am === null ? `${verb} von ${von}.` : `${verb} von ${von} am ${formatZeitpunkt(urheber.am)}.`;
+  return [`${verb} von `, urheberName(urheber.von), urheber.am === null ? "." : ` am ${formatZeitpunkt(urheber.am)}.`];
 }
 
 /** A grant's address as the notice names it, or why it is withheld: a barred one, or an erased person's. */

@@ -39,7 +39,7 @@ describe("renderMail", () => {
       betreff: boese,
       vorname: boese,
       absaetze: [[boese, [{ stark: boese }]]],
-      block: { fakten: [{ label: boese, wert: boese }] },
+      block: { titel: boese, fakten: [{ label: boese, wert: boese }] },
       aktion: { label: boese, href: `${ORIGIN}/"><script>` },
     });
 

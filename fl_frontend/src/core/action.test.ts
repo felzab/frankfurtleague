@@ -8,6 +8,7 @@ import { z } from "zod";
 import { action } from "./action";
 import { COPY } from "./copy";
 import { APIBadStatusError } from "./errors";
+import { SERVER_COPY } from "./serverCopy";
 
 import type { Code } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
@@ -145,7 +146,7 @@ describe("the admin lane", () => {
     expect(await ergebnis(refusal("state_ergebnis_on_a_non_event"))({ team1: { tore: 1 }, team2: { tore: 2 } })).toStrictEqual({
       ok: false,
       errorCode: "state_ergebnis_on_a_non_event",
-      fieldErrors: { "team2.tore": COPY.shared.ablehnung["state_ergebnis_on_a_non_event"] },
+      fieldErrors: { "team2.tore": SERVER_COPY.ablehnung["state_ergebnis_on_a_non_event"] },
     });
   });
 
@@ -153,12 +154,12 @@ describe("the admin lane", () => {
     expect(await anlegen(refusal("duplicate_key"))({ name: "Nord", plz: "60438" })).toStrictEqual({
       ok: false,
       errorCode: "duplicate_key",
-      fieldErrors: { name: COPY.shared.ablehnung["duplicate_key"] },
+      fieldErrors: { name: SERVER_COPY.ablehnung["duplicate_key"] },
     });
     expect(await anlegen(refusal("spiel_double_booked"))({ name: "Nord", plz: "60438" })).toStrictEqual({
       ok: false,
       errorCode: "spiel_double_booked",
-      reason: COPY.shared.ablehnung["spiel_double_booked"],
+      reason: SERVER_COPY.ablehnung["spiel_double_booked"],
     });
   });
 
@@ -180,12 +181,12 @@ describe("the admin lane", () => {
     expect(await kontakte(zweiRegeln)(input)).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
-      fieldErrors: { kontakte: COPY.shared.regel.kontakt_email_twice, datum: COPY.shared.regel.date_not_in_calendar },
+      fieldErrors: { kontakte: SERVER_COPY.regel.kontakt_email_twice, datum: SERVER_COPY.regel.date_not_in_calendar },
     });
     expect(await kontakte(refusedPayload([bodyField([], "gute_spieler_exceed_kader")]))(input)).toStrictEqual({
       ok: false,
       errorCode: "payload_refused",
-      reason: COPY.shared.regel.gute_spieler_exceed_kader,
+      reason: SERVER_COPY.regel.gute_spieler_exceed_kader,
     });
     // One rule the screen does not word, a published bound among them: the page is older than the API.
     for (const kind of ["kontakt_telefon_twice", "string_too_long"]) {

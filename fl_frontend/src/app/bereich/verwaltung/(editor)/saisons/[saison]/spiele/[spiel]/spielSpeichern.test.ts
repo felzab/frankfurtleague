@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
 import { APIBadStatusError } from "@/core/errors";
+import { SERVER_COPY } from "@/core/serverCopy";
 
 import { spielSpeichern } from "./spielSpeichern";
 import { KEIN_SONDEREREIGNIS } from "./spielWerte";
@@ -207,14 +208,14 @@ describe("the match editor's save", () => {
     expect(await spielSpeichern(save)).toEqual({
       ok: false,
       errorCode: "spiel_outside_spieltag",
-      fieldErrors: { "changes.datum": COPY.shared.ablehnung["spiel_outside_spieltag"] },
+      fieldErrors: { "changes.datum": SERVER_COPY.ablehnung["spiel_outside_spieltag"] },
     });
 
     stand.ablehnung = refusal("spiel_double_booked");
     expect(await spielSpeichern(save)).toEqual({
       ok: false,
       errorCode: "spiel_double_booked",
-      reason: COPY.shared.ablehnung["spiel_double_booked"],
+      reason: SERVER_COPY.ablehnung["spiel_double_booked"],
     });
 
     // The editor sets no team, so a team's refusal means the fixture changed under it.

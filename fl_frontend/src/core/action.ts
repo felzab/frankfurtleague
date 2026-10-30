@@ -10,6 +10,7 @@ import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
 import { funktionenOf, isSeatAt } from "./funktionen";
 import { logger } from "./logging";
 import { runWithRequestScope } from "./requestScope";
+import { SERVER_COPY } from "./serverCopy";
 import { SITE_CACHE_TAG } from "./siteCache";
 import { getSubjectSession } from "./subject";
 import { mintTraceId, readTraceparent, TRACEPARENT_HEADER } from "./trace";
@@ -36,11 +37,11 @@ import type { SubjectSession } from "./subject";
 export type ActionAnswer<Value = undefined> =
   { ok: true; value: Value; note?: Copy } | { ok: false; fieldErrors?: Readonly<Record<string, Copy>>; reason?: Copy; errorCode?: Code };
 
-/** A code the catalogue words in a person's own terms, `COPY.shared.ablehnung`'s keys. */
-type WordedCode = keyof typeof COPY.shared.ablehnung;
+/** A code the catalogue words in a person's own terms, `SERVER_COPY.ablehnung`'s keys. */
+type WordedCode = keyof typeof SERVER_COPY.ablehnung;
 
-/** A rule the catalogue words, by the kind a refused payload's field names it with, `COPY.shared.regel`'s keys. */
-type WordedRule = keyof typeof COPY.shared.regel;
+/** A rule the catalogue words, by the kind a refused payload's field names it with, `SERVER_COPY.regel`'s keys. */
+type WordedRule = keyof typeof SERVER_COPY.regel;
 
 /** The dotted path of every leaf of an input, a list counting as one leaf: the key its box's message is answered by. */
 type Field<T, Above extends string = ""> = T extends readonly unknown[]
@@ -136,7 +137,7 @@ const TURNED_AWAY: Readonly<Record<AdminRefusal, Copy>> = {
 
 const UNEXPECTED = { ok: false, reason: COPY.shared.fehler.unerwartet } as const;
 
-const isWorded = (code: Code): code is Code & WordedCode => Object.hasOwn(COPY.shared.ablehnung, code);
+const isWorded = (code: Code): code is Code & WordedCode => Object.hasOwn(SERVER_COPY.ablehnung, code);
 
 // The backend's own strip, Python's `str.strip`: Unicode's White_Space and U+001C to U+001F, from both ends. A field
 // stripped by Pydantic's `strip_whitespace` keeps those four, which is safe, since the stripped text is what is sent.
@@ -200,7 +201,7 @@ function parsed<Schema extends z.ZodType>(
   return { answer: unplaced ? UNEXPECTED : { ok: false, fieldErrors } };
 }
 
-const isWordedRule = (kind: string): kind is WordedRule => Object.hasOwn(COPY.shared.regel, kind);
+const isWordedRule = (kind: string): kind is WordedRule => Object.hasOwn(SERVER_COPY.regel, kind);
 
 /**
  * A refused payload in this screen's words, each broken rule on the box the screen names for it, or `undefined` where
@@ -214,8 +215,8 @@ function brokenRules<Schema extends z.ZodType>(declared: Declared<Schema>, field
     const placed = isWordedRule(kind) ? declared.ownWords?.[kind] : undefined;
     if (placed === undefined || !isWordedRule(kind)) return undefined;
     // The first rule a box broke is the one it shows.
-    if (typeof placed === "string") fieldErrors[placed] ??= COPY.shared.regel[kind];
-    else reason ??= COPY.shared.regel[kind];
+    if (typeof placed === "string") fieldErrors[placed] ??= SERVER_COPY.regel[kind];
+    else reason ??= SERVER_COPY.regel[kind];
   }
   return {
     ok: false,
@@ -231,7 +232,7 @@ function refused<Schema extends z.ZodType>(declared: Declared<Schema>, code: Cod
   if (rules !== undefined) return rules;
   const placed = isWorded(code) ? declared.ownWords?.[code] : undefined;
   if (placed !== undefined && isWorded(code)) {
-    const text = COPY.shared.ablehnung[code];
+    const text = SERVER_COPY.ablehnung[code];
     return typeof placed === "string"
       ? { ok: false, errorCode: code, fieldErrors: { [placed]: text } }
       : { ok: false, errorCode: code, reason: text };
