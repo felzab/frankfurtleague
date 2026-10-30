@@ -52,7 +52,7 @@ def registrierung(**overrides: Any) -> dict[str, Any]:
         "email": "Quillhilde@Example.com",
         "geburtsdatum": None,
         "einwilligung": None,
-        "bestaetigung": compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-26", frist=TOMORROW),
+        "bestaetigung": {**compose_bestaetigung(today="2026-03-26", frist=TOMORROW), "token_hashes": [TOKEN_HASH]},
         **overrides,
     }
 
@@ -64,13 +64,13 @@ class TestWhatAReopenedLinkShows:
             pytest.param(registrierung(), "gueltig", id="open, inside the deadline"),
             pytest.param(registrierung(einwilligung=einwilligung()), "bestaetigt", id="confirmed"),
             pytest.param(
-                registrierung(bestaetigung=compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-26", frist=YESTERDAY)),
+                registrierung(bestaetigung={**compose_bestaetigung(today="2026-03-26", frist=YESTERDAY), "token_hashes": [TOKEN_HASH]}),
                 "abgelaufen",
                 id="the deadline passed",
             ),
             # The deadline's own day still answers, as the press below takes it: the mail names that day.
             pytest.param(
-                registrierung(bestaetigung=compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-26", frist=TODAY)),
+                registrierung(bestaetigung={**compose_bestaetigung(today="2026-03-26", frist=TODAY), "token_hashes": [TOKEN_HASH]}),
                 "gueltig",
                 id="on the deadline's day",
             ),

@@ -7,7 +7,6 @@ import Envelope from "@gravity-ui/icons/Envelope";
 
 import { TEAMS_EINTRAG } from "@/features/admin/constants";
 import { postEinladungVersandAction, previewEinladungVersandAction } from "@/features/einladungen/actions";
-import { gesperrtSatz, ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -23,12 +22,9 @@ import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite, unansweredRead } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { nichtHinterlegt } from "@/shared/utils/format";
-import { schlechtesterVersand, versandGrad } from "@/shared/utils/linkVersand";
 import { meldeLinkVersand, REGISTRIERUNGSLINK_TITEL } from "@/shared/utils/linkVersandToast";
 
-import type { FLEinladungVersandGrund, FLEinladungVersandVorschauZeile } from "@/core/generated/client/types";
-import type { EinladungVersandErgebnis } from "@/features/einladungen/types";
-import type { LinkVersand } from "@/shared/utils/linkVersand";
+import type { FLEinladungVersandGrund, FLEinladungVersandVorschauZeile, FLEinladungVersandZeile } from "@/core/generated/client/types";
 import type { VersandTitel } from "@/shared/utils/linkVersandToast";
 
 /** The ruling's own words, copied rather than reworded: a label a visitor navigates by is nobody's here to choose. */
@@ -73,7 +69,7 @@ const UNGEWISS_FOLGE = "Ein neuer Versand schickt dem Team einen Link, wenn sein
 const UNGEWISS_BISHERIGER = "Der bisherige Link dieses Teams gilt vielleicht nicht mehr.";
 
 /** A mint that failed or may have, where the league's own write and not the team is why nothing reached it, and what each leaves standing. */
-const folgeSaetze = (zeile: EinladungVersandErgebnis): readonly string[] => {
+const folgeSaetze = (zeile: FLEinladungVersandZeile): readonly string[] => {
   // `true` alone: a null says the press failed before it read the team's link, which is no evidence of one.
   if (zeile.uebersprungen === "erzeugung_fehlgeschlagen")
     return zeile.hatte_link === true ? [FEHLGESCHLAGEN_BISHERIGER, FEHLGESCHLAGEN_FOLGE] : [FEHLGESCHLAGEN_FOLGE];
@@ -87,24 +83,13 @@ const ERSETZT_SATZ = "Ersetzt den Link, den dieses Team schon hat";
 /** The same fact after the write, which is when somebody may have to tell a team their old link is dead. */
 const ERSETZT_VERGANGEN = "Der bisherige Link dieses Teams funktioniert nicht mehr";
 
-/** The addresses a person could still write to by hand, which a withheld one is not. */
-const nichtErreicht = (zeile: EinladungVersandErgebnis): readonly string[] =>
-  zeile.unerreichbar.filter((adresse) => !zeile.zurueckgehalten.includes(adresse));
-
 /**
  * **No numeral stands before a plural noun**: „An 1 Adressen“ is what a count interpolated into one
  * sentence produces.
  */
-function zustellSatz(zeile: EinladungVersandErgebnis): string {
-  const versucht = zeile.zugestellt.length + zeile.unerreichbar.length;
-  // A barred address is one of the team's, counted against the whole: its own line says why it got nothing.
-  const gesamt = versucht + zeile.gesperrt;
-
-  // Ahead of the count, because outside production it is EVERY row: a deployment that sends nothing
-  // is not a team the league failed to reach, and grading it as one teaches a reader to ignore red.
-  if (versucht > 0 && zeile.zurueckgehalten.length === versucht) return ZURUECKGEHALTEN;
-  if (zeile.zugestellt.length === 0) return "Nicht verschickt";
-  if (zeile.zugestellt.length < gesamt) return `Gesendet: ${String(zeile.zugestellt.length)} von ${String(gesamt)}`;
+function zustellSatz(zeile: FLEinladungVersandZeile): string {
+  // Owed in the press's own write: each mail leaves at once, and a barred address is stopped at its hand-out.
+  const gesamt = zeile.empfaenger.length;
 
   return gesamt === 1 ? "An die Adresse gesendet" : `An alle ${String(gesamt)} Adressen gesendet`;
 }
@@ -113,10 +98,10 @@ function zustellSatz(zeile: EinladungVersandErgebnis): string {
  * One press writes to many teams, so the title says whose grade it is: one team's in its own press's words, every team's,
  * or some teams' where a link went beside one that did not.
  */
-function registrierungslinksTitel(versendet: readonly LinkVersand[]): VersandTitel {
-  if (versendet.length === 1) return REGISTRIERUNGSLINK_TITEL;
+function registrierungslinksTitel(gemeint: number, erreicht: number): VersandTitel {
+  if (gemeint === 1) return REGISTRIERUNGSLINK_TITEL;
 
-  const teils = versendet.some((versand) => versandGrad(versand) === "gesendet");
+  const teils = erreicht > 0;
 
   return {
     gesendet: "Registrierungslinks gesendet",
@@ -147,7 +132,7 @@ export function FormEinladungVersandSection({
 }) {
   const router = useRouter();
   const [vorschau, setVorschau] = useState<readonly FLEinladungVersandVorschauZeile[] | null>(null);
-  const [ergebnis, setErgebnis] = useState<readonly EinladungVersandErgebnis[] | null>(null);
+  const [ergebnis, setErgebnis] = useState<readonly FLEinladungVersandZeile[] | null>(null);
   const [erneut, setErneut] = useState(false);
   const [isLoadingVorschau, startLoadingVorschau] = useTransition();
 
@@ -178,13 +163,18 @@ export function FormEinladungVersandSection({
       // Dropped rather than kept: the rows it held were true before this write, and the skips it
       // listed have just moved.
       setVorschau(null);
-      // Graded by the worst team this press meant to write to; none at all is no grade, only a fact.
-      const versand = schlechtesterVersand(res.versendet);
-      if (versand === undefined)
+      // Graded by the teams this press meant to write to: one it failed to mint for is the failure; none at all is no
+      // grade, only a fact.
+      if (res.gemeint === 0)
         appToast.info(res.zeilen.length === 1 ? "Kein Registrierungslink gesendet" : "Keine Registrierungslinks gesendet", {
           description: res.message,
         });
-      else meldeLinkVersand(versand, registrierungslinksTitel(res.versendet), res.message);
+      else
+        meldeLinkVersand(
+          res.erreicht < res.gemeint ? "fehlgeschlagen" : "gesendet",
+          registrierungslinksTitel(res.gemeint, res.erreicht),
+          res.message,
+        );
     });
   };
 
@@ -339,15 +329,6 @@ export function FormEinladungVersandSection({
                         ) : (
                           <>
                             {zustellSatz(zeile)}
-                            {/* The addresses themselves, as the preview lists them: a count of what
-                                failed names nobody to write to by hand. A withheld one is dropped —
-                                nobody tried it, so there is nothing to write to by hand. */}
-                            {nichtErreicht(zeile).length > 0 && (
-                              <span className="block font-bold text-danger-strong">Nicht erreicht: {nichtErreicht(zeile).join(", ")}</span>
-                            )}
-                            {/* Ungraded and unnamed: a ban is no failure to chase, and the row names no
-                                barred address. */}
-                            {zeile.gesperrt > 0 && <span className="block">{gesperrtSatz(zeile.gesperrt)}</span>}
                             {zeile.ersetzt_link && <span className="block font-bold text-warning-strong">{ERSETZT_VERGANGEN}</span>}
                           </>
                         )}

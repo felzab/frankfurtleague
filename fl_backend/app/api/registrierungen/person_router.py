@@ -9,6 +9,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.identitaet.crud import refuse_without_a_seat
 from app.api.identitaet.lookup import SubjektLookup
+from app.api.postausgang.schemas import FLPostausgangBezug, FLRegistrierungAbsageDaten
+from app.api.postausgang.services import enqueue_mail
 from app.api.registrierungen.crud import (
     nummern_rows,
     persons_at,
@@ -49,6 +51,7 @@ from app.core.crud import erase_many_from_db, patch_many_in_db, patch_one_in_db,
 from app.core.dependencies import (
     AktionenCollection,
     DBClient,
+    PostausgangCollection,
     RegistrierungenCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
@@ -343,17 +346,19 @@ async def ablehnen(
     identifier: KontaktIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
+    postausgang_collection: PostausgangCollection,
     records: SubjektLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
 ) -> FLRegistrierungAblehnungResponse:
     """
-    Decline one pending registration, confirmed or not: its state and the decision are written, and nothing else.
+    Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.
 
     The decision records the declining seat holder's address and a reason from a closed set, never free text:
     `andere_person` where the team answered that the registration is not the person its address belongs to. The
-    row stays until the retention sweep erases it a month later. The answer carries the address the pupil's link
-    went to, for the decline mail and nothing else, and whether that address was ever confirmed.
+    row stays until the retention sweep erases it a month later. The note is owed in the same transaction, and only
+    where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.
 
     Refuses, in this order, no pending registration with this id (404) and no seat on its team's season
     (`REQ-FUNKTION-001`).
@@ -383,16 +388,25 @@ async def ablehnen(
             collection=saison_teams_collection, db_filter={"saison_id": saison_id, "team_id": team_id}, projection=["name"], session=session
         )
 
-        return FLRegistrierungAblehnungResponse(
-            registrierung_id=registrierung_id,
-            team_id=team_id,
-            saison_id=saison_id,
-            team=str(junction_raw["name"]),
-            vorname=registrierung_raw["vorname"],
-            email=str(registrierung_raw["email"]),
-            bestaetigt=registrierung_ist_bestaetigt(einwilligung=registrierung_raw.get("einwilligung")),
-            grund=ablehnung_data.grund,
-        )
+        if registrierung_ist_bestaetigt(einwilligung=registrierung_raw.get("einwilligung")):
+            await enqueue_mail(
+                postausgang_collection=postausgang_collection,
+                session=session,
+                # A decline is taken once: a pending row is what this transaction reads, and it leaves that state.
+                schluessel=f"{Collection.REGISTRIERUNGEN}/{registrierung_id}/absage",
+                an=str(registrierung_raw["email"]),
+                daten=FLRegistrierungAbsageDaten(
+                    art="registrierung_absage",
+                    vorname=str(registrierung_raw["vorname"]),
+                    team=str(junction_raw["name"]),
+                    saison_id=saison_id,
+                    grund=ablehnung_data.grund,
+                ),
+                now=germany_now,
+                bezug=FLPostausgangBezug(sammlung=Collection.REGISTRIERUNGEN, id=registrierung_id, sitz=None),
+            )
+
+        return FLRegistrierungAblehnungResponse(registrierung_id=registrierung_id, vorname=registrierung_raw["vorname"])
 
     async with transaction_session(db) as session:
         return await session.with_transaction(decline_for_the_team)

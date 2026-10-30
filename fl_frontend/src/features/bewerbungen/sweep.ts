@@ -5,12 +5,9 @@ import { frontend_config } from "@/core/config";
 import { ContractBreakError, requestOf } from "@/core/errors";
 import { kontaktBestaetigungsLink } from "@/core/kontaktLink";
 import { logger } from "@/core/logging";
-import { buildRegistrierungErinnerungEmail } from "@/core/registrierungEmail";
 import { postAdresswechselSweep } from "@/features/adresswechsel/mutations";
 import { runAdresswechselPostausgang } from "@/features/adresswechsel/postausgang";
-import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants";
 import { postRegistrierungSweep } from "@/features/registrierungen/mutations";
-import { sendZielMail } from "@/features/zustellung/notifications";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -18,12 +15,7 @@ import { getBewerbungSweepSaisons, postBewerbungSweep, postBewerbungSweepAngekue
 import { rollenText, rolleText, sendBewerbungLinkMail, sendBewerbungMail } from "./notifications";
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
-import type {
-  FLAdresswechselSweepResponse,
-  FLBewerbungSweepErinnerung,
-  FLBewerbungSweepLoeschung,
-  FLRegistrierungSweepErinnerung,
-} from "@/core/generated/client/types";
+import type { FLAdresswechselSweepResponse, FLBewerbungSweepErinnerung, FLBewerbungSweepLoeschung } from "@/core/generated/client/types";
 import type { BewerbungEmpfaenger, BewerbungLinkEmpfaenger } from "./notifications";
 
 /** The action the mail fan-out logs a refused address under. */
@@ -181,41 +173,9 @@ async function sweepBewerbungen(saisonId: string, uebergangen: Uebergangen): Pro
   }
 }
 
-/** The registration's clocks, one season at a time: the erasures are done before this answers, and what comes back is what to mail. */
+/** The registration's clocks, one season at a time: the erasures are done and the reminders owed before this answers. */
 async function sweepRegistrierungen(saisonId: string, uebergangen: Uebergangen): Promise<void> {
-  const { erinnerungen, fehlgeschlagen } = await postRegistrierungSweep(saisonId);
-  uebergangen.registrierung += fehlgeschlagen;
-
-  // Stamped by the call above and mailed here, as the application's reminder is: a failed send costs
-  // one pupil one reminder, where mailing first would re-send every hour until the address worked.
-  for (const erinnerung of erinnerungen) {
-    await mailRegistrierungErinnerung(erinnerung);
-  }
-}
-
-/** One reminder to one pupil, carrying the fresh link the pass minted; the first link stays valid beside it. */
-async function mailRegistrierungErinnerung(erinnerung: FLRegistrierungSweepErinnerung): Promise<void> {
-  // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
-  // production must not mail production links.
-  const origin = frontend_config.AUTH_URL;
-
-  await sendZielMail({
-    operation: SWEEP_OPERATION,
-    // No idempotency key: every reminder mints a fresh token, so one key over two bodies would be
-    // refused rather than collapsed (`fl_frontend/src/features/zustellung/notifications.ts :: zielIdempotenzSchluessel`).
-    auftrag: { ziel: "registrierung", zielId: erinnerung.registrierung_id, anlass: "erinnerung" },
-    recipients: [erinnerung.email],
-    buildMail: () =>
-      buildRegistrierungErinnerungEmail({
-        teamName: erinnerung.team,
-        saisonId: erinnerung.saison_id,
-        origin: origin,
-        token: erinnerung.token,
-        // The WINDOW the first message named, not a fresh one: the message says the deadline has not
-        // moved, and the mirrored bound is what both messages count it in.
-        fristTage: REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
-      }),
-  });
+  uebergangen.registrierung += (await postRegistrierungSweep(saisonId)).fehlgeschlagen;
 }
 
 /** One message to one mailbox, carrying one link per PERSON it holds -- a mirrored pair is one link naming both seats. */

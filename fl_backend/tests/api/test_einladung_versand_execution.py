@@ -12,6 +12,7 @@ from app.api.saisons.admin_router import _mail_one_team
 from app.core.collections import Collection
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document
+from tests.postausgang import MAIL_NOW
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -40,11 +41,10 @@ SEEDED_LINK: Mapping[str, Any] = {
     "_id": SEEDED_EINLADUNG,
     "saison_id": SAISON_ID,
     "team_id": TEAM_ID,
-    "token_hash": hash_token("seeded"),
+    "token_hashes": [hash_token("seeded")],
     "erstellt_am": "2026-03-15",
     "erstellt_von": "admin@frankfurtleague.de",
     "widerrufen_am": None,
-    "versand": {},
 }
 
 # What a rival's press costs the first attempt: `with_transaction` runs the callback again.
@@ -90,6 +90,7 @@ class TestARetriedMint:
 
                 zeile = await _mail_one_team(
                     einladungen_collection=cast(AsyncCollection, _RetryFailsBeforeItsRead(database[Collection.EINLADUNGEN])),
+                    postausgang_collection=database[Collection.POSTAUSGANG],
                     db=cast(AsyncMongoClient, client),
                     saison_id=SAISON_ID,
                     team=TEAM,
@@ -97,6 +98,7 @@ class TestARetriedMint:
                     gesperrt=set(),
                     erstellt_von="admin@frankfurtleague.de",
                     today=TODAY,
+                    now=MAIL_NOW,
                 )
 
                 live = await database[Collection.EINLADUNGEN].find({"widerrufen_am": None}).to_list(length=None)

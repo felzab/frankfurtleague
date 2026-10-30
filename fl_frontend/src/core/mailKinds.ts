@@ -1,5 +1,10 @@
 import "server-only";
 
+import { buildEinladungEmail } from "./einladungEmail";
+import { ContractBreakError } from "./errors";
+import { buildRegistrierungAbsageEmail, buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail } from "./registrierungEmail";
+import { buildSchiedsrichterBestaetigungEmail } from "./schiedsrichterEmail";
+
 import type { Mail } from "./emailShell";
 import type { FLPostausgangAusgabe } from "./generated/client/types";
 
@@ -32,8 +37,31 @@ interface Ausgabe {
 
 type MailBuilder<A extends PostausgangArt> = (daten: DatenJeArt[A], ausgabe: Ausgabe) => Mail;
 
+/** What a league mail carrying no link is built with beside its facts. */
+export interface MailOrt {
+  readonly origin: string;
+}
+
+/** What a league mail carrying a link is built with: the hand-out's raw token, a bearer credential never taken apart. */
+export interface MailLink extends MailOrt {
+  readonly token: string;
+}
+
+/** The hand-out's token for a kind that always carries a link: the backend mints one for every row naming where it lives. */
+function gemintet({ token, origin }: Ausgabe): MailLink {
+  if (token === null) throw new ContractBreakError("A mail carrying a link was handed out without one.");
+
+  return { token: token, origin: origin };
+}
+
 /** Each kind's builder, which renders through the shell (`fl_frontend/src/core/emailShell.ts :: renderMail`). */
-const MAIL_KINDS: { [A in PostausgangArt]?: MailBuilder<A> } = {};
+const MAIL_KINDS: { [A in PostausgangArt]?: MailBuilder<A> } = {
+  schiedsrichter_bestaetigung: buildSchiedsrichterBestaetigungEmail,
+  registrierung_bestaetigung: (daten, ausgabe) => buildRegistrierungBestaetigungEmail(daten, gemintet(ausgabe)),
+  registrierung_erinnerung: (daten, ausgabe) => buildRegistrierungErinnerungEmail(daten, gemintet(ausgabe)),
+  registrierung_absage: (daten, ausgabe) => buildRegistrierungAbsageEmail(daten, ausgabe),
+  einladung: (daten, ausgabe) => buildEinladungEmail(daten, gemintet(ausgabe)),
+};
 
 /**
  * The mail one hand-out owes, or `undefined` where its kind has no builder. Indexed by the kind itself, so the builder

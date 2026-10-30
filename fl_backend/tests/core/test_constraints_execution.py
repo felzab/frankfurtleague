@@ -253,16 +253,15 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "gesperrt_bis_saison_id": "2031",
         },
         # `widerrufen_am` is null rather than absent because `uniq_einladung_live` reaches the rows
-        # holding null, and `versand` is the empty carrier the mint writes.
+        # holding null.
         "einladungen": {
             "_id": EINLADUNG_OID,
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
-            "token_hash": "b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819200",
+            "token_hashes": ["b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819200"],
             "erstellt_am": "2026-03-15",
             "erstellt_von": "admin@example.invalid",
             "widerrufen_am": None,
-            "versand": {},
         },
         # Every key the submission writes, `geburtsdatum`, `einwilligung` and `entscheidung`
         # included: each is a stored null rather than an absent key, which is what `required` means.
@@ -282,7 +281,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "geburtsdatum": None,
             "einwilligung": None,
             "bestaetigung": {
-                "token_hash": "c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80919200",
+                "token_hashes": ["c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80919200"],
                 "verschickt_am": "2026-03-16",
                 "erinnert_am": None,
                 "frist": "2026-03-23",

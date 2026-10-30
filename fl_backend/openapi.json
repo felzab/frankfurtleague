@@ -4867,6 +4867,31 @@
         "title": "FLEinladungAnsichtResponse",
         "type": "object"
       },
+      "FLEinladungDaten": {
+        "description": "A team's registration link, to one confirmed contact seat, for the pupils to register through.",
+        "properties": {
+          "art": {
+            "const": "einladung",
+            "title": "Art",
+            "type": "string"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "team": {
+            "title": "Team",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art",
+          "team",
+          "saison_id"
+        ],
+        "title": "FLEinladungDaten",
+        "type": "object"
+      },
       "FLEinladungEmpfaenger": {
         "description": "One mailbox a link goes to, and the seat it is addressed as.",
         "properties": {
@@ -4890,6 +4915,45 @@
           "email"
         ],
         "title": "FLEinladungEmpfaenger",
+        "type": "object"
+      },
+      "FLEinladungMailPayload": {
+        "additionalProperties": false,
+        "description": "The one live link a team's panel shows, to be mailed to the team's confirmed seats.",
+        "properties": {
+          "einladung_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Einladung Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "einladung_id"
+        ],
+        "title": "FLEinladungMailPayload",
+        "type": "object"
+      },
+      "FLEinladungMailResponse": {
+        "description": "Who the team's live link is owed to: its confirmed seats, one entry per stored address, none where nobody confirmed.",
+        "properties": {
+          "einladung_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Einladung Id",
+            "type": "string"
+          },
+          "empfaenger": {
+            "items": {
+              "$ref": "#/components/schemas/FLEinladungEmpfaenger"
+            },
+            "title": "Empfaenger",
+            "type": "array"
+          }
+        },
+        "required": [
+          "einladung_id",
+          "empfaenger"
+        ],
+        "title": "FLEinladungMailResponse",
         "type": "object"
       },
       "FLEinladungMintResponse": {
@@ -4972,26 +5036,6 @@
           "laeuft"
         ],
         "title": "FLEinladungResponse",
-        "type": "object"
-      },
-      "FLEinladungVersand": {
-        "description": "The carrier a message about this invite is recorded in.",
-        "properties": {
-          "zustellung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLBewerbungZustellung"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "zustellung"
-        ],
-        "title": "FLEinladungVersand",
         "type": "object"
       },
       "FLEinladungVersandGrund": {
@@ -5110,20 +5154,8 @@
         "type": "object"
       },
       "FLEinladungVersandZeile": {
-        "description": "One team as the press left it.",
+        "description": "One team as the press left it: `empfaenger` are owed the team's link, which each mail's hand-out mints.",
         "properties": {
-          "einladung_id": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-fA-F]{24}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Einladung Id"
-          },
           "empfaenger": {
             "items": {
               "$ref": "#/components/schemas/FLEinladungEmpfaenger"
@@ -5156,17 +5188,6 @@
             "title": "Team Name",
             "type": "string"
           },
-          "token": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Token"
-          },
           "uebersprungen": {
             "anyOf": [
               {
@@ -5184,8 +5205,6 @@
           "empfaenger",
           "uebersprungen",
           "ersetzt_link",
-          "einladung_id",
-          "token",
           "hatte_link"
         ],
         "title": "FLEinladungVersandZeile",
@@ -5257,16 +5276,6 @@
             "title": "Team Id",
             "type": "string"
           },
-          "versand": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLEinladungVersand"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "widerrufen_am": {
             "anyOf": [
               {
@@ -5278,6 +5287,16 @@
               }
             ],
             "title": "Widerrufen Am"
+          },
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLPostausgangLage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -5287,8 +5306,8 @@
           "erstellt_am",
           "erstellt_von",
           "widerrufen_am",
-          "versand",
-          "erstellt_von_gesperrt"
+          "erstellt_von_gesperrt",
+          "zustellung"
         ],
         "title": "FLEinladungZeile",
         "type": "object"
@@ -8948,52 +8967,16 @@
         "type": "object"
       },
       "FLPostRegistrierungResponse": {
-        "description": "The stored registration and its raw confirmation link, which no read ever answers again.",
+        "description": "The stored registration, the one a replayed key wrote first; its confirmation mail is owed in the same write.",
         "properties": {
-          "bestaetigung_token": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bestaetigung Token"
-          },
-          "email": {
-            "minLength": 1,
-            "title": "Email",
-            "type": "string"
-          },
-          "frist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
-            "type": "string"
-          },
           "registrierung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Registrierung Id",
             "type": "string"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team": {
-            "minLength": 1,
-            "title": "Team",
-            "type": "string"
           }
         },
         "required": [
-          "registrierung_id",
-          "bestaetigung_token",
-          "frist",
-          "team",
-          "saison_id",
-          "email"
+          "registrierung_id"
         ],
         "title": "FLPostRegistrierungResponse",
         "type": "object"
@@ -9459,9 +9442,14 @@
                 "adresswechsel_wirksam": "#/components/schemas/FLAdresswechselWirksamDaten",
                 "anmeldecode": "#/components/schemas/FLAnmeldecodeDaten",
                 "berechtigung": "#/components/schemas/FLBerechtigungDaten",
+                "einladung": "#/components/schemas/FLEinladungDaten",
                 "konto_loeschung": "#/components/schemas/FLKontoLoeschungDaten",
                 "passkey_geloescht": "#/components/schemas/FLPasskeyDaten",
                 "passkey_hinzugefuegt": "#/components/schemas/FLPasskeyDaten",
+                "registrierung_absage": "#/components/schemas/FLRegistrierungAbsageDaten",
+                "registrierung_bestaetigung": "#/components/schemas/FLRegistrierungLinkDaten",
+                "registrierung_erinnerung": "#/components/schemas/FLRegistrierungLinkDaten",
+                "schiedsrichter_bestaetigung": "#/components/schemas/FLSchiedsrichterBestaetigungDaten",
                 "sperre": "#/components/schemas/FLSperreDaten"
               },
               "propertyName": "art"
@@ -9493,6 +9481,18 @@
               },
               {
                 "$ref": "#/components/schemas/FLAdresswechselVerworfenDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLSchiedsrichterBestaetigungDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLRegistrierungLinkDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLRegistrierungAbsageDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLEinladungDaten"
               }
             ],
             "title": "Daten"
@@ -10096,15 +10096,32 @@
         "type": "object"
       },
       "FLRegistrierungAblehnungResponse": {
-        "description": "What the decline mail needs, answered to the frontend's server and never further.",
+        "description": "The declined registration, and the first name the seat holder is told the decision by.",
         "properties": {
-          "bestaetigt": {
-            "title": "Bestaetigt",
-            "type": "boolean"
+          "registrierung_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Registrierung Id",
+            "type": "string"
           },
-          "email": {
+          "vorname": {
             "minLength": 1,
-            "title": "Email",
+            "title": "Vorname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "registrierung_id",
+          "vorname"
+        ],
+        "title": "FLRegistrierungAblehnungResponse",
+        "type": "object"
+      },
+      "FLRegistrierungAbsageDaten": {
+        "description": "A team's decline, to a pupil whose address was confirmed.",
+        "properties": {
+          "art": {
+            "const": "registrierung_absage",
+            "title": "Art",
             "type": "string"
           },
           "grund": {
@@ -10119,42 +10136,27 @@
             ],
             "title": "Grund"
           },
-          "registrierung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Registrierung Id",
-            "type": "string"
-          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
           },
           "team": {
-            "minLength": 1,
             "title": "Team",
             "type": "string"
           },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
           "vorname": {
-            "minLength": 1,
             "title": "Vorname",
             "type": "string"
           }
         },
         "required": [
-          "registrierung_id",
-          "team_id",
-          "saison_id",
-          "team",
+          "art",
           "vorname",
-          "email",
-          "bestaetigt",
+          "team",
+          "saison_id",
           "grund"
         ],
-        "title": "FLRegistrierungAblehnungResponse",
+        "title": "FLRegistrierungAbsageDaten",
         "type": "object"
       },
       "FLRegistrierungAufnahmeResponse": {
@@ -10535,6 +10537,40 @@
         "title": "FLRegistrierungEntscheidungZeile",
         "type": "object"
       },
+      "FLRegistrierungLinkDaten": {
+        "description": "A pupil's confirmation link, first or as the one reminder, which joins the first link rather than replacing it.",
+        "properties": {
+          "art": {
+            "enum": [
+              "registrierung_bestaetigung",
+              "registrierung_erinnerung"
+            ],
+            "title": "Art",
+            "type": "string"
+          },
+          "frist_tage": {
+            "minimum": 1.0,
+            "title": "Frist Tage",
+            "type": "integer"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "team": {
+            "title": "Team",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art",
+          "team",
+          "saison_id",
+          "frist_tage"
+        ],
+        "title": "FLRegistrierungLinkDaten",
+        "type": "object"
+      },
       "FLRegistrierungPerson": {
         "description": "The stored person a confirmed registration's address resolves to, named so the team can be asked whether it is the same one.",
         "properties": {
@@ -10603,96 +10639,12 @@
         ],
         "type": "string"
       },
-      "FLRegistrierungSweepBenachrichtigung": {
-        "description": "One pupil whose confirmed registration was erased at its season's end, and who is told after the fact.\n\nNo token and no deadline: the row is gone, and this message asks for nothing.",
-        "properties": {
-          "email": {
-            "minLength": 1,
-            "title": "Email",
-            "type": "string"
-          },
-          "registrierung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Registrierung Id",
-            "type": "string"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team": {
-            "title": "Team",
-            "type": "string"
-          },
-          "vorname": {
-            "minLength": 1,
-            "title": "Vorname",
-            "type": "string"
-          }
-        },
-        "required": [
-          "registrierung_id",
-          "saison_id",
-          "team",
-          "vorname",
-          "email"
-        ],
-        "title": "FLRegistrierungSweepBenachrichtigung",
-        "type": "object"
-      },
-      "FLRegistrierungSweepErinnerung": {
-        "description": "One reminder to send: a pupil whose link has reached its reminder age and who has not answered it.\n\nThe token is the RAW fresh one.",
-        "properties": {
-          "email": {
-            "minLength": 1,
-            "title": "Email",
-            "type": "string"
-          },
-          "registrierung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Registrierung Id",
-            "type": "string"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team": {
-            "title": "Team",
-            "type": "string"
-          },
-          "token": {
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "registrierung_id",
-          "saison_id",
-          "team",
-          "email",
-          "token"
-        ],
-        "title": "FLRegistrierungSweepErinnerung",
-        "type": "object"
-      },
       "FLRegistrierungSweepResponse": {
-        "description": "One season's pass: the reminders already stamped, the erasures already made, and the one note each of them owes.",
+        "description": "One season's pass: the reminders owed and the erasures made, each committed.",
         "properties": {
-          "benachrichtigt": {
-            "items": {
-              "$ref": "#/components/schemas/FLRegistrierungSweepBenachrichtigung"
-            },
-            "title": "Benachrichtigt",
-            "type": "array"
-          },
-          "erinnerungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLRegistrierungSweepErinnerung"
-            },
-            "title": "Erinnerungen",
-            "type": "array"
+          "erinnert": {
+            "title": "Erinnert",
+            "type": "integer"
           },
           "fehlgeschlagen": {
             "title": "Fehlgeschlagen",
@@ -10721,8 +10673,7 @@
         },
         "required": [
           "saison_id",
-          "erinnerungen",
-          "benachrichtigt",
+          "erinnert",
           "geloescht_unbestaetigt",
           "geloescht_ohne_entscheidung",
           "geloescht_abgelehnt",
@@ -11851,6 +11802,27 @@
         "title": "FLSchiedsrichterBestaetigungAnsichtResponse",
         "type": "object"
       },
+      "FLSchiedsrichterBestaetigungDaten": {
+        "description": "A referee's confirmation link, owed by their entry, a corrected address, a re-send or their return.",
+        "properties": {
+          "art": {
+            "const": "schiedsrichter_bestaetigung",
+            "title": "Art",
+            "type": "string"
+          },
+          "frist": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art",
+          "frist"
+        ],
+        "title": "FLSchiedsrichterBestaetigungDaten",
+        "type": "object"
+      },
       "FLSchiedsrichterBestaetigungPayload": {
         "additionalProperties": false,
         "properties": {
@@ -11932,7 +11904,7 @@
         "type": "object"
       },
       "FLSchiedsrichterMint": {
-        "description": "A freshly minted link, answered ONCE and stored nowhere.\n\nThe raw token exists here and in the recipient's inbox; the database holds its hash. Admin-tier\nwhole — every mint answering it is on `app/api/schiedsrichter/admin_router.py`.",
+        "description": "The confirmation link a write owed the referee, which the Postausgang mints and mails: never the link itself.",
         "properties": {
           "email": {
             "minLength": 1,
@@ -11943,14 +11915,9 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Frist",
             "type": "string"
-          },
-          "token": {
-            "title": "Token",
-            "type": "string"
           }
         },
         "required": [
-          "token",
           "frist",
           "email"
         ],
@@ -12119,13 +12086,24 @@
           },
           "schiedsrichter": {
             "$ref": "#/components/schemas/FLSchiedsrichter"
+          },
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLPostausgangLage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
           "schiedsrichter",
           "bestaetigung_abgelaufen",
           "adresswechsel_id",
-          "adresswechsel_einsehbar_verwehrt"
+          "adresswechsel_einsehbar_verwehrt",
+          "zustellung"
         ],
         "title": "FLSchiedsrichterSingleResponse",
         "type": "object"
@@ -23299,7 +23277,7 @@
         ]
       },
       "post": {
-        "description": "Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The raw confirmation\ntoken is answered for the caller to mail and stored only as a hash; this response is the one\nplace outside the recipient's inbox it ever exists.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds and stores none: a fresh link where no message is known to have reached the\ninbox and nothing is confirmed, none otherwise. The same key over other details is refused\n(`REQ-REGISTRIERUNG-011`), and so is a key whose stored address, the one the answer mails, has been\nbanned since (`REQ-REGISTRIERUNG-009`), before any link is minted. A key whose registration the team has since\nadmitted is refused too (`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.",
+        "description": "Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The mail is owed in\nthe Postausgang in the same transaction, its link minted when it is handed out; no token is answered.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds, stores none and owes no second mail. The same key over other details is refused\n(`REQ-REGISTRIERUNG-011`). A key whose registration the team has since admitted is refused too\n(`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.",
         "operationId": "registrierungen_post_registrierung",
         "parameters": [
           {
@@ -23824,7 +23802,7 @@
     },
     "/api/v0/registrierungen/sweep/{saison_id}": {
       "post": {
-        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nA declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over. The confirmed ones\namong them are listed in `benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is\ntold neither before nor after, its address never having been confirmed. A call whose erasure names somebody to tell answers once\nthat erasure has committed, so the rest of the season's registrations wait for the next call; the two clocks below do not run\nfor a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age, earliest deadline first: a fresh link is minted and\n`erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and the link already\nin that inbox stays valid beside the fresh one. One call reminds a bounded share of the registrations due; the rest stay due and\nthe calls after it remind them. A registration whose last message the mail provider refused is not chased at all, and one whose\naddress the ban list holds is sent nothing and has nothing written: it stays due, so every pass asks the ban list for it again\nuntil its deadline, and reminds it once a lift comes first; each pass logs how many it withheld, never which. Every removal\nnames this season alone, is made inside a transaction and takes its log rows with it.\n\nWhatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transactions, so no later step of the same\ncall can answer an error in their place; where the request's deadline cuts them after one has committed, the call answers what\ncommitted and warns once.\n\nA registration whose write fails, the database refusing it or anything else, or one the answer cannot carry, is passed over\nalone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it again and one\nfailing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.\n\n404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes\nnothing, though it logs the count of withheld registrations again.",
+        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin.\n\nA declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the two clocks\nbelow do not run for a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age, earliest deadline first: `erinnert_am` is stamped and the\nreminder owed in the Postausgang in one transaction, its link joining the one already in that inbox. One call reminds a bounded\nshare of the registrations due; the rest stay due and the calls after it remind them. Every removal names this season alone, is\nmade inside a transaction and takes its log rows with it.\n\nA registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of\nits clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and\nnobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.\n\n404 where no season has the id. Idempotent per day: a run after every due reminder is owed writes nothing.",
         "operationId": "registrierungen_sweep_registrierungen",
         "parameters": [
           {
@@ -23902,7 +23880,7 @@
     },
     "/api/v0/registrierungen/{registrierung_id}/ablehnen": {
       "post": {
-        "description": "Decline one pending registration, confirmed or not: its state and the decision are written, and nothing else.\n\nThe decision records the declining seat holder's address and a reason from a closed set, never free text:\n`andere_person` where the team answered that the registration is not the person its address belongs to. The\nrow stays until the retention sweep erases it a month later. The answer carries the address the pupil's link\nwent to, for the decline mail and nothing else, and whether that address was ever confirmed.\n\nRefuses, in this order, no pending registration with this id (404) and no seat on its team's season\n(`REQ-FUNKTION-001`).",
+        "description": "Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.\n\nThe decision records the declining seat holder's address and a reason from a closed set, never free text:\n`andere_person` where the team answered that the registration is not the person its address belongs to. The\nrow stays until the retention sweep erases it a month later. The note is owed in the same transaction, and only\nwhere the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.\n\nRefuses, in this order, no pending registration with this id (404) and no seat on its team's season\n(`REQ-FUNKTION-001`).",
         "operationId": "registrierungen_ablehnen",
         "parameters": [
           {
@@ -24716,7 +24694,7 @@
     },
     "/api/v0/saisons/{saison_id}/einladungen/versand": {
       "post": {
-        "description": "Mint one registration link per admitted team of this season and answer each team's raw link once, for the caller to mail.\n\n**Every team mailed is minted for, and any link that team already held is REVOKED in the same per-team transaction** — the copy in\nsomebody's inbox opens nothing from that moment. A stored link is a hash, so the value to put in a message is one that has just been\nmade; there is nothing to re-send. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the\npress. A team this skips is left exactly as it was.\n\nFive skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block\nhas been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a delivery\nrecord and `erneut` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it\nholds rather than losing it to a press that mails nobody. **The fifth is read off\nthe delivery record**, which only `POST /zustellung/angenommen` writes — so pressing twice mails nobody twice, while a link minted and\nnever sent is still sent. **The first is read off the junction row's `austritt` record**, so a team out of the season by either route is\npassed over; minting for one team by hand is not refused, that being a deliberate act rather than a bulk one.\n\nThe answer carries the raw link per team and is the only place each appears. Refused where the season has ended (`REQ-EINLADUNG-002`);\n404 where no season holds that id; a season holding no team answers an empty list.\n\n**An administrator whose access is revoked while the mailing runs is refused `REQ-AUTH-006` at the next team**, and the answer\ncarries no link at all: every team minted for before that point has lost the link it held and holds one nobody was sent. Running the\nmailing again, as an administrator who still holds access, mints and answers those teams' links anew, none of them carrying a\ndelivery record yet.",
+        "description": "Give every admitted team of this season a fresh registration link and owe it to the team's confirmed seats, one mail each.\n\n**Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the\ncopy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is\nhanded out; no link is answered. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the\npress. A team this skips is left exactly as it was.\n\nFive skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block\nhas been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already has a mail owed or\nsent and `erneut` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it\nholds rather than losing it to a press that mails nobody. **The fifth is read off the last mail owed about the live link**, so pressing\ntwice mails nobody twice, while a link whose mail was given up or barred is sent again. **The first is read off the junction row's\n`austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that\nbeing a deliberate act rather than a bulk one.\n\nRefused where the season has ended (`REQ-EINLADUNG-002`); 404 where no season holds that id; a season holding no team answers an\nempty list.\n\n**An administrator whose access is revoked while the mailing runs is refused `REQ-AUTH-006` at the next team**: every team done before\nthat point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those\nteams and reaches the rest.",
         "operationId": "saisons_post_einladungen_versand",
         "parameters": [
           {
@@ -24804,7 +24782,7 @@
     },
     "/api/v0/saisons/{saison_id}/einladungen/versand/vorschau": {
       "get": {
-        "description": "Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.\n\nDecided by the function the send itself decides by, so the list read here is the list performed. `erneut` mirrors the send's own\nswitch: left false, a team whose live link already carries a delivery record reads as `bereits_gesendet`, and pressing the send with\n`erneut` true instead makes this preview's own answer wrong unless the same value is asked for here.\n\n**`ersetzt_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that\nlink REVOKED and the copy in somebody's inbox opens nothing from that moment. A row carries no trace of the invitation the team holds,\nso a page offering the press reads that fact here or nowhere.\n\nFive skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that\nblock has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a\ndelivery record and `erneut` is false. A season holding\nno team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.",
+        "description": "Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.\n\nDecided by the function the send itself decides by, so the list read here is the list performed. `erneut` mirrors the send's own\nswitch: left false, a team whose live link already has a mail owed or sent reads as `bereits_gesendet`, and pressing the send with\n`erneut` true instead makes this preview's own answer wrong unless the same value is asked for here.\n\n**`ersetzt_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that\nlink REVOKED and the copy in somebody's inbox opens nothing from that moment. A row carries no trace of the invitation the team holds,\nso a page offering the press reads that fact here or nowhere.\n\nFive skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that\nblock has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already has a mail\nowed or sent and `erneut` is false. A season holding\nno team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.",
         "operationId": "saisons_preview_einladungen_versand",
         "parameters": [
           {
@@ -25354,7 +25332,7 @@
         ]
       },
       "post": {
-        "description": "Create a referee and mint their confirmation link.\n\n`inactive_since` is set to null here and is on no payload. **Entering a referee IS the\ninvitation**: the payload requires an email address, and there is no second press deciding\nwhether this person is asked, because a referee nobody asked is a name nobody consented to\npublish. The raw token is answered once, for the caller to mail, and the row stores only its hash.\n\nRefused `REQ-SCHIEDSRICHTER-007` where the address given is on the ban list.",
+        "description": "Create a referee and owe them their confirmation link.\n\n`inactive_since` is set to null here and is on no payload. **Entering a referee IS the\ninvitation**: the payload requires an email address, and there is no second press deciding\nwhether this person is asked, because a referee nobody asked is a name nobody consented to\npublish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.\n\nRefused `REQ-SCHIEDSRICHTER-007` where the address given is on the ban list.",
         "operationId": "schiedsrichter_post_schiedsrichter",
         "requestBody": {
           "content": {
@@ -25818,7 +25796,7 @@
         ]
       },
       "get": {
-        "description": "Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).\n\nDeactivated ones included -- a historical match references them by id. The ghost answers 404, as\ndoes an id whose referee has been erased: the document is gone\n(`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).\n\nAnswers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a\nlapsed link without reading a clock of its own; and the live change of the referee's address, which the address tool shows,\nbeside why the tool refuses it this administrator, null where it opens it.",
+        "description": "Admin-tier as the list is, and for the same two rules (`READ-CONTACT-001`, `READ-MONEY-001`).\n\nDeactivated ones included -- a historical match references them by id. The ghost answers 404, as\ndoes an id whose referee has been erased: the document is gone\n(`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`).\n\nAnswers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a\nlapsed link without reading a clock of its own; and the live change of the referee's address, which the address tool shows,\nbeside why the tool refuses it this administrator, null where it opens it. `zustellung` says what became of the last\nconfirmation mail the referee was owed, null where none was.",
         "operationId": "schiedsrichter_get_schiedsrichter_by_id",
         "parameters": [
           {
@@ -25895,7 +25873,7 @@
         ]
       },
       "patch": {
-        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one** in\n`bestaetigung`, for the caller to mail to the new address: the old link was posted to a mailbox\nnobody reads, and leaving it live is a credential in the wrong inbox.\n\n**A CONFIRMED referee's address is refused here** (`REQ-SCHIEDSRICHTER-011`), retired or not: it is who signs in as the\nperson, and moves only through an address change: the address tool, `POST /adresswechsel`, or the person's own account page.\nA save keeping it lands, a pending change standing.\n\n**A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is\ncollected for a role nobody gives them. Their old link is retired all the same, and the\nreactivation mints the fresh one. Where a link is minted, a banned new address is refused\n`REQ-SCHIEDSRICHTER-007`. A save retiring or minting a link is refused `REQ-AUTH-009` from a\nsign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
+        "description": "Update a referee, then update the embedded name on every Spiel that uses them.\n\nOnly the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.\n\n**A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the\nnew address, named in `bestaetigung`: the old link was posted to a mailbox nobody reads, and\nleaving it live is a credential in the wrong inbox.\n\n**A CONFIRMED referee's address is refused here** (`REQ-SCHIEDSRICHTER-011`), retired or not: it is who signs in as the\nperson, and moves only through an address change: the address tool, `POST /adresswechsel`, or the person's own account page.\nA save keeping it lands, a pending change standing.\n\n**A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is\ncollected for a role nobody gives them. Their old link is retired all the same, and the\nreactivation mints the fresh one. Where a link is minted, a banned new address is refused\n`REQ-SCHIEDSRICHTER-007`. A save retiring or minting a link is refused `REQ-AUTH-009` from a\nsign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.\n\nThe ghost answers 404 here as it does to every read: a name written onto it would appear on the\nfixtures of every referee already erased.",
         "operationId": "schiedsrichter_patch_schiedsrichter",
         "parameters": [
           {
@@ -25984,7 +25962,7 @@
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen": {
       "post": {
-        "description": "Mint a fresh confirmation link for this referee and answer the raw token once, for the caller to mail.\n\nIt replaces the whole block, so the previous link stops working at once and the delivery state\nof the message that link went out in goes with it — a bounce recorded against a replaced address\nwould otherwise hold the fresh link's referee unreachable for ever. The deadline restarts from\ntoday.\n\nRefused where the referee is retired (`REQ-SCHIEDSRICHTER-001`), where they have already\nanswered (`REQ-SCHIEDSRICHTER-004`), where they carry no email address\n(`REQ-SCHIEDSRICHTER-006`), and where that address is on the ban list\n(`REQ-SCHIEDSRICHTER-007`). 404 for an id no referee holds, an erased referee's among them, and\nfor the ghost, which every by-id route filters out.\n\n**A referee who has already answered is refused rather than sent a second link**: the\nconfirmation refuses every such press, so minting one would replace a live block with a\ncredential that can never be spent.",
+        "description": "Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.\n\nIt replaces the whole block, so the previous link stops working at once. The deadline restarts from today.\n\nRefused where the referee is retired (`REQ-SCHIEDSRICHTER-001`), where they have already\nanswered (`REQ-SCHIEDSRICHTER-004`), where they carry no email address\n(`REQ-SCHIEDSRICHTER-006`), and where that address is on the ban list\n(`REQ-SCHIEDSRICHTER-007`). 404 for an id no referee holds, an erased referee's among them, and\nfor the ghost, which every by-id route filters out.\n\n**A referee who has already answered is refused rather than sent a second link**: the\nconfirmation refuses every such press, so minting one would replace a live block with a\ncredential that can never be spent.",
         "operationId": "schiedsrichter_einladen_schiedsrichter",
         "parameters": [
           {
@@ -26063,7 +26041,7 @@
     },
     "/api/v0/schiedsrichter/{schiedsrichter_id}/reactivate": {
       "post": {
-        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\n**A retired referee who has not answered is minted a fresh link**, answered once for the caller\nto mail: a retired referee's save stores a new address and mails nothing, so coming back is what\nasks them. A row holding no address a link can go to comes back unasked, and so does one whose\nperson has answered. Where a link is minted, an address on the ban list is refused\n`REQ-SCHIEDSRICHTER-007` and the row stays retired, and one from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS` is refused `REQ-AUTH-009`.\n\nThe ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no\nperson behind it.",
+        "description": "Clear `inactive_since`, putting the referee back into the picker and every default read.\n\n**A retired referee who has not answered is owed a fresh link**, named in `bestaetigung`: a\nretired referee's save stores a new address and mails nothing, so coming back is what\nasks them. A row holding no address a link can go to comes back unasked, and so does one whose\nperson has answered. Where a link is minted, an address on the ban list is refused\n`REQ-SCHIEDSRICHTER-007` and the row stays retired, and one from a sign-in or confirmation older than\n`STEP_UP_WINDOW_HOURS` is refused `REQ-AUTH-009`.\n\nThe ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no\nperson behind it.",
         "operationId": "schiedsrichter_reactivate_schiedsrichter",
         "parameters": [
           {
@@ -32222,7 +32200,7 @@
         ]
       },
       "get": {
-        "description": "What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.\n\n**No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became\nof the last message sent about it — a `versand.zustellung` absent, or naming no message, means nobody has mailed it, which is a state\nrather than a delivery failure. The minter is `null` beside `erstellt_von_gesperrt` where the ban list holds that address, as no barred\naddress is served in plain.\n\n`laeuft` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of\nthe link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.",
+        "description": "What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.\n\n**No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became\nof the last mail owed about it — `zustellung` null means nobody was ever owed it, which is a state rather than a delivery failure.\nThe minter is `null` beside `erstellt_von_gesperrt` where the ban list holds that address, as no barred address is served in plain.\n\n`laeuft` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of\nthe link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.",
         "operationId": "teams_get_einladung",
         "parameters": [
           {
@@ -32308,7 +32286,7 @@
         ]
       },
       "post": {
-        "description": "Mint the link a team's players register through, revoking whatever link that team held for this season.\n\n**The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of\nthis response is lost and the repair is another mint. Mailing it is a separate press.\n\nThe reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left\nholding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh\nevery time somebody opens it, so a window moved after the mint moves this link with it.\n\nRefused where the season holds no junction row for this team (`REQ-EINLADUNG-001`) and where the season has ended\n(`REQ-EINLADUNG-002`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.\n\n**A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an\nadministrator is looking at, and a squad row and a contact correction are accepted for such a team too.\n\nA mint voiding a live link is refused `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`, and\nwrites nothing; a team's first link is not.",
+        "description": "Mint the link a team's players register through, revoking whatever link that team held for this season.\n\n**The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of\nthis response is lost and the repair is another mint. Mailing the team's link is a separate press\n(`POST /teams/{team_id}/saisons/{saison_id}/einladung/versand`), whose mails mint links of their own beside this one.\n\nThe reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left\nholding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh\nevery time somebody opens it, so a window moved after the mint moves this link with it.\n\nRefused where the season holds no junction row for this team (`REQ-EINLADUNG-001`) and where the season has ended\n(`REQ-EINLADUNG-002`); a `future` season mints, the links being prepared before the window opens. 404 where no season holds that id.\n\n**A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an\nadministrator is looking at, and a squad row and a contact correction are accepted for such a team too.\n\nA mint voiding a live link is refused `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`, and\nwrites nothing; a team's first link is not.",
         "operationId": "teams_post_einladung",
         "parameters": [
           {
@@ -32389,6 +32367,104 @@
           }
         ],
         "summary": "Mint this team's registration link for a season",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
+    "/api/v0/teams/{team_id}/saisons/{saison_id}/einladung/versand": {
+      "post": {
+        "description": "Owe this team's live registration link to every seat of its season row whose own person has confirmed it, one mail each.\n\nThe write mints nothing and revokes nothing: each mail mints a link of its own when it is handed out, so a link copied off the mint\nstays valid beside the mailed ones. `empfaenger` names who is owed it, one entry per stored address, and is empty where nobody has\nconfirmed a seat, which owes nothing. Pressed twice on one day, the second owes nothing again; a later day's press mails the seats\nafresh. A barred address is stopped when its mail is handed out.\n\n404 where `einladung_id` is not this team's live invite for the season, a link replaced or withdrawn since the caller read it among\nthem, and where the season holds no row for the team.",
+        "operationId": "teams_post_einladung_versand",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "title": "Team Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "saison_id",
+            "required": true,
+            "schema": {
+              "title": "Saison Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLEinladungMailPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLEinladungMailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "AdminKey": []
+          }
+        ],
+        "summary": "Mail this team's live registration link to its confirmed contact seats",
         "tags": [
           "teams"
         ]

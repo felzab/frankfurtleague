@@ -33,6 +33,7 @@ from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.bans import ban_list
 from tests.config import ADMINISTRATORS, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.postausgang import MAIL_NOW, drained
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -79,18 +80,21 @@ def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
             await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
             await database[Collection.SCHIEDSRICHTER].insert_one(referee_document())
-            minted = await einladen_schiedsrichter(
+            await einladen_schiedsrichter(
                 schiedsrichter_id=SCHIEDSRICHTER_OID,
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+                postausgang_collection=database[Collection.POSTAUSGANG],
                 sperrliste=ban_list(database),
                 db=client,
                 today=TODAY,
+                now=MAIL_NOW,
             )
+            (mail,) = await drained(database, client)
             if confirmed:
                 await post_bestaetigung(
                     antwort_data=FLSchiedsrichterBestaetigungPayload.model_validate(
                         {
-                            "token": minted.bestaetigung.token,
+                            "token": mail.token,
                             "geburtsdatum": "1984-05-09",
                             "umfang": "kader_oeffentlich",
                             "medien": True,
@@ -117,9 +121,11 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
+        now=MAIL_NOW,
         actor=FRESH_ADMIN_ACTOR,
     )
 
@@ -153,6 +159,7 @@ async def read(database: AsyncDatabase) -> Any:
         today=TODAY,
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         operator=ADMINISTRATORS[0],
         auth_time=int(time.time()),
     )
@@ -208,13 +215,16 @@ class TestAnUnconfirmedReferee:
 
     def test_the_address_moves_at_once_and_a_fresh_consent_link_is_answered(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            return await save(database, client, email=NEW_EMAIL), await stored(database)
+            saved = await save(database, client, email=NEW_EMAIL)
+            (mail,) = await drained(database, client)
 
-        saved, row = on_a_league(mongo_replica_set_url, body, confirmed=False)
+            return saved, mail, await stored(database)
+
+        saved, mail, row = on_a_league(mongo_replica_set_url, body, confirmed=False)
 
         assert saved.bestaetigung is not None
-        assert row["kontakt"]["email"] == NEW_EMAIL
-        assert row[BESTAETIGUNG_FELD]["token_hash"] == hash_token(saved.bestaetigung.token)
+        assert (mail.an, row["kontakt"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
+        assert row[BESTAETIGUNG_FELD]["token_hashes"] == [hash_token(str(mail.token))]
 
 
 class TestTheEditorsRead:
@@ -239,6 +249,7 @@ class TestTheEditorsRead:
                 today="2026-04-16",
                 berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
                 berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                postausgang_collection=database[Collection.POSTAUSGANG],
                 operator=ADMINISTRATORS[0],
                 auth_time=int(time.time()),
             )

@@ -13,9 +13,19 @@ from app.api.adresswechsel.services import build_addresses_filter
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.bewerbungen.services import mint_token, seat_adressen, seat_named
-from app.api.einladungen.schemas import FLEinladung, FLEinladungMintResponse, FLEinladungResponse, FLEinladungWriteResponse, FLEinladungZeile
+from app.api.einladungen.crud import einladung_bezug, owed_einladung_mails
+from app.api.einladungen.schemas import (
+    FLEinladung,
+    FLEinladungMailPayload,
+    FLEinladungMailResponse,
+    FLEinladungMintResponse,
+    FLEinladungResponse,
+    FLEinladungWriteResponse,
+    FLEinladungZeile,
+)
 from app.api.einladungen.services import (
     WITHOUT_TOKEN_HASH,
+    bestaetigte_empfaenger,
     build_live_team_filter,
     compose_einladung,
     compose_widerruf_update,
@@ -25,6 +35,8 @@ from app.api.einladungen.services import (
 from app.api.einwilligung.services import find_fassung_refusal
 from app.api.kontakte.crud import clear_seats, redact_seats_in_documents
 from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, contact_block_image_edits, seated_people
+from app.api.postausgang.crud import lage_of
+from app.api.postausgang.services import enqueue_mails
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.crud import has_started, pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
@@ -108,6 +120,7 @@ from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
     EinladungenCollection,
+    PostausgangCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
@@ -1067,7 +1080,8 @@ async def post_einladung(
     Mint the link a team's players register through, revoking whatever link that team held for this season.
 
     **The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of
-    this response is lost and the repair is another mint. Mailing it is a separate press.
+    this response is lost and the repair is another mint. Mailing the team's link is a separate press
+    (`POST /teams/{team_id}/saisons/{saison_id}/einladung/versand`), whose mails mint links of their own beside this one.
 
     The reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left
     holding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh
@@ -1115,7 +1129,7 @@ async def post_einladung(
         document = compose_einladung(
             saison_id=saison_id,
             team_id=team_id,
-            token_hash=token_hash,
+            token_hashes=[token_hash],
             erstellt_von=erstellt_von,
             today=today,
         )
@@ -1175,6 +1189,69 @@ async def delete_einladung(
     return FLEinladungWriteResponse(saison_id=saison_id, team_id=team_id, einladung_id=revoked["_id"])
 
 
+@router.post(
+    f"{by_id('team_id')}/saisons/{{saison_id}}/einladung/versand",
+    response_model=FLEinladungMailResponse,
+    summary="Mail this team's live registration link to its confirmed contact seats",
+    dependencies=[Depends(verify_step_up)],
+)
+async def post_einladung_versand(
+    team_id: CustomRouteObjectId,
+    saison_id: str,
+    mail_data: Annotated[FLEinladungMailPayload, Body()],
+    einladungen_collection: EinladungenCollection,
+    saison_teams_collection: SaisonTeamsCollection,
+    postausgang_collection: PostausgangCollection,
+    db: DBClient,
+    today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
+) -> FLEinladungMailResponse:
+    """
+    Owe this team's live registration link to every seat of its season row whose own person has confirmed it, one mail each.
+
+    The write mints nothing and revokes nothing: each mail mints a link of its own when it is handed out, so a link copied off the mint
+    stays valid beside the mailed ones. `empfaenger` names who is owed it, one entry per stored address, and is empty where nobody has
+    confirmed a seat, which owes nothing. Pressed twice on one day, the second owes nothing again; a later day's press mails the seats
+    afresh. A barred address is stopped when its mail is handed out.
+
+    404 where `einladung_id` is not this team's live invite for the season, a link replaced or withdrawn since the caller read it among
+    them, and where the season holds no row for the team.
+    """
+
+    async def owe_the_link(session: AsyncClientSession) -> FLEinladungMailResponse:
+        # The live row the caller read, never another: the filter is the judgement, and a miss is the 404.
+        await pull_one_from_db(
+            collection=einladungen_collection,
+            db_filter={"_id": mail_data.einladung_id, **build_live_team_filter(saison_id=saison_id, team_id=team_id)},
+            projection=["_id"],
+            session=session,
+        )
+        row = await pull_one_from_db(
+            collection=saison_teams_collection,
+            db_filter={"saison_id": saison_id, "team_id": team_id},
+            projection=["name", "kontakte"],
+            session=session,
+        )
+        empfaenger = bestaetigte_empfaenger(kontakte=row.get("kontakte"))
+        await enqueue_mails(
+            postausgang_collection=postausgang_collection,
+            session=session,
+            mails=owed_einladung_mails(
+                einladung_id=mail_data.einladung_id,
+                team_name=str(row["name"]),
+                saison_id=saison_id,
+                empfaenger=empfaenger,
+                anlass=f"mail/{today}",
+            ),
+            now=germany_now,
+        )
+
+        return FLEinladungMailResponse(einladung_id=mail_data.einladung_id, empfaenger=empfaenger)
+
+    async with transaction_session(db) as session:
+        return await session.with_transaction(owe_the_link)
+
+
 @router.get(
     f"{by_id('team_id')}/saisons/{{saison_id}}/einladung",
     response_model=FLEinladungResponse,
@@ -1185,6 +1262,7 @@ async def get_einladung(
     saison_id: str,
     einladungen_collection: EinladungenCollection,
     saisons_collection: SaisonsCollection,
+    postausgang_collection: PostausgangCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLEinladungResponse:
@@ -1192,9 +1270,8 @@ async def get_einladung(
     What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.
 
     **No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became
-    of the last message sent about it — a `versand.zustellung` absent, or naming no message, means nobody has mailed it, which is a state
-    rather than a delivery failure. The minter is `null` beside `erstellt_von_gesperrt` where the ban list holds that address, as no barred
-    address is served in plain.
+    of the last mail owed about it — `zustellung` null means nobody was ever owed it, which is a state rather than a delivery failure.
+    The minter is `null` beside `erstellt_von_gesperrt` where the ban list holds that address, as no barred address is served in plain.
 
     `laeuft` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of
     the link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.
@@ -1217,7 +1294,10 @@ async def get_einladung(
         erstellt_von = FLEinladung.model_validate(live[0]).erstellt_von
         barred = await adressen_gesperrt(sperrliste, [sign_in_identifier(erstellt_von)])
         withheld = withheld_actor(erstellt_von, barred)
-        einladung = FLEinladungZeile.model_validate({**live[0], "erstellt_von": withheld, "erstellt_von_gesperrt": withheld is None})
+        lage = await lage_of(postausgang_collection=postausgang_collection, bezug=einladung_bezug(live[0]["_id"]))
+        einladung = FLEinladungZeile.model_validate(
+            {**live[0], "erstellt_von": withheld, "erstellt_von_gesperrt": withheld is None, "zustellung": lage}
+        )
 
     return FLEinladungResponse(
         saison_id=saison_id,

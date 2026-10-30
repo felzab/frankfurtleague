@@ -14,6 +14,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import build_schluessel_filter, hash_token
+from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
 from app.api.registrierungen.person_router import aufnehmen
 from app.api.registrierungen.public_router import post_einladung_ansicht, post_registrierung
 from app.api.registrierungen.schemas import FLPostRegistrierungPayload, FLRegistrierungAufnehmenPayload
@@ -35,6 +36,7 @@ from tests.bans import ban_list
 from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.holds import HoldsAfterItsLookup
+from tests.postausgang import MAIL_NOW, drained
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -77,8 +79,6 @@ TEAM_FULL_NAME = "Zorbanax-Gesamtschule"
 OTHER_TEAM_NAME = "Quillhilde"
 
 PUPIL_EMAIL = "thessaly@beispielschule.de"
-# Where an address change moved the pupil's registration after its first press.
-MOVED_TO = "thessaly.neu@anderswo.example.org"
 BANNED_EMAIL = "wraxlington@beispielschule.de"
 
 OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
@@ -104,11 +104,10 @@ def einladung_document(
         "_id": einladung_id,
         "saison_id": saison_id,
         "team_id": team_id,
-        "token_hash": hash_token(token),
+        "token_hashes": [hash_token(token)],
         "erstellt_am": "2026-03-15",
         "erstellt_von": "admin@frankfurtleague.de",
         "widerrufen_am": widerrufen_am,
-        "versand": {},
     }
 
 
@@ -248,16 +247,21 @@ async def register(
     return await post_registrierung(
         registrierung_data=FLPostRegistrierungPayload.model_validate(payload(**overrides)),
         idempotency_key=None if keyless else schluessel or uuid4(),
-        teams_collection=database[Collection.TEAMS],
         registrierungen_collection=registrierungen if registrierungen is not None else database[Collection.REGISTRIERUNGEN],
         einladungen_collection=database[Collection.EINLADUNGEN],
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
+        germany_now=MAIL_NOW,
     )
+
+
+async def owed_of(database: AsyncDatabase) -> list[Mapping[str, Any]]:
+    return [row async for row in database[Collection.POSTAUSGANG].find().sort("_id", 1)]
 
 
 async def ansicht(database: AsyncDatabase, *, token: str = TOKEN) -> Any:
@@ -364,37 +368,66 @@ class TestWhatASubmissionStores:
         assert stored["einwilligung"] is None
         assert stored["entscheidung"] is None
 
-    def test_the_stored_block_holds_the_hash_of_the_token_the_answer_carried(self, mongo_replica_set_url: str):
-        """The link is recoverable from no read: what the database holds is the hash of what the response answered."""
+    def test_the_write_owes_one_confirmation_mail_whose_link_the_hand_out_mints(self, mongo_replica_set_url: str):
+        """No token on the wire and no hash yet: the row's link lives where the owed mail names it, minted when it is sent."""
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Mapping[str, Any]]:
-            response = await register(database, client)
-            stored = await database[Collection.REGISTRIERUNGEN].find_one({})
-
-            assert stored is not None
-            return response, stored
-
-        response, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert stored["bestaetigung"]["token_hash"] == hash_token(response.bestaetigung_token)
-        assert response.bestaetigung_token not in str(stored)
-        # Both off the invite, never off the body: the mail addresses the pupil by them.
-        assert (response.team, response.saison_id) == (TEAM_NAME, SAISON_ID)
-        assert stored["bestaetigung"]["verschickt_am"] == TODAY
-        assert stored["bestaetigung"]["erinnert_am"] is None
-
-    def test_the_deadline_is_the_bounds_own_days_after_the_mint(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await register(database, client)
             stored = await database[Collection.REGISTRIERUNGEN].find_one({})
 
             assert stored is not None
-            return response, stored
+            return response, stored, await owed_of(database)
 
-        response, stored = on_a_league(mongo_replica_set_url, body)
+        response, stored, owed = on_a_league(mongo_replica_set_url, body)
+
+        assert stored["bestaetigung"]["token_hashes"] == []
+        assert (stored["bestaetigung"]["verschickt_am"], stored["bestaetigung"]["erinnert_am"]) == (TODAY, None)
+        assert [(row["art"], row["an"], row["bezug"]["id"], row["link"]) for row in owed] == [
+            (
+                "registrierung_bestaetigung",
+                PUPIL_EMAIL,
+                response.registrierung_id,
+                {"pfade": ["bestaetigung.token_hashes"], "adressen": ["email"], "ersetzt": False},
+            )
+        ]
+        # Off the invite, never off the body: the mail addresses the pupil by them.
+        assert owed[0]["daten"] == {
+            "art": "registrierung_bestaetigung",
+            "team": TEAM_NAME,
+            "saison_id": SAISON_ID,
+            "frist_tage": REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
+        }
+
+    def test_the_link_the_hand_out_mints_opens_the_registration(self, mongo_replica_set_url: str):
+        """The hash lands in the array the lookup reads, so the mailed link opens the row it was owed for."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await register(database, client)
+            (mail,) = await drained(database, client)
+            assert mail.token is not None
+
+            return await get_bestaetigung_ansicht(
+                ansicht_data=FLTokenPayload(token=mail.token),
+                registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+                teams_collection=database[Collection.TEAMS],
+                spieler_collection=database[Collection.SPIELER],
+                sperrliste=ban_list(database),
+                today=TODAY,
+            )
+
+        assert on_a_league(mongo_replica_set_url, body).zustand == "gueltig"
+
+    def test_the_deadline_is_the_bounds_own_days_after_the_mint(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await register(database, client)
+            stored = await database[Collection.REGISTRIERUNGEN].find_one({})
+
+            assert stored is not None
+            return stored
+
+        stored = on_a_league(mongo_replica_set_url, body)
 
         assert REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE == 7
-        assert response.frist == FRIST
         assert stored["bestaetigung"]["frist"] == FRIST
 
     def test_neither_a_person_nor_a_squad_row_is_written(self, mongo_replica_set_url: str):
@@ -409,36 +442,6 @@ class TestWhatASubmissionStores:
             )
 
         assert on_a_league(mongo_replica_set_url, body) == (0, 0)
-
-
-# What each state writes over a fresh registration: every one means a link may already be in an inbox.
-LINK_MAY_BE_OUT = [
-    pytest.param(
-        {
-            "geburtsdatum": "2008-05-04",
-            "einwilligung": documents.eigene_einwilligung_document(text_version="2026-10-spielerseite-5", bestaetigt_am=TODAY, umfang="intern"),
-        },
-        id="confirmed",
-    ),
-    pytest.param({"bestaetigung.erinnert_am": TODAY}, id="reminded"),
-    pytest.param(
-        {"bestaetigung.zustellung": {"nachricht_id": "msg-1", "stand": "angenommen", "grund": None, "am": f"{TODAY}T10:00:00.000Z"}},
-        id="a message on record",
-    ),
-    pytest.param(
-        {"bestaetigung.zustellung": {"nachricht_id": "msg-1", "stand": "beschwerde", "grund": None, "am": f"{TODAY}T10:00:00.000Z"}},
-        id="a message its reader complained about",
-    ),
-    pytest.param({"bestaetigung.frist": "2026-03-31"}, id="past its deadline"),
-    pytest.param({"status": "abgelehnt"}, id="declined"),
-]
-
-# The delivery records of a message that never reached the inbox: the first press's answer was the
-# refusal, so the replay mails again and the route answers that refusal again.
-NEVER_ARRIVED = [
-    pytest.param({"nachricht_id": "", "stand": "unzustellbar", "grund": "abgewiesen", "am": f"{TODAY}T10:00:00.000Z"}, id="refused"),
-    pytest.param({"nachricht_id": "msg-1", "stand": "unterdrueckt", "grund": None, "am": f"{TODAY}T10:00:00.000Z"}, id="suppressed"),
-]
 
 
 def replayed_after_the_admission(url: str, **overrides: Any) -> tuple[str, int, int]:
@@ -458,44 +461,18 @@ def replayed_after_the_admission(url: str, **overrides: Any) -> tuple[str, int, 
 class TestTheSubmissionKey:
     """Over the shipped unique index and the submission's transaction."""
 
-    def test_a_second_press_stores_no_second_row_and_answers_as_the_first(self, mongo_replica_set_url: str):
+    def test_a_second_press_stores_no_second_row_owes_no_second_mail_and_answers_as_the_first(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await register(database, client, schluessel=SCHLUESSEL)
             second = await register(database, client, schluessel=SCHLUESSEL)
 
-            return first, second, await rows_of(database)
+            return first, second, await rows_of(database), await owed_of(database)
 
-        first, second, rows = on_a_league(mongo_replica_set_url, body)
+        first, second, rows, owed = on_a_league(mongo_replica_set_url, body)
 
         assert len(rows) == 1
-        assert (second.registrierung_id, second.frist, second.team, second.saison_id, second.email) == (
-            first.registrierung_id,
-            first.frist,
-            first.team,
-            first.saison_id,
-            first.email,
-        )
-
-    def test_a_replay_with_nothing_on_record_hands_a_fresh_link_and_keeps_the_first_live(self, mongo_replica_set_url: str):
-        """The route died before its mail: the replay is the only way the link goes out before the reminder."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            first = await register(database, client, schluessel=SCHLUESSEL)
-            second = await register(database, client, schluessel=SCHLUESSEL)
-
-            return first, second, (await rows_of(database))[0]
-
-        first, second, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert second.bestaetigung_token is not None and second.bestaetigung_token != first.bestaetigung_token
-        assert stored["bestaetigung"]["token_hash"] == hash_token(second.bestaetigung_token)
-        assert stored["bestaetigung"]["token_hash_zuvor"] == hash_token(first.bestaetigung_token)
-        # Neither a reminder nor a re-send: the chase and the deadline stand where the mint put them.
-        assert (stored["bestaetigung"]["verschickt_am"], stored["bestaetigung"]["erinnert_am"], stored["bestaetigung"]["frist"]) == (
-            TODAY,
-            None,
-            FRIST,
-        )
+        assert second.registrierung_id == first.registrierung_id
+        assert [row["art"] for row in owed] == ["registrierung_bestaetigung"]
 
     def test_a_replay_answers_after_the_invite_was_revoked(self, mongo_replica_set_url: str):
         """Looked up before every judgement: the first press opened a live invite, and its answer outlives the revocation."""
@@ -511,45 +488,6 @@ class TestTheSubmissionKey:
 
         assert first == second
 
-    def test_a_replay_after_the_address_was_banned_is_refused_and_mints_nothing(self, mongo_replica_set_url: str):
-        """The first press left nothing on record, the one state a replay mints in.
-
-        Without the ask, the replay hands the banned address a fresh link.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await register(database, client, schluessel=SCHLUESSEL)
-            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(PUPIL_EMAIL, bis=STANDING))
-            before = (await rows_of(database))[0]
-            with pytest.raises(APIError) as refused:
-                await register(database, client, schluessel=SCHLUESSEL)
-
-            return refused.value.error_code, before, await rows_of(database)
-
-        code, before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert code == Code.REGISTRIERUNG_ADRESSE_GESPERRT
-        assert after == [before]
-
-    @pytest.mark.parametrize(
-        ("banned", "refused"),
-        [pytest.param(MOVED_TO, True, id="the address it moved to"), pytest.param(PUPIL_EMAIL, False, id="the one typed")],
-    )
-    def test_a_replay_after_an_address_change_judges_the_address_it_mails(self, mongo_replica_set_url: str, banned: str, refused: bool):
-        """An address change moves an open registration; the replay then mints a link to the moved address, never the typed one."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await register(database, client, schluessel=SCHLUESSEL)
-            # As the change's effect leaves the row: its address moved, its live link spent.
-            await database[Collection.REGISTRIERUNGEN].update_one({}, {"$set": {"email": MOVED_TO, "bestaetigung.token_hash": "0" * 64}})
-            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(banned, bis=STANDING))
-            try:
-                return (await register(database, client, schluessel=SCHLUESSEL)).email
-            except APIError as refusal:
-                return refusal.error_code
-
-        assert on_a_league(mongo_replica_set_url, body) == (Code.REGISTRIERUNG_ADRESSE_GESPERRT if refused else MOVED_TO)
-
     def test_the_same_key_over_other_details_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await register(database, client, schluessel=SCHLUESSEL)
@@ -559,39 +497,6 @@ class TestTheSubmissionKey:
             return refused.value.error_code, len(await rows_of(database))
 
         assert on_a_league(mongo_replica_set_url, body) == (Code.REGISTRIERUNG_SCHLUESSEL_ABWEICHEND, 1)
-
-    @pytest.mark.parametrize("moved", LINK_MAY_BE_OUT)
-    def test_a_replay_hands_no_link_once_one_may_be_out(self, mongo_replica_set_url: str, moved: Mapping[str, Any]):
-        """No live link for a confirmed row, no second mail over one somebody may hold, and the row left as it was."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await register(database, client, schluessel=SCHLUESSEL)
-            await database[Collection.REGISTRIERUNGEN].update_one({}, {"$set": dict(moved)})
-            before = (await rows_of(database))[0]
-            second = await register(database, client, schluessel=SCHLUESSEL)
-
-            return second, before, (await rows_of(database))[0]
-
-        second, before, after = on_a_league(mongo_replica_set_url, body)
-
-        assert second.bestaetigung_token is None
-        assert after == before
-
-    @pytest.mark.parametrize("zustellung", NEVER_ARRIVED)
-    def test_a_replay_after_a_mail_that_never_arrived_hands_a_fresh_link(self, mongo_replica_set_url: str, zustellung: Mapping[str, Any]):
-        """No link handed here would answer a receipt promising a mail nobody got."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            first = await register(database, client, schluessel=SCHLUESSEL)
-            await database[Collection.REGISTRIERUNGEN].update_one({}, {"$set": {"bestaetigung.zustellung": dict(zustellung)}})
-            second = await register(database, client, schluessel=SCHLUESSEL)
-
-            return first, second, (await rows_of(database))[0]
-
-        first, second, stored = on_a_league(mongo_replica_set_url, body)
-
-        assert second.bestaetigung_token is not None and second.bestaetigung_token != first.bestaetigung_token
-        assert stored["bestaetigung"]["token_hash"] == hash_token(second.bestaetigung_token)
 
     def test_a_replay_after_the_admission_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         """The admission deletes the row and carries the key onto the squad row it writes.
@@ -667,12 +572,12 @@ class TestTheSubmissionKey:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             answers = [await register(database, client, keyless=True), await register(database, client, keyless=True)]
 
-            return answers, await rows_of(database)
+            return answers, await rows_of(database), await owed_of(database)
 
-        answers, rows = on_a_league(mongo_replica_set_url, body)
+        answers, rows, owed = on_a_league(mongo_replica_set_url, body)
 
-        assert all(answer.bestaetigung_token is not None for answer in answers)
-        assert len(rows) == 2
+        assert len({answer.registrierung_id for answer in answers}) == 2
+        assert len(rows) == len(owed) == 2
         assert not any("idempotenz_schluessel" in row or "idempotenz_fingerabdruck" in row for row in rows)
 
     def test_two_presses_at_once_store_one_row(self, mongo_replica_set_url: str):

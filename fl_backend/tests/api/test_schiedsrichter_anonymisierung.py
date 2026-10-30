@@ -57,6 +57,7 @@ from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_
 from tests.documents import eigene_einwilligung_document, rules_document, saison_document, spiel_document
 from tests.erasure import erased
 from tests.payloads import spiel_patch_body
+from tests.postausgang import MAIL_NOW
 from tests.worker import worker_database
 
 from .adresswechsel_harness import answer as answer_the_change
@@ -162,7 +163,7 @@ def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
         "inactive_since": None,
         # Seeded because the erasure adds no `$set` for any of the three: a row carrying none of
         # them would let a nulling write pass every case below.
-        "bestaetigung": compose_bestaetigung(token_hash=TOKEN_HASHES[schiedsrichter_id], today=MINTED_ON),
+        "bestaetigung": {**compose_bestaetigung(today=MINTED_ON), "token_hashes": [TOKEN_HASHES[schiedsrichter_id]]},
         "einwilligung": eigene_einwilligung_document(text_version="v1", bestaetigt_am=MINTED_ON, medien=True),
         "geburtsdatum": GEBURTSDATUM,
     }
@@ -338,9 +339,11 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
+        now=MAIL_NOW,
         actor=FRESH_ADMIN_ACTOR,
     )
     minted = await start_the_change(
@@ -399,9 +402,11 @@ async def call_reactivation(database: AsyncDatabase, client: AsyncMongoClient, s
     return await reactivate_schiedsrichter(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
+        now=MAIL_NOW,
         actor=FRESH_ADMIN_ACTOR,
     )
 
@@ -579,6 +584,7 @@ def test_the_single_read_answers_for_neither_the_erased_referee_nor_the_ghost(mo
                     today=TODAY,
                     berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
                     berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                    postausgang_collection=database[Collection.POSTAUSGANG],
                     operator=ADMINISTRATORS[0],
                     auth_time=int(time.time()),
                 )
@@ -619,9 +625,11 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
                     ),
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                     spiele_collection=database[Collection.SPIELE],
+                    postausgang_collection=database[Collection.POSTAUSGANG],
                     sperrliste=ban_list(database),
                     db=client,
                     today=TODAY,
+                    now=MAIL_NOW,
                     actor=FRESH_ADMIN_ACTOR,
                 )
             elif press == "delete":

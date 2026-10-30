@@ -96,11 +96,10 @@ async def a_live_link(database: AsyncDatabase) -> None:
         {
             "saison_id": SAISON_ID,
             "team_id": TEAM_ID,
-            "token_hash": hash_token("seeded"),
+            "token_hashes": [hash_token("seeded")],
             "erstellt_am": "2026-03-15",
             "erstellt_von": ADMIN,
             "widerrufen_am": None,
-            "versand": None,
         }
     )
 
@@ -111,10 +110,10 @@ class TestTheClubsLink:
     def test_a_mint_voiding_a_live_link_from_an_older_sign_in_is_refused_and_voids_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, list[Any]]:
             response = await http.post(self.URL, headers=OLDER)
-            live = await database[Collection.EINLADUNGEN].find({"widerrufen_am": None}, {"token_hash": 1, "_id": 0}).to_list()
+            live = await database[Collection.EINLADUNGEN].find({"widerrufen_am": None}, {"token_hashes": 1, "_id": 0}).to_list()
             return refused(response), live
 
-        assert on_a_season(mongo_replica_set_url, body, seed=a_live_link) == (True, [{"token_hash": hash_token("seeded")}])
+        assert on_a_season(mongo_replica_set_url, body, seed=a_live_link) == (True, [{"token_hashes": [hash_token("seeded")]}])
 
     def test_a_club_s_first_link_takes_the_older_sign_in(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, http: AsyncClient) -> int:
@@ -226,7 +225,7 @@ def a_referee(*, confirmed: bool = False, retired: bool = False) -> dict[str, An
         "default_payment": 20,
         "kontakt": {"telefon": "+49 69 1234567", "email": REFEREE_EMAIL},
         "inactive_since": "2026-01-01" if retired else None,
-        "bestaetigung": compose_bestaetigung(token_hash=hash_token("seeded-referee"), today="2026-03-20"),
+        "bestaetigung": {**compose_bestaetigung(today="2026-03-20"), "token_hashes": [hash_token("seeded-referee")]},
         **(
             {
                 "einwilligung": eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-21", umfang="intern"),
@@ -264,11 +263,11 @@ class TestTheRefereesSave:
         async def body(database: AsyncDatabase, http: AsyncClient) -> tuple[bool, Any]:
             response = await http.patch(self.URL, headers=OLDER, json=a_save(MOVED_EMAIL))
             stored = await database[Collection.SCHIEDSRICHTER].find_one({"_id": SCHIEDSRICHTER_ID})
-            return refused(response), stored and (stored["kontakt"]["email"], stored["bestaetigung"]["token_hash"])
+            return refused(response), stored and (stored["kontakt"]["email"], stored["bestaetigung"]["token_hashes"])
 
         seed = seeding(a_referee(retired=retired))
 
-        assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, (REFEREE_EMAIL, hash_token("seeded-referee")))
+        assert on_a_season(mongo_replica_set_url, body, seed=seed) == (True, (REFEREE_EMAIL, [hash_token("seeded-referee")]))
 
     @pytest.mark.parametrize("retired", [False, True], ids=("serving", "retired"))
     def test_a_confirmed_referee_s_address_change_from_an_older_sign_in_is_refused_and_asks_nobody(

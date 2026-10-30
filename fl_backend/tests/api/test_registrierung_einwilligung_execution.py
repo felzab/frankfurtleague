@@ -124,7 +124,7 @@ def registrierung_document(**overrides: Any) -> dict[str, Any]:
         "stufe": "Q1",
         "geburtsdatum": None,
         "einwilligung": None,
-        "bestaetigung": compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-26", frist=TOMORROW),
+        "bestaetigung": {**compose_bestaetigung(today="2026-03-26", frist=TOMORROW), "token_hashes": [TOKEN_HASH]},
         "entscheidung": None,
         **overrides,
     }
@@ -277,7 +277,9 @@ class TestWhatALinkOpens:
         assert on_a_league(mongo_replica_set_url, body) == Code.REGISTRIERUNG_TOKEN_UNKNOWN
 
     def test_a_link_past_its_deadline_is_shown_as_expired_rather_than_refused(self, mongo_replica_set_url: str):
-        expired = registrierung_document(bestaetigung=compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-20", frist=YESTERDAY))
+        expired = registrierung_document(
+            bestaetigung={**compose_bestaetigung(today="2026-03-20", frist=YESTERDAY), "token_hashes": [TOKEN_HASH]}
+        )
 
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), registrierungen=[expired])
 
@@ -287,7 +289,7 @@ class TestWhatALinkOpens:
         """Both links live at once, so a pupil still looking at the first mail is not punished by the chase."""
 
         reminded = registrierung_document()
-        reminded["bestaetigung"] |= {"token_hash": hash_token(RAW_ERINNERT), "token_hash_zuvor": TOKEN_HASH, "erinnert_am": "2026-03-29"}
+        reminded["bestaetigung"] |= {"token_hashes": [TOKEN_HASH, hash_token(RAW_ERINNERT)], "erinnert_am": "2026-03-29"}
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[Any, Any]:
             return await ansicht(database, RAW), await ansicht(database, RAW_ERINNERT)
@@ -350,9 +352,9 @@ class TestWhatTheLinksRegistrationReadLoads:
             return [document for _, document in recorder.answered if document is not None]
 
         # Confirmed, so the birthdate and the record are stored for a widened read to load; and reminded, so the first
-        # link's hash, which the link read opens, sits beside the fresh one as `token_hash_zuvor`.
+        # link's hash, which the link read opens, sits beside the fresh one in `token_hashes`.
         confirmed = registrierung_document(geburtsdatum=AT_THE_FLOOR, einwilligung=einwilligung())
-        confirmed["bestaetigung"] |= {"token_hash": hash_token(RAW_ERINNERT), "token_hash_zuvor": TOKEN_HASH, "erinnert_am": "2026-03-29"}
+        confirmed["bestaetigung"] |= {"token_hashes": [TOKEN_HASH, hash_token(RAW_ERINNERT)], "erinnert_am": "2026-03-29"}
         loaded = on_a_league(mongo_replica_set_url, body, registrierungen=[confirmed])
 
         assert loaded, "the link's own read found nothing, so nothing below is judged"
@@ -383,7 +385,7 @@ class TestWhatAConfirmationWrites:
             },
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
-        assert document["bestaetigung"]["token_hash"] == TOKEN_HASH
+        assert document["bestaetigung"]["token_hashes"] == [TOKEN_HASH]
         assert (response.ergebnis, response.geburtsdatum, response.umfang, response.medien) == (
             "bestaetigt",
             AT_THE_FLOOR,
@@ -610,7 +612,9 @@ class TestTheLinkIsSpentByTheStamp:
         assert response.ergebnis == "bestaetigt"
 
     def test_a_link_past_its_deadline_is_refused_before_the_stamp_is_judged(self, mongo_replica_set_url: str):
-        expired = registrierung_document(bestaetigung=compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-20", frist=YESTERDAY))
+        expired = registrierung_document(
+            bestaetigung={**compose_bestaetigung(today="2026-03-20", frist=YESTERDAY), "token_hashes": [TOKEN_HASH]}
+        )
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             with pytest.raises(APIError) as conflict:
@@ -640,7 +644,9 @@ class TestTheLinkIsSpentByTheStamp:
     def test_an_expired_link_carrying_a_refused_date_answers_the_link_rather_than_the_age(self, mongo_replica_set_url: str):
         """The order, which no other case pins: judged age-first, a dead link would tell a pupil to correct a date that buys them nothing."""
 
-        expired = registrierung_document(bestaetigung=compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-20", frist=YESTERDAY))
+        expired = registrierung_document(
+            bestaetigung={**compose_bestaetigung(today="2026-03-20", frist=YESTERDAY), "token_hashes": [TOKEN_HASH]}
+        )
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             with pytest.raises(APIError) as conflict:

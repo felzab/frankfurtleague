@@ -94,11 +94,10 @@ async def a_league(database: AsyncDatabase) -> None:
             "_id": EINLADUNG_OID,
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
-            "token_hash": hash_token(EINLADUNG_TOKEN),
+            "token_hashes": [hash_token(EINLADUNG_TOKEN)],
             "erstellt_am": "2026-03-15",
             "erstellt_von": "admin@frankfurtleague.de",
             "widerrufen_am": None,
-            "versand": {},
         }
     )
     await database[Collection.BEWERBUNGEN].insert_one(

@@ -6,8 +6,6 @@ from bson import ObjectId, decode, encode
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import days_after
-from app.api.registrierungen.services import build_erinnerung_filter
 from app.api.registrierungen.services import compose_bestaetigung as compose_registrierung_bestaetigung
 from app.api.schiedsrichter.services import compose_bestaetigung
 from app.api.spielbestaetigungen.services import compose_seat_entry
@@ -23,7 +21,6 @@ from app.api.zustellung.schemas import (
 from app.api.zustellung.services import ZIEL_PFADE, traeger_halter, traeger_pfade
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError
-from app.shared.schemas.bounds import REGISTRIERUNG_ERINNERUNG_TAGE
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_team_document, spiel_document, spielbestaetigung_document
@@ -120,11 +117,11 @@ SEEDED_TOKEN_HASH = "9f2b1c4d7e8a0b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a
 # Composed by the production mint rather than spelled here, so a key added to a carrier arrives in
 # this fixture: a hand-written one the validator has outgrown refuses every insert below.
 CARRIER_SEEDS: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
-    "schiedsrichter": compose_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
+    "schiedsrichter": {**compose_bestaetigung(today=MINTED_ON), "token_hashes": [SEEDED_TOKEN_HASH]},
     # Empty because the mint writes it empty (`app/api/einladungen/services.py ::
     # compose_einladung`): an invitation's carrier holds the delivery record and nothing beside it.
     "einladung": {},
-    "registrierung": compose_registrierung_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON, frist="2026-04-04"),
+    "registrierung": {**compose_registrierung_bestaetigung(today=MINTED_ON, frist="2026-04-04"), "token_hashes": [SEEDED_TOKEN_HASH]},
     # The Trainer's seat, the one every case below reports on; the seat axis's own cases reach the others.
     "kontakt": compose_kontakt_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
     # Empty, as the start writes it, for the invitation's reason.
@@ -382,23 +379,6 @@ class TestTheRefusedSend:
 
         assert response.angewendet is False
         assert stored is None
-
-    def test_a_registration_the_provider_refused_leaves_the_reminder_clock_s_page(self, mongo_replica_set_url: str):
-        """The whole reason the write exists, closed against the clock's own filter rather than against the state it reads."""
-
-        heute = days_after(day=MINTED_ON, days=REGISTRIERUNG_ERINNERUNG_TAGE)
-        gefiltert = build_erinnerung_filter(saison_id=ZIEL_FIXTURES["registrierung"]["saison_id"], today=heute)
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            collection = database[Collection.REGISTRIERUNGEN]
-            vorher = await collection.count_documents(gefiltert)
-            await refuse(database, client, ziel="registrierung")
-
-            return vorher, await collection.count_documents(gefiltert)
-
-        vorher, nachher = on_a_league(mongo_replica_set_url, "registrierung", body)
-
-        assert (vorher, nachher) == (1, 0)
 
 
 @pytest.mark.db
