@@ -91,7 +91,7 @@ describe("the season's writes", () => {
       { endpoint: "/saisons", method: "POST", body: SAISON },
       { endpoint: `/saisons/${id}`, method: "PATCH", body: fields },
       { endpoint: `/saisons/${id}/activate`, method: "POST", body: undefined },
-      { endpoint: LAUF, method: "POST", body: undefined, params: {} },
+      { endpoint: LAUF, method: "POST", body: undefined },
       { endpoint: `/saisons/${id}/spielplan`, method: "POST", body: { replace: true } },
       { endpoint: `/saisons/${id}/spielplan`, method: "DELETE", body: undefined },
       { endpoint: `/saisons/${id}/gruppen/swap`, method: "POST", body: { team1_id: TEAM1_ID, team2_id: TEAM2_ID } },
