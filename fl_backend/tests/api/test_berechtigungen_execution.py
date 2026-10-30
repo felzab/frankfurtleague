@@ -189,7 +189,6 @@ async def approved(database: AsyncDatabase, client: AsyncMongoClient, antrag_id:
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
             berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
             sperrliste=ban_list(database),
-            adressanker_collection=database[Collection.ADRESSANKER],
             db=client,
             operator=als,
             auth_time=int(time.time()),
@@ -219,7 +218,6 @@ async def grant(
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
             berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
             sperrliste=ban_list(database),
-            adressanker_collection=database[Collection.ADRESSANKER],
             db=client,
             erteilt_von=als,
             # Asked on the real clock: the request lapses a week after it, and the TTL monitor would remove one asked at
@@ -459,7 +457,6 @@ class TestTheOutboxMovesWithItsChange:
                     berechtigungen_postausgang_collection=postausgang,
                     berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
                     sperrliste=ban_list(database),
-                    adressanker_collection=database[Collection.ADRESSANKER],
                     db=client,
                     erteilt_von=OWNER,
                     # On the real clock, so the TTL monitor leaves the request standing for the approval below.
@@ -474,7 +471,6 @@ class TestTheOutboxMovesWithItsChange:
                     berechtigungen_postausgang_collection=aborting,
                     berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
                     sperrliste=ban_list(database),
-                    adressanker_collection=database[Collection.ADRESSANKER],
                     db=client,
                     operator=BERND,
                     auth_time=int(time.time()),

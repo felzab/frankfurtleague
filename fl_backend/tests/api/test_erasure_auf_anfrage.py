@@ -37,7 +37,7 @@ from app.api.spieler.services import build_ghost_spieler
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import ANCHOR_FIELD, ANCHOR_WRITTEN_AT, patch_one_in_db
+from app.core.crud import ANCHOR_FIELD, patch_one_in_db
 from app.core.db import DEAD_GRANT, collection_dependency
 from app.core.journal import JOURNAL_TOKEN
 from app.core.recording import Actor
@@ -251,8 +251,7 @@ def _ranked(value: Any, rank: Mapping[ObjectId, int]) -> Any:
 def what_is_left(collections: Mapping[str, list[Any]]) -> Any:
     """The database by rank: two seeds mint ids in one order, so ranks compare where ids cannot.
 
-    Log rows drop their clock, the request's own their filer and `anlass`; each anchor drops its count, the address's
-    its clock too.
+    Log rows drop their clock, the request's own their filer and `anlass`; each grant drops its anchor's count.
     """
 
     left = {name: [dict(document) for document in documents] for name, documents in collections.items()}
@@ -262,9 +261,6 @@ def what_is_left(collections: Mapping[str, list[Any]]) -> Any:
             row.pop(key, None)
     for row in left.get(Collection.BERECHTIGUNGEN, []):
         row.pop(ANCHOR_FIELD, None)
-    for row in left.get(Collection.ADRESSANKER, []):
-        row.pop(ANCHOR_FIELD, None)
-        row.pop(ANCHOR_WRITTEN_AT, None)
 
     return _ranked(left, {object_id: index for index, object_id in enumerate(sorted(set(_object_ids(left))))})
 

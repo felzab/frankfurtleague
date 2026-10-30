@@ -48,8 +48,6 @@ BerechtigungenAngekuendigtCollection = Annotated[AsyncCollection, Depends(collec
 
 BerechtigungenPostausgangCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.BERECHTIGUNGEN_POSTAUSGANG))]
 
-AdressankerCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.ADRESSANKER))]
-
 SpielbestaetigungenCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SPIELBESTAETIGUNGEN))]
 
 SpielberichteCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SPIELBERICHTE))]

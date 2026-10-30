@@ -72,7 +72,6 @@ from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_sess
 from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
 from app.api.spieler.services import build_spieler_filter
-from app.core.adressanker import anchor_the_addresses
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.concurrency import gather_cancelling
@@ -614,7 +613,6 @@ async def erase_everything(
     berechtigungen_postausgang_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
-    adressanker_collection: AsyncCollection,
     adresswechsel_collection: AsyncCollection,
     adresswechsel_postausgang_collection: AsyncCollection,
     berechtigungen_antraege_collection: AsyncCollection,
@@ -634,10 +632,6 @@ async def erase_everything(
     The subject is read HERE, so a retry after a conflict re-reads it. The caller runs its transaction inside an
     `ErasureJournal`, which journals once it commits.
     """
-
-    # The first of the erasure's own writes: a writer that committed for this address since the snapshot opened sends
-    # this attempt round before any step writes, and one writing later retries until this one ends.
-    await anchor_the_addresses([identifier], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session)
 
     subject = await resolve_subject(
         identifier,
@@ -1003,7 +997,6 @@ async def erase_if_still_due(
     berechtigungen_postausgang_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
-    adressanker_collection: AsyncCollection,
     adresswechsel_collection: AsyncCollection,
     adresswechsel_postausgang_collection: AsyncCollection,
     berechtigungen_antraege_collection: AsyncCollection,
@@ -1073,7 +1066,6 @@ async def erase_if_still_due(
         berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
         einladungen_collection=einladungen_collection,
         sperrliste_collection=sperrliste_collection,
-        adressanker_collection=adressanker_collection,
         adresswechsel_collection=adresswechsel_collection,
         adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
         berechtigungen_antraege_collection=berechtigungen_antraege_collection,

@@ -176,7 +176,6 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any 
         drosselung_collection=database[Collection.DROSSELUNG],
         sperrliste=ban_list(database),
         aktionen_collection=database[Collection.AKTIONEN],
-        adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
         config=build_test_config(),
         germany_now=NOW,
@@ -571,10 +570,7 @@ FEW = ADRESSWECHSEL_PER_PASS // 2
 
 
 async def _cleared(database: AsyncDatabase) -> None:
-    # The anchors too: a counted call re-anchors the addresses the last one anchored, stamped on the server's own
-    # clock and expiring at once, so the TTL monitor's next pass could delete one under a counted transaction
-    # writing it, and the retry that write conflict forces would be counted as the change's own commands.
-    for collection in (Collection.ADRESSWECHSEL, Collection.AKTIONEN, Collection.REGISTRIERUNGEN, Collection.ADRESSANKER):
+    for collection in (Collection.ADRESSWECHSEL, Collection.AKTIONEN, Collection.REGISTRIERUNGEN):
         await database[collection].delete_many({})
     await database[Collection.SCHIEDSRICHTER].delete_many({"_id": {"$ne": build_ghost_schiedsrichter()["_id"]}})
     await database[Collection.SPIELER].delete_many({"_id": {"$ne": build_ghost_spieler()["_id"]}})

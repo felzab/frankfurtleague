@@ -58,7 +58,7 @@ RECORD_MODELS: Mapping[Collection, type[BaseModel]] = {
 }
 
 # Collections leaving with their slices' write paths, which no read serves and so no model states.
-UNMODELLED = frozenset({Collection.DROSSELUNG, Collection.ADRESSANKER})
+UNMODELLED = frozenset({Collection.DROSSELUNG})
 
 if missing := set(Collection) - RECORD_MODELS.keys() - UNMODELLED:
     raise RuntimeError(f"No record model for {', '.join(sorted(missing))}: add one to RECORD_MODELS.")

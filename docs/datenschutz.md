@@ -554,21 +554,6 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)), and no erasure reaches it. Until
   the person's erasure an administrator can match the prefix to their rows on the log page; after it
   those rows name the marker, and the prefix matches nothing there.
-- **An erasure itself writes the address's anchor, which the database removes at its next expiry
-  pass.** The anchor (`docs/glossary.md :: Adressanker`) holds a keyed hash of the
-  folded address under a label of its own, a counter and the instant of its last write, and no
-  address. Every transaction an address enters the records through writes it, a signed-in person's
-  own write writes theirs, and the address's erasure writes it too, which is what makes a record
-  committed for the address while the erasure runs go with it rather than outlive it. Like the pseudonym it is pseudonymised personal data, this
-  controller holding the key that recomputes it from the address. The TTL index removes it at the
-  monitor's first pass after its last write (`fl_backend/app/core/constraints.py :: TTL_INDEXES`):
-  MongoDB runs that pass every 60 seconds and a busy server may run it later still — mirrored from
-  <https://www.mongodb.com/docs/manual/core/index-ttl/>, which moves without us; read 2026-10-16. A
-  pass in progress also waits while a transaction holds an expired anchor, at most for the server's
-  transaction lifetime — measured on MongoDB 8.3 on 2026-10-16. The
-  erasure leaves it to that index, its own write being what holds a late writer off. The published
-  notice tabulates it, that pass's period in words (`DatenschutzView.tsx :: FRISTEN`). Ruled
-  2026-10-16.
 - **Backups outlive an erasure by the snapshot window, the mail provider's copies and Cloudflare's
   record of mail to the league by their own periods, and the person is told each.** The hosting
   keeps snapshots for about eight days, taken daily — a figure mirrored from the provider's own
@@ -608,7 +593,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
 - **A club's answer about a fixture names its answerer by role, and what that person typed goes with
   their erasure.** A seat's answer stores the role and a keyed digest of its holder's folded address
   (`antwort.von.halter`, `fl_backend/app/api/spielbestaetigungen/services.py :: halter_of`), and never
-  the address or a name. The digest is pseudonymised personal data, as the anchor is, this controller
+  the address or a name. The digest is pseudonymised personal data, this controller
   holding the key that recomputes it, and it is what lets the person's erasure, and their Widerspruch
   on a season row, find every reason they typed from any seat they held and null it with the digest,
   on the rows and in the log's images, another holder's staying;

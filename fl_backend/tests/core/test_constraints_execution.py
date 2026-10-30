@@ -349,11 +349,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "n": 1,
             "ablauf": datetime(2026, 3, 15, 23, tzinfo=UTC),
         },
-        "adressanker": {
-            "_id": "b" * 64,
-            "bounded_writes": 1,
-            "geschrieben_am": datetime(2026, 3, 15, 23, tzinfo=UTC),
-        },
         # A live change as the start stores it: its instants are dates, which every read takes.
         "adresswechsel": {
             "_id": ADRESSWECHSEL_OID,

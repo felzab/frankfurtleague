@@ -37,7 +37,6 @@ from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, post_one_to_db, refuse
 from app.core.dependencies import (
-    AdressankerCollection,
     AdresswechselCollection,
     AdresswechselPostausgangCollection,
     AktionenCollection,
@@ -250,7 +249,6 @@ async def erase_auf_anfrage(
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
-    adressanker_collection: AdressankerCollection,
     adresswechsel_collection: AdresswechselCollection,
     adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
@@ -306,7 +304,7 @@ async def erase_auf_anfrage(
         if any(grant["adresse"] == identifier for grant in lebendige(grants)):
             refuse_unconfirmed()
 
-        # Ahead of the erasure's first write, its anchor, and in its snapshot: a retry judges the names afresh.
+        # Ahead of the erasure's first write, and in its snapshot: a retry judges the names afresh.
         subject = await resolve_subject(
             identifier,
             saison_teams_collection=saison_teams_collection,
@@ -356,7 +354,6 @@ async def erase_auf_anfrage(
             berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
-            adressanker_collection=adressanker_collection,
             adresswechsel_collection=adresswechsel_collection,
             adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,

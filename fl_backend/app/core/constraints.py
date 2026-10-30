@@ -387,15 +387,6 @@ TTL_INDEXES: Sequence[TTLIndex] = (
     ),
     # Zero: `ablauf` is already the German midnight ending the day the row counts.
     TTLIndex(Collection.DROSSELUNG, "drosselung_ablauf", "ablauf", 0, "a day's write count is removed once its German day has ended"),
-    # Zero: an anchor serves only the transactions open while it is written, and its removal is itself a
-    # write that one of them meets as a conflict, so no later removal is ever safer.
-    TTLIndex(
-        Collection.ADRESSANKER,
-        "adressanker_geschrieben_am",
-        "geschrieben_am",
-        0,
-        "an address's anchor is removed once the TTL monitor next passes after its last write",
-    ),
     # A live change never expires, holding no date at `beendet.am`: the hourly pass ends it, taking its address out of the
     # log images, which a TTL deletion never would.
     TTLIndex(

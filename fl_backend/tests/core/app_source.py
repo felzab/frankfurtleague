@@ -45,7 +45,6 @@ BOUNDED_COMPARISONS = frozenset({"$lt", "$lte", "$gt", "$gte", "$in", "$eq"})
 # `app/core/crud.py`'s writing half: a call to one of these is where a document changes.
 WRITE_HELPERS = frozenset(
     {
-        "anchor_by_id_in_db",
         "anchor_in_db",
         "insert_live",
         "patch_many_in_db",

@@ -197,7 +197,6 @@ async def save(
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         sperrliste=ban_list(database),
-        adressanker_collection=database[Collection.ADRESSANKER],
         db=database.client,
         refuse_unconfirmed=step_up,
         today=today,

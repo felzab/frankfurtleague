@@ -67,7 +67,6 @@ from app.api.spieler.services import build_selbst_pupil_pipeline
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
-    AdressankerCollection,
     AdresswechselCollection,
     AktionenCollection,
     BerechtigungenAngekuendigtCollection,
@@ -298,7 +297,6 @@ async def post_adresswechsel(
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
-    adressanker_collection: AdressankerCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_person_confirmation_check)],
@@ -362,7 +360,6 @@ async def post_adresswechsel(
             record=record,
             adresswechsel_collection=adresswechsel_collection,
             aktionen_collection=aktionen_collection,
-            adressanker_collection=adressanker_collection,
             schluessel=config.sperrliste_schluessel,
             now=germany_now,
             journal=journal,

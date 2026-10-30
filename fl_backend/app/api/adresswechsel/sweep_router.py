@@ -39,7 +39,6 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
-    AdressankerCollection,
     AdresswechselCollection,
     AdresswechselPostausgangCollection,
     AktionenCollection,
@@ -167,7 +166,6 @@ async def _make_the_due_change_take_effect(
     adresswechsel_postausgang_collection: AsyncCollection,
     drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
-    adressanker_collection: AsyncCollection,
     db: AsyncMongoClient,
     schluessel: SecretStr,
     now: datetime,
@@ -207,7 +205,6 @@ async def _make_the_due_change_take_effect(
             adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
             drosselung_collection=drosselung_collection,
             aktionen_collection=aktionen_collection,
-            adressanker_collection=adressanker_collection,
             schluessel=schluessel,
             now=now,
             journal=journal,
@@ -279,7 +276,6 @@ async def sweep_adresswechsel(
     drosselung_collection: DrosselungCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
-    adressanker_collection: AdressankerCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
@@ -350,7 +346,6 @@ async def sweep_adresswechsel(
                     adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
                     drosselung_collection=drosselung_collection,
                     aktionen_collection=aktionen_collection,
-                    adressanker_collection=adressanker_collection,
                     db=db,
                     schluessel=config.sperrliste_schluessel,
                     now=germany_now,

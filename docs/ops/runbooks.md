@@ -849,9 +849,8 @@ sign being a second ban of an address already on the list admitted rather than r
 action log's pseudonyms of signed-in people too, so a replacement leaves one person's rows under two
 pseudonyms and the older can never be recomputed; the erasure journal's hashes, so every line
 written before a replacement matches no address a restore holds and its erasure cannot be run again
-after the restore (§13); the digests naming who answered a fixture confirmation, so an erasure
-after a replacement finds none of the reasons its person typed before it; and the addresses'
-anchors, which a replacement merely strands until their next expiry pass. Treat it as
+after the restore (§13); and the digests naming who answered a fixture confirmation, so an erasure
+after a replacement finds none of the reasons its person typed before it. Treat it as
 the one backend secret with no recovery: back it up where the database's own access details are
 backed up, and where it is genuinely gone, clear the list and enter the bans again from whatever
 record names the addresses.

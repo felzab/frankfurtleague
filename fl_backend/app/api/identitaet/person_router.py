@@ -19,7 +19,6 @@ from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, refuse
 from app.core.dependencies import (
-    AdressankerCollection,
     AdresswechselCollection,
     AdresswechselPostausgangCollection,
     AktionenCollection,
@@ -83,7 +82,6 @@ async def erase_selbst(
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     einladungen_collection: EinladungenCollection,
     sperrliste_collection: SperrlisteCollection,
-    adressanker_collection: AdressankerCollection,
     adresswechsel_collection: AdresswechselCollection,
     adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
@@ -156,7 +154,6 @@ async def erase_selbst(
             berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
-            adressanker_collection=adressanker_collection,
             adresswechsel_collection=adresswechsel_collection,
             adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,

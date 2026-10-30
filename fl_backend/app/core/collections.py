@@ -56,9 +56,6 @@ class Collection(StrEnum):
     #: action log never records (`fl_backend/app/core/drosselung.py`), expired by the day it names or
     #: removed by the person's erasure.
     DROSSELUNG = "drosselung"
-    #: One folded address's conflict point under a keyed hash of it, written by every transaction
-    #: storing that address and by its erasure, read by nothing, removed by its TTL index.
-    ADRESSANKER = "adressanker"
     #: One party's answer about one Ansetzung of a fixture, held true against nothing: no fixture write
     #: reaches it, and a move is reconciled by the next sweep pass closing the row.
     SPIELBESTAETIGUNGEN = "spielbestaetigungen"

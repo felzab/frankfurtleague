@@ -530,7 +530,6 @@ async def _plan_adresswechsel_wirksam(
             adresswechsel_postausgang_collection=database[Collection.ADRESSWECHSEL_POSTAUSGANG],
             drosselung_collection=database[Collection.DROSSELUNG],
             aktionen_collection=database[Collection.AKTIONEN],
-            adressanker_collection=database[Collection.ADRESSANKER],
             schluessel=schluessel,
             now=now,
             session=session,

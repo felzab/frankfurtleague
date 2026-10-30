@@ -46,11 +46,10 @@ from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.admin_router import get_spieler_memberships
 from app.api.spieler.services import build_spieler_memberships_pipeline
 from app.api.teams.admin_router import get_team_memberships
-from app.core.adressanker import adressanker_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import ANCHOR_FIELD, patch_one_in_db
+from app.core.crud import patch_one_in_db
 from app.core.drosselung import build_counts_filter
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.journal import JOURNAL_TOKEN, JournalLine, parse_line
@@ -2446,21 +2445,6 @@ class TestWhatTheEffectLeavesTheErasure:
             return [(notice["bisherige_email"], notice["email"]) for notice in await owed(database)]
 
         assert on_a_person(mongo_replica_set_url, body) == [(FOREIGN_EMAIL, NEW_EMAIL), (EMAIL, NEW_EMAIL)]
-
-    def test_it_anchors_the_address_it_replaces(self, mongo_replica_set_url: str):
-        """A registration submitted there while the effect runs meets it on the anchor, so the retry moves it rather than leaving it."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await start(database, client)
-            anchor = {"_id": adressanker_id(EMAIL, schluessel=KEY)}
-            before = await database[Collection.ADRESSANKER].find_one(anchor)
-            await answer(database, client, minted.token)
-            after = await database[Collection.ADRESSANKER].find_one(anchor)
-            return (before or {}).get(ANCHOR_FIELD, 0), (after or {}).get(ANCHOR_FIELD, 0)
-
-        before, after = on_a_person(mongo_replica_set_url, body)
-
-        assert after == before + 1
 
 
 class TestTheErasure:

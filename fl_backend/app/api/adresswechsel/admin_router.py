@@ -66,7 +66,6 @@ from app.api.spieler.crud import another_pupil_holds
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
-    AdressankerCollection,
     AdresswechselCollection,
     AdresswechselPostausgangCollection,
     AktionenCollection,
@@ -278,7 +277,6 @@ async def post_adresswechsel_verwaltung(
     berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     adresswechsel_postausgang_collection: AdresswechselPostausgangCollection,
     sperrliste: SperrlisteLookup,
-    adressanker_collection: AdressankerCollection,
     aktionen_collection: AktionenCollection,
     db: DBClient,
     operator: str = Depends(get_actor_email),
@@ -377,7 +375,6 @@ async def post_adresswechsel_verwaltung(
             record=record,
             adresswechsel_collection=adresswechsel_collection,
             aktionen_collection=aktionen_collection,
-            adressanker_collection=adressanker_collection,
             schluessel=sperrliste.schluessel,
             now=germany_now,
             journal=journal,
@@ -622,7 +619,6 @@ async def post_adresswechsel_genehmigung(
     drosselung_collection: DrosselungCollection,
     sperrliste: SperrlisteLookup,
     aktionen_collection: AktionenCollection,
-    adressanker_collection: AdressankerCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     operator: str = Depends(get_actor_email),
@@ -697,7 +693,6 @@ async def post_adresswechsel_genehmigung(
             adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
             drosselung_collection=drosselung_collection,
             aktionen_collection=aktionen_collection,
-            adressanker_collection=adressanker_collection,
             schluessel=config.sperrliste_schluessel,
             now=germany_now,
             journal=journal,

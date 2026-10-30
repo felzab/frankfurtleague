@@ -66,7 +66,6 @@ from app.api.spielbestaetigungen.services import (
 from app.api.spieler.crud import another_pupil_holds
 from app.api.spieler.services import build_selbst_pupil_filter
 from app.api.teams.crud import void_moved_seats
-from app.core.adressanker import anchor_the_addresses
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
 from app.core.drosselung import carry_counts_in_session
@@ -317,7 +316,6 @@ async def start_the_change_in_session(
     record: Mapping[str, Any],
     adresswechsel_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
-    adressanker_collection: AsyncCollection,
     schluessel: SecretStr,
     now: datetime,
     journal: Journal,
@@ -346,10 +344,6 @@ async def start_the_change_in_session(
 
     # Two starts on one address meet at `uniq_adresswechsel_adresse` as a write conflict, which the transaction retries.
     created = await post_one_to_db(collection=adresswechsel_collection, document=record, session=session)
-    # The new address enters here, which an erasure of it running now never read; the one on file is stored on the record.
-    await anchor_the_addresses(
-        [str(record["email"]), str(record["adresse"])], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session
-    )
 
     return created.inserted_id
 
@@ -533,7 +527,6 @@ async def take_effect_in_session(
     adresswechsel_postausgang_collection: AsyncCollection,
     drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
-    adressanker_collection: AsyncCollection,
     schluessel: SecretStr,
     now: datetime,
     journal: Journal,
@@ -641,7 +634,6 @@ async def take_effect_in_session(
         adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
         drosselung_collection=drosselung_collection,
         aktionen_collection=aktionen_collection,
-        adressanker_collection=adressanker_collection,
         schluessel=schluessel,
         now=now,
         session=session,
@@ -675,7 +667,6 @@ async def move_the_address_in_session(
     adresswechsel_postausgang_collection: AsyncCollection,
     drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
-    adressanker_collection: AsyncCollection,
     schluessel: SecretStr,
     now: datetime,
     session: AsyncClientSession,
@@ -863,12 +854,6 @@ async def move_the_address_in_session(
             now=now,
         ),
         session=session,
-    )
-
-    # The effect writes the address onto rows the start never wrote, and moves every
-    # record of the one replaced: a record committed there meanwhile, which this read never saw, would stay behind.
-    await anchor_the_addresses(
-        [neue, bestand.identifier], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session
     )
 
     # The requests for a grant it ended, each journalled by the caller as a refusal.
