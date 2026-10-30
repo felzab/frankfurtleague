@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, vi } from "vitest";
 
 import { dispatchRequest, sentRequestOf } from "@/core/apiDispatch.ts";
 
+import type * as Api from "@/core/api.ts";
 import type { FetchOptions } from "@/core/api.ts";
 
 /** One request a module handed the backend client: the path, and what it went with. */
@@ -66,7 +67,7 @@ export function doubleApiClient(answer: (call: ApiCall, schema: ApiSchema) => un
   // A generated call: its query is already in `endpoint`, and its tier is the operation's own.
   const sendToBackend = (endpoint: string, options: ApiOptions = {}): Promise<unknown> => apiClient(endpoint, ANSWERED_AS_IS, options);
   vi.doMock("@/core/api.ts", async (importOriginal) => ({
-    ...(await importOriginal<typeof import("@/core/api.ts")>()),
+    ...(await importOriginal<typeof Api>()),
     apiClient,
     sendToBackend,
   }));
