@@ -1,6 +1,6 @@
 import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
-import { doubleSendMail } from "@/test-support/mailDouble.ts";
+import { doublePostausgang } from "@/test-support/mailDouble.ts";
 import { refused } from "@/test-support/refusals.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,7 +15,7 @@ let sendTeams: () => unknown = () => undefined;
 const TEAMS = { getTeamMemberships: async () => sendTeams() };
 
 // `drainSoon` a no-op, as the double makes it in every suite: the mails are the backend's to owe and the drain's to send.
-doubleSendMail();
+doublePostausgang();
 doubleActionRequest();
 
 vi.doMock("@/core/config.ts", () => CONFIG);

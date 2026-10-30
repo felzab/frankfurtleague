@@ -1298,8 +1298,9 @@ docker compose logs --since 2h frontend | grep konto.sweep_
 ```
 
 **No `konto.sweep_completed` line in two hours means no pass completed, or the line went
-unwritten.** A `konto.sweep_failed` line says the sign-in store could not be listed. Every failure
-inside a pass is a line of its own, and the next pass asks again.
+unwritten.** A pass whose sign-in store could not be listed rejects, which `scheduler.job_failed`
+names as `konto` and the heartbeat as `konto failed`. Every other failure inside a pass is a line of
+its own, and the next pass asks again.
 
 **A `konto.referenzen_failed` line carrying `REQ-REFERENZEN-001` means the backend reads no live
 `owner` grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass still writes its
@@ -1701,9 +1702,10 @@ carries the address. Ask when they tried and read that window:
   person already held still stands, bar a send racing the hundredth. Only admitted addresses count,
   so a run of these is a flood over members' addresses or an evening outgrowing the figure; it lifts
   within the hour, or at once by the sweep in §17.
-- `mail.withheld`: a stack that is not production mails nothing, and the message is in its sink.
-  On the local stack that is `.tmp-mail/`, which every `./scripts/ops/local.sh` start empties of what
-  earlier runs filed, so a code there is this run's.
+- A stack that is not production mails nothing: its `postausgang.drain` line counts the code under
+  `zurueckgehalten`, and the message is in its sink. On the local stack that is `.tmp-mail/`, which
+  every `./scripts/ops/local.sh` start empties of what earlier runs filed, so a code there is this
+  run's.
 
 **A refusal by the gate writes no line.** It refuses an address that is barred, or that holds no
 record of its own (`docs/glossary.md :: Konto`) and none awaiting its confirmation; an address whose

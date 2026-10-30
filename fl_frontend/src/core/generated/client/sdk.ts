@@ -55,9 +55,6 @@ import type {
   FLBewerbungSweepResponse,
   FLBewerbungSweepSaisonsResponse,
   FLBewerbungTrikotFarbenResponse,
-  FLBewerbungZustellungAngenommenPayload,
-  FLBewerbungZustellungEreignisPayload,
-  FLBewerbungZustellungResponse,
   FLCreatedResponse,
   FLEinladungAnsichtResponse,
   FLEinladungMailPayload,
@@ -76,8 +73,6 @@ import type {
   FLErasureResponse,
   FLGenerateSpielplanPayload,
   FLGenerateSpielplanResponse,
-  FLGesperrtPayload,
-  FLGesperrtResponse,
   FLKaderResponse,
   FLKaderZeile,
   FLKontaktEinladenResponse,
@@ -212,10 +207,6 @@ import type {
   FLTeamWriteResponse,
   FLTokenPayload,
   FLUndrawSpielplanResponse,
-  FLZustellungAbgewiesenPayload,
-  FLZustellungAngenommenPayload,
-  FLZustellungEreignisPayload,
-  FLZustellungResponse,
   IdentitaetPostLoeschungLaufParams,
   RegistrierungenGetOffeneRegistrierungenParams,
   RegistrierungenGetRegistrierungenParams,
@@ -1238,88 +1229,6 @@ export const bewerbungenGetTrikotfarben = async (
   });
 };
 
-export const getBewerbungenPostZustellungUrl = () => {
-  return `/api/v0/bewerbungen/zustellung`;
-};
-
-/**
- * Record what the mail provider reported about one message, on every seat that message was sent to.
- *
- * Applied only where the event names the message the seat still holds AND is stamped strictly later than the state
- * it holds: a re-send mints a new message, so the old one's bounce must not mark the fresh link, and a redelivery or
- * an event overtaken by a later one changes nothing. Both are answered with the seats written -- none, where nothing
- * qualified -- rather than with a refusal, because the provider retries anything but a success and would resend a
- * settled event for hours.
- *
- * 404 where no application has the id, which an application erased between the send and the event is: a caller that
- * must not retry maps it rather than repeating the call.
- * @summary Apply one delivery event to the seats its message was sent to
- */
-export const bewerbungenPostZustellung = async (
-  fLBewerbungZustellungEreignisPayload: FLBewerbungZustellungEreignisPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLBewerbungZustellungResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return systemKeyTransport<FLBewerbungZustellungResponse>(getBewerbungenPostZustellungUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungZustellungEreignisPayload),
-  });
-};
-
-export const getBewerbungenAngenommenZustellungUrl = () => {
-  return `/api/v0/bewerbungen/zustellung/angenommen`;
-};
-
-/**
- * Record that the mail provider accepted one message for the seats named, under the id it answered with.
- *
- * That id is the only join between a send and any later delivery event, so a seat carrying none is a seat every event
- * about it is discarded for. Accepting a request is not delivering it: what this records is that the provider took the
- * message, and `POST /bewerbungen/zustellung` is where the recipient's own mail server is heard from.
- *
- * Applied per seat and only where this send is newer than the ACCEPT the seat already holds, so a call retried after
- * a later one landed writes nothing; a delivery state the provider stamped never blocks it, that stamp being the
- * provider's clock rather than this sender's. A seat the application does not hold -- erased, or never mailed -- is
- * skipped rather than refused, and the answer names the seats that were written. 404 where no application has the id.
- * @summary Record the message the provider accepted for these seats
- */
-export const bewerbungenAngenommenZustellung = async (
-  fLBewerbungZustellungAngenommenPayload: FLBewerbungZustellungAngenommenPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLBewerbungZustellungResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return systemKeyTransport<FLBewerbungZustellungResponse>(getBewerbungenAngenommenZustellungUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungZustellungAngenommenPayload),
-  });
-};
-
 export const getBewerbungenGetBewerbungByIdUrl = (bewerbungId: string) => {
   return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}`;
 };
@@ -1763,7 +1672,7 @@ export const getIdentitaetGetErasureAnsichtAufAnfrageUrl = () => {
  * address under another grant's id; and the address in every notice still queued, withheld. Written besides: the
  * notice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.
  * `verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the
- * address, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.
+ * address, judged as a stored address is; the erasure leaves a ban standing. Stores nothing.
  *
  * Refused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless
  * the administrator holds an owner's power (`REQ-PURGE-005`).
@@ -1790,48 +1699,6 @@ export const identitaetGetErasureAnsichtAufAnfrage = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLErasureAdressePayload),
-  });
-};
-
-export const getIdentitaetGetGesperrtUrl = () => {
-  return `/api/v0/identitaet/gesperrt`;
-};
-
-/**
- * Answer whether a standing ban holds the one address the frontend's mailer is about to send to.
- *
- * Stores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the address travels in the body, so no path or query carries it
- * into an access line.
- *
- * The address is judged as a stored one is: every spelling that folds to the same mailbox -- its letters in any case, its domain in
- * Unicode or in punycode -- answers alike, and a ban holds only while the running season is within its bound, every ban holding
- * while no season runs. An address today's address rule refuses is answered `false` rather than refused, no ban being keyable
- * under it: the mailer sends to the addresses records hold, some of them stored under older rules.
- *
- * The flag is the whole answer. No record the address holds and no part of the ban reaches the caller, which needs neither.
- * @summary Say whether a ban stands on an address about to be mailed
- */
-export const identitaetGetGesperrt = async (
-  fLGesperrtPayload: FLGesperrtPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLGesperrtResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return systemKeyTransport<FLGesperrtResponse>(getIdentitaetGetGesperrtUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLGesperrtPayload),
   });
 };
 
@@ -5562,138 +5429,5 @@ export const teamsReplaceSaisonTeam = async (
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
     body: JSON.stringify(fLReplaceSaisonTeamPayload),
-  });
-};
-
-export const getZustellungPostZustellungUrl = () => {
-  return `/api/v0/zustellung`;
-};
-
-/**
- * Record what the mail provider reported about one message, on the record that message was sent about.
- *
- * Applied only where the event names the message the record still holds AND is stamped strictly later than the state it holds: a
- * re-send mints a new message, so the old one's bounce must not mark the fresh link, and a redelivery or an event overtaken by a
- * later one changes nothing. Both are answered with `angewendet: false` rather than with a refusal, because the provider retries
- * anything but a success and would resend a settled event for hours.
- *
- * 404 where no document of that kind has the id, which a record erased between the send and the event is: a caller that must not
- * retry maps it rather than repeating the call.
- *
- * A `kontakt` or `spielbestaetigung` record sits under each contact seat, so its report names in `rollen` every seat the one message
- * reached, each judged and written on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a
- * 422.
- * @summary Apply one delivery event to the record its message was sent about
- */
-export const zustellungPostZustellung = async (
-  fLZustellungEreignisPayload: FLZustellungEreignisPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLZustellungResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return systemKeyTransport<FLZustellungResponse>(getZustellungPostZustellungUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLZustellungEreignisPayload),
-  });
-};
-
-export const getZustellungAbgewiesenZustellungUrl = () => {
-  return `/api/v0/zustellung/abgewiesen`;
-};
-
-/**
- * Record that the mail provider refused the send itself, so no message about this record exists.
- *
- * The send is where a refused address is learnt at all: nothing is minted, no delivery event ever follows, and a record left without
- * this state is one the reminder clocks chase and the deadline clocks erase as though the link had been read.
- *
- * Judged as an accepted send is, both stamps being this sender's: applied only where this refusal is newer than the ACCEPT the record
- * already holds, so a call retried after the re-send that repaired the address writes nothing, and a delivery state the provider
- * stamped never blocks it. A record whose document carries no delivery bookkeeping at all is skipped rather than refused. 404 where no
- * document of that kind has the id.
- *
- * A `kontakt` or `spielbestaetigung` record sits under each contact seat, so its report names in `rollen` every seat the one message
- * reached, each judged and written on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a
- * 422.
- * @summary Record the send the provider refused for this record
- */
-export const zustellungAbgewiesenZustellung = async (
-  fLZustellungAbgewiesenPayload: FLZustellungAbgewiesenPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLZustellungResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return systemKeyTransport<FLZustellungResponse>(getZustellungAbgewiesenZustellungUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLZustellungAbgewiesenPayload),
-  });
-};
-
-export const getZustellungAngenommenZustellungUrl = () => {
-  return `/api/v0/zustellung/angenommen`;
-};
-
-/**
- * Record that the mail provider accepted one message about the record named, under the id it answered with.
- *
- * That id is the only join between a send and any later delivery event, so a record carrying none is a record every event about it
- * is discarded for. Accepting a request is not delivering it: what this records is that the provider took the message, and
- * `POST /zustellung` is where the recipient's own mail server is heard from.
- *
- * Applied only where this send is newer than the ACCEPT the record already holds, so a call retried after a later one landed
- * writes nothing, and the answer says whether anything was written; a delivery state the provider stamped never blocks it, that
- * stamp being the provider's clock rather than this sender's. A record whose document carries no delivery bookkeeping at all --
- * never mailed, or emptied by an erasure -- is skipped rather than refused. 404 where no document of that kind has the id.
- *
- * A `kontakt` or `spielbestaetigung` record sits under each contact seat, so its report names in `rollen` every seat the one message
- * reached, each judged and written on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a
- * 422.
- * @summary Record the message the provider accepted for this record
- */
-export const zustellungAngenommenZustellung = async (
-  fLZustellungAngenommenPayload: FLZustellungAngenommenPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLZustellungResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return systemKeyTransport<FLZustellungResponse>(getZustellungAngenommenZustellungUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLZustellungAngenommenPayload),
   });
 };

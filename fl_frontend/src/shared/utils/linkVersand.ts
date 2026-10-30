@@ -1,7 +1,6 @@
 /**
- * How one link mail ended. `zurueckgehalten` is a deployment that mails nothing filing it
- * (`fl_frontend/src/core/mail.ts :: MailWithheldError`), `gesperrt` the ban list keeping it from the
- * address (`:: MailBarredError`).
+ * How one link mail ended. `zurueckgehalten` is a deployment that mails nothing filing it, `gesperrt` the
+ * ban list keeping it from the address.
  */
 export type LinkVersand = "gesendet" | "zurueckgehalten" | "gesperrt" | "fehlgeschlagen";
 

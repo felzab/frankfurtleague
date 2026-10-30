@@ -1,4 +1,3 @@
-from datetime import UTC, datetime
 from typing import Annotated, Any, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
@@ -40,7 +39,6 @@ from app.shared.schemas.kontakt import CustomEmail
 # acceptance, so a second declaration of the block is one the two would drift apart on. Acyclic --
 # no model in `teams` imports this slice.
 from app.shared.schemas.literals import (
-    FLBewerbungZustellEreignis,
     FLGruppenNames,
     FLKontaktKenntnisnahmeUmfang,
     FLKontaktRolle,
@@ -64,39 +62,6 @@ FLBewerbungSaisonbezug = Literal["diese_saison", "andere_saison"]
 # submission and no path removes a row, so a second order would plan a blocking sort over an archive
 # nothing bounds.
 FLBewerbungenSortOptions = Literal["eingereicht_am"]
-
-
-def normalise_zustellzeitpunkt(value: str) -> str:
-    """One spelling per instant, UTC at a fixed width, so comparing two of these compares two moments.
-
-    The provider spells its own stamps more than one way; a naive one names no instant at all.
-    """
-
-    try:
-        moment = datetime.fromisoformat(value)
-    except ValueError as unparseable:
-        raise ValueError("Der Zustellzeitpunkt ist kein ISO-8601-Zeitpunkt.") from unparseable
-
-    if moment.tzinfo is None or moment.utcoffset() is None:
-        raise ValueError("Der Zustellzeitpunkt braucht einen UTC-Versatz.")
-
-    return moment.astimezone(UTC).isoformat(timespec="microseconds")
-
-
-# The ceiling is judged BEFORE the parse, as `FLBewerbungSchulePayload.website_url`'s is: no ISO-8601
-# instant is longer, and `fromisoformat` should not be handed an unbounded string from outside.
-CustomZustellzeitpunkt = Annotated[
-    Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)], AfterValidator(normalise_zustellzeitpunkt)
-]
-
-# Wide over the 36 characters the provider's id spells today, and a ceiling all the same: the value
-# arrives from outside and is stored.
-CustomNachrichtId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]
-
-# ONE ceiling over both homes of the delivery state, so a refusal the application's endpoint takes is
-# one every other kind's takes too. Bounded and single-line for `CustomNachrichtId`'s reason, the
-# token being the provider's own and never its prose.
-CustomZustellgrund = Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=128, pattern=SINGLE_LINE_PATTERN)]
 
 
 class _FLBewerbungSitzStand(BaseReadModel):
@@ -786,49 +751,6 @@ class FLBewerbungSweepSaisonsResponse(BaseAPIResponse):
     """Every season's id, for the caller to sweep one by one."""
 
     saison_ids: list[str]
-
-
-# --- The ZUSTELLSTAND, system tier. One endpoint records what the sender learned, the other applies
-# what the provider reported; both write `bestaetigungen.<seat>.zustellung` and nothing else.
-
-
-class _ZustellungPayload(BaseModel):
-    """What both writes name: the application, the seats one message covered, that message, and when.
-
-    In the BODY and not the path, which the edge logs: an application id keys three people's records.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    bewerbung_id: CustomObjectId
-    # Every seat the one message reached, which is two where a person holds two: a re-send writes the
-    # fresh entry to both, so a state written to one of them alone would leave the other stale.
-    rollen: list[FLKontaktRolle]
-    nachricht_id: CustomNachrichtId
-    am: CustomZustellzeitpunkt
-
-
-class FLBewerbungZustellungAngenommenPayload(_ZustellungPayload):
-    """One message the provider accepted. `stand` is not a key: this endpoint records `angenommen` and no other state."""
-
-
-class FLBewerbungZustellungEreignisPayload(_ZustellungPayload):
-    """One delivery event about a message this application's seats were sent."""
-
-    stand: FLBewerbungZustellEreignis
-    # Required as a KEY and null where the event carries none: a state with no token is a fact about
-    # the mailbox all the same, and an omitted key would read as a client that forgot it.
-    grund: CustomZustellgrund
-
-
-class FLBewerbungZustellungResponse(BaseAPIResponse):
-    """Which seats the write reached, empty where the event was about a message no seat still holds.
-
-    Empty rather than a refusal: the provider repeats a settled event for hours if anything but a
-    success answers it.
-    """
-
-    angewendet: list[FLKontaktRolle]
 
 
 class FLBewerbungPersonEinwilligungResponse(BaseAPIResponse):

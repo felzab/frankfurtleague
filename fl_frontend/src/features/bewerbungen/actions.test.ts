@@ -2,7 +2,7 @@ import { doubleActionRequest, doubleActions } from "@/test-support/actionDoubles
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
 import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
-import { doubleSendMail } from "@/test-support/mailDouble.ts";
+import { doublePostausgang } from "@/test-support/mailDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, refusalCodes, refused } from "@/test-support/refusals.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -61,7 +61,7 @@ const LOGGER_DOUBLE = { logger: { debug: record, info: record, warn: record, err
    own transaction, and the drain after the response is no case of this suite's. */
 doubleActionRequest();
 // Its drain made a no-op: the mails each write owes leave after a response this suite never sends.
-doubleSendMail();
+doublePostausgang();
 // After the request's own doubles, whose silent logger this one stands in front of: the stream is
 // where a token must never reach.
 vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);

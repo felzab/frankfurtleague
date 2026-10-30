@@ -26,8 +26,6 @@ from app.api.schiedsrichter.services import (
     vorname_of,
     zustand_of,
 )
-from app.api.zustellung.services import ZIEL_PFADE
-from app.core.collections import Collection
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
@@ -51,12 +49,6 @@ def confirmed(*, bestaetigt_am: str = TODAY) -> dict[str, Any]:
 
 
 class TestTheStoredBlock:
-    def test_the_carrier_key_is_the_one_the_delivery_register_files_a_report_under(self):
-        """Parted, a bounce would be written at a path no link is stored at and every report would apply to nothing."""
-
-        assert ZIEL_PFADE["schiedsrichter"].traeger == BESTAETIGUNG_FELD
-        assert ZIEL_PFADE["schiedsrichter"].collection == Collection.SCHIEDSRICHTER
-
     def test_the_deadline_is_the_bound_counted_from_the_mint(self):
         assert bestaetigung_frist_from(today=TODAY) == "2026-04-15"
         assert LIVE_BLOCK["frist"] == bestaetigung_frist_from(today=TODAY)

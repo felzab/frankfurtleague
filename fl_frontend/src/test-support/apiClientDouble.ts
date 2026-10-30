@@ -19,8 +19,8 @@ export type ApiCall = {
 };
 
 /**
- * The response schema a hand-written caller handed `apiClient`, which an answer is parsed through where the case wants
- * its shape held. A generated call hands none, and stands under `ANSWERED_AS_IS`.
+ * A response schema an answer is parsed through where the case wants its shape held. A generated call hands none, and
+ * stands under `ANSWERED_AS_IS`.
  */
 export type ApiSchema = { parse: (value: unknown) => unknown };
 
@@ -38,8 +38,8 @@ type ApiOptions = {
 };
 
 /**
- * Stands in for `fl_frontend/src/core/api.ts`'s two senders, `apiClient` and the `sendToBackend` every generated call
- * reaches through `core/transport.ts`, recording every call and answering each with what `answer` returns or throws.
+ * Stands in for `fl_frontend/src/core/api.ts :: sendToBackend`, which every generated call reaches through
+ * `core/transport.ts`, recording every call and answering each with what `answer` returns or throws.
  * Called before the caller's `await import`: `vi.doMock` reaches only the modules imported after it. The module's other
  * exports stay the real ones (Vitest's `importOriginal` partial mock), so the transport's path and query helpers run as
  * they do in production, and no call reaches the real backend.
@@ -68,7 +68,6 @@ export function doubleApiClient(answer: (call: ApiCall, schema: ApiSchema) => un
   const sendToBackend = (endpoint: string, options: ApiOptions = {}): Promise<unknown> => apiClient(endpoint, ANSWERED_AS_IS, options);
   vi.doMock("@/core/api.ts", async (importOriginal) => ({
     ...(await importOriginal<typeof Api>()),
-    apiClient,
     sendToBackend,
   }));
 

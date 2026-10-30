@@ -1,4 +1,4 @@
-import { doubleSendMail } from "@/test-support/mailDouble.ts";
+import { doublePostausgang } from "@/test-support/mailDouble.ts";
 import { answerAt, deepFrozen, NO_RECORDS, SITZ } from "@/test-support/subjectFixtures.ts";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { ObjectId } from "mongodb";
@@ -94,10 +94,10 @@ type AuthDoubles = {
  * builds on, and the lookup its grant is read over. Test-only, which `no-restricted-imports` in
  * `fl_frontend/eslint.config.mjs` holds it to.
  */
-export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles = {}): ReturnType<typeof doubleSendMail> {
-  // The mailer is always `doubleSendMail`'s, whose record this answers. A second one is refused rather
+export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles = {}): ReturnType<typeof doublePostausgang> {
+  // The mailer is always `doublePostausgang`'s, whose record this answers. A second one is refused rather
   // than layered: two mailer hooks answer by registration order, and a suite would read whichever came last.
-  if ("mail" in core) throw new Error("The mailer is doubleSendMail's: read the record registerAuthDoubles answers.");
+  if ("mail" in core) throw new Error("The mailer is doublePostausgang's: read the record registerAuthDoubles answers.");
   const modules = Object.entries({ config: configDouble(), db: DB_DOUBLE, ...core }).map(([name, double]): [string, ModuleDouble] => [
     `@/core/${name}.ts`,
     double,
@@ -113,7 +113,7 @@ export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles 
     vi.doMock(specifier, typeof double === "function" ? double : () => double);
   }
 
-  return doubleSendMail();
+  return doublePostausgang();
 }
 
 /** How long a held write or read waits for the requests racing it, in both db-tier suites. */

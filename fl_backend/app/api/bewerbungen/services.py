@@ -1189,72 +1189,6 @@ def compose_kontakt_seat_update(
     return {"$set": {**{f"kontakte.{seat}": dict(slot) for seat in seats}, **erneut["$set"]}}
 
 
-# --- The ZUSTELLSTAND: what became of the last message to one seat. Written by the two system-tier
-# endpoints alone, and read by the reminder clock and the fourteen-day clock below.
-
-
-# `app/api/zustellung/router.py` judges every other home through these too, passing the document for
-# `bestaetigungen` and the record's carrier key for `seat`.
-def _entry_of(bestaetigungen: Any, seat: str) -> Mapping[str, Any] | None:
-    entry = bestaetigungen.get(seat) if isinstance(bestaetigungen, Mapping) else None
-
-    return entry if isinstance(entry, Mapping) else None
-
-
-def seat_zustellung(*, bestaetigungen: Any, seat: str) -> Mapping[str, Any] | None:
-    """What is known about the last message to this seat, or `None` where nothing is."""
-
-    entry = _entry_of(bestaetigungen, seat)
-    stored = entry.get("zustellung") if entry is not None else None
-
-    return stored if isinstance(stored, Mapping) else None
-
-
-def zustellung_event_applies(*, bestaetigungen: Any, seat: str, nachricht_id: str, am: str) -> bool:
-    """Whether this event is about the message this seat still holds, and is news.
-
-    The whole of the idempotency, and why no `svix-id` store sits beside it: a repeat carries the
-    stamp it first did.
-    """
-
-    stored = seat_zustellung(bestaetigungen=bestaetigungen, seat=seat)
-    if stored is None or stored.get("nachricht_id") != nachricht_id:
-        return False
-
-    # STRICTLY later, on two stamps `app/api/bewerbungen/schemas.py :: normalise_zustellzeitpunkt`
-    # spelled: equal is the same event again, and earlier is a delivery overtaking a bounce.
-    return str(stored.get("am") or "") < am
-
-
-def zustellung_send_applies(*, bestaetigungen: Any, seat: str, am: str) -> bool:
-    """Whether this accepted send is news for a seat that still stands.
-
-    No id comparison: the send MINTS the id, so it is the first thing known about a message and
-    nothing stored can match it.
-    """
-
-    if _entry_of(bestaetigungen, seat) is None:
-        return False
-
-    stored = seat_zustellung(bestaetigungen=bestaetigungen, seat=seat)
-    # A stored EVENT never blocks a send: its stamp is the provider's clock, and a host running
-    # behind one would drop every re-send, freezing the seat on a message whose events the judge
-    # above then discards.
-    if stored is None or stored.get("stand") != "angenommen":
-        return True
-
-    # Two accepts ARE comparable, both stamps being this host's.
-    return str(stored.get("am") or "") < am
-
-
-def compose_zustellung_update(*, seats: Sequence[str], nachricht_id: str, stand: str, grund: str | None, am: str) -> Mapping[str, Any]:
-    """The whole block per seat, never a field of it: a state carrying another message's `grund` reads as a refusal that never happened."""
-
-    written = {f"bestaetigungen.{seat}.zustellung": {"nachricht_id": nachricht_id, "stand": stand, "grund": grund, "am": am} for seat in seats}
-
-    return {"$set": written}
-
-
 # --- The retention SWEEP. Six clocks, each a pure predicate over one document and `today`, so
 # every boundary is pinned without a container. Dates, never instants: an instant would move the
 # boundary with the hour a pass happens to run.
@@ -1301,6 +1235,12 @@ def latest_decision_due(*, today: str) -> str:
         day -= timedelta(days=1)
 
     return day.isoformat()
+
+
+def _entry_of(bestaetigungen: Any, seat: str) -> Mapping[str, Any] | None:
+    entry = bestaetigungen.get(seat) if isinstance(bestaetigungen, Mapping) else None
+
+    return entry if isinstance(entry, Mapping) else None
 
 
 def seat_reminder_is_due(*, kontakte: Any, bestaetigungen: Any, seat: str, today: str, unerreichbar: bool) -> bool:

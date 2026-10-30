@@ -9,14 +9,10 @@ import { postausgangPostEreignis } from "@/core/generated/client/sdk";
 import { PostausgangPostEreignisBody } from "@/core/generated/zod/inputs";
 import { logger } from "@/core/logging";
 import { POSTAUSGANG_TAG } from "@/core/mailKinds";
-import { meldeZustellEreignis } from "@/features/bewerbungen/mutations";
-import { leseZustellEreignis } from "@/features/bewerbungen/zustellung";
-import { meldeZielZustellEreignis } from "@/features/zustellung/mutations";
 import { isRuleRefusal } from "@/shared/utils/actionError";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
-import type { FLKontaktRolle, FLPostausgangEreignisPayload } from "@/core/generated/client/types";
-import type { ZustellMeldung } from "@/features/bewerbungen/zustellung";
+import type { FLPostausgangEreignisPayload } from "@/core/generated/client/types";
 import type { NextRequest } from "next/server";
 
 /** The three headers Svix signs with, which the verifier is handed by name. */
@@ -29,25 +25,9 @@ const SVIX_HEADERS = ["svix-id", "svix-timestamp", "svix-signature"] as const;
  */
 // Built per call and never held at module scope: a `Response` carries a body stream that is consumed
 // once, so a shared instance answers the second request of its kind with an unusable body.
-const ANGEWENDET = (angewendet: readonly FLKontaktRolle[]) => NextResponse.json({ angewendet: angewendet }, { status: 200 });
-// A boolean where the application's answer is a list of seats: the generic endpoint writes one
-// record, so there is no set of seats for it to name.
-const ZIEL_ANGEWENDET = (angewendet: boolean) => NextResponse.json({ angewendet: angewendet }, { status: 200 });
+const ANGEWENDET = (angewendet: boolean) => NextResponse.json({ angewendet: angewendet }, { status: 200 });
 const KEINE_SIGNATUR = () => NextResponse.json({ error: "signature" }, { status: 400 });
 const KEIN_BACKEND = () => NextResponse.json({ error: "backend" }, { status: 503 });
-
-/**
- * The lanes no store holds, so where a message did not arrive the LINE is the record. Never the address.
- */
-const OHNE_EINTRAG = {
-  // The sign-in code: anything but a delivery locks out whoever holds no passkey.
-  anmeldung: { ereignis: "mail.anmeldecode_nicht_zugestellt" },
-  // The grants' notice, whose outbox row is gone once stamped: a holder the notice missed.
-  berechtigung: { ereignis: "mail.berechtigungshinweis_nicht_zugestellt" },
-  // Every message to a referee about a fixture, whatever
-  // `fl_frontend/src/features/spielbestaetigungen/sweep.ts :: mailSpielleitung` sends: their row holds no seat to record one on.
-  spielleitung: { ereignis: "mail.spielleitung_nicht_zugestellt" },
-} as const satisfies Record<Extract<ZustellMeldung, { nachricht_id: string }>["ziel"], { ereignis: string }>;
 
 /**
  * What a Postausgang mail's event carries: the envelope's own instant, which orders it, the row's id among the tags the
@@ -71,7 +51,8 @@ function postausgangStandAus({ type, data }: PostausgangEreignis): Pick<FLPostau
   switch (type) {
     case "email.delivered":
       return { stand: "zugestellt", grund: null };
-    // A temporary bounce is the receiving server asking for later, not the mailbox refusing.
+    // A temporary bounce is the receiving server asking for later, not the mailbox refusing: reading it as permanent
+    // would mark a full mailbox unreachable.
     case "email.bounced":
       return { stand: data.bounce?.type === "Permanent" ? "unzustellbar" : "verzoegert", grund: data.bounce?.subType ?? null };
     case "email.suppressed":
@@ -80,7 +61,8 @@ function postausgangStandAus({ type, data }: PostausgangEreignis): Pick<FLPostau
       return { stand: "beschwerde", grund: null };
     case "email.delivery_delayed":
       return { stand: "verzoegert", grund: null };
-    // The documented reason is the league's own daily quota, which says nothing about the address.
+    // The documented reason is the league's own daily quota, which says nothing about the address: a permanent state
+    // here would mark the address unreachable for the sender's fault.
     case "email.failed":
       return { stand: "verzoegert", grund: data.failed?.reason ?? null };
     default:
@@ -89,13 +71,14 @@ function postausgangStandAus({ type, data }: PostausgangEreignis): Pick<FLPostau
 }
 
 /**
- * The write one event about a Postausgang mail asks for: `undefined` where the event names no row, which leaves it to the
- * routes below, and `null` where it names one and asks nothing the endpoint takes.
+ * The write one event asks for, or `null` where it asks none: an event about no row, a mail sent before the Postausgang
+ * among them, and one that leaves no state. **Every `null` is answered 200**: the provider retries a non-200 for
+ * thirty-two hours and then disables the endpoint.
  */
-function lesePostausgangEreignis(raw: unknown): FLPostausgangEreignisPayload | null | undefined {
+function lesePostausgangEreignis(raw: unknown): FLPostausgangEreignisPayload | null {
   const gelesen = PostausgangEreignisSchema.safeParse(raw);
   const id = gelesen.data?.data.tags[POSTAUSGANG_TAG];
-  if (gelesen.data === undefined || id === undefined) return undefined;
+  if (gelesen.data === undefined || id === undefined) return null;
 
   const stand = postausgangStandAus(gelesen.data);
   if (stand === null) return null;
@@ -150,53 +133,16 @@ export async function POST(request: NextRequest) {
     } catch {
       // Signed and unreadable is the provider changing shape, which no retry repairs.
       logger.error("mail.zustellung_unlesbar");
-      return ANGEWENDET([]);
+      return ANGEWENDET(false);
     }
 
-    // A mail from the Postausgang first: its row is found by the row's own id, whatever else its tags hold.
+    // Found by the row's own id among the send's tags, whatever else they hold.
     const postausgang = lesePostausgangEreignis(ereignis);
-    if (postausgang === null) return ZIEL_ANGEWENDET(false);
-    if (postausgang !== undefined) {
-      try {
-        const { angewendet } = await postausgangPostEreignis(postausgang);
-        return ZIEL_ANGEWENDET(angewendet);
-      } catch (error) {
-        return unbeantwortet(error);
-      }
-    }
-
-    // An untagged message and an event about no seat state are both acknowledged and recorded
-    // nowhere, and a retried refusal would disable the endpoint over one.
-    const meldung = leseZustellEreignis(ereignis);
-    if (meldung === null) return ANGEWENDET([]);
-
-    // A lane no store holds reads its message id bare, having no record's payload to carry it in.
-    if ("nachricht_id" in meldung) {
-      const { ereignis } = OHNE_EINTRAG[meldung.ziel];
-      if (meldung.stand !== "zugestellt") {
-        logger.warn(ereignis, { stand: meldung.stand, nachricht_id: meldung.nachricht_id });
-      }
-
-      return ANGEWENDET([]);
-    }
-
-    // 200 because no retry repairs it, and a line because the alternative is a drop no operator can
-    // tell from the sign-in mail's.
-    if (meldung.ziel === "unplatzierbar") {
-      // Never the raw kind: one that failed the set is a value the provider echoed back from
-      // whatever it was handed.
-      logger.warn("mail.zustellung_unplatzierbar", { grund: meldung.grund, ziel: meldung.art ?? undefined });
-      return ANGEWENDET([]);
-    }
+    if (postausgang === null) return ANGEWENDET(false);
 
     try {
-      if (meldung.ziel === "bewerbung") {
-        const { angewendet } = await meldeZustellEreignis(meldung.meldung);
-        return ANGEWENDET(angewendet);
-      }
-
-      const { angewendet } = await meldeZielZustellEreignis(meldung.meldung);
-      return ZIEL_ANGEWENDET(angewendet);
+      const { angewendet } = await postausgangPostEreignis(postausgang);
+      return ANGEWENDET(angewendet);
     } catch (error) {
       return unbeantwortet(error);
     }
@@ -217,5 +163,5 @@ function unbeantwortet(error: unknown): NextResponse {
 
   // A record missing is one an erasure or the retention sweep has already taken, and a refusal is the
   // event's own answer: retrying either buys nothing and spends the endpoint's standing with the provider.
-  return beantwortet ? ANGEWENDET([]) : KEIN_BACKEND();
+  return beantwortet ? ANGEWENDET(false) : KEIN_BACKEND();
 }

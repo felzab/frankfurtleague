@@ -1883,66 +1883,6 @@ export interface FLBewerbungZusageDaten {
   wunschgegner: string | null;
 }
 
-export type FLBewerbungZustellEreignis = (typeof FLBewerbungZustellEreignis)[keyof typeof FLBewerbungZustellEreignis];
-
-export const FLBewerbungZustellEreignis = {
-  zugestellt: "zugestellt",
-  verzoegert: "verzoegert",
-  unzustellbar: "unzustellbar",
-  unterdrueckt: "unterdrueckt",
-  beschwerde: "beschwerde",
-} as const;
-
-/**
- * One message the provider accepted. `stand` is not a key: this endpoint records `angenommen` and no other state.
- */
-export interface FLBewerbungZustellungAngenommenPayload {
-  /**
-   * @minLength 1
-   * @maxLength 64
-   */
-  am: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  bewerbung_id: string;
-  /**
-   * @minLength 1
-   * @maxLength 128
-   */
-  nachricht_id: string;
-  rollen: FLKontaktRolle[];
-}
-
-/**
- * One delivery event about a message this application's seats were sent.
- */
-export interface FLBewerbungZustellungEreignisPayload {
-  /**
-   * @minLength 1
-   * @maxLength 64
-   */
-  am: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  bewerbung_id: string;
-  grund: string | null;
-  /**
-   * @minLength 1
-   * @maxLength 128
-   */
-  nachricht_id: string;
-  rollen: FLKontaktRolle[];
-  stand: FLBewerbungZustellEreignis;
-}
-
-/**
- * Which seats the write reached, empty where the event was about a message no seat still holds.
- *
- * Empty rather than a refusal: the provider repeats a settled event for hours if anything but a
- * success answers it.
- */
-export interface FLBewerbungZustellungResponse {
-  angewendet: FLKontaktRolle[];
-}
-
 /**
  * The queue, newest first, and whether that is the whole of it.
  *
@@ -2684,24 +2624,6 @@ export interface FLGenerateSpielplanResponse {
   spiele: number;
   /** @minimum 0 */
   spieltage: number;
-}
-
-/**
- * The one address a message is about to go to.
- */
-export interface FLGesperrtPayload {
-  /**
-   * @maxLength 254
-   * @pattern @
-   */
-  email: string;
-}
-
-/**
- * Whether a standing ban holds that address, and nothing of any record: the mailer needs none.
- */
-export interface FLGesperrtResponse {
-  gesperrt: boolean;
 }
 
 export interface FLTeamStatistik {
@@ -5861,107 +5783,6 @@ export interface FLUndrawSpielplanResponse {
   /** @minimum 0 */
   spieltage: number;
   watermark_cleared: boolean;
-}
-
-export type FLZustellungAbgewiesenPayloadZiel = (typeof FLZustellungAbgewiesenPayloadZiel)[keyof typeof FLZustellungAbgewiesenPayloadZiel];
-
-export const FLZustellungAbgewiesenPayloadZiel = {
-  schiedsrichter: "schiedsrichter",
-  einladung: "einladung",
-  registrierung: "registrierung",
-  kontakt: "kontakt",
-  adresswechsel: "adresswechsel",
-  spielbestaetigung: "spielbestaetigung",
-} as const;
-
-/**
- * A send the provider refused outright. No `nachricht_id`: nothing was minted, so there is no message for a later event to join.
- */
-export interface FLZustellungAbgewiesenPayload {
-  /**
-   * @minLength 1
-   * @maxLength 64
-   */
-  am: string;
-  grund: string | null;
-  rollen: FLKontaktRolle[];
-  ziel: FLZustellungAbgewiesenPayloadZiel;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  ziel_id: string;
-}
-
-export type FLZustellungAngenommenPayloadZiel = (typeof FLZustellungAngenommenPayloadZiel)[keyof typeof FLZustellungAngenommenPayloadZiel];
-
-export const FLZustellungAngenommenPayloadZiel = {
-  schiedsrichter: "schiedsrichter",
-  einladung: "einladung",
-  registrierung: "registrierung",
-  kontakt: "kontakt",
-  adresswechsel: "adresswechsel",
-  spielbestaetigung: "spielbestaetigung",
-} as const;
-
-/**
- * One message the provider accepted for this record. `stand` is not a key: this endpoint records `angenommen` and no other state.
- */
-export interface FLZustellungAngenommenPayload {
-  /**
-   * @minLength 1
-   * @maxLength 64
-   */
-  am: string;
-  /**
-   * @minLength 1
-   * @maxLength 128
-   */
-  nachricht_id: string;
-  rollen: FLKontaktRolle[];
-  ziel: FLZustellungAngenommenPayloadZiel;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  ziel_id: string;
-}
-
-export type FLZustellungEreignisPayloadZiel = (typeof FLZustellungEreignisPayloadZiel)[keyof typeof FLZustellungEreignisPayloadZiel];
-
-export const FLZustellungEreignisPayloadZiel = {
-  schiedsrichter: "schiedsrichter",
-  einladung: "einladung",
-  registrierung: "registrierung",
-  kontakt: "kontakt",
-  adresswechsel: "adresswechsel",
-  spielbestaetigung: "spielbestaetigung",
-} as const;
-
-/**
- * One delivery event about a message this record was sent.
- */
-export interface FLZustellungEreignisPayload {
-  /**
-   * @minLength 1
-   * @maxLength 64
-   */
-  am: string;
-  grund: string | null;
-  /**
-   * @minLength 1
-   * @maxLength 128
-   */
-  nachricht_id: string;
-  rollen: FLKontaktRolle[];
-  stand: FLBewerbungZustellEreignis;
-  ziel: FLZustellungEreignisPayloadZiel;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  ziel_id: string;
-}
-
-/**
- * Whether the write reached the record; false where the report is about a message the record does not hold.
- *
- * False rather than a refusal: the provider repeats a settled event for hours if anything but a
- * success answers it.
- */
-export interface FLZustellungResponse {
-  angewendet: boolean;
 }
 
 /**

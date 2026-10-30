@@ -8,14 +8,12 @@ from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_o
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.schemas import (
     FLAnmeldungResponse,
-    FLGesperrtPayload,
-    FLGesperrtResponse,
     FLReferenzenPayload,
     FLReferenzenResponse,
     FLSubjektPayload,
     FLSubjektResponse,
 )
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
+from app.api.sperrliste.lookup import SperrlisteLookup, hash_gesperrt
 from app.core.config import API_VERSION
 from app.core.dependencies import AdresswechselCollection, BerechtigungenCollection
 from app.core.security import bind_system_actor, verify_access_system
@@ -94,33 +92,6 @@ async def get_anmeldung(
     )
 
     return FLAnmeldungResponse(**anmeldung.model_dump(), gesperrt=gesperrt, verwaltung=None if grant is None else grant[0])
-
-
-@router.post(
-    "/gesperrt",
-    response_model=FLGesperrtResponse,
-    summary="Say whether a ban stands on an address about to be mailed",
-)
-async def get_gesperrt(gesperrt_data: Annotated[FLGesperrtPayload, Body()], sperrliste: SperrlisteLookup) -> FLGesperrtResponse:
-    """
-    Answer whether a standing ban holds the one address the frontend's mailer is about to send to.
-
-    Stores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the address travels in the body, so no path or query carries it
-    into an access line.
-
-    The address is judged as a stored one is: every spelling that folds to the same mailbox -- its letters in any case, its domain in
-    Unicode or in punycode -- answers alike, and a ban holds only while the running season is within its bound, every ban holding
-    while no season runs. An address today's address rule refuses is answered `false` rather than refused, no ban being keyable
-    under it: the mailer sends to the addresses records hold, some of them stored under older rules.
-
-    The flag is the whole answer. No record the address holds and no part of the ban reaches the caller, which needs neither.
-    """
-
-    # The stored-address judgement rather than the payload's own key, which `get_subjekt` takes: an
-    # address no ban can key answers false here, where keying it would raise.
-    gesperrt = await adressen_gesperrt(sperrliste, [gesperrt_data.email])
-
-    return FLGesperrtResponse(gesperrt=bool(gesperrt))
 
 
 @router.post(

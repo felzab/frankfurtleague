@@ -797,68 +797,6 @@ export const BewerbungenGetTrikotfarbenParams = zod.object({
 });
 
 /**
- * Record what the mail provider reported about one message, on every seat that message was sent to.
- *
- * Applied only where the event names the message the seat still holds AND is stamped strictly later than the state
- * it holds: a re-send mints a new message, so the old one's bounce must not mark the fresh link, and a redelivery or
- * an event overtaken by a later one changes nothing. Both are answered with the seats written -- none, where nothing
- * qualified -- rather than with a refusal, because the provider retries anything but a success and would resend a
- * settled event for hours.
- *
- * 404 where no application has the id, which an application erased between the send and the event is: a caller that
- * must not retry maps it rather than repeating the call.
- * @summary Apply one delivery event to the seats its message was sent to
- */
-export const bewerbungenPostZustellungBodyAmMax = 64;
-
-export const bewerbungenPostZustellungBodyBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const bewerbungenPostZustellungBodyGrundOneMax = 128;
-
-export const bewerbungenPostZustellungBodyGrundOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
-export const bewerbungenPostZustellungBodyNachrichtIdMax = 128;
-
-export const BewerbungenPostZustellungBody = zod
-  .object({
-    am: zod.string().min(1).max(bewerbungenPostZustellungBodyAmMax),
-    bewerbung_id: zod.string().regex(bewerbungenPostZustellungBodyBewerbungIdRegExp),
-    grund: zod.union([
-      zod.string().max(bewerbungenPostZustellungBodyGrundOneMax).regex(bewerbungenPostZustellungBodyGrundOneRegExp),
-      zod.null(),
-    ]),
-    nachricht_id: zod.string().min(1).max(bewerbungenPostZustellungBodyNachrichtIdMax),
-    rollen: zod.array(zod.enum(["trainer", "ansprechperson", "stellvertretung"])),
-    stand: zod.enum(["zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]),
-  })
-  .describe("One delivery event about a message this application's seats were sent.");
-
-/**
- * Record that the mail provider accepted one message for the seats named, under the id it answered with.
- *
- * That id is the only join between a send and any later delivery event, so a seat carrying none is a seat every event
- * about it is discarded for. Accepting a request is not delivering it: what this records is that the provider took the
- * message, and `POST /bewerbungen/zustellung` is where the recipient's own mail server is heard from.
- *
- * Applied per seat and only where this send is newer than the ACCEPT the seat already holds, so a call retried after
- * a later one landed writes nothing; a delivery state the provider stamped never blocks it, that stamp being the
- * provider's clock rather than this sender's. A seat the application does not hold -- erased, or never mailed -- is
- * skipped rather than refused, and the answer names the seats that were written. 404 where no application has the id.
- * @summary Record the message the provider accepted for these seats
- */
-export const bewerbungenAngenommenZustellungBodyAmMax = 64;
-
-export const bewerbungenAngenommenZustellungBodyBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const bewerbungenAngenommenZustellungBodyNachrichtIdMax = 128;
-
-export const BewerbungenAngenommenZustellungBody = zod
-  .object({
-    am: zod.string().min(1).max(bewerbungenAngenommenZustellungBodyAmMax),
-    bewerbung_id: zod.string().regex(bewerbungenAngenommenZustellungBodyBewerbungIdRegExp),
-    nachricht_id: zod.string().min(1).max(bewerbungenAngenommenZustellungBodyNachrichtIdMax),
-    rollen: zod.array(zod.enum(["trainer", "ansprechperson", "stellvertretung"])),
-  })
-  .describe("One message the provider accepted. `stand` is not a key: this endpoint records `angenommen` and no other state.");
-
-/**
  * One application, its decision's administrator withheld as the list withholds it.
  *
  * `bestaetigungsfrist_abgelaufen` says whether its confirmation deadline has passed today.
@@ -1190,7 +1128,7 @@ export const IdentitaetEraseAufAnfrageBody = zod
  * address under another grant's id; and the address in every notice still queued, withheld. Written besides: the
  * notice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.
  * `verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the
- * address, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.
+ * address, judged as a stored address is; the erasure leaves a ban standing. Stores nothing.
  *
  * Refused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless
  * the administrator holds an owner's power (`REQ-PURGE-005`).
@@ -1205,30 +1143,6 @@ export const IdentitaetGetErasureAnsichtAufAnfrageBody = zod
     email: zod.string().max(identitaetGetErasureAnsichtAufAnfrageBodyEmailMax).regex(identitaetGetErasureAnsichtAufAnfrageBodyEmailRegExp),
   })
   .describe("The mailbox an erasure, its preview or a sign-out of every session is looked up by.");
-
-/**
- * Answer whether a standing ban holds the one address the frontend's mailer is about to send to.
- *
- * Stores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the address travels in the body, so no path or query carries it
- * into an access line.
- *
- * The address is judged as a stored one is: every spelling that folds to the same mailbox -- its letters in any case, its domain in
- * Unicode or in punycode -- answers alike, and a ban holds only while the running season is within its bound, every ban holding
- * while no season runs. An address today's address rule refuses is answered `false` rather than refused, no ban being keyable
- * under it: the mailer sends to the addresses records hold, some of them stored under older rules.
- *
- * The flag is the whole answer. No record the address holds and no part of the ban reaches the caller, which needs neither.
- * @summary Say whether a ban stands on an address about to be mailed
- */
-export const identitaetGetGesperrtBodyEmailMax = 254;
-
-export const identitaetGetGesperrtBodyEmailRegExp = new RegExp("@");
-
-export const IdentitaetGetGesperrtBody = zod
-  .object({
-    email: zod.string().max(identitaetGetGesperrtBodyEmailMax).regex(identitaetGetGesperrtBodyEmailRegExp),
-  })
-  .describe("The one address a message is about to go to.");
 
 /**
  * Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.
@@ -4444,109 +4358,3 @@ export const TeamsReplaceSaisonTeamBody = zod
     incoming_team_id: zod.string().regex(teamsReplaceSaisonTeamBodyIncomingTeamIdRegExp),
   })
   .describe("Which club takes this season's row over. The path names the club going OUT.");
-
-/**
- * Record what the mail provider reported about one message, on the record that message was sent about.
- *
- * Applied only where the event names the message the record still holds AND is stamped strictly later than the state it holds: a
- * re-send mints a new message, so the old one's bounce must not mark the fresh link, and a redelivery or an event overtaken by a
- * later one changes nothing. Both are answered with `angewendet: false` rather than with a refusal, because the provider retries
- * anything but a success and would resend a settled event for hours.
- *
- * 404 where no document of that kind has the id, which a record erased between the send and the event is: a caller that must not
- * retry maps it rather than repeating the call.
- *
- * A `kontakt` or `spielbestaetigung` record sits under each contact seat, so its report names in `rollen` every seat the one message
- * reached, each judged and written on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a
- * 422.
- * @summary Apply one delivery event to the record its message was sent about
- */
-export const zustellungPostZustellungBodyAmMax = 64;
-
-export const zustellungPostZustellungBodyGrundOneMax = 128;
-
-export const zustellungPostZustellungBodyGrundOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
-export const zustellungPostZustellungBodyNachrichtIdMax = 128;
-
-export const zustellungPostZustellungBodyZielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const ZustellungPostZustellungBody = zod
-  .object({
-    am: zod.string().min(1).max(zustellungPostZustellungBodyAmMax),
-    grund: zod.union([zod.string().max(zustellungPostZustellungBodyGrundOneMax).regex(zustellungPostZustellungBodyGrundOneRegExp), zod.null()]),
-    nachricht_id: zod.string().min(1).max(zustellungPostZustellungBodyNachrichtIdMax),
-    rollen: zod.array(zod.enum(["trainer", "ansprechperson", "stellvertretung"])),
-    stand: zod.enum(["zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]),
-    ziel: zod.enum(["schiedsrichter", "einladung", "registrierung", "kontakt", "adresswechsel", "spielbestaetigung"]),
-    ziel_id: zod.string().regex(zustellungPostZustellungBodyZielIdRegExp),
-  })
-  .describe("One delivery event about a message this record was sent.");
-
-/**
- * Record that the mail provider refused the send itself, so no message about this record exists.
- *
- * The send is where a refused address is learnt at all: nothing is minted, no delivery event ever follows, and a record left without
- * this state is one the reminder clocks chase and the deadline clocks erase as though the link had been read.
- *
- * Judged as an accepted send is, both stamps being this sender's: applied only where this refusal is newer than the ACCEPT the record
- * already holds, so a call retried after the re-send that repaired the address writes nothing, and a delivery state the provider
- * stamped never blocks it. A record whose document carries no delivery bookkeeping at all is skipped rather than refused. 404 where no
- * document of that kind has the id.
- *
- * A `kontakt` or `spielbestaetigung` record sits under each contact seat, so its report names in `rollen` every seat the one message
- * reached, each judged and written on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a
- * 422.
- * @summary Record the send the provider refused for this record
- */
-export const zustellungAbgewiesenZustellungBodyAmMax = 64;
-
-export const zustellungAbgewiesenZustellungBodyGrundOneMax = 128;
-
-export const zustellungAbgewiesenZustellungBodyGrundOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
-export const zustellungAbgewiesenZustellungBodyZielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const ZustellungAbgewiesenZustellungBody = zod
-  .object({
-    am: zod.string().min(1).max(zustellungAbgewiesenZustellungBodyAmMax),
-    grund: zod.union([
-      zod.string().max(zustellungAbgewiesenZustellungBodyGrundOneMax).regex(zustellungAbgewiesenZustellungBodyGrundOneRegExp),
-      zod.null(),
-    ]),
-    rollen: zod.array(zod.enum(["trainer", "ansprechperson", "stellvertretung"])),
-    ziel: zod.enum(["schiedsrichter", "einladung", "registrierung", "kontakt", "adresswechsel", "spielbestaetigung"]),
-    ziel_id: zod.string().regex(zustellungAbgewiesenZustellungBodyZielIdRegExp),
-  })
-  .describe("A send the provider refused outright. No `nachricht_id`: nothing was minted, so there is no message for a later event to join.");
-
-/**
- * Record that the mail provider accepted one message about the record named, under the id it answered with.
- *
- * That id is the only join between a send and any later delivery event, so a record carrying none is a record every event about it
- * is discarded for. Accepting a request is not delivering it: what this records is that the provider took the message, and
- * `POST /zustellung` is where the recipient's own mail server is heard from.
- *
- * Applied only where this send is newer than the ACCEPT the record already holds, so a call retried after a later one landed
- * writes nothing, and the answer says whether anything was written; a delivery state the provider stamped never blocks it, that
- * stamp being the provider's clock rather than this sender's. A record whose document carries no delivery bookkeeping at all --
- * never mailed, or emptied by an erasure -- is skipped rather than refused. 404 where no document of that kind has the id.
- *
- * A `kontakt` or `spielbestaetigung` record sits under each contact seat, so its report names in `rollen` every seat the one message
- * reached, each judged and written on its own, and `angewendet` is true where any was; every other kind names none, a mismatch being a
- * 422.
- * @summary Record the message the provider accepted for this record
- */
-export const zustellungAngenommenZustellungBodyAmMax = 64;
-
-export const zustellungAngenommenZustellungBodyNachrichtIdMax = 128;
-
-export const zustellungAngenommenZustellungBodyZielIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-
-export const ZustellungAngenommenZustellungBody = zod
-  .object({
-    am: zod.string().min(1).max(zustellungAngenommenZustellungBodyAmMax),
-    nachricht_id: zod.string().min(1).max(zustellungAngenommenZustellungBodyNachrichtIdMax),
-    rollen: zod.array(zod.enum(["trainer", "ansprechperson", "stellvertretung"])),
-    ziel: zod.enum(["schiedsrichter", "einladung", "registrierung", "kontakt", "adresswechsel", "spielbestaetigung"]),
-    ziel_id: zod.string().regex(zustellungAngenommenZustellungBodyZielIdRegExp),
-  })
-  .describe("One message the provider accepted for this record. `stand` is not a key: this endpoint records `angenommen` and no other state.");

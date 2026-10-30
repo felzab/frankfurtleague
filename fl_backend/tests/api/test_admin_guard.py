@@ -108,17 +108,11 @@ SYSTEM_WRITES = [
     ("/api/v0/bewerbungen/sweep/{saison_id}", "post"),
     ("/api/v0/registrierungen/sweep/{saison_id}", "post"),
     ("/api/v0/spielbestaetigungen/sweep/{saison_id}", "post"),
-    ("/api/v0/bewerbungen/zustellung", "post"),
-    ("/api/v0/bewerbungen/zustellung/angenommen", "post"),
-    ("/api/v0/zustellung", "post"),
-    ("/api/v0/zustellung/angenommen", "post"),
-    ("/api/v0/zustellung/abgewiesen", "post"),
     # A POST that stores nothing, listed for `ADMIN_READS`' erasure reveal's reason: the address
     # travels in a body, so `MUTATIONS` covers it, and this exemption leaves its one guard the
     # system tier's.
     ("/api/v0/identitaet/subjekt", "post"),
     ("/api/v0/identitaet/anmeldung", "post"),
-    ("/api/v0/identitaet/gesperrt", "post"),
     ("/api/v0/identitaet/referenzen", "post"),
     # The grants' comparison: the hourly pass holds no session, and a change made in the database directly has no
     # administrator to attribute it to.

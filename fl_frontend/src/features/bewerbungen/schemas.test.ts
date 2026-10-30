@@ -12,15 +12,7 @@ import {
   BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
   SCHULE_NICHT_IN_LISTE,
 } from "./constants.ts";
-import {
-  FLBewerbungEinwilligungAntwortPayloadSchema,
-  FLBewerbungKontaktEmailPayloadSchema,
-  FLBewerbungZustellungEreignisPayloadSchema,
-  FLPostBewerbungPayloadSchema,
-  ZUSTELLUNG_GRUND_MAX_LENGTH,
-  ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH,
-  ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH,
-} from "./schemas.ts";
+import { FLBewerbungEinwilligungAntwortPayloadSchema, FLBewerbungKontaktEmailPayloadSchema, FLPostBewerbungPayloadSchema } from "./schemas.ts";
 import { bewerbungPayload, buildEmptyBewerbungDraft } from "./utils.ts";
 
 import type { BewerbungFormDraft, BewerbungKontaktpersonDraft, BewerbungSchuleDraft } from "./types.ts";
@@ -692,53 +684,6 @@ describe("the one field of a submitted application an administrator may move", (
     expect(gleicheAdresse("erika@müller.de", "Erika@xn--mller-kva.de")).toBe(true);
     expect(gleicheAdresse(`${String.fromCharCode(0xff45)}rika@schule.de`, "erika@schule.de")).toBe(false);
     expect(gleicheAdresse("erika@straße.de", "erika@strasse.de")).toBe(false);
-  });
-});
-
-describe("what the delivery event may put on the wire", () => {
-  const MESSAGE_FOR = {
-    bewerbung_id: "6890a1b2c3d4e5f607190001",
-    rollen: ["ansprechperson"],
-    nachricht_id: "b7f1c2d3-4e5a-6b7c-8d9e-0f1234567890",
-    am: "2026-03-15T09:30:00.000Z",
-  };
-
-  const ereignis = (overrides: Record<string, unknown>) =>
-    FLBewerbungZustellungEreignisPayloadSchema.safeParse({ ...MESSAGE_FOR, stand: "zugestellt", grund: null, ...overrides });
-
-  /* First, because every case below asserts a refusal: over an envelope already refused each of them
-     would pass on a shape it never named. */
-  it("takes the envelope the webhook composes", () => {
-    expect(ereignis({}).success).toBe(true);
-  });
-
-  /* Past the ceiling the endpoint answers 422, and the route answers the provider 200 so it stops
-     resending: the event would be lost without a word. */
-  it("refuses a message id past the endpoint's ceiling, and takes one at it", () => {
-    expect(ereignis({ nachricht_id: "a".repeat(ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH) }).success).toBe(true);
-    expect(ereignis({ nachricht_id: "a".repeat(ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH + 1) }).success).toBe(false);
-  });
-
-  /* The LENGTH alone, which is what the endpoint states at this field; whether the value is an
-     instant at all is screened before the payload is composed. */
-  it("refuses an instant past the endpoint's ceiling, and takes one at it", () => {
-    expect(ereignis({ am: "2".repeat(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH) }).success).toBe(true);
-    expect(ereignis({ am: "2".repeat(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH + 1) }).success).toBe(false);
-  });
-
-  /* `strip_whitespace=True` runs ahead of the endpoint's own floor, so spaces alone is an empty
-     value there while a ceiling without the trim would send it. */
-  it("refuses a message id of whitespace alone", () => {
-    expect(ereignis({ nachricht_id: "   " }).success).toBe(false);
-    expect(ereignis({ am: "   " }).success).toBe(false);
-  });
-
-  /* No floor on this one, unlike the message id and the instant: the endpoint bounds the reason's length and takes an
-     empty one, a bounce being a fact about the mailbox with or without the provider's token. */
-  it("bounds the reason and still takes an empty one", () => {
-    expect(ereignis({ grund: "" }).success).toBe(true);
-    expect(ereignis({ grund: "b".repeat(ZUSTELLUNG_GRUND_MAX_LENGTH) }).success).toBe(true);
-    expect(ereignis({ grund: "b".repeat(ZUSTELLUNG_GRUND_MAX_LENGTH + 1) }).success).toBe(false);
   });
 });
 

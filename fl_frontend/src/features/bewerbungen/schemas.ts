@@ -26,7 +26,6 @@ import {
   einzeiligerName,
   ExternalUrlSchema,
   FLAddressPayloadSchema,
-  FLBewerbungZustellstandSchema,
   KontaktEmailSchema,
   PersonNameSchema,
   PHONE_REGEX,
@@ -384,39 +383,4 @@ export const FLBewerbungKontaktSitzPayloadSchema = z.object({
   // The label alone and no `erteilt`: it says which wording the new person will be shown, and their
   // own link is what asks them to answer it.
   text_version: FLBewerbungEinwilligungPayloadSchema.shape.text_version,
-});
-
-/**
- * The ceilings the two delivery writes state at their shared base. Retyped here rather
- * than left off: both endpoints answer 422 past one, and no caller of either retries.
- */
-export const ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH = 128;
-export const ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH = 64;
-export const ZUSTELLUNG_GRUND_MAX_LENGTH = 128;
-
-/** One event the provider sent about a message already recorded, as the webhook composes it. */
-export const FLBewerbungZustellungEreignisPayloadSchema = z.object({
-  bewerbung_id: CustomObjectIdStringSchema,
-  // Plural because one message answers a mirrored pair, and both seats' links stand or fall with it.
-  rollen: z.array(FLKontaktRolleSchema).min(1),
-  // `.trim()` ahead of the floor, as `strip_whitespace=True` puts it there: a value of spaces alone
-  // is what the endpoint refuses and a bare `min(1)` would send.
-  nachricht_id: z
-    .string()
-    .trim()
-    // German though no reader meets one: this server composes the write, and a refusal reaches the
-    // log rather than a box.
-    .min(1, { error: "Diese Meldung nennt keine Nachricht." })
-    .max(ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH, { error: "Diese Nachrichten-ID ist zu lang." }),
-  am: z
-    .string()
-    .trim()
-    .min(1, { error: "Diese Meldung nennt keinen Zeitpunkt." })
-    .max(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH, { error: "Dieser Zeitpunkt ist zu lang." }),
-  // Without `angenommen`, which the acceptance endpoint alone writes: a webhook composing one would
-  // be refused 422 and retried for thirty-two hours over a state no event of the provider's carries.
-  stand: FLBewerbungZustellstandSchema,
-  // No floor beside the ceiling, unlike the two above: the endpoint takes an empty reason and a
-  // `null` alike, so a message whose bounce carries no token is still a state about the mailbox.
-  grund: einzeiligerName(z.string().trim().max(ZUSTELLUNG_GRUND_MAX_LENGTH, { error: "Dieser Grund ist zu lang." }), "Der Grund").nullable(),
 });

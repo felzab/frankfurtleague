@@ -6,6 +6,7 @@ from app.api.sperrliste.services import (
     SPERRLISTE_SCHLUESSEL_VERSION,
     adresse_hash,
     find_sperrliste_refusal,
+    stored_adresse_hash,
 )
 from app.core.codes import Code
 from app.shared.schemas.kontakt import CustomEmail
@@ -41,6 +42,12 @@ class TestTheStoredFormOfAnAddress:
         """The control: a fold wide enough to collapse two people would pass every case above."""
 
         assert adresse_hash("anna.mueller@muellerschule.de", schluessel=KEY) != adresse_hash(ADDRESS, schluessel=KEY)
+
+    def test_a_stored_address_no_ban_can_key_is_barred_by_none_rather_than_refused(self):
+        """The Postausgang's hand-out judges every address it holds in one read: one stored address raising would stop every mail."""
+
+        assert stored_adresse_hash("jürgen@schule.de", schluessel=KEY) is None
+        assert stored_adresse_hash(ADDRESS, schluessel=KEY) == adresse_hash(ADDRESS, schluessel=KEY)
 
     def test_one_address_hashes_differently_under_two_keys(self):
         """What the keying buys, and the reason the key can never be rotated: every stored row was taken under the one in force."""

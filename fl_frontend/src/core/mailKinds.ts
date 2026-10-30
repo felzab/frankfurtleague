@@ -82,8 +82,12 @@ function gemintet({ token, origin }: Ausgabe): MailLink {
   return { token: token, origin: origin };
 }
 
-/** Each kind's builder, which renders through the shell (`fl_frontend/src/core/emailShell.ts :: renderMail`). */
-const MAIL_KINDS: { [A in PostausgangArt]?: MailBuilder<A> } = {
+/**
+ * Each kind's builder, which renders through the shell (`fl_frontend/src/core/emailShell.ts :: renderMail`). Total over
+ * the backend's kinds: the annotation refuses a kind left out and, the value being an object literal, one the union
+ * does not name.
+ */
+const MAIL_KINDS: { [A in PostausgangArt]: MailBuilder<A> } = {
   anmeldecode: (_daten, { geheim, origin }) => buildCodeEmail(geheimDerArt(geheim), origin),
   passkey_hinzugefuegt: ({ zeitpunkt, konto }, { origin }) =>
     buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date(zeitpunkt), origin: origin, konto: konto }),
@@ -127,9 +131,10 @@ function geheimDerArt(geheim: string | null): string {
 }
 
 /**
- * The mail one hand-out owes, or `undefined` where its kind has no builder. Indexed by the kind itself, so the builder
- * found takes exactly that kind's facts (TypeScript's correlated-union pattern, microsoft/TypeScript#47109).
+ * The mail one hand-out owes, or `undefined` where its kind has no builder: the generated client parses no answer, so a
+ * backend deployed ahead of this build can hand out a kind this map does not hold. Indexed by the kind itself, so the
+ * builder found takes exactly that kind's facts (TypeScript's correlated-union pattern, microsoft/TypeScript#47109).
  */
 export function mailFor<A extends PostausgangArt>(art: A, daten: DatenJeArt[A], ausgabe: Ausgabe): Mail | undefined {
-  return MAIL_KINDS[art]?.(daten, ausgabe);
+  return Object.hasOwn(MAIL_KINDS, art) ? MAIL_KINDS[art](daten, ausgabe) : undefined;
 }

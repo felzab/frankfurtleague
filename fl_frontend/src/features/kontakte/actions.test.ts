@@ -2,7 +2,7 @@ import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
 import { einwilligungAnswer, laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
-import { doubleSendMail } from "@/test-support/mailDouble.ts";
+import { doublePostausgang } from "@/test-support/mailDouble.ts";
 import { membershipAnswer } from "@/test-support/membershipFixtures.ts";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -12,7 +12,7 @@ import type { ApiCall } from "@/test-support/apiClientDouble.ts";
    The mailer's double also stills the drain behind the response, which the backend's Postausgang feeds: a write owing
    a link sends nothing itself. */
 const { setFresh } = doubleActionRequest();
-const mail = doubleSendMail();
+const mail = doublePostausgang();
 
 /** The label the backend runs on the application form, off the registry it generated. */
 const FORM_LABEL = laufendeFassung("bewerbung").text_version;
