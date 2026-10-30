@@ -8,6 +8,15 @@ import {
 } from "./adresswechselEmail";
 import { buildCodeEmail } from "./authEmail";
 import { buildBerechtigungEmail } from "./berechtigungEmail";
+import {
+  buildBewerbungAbsageEmail,
+  buildBewerbungBestaetigungEmail,
+  buildBewerbungEingangEmail,
+  buildBewerbungErinnerungEmail,
+  buildBewerbungGeloeschtEmail,
+  buildBewerbungWiderspruchEmail,
+  buildBewerbungZusageEmail,
+} from "./bewerbungEmail";
 import { buildEinladungEmail } from "./einladungEmail";
 import { ContractBreakError } from "./errors";
 import { buildKontaktBestaetigungEmail } from "./kontaktEmail";
@@ -101,6 +110,13 @@ const MAIL_KINDS: { [A in PostausgangArt]?: MailBuilder<A> } = {
   adresswechsel_hinweis: (daten, ausgabe) => buildAdresswechselHinweisEmail(daten, gemintet(ausgabe)),
   adresswechsel_wirksam: buildAdresswechselWirksamEmail,
   adresswechsel_verworfen: buildAdresswechselNichtWirksamEmail,
+  bewerbung_eingang: (daten, ausgabe) => buildBewerbungEingangEmail(daten, gemintet(ausgabe)),
+  bewerbung_bestaetigung: (daten, ausgabe) => buildBewerbungBestaetigungEmail(daten, gemintet(ausgabe)),
+  bewerbung_erinnerung: (daten, ausgabe) => buildBewerbungErinnerungEmail(daten, gemintet(ausgabe)),
+  bewerbung_zusage: buildBewerbungZusageEmail,
+  bewerbung_absage: buildBewerbungAbsageEmail,
+  bewerbung_loeschung: buildBewerbungGeloeschtEmail,
+  bewerbung_widerspruch: buildBewerbungWiderspruchEmail,
 };
 
 /** A secret kind's secret, which its every row carries (`fl_frontend/src/core/auth.ts :: oweSignInMail`). */

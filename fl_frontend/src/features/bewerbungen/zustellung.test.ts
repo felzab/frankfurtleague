@@ -3,7 +3,7 @@ import { inspect } from "node:util";
 
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Code, FLBewerbungZustellungStand } from "@/core/generated/client/types.ts";
+import type { Code } from "@/core/generated/client/types.ts";
 
 /**
  * Its own throwaway, minted per run and never a real one: this file signs the fixtures it verifies,
@@ -61,15 +61,7 @@ vi.doMock("@/features/bewerbungen/mutations.ts", () => MUTATIONS_DOUBLE);
 vi.doMock("@/features/zustellung/mutations.ts", () => ZIEL_MUTATIONS_DOUBLE);
 vi.doMock("@/shared/utils/traceScope.ts", () => TRACE_DOUBLE);
 
-const {
-  hatUnerreichbarenSitz,
-  istDauerhaftUnzustellbar,
-  leseZustellEreignis,
-  ZUSTELLUNG_CHIP,
-  ZUSTELLUNG_QUEUE_LABEL,
-  ZUSTELLUNG_QUEUE_TINT,
-  zustellungTags,
-} = await import("./zustellung.ts");
+const { leseZustellEreignis } = await import("./zustellung.ts");
 const { APIBadStatusError, APINetworkError } = await import("@/core/errors.ts");
 const { refused } = await import("@/test-support/refusals.ts");
 const { POST } = await import("@/app/api/mail/zustellung/route.ts");
@@ -168,7 +160,6 @@ describe("what one delivery event says about a seat", () => {
     const provisional = bewerbungsMeldung(eventFor("email.bounced", { bounce: { type: "Temporary", subType: "MailboxFull" } }));
 
     expect(provisional?.stand).toBe("verzoegert");
-    expect(istDauerhaftUnzustellbar(provisional === undefined ? null : { stand: provisional.stand })).toBe(false);
   });
 
   /* The reason the provider documents for this event is the league's own daily quota, which says
@@ -176,7 +167,7 @@ describe("what one delivery event says about a seat", () => {
   it("does not read a failed send as an address that refuses", () => {
     const failedSend = bewerbungsMeldung(eventFor("email.failed", { failed: { reason: "reached_daily_quota" } }));
 
-    expect(istDauerhaftUnzustellbar(failedSend === undefined ? null : { stand: failedSend.stand })).toBe(false);
+    expect(failedSend?.stand).toBe("verzoegert");
     expect(failedSend?.grund).toBe("reached_daily_quota");
   });
 
@@ -368,91 +359,6 @@ describe("which record one event names", () => {
     );
 
     expect(gelesen?.ziel).toBe("schiedsrichter");
-  });
-});
-
-describe("the tags one message rides out with", () => {
-  const delivery = { bewerbungId: BEWERBUNG_ID, rollen: ["ansprechperson", "trainer"] as const, anlass: "erinnerung" as const };
-
-  /* The provider refuses a tag outside this alphabet with a 422, which reaches the fan-out as a
-     message nobody got and no state anywhere. */
-  it("keeps every name and value inside the alphabet the provider admits", () => {
-    for (const [name, value] of Object.entries(zustellungTags(delivery))) {
-      expect(name, `the tag name ${name} is outside the provider's alphabet`).toMatch(/^[A-Za-z0-9_-]+$/);
-      expect(value, `the value of ${name} is outside the provider's alphabet`).toMatch(/^[A-Za-z0-9_-]+$/);
-    }
-  });
-
-  it("routes an event back by application and seat rather than by the message alone", () => {
-    expect(zustellungTags(delivery)).toStrictEqual({ bewerbung_id: BEWERBUNG_ID, rollen: "ansprechperson-trainer", anlass: "erinnerung" });
-  });
-});
-
-describe("an application holding a seat no message reaches", () => {
-  const trail = (stand: FLBewerbungZustellungStand | null) => ({
-    verschickt_am: "2026-09-01",
-    erinnert_am: null,
-    abgelehnt_am: null,
-    zustellung: stand === null ? null : { nachricht_id: MESSAGE_ID, stand: stand, grund: null, am: EVENT_AT },
-  });
-
-  it("is marked for any of the three states no further message beats", () => {
-    for (const stand of ["unzustellbar", "unterdrueckt", "beschwerde"] as const) {
-      expect(
-        hatUnerreichbarenSitz({ bestaetigungen: { ansprechperson: trail(stand), stellvertretung: null, trainer: null } }),
-        `${stand} left the row unmarked`,
-      ).toBe(true);
-    }
-  });
-
-  it("is not marked while the trouble can still clear, or before anything is known", () => {
-    for (const stand of ["angenommen", "zugestellt", "verzoegert", null] as const) {
-      expect(
-        hatUnerreichbarenSitz({ bestaetigungen: { ansprechperson: trail(stand), stellvertretung: null, trainer: null } }),
-        `${String(stand)} marked the row`,
-      ).toBe(false);
-    }
-  });
-
-  /* `danger` where the duplicate mark is `warning`: a colliding pair is waited out and an address
-     refused for good is not. Never grey (`fl_frontend/src/shared/components/ui/badges.ts :: PillTone`). */
-  it("is marked in the queue's own words, at a tone a reader can act on", () => {
-    expect(ZUSTELLUNG_QUEUE_TINT).toBe("danger");
-    expect(ZUSTELLUNG_QUEUE_LABEL).toBe("Kontakt unerreichbar");
-  });
-});
-
-describe("what a seat's row says about the last message to it", () => {
-  /* An accepted send and a delivery are the ordinary course, and a chip for them would grade every
-     row on the page. Every other state has one, or a refusal renders as nothing at all. */
-  it("shows a chip for every state but the two that are the ordinary course", () => {
-    const withoutChip = Object.entries(ZUSTELLUNG_CHIP)
-      .filter(([, chip]) => chip === null)
-      .map(([stand]) => stand);
-
-    expect(withoutChip).toStrictEqual(["angenommen", "zugestellt"]);
-    expect(Object.values(ZUSTELLUNG_CHIP).filter((chip) => chip !== null).length).toBe(4);
-  });
-
-  /* The ban list's verb names an act on an address; this chip names a message the provider refused,
-     so an administrator meeting „gesperrt“ here would look the address up in a Sperrliste that
-     never held it. */
-  it("names the provider's suppression as the message's fate rather than in the ban list's verb", () => {
-    expect(ZUSTELLUNG_CHIP.unterdrueckt?.label).toBe("Zustellung blockiert");
-
-    for (const chip of Object.values(ZUSTELLUNG_CHIP)) {
-      expect(chip?.label ?? "", `a chip wears the ban list's verb: ${chip?.label ?? ""}`).not.toMatch(/gesperrt/i);
-    }
-  });
-
-  /* One label for the temporary bounce and the failed send both, because neither is the address
-     refusing for good and the administrator can act on neither differently. */
-  it("grades the trouble that can still clear apart from the three that cannot", () => {
-    expect(ZUSTELLUNG_CHIP.verzoegert?.tone).toBe("warning");
-
-    for (const stand of ["unzustellbar", "unterdrueckt", "beschwerde"] as const) {
-      expect(ZUSTELLUNG_CHIP[stand]?.tone, `${stand} is graded as trouble that clears`).toBe("danger");
-    }
   });
 });
 

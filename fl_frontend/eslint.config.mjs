@@ -283,16 +283,11 @@ const BACKGROUND_PASSES = [
     runners: ["src/instrumentation-node.ts", "src/core/afterResponse.ts"],
   },
   {
-    operations: [
-      "bewerbungen_get_sweep_saisons",
-      "bewerbungen_sweep_saison",
-      "bewerbungen_angekuendigt_bewerbungen",
-      "bewerbungen_loeschen_bewerbungen",
-    ],
+    operations: ["bewerbungen_get_sweep_saisons", "bewerbungen_sweep_saison"],
     wrapper: {
       file: "src/features/bewerbungen/mutations.ts",
       regex: moduleNamed("mutations"),
-      names: ["getBewerbungSweepSaisons", "postBewerbungSweep", "postBewerbungSweepAngekuendigt", "postBewerbungSweepLoeschen"],
+      names: ["getBewerbungSweepSaisons", "postBewerbungSweep"],
     },
     runners: ["src/features/bewerbungen/sweep.ts"],
   },

@@ -1,9 +1,9 @@
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import { istDauerhaftUnzustellbar } from "./zustellung";
+import { istUnzustellbar } from "./zustellLage";
 
-import type { FLBewerbung, FLBewerbungZustellung } from "@/core/generated/client/types";
+import type { FLBewerbung, FLPostausgangLage } from "@/core/generated/client/types";
 import type { KontaktRolle } from "@/features/teams/constants";
 
 /** Narrowed to the two blocks a confirmation moves, so a caller holding a queue row rather than a whole application still reads its seats. */
@@ -33,10 +33,10 @@ export type SitzBestaetigung = {
   zugleichTrainer: boolean;
   stand: Stand;
   /**
-   * What became of the last message to this seat, `null` while nothing is known. **Beside `stand`
-   * and never inside it**: a seat can be `bestaetigt` and have had an earlier link bounce.
+   * What became of the last mail owed this seat, `null` where none was. **Beside `stand` and never inside it**: a seat
+   * can be `bestaetigt` and have had an earlier link bounce.
    */
-  zustellung: FLBewerbungZustellung | null;
+  zustellung: FLPostausgangLage | null;
   /** Rendered here rather than by each surface: the strip and the fact panel say one thing about one seat. */
   satz: string;
 };
@@ -244,9 +244,10 @@ export function loeschungsSatz({
   if (!eingereicht || !staende.some(istOffen)) return null;
 
   const tag = formatSpielDatum(frist);
-  // `announcement_is_undeliverable`: the sweep holds an application whose notice the provider would
-  // refuse, so a promised deletion is false for exactly the row an administrator can still repair.
-  const gehalten = istDauerhaftUnzustellbar(staende.find((sitz) => sitz.rolle === "ansprechperson")?.zustellung ?? null);
+  // The fourteen-day clock's hold (`fl_backend/app/api/bewerbungen/sweep_router.py :: erase_the_unconfirmed`): an
+  // application whose submitter's last mail did not arrive stands, so a promised deletion is false for exactly the row
+  // an administrator can still repair.
+  const gehalten = istUnzustellbar(staende.find((sitz) => sitz.rolle === "ansprechperson")?.zustellung ?? null);
 
   // The deadline's own day still reads as ahead: the link answers on it, and the sweep deletes the day after.
   if (!istAbgelaufen) {

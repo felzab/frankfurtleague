@@ -1,4 +1,4 @@
-import type { FLPostausgangLage, FLPostausgangLageStand, FLPostausgangZustellungStand } from "@/core/generated/client/types";
+import type { FLBewerbung, FLPostausgangLage, FLPostausgangLageStand, FLPostausgangZustellungStand } from "@/core/generated/client/types";
 
 /** The two grades a delivery is reported in: trouble that may clear, and trouble that will not. */
 type Chip = { readonly label: string; readonly tone: "warning" | "danger" };
@@ -55,4 +55,16 @@ export function istUnzustellbar(lage: FLPostausgangLage | null): boolean {
 
   const stand = lage.zustellung?.stand;
   return stand === "unzustellbar" || stand === "unterdrueckt" || stand === "beschwerde";
+}
+
+/** What the triage queue marks a row on. `danger` and never the duplicate mark's `warning`: this one cannot be waited out. */
+export const ZUSTELLUNG_QUEUE_LABEL = "Kontakt unerreichbar";
+export const ZUSTELLUNG_QUEUE_TINT = "danger";
+
+/**
+ * Whether any seat of this application holds an address no mail reaches. The queue reads it so an administrator meets
+ * the fact where their eye already is, rather than on a page they never open.
+ */
+export function hatUnerreichbarenSitz({ bestaetigungen }: Pick<FLBewerbung, "bestaetigungen">): boolean {
+  return Object.values(bestaetigungen).some((verlauf) => istUnzustellbar(verlauf?.zustellung ?? null));
 }

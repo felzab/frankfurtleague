@@ -14,17 +14,6 @@ export const KEINE_TEAMS = "Diese Saison hat noch kein Team aufgenommen.";
 export const ZURUECKGEHALTEN = "Diese Umgebung sendet keine E-Mails. Die Nachricht wurde nur abgelegt.";
 
 /**
- * What an administrator is told of the addresses the ban list kept a send of theirs from: a count and
- * never an address, beside whatever did go. One sentence per count,
- * for `versandSatz`'s reason.
- */
-export function gesperrtSatz(gesperrt: number): string {
-  return gesperrt === 1
-    ? "An eine Adresse ging nichts, weil sie auf der Sperrliste steht."
-    : `An ${String(gesperrt)} Adressen ging nichts, weil sie auf der Sperrliste stehen.`;
-}
-
-/**
  * Counted over the `gemeint` teams the press meant to write to: one the rule passed over is no shortfall. A team
  * alone gets its own sentence, saying the team's side under a title naming the link's.
  */

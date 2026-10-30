@@ -11,14 +11,11 @@ from app.api.bewerbungen.schemas import FLBewerbungSweepResponse, FLBewerbungSwe
 from app.api.bewerbungen.services import (
     SWEEP_PAGE,
     acceptance_erasure_is_due,
-    ansprechperson_mailbox,
-    bewerbung_bezug,
     build_deletion_filter,
     build_erinnerung_filter,
     compose_erinnerung_update,
     decline_erasure_is_due,
     deletion_is_due,
-    lage_unzustellbar,
     latest_decision_due,
     next_saison_id,
     owed_link,
@@ -29,6 +26,7 @@ from app.api.bewerbungen.services import (
     season_after_has_ended,
     season_has_ended,
     undecided_erasure_is_due,
+    unerreichbare_seats,
 )
 from app.api.kontakte.services import contact_block_image_edits
 from app.api.postausgang.crud import lagen_of
@@ -65,13 +63,12 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Both shares at three commands a row beside the worst call's other commands, `tests/api/test_bewerbung_sweep_refusal.py
-# :: SWEEP_OTHER_COMMANDS`: the sum at 36 ms plus 1.38 ms a command stays inside
-# `app/core/middlewares.py :: REQUEST_DEADLINE_S`, which that file's budget case holds.
-REMINDERS_PER_PASS: Final = 39
+# Both shares at three commands a row beside the worst call's other 88: 265 commands at 36 ms plus 1.38 ms take 9.91 s
+# of `app/core/middlewares.py :: REQUEST_DEADLINE_S`. 37 would make 268, 10.02 s.
+REMINDERS_PER_PASS: Final = 36
 
-# The largest share inside the deadline beside the reminders', which owe a deadline a block's deletion does not.
-# A season at capacity takes more passes.
+# The largest share inside the deadline beside the reminders', which owe a deadline a block's deletion does not: 24
+# would make 268 commands, 10.02 s. A season at capacity takes more passes.
 BLOCKS_CLEARED_PER_PASS: Final = 23
 
 
@@ -229,11 +226,19 @@ async def sweep_saison(
                 session=session,
             )
         )
+        # Each seat's last mail, read in the same transaction: a seat whose mail did not arrive is not chased.
+        lagen = await lagen_of(
+            postausgang_collection=postausgang_collection, sammlung=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
+        )
         # One mail a person: an address is one person, whose one link answers every seat they hold.
         personen_of = {
             row["_id"]: personen
             for row, personen in batch.judged(
-                rows, lambda row: personen_mit_adresse(kontakte=row.get("kontakte"), seats=reminder_seats(bewerbung_raw=row, today=today))
+                rows,
+                lambda row: personen_mit_adresse(
+                    kontakte=row.get("kontakte"),
+                    seats=reminder_seats(bewerbung_raw=row, today=today, unerreichbar=unerreichbare_seats(row=row, lagen=lagen)),
+                ),
             )
             if personen
         }
@@ -304,8 +309,7 @@ async def sweep_saison(
         )
 
         def due(row: Mapping[str, Any]) -> bool:
-            _, rollen = ansprechperson_mailbox(kontakte=row.get("kontakte"))
-            unzustellbar = bool(rollen) and lage_unzustellbar(lagen.get((row["_id"], bewerbung_bezug(row["_id"], rollen).sitz)))
+            unzustellbar = "ansprechperson" in unerreichbare_seats(row=row, lagen=lagen)
             return deletion_is_due(bewerbung_raw=row, today=today, unzustellbar=unzustellbar)
 
         # Each notice built before anything is written, so a row whose stored data refuses one is passed over whole.

@@ -1,9 +1,22 @@
 import "server-only";
 
 import { BRAND_NAME, mailOrigin } from "./emailShell";
-import { formatAufzaehlung } from "./format";
+import { formatAufzaehlung, formatDatum } from "./format";
+import { kontaktBestaetigungsLink } from "./kontaktLink";
+import { KONTAKT_ROLLE_LANGFORM, rollenText, TRIKOT_FARBEN } from "./teamVokabular";
 
-import type { Absatz, Fakt, Mail } from "./emailShell";
+import type { Absatz, Mail } from "./emailShell";
+import type { Kalendertag } from "./format";
+import type {
+  FLBewerbungAbsageDaten,
+  FLBewerbungEingangDaten,
+  FLBewerbungLinkDaten,
+  FLBewerbungLoeschungDaten,
+  FLBewerbungPerson,
+  FLBewerbungWiderspruchDaten,
+  FLBewerbungZusageDaten,
+} from "./generated/client/types";
+import type { MailLink, MailOrt } from "./mailKinds";
 
 /**
  * Future tense because it has to be: a club is entered only while its season is `future`
@@ -55,304 +68,197 @@ const neuBewerbenAktion = (origin: string, saisonId: string) => ({
   href: `${origin}/bewerbung/${encodeURIComponent(saisonId)}`,
 });
 
-/**
- * What an accepted application is told. `gruppe`, `trikotFarbeLabel`, `trikotFarbeHex` and `rollenText` arrive rendered
- * because their vocabularies live in `fl_frontend/src/features/`, which `core` may not import
- * (`eslint.config.mjs :: LAYER_BOUNDARY`).
- */
-export interface BewerbungZusageData {
-  teamName: string;
-  saisonId: string;
-  origin: string;
-  /** The seats THIS reader holds, already one German phrase: one person can hold two, and gets one message naming both. */
-  rollenText: string;
-  gruppe: string;
-  /** Absent while no kit colour has been assigned; the message then states that rather than guessing one. */
-  trikotFarbeLabel: string | null;
-  /**
-   * That colour's hex from the league's colour sheet (`fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS`),
-   * `null` with the label: the name alone leaves neighbours such as Grün and Smaragd for a supplier to guess between.
-   */
-  trikotFarbeHex: string | null;
-  /**
-   * `null` where the school named none, and the message then says nothing: a draw that has not run can promise nothing.
-   * Required: an optional key a call site leaves out compiles, and mails the message without its sentence.
-   */
-  wunschgegner: string | null;
+/** A deadline as the mails state it; the backend sends the day, and the one German spelling of it is here. */
+const fristText = (frist: string): string => formatDatum(frist as Kalendertag);
+
+/** What a mail calls a seat whose person is gone — declined or erased, and outstanding either way. */
+const SEAT_OHNE_NAMEN = "Ohne Namen";
+
+/** „{vorname} ({Rollen})“, which is how every mail naming somebody else's seats names them. */
+function personName({ vorname, rollen }: FLBewerbungPerson): string {
+  return `${vorname ?? SEAT_OHNE_NAMEN} (${rollenText(rollen)})`;
 }
 
-/** What a declined application is told. `grund` is the administrator's own wording, carried verbatim. */
-export interface BewerbungAbsageData {
-  teamName: string;
-  saisonId: string;
-  origin: string;
-  /** As on the acceptance, and for the same reason: a reader has to be able to place a message before reading it. */
-  rollenText: string;
-  grund: string;
+/**
+ * The reader's own floor, one of the two the confirmation page asks against: a person holding a seat besides the
+ * Trainer's is asked the higher one (`fl_backend/app/api/bewerbungen/services.py :: mindestalter_for`).
+ */
+function altersSatz(rollen: readonly FLBewerbungLinkDaten["rollen"][number][]): string {
+  return rollen.every((rolle) => rolle === "trainer")
+    ? `${KONTAKT_ROLLE_LANGFORM.trainer} kann sein, wer mindestens 16 Jahre alt ist.`
+    : `${KONTAKT_ROLLE_LANGFORM.ansprechperson} oder ${KONTAKT_ROLLE_LANGFORM.stellvertretung} kann sein, wer mindestens 18 Jahre alt ist.`;
 }
 
 /** A fill named by its hex, in this shape alone: no supplier could match any other. */
 const FARBE_HEX = /^#[0-9a-f]{6}$/i;
 
-export function buildBewerbungZusageEmail({
-  teamName,
-  saisonId,
-  origin,
-  rollenText,
-  gruppe,
-  trikotFarbeLabel,
-  trikotFarbeHex,
-  wunschgegner,
-}: BewerbungZusageData): Mail {
+/** What an accepted application is told, each person naming the seats they were entered for. */
+export function buildBewerbungZusageEmail(
+  { team, saison_id, rollen, gruppe, trikot_farbe, wunschgegner }: FLBewerbungZusageDaten,
+  { origin }: MailOrt,
+): Mail {
   const site = mailOrigin(origin);
   // Blank counts as unnamed, so the silence rests on no payload's trim.
   const gegner = (wunschgegner ?? "").trim();
-  const hex = trikotFarbeLabel !== null && trikotFarbeHex !== null && FARBE_HEX.test(trikotFarbeHex) ? trikotFarbeHex : null;
+  const farbe = TRIKOT_FARBEN.find((eintrag) => eintrag.value === trikot_farbe);
+  const hex = farbe !== undefined && FARBE_HEX.test(farbe.hex) ? farbe.hex : null;
 
   return {
     art: "mitteilung",
-    betreff: `Willkommen in der Saison ${saisonId}`,
+    betreff: `Willkommen in der Saison ${saison_id}`,
     origin: site,
     vorname: "",
     absaetze: [
       [
-        `Vielen Dank für Eure Bewerbung für die Saison ${saisonId} der ${BRAND_NAME}.`,
+        `Vielen Dank für Eure Bewerbung für die Saison ${saison_id} der ${BRAND_NAME}.`,
         "Wir freuen uns, Euch mitteilen zu können, dass Eure Bewerbung erfolgreich war.",
-        [{ stark: teamName }, ` ist für die Saison ${saisonId} aufgenommen. Herzlich willkommen!`],
+        [{ stark: team }, ` ist für die Saison ${saison_id} aufgenommen. Herzlich willkommen!`],
       ],
     ],
     // No row for the decision or the season: the heading states both.
     block: {
       fakten: [
-        { label: "Team", wert: teamName },
+        { label: "Team", wert: team },
         { label: "Gruppe", wert: gruppe },
         // Stated rather than guessed, and stated as a row either way: an absent colour is a fact the
-        // reader has to be able to find in the same place as a named one.
-        { label: "Trikotfarbe", wert: hex === null ? (trikotFarbeLabel ?? "noch nicht festgelegt") : `${trikotFarbeLabel ?? ""} (${hex})` },
-        // The one row that differs per reader: three people get this message and each is told the seat
-        // they were entered for.
-        { label: "Eingetragen als", wert: rollenText },
+        // reader has to be able to find in the same place as a named one. The hex beside the name: the name
+        // alone leaves neighbours such as Grün and Smaragd for a supplier to guess between.
+        { label: "Trikotfarbe", wert: farbe === undefined ? "noch nicht festgelegt" : hex === null ? farbe.label : `${farbe.label} (${hex})` },
+        // The one row that differs per reader: each person is told the seats they were entered for.
+        { label: "Eingetragen als", wert: rollenText(rollen) },
       ],
     },
-    nachBlock: [einteilungAbsatz(gruppe, trikotFarbeLabel), ...(gegner === "" ? [] : [wunschgegnerAbsatz(gegner)]), websiteSatz(site)],
+    nachBlock: [einteilungAbsatz(gruppe, farbe?.label ?? null), ...(gegner === "" ? [] : [wunschgegnerAbsatz(gegner)]), websiteSatz(site)],
     aktion: ligaAktion(site),
   };
 }
 
-/** The message states the decision and the reason it was given, and says that it covers this application rather than the school. */
-export function buildBewerbungAbsageEmail({ teamName, saisonId, origin, rollenText, grund }: BewerbungAbsageData): Mail {
+/** The mail states the decision and the reason it was given, and says that it covers this application rather than the school. */
+export function buildBewerbungAbsageEmail({ team, saison_id, rollen, grund }: FLBewerbungAbsageDaten, { origin }: MailOrt): Mail {
   return {
     art: "mitteilung",
-    betreff: `Absage für die Saison ${saisonId}`,
+    betreff: `Absage für die Saison ${saison_id}`,
     origin: mailOrigin(origin),
     vorname: "",
     absaetze: [
       [
-        ["Danke, dass ", { stark: teamName }, ` sich für die Saison ${saisonId} der ${BRAND_NAME} beworben hat.`],
+        ["Danke, dass ", { stark: team }, ` sich für die Saison ${saison_id} der ${BRAND_NAME} beworben hat.`],
         "Für diese Saison können wir das Team nicht aufnehmen.",
       ],
       ["Die Entscheidung betrifft diese Bewerbung, nicht die Schule und nicht die Menschen dahinter."],
     ],
     block: {
       fakten: [
-        { label: "Team", wert: teamName },
-        { label: "Saison", wert: saisonId },
-        // Identification rather than a verdict: it says why the message reached this reader.
-        { label: "Eingetragen als", wert: rollenText },
-        // Unabridged and last: it is the one thing the message exists to hand over.
+        { label: "Team", wert: team },
+        { label: "Saison", wert: saison_id },
+        // Identification rather than a verdict: it says why the mail reached this reader.
+        { label: "Eingetragen als", wert: rollenText(rollen) },
+        // Unabridged and last: it is the one thing the mail exists to hand over.
         { label: "Angegebener Grund", wert: grund },
       ],
     },
   };
 }
 
-/** One seat, as a message names it to somebody who is not sitting in it. */
-export interface BewerbungSeat {
-  readonly vorname: string;
-  /**
-   * `fl_frontend/src/features/bewerbungen/constants.ts :: BEWERBUNG_SEATS`'s `label`, which that
-   * file maps from `fl_frontend/src/features/teams/constants.ts :: KONTAKT_ROLLEN`'s `langform`.
-   * Rendered by the caller because `core` may not import `features`
-   * (`fl_frontend/eslint.config.mjs :: LAYER_BOUNDARY`).
-   */
-  readonly rolleText: string;
-}
-
-/** A seat and the link that answers for it. */
-export interface BewerbungLinkSeat extends BewerbungSeat {
-  /** The finished absolute URL. The token inside it is a bearer credential and is never taken apart here. */
-  readonly link: string;
-}
-
-/**
- * What one MAILBOX is asked to confirm. `seats` holds one entry per link that mailbox was sent, so
- * two people sharing a school inbox arrive as two entries and one person holding two seats under a
- * single link as one.
- */
-export interface BewerbungBestaetigungData {
-  saisonId: string;
-  origin: string;
-  schule: string;
-  /* At least one, in the type: an empty list renders an empty fact row and no link to answer with. */
-  seats: readonly [BewerbungLinkSeat, ...BewerbungLinkSeat[]];
-  /**
-   * The deadline as a German date, rendered by the caller for the reason `rollenText` is:
-   * `fl_frontend/src/shared/utils/format.ts :: formatSpielDatum` sits in a layer `core` may not reach.
-   */
-  fristText: string;
-}
-
-/** „{vorname} ({rolle})“, which is how every message naming somebody else's seat names it. */
-function seatName({ vorname, rolleText }: BewerbungSeat): string {
-  return `${vorname} (${rolleText})`;
-}
-
-/** The plural form names whose each row is; the singular one has nobody to tell its reader apart from. */
-function seatFakten(seats: BewerbungBestaetigungData["seats"]): Fakt[] {
-  if (seats.length < 2) return [{ label: "Eingetragen als", wert: seats[0].rolleText }];
-
-  return seats.map((seat) => ({ label: "Eingetragen als", wert: seatName(seat) }));
-}
-
-/** One seat's link is the button; several share no button, each link printed under its seat's name. */
-function seatAktion(seats: BewerbungBestaetigungData["seats"]): NonNullable<Mail["aktion"]> {
-  if (seats.length < 2) return { label: "Eintrag bestätigen", href: seats[0].link };
-
-  return { links: seats.map((seat) => ({ name: seatName(seat), href: seat.link })) };
-}
-
-/**
- * **Both floors, never the reader's own**: `seats` is one entry per LINK, so a shared school inbox
- * holding two people arrives as one message under two floors, and one figure would be wrong for one.
- */
-const ALTERS_SATZ =
-  "Trainerin oder Trainer kann sein, wer mindestens 16 Jahre alt ist. Ansprechperson oder Stellvertretung kann sein, wer mindestens 18 Jahre alt ist.";
-
-export function buildBewerbungBestaetigungEmail({ saisonId, origin, schule, seats, fristText }: BewerbungBestaetigungData): Mail {
-  const mehrere = seats.length > 1;
+/** What one person is asked to confirm: every seat they hold, answered through the one link. */
+export function buildBewerbungBestaetigungEmail({ saison_id, schule, rollen, frist }: FLBewerbungLinkDaten, { origin, token }: MailLink): Mail {
+  const site = mailOrigin(origin);
+  const bis = fristText(frist);
 
   return {
     art: "erstkontakt",
-    betreff: mehrere ? `Eure Einträge für die Saison ${saisonId}` : `Dein Eintrag für die Saison ${saisonId}`,
-    origin: mailOrigin(origin),
+    betreff: `Dein Eintrag für die Saison ${saison_id}`,
+    origin: site,
     vorname: "",
     absaetze: [
       [
-        ["Für die Schule ", { stark: schule }, ` wurde eine Bewerbung zur Saison ${saisonId} der ${BRAND_NAME} eingereicht.`],
-        mehrere
-          ? `Mit dieser E-Mail-Adresse sind darin ${formatAufzaehlung(seats.map(seatName))} eingetragen.`
-          : `Darin bist Du als ${seats[0].rolleText} eingetragen.`,
-        mehrere
-          ? [{ stark: "Bitte bestätigt jeden Eintrag einzeln" }, ": Erst dann führt die Liga Euch als Kontaktpersonen."]
-          : [{ stark: "Bitte bestätige, dass das stimmt" }, ": Erst dann führt die Liga Dich als Kontaktperson."],
+        ["Für die Schule ", { stark: schule }, ` wurde eine Bewerbung zur Saison ${saison_id} der ${BRAND_NAME} eingereicht.`],
+        `Darin bist Du als ${rollenText(rollen)} eingetragen.`,
+        [{ stark: "Bitte bestätige, dass das stimmt" }, ": Erst dann führt die Liga Dich als Kontaktperson."],
       ],
       [
-        // Links, not buttons, where several seats share the mailbox: the shell draws one button at most.
-        mehrere
-          ? `Öffnet diese Links und gebt dort nur Euer Geburtsdatum ein, sonst nichts: ${ALTERS_SATZ}`
-          : `Klicke auf den Button. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: ${ALTERS_SATZ}`,
-        mehrere ? "Jedem Eintrag lässt sich auch widersprechen." : "Du kannst dem Eintrag auch widersprechen.",
-        [mehrere ? "Jeder Link ist bis zum " : "Der Link ist bis zum ", { stark: fristText }, " gültig und funktioniert nur einmal."],
+        `Klicke auf den Button. Auf der Seite gibst Du nur Dein Geburtsdatum ein, sonst nichts: ${altersSatz(rollen)}`,
+        "Du kannst dem Eintrag auch widersprechen.",
+        ["Der Link ist bis zum ", { stark: bis }, " gültig und funktioniert nur einmal."],
       ],
       [
-        mehrere ? "Ohne Eure Bestätigungen bleibt die Bewerbung unvollständig." : "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig.",
-        mehrere ? "Nach drei Tagen erinnern wir Euch einmal." : "Nach drei Tagen erinnern wir Dich einmal.",
-        `Ist die Bewerbung vierzehn Tage nach dem Versand ${mehrere ? "dieser Links" : "dieses Links"} noch unvollständig, löschen wir sie mit allen Angaben.`,
+        "Ohne Deine Bestätigung bleibt die Bewerbung unvollständig.",
+        "Nach drei Tagen erinnern wir Dich einmal.",
+        "Ist die Bewerbung vierzehn Tage nach dem Versand dieses Links noch unvollständig, löschen wir sie mit allen Angaben.",
         "Ersetzen wir später einen Link durch einen neuen, beginnt diese Frist für die ganze Bewerbung von vorn.",
         "Eine Erinnerung verschiebt sie nicht.",
       ],
     ],
     block: {
       fakten: [
-        // Named here and in no message to the submitter: a contact who never heard of the application
+        // Named here and in no mail to the submitter: a contact who never heard of the application
         // has nothing else to tell whose it is, and cannot answer a link they cannot place.
         { label: "Schule", wert: schule },
-        { label: "Saison", wert: saisonId },
-        ...seatFakten(seats),
-        { label: mehrere ? "Links gültig bis" : "Link gültig bis", wert: fristText },
+        { label: "Saison", wert: saison_id },
+        { label: "Eingetragen als", wert: rollenText(rollen) },
+        { label: "Link gültig bis", wert: bis },
       ],
     },
-    aktion: seatAktion(seats),
+    aktion: { label: "Eintrag bestätigen", href: kontaktBestaetigungsLink(site, token) },
   };
 }
 
-export function buildBewerbungErinnerungEmail({ saisonId, origin, schule, seats, fristText }: BewerbungBestaetigungData): Mail {
-  const mehrere = seats.length > 1;
+export function buildBewerbungErinnerungEmail({ saison_id, schule, rollen, frist }: FLBewerbungLinkDaten, { origin, token }: MailLink): Mail {
+  const site = mailOrigin(origin);
+  const bis = fristText(frist);
 
   return {
     art: "erstkontakt",
-    betreff: mehrere ? `Erinnerung: Eure Einträge für die Saison ${saisonId}` : `Erinnerung: Dein Eintrag für die Saison ${saisonId}`,
-    origin: mailOrigin(origin),
+    betreff: `Erinnerung: Dein Eintrag für die Saison ${saison_id}`,
+    origin: site,
     vorname: "",
     absaetze: [
       [
-        mehrere
-          ? "Vor drei Tagen haben wir Euch gebeten, Eure Einträge zu bestätigen:"
-          : "Vor drei Tagen haben wir Dich gebeten, Deinen Eintrag zu bestätigen:",
-        mehrere
-          ? [
-              "In der Bewerbung der Schule ",
-              { stark: schule },
-              ` zur Saison ${saisonId} sind mit dieser E-Mail-Adresse ${formatAufzaehlung(seats.map(seatName))} eingetragen.`,
-            ]
-          : ["In der Bewerbung der Schule ", { stark: schule }, ` zur Saison ${saisonId} bist Du als ${seats[0].rolleText} eingetragen.`],
-        [{ stark: mehrere ? "Bis jetzt fehlt Eure Antwort." : "Bis jetzt fehlt Deine Antwort." }],
+        "Vor drei Tagen haben wir Dich gebeten, Deinen Eintrag zu bestätigen:",
+        ["In der Bewerbung der Schule ", { stark: schule }, ` zur Saison ${saison_id} bist Du als ${rollenText(rollen)} eingetragen.`],
+        [{ stark: "Bis jetzt fehlt Deine Antwort." }],
       ],
       [
-        mehrere
-          ? "Öffnet diese Links, gebt Euer Geburtsdatum ein und bestätigt die Einträge, oder widersprecht ihnen."
-          : "Klicke auf den Button, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder widersprich ihm.",
-        ["Ist die Bewerbung am ", { stark: fristText }, " noch unvollständig, löschen wir sie mit allen Angaben."],
+        "Klicke auf den Button, gib Dein Geburtsdatum ein und bestätige den Eintrag, oder widersprich ihm.",
+        ["Ist die Bewerbung am ", { stark: bis }, " noch unvollständig, löschen wir sie mit allen Angaben."],
       ],
     ],
     block: {
       fakten: [
         { label: "Schule", wert: schule },
-        { label: "Saison", wert: saisonId },
-        ...seatFakten(seats),
-        // The deadline the first message gave. The erasure runs the day AFTER it
+        { label: "Saison", wert: saison_id },
+        { label: "Eingetragen als", wert: rollenText(rollen) },
+        // The deadline the first mail gave. The erasure runs the day AFTER it
         // (`fl_backend/app/api/bewerbungen/services.py :: deletion_is_due`), so a label naming a
         // deletion date would name a day the clock does not act on.
-        { label: "Bestätigen bis", wert: fristText },
+        { label: "Bestätigen bis", wert: bis },
       ],
     },
-    // Fresh links, minted beside the first ones rather than in place of them: a reminder that voided
+    // A fresh link, minted beside the first one rather than in place of it: a reminder that voided
     // the link somebody is still looking at would punish the reader it is chasing.
-    aktion: seatAktion(seats),
+    aktion: { label: "Eintrag bestätigen", href: kontaktBestaetigungsLink(site, token) },
   };
 }
 
 /**
- * What the submitter is told at submission, once every contact has been written to. `ausstehend` is
- * the caller's list of seats still waiting, named because the submitter is the one person who can
- * ask a colleague in the corridor.
+ * What the submitter is told at submission. `ausstehend` names the people still to answer, because the submitter
+ * is the one person who can ask a colleague in the corridor; the mail carries the submitter's own link.
  */
-export interface BewerbungEingangOffenData {
-  saisonId: string;
-  origin: string;
-  rollenText: string;
-  ausstehend: readonly BewerbungSeat[];
-  fristText: string;
-  /** The submitter's own link: they hold a seat like the other two and confirm it from this message. */
-  link: string;
-}
+export function buildBewerbungEingangEmail(
+  { saison_id, rollen, ausstehend, frist }: FLBewerbungEingangDaten,
+  { origin, token }: MailLink,
+): Mail {
+  const site = mailOrigin(origin);
+  const bis = fristText(frist);
 
-export function buildBewerbungEingangOffenEmail({
-  saisonId,
-  origin,
-  rollenText,
-  ausstehend,
-  fristText,
-  link,
-}: BewerbungEingangOffenData): Mail {
   return {
     art: "mitteilung",
-    betreff: `Bewerbung eingegangen: Saison ${saisonId}`,
-    origin: mailOrigin(origin),
+    betreff: `Bewerbung eingegangen: Saison ${saison_id}`,
+    origin: site,
     vorname: "",
     absaetze: [
       [
-        [`Deine Bewerbung für die Saison ${saisonId} der ${BRAND_NAME} ist `, { stark: "bei uns eingegangen" }, "."],
+        [`Deine Bewerbung für die Saison ${saison_id} der ${BRAND_NAME} ist `, { stark: "bei uns eingegangen" }, "."],
         "Danke für die Anmeldung Deines Teams.",
       ],
       [
@@ -361,7 +267,7 @@ export function buildBewerbungEingangOffenEmail({
       ],
       [
         "Nach drei Tagen erinnern wir alle, die noch nicht bestätigt haben.",
-        ["Ist die Bewerbung am ", { stark: fristText }, " noch unvollständig, löschen wir sie mit allen Angaben und sagen Dir Bescheid."],
+        ["Ist die Bewerbung am ", { stark: bis }, " noch unvollständig, löschen wir sie mit allen Angaben und sagen Dir Bescheid."],
         "Sag den anderen am besten selbst Bescheid, dann geht es schneller.",
       ],
     ],
@@ -370,39 +276,32 @@ export function buildBewerbungEingangOffenEmail({
     block: {
       fakten: [
         { label: "Status", wert: "Eingegangen, Bestätigungen offen" },
-        { label: "Saison", wert: saisonId },
-        { label: "Eingetragen als", wert: rollenText },
-        { label: "Noch offen", wert: formatAufzaehlung(ausstehend.map(seatName)) },
-        { label: "Frist", wert: fristText },
+        { label: "Saison", wert: saison_id },
+        { label: "Eingetragen als", wert: rollenText(rollen) },
+        { label: "Noch offen", wert: formatAufzaehlung(ausstehend.map(personName)) },
+        { label: "Frist", wert: bis },
       ],
     },
-    aktion: { label: "Meinen Eintrag bestätigen", href: link },
+    aktion: { label: "Meinen Eintrag bestätigen", href: kontaktBestaetigungsLink(site, token) },
   };
 }
 
 /**
- * What the submitter is told as the application is deleted. The message goes out BEFORE the erasure
- * and is worded in the present for that reason, `ausstehend` naming seats the document still holds.
+ * What the submitter is told as the application is deleted. Owed in the erasure's own write and worded in the present,
+ * `ausstehend` naming the people the deleted application still held.
  */
-export interface BewerbungGeloeschtData {
-  saisonId: string;
-  origin: string;
-  rollenText: string;
-  ausstehend: readonly BewerbungSeat[];
-}
-
-export function buildBewerbungGeloeschtEmail({ saisonId, origin, rollenText, ausstehend }: BewerbungGeloeschtData): Mail {
+export function buildBewerbungGeloeschtEmail({ saison_id, rollen, ausstehend }: FLBewerbungLoeschungDaten, { origin }: MailOrt): Mail {
   const site = mailOrigin(origin);
 
   return {
     art: "mitteilung",
-    betreff: `Bewerbung wird gelöscht: Saison ${saisonId}`,
+    betreff: `Bewerbung wird gelöscht: Saison ${saison_id}`,
     origin: site,
     vorname: "",
     absaetze: [
       [
         "Die Frist für die Bestätigungen ist abgelaufen, und nicht alle Kontaktpersonen haben ihren Eintrag bestätigt.",
-        [`Deshalb löschen wir Deine Bewerbung für die Saison ${saisonId} jetzt `, { stark: "mit allen Angaben" }, ", wie angekündigt."],
+        [`Deshalb löschen wir Deine Bewerbung für die Saison ${saison_id} jetzt `, { stark: "mit allen Angaben" }, ", wie angekündigt."],
       ],
       [
         "Solange die Bewerbungsfrist läuft, kann sich Deine Schule neu bewerben.",
@@ -412,36 +311,28 @@ export function buildBewerbungGeloeschtEmail({ saisonId, origin, rollenText, aus
     block: {
       fakten: [
         { label: "Status", wert: "Wird gelöscht, nicht vollständig geworden" },
-        { label: "Saison", wert: saisonId },
-        { label: "Eingetragen als", wert: rollenText },
+        { label: "Saison", wert: saison_id },
+        { label: "Eingetragen als", wert: rollenText(rollen) },
         // The one thing a school needs before applying again: told only that the application lapsed,
         // they collect the same people and land here a second time.
-        { label: "Nicht bestätigt", wert: formatAufzaehlung(ausstehend.map(seatName)) },
+        { label: "Nicht bestätigt", wert: formatAufzaehlung(ausstehend.map(personName)) },
       ],
     },
-    aktion: neuBewerbenAktion(site, saisonId),
+    aktion: neuBewerbenAktion(site, saison_id),
   };
 }
 
-/**
- * What the submitter is told when a contact refuses the seat. `abgelehnt` is composed before that
- * seat's details are cleared, the first name being what the message exists to hand over.
- */
-export interface BewerbungWiderspruchData {
-  saisonId: string;
-  origin: string;
-  rollenText: string;
-  abgelehnt: BewerbungSeat;
-  fristText: string;
-}
-
-export function buildBewerbungWiderspruchEmail({ saisonId, origin, rollenText, abgelehnt, fristText }: BewerbungWiderspruchData): Mail {
+/** What the submitter is told when a person refuses their entry; `abgelehnt` was read before the decline emptied it. */
+export function buildBewerbungWiderspruchEmail(
+  { saison_id, rollen, abgelehnt, frist }: FLBewerbungWiderspruchDaten,
+  { origin }: MailOrt,
+): Mail {
   const site = mailOrigin(origin);
-  const wer = seatName(abgelehnt);
+  const wer = personName(abgelehnt);
 
   return {
     art: "mitteilung",
-    betreff: `Widerspruch zum Eintrag: Saison ${saisonId}`,
+    betreff: `Widerspruch zum Eintrag: Saison ${saison_id}`,
     origin: site,
     vorname: "",
     absaetze: [
@@ -449,7 +340,7 @@ export function buildBewerbungWiderspruchEmail({ saisonId, origin, rollenText, a
       [[{ stark: `${wer} hat dem Eintrag als Kontaktperson widersprochen.` }], "Diese Angaben haben wir aus der Bewerbung entfernt."],
       [
         "So kann die Bewerbung nicht vollständig werden.",
-        ["Am ", { stark: fristText }, " löschen wir sie."],
+        ["Am ", { stark: fristText(frist) }, " löschen wir sie."],
         "Möchte Deine Schule trotzdem mitspielen, bewirb Dich neu, mit einer anderen Person an ihrer Stelle.",
         "Frag sie vorher.",
       ],
@@ -457,11 +348,11 @@ export function buildBewerbungWiderspruchEmail({ saisonId, origin, rollenText, a
     block: {
       fakten: [
         { label: "Status", wert: "Nicht vollständig, eine Bestätigung fehlt" },
-        { label: "Saison", wert: saisonId },
-        { label: "Eingetragen als", wert: rollenText },
+        { label: "Saison", wert: saison_id },
+        { label: "Eingetragen als", wert: rollenText(rollen) },
         { label: "Widerspruch von", wert: wer },
       ],
     },
-    aktion: neuBewerbenAktion(site, saisonId),
+    aktion: neuBewerbenAktion(site, saison_id),
   };
 }
