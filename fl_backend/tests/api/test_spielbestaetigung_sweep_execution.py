@@ -325,6 +325,9 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
         row = confirmations.get(row_id) or {}
         daten = mail.daten.model_dump()
         art = daten["art"]
+        # A contacts save a case runs beside the pass owes its own link mail, which is no mail of the pass.
+        if art == "kontakt_bestaetigung":
+            continue
         sitze = [pfad.split(".")[1] for pfad in (stored[mail.id]["link"] or {}).get("pfade", [])] or [stored[mail.id]["bezug"]["sitz"]]
         if art in ("spiel_anfrage", "spiel_erinnerung"):
             key = (art, row_id)
