@@ -71,9 +71,8 @@ class FLBerechtigung(BaseModel):
     adresse: CustomNonEmptyString
     verwaltung: FLVerwaltung
     # An administrator's address for a grant made here, `app/core/recording.py :: ERASED_ACTOR_MARKER`
-    # once they are erased; whatever the paste wrote, an empty string included, for one made in the
-    # Playground. No bound on it: that would hide a live grant.
-    erteilt_von: str
+    # once they are erased, and the marker the paste names itself by for one made in the Playground.
+    erteilt_von: CustomNonEmptyString
     erteilt_am: datetime
     # Absent until a comparison finds the row new, and never written by a grant made here: a paste's
     # `erteilt_am` is whatever was typed, and an address changed in place keeps the old one.
