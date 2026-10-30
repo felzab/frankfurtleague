@@ -5,17 +5,18 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
+from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.public_router import post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
-from app.api.bewerbungen.services import hash_token
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
@@ -102,8 +103,11 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         **overrides,
     }
 
+    if overrides.get("antwort") == "abgelehnt":
+        body = {"token": token, **overrides}
+
     return await post_einwilligung(
-        antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
+        antwort_data=TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -134,7 +138,7 @@ class TestAPairedDecline:
         """One person, two seats, one refusal: a decline reaching one slot would leave the other holding the person who refused."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["ansprechperson"], antwort="abgelehnt", geburtsdatum=None)
+            response = await answer(database, client, RAW["ansprechperson"], antwort="abgelehnt")
 
             return response, await stored(database), await log_rows(database)
 
@@ -160,7 +164,7 @@ class TestAPairedDecline:
         )
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["ansprechperson"], antwort="abgelehnt", geburtsdatum=None)
+            response = await answer(database, client, RAW["ansprechperson"], antwort="abgelehnt")
 
             return response, await stored(database)
 

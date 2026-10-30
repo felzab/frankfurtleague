@@ -479,10 +479,7 @@ class TestSpieltag:
 
 
 class TestTheMatchdaysSpan:
-    """`refuse_reversed_span` under the matchday payload.
-
-    Asserted whole because `fl_frontend/src/features/spieltage/schemas.ts` mirrors the sentence word for word.
-    """
+    """`refuse_reversed_span` under the matchday payload, which names the span by its kind."""
 
     def test_accepts_a_matchday_on_a_single_day(self):
         """The editor saves a day picked once as `ende` equal to `beginn`, so refusing an equal span refuses what the form offers."""
@@ -494,7 +491,7 @@ class TestTheMatchdaysSpan:
         with pytest.raises(ValidationError) as failure:
             FLPatchSpieltagPayload.model_validate({"beginn": "2026-09-05", "ende": "2026-09-04"})
 
-        assert "Das Ende darf nicht vor dem Beginn liegen." in str(failure.value)
+        assert [error["type"] for error in failure.value.errors()] == ["spieltag_ends_before_start"]
 
 
 class TestSaison:
@@ -580,11 +577,7 @@ class TestSaison:
 
 
 class TestTheSeasonsSpans:
-    """`refuse_reversed_span` under every caller, with the labels each passes it.
-
-    Asserted whole because `fl_frontend/src/features/saisons/schemas.ts` mirrors each sentence word
-    for word.
-    """
+    """`refuse_reversed_span` under every caller, each naming its span by a kind of its own."""
 
     @staticmethod
     def payload(saison, **overrides: Any) -> dict[str, Any]:
@@ -618,7 +611,7 @@ class TestTheSeasonsSpans:
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=reversed_window))
 
-        assert "Das Ende darf nicht vor dem Beginn der Bewerbungsfrist liegen." in str(failure.value)
+        assert [error["type"] for error in failure.value.errors()] == ["bewerbung_window_ends_before_start"]
 
     def test_judges_the_window_apart_from_the_season_it_belongs_to(self, saison):
         """A window may legitimately open and close before the season's first day."""
@@ -627,11 +620,11 @@ class TestTheSeasonsSpans:
         assert FLPatchSaisonPayload.model_validate(self.payload(saison, bewerbung=before_the_season)).bewerbung is not None
 
     def test_refuses_a_season_ending_before_it_starts_in_the_other_sides_words(self, saison):
-        """The same helper's other caller: one label pair moved without the other is what this catches."""
+        """The same helper's other caller: one kind moved without the other is what this catches."""
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonPayload.model_validate(self.payload(saison, start_date="2026-06-30", end_date="2026-01-01"))
 
-        assert "Das Enddatum darf nicht vor dem Startdatum liegen." in str(failure.value)
+        assert [error["type"] for error in failure.value.errors()] == ["saison_ends_before_start"]
 
     def test_accepts_a_registration_window_that_runs_forwards(self, saison):
         """The floor for the registration half: without it the refusal below could pass for a reason nobody is testing."""
@@ -645,13 +638,13 @@ class TestTheSeasonsSpans:
         assert FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=None)).registrierung is None
 
     def test_refuses_a_registration_window_ending_before_it_opens(self, saison):
-        """The third caller's own label pair: the two windows raise different sentences, and one moved alone is what this catches."""
+        """The third caller's own kind: the two windows raise different kinds, and one moved alone is what this catches."""
         reversed_window = {"offen": False, "von": "2025-12-15", "bis": "2025-11-01"}
 
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonPayload.model_validate(self.payload(saison, registrierung=reversed_window))
 
-        assert "Das Ende darf nicht vor dem Beginn der Registrierungsfrist liegen." in str(failure.value)
+        assert [error["type"] for error in failure.value.errors()] == ["registrierung_window_ends_before_start"]
 
     def test_judges_the_registration_window_apart_from_the_application_window(self, saison):
         """Two decisions rather than one span: registration may legitimately close before applications do."""

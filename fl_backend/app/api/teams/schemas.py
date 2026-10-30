@@ -16,11 +16,14 @@ from pydantic import (
     computed_field,
     model_validator,
 )
+from pydantic_core import PydanticCustomError
 
 from app.api.postausgang.schemas import FLPostausgangLage
+from app.core.crud import Anchored
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
+    AUSTRITT_GRUND_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
@@ -57,7 +60,6 @@ from app.shared.schemas.literals import (
     FLKontaktRolle,
     FLSchulform,
     FLSortOrder,
-    FLTrainerZugleich,
     FLTrikotFarbe,
 )
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -69,6 +71,10 @@ MAX_NUMBER_OF_GROUPS: Final = len(get_args(FLGruppenNames.__value__))
 # Two values rather than a free `saison_phase` filter: a table of the Halbfinale alone is not a
 # standing, and offering it invites one.
 type FLTeamStatistikScope = Literal["gruppenphase", "gesamt"]
+
+# Which second seat one person may hold beside the Trainer's. A closed set rather than a flag per seat: the
+# two are alternatives, and nothing can mean holding both.
+type FLTrainerZugleich = Literal["ansprechperson", "stellvertretung"]
 
 
 # Both spellings of the country code. Neither arm can take the other's value -- `0049…` does not
@@ -109,16 +115,13 @@ class FLAustritt(BaseModel):
     datum: CustomDateString
 
 
-def strip_austritt_grund(value: Any) -> Any:
-    """Strip the reason before `FLAustritt`'s floor counts it, on the WRITE side alone.
+class FLAustrittPayload(FLAustritt):
+    """The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.
 
-    The strip runs BEFORE the floor, so on a read model a stored blank would refuse the club it
-    stands on.
+    On the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.
     """
 
-    if isinstance(value, Mapping) and isinstance(grund := value.get("grund"), str):
-        return {**value, "grund": grund.strip()}
-    return value
+    grund: Annotated[str, StringConstraints(max_length=AUSTRITT_GRUND_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)]
 
 
 # Private for `_TeamWritable`'s reason. The two provenance fields are NOT here: the server composes
@@ -220,7 +223,7 @@ class FLSaisonTeamBestaetigungenRecord(FLSaisonTeamBestaetigungen):
     stellvertretung: FLSaisonTeamBestaetigungRecord | None
 
 
-class FLSaisonTeamRecord(BaseModel):
+class FLSaisonTeamRecord(Anchored):
     """One club's season as `saison_teams` stores it; no read serves the row whole."""
 
     id: CustomObjectId = Field(validation_alias="_id")
@@ -378,7 +381,7 @@ class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
 
         # An empty side is a seat an erasure or a Widerspruch emptied, which names nobody to compare.
         if seat is not None and self.trainer is not None and seat != self.trainer:
-            raise ValueError(f"Die Angaben unter '{self.trainer_ist_zugleich}' müssen denen des Trainers entsprechen.")
+            raise ValueError(f"the seat '{self.trainer_ist_zugleich}' the Trainer also holds carries other details than the Trainer's")
 
         return self
 
@@ -397,11 +400,11 @@ class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
         # refuse „strasse“ beside „straße“, two domains to IDNA 2008.
         emails = [sign_in_identifier(person.email) for person in people]
         if len(set(emails)) != len(emails):
-            raise ValueError("Die Kontaktpersonen müssen unterschiedliche E-Mail-Adressen haben.")
+            raise PydanticCustomError("kontakt_email_twice", "two contact persons share one email address")
 
         telefone = [normalise_telefon(person.telefon) for person in people]
         if len(set(telefone)) != len(telefone):
-            raise ValueError("Die Kontaktpersonen müssen unterschiedliche Telefonnummern haben.")
+            raise PydanticCustomError("kontakt_telefon_twice", "two contact persons share one telephone number")
 
         return self
 
@@ -456,7 +459,7 @@ class FLTeam(_TeamWritable):
 FLTeamListAdapter = TypeAdapter(list[FLTeam])
 
 
-class FLTeamRecord(_TeamWritable, BaseReadModel):
+class FLTeamRecord(_TeamWritable, BaseReadModel, Anchored):
     """The club document as it is STORED, and what the write endpoints echo.
 
     The season-scoped fields would mean re-running the team pipeline, whose junction join is strict
@@ -617,7 +620,7 @@ class FLPatchSaisonTeamPayload(BaseModel):
     gruppe: FLGruppenNames
     # No `default=None` on either: `PATCH` replaces every field it takes wholesale, so an omitted key
     # would silently reinstate a team or clear a colour with nobody having asked for it.
-    austritt: Annotated[FLAustritt, BeforeValidator(strip_austritt_grund)] | None
+    austritt: FLAustrittPayload | None
     trikot_farbe: FLTrikotFarbe | None
     # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
     version: int | None = None
@@ -728,18 +731,11 @@ class FLTeamsSingleResponse(BaseAPIResponse):
 
 
 class FLPatchTeamResponse(BaseAPIResponse):
-    updated_document: FLTeamRecord
     # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently.
     fanned_out_to_spiele: int
     # Reported for the same reason, and separately: it is scoped to the seasons that are not `past`,
     # so zero means the club holds no row in one of those -- every season closed, or none entered.
     fanned_out_to_saison_teams: int
-
-
-class FLTeamWriteResponse(BaseAPIResponse):
-    """What the retire and reactivate endpoints echo. `FLTeamRecord`, for the reason stated on it."""
-
-    updated_document: FLTeamRecord
 
 
 class FLSaisonTeamResponse(BaseAPIResponse):
@@ -784,13 +780,6 @@ class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
     kontakte: FLSaisonTeamKontakte | None
     # Empty where the save seated nobody new: a seat keeping its person keeps their link.
     bestaetigungen: list[FLKontaktMint]
-
-    @computed_field
-    @property
-    def kontakte_stand(self) -> str:
-        """The AFTER image's token: this save has moved the row past what its caller read, so an undo of it can replay against no other."""
-
-        return kontakte_stand_of(None if self.kontakte is None else self.kontakte.model_dump(mode="json"))
 
 
 class FLKontaktEinladenResponse(BaseAPIResponse):

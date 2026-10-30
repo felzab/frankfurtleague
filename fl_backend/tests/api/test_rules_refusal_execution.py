@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
 import pytest
@@ -136,6 +136,15 @@ def on_a_database(
     return on_the_seed_loop(_run())
 
 
+async def saved_rules(database: AsyncDatabase) -> Mapping[str, Any]:
+    """The rules the season holds after a save, which answers 204 and none."""
+
+    stored = await database[Collection.SAISONS].find_one({"_id": SAISON_ID})
+    assert stored is not None
+
+    return stored["rules"]
+
+
 async def patch_the_rules(database: AsyncDatabase, *, today: str = THE_DAY_BEFORE, **overrides: Any) -> Any:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it changes."""
 
@@ -171,11 +180,10 @@ class TestTheSquadCapIsJudgedAgainstTheSeasonsOwnLiveRows:
         """One call for the three: each decoy is larger than this cap, so any of them reaching the figure refuses instead."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return await patch_the_rules(database, max_kadergroesse=PERMITTED_KADER)
+            await patch_the_rules(database, max_kadergroesse=PERMITTED_KADER)
+            return await saved_rules(database)
 
-        response = on_a_database(mongo_replica_set_url, body)
-
-        assert response.updated_document.rules.max_kadergroesse == PERMITTED_KADER
+        assert on_a_database(mongo_replica_set_url, body)["max_kadergroesse"] == PERMITTED_KADER
 
     def test_a_cap_below_the_live_squad_is_refused(self, mongo_replica_set_url: str):
         """The control: without it the case above would also pass on an aggregation that answered nothing at all."""
@@ -211,11 +219,10 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
         """The same season and the same matchday, minus its fixtures: a season still being set up widens freely."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return await patch_the_rules(database, teams_per_group=WIDER_PER_GROUP)
+            await patch_the_rules(database, teams_per_group=WIDER_PER_GROUP)
+            return await saved_rules(database)
 
-        response = on_a_database(mongo_replica_set_url, body)
-
-        assert response.updated_document.rules.teams_per_group == WIDER_PER_GROUP
+        assert on_a_database(mongo_replica_set_url, body)["teams_per_group"] == WIDER_PER_GROUP
 
 
 class TestTheStartIsWhatFreezesTheScoring:
@@ -238,8 +245,7 @@ class TestTheStartIsWhatFreezesTheScoring:
         """The boundary: an activated season waiting for its first fixture still takes a corrected rule."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return await patch_the_rules(database, today=THE_DAY_BEFORE, win_points=2)
+            await patch_the_rules(database, today=THE_DAY_BEFORE, win_points=2)
+            return await saved_rules(database)
 
-        response = on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
-
-        assert response.updated_document.rules.win_points == 2
+        assert on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())["win_points"] == 2

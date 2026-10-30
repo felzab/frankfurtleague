@@ -20,7 +20,7 @@ from zoneinfo import ZoneInfo
 from bson import ObjectId
 
 from app.api.adresswechsel.services import compose_record
-from app.api.bewerbungen.services import bestaetigungsfrist_from, compose_bestaetigungen, compose_einwilligung, hash_token
+from app.api.bewerbungen.services import bestaetigungsfrist_from, compose_bestaetigungen, compose_einwilligung
 from app.api.registrierungen.services import compose_bestaetigung, compose_confirmation_update, compose_registrierung
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.api.spielbestaetigungen.services import compose_ansetzung, halter_of
@@ -28,6 +28,7 @@ from app.core.recording import log_stamp
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, compose_beleg, compose_geboren
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAdresswechselWeg, FLKontaktEingetragenVon
+from app.shared.tokens import hash_token
 from tests.config import build_test_config
 
 ADDRESS: Final[Mapping[str, str]] = {

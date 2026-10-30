@@ -1,6 +1,7 @@
-from typing import Annotated, Any, Literal, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
+from pydantic_core import PydanticCustomError
 
 from app.api.postausgang.schemas import FLPostausgangLage
 from app.api.teams.schemas import FLSaisonTeamKontakte, FLSaisonTeamKontaktePayload, _KontaktpersonWritablePayload
@@ -56,7 +57,7 @@ type FLBewerbungStatus = Literal["eingereicht", "angenommen", "abgelehnt"]
 # Which seasons a read covers, RELATIVE to the `saison_id` beside it and never a season of its own:
 # the triage bar asks about the season an administrator came here about, and no stored field carries
 # that answer.
-FLBewerbungSaisonbezug = Literal["diese_saison", "andere_saison"]
+type FLBewerbungSaisonbezug = Literal["diese_saison", "andere_saison"]
 
 # One key, and it is the one every `bewerbungen` index sorts on: the collection grows with each
 # submission and no path removes a row, so a second order would plan a blocking sort over an archive
@@ -197,37 +198,16 @@ class FLBewerbungRecord(FLBewerbung):
 FLBewerbungListAdapter = TypeAdapter(list[FLBewerbung])
 
 
-def parse_status_list(value: Any) -> Any:
-    """Comma-joined as well as repeated, so the page forwards the parameter it read rather than re-encoding it.
-
-    `fl_frontend/src/core/api.ts :: apiClient` sends one value per key, and the queue's URL spells a
-    multi-select selection comma-joined.
-    """
-
-    if value is None:
-        return None
-
-    picked: list[Any] = []
-    for item in value if isinstance(value, list) else [value]:
-        # A non-string is passed on untouched, so Pydantic refuses it rather than this splitter
-        # dropping it into a narrowing nobody asked for.
-        picked.extend(item.split(",") if isinstance(item, str) else [item])
-
-    # `None` and never `[]`: an emptied parameter is the facet turned off, and `$in: []` would
-    # answer that with a page holding nothing.
-    return [part for part in picked if part != ""] or None
-
-
 class FLBewerbungenFilterParams(BaseModel):
     """What the triage list may narrow on."""
 
     saison_id: str | None = None
     # A list for `status`'s reason below, the facet offering these being multi-select. What each
     # value narrows to is published at `app/api/bewerbungen/admin_router.py :: get_bewerbungen`.
-    saisonbezug: Annotated[list[FLBewerbungSaisonbezug] | None, BeforeValidator(parse_status_list, json_schema_input_type=str)] = None
-    # A LIST, because the facet offering these is multi-select and a two-status selection has no
-    # other request that expresses it. Published as the STRING it arrives as.
-    status: Annotated[list[FLBewerbungStatus] | None, BeforeValidator(parse_status_list, json_schema_input_type=str)] = None
+    saisonbezug: list[FLBewerbungSaisonbezug] | None = None
+    # A LIST, because the facet offering these is multi-select: one key per value, FastAPI's repeated
+    # query parameter. Absent is the facet turned off, `$in` of no value answering nothing.
+    status: list[FLBewerbungStatus] | None = None
 
     # Bounded on BOTH sides, and no null sentinel: this is the one list an anonymous party writes
     # rows into, so `le` caps a caller naming more rather than obeying it, and the default is the
@@ -315,22 +295,17 @@ class FLAblehnenBewerbungResponse(BaseAPIResponse):
 # an undeclared key; the read models above stay lax.
 
 
-def refuse_age_outside_the_bounds(*, geburtsdatum: str, today: str, mindestalter: int) -> None:
-    """Refuse a contact person the league would not hold details for, in whole years against `today`.
+def age_outside_the_bounds(*, geburtsdatum: str, today: str, mindestalter: int) -> bool:
+    """Whether the league would hold no details for this contact person, in whole years against `today`.
 
-    A PARAMETER, as `refuse_reversed_span`'s span is, so both boundaries are pinnable without a
-    clock. Both messages reach the log alone.
+    `today` a parameter, so both boundaries are pinnable without a clock; above the ceiling the date is a typo.
     """
 
     age = whole_years_between(born=geburtsdatum, today=today)
 
     # The CALLER's floor, never a constant read here: a person's is the highest of the seats they
     # hold (`app/api/bewerbungen/services.py :: mindestalter_for`).
-    if age < mindestalter:
-        raise ValueError(f"Eine Kontaktperson muss mindestens {mindestalter} Jahre alt sein.")
-
-    if age > BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
-        raise ValueError(f"Ein Geburtsdatum, das auf ein Alter über {BEWERBUNG_KONTAKT_MAX_AGE_YEARS} Jahre führt, ist kein gültiges Datum.")
+    return not mindestalter <= age <= BEWERBUNG_KONTAKT_MAX_AGE_YEARS
 
 
 class FLBewerbungEinwilligungPayload(BaseModel):
@@ -394,7 +369,7 @@ class FLBewerbungSchulePayload(FLBewerbungSchule):
     ]
     shorthand: CustomShorthand
     # Required and NON-NULL here alone: the form offers the real Schulformen and no "keine
-    # Angabe". The stored field stays nullable, for `app/core/constraints.py :: teams.schulform`'s reason.
+    # Angabe". The stored field stays nullable (`app/api/teams/schemas.py :: _TeamWritable.schulform`).
     schulform: FLSchulform
     address: FLBewerbungAddressPayload
     # Constrained here where the read model leaves it a bare string: acceptance parses this block
@@ -441,7 +416,7 @@ class FLBewerbungKaderPayload(FLBewerbungKader):
         """
 
         if self.gute_spieler > self.voraussichtliche_groesse:
-            raise ValueError("Die Anzahl der guten Spieler darf die voraussichtliche Kadergröße nicht überschreiten.")
+            raise PydanticCustomError("gute_spieler_exceed_kader", "more strong players than the expected squad")
 
         return self
 
@@ -550,12 +525,6 @@ class FLBewerbungTrikotFarbenResponse(BaseAPIResponse):
     vergeben: list[FLTrikotFarbe]
 
 
-class FLPostBewerbungResponse(BaseAPIResponse):
-    """The stored application, the one a replayed key wrote first; its mails are owed in the same write."""
-
-    created_id: CustomObjectId
-
-
 # --- The CONFIRMATION. The token is the whole credential, as a sign-in code is, so both
 # endpoints are base-tier and every payload forbids an undeclared key.
 
@@ -600,17 +569,15 @@ class FLBewerbungEinwilligungAnsichtResponse(BaseAPIResponse):
     medien_mindestalter: int = Field(gt=0)
 
 
-class FLBewerbungEinwilligungAntwortPayload(BaseModel):
-    """One person's answer for one seat: the consent, or a decline that empties their slot."""
+class FLBewerbungEinwilligungErteilt(BaseModel):
+    """One person's consent for one seat: their own birthdate, their two choices and the wording they saw."""
 
     model_config = ConfigDict(extra="forbid")
 
+    antwort: Literal["erteilt"]
     token: CustomToken
-    antwort: Literal["erteilt", "abgelehnt"]
-    # Required as a KEY and null on a decline: the date is the consent's, and a decline stores no
-    # person at all. Unbounded here -- the age is its own code with its own German at 422, never a
-    # `payload_refused`.
-    geburtsdatum: CustomOptionalDateString
+    # Unbounded here: the age is its own code (`bestaetigung_alter`), never a `payload_refused`.
+    geburtsdatum: CustomDateString
     whatsapp: bool
     # Required as `whatsapp` is: a page that forgot the switch is refused rather than read as a no.
     medien: bool
@@ -618,26 +585,21 @@ class FLBewerbungEinwilligungAntwortPayload(BaseModel):
     # the applicant ticked for them may be an older one.
     text_version: CustomEinwilligungTextVersion
 
-    @model_validator(mode="after")
-    def the_date_comes_with_the_consent_and_never_with_a_decline(self) -> Self:
-        """A 422, like every shape rule about the body: the person answered, and one of the two fields contradicts the answer."""
 
-        if self.antwort == "erteilt" and self.geburtsdatum is None:
-            raise ValueError("Zur Bestätigung gehört das eigene Geburtsdatum.")
+class FLBewerbungEinwilligungAbgelehnt(BaseModel):
+    """One person's Widerspruch for one seat, which empties their slot: it carries nothing of them."""
 
-        if self.antwort == "abgelehnt" and self.geburtsdatum is not None:
-            raise ValueError("Ein Widerspruch speichert kein Geburtsdatum.")
+    model_config = ConfigDict(extra="forbid")
 
-        return self
+    antwort: Literal["abgelehnt"]
+    token: CustomToken
 
-    @model_validator(mode="after")
-    def the_whatsapp_consent_comes_with_the_consent_too(self) -> Self:
-        """A decline empties the slot, so a `True` here would echo a scope back to the page that no seat records."""
 
-        if self.antwort == "abgelehnt" and self.whatsapp:
-            raise ValueError("Ein Widerspruch speichert keine WhatsApp-Einwilligung.")
-
-        return self
+# Tagged by `antwort`, Pydantic's discriminated union, so each answer carries exactly its own fields. A route takes it
+# as its body's plain annotation: beside FastAPI's `Body()` the tag is dropped, and the union is tried member by member.
+FLBewerbungEinwilligungAntwortPayload = Annotated[
+    FLBewerbungEinwilligungErteilt | FLBewerbungEinwilligungAbgelehnt, Field(discriminator="antwort")
+]
 
 
 class FLBewerbungEinwilligungAntwortResponse(BaseAPIResponse):
@@ -689,17 +651,6 @@ class FLBewerbungKontaktSitzPayload(_KontaktpersonWritablePayload):
     text_version: CustomEinwilligungTextVersion
 
 
-class FLBewerbungKontaktSitzResponse(BaseAPIResponse):
-    """The new person's address as stored and every seat they now hold; their link is owed there in the same write."""
-
-    # Answered rather than re-derived by the caller, so one function decides the form a message is sent to.
-    email: str
-    # Plural as the correction's is: a mirrored pair is one person, and both seats are written from
-    # the claim `kontakte.trainer_ist_zugleich` records.
-    rollen: list[FLKontaktRolle]
-    bestaetigungsfrist: CustomDateString
-
-
 class FLBewerbungKontaktEmailPayload(BaseModel):
     """The corrected address and the one the page showed on the seat, and nothing else of the person."""
 
@@ -714,11 +665,12 @@ class FLBewerbungKontaktEmailPayload(BaseModel):
 
 
 class FLBewerbungKontaktEmailResponse(BaseAPIResponse):
-    """The corrected address as stored and every seat it reached; the fresh link is owed there in the same write."""
+    """A seat's address as a correction or a new person left it, and every seat it reached; the link is owed there in the same write."""
 
+    # Answered rather than re-derived by the caller, so one function decides the form a message is sent to.
     email: str
-    # Plural: one person may hold two seats, and the correction writes the address and the link to
-    # both, as a re-send does (`app/api/bewerbungen/services.py :: compose_erneut_update`).
+    # Plural: one person may hold two seats, a mirrored pair the claim `kontakte.trainer_ist_zugleich` records, and the
+    # write reaches both, as a re-send does (`app/api/bewerbungen/services.py :: compose_erneut_update`).
     rollen: list[FLKontaktRolle]
     bestaetigungsfrist: CustomDateString
 
@@ -745,12 +697,6 @@ class FLBewerbungSweepResponse(BaseAPIResponse):
     redigierte_aktionen: int
     # One sum over every clock rather than a count a clock: the line logging each row names its clock.
     fehlgeschlagen: int
-
-
-class FLBewerbungSweepSaisonsResponse(BaseAPIResponse):
-    """Every season's id, for the caller to sweep one by one."""
-
-    saison_ids: list[str]
 
 
 class FLBewerbungKontoEinwilligungResponse(BaseAPIResponse):

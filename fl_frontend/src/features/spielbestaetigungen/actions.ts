@@ -7,7 +7,6 @@ import { eintragenSpielbestaetigung, verwerfenSpielbestaetigung } from "./mutati
 import { FLSpielbestaetigungEintragenPayloadSchema, FLSpielbestaetigungVerwerfenPayloadSchema } from "./schemas";
 import { mapSpielbestaetigungAdminRefusal } from "./utils";
 
-import type { FLSpielbestaetigung } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
 import type { FLSpielbestaetigungEintragenPayload, FLSpielbestaetigungVerwerfenPayload } from "./schemas";
 
@@ -15,9 +14,7 @@ import type { FLSpielbestaetigungEintragenPayload, FLSpielbestaetigungVerwerfenP
  * A Zusage recorded on a party's behalf, after the league heard it some other way. A step-up write with no undo:
  * nothing reverses an answer. `spiele` drops because a settle can complete the pair the public card's verdict reads.
  */
-export async function eintragenSpielbestaetigungAction(
-  rawPayload: FLSpielbestaetigungEintragenPayload,
-): Promise<ActionResult<{ updated_document?: FLSpielbestaetigung }>> {
+export async function eintragenSpielbestaetigungAction(rawPayload: FLSpielbestaetigungEintragenPayload): Promise<ActionResult> {
   return runAdminMutation("eintragenSpielbestaetigungAction", { stepUp: true }, async () => {
     const validated = FLSpielbestaetigungEintragenPayloadSchema.safeParse(rawPayload);
 
@@ -25,16 +22,15 @@ export async function eintragenSpielbestaetigungAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    let operation;
     try {
-      operation = await eintragenSpielbestaetigung(validated.data);
+      await eintragenSpielbestaetigung(validated.data);
     } catch (error) {
       const refusal = mapSpielbestaetigungAdminRefusal(error);
       if (refusal !== null) return refusalResult(refusal);
       throw error;
     }
 
-    return { success: true, updated_document: operation.updated_document, message: "Die Zusage steht als Antwort der Verwaltung der Liga." };
+    return { success: true, message: "Die Zusage steht als Antwort der Verwaltung der Liga." };
   });
 }
 
@@ -44,9 +40,7 @@ export async function eintragenSpielbestaetigungAction(
  * Where the day is to come the discard owes the club its notice that the date stands, which the drain behind the
  * response sends at once.
  */
-export async function verwerfenSpielbestaetigungAction(
-  rawPayload: FLSpielbestaetigungVerwerfenPayload,
-): Promise<ActionResult<{ updated_document?: FLSpielbestaetigung }>> {
+export async function verwerfenSpielbestaetigungAction(rawPayload: FLSpielbestaetigungVerwerfenPayload): Promise<ActionResult> {
   return runAdminMutation("verwerfenSpielbestaetigungAction", { stepUp: true }, async () => {
     const validated = FLSpielbestaetigungVerwerfenPayloadSchema.safeParse(rawPayload);
 
@@ -54,15 +48,14 @@ export async function verwerfenSpielbestaetigungAction(
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    let operation;
     try {
-      operation = await verwerfenSpielbestaetigung(validated.data);
+      await verwerfenSpielbestaetigung(validated.data);
     } catch (error) {
       const refusal = mapSpielbestaetigungAdminRefusal(error);
       if (refusal !== null) return refusalResult(refusal);
       throw error;
     }
 
-    return { success: true, updated_document: operation.updated_document, message: "Der Termin bleibt, wie er ist." };
+    return { success: true, message: "Der Termin bleibt, wie er ist." };
   });
 }

@@ -2,17 +2,18 @@ from collections.abc import Mapping
 from typing import Any
 
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from app.api.bewerbungen.schemas import (
+    FLBewerbungEinwilligungAbgelehnt,
     FLBewerbungEinwilligungAntwortPayload,
-    refuse_age_outside_the_bounds,
+    FLBewerbungEinwilligungErteilt,
+    age_outside_the_bounds,
 )
 from app.api.bewerbungen.services import (
     ausstehende_seats,
     compose_decline_update,
     find_expired_token_refusal,
-    hash_token,
     paired_seat,
     saison_kontakt_seite,
     seat_opens_nobody,
@@ -25,6 +26,7 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
 )
 from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.tokens import hash_token
 from tests.documents import kontaktperson_document, minted_bestaetigungen
 
 TODAY = "2026-04-01"
@@ -42,7 +44,7 @@ class TestASlotAndItsBookkeepingMoveTogether:
 
     @pytest.mark.parametrize("seats", [("trainer",), ("trainer", "ansprechperson"), KONTAKT_ROLLEN])
     def test_a_decline_stamps_the_entry_of_every_seat_it_empties(self, seats: tuple[str, ...]):
-        update = written(compose_decline_update(seats=seats, today=TODAY))
+        update = written(compose_decline_update(seats=seats, today=TODAY, angekuendigt=False))
 
         for seat in seats:
             assert update[f"kontakte.{seat}"] is None
@@ -158,9 +160,9 @@ class TestWhatALinkAnswers:
         assert saison_kontakt_seite(row=row, seat="trainer") == "bestaetigung_kontakt_saison"
 
     def test_a_person_reaching_the_seats_floor_today_may_confirm(self):
-        """The floor to the day: a contact person sixteen today is refused under a sentence saying they must be sixteen."""
+        """The floor to the day: a contact person sixteen today is inside it."""
 
-        assert refuse_age_outside_the_bounds(geburtsdatum="2010-04-01", today=TODAY, mindestalter=16) is None
+        assert age_outside_the_bounds(geburtsdatum="2010-04-01", today=TODAY, mindestalter=16) is False
 
 
 class TestTheSeatsStillOpen:
@@ -210,46 +212,47 @@ def antwort(**overrides: Any) -> dict[str, Any]:
     }
 
 
+ANTWORT: TypeAdapter[FLBewerbungEinwilligungErteilt | FLBewerbungEinwilligungAbgelehnt] = TypeAdapter(FLBewerbungEinwilligungAntwortPayload)
+
+
+def refusals(body: dict[str, Any]) -> list[tuple[tuple[Any, ...], str]]:
+    with pytest.raises(ValidationError) as failure:
+        ANTWORT.validate_python(body)
+
+    return [(error["loc"], error["type"]) for error in failure.value.errors()]
+
+
 class TestWhatTheAnswerPayloadRefuses:
-    """Shape rules about the body, all 422: the person answered, and a field contradicts the answer."""
+    """The answer's two shapes, told apart by `antwort`: each refusal is 422, at the tag and the field it names."""
 
     def test_the_corpus_this_class_moves_one_field_of_is_valid(self):
-        assert FLBewerbungEinwilligungAntwortPayload.model_validate(antwort()).antwort == "erteilt"
-        assert FLBewerbungEinwilligungAntwortPayload.model_validate(antwort(antwort="abgelehnt", geburtsdatum=None)).geburtsdatum is None
+        assert isinstance(ANTWORT.validate_python(antwort()), FLBewerbungEinwilligungErteilt)
+        assert isinstance(ANTWORT.validate_python({"token": "raw-trainer", "antwort": "abgelehnt"}), FLBewerbungEinwilligungAbgelehnt)
 
     def test_a_consent_without_a_date_is_refused(self):
-        with pytest.raises(ValidationError, match="Geburtsdatum"):
-            FLBewerbungEinwilligungAntwortPayload.model_validate(antwort(geburtsdatum=None))
+        body = antwort()
+        del body["geburtsdatum"]
 
-    def test_a_decline_carrying_a_date_is_refused(self):
-        """A decline stores no person, so a date sent with one would be a value nothing writes and nobody asked for."""
+        assert refusals(body) == [(("erteilt", "geburtsdatum"), "missing")]
 
-        with pytest.raises(ValidationError, match="Widerspruch"):
-            FLBewerbungEinwilligungAntwortPayload.model_validate(antwort(antwort="abgelehnt"))
+    @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "medien", "text_version"])
+    def test_a_decline_carries_nothing_of_the_person(self, field: str):
+        """A decline empties the slot: a date or a choice sent with one would be a value nothing writes, echoed back as stored."""
 
-    def test_a_decline_carrying_a_whatsapp_consent_is_refused(self):
-        """Taken, it would echo a scope back to the page that the emptied slot records nowhere."""
-
-        with pytest.raises(ValidationError, match="WhatsApp"):
-            FLBewerbungEinwilligungAntwortPayload.model_validate(antwort(antwort="abgelehnt", geburtsdatum=None, whatsapp=True))
-
-    def test_a_decline_refusing_the_switch_is_taken(self):
-        """The pair above only means something beside this: a rule refusing both answers refuses the decline outright."""
-
-        payload = FLBewerbungEinwilligungAntwortPayload.model_validate(antwort(antwort="abgelehnt", geburtsdatum=None, whatsapp=False))
-
-        assert (payload.antwort, payload.whatsapp) == ("abgelehnt", False)
+        assert refusals({"token": "raw-trainer", "antwort": "abgelehnt", field: antwort()[field]}) == [
+            (("abgelehnt", field), "extra_forbidden")
+        ]
 
     @pytest.mark.parametrize("field", ["geburtsdatum", "whatsapp", "medien", "text_version", "antwort"])
     def test_every_field_is_required(self, field: str, assert_rejects):
         body = antwort()
         del body[field]
 
-        assert_rejects(FLBewerbungEinwilligungAntwortPayload, body, field)
+        assert_rejects(FLBewerbungEinwilligungErteilt, body, field)
 
-    @pytest.mark.parametrize("model", [FLTokenPayload, FLBewerbungEinwilligungAntwortPayload])
+    @pytest.mark.parametrize("model", [FLTokenPayload, FLBewerbungEinwilligungErteilt])
     def test_a_token_past_the_bound_is_refused_and_one_at_it_taken(self, model: type, assert_rejects):
-        body = antwort() if model is FLBewerbungEinwilligungAntwortPayload else {"token": ""}
+        body = antwort() if model is FLBewerbungEinwilligungErteilt else {"token": ""}
 
         assert_rejects(model, {**body, "token": "t" * (BEWERBUNG_TOKEN_MAX_LENGTH + 1)}, "token")
         assert model.model_validate({**body, "token": "t" * BEWERBUNG_TOKEN_MAX_LENGTH}).token == "t" * BEWERBUNG_TOKEN_MAX_LENGTH

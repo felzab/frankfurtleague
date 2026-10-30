@@ -914,7 +914,8 @@ def kontakt_adresse(*, kontakte: Any, seat: str) -> str | None:
 def link_groups(*, kontakte: Any, seats: Sequence[str]) -> list[list[FLKontaktRolle]]:
     """The seats as links: one per seat, a mirrored Trainer sharing the link of the seat it holds too where both are among `seats`.
 
-    Two seats one press answers are one thing to do (`fl_frontend/src/features/bewerbungen/notifications.ts :: seatsByMailbox`).
+    Two seats one press answers are one thing to do, as one address is one mail
+    (`app/api/bewerbungen/services.py :: personen_mit_adresse`).
     """
 
     zugleich = kontakte.get("trainer_ist_zugleich") if isinstance(kontakte, Mapping) else None

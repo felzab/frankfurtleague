@@ -12,7 +12,6 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.schemas import FLLoeschungAnsichtResponse, FLLoeschungResponse
 from app.api.identitaet.services import build_loeschung_seat_pipeline
 from app.api.kontakte.crud import loeschen_kontaktperson_in_session
@@ -32,6 +31,7 @@ from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop

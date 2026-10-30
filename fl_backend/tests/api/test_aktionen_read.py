@@ -466,7 +466,7 @@ class TestTheFacetCountsAnswerForTheWholeLog:
         """A dimension counted under its own selection offers the picked option and kills every other."""
 
         log = _LogCollection(log_of_two_areas(4, 5))
-        answered = run_list(log, collection="teams")
+        answered = run_list(log, collection=["teams"])
 
         assert log.requested_filter["collection"] == {"$in": ["teams"]}
         assert answered.anzahl_je_collection == {"teams": 4, "spielorte": 5}
@@ -474,7 +474,7 @@ class TestTheFacetCountsAnswerForTheWholeLog:
     def test_an_areas_count_keeps_the_operation_the_request_narrowed_to(self):
         """The other dimension does apply, or an option answers what it would leave under no filter at all."""
 
-        answered = run_list(_LogCollection(log_of_two_areas(4, 5)), operation="insert")
+        answered = run_list(_LogCollection(log_of_two_areas(4, 5)), operation=["insert"])
 
         assert answered.anzahl_je_collection == {"spielorte": 5}
         assert answered.anzahl_je_operation == {"patch_one": 4, "insert": 5}
@@ -490,31 +490,23 @@ class TestTheFacetCountsAnswerForTheWholeLog:
 
 
 class TestTheAreaAndOperationTermsCarryASelection:
-    """The bar offering them is multi-select, so a joined value is the request two picked options make."""
+    """The bar offering them is multi-select, so two keys are the request two picked options make."""
 
     def test_a_two_area_selection_reaches_the_read_as_one_term(self):
         log = _LogCollection(log_of_two_areas(4, 5))
-        run_list(log, collection="teams,spielorte")
+        run_list(log, collection=["teams", "spielorte"])
 
         assert log.requested_filter["collection"] == {"$in": ["teams", "spielorte"]}
 
     def test_a_two_operation_selection_reaches_the_read_as_one_term(self):
         log = _LogCollection(log_of_two_areas(4, 5))
-        run_list(log, operation="patch_one,insert")
+        run_list(log, operation=["patch_one", "insert"])
 
         assert log.requested_filter["operation"] == {"$in": ["patch_one", "insert"]}
 
-    def test_an_emptied_parameter_narrows_nothing(self):
-        """The facet turned off. `$in: []` would answer that with a page holding nothing."""
-
-        log = _LogCollection(log_of_two_areas(4, 5))
-        run_list(log, collection="")
-
-        assert "collection" not in log.requested_filter
-
     def test_the_tally_is_never_narrowed_by_a_facet_term(self):
         log = _LogCollection(log_of_two_areas(4, 5))
-        run_list(log, collection="teams", operation="patch_one", trace_id="9f2c1b7e4a6d8c3f")
+        run_list(log, collection=["teams"], operation=["patch_one"], trace_id="9f2c1b7e4a6d8c3f")
 
         assert log.requested_pipeline[0]["$match"] == {"trace_id": "9f2c1b7e4a6d8c3f"}
 

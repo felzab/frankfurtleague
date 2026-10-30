@@ -585,7 +585,7 @@ class TestTheCeilingOnTheSchoolWebsite:
         """Why the ceiling is declared BEFORE the validator rather than around it.
 
         `DOMAIN_REGEX` carries nested quantifiers, so a megabyte of host is work this refuses
-        without doing. Wrap `CustomExternalUrl` instead and this becomes `value_error`.
+        without doing. Wrap `CustomExternalUrl` instead and this becomes `url_not_accepted`.
         """
 
         enormous = "javascript:" + "a" * (TEAM_WEBSITE_URL_MAX_LENGTH * 40)
@@ -601,7 +601,7 @@ class TestTheCeilingOnTheSchoolWebsite:
         with pytest.raises(ValidationError) as failure:
             FLBewerbungSchulePayload.model_validate(schule(website_url="javascript:alert(1)"))
 
-        assert failure.value.errors()[0]["type"] == "value_error"
+        assert failure.value.errors()[0]["type"] == "url_not_accepted"
 
 
 class TestTheSquadEstimateIsBoundedAsASquad:
@@ -692,13 +692,7 @@ class TestTheStrongPlayersFitInsideTheSquad:
         with pytest.raises(ValidationError) as failure:
             FLPostBewerbungPayload.model_validate(submission(kader=kader))
 
-        assert "guten Spieler" in str(failure.value)
-
-    def test_the_refusal_is_German_and_names_both_figures(self):
-        """It surfaces as a 422 on a public form, and the Zod mirror carries this exact wording."""
-
-        with pytest.raises(ValidationError, match="Die Anzahl der guten Spieler darf die voraussichtliche Kadergröße nicht überschreiten."):
-            FLPostBewerbungPayload.model_validate(submission(kader={"voraussichtliche_groesse": 5, "gute_spieler": 6}))
+        assert [error["type"] for error in failure.value.errors()] == ["gute_spieler_exceed_kader"]
 
 
 def stored_application(**overrides: Any) -> dict[str, Any]:

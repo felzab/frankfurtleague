@@ -65,7 +65,7 @@ class FLPatchSpieltagPayload(BaseModel):
     def the_matchday_ends_after_it_begins(self) -> Self:
         """A span running backwards is a typo in one of the two dates, and nothing downstream can tell which one."""
 
-        refuse_reversed_span(start=self.beginn, end=self.ende, start_label="dem Beginn", end_label="Das Ende")
+        refuse_reversed_span(start=self.beginn, end=self.ende, kind="spieltag_ends_before_start")
 
         return self
 
@@ -80,4 +80,3 @@ class FLSpieltageSingleResponse(BaseAPIResponse):
 
 class FLSpieltagWriteResponse(BaseAPIResponse):
     spieltag_id: CustomObjectId
-    updated_document: FLSpieltag

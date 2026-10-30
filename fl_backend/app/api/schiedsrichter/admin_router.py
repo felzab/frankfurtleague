@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
@@ -25,7 +25,6 @@ from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterMintResponse,
     FLSchiedsrichterReactivateResponse,
     FLSchiedsrichterSingleResponse,
-    FLSchiedsrichterWriteResponse,
 )
 from app.api.schiedsrichter.services import (
     BESTAETIGUNG_FELD,
@@ -298,7 +297,7 @@ async def patch_schiedsrichter(
     fixtures of every referee already erased.
     """
 
-    payload = schiedsrichter_data.model_dump(mode="json")
+    payload = schiedsrichter_data.model_dump(mode="json", exclude={"version"})
     email = schiedsrichter_data.kontakt.email
     gehasht = sperrliste.hash_of(email)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`), and read on every
@@ -329,6 +328,7 @@ async def patch_schiedsrichter(
             collection=schiedsrichter_collection,
             db_filter=build_referee_filter(schiedsrichter_id),
             update=update,
+            expected_version=schiedsrichter_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )
@@ -353,7 +353,7 @@ async def patch_schiedsrichter(
             session=session,
         )
 
-        answer = FLPatchSchiedsrichterResponse(updated_document=updated_document, fanned_out_to_spiele=fan_out.modified_count)
+        answer = FLPatchSchiedsrichterResponse(fanned_out_to_spiele=fan_out.modified_count)
 
         return answer, minted
 
@@ -371,7 +371,7 @@ async def patch_schiedsrichter(
 
 @router.delete(
     by_id("schiedsrichter_id"),
-    response_model=FLSchiedsrichterWriteResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Deactivate a Schiedsrichter (soft delete)",
 )
 async def delete_schiedsrichter(
@@ -380,7 +380,7 @@ async def delete_schiedsrichter(
     spiele_collection: SpieleCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> FLSchiedsrichterWriteResponse:
+) -> None:
     """Deactivate a referee. SOFT, for the same reason as venues: matches embed a copy."""
 
     async def retire_the_referee(session: AsyncClientSession) -> Mapping[str, Any]:
@@ -416,9 +416,7 @@ async def delete_schiedsrichter(
     # fixtures conflicts on the referee it anchors rather than landing unseen
     # (`app/api/spiele/crud.py :: anchor_a_booked_referee`).
     async with transaction_session(db) as session:
-        updated_document_raw = await session.with_transaction(retire_the_referee)
-
-    return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
+        await session.with_transaction(retire_the_referee)
 
 
 @router.post(
@@ -495,10 +493,9 @@ async def reactivate_schiedsrichter(
 
     # One transaction, so a row never comes back without the link it was owed.
     async with transaction_session(db) as session:
-        updated_document_raw, gemintet_fuer = await session.with_transaction(reactivate_and_ask)
+        _, gemintet_fuer = await session.with_transaction(reactivate_and_ask)
 
     return FLSchiedsrichterReactivateResponse(
-        updated_document=FLSchiedsrichter(**updated_document_raw),
         bestaetigung=None if gemintet_fuer is None else FLSchiedsrichterMint(frist=bestaetigung_frist_from(today=today), email=gemintet_fuer),
     )
 

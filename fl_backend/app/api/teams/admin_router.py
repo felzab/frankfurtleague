@@ -3,7 +3,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -13,7 +13,7 @@ from app.api.adresswechsel.crud import verwehrte_adressen
 from app.api.adresswechsel.services import build_addresses_filter
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.bewerbungen.services import mint_token, seat_adressen, seat_named
+from app.api.bewerbungen.services import seat_adressen, seat_named
 from app.api.einladungen.crud import einladung_bezug, owed_einladung_mails
 from app.api.einladungen.schemas import (
     FLEinladung,
@@ -60,14 +60,12 @@ from app.api.teams.schemas import (
     FLReplaceSaisonTeamResponse,
     FLSaisonTeamResponse,
     FLTeamListAdapter,
-    FLTeamRecord,
     FLTeamsFilterParams,
     FLTeamsGroupedResponse,
     FLTeamsListResponse,
     FLTeamsResponse,
     FLTeamsSaisonsResponse,
     FLTeamWithMembershipsListAdapter,
-    FLTeamWriteResponse,
 )
 from app.api.teams.services import (
     build_gruppen,
@@ -102,7 +100,6 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
-    VERSION_FIELD,
     aggregate_many_from_db,
     insert_live,
     patch_many_in_db,
@@ -148,6 +145,7 @@ from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.schemas.responses import FLCreatedResponse
+from app.shared.tokens import mint_token
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/teams",
@@ -330,12 +328,13 @@ async def patch_team(
     """
 
     async def rename_and_fan_out(session: AsyncClientSession) -> FLPatchTeamResponse:
-        updated_raw = await patch_one_in_db(
+        await patch_one_in_db(
             collection=teams_collection,
             db_filter={"_id": team_id},
-            update={"$set": team_data.model_dump(mode="json")},
+            update={"$set": team_data.model_dump(mode="json", exclude={"version"})},
+            expected_version=team_data.version,
             session=session,
-            return_document=ReturnDocument.AFTER,
+            return_document=ReturnDocument.BEFORE,
         )
 
         # Read through the session, so a season closed by a concurrent write cannot leave the
@@ -368,7 +367,6 @@ async def patch_team(
             fanned_out += result.modified_count
 
         return FLPatchTeamResponse(
-            updated_document=FLTeamRecord.model_validate(updated_raw),
             fanned_out_to_spiele=fanned_out,
             fanned_out_to_saison_teams=junction.modified_count,
         )
@@ -381,7 +379,7 @@ async def patch_team(
 
 @router.delete(
     by_id("team_id"),
-    response_model=FLTeamWriteResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Retire a team (soft delete)",
 )
 async def delete_team(
@@ -391,7 +389,7 @@ async def delete_team(
     saisons_collection: SaisonsCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> FLTeamWriteResponse:
+) -> None:
     """
     Retire a club from the league. SOFT: `inactive_since` is stamped and the document stays.
 
@@ -424,30 +422,26 @@ async def delete_team(
     # The stamp inside the judgement's transaction: an entry writes nothing read here, so the club it
     # anchors (`app/api/teams/crud.py :: pull_a_club_to_enter`) is the one document the two conflict on.
     async with transaction_session(db) as session:
-        updated_raw = await session.with_transaction(retire_the_club)
-
-    return FLTeamWriteResponse(updated_document=FLTeamRecord.model_validate(updated_raw))
+        await session.with_transaction(retire_the_club)
 
 
 @router.post(
     f"{by_id('team_id')}/reactivate",
-    response_model=FLTeamWriteResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Bring a retired team back",
 )
 async def reactivate_team(
     team_id: CustomRouteObjectId,
     teams_collection: TeamsCollection,
     db: DBClient,
-) -> FLTeamWriteResponse:
+) -> None:
     """Clear `inactive_since`, restoring a retired club to reads that hide retired ones."""
 
     async def bring_the_club_back(session: AsyncClientSession) -> Mapping[str, Any]:
         return await set_inactive_since(collection=teams_collection, db_filter={"_id": team_id}, when=None, session=session)
 
     async with transaction_session(db) as session:
-        updated_raw = await session.with_transaction(bring_the_club_back)
-
-    return FLTeamWriteResponse(updated_document=FLTeamRecord.model_validate(updated_raw))
+        await session.with_transaction(bring_the_club_back)
 
 
 @router.post(
@@ -591,7 +585,8 @@ async def patch_saison_team(
         updated_raw = await patch_one_in_db(
             collection=saison_teams_collection,
             db_filter={"team_id": team_id, "saison_id": saison_id},
-            update={"$set": saison_team_data.model_dump(mode="json")},
+            update={"$set": saison_team_data.model_dump(mode="json", exclude={"version"})},
+            expected_version=saison_team_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )
@@ -760,7 +755,8 @@ async def patch_saison_team_kontakte(
             # The two paths, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
             # `trikot_farbe` belong to the junction PATCH, and a `$set` carrying them would reinstate
             # whatever this caller last read. The version the editor sent is the helper's to check.
-            update={"$set": {"kontakte": kontakte, "bestaetigungen": bestaetigungen, VERSION_FIELD: kontakte_data.version}},
+            update={"$set": {"kontakte": kontakte, "bestaetigungen": bestaetigungen}},
+            expected_version=kontakte_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )
@@ -775,8 +771,7 @@ async def patch_saison_team_kontakte(
         return FLPatchSaisonTeamKontakteResponse(
             saison_id=saison_id,
             team_id=team_id,
-            # The AFTER image, not the payload: what the row holds is the claim this echo makes, and
-            # its token is the precondition an undo of this save replays against.
+            # The AFTER image, not the payload: what the row holds is the claim this echo makes.
             kontakte=updated_raw["kontakte"],
             bestaetigungen=[mint for _, mint in links],
         )

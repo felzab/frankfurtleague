@@ -9,7 +9,6 @@ from app.api.bewerbungen.services import (
     decline_loeschung_is_due,
     deletion_is_due,
     group_seats_by_mailbox,
-    hash_token,
     one_month_after,
     reminder_seats,
     schule_name,
@@ -22,6 +21,7 @@ from app.api.postausgang.schemas import FLPostausgangLage, FLPostausgangZustellS
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.shared.schemas.bounds import BEWERBUNG_ERINNERUNG_TAGE
 from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.tokens import hash_token
 from tests.documents import kontaktperson_document, minted_bestaetigungen
 
 TODAY = "2026-04-01"
@@ -207,7 +207,7 @@ class TestTheReminderMark:
 class TestOneMessagePerMailbox:
     """Grouped as the first mail groups: one stored address, one message.
 
-    The keying is `fl_frontend/src/features/bewerbungen/notifications.ts :: collectSeats`.
+    The keying is `fl_backend/app/api/bewerbungen/services.py :: personen_mit_adresse`.
     """
 
     def test_one_person_holding_two_seats_gets_one_message_with_both(self):

@@ -29,8 +29,9 @@ from app.api.spieler.schemas import FLSaisonSpielerRecord, FLSpielerRecord
 from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltagRecord
 from app.api.teams.schemas import FLSaisonTeamRecord, FLTeamRecord
-from app.core.collections import Collection
+from app.core.collections import EDITED_COLLECTIONS, Collection
 from app.core.config import get_config  # noqa: TID251
+from app.core.crud import VERSION_FIELD
 from app.core.db import SERVER_SELECTION_TIMEOUT_MS
 
 RECORD_MODELS: Mapping[Collection, type[BaseModel]] = {
@@ -66,12 +67,20 @@ async def read_back(client: AsyncMongoClient, database_name: str) -> int:
     for collection, model in RECORD_MODELS.items():
         async for document in client[database_name][collection].find({}):
             read += 1
+            # Checked here rather than by the model, whose `version` defaults to 0 for the runtime reads: a
+            # document without one is served as 0, and every save of it is then refused as stale.
+            locations = [VERSION_FIELD] if collection in EDITED_COLLECTIONS and VERSION_FIELD not in document else []
             try:
                 model.model_validate(document, extra="forbid")
             except ValidationError as error:
+                locations += [
+                    ".".join(str(step) for step in detail["loc"])
+                    for detail in error.errors(include_input=False, include_context=False, include_url=False)
+                ]
+            if locations:
                 refused += 1
-                for detail in error.errors(include_input=False, include_context=False, include_url=False):
-                    print(f"{collection} {document.get('_id')} {'.'.join(str(step) for step in detail['loc'])}")
+                for location in locations:
+                    print(f"{collection} {document.get('_id')} {location}")
 
     print(f"{read} documents read, {refused} refused.")
     return 1 if refused else 0

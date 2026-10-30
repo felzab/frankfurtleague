@@ -1,6 +1,7 @@
 from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
+from pydantic_core import PydanticCustomError
 
 from app.api.postausgang.schemas import FLPostausgangLage
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
@@ -234,12 +235,6 @@ class FLSpielbestaetigungEintragenPayload(BaseModel):
     begruendung: CustomSpielbestaetigungBegruendung
 
 
-class FLSpielbestaetigungWriteResponse(BaseAPIResponse):
-    """Shared by the administrator's two presses, both answering the row as it now stands."""
-
-    updated_document: FLSpielbestaetigung
-
-
 # --- The LINK. The token is the whole credential, so both endpoints are base-tier and every payload
 # forbids an undeclared key. Nothing below names a person, a seat's address or a hash
 # (`READ-ANSETZUNG-001`).
@@ -292,10 +287,10 @@ class FLSpielbestaetigungAntwortPayload(BaseModel):
         """A 422 like every shape rule about the body: the page offers no decline without a date, and no reason beside an acceptance."""
 
         if self.antwort == "abgelehnt" and self.vorschlag is None:
-            raise ValueError("Wer absagt, schlägt einen anderen Termin vor.")
+            raise PydanticCustomError("decline_without_proposal", "a decline proposes another date")
 
         if self.antwort == "zugesagt" and (self.vorschlag is not None or self.begruendung is not None):
-            raise ValueError("Eine Zusage trägt keinen Terminvorschlag und keine Begründung.")
+            raise ValueError("an acceptance carries no proposal and no reason")
 
         return self
 
@@ -354,10 +349,10 @@ class FLSpielbestaetigungSchiedsrichterAntwortPayload(BaseModel):
         """A 422 like every shape rule about the body: the panel offers no decline without a reason."""
 
         if self.antwort == "abgelehnt" and self.begruendung is None:
-            raise ValueError("Wer absagt, nennt einen Grund.")
+            raise PydanticCustomError("decline_without_reason", "a decline names its reason")
 
         if self.antwort == "zugesagt" and self.begruendung is not None:
-            raise ValueError("Eine Zusage trägt keine Begründung.")
+            raise ValueError("an acceptance carries no reason")
 
         return self
 
@@ -369,12 +364,6 @@ class FLSpielbestaetigungSchiedsrichterAntwortResponse(BaseAPIResponse):
 
 # --- The PASS, system tier. It owes every mail through the Postausgang, and answers counts alone: no address, no
 # link and no name (`READ-ANSETZUNG-002`).
-
-
-class FLSpielbestaetigungSweepSaisonsResponse(BaseAPIResponse):
-    """The `active` seasons a pass visits, oldest first."""
-
-    saison_ids: list[str]
 
 
 class FLSpielbestaetigungSweepResponse(BaseAPIResponse):

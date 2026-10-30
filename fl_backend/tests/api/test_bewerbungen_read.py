@@ -640,23 +640,21 @@ class TestWhatAStatusSelectionMayBeSpelledAs:
         [
             ("status=eingereicht", ["eingereicht"]),
             ("status=eingereicht&status=abgelehnt", ["eingereicht", "abgelehnt"]),
-            ("status=eingereicht,abgelehnt", ["eingereicht", "abgelehnt"]),
-            ("status=angenommen,abgelehnt&status=eingereicht", ["angenommen", "abgelehnt", "eingereicht"]),
         ],
     )
-    def test_repeating_the_parameter_and_joining_its_values_are_one_selection(self, query: str, picked: list[str]):
+    def test_each_repeated_key_is_one_value_of_the_selection(self, query: str, picked: list[str]):
         with TestClient(_probe) as client:
             assert client.get(f"/probe?{query}").json()["status"] == picked
 
-    @pytest.mark.parametrize("query", ["", "status="])
-    def test_an_absent_or_emptied_parameter_narrows_on_nothing(self, query: str):
-        """`null` and never `[]`: the queue's off-switch is the empty parameter, and `$in: []` would answer it with nothing."""
+    def test_an_absent_parameter_narrows_on_nothing(self):
+        """`null` and never `[]`: the facet turned off sends no key, and `$in: []` would answer it with nothing."""
 
         with TestClient(_probe) as client:
-            assert client.get(f"/probe?{query}").json()["status"] is None
+            assert client.get("/probe").json()["status"] is None
 
-    # 422 rather than 404, the routing clause in `.claude/rules/backend.md` keeping 404 for a path id.
-    @pytest.mark.parametrize("value", ["erfunden", "EINGEREICHT", "eingereicht,erfunden", "null", "0"])
+    # 422 rather than 404, the routing clause in `.claude/rules/backend.md` keeping 404 for a path id. A comma-joined
+    # pair is one value outside the set.
+    @pytest.mark.parametrize("value", ["erfunden", "EINGEREICHT", "eingereicht,abgelehnt", "", "null", "0"])
     def test_a_status_outside_the_set_is_refused(self, value: str):
         with TestClient(_probe) as client:
             assert client.get(f"/probe?status={value}").status_code == 422
@@ -671,27 +669,25 @@ class TestWhatAStatusSelectionMayBeSpelledAs:
 
 
 class TestWhatASeasonRelationMayBeSpelledAs:
-    """The relation rides the same splitter as the status, so both are filled from one query string the same way."""
+    """The relation is a list as the status is, so both are filled from one query string the same way."""
 
     @pytest.mark.parametrize(
         ("query", "picked"),
         [
             ("saisonbezug=diese_saison", ["diese_saison"]),
-            ("saisonbezug=diese_saison,andere_saison", ["diese_saison", "andere_saison"]),
             ("saisonbezug=diese_saison&saisonbezug=andere_saison", ["diese_saison", "andere_saison"]),
         ],
     )
-    def test_repeating_the_parameter_and_joining_its_values_are_one_selection(self, query: str, picked: list[str]):
+    def test_each_repeated_key_is_one_value_of_the_selection(self, query: str, picked: list[str]):
         with TestClient(_probe) as client:
             assert client.get(f"/probe?{query}").json()["saisonbezug"] == picked
 
-    @pytest.mark.parametrize("query", ["", "saisonbezug="])
-    def test_an_absent_or_emptied_parameter_asks_for_no_relation(self, query: str):
+    def test_an_absent_parameter_asks_for_no_relation(self):
         with TestClient(_probe) as client:
-            assert client.get(f"/probe?{query}").json()["saisonbezug"] is None
+            assert client.get("/probe").json()["saisonbezug"] is None
 
     # 422 rather than 404, the routing clause in `.claude/rules/backend.md` keeping 404 for a path id.
-    @pytest.mark.parametrize("value", ["erfunden", "DIESE_SAISON", "diese_saison,erfunden", "2026"])
+    @pytest.mark.parametrize("value", ["erfunden", "DIESE_SAISON", "diese_saison,andere_saison", "", "2026"])
     def test_a_relation_outside_the_set_is_refused(self, value: str):
         with TestClient(_probe) as client:
             assert client.get(f"/probe?saisonbezug={value}").status_code == 422

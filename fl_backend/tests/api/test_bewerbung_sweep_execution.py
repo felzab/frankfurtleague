@@ -16,11 +16,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.admin_router import erneut_einwilligung
 from app.api.bewerbungen.public_router import get_einwilligung_ansicht
-from app.api.bewerbungen.services import (
-    SWEEP_PAGE,
-    compose_confirmation_update,
-    hash_token,
-)
+from app.api.bewerbungen.services import SWEEP_PAGE, compose_confirmation_update
 from app.api.bewerbungen.system_router import (
     BLOCKS_CLEARED_PER_PASS,
     REMINDERS_PER_PASS,
@@ -39,6 +35,7 @@ from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.api import test_bewerbung_sweep_refusal as budget
 from tests.app_client import app_client

@@ -27,7 +27,6 @@ import type {
   FLGenerateSpielplanResponse,
   FLLoeschungSweepResponse,
   FLPatchSaisonPayload,
-  FLPatchSaisonResponse,
   FLSwapGruppenPayload,
   FLSwapGruppenResponse,
   FLUndrawSpielplanResponse,
@@ -71,7 +70,7 @@ export async function postSaisonAction(
 
 export async function patchSaisonAction(
   rawPayload: Omit<FLPatchSaisonPayload, "rules"> & { id: string; rules: FLSaisonRulesDraft },
-): Promise<ActionResult<{ saison?: FLPatchSaisonResponse }>> {
+): Promise<ActionResult> {
   return runAdminMutation("patchSaisonAction", async () => {
     const validated = FLPatchSaisonPayloadSchema.safeParse(rawPayload);
 
@@ -81,9 +80,8 @@ export async function patchSaisonAction(
 
     // Every rules refusal has to reach the editor rather than the error page: the panel the admin is
     // looking at is where the wrong value still sits.
-    let patchOperation;
     try {
-      patchOperation = await patchSaison(validated.data);
+      await patchSaison(validated.data);
     } catch (error) {
       const refusal = mapRulesRefusal(error);
       if (refusal) return refusalResult(refusal);
@@ -92,7 +90,6 @@ export async function patchSaisonAction(
 
     return {
       success: true,
-      saison: patchOperation,
       message: "Saison gespeichert",
     };
   });

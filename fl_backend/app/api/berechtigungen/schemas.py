@@ -3,6 +3,7 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
+from app.core.crud import Anchored
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import FLAdresswechselEinsehbarVerwehrt, FLAdresswechselWeg, FLGenehmigungVerwehrt, FLVerwaltung
@@ -44,7 +45,7 @@ class FLBerechtigungFortgefuehrt(BaseModel):
     inhaber_seit: datetime | None
 
 
-class FLBerechtigung(BaseModel):
+class FLBerechtigung(Anchored):
     """One grant as the collection stores it, its address folded as the sign-in folds it."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")

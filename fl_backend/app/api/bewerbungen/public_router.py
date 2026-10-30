@@ -20,7 +20,6 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungTrikotFarbenResponse,
     FLEinwilligungAntwortResponse,
     FLPostBewerbungPayload,
-    FLPostBewerbungResponse,
     FLSaisonTeamEinwilligungAntwortResponse,
 )
 from app.api.bewerbungen.services import (
@@ -57,7 +56,6 @@ from app.api.bewerbungen.services import (
     find_submission_subject_refusal,
     find_unknown_token_refusal,
     find_window_refusal,
-    hash_token,
     mindestalter_for,
     objection_is_announced,
     owed_at_submission,
@@ -110,6 +108,8 @@ from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from app.shared.schemas.custom import fold_shorthand
 from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.schemas.responses import FLCreatedResponse
+from app.shared.tokens import hash_token
 
 # Base-tier at the prefix the admin and person routers share: a member of the public applies here,
 # and nothing served below reaches a stored application (`READ-BEWERBUNG-001`). The confirmation
@@ -302,17 +302,17 @@ async def _any_gesperrt(
     return bool(await hashes_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session))
 
 
-def _answer_as_the_first(*, stored: Mapping[str, Any], fingerabdruck: str) -> FLPostBewerbungResponse:
+def _answer_as_the_first(*, stored: Mapping[str, Any], fingerabdruck: str) -> FLCreatedResponse:
     """The answer a stored key gets: the application it already holds, whose mails its first press owed, never a second one."""
 
     refuse(find_abweichender_fingerabdruck_refusal(gespeichert=stored.get("idempotenz_fingerabdruck"), fingerabdruck=fingerabdruck))
 
-    return FLPostBewerbungResponse(created_id=stored["_id"])
+    return FLCreatedResponse(created_id=stored["_id"])
 
 
 @router.post(
     "",
-    response_model=FLPostBewerbungResponse,
+    response_model=FLCreatedResponse,
     status_code=201,
     summary="Submit a Bewerbung",
 )
@@ -331,7 +331,7 @@ async def post_bewerbung(
     idempotency_key: Annotated[UUID4 | None, Header()] = None,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLPostBewerbungResponse:
+) -> FLCreatedResponse:
     """
     Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.
 
@@ -363,7 +363,7 @@ async def post_bewerbung(
     # The REFERENCE season a ban is counted from, as the registration reads it.
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
-    async def store_or_replay(session: AsyncClientSession) -> FLPostBewerbungResponse:
+    async def store_or_replay(session: AsyncClientSession) -> FLCreatedResponse:
         """The replay or the judged insert, in one transaction: either write is the request's only one."""
 
         # Before every judgement: a replay answers what the first request did, whatever has closed since.
@@ -467,7 +467,7 @@ async def post_bewerbung(
             now=germany_now,
         )
 
-        return FLPostBewerbungResponse(created_id=created.inserted_id)
+        return FLCreatedResponse(created_id=created.inserted_id)
 
     # The key lookup is the transaction's first read: a first press committed before this snapshot is
     # found, and one committed after it makes the insert a write conflict `with_transaction` retries.
@@ -601,7 +601,7 @@ async def get_einwilligung_ansicht(
     summary="Confirm or decline one seat of a Bewerbung or of a team's season row",
 )
 async def post_einwilligung(
-    antwort_data: Annotated[FLBewerbungEinwilligungAntwortPayload, Body()],
+    antwort_data: FLBewerbungEinwilligungAntwortPayload,
     bewerbungen_collection: BewerbungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
@@ -655,7 +655,6 @@ async def post_einwilligung(
 
         if antwort_data.antwort == "erteilt":
             geburtsdatum = antwort_data.geburtsdatum
-            assert geburtsdatum is not None
 
             # Unanchored: the rollover reads nothing this press writes, so one committing inside it orders as
             # one committing just after.
@@ -742,7 +741,7 @@ async def post_einwilligung(
         )
         journal_the_widerspruch(Collection.SAISON_TEAMS, row, seat, seats)
 
-        return FLSaisonTeamEinwilligungAntwortResponse(ergebnis="abgelehnt", geburtsdatum=None, whatsapp=antwort_data.whatsapp, medien=False)
+        return FLSaisonTeamEinwilligungAntwortResponse(ergebnis="abgelehnt", geburtsdatum=None, whatsapp=False, medien=False)
 
     @journal.attempted
     async def answer_for_the_person(
@@ -787,7 +786,6 @@ async def post_einwilligung(
 
         if antwort_data.antwort == "erteilt":
             geburtsdatum = antwort_data.geburtsdatum
-            assert geburtsdatum is not None
 
             # Against the one page the view answered for these seats.
             seite = bewerbung_antwort_seite(bewerbung_raw=bewerbung_raw, seats=seats)
@@ -879,7 +877,7 @@ async def post_einwilligung(
             quelle="bewerbung",
             ergebnis="abgelehnt",
             geburtsdatum=None,
-            whatsapp=antwort_data.whatsapp,
+            whatsapp=False,
             medien=False,
         )
 

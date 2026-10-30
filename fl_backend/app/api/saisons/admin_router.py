@@ -2,7 +2,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any, NamedTuple
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, status
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -32,16 +32,14 @@ from app.api.identitaet.crud import faellige_anzahl, saison_statuses
 from app.api.identitaet.schemas import FLLoeschungVorschauResponse
 from app.api.identitaet.services import geschlossen_durch, statuses_after_activating
 from app.api.postausgang.services import enqueue_mails
-from app.api.saisons.crud import has_started
+from app.api.saisons.crud import has_started, started_saison_ids
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
     FLGenerateSpielplanResponse,
     FLPatchSaisonPayload,
-    FLPatchSaisonResponse,
     FLPostSaisonPayload,
     FLPostSaisonResponse,
-    FLSaison,
     FLSaisonAdminListAdapter,
     FLSaisonRules,
     FLSaisonsAdminListResponse,
@@ -248,10 +246,8 @@ async def get_saisons_verwaltung(
         sort_by=db_sort,
     )
 
-    saisons = [
-        {**with_schedule(raw), "begonnen": await has_started(spiele_collection=spiele_collection, saison_id=str(raw["_id"]), today=today)}
-        for raw in saisons_raw
-    ]
+    begonnen = await started_saison_ids(spiele_collection=spiele_collection, saison_ids=[str(raw["_id"]) for raw in saisons_raw], today=today)
+    saisons = [{**with_schedule(raw), "begonnen": str(raw["_id"]) in begonnen} for raw in saisons_raw]
 
     return FLSaisonsAdminListResponse(saisons=FLSaisonAdminListAdapter.validate_python(saisons))
 
@@ -320,7 +316,7 @@ class MovableFigures(NamedTuple):
 
 @router.patch(
     "/{saison_id}",
-    response_model=FLPatchSaisonResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Update a Saison's dates and rules",
 )
 async def patch_saison(
@@ -333,7 +329,7 @@ async def patch_saison(
     saison_spieler_collection: SaisonSpielerCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> FLPatchSaisonResponse:
+) -> None:
     """
     Update a season's dates and rules. `status` is on no payload.
 
@@ -341,7 +337,7 @@ async def patch_saison(
     started or drawn season has fixed is refused, as is a rule narrowed below what it holds.
     """
 
-    async def judge_and_write_the_rules(session: AsyncClientSession) -> FLPatchSaisonResponse:
+    async def judge_and_write_the_rules(session: AsyncClientSession) -> None:
         """Judge, then write the season's dates and rules. Every figure is read in-session, and the movable ones again outside it."""
 
         # THROUGH the session, and FIRST: this opens the snapshot the update below is judged
@@ -460,20 +456,19 @@ async def patch_saison(
 
         judge(await movable_figures(session))
 
-        updated_document_raw = await patch_one_in_db(
+        await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
-            update={"$set": saison_data.model_dump(mode="json")},
+            update={"$set": saison_data.model_dump(mode="json", exclude={"version"})},
+            expected_version=saison_data.version,
             session=session,
-            return_document=ReturnDocument.AFTER,
+            return_document=ReturnDocument.BEFORE,
         )
 
         # Re-judged OUTSIDE the session before answering: the write set is `saisons` alone, so a
         # fixture's new date raises no conflict, where a squad entry or a matchday re-dating advances
         # `bounded_writes` and does. One landing after this read still slips.
         judge(await movable_figures(None))
-
-        return FLPatchSaisonResponse(updated_document=FLSaison.model_validate(with_schedule(updated_document_raw)))
 
     # `with_transaction`, not a bare `start_transaction`: a draw and an undraw write `saisons` too,
     # so one landing under a `$set` that changes something conflicts, and the retry judges the
@@ -562,12 +557,12 @@ async def activate_saison(
 
         # Raises the target's version even where it is already `active`, so a rival demoting it under
         # this rollover conflicts with the write and the retry judges it `past`.
-        activated_raw = await patch_one_in_db(
+        await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
             update={"$set": {"status": "active"}},
             session=session,
-            return_document=ReturnDocument.AFTER,
+            return_document=ReturnDocument.BEFORE,
         )
 
         # ERASED rather than deleted: a retention period
@@ -582,9 +577,7 @@ async def activate_saison(
             session=session,
         )
 
-        activated = FLSaison.model_validate(with_schedule(activated_raw))
-
-        return FLActivateSaisonResponse(updated_document=activated, deactivated=demoted.modified_count)
+        return FLActivateSaisonResponse(deactivated=demoted.modified_count)
 
     # `with_transaction`, not a bare `start_transaction`: a draw filling the outgoing season or an
     # undraw emptying the target writes a season this one writes too, so it conflicts and the

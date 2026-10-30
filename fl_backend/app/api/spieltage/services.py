@@ -119,8 +119,8 @@ class DatedNeighbour:
 def dated_beginn(spieltag_raw: Mapping[str, Any]) -> str | None:
     """One stored `beginn` as the rule takes it, or `None` for an undated row.
 
-    `app/core/constraints.py :: Collection.SPIELTAGE` validates the field string-or-null, so nothing
-    converts it: a `str()` would turn an undated row into a day above every ISO date.
+    The record model reads the field string-or-null (`app/api/spieltage/schemas.py :: FLSpieltagRecord`), so
+    nothing converts it: a `str()` would turn an undated row into a day above every ISO date.
     """
 
     return spieltag_raw["beginn"]

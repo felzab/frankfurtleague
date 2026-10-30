@@ -4,7 +4,6 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.services import hash_token
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, pull_ansetzung_lage, pull_vorschlag_offen, verein_fields
 from app.api.spielbestaetigungen.schemas import (
@@ -55,6 +54,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.bestaetigung import FLTokenPayload
+from app.shared.tokens import hash_token
 
 # Base tier and the public actor: the token is the whole credential, as a sign-in code is, for
 # `app/api/bewerbungen/public_router.py`'s reason.

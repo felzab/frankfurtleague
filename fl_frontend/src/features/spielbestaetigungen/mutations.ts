@@ -15,8 +15,7 @@ import type {
   FLSpielbestaetigungSchiedsrichterAntwortPayload,
   FLSpielbestaetigungSchiedsrichterAntwortResponse,
   FLSpielbestaetigungSweepResponse,
-  FLSpielbestaetigungSweepSaisonsResponse,
-  FLSpielbestaetigungWriteResponse,
+  FLSweepSaisonsResponse,
   FLTokenPayload,
 } from "@/core/generated/client/types";
 import type { FLSpielbestaetigungEintragenPayload, FLSpielbestaetigungVerwerfenPayload } from "./schemas";
@@ -47,7 +46,7 @@ export async function postSpielbestaetigungAntwort(
  * cached for a render, and this one answers a timer. The system tier, not admin: the timer holds no session, and an
  * invented actor for a machine is what `fl_backend/app/core/recording.py :: SYSTEM_ACTOR` exists to avoid.
  */
-export async function getSpielbestaetigungSweepSaisons(): Promise<FLSpielbestaetigungSweepSaisonsResponse> {
+export async function getSpielbestaetigungSweepSaisons(): Promise<FLSweepSaisonsResponse> {
   return spielbestaetigungenGetSweepSaisons();
 }
 
@@ -56,13 +55,10 @@ export async function postSpielbestaetigungSweep(saisonId: string): Promise<FLSp
   return spielbestaetigungenSweepSpielbestaetigungen(saisonId);
 }
 
-export async function eintragenSpielbestaetigung({
-  id,
-  ...fields
-}: FLSpielbestaetigungEintragenPayload): Promise<FLSpielbestaetigungWriteResponse> {
+export async function eintragenSpielbestaetigung({ id, ...fields }: FLSpielbestaetigungEintragenPayload): Promise<void> {
   return spielbestaetigungenEintragenSpielbestaetigung(id, fields);
 }
 
-export async function verwerfenSpielbestaetigung({ id }: FLSpielbestaetigungVerwerfenPayload): Promise<FLSpielbestaetigungWriteResponse> {
+export async function verwerfenSpielbestaetigung({ id }: FLSpielbestaetigungVerwerfenPayload): Promise<void> {
   return spielbestaetigungenVerwerfenSpielbestaetigung(id);
 }

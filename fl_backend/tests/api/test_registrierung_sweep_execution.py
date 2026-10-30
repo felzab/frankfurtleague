@@ -13,7 +13,6 @@ from fastapi import FastAPI
 from pymongo import AsyncMongoClient, MongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import hash_token
 from app.api.registrierungen.services import SWEEP_PAGE
 from app.api.registrierungen.system_router import REMINDERS_PER_PASS, sweep_registrierungen
 from app.core.codes import Code
@@ -23,6 +22,7 @@ from app.core.crud import patch_one_in_db
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
+from app.shared.tokens import hash_token
 from tests.api import test_registrierung_sweep_refusal as budget
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config

@@ -2,6 +2,7 @@ import re
 from typing import Annotated, Final
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic_core import PydanticCustomError
 
 from app.shared.schemas.bounds import SAISON_ID_LENGTH, SPERRLISTE_GRUND_MAX_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomNonEmptyString, CustomObjectId
@@ -12,10 +13,6 @@ from app.shared.schemas.responses import BaseAPIResponse
 # administrator writes, and refusing it catches the rare case by refusing the ordinary one.
 ADDRESS_IN_FREE_TEXT: Final = re.compile(r"[^\s@]+@[^\s@]+\.[A-Za-z]{2,}")
 
-# German, as `fl_backend/app/shared/schemas/custom.py :: refuse_reversed_span` words its own. It reaches
-# `payload_refused`'s log line, never the reason box, which words its own.
-GRUND_HOLDS_AN_ADDRESS = "Der Grund darf keine E-Mail-Adresse enthalten."
-
 
 def refuse_an_address_in_the_reason(value: str) -> str:
     """The one way a plain address still reaches this collection.
@@ -25,7 +22,7 @@ def refuse_an_address_in_the_reason(value: str) -> str:
     """
 
     if ADDRESS_IN_FREE_TEXT.search(value) is not None:
-        raise ValueError(GRUND_HOLDS_AN_ADDRESS)
+        raise PydanticCustomError("address_in_free_text", "the text holds an email address")
 
     return value
 

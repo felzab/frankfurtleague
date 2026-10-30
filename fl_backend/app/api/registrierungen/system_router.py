@@ -1,6 +1,5 @@
-from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Final
+from typing import Final
 
 from fastapi import APIRouter, Depends
 from pymongo import ASCENDING, ReturnDocument
@@ -26,7 +25,7 @@ from app.api.registrierungen.services import (
 from app.api.teams.crud import pull_team_names
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import loeschen_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
+from app.core.crud import loeschen_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, redact_log_rows_in_db
 from app.core.dependencies import (
     AktionenCollection,
     DBClient,
@@ -37,7 +36,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
+from app.core.recording import log_stamp
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
@@ -51,30 +50,10 @@ router = APIRouter(
 
 _TEAM_UNBEKANNT = ""
 
-# Five commands a row (the stamp, its read-back and its log row, the Postausgang's key lookup and its insert) beside the
-# fourteen of the worst call erasing one page per clock: 259 commands at a 37 ms round trip plus 1.27 ms take 9.91 s of
-# `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
+# Three commands a row (the stamp, its read-back and its log row) and two a share (the Postausgang's key lookup and its
+# insert) beside the fourteen of the worst call erasing one page per clock: 163 commands at a 37 ms round trip plus
+# 1.27 ms take 6.24 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 49
-
-
-async def _redact(*, aktionen_collection: AktionenCollection, ids: Sequence[Any], stamp: str, session: AsyncClientSession) -> int:
-    """Every log row naming the erased registrations, emptied and stamped.
-
-    A twin of `app/api/bewerbungen/system_router.py :: _redact` with the collection fixed: two instances are
-    too few to abstract.
-    """
-
-    if not ids:
-        return 0
-
-    redacted = await patch_many_in_db(
-        collection=aktionen_collection,
-        db_filter=build_redaction_filter([(Collection.REGISTRIERUNGEN, list(ids))]),
-        update=build_redaction_update(at=stamp),
-        session=session,
-    )
-
-    return redacted.modified_count
 
 
 @router.post(
@@ -150,7 +129,9 @@ async def sweep_registrierungen(
         result = await loeschen_many_from_db(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
-        redacted = await _redact(aktionen_collection=aktionen_collection, ids=ids, stamp=stamp, session=session)
+        redacted = await redact_log_rows_in_db(
+            aktionen_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
+        )
 
         return len(rows), result.deleted_count, redacted
 
@@ -180,7 +161,9 @@ async def sweep_registrierungen(
         result = await loeschen_many_from_db(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
-        redacted = await _redact(aktionen_collection=aktionen_collection, ids=ids, stamp=stamp, session=session)
+        redacted = await redact_log_rows_in_db(
+            aktionen_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
+        )
 
         return len(rows), result.deleted_count, redacted
 
@@ -213,28 +196,29 @@ async def sweep_registrierungen(
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
-            # The stamp and the mail commit together; the ban is judged when the mail is handed out.
-            await enqueue_mails(
-                postausgang_collection=postausgang_collection,
-                session=session,
-                mails=[
-                    OwedMail(
-                        # The day too: an address change owes the moved row its reminder again, which an earlier key would swallow.
-                        schluessel=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/erinnerung/{today}",
-                        an=str(row["email"]),
-                        daten=FLRegistrierungLinkDaten(
-                            art="registrierung_erinnerung",
-                            # Empty where the team row is gone: a reminder naming no team beats a pass that stops.
-                            team=team_names.get(row.get("team_id"), _TEAM_UNBEKANNT),
-                            saison_id=saison_id,
-                            frist_tage=REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
-                        ),
-                        bezug=FLPostausgangBezug(sammlung=Collection.REGISTRIERUNGEN, id=row["_id"], sitz=None),
-                        link=REGISTRIERUNG_LINK,
-                    )
-                ],
-                now=germany_now,
-            )
+        # The stamps and the mails commit together; the ban is judged when each mail is handed out.
+        await enqueue_mails(
+            postausgang_collection=postausgang_collection,
+            session=session,
+            mails=[
+                OwedMail(
+                    # The day too: an address change owes the moved row its reminder again, which an earlier key would swallow.
+                    schluessel=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/erinnerung/{today}",
+                    an=str(row["email"]),
+                    daten=FLRegistrierungLinkDaten(
+                        art="registrierung_erinnerung",
+                        # Empty where the team row is gone: a reminder naming no team beats a pass that stops.
+                        team=team_names.get(row.get("team_id"), _TEAM_UNBEKANNT),
+                        saison_id=saison_id,
+                        frist_tage=REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
+                    ),
+                    bezug=FLPostausgangBezug(sammlung=Collection.REGISTRIERUNGEN, id=row["_id"], sitz=None),
+                    link=REGISTRIERUNG_LINK,
+                )
+                for row in taken
+            ],
+            now=germany_now,
+        )
 
         return len(taken)
 
@@ -259,7 +243,9 @@ async def sweep_registrierungen(
         result = await loeschen_many_from_db(
             collection=registrierungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
-        redacted = await _redact(aktionen_collection=aktionen_collection, ids=ids, stamp=stamp, session=session)
+        redacted = await redact_log_rows_in_db(
+            aktionen_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session
+        )
 
         return len(rows), result.deleted_count, redacted
 

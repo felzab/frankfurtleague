@@ -473,7 +473,7 @@ class TestAPairNoRowAnswers:
 @pytest.mark.db
 class TestTheWriteIsRecorded:
     def test_one_action_row_carries_the_block_this_write_replaced(self, mongo_replica_set_url: str):
-        """The undo path: the pre-image is the only copy of three people's details a mistake overwrote."""
+        """The log's pre-image is the only copy of three people's details a mistake overwrote."""
 
         async def body(database: AsyncDatabase) -> Any:
             await write_kontakte(database, NEW_KONTAKTE)
@@ -548,29 +548,6 @@ class TestASaveComposedAgainstAnotherBlockIsRefused:
         assert refusal.error_code == Code.KONTAKTE_MOVED_UNDER_THE_SAVE
         assert stored["kontakte"] == SEEDED_KONTAKTE
         assert log == []
-
-    def test_the_undo_replays_against_the_block_the_save_left(self, mongo_replica_set_url: str):
-        """The write's own answer is the undo's precondition: the save has already moved the row past what the editor read.
-
-        Under the running label: the save handed every seat on, so the replay seats each person afresh
-        (`TestTheLabelASaveNames`).
-        """
-
-        replayed: dict[str, Any] = {
-            slot: person(vorname) for slot, vorname in (("trainer", "Ida"), ("ansprechperson", "Jonas"), ("stellvertretung", "Klara"))
-        }
-        replayed["trainer_ist_zugleich"] = None
-
-        async def body(database: AsyncDatabase) -> Any:
-            saved = await write_kontakte(database, NEW_KONTAKTE)
-
-            await write_kontakte(database, replayed, stand=saved.kontakte_stand)
-
-            return await row_now(database)
-
-        stored = on_a_league(mongo_replica_set_url, body)
-
-        assert stored["kontakte"] == as_stored(replayed)
 
 
 @pytest.mark.db
@@ -649,7 +626,7 @@ class TestTheTwoContactRules:
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonTeamKontaktePayload.model_validate(self.block(trainer_ist_zugleich="ansprechperson"))
 
-        assert "denen des Trainers" in str(failure.value)
+        assert "the Trainer also holds" in str(failure.value)
 
     @pytest.mark.parametrize(
         "emptied",
@@ -666,7 +643,7 @@ class TestTheTwoContactRules:
         with pytest.raises(ValidationError) as failure:
             FLPatchSaisonTeamKontaktePayload.model_validate(self.block(ansprechperson={**person("Jonas"), "email": "IDA@example.com"}))
 
-        assert "E-Mail-Adressen" in str(failure.value)
+        assert [error["type"] for error in failure.value.errors()] == ["kontakt_email_twice"]
 
     def test_an_empty_seat_shares_nothing(self):
         """Two empty seats are not two people at one address."""
@@ -996,13 +973,14 @@ class TestTheLabelASaveNames:
 
         assert stored["kontakte"]["trainer"] == as_kept(SEEDED_KONTAKTE["trainer"])
 
-    def test_an_undo_putting_a_handed_seats_earlier_person_back_under_their_old_label_is_refused(self, mongo_replica_set_url: str):
-        """What the undo replays: the save being undone handed every seat on, so the replay seats each person afresh."""
+    def test_a_second_save_putting_a_handed_seats_earlier_person_back_under_their_old_label_is_refused(self, mongo_replica_set_url: str):
+        """The first save handed every seat on, so the second seats each person afresh."""
 
         async def body(database: AsyncDatabase) -> Any:
-            saved = await write_kontakte(database, NEW_KONTAKTE)
+            await write_kontakte(database, NEW_KONTAKTE)
+            stand = kontakte_stand_of((await row_now(database))["kontakte"])
             with pytest.raises(APIError) as refused:
-                await write_kontakte(database, RESAVED_AS_RENDERED, stand=saved.kontakte_stand)
+                await write_kontakte(database, RESAVED_AS_RENDERED, stand=stand)
 
             return refused.value.error_code, await row_now(database)
 

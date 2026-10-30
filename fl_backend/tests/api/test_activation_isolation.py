@@ -12,7 +12,6 @@ from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
     FLPatchSaisonPayload,
-    FLPatchSaisonResponse,
     FLSaisonRules,
 )
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
@@ -248,9 +247,7 @@ async def fixtures_now(database: AsyncDatabase, saison_id: str) -> int:
     return await database[Collection.SPIELE].count_documents({"saison_id": saison_id})
 
 
-async def call_patch_rules(
-    database: AsyncDatabase, client: AsyncMongoClient, *, saisons_collection: Any, **overrides: Any
-) -> FLPatchSaisonResponse:
+async def call_patch_rules(database: AsyncDatabase, client: AsyncMongoClient, *, saisons_collection: Any, **overrides: Any) -> None:
     """The target's seeded dates and whole rules every time, `rules` being required on the patch, so a case names only the value it moves."""
 
     seeded = seeded_saison(TARGET, "future")
@@ -457,7 +454,6 @@ class TestTheRolloverStillCommitsWithNothingInterfering:
 
         assert statuses == {OUTGOING: "past", TARGET: "active"}
         assert response.deactivated == 1
-        assert (response.updated_document.id, response.updated_document.status) == (TARGET, "active")
 
     def test_the_sole_incumbent_is_re_activated_rather_than_refused(self, mongo_replica_set_url: str):
         """The second control, and the one the re-judgement above could break: re-activation is deliberately permitted."""
@@ -478,7 +474,6 @@ class TestTheRolloverStillCommitsWithNothingInterfering:
         assert statuses == {TARGET: "active"}
         # Nothing but the target held `active`, so the rollover demoted nobody.
         assert response.deactivated == 0
-        assert (response.updated_document.id, response.updated_document.status) == (TARGET, "active")
 
 
 class TestAStartLandingMidPatchIsJudgedAgain:
@@ -549,7 +544,7 @@ class TestARolloverLandingMidPatchIsJudgedAgain:
 
             return refusal.value, promoted[0], seasons.season_reads, await tiebreak_now(database), await statuses_now(database)
 
-        refusal, promoted, season_reads, tiebreak, statuses = on_a_league(
+        refusal, _, season_reads, tiebreak, statuses = on_a_league(
             mongo_replica_set_url,
             body,
             # The incumbent is UNDRAWN, which is what leaves it owing nothing for the rollover to
@@ -562,7 +557,7 @@ class TestARolloverLandingMidPatchIsJudgedAgain:
         # `rules_saison_started` weighs the season's own `status`, and it was `active` when this request
         # first judged: the refusal can only come from a read made after the rollover committed.
         assert refusal.error_code == Code.RULES_SAISON_STARTED
-        assert (promoted.updated_document.id, statuses) == (RIVAL, {TARGET: "past", RIVAL: "active"})
+        assert statuses == {TARGET: "past", RIVAL: "active"}
 
         # TWO: the judgement's read and the retry's. The write conflicted rather than echoing, and a
         # third would mean the callback was entered once more than this case accounts for.

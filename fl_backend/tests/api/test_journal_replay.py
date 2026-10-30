@@ -24,7 +24,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.adresswechsel.admin_router import delete_adresswechsel as discard_the_change
 from app.api.adresswechsel.services import als_utc
-from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.wiederherstellung import REPLAY_METHOD, Read, Window, plan_replay, replay_line, run_replay
 from app.api.spielbestaetigungen.services import halter_of
 from app.api.teams.services import compose_kontakt_bestaetigung
@@ -38,6 +37,7 @@ from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from app.shared.einwilligung_nachweis import nachweis_stand_of
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
@@ -174,7 +174,8 @@ async def _seed(database: AsyncDatabase) -> None:
                 DECLINED_APPLICATION_OID,
                 SAISON_ID,
                 "eingereicht",
-                kontakte=kontakte_document(trainer=_seat(DECLINER, confirmed=False)),
+                # An Ansprechperson standing, so the Widerspruch's notice names the deletion day and the press stamps it.
+                kontakte=kontakte_document(trainer=_seat(DECLINER, confirmed=False), ansprechperson=_seat(PERSON)),
                 eingereicht_am="2126-10-01",
                 bestaetigungsfrist="2126-10-15",
                 team_id=TEAM_OID,
@@ -276,7 +277,7 @@ async def _registration_withdrawal(http: AsyncClient, database: AsyncDatabase) -
 
 
 def _declined(token: str) -> dict[str, Any]:
-    return {"token": token, "antwort": "abgelehnt", "geburtsdatum": None, "whatsapp": False, "medien": False, "text_version": "v1"}
+    return {"token": token, "antwort": "abgelehnt"}
 
 
 V = f"/api/v{API_VERSION}"

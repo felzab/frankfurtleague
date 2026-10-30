@@ -13,7 +13,7 @@ import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { useReactivation } from "@/shared/hooks/useReactivation";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
-import type { FLTeamRecord } from "@/core/generated/client/types";
+import type { FLTeamWithMemberships } from "@/core/generated/client/types";
 import type { TeamEinladungState } from "@/features/einladungen/types";
 import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
 import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
@@ -32,7 +32,7 @@ export function AdminTeamEditView({
   isRetireable,
   today,
 }: {
-  team: FLTeamRecord;
+  team: FLTeamWithMemberships;
   saison: TeamSaisonMembership;
   gruppeLocked: boolean;
   /** The selected season's groups with their fill state, from `buildGruppeOffer`. */

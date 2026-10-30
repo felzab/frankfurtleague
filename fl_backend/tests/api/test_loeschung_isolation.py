@@ -15,12 +15,13 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import compose_decline_update, hash_token
+from app.api.bewerbungen.services import compose_decline_update
 from app.api.teams.admin_router import patch_saison_team, patch_saison_team_kontakte
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLPatchSaisonTeamPayload, kontakte_stand_of
 from app.core.collections import Collection
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.folding import sign_in_identifier
+from app.shared.tokens import hash_token
 from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
@@ -133,7 +134,7 @@ async def a_league(database: AsyncDatabase) -> None:
     )
     # As the Stellvertretung's own Widerspruch leaves it, the one state a seat is filled again from.
     await database[Collection.BEWERBUNGEN].update_one(
-        {"_id": STEPPED_OUT_OID}, compose_decline_update(seats=["stellvertretung"], today="2026-03-20")
+        {"_id": STEPPED_OUT_OID}, compose_decline_update(seats=["stellvertretung"], today="2026-03-20", angekuendigt=False)
     )
     await database[Collection.SPIELER].insert_one(spieler_document(PUPIL_OID, "Wraxlington", "Muster", email=PUPIL_EMAIL))
     await database[Collection.SCHIEDSRICHTER].insert_one(

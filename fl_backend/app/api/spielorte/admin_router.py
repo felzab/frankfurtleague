@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, status
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.results import InsertOneResult
@@ -16,7 +16,6 @@ from app.api.spielorte.schemas import (
     FLSpielorteListResponse,
     FLSpielorteSingleResponse,
     FLSpielortListAdapter,
-    FLSpielortWriteResponse,
 )
 from app.api.spielorte.services import build_unplayed_booking_filter, find_venue_retire_refusal
 from app.core.config import API_VERSION
@@ -144,7 +143,8 @@ async def patch_spielort(
         updated_document_raw = await patch_one_in_db(
             collection=spielorte_collection,
             db_filter={"_id": spielort_id},
-            update={"$set": {**spielort_data.model_dump(mode="json"), "maps_link": maps_link}},
+            update={"$set": {**spielort_data.model_dump(mode="json", exclude={"version"}), "maps_link": maps_link}},
+            expected_version=spielort_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )
@@ -157,7 +157,7 @@ async def patch_spielort(
             session=session,
         )
 
-        return FLPatchSpielortResponse(updated_document=updated_document, fanned_out_to_spiele=fan_out.modified_count)
+        return FLPatchSpielortResponse(fanned_out_to_spiele=fan_out.modified_count)
 
     # One transaction: a rename landing on the venue and not on its fixtures is the stale copy the
     # fan-out exists to prevent. `with_transaction` over a bare `start_transaction` -- the callback
@@ -168,7 +168,7 @@ async def patch_spielort(
 
 @router.delete(
     by_id("spielort_id"),
-    response_model=FLSpielortWriteResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Deactivate a Spielort (soft delete)",
 )
 async def delete_spielort(
@@ -177,7 +177,7 @@ async def delete_spielort(
     spiele_collection: SpieleCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> FLSpielortWriteResponse:
+) -> None:
     """
     Deactivate a venue. SOFT: it stamps `inactive_since`, and the document stays.
 
@@ -202,27 +202,23 @@ async def delete_spielort(
     # conflicts on the venue it anchors rather than landing unseen
     # (`app/api/spiele/crud.py :: anchor_a_booked_venue`).
     async with transaction_session(db) as session:
-        updated_document_raw = await session.with_transaction(retire_the_venue)
-
-    return FLSpielortWriteResponse(updated_document=FLSpielort(**updated_document_raw))
+        await session.with_transaction(retire_the_venue)
 
 
 @router.post(
     f"{by_id('spielort_id')}/reactivate",
-    response_model=FLSpielortWriteResponse,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Bring a deactivated Spielort back",
 )
 async def reactivate_spielort(
     spielort_id: CustomRouteObjectId,
     spielorte_collection: SpielorteCollection,
     db: DBClient,
-) -> FLSpielortWriteResponse:
+) -> None:
     """Clear `inactive_since`, putting the venue back into the picker and every default read."""
 
     async def bring_the_venue_back(session: AsyncClientSession) -> Mapping[str, Any]:
         return await set_inactive_since(collection=spielorte_collection, db_filter={"_id": spielort_id}, when=None, session=session)
 
     async with transaction_session(db) as session:
-        updated_document_raw = await session.with_transaction(bring_the_venue_back)
-
-    return FLSpielortWriteResponse(updated_document=FLSpielort(**updated_document_raw))
+        await session.with_transaction(bring_the_venue_back)

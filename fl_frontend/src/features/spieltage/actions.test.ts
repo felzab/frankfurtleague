@@ -54,12 +54,7 @@ describe("the matchday's write", () => {
   it("reaches its published path and method, the id in the path and the span alone in the body", async () => {
     const span = { beginn: "2026-03-12", ende: "2026-03-13" };
     const id = "6890a1b2c3d4e5f607182931";
-    answerWith(() =>
-      Promise.resolve({
-        spieltag_id: id,
-        updated_document: { id, ...span, anzahl_spiele: 4, position: 1, saison_phase: "gruppenphase", saison_id: "2026" },
-      }),
-    );
+    answerWith(() => Promise.resolve({ spieltag_id: id }));
 
     await patchSpieltagAction({ id, ...span });
 

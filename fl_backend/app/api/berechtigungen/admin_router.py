@@ -19,6 +19,7 @@ from app.api.berechtigungen.antraege import (
     pull_the_antrag,
     read_the_antraege,
     remove_the_antrag_in_session,
+    settle_the_requesters_notices_in_session,
 )
 from app.api.berechtigungen.crud import (
     grant_in_session,
@@ -66,7 +67,7 @@ from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_
 from app.api.sperrliste.services import withheld_actor
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import VERSION_FIELD, aggregate_many_from_db, loeschen_many_from_db, patch_one_in_db, post_one_to_db, refuse
+from app.core.crud import aggregate_many_from_db, loeschen_many_from_db, patch_one_in_db, post_one_to_db, refuse
 from app.core.dependencies import (
     AdresswechselCollection,
     BerechtigungenAngekuendigtCollection,
@@ -424,6 +425,7 @@ async def delete_berechtigung(
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     postausgang_collection: PostausgangCollection,
+    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     entzogen_von: str = Depends(get_actor_email),
@@ -471,6 +473,14 @@ async def delete_berechtigung(
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
             postausgang_collection=postausgang_collection,
+            now=now,
+            session=session,
+        )
+        await settle_the_requesters_notices_in_session(
+            berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+            postausgang_collection=postausgang_collection,
+            gestartet_von=str(grant["adresse"]),
+            verwaltung=None,
             now=now,
             session=session,
         )
@@ -596,6 +606,15 @@ async def patch_berechtigung(
             now=now,
             session=session,
         )
+        if verwaltung != OWNER:
+            await settle_the_requesters_notices_in_session(
+                berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+                postausgang_collection=postausgang_collection,
+                gestartet_von=str(grant["adresse"]),
+                verwaltung=OWNER,
+                now=now,
+                session=session,
+            )
 
         return False
 
@@ -640,10 +659,10 @@ async def _move_the_tier_in_session(
                 # Its owner's power dates from now, so the promoted holder's older sessions keep
                 # administering and hold none of it.
                 **({"ernannt_am": now} if verwaltung == OWNER else {}),
-                # Taken into the filter by the helper: a tier change opened before another write is refused.
-                VERSION_FIELD: version,
             }
         },
+        # A tier change opened before another write is refused.
+        expected_version=version,
         session=session,
         return_document=ReturnDocument.BEFORE,
     )

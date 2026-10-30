@@ -3,7 +3,7 @@ import unicodedata
 from typing import Any, Final
 
 from email_validator import EmailNotValidError, ValidatedEmail, validate_email
-from pydantic_core import Url, ValidationError
+from pydantic_core import PydanticCustomError, Url, ValidationError
 
 # ECMAScript's `WhiteSpace` and `LineTerminator`, never `str.strip()`'s set, which takes U+0085 and
 # leaves U+FEFF: the two ends would part on a character nobody can see. Code points rather than an
@@ -72,7 +72,7 @@ def _league_validated(address: str) -> ValidatedEmail:
         # `from None`, for the reason `app/core/config.py :: get_config` suppresses its own cause:
         # the library's message quotes the value it rejected, and no address reaches a traceback or
         # a log line.
-        raise ValueError("this is no email address the league accepts") from None
+        raise PydanticCustomError("email_not_accepted", "this is no email address the league accepts") from None
 
 
 def league_address(address: str) -> str:

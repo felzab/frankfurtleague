@@ -19,8 +19,7 @@ from app.api.registrierungen.services import (
     build_registrierungen_sort,
 )
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, loeschen_many_from_db, patch_many_in_db, pull_one_from_db
-from app.core.recording import build_redaction_filter, build_redaction_update
+from app.core.crud import aggregate_many_from_db, loeschen_many_from_db, pull_one_from_db, redact_log_rows_in_db
 from app.shared.folding import sign_in_identifier
 
 # What the admission reads of a person: who they are, for the question, and what it overwrites.
@@ -136,11 +135,6 @@ async def loeschen_registrierungen_in_session(
         session=session,
     )
     # A delivery record and every pre-image a confirmation or a decline filed go with the document.
-    await patch_many_in_db(
-        collection=aktionen_collection,
-        db_filter=build_redaction_filter([(Collection.REGISTRIERUNGEN, ids)]),
-        update=build_redaction_update(at=stamp),
-        session=session,
-    )
+    await redact_log_rows_in_db(aktionen_collection=aktionen_collection, targets=[(Collection.REGISTRIERUNGEN, ids)], at=stamp, session=session)
 
     return geloescht.deleted_count

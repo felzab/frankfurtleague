@@ -133,7 +133,6 @@ class TestTheRolloverLeavesExactlyOneActiveSeason:
         assert statuses == {ARCHIVED: "past", INCUMBENT: "past", TARGET: "active"}
         # A season already `past` is not counted, so this is the number of seasons the rollover moved.
         assert response.deactivated == 1
-        assert (response.updated_document.id, response.updated_document.status) == (TARGET, "active")
 
     def test_reactivating_the_incumbent_demotes_nobody(self, mongo_replica_set_url: str):
         """The `$ne` on the target: its own unplayed fixture is seeded, and only a rule reading it as outgoing would refuse this."""

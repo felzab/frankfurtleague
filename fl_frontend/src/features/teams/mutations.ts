@@ -18,7 +18,6 @@ import type {
   FLReplaceSaisonTeamPayload,
   FLReplaceSaisonTeamResponse,
   FLSaisonTeamResponse,
-  FLTeamWriteResponse,
 } from "@/core/generated/client/types";
 
 export async function postTeam({
@@ -49,13 +48,13 @@ export async function patchTeam({
 }
 
 // Soft: the backend stamps `inactive_since` and removes nothing.
-export async function deleteTeam({ id }: { id: string }): Promise<FLTeamWriteResponse> {
+export async function deleteTeam({ id }: { id: string }): Promise<void> {
   return teamsDeleteTeam(id);
 }
 
 // The one way back: creating never revives, because a shorthand cannot say WHICH club is meant. An id
 // can, so reactivation names one and carries no body.
-export async function reactivateTeam({ id }: { id: string }): Promise<FLTeamWriteResponse> {
+export async function reactivateTeam({ id }: { id: string }): Promise<void> {
   return teamsReactivateTeam(id);
 }
 

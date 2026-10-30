@@ -337,7 +337,7 @@ compose's own account is above."
     || die "the seed could not be handed to the database container; compose's own account is above."
   quietly run_made_up_seed "$base" \
     || die "the made-up seed did not load; mongosh's own account is above. A refused insert names
-the validator's field: correct scripts/ops/seed/seed.js."
+the index's key: correct scripts/ops/seed/seed.js."
   ok "seeded '${base}' with the made-up league"
 }
 
@@ -492,9 +492,9 @@ if (( SEED )); then
   restore_copy
 fi
 
-# After the backend's boot, which gives every collection its validator and its indexes, so each
-# insert is judged as it lands; before the frontend's, so no page renders, and no cache keeps, a
-# read of a database still filling (`docs/ops/spec.md` §1.5).
+# After the backend's boot, which gives every collection its indexes, so each insert meets them as
+# it lands; before the frontend's, so no page renders, and no cache keeps, a read of a database
+# still filling (`docs/ops/spec.md` §1.5).
 if (( E2E || MADE_UP )); then
   section "database"
 
@@ -504,7 +504,7 @@ if (( E2E || MADE_UP )); then
   wait_healthy "" mongo 150 \
     || die "the database did not elect itself primary, so there is nothing to seed."
   wait_healthy "" backend 150 \
-    || die "the backend did not boot, so no validator stands to judge the seed."
+    || die "the backend did not boot, so no index stands for the seed and nothing can read it back."
   ok "database and backend up"
 
   step "The made-up league"

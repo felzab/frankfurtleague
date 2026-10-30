@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Annotated, Any, Final, Literal, get_args
 
 from bson import ObjectId
-from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, TypeAdapter, field_validator, model_validator
+from pydantic import AfterValidator, BaseModel, Field, TypeAdapter, field_validator, model_validator
 
 from app.core.recording import AktorFunktion
 from app.shared.schemas.bounds import AKTEUR_PSEUDONYM_SHOWN, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
@@ -39,7 +39,7 @@ FLAktorKind = Literal["admin_session", "person_session", "system", "public"]
 
 # What the origin filter narrows on, and no stored value: `person` files an administrator's session
 # and a signed-in person's alike, so the categories outlive the kinds they are derived from.
-FLAktionHerkunft = Literal["person", "system", "public"]
+type FLAktionHerkunft = Literal["person", "system", "public"]
 
 
 class FLAktorMitAdresse(BaseModel):
@@ -197,34 +197,15 @@ class FLAktionRecord(BaseModel):
 FLAktionenListAdapter = TypeAdapter(list[FLAktion])
 
 
-def parse_facet_list(value: Any) -> Any:
-    """Comma-joined and repeated alike: `fl_frontend/src/core/api.ts :: apiClient` sends one value per key.
-
-    `app/api/bewerbungen/schemas.py :: parse_status_list` reads the triage queue's parameter so.
-    """
-
-    if value is None:
-        return None
-
-    picked: list[Any] = []
-    for item in value if isinstance(value, list) else [value]:
-        # Passed on untouched where it is not text, so Pydantic refuses it rather than this splitter
-        # dropping it into a narrowing nobody asked for.
-        picked.extend(item.split(",") if isinstance(item, str) else [item])
-
-    # `None` and never `[]`: an emptied parameter is the facet turned off, and `$in: []` would answer
-    # that with a page holding nothing.
-    return [part for part in picked if part != ""] or None
-
-
 class FLAktionenFilterParams(BaseModel):
-    # LISTS, because the bar offering the two is multi-select and a two-value selection has no other
-    # request that expresses it. Published as the STRING they arrive as.
-    collection: Annotated[list[str] | None, BeforeValidator(parse_facet_list, json_schema_input_type=str)] = None
-    operation: Annotated[list[FLAktionOperation] | None, BeforeValidator(parse_facet_list, json_schema_input_type=str)] = None
+    # LISTS, because the bar offering them is multi-select: one key per value, FastAPI's repeated query
+    # parameter. Absent is the facet turned off, `$in` of no value answering nothing.
+    # Text rather than `Collection`: a log row keeps the name of a collection since retired, which the tally offers too.
+    collection: list[str] | None = None
+    operation: list[FLAktionOperation] | None = None
     # A term of its own rather than the kinds it stands for: the bar offers the categories, and a
     # caller sending kinds would have to know a mapping this endpoint owns.
-    herkunft: Annotated[list[FLAktionHerkunft] | None, BeforeValidator(parse_facet_list, json_schema_input_type=str)] = None
+    herkunft: list[FLAktionHerkunft] | None = None
     trace_id: str | None = None
     # `str`, never `CustomObjectId`: `saisons` stores its season string here, which the ObjectId
     # spelling would 422. `app/api/aktionen/services.py :: document_id_term` compiles it.

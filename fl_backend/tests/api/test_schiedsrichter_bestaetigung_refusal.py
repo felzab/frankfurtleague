@@ -4,7 +4,6 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from app.api.bewerbungen.services import hash_token, mint_token
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterBestaetigungAnsichtResponse,
     FLSchiedsrichterBestaetigungPayload,
@@ -30,6 +29,7 @@ from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
 )
+from app.shared.tokens import hash_token, mint_token
 
 TODAY = "2026-04-01"
 # The confirmation's instant on `TODAY`, as `app/core/recording.py :: log_stamp` spells one.

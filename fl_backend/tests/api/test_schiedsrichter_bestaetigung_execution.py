@@ -9,7 +9,6 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import hash_token
 from app.api.einwilligung import services as einwilligung_services
 from app.api.schiedsrichter.admin_router import (
     delete_schiedsrichter,
@@ -39,6 +38,7 @@ from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list, ban_through_the_route

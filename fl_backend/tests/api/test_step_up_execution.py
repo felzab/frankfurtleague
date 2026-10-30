@@ -19,7 +19,6 @@ from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.adresswechsel.services import compose_record
-from app.api.bewerbungen.services import hash_token
 from app.api.schiedsrichter.services import compose_bestaetigung
 from app.api.teams.schemas import kontakte_stand_of
 from app.core.codes import Code
@@ -28,6 +27,7 @@ from app.core.config import API_VERSION
 from app.core.security import ENROLMENT_WINDOW_S, PASSKEY_FACTOR, STEP_UP_WINDOW_S
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.tokens import hash_token
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, grants_for_the_suite

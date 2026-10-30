@@ -35,23 +35,22 @@ import type {
   FLBerechtigungenListResponse,
   FLBerechtigungStufeResponse,
   FLBerechtigungWriteResponse,
+  FLBewerbungEinwilligungAbgelehnt,
   FLBewerbungEinwilligungAnsichtResponse,
-  FLBewerbungEinwilligungAntwortPayload,
   FLBewerbungEinwilligungAntwortResponse,
   FLBewerbungEinwilligungErneutResponse,
+  FLBewerbungEinwilligungErteilt,
   FLBewerbungenListResponse,
   FLBewerbungFensterResponse,
   FLBewerbungKeinFensterResponse,
   FLBewerbungKontaktEmailPayload,
   FLBewerbungKontaktEmailResponse,
   FLBewerbungKontaktSitzPayload,
-  FLBewerbungKontaktSitzResponse,
   FLBewerbungKontoEinwilligungResponse,
   FLBewerbungKuerzelResponse,
   FLBewerbungSchulenResponse,
   FLBewerbungSingleResponse,
   FLBewerbungSweepResponse,
-  FLBewerbungSweepSaisonsResponse,
   FLBewerbungTrikotFarbenResponse,
   FLCreatedResponse,
   FLEinladungAnsichtResponse,
@@ -71,7 +70,6 @@ import type {
   FLKaderZeile,
   FLKontaktEinladenResponse,
   FLKontoAdresswechselFreigabePayload,
-  FLKontoAdresswechselFreigabeResponse,
   FLKontoAdresswechselMintResponse,
   FLKontoAdresswechselPayload,
   FLKontoAdresswechselResponse,
@@ -88,7 +86,6 @@ import type {
   FLPatchBerechtigungPayload,
   FLPatchKaderZeilePayload,
   FLPatchSaisonPayload,
-  FLPatchSaisonResponse,
   FLPatchSaisonSpielerPayload,
   FLPatchSaisonTeamKontaktePayload,
   FLPatchSaisonTeamKontakteResponse,
@@ -112,7 +109,6 @@ import type {
   FLPostBerechtigungPayload,
   FLPostBerechtigungResponse,
   FLPostBewerbungPayload,
-  FLPostBewerbungResponse,
   FLPostRegistrierungPayload,
   FLPostRegistrierungResponse,
   FLPostSaisonPayload,
@@ -155,7 +151,6 @@ import type {
   FLSchiedsrichterReactivateResponse,
   FLSchiedsrichterSelfResponse,
   FLSchiedsrichterSingleResponse,
-  FLSchiedsrichterWriteResponse,
   FLSitzEinwilligungPayload,
   FLSperrlisteListResponse,
   FLSperrlisteWriteResponse,
@@ -173,8 +168,6 @@ import type {
   FLSpielbestaetigungSchiedsrichterAntwortPayload,
   FLSpielbestaetigungSchiedsrichterAntwortResponse,
   FLSpielbestaetigungSweepResponse,
-  FLSpielbestaetigungSweepSaisonsResponse,
-  FLSpielbestaetigungWriteResponse,
   FLSpieleActionRequiredResponse,
   FLSpieleAdminListResponse,
   FLSpieleAdminSingleResponse,
@@ -189,7 +182,6 @@ import type {
   FLSpieleSingleResponse,
   FLSpielorteListResponse,
   FLSpielorteSingleResponse,
-  FLSpielortWriteResponse,
   FLSpieltageListResponse,
   FLSpieltageSingleResponse,
   FLSpieltagWriteResponse,
@@ -197,12 +189,12 @@ import type {
   FLSubjektResponse,
   FLSwapGruppenPayload,
   FLSwapGruppenResponse,
+  FLSweepSaisonsResponse,
   FLTeamsGroupedResponse,
   FLTeamSitzeResponse,
   FLTeamsListResponse,
   FLTeamsSaisonsResponse,
   FLTeamsSingleResponse,
-  FLTeamWriteResponse,
   FLTokenPayload,
   FLUndrawSpielplanResponse,
   IdentitaetSweepLoeschungParams,
@@ -980,7 +972,7 @@ export const getBewerbungenPostBewerbungUrl = () => {
 export const bewerbungenPostBewerbung = async (
   fLPostBewerbungPayload: FLPostBewerbungPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
-): Promise<FLPostBewerbungResponse> => {
+): Promise<FLCreatedResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -993,7 +985,7 @@ export const bewerbungenPostBewerbung = async (
     }
     return headers;
   };
-  return baseKeyTransport<FLPostBewerbungResponse>(getBewerbungenPostBewerbungUrl(), {
+  return baseKeyTransport<FLCreatedResponse>(getBewerbungenPostBewerbungUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1015,7 +1007,7 @@ export const getBewerbungenPostEinwilligungUrl = () => {
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
 export const bewerbungenPostEinwilligung = async (
-  fLBewerbungEinwilligungAntwortPayload: FLBewerbungEinwilligungAntwortPayload,
+  fLBewerbungEinwilligungErteiltFLBewerbungEinwilligungAbgelehnt: FLBewerbungEinwilligungErteilt | FLBewerbungEinwilligungAbgelehnt,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -1036,7 +1028,7 @@ export const bewerbungenPostEinwilligung = async (
       ...options,
       method: "POST",
       headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-      body: JSON.stringify(fLBewerbungEinwilligungAntwortPayload),
+      body: JSON.stringify(fLBewerbungEinwilligungErteiltFLBewerbungEinwilligungAbgelehnt),
     },
   );
 };
@@ -1163,10 +1155,8 @@ export const getBewerbungenGetSweepSaisonsUrl = () => {
  * Every season's id, oldest first, for the caller to sweep one at a time.
  * @summary Every season the sweep has to visit
  */
-export const bewerbungenGetSweepSaisons = async (
-  options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLBewerbungSweepSaisonsResponse> => {
-  return systemKeyTransport<FLBewerbungSweepSaisonsResponse>(getBewerbungenGetSweepSaisonsUrl(), {
+export const bewerbungenGetSweepSaisons = async (options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLSweepSaisonsResponse> => {
+  return systemKeyTransport<FLSweepSaisonsResponse>(getBewerbungenGetSweepSaisonsUrl(), {
     ...options,
     method: "GET",
   });
@@ -1363,7 +1353,7 @@ export const bewerbungenPostKontaktSitz = async (
   seat: string,
   fLBewerbungKontaktSitzPayload: FLBewerbungKontaktSitzPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLBewerbungKontaktSitzResponse> => {
+): Promise<FLBewerbungKontaktEmailResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -1376,7 +1366,7 @@ export const bewerbungenPostKontaktSitz = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLBewerbungKontaktSitzResponse>(getBewerbungenPostKontaktSitzUrl(bewerbungId, seat), {
+  return adminKeyTransport<FLBewerbungKontaktEmailResponse>(getBewerbungenPostKontaktSitzUrl(bewerbungId, seat), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -1983,7 +1973,7 @@ export const getKontoPostAdresswechselFreigabeUrl = () => {
 export const kontoPostAdresswechselFreigabe = async (
   fLKontoAdresswechselFreigabePayload: FLKontoAdresswechselFreigabePayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLKontoAdresswechselFreigabeResponse> => {
+): Promise<FLKontoAdresswechselMintResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -1996,7 +1986,7 @@ export const kontoPostAdresswechselFreigabe = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLKontoAdresswechselFreigabeResponse>(getKontoPostAdresswechselFreigabeUrl(), {
+  return adminKeyTransport<FLKontoAdresswechselMintResponse>(getKontoPostAdresswechselFreigabeUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -2676,7 +2666,7 @@ export const saisonsPatchSaison = async (
   saisonId: string,
   fLPatchSaisonPayload: FLPatchSaisonPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLPatchSaisonResponse> => {
+): Promise<void> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -2689,7 +2679,7 @@ export const saisonsPatchSaison = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLPatchSaisonResponse>(getSaisonsPatchSaisonUrl(saisonId), {
+  return adminKeyTransport<void>(getSaisonsPatchSaisonUrl(saisonId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -3163,8 +3153,8 @@ export const getSchiedsrichterDeleteSchiedsrichterUrl = (schiedsrichterId: strin
 export const schiedsrichterDeleteSchiedsrichter = async (
   schiedsrichterId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSchiedsrichterWriteResponse> => {
-  return adminKeyTransport<FLSchiedsrichterWriteResponse>(getSchiedsrichterDeleteSchiedsrichterUrl(schiedsrichterId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getSchiedsrichterDeleteSchiedsrichterUrl(schiedsrichterId), {
     ...options,
     method: "DELETE",
   });
@@ -3762,8 +3752,8 @@ export const getSpielbestaetigungenGetSweepSaisonsUrl = () => {
  */
 export const spielbestaetigungenGetSweepSaisons = async (
   options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLSpielbestaetigungSweepSaisonsResponse> => {
-  return systemKeyTransport<FLSpielbestaetigungSweepSaisonsResponse>(getSpielbestaetigungenGetSweepSaisonsUrl(), {
+): Promise<FLSweepSaisonsResponse> => {
+  return systemKeyTransport<FLSweepSaisonsResponse>(getSpielbestaetigungenGetSweepSaisonsUrl(), {
     ...options,
     method: "GET",
   });
@@ -3902,7 +3892,7 @@ export const spielbestaetigungenEintragenSpielbestaetigung = async (
   spielbestaetigungId: string,
   fLSpielbestaetigungEintragenPayload: FLSpielbestaetigungEintragenPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielbestaetigungWriteResponse> => {
+): Promise<void> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -3915,7 +3905,7 @@ export const spielbestaetigungenEintragenSpielbestaetigung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLSpielbestaetigungWriteResponse>(getSpielbestaetigungenEintragenSpielbestaetigungUrl(spielbestaetigungId), {
+  return adminKeyTransport<void>(getSpielbestaetigungenEintragenSpielbestaetigungUrl(spielbestaetigungId), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -3943,8 +3933,8 @@ export const getSpielbestaetigungenVerwerfenSpielbestaetigungUrl = (spielbestaet
 export const spielbestaetigungenVerwerfenSpielbestaetigung = async (
   spielbestaetigungId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielbestaetigungWriteResponse> => {
-  return adminKeyTransport<FLSpielbestaetigungWriteResponse>(getSpielbestaetigungenVerwerfenSpielbestaetigungUrl(spielbestaetigungId), {
+): Promise<void> => {
+  return adminKeyTransport<void>(getSpielbestaetigungenVerwerfenSpielbestaetigungUrl(spielbestaetigungId), {
     ...options,
     method: "POST",
   });
@@ -4603,11 +4593,8 @@ export const getSpielorteDeleteSpielortUrl = (spielortId: string) => {
  * while an unplayed fixture is still booked here (`spielort_still_booked`).
  * @summary Deactivate a Spielort (soft delete)
  */
-export const spielorteDeleteSpielort = async (
-  spielortId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielortWriteResponse> => {
-  return adminKeyTransport<FLSpielortWriteResponse>(getSpielorteDeleteSpielortUrl(spielortId), {
+export const spielorteDeleteSpielort = async (spielortId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
+  return adminKeyTransport<void>(getSpielorteDeleteSpielortUrl(spielortId), {
     ...options,
     method: "DELETE",
   });
@@ -4677,11 +4664,8 @@ export const getSpielorteReactivateSpielortUrl = (spielortId: string) => {
  * Clear `inactive_since`, putting the venue back into the picker and every default read.
  * @summary Bring a deactivated Spielort back
  */
-export const spielorteReactivateSpielort = async (
-  spielortId: string,
-  options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielortWriteResponse> => {
-  return adminKeyTransport<FLSpielortWriteResponse>(getSpielorteReactivateSpielortUrl(spielortId), {
+export const spielorteReactivateSpielort = async (spielortId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
+  return adminKeyTransport<void>(getSpielorteReactivateSpielortUrl(spielortId), {
     ...options,
     method: "POST",
   });
@@ -4939,8 +4923,8 @@ export const getTeamsDeleteTeamUrl = (teamId: string) => {
  * alone: the seasons it played still happened.
  * @summary Retire a team (soft delete)
  */
-export const teamsDeleteTeam = async (teamId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLTeamWriteResponse> => {
-  return adminKeyTransport<FLTeamWriteResponse>(getTeamsDeleteTeamUrl(teamId), {
+export const teamsDeleteTeam = async (teamId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
+  return adminKeyTransport<void>(getTeamsDeleteTeamUrl(teamId), {
     ...options,
     method: "DELETE",
   });
@@ -5016,8 +5000,8 @@ export const getTeamsReactivateTeamUrl = (teamId: string) => {
  * Clear `inactive_since`, restoring a retired club to reads that hide retired ones.
  * @summary Bring a retired team back
  */
-export const teamsReactivateTeam = async (teamId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLTeamWriteResponse> => {
-  return adminKeyTransport<FLTeamWriteResponse>(getTeamsReactivateTeamUrl(teamId), {
+export const teamsReactivateTeam = async (teamId: string, options?: Parameters<typeof adminKeyTransport>[1]): Promise<void> => {
+  return adminKeyTransport<void>(getTeamsReactivateTeamUrl(teamId), {
     ...options,
     method: "POST",
   });

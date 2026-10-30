@@ -7,7 +7,6 @@ import {
 
 import type {
   FLKontoAdresswechselFreigabePayload,
-  FLKontoAdresswechselFreigabeResponse,
   FLKontoAdresswechselMintResponse,
   FLKontoAdresswechselPayload,
   FLKontoAdresswechselResponse,
@@ -31,7 +30,7 @@ export async function beantrageKontoAdresswechsel(payload: FLKontoAdresswechselP
 }
 
 /** The address on file's approval of the change an administrator started without a reason, named by the id its page showed. */
-export async function gibKontoAdresswechselFrei(payload: FLKontoAdresswechselFreigabePayload): Promise<FLKontoAdresswechselFreigabeResponse> {
+export async function gibKontoAdresswechselFrei(payload: FLKontoAdresswechselFreigabePayload): Promise<FLKontoAdresswechselMintResponse> {
   return kontoPostAdresswechselFreigabe(payload);
 }
 

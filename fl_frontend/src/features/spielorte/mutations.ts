@@ -5,7 +5,7 @@ import {
   spielorteReactivateSpielort,
 } from "@/core/generated/client/sdk";
 
-import type { FLCreatedResponse, FLPatchSpielortResponse, FLPostSpielortPayload, FLSpielortWriteResponse } from "@/core/generated/client/types";
+import type { FLCreatedResponse, FLPatchSpielortResponse, FLPostSpielortPayload } from "@/core/generated/client/types";
 import type { FLPatchSpielortPayload, FLSpielortKeyPayload } from "./schemas";
 
 export async function postSpielort(postSpielortPayload: FLPostSpielortPayload): Promise<FLCreatedResponse> {
@@ -18,12 +18,12 @@ export async function patchSpielort({ id, ...fields }: FLPatchSpielortPayload): 
 }
 
 // Soft: the backend stamps `inactive_since` and removes nothing.
-export async function deleteSpielort({ id }: FLSpielortKeyPayload): Promise<FLSpielortWriteResponse> {
+export async function deleteSpielort({ id }: FLSpielortKeyPayload): Promise<void> {
   return spielorteDeleteSpielort(id);
 }
 
 // Clearing `inactive_since` returns the venue to the picker and to every default read, which makes
 // retirement a state rather than a disappearance.
-export async function reactivateSpielort({ id }: FLSpielortKeyPayload): Promise<FLSpielortWriteResponse> {
+export async function reactivateSpielort({ id }: FLSpielortKeyPayload): Promise<void> {
   return spielorteReactivateSpielort(id);
 }

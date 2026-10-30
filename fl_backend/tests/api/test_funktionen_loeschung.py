@@ -27,7 +27,6 @@ from pymongo.errors import OperationFailure
 
 from app.api.adresswechsel.crud import end_an_emptied_change_in_session
 from app.api.berechtigungen.antraege import compose_antrag
-from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung, compose_widerruf_update
 from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, LOESCHUNG_STEPS, loeschen_everything
 from app.api.registrierungen.person_router import aufnehmen
@@ -49,6 +48,7 @@ from app.core.security import PASSKEY_FACTOR, akteur_pseudonym, loeschung_journa
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from app.core.transactions import transaction_session
 from app.main import create_app
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.actor_tokens import SignedActor, actor_headers
 from tests.app_client import app_client

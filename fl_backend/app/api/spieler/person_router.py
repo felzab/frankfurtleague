@@ -213,7 +213,8 @@ async def patch_kader_zeile(
         await patch_one_in_db(
             collection=saison_spieler_collection,
             db_filter=row,
-            update={"$set": zeile_data.model_dump(mode="json")},
+            update={"$set": zeile_data.model_dump(mode="json", exclude={"version"})},
+            expected_version=zeile_data.version,
             session=session,
             return_document=ReturnDocument.BEFORE,
         )

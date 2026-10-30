@@ -7,7 +7,7 @@ from pydantic import UUID4
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.services import build_schluessel_filter, days_after, hash_token, payload_fingerabdruck
+from app.api.bewerbungen.services import build_schluessel_filter, days_after, payload_fingerabdruck
 from app.api.einladungen.services import find_live_einladung_filter, find_unknown_einladung_refusal
 from app.api.einwilligung.services import find_fassung_refusal
 from app.api.postausgang.schemas import FLPostausgangBezug, FLRegistrierungLinkDaten
@@ -72,6 +72,7 @@ from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_MIN_ALTER_JAHRE
+from app.shared.tokens import hash_token
 
 # `bind_public_actor`, never `bind_actor`: no browser sends `X-FL-Actor`, so that guard would refuse
 # every registration with `missing_actor`. The write still passes `app/core/crud.py`, and an insert

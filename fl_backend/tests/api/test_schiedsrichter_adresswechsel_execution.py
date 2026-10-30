@@ -18,7 +18,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.adresswechsel.admin_router import post_adresswechsel_verwaltung
 from app.api.adresswechsel.schemas import FLAdresswechselVerwaltungPayload
-from app.api.bewerbungen.services import hash_token
 from app.api.schiedsrichter.admin_router import einladen_schiedsrichter, get_schiedsrichter_by_id, patch_schiedsrichter
 from app.api.schiedsrichter.public_router import post_bestaetigung
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterBestaetigungPayload
@@ -27,6 +26,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.actor_tokens import fresh_admin_actor
 from tests.bans import ban_list

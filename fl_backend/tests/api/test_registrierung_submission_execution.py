@@ -13,7 +13,7 @@ from httpx2 import Response
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import build_schluessel_filter, hash_token
+from app.api.bewerbungen.services import build_schluessel_filter
 from app.api.registrierungen.person_router import aufnehmen
 from app.api.registrierungen.public_router import get_bestaetigung_ansicht, post_einladung_ansicht, post_registrierung
 from app.api.registrierungen.schemas import FLPostRegistrierungPayload, FLRegistrierungAufnehmenPayload
@@ -29,6 +29,7 @@ from app.main import create_app
 from app.shared.folding import canonical_address
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client
 from tests.bans import ban_list

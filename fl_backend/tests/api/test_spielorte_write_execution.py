@@ -189,8 +189,7 @@ class TestASecondRetireKeepsTheDayTheVenueLeft:
     def test_the_stamp_stays_and_the_retire_answers_success(self, seeded_url: str):
         response = served(seeded_url, f"{SPIELORTE}/{RETIRED_OID}", {}, method="DELETE")
 
-        assert response.status_code == 200
-        assert response.json()["updated_document"]["inactive_since"] == RETIRED_SINCE
+        assert response.status_code == 204
 
         client = MongoClient(seeded_url)
         try:

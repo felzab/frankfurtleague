@@ -20,7 +20,6 @@ import type {
   FLSchiedsrichterKontoEinwilligungResponse,
   FLSchiedsrichterMintResponse,
   FLSchiedsrichterReactivateResponse,
-  FLSchiedsrichterWriteResponse,
   FLTokenPayload,
 } from "@/core/generated/client/types";
 import type { FLPatchSchiedsrichterPayload, FLSchiedsrichterEinladenPayload, FLSchiedsrichterKeyPayload } from "./schemas";
@@ -35,7 +34,7 @@ export async function patchSchiedsrichter({ id, ...fields }: FLPatchSchiedsricht
 }
 
 // Soft: the backend stamps `inactive_since` and removes nothing.
-export async function deleteSchiedsrichter({ id }: FLSchiedsrichterKeyPayload): Promise<FLSchiedsrichterWriteResponse> {
+export async function deleteSchiedsrichter({ id }: FLSchiedsrichterKeyPayload): Promise<void> {
   return schiedsrichterDeleteSchiedsrichter(id);
 }
 

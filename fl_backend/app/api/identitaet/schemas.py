@@ -1,6 +1,7 @@
 from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints
+from pydantic_core import PydanticCustomError
 
 from app.api.berechtigungen.schemas import FLUtcInstant
 
@@ -233,16 +234,12 @@ LoeschungAdresse = Annotated[
     BeforeValidator(_trimmed_as_the_page_trims),
 ]
 
-# German, as the ban's `grund` words its own, and like it read on the log line alone: the box words
-# its own, held to this one's verdict by `fl_backend/tests/shared/loeschung_refusals.json`.
-ANLASS_HOLDS_AN_ADDRESS = "Der Anlass darf keine E-Mail-Adresse enthalten."
-
 
 def refuse_an_address_in_the_anlass(value: str) -> str:
     """The log keeps `anlass` twelve months and no erasure's redaction reaches it, so an address typed here outlives the erasure it answers."""
 
     if ADDRESS_IN_FREE_TEXT.search(value) is not None:
-        raise ValueError(ANLASS_HOLDS_AN_ADDRESS)
+        raise PydanticCustomError("address_in_free_text", "the text holds an email address")
 
     return value
 

@@ -192,7 +192,7 @@ def test_the_tally_counts_every_area_the_cut_page_never_carries(mongo_url: str):
 def test_an_areas_count_ignores_its_own_selection_and_keeps_the_others(mongo_url: str):
     """A dimension counted under its own selection offers the picked option and kills every other."""
 
-    log = answered(mongo_url, collection="spielorte")
+    log = answered(mongo_url, collection=["spielorte"])
 
     assert [row.collection for row in log.aktionen] == ["spielorte"] * CREATED_VENUES
     assert log.vollstaendig is True
@@ -204,7 +204,7 @@ def test_an_areas_count_ignores_its_own_selection_and_keeps_the_others(mongo_url
 def test_an_operation_selection_narrows_the_areas_and_origins_it_leaves(mongo_url: str):
     """The crossed pair is what this reaches: `teams` counts its creations alone while its patches stay out."""
 
-    log = answered(mongo_url, operation="insert")
+    log = answered(mongo_url, operation=["insert"])
 
     assert log.anzahl_je_collection == {"teams": CREATED_TEAMS, "spielorte": CREATED_VENUES}
     assert log.anzahl_je_operation == EVERY_OPERATION
@@ -217,7 +217,7 @@ def test_an_origin_selects_the_kinds_it_is_filed_under_and_keeps_its_own_count(m
     A category resolved to the wrong kinds fetches somebody else's rows and answers 200.
     """
 
-    log = answered(mongo_url, herkunft="system")
+    log = answered(mongo_url, herkunft=["system"])
 
     assert {row.actor.kind for row in log.aktionen} == {"system"}
     assert len(log.aktionen) == CREATED_TEAMS + 1
@@ -232,7 +232,7 @@ def test_the_signed_in_origin_selects_both_kinds_it_stands_for(mongo_url: str):
     The cut page serves the first kind alone, so the count is what shows the second folded in.
     """
 
-    log = answered(mongo_url, herkunft="person")
+    log = answered(mongo_url, herkunft=["person"])
 
     assert {row.actor.kind for row in log.aktionen} == {"admin_session"}
     assert len(log.aktionen) == PATCHED_TEAMS
@@ -243,7 +243,7 @@ def test_the_signed_in_origin_selects_both_kinds_it_stands_for(mongo_url: str):
 def test_a_two_area_selection_reaches_the_read_as_one_term(mongo_url: str):
     """The `$in` against a real collection: the bar is multi-select, and a joined value is the request two picked options make."""
 
-    log = answered(mongo_url, collection="spielorte,saisons")
+    log = answered(mongo_url, collection=["spielorte", "saisons"])
 
     assert len(log.aktionen) == CREATED_VENUES + 1
     assert {row.collection for row in log.aktionen} == {"spielorte", "saisons"}
@@ -254,7 +254,7 @@ def test_a_two_area_selection_reaches_the_read_as_one_term(mongo_url: str):
 def test_a_two_origin_selection_reaches_the_read_as_one_term(mongo_url: str):
     """Two categories out of three, each compiled to the kinds filed under it — which an equality could not express."""
 
-    log = answered(mongo_url, herkunft="system,public")
+    log = answered(mongo_url, herkunft=["system", "public"])
 
     assert {row.actor.kind for row in log.aktionen} == {"system", "public"}
     assert len(log.aktionen) == CREATED_TEAMS + CREATED_VENUES + 1

@@ -153,7 +153,7 @@ class TestOnlyANewCautionOwesItsReason:
 
 class TestEveryGoalHasAnEntry:
     def test_a_goal_without_an_entry_is_refused(self):
-        with pytest.raises(ValidationError, match="genau einen Eintrag"):
+        with pytest.raises(ValidationError, match="type=torschuetzen_not_matching_tore,"):
             FLSpielberichtBerichtPayload.model_validate(payload(3, 1, [tor("team1"), tor("team2")]))
 
     def test_a_scorer_nobody_named_is_an_entry(self):
@@ -166,7 +166,7 @@ class TestEveryGoalHasAnEntry:
 
         assert FLSpielberichtBerichtPayload.model_validate(payload(1, 0, [tor("team2", LIVE2, eigentor=True)]))
 
-        with pytest.raises(ValidationError, match="genau einen Eintrag"):
+        with pytest.raises(ValidationError, match="type=torschuetzen_not_matching_tore,"):
             FLSpielberichtBerichtPayload.model_validate(payload(0, 1, [tor("team2", LIVE2, eigentor=True)]))
 
     def test_a_no_show_proposes_the_event_alone(self):
@@ -174,15 +174,15 @@ class TestEveryGoalHasAnEntry:
 
         assert FLSpielberichtBerichtPayload.model_validate({**payload(None, None, []), "ergebnis_vorschlag": no_show})
 
-        with pytest.raises(ValidationError, match="keine Tore"):
+        with pytest.raises(ValidationError, match="type=nichtantreten_with_tore,"):
             FLSpielberichtBerichtPayload.model_validate(
                 {**payload(3, 0, []), "ergebnis_vorschlag": {**no_show, "team1_tore": 3, "team2_tore": 0}}
             )
-        with pytest.raises(ValidationError, match="keine Torschützen"):
+        with pytest.raises(ValidationError, match="type=nichtantreten_with_torschuetzen,"):
             FLSpielberichtBerichtPayload.model_validate({**payload(None, None, [tor("team1")]), "ergebnis_vorschlag": no_show})
 
     def test_a_played_match_proposes_both_counts(self):
-        with pytest.raises(ValidationError, match="beider Teams"):
+        with pytest.raises(ValidationError, match="type=ergebnis_missing_tore,"):
             FLSpielberichtBerichtPayload.model_validate(payload(1, None, [tor("team1")]))
 
     def test_a_shoot_out_follows_a_draw_alone(self):
@@ -191,7 +191,7 @@ class TestEveryGoalHasAnEntry:
 
         assert FLSpielberichtBerichtPayload.model_validate(level)
 
-        with pytest.raises(ValidationError, match="Unentschieden"):
+        with pytest.raises(ValidationError, match="type=elfmeterschiessen_without_draw,"):
             FLSpielberichtBerichtPayload.model_validate({**level, "ergebnis_vorschlag": {**level["ergebnis_vorschlag"], "team1_tore": 2}})
 
     @pytest.mark.parametrize("minute", ["45 +2", "", "90+", "1000"])

@@ -17,7 +17,7 @@ import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { BestaetigungAbschnitt } from "./BestaetigungPanels";
 
-import type { FLBewerbungEinwilligungAnsichtResponse, FLBewerbungEinwilligungAntwortPayload } from "@/core/generated/client/types";
+import type { FLBewerbungEinwilligungAbgelehnt, FLBewerbungEinwilligungAnsichtResponse } from "@/core/generated/client/types";
 import type { LinkZustand } from "@/features/bewerbungen/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
@@ -43,15 +43,7 @@ export function BestaetigungSaisonVorbei({
 }) {
   const widerspruch = useTwoPressConfirm();
 
-  // The label the view names, which a Widerspruch stores nowhere: the payload requires one all the same.
-  const payload: FLBewerbungEinwilligungAntwortPayload = {
-    token: token,
-    antwort: "abgelehnt",
-    geburtsdatum: null,
-    whatsapp: false,
-    medien: false,
-    text_version: ansicht.laufende_fassung,
-  };
+  const payload: FLBewerbungEinwilligungAbgelehnt = { token: token, antwort: "abgelehnt" };
 
   const sende = async (): Promise<void> => {
     const gesendet = await postPublicForm<WiderspruchAntwort>("/api/bestaetigung/kontakt", payload);

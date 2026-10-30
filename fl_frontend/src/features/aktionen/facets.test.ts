@@ -143,23 +143,23 @@ describe("what the log asks the endpoint to narrow to", () => {
   });
 
   it("forwards a picked area", () => {
-    expect(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "teams" }).collection).toBe("teams");
+    expect(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "teams" }).collection).toStrictEqual(["teams"]);
   });
 
   it("carries a two-area selection, which is why the parameter is a list on both sides", () => {
-    expect(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "teams,spiele" }).collection).toBe("teams,spiele");
+    expect(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "teams,spiele" }).collection).toStrictEqual(["teams", "spiele"]);
   });
 
   it("forwards a picked operation on its own parameter", () => {
-    expect(aktionenLogFacetTerms({ [AKTIONEN_OPERATION_PARAM]: "insert,delete_many" }).operation).toBe("insert,delete_many");
+    expect(aktionenLogFacetTerms({ [AKTIONEN_OPERATION_PARAM]: "insert,delete_many" }).operation).toStrictEqual(["insert", "delete_many"]);
   });
 
   it("drops a value the facet does not offer rather than sending one the endpoint refuses with a 422", () => {
     // A pasted or hand-edited link is the live case, and the operation parameter is a closed set on
     // the endpoint, so an invented member reaches it as a refusal the page has nothing to render.
     expect(aktionenLogFacetTerms({ [AKTIONEN_COLLECTION_PARAM]: "erfunden" }).collection).toBe(undefined);
-    expect(aktionenLogFacetTerms({ [AKTIONEN_OPERATION_PARAM]: "insert,erfunden" }).operation).toBe("insert");
-    expect(aktionenLogFacetTerms({ [AKTIONEN_HERKUNFT_PARAM]: "system,erfunden" }).herkunft).toBe("system");
+    expect(aktionenLogFacetTerms({ [AKTIONEN_OPERATION_PARAM]: "insert,erfunden" }).operation).toStrictEqual(["insert"]);
+    expect(aktionenLogFacetTerms({ [AKTIONEN_HERKUNFT_PARAM]: "system,erfunden" }).herkunft).toStrictEqual(["system"]);
   });
 
   it("asks for nothing once a parameter is emptied, which is the facet turned off", () => {
@@ -241,7 +241,7 @@ describe("the counts the endpoint can answer", () => {
   /* The request half: the endpoint cannot count what it is not told, so the term rides with the two the
      bar already sends. */
   it("asks the endpoint to narrow to a picked origin", () => {
-    expect(aktionenLogFacetTerms({ [AKTIONEN_HERKUNFT_PARAM]: "system" }).herkunft).toBe("system");
+    expect(aktionenLogFacetTerms({ [AKTIONEN_HERKUNFT_PARAM]: "system" }).herkunft).toStrictEqual(["system"]);
   });
 
   /* A facet absent from the map is counted off the rows served instead (`FilterPanel :: FilterPanelBody`),

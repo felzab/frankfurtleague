@@ -175,7 +175,8 @@ async def patch_spieler(
         return await patch_one_in_db(
             collection=spieler_collection,
             db_filter=build_spieler_filter(spieler_id),
-            update={"$set": spieler_data.model_dump(mode="json")},
+            update={"$set": spieler_data.model_dump(mode="json", exclude={"version"})},
+            expected_version=spieler_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )
@@ -376,10 +377,11 @@ async def patch_saison_spieler(
             db_filter={"spieler_id": spieler_id, "saison_id": saison_id},
             update={
                 "$set": {
-                    **saison_spieler_data.model_dump(mode="json", exclude={"team_id"}),
+                    **saison_spieler_data.model_dump(mode="json", exclude={"team_id", "version"}),
                     "team_id": saison_spieler_data.team_id,
                 }
             },
+            expected_version=saison_spieler_data.version,
             session=session,
             return_document=ReturnDocument.AFTER,
         )

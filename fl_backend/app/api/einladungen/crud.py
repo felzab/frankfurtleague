@@ -7,7 +7,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.einladungen.schemas import FLEinladungEmpfaenger
 from app.api.einladungen.services import einladung_ist_versendet
 from app.api.postausgang.crud import lagen_of
-from app.api.postausgang.schemas import FLEinladungDaten, FLPostausgangBezug, FLPostausgangLage, FLPostausgangLink
+from app.api.postausgang.schemas import FLEinladungDaten, FLPostausgangBezug, FLPostausgangLink
 from app.api.postausgang.services import OwedMail
 from app.core.collections import Collection
 
@@ -39,21 +39,12 @@ def owed_einladung_mails(
     ]
 
 
-async def lagen_der_einladungen(
-    *, postausgang_collection: AsyncCollection, einladung_ids: Sequence[Any], session: AsyncClientSession | None = None
-) -> dict[Any, FLPostausgangLage]:
-    """What became of the last mail owed about each of these invites, keyed by invite; one absent where none was ever owed."""
-
-    lagen = await lagen_of(postausgang_collection=postausgang_collection, sammlung=Collection.EINLADUNGEN, ids=einladung_ids, session=session)
-
-    return {einladung_id: lage for (einladung_id, _), lage in lagen.items()}
-
-
 async def versendete_einladungen(
     *, postausgang_collection: AsyncCollection, einladung_ids: Sequence[Any], session: AsyncClientSession | None = None
 ) -> set[Any]:
     """The invites whose last mail is still owed or went out, `einladung_ist_versendet` of each, in one read."""
 
-    lagen = await lagen_der_einladungen(postausgang_collection=postausgang_collection, einladung_ids=einladung_ids, session=session)
+    lagen = await lagen_of(postausgang_collection=postausgang_collection, sammlung=Collection.EINLADUNGEN, ids=einladung_ids, session=session)
 
-    return {einladung_id for einladung_id, lage in lagen.items() if einladung_ist_versendet(lage=lage)}
+    # Keyed by the invite and its seat, which an invite's mails leave empty.
+    return {einladung_id for (einladung_id, _), lage in lagen.items() if einladung_ist_versendet(lage=lage)}

@@ -9,7 +9,6 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import hash_token
 from app.api.einwilligung import services as einwilligung_services
 from app.api.registrierungen.public_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungPayload
@@ -25,6 +24,7 @@ from app.core.exceptions import APIError
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop

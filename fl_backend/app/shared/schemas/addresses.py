@@ -20,7 +20,7 @@ def _join_present(parts: tuple[str, ...], separator: str) -> str:
     return separator.join(part for part in parts if part.strip())
 
 
-# The SOURCE OF TRUTH; `fl_frontend/src/shared/schemas.ts :: FLAddressSchema` mirrors it by hand.
+# The SOURCE OF TRUTH; `fl_frontend/src/shared/schemas.ts :: FLAddressPayloadSchema` mirrors the payload by hand.
 class FLAddress(BaseModel):
     strasse: CustomNonEmptyString
     # Not every venue has one, so the pattern allows the empty string rather than being optional.

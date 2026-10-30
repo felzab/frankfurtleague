@@ -688,13 +688,13 @@ describe("the one field of a submitted application an administrator may move", (
 });
 
 describe("the consenting answer's birth date", () => {
-  /* The leaf takes `null`, an objection carrying none, so the date picker's required mark is set by
-     hand on the strength of this refusal alone. */
+  /* The empty picker is the missing date, so the date picker's required mark is set by hand on the
+     strength of this refusal alone. */
   it("is refused missing, on the date's own path, in German", () => {
     const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({
       token: "x".repeat(20),
       antwort: "erteilt",
-      geburtsdatum: null,
+      geburtsdatum: "",
       whatsapp: false,
       medien: false,
       text_version: "2026-08",
@@ -708,7 +708,7 @@ describe("the consenting answer's birth date", () => {
 
 describe("the ceiling on the confirmation link's own token", () => {
   /* A decline, so the body is whole without a date and no clock decides the case. */
-  const antwortBody = { antwort: "abgelehnt", geburtsdatum: null, whatsapp: false, medien: false, text_version: "2026-08" };
+  const antwortBody = { antwort: "abgelehnt" };
 
   const verdict = (token: string) => FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ token: token, ...antwortBody });
 
@@ -729,7 +729,8 @@ describe("the label a confirmation's answer names", () => {
   /* The endpoint refuses an empty label, so the page refuses it first, in German, rather than sending a
      body the endpoint answers with a code no box can carry. */
   it("is refused empty or blank, as the endpoint refuses it", () => {
-    const antwort = { token: "kein-echtes-token", antwort: "abgelehnt", geburtsdatum: null, whatsapp: false, medien: false };
+    // A consent, the one answer naming a label, with a date inside every floor and ceiling for decades.
+    const antwort = { token: "kein-echtes-token", antwort: "erteilt", geburtsdatum: "1980-01-01", whatsapp: false, medien: false };
 
     for (const text_version of ["", "   "]) {
       const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ ...antwort, text_version });

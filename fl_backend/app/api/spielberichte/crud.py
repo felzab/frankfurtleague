@@ -39,7 +39,6 @@ from app.api.spielberichte.services import (
 )
 from app.core.crud import (
     GERMAN_COLLATION,
-    VERSION_FIELD,
     aggregate_many_from_db,
     anchor_in_db,
     patch_many_in_db,
@@ -195,7 +194,8 @@ async def write_bericht(
     return await patch_one_in_db(
         collection=spielberichte_collection,
         db_filter={"_id": gespeichert["_id"]},
-        update={**update, "$set": {**update["$set"], VERSION_FIELD: version}},
+        update=update,
+        expected_version=version,
         session=session,
         return_document=ReturnDocument.AFTER,
     )

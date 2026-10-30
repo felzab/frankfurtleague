@@ -364,20 +364,28 @@ const DOCUMENTS = {
   spiele: [...finished.spiele, ...running.spiele],
 };
 
-// Emptied rather than dropped: the backend's boot made each collection with its validator and its
-// indexes, and a dropped collection would be re-created by the first insert with neither.
+// Emptied rather than dropped: the backend's boot made each collection with its indexes, and a
+// dropped collection would be re-created by the first insert with none.
 for (const name of db.getCollectionNames()) {
   if (name.startsWith("system.")) continue;
   const removed = db.getCollection(name).deleteMany({}).deletedCount;
   if (removed > 0) print(`emptied ${name}: ${removed} document(s)`);
 }
 
-// Ordered: an insert the validator refuses throws with the server's own account of the field, and
-// mongosh exits non-zero on it. Each document carries the `version: 0` the backend's create stamps:
+// Ordered: an insert a unique index refuses throws with the server's own account of the key, and
+// mongosh exits non-zero on it; the read-back after the seed judges every document's shape. Each
+// document carries the `version: 0` the backend's create stamps:
 // every collection seeded here is in `fl_backend/app/core/collections.py :: EDITED_COLLECTIONS`, whose
 // saves match on the version their editor was served, and none matches a document without one.
+// The first of each collection `fl_backend/app/core/crud.py :: anchor_in_db` writes carries the count an
+// anchor advances, as a document of the league's soon does, so the read-back judges that its record model declares it.
+const ANCHORED = new Set(["teams", "spielorte", "schiedsrichter", "berechtigungen", "saisons", "saison_teams"]);
 for (const [name, documents] of Object.entries(DOCUMENTS)) {
-  const versioned = documents.map((document) => ({ ...document, version: 0 }));
+  const versioned = documents.map((document, index) => ({
+    ...document,
+    version: 0,
+    ...(ANCHORED.has(name) && index === 0 ? { bounded_writes: 1 } : {}),
+  }));
   const inserted = db.getCollection(name).insertMany(versioned, { ordered: true }).insertedIds;
   print(`seeded ${name}: ${Object.keys(inserted).length} document(s)`);
 }

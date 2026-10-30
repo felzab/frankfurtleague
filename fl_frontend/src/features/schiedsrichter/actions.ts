@@ -25,7 +25,6 @@ import {
   hatAdresse,
 } from "./schemas";
 
-import type { FLSchiedsrichter } from "@/core/generated/client/types";
 import type { FLSchiedsrichterPayloadDraft } from "@/features/schiedsrichter/schemas";
 import type { ActionResult } from "@/shared/types/types";
 import type {
@@ -82,7 +81,6 @@ export async function patchSchiedsrichterAction(
   rawPayload: FLSchiedsrichterPayloadDraft<FLPatchSchiedsrichterPayload>,
 ): Promise<
   ActionResult<{
-    updated_document?: FLSchiedsrichter;
     versandSatz?: string;
   }>
 > {
@@ -119,7 +117,6 @@ export async function patchSchiedsrichterAction(
 
     return {
       success: true,
-      updated_document: postOperation.updated_document,
       message: "Schiedsrichter bearbeitet",
       // Its own field rather than folded into the message: the editor's toast says it in place of the
       // save's sentence, and a save that owed no link has no sentence to hand it.
@@ -176,9 +173,7 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
   });
 }
 
-export async function deleteSchiedsrichterAction(
-  rawPayload: FLSchiedsrichterKeyPayload,
-): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
+export async function deleteSchiedsrichterAction(rawPayload: FLSchiedsrichterKeyPayload): Promise<ActionResult> {
   return runAdminMutation("deleteSchiedsrichterAction", async () => {
     const validated = FLSchiedsrichterKeyPayloadSchema.safeParse(rawPayload);
 
@@ -191,9 +186,8 @@ export async function deleteSchiedsrichterAction(
     }
 
     // The refusal belongs in the dialog that asked, not on the error page.
-    let postOperation;
     try {
-      postOperation = await deleteSchiedsrichter(validated.data);
+      await deleteSchiedsrichter(validated.data);
     } catch (error) {
       const refusal = mapRetireRefusal(error);
       if (refusal !== null) return { success: false, error: refusal };
@@ -202,7 +196,6 @@ export async function deleteSchiedsrichterAction(
 
     return {
       success: true,
-      updated_document: postOperation.updated_document,
       message: "Die Spiele dieser Person bleiben erhalten.",
     };
   });
@@ -212,9 +205,7 @@ export async function deleteSchiedsrichterAction(
  * No tag moves, unlike the patch: `inactive_since` reaches no cached read. The spine's refresh is for
  * the admin's own list, which is uncached.
  */
-export async function reactivateSchiedsrichterAction(
-  rawPayload: FLSchiedsrichterKeyPayload,
-): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
+export async function reactivateSchiedsrichterAction(rawPayload: FLSchiedsrichterKeyPayload): Promise<ActionResult> {
   return runAdminMutation("reactivateSchiedsrichterAction", async (session) => {
     const validated = FLSchiedsrichterKeyPayloadSchema.safeParse(rawPayload);
 
@@ -247,7 +238,6 @@ export async function reactivateSchiedsrichterAction(
 
     return {
       success: true,
-      updated_document: reactivateOperation.updated_document,
       message: mint === null ? "Schiedsrichter reaktiviert" : linkSatz(mint.email),
     };
   });

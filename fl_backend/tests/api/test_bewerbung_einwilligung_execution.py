@@ -5,13 +5,13 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
+from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.admin_router import erneut_einwilligung, get_bewerbung, get_bewerbungen
 from app.api.bewerbungen.public_router import get_einwilligung_ansicht, post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload, FLBewerbungenFilterParams
-from app.api.bewerbungen.services import hash_token
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -20,6 +20,7 @@ from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
@@ -157,18 +158,12 @@ async def answer(
 ) -> Any:
     """One answer through the seat's link; a case reading the mail it owes passes `MAIL_NOW`, which the stamps then carry."""
 
-    body = {
-        "token": token,
-        "antwort": "erteilt",
-        "geburtsdatum": AN_ADULTS_BIRTHDATE,
-        "whatsapp": True,
-        "medien": False,
-        "text_version": BEWERBER_SEITE,
-        **overrides,
-    }
+    # A Widerspruch carries the token alone: every default below is the consent's.
+    erteilt = {"antwort": "erteilt", "geburtsdatum": AN_ADULTS_BIRTHDATE, "whatsapp": True, "medien": False, "text_version": BEWERBER_SEITE}
+    body = {"token": token, **(overrides if overrides.get("antwort") == "abgelehnt" else {**erteilt, **overrides})}
 
     return await post_einwilligung(
-        antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
+        antwort_data=TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -558,12 +553,10 @@ class TestThePageALinkOpens:
             assert (einwilligung["bestaetigt_am"], einwilligung["text_version"]) == (TODAY, VERWALTUNG_SEITE)
 
     def test_a_decline_names_no_label_and_is_judged_against_none(self, mongo_replica_set_url: str):
-        """A Widerspruch stores no record, so the label it carries is never stored and never refused."""
+        """A Widerspruch stores no record, so it carries no label to store or refuse."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(
-                database, client, RAW["trainer"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False, text_version="nicht-registriert"
-            )
+            await answer(database, client, RAW["trainer"], antwort="abgelehnt")
 
             return await stored(database)
 
@@ -758,7 +751,7 @@ class TestADecline:
 
     def test_the_slot_is_emptied_the_day_recorded_beside_it_and_the_seat_still_outstanding(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            response = await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False)
+            response = await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt")
 
             return response, await stored(database), await ansicht(database, RAW["stellvertretung"])
 
@@ -779,7 +772,7 @@ class TestADecline:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await answer(database, client, RAW["trainer"])
-            await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False)
+            await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt")
 
             return await log_rows(database)
 
@@ -797,7 +790,7 @@ class TestADecline:
 
     def test_a_declined_seat_takes_no_second_answer(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False)
+            await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt")
 
             with pytest.raises(APIError) as conflict:
                 await answer(database, client, RAW["stellvertretung"])
@@ -826,7 +819,7 @@ class TestWhatAWiderspruchOwesTheSubmitter:
 
     def test_another_seats_decline_owes_the_ansprechperson_the_notice_naming_who_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False, now=MAIL_NOW)
+            await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", now=MAIL_NOW)
 
             return await owed(database)
 
@@ -851,7 +844,7 @@ class TestWhatAWiderspruchOwesTheSubmitter:
         double = bewerbung_document(kontakte=kontakte(trainer_ist_zugleich="ansprechperson"))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False, now=MAIL_NOW)
+            await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", now=MAIL_NOW)
 
             return await owed(database)
 
@@ -863,7 +856,7 @@ class TestWhatAWiderspruchOwesTheSubmitter:
         """The seat the notice would address is the seat that just emptied itself."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW["ansprechperson"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False, now=MAIL_NOW)
+            await answer(database, client, RAW["ansprechperson"], antwort="abgelehnt", now=MAIL_NOW)
 
             return await owed(database)
 
@@ -873,7 +866,7 @@ class TestWhatAWiderspruchOwesTheSubmitter:
         """Nobody is told of it, so the deletion notice still goes to whoever holds that seat at the deadline."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await answer(database, client, RAW["ansprechperson"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False)
+            await answer(database, client, RAW["ansprechperson"], antwort="abgelehnt")
 
             return await stored(database)
 
@@ -1044,7 +1037,7 @@ async def ban_under_a_running_season(database: AsyncDatabase, address: str, *, b
 
 
 def decline(database: AsyncDatabase, client: AsyncMongoClient, seat: str) -> Any:
-    return answer(database, client, RAW[seat], antwort="abgelehnt", geburtsdatum=None, whatsapp=False)
+    return answer(database, client, RAW[seat], antwort="abgelehnt")
 
 
 class TestALinkToABarredAddress:

@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from bson import ObjectId, encode
 from fastapi import FastAPI
+from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
@@ -29,12 +30,7 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungKontaktEmailPayload,
     FLBewerbungKontaktSitzPayload,
 )
-from app.api.bewerbungen.services import (
-    bestaetigungsfrist_from,
-    bewerbung_kontakt_seite,
-    compose_new_club,
-    hash_token,
-)
+from app.api.bewerbungen.services import bestaetigungsfrist_from, bewerbung_kontakt_seite, compose_new_club
 from app.api.postausgang.crud import lagen_of
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import post_team
@@ -47,6 +43,7 @@ from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
@@ -1679,8 +1676,8 @@ class TestAResendRacingAnAnswer:
         # The landing inside: the re-send judged a read holding the address the correction then replaced.
         assert as_read is not None and as_read["kontakte"]["ansprechperson"]["email"] != CORRECTED_EMAIL
         assert (response.email, response.rollen) == (CORRECTED_EMAIL, ["ansprechperson"])
-        # Both mails go to the corrected mailbox, and the re-send's link, handed out last, is the one that opens.
-        assert [mail.an for mail in mails] == [CORRECTED_EMAIL, CORRECTED_EMAIL]
+        # The re-send settles the correction's mail it supersedes, so one mail goes, to the corrected mailbox, and its link opens.
+        assert [mail.an for mail in mails] == [CORRECTED_EMAIL]
         assert stored["bestaetigungen"]["ansprechperson"]["token_hashes"] == [hash_token(mails[-1].token or "")]
 
     def test_a_miss_the_re_read_finds_no_reason_for_is_written_again(self, mongo_replica_set_url: str):
@@ -1797,8 +1794,9 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
     """
 
     return await post_einwilligung(
-        antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(
-            {"token": token, "antwort": "abgelehnt", "geburtsdatum": None, "whatsapp": False, "medien": False, "text_version": "v1", **answer}
+        # A Widerspruch unless the case answers otherwise, and then a consent naming its own date and label.
+        antwort_data=TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(
+            {"token": token, **({"whatsapp": False, "medien": False, **answer} if answer else {"antwort": "abgelehnt"})}
         ),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],

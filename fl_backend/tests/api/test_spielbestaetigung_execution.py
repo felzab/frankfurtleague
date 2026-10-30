@@ -19,7 +19,6 @@ from pydantic import ValidationError
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import hash_token
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spielbestaetigungen.admin_router import eintragen_spielbestaetigung, get_spielbestaetigungen, verwerfen_spielbestaetigung
 from app.api.spielbestaetigungen.person_router import get_self, post_schiedsrichter_antwort
@@ -33,7 +32,6 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungenListResponse,
     FLSpielbestaetigungSchiedsrichterAntwortPayload,
     FLSpielbestaetigungSchiedsrichterAntwortResponse,
-    FLSpielbestaetigungWriteResponse,
 )
 from app.api.spielbestaetigungen.services import (
     build_held_filter,
@@ -48,6 +46,7 @@ from app.core.collections import Collection
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.literals import KONTAKT_ROLLEN
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
@@ -972,9 +971,7 @@ class TestADiscardedDeclineIsNoProposalInFrontOfTheOtherClub:
 SETTLE_REASON = "Telefonisch mit dem Trainer abgestimmt"
 
 
-async def eintragen(
-    database: AsyncDatabase, client: AsyncMongoClient, row_id: ObjectId, *, spielbestaetigungen: Any = None
-) -> FLSpielbestaetigungWriteResponse:
+async def eintragen(database: AsyncDatabase, client: AsyncMongoClient, row_id: ObjectId, *, spielbestaetigungen: Any = None) -> None:
     return await eintragen_spielbestaetigung(
         spielbestaetigung_id=row_id,
         eintragen_data=FLSpielbestaetigungEintragenPayload(begruendung=SETTLE_REASON),
@@ -984,9 +981,7 @@ async def eintragen(
     )
 
 
-async def verwerfen(
-    database: AsyncDatabase, client: AsyncMongoClient, row_id: ObjectId, *, spielbestaetigungen: Any = None
-) -> FLSpielbestaetigungWriteResponse:
+async def verwerfen(database: AsyncDatabase, client: AsyncMongoClient, row_id: ObjectId, *, spielbestaetigungen: Any = None) -> None:
     return await verwerfen_spielbestaetigung(
         spielbestaetigung_id=row_id,
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
@@ -1014,16 +1009,15 @@ class TestTheAdministratorsZusage:
         """Key for key: a role or a holder on it would let a person's erasure reach the league's reason."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            settled = await eintragen(database, client, ROW1)
+            await eintragen(database, client, ROW1)
             pressed = await outcome_of(antworten(database, client, token(TEAM1, "trainer")))
 
-            return settled, (await row_now(database, ROW1))["antwort"], pressed
+            return (await row_now(database, ROW1))["antwort"], pressed
 
-        settled, stored, pressed = on_a_fixture(mongo_replica_set_url, body)
+        stored, pressed = on_a_fixture(mongo_replica_set_url, body)
 
         expected = {"art": "zugesagt", "am": TODAY, "von": {"art": "admin"}, "vorschlag": None, "begruendung": SETTLE_REASON}
         assert stored == expected
-        assert settled.updated_document.antwort is not None and settled.updated_document.antwort.model_dump() == expected
         assert pressed == Code.ANSETZUNG_BEANTWORTET
 
     def test_a_settle_after_a_seats_answer_is_refused_and_the_seats_answer_stands(self, mongo_replica_set_url: str):
@@ -1063,15 +1057,14 @@ class TestTheDiscard:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
             declined = (await row_now(database, ROW1))["antwort"]
-            served = await verwerfen(database, client, ROW1)
+            await verwerfen(database, client, ROW1)
             owed = await database[Collection.POSTAUSGANG].find({}, {"an": 1, "art": 1, "bezug": 1, "_id": 0}).to_list()
 
-            return declined, served, await row_now(database, ROW1), owed
+            return declined, await row_now(database, ROW1), owed
 
-        declined, served, row, owed = on_a_fixture(mongo_replica_set_url, body)
+        declined, row, owed = on_a_fixture(mongo_replica_set_url, body)
 
         assert (row["antwort"], row["geschlossen"]) == (declined, {"am": TODAY, "grund": "verworfen"})
-        assert served.updated_document.geschlossen is not None and served.updated_document.geschlossen.grund == "verworfen"
         # Owed the club in the discard's own transaction, the fixture's day being to come: every address its seats hold.
         assert sorted((mail["an"], mail["art"], mail["bezug"]["sitz"]) for mail in owed) == sorted(
             (address(TEAM1, seat), "spiel_vorschlag_verworfen", seat) for seat in KONTAKT_ROLLEN

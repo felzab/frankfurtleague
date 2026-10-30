@@ -14,7 +14,7 @@ from pymongo.errors import OperationFailure
 from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
 from app.api.berechtigungen.antraege import compose_antrag
-from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter, hash_token
+from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter
 from app.api.identitaet.crud import loeschen_pupil_actor_in_session, unattribute_in_session
 from app.api.spielberichte.crud import pull_bericht_lage
 from app.api.spieler.person_router import _read_the_squad
@@ -26,6 +26,7 @@ from app.core.constraints import (
     apply_constraints,
 )
 from app.core.exceptions import APIError
+from app.shared.tokens import hash_token
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     adresswechsel_document,

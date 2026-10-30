@@ -4,8 +4,9 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from app.api.postausgang.schemas import FLPostausgangLage
 from app.api.spieler.schemas import FLEinwilligung
+from app.core.crud import Anchored
 from app.shared.schemas.bestaetigung import CustomToken, FLBestaetigung
-from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SCHIEDSRICHTER_SCHULE_MAX_LENGTH
 from app.shared.schemas.custom import (
     CustomDateString,
     CustomNonEmptyString,
@@ -37,10 +38,12 @@ class _SchiedsrichterPayload(_SchiedsrichterWritable):
     name: CustomKontaktName
     # Tightened here for the same reason, the telephone rule having been narrowed after rows existed.
     kontakt: FLKontaktPayload
+    # Ceilinged on the WRITE side alone, for `name`'s reason.
+    schule: CustomOptionalString = Field(max_length=SCHIEDSRICHTER_SCHULE_MAX_LENGTH)
 
 
-# One shape under two names, and they stay two: each endpoint publishes its own OpenAPI component,
-# which `fl_frontend/src/core/apiContract.test.ts` pairs with a Zod mirror by name.
+# One shape under two names, and they stay two: each endpoint publishes its own OpenAPI component, which
+# the generated client and its Zod schemas name it by.
 class FLPostSchiedsrichterPayload(_SchiedsrichterPayload):
     pass
 
@@ -87,7 +90,7 @@ class FLSchiedsrichterBestaetigungRecord(FLBestaetigung):
     token_hashes: list[str]
 
 
-class FLSchiedsrichterRecord(FLSchiedsrichter):
+class FLSchiedsrichterRecord(FLSchiedsrichter, Anchored):
     """A referee as `schiedsrichter` stores them."""
 
     bestaetigung: FLSchiedsrichterBestaetigungRecord | None = None
@@ -117,7 +120,6 @@ class FLPostSchiedsrichterResponse(BaseAPIResponse):
 
 
 class FLPatchSchiedsrichterResponse(BaseAPIResponse):
-    updated_document: FLSchiedsrichter
     # Reported rather than assumed: this fan-out is the half of the endpoint that fails silently.
     fanned_out_to_spiele: int
     # Null unless the save moved an UNCONFIRMED referee's address, which retires the link posted to
@@ -128,7 +130,6 @@ class FLPatchSchiedsrichterResponse(BaseAPIResponse):
 class FLSchiedsrichterReactivateResponse(BaseAPIResponse):
     """The reactivation's answer: its own rather than the retire's, being the one of the pair that can mint."""
 
-    updated_document: FLSchiedsrichter
     # Null unless the row came back unanswered and holding an address a link can go to.
     bestaetigung: FLSchiedsrichterMint | None = None
 
@@ -176,12 +177,6 @@ class FLSchiedsrichterBestaetigungResponse(BaseAPIResponse):
     umfang: FLEinwilligungUmfang
     medien: bool
     bestaetigt_am: CustomDateString
-
-
-class FLSchiedsrichterWriteResponse(BaseAPIResponse):
-    """The referee as a retirement leaves them."""
-
-    updated_document: FLSchiedsrichter
 
 
 class FLSchiedsrichterSingleResponse(BaseAPIResponse):

@@ -28,7 +28,7 @@ SPERRLISTE_SCHLUESSEL_VERSION: Final = "sperrliste-v1"
 def adresse_hash(address: str, *, schluessel: SecretStr) -> str:
     """The form a ban is stored in.
 
-    KEYED, where `app/api/bewerbungen/services.py :: hash_token` is not: an address is a dictionary
+    KEYED, where `app/shared/tokens.py :: hash_token` is not: an address is a dictionary
     word, so an unkeyed digest confirms a guess at one hash per row.
     """
 

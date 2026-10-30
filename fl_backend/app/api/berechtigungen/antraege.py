@@ -26,7 +26,7 @@ from app.core.exceptions import DocumentNotFoundError, WriteRefusal
 from app.core.journal import JournalLine
 from app.core.security import loeschung_journal_hash
 from app.shared.schemas.bounds import GENEHMIGUNG_TAGE
-from app.shared.schemas.literals import FLGenehmigungVerwehrt
+from app.shared.schemas.literals import FLGenehmigungVerwehrt, FLVerwaltung
 
 
 def compose_antrag(*, adresse: str, verwaltung: str, berechtigung_id: ObjectId | None, gestartet_von: str, now: datetime) -> dict[str, Any]:
@@ -154,6 +154,40 @@ async def settle_the_notices_in_session(
             update=final_update("entfallen", now=now),
             session=session,
         )
+
+
+async def settle_the_requesters_notices_in_session(
+    *,
+    berechtigungen_antraege_collection: AsyncCollection,
+    postausgang_collection: AsyncCollection,
+    gestartet_von: str,
+    verwaltung: FLVerwaltung | None,
+    now: datetime,
+    session: AsyncClientSession,
+) -> None:
+    """The unsent notices of the open requests this folded address made and its grant no longer carries.
+
+    Every one where the grant went (`verwaltung` None), and those asking `verwaltung` alone where the holder lost that
+    tier. The requests stay, `antrag_steht` refusing their approval; their mail goes, since no approver could act on it.
+    """
+
+    rows = await aggregate_many_from_db(
+        collection=berechtigungen_antraege_collection,
+        pipeline=[
+            {
+                "$match": {
+                    "genehmigung.gestartet_von": gestartet_von,
+                    **({} if verwaltung is None else {"genehmigung.verwaltung": verwaltung}),
+                    **build_offen_filter(now),
+                }
+            },
+            {"$project": {"_id": 1}},
+        ],
+        session=session,
+    )
+    await settle_the_notices_in_session(
+        postausgang_collection=postausgang_collection, antrag_ids=[row["_id"] for row in rows], now=now, session=session
+    )
 
 
 async def remove_the_antrag_in_session(

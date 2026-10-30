@@ -23,7 +23,7 @@ import type { FLRegistrierungBestaetigungAnsichtResponseSeite } from "@/core/gen
 const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link erneut.";
 
 /**
- * Both of this slice's tokens are minted by `fl_backend/app/api/bewerbungen/services.py :: mint_token`,
+ * Both of this slice's tokens are minted by `fl_backend/app/shared/tokens.py :: mint_token`,
  * so the application's ceiling bounds them. One sentence for the missing token and the over-long one, a
  * visitor having typed neither.
  */

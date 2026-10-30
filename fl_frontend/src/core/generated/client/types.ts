@@ -210,160 +210,10 @@ export interface FLAbmeldungResponse {
 }
 
 /**
- * When the league accepts applications for this season.
- *
- * The two halves that record it: the span, and the `offen` flag an administrator sets beside it.
- */
-export interface FLSaisonBewerbung {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  bis: string;
-  offen: boolean;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  von: string;
-}
-
-/**
- * When a pupil may register for this season.
- *
- * Its own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two
- * decisions an administrator takes apart, and one component name on both would publish them as one.
- */
-export interface FLSaisonRegistrierung {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  bis: string;
-  offen: boolean;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  von: string;
-}
-
-export type FLSpielerStufe = (typeof FLSpielerStufe)[keyof typeof FLSpielerStufe];
-
-export const FLSpielerStufe = {
-  E1: "E1",
-  E2: "E2",
-  Q1: "Q1",
-  Q2: "Q2",
-  Q3: "Q3",
-  Q4: "Q4",
-} as const;
-
-/**
- * What a fixture is awarded when one side does not appear.
- *
- * Both sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.
- * A LEVEL award needs a season with no knockout round (`rules_forfeit_unentschieden_in_a_knockout`).
- */
-export interface FLSaisonForfeitErgebnis {
-  /** @minimum 0 */
-  sieger_tore: number;
-  /** @minimum 0 */
-  verlierer_tore: number;
-}
-
-export type FLSaisonRulesTiebreakOrder = (typeof FLSaisonRulesTiebreakOrder)[keyof typeof FLSaisonRulesTiebreakOrder];
-
-export const FLSaisonRulesTiebreakOrder = {
-  tordifferenz: "tordifferenz",
-  direkter_vergleich: "direkter_vergleich",
-} as const;
-
-export interface FLSaisonRules {
-  /** @minimum 0 */
-  draw_points: number;
-  /** @minItems 1 */
-  erlaubte_stufen: FLSpielerStufe[];
-  forfeit_ergebnis: FLSaisonForfeitErgebnis;
-  /** @exclusiveMinimum 0 */
-  max_kadergroesse: number;
-  /**
-   * @maximum 16
-   * @exclusiveMinimum 0
-   */
-  number_of_groups: number;
-  /** @exclusiveMinimum 0 */
-  qualifiers_per_group: number;
-  /**
-   * @minimum 2
-   * @maximum 16
-   */
-  teams_per_group: number;
-  tiebreak_order: FLSaisonRulesTiebreakOrder;
-  /** @exclusiveMinimum 0 */
-  win_points: number;
-}
-
-export type FLSaisonPhase = (typeof FLSaisonPhase)[keyof typeof FLSaisonPhase];
-
-export const FLSaisonPhase = {
-  gruppenphase: "gruppenphase",
-  achtelfinale: "achtelfinale",
-  viertelfinale: "viertelfinale",
-  halbfinale: "halbfinale",
-  finale: "finale",
-} as const;
-
-/**
- * One phase of a season: how many matchdays it takes, and how many matches each holds.
- *
- * A phase the bracket does not reach is ABSENT rather than present with zeroes, so the list IS the
- * phases the season plays, in playing order.
- */
-export interface FLSaisonPhaseSchedule {
-  /** @minimum 0 */
-  matchdays: number;
-  /** @minimum 0 */
-  matches_per_matchday: number;
-  phase: FLSaisonPhase;
-}
-
-/**
- * What the generator left behind on the season it wrote.
- *
- * Counts rather than a hash: these are the two numbers an admin can compare against the page in
- * front of them, and a hash answers no question anyone standing there is asking.
- */
-export interface FLSaisonSpielplan {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  generiert_am: string;
-  /** @minimum 0 */
-  spiele: number;
-  /** @minimum 0 */
-  spieltage: number;
-}
-
-export type FLSaisonStatus = (typeof FLSaisonStatus)[keyof typeof FLSaisonStatus];
-
-export const FLSaisonStatus = {
-  past: "past",
-  active: "active",
-  future: "future",
-} as const;
-
-export interface FLSaison {
-  bewerbung: FLSaisonBewerbung | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  end_date: string;
-  /**
-   * @minLength 4
-   * @maxLength 4
-   */
-  id: string;
-  registrierung: FLSaisonRegistrierung | null;
-  rules: FLSaisonRules;
-  schedule: FLSaisonPhaseSchedule[];
-  spielplan: FLSaisonSpielplan | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  start_date: string;
-  status: FLSaisonStatus;
-  version: number;
-}
-
-/**
- * The season now active, plus how many were moved off it -- normally exactly one.
+ * How many seasons the activation moved off `active` -- normally exactly one.
  */
 export interface FLActivateSaisonResponse {
   deactivated: number;
-  updated_document: FLSaison;
 }
 
 export interface FLAddress {
@@ -855,6 +705,14 @@ export interface FLAktion {
   trace_id: string;
 }
 
+export type FLAktionHerkunft = (typeof FLAktionHerkunft)[keyof typeof FLAktionHerkunft];
+
+export const FLAktionHerkunft = {
+  person: "person",
+  system: "system",
+  public: "public",
+} as const;
+
 export type FLAktionMitStandBefore = { [key: string]: unknown } | { [key: string]: unknown }[] | null;
 
 export type FLAktionMitStandDbFilter = { [key: string]: string } | null;
@@ -1002,6 +860,22 @@ export interface FLAustritt {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   datum: string;
   /** @minLength 1 */
+  grund: string;
+  type: FLAustrittType;
+}
+
+/**
+ * The exit as an administrator writes it: the reason ceilinged as it arrives and stripped before its floor.
+ *
+ * On the WRITE side alone, so a read model takes a stored blank or a longer reason as it stands.
+ */
+export interface FLAustrittPayload {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  datum: string;
+  /**
+   * @minLength 1
+   * @maxLength 500
+   */
   grund: string;
   type: FLAustrittType;
 }
@@ -1439,6 +1313,19 @@ export interface FLBewerbungEingangDaten {
   saison_id: string;
 }
 
+/**
+ * One person's Widerspruch for one seat, which empties their slot: it carries nothing of them.
+ */
+export interface FLBewerbungEinwilligungAbgelehnt {
+  antwort: "abgelehnt";
+  /**
+   * @minLength 1
+   * @maxLength 128
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  token: string;
+}
+
 export type FLBewerbungEinwilligungAnsichtResponseQuelle =
   (typeof FLBewerbungEinwilligungAnsichtResponseQuelle)[keyof typeof FLBewerbungEinwilligungAnsichtResponseQuelle];
 
@@ -1484,36 +1371,6 @@ export interface FLBewerbungEinwilligungAnsichtResponse {
   zustand: FLBewerbungEinwilligungAnsichtResponseZustand;
 }
 
-export type FLBewerbungEinwilligungAntwortPayloadAntwort =
-  (typeof FLBewerbungEinwilligungAntwortPayloadAntwort)[keyof typeof FLBewerbungEinwilligungAntwortPayloadAntwort];
-
-export const FLBewerbungEinwilligungAntwortPayloadAntwort = {
-  erteilt: "erteilt",
-  abgelehnt: "abgelehnt",
-} as const;
-
-/**
- * One person's answer for one seat: the consent, or a decline that empties their slot.
- */
-export interface FLBewerbungEinwilligungAntwortPayload {
-  antwort: FLBewerbungEinwilligungAntwortPayloadAntwort;
-  geburtsdatum: string | null;
-  medien: boolean;
-  /**
-   * @minLength 1
-   * @maxLength 64
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  text_version: string;
-  /**
-   * @minLength 1
-   * @maxLength 128
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  token: string;
-  whatsapp: boolean;
-}
-
 export type FLEinwilligungErgebnis = (typeof FLEinwilligungErgebnis)[keyof typeof FLEinwilligungErgebnis];
 
 export const FLEinwilligungErgebnis = {
@@ -1541,6 +1398,29 @@ export interface FLBewerbungEinwilligungErneutResponse {
   email: string;
   rolle: FLKontaktRolle;
   rollen: FLKontaktRolle[];
+}
+
+/**
+ * One person's consent for one seat: their own birthdate, their two choices and the wording they saw.
+ */
+export interface FLBewerbungEinwilligungErteilt {
+  antwort: "erteilt";
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  geburtsdatum: string;
+  medien: boolean;
+  /**
+   * @minLength 1
+   * @maxLength 64
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  text_version: string;
+  /**
+   * @minLength 1
+   * @maxLength 128
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  token: string;
+  whatsapp: boolean;
 }
 
 /**
@@ -1603,7 +1483,7 @@ export interface FLBewerbungKontaktEmailPayload {
 }
 
 /**
- * The corrected address as stored and every seat it reached; the fresh link is owed there in the same write.
+ * A seat's address as a correction or a new person left it, and every seat it reached; the link is owed there in the same write.
  */
 export interface FLBewerbungKontaktEmailResponse {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -1638,16 +1518,6 @@ export interface FLBewerbungKontaktSitzPayload {
    * @pattern ^\p{L}[\p{L}\-' ]*$
    */
   vorname: string;
-}
-
-/**
- * The new person's address as stored and every seat they now hold; their link is owed there in the same write.
- */
-export interface FLBewerbungKontaktSitzResponse {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  bestaetigungsfrist: string;
-  email: string;
-  rollen: FLKontaktRolle[];
 }
 
 /**
@@ -1746,6 +1616,13 @@ export interface FLBewerbungLoeschungDaten {
   saison_id: string;
 }
 
+export type FLBewerbungSaisonbezug = (typeof FLBewerbungSaisonbezug)[keyof typeof FLBewerbungSaisonbezug];
+
+export const FLBewerbungSaisonbezug = {
+  diese_saison: "diese_saison",
+  andere_saison: "andere_saison",
+} as const;
+
 /**
  * One club as the public form offers it: its id and its name.
  */
@@ -1804,13 +1681,6 @@ export interface FLBewerbungSweepResponse {
 }
 
 /**
- * Every season's id, for the caller to sweep one by one.
- */
-export interface FLBewerbungSweepSaisonsResponse {
-  saison_ids: string[];
-}
-
-/**
  * Which kit colours one season has already assigned, naming no club.
  */
 export interface FLBewerbungTrikotFarbenResponse {
@@ -1857,7 +1727,7 @@ export interface FLBewerbungZusageDaten {
  * `dubletten_schluessel` is taken over every open application, so a pair the cap parted is named at both ends.
  */
 export interface FLBewerbungenListResponse {
-  anzahl_je_saisonbezug: Partial<Record<"diese_saison" | "andere_saison", number>>;
+  anzahl_je_saisonbezug: Partial<Record<FLBewerbungSaisonbezug, number>>;
   anzahl_je_status: Partial<Record<FLBewerbungStatus, number>>;
   bewerbungen: FLBewerbung[];
   dubletten_schluessel: string[];
@@ -2131,6 +2001,25 @@ export interface FLCreatedResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   created_id: string;
 }
+
+export type FLSpielerStufe = (typeof FLSpielerStufe)[keyof typeof FLSpielerStufe];
+
+export const FLSpielerStufe = {
+  E1: "E1",
+  E2: "E2",
+  Q1: "Q1",
+  Q2: "Q2",
+  Q3: "Q3",
+  Q4: "Q4",
+} as const;
+
+export type FLSaisonStatus = (typeof FLSaisonStatus)[keyof typeof FLSaisonStatus];
+
+export const FLSaisonStatus = {
+  past: "past",
+  active: "active",
+  future: "future",
+} as const;
 
 /**
  * What an invite's holder is told before they type anything, and the bounds the form is held to.
@@ -2636,17 +2525,7 @@ export interface FLKontoAdresswechselFreigabePayload {
 }
 
 /**
- * The approval, the new mailbox's link owed in the Postausgang.
- */
-export interface FLKontoAdresswechselFreigabeResponse {
-  email: string;
-  gueltig_bis: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-}
-
-/**
- * The person's start, its two mails owed in the Postausgang: no link is answered.
+ * The change a start or an approval wrote, and the mailbox its link is owed in the Postausgang: no link is answered.
  */
 export interface FLKontoAdresswechselMintResponse {
   email: string;
@@ -3199,6 +3078,78 @@ export interface FLPatchKaderZeilePayload {
   version?: number | null;
 }
 
+/**
+ * When the league accepts applications for this season.
+ *
+ * The two halves that record it: the span, and the `offen` flag an administrator sets beside it.
+ */
+export interface FLSaisonBewerbung {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  bis: string;
+  offen: boolean;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  von: string;
+}
+
+/**
+ * When a pupil may register for this season.
+ *
+ * Its own model rather than an alias of `FLSaisonBewerbung` above: the two windows are two
+ * decisions an administrator takes apart, and one component name on both would publish them as one.
+ */
+export interface FLSaisonRegistrierung {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  bis: string;
+  offen: boolean;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  von: string;
+}
+
+/**
+ * What a fixture is awarded when one side does not appear.
+ *
+ * Both sides' goals rather than a margin, composed at `app/api/spiele/services.py :: apply_payload_to_spiel`.
+ * A LEVEL award needs a season with no knockout round (`rules_forfeit_unentschieden_in_a_knockout`).
+ */
+export interface FLSaisonForfeitErgebnis {
+  /** @minimum 0 */
+  sieger_tore: number;
+  /** @minimum 0 */
+  verlierer_tore: number;
+}
+
+export type FLSaisonRulesTiebreakOrder = (typeof FLSaisonRulesTiebreakOrder)[keyof typeof FLSaisonRulesTiebreakOrder];
+
+export const FLSaisonRulesTiebreakOrder = {
+  tordifferenz: "tordifferenz",
+  direkter_vergleich: "direkter_vergleich",
+} as const;
+
+export interface FLSaisonRules {
+  /** @minimum 0 */
+  draw_points: number;
+  /** @minItems 1 */
+  erlaubte_stufen: FLSpielerStufe[];
+  forfeit_ergebnis: FLSaisonForfeitErgebnis;
+  /** @exclusiveMinimum 0 */
+  max_kadergroesse: number;
+  /**
+   * @maximum 16
+   * @exclusiveMinimum 0
+   */
+  number_of_groups: number;
+  /** @exclusiveMinimum 0 */
+  qualifiers_per_group: number;
+  /**
+   * @minimum 2
+   * @maximum 16
+   */
+  teams_per_group: number;
+  tiebreak_order: FLSaisonRulesTiebreakOrder;
+  /** @exclusiveMinimum 0 */
+  win_points: number;
+}
+
 export interface FLPatchSaisonPayload {
   bewerbung: FLSaisonBewerbung | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -3208,10 +3159,6 @@ export interface FLPatchSaisonPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
   version?: number | null;
-}
-
-export interface FLPatchSaisonResponse {
-  updated_document: FLSaison;
 }
 
 /**
@@ -3263,8 +3210,6 @@ export interface FLPatchSaisonTeamKontaktePayload {
 export interface FLPatchSaisonTeamKontakteResponse {
   bestaetigungen: FLKontaktMint[];
   kontakte: FLSaisonTeamKontakte | null;
-  /** The AFTER image's token: this save has moved the row past what its caller read, so an undo of it can replay against no other. */
-  readonly kontakte_stand: string;
   saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
@@ -3277,7 +3222,7 @@ export interface FLPatchSaisonTeamKontakteResponse {
  * every save a club with one bad row can make.
  */
 export interface FLPatchSaisonTeamPayload {
-  austritt: FLAustritt | null;
+  austritt: FLAustrittPayload | null;
   gruppe: FLGruppenNames;
   trikot_farbe: FLTrikotFarbe | null;
   version?: number | null;
@@ -3307,25 +3252,9 @@ export interface FLSchiedsrichterMint {
   frist: string;
 }
 
-export interface FLSchiedsrichter {
-  bestaetigung: FLBestaetigung | null;
-  /** @minimum 0 */
-  default_payment: number;
-  einwilligung: FLEinwilligung | null;
-  geburtsdatum: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  inactive_since: string | null;
-  kontakt: FLKontakt;
-  name: string | null;
-  schule: string | null;
-  version: number;
-}
-
 export interface FLPatchSchiedsrichterResponse {
   bestaetigung: FLSchiedsrichterMint | null;
   fanned_out_to_spiele: number;
-  updated_document: FLSchiedsrichter;
 }
 
 /**
@@ -3463,28 +3392,16 @@ export interface FLPatchSpielortPayload {
   address: FLAddressPayload;
   /** @minimum 0 */
   default_mietpreis: number;
-  /** @minLength 1 */
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
   name: string;
   version?: number | null;
 }
 
-export interface FLSpielort {
-  address: FLAddress;
-  /** @minimum 0 */
-  default_mietpreis: number;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  inactive_since: string | null;
-  /** @minLength 1 */
-  maps_link: string;
-  /** @minLength 1 */
-  name: string;
-  version: number;
-}
-
 export interface FLPatchSpielortResponse {
   fanned_out_to_spiele: number;
-  updated_document: FLSpielort;
 }
 
 export interface FLPatchSpieltagPayload {
@@ -3518,34 +3435,9 @@ export interface FLPatchTeamPayload {
   website_url: string | null;
 }
 
-/**
- * The club document as it is STORED, and what the write endpoints echo.
- *
- * The season-scoped fields would mean re-running the team pipeline, whose junction join is strict
- * -- and a club being created holds no row yet.
- */
-export interface FLTeamRecord {
-  address: FLAddress;
-  /** @maxLength 4096 */
-  description: string;
-  /** @minLength 1 */
-  full_name: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  inactive_since: string | null;
-  /** @minLength 1 */
-  name: string;
-  schulform: FLSchulform | null;
-  /** @pattern ^[A-Z]{3}$ */
-  shorthand: string;
-  version: number;
-  website_url: string | null;
-}
-
 export interface FLPatchTeamResponse {
   fanned_out_to_saison_teams: number;
   fanned_out_to_spiele: number;
-  updated_document: FLTeamRecord;
 }
 
 export interface FLPostBerechtigungPayload {
@@ -3581,14 +3473,6 @@ export interface FLPostBewerbungPayload {
   team_id: string | null;
   trikot: FLBewerbungTrikotPayload;
   wunschgegner?: string | null;
-}
-
-/**
- * The stored application, the one a replayed key wrote first; its mails are owed in the same write.
- */
-export interface FLPostBewerbungResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  created_id: string;
 }
 
 /**
@@ -3731,7 +3615,10 @@ export interface FLPostSpielortPayload {
   address: FLAddressPayload;
   /** @minimum 0 */
   default_mietpreis: number;
-  /** @minLength 1 */
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
   name: string;
 }
 
@@ -4269,6 +4156,64 @@ export interface FLReplaceSaisonTeamResponse {
   trikot_farbe: FLTrikotFarbe | null;
 }
 
+export type FLSaisonPhase = (typeof FLSaisonPhase)[keyof typeof FLSaisonPhase];
+
+export const FLSaisonPhase = {
+  gruppenphase: "gruppenphase",
+  achtelfinale: "achtelfinale",
+  viertelfinale: "viertelfinale",
+  halbfinale: "halbfinale",
+  finale: "finale",
+} as const;
+
+/**
+ * One phase of a season: how many matchdays it takes, and how many matches each holds.
+ *
+ * A phase the bracket does not reach is ABSENT rather than present with zeroes, so the list IS the
+ * phases the season plays, in playing order.
+ */
+export interface FLSaisonPhaseSchedule {
+  /** @minimum 0 */
+  matchdays: number;
+  /** @minimum 0 */
+  matches_per_matchday: number;
+  phase: FLSaisonPhase;
+}
+
+/**
+ * What the generator left behind on the season it wrote.
+ *
+ * Counts rather than a hash: these are the two numbers an admin can compare against the page in
+ * front of them, and a hash answers no question anyone standing there is asking.
+ */
+export interface FLSaisonSpielplan {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  generiert_am: string;
+  /** @minimum 0 */
+  spiele: number;
+  /** @minimum 0 */
+  spieltage: number;
+}
+
+export interface FLSaison {
+  bewerbung: FLSaisonBewerbung | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  end_date: string;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  id: string;
+  registrierung: FLSaisonRegistrierung | null;
+  rules: FLSaisonRules;
+  schedule: FLSaisonPhaseSchedule[];
+  spielplan: FLSaisonSpielplan | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  start_date: string;
+  status: FLSaisonStatus;
+  version: number;
+}
+
 /**
  * The same season for the admin surfaces, with whether it has started.
  */
@@ -4403,6 +4348,21 @@ export interface FLSaisonsSingleResponse {
   saison: FLSaison;
 }
 
+export interface FLSchiedsrichter {
+  bestaetigung: FLBestaetigung | null;
+  /** @minimum 0 */
+  default_payment: number;
+  einwilligung: FLEinwilligung | null;
+  geburtsdatum: string | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  inactive_since: string | null;
+  kontakt: FLKontakt;
+  name: string | null;
+  schule: string | null;
+  version: number;
+}
+
 /**
  * What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).
  *
@@ -4475,7 +4435,6 @@ export interface FLSchiedsrichterMintResponse {
  */
 export interface FLSchiedsrichterReactivateResponse {
   bestaetigung: FLSchiedsrichterMint | null;
-  updated_document: FLSchiedsrichter;
 }
 
 /**
@@ -4507,13 +4466,6 @@ export interface FLSchiedsrichterSingleResponse {
   bestaetigung_abgelaufen: boolean;
   schiedsrichter: FLSchiedsrichter;
   zustellung: FLPostausgangLage | null;
-}
-
-/**
- * The referee as a retirement leaves them.
- */
-export interface FLSchiedsrichterWriteResponse {
-  updated_document: FLSchiedsrichter;
 }
 
 /**
@@ -5269,20 +5221,6 @@ export interface FLSpielbestaetigungSweepResponse {
 }
 
 /**
- * The `active` seasons a pass visits, oldest first.
- */
-export interface FLSpielbestaetigungSweepSaisonsResponse {
-  saison_ids: string[];
-}
-
-/**
- * Shared by the administrator's two presses, both answering the row as it now stands.
- */
-export interface FLSpielbestaetigungWriteResponse {
-  updated_document: FLSpielbestaetigung;
-}
-
-/**
  * The rows newest first, closed ones included.
  */
 export interface FLSpielbestaetigungenListResponse {
@@ -5464,11 +5402,18 @@ export interface FLSpielerSingleResponse {
   vorname: string | null;
 }
 
-/**
- * Shared by delete and reactivate — both answer with the venue as it now stands.
- */
-export interface FLSpielortWriteResponse {
-  updated_document: FLSpielort;
+export interface FLSpielort {
+  address: FLAddress;
+  /** @minimum 0 */
+  default_mietpreis: number;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  inactive_since: string | null;
+  /** @minLength 1 */
+  maps_link: string;
+  /** @minLength 1 */
+  name: string;
+  version: number;
 }
 
 export interface FLSpielorteListResponse {
@@ -5500,7 +5445,6 @@ export interface FLSpieltag {
 export interface FLSpieltagWriteResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieltag_id: string;
-  updated_document: FLSpieltag;
 }
 
 export interface FLSpieltageListResponse {
@@ -5600,6 +5544,13 @@ export interface FLSwapGruppenResponse {
   team2_id: string;
 }
 
+/**
+ * The seasons a system pass visits, for its caller to sweep one by one in the order given.
+ */
+export interface FLSweepSaisonsResponse {
+  saison_ids: string[];
+}
+
 export interface FLTeam {
   address: FLAddress;
   austritt: FLAustritt | null;
@@ -5681,13 +5632,6 @@ export interface FLTeamWithMemberships {
   shorthand: string;
   version: number;
   website_url: string | null;
-}
-
-/**
- * What the retire and reactivate endpoints echo. `FLTeamRecord`, for the reason stated on it.
- */
-export interface FLTeamWriteResponse {
-  updated_document: FLTeamRecord;
 }
 
 /**
@@ -5806,9 +5750,9 @@ export type AdresswechselSweepAdresswechselParams = {
 };
 
 export type AktionenGetAktionenParams = {
-  collection?: string;
-  operation?: string;
-  herkunft?: string;
+  collection?: string[] | null;
+  operation?: FLAktionOperation[] | null;
+  herkunft?: FLAktionHerkunft[] | null;
   trace_id?: string | null;
   document_id?: string | null;
   /**
@@ -5821,8 +5765,8 @@ export type AktionenGetAktionenParams = {
 
 export type BewerbungenGetBewerbungenParams = {
   saison_id?: string | null;
-  saisonbezug?: string;
-  status?: string;
+  saisonbezug?: FLBewerbungSaisonbezug[] | null;
+  status?: FLBewerbungStatus[] | null;
   /**
    * @minimum 1
    * @maximum 1024

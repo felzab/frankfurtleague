@@ -180,7 +180,7 @@ class FLKontoAdresswechselPayload(BaseModel):
 
 
 class FLKontoAdresswechselMintResponse(BaseAPIResponse):
-    """The person's start, its two mails owed in the Postausgang: no link is answered."""
+    """The change a start or an approval wrote, and the mailbox its link is owed in the Postausgang: no link is answered."""
 
     id: CustomObjectId
     gueltig_bis: FLUtcInstant
@@ -193,14 +193,6 @@ class FLKontoAdresswechselFreigabePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: CustomObjectId
-
-
-class FLKontoAdresswechselFreigabeResponse(BaseAPIResponse):
-    """The approval, the new mailbox's link owed in the Postausgang."""
-
-    id: CustomObjectId
-    gueltig_bis: FLUtcInstant
-    email: str
 
 
 class FLKontoEinwilligungenResponse(BaseAPIResponse):

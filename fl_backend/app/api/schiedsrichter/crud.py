@@ -19,8 +19,7 @@ from app.api.schiedsrichter.services import (
     build_referee_filter,
 )
 from app.core.collections import Collection
-from app.core.crud import loeschen_many_from_db, patch_many_in_db, post_one_to_db, pull_one_from_db
-from app.core.recording import build_redaction_filter, build_redaction_update
+from app.core.crud import loeschen_many_from_db, patch_many_in_db, post_one_to_db, pull_one_from_db, redact_log_rows_in_db
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.custom import CustomObjectId
 
@@ -121,11 +120,8 @@ async def loeschen_referee_in_session(
         session=session,
     )
 
-    await patch_many_in_db(
-        collection=aktionen_collection,
-        db_filter=build_redaction_filter([(Collection.SCHIEDSRICHTER, [schiedsrichter_id])]),
-        update=build_redaction_update(at=stamp),
-        session=session,
+    await redact_log_rows_in_db(
+        aktionen_collection=aktionen_collection, targets=[(Collection.SCHIEDSRICHTER, [schiedsrichter_id])], at=stamp, session=session
     )
 
     # The `spiele` rows, which the pass above cannot reach: every fixture stores a COPY of the

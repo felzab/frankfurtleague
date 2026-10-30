@@ -72,6 +72,11 @@ TEAM_NAME_MAX_LENGTH: Final = 60
 # the place suffix a short name drops -- "… Kooperative Gesamtschule der Stadt Frankfurt am Main".
 TEAM_FULL_NAME_MAX_LENGTH: Final = 120
 
+# A ground's name, which every fixture at it embeds and `maps_link` composes: a school's full name's width.
+SPIELORT_NAME_MAX_LENGTH: Final = 120
+# The school a referee teaches at, named as a school's full name is.
+SCHIEDSRICHTER_SCHULE_MAX_LENGTH: Final = 120
+
 # A school's homepage. `validate_external_url` reads the scheme and the host and leaves the PATH and
 # QUERY unchecked, so this bounds them. Far under what browsers accept: this is a front page.
 TEAM_WEBSITE_URL_MAX_LENGTH: Final = 300
@@ -117,6 +122,10 @@ AKTION_RETENTION_SECONDS: Final = 365 * 24 * 60 * 60
 # Why an address was barred, in an administrator's own words. A reason is a sentence rather than a
 # page, and the row is read on a card. Named so the frontend mirror refuses at the same length.
 SPERRLISTE_GRUND_MAX_LENGTH: Final = 500
+
+# Why a team is out of a season, in an administrator's words on the team's public page: a sentence,
+# `SPERRLISTE_GRUND_MAX_LENGTH`'s figure for its reason.
+AUSTRITT_GRUND_MAX_LENGTH: Final = 500
 
 # The request an administrator's erasure answers, written onto every log row it files: a mail's date
 # and subject fit, and the log keeps it twelve months beyond every redaction, so a letter does not.

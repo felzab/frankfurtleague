@@ -1,6 +1,5 @@
 import hashlib
 import json
-import secrets
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from datetime import date, timedelta
 from http import HTTPStatus
@@ -12,7 +11,7 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungZustand,
     FLBewerbungEntscheidung,
     FLBewerbungSaisonbezug,
-    refuse_age_outside_the_bounds,
+    age_outside_the_bounds,
 )
 from app.api.kontakte.services import rows_seating
 from app.api.postausgang.schemas import (
@@ -253,8 +252,7 @@ def find_shorthand_refusal(*, taken: bool) -> WriteRefusal | None:
     return None
 
 
-# --- The SUBMISSION KEY, which the registration's
-# submission takes from here as it takes `mint_token`.
+# --- The SUBMISSION KEY, which the registration's submission takes from here.
 
 
 def payload_fingerabdruck(payload: BaseModel) -> str:
@@ -357,24 +355,6 @@ def compose_kontakte(*, kontakte: Mapping[str, Any], today: str) -> dict[str, An
 
 KONTAKT_UMFANG = "kontaktdaten"
 KONTAKT_UMFANG_WHATSAPP = "kontaktdaten_whatsapp"
-
-
-def hash_token(raw: str) -> str:
-    """The form the database holds a token in.
-
-    UNKEYED: 256 random bits have no dictionary to search, and a pepper would cost a backend
-    environment name reaching the server, CI and the local stack.
-    """
-
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
-
-def mint_token() -> tuple[str, str]:
-    """A raw token and its hash. The raw one goes to the response and the inbox, and nowhere else."""
-
-    raw = secrets.token_urlsafe(32)
-
-    return raw, hash_token(raw)
 
 
 def days_after(*, day: str, days: int) -> str:
@@ -586,13 +566,11 @@ def find_already_answered_refusal(*, kontakte: Any, bestaetigungen: Any, seat: s
 def find_alter_refusal(*, geburtsdatum: str, today: str, mindestalter: int) -> WriteRefusal | None:
     """Why the typed date is refused, or `None`.
 
-    Its own code with `refuse_age_outside_the_bounds`'s German rather than a `payload_refused`, whose
-    mark on the field names no floor. Judged BEFORE any write, so a mistyped year spends nothing.
+    Its own code rather than a `payload_refused`, whose mark on the field names no floor. Judged BEFORE any write, so
+    a mistyped year spends nothing.
     """
 
-    try:
-        refuse_age_outside_the_bounds(geburtsdatum=geburtsdatum, today=today, mindestalter=mindestalter)
-    except ValueError:
+    if age_outside_the_bounds(geburtsdatum=geburtsdatum, today=today, mindestalter=mindestalter):
         return WriteRefusal(
             error_code=Code.BESTAETIGUNG_ALTER,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
@@ -972,7 +950,7 @@ def objection_is_announced(*, kontakte: Any, seats: Sequence[str]) -> bool:
     return "ansprechperson" not in seats and ansprechperson_mailbox(kontakte=kontakte)[0] is not None
 
 
-def compose_decline_update(*, seats: Sequence[str], today: str, angekuendigt: bool = False) -> Mapping[str, Any]:
+def compose_decline_update(*, seats: Sequence[str], today: str, angekuendigt: bool) -> Mapping[str, Any]:
     """A decline empties the person's slot and records the day beside it, where the emptying cannot reach.
 
     `angekuendigt` where the objection notice goes out: it names the deletion day, so it is the deletion notice too.
@@ -1602,8 +1580,8 @@ def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
     """
 
     # `set(stored)` is the shorthand this refuses: an unhashable BSON value would raise there, where
-    # this drops it. `app/core/constraints.py :: saison_teams.trikot_farbe` forbids one, so this holds
-    # the boundary rather than a case any test can reach.
+    # this drops it. The record model forbids one (`app/api/teams/schemas.py :: FLSaisonTeamRecord`), so this
+    # holds the boundary rather than a case any test can reach.
     held = {value for value in stored if isinstance(value, str)}
 
     # The form excludes what this returns, and a season may field at least as many teams as the palette
@@ -1636,7 +1614,7 @@ def build_bewerbungen_saison_term(*, saison_id: str | None, saisonbezug: Sequenc
     if saisonbezug is None:
         return {"saison_id": saison_id}
 
-    picked = [relation for relation in get_args(FLBewerbungSaisonbezug) if relation in saisonbezug]
+    picked = [relation for relation in get_args(FLBewerbungSaisonbezug.__value__) if relation in saisonbezug]
 
     # Every relation picked is every season, and so the facet turned off.
     if len(picked) != 1:

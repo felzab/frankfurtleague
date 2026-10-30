@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from bson import ObjectId
 
-from app.api.bewerbungen.services import find_saison_frist_refusal, hash_token
+from app.api.bewerbungen.services import find_saison_frist_refusal
 from app.api.postausgang.schemas import FLPostausgangEreignisPayload, FLPostausgangZustellStand
 from app.api.postausgang.services import enqueue_mails
 from app.api.postausgang.system_router import post_ereignis
@@ -16,6 +16,7 @@ from app.api.teams.services import build_team_saisons_pipeline, compose_kontakt_
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db
 from app.shared.schemas.literals import FLKontaktRolle
+from app.shared.tokens import hash_token
 from tests.config import ADMINISTRATORS
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, saison_team_document, team_document
@@ -38,9 +39,6 @@ class TestTheSaisonsPipeline:
         # Composed after the read, off the seats' addresses; the row's id keys the read of its links' mails.
         composed = {"adresswechsel"}
         assert projection == {"_id": 1} | {name: 1 for name in FLTeamMembership.model_fields if name not in composed}
-
-    def test_it_sorts_by_name(self):
-        assert build_team_saisons_pipeline()[-1] == {"$sort": {"name": 1}}
 
 
 class TestTheResponseModel:

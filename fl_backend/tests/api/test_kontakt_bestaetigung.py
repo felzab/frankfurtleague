@@ -14,17 +14,14 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
+from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.public_router import get_einwilligung_ansicht, post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
-from app.api.bewerbungen.services import (
-    SEAT_MIN_AGE_YEARS,
-    bestaetigungsfrist_from,
-    hash_token,
-)
+from app.api.bewerbungen.services import SEAT_MIN_AGE_YEARS, bestaetigungsfrist_from
 from app.api.identitaet.crud import funktionen_of
 from app.api.saisons.admin_router import activate_saison
 from app.api.teams.admin_router import einladen_kontakt, patch_saison_team_kontakte, replace_saison_team
@@ -40,6 +37,7 @@ from app.core.recording import log_stamp
 from app.core.security import STEP_UP_WINDOW_S, SessionActor
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bestaetigung import FLTokenPayload
+from app.shared.tokens import hash_token
 from tests import documents
 from tests.actor_tokens import fresh_admin_actor, verified_actor
 from tests.bans import ban_list, ban_through_the_route
@@ -321,18 +319,12 @@ async def answer(
     saisons: Any = None,
     saison_teams: Any = None,
 ) -> Any:
-    erteilt = antwort == "erteilt"
-    body = {
-        "token": token,
-        "antwort": antwort,
-        "geburtsdatum": AN_ADULTS_BIRTHDATE if erteilt else None,
-        "whatsapp": erteilt,
-        "medien": medien,
-        "text_version": text_version,
-    }
+    body: dict[str, Any] = {"token": token, "antwort": antwort}
+    if antwort == "erteilt":
+        body |= {"geburtsdatum": AN_ADULTS_BIRTHDATE, "whatsapp": True, "medien": medien, "text_version": text_version}
 
     return await post_einwilligung(
-        antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
+        antwort_data=TypeAdapter(FLBewerbungEinwilligungAntwortPayload).validate_python(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,

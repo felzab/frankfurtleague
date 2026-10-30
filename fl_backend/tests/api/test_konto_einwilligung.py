@@ -19,7 +19,7 @@ from httpx2 import AsyncClient
 from pydantic import BaseModel, ValidationError
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.services import hash_token, mindestalter_for
+from app.api.bewerbungen.services import mindestalter_for
 from app.api.konto.schemas import FLKontoBewerbungSitzEinwilligung, FLKontoSitzEinwilligung, FLSitzBestaetigt
 from app.api.konto.services import KONTO_SEITE_SCHIEDSRICHTER
 from app.api.registrierungen.schemas import FLRegistrierungEinwilligung
@@ -32,6 +32,7 @@ from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from app.shared.einwilligung_nachweis import NACHWEIS, nachweis_stand_of
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE, SCHIEDSRICHTER_MIN_AGE_YEARS
+from app.shared.tokens import hash_token
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, BASE_AUTH

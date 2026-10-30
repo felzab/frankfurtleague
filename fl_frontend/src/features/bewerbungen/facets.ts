@@ -1,4 +1,5 @@
-import { readFacetSelectionFromRoute } from "@/shared/utils/facets";
+import { FLBewerbungSaisonbezug, FLBewerbungStatus } from "@/core/generated/client/types";
+import { pickedOf, readFacetSelectionFromRoute } from "@/shared/utils/facets";
 
 import { BEWERBUNG_HERKUNFT_LABELS, BEWERBUNG_STATUS_OPTIONS } from "./constants";
 import { bewerbungHerkunft } from "./utils";
@@ -61,7 +62,7 @@ export const BEWERBUNGEN_FACETS: readonly Facet<AdminBewerbungRow>[] = [
 ];
 
 /**
- * What `GET /bewerbungen` is asked to narrow to, comma-joined for the wire and `undefined` for everything.
+ * What `GET /bewerbungen` is asked to narrow to, a list per facet and `undefined` for everything.
  * The bar's own reader answers it, so the served rows and the pills cannot disagree about one query string.
  */
 export function bewerbungenQueueTerms(
@@ -75,8 +76,8 @@ export function bewerbungenQueueTerms(
     // endpoint reads one only where the other names a season, so an unresolved one mixes seasons
     // rather than emptying the queue.
     saison_id: saisonId,
-    saisonbezug: selection[BEWERBUNGEN_SAISONBEZUG_PARAM]?.join(","),
-    status: selection[BEWERBUNGEN_STATUS_PARAM]?.join(","),
+    saisonbezug: pickedOf(FLBewerbungSaisonbezug, selection[BEWERBUNGEN_SAISONBEZUG_PARAM]),
+    status: pickedOf(FLBewerbungStatus, selection[BEWERBUNGEN_STATUS_PARAM]),
   };
 }
 

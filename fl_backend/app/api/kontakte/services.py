@@ -13,8 +13,9 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 def same_address(identifier: str) -> Mapping[str, Any]:
     """A case-blind pre-filter, the sign-in fold deciding.
 
-    For a grant's rows and images alone, which an erasure and an address change's effect read: a grant pasted through the
-    Playground keeps its typed spelling; every other record stores the fold.
+    For a grant's rows and images alone, which an erasure and an address change's effect read: a grant is pasted through the
+    Playground, folded by the runbook's hand and checked folded only at a deploy's preflight, and a log image keeps the
+    spelling its grant had for the log's twelve months; every other record stores the fold its write made.
     """
 
     # Folded here whatever a caller hands on: built off an unfolded spelling, a padded or a blank one above all, the
@@ -216,8 +217,8 @@ def contact_block_image_edits(image: Mapping[str, Any]) -> dict[str, None]:
 def build_clearing_update(slots: Sequence[str], *, bestaetigungen: bool = False) -> Mapping[str, Any]:
     """Null the named slots, and their confirmation bookkeeping where the caller found a block.
 
-    Dotted keys, so the block itself survives: `app/core/constraints.py :: _KONTAKTE_REQUIRED` names
-    all four members required, and on an application the block is non-nullable outright.
+    Dotted keys, so the block itself survives: `app/api/teams/schemas.py :: FLSaisonTeamKontakte` requires
+    all four members, and on an application the block is non-nullable outright.
     """
 
     cleared: dict[str, Any] = {f"kontakte.{slot}": None for slot in slots}

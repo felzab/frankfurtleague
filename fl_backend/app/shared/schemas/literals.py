@@ -76,10 +76,6 @@ type FLKontaktRolle = Literal["trainer", "ansprechperson", "stellvertretung"]
 # The one spelling of the seat set every module iterates, so a fourth seat is added in one place.
 KONTAKT_ROLLEN: Final[tuple[FLKontaktRolle, ...]] = get_args(FLKontaktRolle.__value__)
 
-# Which second seat one person may hold beside the Trainer's. A closed set rather than a flag per seat: the
-# two are alternatives, and nothing can mean holding both.
-type FLTrainerZugleich = Literal["ansprechperson", "stellvertretung"]
-
 # A season row as a link minted on it sees it: open, or closed by its season ending, which outranks its
 # team having left it.
 type FLKontaktZeile = Literal["offen", "saison_vorbei", "ausgetreten"]

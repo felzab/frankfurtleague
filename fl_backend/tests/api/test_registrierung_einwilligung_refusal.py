@@ -4,7 +4,6 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from app.api.bewerbungen.services import hash_token
 from app.api.registrierungen.schemas import (
     FLRegistrierungBestaetigungPayload,
 )
@@ -23,6 +22,7 @@ from app.api.registrierungen.services import (
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH
+from app.shared.tokens import hash_token
 from tests.documents import eigene_einwilligung_document
 
 TODAY = "2026-04-01"
