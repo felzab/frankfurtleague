@@ -73,7 +73,7 @@ def build_bericht_kader_pipeline(*, saison_id: str, team_ids: Sequence[ObjectId]
                 "_id": 0,
                 "spieler_id": 1,
                 "team_id": 1,
-                # Each a key its validator requires, null where unset: a row lacking one is refused at its write.
+                # Each a key every row is written with, null where unset, which the read model requires.
                 "vorname": "$person.vorname",
                 "nachname": "$person.nachname",
                 "nummer": 1,
