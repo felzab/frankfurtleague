@@ -11,7 +11,7 @@ import { STUFE_OPTIONS } from "@/features/spieler/constants";
 import { FIELD_ERROR_CLASSES, TOGGLE_GROUP_ALIGN_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { TextField } from "@/shared/components/ui/TextField";
 
-import type { FLSpielerStufe } from "@/features/spieler/schemas";
+import type { FLSpielerStufe } from "@/core/generated/client/types";
 import type { Key } from "@heroui/react/rac";
 
 // **No hover or press variant here**: HeroUI's own fills are `@layer components` and these are

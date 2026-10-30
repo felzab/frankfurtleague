@@ -2,9 +2,8 @@
 
 import { createContext, useContext, useMemo } from "react";
 
-import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
+import type { FLSchiedsrichter, FLSpielort } from "@/core/generated/client/types";
 import type { FLSpiel } from "@/features/spiele/schemas";
-import type { FLSpielort } from "@/features/spielorte/schemas";
 import type { FLTeam } from "@/features/teams/schemas";
 import type { ReactNode } from "react";
 import type { AdminContext } from "../../types";

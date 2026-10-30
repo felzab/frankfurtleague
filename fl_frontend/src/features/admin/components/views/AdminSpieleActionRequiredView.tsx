@@ -19,8 +19,8 @@ import { CARDS_CASCADE_CLASSES, PAGE_RISE_CLASSES } from "@/shared/components/ui
 
 import { ACTION_REQUIRED_LABELS, bestaetigungNotizen, buildActionRequiredSections, saisonBestaetigungen } from "../../utils";
 
+import type { FLSpielbestaetigung } from "@/core/generated/client/types";
 import type { FLSpielberichtZustandEintrag } from "@/features/spielberichte/schemas";
-import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
 import type { SpielCardNotes } from "@/features/spiele/components/collections/SpielCardsList";
 import type { FLBracketFault, FLSpiel } from "@/features/spiele/schemas";
 import type { ActionRequiredCategory } from "@/features/spiele/types";

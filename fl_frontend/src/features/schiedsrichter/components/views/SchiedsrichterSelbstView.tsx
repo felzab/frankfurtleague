@@ -9,9 +9,8 @@ import { textLink } from "@/shared/components/ui/textLink";
 
 import { SchiedsrichterAngaben } from "../ui/SchiedsrichterAngaben";
 
+import type { FLSchiedsrichterSelbst, FLSpielbestaetigungSelbst } from "@/core/generated/client/types";
 import type { SchiedsrichterSpielberichte } from "@/features/spielberichte/types";
-import type { FLSpielbestaetigungSelbst } from "@/features/spielbestaetigungen/schemas";
-import type { FLSchiedsrichterSelbst } from "../../schemas";
 
 /**
  * A referee's fixtures and reports above their own read-only data, a panel per referee row the address holds: whether

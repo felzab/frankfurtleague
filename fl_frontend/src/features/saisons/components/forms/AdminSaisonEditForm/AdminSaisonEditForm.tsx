@@ -40,6 +40,7 @@ import { FormTeamErsatzSection } from "./FormTeamErsatzSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
 import { movedShapeCount, startingRedraw } from "./spielplanShape";
 
+import type { FLSpielerStufe } from "@/core/generated/client/types";
 import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus";
 import type { FLPatchSaisonPayload, FLSaisonBewerbung, FLSaisonRegistrierung, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
 import type {
@@ -51,7 +52,6 @@ import type {
   SaisonSpielplanContext,
   SaisonSpieltagBound,
 } from "@/features/saisons/types";
-import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { CalendarDate } from "@internationalized/date";

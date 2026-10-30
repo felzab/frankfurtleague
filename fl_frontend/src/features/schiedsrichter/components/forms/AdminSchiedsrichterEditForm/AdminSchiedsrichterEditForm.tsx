@@ -32,14 +32,10 @@ import { FormHonorarSection } from "./FormHonorarSection";
 import { FormKontaktSection } from "./FormKontaktSection";
 import { FormPersonSection } from "./FormPersonSection";
 
+import type { FLBestaetigung, FLEinwilligung } from "@/core/generated/client/types";
 import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
-import type {
-  FLPatchSchiedsrichterPayload,
-  FLSchiedsrichterBestaetigung,
-  FLSchiedsrichterPayloadDraft,
-} from "@/features/schiedsrichter/schemas";
+import type { FLPatchSchiedsrichterPayload, FLSchiedsrichterPayloadDraft } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterDraftFields, SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
-import type { FLEinwilligung } from "@/features/spieler/schemas";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FLKontakt } from "@/shared/schemas";
@@ -74,7 +70,7 @@ type AdminSchiedsrichterEditFormProps = {
     // never edited, so they travel beside the values rather than through `buildPayload`.
     geburtsdatum: string | null;
     einwilligung: FLEinwilligung | null;
-    bestaetigung: FLSchiedsrichterBestaetigung | null;
+    bestaetigung: FLBestaetigung | null;
     /** The change pending at the stored address, which the address tool shows and this page links to. */
     adresswechsel_id: string | null;
     /** Why the address tool refuses this administrator that change, as the read serves it: the page then links nowhere. */

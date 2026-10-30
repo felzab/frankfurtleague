@@ -6,7 +6,7 @@ import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 import { AdminSpielorteTable } from "../collections/AdminSpielorteTable";
 import { AdminDeleteSpielortModal } from "../modals/AdminDeleteSpielortModal";
 
-import type { FLSpielort } from "@/features/spielorte/schemas";
+import type { FLSpielort } from "@/core/generated/client/types";
 
 // Module scope: a fresh array here would defeat useFuzzySearch's memo on every render.
 const SEARCH_KEYS = ["name", "address.plz", "address.strasse", "address.stadtteil"] as const;

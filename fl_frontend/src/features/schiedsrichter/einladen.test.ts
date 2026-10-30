@@ -22,8 +22,8 @@ let reactivate: Answer;
 
 /** The answer `call` gets: the delivery report each sent link files is applied, as the endpoint applies it. */
 function answerFor({ endpoint, method }: ApiCall): unknown {
-  if (endpoint.startsWith("/zustellung/")) return { acknowledged: 1, angewendet: true };
-  if (method === undefined) return row();
+  if (endpoint.startsWith("/zustellung/")) return { angewendet: true };
+  if (method === "GET") return row();
   if (endpoint.endsWith("/einladen")) return mint();
   if (endpoint.endsWith("/reactivate")) return reactivate();
   return method === "PATCH" ? save() : create();
@@ -59,7 +59,6 @@ const stored = (email: string | null, name: string | null = "Anna Meier") => ({
 });
 
 const withRow = (email: string | null, name?: string | null) => () => ({
-  acknowledged: 1,
   schiedsrichter: stored(email, name),
   bestaetigung_abgelaufen: false,
   adresswechsel_id: null,
@@ -77,17 +76,16 @@ const mailedTo = () => mail.sent.map(({ to }) => to);
 
 beforeEach(() => {
   row = withRow("anna@example.de");
-  mint = () => ({ acknowledged: 1, bestaetigung: minted("anna@example.de") });
-  create = () => ({ acknowledged: 1, created_id: SCHIEDSRICHTER_ID, bestaetigung: minted("anna@example.de") });
+  mint = () => ({ bestaetigung: minted("anna@example.de") });
+  create = () => ({ created_id: SCHIEDSRICHTER_ID, bestaetigung: minted("anna@example.de") });
   // A DIFFERENT address from the one `ENTWURF` carries: the save writes the correction and the mint
   // reads it back, so a site mailing the payload instead would be visible here.
   save = () => ({
-    acknowledged: 1,
     updated_document: stored("korrigiert@example.de"),
     fanned_out_to_spiele: 0,
     bestaetigung: minted("korrigiert@example.de"),
   });
-  reactivate = () => ({ acknowledged: 1, updated_document: stored("anna@example.de"), bestaetigung: minted("anna@example.de") });
+  reactivate = () => ({ updated_document: stored("anna@example.de"), bestaetigung: minted("anna@example.de") });
 });
 
 describe("the re-send the editor's panel presses", () => {
@@ -115,7 +113,6 @@ describe("the re-send the editor's panel presses", () => {
      was made for; the answer is the only reader that saw the write's own transaction. */
   it("mails the address the MINT names, not the one the earlier read returned", async () => {
     mint = () => ({
-      acknowledged: 1,
       bestaetigung: { token: "abc", frist: "2026-10-05", email: "inzwischen@example.de" },
     });
 
@@ -310,7 +307,6 @@ describe("what the save hands the editor about the message it sent", () => {
 
   it("hands over no sentence where the save minted nothing", async () => {
     save = () => ({
-      acknowledged: 1,
       updated_document: stored("anna@example.de"),
       fanned_out_to_spiele: 0,
       bestaetigung: null,
@@ -354,7 +350,7 @@ describe("the reactivation of an unanswered referee", () => {
   });
 
   it("mails nothing where the row came back unasked", async () => {
-    reactivate = () => ({ acknowledged: 1, updated_document: stored("anna@example.de"), bestaetigung: null });
+    reactivate = () => ({ updated_document: stored("anna@example.de"), bestaetigung: null });
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 

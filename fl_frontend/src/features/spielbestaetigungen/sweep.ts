@@ -31,8 +31,6 @@ import {
 } from "./mutations";
 
 import type { Mail } from "@/core/emailShell";
-import type { SpielAnsetzungText } from "@/core/spielEmail";
-import type { VersandAusfall } from "@/core/versandAusfall";
 import type {
   FLSpielbestaetigungAnsichtAnsetzung,
   FLSpielbestaetigungSweepAnfrage,
@@ -43,7 +41,9 @@ import type {
   FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt,
   FLSpielbestaetigungSweepSpielAbgesagt,
   FLSpielbestaetigungSweepVorschlagVerworfen,
-} from "./schemas";
+} from "@/core/generated/client/types";
+import type { SpielAnsetzungText } from "@/core/spielEmail";
+import type { VersandAusfall } from "@/core/versandAusfall";
 
 /** One hour, as the other sweeps': every clock here selects on a date, so a shorter interval only asks the backend more often. */
 const SWEEP_INTERVAL_MS = HOUR_MS;

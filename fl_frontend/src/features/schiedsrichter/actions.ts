@@ -28,6 +28,7 @@ import {
   hatAdresse,
 } from "./schemas";
 
+import type { FLSchiedsrichter } from "@/core/generated/client/types";
 import type { FLSchiedsrichterPayloadDraft } from "@/features/schiedsrichter/schemas";
 import type { FLKontakt } from "@/shared/schemas";
 import type { ActionResult } from "@/shared/types/types";
@@ -36,7 +37,6 @@ import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type {
   FLPatchSchiedsrichterPayload,
   FLPostSchiedsrichterPayload,
-  FLSchiedsrichter,
   FLSchiedsrichterEinladenPayload,
   FLSchiedsrichterKeyPayload,
 } from "./schemas";

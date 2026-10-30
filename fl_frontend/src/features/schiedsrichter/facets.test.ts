@@ -4,7 +4,7 @@ import { applyFacets, countFacetOptions, readFacetSelection } from "@/shared/uti
 
 import { SCHIEDSRICHTER_FACETS } from "./facets.ts";
 
-import type { FLSchiedsrichter } from "./schemas.ts";
+import type { FLSchiedsrichter } from "@/core/generated/client/types";
 
 /** The facet under test, cut out by the parameter it reads. */
 const ANGABEN_FACET = SCHIEDSRICHTER_FACETS.find((facet) => facet.param === "angaben");

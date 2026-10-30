@@ -50,7 +50,7 @@ import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLSpielbestaetigungSchiedsrichterZustand, FLSpielbestaetigungSelbst } from "@/features/spielbestaetigungen/schemas";
+import type { FLSpielbestaetigungSelbst, FLSpielbestaetigungSelbstZustand } from "@/core/generated/client/types";
 
 const EINSAETZE_LEER = "Du bist zurzeit für kein Spiel eingeteilt.";
 
@@ -62,7 +62,7 @@ const ZUSAGEN = "zusagen";
 const ABSAGEN = "absagen";
 
 /** What a spent row says in place of its controls. */
-const ERLEDIGT: Record<Exclude<FLSpielbestaetigungSchiedsrichterZustand, "gueltig">, { text: string; ton: "success" | "danger" | null }> = {
+const ERLEDIGT: Record<Exclude<FLSpielbestaetigungSelbstZustand, "gueltig">, { text: string; ton: "success" | "danger" | null }> = {
   zugesagt: { text: "Zugesagt", ton: "success" },
   abgelehnt: { text: "Abgesagt", ton: "danger" },
   abgelaufen: { text: "Keine Antwort mehr möglich", ton: null },

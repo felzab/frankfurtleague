@@ -1,24 +1,19 @@
-import { apiClient } from "@/core/api";
-
 import {
-  FLSpielbestaetigungAnsichtResponseSchema,
-  FLSpielbestaetigungAntwortResponseSchema,
-  FLSpielbestaetigungEintragenResponseSchema,
-  FLSpielbestaetigungSchiedsrichterAntwortResponseSchema,
-  FLSpielbestaetigungSweepAngefragtResponseSchema,
-  FLSpielbestaetigungSweepMitgeteiltResponseSchema,
-  FLSpielbestaetigungSweepResponseSchema,
-  FLSpielbestaetigungSweepSaisonsResponseSchema,
-  FLSpielbestaetigungVerwerfenResponseSchema,
-} from "./schemas";
+  spielbestaetigungenAngefragtSpielbestaetigungen,
+  spielbestaetigungenEintragenSpielbestaetigung,
+  spielbestaetigungenGetSpielbestaetigungAnsicht,
+  spielbestaetigungenGetSpielSweepSaisons,
+  spielbestaetigungenMitgeteiltSpielbestaetigungen,
+  spielbestaetigungenPostSchiedsrichterAntwort,
+  spielbestaetigungenPostSpielbestaetigung,
+  spielbestaetigungenSweepSpielbestaetigungen,
+  spielbestaetigungenVerwerfenSpielbestaetigung,
+} from "@/core/generated/client/sdk";
 
 import type {
-  FLSpielbestaetigungAnsichtPayload,
   FLSpielbestaetigungAnsichtResponse,
   FLSpielbestaetigungAntwortPayload,
   FLSpielbestaetigungAntwortResponse,
-  FLSpielbestaetigungEintragenPayload,
-  FLSpielbestaetigungEintragenResponse,
   FLSpielbestaetigungSchiedsrichterAntwortPayload,
   FLSpielbestaetigungSchiedsrichterAntwortResponse,
   FLSpielbestaetigungSweepAngefragtPayload,
@@ -27,30 +22,22 @@ import type {
   FLSpielbestaetigungSweepMitgeteiltResponse,
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungSweepSaisonsResponse,
-  FLSpielbestaetigungVerwerfenPayload,
-  FLSpielbestaetigungVerwerfenResponse,
-} from "./schemas";
+  FLSpielbestaetigungWriteResponse,
+  FLTokenPayload,
+} from "@/core/generated/client/types";
+import type { FLSpielbestaetigungEintragenPayload, FLSpielbestaetigungVerwerfenPayload } from "./schemas";
 
 /**
  * A POST that reads. The token is the credential, and a GET would put it in a query string the
  * backend's own route template does not redact.
  */
-export async function postSpielbestaetigungAnsicht(payload: FLSpielbestaetigungAnsichtPayload): Promise<FLSpielbestaetigungAnsichtResponse> {
-  return apiClient<FLSpielbestaetigungAnsichtResponse>("/spielbestaetigungen/ansicht", FLSpielbestaetigungAnsichtResponseSchema, {
-    method: "POST",
-    readOnly: true,
-    authType: "base",
-    body: JSON.stringify(payload),
-  });
+export async function postSpielbestaetigungAnsicht(payload: FLTokenPayload): Promise<FLSpielbestaetigungAnsichtResponse> {
+  return spielbestaetigungenGetSpielbestaetigungAnsicht(payload, { readOnly: true });
 }
 
 /** One club's answer, at the base tier: the token authorises, and an over-declared tier succeeds silently. */
 export async function postSpielbestaetigung(payload: FLSpielbestaetigungAntwortPayload): Promise<FLSpielbestaetigungAntwortResponse> {
-  return apiClient<FLSpielbestaetigungAntwortResponse>("/spielbestaetigungen", FLSpielbestaetigungAntwortResponseSchema, {
-    method: "POST",
-    authType: "base",
-    body: JSON.stringify(payload),
-  });
+  return spielbestaetigungenPostSpielbestaetigung(payload);
 }
 
 /** A referee's answer to a row of their own, on the person lane: the signed-in address is what the backend authorises. */
@@ -58,35 +45,21 @@ export async function postSpielbestaetigungAntwort(
   spielbestaetigungId: string,
   payload: FLSpielbestaetigungSchiedsrichterAntwortPayload,
 ): Promise<FLSpielbestaetigungSchiedsrichterAntwortResponse> {
-  return apiClient<FLSpielbestaetigungSchiedsrichterAntwortResponse>(
-    `/spielbestaetigungen/${spielbestaetigungId}/antwort`,
-    FLSpielbestaetigungSchiedsrichterAntwortResponseSchema,
-    {
-      method: "POST",
-      authType: "admin",
-      body: JSON.stringify(payload),
-    },
-  );
+  return spielbestaetigungenPostSchiedsrichterAntwort(spielbestaetigungId, payload);
 }
 
 /**
  * The seasons the confirmation pass visits. Here rather than in a `queries.ts` because every read there is
- * cached for a render, and this one answers a timer.
+ * cached for a render, and this one answers a timer. The system tier, not admin: the timer holds no session, and an
+ * invented actor for a machine is what `fl_backend/app/core/recording.py :: SYSTEM_ACTOR` exists to avoid.
  */
 export async function getSpielbestaetigungSweepSaisons(): Promise<FLSpielbestaetigungSweepSaisonsResponse> {
-  return apiClient<FLSpielbestaetigungSweepSaisonsResponse>("/spielbestaetigungen/sweep", FLSpielbestaetigungSweepSaisonsResponseSchema, {
-    // The system tier, not admin: the timer holds no session, and an invented actor for a machine is
-    // what `fl_backend/app/core/recording.py :: SYSTEM_ACTOR` exists to avoid.
-    authType: "system",
-  });
+  return spielbestaetigungenGetSpielSweepSaisons();
 }
 
 /** One season's pass: rows closed, minted and reminded, the reminders already stamped and the requests not. */
 export async function postSpielbestaetigungSweep(saisonId: string): Promise<FLSpielbestaetigungSweepResponse> {
-  return apiClient<FLSpielbestaetigungSweepResponse>(`/spielbestaetigungen/sweep/${saisonId}`, FLSpielbestaetigungSweepResponseSchema, {
-    method: "POST",
-    authType: "system",
-  });
+  return spielbestaetigungenSweepSpielbestaetigungen(saisonId);
 }
 
 /**
@@ -97,15 +70,7 @@ export async function postSpielbestaetigungSweepAngefragt(
   saisonId: string,
   payload: FLSpielbestaetigungSweepAngefragtPayload,
 ): Promise<FLSpielbestaetigungSweepAngefragtResponse> {
-  return apiClient<FLSpielbestaetigungSweepAngefragtResponse>(
-    `/spielbestaetigungen/sweep/${saisonId}/angefragt`,
-    FLSpielbestaetigungSweepAngefragtResponseSchema,
-    {
-      method: "POST",
-      authType: "system",
-      body: JSON.stringify(payload),
-    },
-  );
+  return spielbestaetigungenAngefragtSpielbestaetigungen(saisonId, payload);
 }
 
 /** Stamps the rows whose notices went, after they went: a notice no stamp names is answered again by the next pass. */
@@ -113,31 +78,16 @@ export async function postSpielbestaetigungSweepMitgeteilt(
   saisonId: string,
   payload: FLSpielbestaetigungSweepMitgeteiltPayload,
 ): Promise<FLSpielbestaetigungSweepMitgeteiltResponse> {
-  return apiClient<FLSpielbestaetigungSweepMitgeteiltResponse>(
-    `/spielbestaetigungen/sweep/${saisonId}/mitgeteilt`,
-    FLSpielbestaetigungSweepMitgeteiltResponseSchema,
-    {
-      method: "POST",
-      authType: "system",
-      body: JSON.stringify(payload),
-    },
-  );
+  return spielbestaetigungenMitgeteiltSpielbestaetigungen(saisonId, payload);
 }
 
 export async function eintragenSpielbestaetigung({
   id,
   ...fields
-}: FLSpielbestaetigungEintragenPayload): Promise<FLSpielbestaetigungEintragenResponse> {
-  return apiClient<FLSpielbestaetigungEintragenResponse>(`/spielbestaetigungen/${id}/eintragen`, FLSpielbestaetigungEintragenResponseSchema, {
-    method: "POST",
-    authType: "admin",
-    body: JSON.stringify(fields),
-  });
+}: FLSpielbestaetigungEintragenPayload): Promise<FLSpielbestaetigungWriteResponse> {
+  return spielbestaetigungenEintragenSpielbestaetigung(id, fields);
 }
 
-export async function verwerfenSpielbestaetigung({ id }: FLSpielbestaetigungVerwerfenPayload): Promise<FLSpielbestaetigungVerwerfenResponse> {
-  return apiClient<FLSpielbestaetigungVerwerfenResponse>(`/spielbestaetigungen/${id}/verwerfen`, FLSpielbestaetigungVerwerfenResponseSchema, {
-    method: "POST",
-    authType: "admin",
-  });
+export async function verwerfenSpielbestaetigung({ id }: FLSpielbestaetigungVerwerfenPayload): Promise<FLSpielbestaetigungWriteResponse> {
+  return spielbestaetigungenVerwerfenSpielbestaetigung(id);
 }

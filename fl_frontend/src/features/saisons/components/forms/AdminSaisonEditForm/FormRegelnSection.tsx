@@ -19,9 +19,9 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
+import type { FLSpielerStufe } from "@/core/generated/client/types";
 import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus";
 import type { FLSaisonRulesDraft, SaisonGruppenOccupancy } from "@/features/saisons/types";
-import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { SaisonBanner } from "./banners";
 
 /** Names the forfeit pair for a screen reader: the heading over it is a `Label` bound to no control of its own. */

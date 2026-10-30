@@ -32,14 +32,8 @@ import { FormEinwilligungSection } from "./FormEinwilligungSection";
 import { FormKaderSection } from "./FormKaderSection";
 import { FormPersonSection } from "./FormPersonSection";
 
-import type {
-  FLEinwilligung,
-  FLPatchSaisonSpielerPayload,
-  FLPatchSpielerPayload,
-  FLSpielerPosition,
-  FLSpielerRolle,
-  FLSpielerStufe,
-} from "@/features/spieler/schemas";
+import type { FLEinwilligung, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
+import type { FLPatchSaisonSpielerPayload, FLPatchSpielerPayload } from "@/features/spieler/schemas";
 import type { FLSpielerDraftFields, SpielerFieldPath } from "@/features/spieler/spielerDraftStatus";
 import type { AdminSpielerStored, SpielerPersonFields, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";

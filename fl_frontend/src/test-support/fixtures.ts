@@ -1,3 +1,5 @@
+import type { FLSpielbestaetigung } from "@/core/generated/client/types";
+
 /** One side of a fixture, as the joined read shape carries it. */
 export interface SpielSide {
   team_id: string;
@@ -69,26 +71,11 @@ export function spielFields(overrides: Partial<SpielFields> = {}): SpielFields {
   };
 }
 
-/** Every field a fixture confirmation row carries on the administrator's read, typed structurally for `SpielFields`' reason. */
-export interface SpielbestaetigungFields {
-  id: string;
-  saison_id: string;
-  spiel_id: string;
-  partei: { art: "team"; team_id: string } | { art: "schiedsrichter"; schiedsrichter_id: string };
-  ansetzung: { datum: string; uhrzeit: string; spielort_id: string | null; team1_id: string; team2_id: string; stand: string };
-  frist: string;
-  angefragt_am: string | null;
-  erinnert_am: string[];
-  kontakte: unknown;
-  antwort: unknown;
-  geschlossen: unknown;
-}
-
 /**
  * Team 1's open row about `spielFields`' fixture dated 2026-08-05 at 18:00 on no ground. A case dates the fixture to
  * match, or moves one input to make the row about an Ansetzung the fixture left.
  */
-export function spielbestaetigungFields(overrides: Partial<SpielbestaetigungFields> = {}): SpielbestaetigungFields {
+export function spielbestaetigungFields(overrides: Partial<FLSpielbestaetigung> = {}): FLSpielbestaetigung {
   return {
     id: "6890a1b2c3d4e5f607182a01",
     saison_id: "2026",

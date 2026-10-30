@@ -2,8 +2,8 @@ import { Angabe, Leer } from "@/shared/components/ui/Angabe";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formatEuro, formatSpielDatum } from "@/shared/utils/format";
 
+import type { FLSchiedsrichterSelbst } from "@/core/generated/client/types";
 import type { ReactNode } from "react";
-import type { FLSchiedsrichterSelbst } from "../../schemas";
 
 const adresseVon = (email: string | null): ReactNode => (email === null || email === "" ? <Leer /> : email);
 

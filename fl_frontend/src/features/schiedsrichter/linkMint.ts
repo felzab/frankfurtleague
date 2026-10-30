@@ -1,4 +1,4 @@
-import type { FLSchiedsrichter } from "./schemas";
+import type { FLSchiedsrichter } from "@/core/generated/client/types";
 
 /* Whether a write may mint the referee a new link, a step-up write.
    Each is a SUPERSET of the backend's test, never a copy: a needless prompt costs a press, a missed

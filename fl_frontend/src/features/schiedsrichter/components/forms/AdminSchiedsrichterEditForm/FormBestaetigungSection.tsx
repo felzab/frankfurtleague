@@ -35,8 +35,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { BESTAETIGUNGSLINK_TITEL, meldeLinkVersand } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
-import type { FLSchiedsrichterBestaetigung } from "@/features/schiedsrichter/schemas";
-import type { FLEinwilligung } from "@/features/spieler/schemas";
+import type { FLBestaetigung, FLEinwilligung } from "@/core/generated/client/types";
 
 /**
  * The re-send's accessible name, its link named for this panel as the address change's panel names its
@@ -48,7 +47,7 @@ const BESTAETIGUNG_ERNEUT = benannt("Link erneut senden", "Bestätigung");
 const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.";
 
 /** What the last link reached, where one has gone out at all. */
-function LinkStand({ bestaetigung, offenUndAbgelaufen }: { bestaetigung: FLSchiedsrichterBestaetigung; offenUndAbgelaufen: boolean }) {
+function LinkStand({ bestaetigung, offenUndAbgelaufen }: { bestaetigung: FLBestaetigung; offenUndAbgelaufen: boolean }) {
   return (
     <dl className={FIELD_PAIR_CLASSES}>
       <LinkStandAngaben
@@ -131,7 +130,7 @@ export function FormBestaetigungSection({
   /** The STORED address, never the draft's: an unsaved box is not somewhere a message can go. */
   hatAdresse: boolean;
   isRetired: boolean;
-  bestaetigung: FLSchiedsrichterBestaetigung | null;
+  bestaetigung: FLBestaetigung | null;
   /** The read's judgement of the link's deadline, never this browser's day. */
   istAbgelaufen: boolean;
   einwilligung: FLEinwilligung | null;

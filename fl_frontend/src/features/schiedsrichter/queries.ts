@@ -1,7 +1,7 @@
 import { cache } from "react";
 
-import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
+import { schiedsrichterGetSchiedsrichter, schiedsrichterGetSchiedsrichterById, schiedsrichterGetSelbst } from "@/core/generated/client/sdk";
 import { medienNochNicht } from "@/features/bewerbungen/utils";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { runAdminRead } from "@/shared/utils/adminRead";
@@ -11,11 +11,15 @@ import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { alterAusserhalb } from "./constants";
 import { postSchiedsrichterBestaetigungAnsicht } from "./mutations";
-import { FLSchiedsrichterListResponseSchema, FLSchiedsrichterSelbstResponseSchema, FLSchiedsrichterSingleResponseSchema } from "./schemas";
 
+import type {
+  FLSchiedsrichterListResponse,
+  FLSchiedsrichterSelbstResponse,
+  FLSchiedsrichterSingleResponse,
+  SchiedsrichterGetSchiedsrichterParams,
+} from "@/core/generated/client/types";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLSchiedsrichterListResponse, FLSchiedsrichterSelbstResponse, FLSchiedsrichterSingleResponse } from "./schemas";
-import type { FLSchiedsrichterFilterParams, SchiedsrichterAnsicht, SchiedsrichterLinkZustand } from "./types";
+import type { SchiedsrichterAnsicht, SchiedsrichterLinkZustand } from "./types";
 
 /**
  * Every referee, with their contact details, school and fee. Admin-tier: a referee is a pupil
@@ -23,14 +27,9 @@ import type { FLSchiedsrichterFilterParams, SchiedsrichterAnsicht, Schiedsrichte
  *
  * **Uncached, and it stays uncached**: `"use cache"` keys on arguments, not on caller identity.
  */
-export async function getSchiedsrichter(filters: FLSchiedsrichterFilterParams = {}): Promise<FLSchiedsrichterListResponse> {
+export async function getSchiedsrichter(filters: SchiedsrichterGetSchiedsrichterParams = {}): Promise<FLSchiedsrichterListResponse> {
   // No cache tag either: one means nothing outside a cache scope.
-  return runAdminRead(() =>
-    apiClient<FLSchiedsrichterListResponse>("/schiedsrichter", FLSchiedsrichterListResponseSchema, {
-      authType: "admin",
-      params: filters,
-    }),
-  );
+  return runAdminRead(() => schiedsrichterGetSchiedsrichter(filters));
 }
 
 /**
@@ -43,9 +42,7 @@ export async function getSchiedsrichterById(schiedsrichterId: string): Promise<F
   return runAdminRead(() =>
     // `null` for "no such referee", which the editor page turns into `notFound()`. Every other
     // status still throws.
-    apiClient<FLSchiedsrichterSingleResponse>(`/schiedsrichter/${schiedsrichterId}`, FLSchiedsrichterSingleResponseSchema, {
-      authType: "admin",
-    }).catch((error: unknown) => {
+    schiedsrichterGetSchiedsrichterById(schiedsrichterId).catch((error: unknown) => {
       if (isRecordMissing(error)) return null;
       throw error;
     }),
@@ -169,7 +166,5 @@ export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promi
  */
 // Never `"use cache"`, which keys on the arguments rather than the caller.
 export const getSchiedsrichterSelbst = cache(async (): Promise<FLSchiedsrichterSelbstResponse> =>
-  runPersonRead(() =>
-    apiClient<FLSchiedsrichterSelbstResponse>("/schiedsrichter/selbst", FLSchiedsrichterSelbstResponseSchema, { authType: "admin" }),
-  ),
+  runPersonRead(() => schiedsrichterGetSelbst()),
 );

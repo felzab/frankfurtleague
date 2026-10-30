@@ -1,5 +1,5 @@
+import type { FLSpielbestaetigungGeschlossenGrund } from "@/core/generated/client/types";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
-import type { FLSpielbestaetigungGrund } from "./schemas";
 
 // The triage's own word for the seat (`ACTION_REQUIRED_LABELS.schiedsrichter_missing`): a chip row has no room for a longer one.
 export const SCHIEDSRICHTER_PARTEI = "Schiedsrichter";
@@ -19,7 +19,7 @@ export const ANTWORT_LABELS = {
 
 // `verworfen` in the discard control's own word, so the readout and the press name one act alike; a referee's own
 // decline in the answer's word above, never „abgesagt“, which `abgesagt` here says of a called-off fixture.
-export const SCHLIESSGRUND_LABELS: Record<FLSpielbestaetigungGrund, string> = {
+export const SCHLIESSGRUND_LABELS: Record<FLSpielbestaetigungGeschlossenGrund, string> = {
   ansetzung_geaendert: "Termin geändert",
   austritt: "Team ausgetreten",
   spiel_entschieden: "Spiel entschieden",

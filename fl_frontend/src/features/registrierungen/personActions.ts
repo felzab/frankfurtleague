@@ -20,7 +20,7 @@ import {
 } from "./schemas";
 import { mapAblehnungRefusal, mapAufnahmeRefusal } from "./utils";
 
-import type { FLEinwilligungStand } from "@/features/spieler/schemas";
+import type { FLEinwilligungStand } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
 import type { FLRegistrierungAblehnenPayload, FLRegistrierungAblehnungResponse, FLRegistrierungAufnehmenPayload } from "./schemas";
 

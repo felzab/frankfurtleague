@@ -10,9 +10,10 @@ import { deleteKaderZeile, patchKaderZeile, patchSpielerSelbstEinwilligung } fro
 import { mapKaderZeileRefusal } from "./refusals";
 import { FLKaderZeileKeyPayloadSchema, FLPatchKaderZeilePayloadSchema, FLSpielerSelbstEinwilligungPayloadSchema } from "./schemas";
 
+import type { FLEinwilligungStand, FLKaderZeileResponse } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
 import type z from "zod";
-import type { FLEinwilligungStand, FLKaderZeileKeyPayload, FLKaderZeileResponse, FLPatchKaderZeilePayload } from "./schemas";
+import type { FLKaderZeileKeyPayload, FLPatchKaderZeilePayload } from "./schemas";
 
 /** A seat holder's edit of one live squad row: number, position, level and captaincy, nothing else. */
 export async function patchKaderZeileAction(

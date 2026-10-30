@@ -1,8 +1,8 @@
 import { beschreibeNachweis } from "@/features/spieler/nachweis";
 import { Leer } from "@/shared/components/ui/Angabe";
 
+import type { FLEinwilligungNachweis } from "@/core/generated/client/types";
 import type { Bestaetigung } from "@/features/spieler/nachweis";
-import type { FLEinwilligungNachweis } from "@/features/spieler/schemas";
 
 /**
  * The act a choice stands on, under its value. One component for every admin readout of a consent choice, the

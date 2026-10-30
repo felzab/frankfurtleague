@@ -1,5 +1,5 @@
 import type { GekeyteFassung, SpielerAbsatzSchluessel, SpielerWiederkehrendAbsatzSchluessel } from "@/core/einwilligungSeiten";
-import type { FLSpielerPosition, FLSpielerStufe } from "@/features/spieler/schemas";
+import type { FLSpielerPosition, FLSpielerStufe } from "@/core/generated/client/types";
 import type { FLEinladungAnsichtResponse, FLEinwilligungUmfang, FLRegistrierungBestaetigungAnsichtResponse } from "./schemas";
 
 /**

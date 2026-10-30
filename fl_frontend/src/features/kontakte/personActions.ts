@@ -18,7 +18,7 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 import { patchBewerbungEinwilligung, patchSitzEinwilligung } from "./mutations";
 import { FLSaisonTeamPersonEinwilligungPayloadSchema } from "./schemas";
 
-import type { FLEinwilligungStand } from "@/features/spieler/schemas";
+import type { FLEinwilligungStand } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
 
 /** The team season the page binds, never a value the reader typed. */

@@ -26,15 +26,10 @@ import {
   FLSaisonSpielerKeyPayloadSchema,
 } from "./schemas";
 
+import type { FLSaisonSpielerResponse, FLSpielerAdminSingleResponse } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
 import type { UndoOutcome } from "@/shared/utils/adminUndo";
-import type {
-  FLDeleteSpielerPayload,
-  FLReactivateSpielerPayload,
-  FLSaisonSpielerKeyPayload,
-  FLSaisonSpielerResponse,
-  FLSpielerAdminSingleResponse,
-} from "./schemas";
+import type { FLDeleteSpielerPayload, FLReactivateSpielerPayload, FLSaisonSpielerKeyPayload } from "./schemas";
 import type { SaisonSpielerEnterDraft, SaisonSpielerMembershipDraft, SpielerPersonPayloadDraft } from "./types";
 
 export async function patchSpielerAction(

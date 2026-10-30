@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
 
 import { buildMapsSearchUrl } from "@/shared/utils/format.ts";
 
-import { FLSpielortSchema } from "./schemas.ts";
 import { formatMapsLink } from "./utils.ts";
 
+import type { FLSpielort } from "@/core/generated/client/types";
+
 /** The line the backend stores for each shape of address, which the venue table must search for alike. */
-const ADDRESS_LINES: unknown = [
+const CASES: (Pick<FLSpielort, "name" | "address" | "maps_link"> & { case: string })[] = [
   {
     case: "a complete address",
     name: "Sportplatz Ost",
@@ -69,8 +69,6 @@ const ADDRESS_LINES: unknown = [
     maps_link: "Sportplatz Ost, Hanauer Landstraße 12a, 60314 Frankfurt am Main, Deutschland",
   },
 ];
-
-const CASES = z.array(FLSpielortSchema.pick({ name: true, address: true, maps_link: true }).extend({ case: z.string() })).parse(ADDRESS_LINES);
 
 describe("the venue line against the one the backend stores", () => {
   for (const { case: shape, ...venue } of CASES) {

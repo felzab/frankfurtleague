@@ -3,9 +3,9 @@ import { formatSpielDatum } from "@/shared/utils/format";
 
 import { KADER_ABSCHNITT, rolleLabel } from "./constants";
 
+import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "./schemas";
 import type { SpielerTeamOption } from "./types";
 
 /**

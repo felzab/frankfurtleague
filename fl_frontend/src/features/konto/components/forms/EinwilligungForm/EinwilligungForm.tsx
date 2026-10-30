@@ -17,7 +17,7 @@ import { focusAfterWrite, focusSlot } from "@/shared/utils/focusAfterWrite";
 
 import { medienZuJung, WAHL_GESPEICHERT, WAHL_NICHT_GESPEICHERT } from "../../../einwilligung";
 
-import type { FLEinwilligung, FLEinwilligungStand } from "@/features/spieler/schemas";
+import type { FLEinwilligung, FLEinwilligungStand } from "@/core/generated/client/types";
 import type { FLKontaktKenntnisnahme } from "@/features/teams/schemas";
 import type { ActionFailure } from "@/shared/types/types";
 import type { Key } from "@heroui/react/rac";
