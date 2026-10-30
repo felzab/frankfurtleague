@@ -1,6 +1,15 @@
 import "server-only";
 
 import { buildCodeEmail } from "./authEmail";
+import {
+  buildBewerbungAbsageEmail,
+  buildBewerbungBestaetigungEmail,
+  buildBewerbungEingangEmail,
+  buildBewerbungErinnerungEmail,
+  buildBewerbungGeloeschtEmail,
+  buildBewerbungWiderspruchEmail,
+  buildBewerbungZusageEmail,
+} from "./bewerbungEmail";
 import { buildEinladungEmail } from "./einladungEmail";
 import { ContractBreakError } from "./errors";
 import { buildLoeschungEmail } from "./loeschungEmail";
@@ -84,6 +93,13 @@ const MAIL_KINDS: { [A in PostausgangArt]?: MailBuilder<A> } = {
   registrierung_erinnerung: (daten, ausgabe) => buildRegistrierungErinnerungEmail(daten, gemintet(ausgabe)),
   registrierung_absage: (daten, ausgabe) => buildRegistrierungAbsageEmail(daten, ausgabe),
   einladung: (daten, ausgabe) => buildEinladungEmail(daten, gemintet(ausgabe)),
+  bewerbung_eingang: (daten, ausgabe) => buildBewerbungEingangEmail(daten, gemintet(ausgabe)),
+  bewerbung_bestaetigung: (daten, ausgabe) => buildBewerbungBestaetigungEmail(daten, gemintet(ausgabe)),
+  bewerbung_erinnerung: (daten, ausgabe) => buildBewerbungErinnerungEmail(daten, gemintet(ausgabe)),
+  bewerbung_zusage: buildBewerbungZusageEmail,
+  bewerbung_absage: buildBewerbungAbsageEmail,
+  bewerbung_loeschung: buildBewerbungGeloeschtEmail,
+  bewerbung_widerspruch: buildBewerbungWiderspruchEmail,
 };
 
 /** A secret kind's secret, which its every row carries (`fl_frontend/src/core/auth.ts :: oweSignInMail`). */

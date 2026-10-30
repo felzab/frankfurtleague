@@ -2,12 +2,12 @@ import { assert, describe, it } from "vitest";
 
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_ERINNERUNG_TAGE } from "./constants.ts";
 
-import type { BewerbungBestaetigungData } from "@/core/bewerbungEmail.ts";
 import type { Mail } from "@/core/emailShell.ts";
+import type { FLBewerbungLinkDaten } from "@/core/generated/client/types";
 
 const {
   buildBewerbungBestaetigungEmail,
-  buildBewerbungEingangOffenEmail,
+  buildBewerbungEingangEmail,
   buildBewerbungErinnerungEmail,
   buildBewerbungGeloeschtEmail,
   buildBewerbungWiderspruchEmail,
@@ -18,53 +18,47 @@ const { renderMail } = await import("@/core/emailShell.ts");
 const ORIGIN = "http://localhost:3000";
 
 /** Not a token, and not shaped like one: a fixture a reader could mistake for a credential is one somebody copies. */
-const LINK = `${ORIGIN}/bestaetigung/kontakt?token=beispiel-eins`;
-const FRIST = "18.09.2026";
+const LINK = { origin: ORIGIN, token: "beispiel-eins" };
+const FRIST = "2026-09-18";
 
-const ERIKA = { vorname: "Erika", rolleText: "Ansprechperson", link: LINK };
-const JONAS = { vorname: "Jonas", rolleText: "Trainerin oder Trainer", link: LINK };
-const AUSSTEHEND = [{ vorname: "Jonas", rolleText: "Trainerin oder Trainer" }];
+const AUSSTEHEND = [{ vorname: "Jonas", rollen: ["trainer" as const] }];
 
-const EIN_SITZ = {
-  saisonId: "2627",
-  origin: ORIGIN,
+const EIN_SITZ: Omit<FLBewerbungLinkDaten, "art"> = {
+  saison_id: "2627",
   schule: "Ernst-Reuter-Schule",
-  seats: [ERIKA],
-  fristText: FRIST,
-} satisfies BewerbungBestaetigungData;
-/* Both arms of every builder that has two: the plural wording is a second copy of each sentence, and
-   only a render of it reads the clock it states. */
-const ZWEI_SITZE = { ...EIN_SITZ, seats: [ERIKA, JONAS] } satisfies BewerbungBestaetigungData;
+  rollen: ["ansprechperson"],
+  frist: FRIST,
+};
 
 const MESSAGES = [
-  ["the link message", buildBewerbungBestaetigungEmail(EIN_SITZ)],
-  ["the link message to a shared inbox", buildBewerbungBestaetigungEmail(ZWEI_SITZE)],
-  ["the reminder", buildBewerbungErinnerungEmail(EIN_SITZ)],
-  ["the reminder to a shared inbox", buildBewerbungErinnerungEmail(ZWEI_SITZE)],
+  ["the link mail", buildBewerbungBestaetigungEmail({ ...EIN_SITZ, art: "bewerbung_bestaetigung" }, LINK)],
+  ["the reminder", buildBewerbungErinnerungEmail({ ...EIN_SITZ, art: "bewerbung_erinnerung" }, LINK)],
   [
     "the receipt",
-    buildBewerbungEingangOffenEmail({
-      saisonId: "2627",
-      origin: ORIGIN,
-      rollenText: "Ansprechperson",
-      ausstehend: AUSSTEHEND,
-      fristText: FRIST,
-      link: LINK,
-    }),
+    buildBewerbungEingangEmail(
+      { art: "bewerbung_eingang", saison_id: "2627", rollen: ["ansprechperson"], ausstehend: AUSSTEHEND, frist: FRIST },
+      LINK,
+    ),
   ],
   [
     "the deletion notice",
-    buildBewerbungGeloeschtEmail({ saisonId: "2627", origin: ORIGIN, rollenText: "Ansprechperson", ausstehend: AUSSTEHEND }),
+    buildBewerbungGeloeschtEmail(
+      { art: "bewerbung_loeschung", saison_id: "2627", rollen: ["ansprechperson"], ausstehend: AUSSTEHEND },
+      { origin: ORIGIN },
+    ),
   ],
   [
     "the seat's decline notice",
-    buildBewerbungWiderspruchEmail({
-      saisonId: "2627",
-      origin: ORIGIN,
-      rollenText: "Ansprechperson",
-      abgelehnt: { vorname: "Mira", rolleText: "Stellvertretung" },
-      fristText: FRIST,
-    }),
+    buildBewerbungWiderspruchEmail(
+      {
+        art: "bewerbung_widerspruch",
+        saison_id: "2627",
+        rollen: ["ansprechperson"],
+        abgelehnt: { vorname: "Mira", rollen: ["stellvertretung"] },
+        frist: FRIST,
+      },
+      { origin: ORIGIN },
+    ),
   ],
 ] as const;
 
