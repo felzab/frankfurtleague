@@ -6,7 +6,7 @@ from typing import Any, Final, NamedTuple
 import pytest
 from pydantic import TypeAdapter
 
-from app.api.identitaet.schemas import ErasureAdresse
+from app.api.identitaet.schemas import LoeschungAdresse
 from app.shared.folding import canonical_address, league_address, sign_in_identifier
 
 # One table both suites run their own rule and fold over, the frontend half in `fl_frontend/src/core/emailAddress.test.ts`:
@@ -82,14 +82,14 @@ def test_every_parting_recorded_still_parts():
     assert [row.case for row in ROWS if row.frontend == Answer(row.stored, row.folded)] == []
 
 
-ERASURE_LOOKUP: Final = TypeAdapter(ErasureAdresse)
+LOESCHUNG_LOOKUP: Final = TypeAdapter(LoeschungAdresse)
 
 
 @pytest.mark.parametrize("row", ROWS, ids=lambda row: row.case)
-def test_the_erasure_lookup_asks_for_the_mailbox_the_row_folds_to(row: Row):
+def test_the_loeschung_lookup_asks_for_the_mailbox_the_row_folds_to(row: Row):
     """The page ends the sign-in account its own trimmed box folds to: a lookup trimming otherwise erases another mailbox's records."""
 
-    assert sign_in_identifier(ERASURE_LOOKUP.validate_python(row.typed)) == row.folded
+    assert sign_in_identifier(LOESCHUNG_LOOKUP.validate_python(row.typed)) == row.folded
 
 
 @pytest.mark.parametrize("row", [row for row in ROWS if row.stored is not None], ids=lambda row: row.case)

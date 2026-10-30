@@ -10,11 +10,11 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
 from app.api.berechtigungen.crud import verwaltung_of
-from app.api.identitaet.crud import erase_if_still_due, faellige_seite, find_anmeldung, find_subjekt, saison_statuses, unreferenced_of
+from app.api.identitaet.crud import faellige_seite, find_anmeldung, find_subjekt, loeschen_if_still_due, saison_statuses, unreferenced_of
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.schemas import (
     FLAnmeldungResponse,
-    FLErasure,
+    FLLoeschung,
     FLLoeschungLaufParams,
     FLLoeschungLaufResponse,
     FLReferenzenPayload,
@@ -163,7 +163,7 @@ async def get_referenzen(
 LOESCHUNGEN_PER_PASS: Final = 10
 
 
-async def _erase_one(
+async def _loeschen_one(
     spieler_id: Any,
     *,
     saisons_collection: AsyncCollection,
@@ -189,11 +189,11 @@ async def _erase_one(
     schluessel: SecretStr,
     stamp: str,
     now: datetime,
-) -> FLErasure | None:
+) -> FLLoeschung | None:
     """One pupil in a transaction of their own: a conflict on one takes back nobody already erased."""
 
-    async def erase_the_pupil_if_still_due(session: AsyncClientSession) -> FLErasure | None:
-        return await erase_if_still_due(
+    async def loeschen_the_pupil_if_still_due(session: AsyncClientSession) -> FLLoeschung | None:
+        return await loeschen_if_still_due(
             spieler_id,
             saisons_collection=saisons_collection,
             spieler_collection=spieler_collection,
@@ -221,7 +221,7 @@ async def _erase_one(
         )
 
     async with transaction_session(db) as session:
-        return await session.with_transaction(erase_the_pupil_if_still_due)
+        return await session.with_transaction(loeschen_the_pupil_if_still_due)
 
 
 @router.post(
@@ -308,7 +308,7 @@ async def sweep_loeschung(
         # Caught outside the person's session, as `app/api/saisons/admin_router.py :: _mail_one_team` catches
         # a team's: a failure the session never saw leaves its transaction open.
         try:
-            erased = await _erase_one(
+            geloeschte = await _loeschen_one(
                 row["_id"],
                 saisons_collection=saisons_collection,
                 spieler_collection=spieler_collection,
@@ -361,16 +361,16 @@ async def sweep_loeschung(
 
         # The one skip: judged again in its own transaction, a pupil another call deleted first reads as gone, since a
         # rival committing after the snapshot sends the attempt round rather than leaving a step a row to miss.
-        if erased is None:
+        if geloeschte is None:
             uebersprungen += 1
             continue
 
         # No journal line, unlike a request's erasure: the rule deletes these pupils again after a restore,
         # where a replay would erase the whole address.
         geloescht += 1
-        spieler += erased.spieler
-        saison_spieler += erased.saison_spieler
-        registrierungen += erased.registrierungen
+        spieler += geloeschte.spieler
+        saison_spieler += geloeschte.saison_spieler
+        registrierungen += geloeschte.registrierungen
 
     return FLLoeschungLaufResponse(
         abgeschlossene_saison_id=abgeschlossene_saison_id(statuses),

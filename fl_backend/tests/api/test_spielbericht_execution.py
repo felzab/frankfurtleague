@@ -581,16 +581,16 @@ class PupilsRunningARivalBeforeTheAnchor(InterleavedCollection):
         return await self._collection.update_many(*args, **kwargs)
 
 
-class TestAPupilErasedMidWriteConflictsWithTheAnchor:
-    def test_the_write_retries_and_is_refused_on_the_squad_the_erasure_left(self, mongo_replica_set_url: str):
+class TestAPupilGeloeschtMidWriteConflictsWithTheAnchor:
+    def test_the_write_retries_and_is_refused_on_the_squad_the_loeschung_left(self, mongo_replica_set_url: str):
         """The erasure removes the squad row and the person after this write judged them: the anchor on the person conflicts."""
 
-        async def erase_lina(database: AsyncDatabase) -> None:
+        async def loeschen_lina(database: AsyncDatabase) -> None:
             await database[Collection.SAISON_SPIELER].delete_one({"spieler_id": LINA})
             await database[Collection.SPIELER].delete_one({"_id": LINA})
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            spieler = PupilsRunningARivalBeforeTheAnchor(database[Collection.SPIELER], lambda: erase_lina(database))
+            spieler = PupilsRunningARivalBeforeTheAnchor(database[Collection.SPIELER], lambda: loeschen_lina(database))
             berichte = BerichteRunningARivalBeforeTheirWrite(database[Collection.SPIELBERICHTE], lambda: nothing(database))
             outcome = await outcome_of(put(database, client, bericht(), spieler_collection=spieler, spielberichte_collection=berichte))
             spieler.assert_landed_inside(serially=0)
@@ -670,7 +670,7 @@ class TestTheReads:
             pytest.param(form_read, id="the-referee-s-form"),
         ],
     )
-    def test_a_pupil_off_both_squads_is_named_off_their_record_and_an_erased_one_by_nobody(
+    def test_a_pupil_off_both_squads_is_named_off_their_record_and_an_geloescht_one_by_nobody(
         self, mongo_replica_set_url: str, lesen: Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
     ):
         """The two arms past the squad rows on both reads a page renders: no bare id shown, an erased pupil's entry still holding it."""

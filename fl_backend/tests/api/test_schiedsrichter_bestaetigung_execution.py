@@ -44,7 +44,7 @@ from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.erasure import erased
+from tests.loeschung import geloescht
 from tests.postausgang import MAIL_NOW, drained
 from tests.worker import worker_database
 
@@ -776,12 +776,12 @@ class TestTheConfirmation:
 
         assert on_a_league(mongo_replica_set_url, body).error_code == Code.LINK_UNGUELTIG
 
-    def test_the_link_of_an_erased_referee_opens_nothing(self, mongo_replica_set_url: str):
+    def test_the_link_of_an_geloescht_referee_opens_nothing(self, mongo_replica_set_url: str):
         """The lookup finds no row rather than a nulled one: the erasure deletes the document and the block goes with it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
-            await erased(database, client, EMAIL, germany_now=NOW)
+            await geloescht(database, client, EMAIL, germany_now=NOW)
 
             with pytest.raises(APIError) as refused:
                 await ansicht(database, minted.token)

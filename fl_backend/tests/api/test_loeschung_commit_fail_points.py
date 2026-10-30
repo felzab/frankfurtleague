@@ -34,14 +34,14 @@ from .test_adresswechsel_sweep_execution import MINTED_TO_LAPSE_YESTERDAY, a_cha
 from .test_adresswechsel_sweep_execution import numbered as change_numbered
 from .test_adresswechsel_sweep_execution import on_a_league as on_the_changes_league
 from .test_adresswechsel_sweep_execution import sweep as an_address_change_call
-from .test_erasure_auf_anfrage import CONFIG as REQUEST_CONFIG
-from .test_erasure_auf_anfrage import erased_by_the_handler as erased_on_request
-from .test_erasure_auf_anfrage import journal_lines
-from .test_erasure_auf_anfrage import on_a_league as on_the_administrators_league
-from .test_funktionen_erasure import IDENTIFIER, THEIR_GRANT_OID, a_grant
-from .test_funktionen_erasure import erased_by_the_handler as erased_by_the_person
-from .test_funktionen_erasure import on_a_league as on_their_league
+from .test_funktionen_loeschung import IDENTIFIER, THEIR_GRANT_OID, a_grant
+from .test_funktionen_loeschung import geloescht_by_the_handler as geloescht_by_the_person
+from .test_funktionen_loeschung import on_a_league as on_their_league
 from .test_journal_replay import PERSON, PUPIL_OID, V, _app, _person, _withdrawal, journalled, served
+from .test_loeschung_auf_anfrage import CONFIG as REQUEST_CONFIG
+from .test_loeschung_auf_anfrage import geloescht_by_the_handler as geloescht_on_request
+from .test_loeschung_auf_anfrage import journal_lines
+from .test_loeschung_auf_anfrage import on_a_league as on_the_administrators_league
 from .test_loeschung_sweep import a_due_pupil, seeded
 from .test_loeschung_sweep import numbered as pupil_numbered
 from .test_loeschung_sweep import on_a_league as on_the_pupils_league
@@ -121,7 +121,7 @@ def test_no_other_module_configures_the_fail_point():
 
 
 @pytest.mark.db
-class TestThePersonsOwnErasure:
+class TestThePersonsOwnLoeschung:
     def test_a_commit_whose_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catches the journal left to a commit that answered: this one landed and answered only that its time ran out."""
 
@@ -131,7 +131,7 @@ class TestThePersonsOwnErasure:
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=UNANSWERED)
             try:
                 with pytest.raises(PyMongoError) as lost:
-                    await erased_by_the_person(losing[database.name], losing)
+                    await geloescht_by_the_person(losing[database.name], losing)
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await losing.close()
@@ -168,7 +168,7 @@ class TestThePersonsOwnErasure:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
             try:
-                answer = await erased_by_the_person(refusing[database.name], refusing)
+                answer = await geloescht_by_the_person(refusing[database.name], refusing)
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await refusing.close()
@@ -187,7 +187,7 @@ class TestThePersonsOwnErasure:
 
 
 @pytest.mark.db
-class TestAnErasureOnRequest:
+class TestAnLoeschungOnRequest:
     def test_one_line_follows_the_commit_and_none_the_attempt_rolled_back(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """The first commit is refused under the transient label, so the driver reruns the erasure: one line, the rerun's."""
 
@@ -204,7 +204,7 @@ class TestAnErasureOnRequest:
             }
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=refusal)
             try:
-                answer = await erased_on_request(refusing[database.name], refusing)
+                answer = await geloescht_on_request(refusing[database.name], refusing)
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await refusing.close()
@@ -212,7 +212,7 @@ class TestAnErasureOnRequest:
             return commits.answered, answer.spieler
 
         with caplog.at_level(logging.INFO):
-            refused, erased = on_the_administrators_league(mongo_replica_set_url, body)
+            refused, geloescht = on_the_administrators_league(mongo_replica_set_url, body)
 
         assert journal_lines(caplog) == [
             f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} loeschung "
@@ -220,7 +220,7 @@ class TestAnErasureOnRequest:
             f"halter={halter_of(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
         ]
         # The premise last: one commit refused, so the line above is the rerun's alone.
-        assert (refused, erased) == ([WRITE_CONFLICT, None], 1)
+        assert (refused, geloescht) == ([WRITE_CONFLICT, None], 1)
 
     def test_a_commit_whose_answer_is_lost_is_journalled_all_the_same(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """Catches a route journalling once its commit answers: this one landed and answered only that its time ran out."""
@@ -231,7 +231,7 @@ class TestAnErasureOnRequest:
             await client.admin.command("configureFailPoint", FAIL_POINT, mode={"times": 1}, data=UNANSWERED)
             try:
                 with pytest.raises(PyMongoError) as lost:
-                    await erased_on_request(losing[database.name], losing)
+                    await geloescht_on_request(losing[database.name], losing)
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await losing.close()
@@ -360,7 +360,7 @@ def _stopping_lines(caplog: pytest.LogCaptureFixture) -> list[tuple[str | None, 
 class TestTheSweepsNameACommitTheyCannotRead:
     """Each sweep reads the unknown-result label off the timeout its commit raised: without it, the line says the row stays due."""
 
-    def test_the_deletion_pass_names_the_pupil_whose_erasure_went_unanswered(
+    def test_the_deletion_pass_names_the_pupil_whose_loeschung_went_unanswered(
         self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
     ):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

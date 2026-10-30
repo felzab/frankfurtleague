@@ -18,7 +18,7 @@ from app.core.collections import Collection
 from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
-    erase_many_from_db,
+    loeschen_many_from_db,
     patch_many_in_db,
     post_one_to_db,
     pull_one_from_db,
@@ -164,13 +164,13 @@ async def ensure_ghost_spieler(
         await post_one_to_db(collection=spieler_collection, document=build_ghost_spieler(), session=session)
 
 
-class PersonErased(NamedTuple):
+class PersonGeloescht(NamedTuple):
     spieler: int
     saison_spieler: int
     redacted_aktionen: int
 
 
-async def erase_person_in_session(
+async def loeschen_person_in_session(
     *,
     spieler_collection: AsyncCollection,
     saison_spieler_collection: AsyncCollection,
@@ -180,7 +180,7 @@ async def erase_person_in_session(
     stamp: str,
     # REQUIRED, so a caller forgetting it is a TypeError rather than writes committing one by one.
     session: AsyncClientSession,
-) -> PersonErased:
+) -> PersonGeloescht:
     """Remove the person and their squad rows, then redact the log. Whether they may be erased is the caller's to judge."""
 
     # Through the by-id filter, before any write: the removals below key on the bare id, so the
@@ -198,8 +198,8 @@ async def erase_person_in_session(
 
     # The squad rows first: the public read `$lookup`s outward from the person, so a row left
     # behind is orphaned invisibly rather than surfacing as a fault somebody would notice.
-    erased_rows = await erase_many_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id}, session=session)
-    erased_person = await erase_many_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, session=session)
+    geloescht_rows = await loeschen_many_from_db(collection=saison_spieler_collection, db_filter={"spieler_id": spieler_id}, session=session)
+    geloescht_person = await loeschen_many_from_db(collection=spieler_collection, db_filter={"_id": spieler_id}, session=session)
 
     # Last, and it passes over the two rows the removals above just recorded: those carry a
     # filter and a count and no `document_id`, so the erasure stays legible as an action.
@@ -213,6 +213,6 @@ async def erase_person_in_session(
         session=session,
     )
 
-    return PersonErased(
-        spieler=erased_person.deleted_count, saison_spieler=erased_rows.deleted_count, redacted_aktionen=redacted.modified_count
+    return PersonGeloescht(
+        spieler=geloescht_person.deleted_count, saison_spieler=geloescht_rows.deleted_count, redacted_aktionen=redacted.modified_count
     )

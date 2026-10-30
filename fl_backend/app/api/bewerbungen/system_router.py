@@ -10,11 +10,11 @@ from app.api.aktionen.crud import redact_images_in_session
 from app.api.bewerbungen.schemas import FLBewerbungSweepResponse, FLBewerbungSweepSaisonsResponse
 from app.api.bewerbungen.services import (
     SWEEP_PAGE,
-    acceptance_erasure_is_due,
+    acceptance_loeschung_is_due,
     build_deletion_filter,
     build_erinnerung_filter,
     compose_erinnerung_update,
-    decline_erasure_is_due,
+    decline_loeschung_is_due,
     deletion_is_due,
     latest_decision_due,
     next_saison_id,
@@ -25,7 +25,7 @@ from app.api.bewerbungen.services import (
     schule_name,
     season_after_has_ended,
     season_has_ended,
-    undecided_erasure_is_due,
+    undecided_loeschung_is_due,
     unerreichbare_seats,
 )
 from app.api.kontakte.services import contact_block_image_edits
@@ -37,7 +37,7 @@ from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.teams.crud import pull_team_names, void_moved_seats
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import anchor_in_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
+from app.core.crud import anchor_in_db, loeschen_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     AktionenCollection,
     BewerbungenCollection,
@@ -178,7 +178,7 @@ async def sweep_saison(
 
     stamp = log_stamp(germany_now)
 
-    async def erase_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
+    async def loeschen_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The season's own end: erase, then redact the rows that still hold the people. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
@@ -195,7 +195,7 @@ async def sweep_saison(
         taken = batch.took(
             [
                 row
-                for row, due in batch.judged(rows, lambda row: undecided_erasure_is_due(bewerbung_raw=row, saison_status=saison_status))
+                for row, due in batch.judged(rows, lambda row: undecided_loeschung_is_due(bewerbung_raw=row, saison_status=saison_status))
                 if due
             ]
         )
@@ -203,7 +203,7 @@ async def sweep_saison(
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]
-        result = await erase_many_from_db(
+        result = await loeschen_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await _redact(
@@ -288,7 +288,7 @@ async def sweep_saison(
 
         return len(taken)
 
-    async def erase_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
+    async def loeschen_the_unconfirmed(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The fourteen-day clock: owe the submitter the notice, erase, then redact, in one transaction.
 
         Read in-session, so a retry re-judges.
@@ -330,7 +330,7 @@ async def sweep_saison(
             now=germany_now,
         )
         ids = [row["_id"] for row in taken]
-        result = await erase_many_from_db(
+        result = await loeschen_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await _redact(
@@ -339,7 +339,7 @@ async def sweep_saison(
 
         return len(rows), result.deleted_count, redacted
 
-    async def erase_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
+    async def loeschen_declined(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The one-month clock: erase, then redact the rows that still hold the people. Read in-session, so a retry re-judges."""
 
         rows = await batch.saw(
@@ -355,7 +355,7 @@ async def sweep_saison(
                 session=session,
             )
         )
-        taken = batch.took([row for row in rows if decline_erasure_is_due(bewerbung_raw=row, today=today)])
+        taken = batch.took([row for row in rows if decline_loeschung_is_due(bewerbung_raw=row, today=today)])
         if not taken:
             refuse_a_stalled_page(read=len(rows), moved=0, page=SWEEP_PAGE, clock="decline", saison_id=saison_id)
             return len(rows), 0, 0
@@ -363,7 +363,7 @@ async def sweep_saison(
         ids = [row["_id"] for row in taken]
         # The filter names the season and the ids and nothing else: it is stored as text, and any
         # other key would preserve what this call destroys.
-        result = await erase_many_from_db(
+        result = await loeschen_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await _redact(
@@ -372,7 +372,7 @@ async def sweep_saison(
 
         return len(rows), result.deleted_count, redacted
 
-    async def erase_accepted(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
+    async def loeschen_accepted(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The season-and-one clock's first half. Read in-session, the season with it, so a retry re-judges."""
 
         rows = await batch.saw(
@@ -388,7 +388,7 @@ async def sweep_saison(
         taken = batch.took(
             [
                 row
-                for row, due in batch.judged(rows, lambda row: acceptance_erasure_is_due(bewerbung_raw=row, later_saison_status=later_status))
+                for row, due in batch.judged(rows, lambda row: acceptance_loeschung_is_due(bewerbung_raw=row, later_saison_status=later_status))
                 if due
             ]
         )
@@ -398,7 +398,7 @@ async def sweep_saison(
             return 0, 0, 0
 
         ids = [row["_id"] for row in taken]
-        result = await erase_many_from_db(
+        result = await loeschen_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await _redact(
@@ -502,7 +502,7 @@ async def sweep_saison(
     if season_has_ended(saison_status=saison_status):
         ohne_entscheidung, redacted_undecided, passed = await drain(
             db=db,
-            page_of=erase_the_undecided,
+            page_of=loeschen_the_undecided,
             page=SWEEP_PAGE,
             what="Application",
             clock="season's end",
@@ -511,7 +511,7 @@ async def sweep_saison(
 
     abgelehnte, redacted_declined, passed = await drain(
         db=db,
-        page_of=erase_declined,
+        page_of=loeschen_declined,
         page=SWEEP_PAGE,
         what="Application",
         clock="decline",
@@ -523,7 +523,7 @@ async def sweep_saison(
     if season_after_has_ended(later_saison_status=later_saison_status):
         angenommene, redacted_accepted, passed = await drain(
             db=db,
-            page_of=erase_accepted,
+            page_of=loeschen_accepted,
             page=SWEEP_PAGE,
             what="Application",
             clock="acceptance",
@@ -570,7 +570,7 @@ async def sweep_saison(
     # chase, and a season that has ended took its undecided rows already.
     geloescht, redacted_unconfirmed, passed = await drain(
         db=db,
-        page_of=erase_the_unconfirmed,
+        page_of=loeschen_the_unconfirmed,
         page=SWEEP_PAGE,
         what="Application",
         clock="fourteen-day",

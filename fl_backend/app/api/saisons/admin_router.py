@@ -81,7 +81,7 @@ from app.core.crud import (
     build_query,
     build_sort,
     delete_many_from_db,
-    erase_many_from_db,
+    loeschen_many_from_db,
     patch_many_in_db,
     patch_one_in_db,
     post_many_to_db,
@@ -576,7 +576,7 @@ async def activate_saison(
 
         # `$lt` and not `$lte`: the season named on a row is the last one the ban covers, so the row
         # lapses on the activation of the season AFTER it.
-        await erase_many_from_db(
+        await loeschen_many_from_db(
             collection=sperrliste_collection,
             db_filter={"gesperrt_bis_saison_id": {"$lt": saison_id}},
             session=session,

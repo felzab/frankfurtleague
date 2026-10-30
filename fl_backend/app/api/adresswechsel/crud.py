@@ -43,7 +43,7 @@ from app.api.aktionen.crud import (
 )
 from app.api.berechtigungen.antraege import antrag_line, build_offen_filter, end_the_antraege_about_in_session
 from app.api.berechtigungen.crud import grant_in_session, read_berechtigungen, read_the_announced, revoke_in_session
-from app.api.berechtigungen.erasure import carry_authorship_in_session
+from app.api.berechtigungen.loeschung import carry_authorship_in_session
 from app.api.berechtigungen.services import compose_fortgefuehrt, genehmigung_steht
 from app.api.identitaet.lookup import RecordCollections
 from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt, eigene_sitze, ist_eigener_schiedsrichter
@@ -58,7 +58,7 @@ from app.api.postausgang.schemas import (
     FLPostausgangLink,
 )
 from app.api.postausgang.services import ANMELDE_ARTEN, enqueue_mail
-from app.api.registrierungen.services import build_erasure_registrierung_filter, registrierung_ist_bestaetigt
+from app.api.registrierungen.services import build_loeschung_registrierung_filter, registrierung_ist_bestaetigt
 from app.api.schiedsrichter.services import build_selbst_referee_filter, vorname_of
 from app.api.sperrliste.lookup import BanList, Saison, adressen_gesperrt
 from app.api.spielbestaetigungen.services import (
@@ -72,10 +72,10 @@ from app.api.spieler.crud import another_pupil_holds
 from app.api.spieler.services import build_selbst_pupil_filter
 from app.api.teams.crud import void_moved_seats
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
+from app.core.crud import aggregate_many_from_db, loeschen_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db
 from app.core.exceptions import WriteRefusal
 from app.core.journal import Journal, JournalLine
-from app.core.recording import ERASED_ACTOR_MARKER, build_redaction_filter, log_stamp
+from app.core.recording import GELOESCHT_ACTOR_MARKER, build_redaction_filter, log_stamp
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import FLAdresswechselEinsehbarVerwehrt, FLAdresswechselEndeArt, FLAdresswechselWeg
@@ -167,7 +167,11 @@ async def read_the_bestand(
     )
     registrierungen = await aggregate_many_from_db(
         collection=records.registrierungen_collection,
-        pipeline=[{"$match": build_erasure_registrierung_filter(identifier)}, {"$project": dict(_REGISTRIERUNG_FIELDS)}, {"$sort": {"_id": 1}}],
+        pipeline=[
+            {"$match": build_loeschung_registrierung_filter(identifier)},
+            {"$project": dict(_REGISTRIERUNG_FIELDS)},
+            {"$sort": {"_id": 1}},
+        ],
         session=session,
     )
 
@@ -204,7 +208,7 @@ async def adresse_belegt(email: str, *, records: RecordCollections, belegung: Be
         (records.schiedsrichter_collection, build_selbst_referee_filter(folded)),
         (records.saison_teams_collection, rows_seating(folded)),
         (records.bewerbungen_collection, rows_seating(folded)),
-        (records.registrierungen_collection, build_erasure_registrierung_filter(folded)),
+        (records.registrierungen_collection, build_loeschung_registrierung_filter(folded)),
         # As stored, as the account sweep reads it: a row the comparison has not seen yet still keeps an account.
         (belegung.berechtigungen_collection, {"adresse": folded}),
         (belegung.berechtigungen_antraege_collection, {"adresse": folded, **build_offen_filter(belegung.now)}),
@@ -899,7 +903,7 @@ async def _carry_the_mail(postausgang_collection: AsyncCollection, alt: str, neu
             collection=postausgang_collection, db_filter={"_id": {"$in": offen}}, update={"$set": {"an": neu}}, session=session
         )
     if gesendet := [row["_id"] for row in held if row["stand"] != "offen"]:
-        await erase_many_from_db(collection=postausgang_collection, db_filter={"_id": {"$in": gesendet}}, session=session)
+        await loeschen_many_from_db(collection=postausgang_collection, db_filter={"_id": {"$in": gesendet}}, session=session)
 
 
 async def _seats_staying_at(identifier: str, *, collections: Sequence[AsyncCollection], session: AsyncClientSession) -> set[tuple[Any, str]]:
@@ -1030,7 +1034,7 @@ def _registrierung_move(row: Mapping[str, Any], neue: str) -> dict[str, Any]:
 # --- The ERASURE's reach: a change naming the erased address ends, and an administrator it names takes the marker.
 
 
-def build_erasure_adresswechsel_pipeline(identifier: str) -> list[Mapping[str, Any]]:
+def build_loeschung_adresswechsel_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every live change whose address on file, or whose new address, is this one, each stored folded."""
 
     folded = sign_in_identifier(identifier)
@@ -1108,7 +1112,7 @@ async def end_the_address_changes_in_session(
     """
 
     if rows:
-        await erase_many_from_db(
+        await loeschen_many_from_db(
             collection=postausgang_collection,
             db_filter={
                 "bezug.sammlung": str(Collection.ADRESSWECHSEL),
@@ -1130,7 +1134,7 @@ async def end_the_address_changes_in_session(
         )
 
     # Read after the endings, which took the approval off every change they ended.
-    await _reattribute_the_changes(adresswechsel_collection, identifier, ERASED_ACTOR_MARKER, session=session)
+    await _reattribute_the_changes(adresswechsel_collection, identifier, GELOESCHT_ACTOR_MARKER, session=session)
 
     # A carry still owed off or onto the erased address goes: the erasure takes the account it would move, or the address
     # it would move one to. By id, as every write here.

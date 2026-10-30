@@ -6,10 +6,10 @@ import {
 } from "@/core/generated/client/sdk";
 
 import type {
-  FLErasureAdressePayload,
-  FLErasureAnsichtResponse,
-  FLErasurePayload,
-  FLErasureResponse,
+  FLLoeschungAdressePayload,
+  FLLoeschungAnsichtResponse,
+  FLLoeschungPayload,
+  FLLoeschungResponse,
   FLReferenzenPayload,
   FLReferenzenResponse,
 } from "@/core/generated/client/types";
@@ -27,16 +27,16 @@ export async function postReferenzen(payload: FLReferenzenPayload): Promise<FLRe
  * The address travels in the BODY: a path or a query would file it in the access log and in `aktionen.request.path`.
  * Hence a POST even for the read, a GET's body having no defined semantics (RFC 9110 §9.3.1).
  */
-export async function readErasureAnsicht(payload: FLErasureAdressePayload): Promise<FLErasureAnsichtResponse> {
+export async function readLoeschungAnsicht(payload: FLLoeschungAdressePayload): Promise<FLLoeschungAnsichtResponse> {
   return identitaetGetLoeschungAnsicht(payload, { readOnly: true });
 }
 
 /** Erases every league record of the address, the sign-in account left to the caller once this has answered. */
-export async function eraseAufAnfrage(payload: FLErasurePayload): Promise<FLErasureResponse> {
+export async function loeschenAufAnfrage(payload: FLLoeschungPayload): Promise<FLLoeschungResponse> {
   return identitaetPostLoeschung(payload);
 }
 
 /** Files the sign-out on the log, naming no address, before the caller ends a single session. */
-export async function recordAbmeldung(payload: FLErasureAdressePayload): Promise<void> {
+export async function recordAbmeldung(payload: FLLoeschungAdressePayload): Promise<void> {
   await identitaetPostAbmeldung(payload);
 }

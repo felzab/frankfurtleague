@@ -28,7 +28,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.constraints import SUPPORT_INDEXES, UNIQUE_INDEXES
-from app.core.recording import ERASED_ACTOR_MARKER
+from app.core.recording import GELOESCHT_ACTOR_MARKER
 from app.shared.folding import canonical_address
 from app.shared.schemas.responses import BaseAPIResponse
 from tests.config import BASE_AUTH
@@ -285,7 +285,7 @@ class TestWhetherAnApprovalStillStands:
                 id="an owner's change, its approver demoted since",
             ),
             pytest.param(
-                a_change(gestartet_von=CHANGED, genehmigt_von=ERASED_ACTOR_MARKER), GRANTS, set(), False, id="its approver erased since"
+                a_change(gestartet_von=CHANGED, genehmigt_von=GELOESCHT_ACTOR_MARKER), GRANTS, set(), False, id="its approver erased since"
             ),
             # The effect of their own change carried `genehmigt_von` to the row it granted afresh.
             pytest.param(

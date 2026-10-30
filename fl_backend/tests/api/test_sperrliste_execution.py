@@ -20,8 +20,8 @@ from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document, spieler_document
-from tests.erasure import erased
 from tests.isolation import InterleavedCollection
+from tests.loeschung import geloescht
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -469,8 +469,8 @@ class TestLiftingABan:
         assert on_a_clean_list(mongo_replica_set_url, body) == 1
 
 
-class TestAnErasureLeavesTheListStanding:
-    def test_erasing_a_pupil_moves_no_row_of_the_ban_list(self, mongo_replica_set_url: str):
+class TestAnLoeschungLeavesTheListStanding:
+    def test_loeschen_a_pupil_moves_no_row_of_the_ban_list(self, mongo_replica_set_url: str):
         """The deliberate exception: the one record a person's own erasure does not reach.
 
         Driven through the real erasure rather than asserted about it, so a collection added to that
@@ -486,14 +486,14 @@ class TestAnErasureLeavesTheListStanding:
             await database[Collection.SPIELER].insert_one(
                 spieler_document(ObjectId(), "Zorbanax", "Mustermann", email=BANNED_RETYPED, geburtsdatum="2009-05-09")
             )
-            gone = await erased(database, client, BANNED, germany_now=NOW)
+            gone = await geloescht(database, client, BANNED, germany_now=NOW)
 
             return gone.spieler, before, await rows_of(database)
 
-        erased_pupils, before, after = on_a_clean_list(mongo_replica_set_url, body)
+        geloescht_pupils, before, after = on_a_clean_list(mongo_replica_set_url, body)
 
         # The premise: an erasure reaching nobody leaves the list standing too.
-        assert erased_pupils == 1
+        assert geloescht_pupils == 1
         # Non-empty first: two empty lists compare equal, and an erasure that emptied the collection
         # would then read as one that left it alone.
         assert before

@@ -5340,523 +5340,6 @@
         ],
         "type": "string"
       },
-      "FLErasureAdressePayload": {
-        "additionalProperties": false,
-        "description": "The mailbox an erasure, its preview or a sign-out of every session is looked up by.",
-        "properties": {
-          "email": {
-            "maxLength": 254,
-            "pattern": "@",
-            "title": "Email",
-            "type": "string"
-          }
-        },
-        "required": [
-          "email"
-        ],
-        "title": "FLErasureAdressePayload",
-        "type": "object"
-      },
-      "FLErasureAnsichtAdresswechsel": {
-        "description": "Another address's live change naming this one as its new address: the change ends, its address's records standing.",
-        "properties": {
-          "adresswechsel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Adresswechsel Id",
-            "type": "string"
-          },
-          "einsehbar_verwehrt": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLAdresswechselEinsehbarVerwehrt"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "adresswechsel_id",
-          "einsehbar_verwehrt"
-        ],
-        "title": "FLErasureAnsichtAdresswechsel",
-        "type": "object"
-      },
-      "FLErasureAnsichtAntrag": {
-        "description": "An open request for a grant, about the address (`betroffen`) or made by it (`gestellt`), which the erasure removes.",
-        "properties": {
-          "antrag_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Antrag Id",
-            "type": "string"
-          },
-          "rolle": {
-            "enum": [
-              "betroffen",
-              "gestellt"
-            ],
-            "title": "Rolle",
-            "type": "string"
-          },
-          "verwaltung": {
-            "$ref": "#/components/schemas/FLVerwaltung"
-          }
-        },
-        "required": [
-          "antrag_id",
-          "verwaltung",
-          "rolle"
-        ],
-        "title": "FLErasureAnsichtAntrag",
-        "type": "object"
-      },
-      "FLErasureAnsichtBewerbung": {
-        "properties": {
-          "bewerbung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Bewerbung Id",
-            "type": "string"
-          },
-          "nachname": {
-            "title": "Nachname",
-            "type": "string"
-          },
-          "rolle": {
-            "$ref": "#/components/schemas/FLKontaktRolle"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "rolle",
-          "vorname",
-          "nachname",
-          "bewerbung_id"
-        ],
-        "title": "FLErasureAnsichtBewerbung",
-        "type": "object"
-      },
-      "FLErasureAnsichtEigenerAdresswechsel": {
-        "description": "The address's own live change, which the erasure ends with the records it would move.",
-        "properties": {
-          "adresswechsel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Adresswechsel Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "adresswechsel_id"
-        ],
-        "title": "FLErasureAnsichtEigenerAdresswechsel",
-        "type": "object"
-      },
-      "FLErasureAnsichtKader": {
-        "description": "One squad row of a pupil the erasure reaches.",
-        "properties": {
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
-          "team_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team Name"
-          }
-        },
-        "required": [
-          "saison_id",
-          "team_id",
-          "team_name",
-          "inactive_since"
-        ],
-        "title": "FLErasureAnsichtKader",
-        "type": "object"
-      },
-      "FLErasureAnsichtRegistrierung": {
-        "properties": {
-          "nachname": {
-            "title": "Nachname",
-            "type": "string"
-          },
-          "registrierung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Registrierung Id",
-            "type": "string"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "status": {
-            "$ref": "#/components/schemas/FLRegistrierungStatus"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
-          "team_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team Name"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "team_name",
-          "vorname",
-          "nachname",
-          "registrierung_id",
-          "team_id",
-          "status"
-        ],
-        "title": "FLErasureAnsichtRegistrierung",
-        "type": "object"
-      },
-      "FLErasureAnsichtResponse": {
-        "properties": {
-          "adresswechsel": {
-            "items": {
-              "$ref": "#/components/schemas/FLErasureAnsichtAdresswechsel"
-            },
-            "title": "Adresswechsel",
-            "type": "array"
-          },
-          "antraege": {
-            "items": {
-              "$ref": "#/components/schemas/FLErasureAnsichtAntrag"
-            },
-            "title": "Antraege",
-            "type": "array"
-          },
-          "bewerbungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLErasureAnsichtBewerbung"
-            },
-            "title": "Bewerbungen",
-            "type": "array"
-          },
-          "eigener_adresswechsel": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLErasureAnsichtEigenerAdresswechsel"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "gesperrt": {
-            "title": "Gesperrt",
-            "type": "boolean"
-          },
-          "registrierungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLErasureAnsichtRegistrierung"
-            },
-            "title": "Registrierungen",
-            "type": "array"
-          },
-          "schiedsrichter": {
-            "items": {
-              "$ref": "#/components/schemas/FLErasureAnsichtSchiedsrichter"
-            },
-            "title": "Schiedsrichter",
-            "type": "array"
-          },
-          "sitze": {
-            "items": {
-              "$ref": "#/components/schemas/FLErasureAnsichtSitz"
-            },
-            "title": "Sitze",
-            "type": "array"
-          },
-          "spieler": {
-            "items": {
-              "$ref": "#/components/schemas/FLErasureAnsichtSpieler"
-            },
-            "title": "Spieler",
-            "type": "array"
-          },
-          "verwaltung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLVerwaltung"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "spieler",
-          "schiedsrichter",
-          "sitze",
-          "bewerbungen",
-          "registrierungen",
-          "adresswechsel",
-          "eigener_adresswechsel",
-          "antraege",
-          "verwaltung",
-          "gesperrt"
-        ],
-        "title": "FLErasureAnsichtResponse",
-        "type": "object"
-      },
-      "FLErasureAnsichtSchiedsrichter": {
-        "properties": {
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "schiedsrichter_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Schiedsrichter Id",
-            "type": "string"
-          },
-          "spiele_ohne_ergebnis_saison_ids": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Spiele Ohne Ergebnis Saison Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "name",
-          "schiedsrichter_id",
-          "inactive_since",
-          "spiele_ohne_ergebnis_saison_ids"
-        ],
-        "title": "FLErasureAnsichtSchiedsrichter",
-        "type": "object"
-      },
-      "FLErasureAnsichtSitz": {
-        "properties": {
-          "nachname": {
-            "title": "Nachname",
-            "type": "string"
-          },
-          "rolle": {
-            "$ref": "#/components/schemas/FLKontaktRolle"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
-          "team_name": {
-            "title": "Team Name",
-            "type": "string"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "team_name",
-          "rolle",
-          "vorname",
-          "nachname",
-          "team_id"
-        ],
-        "title": "FLErasureAnsichtSitz",
-        "type": "object"
-      },
-      "FLErasureAnsichtSpieler": {
-        "properties": {
-          "kader": {
-            "items": {
-              "$ref": "#/components/schemas/FLErasureAnsichtKader"
-            },
-            "title": "Kader",
-            "type": "array"
-          },
-          "nachname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nachname"
-          },
-          "spieler_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spieler Id",
-            "type": "string"
-          },
-          "vorname": {
-            "title": "Vorname",
-            "type": "string"
-          }
-        },
-        "required": [
-          "vorname",
-          "nachname",
-          "spieler_id",
-          "kader"
-        ],
-        "title": "FLErasureAnsichtSpieler",
-        "type": "object"
-      },
-      "FLErasurePayload": {
-        "additionalProperties": false,
-        "description": "The mailbox, and the request the erasure answers, which every log row the erasure files keeps.",
-        "properties": {
-          "anlass": {
-            "maxLength": 200,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Anlass",
-            "type": "string"
-          },
-          "email": {
-            "maxLength": 254,
-            "pattern": "@",
-            "title": "Email",
-            "type": "string"
-          }
-        },
-        "required": [
-          "email",
-          "anlass"
-        ],
-        "title": "FLErasurePayload",
-        "type": "object"
-      },
-      "FLErasureResponse": {
-        "properties": {
-          "adresswechsel": {
-            "minimum": 0.0,
-            "title": "Adresswechsel",
-            "type": "integer"
-          },
-          "berechtigungen": {
-            "minimum": 0.0,
-            "title": "Berechtigungen",
-            "type": "integer"
-          },
-          "berechtigungen_antraege": {
-            "minimum": 0.0,
-            "title": "Berechtigungen Antraege",
-            "type": "integer"
-          },
-          "kontakt_sitze": {
-            "minimum": 0.0,
-            "title": "Kontakt Sitze",
-            "type": "integer"
-          },
-          "registrierungen": {
-            "minimum": 0.0,
-            "title": "Registrierungen",
-            "type": "integer"
-          },
-          "saison_spieler": {
-            "minimum": 0.0,
-            "title": "Saison Spieler",
-            "type": "integer"
-          },
-          "schiedsrichter": {
-            "minimum": 0.0,
-            "title": "Schiedsrichter",
-            "type": "integer"
-          },
-          "spiele": {
-            "minimum": 0.0,
-            "title": "Spiele",
-            "type": "integer"
-          },
-          "spieler": {
-            "minimum": 0.0,
-            "title": "Spieler",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "spieler",
-          "saison_spieler",
-          "schiedsrichter",
-          "spiele",
-          "kontakt_sitze",
-          "registrierungen",
-          "adresswechsel",
-          "berechtigungen",
-          "berechtigungen_antraege"
-        ],
-        "title": "FLErasureResponse",
-        "type": "object"
-      },
       "FLFailureBody": {
         "properties": {
           "error_code": {
@@ -7276,6 +6759,436 @@
         "title": "FLKontoSpielerEinwilligung",
         "type": "object"
       },
+      "FLLoeschungAdressePayload": {
+        "additionalProperties": false,
+        "description": "The mailbox an erasure, its preview or a sign-out of every session is looked up by.",
+        "properties": {
+          "email": {
+            "maxLength": 254,
+            "pattern": "@",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "FLLoeschungAdressePayload",
+        "type": "object"
+      },
+      "FLLoeschungAnsichtAdresswechsel": {
+        "description": "Another address's live change naming this one as its new address: the change ends, its address's records standing.",
+        "properties": {
+          "adresswechsel_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Adresswechsel Id",
+            "type": "string"
+          },
+          "einsehbar_verwehrt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLAdresswechselEinsehbarVerwehrt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "adresswechsel_id",
+          "einsehbar_verwehrt"
+        ],
+        "title": "FLLoeschungAnsichtAdresswechsel",
+        "type": "object"
+      },
+      "FLLoeschungAnsichtAntrag": {
+        "description": "An open request for a grant, about the address (`betroffen`) or made by it (`gestellt`), which the erasure removes.",
+        "properties": {
+          "antrag_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Antrag Id",
+            "type": "string"
+          },
+          "rolle": {
+            "enum": [
+              "betroffen",
+              "gestellt"
+            ],
+            "title": "Rolle",
+            "type": "string"
+          },
+          "verwaltung": {
+            "$ref": "#/components/schemas/FLVerwaltung"
+          }
+        },
+        "required": [
+          "antrag_id",
+          "verwaltung",
+          "rolle"
+        ],
+        "title": "FLLoeschungAnsichtAntrag",
+        "type": "object"
+      },
+      "FLLoeschungAnsichtBewerbung": {
+        "properties": {
+          "bewerbung_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Bewerbung Id",
+            "type": "string"
+          },
+          "nachname": {
+            "title": "Nachname",
+            "type": "string"
+          },
+          "rolle": {
+            "$ref": "#/components/schemas/FLKontaktRolle"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "vorname": {
+            "title": "Vorname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "saison_id",
+          "rolle",
+          "vorname",
+          "nachname",
+          "bewerbung_id"
+        ],
+        "title": "FLLoeschungAnsichtBewerbung",
+        "type": "object"
+      },
+      "FLLoeschungAnsichtEigenerAdresswechsel": {
+        "description": "The address's own live change, which the erasure ends with the records it would move.",
+        "properties": {
+          "adresswechsel_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Adresswechsel Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "adresswechsel_id"
+        ],
+        "title": "FLLoeschungAnsichtEigenerAdresswechsel",
+        "type": "object"
+      },
+      "FLLoeschungAnsichtKader": {
+        "description": "One squad row of a pupil the erasure reaches.",
+        "properties": {
+          "inactive_since": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
+          },
+          "team_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Name"
+          }
+        },
+        "required": [
+          "saison_id",
+          "team_id",
+          "team_name",
+          "inactive_since"
+        ],
+        "title": "FLLoeschungAnsichtKader",
+        "type": "object"
+      },
+      "FLLoeschungAnsichtRegistrierung": {
+        "properties": {
+          "nachname": {
+            "title": "Nachname",
+            "type": "string"
+          },
+          "registrierung_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Registrierung Id",
+            "type": "string"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FLRegistrierungStatus"
+          },
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
+          },
+          "team_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Name"
+          },
+          "vorname": {
+            "title": "Vorname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "saison_id",
+          "team_name",
+          "vorname",
+          "nachname",
+          "registrierung_id",
+          "team_id",
+          "status"
+        ],
+        "title": "FLLoeschungAnsichtRegistrierung",
+        "type": "object"
+      },
+      "FLLoeschungAnsichtResponse": {
+        "properties": {
+          "adresswechsel": {
+            "items": {
+              "$ref": "#/components/schemas/FLLoeschungAnsichtAdresswechsel"
+            },
+            "title": "Adresswechsel",
+            "type": "array"
+          },
+          "antraege": {
+            "items": {
+              "$ref": "#/components/schemas/FLLoeschungAnsichtAntrag"
+            },
+            "title": "Antraege",
+            "type": "array"
+          },
+          "bewerbungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLLoeschungAnsichtBewerbung"
+            },
+            "title": "Bewerbungen",
+            "type": "array"
+          },
+          "eigener_adresswechsel": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLLoeschungAnsichtEigenerAdresswechsel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gesperrt": {
+            "title": "Gesperrt",
+            "type": "boolean"
+          },
+          "registrierungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLLoeschungAnsichtRegistrierung"
+            },
+            "title": "Registrierungen",
+            "type": "array"
+          },
+          "schiedsrichter": {
+            "items": {
+              "$ref": "#/components/schemas/FLLoeschungAnsichtSchiedsrichter"
+            },
+            "title": "Schiedsrichter",
+            "type": "array"
+          },
+          "sitze": {
+            "items": {
+              "$ref": "#/components/schemas/FLLoeschungAnsichtSitz"
+            },
+            "title": "Sitze",
+            "type": "array"
+          },
+          "spieler": {
+            "items": {
+              "$ref": "#/components/schemas/FLLoeschungAnsichtSpieler"
+            },
+            "title": "Spieler",
+            "type": "array"
+          },
+          "verwaltung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLVerwaltung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "spieler",
+          "schiedsrichter",
+          "sitze",
+          "bewerbungen",
+          "registrierungen",
+          "adresswechsel",
+          "eigener_adresswechsel",
+          "antraege",
+          "verwaltung",
+          "gesperrt"
+        ],
+        "title": "FLLoeschungAnsichtResponse",
+        "type": "object"
+      },
+      "FLLoeschungAnsichtSchiedsrichter": {
+        "properties": {
+          "inactive_since": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive Since"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "schiedsrichter_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Schiedsrichter Id",
+            "type": "string"
+          },
+          "spiele_ohne_ergebnis_saison_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Spiele Ohne Ergebnis Saison Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "schiedsrichter_id",
+          "inactive_since",
+          "spiele_ohne_ergebnis_saison_ids"
+        ],
+        "title": "FLLoeschungAnsichtSchiedsrichter",
+        "type": "object"
+      },
+      "FLLoeschungAnsichtSitz": {
+        "properties": {
+          "nachname": {
+            "title": "Nachname",
+            "type": "string"
+          },
+          "rolle": {
+            "$ref": "#/components/schemas/FLKontaktRolle"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "team_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Team Id",
+            "type": "string"
+          },
+          "team_name": {
+            "title": "Team Name",
+            "type": "string"
+          },
+          "vorname": {
+            "title": "Vorname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "saison_id",
+          "team_name",
+          "rolle",
+          "vorname",
+          "nachname",
+          "team_id"
+        ],
+        "title": "FLLoeschungAnsichtSitz",
+        "type": "object"
+      },
+      "FLLoeschungAnsichtSpieler": {
+        "properties": {
+          "kader": {
+            "items": {
+              "$ref": "#/components/schemas/FLLoeschungAnsichtKader"
+            },
+            "title": "Kader",
+            "type": "array"
+          },
+          "nachname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachname"
+          },
+          "spieler_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Spieler Id",
+            "type": "string"
+          },
+          "vorname": {
+            "title": "Vorname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vorname",
+          "nachname",
+          "spieler_id",
+          "kader"
+        ],
+        "title": "FLLoeschungAnsichtSpieler",
+        "type": "object"
+      },
       "FLLoeschungLaufResponse": {
         "description": "One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due.",
         "properties": {
@@ -7338,6 +7251,93 @@
           "nach"
         ],
         "title": "FLLoeschungLaufResponse",
+        "type": "object"
+      },
+      "FLLoeschungPayload": {
+        "additionalProperties": false,
+        "description": "The mailbox, and the request the erasure answers, which every log row the erasure files keeps.",
+        "properties": {
+          "anlass": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Anlass",
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 254,
+            "pattern": "@",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "anlass"
+        ],
+        "title": "FLLoeschungPayload",
+        "type": "object"
+      },
+      "FLLoeschungResponse": {
+        "properties": {
+          "adresswechsel": {
+            "minimum": 0.0,
+            "title": "Adresswechsel",
+            "type": "integer"
+          },
+          "berechtigungen": {
+            "minimum": 0.0,
+            "title": "Berechtigungen",
+            "type": "integer"
+          },
+          "berechtigungen_antraege": {
+            "minimum": 0.0,
+            "title": "Berechtigungen Antraege",
+            "type": "integer"
+          },
+          "kontakt_sitze": {
+            "minimum": 0.0,
+            "title": "Kontakt Sitze",
+            "type": "integer"
+          },
+          "registrierungen": {
+            "minimum": 0.0,
+            "title": "Registrierungen",
+            "type": "integer"
+          },
+          "saison_spieler": {
+            "minimum": 0.0,
+            "title": "Saison Spieler",
+            "type": "integer"
+          },
+          "schiedsrichter": {
+            "minimum": 0.0,
+            "title": "Schiedsrichter",
+            "type": "integer"
+          },
+          "spiele": {
+            "minimum": 0.0,
+            "title": "Spiele",
+            "type": "integer"
+          },
+          "spieler": {
+            "minimum": 0.0,
+            "title": "Spieler",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "spieler",
+          "saison_spieler",
+          "schiedsrichter",
+          "spiele",
+          "kontakt_sitze",
+          "registrierungen",
+          "adresswechsel",
+          "berechtigungen",
+          "berechtigungen_antraege"
+        ],
+        "title": "FLLoeschungResponse",
         "type": "object"
       },
       "FLLoeschungVorschauResponse": {
@@ -11966,7 +11966,7 @@
         "title": "FLSelbstEinwilligungPayload",
         "type": "object"
       },
-      "FLSelbstErasureAnsichtResponse": {
+      "FLSelbstLoeschungAnsichtResponse": {
         "properties": {
           "adresswechsel": {
             "minimum": 0.0,
@@ -11975,7 +11975,7 @@
           },
           "bewerbungen": {
             "items": {
-              "$ref": "#/components/schemas/FLSelbstErasureBewerbung"
+              "$ref": "#/components/schemas/FLSelbstLoeschungBewerbung"
             },
             "title": "Bewerbungen",
             "type": "array"
@@ -11986,28 +11986,28 @@
           },
           "registrierungen": {
             "items": {
-              "$ref": "#/components/schemas/FLSelbstErasureRegistrierung"
+              "$ref": "#/components/schemas/FLSelbstLoeschungRegistrierung"
             },
             "title": "Registrierungen",
             "type": "array"
           },
           "schiedsrichter": {
             "items": {
-              "$ref": "#/components/schemas/FLSelbstErasureSchiedsrichter"
+              "$ref": "#/components/schemas/FLSelbstLoeschungSchiedsrichter"
             },
             "title": "Schiedsrichter",
             "type": "array"
           },
           "sitze": {
             "items": {
-              "$ref": "#/components/schemas/FLSelbstErasureSitz"
+              "$ref": "#/components/schemas/FLSelbstLoeschungSitz"
             },
             "title": "Sitze",
             "type": "array"
           },
           "spieler": {
             "items": {
-              "$ref": "#/components/schemas/FLSelbstErasureSpieler"
+              "$ref": "#/components/schemas/FLSelbstLoeschungSpieler"
             },
             "title": "Spieler",
             "type": "array"
@@ -12033,10 +12033,10 @@
           "verwaltung",
           "letzter_inhaber"
         ],
-        "title": "FLSelbstErasureAnsichtResponse",
+        "title": "FLSelbstLoeschungAnsichtResponse",
         "type": "object"
       },
-      "FLSelbstErasureBewerbung": {
+      "FLSelbstLoeschungBewerbung": {
         "description": "One seat on an application, of any status.",
         "properties": {
           "nachname": {
@@ -12061,10 +12061,10 @@
           "vorname",
           "nachname"
         ],
-        "title": "FLSelbstErasureBewerbung",
+        "title": "FLSelbstLoeschungBewerbung",
         "type": "object"
       },
-      "FLSelbstErasureRegistrierung": {
+      "FLSelbstLoeschungRegistrierung": {
         "description": "One registration, pending or declined.",
         "properties": {
           "nachname": {
@@ -12097,10 +12097,10 @@
           "vorname",
           "nachname"
         ],
-        "title": "FLSelbstErasureRegistrierung",
+        "title": "FLSelbstLoeschungRegistrierung",
         "type": "object"
       },
-      "FLSelbstErasureSchiedsrichter": {
+      "FLSelbstLoeschungSchiedsrichter": {
         "properties": {
           "name": {
             "anyOf": [
@@ -12117,10 +12117,10 @@
         "required": [
           "name"
         ],
-        "title": "FLSelbstErasureSchiedsrichter",
+        "title": "FLSelbstLoeschungSchiedsrichter",
         "type": "object"
       },
-      "FLSelbstErasureSitz": {
+      "FLSelbstLoeschungSitz": {
         "description": "One seat on a team's season row, named as the row names it.",
         "properties": {
           "nachname": {
@@ -12150,10 +12150,10 @@
           "vorname",
           "nachname"
         ],
-        "title": "FLSelbstErasureSitz",
+        "title": "FLSelbstLoeschungSitz",
         "type": "object"
       },
-      "FLSelbstErasureSpieler": {
+      "FLSelbstLoeschungSpieler": {
         "properties": {
           "nachname": {
             "anyOf": [
@@ -12175,7 +12175,7 @@
           "vorname",
           "nachname"
         ],
-        "title": "FLSelbstErasureSpieler",
+        "title": "FLSelbstLoeschungSpieler",
         "type": "object"
       },
       "FLSitzBestaetigt": {
@@ -16385,7 +16385,7 @@
         "type": "object"
       },
       "FLSubjektSitz": {
-        "description": "One contact seat the mailbox holds on a season's junction row.\n\nPer seat and never per person, as the erasure's `FLSelbstErasureSitz` is: one row seats one\nperson twice where `trainer_ist_zugleich` says so.",
+        "description": "One contact seat the mailbox holds on a season's junction row.\n\nPer seat and never per person, as the erasure's `FLSelbstLoeschungSitz` is: one row seats one\nperson twice where `trainer_ist_zugleich` says so.",
         "properties": {
           "rolle": {
             "$ref": "#/components/schemas/FLKontaktRolle"
@@ -20660,7 +20660,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLErasureAdressePayload"
+                "$ref": "#/components/schemas/FLLoeschungAdressePayload"
               }
             }
           },
@@ -20815,7 +20815,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLErasureResponse"
+                  "$ref": "#/components/schemas/FLLoeschungResponse"
                 }
               }
             },
@@ -20882,7 +20882,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSelbstErasureAnsichtResponse"
+                  "$ref": "#/components/schemas/FLSelbstLoeschungAnsichtResponse"
                 }
               }
             },
@@ -20948,7 +20948,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLErasurePayload"
+                "$ref": "#/components/schemas/FLLoeschungPayload"
               }
             }
           },
@@ -20959,7 +20959,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLErasureResponse"
+                  "$ref": "#/components/schemas/FLLoeschungResponse"
                 }
               }
             },
@@ -21025,7 +21025,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLErasureAdressePayload"
+                "$ref": "#/components/schemas/FLLoeschungAdressePayload"
               }
             }
           },
@@ -21036,7 +21036,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLErasureAnsichtResponse"
+                  "$ref": "#/components/schemas/FLLoeschungAnsichtResponse"
                 }
               }
             },

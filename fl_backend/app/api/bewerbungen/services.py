@@ -1384,7 +1384,7 @@ def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
     }
 
 
-def decline_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
+def decline_loeschung_is_due(*, bewerbung_raw: Mapping[str, Any], today: str) -> bool:
     """Whether the one-month clock takes this declined application, counted from the day the decision was taken."""
 
     if bewerbung_raw.get("status") != "abgelehnt":
@@ -1415,11 +1415,11 @@ def season_after_has_ended(*, later_saison_status: Any) -> bool:
     return season_has_ended(saison_status=later_saison_status)
 
 
-def acceptance_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], later_saison_status: Any) -> bool:
+def acceptance_loeschung_is_due(*, bewerbung_raw: Mapping[str, Any], later_saison_status: Any) -> bool:
     return bewerbung_raw.get("status") == "angenommen" and season_after_has_ended(later_saison_status=later_saison_status)
 
 
-def undecided_erasure_is_due(*, bewerbung_raw: Mapping[str, Any], saison_status: Any) -> bool:
+def undecided_loeschung_is_due(*, bewerbung_raw: Mapping[str, Any], saison_status: Any) -> bool:
     """Whether the season's own end takes this application: undecided, and its season is over.
 
     Nothing else is asked: a confirmed seat, a missing deadline and a refused notice each drop an

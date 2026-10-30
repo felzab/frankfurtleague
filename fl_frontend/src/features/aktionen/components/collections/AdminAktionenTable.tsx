@@ -10,7 +10,7 @@ import Person from "@gravity-ui/icons/Person";
 
 import { Table } from "@heroui/react/table";
 
-import { ERASED_ACTOR_MARKER } from "@/core/erasedActor";
+import { GELOESCHT_ACTOR_MARKER } from "@/core/geloeschtActor";
 import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
 import { GELOESCHTE_PERSON } from "@/features/berechtigungen/constants";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
@@ -111,7 +111,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
             {actor.kind === "person_session" ? (
               // Erased since, the row names a state rather than a person, in the empty grade the barred arm takes: the
               // kind the write was made as is a fact about the row and stays upright.
-              actor.pseudonym === ERASED_ACTOR_MARKER ? (
+              actor.pseudonym === GELOESCHT_ACTOR_MARKER ? (
                 <>
                   {AKTOR_FUNKTION_LABELS[actor.funktion]} · <Leer>{GELOESCHTE_PERSON}</Leer>
                 </>

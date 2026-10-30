@@ -45,8 +45,8 @@ from tests.actor_tokens import FRESH_ADMIN_ACTOR, verified_actor
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.erasure import erased
 from tests.isolation import InterleavedCollection
+from tests.loeschung import geloescht
 from tests.plans import plans_of_sent_reads
 from tests.postausgang import MAIL_NOW, drained
 from tests.records import record_collections
@@ -984,10 +984,10 @@ class TestARowsPeopleLeavingTakeTheirLinks:
         assert codes == [Code.LINK_UNGUELTIG] * 3
         assert row["bestaetigungen"] is None
 
-    def test_an_erased_person_s_link_opens_nothing(self, mongo_replica_set_url: str):
+    def test_an_geloescht_person_s_link_opens_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, THREE)
-            await erased(database, database.client, "jonas@example.com", germany_now=NOW)
+            await geloescht(database, database.client, "jonas@example.com", germany_now=NOW)
 
             return await refused(ansicht(database, response.bestaetigungen[1].token))
 

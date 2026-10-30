@@ -9,7 +9,7 @@ import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldSt
 import { textLink } from "@/shared/components/ui/textLink";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 
-import type { FLErasureAnsichtResponse } from "@/core/generated/client/types";
+import type { FLLoeschungAnsichtResponse } from "@/core/generated/client/types";
 
 /** One line of the reveal, and the record's own page where the line names no person to recognise it by. */
 type Zeile = { readonly text: string; readonly href?: string };
@@ -43,7 +43,7 @@ function zeilenOf(
     adresswechsel,
     verwaltung,
     antraege,
-  }: FLErasureAnsichtResponse,
+  }: FLLoeschungAnsichtResponse,
   saisonHref: (path: string) => string,
 ): Zeile[] {
   return [
@@ -116,7 +116,7 @@ const IMMER: readonly Zeile[] = [
 const NEUE_EINTEILUNG = `Spiele ohne Ergebnis, für die diese Person eingeteilt ist, brauchen danach eine neue Einteilung. Du findest sie dann unter „${HANDLUNGSBEDARF_EINTRAG.label}“.`;
 
 /** What the erasure of one address reaches, inside its armed reveal: the claim the confirmation rests on. */
-export function FormLoeschungAnsicht({ ansicht }: { ansicht: FLErasureAnsichtResponse }) {
+export function FormLoeschungAnsicht({ ansicht }: { ansicht: FLLoeschungAnsichtResponse }) {
   const saisonHref = useSaisonHref();
   const zeilen = zeilenOf(ansicht, saisonHref);
 

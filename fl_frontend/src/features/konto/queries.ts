@@ -6,7 +6,7 @@ import { runPersonRead } from "@/shared/utils/personRead";
 import type {
   FLKontoAdresswechselResponse,
   FLKontoEinwilligungenResponse,
-  FLSelbstErasureAnsichtResponse,
+  FLSelbstLoeschungAnsichtResponse,
 } from "@/core/generated/client/types";
 
 /**
@@ -18,7 +18,7 @@ export const getKontoEinwilligungen = cache(async (): Promise<FLKontoEinwilligun
 
 /** Every record the signed-in person's erasure would reach, read off the backend rather than inferred here, so the list shown is the list erased. */
 // Never `"use cache"`, for `getKontoEinwilligungen`'s reason.
-export const getLoeschungAnsicht = cache(async (): Promise<FLSelbstErasureAnsichtResponse> =>
+export const getLoeschungAnsicht = cache(async (): Promise<FLSelbstLoeschungAnsichtResponse> =>
   runPersonRead(() => identitaetGetKontoLoeschungAnsicht()),
 );
 

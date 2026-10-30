@@ -1,8 +1,8 @@
 import "server-only";
 
 import { mailOrigin } from "./emailShell";
-import { ERASED_ACTOR_MARKER } from "./erasedActor";
 import { formatZeitpunkt } from "./format";
+import { GELOESCHT_ACTOR_MARKER } from "./geloeschtActor";
 import { OFFENE_ANTRAEGE } from "./seitenNamen";
 
 import type { Lauf, Mail } from "./emailShell";
@@ -55,7 +55,7 @@ type Zugangsaenderung = {
 
 /**
  * Who made the change and when, or `null` where it was made in the database directly. `von` is null for an
- * administrator since barred, and `ERASED_ACTOR_MARKER` for one erased since, neither of whom the notice names.
+ * administrator since barred, and `GELOESCHT_ACTOR_MARKER` for one erased since, neither of whom the notice names.
  */
 type Urheber = { readonly von: string | null; readonly am: string | null } | null;
 
@@ -103,7 +103,7 @@ function aenderungsSatz({ art, adresse, inhaber }: Zugangsaenderung): readonly L
 function urheberName(von: string | null): string {
   if (von === null) return GESPERRTER_URHEBER;
 
-  return von === ERASED_ACTOR_MARKER ? UNGENANNTER_URHEBER : von;
+  return von === GELOESCHT_ACTOR_MARKER ? UNGENANNTER_URHEBER : von;
 }
 
 /** The second sentence: who made it and when, or where a change nobody in the application made came from. */

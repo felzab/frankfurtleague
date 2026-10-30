@@ -6,7 +6,7 @@ import pytest
 
 from app.api.bewerbungen.services import (
     ansprechperson_mailbox,
-    decline_erasure_is_due,
+    decline_loeschung_is_due,
     deletion_is_due,
     group_seats_by_mailbox,
     hash_token,
@@ -246,7 +246,7 @@ class TestTheFourteenDayClock:
         assert not deletion_is_due(bewerbung_raw=application(bestaetigungsfrist=YESTERDAY, kontakte=stamped), today=TODAY, unzustellbar=False)
 
     @pytest.mark.parametrize("emptied", ["trainer", "ansprechperson"])
-    def test_an_erased_or_declined_seat_counts_as_outstanding(self, emptied: str):
+    def test_an_geloescht_or_declined_seat_counts_as_outstanding(self, emptied: str):
         """The whole clock's reach: such an application can never complete, so this is the only way it leaves."""
 
         stamped = kontakte(**{seat: kontaktperson_document(seat.title(), bestaetigt_am=YESTERDAY) for seat in KONTAKT_ROLLEN})
@@ -292,14 +292,14 @@ class TestTheOneMonthClock:
     def test_each_boundary_falls_a_calendar_month_after_the_decision(self, getroffen_am: str, due: bool):
         declined = application(status="abgelehnt", entscheidung={"getroffen_am": getroffen_am, "von": "admin", "grund": "kein Platz"})
 
-        assert decline_erasure_is_due(bewerbung_raw=declined, today=TODAY) == due
+        assert decline_loeschung_is_due(bewerbung_raw=declined, today=TODAY) == due
 
     @pytest.mark.parametrize("status", ["eingereicht", "angenommen"])
     def test_only_a_declined_application_is_on_this_clock(self, status: str):
-        assert not decline_erasure_is_due(bewerbung_raw=application(status=status, entscheidung={"getroffen_am": "2020-01-01"}), today=TODAY)
+        assert not decline_loeschung_is_due(bewerbung_raw=application(status=status, entscheidung={"getroffen_am": "2020-01-01"}), today=TODAY)
 
     def test_a_decision_with_no_day_is_never_due(self):
-        assert not decline_erasure_is_due(bewerbung_raw=application(status="abgelehnt", entscheidung=None), today=TODAY)
+        assert not decline_loeschung_is_due(bewerbung_raw=application(status="abgelehnt", entscheidung=None), today=TODAY)
 
 
 class TestWhatTheNoticesNeed:

@@ -14,7 +14,7 @@ import { runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { genehmigerText } from "./genehmiger";
-import { beantrageKontoAdresswechsel, eraseEigeneDaten, gibKontoAdresswechselFrei, stoppeKontoAdresswechsel } from "./mutations";
+import { beantrageKontoAdresswechsel, gibKontoAdresswechselFrei, loeschenEigeneDaten, stoppeKontoAdresswechsel } from "./mutations";
 import { getLoeschungAnsicht } from "./queries";
 import { LETZTE_INHABERIN, mapLoeschungRefusal } from "./refusals";
 import { FLKontoAdresswechselFreigabePayloadSchema, FLKontoAdresswechselPayloadSchema } from "./schemas";
@@ -66,7 +66,7 @@ export async function loescheKontoAction(token: string): Promise<ActionResult> {
 
     let outcome;
     try {
-      outcome = await deleteOwnAccount(token, await headers(), () => eraseEigeneDaten());
+      outcome = await deleteOwnAccount(token, await headers(), () => loeschenEigeneDaten());
     } catch (error) {
       // The backend's own refusal of the last owner; every other throw is the spine's to answer.
       const refusal = mapLoeschungRefusal(error);

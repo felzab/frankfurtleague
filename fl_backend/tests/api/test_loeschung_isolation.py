@@ -35,15 +35,15 @@ from tests.documents import (
     spieler_document,
     team_document,
 )
-from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.loeschung import geloescht
 from tests.postausgang import MAIL_NOW
 from tests.whole_database import where_folded_to
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_erasure_isolation_test")
+DATABASE_NAME = worker_database("fl_loeschung_isolation_test")
 
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 TODAY = "2026-04-01"
@@ -236,7 +236,7 @@ KEEPING_WRITES: dict[str, tuple[Callable[[AsyncDatabase, AsyncMongoClient], Awai
 }
 
 
-class TestAWriteKeepingTheirSeatInsideTheErasureLeavesNothing:
+class TestAWriteKeepingTheirSeatInsideTheLoeschungLeavesNothing:
     """The row is what the erasure writes, so a write changing it meets the erasure there and one of the two runs again.
 
     A write leaving the row unchanged writes nothing the erasure writes, and files no log row either.
@@ -263,7 +263,7 @@ class TestAWriteKeepingTheirSeatInsideTheErasureLeavesNothing:
                 filed.append(await database[Collection.AKTIONEN].count_documents(on_the_row) - rows_before)
 
             grants = GrantsReadThenRival(database[Collection.BERECHTIGUNGEN], keep_the_seat)
-            outcome = await outcome_of(erased(database, client, TYPED, germany_now=NOW, berechtigungen_collection=grants))
+            outcome = await outcome_of(geloescht(database, client, TYPED, germany_now=NOW, berechtigungen_collection=grants))
 
             return outcome, written, filed, (await club_row(database))["kontakte"]["trainer"], await where_folded_to(database, IDENTIFIER)
 

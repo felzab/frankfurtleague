@@ -7,12 +7,12 @@ import pytest
 from app.api.bewerbungen.services import hash_token, latest_decision_due
 from app.api.registrierungen import system_router
 from app.api.registrierungen.services import (
-    bestaetigung_erasure_is_due,
+    bestaetigung_loeschung_is_due,
     build_decline_filter,
     build_erinnerung_filter,
     build_unconfirmed_filter,
     build_undecided_filter,
-    decline_erasure_is_due,
+    decline_loeschung_is_due,
     erinnerung_is_due,
 )
 from app.core.middlewares import REQUEST_DEADLINE_S
@@ -124,24 +124,24 @@ class TestTheDeadlineClock:
     def test_each_boundary_falls_where_the_bound_says(self, frist: str | None, due: bool):
         stored = registrierung(bestaetigung=bestaetigung(frist=frist))
 
-        assert bestaetigung_erasure_is_due(registrierung_raw=stored, today=TODAY) == due
+        assert bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY) == due
 
     def test_a_confirmed_registration_waits_for_the_seasons_end_instead(self):
         """The clock's whole reach: a row nobody confirmed leaves at its deadline, and a confirmed one leaves with its season."""
 
         stored = registrierung(bestaetigung=bestaetigung(frist=YESTERDAY), einwilligung=einwilligung())
 
-        assert not bestaetigung_erasure_is_due(registrierung_raw=stored, today=TODAY)
+        assert not bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY)
 
     def test_a_declined_registration_is_the_one_month_clocks(self):
         stored = registrierung(status="abgelehnt", bestaetigung=bestaetigung(frist=YESTERDAY))
 
-        assert not bestaetigung_erasure_is_due(registrierung_raw=stored, today=TODAY)
+        assert not bestaetigung_loeschung_is_due(registrierung_raw=stored, today=TODAY)
 
     def test_a_registration_stored_without_a_block_is_never_taken_by_this_clock(self):
         """A row with no readable deadline is held rather than destroyed: the date this clock counts from is the one thing it needs."""
 
-        assert not bestaetigung_erasure_is_due(registrierung_raw=registrierung(bestaetigung=None), today=TODAY)
+        assert not bestaetigung_loeschung_is_due(registrierung_raw=registrierung(bestaetigung=None), today=TODAY)
 
 
 class TestTheOneMonthClock:
@@ -157,13 +157,13 @@ class TestTheOneMonthClock:
     def test_each_boundary_falls_a_calendar_month_after_the_decision(self, getroffen_am: str, due: bool):
         declined = registrierung(status="abgelehnt", entscheidung={"getroffen_am": getroffen_am, "von": "admin", "grund": "kein Platz"})
 
-        assert decline_erasure_is_due(registrierung_raw=declined, today=TODAY) == due
+        assert decline_loeschung_is_due(registrierung_raw=declined, today=TODAY) == due
 
     @pytest.mark.parametrize("status", ["eingereicht", "abgelehnt"])
     def test_a_decision_with_no_day_and_a_row_nobody_decided_are_both_left_standing(self, status: str):
         stored = registrierung(status=status, entscheidung=None)
 
-        assert not decline_erasure_is_due(registrierung_raw=stored, today=TODAY)
+        assert not decline_loeschung_is_due(registrierung_raw=stored, today=TODAY)
 
 
 SAISON_ID = "2026"
@@ -237,7 +237,7 @@ class TestWhatEachClockReads:
 
         def due(getroffen_am: str) -> bool:
             declined = {"status": "abgelehnt", "entscheidung": {"getroffen_am": getroffen_am}}
-            return decline_erasure_is_due(registrierung_raw=declined, today=today)
+            return decline_loeschung_is_due(registrierung_raw=declined, today=today)
 
         day_after = (date.fromisoformat(latest) + timedelta(days=1)).isoformat()
 

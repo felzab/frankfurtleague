@@ -19,7 +19,7 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.adresswechsel.crud import build_erasure_adresswechsel_pipeline
+from app.api.adresswechsel.crud import build_loeschung_adresswechsel_pipeline
 from app.api.adresswechsel.schemas import FLAdresswechselAdressePayload
 from app.api.adresswechsel.services import (
     build_address_filter,
@@ -33,7 +33,7 @@ from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung
 from app.api.identitaet.admin_router import get_loeschung_ansicht, post_loeschung
 from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
-from app.api.identitaet.schemas import FLErasureAdressePayload, FLErasurePayload
+from app.api.identitaet.schemas import FLLoeschungAdressePayload, FLLoeschungPayload
 from app.api.identitaet.wiederherstellung import Read, Window, plan_replay, replay_line
 from app.api.registrierungen.public_router import get_bestaetigung_ansicht
 from app.api.registrierungen.services import compose_ablehnung_update, erinnerung_is_due
@@ -1476,7 +1476,9 @@ class TestEveryLinkIntoTheToolSaysWhetherItOpens:
             [seats] = [
                 row.adresswechsel for team in teams.teams for row in team.memberships if row.saison_id == SAISON_ID and team.id == TEAM_OID
             ]
-            reveal = await call(get_loeschung_ansicht, database, client, ansicht_data=FLErasureAdressePayload(email=NEW_EMAIL), operator=reader)
+            reveal = await call(
+                get_loeschung_ansicht, database, client, ansicht_data=FLLoeschungAdressePayload(email=NEW_EMAIL), operator=reader
+            )
             served = {
                 "pupils": [
                     (player.adresswechsel_id, player.adresswechsel_einsehbar_verwehrt) for player in pupils.spieler if player.id == SPIELER_OID
@@ -1698,7 +1700,7 @@ class TestTheAdministratorFollowsTheirMove:
             None,
         )
 
-    def test_no_record_or_image_keeps_a_moved_administrator_s_replaced_address_past_their_erasure(self, mongo_replica_set_url: str):
+    def test_no_record_or_image_keeps_a_moved_administrator_s_replaced_address_past_their_loeschung(self, mongo_replica_set_url: str):
         """A grant they made, its image and log row, their own change's starter and their revoked grant's image named it.
 
         The queued notice of the old grant's end withholds it too, its stamp naming the new address.
@@ -1721,12 +1723,12 @@ class TestTheAdministratorFollowsTheirMove:
             minted = await start(database, client)
             await approve(database, client, minted.id)
             await answer(database, client, minted.token)
-            await erased(database, client, NEW_EMAIL)
+            await geloescht(database, client, NEW_EMAIL)
             return await where_held(database, EMAIL, folded=True)
 
         assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: []}
 
-    def test_a_ban_an_invitation_and_a_decided_application_of_theirs_follow_them_past_their_erasure(self, mongo_replica_set_url: str):
+    def test_a_ban_an_invitation_and_a_decided_application_of_theirs_follow_them_past_their_loeschung(self, mongo_replica_set_url: str):
         """Each record names its author by address alone, so one left at the replaced address outlives the erasure at the new."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1748,13 +1750,13 @@ class TestTheAdministratorFollowsTheirMove:
             minted = await start(database, client)
             await approve(database, client, minted.id)
             await answer(database, client, minted.token)
-            await erased(database, client, NEW_EMAIL)
+            await geloescht(database, client, NEW_EMAIL)
             return await where_held(database, EMAIL, folded=True)
 
         # The queued notice of the old grant's end withholds it too, its stamp naming the new address.
         assert on_a_person(mongo_replica_set_url, body, pupil=False, records=False) == {EMAIL: []}
 
-    def test_a_former_administrator_s_records_and_images_name_them_nowhere_past_their_erasure(self, mongo_replica_set_url: str):
+    def test_a_former_administrator_s_records_and_images_name_them_nowhere_past_their_loeschung(self, mongo_replica_set_url: str):
         """Their grant ended before the change: what they made while holding it names them still.
 
         A grant they made, its image and log row, and their own grant's image; a database revoke queues nothing.
@@ -1777,7 +1779,7 @@ class TestTheAdministratorFollowsTheirMove:
                 )
             await database[Collection.BERECHTIGUNGEN].delete_one({"_id": own})
             await confirmed_and_moved(database, client)
-            await erased(database, client, NEW_EMAIL)
+            await geloescht(database, client, NEW_EMAIL)
             return await where_held(database, EMAIL, folded=True)
 
         # The pupil alone: the seed's other records keep the replaced address on rows no change moves, an unconfirmed seat's.
@@ -1842,7 +1844,7 @@ class TestTheAdministratorFollowsTheirMove:
 
         assert (refused, row is not None and row.verwehrt) == (Code.ADRESSWECHSEL_GENEHMIGUNG_JUENGER, "juenger")
 
-    def test_a_second_change_leaves_the_first_one_s_address_in_no_image_past_the_erasure(self, mongo_replica_set_url: str):
+    def test_a_second_change_leaves_the_first_one_s_address_in_no_image_past_the_loeschung(self, mongo_replica_set_url: str):
         """The first change kept its new address in its images, which the second makes the replaced one."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1850,7 +1852,7 @@ class TestTheAdministratorFollowsTheirMove:
             await answer(database, client, first.token)
             second = await start(database, client, identifier=NEW_EMAIL, email=THIRD_EMAIL)
             await answer(database, client, second.token)
-            await erased(database, client, THIRD_EMAIL)
+            await geloescht(database, client, THIRD_EMAIL)
             return await where_held(database, NEW_EMAIL, folded=True)
 
         assert on_a_person(mongo_replica_set_url, body) == {NEW_EMAIL: []}
@@ -1877,7 +1879,7 @@ async def requested(database: AsyncDatabase, *, adresse: str, gestartet_von: str
 class TestTheRequestsForAGrantAnEffectMeets:
     """A request holds addresses, no identifier surviving a move: the effect carries its requester and ends one about the person."""
 
-    def test_a_request_the_person_made_follows_them_past_their_erasure(self, mongo_replica_set_url: str):
+    def test_a_request_the_person_made_follows_them_past_their_loeschung(self, mongo_replica_set_url: str):
         """Left on the replaced address, the request outlives the erasure at the new one, which finds who asked by equality."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1887,7 +1889,7 @@ class TestTheRequestsForAGrantAnEffectMeets:
             await approve(database, client, minted.id)
             await answer(database, client, minted.token)
             carried = await row(database, Collection.BERECHTIGUNGEN_ANTRAEGE, ANTRAG_OID)
-            await erased(database, client, NEW_EMAIL)
+            await geloescht(database, client, NEW_EMAIL)
             left = await database[Collection.BERECHTIGUNGEN_ANTRAEGE].count_documents({})
             return carried["genehmigung"]["gestartet_von"], left, await where_held(database, EMAIL, folded=True)
 
@@ -1911,7 +1913,7 @@ class TestTheRequestsForAGrantAnEffectMeets:
         # Keyed as a refusal's line is, by the address the request was about.
         assert journal[0].person_hash == loeschung_journal_hash(EMAIL, schluessel=KEY)
 
-    def test_a_decided_request_about_the_person_keeps_no_replaced_address_past_their_erasure(self, mongo_replica_set_url: str):
+    def test_a_decided_request_about_the_person_keeps_no_replaced_address_past_their_loeschung(self, mongo_replica_set_url: str):
         """Its row is gone, so only its kept image names them, which the erasure at the new address reaches by address alone."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1919,7 +1921,7 @@ class TestTheRequestsForAGrantAnEffectMeets:
             # Refused before the change, through its route, which keeps its image.
             await call(delete_antrag, database, client, antrag_id=ANTRAG_OID, operator=SECOND_ADMIN)
             await confirmed_and_moved(database, client)
-            await erased(database, client, NEW_EMAIL)
+            await geloescht(database, client, NEW_EMAIL)
             return await where_held(database, EMAIL, folded=True)
 
         # The pupil alone: the seed's other records keep the replaced address on rows no change moves, an unconfirmed seat's.
@@ -1927,7 +1929,7 @@ class TestTheRequestsForAGrantAnEffectMeets:
         assert on_a_person(mongo_replica_set_url, body, records=False) == {EMAIL: []}
 
     @pytest.mark.parametrize("request_", ["none", "refused before the change", "ended by the change", "moved on again"])
-    def test_an_erasure_at_the_new_address_withholds_the_replaced_one_in_every_queued_notice(self, mongo_replica_set_url: str, request_: str):
+    def test_an_loeschung_at_the_new_address_withholds_the_replaced_one_in_every_queued_notice(self, mongo_replica_set_url: str, request_: str):
         """The grant's announcement, the move's revoke and a request's end name the old address.
 
         A second move carries their stamp on to the address erased.
@@ -1942,14 +1944,14 @@ class TestTheRequestsForAGrantAnEffectMeets:
             minted = await start(database, client)
             await approve(database, client, minted.id, operator=SECOND_ADMIN)
             await answer(database, client, minted.token)
-            erased_at = NEW_EMAIL
+            geloescht_at = NEW_EMAIL
             if request_ == "moved on again":
                 onward = await start(database, client, identifier=NEW_EMAIL, email=THIRD_EMAIL)
                 await approve(database, client, onward.id, operator=SECOND_ADMIN)
                 await answer(database, client, onward.token)
-                erased_at = THIRD_EMAIL
+                geloescht_at = THIRD_EMAIL
             naming = [row["art"] async for row in database[Collection.POSTAUSGANG].find({}) if EMAIL in str(row)]
-            await erased(database, client, erased_at)
+            await geloescht(database, client, geloescht_at)
             return naming, await where_held(database, EMAIL, folded=True)
 
         naming, held = on_a_person(mongo_replica_set_url, body, records=False)
@@ -2201,7 +2203,7 @@ async def confirmed_and_moved(database: AsyncDatabase, client: AsyncMongoClient)
     await answer(database, client, minted.token)
 
 
-class TestWhatTheEffectLeavesTheErasure:
+class TestWhatTheEffectLeavesTheLoeschung:
     """Everything of the person the replaced address keyed, within reach of an erasure of the new one."""
 
     def test_the_old_mailbox_s_registration_link_confirms_nothing_afterwards(self, mongo_replica_set_url: str):
@@ -2361,8 +2363,8 @@ class TestWhatTheEffectLeavesTheErasure:
         assert on_a_person(mongo_replica_set_url, body) == [(FOREIGN_EMAIL, NEW_EMAIL), (EMAIL, NEW_EMAIL)]
 
 
-class TestTheErasure:
-    def test_a_seat_left_before_the_change_goes_with_the_erasure_at_the_new_address(self, mongo_replica_set_url: str):
+class TestTheLoeschung:
+    def test_a_seat_left_before_the_change_goes_with_the_loeschung_at_the_new_address(self, mongo_replica_set_url: str):
         """The editor's image of the seat the person left names them by the replaced address, which no document holds.
 
         The unconfirmed seat still standing at that address keeps it: an erasure there reaches it.
@@ -2381,7 +2383,7 @@ class TestTheErasure:
             )
             minted = await start(database, client)
             await answer(database, client, minted.token)
-            await erased(database, client, NEW_EMAIL)
+            await geloescht(database, client, NEW_EMAIL)
             logged = await database[Collection.AKTIONEN].find_one({"collection": Collection.SAISON_TEAMS, "document_id": ROW_OID})
             assert logged is not None, "the editor's write filed no log row"
             return logged["before"]["kontakte"]["ansprechperson"], logged["before"]["kontakte"]["stellvertretung"]["email"]
@@ -2395,7 +2397,7 @@ class TestTheErasure:
             pytest.param({"name": "Vera Zwirnbach"}, EMAIL, id="still standing at the replaced address: its image keeps it"),
         ],
     )
-    def test_a_referee_row_left_before_the_change_goes_with_the_erasure_at_the_new_address(
+    def test_a_referee_row_left_before_the_change_goes_with_the_loeschung_at_the_new_address(
         self, mongo_replica_set_url: str, edit: dict[str, Any], kept: str | None
     ):
         """The editor's image of the unconfirmed referee row names the replaced address, which, re-addressed, no row holds."""
@@ -2412,7 +2414,7 @@ class TestTheErasure:
             )
             minted = await start(database, client)
             await answer(database, client, minted.token)
-            await erased(database, client, NEW_EMAIL)
+            await geloescht(database, client, NEW_EMAIL)
             logged = await database[Collection.AKTIONEN].find_one(
                 {"collection": Collection.SCHIEDSRICHTER, "document_id": UNCONFIRMED_REFEREE_OID}
             )
@@ -2421,10 +2423,10 @@ class TestTheErasure:
 
         assert on_a_person(mongo_replica_set_url, body) == kept
 
-    def test_an_erased_new_address_ends_another_address_s_change_and_holds_it_nowhere(self, mongo_replica_set_url: str):
+    def test_an_geloescht_new_address_ends_another_address_s_change_and_holds_it_nowhere(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)
-            await erased(database, client, NEW_EMAIL)
+            await geloescht(database, client, NEW_EMAIL)
             return await change(database, minted.id), await where_held(database, NEW_EMAIL, folded=True)
 
         record, held = on_a_person(mongo_replica_set_url, body)
@@ -2432,10 +2434,10 @@ class TestTheErasure:
         assert (record["beendet"]["art"], record["email"]) == ("verworfen", None)
         assert held == {NEW_EMAIL: []}
 
-    def test_an_erased_address_on_file_ends_its_own_change_and_neither_address_is_held(self, mongo_replica_set_url: str):
+    def test_an_geloescht_address_on_file_ends_its_own_change_and_neither_address_is_held(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await start(database, client)
-            await erased(database, client, EMAIL)
+            await geloescht(database, client, EMAIL)
             return await change(database, minted.id), await where_held(database, EMAIL, NEW_EMAIL, folded=True)
 
         record, held = on_a_person(mongo_replica_set_url, body)
@@ -2444,14 +2446,14 @@ class TestTheErasure:
         assert held == {EMAIL: [], NEW_EMAIL: []}
 
 
-def erased(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> Any:
+def geloescht(database: AsyncDatabase, client: AsyncMongoClient, email: str) -> Any:
     """The erasure on request, as an owner whose step-up window the HTTP suites hold."""
 
     return call(
         post_loeschung,
         database,
         client,
-        erasure_data=FLErasurePayload(email=email, anlass="Auf Anfrage per Brief"),
+        loeschung_data=FLLoeschungPayload(email=email, anlass="Auf Anfrage per Brief"),
         operator=OWNER,
     )
 
@@ -2530,7 +2532,7 @@ class TestTheLiveReadsTheIndexServes:
 
         assert on_a_person(mongo_replica_set_url, body) == [{"uniq_adresswechsel_adresse"}] * 2
 
-    def test_the_erasures_read_of_either_address_is_answered_by_their_two_indexes(self, mongo_replica_set_url: str):
+    def test_the_loeschungen_read_of_either_address_is_answered_by_their_two_indexes(self, mongo_replica_set_url: str):
         """Two hundred tombstones beside the live change, so a scan cannot pass for one document's plan."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -2544,7 +2546,7 @@ class TestTheLiveReadsTheIndexServes:
             )
             return await database.command(
                 {
-                    "explain": {"aggregate": Collection.ADRESSWECHSEL, "pipeline": build_erasure_adresswechsel_pipeline(EMAIL), "cursor": {}},
+                    "explain": {"aggregate": Collection.ADRESSWECHSEL, "pipeline": build_loeschung_adresswechsel_pipeline(EMAIL), "cursor": {}},
                     "verbosity": "executionStats",
                 }
             )

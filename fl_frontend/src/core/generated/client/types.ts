@@ -2368,167 +2368,6 @@ export interface FLEinwilligungStandPayload {
   umfang: string | null;
 }
 
-/**
- * The mailbox an erasure, its preview or a sign-out of every session is looked up by.
- */
-export interface FLErasureAdressePayload {
-  /**
-   * @maxLength 254
-   * @pattern @
-   */
-  email: string;
-}
-
-/**
- * Another address's live change naming this one as its new address: the change ends, its address's records standing.
- */
-export interface FLErasureAnsichtAdresswechsel {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  adresswechsel_id: string;
-  einsehbar_verwehrt: FLAdresswechselEinsehbarVerwehrt | null;
-}
-
-export type FLErasureAnsichtAntragRolle = (typeof FLErasureAnsichtAntragRolle)[keyof typeof FLErasureAnsichtAntragRolle];
-
-export const FLErasureAnsichtAntragRolle = {
-  betroffen: "betroffen",
-  gestellt: "gestellt",
-} as const;
-
-/**
- * An open request for a grant, about the address (`betroffen`) or made by it (`gestellt`), which the erasure removes.
- */
-export interface FLErasureAnsichtAntrag {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  antrag_id: string;
-  rolle: FLErasureAnsichtAntragRolle;
-  verwaltung: FLVerwaltung;
-}
-
-export interface FLErasureAnsichtBewerbung {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  bewerbung_id: string;
-  nachname: string;
-  rolle: FLKontaktRolle;
-  saison_id: string;
-  vorname: string;
-}
-
-/**
- * The address's own live change, which the erasure ends with the records it would move.
- */
-export interface FLErasureAnsichtEigenerAdresswechsel {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  adresswechsel_id: string;
-}
-
-/**
- * One squad row of a pupil the erasure reaches.
- */
-export interface FLErasureAnsichtKader {
-  inactive_since: string | null;
-  saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  team_name: string | null;
-}
-
-export type FLRegistrierungStatus = (typeof FLRegistrierungStatus)[keyof typeof FLRegistrierungStatus];
-
-export const FLRegistrierungStatus = {
-  eingereicht: "eingereicht",
-  abgelehnt: "abgelehnt",
-} as const;
-
-export interface FLErasureAnsichtRegistrierung {
-  nachname: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  registrierung_id: string;
-  saison_id: string;
-  status: FLRegistrierungStatus;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  team_name: string | null;
-  vorname: string;
-}
-
-export interface FLErasureAnsichtSchiedsrichter {
-  inactive_since: string | null;
-  name: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  schiedsrichter_id: string;
-  spiele_ohne_ergebnis_saison_ids: string[];
-}
-
-export interface FLErasureAnsichtSitz {
-  nachname: string;
-  rolle: FLKontaktRolle;
-  saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  team_name: string;
-  vorname: string;
-}
-
-export interface FLErasureAnsichtSpieler {
-  kader: FLErasureAnsichtKader[];
-  nachname: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spieler_id: string;
-  vorname: string;
-}
-
-export interface FLErasureAnsichtResponse {
-  adresswechsel: FLErasureAnsichtAdresswechsel[];
-  antraege: FLErasureAnsichtAntrag[];
-  bewerbungen: FLErasureAnsichtBewerbung[];
-  eigener_adresswechsel: FLErasureAnsichtEigenerAdresswechsel | null;
-  gesperrt: boolean;
-  registrierungen: FLErasureAnsichtRegistrierung[];
-  schiedsrichter: FLErasureAnsichtSchiedsrichter[];
-  sitze: FLErasureAnsichtSitz[];
-  spieler: FLErasureAnsichtSpieler[];
-  verwaltung: FLVerwaltung | null;
-}
-
-/**
- * The mailbox, and the request the erasure answers, which every log row the erasure files keeps.
- */
-export interface FLErasurePayload {
-  /**
-   * @minLength 1
-   * @maxLength 200
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  anlass: string;
-  /**
-   * @maxLength 254
-   * @pattern @
-   */
-  email: string;
-}
-
-export interface FLErasureResponse {
-  /** @minimum 0 */
-  adresswechsel: number;
-  /** @minimum 0 */
-  berechtigungen: number;
-  /** @minimum 0 */
-  berechtigungen_antraege: number;
-  /** @minimum 0 */
-  kontakt_sitze: number;
-  /** @minimum 0 */
-  registrierungen: number;
-  /** @minimum 0 */
-  saison_spieler: number;
-  /** @minimum 0 */
-  schiedsrichter: number;
-  /** @minimum 0 */
-  spiele: number;
-  /** @minimum 0 */
-  spieler: number;
-}
-
 export interface FLFailureBody {
   error_code: Code;
   trace_id: string;
@@ -3025,6 +2864,129 @@ export const FLKontoLoeschungDatenValue = {
 export type FLKontoLoeschungDaten = typeof FLKontoLoeschungDatenValue;
 
 /**
+ * The mailbox an erasure, its preview or a sign-out of every session is looked up by.
+ */
+export interface FLLoeschungAdressePayload {
+  /**
+   * @maxLength 254
+   * @pattern @
+   */
+  email: string;
+}
+
+/**
+ * Another address's live change naming this one as its new address: the change ends, its address's records standing.
+ */
+export interface FLLoeschungAnsichtAdresswechsel {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  adresswechsel_id: string;
+  einsehbar_verwehrt: FLAdresswechselEinsehbarVerwehrt | null;
+}
+
+export type FLLoeschungAnsichtAntragRolle = (typeof FLLoeschungAnsichtAntragRolle)[keyof typeof FLLoeschungAnsichtAntragRolle];
+
+export const FLLoeschungAnsichtAntragRolle = {
+  betroffen: "betroffen",
+  gestellt: "gestellt",
+} as const;
+
+/**
+ * An open request for a grant, about the address (`betroffen`) or made by it (`gestellt`), which the erasure removes.
+ */
+export interface FLLoeschungAnsichtAntrag {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  antrag_id: string;
+  rolle: FLLoeschungAnsichtAntragRolle;
+  verwaltung: FLVerwaltung;
+}
+
+export interface FLLoeschungAnsichtBewerbung {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  bewerbung_id: string;
+  nachname: string;
+  rolle: FLKontaktRolle;
+  saison_id: string;
+  vorname: string;
+}
+
+/**
+ * The address's own live change, which the erasure ends with the records it would move.
+ */
+export interface FLLoeschungAnsichtEigenerAdresswechsel {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  adresswechsel_id: string;
+}
+
+/**
+ * One squad row of a pupil the erasure reaches.
+ */
+export interface FLLoeschungAnsichtKader {
+  inactive_since: string | null;
+  saison_id: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+  team_name: string | null;
+}
+
+export type FLRegistrierungStatus = (typeof FLRegistrierungStatus)[keyof typeof FLRegistrierungStatus];
+
+export const FLRegistrierungStatus = {
+  eingereicht: "eingereicht",
+  abgelehnt: "abgelehnt",
+} as const;
+
+export interface FLLoeschungAnsichtRegistrierung {
+  nachname: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  registrierung_id: string;
+  saison_id: string;
+  status: FLRegistrierungStatus;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+  team_name: string | null;
+  vorname: string;
+}
+
+export interface FLLoeschungAnsichtSchiedsrichter {
+  inactive_since: string | null;
+  name: string | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  schiedsrichter_id: string;
+  spiele_ohne_ergebnis_saison_ids: string[];
+}
+
+export interface FLLoeschungAnsichtSitz {
+  nachname: string;
+  rolle: FLKontaktRolle;
+  saison_id: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+  team_name: string;
+  vorname: string;
+}
+
+export interface FLLoeschungAnsichtSpieler {
+  kader: FLLoeschungAnsichtKader[];
+  nachname: string | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spieler_id: string;
+  vorname: string;
+}
+
+export interface FLLoeschungAnsichtResponse {
+  adresswechsel: FLLoeschungAnsichtAdresswechsel[];
+  antraege: FLLoeschungAnsichtAntrag[];
+  bewerbungen: FLLoeschungAnsichtBewerbung[];
+  eigener_adresswechsel: FLLoeschungAnsichtEigenerAdresswechsel | null;
+  gesperrt: boolean;
+  registrierungen: FLLoeschungAnsichtRegistrierung[];
+  schiedsrichter: FLLoeschungAnsichtSchiedsrichter[];
+  sitze: FLLoeschungAnsichtSitz[];
+  spieler: FLLoeschungAnsichtSpieler[];
+  verwaltung: FLVerwaltung | null;
+}
+
+/**
  * One call's share of the season-after rule: what it erased, whom it passed over, and how many are still due.
  */
 export interface FLLoeschungLaufResponse {
@@ -3036,6 +2998,44 @@ export interface FLLoeschungLaufResponse {
   spieler: number;
   uebersprungen: number;
   verbleibend: number;
+}
+
+/**
+ * The mailbox, and the request the erasure answers, which every log row the erasure files keeps.
+ */
+export interface FLLoeschungPayload {
+  /**
+   * @minLength 1
+   * @maxLength 200
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  anlass: string;
+  /**
+   * @maxLength 254
+   * @pattern @
+   */
+  email: string;
+}
+
+export interface FLLoeschungResponse {
+  /** @minimum 0 */
+  adresswechsel: number;
+  /** @minimum 0 */
+  berechtigungen: number;
+  /** @minimum 0 */
+  berechtigungen_antraege: number;
+  /** @minimum 0 */
+  kontakt_sitze: number;
+  /** @minimum 0 */
+  registrierungen: number;
+  /** @minimum 0 */
+  saison_spieler: number;
+  /** @minimum 0 */
+  schiedsrichter: number;
+  /** @minimum 0 */
+  spiele: number;
+  /** @minimum 0 */
+  spieler: number;
 }
 
 /**
@@ -4488,7 +4488,7 @@ export interface FLSelbstEinwilligungPayload {
 /**
  * One seat on an application, of any status.
  */
-export interface FLSelbstErasureBewerbung {
+export interface FLSelbstLoeschungBewerbung {
   nachname: string;
   rolle: FLKontaktRolle;
   saison_id: string;
@@ -4498,21 +4498,21 @@ export interface FLSelbstErasureBewerbung {
 /**
  * One registration, pending or declined.
  */
-export interface FLSelbstErasureRegistrierung {
+export interface FLSelbstLoeschungRegistrierung {
   nachname: string;
   saison_id: string;
   team_name: string | null;
   vorname: string;
 }
 
-export interface FLSelbstErasureSchiedsrichter {
+export interface FLSelbstLoeschungSchiedsrichter {
   name: string | null;
 }
 
 /**
  * One seat on a team's season row, named as the row names it.
  */
-export interface FLSelbstErasureSitz {
+export interface FLSelbstLoeschungSitz {
   nachname: string;
   rolle: FLKontaktRolle;
   saison_id: string;
@@ -4520,20 +4520,20 @@ export interface FLSelbstErasureSitz {
   vorname: string;
 }
 
-export interface FLSelbstErasureSpieler {
+export interface FLSelbstLoeschungSpieler {
   nachname: string | null;
   vorname: string;
 }
 
-export interface FLSelbstErasureAnsichtResponse {
+export interface FLSelbstLoeschungAnsichtResponse {
   /** @minimum 0 */
   adresswechsel: number;
-  bewerbungen: FLSelbstErasureBewerbung[];
+  bewerbungen: FLSelbstLoeschungBewerbung[];
   letzter_inhaber: boolean;
-  registrierungen: FLSelbstErasureRegistrierung[];
-  schiedsrichter: FLSelbstErasureSchiedsrichter[];
-  sitze: FLSelbstErasureSitz[];
-  spieler: FLSelbstErasureSpieler[];
+  registrierungen: FLSelbstLoeschungRegistrierung[];
+  schiedsrichter: FLSelbstLoeschungSchiedsrichter[];
+  sitze: FLSelbstLoeschungSitz[];
+  spieler: FLSelbstLoeschungSpieler[];
   verwaltung: FLVerwaltung | null;
 }
 
@@ -5551,7 +5551,7 @@ export interface FLSubjektSchiedsrichter {
 /**
  * One contact seat the mailbox holds on a season's junction row.
  *
- * Per seat and never per person, as the erasure's `FLSelbstErasureSitz` is: one row seats one
+ * Per seat and never per person, as the erasure's `FLSelbstLoeschungSitz` is: one row seats one
  * person twice where `trainer_ist_zugleich` says so.
  */
 export interface FLSubjektSitz {

@@ -684,7 +684,7 @@ async def patch_saison_team_kontakte(
 
     async def rewrite_the_block(session: AsyncClientSession) -> FLPatchSaisonTeamKontakteResponse:
         # In session, so the precondition judges what this write will land on. Read outside one, an
-        # erasure (`app/api/identitaet/crud.py :: erase_everything`) committing between the
+        # erasure (`app/api/identitaet/crud.py :: loeschen_everything`) committing between the
         # judgement and the `$set` puts the seat it cleared back with nothing refusing it.
         stored = await pull_one_from_db(
             collection=saison_teams_collection,

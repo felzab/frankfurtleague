@@ -244,7 +244,7 @@ export function loeschungsSatz({
   if (!eingereicht || !staende.some(istOffen)) return null;
 
   const tag = formatSpielDatum(frist);
-  // The fourteen-day clock's hold (`fl_backend/app/api/bewerbungen/system_router.py :: erase_the_unconfirmed`): an
+  // The fourteen-day clock's hold (`fl_backend/app/api/bewerbungen/system_router.py :: loeschen_the_unconfirmed`): an
   // application whose submitter's last mail did not arrive stands, so a promised deletion is false for exactly the row
   // an administrator can still repair.
   const gehalten = istUnzustellbar(staende.find((sitz) => sitz.rolle === "ansprechperson")?.zustellung ?? null);

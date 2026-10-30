@@ -1433,7 +1433,7 @@ class TestOnlyALandedSaveStamps:
 
     @pytest.mark.parametrize("dry_run", [pytest.param(False, id="refused-spiel_outside_spieltag"), pytest.param(True, id="dry-run")])
     def test_a_refused_save_and_a_preview_stamp_nothing(self, mongo_replica_set_url: str, dry_run: bool):
-        """The same seed and version as the accepted save; a refused commit is `fl_backend/tests/api/test_erasure_commit_fail_points.py`'s."""
+        """The same seed and version as the accepted save; a refused commit is `fl_backend/tests/api/test_loeschung_commit_fail_points.py`'s."""
 
         spiele, reports = a_bracket_with_reports(quarter_final_at=SEEDED_VERSION)
 

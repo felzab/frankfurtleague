@@ -19,7 +19,7 @@ from app.api.registrierungen.services import (
     build_registrierungen_sort,
 )
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, pull_one_from_db
+from app.core.crud import aggregate_many_from_db, loeschen_many_from_db, patch_many_in_db, pull_one_from_db
 from app.core.recording import build_redaction_filter, build_redaction_update
 from app.shared.folding import sign_in_identifier
 
@@ -111,7 +111,7 @@ async def nummern_rows(
     )
 
 
-async def erase_registrierungen_in_session(
+async def loeschen_registrierungen_in_session(
     *,
     registrierungen_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
@@ -130,7 +130,7 @@ async def erase_registrierungen_in_session(
     ids = [row["_id"] for row in registrierungen]
     # Ids and their seasons alone: the log keeps a filter as text, so a key naming the person would
     # keep what this removal destroys.
-    erased = await erase_many_from_db(
+    geloescht = await loeschen_many_from_db(
         collection=registrierungen_collection,
         db_filter={"saison_id": {"$in": sorted({row["saison_id"] for row in registrierungen})}, "_id": {"$in": ids}},
         session=session,
@@ -143,4 +143,4 @@ async def erase_registrierungen_in_session(
         session=session,
     )
 
-    return erased.deleted_count
+    return geloescht.deleted_count

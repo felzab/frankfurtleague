@@ -15,7 +15,7 @@ from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter, hash_token
-from app.api.identitaet.crud import erase_pupil_actor_in_session, unattribute_in_session
+from app.api.identitaet.crud import loeschen_pupil_actor_in_session, unattribute_in_session
 from app.api.spielberichte.crud import pull_bericht_lage
 from app.api.spieler.person_router import _read_the_squad
 from app.core.collections import Collection
@@ -1083,10 +1083,10 @@ class _SentUpdates(monitoring.CommandListener):
         """Required by the listener interface; a failed update was still sent with its filter."""
 
 
-ERASED_PSEUDONYM: Final = "e" * 64
+GELOESCHT_PSEUDONYM: Final = "e" * 64
 
 
-def test_the_erasure_marks_a_persons_log_rows_through_an_index(mongo_url: str):
+def test_the_loeschung_marks_a_persons_log_rows_through_an_index(mongo_url: str):
     """The updates the two steps send, never a copy of their filters, explained over a log large enough that the planner prefers an index."""
 
     async def body(database: AsyncDatabase) -> list[tuple[dict[str, Any], list[str]]]:
@@ -1097,7 +1097,7 @@ def test_the_erasure_marks_a_persons_log_rows_through_an_index(mongo_url: str):
                     "_id": ObjectId(),
                     "actor": {
                         "kind": "person_session",
-                        "pseudonym": ERASED_PSEUDONYM if row % 500 == 0 else f"{row:064x}",
+                        "pseudonym": GELOESCHT_PSEUDONYM if row % 500 == 0 else f"{row:064x}",
                         "funktion": ("spieler", "kontakt", "schiedsrichter")[row % 3],
                     },
                 }
@@ -1111,9 +1111,9 @@ def test_the_erasure_marks_a_persons_log_rows_through_an_index(mongo_url: str):
             log = watched[database.name][Collection.AKTIONEN]
             async with watched.start_session() as session:
                 await unattribute_in_session(
-                    aktionen_collection=log, identifier="ida@example.invalid", pseudonym=ERASED_PSEUDONYM, session=session
+                    aktionen_collection=log, identifier="ida@example.invalid", pseudonym=GELOESCHT_PSEUDONYM, session=session
                 )
-                await erase_pupil_actor_in_session(aktionen_collection=log, pseudonym=ERASED_PSEUDONYM, session=session)
+                await loeschen_pupil_actor_in_session(aktionen_collection=log, pseudonym=GELOESCHT_PSEUDONYM, session=session)
         finally:
             await watched.close()
 

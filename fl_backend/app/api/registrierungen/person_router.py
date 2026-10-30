@@ -52,7 +52,7 @@ from app.api.spieler.crud import refuse_a_full_squad
 from app.api.spieltage.crud import nachnominierung_laeuft_in
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import erase_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.crud import loeschen_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     AktionenCollection,
     DBClient,
@@ -315,7 +315,7 @@ async def aufnehmen(
 
         # An ID filter alone: the log keeps a filter as text, so one naming the pupil would keep
         # what this erasure destroys.
-        await erase_many_from_db(
+        await loeschen_many_from_db(
             collection=registrierungen_collection, db_filter={"_id": registrierung_id, "saison_id": saison_id}, session=session
         )
         await patch_many_in_db(

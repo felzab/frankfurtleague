@@ -582,12 +582,12 @@ class TestWhenAPlacingIsFinal:
 
         assert decided.by_platz[1].name == "Team 1"
 
-    def test_a_lead_a_remaining_match_could_erase_is_not_decided(self, a_team: TeamFactory, played: MatchFactory):
+    def test_a_lead_a_remaining_match_could_loeschen_is_not_decided(self, a_team: TeamFactory, played: MatchFactory):
         teams = [a_team(1, punkte=6), a_team(2, punkte=3), a_team(3, punkte=3)]
 
         assert standing(teams, [played(9, 2, 3)]).by_platz == {}
 
-    def test_a_lead_only_a_goal_margin_could_erase_is_not_decided(self, a_team: TeamFactory, played: MatchFactory):
+    def test_a_lead_only_a_goal_margin_could_loeschen_is_not_decided(self, a_team: TeamFactory, played: MatchFactory):
         """Nothing bounds how much Team 2 could win by, so today's goal difference cannot seed a bracket."""
 
         teams = [a_team(1, punkte=6, geschossen=20, kassiert=0), a_team(2, punkte=3, geschossen=0, kassiert=1), a_team(3, punkte=0)]
@@ -714,7 +714,7 @@ class TestAGroupPastTheFixtureLimit:
         assert standing(teams, fixtures).by_platz[1].name == "Team 1"
         assert standing(teams, [*fixtures, unentered]).by_platz == {}
 
-    def test_a_lead_a_draw_can_erase_is_not_seeded_where_a_season_scores_the_draw_higher(self, a_team: TeamFactory, played: MatchFactory):
+    def test_a_lead_a_draw_can_loeschen_is_not_seeded_where_a_season_scores_the_draw_higher(self, a_team: TeamFactory, played: MatchFactory):
         """A stored season may score a draw above a win.
 
         `fl_backend/app/api/saisons/services.py` refuses one only where the excess grows, so a season

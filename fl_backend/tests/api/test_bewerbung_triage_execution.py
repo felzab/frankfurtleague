@@ -63,8 +63,8 @@ from tests.documents import (
     saison_team_document,
     team_document,
 )
-from tests.erasure import erased
 from tests.isolation import InterleavedCollection, Rival
+from tests.loeschung import geloescht
 from tests.postausgang import MAIL_NOW, drained
 from tests.worker import worker_database
 from tests.zustellung import a_mail_that_bounced
@@ -1602,8 +1602,8 @@ async def object_to_the_link(database: AsyncDatabase, client: AsyncMongoClient) 
     await answer_for(database, client, "ansprechperson")
 
 
-async def erase_the_person(database: AsyncDatabase, client: AsyncMongoClient) -> None:
-    await erased(database, client, KONTAKTE["ansprechperson"]["email"], germany_now=NOW)
+async def loeschen_the_person(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+    await geloescht(database, client, KONTAKTE["ansprechperson"]["email"], germany_now=NOW)
 
 
 @pytest.mark.db
@@ -1615,7 +1615,7 @@ class TestAResendRacingAnAnswer:
         [
             pytest.param(object_to_the_link, id="a Widerspruch"),
             pytest.param(answer_the_link, id="a confirmation"),
-            pytest.param(erase_the_person, id="an erasure"),
+            pytest.param(loeschen_the_person, id="an erasure"),
         ],
     )
     def test_what_landed_after_the_read_stands_and_the_resend_is_refused(self, mongo_replica_set_url: str, landing: Body):
@@ -1967,12 +1967,12 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         assert code == Code.BEWERBUNG_SITZ_ALREADY_ANSWERED
         assert after == before
 
-    def test_a_seat_erased_at_its_persons_request_takes_nobody_else(self, mongo_replica_set_url: str):
+    def test_a_seat_geloescht_at_its_persons_request_takes_nobody_else(self, mongo_replica_set_url: str):
         """An erasure is a door the league cannot reopen, and the only thing parting it from a Widerspruch is the entry it took with it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_an_application_a_seat_was_declined_on(database, client)
-            await erased(database, client, KONTAKTE["stellvertretung"]["email"], germany_now=NOW)
+            await geloescht(database, client, KONTAKTE["stellvertretung"]["email"], germany_now=NOW)
             emptied = await stored_bewerbung(database, RESEAT_BEWERBUNG)
 
             with pytest.raises(APIError) as refused:

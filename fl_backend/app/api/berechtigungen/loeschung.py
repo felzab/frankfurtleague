@@ -20,8 +20,8 @@ from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerecht
 from app.api.berechtigungen.services import Mitteilung, compare, compose_mitteilung, stand_of
 from app.api.kontakte.services import same_address
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
-from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db
-from app.core.recording import ERASED_ACTOR_MARKER
+from app.core.crud import aggregate_many_from_db, loeschen_many_from_db, patch_many_in_db
+from app.core.recording import GELOESCHT_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
 
 # The sites of a grant notice naming an address: the grant's own, before and after, and its actor's.
@@ -30,14 +30,14 @@ _QUEUED_SITES = (*(f"daten.{site}.adresse" for site in _GRANT_SITES), "daten.gea
 
 
 @dataclass(frozen=True)
-class ErasedGrantsAndAuthorship:
+class GeloeschtGrantsAndAuthorship:
     removed_berechtigungen: int
     removed_angekuendigt: int
     # The notices this erasure owes, its own grant's ending among them, before each is owed to every administrator.
     queued_postausgang: int
     # The notices owed before it and not yet sent that named the person.
     withheld_postausgang: int
-    # The records whose author now reads `ERASED_ACTOR_MARKER`, the five fields together.
+    # The records whose author now reads `GELOESCHT_ACTOR_MARKER`, the five fields together.
     marked: int
 
 
@@ -87,7 +87,7 @@ def _withholding(daten: Mapping[str, Any], identifier: str) -> dict[str, Any]:
             update[f"{site}.adresse"] = None
             update["vorenthalten"] = "geloescht"
     if _names(daten.get("geaendert_von"), identifier):
-        update["geaendert_von"] = ERASED_ACTOR_MARKER
+        update["geaendert_von"] = GELOESCHT_ACTOR_MARKER
 
     return update
 
@@ -163,7 +163,7 @@ async def _set_authored(collection: AsyncCollection, field: str, identifier: str
     return marked.modified_count
 
 
-async def erase_grants_and_authorship_in_session(
+async def loeschen_grants_and_authorship_in_session(
     *,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
@@ -184,7 +184,7 @@ async def erase_grants_and_authorship_in_session(
     now: datetime,
     # REQUIRED: the grants, the notices and the authored records go in one transaction or none.
     session: AsyncClientSession,
-) -> ErasedGrantsAndAuthorship:
+) -> GeloeschtGrantsAndAuthorship:
     """Removes an `owner` grant and breaks the floor of two, refusing neither.
 
     Who may erase an owner is the caller's judgement, and so is any line once the transaction commits.
@@ -239,9 +239,9 @@ async def erase_grants_and_authorship_in_session(
 
     # No image of either: a grant's image is the address itself, and the announced record is bookkeeping.
     if grant_ids:
-        await erase_many_from_db(collection=berechtigungen_collection, db_filter={"_id": {"$in": grant_ids}}, session=session)
+        await loeschen_many_from_db(collection=berechtigungen_collection, db_filter={"_id": {"$in": grant_ids}}, session=session)
     if records:
-        await erase_many_from_db(
+        await loeschen_many_from_db(
             collection=berechtigungen_angekuendigt_collection, db_filter={"_id": {"$in": list(records_by_id)}}, session=session
         )
 
@@ -254,14 +254,14 @@ async def erase_grants_and_authorship_in_session(
         session=session,
     )
 
-    # Fields an address change's effect carries too (`fl_backend/app/api/berechtigungen/erasure.py :: carry_authorship_in_session`).
-    marked = await _set_authored(berechtigungen_collection, "erteilt_von", identifier, ERASED_ACTOR_MARKER, session)
-    marked += await _set_authored(bewerbungen_collection, "entscheidung.von", identifier, ERASED_ACTOR_MARKER, session)
-    marked += await _set_authored(registrierungen_collection, "entscheidung.von", identifier, ERASED_ACTOR_MARKER, session)
-    marked += await _set_authored(sperrliste_collection, "erstellt_von", identifier, ERASED_ACTOR_MARKER, session)
-    marked += await _set_authored(einladungen_collection, "erstellt_von", identifier, ERASED_ACTOR_MARKER, session)
+    # Fields an address change's effect carries too (`fl_backend/app/api/berechtigungen/loeschung.py :: carry_authorship_in_session`).
+    marked = await _set_authored(berechtigungen_collection, "erteilt_von", identifier, GELOESCHT_ACTOR_MARKER, session)
+    marked += await _set_authored(bewerbungen_collection, "entscheidung.von", identifier, GELOESCHT_ACTOR_MARKER, session)
+    marked += await _set_authored(registrierungen_collection, "entscheidung.von", identifier, GELOESCHT_ACTOR_MARKER, session)
+    marked += await _set_authored(sperrliste_collection, "erstellt_von", identifier, GELOESCHT_ACTOR_MARKER, session)
+    marked += await _set_authored(einladungen_collection, "erstellt_von", identifier, GELOESCHT_ACTOR_MARKER, session)
 
-    return ErasedGrantsAndAuthorship(
+    return GeloeschtGrantsAndAuthorship(
         removed_berechtigungen=len(grant_ids),
         removed_angekuendigt=len(records),
         queued_postausgang=len(mitteilungen),

@@ -8,7 +8,7 @@ from app.api.berechtigungen.schemas import FLBerechtigungAbgleichResponse
 from app.api.berechtigungen.services import compare, compose_announced, compose_mitteilung, ernannt, gefunden
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION
-from app.core.crud import erase_many_from_db, patch_many_in_db, post_many_to_db
+from app.core.crud import loeschen_many_from_db, patch_many_in_db, post_many_to_db
 from app.core.dependencies import (
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
@@ -77,7 +77,7 @@ async def post_berechtigungen_abgleich(
             )
             # The record now accounts for each change, its notice owed. Bookkeeping, so removed with no image: an image
             # carries the address into a log every administrator reads for twelve months.
-            await erase_many_from_db(
+            await loeschen_many_from_db(
                 collection=berechtigungen_angekuendigt_collection,
                 db_filter={"_id": {"$in": [berechtigung_id for berechtigung_id, _, _, _ in changes]}},
                 session=session,

@@ -16,7 +16,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.berechtigungen.erasure import ErasedGrantsAndAuthorship, erase_grants_and_authorship_in_session
+from app.api.berechtigungen.loeschung import GeloeschtGrantsAndAuthorship, loeschen_grants_and_authorship_in_session
 from app.api.berechtigungen.schemas import FLBerechtigungStand
 from app.api.berechtigungen.services import compose_mitteilung
 from app.api.einladungen.services import compose_einladung
@@ -26,7 +26,7 @@ from app.api.postausgang.services import NACHLAUF, ZUSTELLFRIST
 from app.api.registrierungen.services import compose_ablehnung_update
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
-from app.core.recording import ERASED_ACTOR_MARKER
+from app.core.recording import GELOESCHT_ACTOR_MARKER
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, bewerbung_document, kontakte_document, registrierung_document, saison_document
@@ -35,7 +35,7 @@ from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
-DATABASE_NAME = worker_database("fl_berechtigungen_erasure_test")
+DATABASE_NAME = worker_database("fl_berechtigungen_loeschung_test")
 
 NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # When the notices she finds still queued were, so none reads as one the erasure queued.
@@ -230,11 +230,11 @@ def on_a_league(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
-async def erased(
+async def geloescht(
     database: AsyncDatabase, client: AsyncMongoClient, *, geaendert_von: str = DORA, identifier: str = ERIKA
-) -> ErasedGrantsAndAuthorship:
-    async def step(session: AsyncClientSession) -> ErasedGrantsAndAuthorship:
-        return await erase_grants_and_authorship_in_session(
+) -> GeloeschtGrantsAndAuthorship:
+    async def step(session: AsyncClientSession) -> GeloeschtGrantsAndAuthorship:
+        return await loeschen_grants_and_authorship_in_session(
             berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             postausgang_collection=database[Collection.POSTAUSGANG],
@@ -282,8 +282,8 @@ async def queued_for(database: AsyncDatabase, grant_id: ObjectId) -> list[Mappin
 
 class TestHerGrantsGo:
     def test_every_grant_her_address_holds_goes_her_owner_grant_and_a_dead_spelling_included(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[ErasedGrantsAndAuthorship, set[ObjectId], set[ObjectId]]:
-            result = await erased(database, client)
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[GeloeschtGrantsAndAuthorship, set[ObjectId], set[ObjectId]]:
+            result = await geloescht(database, client)
 
             return result, await ids_in(database, Collection.BERECHTIGUNGEN), await ids_in(database, Collection.BERECHTIGUNGEN_ANGEKUENDIGT)
 
@@ -296,12 +296,12 @@ class TestHerGrantsGo:
     def test_the_last_owner_goes_below_the_floor_of_two_and_the_step_refuses_neither(self, mongo_replica_set_url: str):
         """Neither the revoke's floor nor its owner refusal holds against the step.
 
-        Whether the last owner may go is the caller's: `fl_backend/tests/api/test_funktionen_erasure.py :: TestTheLastOwner`.
+        Whether the last owner may go is the caller's: `fl_backend/tests/api/test_funktionen_loeschung.py :: TestTheLastOwner`.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
             await database[Collection.BERECHTIGUNGEN].delete_many({"_id": {"$nin": [ERIKA_ID, BERND_ID]}})
-            await erased(database, client)
+            await geloescht(database, client)
 
             return [str(row["_id"]) async for row in database[Collection.BERECHTIGUNGEN].find()]
 
@@ -318,22 +318,22 @@ class TestHerGrantsGo:
                     grant_row(granted, "neu@frankfurtleague.de", "administration", ERIKA_UNICODE_PASTED),
                 ]
             )
-            await erased(database, client, identifier=ERIKA_UNICODE)
+            await geloescht(database, client, identifier=ERIKA_UNICODE)
             stands = await database[Collection.BERECHTIGUNGEN].find_one({"_id": pasted}) is not None
             row = await database[Collection.BERECHTIGUNGEN].find_one({"_id": granted})
             assert row is not None
 
             return stands, row["erteilt_von"], await where_held(database, "MÜLLER")
 
-        assert on_a_league(mongo_replica_set_url, body) == (False, ERASED_ACTOR_MARKER, {"MÜLLER": []})
+        assert on_a_league(mongo_replica_set_url, body) == (False, GELOESCHT_ACTOR_MARKER, {"MÜLLER": []})
 
 
 class TestTheNotices:
     """No notice still queued names her, and every administrator is told her grant ended."""
 
-    def test_her_grants_end_is_queued_already_withheld_and_attributed_to_who_erased_her(self, mongo_replica_set_url: str):
+    def test_her_grants_end_is_queued_already_withheld_and_attributed_to_who_geloescht_her(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Mapping[str, Any]]:
-            await erased(database, client)
+            await geloescht(database, client)
 
             return await queued_for(database, ERIKA_ID)
 
@@ -348,20 +348,20 @@ class TestTheNotices:
             }
         ]
 
-    def test_erased_on_her_own_request_her_grants_end_names_its_maker_by_the_marker(self, mongo_replica_set_url: str):
+    def test_geloescht_on_her_own_request_her_grants_end_names_its_maker_by_the_marker(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
-            await erased(database, client, geaendert_von=ERIKA_TYPED)
+            await geloescht(database, client, geaendert_von=ERIKA_TYPED)
 
             return [row["geaendert_von"] for row in await queued_for(database, ERIKA_ID)]
 
-        assert on_a_league(mongo_replica_set_url, body) == [ERASED_ACTOR_MARKER]
+        assert on_a_league(mongo_replica_set_url, body) == [GELOESCHT_ACTOR_MARKER]
 
     def test_a_database_edit_to_her_grant_nobody_was_told_of_goes_out_first_withheld_too(self, mongo_replica_set_url: str):
         """A promotion pasted and never announced: dropped, the holders never learn she held the tier."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[Any, ...]]:
             await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].update_one({"_id": ERIKA_ID}, {"$set": {"verwaltung": "administration"}})
-            await erased(database, client)
+            await geloescht(database, client)
 
             return [
                 (row["art"], row["urheber"], row["jetzt"], row["vorher"], row["vorenthalten"]) for row in await queued_for(database, ERIKA_ID)
@@ -378,7 +378,7 @@ class TestTheNotices:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[set[ObjectId], set[ObjectId], list[tuple[Any, ...]]]:
             await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].update_one({"_id": NAHE_ID}, {"$set": {"adresse": ERIKA}})
-            await erased(database, client)
+            await geloescht(database, client)
             queued = [(row["art"], row["urheber"], row["vorher"], row["vorenthalten"]) for row in await queued_for(database, NAHE_ID)]
 
             return await ids_in(database, Collection.BERECHTIGUNGEN), await ids_in(database, Collection.BERECHTIGUNGEN_ANGEKUENDIGT), queued
@@ -389,7 +389,7 @@ class TestTheNotices:
         assert NAHE_ID not in records
         assert queued == [("entzogen", "datenbank", {"adresse": None, "verwaltung": "administration"}, "geloescht")]
 
-    def test_every_notice_queued_before_her_erasure_names_her_nowhere_and_no_other_moves(self, mongo_replica_set_url: str):
+    def test_every_notice_queued_before_her_loeschung_names_her_nowhere_and_no_other_moves(self, mongo_replica_set_url: str):
         """Her grant's address withheld under its own reason; her as the actor, the marker; a ban's reason kept beside it."""
 
         sites = ("jetzt", "vorher", "geaendert_von", "vorenthalten")
@@ -406,7 +406,7 @@ class TestTheNotices:
             database: AsyncDatabase, client: AsyncMongoClient
         ) -> tuple[dict[ObjectId, tuple[Any, ...]], dict[ObjectId, tuple[Any, ...]], int]:
             before = await stored(database)
-            result = await erased(database, client)
+            result = await geloescht(database, client)
 
             return before, await stored(database), result.withheld_postausgang
 
@@ -419,8 +419,8 @@ class TestTheNotices:
             DORA,
             "geloescht",
         )
-        assert after[MADE_BY_HER] == (bernd, None, ERASED_ACTOR_MARKER, None)
-        assert after[A_BARRED_GRANT_BY_HER] == (None, {"adresse": None, "verwaltung": "administration"}, ERASED_ACTOR_MARKER, "gesperrt")
+        assert after[MADE_BY_HER] == (bernd, None, GELOESCHT_ACTOR_MARKER, None)
+        assert after[A_BARRED_GRANT_BY_HER] == (None, {"adresse": None, "verwaltung": "administration"}, GELOESCHT_ACTOR_MARKER, "gesperrt")
         assert after[NOT_HERS] == before[NOT_HERS]
         assert after[BY_HER_LOCAL_PART_ELSEWHERE] == before[BY_HER_LOCAL_PART_ELSEWHERE]
         # The notice made at her local part elsewhere is counted nowhere: the fold drops it before any write is sent.
@@ -460,18 +460,18 @@ class TestTheRecordsSheMade:
 
     def test_every_record_she_made_reads_the_marker_whatever_spelling_stored_her(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[Any], int]:
-            result = await erased(database, client)
+            result = await geloescht(database, client)
 
             return [await self.author(database, collection, row_id, path) for collection, row_id, path in self.AUTHORS], result.marked
 
         authors, marked = on_a_league(mongo_replica_set_url, body)
 
-        assert authors == [ERASED_ACTOR_MARKER] * len(self.AUTHORS)
+        assert authors == [GELOESCHT_ACTOR_MARKER] * len(self.AUTHORS)
         assert marked == len(self.AUTHORS)
 
     def test_another_administrators_records_keep_their_author_a_similar_address_included(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Any]:
-            await erased(database, client)
+            await geloescht(database, client)
 
             return [await self.author(database, collection, row_id, path) for collection, row_id, path, _ in self.BYSTANDERS]
 
@@ -494,7 +494,7 @@ def test_her_address_is_held_nowhere_in_the_database_in_either_spelling(mongo_re
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> dict[str, list[str]]:
         held = await where_held(database, ERIKA, ERIKA_TYPED)
         assert held[ERIKA] and held[ERIKA_TYPED], f"the control: the seed holds her nowhere, so the scan below proves nothing: {held}"
-        await erased(database, client)
+        await geloescht(database, client)
 
         return await where_held(database, ERIKA, ERIKA_TYPED)
 

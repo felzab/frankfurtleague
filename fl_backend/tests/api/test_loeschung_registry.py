@@ -1,7 +1,7 @@
 """
 API · the erasure registry's decisions a database need not answer
 
-Collections standing in for the reads each decision makes: `app/api/identitaet/crud.py :: ErasureJournal`'s
+Collections standing in for the reads each decision makes: `app/api/identitaet/crud.py :: LoeschungJournal`'s
 one `find` after the commit, and the aggregates `:: resolve_subject` sends.
 """
 
@@ -15,8 +15,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import NetworkTimeout
 
-from app.api.identitaet.crud import ErasureJournal, Subject, resolve_subject
-from app.api.identitaet.schemas import FLErasure
+from app.api.identitaet.crud import LoeschungJournal, Subject, resolve_subject
+from app.api.identitaet.schemas import FLLoeschung
 from app.core.codes import Code
 from app.core.journal import JOURNAL_TOKEN
 from tests.config import build_test_config
@@ -24,7 +24,7 @@ from tests.config import build_test_config
 IDENTIFIER = "zorbanax.quillfeather@example.org"
 
 # One grant taken, so the journal reads the grants once the erasure committed.
-A_GRANT_TAKEN = FLErasure(
+A_GRANT_TAKEN = FLLoeschung(
     spieler=0,
     saison_spieler=0,
     schiedsrichter=0,
@@ -49,11 +49,11 @@ class _GrantsUnread:
         return _DeadlinePassed()
 
 
-def test_a_committed_erasure_whose_grant_warning_fails_answers_and_journals(caplog: pytest.LogCaptureFixture):
+def test_a_committed_loeschung_whose_grant_warning_fails_answers_and_journals(caplog: pytest.LogCaptureFixture):
     """Catches the warning's read raising out of the journal: the person is answered an error for an erasure that landed."""
 
-    async def erased() -> FLErasure:
-        journal = ErasureJournal[FLErasure](
+    async def geloescht() -> FLLoeschung:
+        journal = LoeschungJournal[FLLoeschung](
             IDENTIFIER,
             schluessel=build_test_config().sperrliste_schluessel,
             berechtigungen_collection=cast(AsyncCollection, _GrantsUnread()),
@@ -62,7 +62,7 @@ def test_a_committed_erasure_whose_grant_warning_fails_answers_and_journals(capl
             return journal.took(A_GRANT_TAKEN)
 
     with caplog.at_level(logging.INFO):
-        answer = asyncio.run(erased())
+        answer = asyncio.run(geloescht())
 
     messages = [record.getMessage() for record in caplog.records]
 

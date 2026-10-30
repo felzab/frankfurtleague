@@ -838,7 +838,7 @@ async def post_einwilligung(
         )
 
         # LAST, so it reaches the pre-image the clearing patch just filed, which still holds the
-        # person who refused to be held (`app/api/kontakte/crud.py :: erase_kontaktperson_in_session`).
+        # person who refused to be held (`app/api/kontakte/crud.py :: loeschen_kontaktperson_in_session`).
         await redact_the_decliner(
             aktionen_collection=aktionen_collection,
             collection=Collection.BEWERBUNGEN,

@@ -48,7 +48,7 @@ const store = memoryStore("__flLoeschungStore");
 const HELD = new Map<string, LookupFixture>();
 
 /** The counts the erasure answers a person holding one squad row. */
-const ERASED = {
+const GELOESCHT = {
   spieler: 1,
   saison_spieler: 1,
   schiedsrichter: 0,
@@ -61,10 +61,10 @@ const ERASED = {
 };
 
 /** What the backend's erasure answers, and every erasure it was asked for, with the actor header each carried. */
-let erasureAnswer: () => Response = () => Response.json(ERASED);
-const erasures: { method: string; actor: string | null }[] = [];
+let loeschungAnswer: () => Response = () => Response.json(GELOESCHT);
+const loeschungen: { method: string; actor: string | null }[] = [];
 
-const ERASURE_PATH = "/api/v0/identitaet/konto/loeschung";
+const LOESCHUNG_PATH = "/api/v0/identitaet/konto/loeschung";
 
 const ANSICHT_PATH = "/api/v0/identitaet/konto/loeschung/ansicht";
 
@@ -79,9 +79,9 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
     const leer = { spieler: [], schiedsrichter: [], sitze: [], bewerbungen: [], registrierungen: [], adresswechsel: 0 };
     return Promise.resolve(Response.json({ ...leer, verwaltung: "owner", letzter_inhaber: letzterInhaber }));
   }
-  if (path === ERASURE_PATH) {
-    erasures.push({ method: init?.method ?? "GET", actor: new Headers(init?.headers).get("x-fl-actor") });
-    return Promise.resolve(erasureAnswer());
+  if (path === LOESCHUNG_PATH) {
+    loeschungen.push({ method: init?.method ?? "GET", actor: new Headers(init?.headers).get("x-fl-actor") });
+    return Promise.resolve(loeschungAnswer());
   }
 
   const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
@@ -109,9 +109,9 @@ beforeEach(() => {
   store.passkey.length = 0;
   store.verification.length = 0;
   cacheCalls.length = 0;
-  erasures.length = 0;
+  loeschungen.length = 0;
   HELD.clear();
-  erasureAnswer = () => Response.json(ERASED);
+  loeschungAnswer = () => Response.json(GELOESCHT);
   letzterInhaber = false;
   ansichtReads = 0;
 });
@@ -151,7 +151,7 @@ describe("a person's own account deletion, from the account page's press to the 
 
     expect(answer.success, JSON.stringify(answer)).toBe(true);
     expect(
-      erasures.map(({ method, actor }) => [method, actor !== null]),
+      loeschungen.map(({ method, actor }) => [method, actor !== null]),
       "the erasure was not sent once, as a write naming its person",
     ).toStrictEqual([["POST", true]]);
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
@@ -162,11 +162,11 @@ describe("a person's own account deletion, from the account page's press to the 
   it("leaves the account and its passkeys where the backend refuses the erasure, having asked it, in the refusal's own words", async () => {
     const { row, token } = await mitLink("verweigert@example.org");
     // A ban entered since the spine judged the session, which the person route asks again.
-    erasureAnswer = () => Response.json({ error_code: "person_barred", trace_id: "0".repeat(32) }, { status: 403 });
+    loeschungAnswer = () => Response.json({ error_code: "person_barred", trace_id: "0".repeat(32) }, { status: 403 });
 
     const answer = await loescheKontoAction(token);
 
-    expect(erasures.length, "the backend was never asked, so the refusal proves nothing").toBe(1);
+    expect(loeschungen.length, "the backend was never asked, so the refusal proves nothing").toBe(1);
     expect(answer.success ? "" : answer.error).toMatch(/Diese E-Mail-Adresse ist gesperrt/);
     assert.ok(
       !answer.success && answer.error.endsWith(` ${LINK_VERBRAUCHT}`),
@@ -178,23 +178,23 @@ describe("a person's own account deletion, from the account page's press to the 
   /* Each published refusal of the erasure, at its own status and another, reaches the action's own mapper, and every press spends a link, so each act mints
      its own. */
   it("answers each published refusal of the erasure through its own mapper, adding the new link the spent one needs", async () => {
-    let erasureRefused: Promise<void> = Promise.resolve();
+    let loeschungRefused: Promise<void> = Promise.resolve();
     let acts = 0;
 
     await assertEachAnswered({
       codes: refusalCodes("duplicate_key", "letzter_inhaber_loeschung"),
       // The write double's refusal, as the fetch double answers it: the API client raises it again from the body.
       refuseWith: (next) => {
-        erasureRefused = next().then(
+        loeschungRefused = next().then(
           () => assert.fail("the refusal the assertion handed in answered"),
           (refusal: { serverErrorCode?: string; statusCode: number }) => {
-            erasureAnswer = () =>
+            loeschungAnswer = () =>
               Response.json({ error_code: refusal.serverErrorCode, trace_id: "0".repeat(32) }, { status: refusal.statusCode });
           },
         );
       },
       act: async () => {
-        await erasureRefused;
+        await loeschungRefused;
         acts += 1;
         const { token } = await mitLink(`verweigert-${String(acts)}@example.org`);
         return loescheKontoAction(token);
@@ -209,11 +209,11 @@ describe("a person's own account deletion, from the account page's press to the 
      spent link cannot take. */
   it("answers an erasure whose answer was lost with the new link the spent one needs", async () => {
     const { row, token } = await mitLink("verloren@example.org");
-    erasureAnswer = () => Response.json({ error_code: "no_database_client", trace_id: "0".repeat(32) }, { status: 503 });
+    loeschungAnswer = () => Response.json({ error_code: "no_database_client", trace_id: "0".repeat(32) }, { status: 503 });
 
     const answer = await loescheKontoAction(token);
 
-    expect(erasures.length, "the backend was never asked, so the answer proves nothing").toBe(1);
+    expect(loeschungen.length, "the backend was never asked, so the answer proves nothing").toBe(1);
     assert.ok(!answer.success && answer.error.endsWith(` ${LINK_VERBRAUCHT}`), JSON.stringify(answer));
     expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
   });
@@ -241,7 +241,7 @@ describe("a person's own account deletion, from the account page's press to the 
       judged();
 
       expect(await loescheKontoAction(token)).toStrictEqual({ success: false, error: ANMELDUNG_ABGELAUFEN });
-      expect(erasures).toStrictEqual([]);
+      expect(loeschungen).toStrictEqual([]);
       expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
     });
   }
@@ -282,7 +282,7 @@ describe("a person's own account deletion, from the account page's press to the 
 
       if (proceeds) {
         expect(answer.success, JSON.stringify(answer)).toBe(true);
-        expect(erasures.length).toBe(1);
+        expect(loeschungen.length).toBe(1);
         expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
         return;
       }
@@ -291,7 +291,7 @@ describe("a person's own account deletion, from the account page's press to the 
         cacheCalls.some(({ name }) => name === "refresh"),
         "the page's figures were not read again, so its next press would send unasked",
       );
-      expect(erasures).toStrictEqual([]);
+      expect(loeschungen).toStrictEqual([]);
       expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
       assert.ok(
         store.verification.some((held) => held.identifier === `delete-account-${token}`),
@@ -314,7 +314,7 @@ describe("a person's own account deletion, from the account page's press to the 
     const answer = await loescheKontoAction(token);
 
     expect(answer.success, JSON.stringify(answer)).toBe(true);
-    expect(erasures.length).toBe(1);
+    expect(loeschungen.length).toBe(1);
     expect(heldOf(row.userId)).toStrictEqual({ user: 0, passkeys: 0 });
   });
 
@@ -326,7 +326,7 @@ describe("a person's own account deletion, from the account page's press to the 
     letzterInhaber = true;
 
     expect(await loescheKontoAction(token)).toStrictEqual({ success: false, error: LETZTE_INHABERIN });
-    expect(erasures, "the erasure was asked for although the preview read the last owner").toStrictEqual([]);
+    expect(loeschungen, "the erasure was asked for although the preview read the last owner").toStrictEqual([]);
     expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
     assert.ok(
       store.verification.some((held) => held.identifier === `delete-account-${token}`),
@@ -344,11 +344,11 @@ describe("a person's own account deletion, from the account page's press to the 
      was spent: its words add that a new link is needed. */
   it("words the backend's own last-owner refusal with the new link it needs, having asked the backend", async () => {
     const { row, token } = await verwaltendMitLink("zweite-inhaberin@example.org");
-    erasureAnswer = () => Response.json({ error_code: "letzter_inhaber_loeschung", trace_id: "0".repeat(32) }, { status: 409 });
+    loeschungAnswer = () => Response.json({ error_code: "letzter_inhaber_loeschung", trace_id: "0".repeat(32) }, { status: 409 });
 
     const answer = await loescheKontoAction(token);
 
-    expect(erasures.length, "the backend was never asked, so the refusal proves nothing").toBe(1);
+    expect(loeschungen.length, "the backend was never asked, so the refusal proves nothing").toBe(1);
     expect(answer.success ? "" : answer.error).toBe(`${LETZTE_INHABERIN} ${LINK_VERBRAUCHT}`);
     expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
     assert.ok(
@@ -361,12 +361,12 @@ describe("a person's own account deletion, from the account page's press to the 
      spent the link: the page asks for the passkey, and its next press meets the spent link's own words. */
   it("answers the backend's confirmation refusal as the page's passkey prompt, the page's figures read again", async () => {
     const { row, token } = await verwaltendMitLink("verwaltung-backend-fenster@example.org");
-    erasureAnswer = () => Response.json({ error_code: "confirmation_required", trace_id: "0".repeat(32) }, { status: 401 });
+    loeschungAnswer = () => Response.json({ error_code: "confirmation_required", trace_id: "0".repeat(32) }, { status: 401 });
     cacheCalls.length = 0;
 
     const answer = await loescheKontoAction(token);
 
-    expect(erasures.length, "the backend was never asked, so the refusal proves nothing").toBe(1);
+    expect(loeschungen.length, "the backend was never asked, so the refusal proves nothing").toBe(1);
     expect(answer).toStrictEqual({ ...stepUpRequired(), error: `${stepUpRequired().error} ${LINK_VERBRAUCHT}` });
     assert.ok(
       cacheCalls.some(({ name }) => name === "refresh"),
@@ -393,7 +393,7 @@ describe("a person's own account deletion, from the account page's press to the 
 
     expect(answer.success ? "" : answer.error).toMatch(/Fordere auf Deiner Kontoseite einen neuen an\./);
     assert.ok(!answer.success && !answer.error.includes(LINK_VERBRAUCHT), "the link's own refusal says twice that a new one is needed");
-    expect(erasures).toStrictEqual([]);
+    expect(loeschungen).toStrictEqual([]);
     expect(heldOf(row.userId)).toStrictEqual({ user: 1, passkeys: 1 });
   });
 

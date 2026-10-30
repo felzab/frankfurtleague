@@ -40,13 +40,13 @@ const LOESCHEN_WORTE: Readonly<Record<string, string>> = {
  * The erasure's and its reveal's refusals, which judge the same address the same way; `null` for the rest, the
  * `document_not_found` and `duplicate_key` among them, which the shared reader words.
  */
-export const mapErasureRefusal = mapper(LOESCHEN_WORTE);
+export const mapLoeschungAufAnfrageRefusal = mapper(LOESCHEN_WORTE);
 
 /**
  * Whether a failed reveal answered one of the erasure's own refusals, which the panel says alone: a reveal the rule
  * refused has loaded, and calling it a list that failed to load invites a retry the rule refuses again.
  */
-export const isErasureRefusal = (satz: string): boolean => Object.values(LOESCHEN_WORTE).includes(satz);
+export const isLoeschungRefusal = (satz: string): boolean => Object.values(LOESCHEN_WORTE).includes(satz);
 
 /** The sign-out's refusals, in the sign-out's own words, `null` for the rest. */
 export const mapAbmeldungRefusal = mapper({ eigene_adresse: EIGENE_ADRESSE_ABMELDEN, verwaltung_adresse: INHABER_ABMELDEN } satisfies Partial<

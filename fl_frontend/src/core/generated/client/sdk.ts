@@ -67,10 +67,6 @@ import type {
   FLEinladungWriteResponse,
   FLEinwilligungFassungResponse,
   FLEinwilligungSeitenResponse,
-  FLErasureAdressePayload,
-  FLErasureAnsichtResponse,
-  FLErasurePayload,
-  FLErasureResponse,
   FLGenerateSpielplanPayload,
   FLGenerateSpielplanResponse,
   FLKaderResponse,
@@ -82,7 +78,11 @@ import type {
   FLKontoAdresswechselPayload,
   FLKontoAdresswechselResponse,
   FLKontoEinwilligungenResponse,
+  FLLoeschungAdressePayload,
+  FLLoeschungAnsichtResponse,
   FLLoeschungLaufResponse,
+  FLLoeschungPayload,
+  FLLoeschungResponse,
   FLLoeschungVorschauResponse,
   FLOffeneRegistrierungenResponse,
   FLPatchBerechtigungPayload,
@@ -158,7 +158,7 @@ import type {
   FLSchiedsrichterSingleResponse,
   FLSchiedsrichterWriteResponse,
   FLSelbstEinwilligungPayload,
-  FLSelbstErasureAnsichtResponse,
+  FLSelbstLoeschungAnsichtResponse,
   FLSitzEinwilligungPayload,
   FLSperrlisteListResponse,
   FLSperrlisteWriteResponse,
@@ -1539,7 +1539,7 @@ export const getIdentitaetPostAbmeldungUrl = () => {
  * @summary Log the ending of every session an address holds
  */
 export const identitaetPostAbmeldung = async (
-  fLErasureAdressePayload: FLErasureAdressePayload,
+  fLLoeschungAdressePayload: FLLoeschungAdressePayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLAbmeldungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -1558,7 +1558,7 @@ export const identitaetPostAbmeldung = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLErasureAdressePayload),
+    body: JSON.stringify(fLLoeschungAdressePayload),
   });
 };
 
@@ -1630,8 +1630,8 @@ export const getIdentitaetPostKontoLoeschungUrl = () => {
  * touched here: deleting it is the caller's, once this has answered.
  * @summary Erase every record the signed-in address holds
  */
-export const identitaetPostKontoLoeschung = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLErasureResponse> => {
-  return adminKeyTransport<FLErasureResponse>(getIdentitaetPostKontoLoeschungUrl(), {
+export const identitaetPostKontoLoeschung = async (options?: Parameters<typeof adminKeyTransport>[1]): Promise<FLLoeschungResponse> => {
+  return adminKeyTransport<FLLoeschungResponse>(getIdentitaetPostKontoLoeschungUrl(), {
     ...options,
     method: "POST",
   });
@@ -1669,8 +1669,8 @@ export const getIdentitaetGetKontoLoeschungAnsichtUrl = () => {
  */
 export const identitaetGetKontoLoeschungAnsicht = async (
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSelbstErasureAnsichtResponse> => {
-  return adminKeyTransport<FLSelbstErasureAnsichtResponse>(getIdentitaetGetKontoLoeschungAnsichtUrl(), {
+): Promise<FLSelbstLoeschungAnsichtResponse> => {
+  return adminKeyTransport<FLSelbstLoeschungAnsichtResponse>(getIdentitaetGetKontoLoeschungAnsichtUrl(), {
     ...options,
     method: "GET",
   });
@@ -1702,9 +1702,9 @@ export const getIdentitaetPostLoeschungUrl = () => {
  * @summary Erase every record an address holds, on that person's request
  */
 export const identitaetPostLoeschung = async (
-  fLErasurePayload: FLErasurePayload,
+  fLLoeschungPayload: FLLoeschungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLErasureResponse> => {
+): Promise<FLLoeschungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -1717,11 +1717,11 @@ export const identitaetPostLoeschung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLErasureResponse>(getIdentitaetPostLoeschungUrl(), {
+  return adminKeyTransport<FLLoeschungResponse>(getIdentitaetPostLoeschungUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLErasurePayload),
+    body: JSON.stringify(fLLoeschungPayload),
   });
 };
 
@@ -1762,9 +1762,9 @@ export const getIdentitaetGetLoeschungAnsichtUrl = () => {
  * @summary Show what an erasure of an address would remove
  */
 export const identitaetGetLoeschungAnsicht = async (
-  fLErasureAdressePayload: FLErasureAdressePayload,
+  fLLoeschungAdressePayload: FLLoeschungAdressePayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLErasureAnsichtResponse> => {
+): Promise<FLLoeschungAnsichtResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -1777,11 +1777,11 @@ export const identitaetGetLoeschungAnsicht = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLErasureAnsichtResponse>(getIdentitaetGetLoeschungAnsichtUrl(), {
+  return adminKeyTransport<FLLoeschungAnsichtResponse>(getIdentitaetGetLoeschungAnsichtUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLErasureAdressePayload),
+    body: JSON.stringify(fLLoeschungAdressePayload),
   });
 };
 

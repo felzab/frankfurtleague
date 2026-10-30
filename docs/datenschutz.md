@@ -673,10 +673,10 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
     stored address. One reminder goes out inside it and moves nothing (`:: compose_erinnerung_update`),
     and none goes to an address the mail provider has already refused.
   - **Confirmed but undecided, it is deleted once the season it was made for has ended**, whatever
-    the pupil answered (`:: undecided_erasure_is_due`), and a pupil who confirmed is told afterwards
+    the pupil answered (`:: undecided_loeschung_is_due`), and a pupil who confirmed is told afterwards
     that it happened and why — never before it, a notice being unable to prolong a row nobody
     decided.
-  - **Declined, it goes one calendar month after the decision** (`:: decline_erasure_is_due`), and
+  - **Declined, it goes one calendar month after the decision** (`:: decline_loeschung_is_due`), and
     the decision it keeps until then names the seat holder who declined it by their address
     (`entscheidung.von`, written by `:: compose_ablehnung_update`), which every administrator is
     served beside the date and the reason while the ban list does not hold it
@@ -691,7 +691,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   those three people's contact details and every birthdate on it included, whatever its contact
   persons answered and whether or not its deletion notice could be delivered.** The sweep reads the
   season's own `status` rather than counting a period from a day
-  (`fl_backend/app/api/bewerbungen/services.py :: undecided_erasure_is_due`), so an application is
+  (`fl_backend/app/api/bewerbungen/services.py :: undecided_loeschung_is_due`), so an application is
   kept exactly as long as a decision could still be taken. This is the bound for every
   application the fourteen-day clock above leaves standing: one every contact person confirmed and
   nobody judged, one whose window no stored deadline bounds, and one held because the notice was
@@ -805,7 +805,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   database deletes it no later than thirty days after that, the period the mail provider keeps its own copy
   (`fl_backend/app/api/postausgang/services.py :: NACHLAUF`). An erasure of its recipient deletes it
   at once, sent or owed, the sign-in library's deletion link alone excepted
-  (`fl_backend/app/api/identitaet/crud.py :: erase_the_mails_in_session`; `docs/glossary.md ::
+  (`fl_backend/app/api/identitaet/crud.py :: loeschen_the_mails_in_session`; `docs/glossary.md ::
 Zustellstand`). No record the message was about carries it, so a row can outlive that record by
   its thirty days, and no longer. Ruled 2026-10-26. **A Widerspruch empties the seat and keeps its
   link entry**, on an application until the application goes and on a team's season row until a

@@ -370,7 +370,7 @@ async def delete_many_from_db(
     return result
 
 
-async def erase_many_from_db(
+async def loeschen_many_from_db(
     *,
     collection: AsyncCollection,
     db_filter: Mapping[str, Any],

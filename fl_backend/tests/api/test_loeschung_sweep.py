@@ -60,8 +60,8 @@ from tests.documents import (
     spieler_document,
     team_document,
 )
-from tests.erasure import erasure_collections
 from tests.isolation import InterleavedCollection
+from tests.loeschung import loeschung_collections
 from tests.whole_database import where_held
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
@@ -167,7 +167,7 @@ def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAGUE, mu
 async def run(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any = None, **replaced: Any) -> Any:
     return await sweep_loeschung(
         params=FLLoeschungLaufParams(nach=nach),
-        **erasure_collections(database, **({"saisons_collection": database[Collection.SAISONS]} | replaced)),
+        **loeschung_collections(database, **({"saisons_collection": database[Collection.SAISONS]} | replaced)),
         sperrliste=ban_list(database),
         db=client,
         config=CONFIG,
@@ -449,7 +449,7 @@ class TestEachPupilIsJudgedAgainInTheirOwnTransaction:
 
         assert (answer["spieler"], answer["uebersprungen"], answer["verbleibend"], standing) == (0, 1, 0, 1)
 
-    def test_an_address_corrected_by_hand_is_erased_as_it_stands_now(self, mongo_replica_set_url: str):
+    def test_an_address_corrected_by_hand_is_geloescht_as_it_stands_now(self, mongo_replica_set_url: str):
         """Carry the read's address into the erasure and this fails: the pupil stands, and a stranger's registration goes."""
 
         corrected = "quintessa.neu@beispielschule.de"
@@ -641,7 +641,7 @@ BELOW_THE_ENDED = {PLANNED_BELOW: "future", "2024": "active", "2025": "past"}
 
 class TestAnActivationInsideThePupilsTransactionKeepsThem:
     def test_the_pupil_stands(self, mongo_replica_set_url: str):
-        """Remove the planned season's anchor in `erase_if_still_due` and the pupil goes.
+        """Remove the planned season's anchor in `loeschen_if_still_due` and the pupil goes.
 
         The pupil's only row is in the planned season, which activating it keeps; the transaction read it planned.
         """
@@ -678,7 +678,7 @@ class TestAnActivationInsideThePupilsTransactionKeepsThem:
 
 
 class TestOneRecordHoldsBackNobody:
-    def test_a_refused_erasure_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+    def test_a_refused_loeschung_is_counted_and_the_next_pupil_goes(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
         """A log image refusing the redaction's update, a real failure under strict validation.
 
         Remove the catch and the call fails, the second pupil standing.
@@ -854,7 +854,7 @@ class TestEachCallTakesAShare:
         assert answers == [(0, LOESCHUNGEN_PER_PASS), (1, 0)]
         assert standing == 0
 
-    def test_two_calls_at_once_erase_each_pupil_once(self, mongo_replica_set_url: str):
+    def test_two_calls_at_once_loeschen_each_pupil_once(self, mongo_replica_set_url: str):
         """Count the attempts rather than the erasures and the sum exceeds the pupils; a conflict surfacing as a failure fails it too."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -874,7 +874,7 @@ class TestEachCallTakesAShare:
 
 
 class TestNothingIsDueBeforeASeasonHasEnded:
-    def test_a_league_with_no_past_season_erases_nobody(self, mongo_replica_set_url: str):
+    def test_a_league_with_no_past_season_loescht_nobody(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPIELER].insert_one(pupil(numbered(1), address_of(1)))
 
@@ -896,9 +896,9 @@ class TestNoJournalLine:
             return (await run(database, client)).spieler
 
         with caplog.at_level(logging.INFO):
-            erased = on_a_league(mongo_replica_set_url, body)
+            geloescht = on_a_league(mongo_replica_set_url, body)
 
-        assert erased == 1
+        assert geloescht == 1
         assert not [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
 
 
@@ -959,8 +959,8 @@ class TestTheWorstCallSendsTheCommandsItsBudgetCounts:
 FUTURE = "2027"
 
 
-class TestThePreviewCountsWhomTheNextActivationsRunErases:
-    def test_the_run_after_the_activation_erases_the_count_the_preview_answered(self, mongo_replica_set_url: str):
+class TestThePreviewCountsWhomTheNextActivationsRunLoescht:
+    def test_the_run_after_the_activation_loescht_the_count_the_preview_answered(self, mongo_replica_set_url: str):
         """Read on today's statuses, the preview counts one pupil short: the row in 2025 keeps its pupil until 2026 ends."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

@@ -6,12 +6,12 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.adresswechsel.crud import known_to_the_new_mailbox, others_naming
 from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen
-from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, ErasureJournal, erase_everything, resolve_subject
-from app.api.identitaet.schemas import FLErasureResponse, FLSelbstErasureAnsichtResponse
+from app.api.identitaet.crud import JEDE_PERSONENGRUPPE, LoeschungJournal, loeschen_everything, resolve_subject
+from app.api.identitaet.schemas import FLLoeschungResponse, FLSelbstLoeschungAnsichtResponse
 from app.api.identitaet.services import (
     build_season_team_pipeline,
-    compose_erasure_ansicht,
-    find_letzter_inhaber_erasure_refusal,
+    compose_loeschung_ansicht,
+    find_letzter_inhaber_loeschung_refusal,
     holds_an_owner_grant,
 )
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
@@ -53,7 +53,7 @@ router = APIRouter(
 
 @router.post(
     "/loeschung",
-    response_model=FLErasureResponse,
+    response_model=FLLoeschungResponse,
     summary="Erase every record the signed-in address holds",
 )
 async def post_konto_loeschung(
@@ -80,7 +80,7 @@ async def post_konto_loeschung(
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
-) -> FLErasureResponse:
+) -> FLLoeschungResponse:
     """
     Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.
 
@@ -111,7 +111,7 @@ async def post_konto_loeschung(
     touched here: deleting it is the caller's, once this has answered.
     """
 
-    async def erase_the_address(session: AsyncClientSession) -> FLErasureResponse:
+    async def loeschen_the_address(session: AsyncClientSession) -> FLLoeschungResponse:
         grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
         # A grant holder's grants go with the rest, so the erasure asks the passkey a revoke asks. A live
         # row is its own fold, so equality is the fold's judgement.
@@ -123,9 +123,9 @@ async def post_konto_loeschung(
             # the one retried finds itself the last.
             await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
             barred = await adressen_gesperrt(sperrliste, [str(grant["adresse"]) for grant in grants], session=session)
-            refuse(find_letzter_inhaber_erasure_refusal(identifier=identifier, grants=grants, barred=barred))
+            refuse(find_letzter_inhaber_loeschung_refusal(identifier=identifier, grants=grants, barred=barred))
 
-        erased = await erase_everything(
+        geloescht = await loeschen_everything(
             identifier,
             scope=JEDE_PERSONENGRUPPE,
             spieler_collection=spieler_collection,
@@ -153,21 +153,21 @@ async def post_konto_loeschung(
             session=session,
         )
 
-        return FLErasureResponse(**erased.model_dump())
+        return FLLoeschungResponse(**geloescht.model_dump())
 
-    journal = ErasureJournal[FLErasureResponse](
+    journal = LoeschungJournal[FLLoeschungResponse](
         identifier, schluessel=config.sperrliste_schluessel, berechtigungen_collection=berechtigungen_collection
     )
     async with journal:
         async with transaction_session(db) as session:
-            answer = journal.took(await session.with_transaction(erase_the_address))
+            answer = journal.took(await session.with_transaction(loeschen_the_address))
 
     return answer
 
 
 @router.get(
     "/loeschung/ansicht",
-    response_model=FLSelbstErasureAnsichtResponse,
+    response_model=FLSelbstLoeschungAnsichtResponse,
     summary="Show what an erasure of the signed-in address would remove",
 )
 async def get_konto_loeschung_ansicht(
@@ -181,7 +181,7 @@ async def get_konto_loeschung_ansicht(
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
-) -> FLSelbstErasureAnsichtResponse:
+) -> FLSelbstLoeschungAnsichtResponse:
     """
     Answer what `POST /identitaet/konto/loeschung` would remove for the signed-in address, by kind and by name.
 
@@ -234,7 +234,7 @@ async def get_konto_loeschung_ansicht(
         # A live row is its own fold, so equality is the fold's judgement.
         own = next((grant for grant in grants if grant["adresse"] == identifier), None)
         letzter_inhaber = holds_an_owner_grant(identifier, grants) and (
-            find_letzter_inhaber_erasure_refusal(
+            find_letzter_inhaber_loeschung_refusal(
                 identifier=identifier,
                 grants=grants,
                 barred=await adressen_gesperrt(sperrliste, [str(grant["adresse"]) for grant in grants], session=session),
@@ -242,7 +242,7 @@ async def get_konto_loeschung_ansicht(
             is not None
         )
 
-    ansicht = compose_erasure_ansicht(
+    ansicht = compose_loeschung_ansicht(
         identifier,
         saison_team_rows=subject.saison_teams,
         bewerbung_rows=subject.bewerbungen,
@@ -254,6 +254,6 @@ async def get_konto_loeschung_ansicht(
         team_rows=team_rows,
     )
 
-    return FLSelbstErasureAnsichtResponse(
+    return FLSelbstLoeschungAnsichtResponse(
         **ansicht.model_dump(), verwaltung=None if own is None else own["verwaltung"], letzter_inhaber=letzter_inhaber
     )

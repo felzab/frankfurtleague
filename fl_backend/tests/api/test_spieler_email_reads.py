@@ -30,7 +30,7 @@ from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.erasure import erased
+from tests.loeschung import geloescht
 from tests.plans import plans_of_sent_reads
 from tests.records import record_collections
 from tests.worker import worker_database
@@ -210,7 +210,7 @@ async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient
     )
 
 
-async def the_erasure_preview(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+async def the_loeschung_preview(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
     return await get_konto_loeschung_ansicht(
         identifier=FOLDED_EMAIL,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -225,8 +225,8 @@ async def the_erasure_preview(database: AsyncDatabase, client: AsyncMongoClient,
     )
 
 
-async def the_erasure(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
-    return await erased(database, client, FOLDED_EMAIL, germany_now=NOW)
+async def the_loeschung(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
+    return await geloescht(database, client, FOLDED_EMAIL, germany_now=NOW)
 
 
 async def the_address_change_request(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
@@ -296,8 +296,8 @@ class TestEveryAddressReadUsesTheIndex:
             the_account_read,
             the_own_record_read,
             the_own_record_press,
-            the_erasure_preview,
-            the_erasure,
+            the_loeschung_preview,
+            the_loeschung,
             the_address_change_request,
         ],
         ids=lambda reader: reader.__name__,

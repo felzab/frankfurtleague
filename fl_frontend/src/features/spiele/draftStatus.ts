@@ -183,7 +183,7 @@ type FieldDescriptor<TValue, TPath extends string> = {
  * Erased so rows over many value types share one array. `FieldDescriptor<any>` would need a lint
  * suppression and stop checking each row's `read`, `equals` and `format` against each other.
  */
-type ErasedFieldDescriptor<TPath extends string = string> = {
+type GeloeschtFieldDescriptor<TPath extends string = string> = {
   path: TPath;
   label: string;
   group: FLSpielFieldGroup;
@@ -194,7 +194,7 @@ type ErasedFieldDescriptor<TPath extends string = string> = {
   errorPaths?: readonly string[];
 };
 
-const describeField = <TValue, TPath extends string>(descriptor: FieldDescriptor<TValue, TPath>): ErasedFieldDescriptor<TPath> => {
+const describeField = <TValue, TPath extends string>(descriptor: FieldDescriptor<TValue, TPath>): GeloeschtFieldDescriptor<TPath> => {
   const equals = descriptor.equals ?? Object.is;
 
   return {

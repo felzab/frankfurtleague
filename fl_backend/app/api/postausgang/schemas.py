@@ -56,7 +56,7 @@ class FLBerechtigungDaten(BaseModel):
     jetzt: FLBerechtigungStand | None
     vorher: FLBerechtigungStand | None
     # The administrator whose write made it; null where it was found in the database, or where a ban withholds them,
-    # `urheber` telling the two apart; `app/core/recording.py :: ERASED_ACTOR_MARKER` for one erased since.
+    # `urheber` telling the two apart; `app/core/recording.py :: GELOESCHT_ACTOR_MARKER` for one erased since.
     geaendert_von: str | None
     # Null where it was found in the database, nobody knowing when that edit was made.
     geaendert_am: AwareDatetime | None

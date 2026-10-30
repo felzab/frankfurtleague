@@ -66,7 +66,7 @@ from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_
 from app.api.sperrliste.services import withheld_actor
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import VERSION_FIELD, aggregate_many_from_db, erase_many_from_db, patch_one_in_db, post_one_to_db, refuse
+from app.core.crud import VERSION_FIELD, aggregate_many_from_db, loeschen_many_from_db, patch_one_in_db, post_one_to_db, refuse
 from app.core.dependencies import (
     AdresswechselCollection,
     BerechtigungenAngekuendigtCollection,
@@ -672,7 +672,7 @@ async def _move_the_tier_in_session(
         session=session,
     )
     # The announced row is bookkeeping, so replaced with no image.
-    await erase_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": berechtigung_id}, session=session)
+    await loeschen_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": berechtigung_id}, session=session)
     await post_one_to_db(
         collection=berechtigungen_angekuendigt_collection,
         document=compose_announced(berechtigung_id=berechtigung_id, stand=jetzt, now=now),

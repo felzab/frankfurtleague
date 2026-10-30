@@ -401,14 +401,14 @@ async def drain(
     Answers what it erased, what it redacted, and the ids it passed over.
     """
 
-    erased_total, redacted_total = 0, 0
+    geloescht_total, redacted_total = 0, 0
     passed: list[Any] = []
     while True:
         # Without the rows passed over, or a page of them would be read, and fail, for ever.
         batch = Batch(passed=passed)
         started = time.monotonic()
         try:
-            read, erased, redacted = await _transacted(db, page_of, batch)
+            read, geloescht, redacted = await _transacted(db, page_of, batch)
         except Exception as failure:
             # Nothing read or nothing taken, as `run_isolated` reads it.
             if not batch.suspects or not carried_by_a_row(failure):
@@ -420,28 +420,28 @@ async def drain(
                 failed=batch,
                 failure=failure,
                 attempt=page_of,
-                moved=lambda page_erased: page_erased[1],
+                moved=lambda page_geloescht: page_geloescht[1],
                 owes=False,
                 what=what,
                 clock=clock,
                 spent=time.monotonic() - started,
             )
             read = len(batch.ids)
-            erased = sum(result[1] for result in committed)
+            geloescht = sum(result[1] for result in committed)
             redacted = sum(result[2] for result in committed)
             # A page that failed whole and whose halves neither moved nor passed a row would be read
             # again, the same way, for ever.
-            if read > page and not erased and not left:
+            if read > page and not geloescht and not left:
                 raise
 
             passed.extend(left)
         else:
             passed.extend(_settled(batch, what=what, clock=clock))
 
-        erased_total += erased
+        geloescht_total += geloescht
         redacted_total += redacted
         if read <= page:
-            return erased_total, redacted_total, passed
+            return geloescht_total, redacted_total, passed
 
 
 def refuse_a_stalled_page(*, read: int, moved: int, page: int, clock: str, saison_id: str) -> None:

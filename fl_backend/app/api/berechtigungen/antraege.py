@@ -21,7 +21,7 @@ from app.api.berechtigungen.services import haelt_seit
 from app.api.postausgang.services import final_update
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, delete_many_from_db, erase_many_from_db, patch_many_in_db, refuse
+from app.core.crud import aggregate_many_from_db, delete_many_from_db, loeschen_many_from_db, patch_many_in_db, refuse
 from app.core.exceptions import DocumentNotFoundError, WriteRefusal
 from app.core.journal import JournalLine
 from app.core.security import loeschung_journal_hash
@@ -200,7 +200,7 @@ async def end_the_antraege_about_in_session(
     return rows
 
 
-async def erase_antraege_in_session(
+async def loeschen_antraege_in_session(
     *,
     berechtigungen_antraege_collection: AsyncCollection,
     postausgang_collection: AsyncCollection,
@@ -219,7 +219,7 @@ async def erase_antraege_in_session(
         session=session,
     )
     if rows:
-        await erase_many_from_db(
+        await loeschen_many_from_db(
             collection=berechtigungen_antraege_collection, db_filter={"_id": {"$in": [row["_id"] for row in rows]}}, session=session
         )
         await settle_the_notices_in_session(
