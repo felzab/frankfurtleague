@@ -198,11 +198,12 @@ async def patch_many_in_db(
     document the update would leave as it stands is not matched, so its version stays.
     """
 
-    if collection.name in EDITED_COLLECTIONS:
-        db_filter = _changed_by(db_filter, update)
+    # The caller's filter is what the row records: the narrowing only restates which documents a `$set`
+    # changes, and the log page shows each filter key as the set the fan-out ran over.
+    matched = _changed_by(db_filter, update) if collection.name in EDITED_COLLECTIONS else db_filter
     update, _ = _versioned(collection, update, checks=False)
 
-    result = await collection.update_many(filter=db_filter, update=update, session=session)
+    result = await collection.update_many(filter=matched, update=update, session=session)
 
     # A fan-out that changed nothing records nothing, as a removal that took nothing: so a
     # caller sends its write unguarded, and an hourly pass matching nothing files no row saying so.
