@@ -32,7 +32,6 @@ import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { BESTAETIGUNGSLINK_TITEL } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLBestaetigung, FLEinwilligung, FLPostausgangLage } from "@/core/generated/client/types";
@@ -193,7 +192,7 @@ export function FormBestaetigungSection({
 
     landing.landed();
     // The link is owed and on its way; this panel's delivery line says what became of it once the page reads it again.
-    appToast.success(BESTAETIGUNGSLINK_TITEL.gesendet, { description: res.message });
+    appToast.success("Bestätigungslink gesendet", { description: res.message });
   };
 
   return (

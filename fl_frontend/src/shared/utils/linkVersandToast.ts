@@ -11,11 +11,6 @@ type LinkVersand = "gesendet" | "fehlgeschlagen";
  */
 export type VersandTitel = Readonly<Record<LinkVersand, string>>;
 
-export const BESTAETIGUNGSLINK_TITEL: VersandTitel = {
-  gesendet: "Bestätigungslink gesendet",
-  fehlgeschlagen: "Bestätigungslink nicht verschickt",
-};
-
 /** A team's registration link, its own press and a season's press reaching one team alike. */
 export const REGISTRIERUNGSLINK_TITEL: VersandTitel = {
   gesendet: "Registrierungslink gesendet",
