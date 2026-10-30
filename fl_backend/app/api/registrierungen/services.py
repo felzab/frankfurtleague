@@ -22,7 +22,7 @@ from app.api.bewerbungen.services import (
 # every `laeuft` a link is shown with and this flow's refusal, so a link and the write it opens
 # cannot disagree.
 from app.api.einladungen.services import registrierungsfenster_laeuft
-from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand, FLRegistrierungEntscheidung, FLRegistrierungSeite
+from app.api.registrierungen.schemas import FLRegistrierungEntscheidung, FLRegistrierungSeite
 
 # The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
 # month and read a provider's verdict the same way, and a second spelling would drift from it.
@@ -41,6 +41,7 @@ from app.shared.schemas.bounds import (
     REGISTRIERUNG_ERINNERUNG_TAGE,
     REGISTRIERUNG_MIN_ALTER_JAHRE,
 )
+from app.shared.schemas.literals import FLBestaetigungZustand
 
 # --- The INVITE's read and the SUBMISSION. Every refusal below is judged before the one write, in
 # the order the router asks them in.
@@ -351,7 +352,7 @@ def link_is_over(*, bestaetigung: Any, status: Any, today: str) -> bool:
     return not isinstance(frist, str) or frist < today
 
 
-def zustand_of(*, registrierung_raw: Mapping[str, Any], today: str, gesperrt: bool) -> FLRegistrierungBestaetigungZustand:
+def zustand_of(*, registrierung_raw: Mapping[str, Any], today: str, gesperrt: bool) -> FLBestaetigungZustand:
     """What a reopened link shows: the ban first, then a stamp over the deadline.
 
     A pupil who answered on the last valid day is shown that they did.
@@ -603,26 +604,6 @@ def compose_confirmation_update(
 
 # The other member of the status enum, read by the clock below and written by the team's decline.
 DECLINED: Final = "abgelehnt"
-
-# The season key this pass stamps, spelled once: the read that finds a stale season and the update
-# that writes the day are one decision, and a rename reaching one of them alone stamps nothing.
-REGISTRIERUNG_SWEEP_FELD: Final = "registrierung_sweep_gelaufen_am"
-
-
-def build_stale_stamp_filter(*, today: str) -> Mapping[str, Any]:
-    """Every season this pass has not stamped today, so the hourly pass writes, and logs, the first of the day alone."""
-
-    return {REGISTRIERUNG_SWEEP_FELD: {"$ne": today}}
-
-
-def compose_sweep_stamp(*, today: str) -> Mapping[str, Any]:
-    """The whole PASS's day, written on every stale season at once.
-
-    It says when the registration sweep last ran, never when a season was visited.
-    """
-
-    return {"$set": {REGISTRIERUNG_SWEEP_FELD: today}}
-
 
 # One row per PUPIL, so a season's registrations outgrow a page long before its fixtures do.
 SWEEP_PAGE: Final = LIST_LIMIT_MAX

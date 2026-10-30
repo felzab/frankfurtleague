@@ -7,7 +7,6 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.schemas import (
-    FLBewerbungEinwilligungAnsichtPayload,
     FLBewerbungEinwilligungAnsichtResponse,
     FLBewerbungEinwilligungAntwortPayload,
     FLBewerbungEinwilligungAntwortResponse,
@@ -75,6 +74,7 @@ from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, loeschung_journal_hash, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 
 # A THIRD router on the prefix, beside the admin one and the public create: the token is the whole
@@ -148,7 +148,7 @@ async def _saison_ansicht(
     summary="What one confirmation link opens",
 )
 async def get_einwilligung_ansicht(
-    ansicht_data: Annotated[FLBewerbungEinwilligungAnsichtPayload, Body()],
+    ansicht_data: Annotated[FLTokenPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
@@ -156,25 +156,10 @@ async def get_einwilligung_ansicht(
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungEinwilligungAnsichtResponse:
-    """
-    Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).
+    """What the confirmation page renders for the seat this token opens, and nothing of the person.
 
-    The seat's state, the school, the season, the role, and `zugleich_rolle`: the
-    second seat the same person holds, which an answer on this link writes too, or null. Never the holder's name: the
-    link went to an address nobody has confirmed, which behind a typo is a stranger's.
-    `mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers
-    exactly the dates the answer will take. `laufende_fassung` is the label of the page the person is shown and their
-    answer must name: the applicant's where the applicant named them in every seat the link answers, else the one for a
-    person the administration seated.
-    A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
-    seat holds (`REQ-BEWERBUNG-009`), an open link whose seat holds nobody among them: a confirmed, declined or
-    expired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The state
-    is `gesperrt`, ahead of every other, wherever the ban list holds an address a consent on this link would be
-    refused for (`REQ-BEWERBUNG-020`), so the page offers a barred person nothing to press.
-
-    The same token may open a seat an administrator entered on a team's season row (`quelle: saison`): `schule` is then
-    the name the club carries that season, and the link is over once its seat's own deadline has passed. Before that, a
-    season that has ended or a team that has left it answers `saison_vorbei`: the link takes a Widerspruch and no consent.
+    A POST, so the token travels in the body. A confirmed, declined or expired link is served in that state, `gesperrt`
+    ranking first; only a token no seat holds is refused (`REQ-BEWERBUNG-009`).
     """
 
     token_hash = hash_token(ansicht_data.token)
@@ -239,31 +224,11 @@ async def post_einwilligung(
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse:
-    """
-    Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.
+    """Record one person's consent or decline for the seat their link opens, and for a second seat they hold.
 
-    A consent writes their date of birth, the stamp, `person` and the wording they were shown in one update, each
-    choice with its evidence, and leaves who seated them as it stands; a decline empties their slot and redacts
-    every log image holding it, as an erasure does. Refuses, in this order: a token no seat holds (`REQ-BEWERBUNG-009`),
-    a link whose deadline has passed or whose application was decided (`REQ-BEWERBUNG-010`), a seat already answered
-    (`REQ-BEWERBUNG-011`), a consent naming any label but the one the view answered as `laufende_fassung` for this link
-    (`REQ-EINWILLIGUNG-001`), a consent from an address the ban list holds now, whenever the link was minted
-    (`REQ-BEWERBUNG-020`), an age outside the span the seats this person holds ask for (`REQ-BEWERBUNG-012`), and a
-    media consent from a person below `medien_mindestalter` (`REQ-EINWILLIGUNG-002`) -- the last four judged before
-    anything is written, so a reloaded page or a mistyped year spends nothing. A decline
-    stores no label and is taken from a barred address too: it empties the seat.
-
-    The answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own
-    mailbox among it: this is a server-to-server response, and a caller putting it in front of a browser
-    would hand one contact person another's address.
-
-    A link on a team's season row (`quelle: saison`) is answered the same way on that row, refused in the same order but
-    for `REQ-BEWERBUNG-010`, nothing deciding a season row, and its answer carries nothing to compose a message from. Its
-    own deadline passed is `REQ-KONTAKT-004`, and a consent once its season has ended or its team has left it is
-    `REQ-KONTAKT-006`, a Widerspruch being taken all the same. A Widerspruch there also voids the seat's links on the
-    team's match confirmations of that season, answered and closed ones too, takes those links and their mails' delivery
-    records out of the confirmations' log images, and takes every reason its person typed answering a match confirmation,
-    from any seat they held, from its row and its log images, the answer standing.
+    A decline empties the slot. Server-to-server only: the answer carries the addresses the outbound messages are composed
+    from. Refuses, writing nothing: `REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and
+    on a team's season row `REQ-KONTAKT-004` and `-006`.
     """
 
     token_hash = hash_token(antwort_data.token)
