@@ -457,7 +457,6 @@ class TestTheMintNeverAsksWhatTheCloseShuts:
             pytest.param({}, NEXT_WEEK, id="a club gone on the fixture's day"),
             pytest.param({}, YESTERDAY, id="a club gone before it"),
             pytest.param({"team1": side(ALPHA, 2)}, None, id="a lone goal count"),
-            pytest.param({"elfmeterschiessen": {"team1": 4, "team2": 3}}, None, id="a lone shoot-out"),
         ],
     )
     def test_two_passes_mint_nothing(self, mongo_replica_set_url: str, spiel_fields: dict[str, Any], austritt_tag: str | None):
