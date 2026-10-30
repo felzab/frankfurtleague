@@ -402,10 +402,10 @@ def frontend_files(model: dict[str, Any], name: str, stack: str, schema: tuple[f
     return findings
 
 
-# The backend's settings, whose secret half is the one declaration of the files it reads from `RUN_SECRETS`.
+# The backend's settings, whose credential fields are the one declaration of the files it reads from `RUN_SECRETS`.
 BACKEND_CONFIG: Final = REPO_ROOT / "fl_backend" / "app" / "core" / "config.py"
 BACKEND_SERVICE: Final = "backend"
-BACKEND_SECRETS: Final = "BackendSecrets"
+BACKEND_SECRETS: Final = "_SecretFields"
 
 # The pydantic classes a settings class may inherit from, each declaring no field of its own.
 PYDANTIC_ROOTS: Final = frozenset({"BaseModel", "BaseSettings"})
@@ -614,9 +614,9 @@ def _field_file(settings: _Settings, field: ast.AnnAssign, where: str) -> tuple[
 
 
 def backend_schema_files(config: Path) -> tuple[frozenset[str], frozenset[str]]:
-    """Every file the backend's secret half reads, and those it cannot boot without.
+    """Every file the backend's credential fields read, and those it cannot boot without.
 
-    Parsed rather than imported from `fl_backend/app/core/config.py :: BackendSecrets`, since the ops
+    Parsed rather than imported from `fl_backend/app/core/config.py :: _SecretFields`, since the ops
     scope's interpreter may lack pydantic; anything it cannot follow refuses.
     """
     settings = _settings(config)
@@ -635,7 +635,7 @@ def backend_schema_files(config: Path) -> tuple[frozenset[str], frozenset[str]]:
 
 
 def backend_files(model: dict[str, Any], name: str, schema: tuple[frozenset[str], frozenset[str]]) -> list[Finding]:
-    """The backend is handed every file its secret half requires and none it never reads, on either stack."""
+    """The backend is handed every file its credential fields require and none they never read, on either stack."""
     reads, required = schema
     mounted = _mounted_files(services(model, name).get(BACKEND_SERVICE) or {})
     findings: list[Finding] = []

@@ -1,12 +1,14 @@
 import errno
+import os
 import re
 import warnings
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated, Final
+from typing import Annotated, Any, Final
 
 from fastapi import Request
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
+from pydantic import AfterValidator, BaseModel, Field, SecretStr, ValidationError, field_validator
+from pydantic_core import ErrorDetails
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SecretsSettingsSource, SettingsConfigDict, SettingsError
 
 # A property of THIS CODE, never a deployment's: an environment able to set it could serve
@@ -62,34 +64,11 @@ class EnvironmentValidationError(Exception):
 UNDECLARED: Final = "extra_forbidden"
 
 
-def _failing_names(error: ValidationError) -> list[str]:
-    """The declared fields that failed, spelled as their source spells them.
-
-    An issue's own message and its `input_value` each quote what was rejected, so neither is read.
-    An undeclared name is the file's own text, which a pasted key's line keeping the dotenv shape
-    would be, so `_undeclared` counts it and nothing names it.
-    """
-    # `<unknown>` mirrors the frontend gate's answer for a locationless issue.
-    return sorted({str(issue["loc"][0]) if issue["loc"] else "<unknown>" for issue in error.errors() if issue["type"] != UNDECLARED})
-
-
-def _undeclared(error: ValidationError) -> int:
-    return sum(issue["type"] == UNDECLARED for issue in error.errors())
-
-
-class _EnvironmentFields(BaseModel):
-    """What the environment configures, read by both the boot's environment half and `BackendConfig`."""
-
-    # The characters MongoDB accepts in a database name: a value carrying a separator or a space
-    # would otherwise open a namespace no other tool on this host can name.
-    db_base_name: str = Field(pattern=r"^[A-Za-z0-9_-]+$", description="Base DB name")
-
-
 # Parsed rather than imported by `scripts/checks/check_compose_model.py :: backend_schema_files`, which
 # holds the compose files to these fields: a file named by any shape but a string or a module constant
 # refuses there.
 class _SecretFields(BaseModel):
-    """The credentials, read by `BackendSecrets` from one file each and by `BackendConfig` from it."""
+    """The credentials, each read from its own file under `SECRETS_DIR`."""
 
     mongodb_uri: SecretStr = Field(validation_alias=MONGODB_URI_FILE, description="MongoDB Connection URI")
 
@@ -112,11 +91,20 @@ class _SecretFields(BaseModel):
         return value
 
 
-class BackendEnvironment(BaseSettings, _EnvironmentFields):
-    """The environment half of the boot's settings: the process environment and the package's dotenv file, never a secret file."""
+# The file each secret field is read from: its alias where one is set, its own name otherwise.
+SECRET_FILES: Final = tuple(str(field.validation_alias or name) for name, field in _SecretFields.model_fields.items())
 
-    # A path and never a secret: the directory the secret half reads each credential from.
-    secrets_dir: str = Field(default=DEFAULT_SECRETS_DIR, description="The directory each secret file is read from")
+
+class BackendConfig(BaseSettings, _SecretFields):
+    """The settings: each credential from its own file, every other value from the environment or the package's dotenv file.
+
+    Built without `_secrets_dir`, it opens no secret file: `get_config` hands it the directory `SECRETS_DIR` names.
+    """
+
+    # The characters MongoDB accepts in a database name: a value carrying a separator or a space
+    # would otherwise open a namespace no other tool on this host can name.
+    db_base_name: str = Field(pattern=r"^[A-Za-z0-9_-]+$", description="Base DB name")
+    app_version: str | None = Field(default=None, description="The image's version, from `APP_VERSION`")
 
     model_config = SettingsConfigDict(
         # The package's file, the one `docker-compose.yml` lists, so a run from `fl_backend/` reads what
@@ -130,9 +118,9 @@ class BackendEnvironment(BaseSettings, _EnvironmentFields):
     )
 
     # Declared, or a type checker reads the fields as the constructor's arguments and demands the
-    # required ones, which only the sources below supply.
-    def __init__(self) -> None:
-        super().__init__()
+    # required ones, which the sources supply; `_secrets_dir` and `_env_file` are the library's own.
+    def __init__(self, **values: Any) -> None:
+        super().__init__(**values)
 
     @classmethod
     def settings_customise_sources(
@@ -143,94 +131,76 @@ class BackendEnvironment(BaseSettings, _EnvironmentFields):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        return init_settings, env_settings, dotenv_settings
+        # The secret files above the environment, "the order of the returned callables decides the
+        # priority of inputs" (https://pydantic.dev/docs/validation/latest/concepts/pydantic_settings/):
+        # the default ranks a variable above its file, so one left behind would win in silence.
+        return init_settings, file_secret_settings, env_settings, dotenv_settings
 
 
-class BackendSecrets(BaseSettings, _SecretFields):
-    """The secret half: one file per credential, and no other source at all.
+def _refusal(issues: list[ErrorDetails], *, files: set[str]) -> EnvironmentValidationError:
+    """Each failing variable upper-cased as the environment spells it, a count of the undeclared, and each failing file by name.
 
-    pydantic-settings ranks the environment and a dotenv file ABOVE a secrets directory, so a
-    variable left behind would win over its file in silence.
+    An issue's own message and its `input_value` each quote what was rejected, so neither is read.
+    An undeclared name is the file's own text, which a pasted key's line keeping the dotenv shape
+    would be, so it is counted and nothing names it. The first sentence is the frontend gate's
+    (`fl_frontend/src/core/config.ts :: frontend_config`), so one hint in `scripts/ops/deploy.sh`
+    covers both.
     """
+    # `<unknown>` mirrors the frontend gate's answer for a locationless issue.
+    failing = {str(issue["loc"][0]) if issue["loc"] else "<unknown>" for issue in issues if issue["type"] != UNDECLARED}
+    variables = sorted(failing - set(SECRET_FILES))
+    files = files | (failing & set(SECRET_FILES))
+    undeclared = sum(issue["type"] == UNDECLARED for issue in issues)
 
-    # No `env_prefix`: pydantic-settings puts it on a secret file's name too, and `SECRET_FILES`, the
-    # preflight and the compose check name each file without one
-    # (`fl_backend/tests/core/test_config.py :: TestTheSecretFiles`).
-    model_config = SettingsConfigDict(extra="forbid")
-
-    # The directory is the one argument, for `BackendEnvironment.__init__`'s reason; pydantic-settings
-    # takes it as `_secrets_dir` (https://pydantic.dev/docs/validation/latest/concepts/pydantic_settings/).
-    def __init__(self, directory: Path) -> None:
-        super().__init__(_secrets_dir=directory)
-
-    @classmethod
-    def settings_customise_sources(
-        cls,
-        settings_cls: type[BaseSettings],
-        init_settings: PydanticBaseSettingsSource,
-        env_settings: PydanticBaseSettingsSource,
-        dotenv_settings: PydanticBaseSettingsSource,
-        file_secret_settings: PydanticBaseSettingsSource,
-    ) -> tuple[PydanticBaseSettingsSource, ...]:
-        return (file_secret_settings,)
+    sentences = [f"Invalid environment variables: {', '.join(name.upper() for name in variables)}"] if variables else []
+    if undeclared:
+        sentences.append(f"Undeclared environment variables: {undeclared}")
+    if files:
+        sentences.append(f"Invalid secret files: {', '.join(sorted(files))}")
+    return EnvironmentValidationError("; ".join(sentences))
 
 
-# The file each secret field is read from: its alias where one is set, its own name otherwise.
-SECRET_FILES: Final = tuple(str(field.validation_alias or name) for name, field in BackendSecrets.model_fields.items())
+def read_environment() -> None:
+    """The deploy's preflight: the variables and the dotenv file, refused as the boot refuses them, opening no secret file.
 
-
-class BackendConfig(_EnvironmentFields, _SecretFields):
-    """The settings every consumer reads: both halves, as `get_config` built them, reading no source of its own."""
-
-    # By name, because the secret fields carry their file's name as the alias the file source reads.
-    model_config = ConfigDict(extra="forbid", validate_by_name=True)
-
-
-def read_environment() -> BackendEnvironment:
-    """The environment half, refused by the names it could not accept; the deploy's preflight reads this alone."""
+    Its caller's uid reads none, so the class is built with no secrets directory, and the credentials
+    that leaves missing are no question of this one.
+    """
     try:
-        return BackendEnvironment()
+        BackendConfig()
     except ValidationError as error:
-        failing, undeclared = _failing_names(error), _undeclared(error)
+        issues = [issue for issue in error.errors() if not (issue["type"] == "missing" and issue["loc"] and issue["loc"][0] in SECRET_FILES)]
     except ValueError as error:
         # Below `ValidationError`'s arm, which is a `ValueError` too: both `SettingsError` and the
         # dotenv read's `UnicodeDecodeError` land here, both CHAIN what they wrapped, and neither
         # names a field -- so the type alone leaves.
         raise EnvironmentValidationError(f"The environment could not be read: {type(error).__name__}") from None
+    else:
+        return
     # Outside the arm and `from None`, so nothing chains the `ValidationError`, whose own rendering
     # quotes each rejected value into the traceback uvicorn prints.
-    raise _environment_refusal(failing, undeclared) from None
-
-
-def _environment_refusal(failing: list[str], undeclared: int) -> EnvironmentValidationError:
-    """Each declared name that failed, upper-cased as the environment spells it, and a count of the undeclared ones.
-
-    The first sentence is the frontend gate's (`fl_frontend/src/core/config.ts :: frontend_config`),
-    so one hint in `scripts/ops/deploy.sh` covers both.
-    """
-    sentences = [f"Invalid environment variables: {', '.join(name.upper() for name in failing)}"] if failing else []
-    if undeclared:
-        sentences.append(f"Undeclared environment variables: {undeclared}")
-    return EnvironmentValidationError("; ".join(sentences))
+    if issues:
+        raise _refusal(issues, files=set()) from None
 
 
 def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:
     """Each unreadable file as `<path> (<errno>)`, and each required one missing or any one blank, by name.
 
-    Asked before the build, which stops at its first failing read; never a decode error's text,
-    which quotes the file.
+    Asked before the build, which stops at its first failing read and takes a variable where a file is
+    missing; never a decode error's text, which quotes the file.
     """
     if not directory.is_dir():
         return [f"{directory} ({'ENOTDIR' if directory.exists() else 'ENOENT'})"], []
     unreadable: list[str] = []
     absent: list[str] = []
     # The library's own setting rather than its default: a file it would not find must be missing here too.
-    case_sensitive = bool(BackendSecrets.model_config.get("case_sensitive"))
-    for name, field in zip(SECRET_FILES, BackendSecrets.model_fields.values(), strict=True):
+    case_sensitive = bool(BackendConfig.model_config.get("case_sensitive"))
+    # The fields of the class the build constructs, which a default it declares spares a file.
+    for name, field in zip(SECRET_FILES, [BackendConfig.model_fields[field] for field in _SecretFields.model_fields], strict=True):
         path = SecretsSettingsSource.find_case_path(directory, name, case_sensitive=case_sensitive)
         if path is None:
-            # Counted here as well as by the build, whose lookup may find a stand-in for a missing file
-            # (`fl_backend/tests/core/test_config.py :: TestTheSecretFiles`).
+            # Counted here as well as by the build, which a variable, or a file under the field's own
+            # name, may stand in for.
             if field.is_required():
                 absent.append(name)
             continue
@@ -248,47 +218,42 @@ def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:
     return unreadable, absent
 
 
-def read_secrets(directory: Path) -> BackendSecrets:
-    """The secret half, read from `directory` alone and refused by file name, never by value."""
+@lru_cache
+def get_config() -> BackendConfig:
+    """The settings, built once and reused, the credentials read from the directory `SECRETS_DIR` names.
+
+    A FUNCTION rather than a module-level instance, which would make importing any module touching
+    configuration read the environment as a side effect.
+    """
+    # Read before the build, which takes the directory as an argument: the settings loader is the one
+    # reader of the environment the ban permits.
+    directory = Path(os.environ.get("SECRETS_DIR", DEFAULT_SECRETS_DIR))  # noqa: TID251
     unreadable, absent = _unusable_files(directory)
     if unreadable:
         # The missing and the blank beside them, which the build would never reach.
         also = f"; Invalid secret files: {', '.join(sorted(absent))}" if absent else ""
         raise EnvironmentValidationError(f"Unreadable secret files: {', '.join(unreadable)}{also}") from None
-    # Built even where a file is missing, so every present file's value is judged as well; a missing
-    # one is refused whatever the library found to stand in for it.
+    # Built even where a file is missing, so every present value is judged as well; a missing one is
+    # refused whatever the library found to stand in for it.
     try:
-        # Raised rather than printed: the source only WARNS for a missing directory and for a
-        # directory at a file's path, and a warning leaves outside the log envelope.
+        # Raised rather than printed: the source only WARNS for a directory at a file's path, and a
+        # warning leaves outside the log envelope.
         with warnings.catch_warnings(action="error"):
-            secrets = BackendSecrets(directory)
+            config = BackendConfig(_secrets_dir=directory)
     except ValidationError as error:
-        invalid = {*absent, *_failing_names(error)}
+        refused = _refusal(error.errors(), files=set(absent))
     except Warning, SettingsError:
         # A file that became unreadable after the question above was asked: asked again.
         unreadable, _ = _unusable_files(directory)
         raise EnvironmentValidationError(f"Unreadable secret files: {', '.join(unreadable) or directory}") from None
+    except ValueError as error:
+        # For `read_environment`'s reason.
+        raise EnvironmentValidationError(f"The environment could not be read: {type(error).__name__}") from None
     else:
         if not absent:
-            return secrets
-        invalid = set(absent)
-    raise EnvironmentValidationError(f"Invalid secret files: {', '.join(sorted(invalid))}") from None
-
-
-@lru_cache
-def get_config() -> BackendConfig:
-    """The settings, built once and reused: the environment half first, then the files its `SECRETS_DIR` names.
-
-    A FUNCTION rather than a module-level instance, which would make importing any module touching
-    configuration read the environment as a side effect.
-    """
-    environment = read_environment()
-    secrets = read_secrets(Path(environment.secrets_dir))
-
-    return BackendConfig(
-        **environment.model_dump(include=set(_EnvironmentFields.model_fields)),
-        **secrets.model_dump(),
-    )
+            return config
+        refused = EnvironmentValidationError(f"Invalid secret files: {', '.join(sorted(absent))}")
+    raise refused from None
 
 
 def get_app_config(request: Request) -> BackendConfig:
