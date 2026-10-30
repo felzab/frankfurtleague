@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_reversed_span
 from app.shared.schemas.literals import FLSaisonPhase, FLSortOrder
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
 class FLSpieltagRecord(BaseModel):
@@ -26,7 +26,7 @@ class FLSpieltagRecord(BaseModel):
     saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
 
 
-class FLSpieltag(FLSpieltagRecord):
+class FLSpieltag(FLSpieltagRecord, BaseReadModel):
     # DERIVED, on no document. `ge=0`, because a matchday in a phase the bracket does not reach
     # expects none.
     anzahl_spiele: int = Field(ge=0)
@@ -56,6 +56,8 @@ class FLPatchSpieltagPayload(BaseModel):
     # would be a request to undate a matchday, which nothing asks for and nothing else expresses.
     beginn: CustomDateString
     ende: CustomDateString
+    # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
+    version: int | None = None
 
     @model_validator(mode="after")
     def the_matchday_ends_after_it_begins(self) -> Self:

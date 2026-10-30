@@ -127,7 +127,6 @@ import type {
   FLPostSperrlisteResponse,
   FLPostSpielortPayload,
   FLPostTeamPayload,
-  FLPostTeamResponse,
   FLReferenzenPayload,
   FLReferenzenResponse,
   FLRegistrierungAblehnenPayload,
@@ -146,7 +145,6 @@ import type {
   FLSaisonSpielerResponse,
   FLSaisonsSingleResponse,
   FLSaisonTeamEinwilligungAntwortResponse,
-  FLSaisonTeamPersonEinwilligungPayload,
   FLSaisonTeamPersonEinwilligungResponse,
   FLSaisonTeamResponse,
   FLSchiedsrichterBestaetigungAnsichtResponse,
@@ -5092,7 +5090,7 @@ export const getTeamsPostTeamUrl = () => {
 export const teamsPostTeam = async (
   fLPostTeamPayload: FLPostTeamPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLPostTeamResponse> => {
+): Promise<FLCreatedResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -5105,7 +5103,7 @@ export const teamsPostTeam = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLPostTeamResponse>(getTeamsPostTeamUrl(), {
+  return adminKeyTransport<FLCreatedResponse>(getTeamsPostTeamUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -5520,7 +5518,7 @@ export const getTeamsPatchEinwilligungUrl = (teamId: string, saisonId: string) =
 export const teamsPatchEinwilligung = async (
   teamId: string,
   saisonId: string,
-  fLSaisonTeamPersonEinwilligungPayload: FLSaisonTeamPersonEinwilligungPayload,
+  fLSitzEinwilligungPayload: FLSitzEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSaisonTeamPersonEinwilligungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -5539,7 +5537,7 @@ export const teamsPatchEinwilligung = async (
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSaisonTeamPersonEinwilligungPayload),
+    body: JSON.stringify(fLSitzEinwilligungPayload),
   });
 };
 

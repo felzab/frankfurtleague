@@ -25,7 +25,7 @@ from app.api.einwilligung.services import find_fassung_refusal
 from app.api.kontakte.crud import clear_seats, redact_seats_in_documents
 from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, contact_block_image_edits, seated_people
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
-from app.api.saisons.crud import pull_saison_id_and_rules
+from app.api.saisons.crud import has_started, pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.sperrliste.services import withheld_actor
@@ -42,7 +42,6 @@ from app.api.teams.schemas import (
     FLPatchTeamResponse,
     FLPostSaisonTeamPayload,
     FLPostTeamPayload,
-    FLPostTeamResponse,
     FLReplaceSaisonTeamPayload,
     FLReplaceSaisonTeamResponse,
     FLSaisonTeamResponse,
@@ -74,7 +73,6 @@ from app.api.teams.services import (
     find_replacement_pair_refusal,
     find_replacement_refusal,
     find_retire_refusal,
-    has_taken_place,
     kontakt_zeile_of,
     kontakte_fassungen_gehalten,
     kontakte_fassungen_genannt,
@@ -90,6 +88,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
+    VERSION_FIELD,
     aggregate_many_from_db,
     insert_live,
     patch_many_in_db,
@@ -134,6 +133,7 @@ from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktZeile
+from app.shared.schemas.responses import FLCreatedResponse
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/teams",
@@ -273,12 +273,12 @@ async def get_teams_for_admin(
     )
 
 
-@router.post("", response_model=FLPostTeamResponse, status_code=201, summary="Create a team")
+@router.post("", response_model=FLCreatedResponse, status_code=201, summary="Create a team")
 async def post_team(
     team_data: Annotated[FLPostTeamPayload, Body()],
     teams_collection: TeamsCollection,
     db: DBClient,
-) -> FLPostTeamResponse:
+) -> FLCreatedResponse:
     """Create a club. `shorthand` is unique across every club, retired ones included, so a duplicate is a 409."""
 
     async def found_the_club(session: AsyncClientSession) -> InsertOneResult:
@@ -287,7 +287,7 @@ async def post_team(
     async with transaction_session(db) as session:
         post_operation = await session.with_transaction(found_the_club)
 
-    return FLPostTeamResponse(
+    return FLCreatedResponse(
         created_id=post_operation.inserted_id,
     )
 
@@ -484,7 +484,7 @@ async def post_saison_team(
             "saison_id": saison_team_data.saison_id,
             "team_id": team_id,
             "gruppe": saison_team_data.gruppe,
-            # These three required by the validator and by `FLTeamMembership`, so a row without one
+            # These three required by `FLTeamMembership`, so a row without one
             # is unreadable; entry carries no departure, kit or people yet.
             "austritt": None,
             "trikot_farbe": None,
@@ -739,8 +739,8 @@ async def patch_saison_team_kontakte(
             db_filter=db_filter,
             # The two paths, spelled out rather than dumped wholesale: `gruppe`, `austritt` and
             # `trikot_farbe` belong to the junction PATCH, and a `$set` carrying them would reinstate
-            # whatever this caller last read.
-            update={"$set": {"kontakte": kontakte, "bestaetigungen": bestaetigungen}},
+            # whatever this caller last read. The version the editor sent is the helper's to check.
+            update={"$set": {"kontakte": kontakte, "bestaetigungen": bestaetigungen, VERSION_FIELD: kontakte_data.version}},
             session=session,
             return_document=ReturnDocument.AFTER,
         )
@@ -842,28 +842,25 @@ async def replace_saison_team(
             session=session,
         )
 
-        # LISTED rather than counted: one read judges `REQ-REPLACE-002` and supplies what the
-        # rewrite moves, so the two cannot disagree. Every phase, because the incoming club inherits
-        # the whole schedule, a bracket slot included.
+        # Every phase, because the incoming club inherits the whole schedule, a bracket slot included.
         spiele = await pull_many_from_db(
             collection=spiele_collection,
             db_filter={"saison_id": saison_id, "$or": [{"team1.team_id": team_id}, {"team2.team_id": team_id}]},
-            projection=["team1.team_id", "team1.tore", "team2.team_id", "team2.tore", "ergebnis", "elfmeterschiessen", "sonderereignis"],
+            projection=["team1.team_id", "team2.team_id"],
             session=session,
         )
 
         refuse(
             find_replacement_refusal(
                 saison_status=str(saison_raw["status"]),
-                fixtures_with_a_record=sum(1 for spiel in spiele if has_taken_place(spiel)),
+                started=await has_started(spiele_collection=spiele_collection, saison_id=saison_id, today=today, session=session),
                 incoming_inactive_since=incoming_raw.get("inactive_since"),
                 incoming_already_entered=bool(incoming_rows),
             )
         )
 
         # One dict for both layers, so the season's row and its fixtures cannot come to disagree
-        # about what this club is called. No `tore`: a fixture
-        # holding one has taken place, which `REQ-REPLACE-002` has already refused.
+        # about what this club is called. No `tore`: a replacement runs only before the season has started.
         incoming_side = {
             "team_id": replacement_data.incoming_team_id,
             "name": incoming_raw["name"],

@@ -1937,6 +1937,7 @@ export const SaisonsPatchSaisonBody = zod.object({
     win_points: zod.int().gt(saisonsPatchSaisonBodyRulesWinPointsExclusiveMin),
   }),
   start_date: zod.string().regex(saisonsPatchSaisonBodyStartDateRegExp),
+  version: zod.union([zod.int(), zod.null()]).optional(),
 });
 
 /**
@@ -3813,6 +3814,7 @@ export const spieltagePatchSpieltagBodyEndeRegExp = new RegExp("^[0-9]{4}-(0[1-9
 export const SpieltagePatchSpieltagBody = zod.object({
   beginn: zod.string().regex(spieltagePatchSpieltagBodyBeginnRegExp),
   ende: zod.string().regex(spieltagePatchSpieltagBodyEndeRegExp),
+  version: zod.union([zod.int(), zod.null()]).optional(),
 });
 
 /**
@@ -4010,6 +4012,7 @@ export const TeamsPatchTeamBody = zod.object({
     zod.null(),
   ]),
   shorthand: zod.string().regex(teamsPatchTeamBodyShorthandRegExp),
+  version: zod.union([zod.int(), zod.null()]).optional(),
   website_url: zod.union([zod.string().max(teamsPatchTeamBodyWebsiteUrlOneMax), zod.null()]),
 });
 
@@ -4111,6 +4114,7 @@ export const TeamsPatchSaisonTeamBody = zod
       ]),
       zod.null(),
     ]),
+    version: zod.union([zod.int(), zod.null()]).optional(),
   })
   .describe(
     "The row's own fields. NO `kontakte`: `FLPatchSaisonTeamKontaktePayload` owns it.\n\nA stored contact is shapeless on read and bounded on write, so round-tripping it here refuses\nevery save a club with one bad row can make.",
@@ -4358,6 +4362,7 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
       zod.null(),
     ]),
     kontakte_stand: zod.string(),
+    version: zod.union([zod.int(), zod.null()]).optional(),
   })
   .describe(
     'The contact block alone, plus the token naming which block it was composed against.\n\n`extra="forbid"`: a `gruppe` or an `austritt` sent here is a 422 rather than a value this\nendpoint was never asked to decide.',
@@ -4413,15 +4418,19 @@ export const teamsPatchEinwilligungBodyTextVersionMax = 64;
 
 export const teamsPatchEinwilligungBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 
-export const TeamsPatchEinwilligungBody = zod.object({
-  medien: zod.boolean(),
-  nachweis_stand: zod.object({
-    medien: zod.union([zod.string(), zod.null()]),
-    umfang: zod.union([zod.string(), zod.null()]),
-  }),
-  text_version: zod.string().min(1).max(teamsPatchEinwilligungBodyTextVersionMax).regex(teamsPatchEinwilligungBodyTextVersionRegExp),
-  umfang: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
-});
+export const TeamsPatchEinwilligungBody = zod
+  .object({
+    medien: zod.boolean(),
+    nachweis_stand: zod.object({
+      medien: zod.union([zod.string(), zod.null()]),
+      umfang: zod.union([zod.string(), zod.null()]),
+    }),
+    text_version: zod.string().min(1).max(teamsPatchEinwilligungBodyTextVersionMax).regex(teamsPatchEinwilligungBodyTextVersionRegExp),
+    umfang: zod.enum(["kontaktdaten", "kontaktdaten_whatsapp"]),
+  })
+  .describe(
+    "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+  );
 
 /**
  * The team's three seats in this season, each with its holder's name and whether that person has confirmed it.

@@ -652,6 +652,7 @@ export interface FLSaison {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
   status: FLSaisonStatus;
+  version: number;
 }
 
 /**
@@ -3250,6 +3251,7 @@ export interface FLPatchSaisonPayload {
   rules: FLSaisonRules;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
+  version?: number | null;
 }
 
 export interface FLPatchSaisonResponse {
@@ -3292,6 +3294,7 @@ export interface FLSaisonTeamKontaktePayload {
 export interface FLPatchSaisonTeamKontaktePayload {
   kontakte: FLSaisonTeamKontaktePayload | null;
   kontakte_stand: string;
+  version?: number | null;
 }
 
 /**
@@ -3323,6 +3326,7 @@ export interface FLPatchSaisonTeamPayload {
   austritt: FLAustritt | null;
   gruppe: FLGruppenNames;
   trikot_farbe: FLTrikotFarbe | null;
+  version?: number | null;
 }
 
 export interface FLPatchSchiedsrichterPayload {
@@ -3533,6 +3537,7 @@ export interface FLPatchSpieltagPayload {
   beginn: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   ende: string;
+  version?: number | null;
 }
 
 export interface FLPatchTeamPayload {
@@ -3554,6 +3559,7 @@ export interface FLPatchTeamPayload {
   schulform: FLSchulform | null;
   /** @pattern ^\s*[A-Za-z]{3}\s*$ */
   shorthand: string;
+  version?: number | null;
   website_url: string | null;
 }
 
@@ -3577,6 +3583,7 @@ export interface FLTeamRecord {
   schulform: FLSchulform | null;
   /** @pattern ^[A-Z]{3}$ */
   shorthand: string;
+  version: number;
   website_url: string | null;
 }
 
@@ -3806,11 +3813,6 @@ export interface FLPostTeamPayload {
   /** @pattern ^\s*[A-Za-z]{3}\s*$ */
   shorthand: string;
   website_url: string | null;
-}
-
-export interface FLPostTeamResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  created_id: string;
 }
 
 /**
@@ -4177,18 +4179,6 @@ export interface FLSaisonTeamEinwilligungAntwortResponse {
   medien: boolean;
   quelle: "saison";
   whatsapp: boolean;
-}
-
-export interface FLSaisonTeamPersonEinwilligungPayload {
-  medien: boolean;
-  nachweis_stand: FLEinwilligungStandPayload;
-  /**
-   * @minLength 1
-   * @maxLength 64
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  text_version: string;
-  umfang: FLKontaktKenntnisnahmeUmfang;
 }
 
 /**
@@ -5696,6 +5686,7 @@ export interface FLTeamMembership {
   readonly kontakte_stand: string;
   saison_id: string;
   trikot_farbe: FLTrikotFarbe | null;
+  version: number;
 }
 
 /**
@@ -5741,6 +5732,7 @@ export interface FLTeamWithMemberships {
   schulform: FLSchulform | null;
   /** @pattern ^[A-Z]{3}$ */
   shorthand: string;
+  version: number;
   website_url: string | null;
 }
 

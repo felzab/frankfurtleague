@@ -8136,6 +8136,17 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Start Date",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8239,6 +8250,17 @@
           "kontakte_stand": {
             "title": "Kontakte Stand",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8334,6 +8356,17 @@
                 "type": "null"
               }
             ]
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8722,6 +8755,17 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Ende",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8770,6 +8814,17 @@
             "pattern": "^\\s*[A-Za-z]{3}\\s*$",
             "title": "Shorthand",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           },
           "website_url": {
             "anyOf": [
@@ -9443,20 +9498,6 @@
           "address"
         ],
         "title": "FLPostTeamPayload",
-        "type": "object"
-      },
-      "FLPostTeamResponse": {
-        "properties": {
-          "created_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Created Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "created_id"
-        ],
-        "title": "FLPostTeamResponse",
         "type": "object"
       },
       "FLReferenzenPayload": {
@@ -10534,6 +10575,11 @@
           },
           "status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -10545,6 +10591,7 @@
           "id",
           "status",
           "spielplan",
+          "version",
           "schedule"
         ],
         "title": "FLSaison",
@@ -11182,36 +11229,6 @@
           "trainer_ist_zugleich"
         ],
         "title": "FLSaisonTeamKontaktePayload",
-        "type": "object"
-      },
-      "FLSaisonTeamPersonEinwilligungPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
-          },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Text Version",
-            "type": "string"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
-          }
-        },
-        "required": [
-          "umfang",
-          "medien",
-          "text_version",
-          "nachweis_stand"
-        ],
-        "title": "FLSaisonTeamPersonEinwilligungPayload",
         "type": "object"
       },
       "FLSaisonTeamPersonEinwilligungResponse": {
@@ -16842,6 +16859,11 @@
                 "type": "null"
               }
             ]
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -16852,6 +16874,7 @@
           "kontakte",
           "bestaetigungen",
           "adresswechsel",
+          "version",
           "kontakte_stand"
         ],
         "title": "FLTeamMembership",
@@ -16910,6 +16933,11 @@
             "title": "Shorthand",
             "type": "string"
           },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
           "website_url": {
             "anyOf": [
               {
@@ -16931,7 +16959,8 @@
           "website_url",
           "address",
           "id",
-          "inactive_since"
+          "inactive_since",
+          "version"
         ],
         "title": "FLTeamRecord",
         "type": "object"
@@ -17118,6 +17147,11 @@
             "title": "Shorthand",
             "type": "string"
           },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
           "website_url": {
             "anyOf": [
               {
@@ -17140,6 +17174,7 @@
           "address",
           "id",
           "inactive_since",
+          "version",
           "memberships"
         ],
         "title": "FLTeamWithMemberships",
@@ -30626,7 +30661,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLPostTeamResponse"
+                  "$ref": "#/components/schemas/FLCreatedResponse"
                 }
               }
             },
@@ -31999,7 +32034,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLSaisonTeamPersonEinwilligungPayload"
+                "$ref": "#/components/schemas/FLSitzEinwilligungPayload"
               }
             }
           },
