@@ -3,13 +3,12 @@ import "server-only";
 import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
-import { apiClient } from "./api";
 import { ContractBreakError, isRecordMissing } from "./errors";
-import { FLEinwilligungFassungResponseSchema, FLEinwilligungSeitenResponseSchema } from "./schemas";
+import { einwilligungGetFassung, einwilligungGetSeiten } from "./generated/client/sdk";
 import { SITE_CACHE_TAG } from "./siteCache";
 
 import type { EinwilligungSeite } from "./einwilligungSeiten";
-import type { FLEinwilligungFassung } from "./schemas";
+import type { FLEinwilligungFassung } from "./generated/client/types";
 
 /**
  * The words a stored label names, `null` for one the registry does not hold. Never a fallback: the
@@ -21,9 +20,7 @@ export async function getEinwilligungFassung(textVersion: string): Promise<FLEin
   cacheTag(SITE_CACHE_TAG);
 
   try {
-    const antwort = await apiClient(`/einwilligung/fassungen/${encodeURIComponent(textVersion)}`, FLEinwilligungFassungResponseSchema, {
-      authType: "base",
-    });
+    const antwort = await einwilligungGetFassung(textVersion);
     // The longest life: a label's words never change, so no change outside a save can reach them.
     cacheLife("max");
     return antwort.fassung;
@@ -61,7 +58,7 @@ export async function istFassungBekannt(textVersion: string | null): Promise<boo
 // recreated before the backend would go on stamping a label the backend has moved past.
 /** Each page's running label, read once per render pass. Called inside the request's trace scope. */
 const getLaufendeFassungen = cache(async (): Promise<Readonly<Record<string, string>>> => {
-  const antwort = await apiClient("/einwilligung/seiten", FLEinwilligungSeitenResponseSchema, { authType: "base" });
+  const antwort = await einwilligungGetSeiten();
   return antwort.laufende_fassungen;
 });
 

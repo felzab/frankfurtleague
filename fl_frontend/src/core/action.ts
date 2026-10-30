@@ -8,7 +8,6 @@ import { judgeAdminRequest } from "./auth";
 import { COPY } from "./copy";
 import { APIBadStatusError, loggedByBackend, requestOf } from "./errors";
 import { funktionenOf, isSeatAt } from "./funktionen";
-import { Code } from "./generated/client/types";
 import { logger } from "./logging";
 import { runWithRequestScope } from "./requestScope";
 import { SITE_CACHE_TAG } from "./siteCache";
@@ -23,6 +22,7 @@ import type { z } from "zod";
 import type { AdminRefusal } from "./auth";
 import type { Copy } from "./copy";
 import type { Funktion } from "./funktionen";
+import type { Code } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
 /** A code the catalogue words in a person's own terms, `COPY.shared.ablehnung`'s keys. */
@@ -114,7 +114,6 @@ const TURNED_AWAY: Readonly<Record<AdminRefusal, Copy>> = {
 
 const UNEXPECTED = { ok: false, reason: COPY.shared.fehler.unerwartet } as const;
 
-const isCode = (value: string): value is Code => Object.hasOwn(Code, value);
 const isWorded = (code: Code): code is Code & WordedCode => Object.hasOwn(COPY.shared.ablehnung, code);
 
 // The backend's own strip: Pydantic's `strip_whitespace` drops Unicode's White_Space characters from both ends, a
@@ -267,7 +266,7 @@ async function body<Schema extends z.ZodType, Value>(
   } catch (error) {
     // Next's redirect and not-found are how a body leads on, never a failure.
     unstable_rethrow(error);
-    if (error instanceof APIBadStatusError && error.serverErrorCode !== undefined && isCode(error.serverErrorCode)) {
+    if (error instanceof APIBadStatusError && error.serverErrorCode !== undefined) {
       return refused(declared, error.serverErrorCode);
     }
     logFailure(declared.name, error);

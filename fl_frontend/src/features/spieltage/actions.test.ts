@@ -10,6 +10,8 @@ import { buildSpieltagBanners } from "./components/forms/AdminSpieltagEditForm/b
 import { mapSpieltagRefusal } from "./refusals.ts";
 import { deriveSpieltagDraftStatus } from "./spieltagDraftStatus.ts";
 
+import type { Code } from "@/core/generated/client/types.ts";
+
 /* The real action and its mutation, called: the request it runs in and the backend client are the doubles. */
 doubleActionRequest();
 const { answerWith, calls } = doubleApiAnswers();
@@ -29,7 +31,7 @@ const ORDERING_CODE = "REQ-DATE-008";
  * The German the mapper renders for one code, as a sentence. Thrown rather than answered as "": a
  * `doesNotMatch` below passes over an empty message while the German it is about is unwritten.
  */
-function refusalMessage(code: string): string {
+function refusalMessage(code: Code): string {
   const message = mapSpieltagRefusal(refused(code))?.error ?? "";
   if (message === "") throw new Error(`the mapper words no message for ${code}`);
 

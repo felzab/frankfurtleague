@@ -1,4 +1,4 @@
-import type { FLSubjektSitz } from "@/core/schemas.ts";
+import type { FLSubjektSitz } from "@/core/generated/client/types.ts";
 import type { SubjectSession } from "@/core/subject.ts";
 
 /**
@@ -33,9 +33,14 @@ export const NO_RECORDS: SubjectSession["subjekt"] = deepFrozen({
  * What a suite's backend holds for one address. `konto` is stated, never worked out from the lists:
  * which records count is the backend's rule, and a double deriving it hands each case its own copy's answer.
  */
-export type LookupFixture = Partial<SubjectSession["subjekt"]> & { readonly acknowledged?: 0 | 1; readonly konto: boolean };
+export type LookupFixture = Partial<SubjectSession["subjekt"]> & { readonly konto: boolean };
 
-/** The path the sign-in gate reads, its own beside the subject read every guard takes. */
+/**
+ * The path the sign-in gate reads, its own beside the subject read every guard takes. Spelled rather than built by
+ * `getIdentitaetGetAnmeldungUrl`: a suite imports this module ahead of its own doubles, and the generated client
+ * loaded here would bind the real transport and config before them. A renamed path answers the gate the subject's
+ * shape, which no sign-in case passes.
+ */
 const GATE_ENDPOINT = "/identitaet/anmeldung";
 
 /** One table of fixtures answering the subject read and the gate alike, each in its read's shape. */
@@ -44,7 +49,6 @@ export function answerAt(endpoint: string, held: LookupFixture): Record<string, 
   if (!endpoint.endsWith(GATE_ENDPOINT)) return subjekt;
 
   return {
-    acknowledged: 1,
     unbestaetigt: subjekt.unbestaetigt ?? false,
     konto: konto,
     gesperrt: subjekt.gesperrt ?? false,

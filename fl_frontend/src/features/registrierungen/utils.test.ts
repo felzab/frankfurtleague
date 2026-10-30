@@ -21,7 +21,7 @@ import {
   registrierungPayload,
 } from "./utils.ts";
 
-import type { FLEinladungAnsichtResponse } from "@/core/generated/client/types.ts";
+import type { Code, FLEinladungAnsichtResponse } from "@/core/generated/client/types.ts";
 import type { RegistrierungFormDraft } from "./types.ts";
 import type { GelesenerLink } from "./utils.ts";
 
@@ -107,7 +107,7 @@ describe("what one refused submission shows", () => {
   /* The page strips its token from the address bar, so a reload lands a live link on the panel
      calling it void; every refusal only a moved season or a drifted page sends reopens the link. */
   it("sends every stale-page refusal back to the team's link rather than a reload", () => {
-    for (const code of ["REQ-REGISTRIERUNG-001", "REQ-REGISTRIERUNG-002", "REQ-REGISTRIERUNG-003"]) {
+    for (const code of ["REQ-REGISTRIERUNG-001", "REQ-REGISTRIERUNG-002", "REQ-REGISTRIERUNG-003"] as const) {
       expect(mapRegistrierungSubmitRefusal(refused(code)), code).toStrictEqual({ error: REGISTRIERUNG_NEU_OEFFNEN });
     }
     expect(mapRegistrierungSubmitRefusal(refused("REQ-VAL-001"))?.error).toBe(REGISTRIERUNG_NEU_OEFFNEN);
@@ -130,7 +130,7 @@ describe("what one refused submission shows", () => {
   });
 
   it("answers the window, the junction, the narrowed Stufe and the full squad as a banner, none naming a field", () => {
-    for (const code of ["REQ-REGISTRIERUNG-001", "REQ-REGISTRIERUNG-002", "REQ-REGISTRIERUNG-003", "REQ-REGISTRIERUNG-008"]) {
+    for (const code of ["REQ-REGISTRIERUNG-001", "REQ-REGISTRIERUNG-002", "REQ-REGISTRIERUNG-003", "REQ-REGISTRIERUNG-008"] as const) {
       const answered = mapRegistrierungSubmitRefusal(refused(code));
 
       expect(answered, `${code} is not mapped at all`).not.toBe(null);
@@ -153,7 +153,7 @@ describe("what one refused submission shows", () => {
   it("marks the repeated press's refusals as arrived, and no other refusal", () => {
     expect(mapRegistrierungSubmitRefusal(refused("REQ-REGISTRIERUNG-011"))?.schonAngekommen).toBe(true);
     expect(mapRegistrierungSubmitRefusal(refused("REQ-REGISTRIERUNG-016"))?.schonAngekommen).toBe(true);
-    for (const code of ["REQ-EINLADUNG-003", "REQ-REGISTRIERUNG-001", "REQ-REGISTRIERUNG-008", "REQ-REGISTRIERUNG-009"]) {
+    for (const code of ["REQ-EINLADUNG-003", "REQ-REGISTRIERUNG-001", "REQ-REGISTRIERUNG-008", "REQ-REGISTRIERUNG-009"] as const) {
       expect(mapRegistrierungSubmitRefusal(refused(code))?.schonAngekommen, code).toBe(undefined);
     }
   });
@@ -172,7 +172,7 @@ describe("what one refused submission shows", () => {
       "REQ-REGISTRIERUNG-011",
       "REQ-REGISTRIERUNG-016",
     );
-    const mapped = [
+    const mapped: Code[] = [
       "REQ-EINLADUNG-003",
       "REQ-REGISTRIERUNG-011",
       "REQ-REGISTRIERUNG-016",
@@ -337,7 +337,7 @@ describe("what one refused confirmation shows", () => {
       "REQ-REGISTRIERUNG-012",
       "REQ-REGISTRIERUNG-017",
     );
-    const mapped = [
+    const mapped: Code[] = [
       "REQ-EINWILLIGUNG-001",
       "REQ-REGISTRIERUNG-004",
       "REQ-REGISTRIERUNG-005",

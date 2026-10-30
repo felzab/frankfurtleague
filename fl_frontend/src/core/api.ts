@@ -4,12 +4,13 @@ import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { isPathAsSpelled } from "./apiPath";
 import { frontend_config, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "./config";
 import { APIBadStatusError, APINetworkError, UnattributedAdminCallError } from "./errors";
+import { Code } from "./generated/client/types";
 import { boundCall, getRequestActor, getRequestTraceId } from "./requestScope";
 import { ACTOR_HEADER, AUTH_FACTOR_HEADER, AUTH_TIME_HEADER, formatTraceparent, mintTraceId, TRACEPARENT_HEADER } from "./trace";
 
 import type { ZodType } from "zod";
 import type { SentRequest } from "./errors";
-import type { FLRefusedField } from "./schemas";
+import type { FLRefusedField } from "./generated/client/types";
 
 const BASE_FETCH_AUTH_TYPE = "base";
 
@@ -55,6 +56,12 @@ const getFetchHeaders = (type: "base" | "system" | "admin" | "none" = "base"): R
   return headers;
 };
 
+/**
+ * Whether a failure body's code is one the contract publishes. Judged here once, so every reader compares a `Code`, and
+ * a comparison with a code the backend no longer answers fails the type check.
+ */
+const isCode = (value: unknown): value is Code => typeof value === "string" && Object.hasOwn(Code, value);
+
 /** Thrown for every status but a success: the code and the refused fields of the backend's own failure body. */
 const refusalOf = async ({ res, traceId, endpoint, sent }: { res: Response; traceId: string; endpoint: string; sent: SentRequest }) => {
   // An edge's own page, never the backend's body: nginx's and Cloudflare's answers are HTML.
@@ -77,7 +84,8 @@ const refusalOf = async ({ res, traceId, endpoint, sent }: { res: Response; trac
     message: "API returned a bad status.",
     url: res.url,
     statusCode: res.status,
-    serverErrorCode: failure.error_code === undefined ? undefined : String(failure.error_code),
+    // A code the contract does not name is none: the backend's own line still records it under the trace.
+    serverErrorCode: isCode(failure.error_code) ? failure.error_code : undefined,
     // The backend's `FLRefusedPayloadBody` lists them; any other body marks no field.
     refusedFields: Array.isArray(failure.fields) ? (failure.fields as FLRefusedField[]) : [],
     endpoint,
@@ -145,8 +153,9 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions =
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const urlObj = new URL(`${baseUrl}${cleanEndpoint}`);
 
-  // `new URL` resolves `..` before any check sees it, and a generated URL interpolates its path ids as given, so an id
-  // could aim an authenticated call at another resource. A caller's bug, so it throws rather than answering.
+  // `new URL` resolves `..` before any check sees it, and a generated URL's percent-encoding leaves an id of `.` or `..`
+  // as it is, so an id could aim an authenticated call at another resource. A caller's bug, so it throws rather than
+  // answering.
   if (!isPathAsSpelled(cleanEndpoint, urlObj.pathname, new URL(baseUrl).pathname)) {
     throw new Error(`Endpoint does not address the path it spells: ${endpoint}`);
   }

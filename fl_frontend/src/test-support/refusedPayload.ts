@@ -1,6 +1,6 @@
 import { APIBadStatusError } from "@/core/errors.ts";
 
-import type { FLRefusedField } from "@/core/schemas.ts";
+import type { FLRefusedField } from "@/core/generated/client/types.ts";
 
 /** One body field a refusal names, under the kind a validator's own refusal carries unless another is given. */
 export const bodyField = (path: readonly (string | number)[], kind = "value_error"): FLRefusedField => ({ in: "body", path: [...path], kind });

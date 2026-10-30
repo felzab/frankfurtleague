@@ -3,7 +3,7 @@ import { inspect } from "node:util";
 
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { FLBewerbungZustellstand } from "@/shared/schemas.ts";
+import type { Code, FLBewerbungZustellungStand } from "@/core/generated/client/types.ts";
 
 /**
  * Its own throwaway, minted per run and never a real one: this file signs the fixtures it verifies,
@@ -389,7 +389,7 @@ describe("the tags one message rides out with", () => {
 });
 
 describe("an application holding a seat no message reaches", () => {
-  const trail = (stand: FLBewerbungZustellstand | null) => ({
+  const trail = (stand: FLBewerbungZustellungStand | null) => ({
     verschickt_am: "2026-09-01",
     erinnert_am: null,
     abgelehnt_am: null,
@@ -734,7 +734,7 @@ describe("POST /api/mail/zustellung", () => {
   /* Only the event's own answer settles it: a route the API does not serve mid-deploy, a credential or a
      body it does not take would each lose the event, where the provider's retry lands later. */
   it("settles an event only on the record's own answer, and has every other 4xx sent again", async () => {
-    const answered = (statusCode: number, serverErrorCode: string | undefined) => async () => {
+    const answered = (statusCode: number, serverErrorCode: Code | undefined) => async () => {
       zustellungAnswer = () => {
         throw new APIBadStatusError({
           message: "API returned a bad status.",

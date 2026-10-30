@@ -58,7 +58,7 @@ export async function getBewerbungenQueue(
 // `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments.
 export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBewerbungSingleResponse | null> =>
   runAdminRead(() =>
-    bewerbungenGetBewerbungById(encodeURIComponent(bewerbungId)).catch((error: unknown) => {
+    bewerbungenGetBewerbungById(bewerbungId).catch((error: unknown) => {
       if (isRecordMissing(error)) return null;
       throw error;
     }),
@@ -89,7 +89,7 @@ export async function getOffenesBewerbungFenster(): Promise<FLBewerbungFensterRe
 // would key on the season and go on serving `laeuft` after the window shut.
 export const getBewerbungFenster = cache(async (saisonId: string): Promise<{ fenster: FLBewerbungFensterResponse | null } | null> =>
   runWithIncomingTrace(() =>
-    bewerbungenGetFenster(encodeURIComponent(saisonId))
+    bewerbungenGetFenster(saisonId)
       // The answer naming no window carries the one key a window has not got.
       .then((antwort) => ("fenster" in antwort ? { fenster: null } : { fenster: antwort }))
       .catch((error: unknown) => {
@@ -110,7 +110,7 @@ export async function getBewerbungSchulen(): Promise<FLBewerbungSchulenResponse>
  * free" outlives that.
  */
 export async function getBewerbungTrikotfarben(saisonId: string): Promise<FLBewerbungTrikotFarbenResponse> {
-  return runWithIncomingTrace(() => bewerbungenGetTrikotfarben(encodeURIComponent(saisonId)));
+  return runWithIncomingTrace(() => bewerbungenGetTrikotfarben(saisonId));
 }
 
 /**
@@ -142,5 +142,5 @@ export async function getEinwilligungAnsicht(token: string): Promise<Einwilligun
 
 /** Whether a Kürzel already belongs to a club, in one neutral answer that names none. */
 export async function getBewerbungKuerzel(shorthand: string): Promise<FLBewerbungKuerzelResponse> {
-  return runWithIncomingTrace(() => bewerbungenGetKuerzel(encodeURIComponent(shorthand)));
+  return runWithIncomingTrace(() => bewerbungenGetKuerzel(shorthand));
 }

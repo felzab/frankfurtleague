@@ -1,3 +1,4 @@
+import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReact } from "@/test-support/cacheScope.ts";
 import { EINWILLIGUNG_REGISTRY, einwilligungAnswer, fassungOf, laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,15 +14,15 @@ import {
   SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL,
 } from "./einwilligungSeiten.ts";
 
-import type { FLEinwilligungFassung } from "./schemas.ts";
+import type { Code, FLEinwilligungFassung } from "./generated/client/types.ts";
 
 /** What the backend answers one call; the registry's own answer unless a case names another. */
 type Answer = (endpoint: string) => Promise<unknown>;
 const registry: Answer = (endpoint) => Promise.resolve(einwilligungAnswer(endpoint));
 let answering: Answer = registry;
 
-/** Every endpoint the client was asked for in this case, in order. */
-const calls: string[] = [];
+/** Every call the client was asked for in this case, in order. */
+const calls = doubleApiClient((call) => answering(call.endpoint));
 /** Every lifetime a cached read declared in this case, in order. */
 const lifetimes: unknown[] = [];
 
@@ -33,17 +34,15 @@ beforeEach(() => {
 
 const inert = (): undefined => undefined;
 
-// The client replaced at its module, each answer passed through the caller's schema as a real response
-// is; `next/cache` answered inert, so the cached read's own declarations run outside a Next build.
-vi.doMock("@/core/api.ts", () => ({
-  apiClient: async (endpoint: string, schema: { parse: (value: unknown) => unknown }) => {
-    calls.push(endpoint);
-    return schema.parse(await answering(endpoint));
-  },
-}));
+// `next/cache` answered inert, so the cached read's own declarations run outside a Next build.
 vi.doMock("next/cache", () => ({ cacheLife: (profile: unknown) => void lifetimes.push(profile), cacheTag: inert }));
 
-const api = { calls: calls, answerWith: (next: Answer) => void (answering = next) };
+const api = {
+  get calls(): string[] {
+    return calls.map(({ endpoint }) => endpoint);
+  },
+  answerWith: (next: Answer) => void (answering = next),
+};
 
 serveServerReact();
 
@@ -66,7 +65,7 @@ const UMFANG = ["kader_oeffentlich", "intern"] as const;
 const gekeyt = (fassung: FLEinwilligungFassung) =>
   gekeyteFassung(fassung, fassung === SPIELER ? SPIELER_ABSATZ_SCHLUESSEL : SCHIEDSRICHTER_ABSATZ_SCHLUESSEL, UMFANG);
 
-const failure = (statusCode: number, serverErrorCode: string | undefined): APIBadStatusError =>
+const failure = (statusCode: number, serverErrorCode: Code | undefined): APIBadStatusError =>
   new APIBadStatusError({
     message: "refused",
     url: "http://backend/api/v0/einwilligung/fassungen/x",
@@ -119,7 +118,7 @@ describe("the words read", () => {
 
   // Only the record-missing code is an unknown label: a 404 carrying none is a route nothing served.
   it("throws every other failure rather than calling the label unknown", async () => {
-    for (const thrown of [failure(404, undefined), failure(500, "SYS-001")]) {
+    for (const thrown of [failure(404, undefined), failure(500, "SRV-FAIL-001")]) {
       api.answerWith(() => Promise.reject(thrown));
 
       await expect(getEinwilligungFassung("2026-10-spielerseite-5")).rejects.toSatisfy((error) => error === thrown);

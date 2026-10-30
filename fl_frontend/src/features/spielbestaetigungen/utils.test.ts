@@ -20,7 +20,7 @@ describe("mapAnsetzungAnsichtRefusal", () => {
     for (const code of refusalCodes("REQ-ANSETZUNG-001")) {
       expect(mapAnsetzungAnsichtRefusal(refused(code)), code).toBe("ungueltig");
     }
-    expect(mapAnsetzungAnsichtRefusal(refused("REQ-SOMETHING-NEW", 409))).toBe("ungueltig");
+    expect(mapAnsetzungAnsichtRefusal(refused("REQ-ACTIVATE-001", 409))).toBe("ungueltig");
   });
 
   /* A malformed or over-long token never reaches a row, and the page has already dropped it from the
@@ -32,7 +32,7 @@ describe("mapAnsetzungAnsichtRefusal", () => {
   /* A failed read is the page's own state: the dead-link panel on a 500 would call a live link void on
      a day the backend was unreachable. */
   it("leaves anything that is not a refusal to the page's own state", () => {
-    expect(mapAnsetzungAnsichtRefusal(refused("", 500))).toBe(null);
+    expect(mapAnsetzungAnsichtRefusal(refused(undefined, 500))).toBe(null);
     expect(mapAnsetzungAnsichtRefusal(new Error("socket hang up"))).toBe(null);
   });
 
@@ -40,7 +40,7 @@ describe("mapAnsetzungAnsichtRefusal", () => {
      mid-deploy, and an unreadable body failed in the page's own encoding. The dead-link panel would
      call every live link void. */
   it("leaves the protocol's refusals to the page's own state, never the dead-link panel", () => {
-    for (const code of ["REQ-AUTH-001", "REQ-AUTH-002", "REQ-VAL-002"]) {
+    for (const code of ["REQ-AUTH-001", "REQ-AUTH-002", "REQ-VAL-002"] as const) {
       expect(mapAnsetzungAnsichtRefusal(refused(code)), code).toBe(null);
     }
     for (const [code, status] of [
@@ -56,7 +56,7 @@ describe("mapAnsetzungRefusal on a body the API refused", () => {
   /* Only a drifted page sends one, and the page strips its token from the address bar: the shared
      reader's reload would land on the dead link, so only the mail's link reopens the form. */
   it("sends the club back to the mail's link", () => {
-    for (const code of ["REQ-VAL-001", "REQ-VAL-002"]) {
+    for (const code of ["REQ-VAL-001", "REQ-VAL-002"] as const) {
       expect(mapAnsetzungRefusal(refused(code)), code).toStrictEqual({ error: ANTWORT_NEU_OEFFNEN });
     }
   });

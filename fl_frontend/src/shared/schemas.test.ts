@@ -11,9 +11,7 @@ import {
   CustomTimeStringSchema,
   ExternalUrlSchema,
   FLAddressPayloadSchema,
-  FLAddressSchema,
   FLKontaktPayloadSchema,
-  FLKontaktSchema,
   KONTAKT_EMAIL_MAX_LENGTH,
   KontaktEmailSchema,
   PHONE_REGEX,
@@ -27,38 +25,24 @@ const validAddress = {
   stadt: "Frankfurt am Main",
 };
 
-describe("FLAddressSchema", () => {
+describe("FLAddressPayloadSchema", () => {
   it("accepts a valid address", () => {
-    expect(FLAddressSchema.safeParse(validAddress).success).toBe(true);
+    expect(FLAddressPayloadSchema.safeParse(validAddress).success).toBe(true);
   });
 
   it("requires plz to be exactly five digits", () => {
     for (const plz of ["6031", "603145", "6031a", "", " 60314", "60 314"]) {
-      expect(FLAddressSchema.safeParse({ ...validAddress, plz }).success, `expected "${plz}" to be rejected`).toBe(false);
+      expect(FLAddressPayloadSchema.safeParse({ ...validAddress, plz }).success, `expected "${plz}" to be rejected`).toBe(false);
     }
-    expect(FLAddressSchema.safeParse({ ...validAddress, plz: "01067" }).success).toBe(true);
+    expect(FLAddressPayloadSchema.safeParse({ ...validAddress, plz: "01067" }).success).toBe(true);
   });
 
   it("accepts hausnummer as digits, hyphens and a/b/c, or empty", () => {
     for (const hausnummer of ["12", "12a", "12-14", "12B", "", "1-3c"]) {
-      expect(FLAddressSchema.safeParse({ ...validAddress, hausnummer }).success, `expected "${hausnummer}" to be accepted`).toBe(true);
+      expect(FLAddressPayloadSchema.safeParse({ ...validAddress, hausnummer }).success, `expected "${hausnummer}" to be accepted`).toBe(true);
     }
   });
 
-  it("rejects hausnummer with other letters or spaces", () => {
-    for (const hausnummer of ["12d", "12 a", "Nr. 12"]) {
-      expect(FLAddressSchema.safeParse({ ...validAddress, hausnummer }).success, `expected "${hausnummer}" to be rejected`).toBe(false);
-    }
-  });
-
-  it("requires strasse and stadt to be non-empty but allows an empty stadtteil", () => {
-    expect(FLAddressSchema.safeParse({ ...validAddress, strasse: "" }).success).toBe(false);
-    expect(FLAddressSchema.safeParse({ ...validAddress, stadt: "" }).success).toBe(false);
-    expect(FLAddressSchema.safeParse({ ...validAddress, stadtteil: "" }).success).toBe(true);
-  });
-});
-
-describe("FLAddressPayloadSchema", () => {
   // The filler is per field rather than shared: `hausnummer` has an alphabet, so an `x` would prove
   // the pattern refusing a long value and leave the ceiling itself untested.
   const capped = [
@@ -76,7 +60,7 @@ describe("FLAddressPayloadSchema", () => {
     }
   });
 
-  it("keeps refusing an empty strasse or stadt, which redeclaring the field could have dropped", () => {
+  it("refuses an empty strasse or stadt", () => {
     for (const field of ["strasse", "stadt"] as const) {
       expect(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "" }).success, `${field} empty`).toBe(false);
     }
@@ -94,26 +78,18 @@ describe("FLAddressPayloadSchema", () => {
     }
   });
 
-  // A venue can genuinely lack a house number or a district, so neither field carries a floor and a
-  // redeclaration bounding its length must not turn it into a required one.
-  it("keeps accepting an empty hausnummer or stadtteil", () => {
+  // A venue can genuinely lack a house number or a district, so neither field carries a floor and the
+  // ceiling bounding its length must not turn it into a required one.
+  it("accepts an empty hausnummer or stadtteil", () => {
     for (const field of ["hausnummer", "stadtteil"] as const) {
       expect(FLAddressPayloadSchema.safeParse({ ...validAddress, [field]: "" }).success, `${field} empty`).toBe(true);
     }
   });
 
   // Nothing else would catch the loss: a pattern is outside what `fl_frontend/src/core/apiContract.test.ts` compares.
-  it("keeps refusing a hausnummer outside its alphabet, which redeclaring the field could have dropped", () => {
+  it("refuses a hausnummer outside its alphabet", () => {
     for (const hausnummer of ["12d", "12 a", "Nr. 12"]) {
       expect(FLAddressPayloadSchema.safeParse({ ...validAddress, hausnummer }).success, `expected "${hausnummer}" to be rejected`).toBe(false);
-    }
-  });
-
-  // The load-bearing half: the read schema parses whatever is stored, so one over-long row cannot
-  // fail the list it appears in.
-  it("leaves the read schema accepting a stored value the payload refuses", () => {
-    for (const { field, cap, filler } of capped) {
-      expect(FLAddressSchema.safeParse({ ...validAddress, [field]: filler.repeat(cap + 1) }).success, `${field} over the cap`).toBe(true);
     }
   });
 });
@@ -165,21 +141,6 @@ describe("PHONE_REGEX", () => {
     ] as const) {
       expect(PHONE_REGEX.test(telefon), `expected ${String(telefon.length)} characters to be ${String(accepted)}`).toBe(accepted);
     }
-  });
-});
-
-describe("FLKontaktSchema", () => {
-  // Values the API serves from storage that the write rule refuses. The reason the read judges neither
-  // member is at `FLKontaktSchema` itself; what this pins is that one such row does not fail the list.
-  it("serves every stored value the write rule would refuse", () => {
-    for (const telefon of ["069 1234567 ", "+49 (0) 69 1234-567 ", "069 1234-", "(069) 1234567.", "nicht bekannt"]) {
-      expect(FLKontaktSchema.safeParse({ telefon, email: null }).success, `expected ${JSON.stringify(telefon)} to be served`).toBe(true);
-    }
-    expect(FLKontaktSchema.safeParse({ telefon: null, email: "a".repeat(300) }).success).toBe(true);
-  });
-
-  it("rejects a missing field outright", () => {
-    expect(FLKontaktSchema.safeParse({ telefon: null }).success).toBe(false);
   });
 });
 

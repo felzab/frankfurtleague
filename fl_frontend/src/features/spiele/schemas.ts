@@ -24,7 +24,7 @@ export const FLSonderereignisSchema = z.enum(["ausgefallen", "nichtantreten_team
  * — the season's `saison_teams` row is where a club's name lives, so a copy a client sent could only
  * disagree with it. The server composes both.
  */
-export const FLSpielTeamFieldPayloadSchema = z.object({
+const FLSpielTeamFieldPayloadSchema = z.object({
   team_id: CustomObjectIdStringSchema,
   tore: z.int().nonnegative().nullable(),
 });
@@ -34,7 +34,7 @@ export const FLSpielTeamFieldPayloadSchema = z.object({
  * it is THIS fixture's rent rather than a copy of the venue's current default, so dropping it from
  * the wire would rewrite a rent on every save.
  */
-export const FLSpielOrtFieldPayloadSchema = z.object({
+const FLSpielOrtFieldPayloadSchema = z.object({
   spielort_id: CustomObjectIdStringSchema,
   // The message goes on the TYPE check: the reachable failure is a cleared field arriving as
   // `null`, since every one of these inputs carries `minValue={0}`.
@@ -42,7 +42,7 @@ export const FLSpielOrtFieldPayloadSchema = z.object({
 });
 
 /** The referee as the admin PATCH submits it; `payment` stays on the wire for `mietpreis`' reason. */
-export const FLSpielSchiedsrichterFieldPayloadSchema = z.object({
+const FLSpielSchiedsrichterFieldPayloadSchema = z.object({
   schiedsrichter_id: CustomObjectIdStringSchema,
   payment: z.int({ error: "Bitte gib ein Honorar ein." }).nonnegative({ error: "Das Honorar darf nicht negativ sein." }),
 });
@@ -52,7 +52,7 @@ export const FLSpielSchiedsrichterFieldPayloadSchema = z.object({
  * field errors instead of a union-wide "no match". The discriminator names a shape and is English;
  * its values are competition vocabulary, German.
  */
-export const FLSpielQuelleGruppeSchema = z.object({
+const FLSpielQuelleGruppeSchema = z.object({
   type: z.literal("gruppe", { error: "Bitte wähle aus, woher das Team kommt." }),
   gruppe: FLGruppenNamesSchema,
   // On the TYPE check as `mietpreis`'s is: an unpicked placing drafts as `NaN`, which fails
@@ -60,13 +60,13 @@ export const FLSpielQuelleGruppeSchema = z.object({
   platz: z.int({ error: "Bitte wähle einen Platz aus." }).positive({ error: "Der Platz muss mindestens 1 sein." }),
 });
 
-export const FLSpielQuelleSpielSchema = z.object({
+const FLSpielQuelleSpielSchema = z.object({
   type: z.literal("spiel", { error: "Bitte wähle aus, woher das Team kommt." }),
   spiel_nr: z.int({ error: "Bitte wähle ein Spiel aus." }).positive({ error: "Die Spielnummer muss mindestens 1 sein." }),
   ausgang: z.enum(["sieger", "verlierer"], { error: "Bitte wähle Sieger oder Verlierer." }),
 });
 
-export const FLSpielQuelleSchema = z.discriminatedUnion("type", [FLSpielQuelleGruppeSchema, FLSpielQuelleSpielSchema], {
+const FLSpielQuelleSchema = z.discriminatedUnion("type", [FLSpielQuelleGruppeSchema, FLSpielQuelleSpielSchema], {
   // The discriminator too: an absent or unknown `type` otherwise answers with the slugs themselves.
   error: "Bitte wähle aus, woher das Team kommt.",
 });

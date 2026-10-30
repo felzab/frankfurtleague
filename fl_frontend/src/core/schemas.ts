@@ -1,56 +1,16 @@
 import z from "zod";
 
-import { CustomObjectIdStringSchema } from "./objectId";
-
 import type * as wire from "./generated/client/types";
 
-// Each name below is the backend's own type, generated from `fl_backend/openapi.json`; a `*Schema` the hand-written
-// calls hand `fl_frontend/src/core/api.ts :: apiClient` types the answer and parses nothing. A type-only import, so a
-// client component may import a type from here without the generated modules' `server-only`.
+// Every type here is imported from `fl_frontend/src/core/generated/client/types.ts` where it is used. What stays are
+// two answers the hand-written calls hand `fl_frontend/src/core/api.ts :: apiClient`, which types the answer and parses
+// nothing.
 
 /**
- * Redesign: goes with its last importer. The envelope every slice's hand-written answer extends; the backend's answers
- * carry no field of it.
+ * Redesign: goes with its last importer, `fl_frontend/src/features/zustellung/schemas.ts`. The envelope a slice's
+ * hand-written answer extends; the backend's answers carry no field of it.
  */
 export const BaseAPIResponseSchema = z.object({});
 
-export type FLRefusedField = wire.FLRefusedField;
-
-export type FLSubjektPayload = wire.FLSubjektPayload;
-export type FLSubjektSitz = wire.FLSubjektSitz;
-export type FLSubjektSpieler = wire.FLSubjektSpieler;
-export type FLSubjektSchiedsrichter = wire.FLSubjektSchiedsrichter;
-export type FLSubjektResponse = wire.FLSubjektResponse;
-
-export type FLAnmeldungResponse = wire.FLAnmeldungResponse;
-export const FLAnmeldungResponseSchema = z.custom<FLAnmeldungResponse>();
-
-export type FLGesperrtPayload = wire.FLGesperrtPayload;
+/** Redesign: goes with its last importer, `fl_frontend/src/core/mailGate.ts`, and its `apiClient` call. */
 export const FLGesperrtResponseSchema = z.custom<wire.FLGesperrtResponse>();
-
-export type FLEinwilligungFassung = wire.FLEinwilligungFassung;
-export const FLEinwilligungFassungResponseSchema = z.custom<wire.FLEinwilligungFassungResponse>();
-export const FLEinwilligungSeitenResponseSchema = z.custom<wire.FLEinwilligungSeitenResponse>();
-
-// Redesign: the objects below go with their last importers: `fl_frontend/src/core/signInGate.ts` names the subject
-// read's answer by them, `fl_frontend/src/core/funktionen.test.ts` reads a seat's season states. Each `satisfies` the
-// generated type, so a backend change that moves one fails the type check here.
-
-export const FLSubjektSitzSchema = z.object({
-  saison_id: z.string(),
-  team_id: CustomObjectIdStringSchema,
-  rolle: z.enum(["trainer", "ansprechperson", "stellvertretung"]),
-  team_name: z.string(),
-  saison_status: z.enum(["past", "active", "future"]),
-}) satisfies z.ZodType<FLSubjektSitz>;
-
-export const FLSubjektResponseSchema = z.object({
-  sitze: z.array(FLSubjektSitzSchema),
-  spieler: z.array(z.object({ spieler_id: CustomObjectIdStringSchema })),
-  schiedsrichter: z.array(z.object({ schiedsrichter_id: CustomObjectIdStringSchema })),
-  unbestaetigt: z.boolean(),
-  gesperrt: z.boolean(),
-  verwaltung: z.enum(["owner", "administration"]).nullable(),
-  berechtigt_seit: z.string().nullable(),
-  inhaber_seit: z.string().nullable(),
-}) satisfies z.ZodType<FLSubjektResponse>;
