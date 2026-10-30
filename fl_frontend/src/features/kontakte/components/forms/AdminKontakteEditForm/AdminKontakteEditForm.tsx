@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { patchSaisonTeamKontakteAction } from "@/features/kontakte/actions";
 import { deriveKontakteDraftStatus } from "@/features/kontakte/kontakteDraftStatus";
 import { kontakteMayMoveLinks } from "@/features/kontakte/linkMint";
-import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
+import { KontakteSpeichernEingabeSchema } from "@/features/kontakte/schemas";
 import {
   addressOnlyConfirmedSeatLabels,
   emptiedSeatLabels,
@@ -31,13 +31,12 @@ import { useStepUp } from "@/shared/hooks/useStepUp";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
-import { versandWarnt } from "@/shared/utils/linkVersand";
 
 import { buildKontakteBanners } from "./banners";
 import { FormKontakteLoeschenSection } from "./FormKontakteLoeschenSection";
 import { FormKontakteSection } from "./FormKontakteSection";
 
-import type { FLPatchSaisonTeamKontaktePayload } from "@/features/kontakte/schemas";
+import type { KontakteSpeichernEingabe } from "@/features/kontakte/schemas";
 import type { MedienFragen } from "@/features/spieler/nachweis";
 import type { SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
@@ -85,11 +84,11 @@ export function AdminKontakteEditForm({
 
   const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
     useDraftFieldErrors({
-      schemas: { kontakte: FLPatchSaisonTeamKontaktePayloadSchema },
+      schemas: { kontakte: KontakteSpeichernEingabeSchema },
     });
 
   // Both ids ride in the request path, so neither is a field an input renders or a refusal can name.
-  const buildPayload = (): FLPatchSaisonTeamKontaktePayload => ({
+  const buildPayload = (): KontakteSpeichernEingabe => ({
     team_id: teamId,
     saison_id: saison.saisonId,
     // The claim is honoured HERE and nowhere earlier
@@ -174,13 +173,9 @@ export function AdminKontakteEditForm({
           setSubmitFieldErrors({}, {});
           setHasSaved(true);
 
-          // One whose link did not go out is graded a warning: the seat holds no working link and
-          // nobody else is told.
-          const warn = versandWarnt(res.versand);
-          const raise = warn ? appToast.warning : appToast.success;
-          // The link's own sentence in place of the save's: where the save mailed somebody, dropping
-          // it leaves an administrator with no record that a message was sent at all.
-          raise(warn ? "Mit Folgen gespeichert" : "Änderung gespeichert", { description: res.versandSatz ?? res.message });
+          // The link's own sentence in place of the save's: where the save owed somebody a mail, dropping
+          // it leaves an administrator with no record that a message is on its way at all.
+          appToast.success("Änderung gespeichert", { description: res.versandSatz ?? res.message });
 
           resetDraftToStored();
           leavePage();

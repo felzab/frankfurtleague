@@ -6,12 +6,12 @@ import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 import type {
   FLAustritt,
   FLKontaktpersonPayload,
+  FLKontaktZeile,
   FLSaisonTeamKontaktePayload,
   FLTeamMembership,
   FLTeamWithMemberships,
   FLTrainerZugleich,
 } from "@/core/generated/client/types";
-import type { KontaktZeile } from "@/core/kontaktEmail";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
 
@@ -160,7 +160,7 @@ export function teamPageHref(teamId: string, saisonId: string): string {
  * left it, the backend mints a newcomer a link taking the Widerspruch alone and sends no fresh one
  * (`REQ-KONTAKT-005`).
  */
-export function kontaktZeile(saisonStatus: TeamSaisonMembership["saisonStatus"], austritt: FLAustritt | null): KontaktZeile {
+export function kontaktZeile(saisonStatus: TeamSaisonMembership["saisonStatus"], austritt: FLAustritt | null): FLKontaktZeile {
   if (saisonStatus === "past") return "saison_vorbei";
 
   return austritt === null ? "offen" : "ausgetreten";

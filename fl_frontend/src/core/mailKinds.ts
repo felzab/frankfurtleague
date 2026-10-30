@@ -3,6 +3,7 @@ import "server-only";
 import { buildCodeEmail } from "./authEmail";
 import { buildEinladungEmail } from "./einladungEmail";
 import { ContractBreakError } from "./errors";
+import { buildKontaktBestaetigungEmail } from "./kontaktEmail";
 import { buildLoeschungEmail } from "./loeschungEmail";
 import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
 import { buildRegistrierungAbsageEmail, buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail } from "./registrierungEmail";
@@ -84,6 +85,7 @@ const MAIL_KINDS: { [A in PostausgangArt]?: MailBuilder<A> } = {
   registrierung_erinnerung: (daten, ausgabe) => buildRegistrierungErinnerungEmail(daten, gemintet(ausgabe)),
   registrierung_absage: (daten, ausgabe) => buildRegistrierungAbsageEmail(daten, ausgabe),
   einladung: (daten, ausgabe) => buildEinladungEmail(daten, gemintet(ausgabe)),
+  kontakt_bestaetigung: (daten, ausgabe) => buildKontaktBestaetigungEmail(daten, gemintet(ausgabe)),
 };
 
 /** A secret kind's secret, which its every row carries (`fl_frontend/src/core/auth.ts :: oweSignInMail`). */

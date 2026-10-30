@@ -8,10 +8,12 @@ import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
 /**
  * The contacts save's input: the three seats and the token naming which block they were composed
- * against, beside the row's natural key. `FLSaisonTeamKontaktePayloadSchema` is reused: the junction
- * PATCH takes the same block, and a second spelling would drift with nothing able to see it.
+ * against, beside the row's natural key. Not the wire's body, which the generated
+ * `FLPatchSaisonTeamKontaktePayload` types at the SDK call: both ids ride in its path.
+ * `FLSaisonTeamKontaktePayloadSchema` is reused: the junction PATCH takes the same block, and a second
+ * spelling would drift with nothing able to see it.
  */
-export const FLPatchSaisonTeamKontaktePayloadSchema = z.object({
+export const KontakteSpeichernEingabeSchema = z.object({
   // Both ids are in the PATH on the wire — the junction row is addressed by its natural key. They
   // are carried here because the form has to know which club's season it is writing.
   team_id: CustomObjectIdStringSchema,
@@ -23,11 +25,11 @@ export const FLPatchSaisonTeamKontaktePayloadSchema = z.object({
   // read minted is refused there anyway, and a bound here would mark a box nothing renders.
   kontakte_stand: z.string(),
 });
-export type FLPatchSaisonTeamKontaktePayload = z.infer<typeof FLPatchSaisonTeamKontaktePayloadSchema>;
+export type KontakteSpeichernEingabe = z.infer<typeof KontakteSpeichernEingabeSchema>;
 
 /** Which seat of which season row the re-send names. All three travel in the path, so the request carries no body. */
 export const FLKontaktEinladenPayloadSchema = z.object({
   team_id: CustomObjectIdStringSchema,
-  saison_id: FLPatchSaisonTeamKontaktePayloadSchema.shape.saison_id,
+  saison_id: KontakteSpeichernEingabeSchema.shape.saison_id,
   rolle: FLKontaktRolleSchema,
 });

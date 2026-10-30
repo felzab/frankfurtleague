@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { schlechtesterVersand, versandGrad, versandWarnt } from "./linkVersand.ts";
+import { versandGrad, versandWarnt } from "./linkVersand.ts";
 
 import type { LinkVersand, VersandGrad } from "./linkVersand.ts";
 
@@ -27,19 +27,5 @@ describe("the grade of a link mail", () => {
       ["zurueckgehalten", true],
     ]);
     expect(versandWarnt(undefined)).toBe(false);
-  });
-});
-
-describe("the one report of a write sending several links", () => {
-  /* The order of the sends is the order of the seats, so a worse link after a better one is the case a
-     reader taking the first or the last would miss. */
-  it("reports the worst-graded link, a failure ahead of one held back ahead of a sent one", () => {
-    expect(schlechtesterVersand(["gesendet", "gesperrt", "gesendet"])).toBe("gesperrt");
-    expect(schlechtesterVersand(["zurueckgehalten", "fehlgeschlagen", "gesendet"])).toBe("fehlgeschlagen");
-    expect(schlechtesterVersand(["gesendet", "gesendet"])).toBe("gesendet");
-  });
-
-  it("reports nothing for a write that sent no link", () => {
-    expect(schlechtesterVersand([])).toBe(undefined);
   });
 });
