@@ -43,7 +43,7 @@ export function buildRegistrierungBestaetigungEmail(
     subjectLine: `Registrierung für ${teamName} bestätigen`,
     origin: site,
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [["Du hast Dich für ", { strong: teamName }, ` in der Saison ${saisonId} der ${BRAND_NAME} registriert.`]],
       [
         "Über den Button unten bestätigst Du die Registrierung, trägst Dein Geburtsdatum ein und entscheidest, was mit Deinen Angaben passieren darf.",
@@ -75,7 +75,7 @@ export function buildRegistrierungErinnerungEmail(
     subjectLine: `Erinnerung: Registrierung für ${teamName} bestätigen`,
     origin: site,
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [["Deine Registrierung für ", { strong: teamName }, ` in der Saison ${saisonId} der ${BRAND_NAME} ist noch nicht bestätigt.`]],
       [
         `Die Frist von ${String(fristTage)} Tagen läuft weiter.`,
@@ -118,7 +118,7 @@ export function buildRegistrierungAbsageEmail(
     subjectLine: `Deine Registrierung für ${teamName}`,
     origin: site,
     vorname: vorname,
-    absaetze: [
+    paragraphs: [
       [[{ strong: teamName }, ` hat Deine Registrierung für die Saison ${saisonId} der ${BRAND_NAME} abgelehnt.`]],
       ABSAGE_WEITER[grund ?? "keiner"],
       ["Deine Angaben aus der Registrierung löschen wir einen Monat nach dieser Entscheidung."],

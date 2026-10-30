@@ -18,22 +18,22 @@ import { mailFor, OUTBOX_TAG } from "./mailKinds";
 import { boundCall, getRequestTraceId } from "./requestScope";
 import { mintTraceId } from "./trace";
 
-import type { MailVon } from "./emailShell";
+import type { MailSender } from "./emailShell";
 import type { FLOutboxHandout, FLOutboxResultPayload, FLOutboxResultPayloadResult, FLOutboxResultResponse } from "./generated/client/types";
 
 const MAIL_ENDPOINT = "https://api.resend.com/emails";
 
 // Two senders: sign-in codes and security notices from one address, everything else from the
-// other, the mail's kind choosing (`fl_frontend/src/core/emailShell.ts :: MailVon`). Each address
+// other, the mail's kind choosing (`fl_frontend/src/core/emailShell.ts :: MailSender`). Each address
 // needs its own routing rule and its sender alignment at the provider.
-const ABSENDER: Readonly<Record<MailVon, string>> = {
+const ABSENDER: Readonly<Record<MailSender, string>> = {
   anmeldung: "anmeldung@frankfurtleague.de",
   liga: "liga@frankfurtleague.de",
 };
 
 /** Every sender under the league's name, which needs no quoting: it holds no comma, quote or angle bracket. */
-function senderRow(von: MailVon): string {
-  return `${COPY.marke.name} <${ABSENDER[von]}>`;
+function senderRow(sender: MailSender): string {
+  return `${COPY.marke.name} <${ABSENDER[sender]}>`;
 }
 
 /** Every reply reaches the league's mailbox, whichever address sent the mail. */
@@ -62,7 +62,7 @@ interface OutboundMail {
   html: string;
   text: string;
   /** Which of the two senders, read off the mail's kind by `fl_frontend/src/core/emailShell.ts :: renderMail`. */
-  von: MailVon;
+  sender: MailSender;
   /**
    * Rides the send and comes back on every delivery event about it, which is what routes one back to
    * the row it was sent from. Each name and value must be ASCII letters, digits, `_` or `-`.
@@ -132,10 +132,10 @@ function forComment(value: string): string {
   return value.replaceAll("-->", "--&gt;").replaceAll("--!>", "--!&gt;");
 }
 
-function sinkDocument({ to, subject, html, text, von, tags }: OutboundMail, traceId: string): string {
+function sinkDocument({ to, subject, html, text, sender, tags }: OutboundMail, traceId: string): string {
   const pairs = Object.entries(tags).map(([name, value]) => `${name}=${value}`);
   const header = [
-    `From: ${senderRow(von)}`,
+    `From: ${senderRow(sender)}`,
     `Reply-To: ${ANTWORT_AN}`,
     `To: ${to}`,
     `Subject: ${subject}`,
@@ -333,7 +333,7 @@ function resultOf(error: unknown): Exclude<FLOutboxResultPayloadResult, "sent"> 
  * provider's message**, which names the recipient -- `fl_frontend/src/core/errors.ts :: MailSendError`
  * takes the stable `name` field instead.
  */
-async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: OutboundMail): Promise<MailAccepted> {
+async function deliver({ to, subject, html, text, sender, tags, idempotencyKey }: OutboundMail): Promise<MailAccepted> {
   const traceId = getRequestTraceId() ?? mintTraceId();
 
   // Both halves fail closed: the deployment says it is not the one that mails, and outside
@@ -343,7 +343,7 @@ async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: O
   if (frontend_config.APP_ENV !== "production" || apiKey === undefined) {
     // Never on production, which reaches this arm only where `SKIP_ENV_VALIDATION` stood the key's
     // requirement down: a file there would leave a live sign-in code on the host's disk.
-    if (frontend_config.APP_ENV !== "production") await writeToSink({ to, subject, html, text, von, tags, idempotencyKey }, traceId);
+    if (frontend_config.APP_ENV !== "production") await writeToSink({ to, subject, html, text, sender, tags, idempotencyKey }, traceId);
 
     // No line of its own: the row's `zurueckgehalten` is the record, and the filed copy carries the row's id among its tags.
     throw new MailWithheldError();
@@ -371,7 +371,7 @@ async function deliver({ to, subject, html, text, von, tags, idempotencyKey }: O
   };
 
   const body = JSON.stringify({
-    from: senderRow(von),
+    from: senderRow(sender),
     reply_to: ANTWORT_AN,
     to: to,
     subject,

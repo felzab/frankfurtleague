@@ -3,7 +3,7 @@ import { assert, beforeEach, vi } from "vitest";
 
 import { APINetworkError } from "@/core/errors.ts";
 
-import type { MailVon } from "@/core/emailShell.ts";
+import type { MailSender } from "@/core/emailShell.ts";
 import type { FLOutboxSignInPayload } from "@/core/generated/client/types.ts";
 
 /** One sign-in mail the double sent, rendered as the drain renders it. */
@@ -12,7 +12,7 @@ export type SentMail = {
   subject: string;
   html: string;
   text: string;
-  von: MailVon;
+  sender: MailSender;
 };
 
 /** How the double answers one owed sign-in mail: sent, or `lost`, a backend that never answered the enqueue. */

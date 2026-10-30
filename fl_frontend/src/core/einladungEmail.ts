@@ -26,7 +26,7 @@ export function buildEinladungEmail({ team: teamName, saison_id: saisonId }: FLI
     subjectLine: `Registrierungslink für ${teamName}`,
     origin: site,
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [
         [{ strong: teamName }, ` ist in die Saison ${saisonId} der ${BRAND_NAME} aufgenommen.`],
         "Über den Link unten registrieren sich die Spielerinnen und Spieler für diese Saison.",
@@ -35,7 +35,7 @@ export function buildEinladungEmail({ team: teamName, saison_id: saisonId }: FLI
       ["Diesen Link gibst Du weiter:"],
     ],
     block: { link: einladungsLink(site, token) },
-    nachBlock: [
+    afterBlock: [
       ["Der Link gilt, solange die Registrierung für diese Saison geöffnet ist."],
       // The containment the link rests on: it authorises a PENDING registration and nothing else, so a
       // reader who forwards it widely is told what that costs before they do it rather than afterwards.

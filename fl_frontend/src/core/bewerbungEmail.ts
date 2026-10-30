@@ -5,7 +5,7 @@ import { formatAufzaehlung, formatDatum } from "./format";
 import { kontaktBestaetigungsLink } from "./kontaktLink";
 import { KONTAKT_ROLLE_LANGFORM, rollenText, TRIKOT_FARBEN } from "./teamVocabulary";
 
-import type { Absatz, Mail } from "./emailShell";
+import type { Mail, Paragraph } from "./emailShell";
 import type { CalendarDay } from "./format";
 import type {
   FLBewerbungAbsageData,
@@ -23,7 +23,7 @@ import type { MailLink, MailOrt } from "./mailKinds";
  * (`entry_saison_not_future`), and `future` is the one status the public tier is refused
  * (`fl_backend/app/api/saisons/services.py :: WITHHELD_FROM_BASE_TIER`).
  */
-const websiteSatz = (site: string): Absatz => [
+const websiteSatz = (site: string): Paragraph => [
   ["Spielplan, Tabelle und Ergebnisse veröffentlichen wir auf ", { url: site }, ", sobald die Saison startet."],
 ];
 
@@ -31,7 +31,7 @@ const websiteSatz = (site: string): Absatz => [
  * A wish answered as one. The Spielplan is drawn after the decision, so nothing here knows whether it
  * can be met, and „wir versuchen“ would promise a result of a draw that has not run.
  */
-const wunschgegnerAbsatz = (gegner: string): Absatz => [
+const wunschgegnerAbsatz = (gegner: string): Paragraph => [
   `Als Wunschgegner für den ersten Spieltag haben wir ${gegner} notiert.`,
   "Über die Paarungen entscheidet der Spielplan.",
 ];
@@ -41,7 +41,7 @@ const wunschgegnerAbsatz = (gegner: string): Absatz => [
  * against calling a performed operation impossible: an administrator's group swap and colour edit are the
  * league's own corrections.
  */
-const einteilungAbsatz = (gruppe: string, farbe: string | null): Absatz =>
+const einteilungAbsatz = (gruppe: string, farbe: string | null): Paragraph =>
   farbe === null
     ? [
         `Wir haben Euch in Gruppe ${gruppe} untergebracht.`,
@@ -108,7 +108,7 @@ export function buildBewerbungZusageEmail(
     subjectLine: `Willkommen in der Saison ${saison_id}`,
     origin: site,
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [
         `Vielen Dank für Eure Bewerbung für die Saison ${saison_id} der ${BRAND_NAME}.`,
         "Wir freuen uns, Euch mitteilen zu können, dass Eure Bewerbung erfolgreich war.",
@@ -117,7 +117,7 @@ export function buildBewerbungZusageEmail(
     ],
     // No row for the decision or the season: the heading states both.
     block: {
-      titel: `In der Saison ${saison_id}`,
+      title: `In der Saison ${saison_id}`,
       facts: [
         { label: "Team", value: team },
         { label: "Gruppe", value: gruppe },
@@ -129,7 +129,7 @@ export function buildBewerbungZusageEmail(
         { label: "Eingetragen als", value: rollenText(rollen) },
       ],
     },
-    nachBlock: [einteilungAbsatz(gruppe, farbe?.label ?? null), ...(gegner === "" ? [] : [wunschgegnerAbsatz(gegner)]), websiteSatz(site)],
+    afterBlock: [einteilungAbsatz(gruppe, farbe?.label ?? null), ...(gegner === "" ? [] : [wunschgegnerAbsatz(gegner)]), websiteSatz(site)],
     button: ligaAktion(site),
   };
 }
@@ -141,7 +141,7 @@ export function buildBewerbungAbsageEmail({ team, saison_id, rollen, grund }: FL
     subjectLine: `Absage für die Saison ${saison_id}`,
     origin: mailOrigin(origin),
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [
         ["Danke, dass ", { strong: team }, ` sich für die Saison ${saison_id} der ${BRAND_NAME} beworben hat.`],
         "Für diese Saison können wir das Team nicht aufnehmen.",
@@ -149,7 +149,7 @@ export function buildBewerbungAbsageEmail({ team, saison_id, rollen, grund }: FL
       ["Die Entscheidung betrifft diese Bewerbung, nicht die Schule und nicht die Menschen dahinter."],
     ],
     block: {
-      titel: "Die Absage",
+      title: "Die Absage",
       facts: [
         { label: "Team", value: team },
         { label: "Saison", value: saison_id },
@@ -172,7 +172,7 @@ export function buildBewerbungBestaetigungEmail({ saison_id, schule, rollen, fri
     subjectLine: `Dein Eintrag für die Saison ${saison_id}`,
     origin: site,
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [
         ["Für die Schule ", { strong: schule }, ` wurde eine Bewerbung zur Saison ${saison_id} der ${BRAND_NAME} eingereicht.`],
         `Darin bist Du als ${rollenText(rollen)} eingetragen.`,
@@ -192,7 +192,7 @@ export function buildBewerbungBestaetigungEmail({ saison_id, schule, rollen, fri
       ],
     ],
     block: {
-      titel: "Dein Eintrag",
+      title: "Dein Eintrag",
       facts: [
         // Named here and in no mail to the submitter: a contact who never heard of the application
         // has nothing else to tell whose it is, and cannot answer a link they cannot place.
@@ -215,7 +215,7 @@ export function buildBewerbungErinnerungEmail({ saison_id, schule, rollen, frist
     subjectLine: `Erinnerung: Dein Eintrag für die Saison ${saison_id}`,
     origin: site,
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [
         "Vor drei Tagen haben wir Dich gebeten, Deinen Eintrag zu bestätigen:",
         ["In der Bewerbung der Schule ", { strong: schule }, ` zur Saison ${saison_id} bist Du als ${rollenText(rollen)} eingetragen.`],
@@ -227,7 +227,7 @@ export function buildBewerbungErinnerungEmail({ saison_id, schule, rollen, frist
       ],
     ],
     block: {
-      titel: "Dein Eintrag",
+      title: "Dein Eintrag",
       facts: [
         { label: "Schule", value: schule },
         { label: "Saison", value: saison_id },
@@ -260,7 +260,7 @@ export function buildBewerbungEingangEmail(
     subjectLine: `Bewerbung eingegangen: Saison ${saison_id}`,
     origin: site,
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [
         [`Deine Bewerbung für die Saison ${saison_id} der ${BRAND_NAME} ist `, { strong: "bei uns eingegangen" }, "."],
         "Danke für die Anmeldung Deines Teams.",
@@ -278,7 +278,7 @@ export function buildBewerbungEingangEmail(
     // The other contacts by first name and role, and no school: a mistyped submitter address then
     // hands a stranger two first names and two roles with nothing to attach them to.
     block: {
-      titel: "Stand der Bewerbung",
+      title: "Stand der Bewerbung",
       facts: [
         { label: "Status", value: "Eingegangen, Bestätigungen offen" },
         { label: "Saison", value: saison_id },
@@ -303,7 +303,7 @@ export function buildBewerbungGeloeschtEmail({ saison_id, rollen, pending: ausst
     subjectLine: `Bewerbung wird gelöscht: Saison ${saison_id}`,
     origin: site,
     vorname: "",
-    absaetze: [
+    paragraphs: [
       [
         "Die Frist für die Bestätigungen ist abgelaufen, und nicht alle Kontaktpersonen haben ihren Eintrag bestätigt.",
         [`Deshalb löschen wir Deine Bewerbung für die Saison ${saison_id} jetzt `, { strong: "mit allen Angaben" }, ", wie angekündigt."],
@@ -314,7 +314,7 @@ export function buildBewerbungGeloeschtEmail({ saison_id, rollen, pending: ausst
       ],
     ],
     block: {
-      titel: "Stand der Bewerbung",
+      title: "Stand der Bewerbung",
       facts: [
         { label: "Status", value: "Wird gelöscht, nicht vollständig geworden" },
         { label: "Saison", value: saison_id },
@@ -341,7 +341,7 @@ export function buildBewerbungWiderspruchEmail(
     subjectLine: `Widerspruch zum Eintrag: Saison ${saison_id}`,
     origin: site,
     vorname: "",
-    absaetze: [
+    paragraphs: [
       // No pronoun, and „Diese Angaben“ where „seine“ or „ihre“ would stand: both read correctly for every name.
       [[{ strong: `${wer} hat dem Eintrag als Kontaktperson widersprochen.` }], "Diese Angaben haben wir aus der Bewerbung entfernt."],
       [
@@ -352,7 +352,7 @@ export function buildBewerbungWiderspruchEmail(
       ],
     ],
     block: {
-      titel: "Stand der Bewerbung",
+      title: "Stand der Bewerbung",
       facts: [
         { label: "Status", value: "Nicht vollständig, eine Bestätigung fehlt" },
         { label: "Saison", value: saison_id },

@@ -151,7 +151,11 @@ export function buildBerechtigungEmail(daten: FLGrantData, { origin: rawOrigin }
     subjectLine: antrag?.betreff ?? BETREFF,
     origin: origin,
     vorname: "",
-    absaetze: [[aenderungsSatz(aenderung)], [urheberSatz(urheber, antrag === null ? "Geändert" : "Beantragt")], antrag?.aufgabe ?? [WARNSATZ]],
+    paragraphs: [
+      [aenderungsSatz(aenderung)],
+      [urheberSatz(urheber, antrag === null ? "Geändert" : "Beantragt")],
+      antrag?.aufgabe ?? [WARNSATZ],
+    ],
     button: { label: ZIEL_LABEL, href: `${origin}${ZIEL_PFAD}` },
   };
 }
