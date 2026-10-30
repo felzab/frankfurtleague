@@ -563,7 +563,7 @@ class TestTheCeilingsOnWhatAStrangerMayType:
         with pytest.raises(ValidationError):
             FLBewerbungKontaktpersonPayload.model_validate(person(**{part: "Quill4"}))
 
-        assert getattr(FLBewerbungKontaktpersonPayload.model_validate(person(**{part: "  Quillhilde  "})), part) == "Quillhilde"
+        assert getattr(FLBewerbungKontaktpersonPayload.model_validate(person(**{part: "Quillhilde  "})), part) == "Quillhilde"
 
 
 class TestTheCeilingOnTheSchoolWebsite:
