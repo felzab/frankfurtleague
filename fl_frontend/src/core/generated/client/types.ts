@@ -5070,21 +5070,18 @@ export const FLPostausgangEreignisPayloadStand = {
 } as const;
 
 /**
- * One delivery event about a message the provider accepted.
+ * One delivery event about a message the provider accepted, named by the row the message was sent from.
  */
 export interface FLPostausgangEreignisPayload {
   am: string;
   grund: string | null;
-  /**
-   * @minLength 1
-   * @maxLength 128
-   */
-  nachricht_id: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
   stand: FLPostausgangEreignisPayloadStand;
 }
 
 /**
- * Whether the event reached a row; false where no row names the message, or the row's state may not follow into it.
+ * Whether the event reached a row; false where no row has the id, or the row's state may not follow into it.
  *
  * False rather than a refusal: the provider repeats a settled event for hours if anything but a success answers it.
  */

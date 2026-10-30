@@ -278,17 +278,18 @@ async def post_ereignis(
     """
     Record what the mail provider reported about one message, on the row of the mail it was.
 
-    Applied only where the row's delivery state is one the event's may follow -- a delay before anything, a complaint
-    after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later one changes nothing.
-    Both answer `angewendet: false`, as does a message no row names, rather than a refusal the provider would retry for
-    hours.
+    The row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds
+    it all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before
+    anything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later
+    one changes nothing. Both answer `angewendet: false`, as does an id no row has, rather than a refusal the provider
+    would retry for hours.
     """
 
     # One document, so the filter's condition and the write are one atomic operation and need no transaction.
     result = await patch_many_in_db(
         collection=postausgang_collection,
         db_filter={
-            "nachricht_id": ereignis_data.nachricht_id,
+            "_id": ereignis_data.id,
             "zustellung.stand": {"$in": list(FOLGT_AUF[ereignis_data.stand])},
         },
         update={"$set": {"zustellung": {"stand": ereignis_data.stand, "grund": ereignis_data.grund, "am": ereignis_data.am}}},

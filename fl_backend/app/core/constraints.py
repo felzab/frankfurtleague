@@ -363,13 +363,6 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("stand", ASCENDING), ("erfasst_am", ASCENDING), ("_id", ASCENDING)),
         "the drain's claim of the open rows, oldest first",
     ),
-    # Plain: an unsent row's null key matches no event, every event naming a message the provider minted.
-    SupportIndex(
-        Collection.POSTAUSGANG,
-        "postausgang_nachricht_id",
-        (("nachricht_id", ASCENDING),),
-        "the provider's events, each naming its message, driven by the provider",
-    ),
     SupportIndex(
         Collection.POSTAUSGANG,
         "postausgang_bezug",

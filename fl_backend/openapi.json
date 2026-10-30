@@ -10582,7 +10582,7 @@
       },
       "FLPostausgangEreignisPayload": {
         "additionalProperties": false,
-        "description": "One delivery event about a message the provider accepted.",
+        "description": "One delivery event about a message the provider accepted, named by the row the message was sent from.",
         "properties": {
           "am": {
             "format": "date-time",
@@ -10602,10 +10602,9 @@
             ],
             "title": "Grund"
           },
-          "nachricht_id": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Nachricht Id",
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
             "type": "string"
           },
           "stand": {
@@ -10621,7 +10620,7 @@
           }
         },
         "required": [
-          "nachricht_id",
+          "id",
           "stand",
           "grund",
           "am"
@@ -10630,7 +10629,7 @@
         "type": "object"
       },
       "FLPostausgangEreignisResponse": {
-        "description": "Whether the event reached a row; false where no row names the message, or the row's state may not follow into it.\n\nFalse rather than a refusal: the provider repeats a settled event for hours if anything but a success answers it.",
+        "description": "Whether the event reached a row; false where no row has the id, or the row's state may not follow into it.\n\nFalse rather than a refusal: the provider repeats a settled event for hours if anything but a success answers it.",
         "properties": {
           "angewendet": {
             "title": "Angewendet",
@@ -24839,7 +24838,7 @@
     },
     "/api/v0/postausgang/ereignis": {
       "post": {
-        "description": "Record what the mail provider reported about one message, on the row of the mail it was.\n\nApplied only where the row's delivery state is one the event's may follow -- a delay before anything, a complaint\nafter a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later one changes nothing.\nBoth answer `angewendet: false`, as does a message no row names, rather than a refusal the provider would retry for\nhours.",
+        "description": "Record what the mail provider reported about one message, on the row of the mail it was.\n\nThe row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds\nit all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before\nanything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later\none changes nothing. Both answer `angewendet: false`, as does an id no row has, rather than a refusal the provider\nwould retry for hours.",
         "operationId": "postausgang_post_ereignis",
         "requestBody": {
           "content": {

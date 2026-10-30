@@ -1634,25 +1634,26 @@ export const PostausgangPostAnmeldungBody = zod
 /**
  * Record what the mail provider reported about one message, on the row of the mail it was.
  *
- * Applied only where the row's delivery state is one the event's may follow -- a delay before anything, a complaint
- * after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later one changes nothing.
- * Both answer `angewendet: false`, as does a message no row names, rather than a refusal the provider would retry for
- * hours.
+ * The row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds
+ * it all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before
+ * anything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later
+ * one changes nothing. Both answer `angewendet: false`, as does an id no row has, rather than a refusal the provider
+ * would retry for hours.
  * @summary Record one delivery event on its mail's row
  */
 export const postausgangPostEreignisBodyGrundOneMax = 128;
 
 export const postausgangPostEreignisBodyGrundOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
-export const postausgangPostEreignisBodyNachrichtIdMax = 128;
+export const postausgangPostEreignisBodyIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
 
 export const PostausgangPostEreignisBody = zod
   .object({
     am: zod.iso.datetime({ offset: true }),
     grund: zod.union([zod.string().max(postausgangPostEreignisBodyGrundOneMax).regex(postausgangPostEreignisBodyGrundOneRegExp), zod.null()]),
-    nachricht_id: zod.string().min(1).max(postausgangPostEreignisBodyNachrichtIdMax),
+    id: zod.string().regex(postausgangPostEreignisBodyIdRegExp),
     stand: zod.enum(["zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]),
   })
-  .describe("One delivery event about a message the provider accepted.");
+  .describe("One delivery event about a message the provider accepted, named by the row the message was sent from.");
 
 /**
  * Settle each named mail the named claim still holds, by the outcome of its send, and nothing else.

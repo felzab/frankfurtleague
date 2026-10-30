@@ -153,12 +153,14 @@ class FLPostausgangErgebnis(BaseModel):
 
     id: CustomObjectId
     ergebnis: FLPostausgangErgebnisArt
-    # The provider's id for the accepted message, which every later event about it names.
+    # The provider's id for the accepted message, kept as the row's record of it.
     nachricht_id: CustomNachrichtId | None
 
+    # Only a sent mail names a message, and a sent one may name none: the provider accepted it, and its answer carried no
+    # readable id, which no event needs, each finding its row by the row's own id.
     @model_validator(mode="after")
     def only_a_sent_mail_names_a_message(self) -> Self:
-        if (self.ergebnis == "gesendet") != (self.nachricht_id is not None):
+        if self.nachricht_id is not None and self.ergebnis != "gesendet":
             raise ValueError("Nur eine gesendete Mail nennt eine Nachricht.")
 
         return self
@@ -207,11 +209,13 @@ class FLPostausgangAnmeldungResponse(BaseAPIResponse):
 
 
 class FLPostausgangEreignisPayload(BaseModel):
-    """One delivery event about a message the provider accepted."""
+    """One delivery event about a message the provider accepted, named by the row the message was sent from."""
 
     model_config = ConfigDict(extra="forbid")
 
-    nachricht_id: CustomNachrichtId
+    # The row's own id, which the send carries as a tag and the provider echoes on every event, so an event arriving
+    # before the send's report finds its row all the same.
+    id: CustomObjectId
     stand: FLPostausgangZustellStand
     grund: CustomZustellGrund | None
     # The provider's stamp, stored with the state; the order of states decides, never the order of stamps.
@@ -219,7 +223,7 @@ class FLPostausgangEreignisPayload(BaseModel):
 
 
 class FLPostausgangEreignisResponse(BaseAPIResponse):
-    """Whether the event reached a row; false where no row names the message, or the row's state may not follow into it.
+    """Whether the event reached a row; false where no row has the id, or the row's state may not follow into it.
 
     False rather than a refusal: the provider repeats a settled event for hours if anything but a success answers it.
     """

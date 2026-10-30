@@ -252,22 +252,25 @@ class TestTheExpiry:
 
 
 class TestTheDeliveryEvent:
-    def test_a_state_never_moves_back_whatever_order_the_events_arrive_in(self, mongo_replica_set_url: str):
+    def test_an_event_finds_its_row_before_the_report_and_a_state_never_moves_back(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             row_id = await owe(database, client, "sperre/1", link=True)
             answer = await claimed(database, client)
-            await reported(database, client, answer.beanspruchung, row_id, "gesendet")
 
-            async def event(stand: FLPostausgangZustellStand, nachricht_id: str = f"msg-{row_id}") -> bool:
-                payload = FLPostausgangEreignisPayload(nachricht_id=nachricht_id, stand=stand, grund=None, am=NOW)
+            async def event(stand: FLPostausgangZustellStand, row: ObjectId = row_id) -> bool:
+                payload = FLPostausgangEreignisPayload(id=row, stand=stand, grund=None, am=NOW)
                 return (await post_ereignis(ereignis_data=payload, postausgang_collection=database[Collection.POSTAUSGANG])).angewendet
 
-            applied = [await event("unzustellbar"), await event("verzoegert"), await event("zugestellt"), await event("zugestellt", "fremd")]
+            # The provider's event can outrun the send's own report, which has then recorded nothing of the message.
+            first = await event("unzustellbar")
+            await reported(database, client, answer.beanspruchung, row_id, "gesendet")
+            applied = [first, await event("verzoegert"), await event("zugestellt"), await event("zugestellt", ObjectId())]
             newest = await read_the_newest(postausgang_collection=database[Collection.POSTAUSGANG], bezug=BEZUG)
 
-            return applied, newest
+            return applied, newest, await stored(database, row_id)
 
-        applied, newest = on_a_database(mongo_replica_set_url, body)
+        applied, newest, row = on_a_database(mongo_replica_set_url, body)
 
         assert applied == [True, False, False, False]
         assert newest is not None and unzustellbar(newest)
+        assert row["stand"] == "gesendet"

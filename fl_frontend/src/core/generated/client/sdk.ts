@@ -2631,10 +2631,11 @@ export const getPostausgangPostEreignisUrl = () => {
 /**
  * Record what the mail provider reported about one message, on the row of the mail it was.
  *
- * Applied only where the row's delivery state is one the event's may follow -- a delay before anything, a complaint
- * after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later one changes nothing.
- * Both answer `angewendet: false`, as does a message no row names, rather than a refusal the provider would retry for
- * hours.
+ * The row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds
+ * it all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before
+ * anything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later
+ * one changes nothing. Both answer `angewendet: false`, as does an id no row has, rather than a refusal the provider
+ * would retry for hours.
  * @summary Record one delivery event on its mail's row
  */
 export const postausgangPostEreignis = async (
