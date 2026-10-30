@@ -241,7 +241,7 @@ export function AdminSaisonEditForm({
     hasSpielplan: spielplan.spielplan !== null,
     hasDrawnSpiele,
     spieltageCount: spielplan.spieltageCount,
-    erfassteSpieleCount: spielplan.holdings.erfasst,
+    erfassteSpieleCount: spielplan.bestand.erfasst,
     eingereichteBerichteCount: spielplan.eingereichteBerichte,
   };
 
@@ -253,7 +253,7 @@ export function AdminSaisonEditForm({
       : saison.status !== "future"
         ? "closed"
         : // The undraw's own order: a recorded fact names its way back first.
-          spielplan.holdings.erfasst === 0 && spielplan.eingereichteBerichte > 0
+          spielplan.bestand.erfasst === 0 && spielplan.eingereichteBerichte > 0
           ? "berichtet"
           : "recorded";
 

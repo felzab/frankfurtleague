@@ -86,7 +86,7 @@ export function FormSpielplanSection({
   spielplan,
   spieltageCount,
   schedule,
-  holdings: bestand,
+  bestand,
   eingereichteBerichte,
   hasDrawnSpiele,
   onBeforeWrite,
@@ -137,7 +137,7 @@ export function FormSpielplanSection({
     spielplan,
     spieltageCount,
     schedule,
-    holdings: bestand,
+    bestand,
     eingereichteBerichte,
   });
 
