@@ -72,7 +72,7 @@ class _Reads:
         return await self.answer(collection, self.rows.get(collection, []), session)
 
 
-def _find_subject(reads: _Reads, session: object = None) -> FLSubjekt:
+def _find_subjekt(reads: _Reads, session: object = None) -> FLSubjekt:
     """The system route's lookup with no session, the one a transaction reaches with one."""
 
     if session is None:
@@ -87,7 +87,7 @@ class TestTheSubjectLookupsReads:
     def test_the_records_the_ban_and_the_grant_are_read_at_once(self, monkeypatch: pytest.MonkeyPatch):
         reads = _Reads()
 
-        async def find_subject(_identifier: str, _records: Any) -> FLSubjekt:
+        async def find_subjekt(_identifier: str, _records: Any) -> FLSubjekt:
             return await reads.answer("records", FLSubjekt(seats=[], spieler=[], schiedsrichter=[], unconfirmed=False))
 
         async def hash_barred(*_: Any, **__: Any) -> bool:
@@ -96,7 +96,7 @@ class TestTheSubjectLookupsReads:
         async def verwaltung_of(**_: Any) -> None:
             return await reads.answer("grant", None)
 
-        monkeypatch.setattr(identity_system_router, "find_subjekt", find_subject)
+        monkeypatch.setattr(identity_system_router, "find_subjekt", find_subjekt)
         monkeypatch.setattr(identity_system_router, "hash_gesperrt", hash_barred)
         monkeypatch.setattr(identity_system_router, "verwaltung_of", verwaltung_of)
 
@@ -117,7 +117,7 @@ class TestTheSubjectLookupsReads:
         reads = _Reads()
         monkeypatch.setattr(identity_crud, "aggregate_many_from_db", reads.aggregate)
 
-        _find_subject(reads)
+        _find_subjekt(reads)
 
         assert reads.peak == 3, "the lookup awaited one record read before sending the next"
 
@@ -127,7 +127,7 @@ class TestTheSubjectLookupsReads:
         reads = _Reads()
         monkeypatch.setattr(identity_crud, "aggregate_many_from_db", reads.aggregate)
 
-        _find_subject(reads)
+        _find_subjekt(reads)
 
         assert sorted(reads.issued) == [SAISON_TEAMS, SCHIEDSRICHTER, SPIELER]
 
@@ -137,7 +137,7 @@ class TestTheSubjectLookupsReads:
         reads = _Reads({SAISON_TEAMS: [SEAT_ROW], SAISONS: [{"_id": ACTIVE_SAISON, "status": "active"}]})
         monkeypatch.setattr(identity_crud, "aggregate_many_from_db", reads.aggregate)
 
-        answered = _find_subject(reads)
+        answered = _find_subjekt(reads)
 
         assert reads.issued[-1] == SAISONS
         assert reads.issued.count(SAISONS) == 1
@@ -150,7 +150,7 @@ class TestTheSubjectLookupsReads:
         monkeypatch.setattr(identity_crud, "aggregate_many_from_db", reads.aggregate)
         transaction = object()
 
-        _find_subject(reads, session=transaction)
+        _find_subjekt(reads, session=transaction)
 
         assert reads.peak == 1
         assert reads.sessions == [transaction] * len(reads.issued)

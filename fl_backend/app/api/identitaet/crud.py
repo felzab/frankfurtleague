@@ -249,7 +249,7 @@ async def find_subjekt_in_session(
     # REQUIRED: this is the lookup a transaction reaches, so no read of it can leave the session.
     session: AsyncClientSession,
 ) -> FLSubjekt:
-    """`find_subject`'s answer read inside a caller's session, one read at a time.
+    """`find_subjekt`'s answer read inside a caller's session, one read at a time.
 
     A session runs one operation at a time, which PyMongo's `AsyncClientSession` documents and never
     refuses, so the gathered reads would race unseen here.
@@ -271,7 +271,7 @@ async def funktionen_of(
     # forgetting it is a TypeError rather than a read outside its own write.
     session: AsyncClientSession,
 ) -> FLSubjekt:
-    """What a person endpoint may authorise against: `find_subject`'s answer, its seats narrowed to the seasons granting a panel.
+    """What a person endpoint may authorise against: `find_subjekt`'s answer, its seats narrowed to the seasons granting a panel.
 
     Narrowed here and not in the lookup, each caller narrowing for itself.
     """
