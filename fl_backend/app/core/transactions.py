@@ -50,7 +50,14 @@ def _log_left_open(cause: str) -> None:
 
 
 async def _abort_on_the_server(session: AsyncClientSession) -> None:
-    """Send the abort the driver may not have: it swallows its own abort's failure, the deadline's refusal included."""
+    """Send the abort pymongo sends under the expired deadline and whose failure it swallows.
+
+    The client-side operations timeout specification has `withTransaction` refresh the timeout for its
+    `abortTransaction`, since an open transaction keeps its documents locked; pymongo does not, so one
+    the deadline cut holds them until the server's lifetime limit. A workaround the owner approved
+    (https://github.com/felzab/frankfurtleague/issues/244): it goes in the commit taking a pymongo
+    release that refreshes that timeout.
+    """
 
     # pymongo's placeholder until a command carries the session: no server holds its transaction.
     # Ahead of the number, whose read mints a server session that an abort and the client's
@@ -58,8 +65,7 @@ async def _abort_on_the_server(session: AsyncClientSession) -> None:
     if isinstance(session._server_session, _EmptyServerSession):
         return
 
-    # Private, pymongo publishing no transaction number; a renamed attribute fails
-    # `tests/core/test_request_deadline.py :: TestATransactionPastTheRequestDeadlineCommitsNothing`.
+    # Private, pymongo publishing no transaction number.
     transaction_number = session._transaction_id
     if not transaction_number:
         return
