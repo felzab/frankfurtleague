@@ -269,6 +269,7 @@ describe("the public lane", () => {
       ok: true,
       value: "lena@example.com",
     });
-    expect(stand.steps).toStrictEqual(["bot check token", "body", "updateTag site"]);
+    // A public write reaches no cached read, so the site's tag stands.
+    expect(stand.steps).toStrictEqual(["bot check token", "body"]);
   });
 });

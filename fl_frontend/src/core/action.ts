@@ -253,12 +253,13 @@ async function guarded<Schema extends z.ZodType, Value>(lane: Lane<Schema, Value
 
 /**
  * The body and its call to the backend, answering the backend's refusal by its code and anything else as the
- * unexpected failure. The site's one cache tag is cleared whatever the body came to: a write may stand behind a
- * refusal, a throw or a lost answer, and every cached read carries the tag, so no write has to know which it moves.
- * The tag's clearing also renders the page again in the action's response.
+ * unexpected failure. An administrator's or a person's write clears the site's one cache tag whatever the body came
+ * to: a write may stand behind a refusal, a throw or a lost answer, and every cached read carries the tag, so no
+ * write has to know which it moves. The tag's clearing also renders the page again in the action's response. A
+ * public write, the sign-in's code, reaches no cached read, so it leaves every other visitor's pages cached.
  */
 async function body<Schema extends z.ZodType, Value>(
-  declared: Declared<Schema>,
+  lane: Lane<Schema, Value>,
   run: () => Promise<ActionAnswer<Value>>,
 ): Promise<ActionAnswer<Value>> {
   try {
@@ -267,12 +268,12 @@ async function body<Schema extends z.ZodType, Value>(
     // Next's redirect and not-found are how a body leads on, never a failure.
     unstable_rethrow(error);
     if (error instanceof APIBadStatusError && error.serverErrorCode !== undefined) {
-      return refused(declared, error.serverErrorCode);
+      return refused(lane, error.serverErrorCode);
     }
-    logFailure(declared.name, error);
+    logFailure(lane.name, error);
     return UNEXPECTED;
   } finally {
-    updateTag(SITE_CACHE_TAG);
+    if (lane.lane !== "public") updateTag(SITE_CACHE_TAG);
   }
 }
 
