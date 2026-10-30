@@ -1676,8 +1676,8 @@ class TestAResendRacingAnAnswer:
         # The landing inside: the re-send judged a read holding the address the correction then replaced.
         assert as_read is not None and as_read["kontakte"]["ansprechperson"]["email"] != CORRECTED_EMAIL
         assert (response.email, response.rollen) == (CORRECTED_EMAIL, ["ansprechperson"])
-        # Both mails go to the corrected mailbox, and the re-send's link, handed out last, is the one that opens.
-        assert [mail.an for mail in mails] == [CORRECTED_EMAIL, CORRECTED_EMAIL]
+        # The re-send settles the correction's mail it supersedes, so one mail goes, to the corrected mailbox, and its link opens.
+        assert [mail.an for mail in mails] == [CORRECTED_EMAIL]
         assert stored["bestaetigungen"]["ansprechperson"]["token_hashes"] == [hash_token(mails[-1].token or "")]
 
     def test_a_miss_the_re_read_finds_no_reason_for_is_written_again(self, mongo_replica_set_url: str):
