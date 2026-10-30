@@ -282,6 +282,7 @@ async def answer(
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
         aktionen_collection=database[Collection.AKTIONEN],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=database.client,
         config=build_test_config(),

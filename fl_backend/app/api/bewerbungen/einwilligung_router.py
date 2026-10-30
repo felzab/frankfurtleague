@@ -232,8 +232,9 @@ async def post_einwilligung(
     """Record one person's consent or decline for the seat their link opens, and for a second seat they hold.
 
     A decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who
-    refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing: `REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and
-    on a team's season row `REQ-KONTAKT-004` and `-006`.
+    refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
+    `REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and on a team's season row
+    `REQ-KONTAKT-004` and `-006`.
     """
 
     token_hash = hash_token(antwort_data.token)

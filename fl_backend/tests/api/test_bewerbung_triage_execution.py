@@ -34,7 +34,6 @@ from app.api.bewerbungen.schemas import (
 from app.api.bewerbungen.services import (
     bestaetigungsfrist_from,
     bewerbung_kontakt_seite,
-    compose_bestaetigungen,
     compose_new_club,
     hash_token,
     seat_zustellung,
@@ -57,7 +56,16 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, ADMIN_KEY, build_test_config, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document, team_document
+from tests.documents import (
+    ADDRESS,
+    ban_document,
+    kontaktperson_document,
+    minted_bestaetigungen,
+    rules_document,
+    saison_document,
+    saison_team_document,
+    team_document,
+)
 from tests.erasure import erased
 from tests.isolation import InterleavedCollection, Rival
 from tests.worker import worker_database
@@ -546,8 +554,7 @@ class TestAnApplicationResolvingToNoOneClub:
 UNCONFIRMED_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920008")
 CONFIRMED_BEWERBUNG = ObjectId("6890a1b2c3d4e5f607920009")
 
-BESTAETIGUNGEN = compose_bestaetigungen(
-    hashes={name: hash_token(name) for name in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
+BESTAETIGUNGEN = minted_bestaetigungen(hashes={name: hash_token(name) for name in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
 )
 
 

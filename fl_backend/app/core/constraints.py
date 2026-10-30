@@ -231,7 +231,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "the confirmation page's lookup, driven by strangers",
     ),
     # One per clause of each `$or`, for the registration's pair's reason: a contact seat's link is
-    # looked up on whichever seat holds it, an application's on either of its two hashes.
+    # looked up on whichever seat holds it, on a season row or on an application.
     *(
         SupportIndex(
             Collection.SAISON_TEAMS,
@@ -241,15 +241,15 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         )
         for seat in KONTAKT_ROLLEN
     ),
+    # Multikey, each seat keeping every link it was mailed until a re-send voids them.
     *(
         SupportIndex(
             Collection.BEWERBUNGEN,
-            f"bewerbungen_bestaetigungen_{seat}_{field}",
-            ((f"bestaetigungen.{seat}.{field}", ASCENDING),),
+            f"bewerbungen_bestaetigungen_{seat}_token_hashes",
+            ((f"bestaetigungen.{seat}.token_hashes", ASCENDING),),
             "a contact seat's confirmation page, through the application's lookup, driven by strangers",
         )
         for seat in KONTAKT_ROLLEN
-        for field in ("token_hash", "token_hash_zuvor")
     ),
     # `status` sits after the sort keys, the read being free to omit it: an index serves a sort
     # "only when the query includes equality conditions on all prefix keys that precede the sort
