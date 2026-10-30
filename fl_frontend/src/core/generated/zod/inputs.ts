@@ -4237,10 +4237,16 @@ export const TeamsPostSaisonTeamParams = zod.object({
 export const teamsPostSaisonTeamBodySaisonIdMin = 4;
 export const teamsPostSaisonTeamBodySaisonIdMax = 4;
 
+export const teamsPostSaisonTeamBodySaisonIdRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
 export const TeamsPostSaisonTeamBody = zod
   .object({
     gruppe: zod.enum(["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]),
-    saison_id: zod.string().min(teamsPostSaisonTeamBodySaisonIdMin).max(teamsPostSaisonTeamBodySaisonIdMax),
+    saison_id: zod
+      .string()
+      .min(teamsPostSaisonTeamBodySaisonIdMin)
+      .max(teamsPostSaisonTeamBodySaisonIdMax)
+      .regex(teamsPostSaisonTeamBodySaisonIdRegExp),
   })
   .describe("One team's membership of one season. `team_id` comes from the path, `saison_id` from here.");
 
