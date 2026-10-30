@@ -193,25 +193,22 @@ async def owe_in_session(
         grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
         holders = {str(row["adresse"]) for row in grants}
 
+    mails: list[OwedMail] = []
     for mitteilung in mitteilungen:
         daten = FLBerechtigungDaten.model_validate(mitteilung.daten)
         genannt = {stand.adresse for stand in (daten.jetzt, daten.vorher) if stand is not None and stand.adresse is not None}
-        for adresse in sorted(set(an) if an is not None else holders | genannt):
-            await enqueue_mails(
-                postausgang_collection=postausgang_collection,
-                session=session,
-                mails=[
-                    OwedMail(
-                        # The write's own instant and the notice's origin keep two notices about one grant apart: a revoke owes
-                        # a database edit's notice beside its own (`revoke_in_session`).
-                        schluessel=f"berechtigung/{mitteilung.berechtigung_id}/{daten.aenderung}/{daten.urheber}/{now.isoformat()}/{adresse}",
-                        an=adresse,
-                        daten=daten,
-                        bezug=bezug,
-                    )
-                ],
-                now=now,
+        mails.extend(
+            OwedMail(
+                # The write's own instant and the notice's origin keep two notices about one grant apart: a revoke owes
+                # a database edit's notice beside its own (`revoke_in_session`).
+                schluessel=f"berechtigung/{mitteilung.berechtigung_id}/{daten.aenderung}/{daten.urheber}/{now.isoformat()}/{adresse}",
+                an=adresse,
+                daten=daten,
+                bezug=bezug,
             )
+            for adresse in sorted(set(an) if an is not None else holders | genannt)
+        )
+    await enqueue_mails(postausgang_collection=postausgang_collection, session=session, mails=mails, now=now)
 
 
 async def withhold_in_the_postausgang(*, postausgang_collection: AsyncCollection, adresse: str, session: AsyncClientSession) -> None:

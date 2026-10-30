@@ -252,14 +252,13 @@ class TestWhatEachClockReads:
         assert CLOCK_FILTERS[clock]["saison_id"] == SAISON_ID
 
 
-# The reminder's commands a row -- the stamp's update, its read-back and its log row, then the Postausgang's key
-# lookup and its insert -- pinned on the wire by
-# `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheReminderClockTakesAShareEachCall`.
-ROUND_TRIPS_A_ROW = 5
-
-# The other commands of the worst call erasing one page per clock, counted on the wire by
+# The reminder's commands a row -- the stamp's update, its read-back and its log row -- pinned on the wire by
 # `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
-OTHER_COMMANDS = 14
+ROUND_TRIPS_A_ROW = 3
+
+# The other commands of the worst call erasing one page per clock, the share's Postausgang key lookup and insert among
+# them, counted on the wire by the same case.
+OTHER_COMMANDS = 16
 
 # The per-command cost, the widest of fifteen whole passes at a full share timed locally, 2026-10-20.
 PER_COMMAND_S = 0.00127

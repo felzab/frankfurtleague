@@ -50,9 +50,9 @@ router = APIRouter(
 
 _TEAM_UNBEKANNT = ""
 
-# Five commands a row (the stamp, its read-back and its log row, the Postausgang's key lookup and its insert) beside the
-# fourteen of the worst call erasing one page per clock: 259 commands at a 37 ms round trip plus 1.27 ms take 9.91 s of
-# `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
+# Three commands a row (the stamp, its read-back and its log row) and two a share (the Postausgang's key lookup and its
+# insert) beside the fourteen of the worst call erasing one page per clock: 163 commands at a 37 ms round trip plus
+# 1.27 ms take 6.24 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 49
 
 
@@ -196,28 +196,29 @@ async def sweep_registrierungen(
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
-            # The stamp and the mail commit together; the ban is judged when the mail is handed out.
-            await enqueue_mails(
-                postausgang_collection=postausgang_collection,
-                session=session,
-                mails=[
-                    OwedMail(
-                        # The day too: an address change owes the moved row its reminder again, which an earlier key would swallow.
-                        schluessel=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/erinnerung/{today}",
-                        an=str(row["email"]),
-                        daten=FLRegistrierungLinkDaten(
-                            art="registrierung_erinnerung",
-                            # Empty where the team row is gone: a reminder naming no team beats a pass that stops.
-                            team=team_names.get(row.get("team_id"), _TEAM_UNBEKANNT),
-                            saison_id=saison_id,
-                            frist_tage=REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
-                        ),
-                        bezug=FLPostausgangBezug(sammlung=Collection.REGISTRIERUNGEN, id=row["_id"], sitz=None),
-                        link=REGISTRIERUNG_LINK,
-                    )
-                ],
-                now=germany_now,
-            )
+        # The stamps and the mails commit together; the ban is judged when each mail is handed out.
+        await enqueue_mails(
+            postausgang_collection=postausgang_collection,
+            session=session,
+            mails=[
+                OwedMail(
+                    # The day too: an address change owes the moved row its reminder again, which an earlier key would swallow.
+                    schluessel=f"{Collection.REGISTRIERUNGEN}/{row['_id']}/erinnerung/{today}",
+                    an=str(row["email"]),
+                    daten=FLRegistrierungLinkDaten(
+                        art="registrierung_erinnerung",
+                        # Empty where the team row is gone: a reminder naming no team beats a pass that stops.
+                        team=team_names.get(row.get("team_id"), _TEAM_UNBEKANNT),
+                        saison_id=saison_id,
+                        frist_tage=REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
+                    ),
+                    bezug=FLPostausgangBezug(sammlung=Collection.REGISTRIERUNGEN, id=row["_id"], sitz=None),
+                    link=REGISTRIERUNG_LINK,
+                )
+                for row in taken
+            ],
+            now=germany_now,
+        )
 
         return len(taken)
 
