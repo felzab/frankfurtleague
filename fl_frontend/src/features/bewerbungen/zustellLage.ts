@@ -1,4 +1,4 @@
-import type { FLPostausgangLage, FLPostausgangZustellungStand } from "@/core/generated/client/types";
+import type { FLPostausgangLage, FLPostausgangLageStand, FLPostausgangZustellungStand } from "@/core/generated/client/types";
 
 /** The two grades a delivery is reported in: trouble that may clear, and trouble that will not. */
 type Chip = { readonly label: string; readonly tone: "warning" | "danger" };
@@ -7,7 +7,7 @@ type Chip = { readonly label: string; readonly tone: "warning" | "danger" };
  * What the provider reported about the last message, or `null` where it says nothing an administrator acts on: a
  * delivery is the ordinary course, and a chip for it would grade every row.
  */
-const ZUSTELLUNG_CHIP: Readonly<Record<FLPostausgangZustellungStand, Chip | null>> = {
+const EREIGNIS_CHIP: Readonly<Record<FLPostausgangZustellungStand, Chip | null>> = {
   zugestellt: null,
   // What the administrator can act on is that the link has not arrived, not yet the address refusing for good.
   verzoegert: { label: "Noch nicht zugestellt", tone: "warning" },
@@ -18,18 +18,30 @@ const ZUSTELLUNG_CHIP: Readonly<Record<FLPostausgangZustellungStand, Chip | null
   beschwerde: { label: "Als Spam gemeldet", tone: "danger" },
 };
 
-/** A mail the outbox gave up on reached nobody, as an address that refused it did. */
-const AUFGEGEBEN: Chip = { label: "Unzustellbar", tone: "danger" };
+/**
+ * What the outbox did with the last mail where the provider has said nothing about it. Owed and leaving, sent, and
+ * dropped with a seat that moved since are the ordinary course and carry no chip.
+ */
+const STAND_CHIP: Readonly<Record<FLPostausgangLageStand, Chip | null>> = {
+  offen: null,
+  gesendet: null,
+  entfallen: null,
+  // The ban list kept it, the one case here the league's own list explains.
+  gesperrt: { label: "Auf der Sperrliste", tone: "warning" },
+  // A stack that mails nothing filed it: no address is at fault.
+  zurueckgehalten: { label: "Nur abgelegt", tone: "warning" },
+  // Every attempt failed until the deadline: the link never left.
+  aufgegeben: { label: "Nicht gesendet", tone: "danger" },
+};
 
 /**
- * The chip one link's delivery reads as, from the last mail owed about it, or `null` where there is nothing to report:
- * none owed, owed and leaving, sent, held back on a stack that mails nothing, or dropped with the seat that moved.
+ * The one reading of a link's delivery for every editor showing one: the provider's event where it reported one, else
+ * the outbox's own state, `null` where neither says anything to act on or no mail was ever owed.
  */
-export function lageChip(lage: FLPostausgangLage | null): Chip | null {
+export function zustellungChip(lage: FLPostausgangLage | null): Chip | null {
   if (lage === null) return null;
-  if (lage.zustellung !== null) return ZUSTELLUNG_CHIP[lage.zustellung.stand];
 
-  return lage.stand === "aufgegeben" ? AUFGEGEBEN : null;
+  return lage.zustellung === null ? STAND_CHIP[lage.stand] : EREIGNIS_CHIP[lage.zustellung.stand];
 }
 
 /**
