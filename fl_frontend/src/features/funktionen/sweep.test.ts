@@ -145,7 +145,8 @@ describe("a pass meeting a failure", () => {
       return identifiers;
     };
 
-    await runKontoSweep();
+    // The batch it could not judge is what the pass left, which the heartbeat names.
+    expect(await runKontoSweep()).toBe(REFERENZEN_ADRESSEN_MAX);
 
     expect(deleteCalls).toStrictEqual(zweiter);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
@@ -186,23 +187,15 @@ describe("a pass meeting a failure", () => {
     ]);
   });
 
-  /* The store unreachable: an unhandled rejection an hour after its tick otherwise, and a completion line
-     would say a pass ran that listed nothing. */
-  it("ends a pass whose store cannot be listed with one failure line, asking the backend nothing", async () => {
-    listing = () => Promise.reject(new TypeError("no connection for erika@schule.de"));
+  /* The store unreachable: the scheduler's heartbeat names the job only where it rejects, and a completion line would
+     say a pass ran that listed nothing. */
+  it("rejects a pass whose store cannot be listed, asking the backend nothing and writing no line", async () => {
+    listing = () => Promise.reject(new TypeError("no connection"));
 
-    await runKontoSweep();
+    await expect(runKontoSweep()).rejects.toThrow(TypeError);
 
     expect(calls).toStrictEqual([]);
-    expect(lines).toStrictEqual([
-      {
-        level: "ERROR",
-        event: "konto.sweep_failed",
-        error: undefined,
-        fields: { name: "TypeError", anzahl: undefined },
-      },
-    ]);
-    assert.ok(!JSON.stringify(lines).includes("@"), "a line carries an address");
+    expect(lines).toStrictEqual([]);
   });
 
   /* The backend refuses the read whole where the grants it reads hold no live owner: an empty or wrong
