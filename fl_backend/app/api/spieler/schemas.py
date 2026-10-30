@@ -1,19 +1,24 @@
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.bounds import (
-    EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
 )
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
-from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLEinwilligungStandPayload
+from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomKontaktName
-from app.shared.schemas.literals import FLAdresswechselEinsehbarVerwehrt, FLEinwilligungUmfang, FLSpielerPosition, FLSpielerStufe
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.literals import (
+    FLAdresswechselEinsehbarVerwehrt,
+    FLEinwilligungUmfang,
+    FLSortOrder,
+    FLSpielerPosition,
+    FLSpielerStufe,
+)
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
 # does not, and the two ends must accept and refuse the same shirt.
@@ -26,22 +31,21 @@ FLSpielerSortOptions = Literal["vorname", "nummer", "position"]
 
 # Slugs rather than the German `position` and `stufe` store: a role also has a label and a badge
 # Kuerzel, and a stored German word would be a third spelling for those two to drift from.
-FLSpielerRolle = Literal["kapitaen", "co_kapitaen"]
+type FLSpielerRolle = Literal["kapitaen", "co_kapitaen"]
 
 
 class FLEinwilligung(BaseModel):
     """What this person agreed may be published about them.
 
-    The keys the validator requires stand TOGETHER, as `FLAustritt` does: a scope with no
-    confirmation date claims somebody consented, and no surface can tell that from one somebody gave.
+    Its keys stand TOGETHER, as `FLAustritt`'s do: a scope with no confirmation date claims somebody
+    consented, and no surface can tell that from one somebody gave.
     """
 
     umfang: FLEinwilligungUmfang
     # The day consent was given. A record is born of its person's own confirmation, so it is that day.
     datum: CustomDateString
-    # The day its person confirmed it: a record is born confirmed. Null only as a stamp a hand edit
-    # blanked reads, which every reader takes for none rather than refusing the row.
-    bestaetigt_am: CustomOptionalDateString
+    # The day its person confirmed it: a record is born confirmed.
+    bestaetigt_am: CustomDateString
     # A label of `fl_backend/app/shared/einwilligung.py :: FASSUNGEN` and never the words, as
     # `app/api/teams/schemas.py :: FLKontaktKenntnisnahme` holds one: a rewording must not change what
     # a stored record claims.
@@ -73,12 +77,11 @@ class _SaisonSpielerWritable(BaseModel):
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
     # On the JUNCTION, not the person: a role is held within one team for one season. ONE field
-    # rather than a flag per role, because two booleans can both be true and no validator sees a
-    # second field to refuse it.
+    # rather than a flag per role, because two booleans can both be true.
     rolle: FLSpielerRolle | None
 
 
-class FLSpielerPublic(_SpielerPerson):
+class FLSpielerPublic(_SpielerPerson, BaseReadModel):
     """One squad row as the BASE TIER serves it -- all an anonymous visitor may read.
 
     `build_spieler_pipeline` withholds the rest: the surname is an initial (`READ-PUPIL-001`), the
@@ -95,10 +98,7 @@ class FLSpielerPublic(_SpielerPerson):
     # Narrowed from `_SpielerPerson`'s non-empty string: the mask answers `null` for a person whose
     # record does not publish them (`READ-PUPIL-003`), and a required forename would 500 the squad
     # list over a withheld row rather than withholding it.
-
-    # DEFAULTED for a row the `spieler` validator refuses, one hand-written without the key: the
-    # mask's published arm is `$vorname` itself, so such a row reaches `$project` with no key at all.
-    vorname: str | None = None
+    vorname: str | None
 
     # Defaulted because an unnarrowed read joins LOOSELY: a person whose every squad row is retired
     # survives the unwind, and `$project` omits a joined key rather than nulling it. Required fields
@@ -135,8 +135,12 @@ class FLSpielerRecord(_SpielerPerson):
     def _only_the_sentinel_is_nobody(self) -> Self:
         # Every write but the sentinel's stores all three: an admission carries its confirmed
         # registration's name, date and record, and the administrator's edit requires the name and the
-        # date. A null on another row is a hand edit, which the read-back names.
-        if self.id != GHOST_SPIELER_ID and any(value is None for value in (self.vorname, self.geburtsdatum, self.einwilligung)):
+        # date. No write gives the sentinel an address, which every address lookup would otherwise find
+        # as somebody's pupil. Either state is a hand edit, which the read-back names.
+        if self.id == GHOST_SPIELER_ID:
+            if self.email is not None:
+                raise ValueError("the erased pupils' sentinel holds no address")
+        elif any(value is None for value in (self.vorname, self.geburtsdatum, self.einwilligung)):
             raise ValueError("only the erased pupils' sentinel stores no forename, birthdate or consent record")
         return self
 
@@ -191,7 +195,7 @@ class FLSpielerFilterParams(BaseModel):
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: FLSpielerSortOptions = Field(default="position")
-    order: Literal["asc", "desc"] = Field(default="asc")
+    order: FLSortOrder = Field(default="asc")
 
 
 class FLPatchSpielerPayload(BaseModel):
@@ -228,8 +232,10 @@ class FLPostSaisonSpielerPayload(_SaisonSpielerPayload):
     rather than omitting, so the answer is theirs and not a default nobody chose.
     """
 
-    # Stripped before the width is counted, for `app/shared/schemas/custom.py :: CustomStrippedNonEmptyString`'s reason.
-    saison_id: Annotated[str, StringConstraints(strip_whitespace=True, min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)]
+    # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is what the write accepts.
+    saison_id: Annotated[
+        str, StringConstraints(max_length=SAISON_ID_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=SAISON_ID_LENGTH)
+    ]
 
 
 class FLPatchSaisonSpielerPayload(_SaisonSpielerPayload):
@@ -435,26 +441,6 @@ class FLSpielerSelbstResponse(BaseAPIResponse):
     """The signed-in address's own pupil record: one at most, `spieler.email` being unique."""
 
     spieler: FLSpielerSelbst
-
-
-class SelbstEinwilligungPayload(BaseModel):
-    """One declaration under each own record's published name, the pupil's, the referee's and a registration's, so no two drift apart."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    # No member defaulted: a default would let a page that forgot one reset the person's other choice.
-
-    # `FLEinwilligung.umfang`'s set again, held equal to it by
-    # `fl_backend/tests/api/test_spieler_selbst.py :: test_the_payload_offers_the_scopes_the_record_stores`.
-    umfang: Literal["kader_oeffentlich", "intern"]
-    medien: bool
-    text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
-    # The record's `nachweis_stand` as the page was served it.
-    nachweis_stand: FLEinwilligungStandPayload
-
-
-class FLSpielerSelbstEinwilligungPayload(SelbstEinwilligungPayload):
-    pass
 
 
 class FLSpielerSelbstEinwilligungResponse(BaseAPIResponse):

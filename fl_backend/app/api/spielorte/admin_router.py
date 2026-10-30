@@ -10,7 +10,6 @@ from app.api.spielorte.schemas import (
     FLPatchSpielortPayload,
     FLPatchSpielortResponse,
     FLPostSpielortPayload,
-    FLPostSpielortResponse,
     FLSpielort,
     FLSpielortWriteResponse,
 )
@@ -23,6 +22,7 @@ from app.core.security import bind_actor, verify_access_admin, verify_actor_is_a
 from app.core.transactions import transaction_session
 from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.responses import FLCreatedResponse
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielorte",
@@ -35,12 +35,12 @@ def _maps_link(name: str, address: FLAddress) -> str:
     return f"{name}, {address.to_string}, Deutschland"
 
 
-@router.post("", response_model=FLPostSpielortResponse, status_code=201, summary="Create a Spielort")
+@router.post("", response_model=FLCreatedResponse, status_code=201, summary="Create a Spielort")
 async def post_spielort(
     spielort_data: Annotated[FLPostSpielortPayload, Body()],
     spielorte_collection: SpielorteCollection,
     db: DBClient,
-) -> FLPostSpielortResponse:
+) -> FLCreatedResponse:
     """Create a venue. `maps_link` is built server-side from the name and address and must not be submitted."""
 
     async def enter_the_venue(session: AsyncClientSession) -> InsertOneResult:
@@ -56,7 +56,7 @@ async def post_spielort(
     async with transaction_session(db) as session:
         post_operation = await session.with_transaction(enter_the_venue)
 
-    return FLPostSpielortResponse(
+    return FLCreatedResponse(
         created_id=post_operation.inserted_id,
     )
 

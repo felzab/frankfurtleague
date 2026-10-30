@@ -281,7 +281,7 @@ ROUND_TRIPS_A_ROW = 3
 
 # The other commands of the worst call erasing one page per clock, counted on the wire by
 # `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
-OTHER_COMMANDS = 18
+OTHER_COMMANDS = 16
 
 # The per-command cost, the widest of fifteen whole passes at a full share timed locally, 2026-10-20.
 PER_COMMAND_S = 0.00127

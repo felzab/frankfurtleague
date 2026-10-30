@@ -46,7 +46,7 @@ def widest_legal_rules() -> FLSaisonRules:
 def refusal_for(shape: FLSaisonRules) -> WriteRefusal | None:
     """A create's reading of one shape, which is also the draw's: `stored=None`, nothing entered, no bracket slot wired."""
 
-    return find_rules_refusal(saison_status="future", stored=None, proposed=shape, occupancy_by_gruppe={}, highest_wired_platz=0)
+    return find_rules_refusal(stored=None, proposed=shape, occupancy_by_gruppe={}, highest_wired_platz=0)
 
 
 class TestThePhaseSet:

@@ -6,14 +6,19 @@ from app.core.codes import Code
 from app.shared.schemas.custom import CustomObjectId
 
 
-class BaseAPIResponse(BaseModel):
-    """Every response model's base, so a field the answer always carries is published as required.
+class BaseReadModel(BaseModel):
+    """Every served model's base, so a field the answer always carries is published as required.
 
-    Pydantic publishes a field with a default as optional unless this is set, and a client generated
-    from the document would then guard against an absence the answer never has.
+    Pydantic publishes a field with a default as optional unless this is set, and sets it per model,
+    so a nested model needs it as much as the body it sits in. A model a payload also declares stays
+    off it: its input and output schemas would part into two components.
     """
 
     model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+
+
+class BaseAPIResponse(BaseReadModel):
+    """Every response body's base."""
 
 
 # The failure bodies as published, never as built: `app/core/exception_handlers.py :: error_response`

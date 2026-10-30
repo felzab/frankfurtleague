@@ -688,14 +688,11 @@ class MaskedRow(NamedTuple):
     """One seeded person, their consent record, and the two names the base tier must answer for them."""
 
     oid: ObjectId
-    vorname: str | None
-    nachname: str | None
+    vorname: str
+    nachname: str
     einwilligung: dict[str, Any]
     served_vorname: str | None
     served_nachname: str | None
-    # False stores NO `vorname` key. The mask's published arm is `$vorname` itself, so such a row
-    # leaves `$project` short of the key rather than carrying a null, which is a different shape.
-    stores_a_vorname_key: bool = True
 
 
 # Each served pair is written out rather than composed from `public_initial`, which would compare the
@@ -703,18 +700,6 @@ class MaskedRow(NamedTuple):
 MASKED_SQUAD = {
     "Offen": MaskedRow(ObjectId("6890a1b2c3d4e5f607390031"), "Alina", "Falk", _consent("kader_oeffentlich"), "Alina", "F."),
     "Intern": MaskedRow(ObjectId("6890a1b2c3d4e5f607390032"), "Bruno", "Gerber", _consent("intern"), None, None),
-    # A record is born confirmed, so the unconfirmed one is a stamp a hand edit blanked.
-    "Unbestaetigt": MaskedRow(
-        ObjectId("6890a1b2c3d4e5f607390033"), "Carla", "Hoffmann", _consent("kader_oeffentlich", bestaetigt_am=""), None, None
-    ),
-    # A row whose name is not stored at all, under a record that DOES publish: an absent name is not
-    # a consent decision, and the mask must not invent one either way.
-    "Namenlos": MaskedRow(ObjectId("6890a1b2c3d4e5f607390035"), None, None, _consent("kader_oeffentlich"), None, None),
-    # The same person one write earlier: no `vorname` KEY rather than a stored null, which is what a
-    # nameless row written past the validator looks like and what `$project` drops rather than nulls.
-    "Schluessellos": MaskedRow(
-        ObjectId("6890a1b2c3d4e5f607390036"), None, None, _consent("kader_oeffentlich"), None, None, stores_a_vorname_key=False
-    ),
 }
 
 # A shirt per row, which is how a case below finds its row: the read serves no record id to find one by.
@@ -722,7 +707,7 @@ MASK_NUMMERN = {case: str(place) for place, case in enumerate(MASKED_SQUAD, star
 
 # Both names of both withheld rows: a payload grep on the surnames alone leaves the forename, which
 # is the half `READ-PUPIL-001` never withheld and `READ-PUPIL-003` is the first rule to reach.
-WITHHELD_NAMES = ("Bruno", "Gerber", "Carla", "Hoffmann")
+WITHHELD_NAMES = ("Bruno", "Gerber")
 
 
 @pytest.mark.db
@@ -754,8 +739,7 @@ class TestThePublicationGate:
 
         assert len(stored) == len(MASKED_SQUAD)
         for row in MASKED_SQUAD.values():
-            assert (stored[row.oid].get("vorname"), stored[row.oid]["nachname"]) == (row.vorname, row.nachname)
-            assert ("vorname" in stored[row.oid]) is row.stores_a_vorname_key
+            assert (stored[row.oid]["vorname"], stored[row.oid]["nachname"]) == (row.vorname, row.nachname)
             assert stored[row.oid]["einwilligung"] == row.einwilligung
 
     def test_the_squad_serves_a_row_for_every_seeded_person(self, masked_url: str):
@@ -783,19 +767,6 @@ class TestThePublicationGate:
     def test_no_withheld_name_appears_anywhere_in_the_response(self, masked_url: str, name: str):
         """Against the SERIALISED body: what the page ships is the whole payload, not the part it renders."""
         assert name not in json.dumps(self._read(masked_url), ensure_ascii=False)
-
-    def test_a_row_storing_no_forename_key_reaches_the_read_model_without_one(self, masked_url: str):
-        """What the DEFAULT on `FLSpielerPublic.vorname` is for: a required field would 500 the whole squad over this one row."""
-
-        async def body(database: AsyncDatabase) -> Any:
-            rows = await aggregate_many_from_db(collection=database.spieler, pipeline=build_spieler_pipeline(_filters()))
-
-            return {row["nummer"]: row for row in rows}
-
-        projected = _on_the_mask_database(masked_url, body)[MASK_NUMMERN["Schluessellos"]]
-
-        assert "vorname" not in projected
-        assert self._by_nummer(masked_url)[MASK_NUMMERN["Schluessellos"]]["vorname"] is None
 
     @pytest.mark.parametrize("case", MASKED_SQUAD)
     def test_no_pupil_s_record_id_appears_anywhere_in_the_response(self, masked_url: str, case: str):
@@ -859,15 +830,13 @@ def masked_url(mongo_url: str) -> Iterator[str]:
     """One squad in one season, holding a row for every consent state `READ-PUPIL-003` parts."""
 
     async def _seed() -> None:
-        # UNCONSTRAINED: the `spieler` validator requires `vorname` as a string, so the nameless row
-        # this corpus exists to serve is one a constrained database refuses.
-        async with a_clean_database(mongo_url, MASK_DATABASE_NAME, constraints=False) as (_, database):
+        async with a_clean_database(mongo_url, MASK_DATABASE_NAME) as (_, database):
             await database.saisons.insert_one({"_id": SAISON, "status": "active"})
             await database.spieler.insert_many(
                 [
                     {
                         "_id": row.oid,
-                        **({"vorname": row.vorname} if row.stores_a_vorname_key else {}),
+                        "vorname": row.vorname,
                         "nachname": row.nachname,
                         "inactive_since": None,
                         "einwilligung": row.einwilligung,

@@ -17,7 +17,6 @@ from app.api.konto.services import (
     widerruf_line,
 )
 from app.api.spieler.schemas import (
-    FLSpielerSelbstEinwilligungPayload,
     FLSpielerSelbstEinwilligungResponse,
     FLSpielerSelbstResponse,
 )
@@ -37,6 +36,7 @@ from app.core.recording import log_stamp
 from app.core.security import PERSON_ACTOR_BINDERS, SpielerIdentifier, loeschung_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
+from app.shared.schemas.einwilligung import FLSelbstEinwilligungPayload
 
 # A module of its own: `app/api/spieler/person_router.py` binds the `kontakt` Funktion at ROUTER level,
 # and a second binder on one of its routes would record these writes
@@ -72,7 +72,7 @@ async def get_selbst(identifier: SpielerIdentifier, spieler_collection: SpielerC
     summary="Change a signed-in pupil's own publication and media consent",
 )
 async def patch_einwilligung(
-    einwilligung_data: Annotated[FLSpielerSelbstEinwilligungPayload, Body()],
+    einwilligung_data: Annotated[FLSelbstEinwilligungPayload, Body()],
     identifier: SpielerIdentifier,
     spieler_collection: SpielerCollection,
     records: SubjektLookup,

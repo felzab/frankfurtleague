@@ -8,7 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.identitaet.services import ist_eigene_registrierung
 from app.api.konto.crud import press_widerruf
 from app.api.konto.services import KONTO_SEITE_SPIELER, compose_person_move, find_eigener_eintrag_refusal, widerruf_line
-from app.api.registrierungen.schemas import FLRegistrierungSelbstEinwilligungPayload, FLRegistrierungSelbstEinwilligungResponse
+from app.api.registrierungen.schemas import FLRegistrierungSelbstEinwilligungResponse
 from app.api.registrierungen.services import traegt_wahlen
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -21,6 +21,7 @@ from app.core.security import PERSON_ACTOR_BINDERS, SpielerIdentifier, loeschung
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.einwilligung import FLSelbstEinwilligungPayload
 
 # A module of its own, for `app/api/spieler/selbst_router.py`'s reason: `app/api/registrierungen/person_router.py`
 # binds the `kontakt` Funktion at router level, and a pending registrant writes as the pupil they registered as.
@@ -37,28 +38,17 @@ router = APIRouter(
 )
 async def patch_einwilligung(
     registrierung_id: CustomRouteObjectId,
-    einwilligung_data: Annotated[FLRegistrierungSelbstEinwilligungPayload, Body()],
+    einwilligung_data: Annotated[FLSelbstEinwilligungPayload, Body()],
     identifier: SpielerIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLRegistrierungSelbstEinwilligungResponse:
-    """
-    Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
+    """Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
 
-    WITHDRAW-ONLY until the admission: a grant is the team's admission's to make possible, after which the pupil's own
-    record takes it on the account page; this one is offered so taking a consent back is as easy as giving it was
-    (Art. 7(3) DSGVO). Writes those two on this one registration, and nothing else: the confirmation day, the day given
-    and the wording the pupil confirmed stand. A PATCH moving neither choice writes nothing, and nothing is counted
-    against the person's ceiling. The admission carries a withdrawal made here onto the person, as it carries every
-    choice the registration set later than the person's own.
-
-    Refuses, in this order: an id that is no pending registration of this address, confirmed by its pupil and carrying
-    their choices (`REQ-FUNKTION-001`); a `nachweis_stand` other than the registration's own, either choice having
-    moved since the page was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-EINWILLIGUNG-004`); and a
-    `text_version` naming no version of the account page's pupil control (`REQ-EINWILLIGUNG-001`). Each refusal writes
-    nothing.
+    A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `REQ-FUNKTION-001`,
+    `REQ-EINWILLIGUNG-003` (the choices moved since the page was served), `REQ-EINWILLIGUNG-004` and `REQ-EINWILLIGUNG-001`.
     """
 
     gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
