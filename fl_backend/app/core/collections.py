@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Final
 
 
 class Collection(StrEnum):
@@ -67,3 +68,14 @@ class Collection(StrEnum):
     #: A grant or a promotion to owner waiting on a second administrator's approval, one per address; the approval
     #: writes the grant and removes it in one transaction, and its TTL index removes one nobody decided.
     BERECHTIGUNGEN_ANTRAEGE = "berechtigungen_antraege"
+
+
+# The collections a person edits through a form, one member per line: every update of one raises its `version`, and a
+# save carrying the version its form was read at matches only while no other write has raised it
+# (`app/core/crud.py :: patch_one_in_db`).
+EDITED_COLLECTIONS: Final[frozenset[Collection]] = frozenset(
+    {
+        Collection.SPIELE,
+        Collection.SPIELBERICHTE,
+    }
+)
