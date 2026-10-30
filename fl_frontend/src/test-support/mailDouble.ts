@@ -4,7 +4,7 @@ import { assert, beforeEach, vi } from "vitest";
 import { APINetworkError } from "@/core/errors.ts";
 
 import type { MailVon } from "@/core/emailShell.ts";
-import type { FLPostausgangAnmeldungPayload } from "@/core/generated/client/types.ts";
+import type { FLPostausgangAnmeldungPayload, FLPostausgangAnmeldungResponse } from "@/core/generated/client/types.ts";
 
 /** One sign-in mail the double sent, rendered as the drain renders it. */
 export type SentMail = {
@@ -36,7 +36,7 @@ export function doublePostausgang(): {
   const accepted: MailAnswer = () => "accepted";
   let answering = accepted;
 
-  const postausgangPostAnmeldung = async (payload: FLPostausgangAnmeldungPayload): Promise<{ acknowledged: 1; id: string }> => {
+  const postausgangPostAnmeldung = async (payload: FLPostausgangAnmeldungPayload): Promise<FLPostausgangAnmeldungResponse> => {
     const [{ authSecret, frontend_config }, { mailFor }, { renderMail }] = await Promise.all([
       import("@/core/config.ts"),
       import("@/core/mailKinds.ts"),
@@ -53,7 +53,7 @@ export function doublePostausgang(): {
 
     owed.push(payload);
     sent.push(mail);
-    return { acknowledged: 1, id: (owed.length - 1).toString(16).padStart(24, "0") };
+    return { id: (owed.length - 1).toString(16).padStart(24, "0") };
   };
 
   // Imported after this call by the suite, so the modules it loads owe through the double.
