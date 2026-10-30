@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.spiele.schemas import KNOCKOUT_PHASES, MAX_QUALIFIERS, FLSaisonPhase
+from app.api.spiele.schemas import KNOCKOUT_PHASES, MAX_QUALIFIERS
+from app.shared.schemas.literals import FLSaisonPhase
 
 
 @dataclass(frozen=True)

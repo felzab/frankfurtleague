@@ -16,7 +16,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import build_schluessel_filter, hash_token
 from app.api.registrierungen.person_router import aufnehmen
 from app.api.registrierungen.public_router import post_einladung_ansicht, post_registrierung
-from app.api.registrierungen.schemas import FLEinladungAnsichtPayload, FLPostRegistrierungPayload, FLRegistrierungAufnehmenPayload
+from app.api.registrierungen.schemas import FLPostRegistrierungPayload, FLRegistrierungAufnehmenPayload
 from app.api.registrierungen.services import (
     compose_confirmation_update,
 )
@@ -27,6 +27,7 @@ from app.core.config import API_VERSION
 from app.core.exceptions import APIError
 from app.main import create_app
 from app.shared.folding import canonical_address
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
 from tests import documents
 from tests.app_client import app_client
@@ -261,7 +262,7 @@ async def register(
 
 async def ansicht(database: AsyncDatabase, *, token: str = TOKEN) -> Any:
     return await post_einladung_ansicht(
-        ansicht_data=FLEinladungAnsichtPayload(token=token),
+        ansicht_data=FLTokenPayload(token=token),
         einladungen_collection=database[Collection.EINLADUNGEN],
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],

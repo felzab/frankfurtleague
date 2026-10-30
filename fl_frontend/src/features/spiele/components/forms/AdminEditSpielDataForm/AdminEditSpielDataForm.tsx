@@ -40,33 +40,40 @@ import { SpielExpectedProvider } from "./SpielExpectedContext";
 import { SpielRail } from "./SpielRail";
 import { useVoidPreview } from "./useVoidPreview";
 
+import type {
+  FLGruppenNames,
+  FLPatchSpielDataPayload,
+  FLSonderereignis,
+  FLSpielberichtBericht,
+  FLSpielberichtVorschlag,
+  FLSpielJoinedAdmin,
+  FLSpielQuelle,
+} from "@/core/generated/client/types";
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
-import type { FLSpielberichtBericht, FLSpielberichtVorschlag } from "@/features/spielberichte/schemas";
 import type { SpielberichtStand } from "@/features/spielberichte/types";
 import type { SpielbestaetigungenStand } from "@/features/spielbestaetigungen/types";
 import type { FLSpielDraftFields } from "@/features/spiele/draftStatus";
 import type {
-  FLPatchSpielDataPayload,
+  ActionRequiredCategory,
   FLPatchSpielDataPayloadDraft,
-  FLSonderereignis,
   FLSpiel,
-  FLSpielAdmin,
   FLSpielElfmeterschiessenDraft,
   FLSpielOrtFieldDraft,
-  FLSpielQuelle,
   FLSpielSchiedsrichterFieldDraft,
   FLSpielTeamField,
   FLSpielWithDraftFields,
-} from "@/features/spiele/schemas";
-import type { ActionRequiredCategory } from "@/features/spiele/types";
+} from "@/features/spiele/types";
 import type { FLSpielort } from "@/features/spielorte/schemas";
-import type { FLGruppenNames, FLTeam } from "@/features/teams/schemas";
+import type { FLTeam } from "@/features/teams/schemas";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate, Time } from "@internationalized/date";
 import type { SpielRefusalCode } from "./banners";
+
+const BERICHT_NICHT_UEBERNOMMEN =
+  "Der Spielbericht wurde inzwischen geändert und gilt nicht als übernommen. Prüfe das Ergebnis und übernimm seinen Vorschlag erneut.";
 
 /**
  * Lookup lists arrive as props: `useAdmin()` here would make `spiele` depend on `admin`.
@@ -90,7 +97,7 @@ export function AdminEditSpielDataForm({
   categorize,
   pageHeader,
 }: {
-  spielData: FLSpielAdmin;
+  spielData: FLSpielJoinedAdmin;
   teams: FLTeam[];
   spielorte: FLSpielort[];
   schiedsrichter: FLSchiedsrichter[];
@@ -460,8 +467,13 @@ export function AdminEditSpielDataForm({
 
         // A save that moved another fixture is graded a warning: it cost a result or a slot the admin may not have meant.
         const warn = (res.voidedFixtures ?? []).length > 0 || (res.releasedFixtures ?? []).length > 0;
-        const raise = warn ? appToast.warning : appToast.success;
-        raise(warn ? "Mit Folgen gespeichert" : "Änderung gespeichert", { description: res.message });
+        // Asked to adopt, the save stamps nothing on a report changed meanwhile and lands all the same: the result it
+        // saved is the older proposal.
+        const nichtUebernommen = res.berichtUebernommen === false;
+        const raise = warn || nichtUebernommen ? appToast.warning : appToast.success;
+        raise(warn ? "Mit Folgen gespeichert" : "Änderung gespeichert", {
+          description: nichtUebernommen ? [res.message, BERICHT_NICHT_UEBERNOMMEN].filter(Boolean).join(" ") : res.message,
+        });
 
         resetDraftToStored();
         leavePage();

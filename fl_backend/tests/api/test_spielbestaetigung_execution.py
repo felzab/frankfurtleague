@@ -25,17 +25,15 @@ from app.api.spielbestaetigungen.admin_router import eintragen_spielbestaetigung
 from app.api.spielbestaetigungen.person_router import get_eigene_spielbestaetigungen, post_schiedsrichter_antwort
 from app.api.spielbestaetigungen.router import get_spielbestaetigung_ansicht, post_spielbestaetigung
 from app.api.spielbestaetigungen.schemas import (
-    FLSpielbestaetigungAnsichtPayload,
     FLSpielbestaetigungAnsichtResponse,
     FLSpielbestaetigungAntwortPayload,
     FLSpielbestaetigungAntwortResponse,
     FLSpielbestaetigungEintragenPayload,
-    FLSpielbestaetigungEintragenResponse,
     FLSpielbestaetigungenFilterParams,
     FLSpielbestaetigungenListResponse,
     FLSpielbestaetigungSchiedsrichterAntwortPayload,
     FLSpielbestaetigungSchiedsrichterAntwortResponse,
-    FLSpielbestaetigungVerwerfenResponse,
+    FLSpielbestaetigungWriteResponse,
 )
 from app.api.spielbestaetigungen.services import (
     build_held_filter,
@@ -44,10 +42,12 @@ from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel_
 from app.api.spiele.crud import advance_bracket_winners
 from app.api.spiele.schemas import FLPatchSpielDataPayload
 from app.api.teams.admin_router import replace_saison_team
-from app.api.teams.schemas import KONTAKT_ROLLEN, FLReplaceSaisonTeamPayload
+from app.api.teams.schemas import FLReplaceSaisonTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
@@ -206,7 +206,7 @@ async def ansicht(
     saison_teams: Any = None,
 ) -> FLSpielbestaetigungAnsichtResponse:
     return await get_spielbestaetigung_ansicht(
-        ansicht_data=FLSpielbestaetigungAnsichtPayload(token=raw),
+        ansicht_data=FLTokenPayload(token=raw),
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
         spiele_collection=either(database, Collection.SPIELE, spiele),
         saison_teams_collection=either(database, Collection.SAISON_TEAMS, saison_teams),
@@ -969,7 +969,7 @@ SETTLE_REASON = "Telefonisch mit dem Trainer abgestimmt"
 
 async def eintragen(
     database: AsyncDatabase, client: AsyncMongoClient, row_id: ObjectId, *, spielbestaetigungen: Any = None
-) -> FLSpielbestaetigungEintragenResponse:
+) -> FLSpielbestaetigungWriteResponse:
     return await eintragen_spielbestaetigung(
         spielbestaetigung_id=row_id,
         eintragen_data=FLSpielbestaetigungEintragenPayload(begruendung=SETTLE_REASON),
@@ -981,7 +981,7 @@ async def eintragen(
 
 async def verwerfen(
     database: AsyncDatabase, client: AsyncMongoClient, row_id: ObjectId, *, spielbestaetigungen: Any = None
-) -> FLSpielbestaetigungVerwerfenResponse:
+) -> FLSpielbestaetigungWriteResponse:
     return await verwerfen_spielbestaetigung(
         spielbestaetigung_id=row_id,
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
@@ -996,7 +996,6 @@ async def lesen(
 ) -> FLSpielbestaetigungenListResponse:
     return await get_spielbestaetigungen(
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
-        saisons_collection=database[Collection.SAISONS],
         filters=FLSpielbestaetigungenFilterParams(saison_id=SAISON_ID, spiel_id=spiel_id, limit=limit),
     )
 
@@ -1158,7 +1157,6 @@ class TestWhatTheAdministratorsReadServes:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ablehnen(database, client, token(TEAM1, "stellvertretung"), PROPOSAL, begruendung=REASON)
-            await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"spiel_sweep_gelaufen_am": TODAY}})
             recorded = ReadsRecorded(database[Collection.SPIELBESTAETIGUNGEN])
             season = await lesen(database, spielbestaetigungen=recorded)
 
@@ -1169,7 +1167,7 @@ class TestWhatTheAdministratorsReadServes:
         # The premise: the row read holds both in the database.
         assert stored["antwort"]["von"]["halter"] == KLARA and stored["kontakte"]["trainer"]["token_hashes"]
         assert [row.id for row in season.spielbestaetigungen] == [NEIGHBOURS_ROW, ROW2, ROW1]
-        assert (season.vollstaendig, season.spiel_sweep_gelaufen_am) == (True, TODAY)
+        assert season.vollstaendig
         assert not [path for document in loaded for path in leaf_paths(document) if path.rsplit(".", 1)[-1] in ADMIN_READ_WITHHOLDS]
         assert [row.id for row in one_fixture.spielbestaetigungen] == [NEIGHBOURS_ROW]
 
@@ -1188,10 +1186,9 @@ class TestWhatTheAdministratorsReadServes:
 
         served = on_a_fixture(mongo_replica_set_url, body, rows=rows)
 
-        assert ([row.id for row in served.spielbestaetigungen], served.vollstaendig, served.spiel_sweep_gelaufen_am) == (
+        assert ([row.id for row in served.spielbestaetigungen], served.vollstaendig) == (
             [rows[3]["_id"], rows[2]["_id"], overdue["_id"]],
             False,
-            None,
         )
 
     def test_a_row_closing_between_the_two_reads_is_served_closed(self, mongo_replica_set_url: str):

@@ -64,7 +64,6 @@ from app.api.spielbestaetigungen.services import (
     vereinsnamen_of,
     void_notice_held,
 )
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_many_to_db, pull_many_from_db, pull_one_from_db
@@ -81,6 +80,7 @@ from app.core.logging import fl_logger
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, Batch, diagnosis_of, refuse_a_stalled_page, run_isolated, transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # System tier and the system actor, for `app/api/bewerbungen/sweep_router.py`'s reason: the timer
 # holds no session, and an invented administrator for a machine is what `SYSTEM_ACTOR` exists to avoid.
@@ -91,8 +91,7 @@ router = APIRouter(
 
 # Each close costs three commands, logging the pre-image a restore needs, which a fan-out's count-only row
 # loses; a 20th close takes the worst call past
-# `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms round trip
-# (`tests/api/test_spielbestaetigung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`).
+# `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms round trip.
 CLOSES_PER_PASS: Final = 19
 
 # Counted in rows written, a fixture taken whole. With `REMINDERS_PER_PASS` at most `ANFRAGEN_LISTED_PER_PASS`, a
@@ -318,30 +317,22 @@ class _Owed:
 @router.get("", response_model=FLSpielbestaetigungSweepSaisonsResponse, summary="Every season the confirmation pass visits")
 async def get_spiel_sweep_saisons(saisons_collection: SaisonsCollection) -> FLSpielbestaetigungSweepSaisonsResponse:
     """
-    Answer every `active` season's id, oldest first, and the day a confirmation pass last ran over any of them.
+    Answer every `active` season's id, oldest first.
 
     `active` alone: a confirmation serves no purpose once its season is over, and a season that ended with a fixture nobody
     entered a result for would otherwise be asked about a day long gone. System tier because this is the timer's own
-    bookkeeping, asked by the process running the pass and by no page. Null means no pass has run over these seasons. Reading
-    it writes nothing.
+    bookkeeping, asked by the process running the pass and by no page. Reading it writes nothing.
     """
 
     seasons = await pull_many_from_db(
         collection=saisons_collection,
         db_filter={"status": "active"},
-        projection=["_id", "spiel_sweep_gelaufen_am"],
+        projection=["_id"],
         sort_by=[("_id", ASCENDING)],
         limit=LIST_LIMIT_MAX,
     )
 
-    return FLSpielbestaetigungSweepSaisonsResponse(
-        saison_ids=[str(season["_id"]) for season in seasons],
-        # The newest day any of them carries, for `GET /bewerbungen/sweep`'s reason: a season activated
-        # since the last pass carries none.
-        spiel_sweep_gelaufen_am=max(
-            (str(season["spiel_sweep_gelaufen_am"]) for season in seasons if season.get("spiel_sweep_gelaufen_am")), default=None
-        ),
-    )
+    return FLSpielbestaetigungSweepSaisonsResponse(saison_ids=[str(season["_id"]) for season in seasons])
 
 
 @router.post(
@@ -417,11 +408,10 @@ async def sweep_spielbestaetigungen(
     it once the ban is lifted; each pass logs how many seats it withheld, never which.
 
     Each step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has
-    committed something owed a message, a later failure -- the stamp of the pass's day on this season included -- is logged
-    and the call answers what committed. A row whose write or answer fails is passed over alone, logged by id and counted in
-    `fehlgeschlagen`.
+    committed something owed a message, a later failure is logged and the call answers what committed. A row whose write or
+    answer fails is passed over alone, logged by id and counted in `fehlgeschlagen`.
 
-    A season that is not `active` is passed by whole -- nothing closed, minted, reminded or stamped, every list empty -- so a
+    A season that is not `active` is passed by whole -- nothing closed, minted or reminded, every list empty -- so a
     mistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.
     """
 
@@ -447,17 +437,6 @@ async def sweep_spielbestaetigungen(
 
     # Outside the transactions, whose callbacks may run again, as the application sweep reads it.
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
-
-    async def stamp_the_run(session: AsyncClientSession) -> None:
-        """Inside the pass's last transaction, so a stamped day is a committed call; a day already stamped matches, writes and logs nothing."""
-
-        await patch_many_in_db(
-            collection=saisons_collection,
-            # The day in the filter, as the application and registration passes stamp theirs: the later passes of a day match nothing.
-            db_filter={"_id": saison_id, "spiel_sweep_gelaufen_am": {"$ne": today}},
-            update={"$set": {"spiel_sweep_gelaufen_am": today}},
-            session=session,
-        )
 
     async def close(session: AsyncClientSession, batch: Batch) -> int:
         """Judge every row holding its question against its fixture as it stands, then close a share. Read in-session, so a retry re-judges.
@@ -652,8 +631,7 @@ async def sweep_spielbestaetigungen(
             return _Minted(anfragen=[], einteilungen=[], written=0, inserted=[], fresh={})
 
         spiel_ids = [spiel["_id"] for spiel in spiele]
-        # One read for both, a second command taking the worst call past its deadline
-        # (`tests/api/test_spielbestaetigung_sweep_refusal.py :: SWEEP_OTHER_COMMANDS`).
+        # One read for both, a second command taking the worst call past its deadline.
         read = await pull_many_from_db(
             collection=spielbestaetigungen_collection,
             db_filter={
@@ -806,7 +784,7 @@ async def sweep_spielbestaetigungen(
         )
 
     async def remind(session: AsyncClientSession, batch: Batch) -> list[tuple[Any, _Owed]]:
-        """Mint, stamp, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges.
+        """Mint, stamp, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges.
 
         Counts on the batch how many seats on the page a ban kept from their reminder, for the log line.
         """
@@ -915,13 +893,7 @@ async def sweep_spielbestaetigungen(
                 return_document=ReturnDocument.BEFORE,
             )
 
-        await stamp_the_run(session)
-
         return [(row["_id"], owed) for row, owed in taken]
-
-    async def stamp_alone() -> None:
-        async with transaction_session(db) as session:
-            await session.with_transaction(stamp_the_run)
 
     owed = False
     fehlgeschlagen = 0
@@ -1040,10 +1012,6 @@ async def sweep_spielbestaetigungen(
             erinnerungen = [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepAnfrage) and owed.marked]
             anfragen += [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepAnfrage) and not owed.marked]
             einteilungen += [owed.message for owed in owed_now if isinstance(owed.message, FLSpielbestaetigungSweepEinteilung)]
-            # Every attempt that committed stamped the day; where none did, it is stamped alone, under the same
-            # contract as every step after a message is owed.
-            if not reminded[0]:
-                await after_what_is_owed(stamp_alone, clock="run stamp", may_stand=lambda: f"season {saison_id}'s day")
 
     # After the commits, so a retried transaction writes no second line. A count and never an id: a line
     # naming the row would tie its club to the ban for as long as the log is kept.

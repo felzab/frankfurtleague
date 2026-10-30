@@ -19,13 +19,13 @@ from app.api.registrierungen.person_router import aufnehmen, get_offene_registri
 from app.api.registrierungen.schemas import (
     FLOffeneRegistrierungenParams,
     FLRegistrierungAufnehmenPayload,
-    FLRegistrierungBestaetigungAnsichtPayload,
 )
-from app.api.spieler.schemas import FLSpielerSelbstEinwilligungPayload
 from app.api.spieler.selbst_router import get_selbst, patch_einwilligung
 from app.core.collections import Collection
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
+from app.shared.schemas.bestaetigung import FLTokenPayload
+from app.shared.schemas.einwilligung import FLSelbstEinwilligungPayload
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
@@ -128,7 +128,7 @@ async def the_references_read(database: AsyncDatabase, client: AsyncMongoClient,
 
 async def the_confirmation_view(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
     return await get_bestaetigung_ansicht(
-        ansicht_data=FLRegistrierungBestaetigungAnsichtPayload(token=TOKEN),
+        ansicht_data=FLTokenPayload(token=TOKEN),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         teams_collection=database[Collection.TEAMS],
         spieler_collection=database[Collection.SPIELER],
@@ -191,7 +191,7 @@ async def the_own_record_read(database: AsyncDatabase, client: AsyncMongoClient,
 
 async def the_own_record_press(database: AsyncDatabase, client: AsyncMongoClient, registrierung_id: ObjectId) -> Any:
     return await patch_einwilligung(
-        einwilligung_data=FLSpielerSelbstEinwilligungPayload.model_validate(
+        einwilligung_data=FLSelbstEinwilligungPayload.model_validate(
             {
                 "umfang": "intern",
                 "medien": False,

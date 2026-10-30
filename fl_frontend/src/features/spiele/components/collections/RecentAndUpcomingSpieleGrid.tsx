@@ -16,7 +16,7 @@ import { SpielCardGrid } from "../ui/SpielCardGrid";
 import { SpielCardSkeletonGrid } from "../ui/SpielCardSkeleton";
 import { SpielCardsList } from "./SpielCardsList";
 
-import type { FLSpieleListResponse } from "../../schemas";
+import type { FLSpieleListResponse } from "@/core/generated/client/types";
 
 /** Shared with the skeleton: zero layout shift holds only while the two render identical chrome. */
 function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {

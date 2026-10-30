@@ -12,16 +12,15 @@ from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungZustand,
     FLBewerbungEntscheidung,
     FLBewerbungSaisonbezug,
-    FLKontaktRolle,
     refuse_age_outside_the_bounds,
 )
 from app.api.kontakte.services import rows_seating
 from app.api.sperrliste.services import withheld_actor
-from app.api.teams.schemas import KONTAKT_ROLLEN, FLKontaktEingetragenVon, FLPostTeamPayload, FLTrikotFarbe
+from app.api.teams.schemas import FLPostTeamPayload
 from app.core.codes import Code
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
-from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
+from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_nachweis import compose_wahlen
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import (
@@ -33,6 +32,7 @@ from app.shared.schemas.bounds import (
     VERTRETUNG_MIN_AGE_YEARS,
 )
 from app.shared.schemas.custom import fold_shorthand
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktEingetragenVon, FLKontaktRolle, FLTrikotFarbe
 
 # `bewerbung: null` and no key are both the closed window, never an error (`FLSaison.bewerbung`
 # defaults).
@@ -319,7 +319,7 @@ def build_wiederholung_filter(*, bewerbung_raw: Mapping[str, Any], today: str) -
 
         terms[f"bestaetigungen.{seat}.erinnert_am"] = None
         terms[f"bestaetigungen.{seat}.abgelehnt_am"] = None
-        terms[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = UNCONFIRMED_STAMP
+        terms[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = None
         unerreicht.append(zustellung_unerreicht_term(pfad=f"bestaetigungen.{seat}.zustellung"))
 
     # The deadline's own day still takes a link, as `link_is_over` reads it.
@@ -526,7 +526,7 @@ def build_token_filter(*, token_hash: str) -> Mapping[str, Any]:
 def seat_named(value: Any) -> FLKontaktRolle | None:
     """The seat this value names, or `None`: a path segment and a stored key are both only as trustworthy as whatever wrote them."""
 
-    return cast(FLKontaktRolle, value) if value in get_args(FLKontaktRolle) else None
+    return cast(FLKontaktRolle, value) if value in get_args(FLKontaktRolle.__value__) else None
 
 
 def seat_holding(*, bewerbung_raw: Mapping[str, Any], token_hash: str) -> FLKontaktRolle | None:
@@ -1069,7 +1069,7 @@ def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[s
     for seat in seats:
         unanswered[f"bestaetigungen.{seat}"] = {"$type": "object"}
         unanswered[f"bestaetigungen.{seat}.abgelehnt_am"] = None
-        unanswered[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = UNCONFIRMED_STAMP
+        unanswered[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = None
 
     return {"_id": bewerbung_id, "status": "eingereicht", **unanswered}
 
@@ -1522,7 +1522,7 @@ def _seat_reminder_term(*, seat: str, today: str) -> Mapping[str, Any]:
         f"bestaetigungen.{seat}.erinnert_am": None,
         f"bestaetigungen.{seat}.abgelehnt_am": None,
         f"bestaetigungen.{seat}.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
-        f"kontakte.{seat}.einwilligung.bestaetigt_am": UNCONFIRMED_STAMP,
+        f"kontakte.{seat}.einwilligung.bestaetigt_am": None,
     }
 
 
@@ -1550,7 +1550,7 @@ def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
         "status": "eingereicht",
         "bestaetigungsfrist": {"$lt": today},
         "bestaetigungen.ansprechperson.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
-        "$or": [{f"kontakte.{seat}.einwilligung.bestaetigt_am": UNCONFIRMED_STAMP} for seat in KONTAKT_ROLLEN],
+        "$or": [{f"kontakte.{seat}.einwilligung.bestaetigt_am": None} for seat in KONTAKT_ROLLEN],
     }
 
 
@@ -1630,7 +1630,7 @@ def assigned_trikot_farben(*, stored: Sequence[Any]) -> list[FLTrikotFarbe]:
     # The form excludes what this returns, and a season may field at least as many teams as the palette
     # has colours. `fl_frontend/src/features/teams/utils.ts :: offeredTrikotFarben` then hands the whole
     # palette back once every colour is assigned.
-    return [farbe for farbe in get_args(FLTrikotFarbe) if farbe in held]
+    return [farbe for farbe in get_args(FLTrikotFarbe.__value__) if farbe in held]
 
 
 def build_bewerbungen_saisonbezug_terms(*, saison_id: str | None) -> dict[FLBewerbungSaisonbezug, dict[str, Any]]:

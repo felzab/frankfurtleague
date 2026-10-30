@@ -1,5 +1,5 @@
 from collections.abc import Mapping, Sequence, Set
-from typing import Any, Literal, NamedTuple
+from typing import Any, NamedTuple
 
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -43,7 +43,7 @@ from app.api.spiele.services import (
     resolve_bracket,
     slots_booked_against,
 )
-from app.api.teams.schemas import FLGruppenNames, FLTeamListAdapter, FLTeamsFilterParams
+from app.api.teams.schemas import FLTeamListAdapter, FLTeamsFilterParams
 from app.api.teams.services import (
     ZERO_STATISTIK,
     DecidedStanding,
@@ -56,6 +56,7 @@ from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_one_in_db,
 from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.literals import FLGruppenNames, FLSpielSeite
 
 
 async def _resolve_one_saison(
@@ -442,8 +443,7 @@ def _stored_side(side: FLSpielTeamField | None) -> Mapping[str, Any] | None:
     if side is None:
         return None
 
-    # `keep_oid` keeps `team_id` an ObjectId: as a string the `spiele` validator rejects the write,
-    # and the transaction takes the admin's own edit down with it.
+    # `keep_oid` keeps `team_id` an ObjectId: stored as a string, it would match no lookup by id.
     return side.model_dump(context={"keep_oid": True}, include=set(FLSpielTeamField.model_fields))
 
 
@@ -538,7 +538,7 @@ def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
     )
 
 
-def _other_side(side: Literal["team1", "team2"]) -> Literal["team1", "team2"]:
+def _other_side(side: FLSpielSeite) -> FLSpielSeite:
     """The side facing `side`. One spelling, so the model and the `$set` cannot pair the two differently."""
 
     return "team2" if side == "team1" else "team1"
@@ -547,9 +547,8 @@ def _other_side(side: Literal["team1", "team2"]) -> Literal["team1", "team2"]:
 def apply_release_to_spiel(spiel: FLSpiel, release: SpieltagRelease) -> FLSpiel:
     """One fixture with the released side emptied.
 
-    The PREVIEW's model; the write spells the same rule as a `$set`, held to it by
-    `tests/api/test_spiele_write_execution.py`. The side left behind loses its goals too, scored
-    against the team being removed.
+    The PREVIEW's model; the write spells the same rule as a `$set`. The side left behind loses its
+    goals too, scored against the team being removed.
     """
 
     other = _other_side(release.side)

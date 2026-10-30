@@ -19,7 +19,8 @@ import { ERGEBNIS_INK_CLASSES, SpielScore } from "../ui/SpielScore";
 import { SpielStatusChip } from "../ui/SpielStatusChip";
 import { SLOT_LABEL_WRAP_CLASSES, TEAM_NAME_WRAP_CLASSES } from "../ui/teamName";
 
-import type { FLSpiel, FLSpielQuelle, FLSpielTeamFieldJoined } from "../../schemas";
+import type { FLSpielQuelle, FLSpielTeamFieldJoined } from "@/core/generated/client/types";
+import type { FLSpiel } from "../../types";
 
 /**
  * Placed `top`, not the cards' `right`: this trigger is a wide centred line, and only a vertical

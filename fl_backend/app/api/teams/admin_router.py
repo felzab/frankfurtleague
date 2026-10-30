@@ -33,10 +33,8 @@ from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe, void_moved_seats
 from app.api.teams.schemas import (
-    KONTAKT_ROLLEN,
     FLKontaktEinladenResponse,
     FLKontaktMint,
-    FLKontaktZeile,
     FLPatchSaisonTeamKontaktePayload,
     FLPatchSaisonTeamKontakteResponse,
     FLPatchSaisonTeamPayload,
@@ -135,6 +133,7 @@ from app.core.security import (
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktZeile
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/teams",

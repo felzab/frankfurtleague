@@ -1,7 +1,7 @@
 import { hasTakenPlace } from "@/features/saisons/utils";
 
 import type { SaisonReplacementCandidate, SaisonReplacementContext, SaisonReplacementRow } from "@/features/saisons/types";
-import type { FLSpiel } from "@/features/spiele/schemas";
+import type { FLSpiel } from "@/features/spiele/types";
 import type { FLAustritt, FLGruppenNames } from "@/features/teams/schemas";
 
 /** What the fixtures alone say about one club's place in the season. */

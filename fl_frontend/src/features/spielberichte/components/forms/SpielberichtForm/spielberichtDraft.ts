@@ -5,19 +5,18 @@ import { PLACEHOLDER } from "@/shared/utils/format";
 import { KARTEN_FARBE_LABELS, KARTEN_GRUND_LABELS, TORSCHUETZE_UNBEKANNT_LABEL } from "../../../constants";
 import { spielerLabel } from "../../../utils";
 
-import type { FLSaisonPhase } from "@/features/saisons/schemas";
-import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
-import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   FLKartenFarbe,
   FLKartenGrund,
-  FLSpielberichtAnsicht,
+  FLSaisonPhase,
   FLSpielberichtBerichtPayload,
   FLSpielberichtPayload,
-  FLSpielberichtSeite,
-  FLSpielberichtSonderereignis,
   FLSpielberichtSpieler,
-} from "../../../schemas";
+} from "@/core/generated/client/types";
+import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
+import type { FieldErrors } from "@/shared/utils/validation";
+import type { FLSpielberichtSeite, FLSpielberichtSonderereignis } from "../../../schemas";
+import type { SpielberichtAnsicht } from "../../../types";
 
 /** One pupil a picker offers, labelled as the squad lists them. */
 export type KaderOption = { readonly id: string; readonly label: string };
@@ -322,7 +321,7 @@ export function deriveSpielberichtDraftStatus({
 }
 
 /** The form's view of a report read, either reader's: a side not yet filled is named as the cards name it. */
-export function kontextOf(read: Pick<FLSpielberichtAnsicht, "spiel" | "kader" | "genannt" | "seiten_geaendert">): SpielberichtKontext {
+export function kontextOf(read: Pick<SpielberichtAnsicht, "spiel" | "kader" | "genannt" | "seiten_geaendert">): SpielberichtKontext {
   return {
     team1Name: read.spiel.team1?.name ?? PLACEHOLDER.slot,
     team2Name: read.spiel.team2?.name ?? PLACEHOLDER.slot,

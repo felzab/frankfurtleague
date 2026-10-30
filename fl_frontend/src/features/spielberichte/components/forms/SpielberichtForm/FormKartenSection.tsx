@@ -13,8 +13,9 @@ import { gruendeErlassen } from "../../../schemas";
 import { AuswahlSelect } from "./AuswahlSelect";
 import { EntfernenButton, HinzufuegenButton, MinuteField, ohneKader, personHinweis, personOptionen, seitenOptionen } from "./eintragFelder";
 
+import type { FLKartenFarbe, FLKartenGrund } from "@/core/generated/client/types";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLKartenFarbe, FLKartenGrund, FLSpielberichtSeite, KartenSchluessel } from "../../../schemas";
+import type { FLSpielberichtSeite, KartenSchluessel } from "../../../schemas";
 import type { KarteDraft, SpielberichtKontext } from "./spielberichtDraft";
 
 const FARBE_OPTIONEN = (Object.keys(KARTEN_FARBE_LABELS) as FLKartenFarbe[]).map((farbe) => ({ id: farbe, label: KARTEN_FARBE_LABELS[farbe] }));

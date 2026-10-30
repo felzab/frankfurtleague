@@ -13,7 +13,6 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAntwortArt,
     FLSpielbestaetigungGrund,
     FLSpielbestaetigungSchiedsrichterZustand,
-    FLSpielbestaetigungSeite,
     FLSpielbestaetigungTermin,
     FLSpielbestaetigungZustand,
 )
@@ -26,7 +25,6 @@ from app.api.spiele.schemas import (
     FLSpielSchiedsrichterFieldPayload,
     FLSpielTeamFieldPayload,
 )
-from app.api.teams.schemas import KONTAKT_ROLLEN, FLKontaktRolle
 from app.api.teams.services import has_taken_place, seats_changing_holder
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -39,6 +37,7 @@ from app.shared.schemas.bounds import (
     SPIEL_ERINNERUNG_TAGE_ERSTE,
     SPIEL_ERINNERUNG_TAGE_ZWEITE,
 )
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle, FLSpielSeite
 from app.shared.sub_keys import derive_sub_key
 
 # Each stored `ansetzung` key and its fixture path: the ONE list the digest, the snapshot and the public
@@ -387,7 +386,7 @@ def proposal_payload(stored: FLSpiel, vorschlag: FLSpielbestaetigungTermin) -> F
     )
 
 
-def seite_of(spielbestaetigung_raw: Mapping[str, Any]) -> FLSpielbestaetigungSeite:
+def seite_of(spielbestaetigung_raw: Mapping[str, Any]) -> FLSpielSeite:
     """Off the stored snapshot, so a side the fixture has since lost still names the reader's club."""
 
     team_id = (spielbestaetigung_raw.get("partei") or {}).get("team_id")

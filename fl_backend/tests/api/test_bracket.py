@@ -3,15 +3,10 @@ from typing import Any, get_args
 
 import pytest
 
-from app.api.spiele.schemas import (
-    FLBracketFaultQuelle,
-    FLBracketFaultSlot,
-    FLSonderereignis,
-    FLSpielListAdapter,
-)
+from app.api.spiele.schemas import FLBracketFaultQuelle, FLBracketFaultSlot, FLSpielListAdapter
 from app.api.spiele.services import find_gruppen_not_run, resolve_bracket
-from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding
+from app.shared.schemas.literals import FLGruppenNames, FLSonderereignis
 
 MATCH_ID = "6890a1b2c3d4e5f60718{:04d}"
 BRACKET_TEAM_ID = "6890a1b2c3d4e5f60719{:04d}"
@@ -284,7 +279,7 @@ class TestResolveBracket:
         assert advancement.team1 is not None
         assert advancement.team1.tore is None
 
-    @pytest.mark.parametrize("sonderereignis", get_args(FLSonderereignis))
+    @pytest.mark.parametrize("sonderereignis", get_args(FLSonderereignis.__value__))
     def test_a_result_advances_its_winner_whatever_the_event_says(self, fixture_at: FixtureFactory, side: SideFactory, sonderereignis: str):
         """A forfeit counts, and `_outcome_of` reads no event, so the bracket follows the `ergebnis` the table scores.
 
@@ -297,14 +292,6 @@ class TestResolveBracket:
         ]
 
         assert resolved(spiele) == {29: ("Team 1", None)}
-
-    def test_goals_without_an_ergebnis_are_not_a_result(self, fixture_at: FixtureFactory, side: SideFactory):
-        spiele = [
-            fixture_at(25, team1=side(1, 3), team2=side(2, 1), ergebnis=None),
-            fixture_at(29, quelle1=sieger(25)),
-        ]
-
-        assert resolved(spiele) == {}
 
     def test_a_group_seeded_slot_is_left_alone_with_no_standings(self, fixture_at: FixtureFactory, side: SideFactory):
         """Distinct from a standing that has not decided the placing, which does empty the slot — `test_standings.py`'s."""

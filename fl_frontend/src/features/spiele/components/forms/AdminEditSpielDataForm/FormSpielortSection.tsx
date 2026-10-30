@@ -10,7 +10,7 @@ import { StepFiveButton } from "./StepFiveButton";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { SpielFieldPath } from "@/features/spiele/draftStatus";
-import type { FLSpielOrtFieldDraft } from "@/features/spiele/schemas";
+import type { FLSpielOrtFieldDraft } from "@/features/spiele/types";
 import type { FLSpielort } from "@/features/spielorte/schemas";
 
 /**

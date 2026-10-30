@@ -1,13 +1,13 @@
 "use server";
 
 import { frontend_config } from "@/core/config";
+import { spielberichtePutSpielberichtBericht } from "@/core/generated/client/sdk";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 import { refusalResult } from "@/shared/utils/adminMutation";
 import { runPersonRecordMutation } from "@/shared/utils/personMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { SPIELBERICHT_GESCHLOSSEN_REFUSAL } from "./constants";
-import { putSpielbericht } from "./mutations";
 import { FLSpielberichtPayloadSchema } from "./schemas";
 import { mapSpielberichtRefusal } from "./utils";
 
@@ -30,7 +30,7 @@ export async function putSpielberichtAction(spielId: string, rawPayload: z.input
     }
 
     try {
-      await putSpielbericht(id.data, validated.data);
+      await spielberichtePutSpielberichtBericht(id.data, validated.data);
     } catch (error) {
       const refusal = mapSpielberichtRefusal(error, "schiedsrichter");
       if (refusal !== null) return refusalResult(refusal);

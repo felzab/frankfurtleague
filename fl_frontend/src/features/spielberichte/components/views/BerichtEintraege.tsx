@@ -4,17 +4,18 @@ import { card } from "@/shared/components/ui/card";
 import { KARTEN_FARBE_LABELS, KARTEN_GRUND_LABELS, TORSCHUETZE_UNBEKANNT_LABEL } from "../../constants";
 import { spielerLabel } from "../../utils";
 
-import type { FLSpielberichtAnsicht, FLSpielberichtBericht, FLSpielberichtSeite } from "../../schemas";
+import type { FLSpielberichtBericht, FLSpielberichtTorschuetzeSeite } from "@/core/generated/client/types";
+import type { SpielberichtAnsicht } from "../../types";
 
 /**
  * A stored report's scorers, cards and remarks, read-only, for the administrator's panel and the referee's view after
  * the season alike: both name a person and a side the same way.
  */
-export function BerichtEintraege({ lesen, bericht }: { lesen: FLSpielberichtAnsicht; bericht: FLSpielberichtBericht }) {
+export function BerichtEintraege({ lesen, bericht }: { lesen: SpielberichtAnsicht; bericht: FLSpielberichtBericht }) {
   const { spiel } = lesen;
 
   // A side fielding another club since is named by its place, never by the club now on it, which the entry is not about.
-  const team = (seite: FLSpielberichtSeite) =>
+  const team = (seite: FLSpielberichtTorschuetzeSeite) =>
     lesen.seiten_geaendert.includes(seite)
       ? `früheres ${seite === "team1" ? "Team 1" : "Team 2"}`
       : ((seite === "team1" ? spiel.team1?.name : spiel.team2?.name) ?? "");

@@ -2,9 +2,9 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
-from app.api.spiele.schemas import FLSaisonPhase
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_reversed_span
+from app.shared.schemas.literals import FLSaisonPhase, FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse
 
 
@@ -43,7 +43,7 @@ class FLSpieltageFilterParams(BaseModel):
     # `natural` is the played order -- the phase, then `position`. `anzahl_spiele` is absent because
     # a Mongo sort cannot order by a value no document holds.
     sort_by: Literal["natural", "beginn", "ende"] = Field(default="natural")
-    order: Literal["asc", "desc"] = Field(default="asc")
+    order: FLSortOrder = Field(default="asc")
 
 
 class FLPatchSpieltagPayload(BaseModel):

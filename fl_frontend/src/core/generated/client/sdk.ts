@@ -43,7 +43,6 @@ import type {
   FLBerechtigungenListResponse,
   FLBerechtigungStufeResponse,
   FLBerechtigungWriteResponse,
-  FLBewerbungEinwilligungAnsichtPayload,
   FLBewerbungEinwilligungAnsichtResponse,
   FLBewerbungEinwilligungAntwortPayload,
   FLBewerbungEinwilligungAntwortResponse,
@@ -56,13 +55,11 @@ import type {
   FLBewerbungKontaktSitzPayload,
   FLBewerbungKontaktSitzResponse,
   FLBewerbungKuerzelResponse,
-  FLBewerbungPersonEinwilligungPayload,
   FLBewerbungPersonEinwilligungResponse,
   FLBewerbungSchulenResponse,
   FLBewerbungSingleResponse,
-  FLBewerbungSweepAngekuendigtPayload,
   FLBewerbungSweepAngekuendigtResponse,
-  FLBewerbungSweepLoeschenPayload,
+  FLBewerbungSweepAuswahlPayload,
   FLBewerbungSweepLoeschenResponse,
   FLBewerbungSweepResponse,
   FLBewerbungSweepSaisonsResponse,
@@ -70,7 +67,7 @@ import type {
   FLBewerbungZustellungAngenommenPayload,
   FLBewerbungZustellungEreignisPayload,
   FLBewerbungZustellungResponse,
-  FLEinladungAnsichtPayload,
+  FLCreatedResponse,
   FLEinladungAnsichtResponse,
   FLEinladungMintResponse,
   FLEinladungResponse,
@@ -133,7 +130,6 @@ import type {
   FLPostSperrlistePayload,
   FLPostSperrlisteResponse,
   FLPostSpielortPayload,
-  FLPostSpielortResponse,
   FLPostTeamPayload,
   FLPostTeamResponse,
   FLReferenzenPayload,
@@ -142,12 +138,10 @@ import type {
   FLRegistrierungAblehnungResponse,
   FLRegistrierungAufnahmeResponse,
   FLRegistrierungAufnehmenPayload,
-  FLRegistrierungBestaetigungAnsichtPayload,
   FLRegistrierungBestaetigungAnsichtResponse,
   FLRegistrierungBestaetigungPayload,
   FLRegistrierungBestaetigungResponse,
   FLRegistrierungenListResponse,
-  FLRegistrierungSelbstEinwilligungPayload,
   FLRegistrierungSelbstEinwilligungResponse,
   FLRegistrierungSweepResponse,
   FLReplaceSaisonTeamPayload,
@@ -159,19 +153,19 @@ import type {
   FLSaisonTeamPersonEinwilligungPayload,
   FLSaisonTeamPersonEinwilligungResponse,
   FLSaisonTeamResponse,
-  FLSchiedsrichterBestaetigungAnsichtPayload,
   FLSchiedsrichterBestaetigungAnsichtResponse,
   FLSchiedsrichterBestaetigungPayload,
   FLSchiedsrichterBestaetigungResponse,
   FLSchiedsrichterListResponse,
   FLSchiedsrichterMintResponse,
   FLSchiedsrichterReactivateResponse,
-  FLSchiedsrichterSelbstEinwilligungPayload,
   FLSchiedsrichterSelbstEinwilligungResponse,
   FLSchiedsrichterSelbstResponse,
   FLSchiedsrichterSingleResponse,
   FLSchiedsrichterWriteResponse,
+  FLSelbstEinwilligungPayload,
   FLSelbstErasureAnsichtResponse,
+  FLSitzEinwilligungPayload,
   FLSperrlisteListResponse,
   FLSperrlisteWriteResponse,
   FLSpielberichtAdminResponse,
@@ -179,12 +173,10 @@ import type {
   FLSpielberichteSaisonResponse,
   FLSpielberichtPayload,
   FLSpielberichtSchiedsrichterResponse,
-  FLSpielbestaetigungAnsichtPayload,
   FLSpielbestaetigungAnsichtResponse,
   FLSpielbestaetigungAntwortPayload,
   FLSpielbestaetigungAntwortResponse,
   FLSpielbestaetigungEintragenPayload,
-  FLSpielbestaetigungEintragenResponse,
   FLSpielbestaetigungenListResponse,
   FLSpielbestaetigungenSelbstResponse,
   FLSpielbestaetigungSchiedsrichterAntwortPayload,
@@ -195,7 +187,7 @@ import type {
   FLSpielbestaetigungSweepMitgeteiltResponse,
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungSweepSaisonsResponse,
-  FLSpielbestaetigungVerwerfenResponse,
+  FLSpielbestaetigungWriteResponse,
   FLSpieleActionRequiredResponse,
   FLSpieleAdminListResponse,
   FLSpieleAdminSingleResponse,
@@ -204,7 +196,6 @@ import type {
   FLSpielerListResponse,
   FLSpielerMembershipsResponse,
   FLSpielerNachnominierungResponse,
-  FLSpielerSelbstEinwilligungPayload,
   FLSpielerSelbstEinwilligungResponse,
   FLSpielerSelbstResponse,
   FLSpielerSingleResponse,
@@ -225,6 +216,7 @@ import type {
   FLTeamsMembershipsResponse,
   FLTeamsSingleResponse,
   FLTeamWriteResponse,
+  FLTokenPayload,
   FLUndrawSpielplanResponse,
   FLZustellungAbgewiesenPayload,
   FLZustellungAngenommenPayload,
@@ -1065,29 +1057,11 @@ export const getBewerbungenGetBewerbungenUrl = (params?: BewerbungenGetBewerbung
 };
 
 /**
- * Every application, newest first, narrowable by season and by any number of the three statuses.
+ * Every application, newest first, narrowed by `saison_id` with `saisonbezug` and by any of the three statuses.
  *
- * Decided ones stay listed: what the league turned down, and why, is the record the decision was
- * taken against. `vollstaendig` is false where more rows exist than one read serves. A decision's
- * administrator is `null` beside `entscheidung.von_gesperrt` where the ban list holds that
- * address, as no barred address is served in plain.
- *
- * `saisonbezug` says which side of `saison_id` this read covers — `diese_saison` for that season,
- * `andere_saison` for every other one — and is ignored without a `saison_id` to stand against.
- * Both values is every season, as omitting the parameter is; `saison_id` alone is that season.
- *
- * `anzahl_je_status` counts every status over the seasons this request selected and never over the
- * statuses it named, and `anzahl_je_saisonbezug` counts each side of the season relation over those
- * statuses and never over the relation, so a caller narrowed to one of either still knows what
- * asking for the other would fetch. Repeating a parameter and comma-joining its values are one
- * request; omitting one is every value, and sending it empty is too.
- *
- * `dubletten_schluessel` names every key two or more OPEN applications share, over every season the
- * request selected rather than over the rows served, so a colliding pair the cap parted is named at
- * both ends; a key carries its own season, so no selection can part one. A key
- * is the season and the club id, or the season and the upper-cased Kürzel, parted by the word
- * `team` or `kuerzel`; a caller composes a served row's own key and marks the row where the two
- * match.
+ * `vollstaendig` is false where more rows exist than one read serves, and each count covers the values its facet left out.
+ * `dubletten_schluessel` names every key two or more open applications share: the season and the club id or upper-cased
+ * Kürzel, joined by `team` or `kuerzel`. A barred administrator is served as `null` beside `entscheidung.von_gesperrt`.
  * @summary List Bewerbungen
  */
 export const bewerbungenGetBewerbungen = async (
@@ -1152,30 +1126,11 @@ export const getBewerbungenPostEinwilligungUrl = () => {
 };
 
 /**
- * Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.
+ * Record one person's consent or decline for the seat their link opens, and for a second seat they hold.
  *
- * A consent writes their date of birth, the stamp, `person` and the wording they were shown in one update, each
- * choice with its evidence, and leaves who seated them as it stands; a decline empties their slot and redacts
- * every log image holding it, as an erasure does. Refuses, in this order: a token no seat holds (`REQ-BEWERBUNG-009`),
- * a link whose deadline has passed or whose application was decided (`REQ-BEWERBUNG-010`), a seat already answered
- * (`REQ-BEWERBUNG-011`), a consent naming any label but the one the view answered as `laufende_fassung` for this link
- * (`REQ-EINWILLIGUNG-001`), a consent from an address the ban list holds now, whenever the link was minted
- * (`REQ-BEWERBUNG-020`), an age outside the span the seats this person holds ask for (`REQ-BEWERBUNG-012`), and a
- * media consent from a person below `medien_mindestalter` (`REQ-EINWILLIGUNG-002`) -- the last four judged before
- * anything is written, so a reloaded page or a mistyped year spends nothing. A decline
- * stores no label and is taken from a barred address too: it empties the seat.
- *
- * The answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own
- * mailbox among it: this is a server-to-server response, and a caller putting it in front of a browser
- * would hand one contact person another's address.
- *
- * A link on a team's season row (`quelle: saison`) is answered the same way on that row, refused in the same order but
- * for `REQ-BEWERBUNG-010`, nothing deciding a season row, and its answer carries nothing to compose a message from. Its
- * own deadline passed is `REQ-KONTAKT-004`, and a consent once its season has ended or its team has left it is
- * `REQ-KONTAKT-006`, a Widerspruch being taken all the same. A Widerspruch there also voids the seat's links on the
- * team's match confirmations of that season, answered and closed ones too, takes those links and their mails' delivery
- * records out of the confirmations' log images, and takes every reason its person typed answering a match confirmation,
- * from any seat they held, from its row and its log images, the answer standing.
+ * A decline empties the slot. Server-to-server only: the answer carries the addresses the outbound messages are composed
+ * from. Refuses, writing nothing: `REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and
+ * on a team's season row `REQ-KONTAKT-004` and `-006`.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
 export const bewerbungenPostEinwilligung = async (
@@ -1210,28 +1165,14 @@ export const getBewerbungenGetEinwilligungAnsichtUrl = () => {
 };
 
 /**
- * Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).
+ * What the confirmation page renders for the seat this token opens, and nothing of the person.
  *
- * The seat's state, the school, the season, the role, and `zugleich_rolle`: the
- * second seat the same person holds, which an answer on this link writes too, or null. Never the holder's name: the
- * link went to an address nobody has confirmed, which behind a typo is a stranger's.
- * `mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers
- * exactly the dates the answer will take. `laufende_fassung` is the label of the page the person is shown and their
- * answer must name: the applicant's where the applicant named them in every seat the link answers, else the one for a
- * person the administration seated.
- * A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
- * seat holds (`REQ-BEWERBUNG-009`), an open link whose seat holds nobody among them: a confirmed, declined or
- * expired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The state
- * is `gesperrt`, ahead of every other, wherever the ban list holds an address a consent on this link would be
- * refused for (`REQ-BEWERBUNG-020`), so the page offers a barred person nothing to press.
- *
- * The same token may open a seat an administrator entered on a team's season row (`quelle: saison`): `schule` is then
- * the name the club carries that season, and the link is over once its seat's own deadline has passed. Before that, a
- * season that has ended or a team that has left it answers `saison_vorbei`: the link takes a Widerspruch and no consent.
+ * A POST, so the token travels in the body. A confirmed, declined or expired link is served in that state, `gesperrt`
+ * ranking first; only a token no seat holds is refused (`REQ-BEWERBUNG-009`).
  * @summary What one confirmation link opens
  */
 export const bewerbungenGetEinwilligungAnsicht = async (
-  fLBewerbungEinwilligungAnsichtPayload: FLBewerbungEinwilligungAnsichtPayload,
+  fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLBewerbungEinwilligungAnsichtResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -1250,7 +1191,7 @@ export const bewerbungenGetEinwilligungAnsicht = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungEinwilligungAnsichtPayload),
+    body: JSON.stringify(fLTokenPayload),
   });
 };
 
@@ -1338,13 +1279,7 @@ export const getBewerbungenGetSweepSaisonsUrl = () => {
 };
 
 /**
- * Answer every season's id, oldest first, so the caller runs the clocks one season at a time, and the day each pass last ran.
- *
- * System tier rather than the base one: a season taking applications is `future`, which the base tier is never served,
- * and the two clocks that matter run over exactly those seasons.
- *
- * Null against this database means no pass has ever run, never that the last one found nothing to do: a pass that reminds
- * nobody and deletes nothing records the day exactly as a busy one does. Reading it writes nothing.
+ * Every season's id, oldest first, for the caller to sweep one at a time.
  * @summary Every season the sweep has to visit
  */
 export const bewerbungenGetSweepSaisons = async (
@@ -1361,47 +1296,11 @@ export const getBewerbungenSweepSaisonUrl = (saisonId: string) => {
 };
 
 /**
- * Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.
+ * Run one season's six retention clocks as of today, and answer the reminders and deletion notices the caller must mail.
  *
- * The reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one
- * person one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the
- * mail provider refused is not chased at all, its one reminder buying nothing. A seat whose address the ban list holds is
- * sent nothing and has nothing written: it stays due, so every pass asks the ban list for it again until its deadline, and
- * reminds it once a lift comes first; each pass logs how many mailboxes it withheld, never which. The fourteen-day clock only
- * LISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the
- * delivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose
- * Ansprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to
- * correct the address, because erasing it would destroy a school's application with nobody told. That hold ends with the
- * season: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its
- * seats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is
- * over. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The
- * declined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.
- *
- * One call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline
- * first; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transactions, so no later step
- * of the same call can answer an error in their place; where the request's deadline cuts them after one has committed, the call
- * answers what committed and warns once.
- *
- * An application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,
- * is passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it
- * again and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks
- * passed over: a day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.
- *
- * 404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,
- * though it logs the count of withheld seats again.
- *
- * The accepted clock and the contact block run once a later season has ended while this one is not `active`, the moment the
- * season-after rule stops keeping this season's pupils: a running season keeps both, and a later season planned and never run
- * holds neither back. A season whose id is not a four-digit year fails the whole pass rather than running the four clocks
- * that need no later season, because a pass that skipped those two quietly would leave both stopped for ever with nothing
- * anywhere saying so. From that moment every pass also strips, on the rows and in their log images, the season's fixture
- * confirmation rows of every seat's link entry, each reason and a contact's holder digest, and its match
- * reports of their remarks and every card's reason; the answers' way, day and role and the reports' scorers, cards and
- * result stay as the record. Each strip is its own transaction after the blocks' share: one that fails is
- * logged under the season's id and counted in `fehlgeschlagen`, and the blocks clear all the same.
- *
- * One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
- * answers it. So a day's first call records the day and the rest of that day's calls record nothing.
+ * Every reminder answered is already stamped and committed. A deletion candidate is only listed: the caller stamps the
+ * delivered notices through `/angekuendigt` and erases the announced ones through `/loeschen`. A row that cannot be written
+ * is passed over, counted in `fehlgeschlagen` and met again by the next pass. 404 where no season has the id.
  * @summary Run one season's retention clocks
  */
 export const bewerbungenSweepSaison = async (
@@ -1419,21 +1318,14 @@ export const getBewerbungenAngekuendigtBewerbungenUrl = (saisonId: string) => {
 };
 
 /**
- * Record that the deletion notice reached the applications named, so an erasure that fails afterwards mails nobody twice.
+ * Stamp the named candidates whose deletion notice was delivered.
  *
- * An id whose stamp fails, the database refusing it or anything else, is passed over alone, logged by id, left unstamped and
- * counted in `fehlgeschlagen`. Every later pass then lists it as unannounced, so a caller mailing those mails its notice again,
- * and `/loeschen` skips it: until a stamp lands it stands until its season is `past`.
- *
- * The ids are re-judged in-session: only one still submitted, past its deadline and with a seat outstanding is stamped, and one
- * already carrying a stamp keeps the day it has. An id whose Ansprechperson the mail provider refused between the pass and this
- * call is skipped, so a notice the provider never carried is not recorded as delivered. 404 where no season has the id. An empty
- * list answers zero.
+ * An id that no longer qualifies, or already carries a stamp, is skipped. 404 where no season has the id.
  * @summary Stamp the candidates whose notice was delivered
  */
 export const bewerbungenAngekuendigtBewerbungen = async (
   saisonId: string,
-  fLBewerbungSweepAngekuendigtPayload: FLBewerbungSweepAngekuendigtPayload,
+  fLBewerbungSweepAuswahlPayload: FLBewerbungSweepAuswahlPayload,
   options?: Parameters<typeof systemKeyTransport>[1],
 ): Promise<FLBewerbungSweepAngekuendigtResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -1452,7 +1344,7 @@ export const bewerbungenAngekuendigtBewerbungen = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungSweepAngekuendigtPayload),
+    body: JSON.stringify(fLBewerbungSweepAuswahlPayload),
   });
 };
 
@@ -1461,20 +1353,14 @@ export const getBewerbungenLoeschenBewerbungenUrl = (saisonId: string) => {
 };
 
 /**
- * Erase the applications whose deletion notice went out, and redact every log row naming them.
+ * Erase the named candidates that still qualify and carry the announcement stamp, and redact every log row naming them.
  *
- * The ids are re-judged in-session: only one still submitted, past its deadline, with a seat outstanding, whose announcement the
- * mail provider will still carry AND carrying the announcement stamp is erased, so an application confirmed and accepted between
- * the calls survives, one whose notice bounced after it was stamped is held rather than destroyed, and an id from another
- * season or one nobody was told about is skipped rather than refused. 404 where no season has the id. An empty list answers zeros.
- *
- * An id whose erasure fails, the database refusing it or anything else, is passed over alone, logged by id, left standing and
- * counted in `fehlgeschlagen`.
+ * Any other id is skipped. 404 where no season has the id.
  * @summary Erase the notified deletion candidates
  */
 export const bewerbungenLoeschenBewerbungen = async (
   saisonId: string,
-  fLBewerbungSweepLoeschenPayload: FLBewerbungSweepLoeschenPayload,
+  fLBewerbungSweepAuswahlPayload: FLBewerbungSweepAuswahlPayload,
   options?: Parameters<typeof systemKeyTransport>[1],
 ): Promise<FLBewerbungSweepLoeschenResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -1493,7 +1379,7 @@ export const bewerbungenLoeschenBewerbungen = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungSweepLoeschenPayload),
+    body: JSON.stringify(fLBewerbungSweepAuswahlPayload),
   });
 };
 
@@ -1605,9 +1491,9 @@ export const getBewerbungenGetBewerbungByIdUrl = (bewerbungId: string) => {
 };
 
 /**
- * One application in full, which is what the triage decides against; its decision's administrator is withheld as the list withholds it.
+ * One application, its decision's administrator withheld as the list withholds it.
  *
- * Answers whether its confirmation deadline has passed today, so the editor words the deletion without reading a day of its own.
+ * `bestaetigungsfrist_abgelaufen` says whether its confirmation deadline has passed today.
  * @summary One Bewerbung
  */
 export const bewerbungenGetBewerbungById = async (
@@ -1826,21 +1712,13 @@ export const getBewerbungenPatchEinwilligungUrl = (bewerbungId: string) => {
 /**
  * Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
  *
- * WITHDRAW-ONLY: the season seat's payload, a grant of either choice being the confirmation page's alone; the
- * account page offers it so taking a consent back is as easy as giving it was (Art. 7(3) DSGVO). One answer for
- * every seat the person holds there, each choice moving only where it differs from the application as the page
- * served it; no other seat, field or document is written, and a press moving no seat writes nothing. Nothing is
- * counted against the person's ceiling.
- *
- * Refuses, in this order: an application that is decided or holds no confirmed seat of the address
- * (`REQ-FUNKTION-001`); a `nachweis_stand` other than the held seats' own, either choice having moved since the
- * page was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-EINWILLIGUNG-004`); and a `text_version`
- * naming no version of the account page's seat control (`REQ-EINWILLIGUNG-001`). Each refusal writes nothing.
+ * A grant is refused. Refuses, writing nothing: `REQ-FUNKTION-001`, `REQ-EINWILLIGUNG-003` (the choices moved since the
+ * page was served), `REQ-EINWILLIGUNG-004` and `REQ-EINWILLIGUNG-001`.
  * @summary Withdraw a seat holder's own WhatsApp and media consent on a pending Bewerbung
  */
 export const bewerbungenPatchEinwilligung = async (
   bewerbungId: string,
-  fLBewerbungPersonEinwilligungPayload: FLBewerbungPersonEinwilligungPayload,
+  fLSitzEinwilligungPayload: FLSitzEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLBewerbungPersonEinwilligungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -1859,7 +1737,7 @@ export const bewerbungenPatchEinwilligung = async (
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLBewerbungPersonEinwilligungPayload),
+    body: JSON.stringify(fLSitzEinwilligungPayload),
   });
 };
 
@@ -1868,10 +1746,7 @@ export const getEinwilligungGetFassungUrl = (textVersion: string) => {
 };
 
 /**
- * Return the words a consent label names: its paragraphs, its switch, its other controls, its page and the day it took effect.
- *
- * A label's words never change, so the answer may be cached. A label the registry does not hold 404s,
- * and never answers another label's words.
+ * The words a consent label names, which never change, so the answer may be cached; 404 for a label the registry lacks.
  * @summary The words one consent label names
  */
 export const einwilligungGetFassung = async (
@@ -1889,9 +1764,9 @@ export const getEinwilligungGetSeitenUrl = () => {
 };
 
 /**
- * Return, for every page that stamps a consent label, the label a new acceptance on it must name.
+ * For every page that stamps a consent label, the label a new acceptance on it must name.
  *
- * A deploy moves it, so a reader caching it refuses its own visitors' presses until the cache expires.
+ * A deploy moves it, so a reader caches it no longer than a request.
  * @summary The consent label each page stamps today
  */
 export const einwilligungGetSeiten = async (options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLEinwilligungSeitenResponse> => {
@@ -2557,13 +2432,10 @@ export const getRegistrierungenGetRegistrierungenUrl = (params?: Registrierungen
 };
 
 /**
- * Every pending registration, newest first, narrowable by season, by team and by status.
+ * Every pending registration, newest first, narrowed by season, team and status.
  *
- * `bestaetigt` says whether the pupil answered their own confirmation link, composed here rather
- * than left to the reader: an admission is offered on no registration lacking it.
- * `vollstaendig` is false where more rows exist than one read serves. A decision's author is `null`
- * beside `entscheidung.von_gesperrt` where the ban list holds that address, as no barred address is
- * served in plain.
+ * `vollstaendig` is false where more rows exist than one read serves, `bestaetigt` says whether the pupil answered their own
+ * link, and a barred decision's author is served as `null` beside `entscheidung.von_gesperrt`.
  * @summary List Registrierungen
  */
 export const registrierungenGetRegistrierungen = async (
@@ -2625,27 +2497,10 @@ export const getRegistrierungenPostBestaetigungUrl = () => {
 };
 
 /**
- * Record a pupil's own answer for the registration their link opens: their date of birth and the consent record, in one update.
+ * Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
  *
- * Which page the link opens is resolved again here, as the view resolves it. On the new pupil's page the record
- * carries the publication scope they chose, the media answer beside it, the stamp and the wording they were shown.
- * On the returning pupil's page, which asks no choice, it carries the stamp and the wording alone: the choices
- * standing on the person's own record are theirs to change on the account page, and nothing here re-grants one.
- * Its body carries no birthdate: the person's stored one, read here, is judged and written, and the answer echoes
- * null rather than the stored date.
- *
- * Refuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has
- * passed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but
- * the running one of the page the link opens now (`REQ-EINWILLIGUNG-001`), answers that are not the ones that page
- * asks -- both choices and a birthdate on the new pupil's, none of the three on the returning pupil's
- * (`REQ-REGISTRIERUNG-017`) -- a returning pupil's person holding no birthdate to take (`-019`), a link mailed to an
- * address the ban list holds now, whenever the link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor
- * (`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`). Every one is
- * judged before anything is written, so a reloaded page or a mistyped year spends nothing and the pupil keeps the
- * link.
- *
- * The registration stays pending after this: an admission is a later decision, and nothing here writes a person
- * or a squad row.
+ * Refuses, writing nothing: `REQ-REGISTRIERUNG-004`, `-005`, `-006`, `-007`, `-010`, `-012`, `-017`, `-019` and
+ * `REQ-EINWILLIGUNG-001`.
  * @summary Confirm one registration and record the pupil's consent
  */
 export const registrierungenPostBestaetigung = async (
@@ -2677,27 +2532,15 @@ export const getRegistrierungenGetBestaetigungAnsichtUrl = () => {
 };
 
 /**
- * Answer what the page renders for the registration this token opens, and no part of the registration beyond it.
+ * What the confirmation page renders for the registration this token opens, and nothing of the pupil.
  *
- * The link's state, the team and its school, the season, the age floor the press will be judged by, the age from
- * which the media switch is offered, and which of two pages the link opens. Never the pupil's name: the link went to
- * an address nobody has confirmed, which behind a typo is a stranger's.
- *
- * `bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded
- * address under its folded name who confirmed their own record. That page asks no choice and no birthdate, taking
- * the person's own; nothing the person's record holds is served, the holder of a mailed link not yet being known
- * to be that person. Matched on the address alone, a mailbox shared anyway would hand a sibling that person's
- * page, so the name narrows the match.
- *
- * A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
- * registration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather
- * than refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever
- * the ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred
- * pupil nothing to press.
+ * A POST, so the token travels in the body. A confirmed or expired link is served in that state, `gesperrt` ranking first,
+ * and `bestaetigung_spieler_wiederkehrend` opens the returning pupil's page; only a token no registration holds is refused
+ * (`REQ-REGISTRIERUNG-004`).
  * @summary What one registration confirmation link opens
  */
 export const registrierungenGetBestaetigungAnsicht = async (
-  fLRegistrierungBestaetigungAnsichtPayload: FLRegistrierungBestaetigungAnsichtPayload,
+  fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLRegistrierungBestaetigungAnsichtResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -2716,7 +2559,7 @@ export const registrierungenGetBestaetigungAnsicht = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLRegistrierungBestaetigungAnsichtPayload),
+    body: JSON.stringify(fLTokenPayload),
   });
 };
 
@@ -2733,7 +2576,7 @@ export const getRegistrierungenPostEinladungAnsichtUrl = () => {
  * @summary What a registration link opens
  */
 export const registrierungenPostEinladungAnsicht = async (
-  fLEinladungAnsichtPayload: FLEinladungAnsichtPayload,
+  fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLEinladungAnsichtResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -2752,7 +2595,7 @@ export const registrierungenPostEinladungAnsicht = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLEinladungAnsichtPayload),
+    body: JSON.stringify(fLTokenPayload),
   });
 };
 
@@ -2796,23 +2639,13 @@ export const getRegistrierungenPatchEinwilligungUrl = (registrierungId: string) 
 /**
  * Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
  *
- * WITHDRAW-ONLY until the admission: a grant is the team's admission's to make possible, after which the pupil's own
- * record takes it on the account page; this one is offered so taking a consent back is as easy as giving it was
- * (Art. 7(3) DSGVO). Writes those two on this one registration, and nothing else: the confirmation day, the day given
- * and the wording the pupil confirmed stand. A PATCH moving neither choice writes nothing, and nothing is counted
- * against the person's ceiling. The admission carries a withdrawal made here onto the person, as it carries every
- * choice the registration set later than the person's own.
- *
- * Refuses, in this order: an id that is no pending registration of this address, confirmed by its pupil and carrying
- * their choices (`REQ-FUNKTION-001`); a `nachweis_stand` other than the registration's own, either choice having
- * moved since the page was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-EINWILLIGUNG-004`); and a
- * `text_version` naming no version of the account page's pupil control (`REQ-EINWILLIGUNG-001`). Each refusal writes
- * nothing.
+ * A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `REQ-FUNKTION-001`,
+ * `REQ-EINWILLIGUNG-003` (the choices moved since the page was served), `REQ-EINWILLIGUNG-004` and `REQ-EINWILLIGUNG-001`.
  * @summary Withdraw a pupil's own publication and media consent on their pending registration
  */
 export const registrierungenPatchEinwilligung = async (
   registrierungId: string,
-  fLRegistrierungSelbstEinwilligungPayload: FLRegistrierungSelbstEinwilligungPayload,
+  fLSelbstEinwilligungPayload: FLSelbstEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLRegistrierungSelbstEinwilligungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -2831,7 +2664,7 @@ export const registrierungenPatchEinwilligung = async (
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLRegistrierungSelbstEinwilligungPayload),
+    body: JSON.stringify(fLSelbstEinwilligungPayload),
   });
 };
 
@@ -2864,15 +2697,10 @@ export const getRegistrierungenSweepRegistrierungenUrl = (saisonId: string) => {
  *
  * A registration whose write fails, the database refusing it or anything else, or one the answer cannot carry, is passed over
  * alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it again and one
- * failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over: a
- * day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.
+ * failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.
  *
  * 404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes
  * nothing, though it logs the count of withheld registrations again.
- *
- * One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
- * answers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record
- * nothing.
  * @summary Run one season's registration retention clocks
  */
 export const registrierungenSweepRegistrierungen = async (
@@ -3106,7 +2934,7 @@ export const getSaisonsPatchSaisonUrl = (saisonId: string) => {
  * Update a season's dates and rules. `status` is on no payload.
  *
  * Editing the points moves every league table on the NEXT READ, standings being derived. What a
- * finished or drawn season has fixed is refused, as is a rule narrowed below what it holds.
+ * started or drawn season has fixed is refused, as is a rule narrowed below what it holds.
  * @summary Update a Saison's dates and rules
  */
 export const saisonsPatchSaison = async (
@@ -3499,7 +3327,7 @@ export const getSchiedsrichterGetBestaetigungAnsichtUrl = () => {
  * @summary What one Schiedsrichter confirmation link opens
  */
 export const schiedsrichterGetBestaetigungAnsicht = async (
-  fLSchiedsrichterBestaetigungAnsichtPayload: FLSchiedsrichterBestaetigungAnsichtPayload,
+  fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLSchiedsrichterBestaetigungAnsichtResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -3518,7 +3346,7 @@ export const schiedsrichterGetBestaetigungAnsicht = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSchiedsrichterBestaetigungAnsichtPayload),
+    body: JSON.stringify(fLTokenPayload),
   });
 };
 
@@ -3567,7 +3395,7 @@ export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string) 
  */
 export const schiedsrichterPatchEinwilligung = async (
   schiedsrichterId: string,
-  fLSchiedsrichterSelbstEinwilligungPayload: FLSchiedsrichterSelbstEinwilligungPayload,
+  fLSelbstEinwilligungPayload: FLSelbstEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSchiedsrichterSelbstEinwilligungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -3586,7 +3414,7 @@ export const schiedsrichterPatchEinwilligung = async (
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSchiedsrichterSelbstEinwilligungPayload),
+    body: JSON.stringify(fLSelbstEinwilligungPayload),
   });
 };
 
@@ -4054,11 +3882,11 @@ export const getSpielbestaetigungenGetSpielbestaetigungenUrl = (params: Spielbes
 };
 
 /**
- * Every confirmation row of the season, or of its one fixture, and the day the confirmation pass last ran over it.
+ * Every confirmation row of the season, or of its one fixture.
  *
  * Newest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still
  * holding its party's question is served; `limit` cuts the others, and `vollstaendig` is false where it left the
- * oldest of them out. A season no document has answers no rows and a null day rather than 404.
+ * oldest of them out. A season no document has answers no rows rather than 404.
  * @summary A season's fixture confirmations, or one fixture's
  */
 export const spielbestaetigungenGetSpielbestaetigungen = async (
@@ -4136,7 +3964,7 @@ export const getSpielbestaetigungenGetSpielbestaetigungAnsichtUrl = () => {
  * @summary What one fixture confirmation link opens
  */
 export const spielbestaetigungenGetSpielbestaetigungAnsicht = async (
-  fLSpielbestaetigungAnsichtPayload: FLSpielbestaetigungAnsichtPayload,
+  fLTokenPayload: FLTokenPayload,
   options?: Parameters<typeof baseKeyTransport>[1],
 ): Promise<FLSpielbestaetigungAnsichtResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -4155,7 +3983,7 @@ export const spielbestaetigungenGetSpielbestaetigungAnsicht = async (
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielbestaetigungAnsichtPayload),
+    body: JSON.stringify(fLTokenPayload),
   });
 };
 
@@ -4193,12 +4021,11 @@ export const getSpielbestaetigungenGetSpielSweepSaisonsUrl = () => {
 };
 
 /**
- * Answer every `active` season's id, oldest first, and the day a confirmation pass last ran over any of them.
+ * Answer every `active` season's id, oldest first.
  *
  * `active` alone: a confirmation serves no purpose once its season is over, and a season that ended with a fixture nobody
  * entered a result for would otherwise be asked about a day long gone. System tier because this is the timer's own
- * bookkeeping, asked by the process running the pass and by no page. Null means no pass has run over these seasons. Reading
- * it writes nothing.
+ * bookkeeping, asked by the process running the pass and by no page. Reading it writes nothing.
  * @summary Every season the confirmation pass visits
  */
 export const spielbestaetigungenGetSpielSweepSaisons = async (
@@ -4271,11 +4098,10 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
  * it once the ban is lifted; each pass logs how many seats it withheld, never which.
  *
  * Each step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has
- * committed something owed a message, a later failure -- the stamp of the pass's day on this season included -- is logged
- * and the call answers what committed. A row whose write or answer fails is passed over alone, logged by id and counted in
- * `fehlgeschlagen`.
+ * committed something owed a message, a later failure is logged and the call answers what committed. A row whose write or
+ * answer fails is passed over alone, logged by id and counted in `fehlgeschlagen`.
  *
- * A season that is not `active` is passed by whole -- nothing closed, minted, reminded or stamped, every list empty -- so a
+ * A season that is not `active` is passed by whole -- nothing closed, minted or reminded, every list empty -- so a
  * mistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.
  * @summary Run one season's fixture confirmation pass
  */
@@ -4437,7 +4263,7 @@ export const spielbestaetigungenEintragenSpielbestaetigung = async (
   spielbestaetigungId: string,
   fLSpielbestaetigungEintragenPayload: FLSpielbestaetigungEintragenPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielbestaetigungEintragenResponse> => {
+): Promise<FLSpielbestaetigungWriteResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -4450,7 +4276,7 @@ export const spielbestaetigungenEintragenSpielbestaetigung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLSpielbestaetigungEintragenResponse>(getSpielbestaetigungenEintragenSpielbestaetigungUrl(spielbestaetigungId), {
+  return adminKeyTransport<FLSpielbestaetigungWriteResponse>(getSpielbestaetigungenEintragenSpielbestaetigungUrl(spielbestaetigungId), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -4477,8 +4303,8 @@ export const getSpielbestaetigungenVerwerfenSpielbestaetigungUrl = (spielbestaet
 export const spielbestaetigungenVerwerfenSpielbestaetigung = async (
   spielbestaetigungId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielbestaetigungVerwerfenResponse> => {
-  return adminKeyTransport<FLSpielbestaetigungVerwerfenResponse>(getSpielbestaetigungenVerwerfenSpielbestaetigungUrl(spielbestaetigungId), {
+): Promise<FLSpielbestaetigungWriteResponse> => {
+  return adminKeyTransport<FLSpielbestaetigungWriteResponse>(getSpielbestaetigungenVerwerfenSpielbestaetigungUrl(spielbestaetigungId), {
     ...options,
     method: "POST",
   });
@@ -4491,10 +4317,10 @@ export const getSpieleGetSpieleUrl = (params?: SpieleGetSpieleParams) => {
 };
 
 /**
- * List Spiele matching the given filters.
+ * List the Spiele matching the filters, of the current season unless `saison_id` names another.
  *
- * Omitting `saison_id` returns the CURRENT season; one this tier may not read lists nothing.
- * `saison_phase` aliases `playoffs` to "any phase but gruppenphase"; `ausstehend` includes today.
+ * A season this tier may not read lists nothing; `playoffs` means every phase but `gruppenphase`, and
+ * `ausstehend` includes today.
  * @summary List Spiele
  */
 export const spieleGetSpiele = async (
@@ -4514,21 +4340,13 @@ export const getSpieleGetSpieleActionRequiredUrl = (params?: SpieleGetSpieleActi
 };
 
 /**
- * List Spiele needing attention, and the bracket faults among them.
+ * List one season's Spiele needing the administrator, with the bracket's faults and every report's state.
  *
- * Qualifying: cancelled, missing a date, time, venue or referee, past with no result, a
- * knockout side with neither team nor `quelle`, or holding a referee's report the administrator has
- * not adopted as it stands. Every report's state the season holds is served beside them. Scoped to `saison_id`, the active season when none
- * is named, which answers 404 while no season is active.
- *
- * Also every fixture a club's unclosed confirmation about its Ansetzung as it stands puts before the
- * administrator: a decline proposing another date, a deadline passed unanswered, or a deadline of
- * today on a request sent today or never. The rows themselves are not served: `GET /spielbestaetigungen`
- * for the same season serves them, read separately, so a row reaching one of those states between
- * the two reads shows its fixture on the next.
- *
- * The faults include a fixture still to be played that is booked onto a retired venue or referee,
- * and one whose venue or referee another fixture of any season claims less than four hours away.
+ * The season is `saison_id`'s, else the active one, answering 404 while none is. A fixture qualifies when it is
+ * called off; lacks a date, time, venue or referee; is past without a result; has a knockout side with neither
+ * team nor source; holds a report not adopted as it stands; is put before the administrator by a club's
+ * unclosed confirmation; or carries a bracket fault, a booking onto a retired venue or referee and a claim within
+ * four hours of another fixture's among them.
  * @summary Spiele needing attention
  */
 export const spieleGetSpieleActionRequired = async (
@@ -4548,11 +4366,9 @@ export const getSpieleGetSpieleForAdminUrl = (params?: SpieleGetSpieleForAdminPa
 };
 
 /**
- * List a season's Spiele for the admin surfaces, a `future` season's included.
+ * List Spiele as `GET /spiele` does, a planned season's included, in the admin shape.
  *
- * Same filters as `GET /spiele`, without its season gate -- which lists a planned season as empty,
- * so every admin surface counting fixtures reads zero. The admin fixture shape, so the referee
- * carries their whole name and the two figures ride along (`READ-MONEY-001`, `READ-REFEREE-001`).
+ * Each referee carries their whole name, and each booking its money.
  * @summary Spiele for the admin surfaces
  */
 export const spieleGetSpieleForAdmin = async (
@@ -4570,10 +4386,7 @@ export const getSpieleGetSpielUrl = (spielId: string) => {
 };
 
 /**
- * Return one match by its id.
- *
- * The season is read to gate it and for nothing else: the match carries its own `saison_id`, and
- * `spiel_status` is a property of a query. 404 for a season this tier may not read.
+ * Return one match by its id, answering 404 for a match of a season this tier may not read.
  * @summary One Spiel
  */
 export const spieleGetSpiel = async (spielId: string, options?: Parameters<typeof baseKeyTransport>[1]): Promise<FLSpieleSingleResponse> => {
@@ -4590,14 +4403,11 @@ export const getSpielePatchSpielDataUrl = (spielId: string, params?: SpielePatch
 };
 
 /**
- * Update one Spiel and resolve the season's bracket.
+ * Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.
  *
- * The payload is written wholesale: an omitted field is overwritten, and every name it carries is
- * composed by the server. A result can fill or empty the slots below it, each named in `advanced_to`.
- *
- * With `uebernimmt_bericht`, the save also stamps the fixture's Spielbericht adopted at that version, in the same
- * transaction. A report corrected since that version, or written about other clubs than the save leaves on the
- * fixture, is left unstamped, and the save lands all the same: nothing is refused for it. A `dry_run` stamps nothing.
+ * Every name is composed by the server. With `uebernimmt_bericht` the save also stamps the fixture's Spielbericht
+ * adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
+ * `dry_run` answers the same report and writes nothing.
  * @summary Update a Spiel
  */
 export const spielePatchSpielData = async (
@@ -4631,10 +4441,7 @@ export const getSpieleGetSpielForAdminUrl = (spielId: string) => {
 };
 
 /**
- * Return one match in the joined shape, plus the two figures the base tier withholds.
- *
- * The editor reads here because it round-trips `ort.mietpreis` and `schiedsrichter.payment`,
- * which are admin-tier (`READ-MONEY-001`).
+ * Return one match in the admin shape, money included, for the editor.
  * @summary One Spiel for the admin editor
  */
 export const spieleGetSpielForAdmin = async (
@@ -4854,7 +4661,7 @@ export const getSpielerPatchEinwilligungUrl = () => {
  * @summary Change a signed-in pupil's own publication and media consent
  */
 export const spielerPatchEinwilligung = async (
-  fLSpielerSelbstEinwilligungPayload: FLSpielerSelbstEinwilligungPayload,
+  fLSelbstEinwilligungPayload: FLSelbstEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSpielerSelbstEinwilligungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -4873,7 +4680,7 @@ export const spielerPatchEinwilligung = async (
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielerSelbstEinwilligungPayload),
+    body: JSON.stringify(fLSelbstEinwilligungPayload),
   });
 };
 
@@ -5124,7 +4931,7 @@ export const getSpielortePostSpielortUrl = () => {
 export const spielortePostSpielort = async (
   fLPostSpielortPayload: FLPostSpielortPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLPostSpielortResponse> => {
+): Promise<FLCreatedResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -5137,7 +4944,7 @@ export const spielortePostSpielort = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLPostSpielortResponse>(getSpielortePostSpielortUrl(), {
+  return adminKeyTransport<FLCreatedResponse>(getSpielortePostSpielortUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },

@@ -64,7 +64,6 @@ from app.api.identitaet.services import (
 from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.registrierungen.crud import erase_registrierungen_in_session
 from app.api.registrierungen.services import build_eigene_registrierung_filter
-from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.crud import ensure_ghost_schiedsrichter, erase_referee_in_session
 from app.api.sperrliste.lookup import BanList
 from app.api.spielberichte.crud import repoint_referee_reports_in_session
@@ -83,6 +82,7 @@ from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR_EMAIL
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
+from app.shared.schemas.literals import FLSaisonStatus
 
 
 async def _statuses_of(

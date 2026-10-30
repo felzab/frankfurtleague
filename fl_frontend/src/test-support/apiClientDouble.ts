@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, vi } from "vitest";
 
 import { dispatchRequest, sentRequestOf } from "@/core/apiDispatch.ts";
 
+import type * as Api from "@/core/api.ts";
 import type { FetchOptions } from "@/core/api.ts";
 
 /** One request a module handed the backend client: the path, and what it went with. */
@@ -17,8 +18,14 @@ export type ApiCall = {
   authType: FetchOptions["authType"];
 };
 
-/** The response schema the caller handed the client, which an answer is parsed through where the case wants its shape held. */
+/**
+ * The response schema a hand-written caller handed `apiClient`, which an answer is parsed through where the case wants
+ * its shape held. A generated call hands none, and stands under `ANSWERED_AS_IS`.
+ */
 export type ApiSchema = { parse: (value: unknown) => unknown };
+
+/** What a generated call's answer passes through: nothing, as the real `sendToBackend` parses nothing. */
+const ANSWERED_AS_IS: ApiSchema = { parse: (value) => value };
 
 /** What a caller hands the client beside the endpoint and the schema. */
 type ApiOptions = {
@@ -31,10 +38,11 @@ type ApiOptions = {
 };
 
 /**
- * Stands in for `fl_frontend/src/core/api.ts`'s `apiClient`, recording every call and answering each
- * with what `answer` returns or throws. Called before the caller's `await import`: `vi.doMock` reaches
- * only the modules imported after it. The real module is never loaded, so a subject reaching any other
- * export of it fails on Vitest's missing-export error rather than running against the real backend.
+ * Stands in for `fl_frontend/src/core/api.ts`'s two senders, `apiClient` and the `sendToBackend` every generated call
+ * reaches through `core/transport.ts`, recording every call and answering each with what `answer` returns or throws.
+ * Called before the caller's `await import`: `vi.doMock` reaches only the modules imported after it. The module's other
+ * exports stay the real ones (Vitest's `importOriginal` partial mock), so the transport's path and query helpers run as
+ * they do in production, and no call reaches the real backend.
  */
 export function doubleApiClient(answer: (call: ApiCall, schema: ApiSchema) => unknown): ApiCall[] {
   const calls: ApiCall[] = [];
@@ -56,7 +64,13 @@ export function doubleApiClient(answer: (call: ApiCall, schema: ApiSchema) => un
       return answer(call, schema);
     });
   };
-  vi.doMock("@/core/api.ts", () => ({ apiClient }));
+  // A generated call: its query is already in `endpoint`, and its tier is the operation's own.
+  const sendToBackend = (endpoint: string, options: ApiOptions = {}): Promise<unknown> => apiClient(endpoint, ANSWERED_AS_IS, options);
+  vi.doMock("@/core/api.ts", async (importOriginal) => ({
+    ...(await importOriginal<typeof Api>()),
+    apiClient,
+    sendToBackend,
+  }));
 
   return calls;
 }
@@ -82,8 +96,8 @@ type ApiAnswer = (call: ApiCall) => Promise<unknown>;
 
 /**
  * `doubleApiClient` answering every call with `answer`, until `answerWith` names another for the rest
- * of that case: the double a suite drives a slice's real `mutations.ts` through. Each answer passes
- * through the schema its caller handed, as a real response does.
+ * of that case: the double a suite drives a slice's real `mutations.ts` through. Each answer passes through the schema
+ * its caller handed.
  */
 export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({ acknowledged: 1 })): {
   calls: ApiCall[];

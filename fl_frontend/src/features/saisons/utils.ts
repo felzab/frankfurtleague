@@ -1,7 +1,7 @@
 import { SPIELPLAN_ZURUECKNEHMEN } from "./constants";
 
 import type { NextPageProps } from "@/shared/types/types";
-import type { FLSpiel, FLSpielTeamField } from "../spiele/schemas";
+import type { FLSpiel, FLSpielTeamField } from "../spiele/types";
 import type { FLGruppenNames } from "../teams/schemas";
 import type { FLSaisonPhase, FLSaisonPhaseSchedule, FLSaisonStatus } from "./schemas";
 import type { SaisonGruppenOccupancy, SaisonGruppenSwapContext, SaisonSpieltagBound, SaisonSwapTeam, SpielplanBestand } from "./types";

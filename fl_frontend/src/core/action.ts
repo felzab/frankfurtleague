@@ -93,6 +93,7 @@ type Lane<Schema extends z.ZodType, Value> = AdminLane<Schema, Value> | PersonLa
 /** Every code that means the page was read before something changed: a reload shows the record as it stands. */
 const STALE: ReadonlySet<Code> = new Set<Code>([
   "DB-COMMON-001",
+  "DB-COMMON-003",
   "REQ-BOOKING-003",
   "REQ-WIRING-001",
   "REQ-WIRING-002",

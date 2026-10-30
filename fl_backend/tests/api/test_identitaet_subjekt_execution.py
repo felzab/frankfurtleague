@@ -12,10 +12,10 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identitaet.router import get_anmeldung, get_subjekt
 from app.api.identitaet.schemas import FLSubjektPayload, FLSubjektResponse
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import SYSTEM_AUTH

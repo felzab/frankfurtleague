@@ -13,7 +13,7 @@ import { formatSpielDatum, formatUhrzeit, nichtHinterlegt, PLACEHOLDER } from "@
 import { SPIELBERICHT_GESCHLOSSEN } from "../../constants";
 import { SCHIEDSRICHTER_HREF } from "./SpielberichtZustandView";
 
-import type { FLSpielberichtPersonFruehererEintrag } from "../../schemas";
+import type { FLSpielberichtPersonFruehererEintrag } from "@/core/generated/client/types";
 import type { SchiedsrichterSpielberichte } from "../../types";
 
 const LEER = "Gerade steht kein Spiel für einen Spielbericht an.";

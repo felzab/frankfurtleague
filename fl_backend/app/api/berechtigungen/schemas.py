@@ -6,6 +6,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomStrippedNonEmptyString
 from app.shared.schemas.kontakt import CustomEmail
+from app.shared.schemas.literals import FLAdresswechselEinsehbarVerwehrt, FLAdresswechselWeg, FLGenehmigungVerwehrt, FLVerwaltung
 from app.shared.schemas.responses import BaseAPIResponse
 
 
@@ -17,22 +18,6 @@ def as_utc(moment: datetime) -> datetime:
 
 # Every instant a grants route serves, which then carries its offset.
 FLUtcInstant = Annotated[datetime, AfterValidator(as_utc)]
-
-# Closed, and mirrored by `app/core/constraints.py :: _VERWALTUNG`. `owner` holds every power
-# `administration` does and is reached only by an owner's tier change, never by a grant.
-FLVerwaltung = Literal["owner", "administration"]
-
-# Why an administrator may not approve an act on a grant: their own address, their own start, an owner's act without an
-# owner's power, or a grant or tier younger than the request.
-FLGenehmigungVerwehrt = Literal["eigene", "gestartet", "inhaber", "juenger"]
-
-# How an address change takes effect: the person's own start, an administrator's the address on file approves, or an
-# administrator's with a recorded reason, waiting after its confirmation. Here, below both slices, for a grant's approval row.
-FLAdresswechselWeg = Literal["konto", "freigabe", "wartezeit"]
-
-# Why the address tool refuses this reader an address's change, served beside every id a page links into it:
-# `eigene` their own address (`REQ-PURGE-003`), `verwaltung` a grant holder's without an owner's power (`REQ-PURGE-005`).
-FLAdresswechselEinsehbarVerwehrt = Literal["eigene", "verwaltung"]
 
 # What happened to one grant: added, removed, or its tier changed in place, by the tier change or by
 # a database edit. An address changed in place is a removal and a grant, never `geaendert`.

@@ -24,11 +24,11 @@ from app.api.spielbestaetigungen.services import (
     seat_entry_image_edits,
 )
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, anchor_in_db, erase_many_from_db, patch_many_in_db, pull_many_from_db
 from app.core.recording import build_redaction_filter, build_redaction_update
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # --- The LINK's view and answer.
 

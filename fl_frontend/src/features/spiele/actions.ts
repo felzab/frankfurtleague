@@ -1,6 +1,6 @@
 "use server";
 
-import { FLSpielberichtBerichtSchema } from "@/features/spielberichte/schemas";
+import { SpielePatchSpielDataQueryParams } from "@/core/generated/zod/inputs";
 import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -20,7 +20,13 @@ type MovedFixtures = {
   releasedFixtures?: number[];
 };
 
-export async function patchAdminSpielDataAction(rawPayload: unknown, rawUebernimmtBericht: unknown): Promise<ActionResult<MovedFixtures>> {
+/**
+ * What the SAVE answers on top of that: whether the report adoption it was asked for was stamped, `false` where the
+ * report changed since the editor was seeded from it, `null` where none was asked.
+ */
+type SavedFixtures = MovedFixtures & { berichtUebernommen?: boolean | null };
+
+export async function patchAdminSpielDataAction(rawPayload: unknown, rawUebernimmtBericht: unknown): Promise<ActionResult<SavedFixtures>> {
   return runAdminMutation("patchAdminSpielDataAction", async () => {
     const validated = FLPatchSpielDataPayloadSchema.safeParse(rawPayload);
 
@@ -33,13 +39,13 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawUebernim
     }
 
     // A failed parse costs the adoption, never the edit: the report reads not adopted, and adopting it again repairs that.
-    const uebernimmtBericht = FLSpielberichtBerichtSchema.shape.version.nullable().safeParse(rawUebernimmtBericht);
+    const uebernimmtBericht = SpielePatchSpielDataQueryParams.shape.uebernimmt_bericht.safeParse(rawUebernimmtBericht);
 
     // A refusal reaches the form rather than the error page: it is about what was submitted, and
     // the editor is where the wrong value still sits.
     let patch_operation;
     try {
-      patch_operation = await patchAdminSpielData(validated.data, uebernimmtBericht.success ? uebernimmtBericht.data : null);
+      patch_operation = await patchAdminSpielData(validated.data, uebernimmtBericht.success ? (uebernimmtBericht.data ?? null) : null);
     } catch (error) {
       const refusal = mapSpielRefusal(error);
       if (refusal) return { success: false, error: refusal.error ?? VALIDATION_FAILED, fieldErrors: refusal.fieldErrors };
@@ -55,6 +61,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawUebernim
       // own forfeit, so `voided_sonderereignis` never travels without the result it produced.
       voidedFixtures: patch_operation.advanced_to.filter((advancement) => advancement.voided_ergebnis !== null).map((entry) => entry.spiel_nr),
       releasedFixtures: patch_operation.released_sides.map((released) => released.spiel_nr),
+      berichtUebernommen: patch_operation.bericht_uebernommen,
     };
   });
 }

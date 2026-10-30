@@ -2,9 +2,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.api.zustellung.schemas import ZIELE_JE_SITZ, FLZustellungZiel
 from app.core.collections import Collection
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # The key the record hangs under inside its carrier. Spelled once because the judges this slice
 # shares read it off the carrier (`app/api/bewerbungen/services.py :: seat_zustellung`), so a second

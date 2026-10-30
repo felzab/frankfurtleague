@@ -8,7 +8,7 @@ import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type { SpielBannerAnsetzung } from "@/features/spiele/components/forms/AdminEditSpielDataForm/banners";
-import type { FLSpiel } from "@/features/spiele/schemas";
+import type { FLSpiel } from "@/features/spiele/types";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { AntwortStand } from "./constants";
 import type {

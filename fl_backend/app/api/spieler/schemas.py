@@ -1,8 +1,8 @@
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
-from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt
+from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.bounds import (
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
@@ -12,6 +12,13 @@ from app.shared.schemas.bounds import (
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLEinwilligungStandPayload
 from app.shared.schemas.kontakt import CustomKontaktName
+from app.shared.schemas.literals import (
+    FLAdresswechselEinsehbarVerwehrt,
+    FLEinwilligungUmfang,
+    FLSortOrder,
+    FLSpielerPosition,
+    FLSpielerStufe,
+)
 from app.shared.schemas.responses import BaseAPIResponse
 
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
@@ -23,35 +30,23 @@ SQUAD_NUMMER_PATTERN = r"^[0-9]{1,4}$"
 # there is one Literal.
 FLSpielerSortOptions = Literal["vorname", "nummer", "position"]
 
-# In the order a squad sheet lists them. `sort_by="position"` sorts the STRING, so a public squad
-# list is alphabetical instead.
-FLSpielerPosition = Literal["Tor", "Abwehr", "Mittelfeld", "Angriff"]
-
-# The Hessen Oberstufe, both phases. E2 is offered although no row holds it: a set stopping at what
-# a season contains would refuse an entry as the year turns.
-FLSpielerStufe = Literal["E1", "E2", "Q1", "Q2", "Q3", "Q4"]
-
 # Slugs rather than the German `position` and `stufe` store: a role also has a label and a badge
 # Kuerzel, and a stored German word would be a third spelling for those two to drift from.
-FLSpielerRolle = Literal["kapitaen", "co_kapitaen"]
-
-# An alias rather than inline: the payloads that set it answer in the record's own vocabulary.
-FLEinwilligungUmfang = Literal["kader_oeffentlich", "intern"]
+type FLSpielerRolle = Literal["kapitaen", "co_kapitaen"]
 
 
 class FLEinwilligung(BaseModel):
     """What this person agreed may be published about them.
 
-    The keys the validator requires stand TOGETHER, as `FLAustritt` does: a scope with no
-    confirmation date claims somebody consented, and no surface can tell that from one somebody gave.
+    Its keys stand TOGETHER, as `FLAustritt`'s do: a scope with no confirmation date claims somebody
+    consented, and no surface can tell that from one somebody gave.
     """
 
     umfang: FLEinwilligungUmfang
     # The day consent was given. A record is born of its person's own confirmation, so it is that day.
     datum: CustomDateString
-    # The day its person confirmed it: a record is born confirmed. Null only as a stamp a hand edit
-    # blanked reads, which every reader takes for none rather than refusing the row.
-    bestaetigt_am: CustomOptionalDateString
+    # The day its person confirmed it: a record is born confirmed.
+    bestaetigt_am: CustomDateString
     # A label of `fl_backend/app/shared/einwilligung.py :: FASSUNGEN` and never the words, as
     # `app/api/teams/schemas.py :: FLKontaktKenntnisnahme` holds one: a rewording must not change what
     # a stored record claims.
@@ -83,8 +78,7 @@ class _SaisonSpielerWritable(BaseModel):
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
     # On the JUNCTION, not the person: a role is held within one team for one season. ONE field
-    # rather than a flag per role, because two booleans can both be true and no validator sees a
-    # second field to refuse it.
+    # rather than a flag per role, because two booleans can both be true.
     rolle: FLSpielerRolle | None
 
 
@@ -105,10 +99,7 @@ class FLSpielerPublic(_SpielerPerson):
     # Narrowed from `_SpielerPerson`'s non-empty string: the mask answers `null` for a person whose
     # record does not publish them (`READ-PUPIL-003`), and a required forename would 500 the squad
     # list over a withheld row rather than withholding it.
-
-    # DEFAULTED for a row the `spieler` validator refuses, one hand-written without the key: the
-    # mask's published arm is `$vorname` itself, so such a row reaches `$project` with no key at all.
-    vorname: str | None = None
+    vorname: str | None
 
     # Defaulted because an unnarrowed read joins LOOSELY: a person whose every squad row is retired
     # survives the unwind, and `$project` omits a joined key rather than nulling it. Required fields
@@ -123,8 +114,9 @@ class FLSpielerRecord(_SpielerPerson):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
     # Widened on this stored shape alone, for the erased pupils' sentinel
-    # (`app/core/sentinels.py :: GHOST_SPIELER_ID`). Every served model keeps the forename required:
-    # no read serves the sentinel, so a null reaching one is that exclusion failing.
+    # (`app/core/sentinels.py :: GHOST_SPIELER_ID`), and refused on every other row below. Every served
+    # model keeps the forename required: no read serves the sentinel, so a null reaching one is that
+    # exclusion failing.
     vorname: CustomNonEmptyString | None
 
     # The day this PERSON left the league. Distinct from the squad row's own `inactive_since`: a
@@ -139,6 +131,19 @@ class FLSpielerRecord(_SpielerPerson):
     # seam joining a signed-in person to this row is an equality on the stored value, and a raw write
     # breaks it silently.
     email: str | None = None
+
+    @model_validator(mode="after")
+    def _only_the_sentinel_is_nobody(self) -> Self:
+        # Every write but the sentinel's stores all three: an admission carries its confirmed
+        # registration's name, date and record, and the administrator's edit requires the name and the
+        # date. No write gives the sentinel an address, which every address lookup would otherwise find
+        # as somebody's pupil. Either state is a hand edit, which the read-back names.
+        if self.id == GHOST_SPIELER_ID:
+            if self.email is not None:
+                raise ValueError("the erased pupils' sentinel holds no address")
+        elif any(value is None for value in (self.vorname, self.geburtsdatum, self.einwilligung)):
+            raise ValueError("only the erased pupils' sentinel stores no forename, birthdate or consent record")
+        return self
 
 
 class FLSpieler(FLSpielerRecord, _SaisonSpielerWritable):
@@ -191,7 +196,7 @@ class FLSpielerFilterParams(BaseModel):
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: FLSpielerSortOptions = Field(default="position")
-    order: Literal["asc", "desc"] = Field(default="asc")
+    order: FLSortOrder = Field(default="asc")
 
 
 class FLPatchSpielerPayload(BaseModel):
@@ -451,10 +456,6 @@ class SelbstEinwilligungPayload(BaseModel):
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
     # The record's `nachweis_stand` as the page was served it.
     nachweis_stand: FLEinwilligungStandPayload
-
-
-class FLSpielerSelbstEinwilligungPayload(SelbstEinwilligungPayload):
-    pass
 
 
 class FLSpielerSelbstEinwilligungResponse(BaseAPIResponse):

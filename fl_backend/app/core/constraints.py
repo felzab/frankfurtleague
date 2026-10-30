@@ -8,10 +8,10 @@ from pymongo import ASCENDING, DESCENDING
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.crud import GERMAN_COLLATION
 from app.shared.schemas.bounds import ADRESSWECHSEL_NACHLAUF_TAGE, AKTION_RETENTION_SECONDS
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 
 @dataclass(frozen=True)

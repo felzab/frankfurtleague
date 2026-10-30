@@ -12,24 +12,22 @@ from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
 
-from app.api.berechtigungen.schemas import FLAdresswechselEinsehbarVerwehrt, FLVerwaltung
 from app.api.berechtigungen.services import OWNER, holds_an_owners_power, lebendige, verwaltung_des
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
 from app.api.identitaet.schemas import FLErasureAnsicht, FLSelbstErasureAnsicht, FLSubjekt, FLSubjektSitz
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import SUBMITTED, build_eigene_registrierung_filter, build_erasure_registrierung_filter
-from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.services import (
     build_selbst_referee_filter,
     build_unplayed_assignment_filter,
 )
 from app.api.spieler.services import build_real_spieler_filter, build_selbst_pupil_filter
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import is_stored_identifier, sign_in_identifier
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAdresswechselEinsehbarVerwehrt, FLSaisonStatus, FLVerwaltung
 
 # --- The SELECTIONS, each shared with its record's own person-tier reads rather than spelled again.
 # Unnarrowed by retirement or withdrawal: `_judged` narrows the Funktionen.
@@ -526,7 +524,7 @@ def find_eigene_adresse_refusal(*, identifier: str, akteur: str) -> WriteRefusal
 
 
 # The erasure's and its reveal's: the one ends the grant, the other opens the holder's records.
-JEDE_VERWALTUNG: Final[frozenset[str]] = frozenset(get_args(FLVerwaltung))
+JEDE_VERWALTUNG: Final[frozenset[str]] = frozenset(get_args(FLVerwaltung.__value__))
 # The sign-out's: an ended session is repaired by signing in again, so only an owner's is held back.
 NUR_INHABER: Final[frozenset[str]] = frozenset({OWNER})
 

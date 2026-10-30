@@ -10,7 +10,6 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.bewerbungen.services import build_schluessel_filter, days_after, hash_token, mint_token, payload_fingerabdruck
 from app.api.einladungen.services import find_live_einladung_filter, find_unknown_einladung_refusal
 from app.api.registrierungen.schemas import (
-    FLEinladungAnsichtPayload,
     FLEinladungAnsichtResponse,
     FLPostRegistrierungPayload,
     FLPostRegistrierungResponse,
@@ -47,6 +46,7 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
 
 # `bind_public_actor`, never `bind_actor`: no browser sends `X-FL-Actor`, so that guard would refuse
@@ -99,7 +99,7 @@ async def _open_einladung(*, einladungen_collection: Any, token: str, session: A
     summary="What a registration link opens",
 )
 async def post_einladung_ansicht(
-    ansicht_data: Annotated[FLEinladungAnsichtPayload, Body()],
+    ansicht_data: Annotated[FLTokenPayload, Body()],
     einladungen_collection: EinladungenCollection,
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.bewerbungen.schemas import FLBewerbungPersonEinwilligungPayload, FLBewerbungPersonEinwilligungResponse
+from app.api.bewerbungen.schemas import FLBewerbungPersonEinwilligungResponse
 from app.api.identitaet.services import eigene_sitze
 from app.api.konto.crud import press_widerruf
 from app.api.konto.services import (
@@ -16,7 +16,6 @@ from app.api.konto.services import (
     sitz_wahlen_der_zeile,
     widerruf_line,
 )
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
@@ -27,6 +26,8 @@ from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, loeschung
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.einwilligung import FLSitzEinwilligungPayload
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # The person lane's binder, as `app/api/teams/person_router.py` declares it and for its reason.
 router = APIRouter(
@@ -43,26 +44,17 @@ router = APIRouter(
 )
 async def patch_einwilligung(
     bewerbung_id: CustomRouteObjectId,
-    einwilligung_data: Annotated[FLBewerbungPersonEinwilligungPayload, Body()],
+    einwilligung_data: Annotated[FLSitzEinwilligungPayload, Body()],
     identifier: KontaktIdentifier,
     bewerbungen_collection: BewerbungenCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungPersonEinwilligungResponse:
-    """
-    Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
+    """Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.
 
-    WITHDRAW-ONLY: the season seat's payload, a grant of either choice being the confirmation page's alone; the
-    account page offers it so taking a consent back is as easy as giving it was (Art. 7(3) DSGVO). One answer for
-    every seat the person holds there, each choice moving only where it differs from the application as the page
-    served it; no other seat, field or document is written, and a press moving no seat writes nothing. Nothing is
-    counted against the person's ceiling.
-
-    Refuses, in this order: an application that is decided or holds no confirmed seat of the address
-    (`REQ-FUNKTION-001`); a `nachweis_stand` other than the held seats' own, either choice having moved since the
-    page was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-EINWILLIGUNG-004`); and a `text_version`
-    naming no version of the account page's seat control (`REQ-EINWILLIGUNG-001`). Each refusal writes nothing.
+    A grant is refused. Refuses, writing nothing: `REQ-FUNKTION-001`, `REQ-EINWILLIGUNG-003` (the choices moved since the
+    page was served), `REQ-EINWILLIGUNG-004` and `REQ-EINWILLIGUNG-001`.
     """
 
     gedrueckt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}

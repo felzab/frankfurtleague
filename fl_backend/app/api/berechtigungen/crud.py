@@ -14,7 +14,6 @@ from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.berechtigungen.schemas import FLVerwaltung
 from app.api.berechtigungen.services import (
     berechtigt_seit,
     compare,
@@ -37,6 +36,7 @@ from app.core.crud import (
     pull_many_from_db,
 )
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from app.shared.schemas.literals import FLVerwaltung
 
 
 async def read_berechtigungen(

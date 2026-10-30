@@ -11,8 +11,8 @@ import { PILL_RADIUS_CLASSES, PILL_TINT_CLASSES } from "@/shared/components/ui/b
 
 import { SPIEL_STATUS_LABELS } from "../../constants";
 
+import type { FLSpielStatus } from "@/core/generated/client/types";
 import type { PillTone } from "@/shared/components/ui/badges";
-import type { FLSpielStatus } from "../../schemas";
 
 // The chip's own vocabulary and never a member of `FLSpielStatus`, the backend's filter enum: no
 // reader filters fixtures by a confirmation.

@@ -18,20 +18,23 @@ from app.api.spieler.schemas import (
     FLSaisonSpielerRow,
     FLSpieler,
     FLSpielerMembership,
+    FLSpielerRecord,
     FLSpielerWithMemberships,
 )
+from app.api.spieler.services import build_ghost_spieler
 from app.api.spielorte.schemas import FLPostSpielortPayload, FLSpielort
 from app.api.spieltage.schemas import FLPatchSpieltagPayload, FLSpieltag
 from app.api.teams.schemas import (
     MAX_NUMBER_OF_GROUPS,
-    FLGruppenNames,
     FLKontaktpersonPayload,
     FLPatchSaisonTeamPayload,
     FLPostSaisonTeamPayload,
     FLPostTeamPayload,
 )
 from app.shared.schemas.bounds import KONTAKT_NAME_MAX_LENGTH, SAISON_ID_LENGTH
+from app.shared.schemas.literals import FLGruppenNames
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import spieler_document
 from tests.worker import worker_database
 
 EINWILLIGUNG_DATABASE_NAME = worker_database("fl_einwilligung_validator_test")
@@ -69,7 +72,7 @@ class TestTheGroupNames:
     def test_the_closed_set_is_the_naming_rule_s_own_prefix(self):
         """The one pin on a set a type checker forces us to spell: a fifth name that is not `E` fails here rather than in a season."""
 
-        assert get_args(FLGruppenNames) == gruppen_names(MAX_NUMBER_OF_GROUPS)
+        assert get_args(FLGruppenNames.__value__) == gruppen_names(MAX_NUMBER_OF_GROUPS)
 
     @pytest.mark.parametrize(
         ("count", "expected"),
@@ -227,6 +230,22 @@ class TestSpieler:
 
         with pytest.raises(ValidationError):
             FLSpieler.model_validate(missing)
+
+    @pytest.mark.parametrize("field", ["vorname", "geburtsdatum", "einwilligung"])
+    def test_the_record_refuses_a_person_stored_as_nobody(self, field):
+        """No write stores such a person, so the read-back is the one place a hand edit blanking one shows."""
+
+        with pytest.raises(ValidationError):
+            FLSpielerRecord.model_validate(spieler_document(ObjectId(), **{"vorname": "Max", "nachname": "Mustermann", field: None}))
+
+    def test_the_record_reads_the_sentinel_back(self):
+        assert FLSpielerRecord.model_validate(build_ghost_spieler(), extra="forbid").vorname is None
+
+    def test_the_record_refuses_the_sentinel_holding_an_address(self):
+        """No lookup by address excludes the sentinel, so the read-back is where one given an address shows."""
+
+        with pytest.raises(ValidationError):
+            FLSpielerRecord.model_validate({**build_ghost_spieler(), "email": "geist@schule.example"})
 
     @pytest.mark.parametrize("absent", [True, False], ids=["absent", "null"])
     def test_the_person_patch_requires_a_birthdate(self, absent: bool):
@@ -542,7 +561,7 @@ class TestSaison:
     def test_the_group_cap_is_the_size_of_the_closed_set(self, saison):
         """`NumberOfGroups` reads the set's size, and this is what refuses a hand-written number back in its place.
 
-        `offered_gruppen` slices `get_args(FLGruppenNames)`, so a cap over that size is a season the
+        `offered_gruppen` slices `get_args(FLGruppenNames.__value__)`, so a cap over that size is a season the
         entry path serves short of the groups it promised.
         """
         cap = MAX_NUMBER_OF_GROUPS
@@ -707,6 +726,19 @@ STRIPPED_WRITE_FIELDS = [
     "saison_team.austritt.grund",
 ]
 
+# The fixed-width ids, whose ceiling is counted on arrival, and every `CustomKontaktName`, whose pattern
+# is: a padded value is refused rather than stored stripped.
+PADDING_REFUSED_FIELDS = [
+    "saison.id",
+    "saison_team.saison_id",
+    "saison_spieler.saison_id",
+    "kontaktperson.nachname",
+    "kontaktperson.vorname",
+    "schiedsrichter.name",
+    "spieler_patch.nachname",
+    "spieler_patch.vorname",
+]
+
 # A run of spaces at every width up to the widest floor the table carries. An exact-width field is
 # refused at any OTHER width by its ceiling, so one probe would pass it for a reason of its own.
 WHITESPACE_RUNS = [" " * width for width in range(1, SAISON_ID_LENGTH + 1)]
@@ -805,12 +837,20 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
 
         assert _stored(model.model_validate(body), path) == _sent(body, path)
 
-    @pytest.mark.parametrize("label", STRIPPED_WRITE_FIELDS)
+    @pytest.mark.parametrize("label", [label for label in STRIPPED_WRITE_FIELDS if label not in PADDING_REFUSED_FIELDS])
     def test_a_padded_value_is_stored_stripped(self, cases, label):
         model, body, path = cases[label]
         original = _sent(body, path)
 
         assert _stored(model.model_validate(_with(body, path, f"  {original}  ")), path) == original
+
+    @pytest.mark.parametrize("label", PADDING_REFUSED_FIELDS)
+    def test_a_padded_value_is_refused(self, cases, label, assert_rejects):
+        """The published schema is what the backend accepts, so a value its ceiling or pattern refuses padded is never repaired."""
+
+        model, body, path = cases[label]
+
+        assert_rejects(model, _with(body, path, f" {_sent(body, path)} "), path[-1])
 
     @pytest.mark.parametrize("blank", WHITESPACE_RUNS, ids=[str(len(run)) for run in WHITESPACE_RUNS])
     @pytest.mark.parametrize("label", STRIPPED_WRITE_FIELDS)

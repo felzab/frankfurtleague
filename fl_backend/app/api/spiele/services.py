@@ -24,7 +24,6 @@ from app.api.spiele.schemas import (
     FLBracketFaultSpiel,
     FLBracketFaultSpieltag,
     FLPatchSpielDataPayload,
-    FLSonderereignis,
     FLSpiel,
     FLSpielCommon,
     FLSpieleFilterParams,
@@ -45,7 +44,6 @@ from app.api.spiele.schemas import (
     is_unplayed,
     records_an_absence,
 )
-from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import DecidedStanding, offered_gruppen
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -54,6 +52,7 @@ from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import NAME_IS_PUBLIC
 from app.shared.schemas.custom import CustomObjectId
+from app.shared.schemas.literals import FLGruppenNames, FLSonderereignis, FLSpielSeite
 
 
 def build_spiele_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
@@ -97,7 +96,7 @@ def build_spiele_filter(filters: FLSpieleFilterParams, today: str) -> dict[str, 
 SAISON_TEAMS_AS_NAME = "saison_teams_rows"
 
 
-def _joined_side(side: Literal["team1", "team2"]) -> Mapping[str, Any]:
+def _joined_side(side: FLSpielSeite) -> Mapping[str, Any]:
     """One side with its season state folded in. `$mergeObjects`, never a rebuilt object: listing the keys copies `FLSpielTeamField`."""
 
     # Not `$getField`, which needs MongoDB 5.0: the test tier's container cannot speak for the
@@ -253,7 +252,7 @@ def _referee_lookup() -> Mapping[str, Any]:
             "let": {"schiedsrichter_id": {"$ifNull": ["$schiedsrichter.schiedsrichter_id", None]}},
             "pipeline": [
                 {"$match": {"$expr": {"$eq": ["$_id", "$$schiedsrichter_id"]}}},
-                # The pupils' predicate itself, never a third spelling of it (`fl_backend/tests/api/test_name_is_public_mirror.py`).
+                # The pupils' predicate itself, never a third spelling of it.
                 {"$project": {"_id": 0, NAME_IS_PUBLIC_KEY: NAME_IS_PUBLIC}},
             ],
             "as": SCHIEDSRICHTER_AS_NAME,
@@ -595,7 +594,7 @@ def _seed_from_gruppe(
 
 def _occupant_of(
     spiel: FLSpielCommon,
-    side: Literal["team1", "team2"],
+    side: FLSpielSeite,
     stored: FLSpielTeamField | None,
     quelle: FLSpielQuelle | None,
     walk: _BracketWalk,
@@ -676,7 +675,7 @@ def _resolve_sides(spiel_nr: int, walk: _BracketWalk) -> ResolvedSides:
 
     # Annotated rather than inferred: a bare tuple literal widens each side's name to `str`, which
     # `_occupant_of` then refuses.
-    seats: tuple[tuple[Literal["team1", "team2"], FLSpielTeamField | None, FLSpielQuelle | None], ...] = (
+    seats: tuple[tuple[FLSpielSeite, FLSpielTeamField | None, FLSpielQuelle | None], ...] = (
         ("team1", spiel.team1, spiel.team1_quelle),
         ("team2", spiel.team2, spiel.team2_quelle),
     )
@@ -719,15 +718,14 @@ def _outcome_of(spiel_nr: int, ausgang: str, walk: _BracketWalk) -> FLSpielTeamF
     if an_occupant_changed:
         return None
 
-    # A hand edit can carry goals with no `ergebnis`; advancing from a match the table skips would
-    # put the two at odds (`fl_backend/app/api/teams/services.py :: build_statistik_lookup_stage`).
-    if spiel.ergebnis is None or team1 is None or team2 is None or team1.tore is None or team2.tore is None:
+    # The goals are the result: a save composes `ergebnis` from them, so the two agree.
+    if team1 is None or team2 is None or team1.tore is None or team2.tore is None:
         return None
 
     if team1.tore == team2.tore:
-        # Read only here, so the bracket and the table disagree about this fixture on purpose.
-        # A group draw is final; that arm covers a hand edit.
-        if spiel.saison_phase == "gruppenphase" or spiel.elfmeterschiessen is None:
+        # Read only here, so the bracket and the table disagree about this fixture on purpose. No group
+        # fixture reaches this: a group feeder is a fault the walk reports before asking its outcome.
+        if spiel.elfmeterschiessen is None:
             return None
 
         # Total, because `FLSpielElfmeterschiessen` refuses a level shoot-out.
@@ -933,7 +931,7 @@ class ComposedResult:
 
     team1_tore: int | None
     team2_tore: int | None
-    absent_side: Literal["team1", "team2"] | None
+    absent_side: FLSpielSeite | None
 
     @property
     def ergebnis(self) -> str | None:
@@ -1372,7 +1370,7 @@ def _first_clash(*, datum: str, uhrzeit: str, booked: Sequence[BookedSlot]) -> t
 
 
 def find_result_removal_refusal(spiel_id: CustomObjectId, payload: FLPatchSpielDataPayload, season: Sequence[FLSpiel]) -> WriteRefusal | None:
-    """Why emptying a side must be refused. Keyed on the STORED goals: a hand edit can hold `tore` with no `ergebnis`."""
+    """Why emptying a side that holds stored goals must be refused."""
 
     stored = stored_in_slice(spiel_id, season)
 
@@ -1551,7 +1549,7 @@ class SpieltagRelease:
 
     spiel_id: CustomObjectId
     spiel_nr: int
-    side: Literal["team1", "team2"]
+    side: FLSpielSeite
     team_name: str
     other_side_present: bool
     voided_ergebnis: str | None
@@ -1589,7 +1587,7 @@ def judge_spieltag_occupancy(spiel_id: CustomObjectId, payload: FLPatchSpielData
 
     # Sorted, so a refusal names the earliest offending fixture and two runs plan the same releases.
     for other in sorted(same_spieltag, key=lambda spiel: spiel.spiel_nr):
-        sides: tuple[tuple[Literal["team1", "team2"], FLSpielTeamField | None, FLSpielQuelle | None], ...] = (
+        sides: tuple[tuple[FLSpielSeite, FLSpielTeamField | None, FLSpielQuelle | None], ...] = (
             ("team1", other.team1, other.team1_quelle),
             ("team2", other.team2, other.team2_quelle),
         )

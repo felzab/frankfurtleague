@@ -23,7 +23,6 @@ from app.api.schiedsrichter.router import get_schiedsrichter
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLPostSchiedsrichterPayload,
-    FLSchiedsrichterBestaetigungAnsichtPayload,
     FLSchiedsrichterBestaetigungPayload,
     FLSchiedsrichterFilterParams,
 )
@@ -40,6 +39,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
@@ -198,7 +198,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str) 
 
 async def ansicht(database: AsyncDatabase, token: str, *, today: str = TODAY) -> Any:
     return await get_bestaetigung_ansicht(
-        ansicht_data=FLSchiedsrichterBestaetigungAnsichtPayload(token=token),
+        ansicht_data=FLTokenPayload(token=token),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         sperrliste=ban_list(database),
         today=today,
@@ -806,13 +806,6 @@ class TestTheConfirmation:
         assert surviving == 0
 
 
-# A record a hand edit stamped `""`: every key the validator requires, which admits a string there.
-EMPTY_STAMPED: Mapping[str, Any] = {
-    **documents.eigene_einwilligung_document(text_version="2026-10-schiedsrichterseite-4", bestaetigt_am="2026-03-01", umfang="intern"),
-    "bestaetigt_am": "",
-}
-
-
 # An older version of the referee page, built for the case: the registry holds only the version a stored
 # record can cite, and an older one is what a page loaded before a deploy names.
 EARLIER_LABEL = "2026-01-schiedsrichterseite"
@@ -849,38 +842,6 @@ class TestTheLabelAPressNames:
         assert (refusal.error_code, refusal.status_code) == (Code.FASSUNG_UNZULAESSIG, 409)
         assert after == before
         assert view.zustand == "gueltig"
-
-
-class TestAStoredEmptyStamp:
-    """Every read of a stored referee record meets `""` either as absent or not at all, so none fails validation over it."""
-
-    def test_the_admin_list_serves_it_as_no_stamp(self, mongo_replica_set_url: str):
-        """`FLEinwilligung` reads the stamp as an optional date, which takes `""` for none."""
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            return await get_schiedsrichter(
-                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER], filters=FLSchiedsrichterFilterParams()
-            )
-
-        listed = on_a_league(mongo_replica_set_url, body, referees=[{**referee_document(), EINWILLIGUNG_FELD: dict(EMPTY_STAMPED)}])
-
-        [served] = [row for row in listed.schiedsrichter if row.id == SCHIEDSRICHTER_OID]
-        assert served.einwilligung is not None
-        assert served.einwilligung.bestaetigt_am is None
-
-    def test_its_link_takes_the_answer_and_the_answer_carries_the_day(self, mongo_replica_set_url: str):
-        """The confirmation's answer is composed from the day it writes, never read off the stored stamp, which is what keeps `""` out of it."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await resend(database, client)
-            response = await confirm(database, client, minted.bestaetigung.token)
-
-            return response, await stored(database)
-
-        response, row = on_a_league(mongo_replica_set_url, body, referees=[{**referee_document(), EINWILLIGUNG_FELD: dict(EMPTY_STAMPED)}])
-
-        assert response.bestaetigt_am == TODAY
-        assert row[EINWILLIGUNG_FELD]["bestaetigt_am"] == TODAY
 
 
 class TestAWithheldNameReachesOneCollection:

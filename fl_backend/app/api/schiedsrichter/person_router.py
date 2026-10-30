@@ -17,7 +17,6 @@ from app.api.konto.services import (
     widerruf_line,
 )
 from app.api.schiedsrichter.schemas import (
-    FLSchiedsrichterSelbstEinwilligungPayload,
     FLSchiedsrichterSelbstEinwilligungResponse,
     FLSchiedsrichterSelbstResponse,
 )
@@ -38,6 +37,7 @@ from app.core.security import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier, lo
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.einwilligung import FLSelbstEinwilligungPayload
 
 # A person's own router, apart from the admin one and the confirmation one, each binding its own actor
 # at router level: this one records every write under the referee's Funktion.
@@ -74,7 +74,7 @@ async def get_selbst(
 )
 async def patch_einwilligung(
     schiedsrichter_id: CustomRouteObjectId,
-    einwilligung_data: Annotated[FLSchiedsrichterSelbstEinwilligungPayload, Body()],
+    einwilligung_data: Annotated[FLSelbstEinwilligungPayload, Body()],
     identifier: SchiedsrichterIdentifier,
     schiedsrichter_collection: SchiedsrichterCollection,
     records: SubjektLookup,

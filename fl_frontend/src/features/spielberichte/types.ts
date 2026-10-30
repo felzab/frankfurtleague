@@ -1,4 +1,8 @@
-import type { FLSpielberichtAdminResponse, FLSpielberichtePersonResponse } from "./schemas";
+import type {
+  FLSpielberichtAdminResponse,
+  FLSpielberichtePersonResponse,
+  FLSpielberichtSchiedsrichterResponse,
+} from "@/core/generated/client/types";
 
 /**
  * One fixture's report as the editor's panel reads it, and whether the correction page takes a write: it does only
@@ -8,6 +12,9 @@ export type SpielberichtStand = {
   lesen: FLSpielberichtAdminResponse;
   korrigierbar: boolean;
 };
+
+/** What both readers' reads of one report hold: the fixture, the squads, the pupils named, the report and its sides. */
+export type SpielberichtAnsicht = FLSpielberichtAdminResponse | FLSpielberichtSchiedsrichterResponse;
 
 /**
  * The referee panel's reports: the running season's played fixtures and the ended seasons' reports, or why none is

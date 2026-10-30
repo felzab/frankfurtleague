@@ -12,7 +12,7 @@ import { spielortAnlegen } from "../../spielortAnlegen";
 import { SpielortFelder } from "../../SpielortFelder";
 import { SPIELORT_REGELN } from "../../spielortRegeln";
 
-import type { FLSpielort } from "@/features/spielorte/schemas";
+import type { FLSpielort } from "@/core/generated/client/types";
 import type { TableRow } from "@/kit/Table";
 import type { Metadata } from "next";
 

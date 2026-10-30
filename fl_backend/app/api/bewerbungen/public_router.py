@@ -42,7 +42,6 @@ from app.api.bewerbungen.services import (
 )
 from app.api.einwilligung.services import find_fassung_refusal
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, hashes_gesperrt, sperrliste_saison
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
@@ -57,6 +56,7 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import fold_shorthand
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # Base-tier at a prefix whose other two routers are admin: a member of the public applies here, and
 # nothing served below reaches a stored application (`READ-BEWERBUNG-001`).

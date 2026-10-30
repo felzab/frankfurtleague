@@ -4,9 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
-from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import (
-    FLGruppenNames,
     FLKontaktperson,
     FLKontaktpersonPayload,
     FLPatchSaisonTeamKontaktePayload,
@@ -21,6 +19,7 @@ from app.api.teams.schemas import (
     FLTeamStatistik,
 )
 from app.api.teams.services import build_gruppen
+from app.shared.schemas.literals import FLGruppenNames, FLSpielerStufe
 from tests.documents import bestaetigte_kenntnisnahme
 
 # A whole person as a row STORES one. Reused rather than re-spelled: the shape is the read model's,
@@ -86,7 +85,7 @@ def test_rejects_a_group_outside_the_closed_set(team, gruppe):
 
 
 # Read off the set rather than listed, so widening it widens this rather than leaving the new names untried.
-@pytest.mark.parametrize("gruppe", get_args(FLGruppenNames))
+@pytest.mark.parametrize("gruppe", get_args(FLGruppenNames.__value__))
 def test_accepts_every_group_the_closed_set_names(team, gruppe):
     """So the rejection test above cannot be passing for the wrong reason."""
     assert FLTeam.model_validate(team(gruppe=gruppe)).gruppe == gruppe
@@ -310,7 +309,7 @@ class TestTheContactsPatchPayload:
 class TestAContactRecordReadsBackHoweverItWasStored:
     """On the model where breaking it locks itself in.
 
-    The validator types these as bare strings, so an import can store a value no payload would take
+    Nothing in the database types these, so an import can store a value no payload would take
     -- and `GET /teams/memberships` is the only route to repairing the row.
     """
 

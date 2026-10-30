@@ -1,17 +1,15 @@
 from collections.abc import Mapping
-from typing import Any, get_args
+from typing import Any
 
 import pytest
 from pydantic import BaseModel, ValidationError
 
 from app.api.bewerbungen.services import hash_token, mint_token
 from app.api.schiedsrichter.schemas import (
-    FLSchiedsrichterBestaetigungAnsichtPayload,
     FLSchiedsrichterBestaetigungAnsichtResponse,
     FLSchiedsrichterBestaetigungPayload,
     FLSchiedsrichterBestaetigungResponse,
     FLSchiedsrichterMint,
-    FLSchiedsrichterUmfang,
 )
 from app.api.schiedsrichter.services import (
     BESTAETIGUNG_ANSICHT_FIELDS,
@@ -28,9 +26,9 @@ from app.api.schiedsrichter.services import (
     vorname_of,
     zustand_of,
 )
-from app.api.spieler.schemas import FLEinwilligung
 from app.api.zustellung.services import ZIEL_PFADE
 from app.core.collections import Collection
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
 )
@@ -208,11 +206,11 @@ class TestTheTokenPayloadBound:
         raw, _ = mint_token()
 
         assert len(raw) <= BEWERBUNG_TOKEN_MAX_LENGTH
-        assert FLSchiedsrichterBestaetigungAnsichtPayload(token=raw).token == raw
+        assert FLTokenPayload(token=raw).token == raw
 
     def test_a_token_past_the_bound_is_refused_before_a_read(self):
         with pytest.raises(ValidationError):
-            FLSchiedsrichterBestaetigungAnsichtPayload(token="x" * (BEWERBUNG_TOKEN_MAX_LENGTH + 1))
+            FLTokenPayload(token="x" * (BEWERBUNG_TOKEN_MAX_LENGTH + 1))
 
     def test_the_media_answer_is_required_rather_than_defaulted(self):
         """A page omitting it would store the model's answer in place of the person's."""
@@ -233,14 +231,3 @@ class TestTheAgeThisConsentAsks:
 class TestTheDeadlineIsStoredRatherThanDerived:
     def test_the_block_holds_it_so_a_raised_bound_moves_no_link_already_sent(self):
         assert LIVE_BLOCK["frist"] != LIVE_BLOCK["verschickt_am"]
-
-
-class TestTheScopeIsOneSetOfValues:
-    def test_the_payloads_literal_and_the_stored_records_agree_exactly(self):
-        """A second spelling widened alone takes a scope mongod refuses, and the consent press 500s under a green suite."""
-
-        assert get_args(FLSchiedsrichterUmfang) == get_args(FLEinwilligung.model_fields["umfang"].annotation)
-
-    def test_both_wire_shapes_take_that_one_spelling(self):
-        assert FLSchiedsrichterBestaetigungPayload.model_fields["umfang"].annotation is FLSchiedsrichterUmfang
-        assert FLSchiedsrichterBestaetigungResponse.model_fields["umfang"].annotation is FLSchiedsrichterUmfang

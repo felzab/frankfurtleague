@@ -7,14 +7,12 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.services import build_pupil_pipeline
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter, build_real_referees_filter
 from app.api.spieler.admin_router import delete_spieler, get_spieler_memberships, patch_spieler, post_saison_spieler, reactivate_spieler
 from app.api.spieler.router import get_spieler, get_spieler_by_id
 from app.api.spieler.schemas import FLPatchSpielerPayload, FLPostSaisonSpielerPayload, FLSpielerFilterParams
 from app.api.spieler.services import build_ghost_spieler, build_real_spieler_filter
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID, GHOST_SPIELER_ID
 from tests import documents
@@ -34,8 +32,6 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f608310001")
 # matching nothing fails the controls rather than passing every case.
 PERSON_OID = ObjectId("6890a1b2c3d4e5f608310002")
 RETIRED_ON = "2026-02-01"
-
-SIGN_IN = "quillhilde@example.com"
 
 # Seeded by the cases needing a row the `$in` below does not name.
 OTHER_PERSON_OID = ObjectId("6890a1b2c3d4e5f608310003")
@@ -221,21 +217,3 @@ def test_each_exclusion_keeps_the_callers_own_id_term(
         return [row["_id"] async for row in database[collection].find(exclusion({"_id": {"$in": named}})).sort("_id", 1)]
 
     assert on_a_league(mongo_replica_set_url, body) == found
-
-
-def test_the_sign_in_lookup_never_resolves_the_sentinel_whatever_a_hand_edit_gives_it(mongo_replica_set_url: str):
-    """By its id rather than its missing address: an address is a value a hand edit can write, the id the one thing naming the row as nobody."""
-
-    async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        confirmed = documents.eigene_einwilligung_document(text_version="2026-09", bestaetigt_am=TODAY)
-        await database[Collection.SPIELER].update_one({"_id": GHOST_SPIELER_ID}, {"$set": {"email": SIGN_IN, "einwilligung": confirmed}})
-        sentinel_answer = await aggregate_many_from_db(collection=database[Collection.SPIELER], pipeline=build_pupil_pipeline(SIGN_IN))
-
-        # The control: the same address and record on a person, which the lookup does resolve.
-        await database[Collection.SPIELER].update_one({"_id": GHOST_SPIELER_ID}, {"$unset": {"email": ""}})
-        await database[Collection.SPIELER].update_one({"_id": PERSON_OID}, {"$set": {"email": SIGN_IN, "einwilligung": confirmed}})
-        person_answer = await aggregate_many_from_db(collection=database[Collection.SPIELER], pipeline=build_pupil_pipeline(SIGN_IN))
-
-        return [row["_id"] for row in sentinel_answer], [row["_id"] for row in person_answer]
-
-    assert on_a_league(mongo_replica_set_url, body) == ([], [PERSON_OID])

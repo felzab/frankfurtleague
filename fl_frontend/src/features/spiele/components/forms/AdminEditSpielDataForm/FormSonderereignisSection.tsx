@@ -14,8 +14,8 @@ import { listboxRow } from "@/shared/components/ui/refusableOption";
 import { Select } from "@/shared/components/ui/Select";
 import { Switch } from "@/shared/components/ui/Switch";
 
+import type { FLSonderereignis } from "@/core/generated/client/types";
 import type { SpielFieldPath } from "@/features/spiele/draftStatus";
-import type { FLSonderereignis } from "@/features/spiele/schemas";
 import type { Key } from "@heroui/react/rac";
 import type { SpielBanner } from "./banners";
 

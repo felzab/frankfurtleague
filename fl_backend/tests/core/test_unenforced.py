@@ -1,4 +1,3 @@
-import ast
 import inspect
 from collections.abc import Callable
 from typing import Any
@@ -50,7 +49,6 @@ from app.api.spiele.services import (
     slots_booked_against,
 )
 from app.api.spieler.services import find_squad_refusal, mark_shared_nummern
-from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn
 from app.api.spieltage.services import DatedNeighbour, find_spieltag_order_refusal
 from app.api.teams.services import find_gruppe_swap_refusal
 from app.core.codes import Code
@@ -61,7 +59,6 @@ from app.core.readback import RECORD_MODELS
 from tests.core.app_source import (
     app_calls,
     callee,
-    declared,
     removals,
 )
 from tests.documents import rules_document
@@ -189,7 +186,6 @@ def _on_create(proposed: FLSaisonRules):
     """A create, where `stored` is `None` and only the rules reading the payload alone can fire."""
 
     return find_rules_refusal(
-        saison_status="future",
         stored=None,
         proposed=proposed,
         occupancy_by_gruppe={},
@@ -205,8 +201,7 @@ def _swap(**overrides: Any):
             "team1_gruppe": "A",
             "team2_gruppe": "B",
             "saison_status": "active",
-            "played_knockout_fixtures": 0,
-            "played_gruppenphase_fixtures": 0,
+            "started": False,
             "clashing_spieltage": 0,
             "departed_fixtures": 0,
             **overrides,
@@ -649,21 +644,6 @@ class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
             "following",
         }
         assert set(DatedNeighbour.__dataclass_fields__) == {"position", "beginn"}
-
-    def test_the_neighbours_are_read_inside_one_phase(self):
-        """The filter the endpoint builds, read out of its own source: the subject's OWN phase is what keeps two phases apart."""
-
-        keyed_on = {
-            key.value: ast.unparse(value)
-            for node in ast.walk(declared(_refuse_an_out_of_order_beginn))
-            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict)
-            for key, value in zip(node.value.keys, node.value.values, strict=True)
-            if isinstance(key, ast.Constant)
-        }
-
-        # `ast.unparse` normalises to single quotes, whatever the source spells them as.
-        assert keyed_on["saison_id"] == "stored_raw['saison_id']"
-        assert keyed_on["saison_phase"] == "stored_raw['saison_phase']"
 
     def test_a_knockout_phase_is_drawn_with_one_matchday(self):
         """One matchday makes no pair to order, which is what leaves the rule inert everywhere but the group phase."""

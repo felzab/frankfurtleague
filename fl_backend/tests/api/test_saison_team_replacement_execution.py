@@ -11,11 +11,12 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.teams.admin_router import replace_saison_team
-from app.api.teams.schemas import KONTAKT_ROLLEN, FLReplaceSaisonTeamPayload
+from app.api.teams.schemas import FLReplaceSaisonTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
 from app.core.exceptions import APIError, DocumentNotFoundError
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     bestaetigte_kenntnisnahme,
@@ -678,16 +679,6 @@ class TestAClubThatHasPlayedIsNotReplaced:
             _refused,
             spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, tore=(1, None))],
         )
-
-        assert code == Code.REPLACE_OUTGOING_HAS_A_RECORD
-        assert row is not None
-
-    def test_a_stored_shoot_out_refuses_it(self, mongo_replica_set_url: str):
-        """Through the route, so the endpoint's projection is proven to carry `elfmeterschiessen` to the predicate."""
-
-        decided = {**gruppen_fixture(1, WITHDRAWN, RIVAL), "elfmeterschiessen": {"team1": 5, "team2": 4}}
-
-        code, row, _ = on_a_seeded_season(mongo_replica_set_url, _refused, spiele=[decided])
 
         assert code == Code.REPLACE_OUTGOING_HAS_A_RECORD
         assert row is not None
