@@ -2,7 +2,7 @@ import { joinUnd } from "@/core/joinUnd";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
 
-import type { FLTeamSitz } from "../../schemas";
+import type { FLTeamSitz } from "@/core/generated/client/types";
 import type { TeamSeat } from "../../teamSeats";
 
 /** One seat's line: who holds it and whether they confirmed, or that nobody does. */

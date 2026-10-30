@@ -1,17 +1,18 @@
-import { apiClient } from "@/core/api";
-import { FLErasureResponseSchema } from "@/core/schemas";
+import {
+  identitaetEraseAufAnfrage,
+  identitaetGetErasureAnsichtAufAnfrage,
+  identitaetGetReferenzen,
+  identitaetPostAbmeldung,
+} from "@/core/generated/client/sdk";
 
-import { FLAbmeldungResponseSchema, FLErasureAnsichtResponseSchema, FLReferenzenResponseSchema } from "./schemas";
-
-import type { FLErasureResponse } from "@/core/schemas";
 import type {
-  FLAbmeldungPayload,
-  FLErasureAnsichtPayload,
+  FLErasureAdressePayload,
   FLErasureAnsichtResponse,
   FLErasurePayload,
+  FLErasureResponse,
   FLReferenzenPayload,
   FLReferenzenResponse,
-} from "./schemas";
+} from "@/core/generated/client/types";
 
 /**
  * Which of these sign-in addresses no record references, for the account sweep. Here rather than in
@@ -19,42 +20,23 @@ import type {
  */
 export async function postReferenzen(payload: FLReferenzenPayload): Promise<FLReferenzenResponse> {
   // A POST that reads, the addresses in the body: a query string would put them on the access line.
-  return apiClient<FLReferenzenResponse>("/identitaet/referenzen", FLReferenzenResponseSchema, {
-    method: "POST",
-    readOnly: true,
-    // The system tier, not admin: the sweep holds no session, and no actor is invented for a machine.
-    authType: "system",
-    body: JSON.stringify(payload),
-  });
+  return identitaetGetReferenzen(payload, { readOnly: true });
 }
 
 /**
  * The address travels in the BODY: a path or a query would file it in the access log and in `aktionen.request.path`.
  * Hence a POST even for the read, a GET's body having no defined semantics (RFC 9110 §9.3.1).
  */
-export async function readErasureAnsicht(payload: FLErasureAnsichtPayload): Promise<FLErasureAnsichtResponse> {
-  return apiClient<FLErasureAnsichtResponse>("/identitaet/erasure/ansicht", FLErasureAnsichtResponseSchema, {
-    method: "POST",
-    readOnly: true,
-    authType: "admin",
-    body: JSON.stringify(payload),
-  });
+export async function readErasureAnsicht(payload: FLErasureAdressePayload): Promise<FLErasureAnsichtResponse> {
+  return identitaetGetErasureAnsichtAufAnfrage(payload, { readOnly: true });
 }
 
 /** Erases every league record of the address, the sign-in account left to the caller once this has answered. */
 export async function eraseAufAnfrage(payload: FLErasurePayload): Promise<FLErasureResponse> {
-  return apiClient<FLErasureResponse>("/identitaet/erasure", FLErasureResponseSchema, {
-    method: "POST",
-    authType: "admin",
-    body: JSON.stringify(payload),
-  });
+  return identitaetEraseAufAnfrage(payload);
 }
 
 /** Files the sign-out on the log, naming no address, before the caller ends a single session. */
-export async function recordAbmeldung(payload: FLAbmeldungPayload): Promise<void> {
-  await apiClient("/identitaet/abmeldung", FLAbmeldungResponseSchema, {
-    method: "POST",
-    authType: "admin",
-    body: JSON.stringify(payload),
-  });
+export async function recordAbmeldung(payload: FLErasureAdressePayload): Promise<void> {
+  await identitaetPostAbmeldung(payload);
 }
