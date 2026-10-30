@@ -103,7 +103,9 @@ jobs:
   # both toolchains.
   db:
     # mongod 8.3.13 refuses ubuntu-24.04's 7.0.0 kernel at start (SERVER-121912); 22.04's 6.8 it accepts.
-    # Back to ubuntu-latest once the image pins move to 8.3.14, which carries SERVER-131779's fix.
+    # Back to ubuntu-latest once the image pins move to 8.3.14, which carries SERVER-131779's fix. Until
+    # then this job restores none of the backend job's uv cache, whose key carries the runner's OS
+    # release, and installs from the registry on every run.
     runs-on: ubuntu-22.04
     timeout-minutes: 21
     steps:
