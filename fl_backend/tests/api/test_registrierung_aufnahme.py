@@ -45,6 +45,7 @@ from tests.config import ADMIN_KEY, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.postausgang import MAIL_NOW
 from tests.records import record_collections
 from tests.whole_database import where_held
 from tests.worker import worker_database
@@ -299,7 +300,7 @@ async def decline(
         records=record_collections(database),
         db=client,
         today=TODAY,
-        germany_now=NOW,
+        germany_now=MAIL_NOW,
     )
 
 

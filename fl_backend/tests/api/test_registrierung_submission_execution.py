@@ -14,7 +14,6 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import build_schluessel_filter, hash_token
-from app.api.postausgang.router import post_ausgabe
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
 from app.api.registrierungen.person_router import aufnehmen
 from app.api.registrierungen.public_router import post_einladung_ansicht, post_registrierung
@@ -37,6 +36,7 @@ from tests.bans import ban_list
 from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.holds import HoldsAfterItsLookup
+from tests.postausgang import MAIL_NOW, drained
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -257,7 +257,7 @@ async def register(
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
-        germany_now=NOW,
+        germany_now=MAIL_NOW,
     )
 
 
@@ -404,10 +404,7 @@ class TestWhatASubmissionStores:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await register(database, client)
-            ausgabe = await post_ausgabe(
-                postausgang_collection=database[Collection.POSTAUSGANG], sperrliste=ban_list(database), db=database, db_client=client, now=NOW
-            )
-            (mail,) = ausgabe.mails
+            (mail,) = await drained(database, client)
             assert mail.token is not None
 
             return await get_bestaetigung_ansicht(

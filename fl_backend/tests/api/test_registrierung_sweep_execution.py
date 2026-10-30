@@ -28,6 +28,7 @@ from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
 from tests.documents import eigene_einwilligung_document, rules_document, saison_document, team_document
+from tests.postausgang import MAIL_NOW
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
@@ -156,7 +157,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
         postausgang_collection=database[Collection.POSTAUSGANG],
         db=client,
         today=today,
-        germany_now=NOW,
+        germany_now=MAIL_NOW,
     )
 
 
