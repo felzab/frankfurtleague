@@ -2404,13 +2404,20 @@ export const SchiedsrichterPostSchiedsrichterBody = zod.object({
 export const schiedsrichterPostBestaetigungBodyGeburtsdatumRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
 export const schiedsrichterPostBestaetigungBodyTextVersionMax = 64;
 
+export const schiedsrichterPostBestaetigungBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 export const schiedsrichterPostBestaetigungBodyTokenMax = 128;
+
+export const schiedsrichterPostBestaetigungBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 
 export const SchiedsrichterPostBestaetigungBody = zod.object({
   geburtsdatum: zod.string().regex(schiedsrichterPostBestaetigungBodyGeburtsdatumRegExp),
   medien: zod.boolean(),
-  text_version: zod.string().min(1).max(schiedsrichterPostBestaetigungBodyTextVersionMax),
-  token: zod.string().min(1).max(schiedsrichterPostBestaetigungBodyTokenMax),
+  text_version: zod
+    .string()
+    .min(1)
+    .max(schiedsrichterPostBestaetigungBodyTextVersionMax)
+    .regex(schiedsrichterPostBestaetigungBodyTextVersionRegExp),
+  token: zod.string().min(1).max(schiedsrichterPostBestaetigungBodyTokenMax).regex(schiedsrichterPostBestaetigungBodyTokenRegExp),
   umfang: zod.enum(["kader_oeffentlich", "intern"]),
 });
 
@@ -2430,9 +2437,13 @@ export const SchiedsrichterPostBestaetigungBody = zod.object({
  */
 export const schiedsrichterGetBestaetigungAnsichtBodyTokenMax = 128;
 
-export const SchiedsrichterGetBestaetigungAnsichtBody = zod.object({
-  token: zod.string().min(1).max(schiedsrichterGetBestaetigungAnsichtBodyTokenMax),
-});
+export const schiedsrichterGetBestaetigungAnsichtBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
+export const SchiedsrichterGetBestaetigungAnsichtBody = zod
+  .object({
+    token: zod.string().min(1).max(schiedsrichterGetBestaetigungAnsichtBodyTokenMax).regex(schiedsrichterGetBestaetigungAnsichtBodyTokenRegExp),
+  })
+  .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
  * Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.
@@ -2462,15 +2473,25 @@ export const SchiedsrichterPatchEinwilligungParams = zod.object({
 
 export const schiedsrichterPatchEinwilligungBodyTextVersionMax = 64;
 
-export const SchiedsrichterPatchEinwilligungBody = zod.object({
-  medien: zod.boolean(),
-  nachweis_stand: zod.object({
-    medien: zod.union([zod.string(), zod.null()]),
-    umfang: zod.union([zod.string(), zod.null()]),
-  }),
-  text_version: zod.string().min(1).max(schiedsrichterPatchEinwilligungBodyTextVersionMax),
-  umfang: zod.enum(["kader_oeffentlich", "intern"]),
-});
+export const schiedsrichterPatchEinwilligungBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
+export const SchiedsrichterPatchEinwilligungBody = zod
+  .object({
+    medien: zod.boolean(),
+    nachweis_stand: zod.object({
+      medien: zod.union([zod.string(), zod.null()]),
+      umfang: zod.union([zod.string(), zod.null()]),
+    }),
+    text_version: zod
+      .string()
+      .min(1)
+      .max(schiedsrichterPatchEinwilligungBodyTextVersionMax)
+      .regex(schiedsrichterPatchEinwilligungBodyTextVersionRegExp),
+    umfang: zod.enum(["kader_oeffentlich", "intern"]),
+  })
+  .describe(
+    "A pupil's, a referee's or a registration's own two choices on their record.\n\nBoth choices on every press, and no member defaulted: a default would let a page that forgot one\nreset the person's other choice.",
+  );
 
 /**
  * Deactivate a referee. SOFT, for the same reason as venues: matches embed a copy.
@@ -2994,6 +3015,7 @@ export const spielbestaetigungenPostSpielbestaetigungBodyBegruendungOneMax = 500
 export const spielbestaetigungenPostSpielbestaetigungBodyBegruendungOneRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 export const spielbestaetigungenPostSpielbestaetigungBodyTokenMax = 128;
 
+export const spielbestaetigungenPostSpielbestaetigungBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
 export const spielbestaetigungenPostSpielbestaetigungBodyVorschlagOneDatumRegExp = new RegExp(
   "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
 );
@@ -3010,7 +3032,11 @@ export const SpielbestaetigungenPostSpielbestaetigungBody = zod
         .regex(spielbestaetigungenPostSpielbestaetigungBodyBegruendungOneRegExp),
       zod.null(),
     ]),
-    token: zod.string().min(1).max(spielbestaetigungenPostSpielbestaetigungBodyTokenMax),
+    token: zod
+      .string()
+      .min(1)
+      .max(spielbestaetigungenPostSpielbestaetigungBodyTokenMax)
+      .regex(spielbestaetigungenPostSpielbestaetigungBodyTokenRegExp),
     vorschlag: zod.union([
       zod.object({
         datum: zod.string().regex(spielbestaetigungenPostSpielbestaetigungBodyVorschlagOneDatumRegExp),
@@ -3036,11 +3062,17 @@ export const SpielbestaetigungenPostSpielbestaetigungBody = zod
  */
 export const spielbestaetigungenGetSpielbestaetigungAnsichtBodyTokenMax = 128;
 
+export const spielbestaetigungenGetSpielbestaetigungAnsichtBodyTokenRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
 export const SpielbestaetigungenGetSpielbestaetigungAnsichtBody = zod
   .object({
-    token: zod.string().min(1).max(spielbestaetigungenGetSpielbestaetigungAnsichtBodyTokenMax),
+    token: zod
+      .string()
+      .min(1)
+      .max(spielbestaetigungenGetSpielbestaetigungAnsichtBodyTokenMax)
+      .regex(spielbestaetigungenGetSpielbestaetigungAnsichtBodyTokenRegExp),
   })
-  .describe("A POST that reads: the token travels in a body, never in a second URL.");
+  .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
  * Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what the caller must mail.
@@ -3652,15 +3684,21 @@ export const SpielerGetSpielerNachnominierungParams = zod.object({
  */
 export const spielerPatchEinwilligungBodyTextVersionMax = 64;
 
-export const SpielerPatchEinwilligungBody = zod.object({
-  medien: zod.boolean(),
-  nachweis_stand: zod.object({
-    medien: zod.union([zod.string(), zod.null()]),
-    umfang: zod.union([zod.string(), zod.null()]),
-  }),
-  text_version: zod.string().min(1).max(spielerPatchEinwilligungBodyTextVersionMax),
-  umfang: zod.enum(["kader_oeffentlich", "intern"]),
-});
+export const spielerPatchEinwilligungBodyTextVersionRegExp = new RegExp("^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$");
+
+export const SpielerPatchEinwilligungBody = zod
+  .object({
+    medien: zod.boolean(),
+    nachweis_stand: zod.object({
+      medien: zod.union([zod.string(), zod.null()]),
+      umfang: zod.union([zod.string(), zod.null()]),
+    }),
+    text_version: zod.string().min(1).max(spielerPatchEinwilligungBodyTextVersionMax).regex(spielerPatchEinwilligungBodyTextVersionRegExp),
+    umfang: zod.enum(["kader_oeffentlich", "intern"]),
+  })
+  .describe(
+    "A pupil's, a referee's or a registration's own two choices on their record.\n\nBoth choices on every press, and no member defaulted: a default would let a page that forgot one\nreset the person's other choice.",
+  );
 
 /**
  * Retire a player. SOFT: it stamps `inactive_since`, and their squad rows are LEFT ALONE.

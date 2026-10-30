@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomOptionalDateString, CustomStrippedNonEmptyString
+from app.shared.schemas.literals import FLSortOrder
 from app.shared.schemas.responses import BaseAPIResponse
 
 
@@ -57,15 +58,11 @@ class FLSpielorteFilterParams(BaseModel):
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: Literal["name",] = Field(default="name")
-    order: Literal["asc", "desc"] = Field(default="asc")
+    order: FLSortOrder = Field(default="asc")
 
 
 class FLSpielorteListResponse(BaseAPIResponse):
     spielorte: list[FLSpielort]
-
-
-class FLPostSpielortResponse(BaseAPIResponse):
-    created_id: CustomObjectId
 
 
 class FLPatchSpielortResponse(BaseAPIResponse):

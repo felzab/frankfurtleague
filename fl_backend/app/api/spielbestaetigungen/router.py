@@ -8,7 +8,6 @@ from app.api.bewerbungen.services import hash_token
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.api.spielbestaetigungen.crud import ANSICHT_SPIEL_FIELDS, pull_ansetzung_lage, pull_vorschlag_offen, verein_fields
 from app.api.spielbestaetigungen.schemas import (
-    FLSpielbestaetigungAnsichtPayload,
     FLSpielbestaetigungAnsichtResponse,
     FLSpielbestaetigungAntwortPayload,
     FLSpielbestaetigungAntwortResponse,
@@ -55,6 +54,7 @@ from app.core.dependencies import (
 from app.core.exceptions import DocumentNotFoundError
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
+from app.shared.schemas.bestaetigung import FLTokenPayload
 
 # Base tier and the public actor: the token is the whole credential, as a sign-in code is, for
 # `app/api/bewerbungen/einwilligung_router.py`'s reason.
@@ -70,7 +70,7 @@ router = APIRouter(
     summary="What one fixture confirmation link opens",
 )
 async def get_spielbestaetigung_ansicht(
-    ansicht_data: Annotated[FLSpielbestaetigungAnsichtPayload, Body()],
+    ansicht_data: Annotated[FLTokenPayload, Body()],
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spiele_collection: SpieleCollection,
     saison_teams_collection: SaisonTeamsCollection,

@@ -8,7 +8,6 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.bewerbungen.services import hash_token
 from app.api.einwilligung.services import find_fassung_refusal
 from app.api.schiedsrichter.schemas import (
-    FLSchiedsrichterBestaetigungAnsichtPayload,
     FLSchiedsrichterBestaetigungAnsichtResponse,
     FLSchiedsrichterBestaetigungPayload,
     FLSchiedsrichterBestaetigungResponse,
@@ -36,6 +35,7 @@ from app.core.dependencies import DBClient, SchiedsrichterCollection, get_german
 from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 
 # A THIRD router beside the admin one and the reference read, both guarded whole: the token is the
@@ -53,7 +53,7 @@ router = APIRouter(
     summary="What one Schiedsrichter confirmation link opens",
 )
 async def get_bestaetigung_ansicht(
-    ansicht_data: Annotated[FLSchiedsrichterBestaetigungAnsichtPayload, Body()],
+    ansicht_data: Annotated[FLTokenPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
