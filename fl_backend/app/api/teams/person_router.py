@@ -59,7 +59,7 @@ def _as_sitz(kontakte: Mapping[str, Any], slot: str) -> FLTeamSitz:
 
 
 # `/person/sitze`, its own segment: the admin router serves this team and season under its own paths,
-# and `fl_backend/tests/api/test_admin_guard.py` fails at collection on two routes serving one operation.
+# and one path in both routers would be answered by whichever was mounted first.
 @router.get("/{team_id:objectid}/saisons/{saison_id}/person/sitze", response_model=FLTeamSitzeResponse, summary="A team's seats in one season")
 async def get_team_sitze(
     team_id: CustomRouteObjectId,

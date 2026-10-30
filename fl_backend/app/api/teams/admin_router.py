@@ -483,7 +483,7 @@ async def post_saison_team(
             "saison_id": saison_team_data.saison_id,
             "team_id": team_id,
             "gruppe": saison_team_data.gruppe,
-            # These three required by the validator and by `FLTeamMembership`, so a row without one
+            # These three required by `FLTeamMembership`, so a row without one
             # is unreadable; entry carries no departure, kit or people yet.
             "austritt": None,
             "trikot_farbe": None,
