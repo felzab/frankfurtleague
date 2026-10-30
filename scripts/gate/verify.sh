@@ -526,7 +526,7 @@ contract_check() {
   local rc=0 untracked
   rm -rf "$CONTRACT_SCRATCH" && mkdir "$CONTRACT_SCRATCH" || return 3
   in_dir fl_backend "$PY" -m app.openapi_document "../${CONTRACT_SCRATCH}/openapi.json" || return 3
-  ( cd fl_frontend && CONTRACT_SCRATCH="../${CONTRACT_SCRATCH}" pnpm exec orval ) || return 3
+  ( cd fl_frontend && CONTRACT_SCRATCH="../${CONTRACT_SCRATCH}" pnpm exec orval --fail-on-warnings ) || return 3
   untracked="$(git ls-files --others --exclude-standard -- "${CONTRACT_PATHS[@]}")"
   if [[ -n "$untracked" ]]; then printf 'Not committed:\n%s\n' "$untracked"; rc=1; fi
   # git answers 1 for a difference.
