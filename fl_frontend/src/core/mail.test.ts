@@ -18,12 +18,12 @@ let provider: () => Response | Promise<Response> = () => Response.json({ id: "re
 
 let apiKey: string | undefined = "re_test";
 
-/** The request scope whose deadline has passed: the transport refuses every call made under it, unsent. */
-let spentTrace: string | undefined;
+/** The one request scope with deadline left, where a case names one: the transport refuses a claim under any other. */
+let liveTrace: string | undefined;
 
 const SDK_DOUBLE = {
   postausgangPostAusgabe: async () => {
-    if (spentTrace !== undefined && getRequestTraceId() === spentTrace)
+    if (liveTrace !== undefined && getRequestTraceId() !== liveTrace)
       throw new Error("The request's deadline had passed before this call was sent.");
     const claim = claims.shift() ?? { mails: [], aufgegeben: 0 };
     const held = claim.mails.length > 0;
@@ -85,7 +85,7 @@ beforeEach(() => {
   schritte.length = 0;
   claims = [];
   apiKey = "re_test";
-  spentTrace = undefined;
+  liveTrace = undefined;
   provider = () => Response.json({ id: "re-1" });
   vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
     schritte.push({
@@ -130,7 +130,7 @@ describe("one drain of the Postausgang", () => {
   /* A call made while a drain runs waits on it. Served by that drain, or by one more under its caller's spent deadline,
      the call's mail, a sign-in code tried once among them, would wait for the hourly pass and lapse. */
   it("serves a call made during a drain that fails, under the call's own deadline", async () => {
-    spentTrace = "trace-spent";
+    liveTrace = "trace-waiting";
     claims = [{ mails: [handed(1)], aufgegeben: 0 }];
 
     const failing = runWithRequestScope({ traceId: "trace-spent" }, drainPostausgang);
