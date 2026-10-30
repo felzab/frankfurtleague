@@ -23,7 +23,7 @@ from app.shared.schemas.custom import (
     CustomSpielNr,
     CustomTimeString,
 )
-from app.shared.schemas.literals import FLAustrittType, FLGruppenNames, FLSaisonPhase, FLSonderereignis
+from app.shared.schemas.literals import FLAustrittType, FLGruppenNames, FLSaisonPhase, FLSonderereignis, FLSortOrder, FLSpielSeite
 from app.shared.schemas.responses import BaseAPIResponse
 
 type FLSpielStatus = Literal["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"]
@@ -72,7 +72,7 @@ SONDEREREIGNIS_COUNTED_AS_ABSAGE: tuple[FLSonderereignis, ...] = (
 )
 
 # The side that failed to appear, so the award goes the other way.
-SONDEREREIGNIS_NO_SHOW: Mapping[str, Literal["team1", "team2"]] = {
+SONDEREREIGNIS_NO_SHOW: Mapping[str, FLSpielSeite] = {
     "nichtantreten_team1": "team1",
     "nichtantreten_team2": "team2",
 }
@@ -357,7 +357,7 @@ class FLBracketFaultSlot(_BracketFault):
     # a toast arrives with no fixture to read it off.
 
     reason: Literal["gruppenphase_fixture_wired", "source_feeds_another_fixture"]
-    side: Literal["team1", "team2"]
+    side: FLSpielSeite
     quelle: FLSpielQuelle
 
 
@@ -377,7 +377,7 @@ class FLBracketFaultOccupant(_BracketFault):
     """
 
     reason: Literal["departed_occupant"]
-    side: Literal["team1", "team2"]
+    side: FLSpielSeite
     team_id: CustomObjectId
     team_name: str = Field(min_length=1)
     # Carried so the surface can name the route out: a withdrawal reported as a disqualification is
@@ -397,7 +397,7 @@ class FLBracketFaultSpieltag(_BracketFault):
     # Carried because it is what GROUPS the entries: one clash is every appearance sharing this id
     # and a club, and the entries reach a reader as one flat list.
     spieltag_id: CustomObjectId
-    side: Literal["team1", "team2"]
+    side: FLSpielSeite
     team_id: CustomObjectId
     team_name: str = Field(min_length=1)
 
@@ -646,7 +646,7 @@ class FLSpieleFilterParams(BaseModel):
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: Literal["datum", "uhrzeit", "spiel_nr", "saison_phase"] = Field(default="datum")
-    order: Literal["asc", "desc"] = Field(default="asc")
+    order: FLSortOrder = Field(default="asc")
 
 
 class FLSpieleListResponse(BaseAPIResponse):
@@ -697,7 +697,7 @@ class FLSpielReleasedSide(_VoidedResult):
     """One side another fixture gave up so a team can play this Spieltag, and the result that destroyed."""
 
     # English, like `type` on a quelle: it names a document field.
-    side: Literal["team1", "team2"]
+    side: FLSpielSeite
     team_name: str = Field(min_length=1)
 
 

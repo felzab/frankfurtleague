@@ -52,7 +52,7 @@ from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import NAME_IS_PUBLIC
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.literals import FLGruppenNames, FLSonderereignis
+from app.shared.schemas.literals import FLGruppenNames, FLSonderereignis, FLSpielSeite
 
 
 def build_spiele_sort(sort_by: str, order: str) -> list[tuple[str, int]]:
@@ -96,7 +96,7 @@ def build_spiele_filter(filters: FLSpieleFilterParams, today: str) -> dict[str, 
 SAISON_TEAMS_AS_NAME = "saison_teams_rows"
 
 
-def _joined_side(side: Literal["team1", "team2"]) -> Mapping[str, Any]:
+def _joined_side(side: FLSpielSeite) -> Mapping[str, Any]:
     """One side with its season state folded in. `$mergeObjects`, never a rebuilt object: listing the keys copies `FLSpielTeamField`."""
 
     # Not `$getField`, which needs MongoDB 5.0: the test tier's container cannot speak for the
@@ -594,7 +594,7 @@ def _seed_from_gruppe(
 
 def _occupant_of(
     spiel: FLSpielCommon,
-    side: Literal["team1", "team2"],
+    side: FLSpielSeite,
     stored: FLSpielTeamField | None,
     quelle: FLSpielQuelle | None,
     walk: _BracketWalk,
@@ -675,7 +675,7 @@ def _resolve_sides(spiel_nr: int, walk: _BracketWalk) -> ResolvedSides:
 
     # Annotated rather than inferred: a bare tuple literal widens each side's name to `str`, which
     # `_occupant_of` then refuses.
-    seats: tuple[tuple[Literal["team1", "team2"], FLSpielTeamField | None, FLSpielQuelle | None], ...] = (
+    seats: tuple[tuple[FLSpielSeite, FLSpielTeamField | None, FLSpielQuelle | None], ...] = (
         ("team1", spiel.team1, spiel.team1_quelle),
         ("team2", spiel.team2, spiel.team2_quelle),
     )
@@ -932,7 +932,7 @@ class ComposedResult:
 
     team1_tore: int | None
     team2_tore: int | None
-    absent_side: Literal["team1", "team2"] | None
+    absent_side: FLSpielSeite | None
 
     @property
     def ergebnis(self) -> str | None:
@@ -1550,7 +1550,7 @@ class SpieltagRelease:
 
     spiel_id: CustomObjectId
     spiel_nr: int
-    side: Literal["team1", "team2"]
+    side: FLSpielSeite
     team_name: str
     other_side_present: bool
     voided_ergebnis: str | None
@@ -1588,7 +1588,7 @@ def judge_spieltag_occupancy(spiel_id: CustomObjectId, payload: FLPatchSpielData
 
     # Sorted, so a refusal names the earliest offending fixture and two runs plan the same releases.
     for other in sorted(same_spieltag, key=lambda spiel: spiel.spiel_nr):
-        sides: tuple[tuple[Literal["team1", "team2"], FLSpielTeamField | None, FLSpielQuelle | None], ...] = (
+        sides: tuple[tuple[FLSpielSeite, FLSpielTeamField | None, FLSpielQuelle | None], ...] = (
             ("team1", other.team1, other.team1_quelle),
             ("team2", other.team2, other.team2_quelle),
         )

@@ -4793,12 +4793,7 @@
             "type": "string"
           },
           "side": {
-            "enum": [
-              "team1",
-              "team2"
-            ],
-            "title": "Side",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielSeite"
           },
           "spiel_datum": {
             "anyOf": [
@@ -4915,12 +4910,7 @@
             "type": "string"
           },
           "side": {
-            "enum": [
-              "team1",
-              "team2"
-            ],
-            "title": "Side",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielSeite"
           },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -4979,12 +4969,7 @@
             "type": "string"
           },
           "side": {
-            "enum": [
-              "team1",
-              "team2"
-            ],
-            "title": "Side",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielSeite"
           },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -13263,12 +13248,7 @@
         "description": "One side another fixture gave up so a team can play this Spieltag, and the result that destroyed.",
         "properties": {
           "side": {
-            "enum": [
-              "team1",
-              "team2"
-            ],
-            "title": "Side",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielSeite"
           },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -13412,6 +13392,13 @@
         ],
         "title": "FLSpielSchiedsrichterFieldPublic",
         "type": "object"
+      },
+      "FLSpielSeite": {
+        "enum": [
+          "team1",
+          "team2"
+        ],
+        "type": "string"
       },
       "FLSpielStatus": {
         "enum": [

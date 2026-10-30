@@ -1,5 +1,5 @@
 from collections.abc import Mapping, Sequence, Set
-from typing import Any, Literal, NamedTuple
+from typing import Any, NamedTuple
 
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
@@ -56,7 +56,7 @@ from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_one_in_db,
 from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.literals import FLGruppenNames
+from app.shared.schemas.literals import FLGruppenNames, FLSpielSeite
 
 
 async def _resolve_one_saison(
@@ -539,7 +539,7 @@ def report_release(release: SpieltagRelease) -> FLSpielReleasedSide:
     )
 
 
-def _other_side(side: Literal["team1", "team2"]) -> Literal["team1", "team2"]:
+def _other_side(side: FLSpielSeite) -> FLSpielSeite:
     """The side facing `side`. One spelling, so the model and the `$set` cannot pair the two differently."""
 
     return "team2" if side == "team1" else "team1"

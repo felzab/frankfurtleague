@@ -2209,9 +2209,9 @@ export interface FLBracketFaultGruppe {
   spiel_nr: number;
 }
 
-export type FLBracketFaultOccupantSide = (typeof FLBracketFaultOccupantSide)[keyof typeof FLBracketFaultOccupantSide];
+export type FLSpielSeite = (typeof FLSpielSeite)[keyof typeof FLSpielSeite];
 
-export const FLBracketFaultOccupantSide = {
+export const FLSpielSeite = {
   team1: "team1",
   team2: "team2",
 } as const;
@@ -2226,7 +2226,7 @@ export interface FLBracketFaultOccupant {
   ausgeschieden_seit: string;
   austritt_type: FLAustrittType;
   reason: "departed_occupant";
-  side: FLBracketFaultOccupantSide;
+  side: FLSpielSeite;
   spiel_datum: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
@@ -2269,13 +2269,6 @@ export const FLBracketFaultSlotReason = {
   source_feeds_another_fixture: "source_feeds_another_fixture",
 } as const;
 
-export type FLBracketFaultSlotSide = (typeof FLBracketFaultSlotSide)[keyof typeof FLBracketFaultSlotSide];
-
-export const FLBracketFaultSlotSide = {
-  team1: "team1",
-  team2: "team2",
-} as const;
-
 /**
  * A slot fed by the group phase: the team finishing `platz` in `gruppe`.
  */
@@ -2309,7 +2302,7 @@ export interface FLSpielQuelleSpiel {
 export interface FLBracketFaultSlot {
   quelle: FLSpielQuelleGruppe | FLSpielQuelleSpiel;
   reason: FLBracketFaultSlotReason;
-  side: FLBracketFaultSlotSide;
+  side: FLSpielSeite;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
   /** @exclusiveMinimum 0 */
@@ -2327,19 +2320,12 @@ export interface FLBracketFaultSpiel {
   spiel_nr: number;
 }
 
-export type FLBracketFaultSpieltagSide = (typeof FLBracketFaultSpieltagSide)[keyof typeof FLBracketFaultSpieltagSide];
-
-export const FLBracketFaultSpieltagSide = {
-  team1: "team1",
-  team2: "team2",
-} as const;
-
 /**
  * A club standing more than once on one Spieltag, one entry per appearance.
  */
 export interface FLBracketFaultSpieltag {
   reason: "fielded_twice";
-  side: FLBracketFaultSpieltagSide;
+  side: FLSpielSeite;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
   /** @exclusiveMinimum 0 */
@@ -3636,18 +3622,11 @@ export interface FLSpielAdvancement {
   voided_sonderereignis: FLSonderereignis | null;
 }
 
-export type FLSpielReleasedSideSide = (typeof FLSpielReleasedSideSide)[keyof typeof FLSpielReleasedSideSide];
-
-export const FLSpielReleasedSideSide = {
-  team1: "team1",
-  team2: "team2",
-} as const;
-
 /**
  * One side another fixture gave up so a team can play this Spieltag, and the result that destroyed.
  */
 export interface FLSpielReleasedSide {
-  side: FLSpielReleasedSideSide;
+  side: FLSpielSeite;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
   /** @exclusiveMinimum 0 */
