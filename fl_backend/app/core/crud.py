@@ -28,7 +28,7 @@ from pymongo.results import DeleteResult, InsertManyResult, InsertOneResult, Upd
 from app.core.codes import Code
 from app.core.collections import EDITED_COLLECTIONS
 from app.core.exceptions import APIError, DocumentNotFoundError, WriteRefusal
-from app.core.recording import record_write
+from app.core.recording import RedactionTarget, build_redaction_filter, build_redaction_update, record_write
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 # Section 1, the driver. Keyword-only throughout, so no call site can bind `db_filter` to `update`
@@ -399,6 +399,29 @@ async def loeschen_many_from_db(
     )
 
     return result
+
+
+async def redact_log_rows_in_db(
+    *,
+    aktionen_collection: AsyncCollection,
+    targets: Sequence[RedactionTarget],
+    at: str,
+    # REQUIRED for `loeschen_many_from_db`'s reason: the redaction is the erasure's second half.
+    session: AsyncClientSession,
+) -> int:
+    """Every log row naming one of the removed documents, its image emptied and stamped; answers how many it changed.
+
+    Sends nothing where no target names a document, so a pass that erased nothing spends no command.
+    """
+
+    if not any(document_ids for _, document_ids in targets):
+        return 0
+
+    redacted = await patch_many_in_db(
+        collection=aktionen_collection, db_filter=build_redaction_filter(targets), update=build_redaction_update(at=at), session=session
+    )
+
+    return redacted.modified_count
 
 
 async def aggregate_many_from_db(

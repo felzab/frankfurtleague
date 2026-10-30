@@ -19,12 +19,11 @@ from app.core.crud import (
     aggregate_many_from_db,
     anchor_in_db,
     loeschen_many_from_db,
-    patch_many_in_db,
     post_one_to_db,
     pull_one_from_db,
+    redact_log_rows_in_db,
     refuse,
 )
-from app.core.recording import build_redaction_filter, build_redaction_update
 from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.custom import CustomObjectId
 
@@ -203,16 +202,12 @@ async def loeschen_person_in_session(
 
     # Last, and it passes over the two rows the removals above just recorded: those carry a
     # filter and a count and no `document_id`, so the erasure stays legible as an action.
-    redacted = await patch_many_in_db(
-        collection=aktionen_collection,
-        db_filter=build_redaction_filter(
-            # The squad branch is empty where the person held no row, which matches nothing.
-            [(Collection.SPIELER, [spieler_id]), (Collection.SAISON_SPIELER, [row["_id"] for row in squad_rows])]
-        ),
-        update=build_redaction_update(at=stamp),
+    redacted = await redact_log_rows_in_db(
+        aktionen_collection=aktionen_collection,
+        # The squad branch is empty where the person held no row, which matches nothing.
+        targets=[(Collection.SPIELER, [spieler_id]), (Collection.SAISON_SPIELER, [row["_id"] for row in squad_rows])],
+        at=stamp,
         session=session,
     )
 
-    return PersonGeloescht(
-        spieler=geloescht_person.deleted_count, saison_spieler=geloescht_rows.deleted_count, redacted_aktionen=redacted.modified_count
-    )
+    return PersonGeloescht(spieler=geloescht_person.deleted_count, saison_spieler=geloescht_rows.deleted_count, redacted_aktionen=redacted)

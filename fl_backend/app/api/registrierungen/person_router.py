@@ -52,7 +52,14 @@ from app.api.spieler.crud import refuse_a_full_squad
 from app.api.spieltage.crud import nachnominierung_laeuft_in
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import loeschen_many_from_db, patch_many_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.crud import (
+    loeschen_many_from_db,
+    patch_one_in_db,
+    post_one_to_db,
+    pull_one_from_db,
+    redact_log_rows_in_db,
+    refuse,
+)
 from app.core.dependencies import (
     AktionenCollection,
     DBClient,
@@ -67,7 +74,7 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.journal import Journal
-from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
+from app.core.recording import log_stamp
 from app.core.routing import by_id
 from app.core.security import loeschung_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
@@ -318,10 +325,10 @@ async def aufnehmen(
         await loeschen_many_from_db(
             collection=registrierungen_collection, db_filter={"_id": registrierung_id, "saison_id": saison_id}, session=session
         )
-        await patch_many_in_db(
-            collection=aktionen_collection,
-            db_filter=build_redaction_filter([(Collection.REGISTRIERUNGEN, [registrierung_id])]),
-            update=build_redaction_update(at=log_stamp(germany_now)),
+        await redact_log_rows_in_db(
+            aktionen_collection=aktionen_collection,
+            targets=[(Collection.REGISTRIERUNGEN, [registrierung_id])],
+            at=log_stamp(germany_now),
             session=session,
         )
 

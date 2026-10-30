@@ -25,8 +25,14 @@ from app.api.spielbestaetigungen.services import (
 )
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, anchor_in_db, loeschen_many_from_db, patch_many_in_db, pull_many_from_db
-from app.core.recording import build_redaction_filter, build_redaction_update
+from app.core.crud import (
+    aggregate_many_from_db,
+    anchor_in_db,
+    loeschen_many_from_db,
+    patch_many_in_db,
+    pull_many_from_db,
+    redact_log_rows_in_db,
+)
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
@@ -319,10 +325,10 @@ async def loeschen_referee_confirmations_in_session(
         )
         geloescht = removed.deleted_count
         # Whole, as every record an erasure removes: the row is theirs, so its earlier states are too.
-        await patch_many_in_db(
-            collection=aktionen_collection,
-            db_filter=build_redaction_filter([(Collection.SPIELBESTAETIGUNGEN, [row["_id"] for row in rows])]),
-            update=build_redaction_update(at=stamp),
+        await redact_log_rows_in_db(
+            aktionen_collection=aktionen_collection,
+            targets=[(Collection.SPIELBESTAETIGUNGEN, [row["_id"] for row in rows])],
+            at=stamp,
             session=session,
         )
 

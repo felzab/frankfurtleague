@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Final
 
@@ -37,7 +37,7 @@ from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.teams.crud import pull_team_names, void_moved_seats
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import anchor_in_db, loeschen_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
+from app.core.crud import anchor_in_db, loeschen_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, redact_log_rows_in_db
 from app.core.dependencies import (
     AktionenCollection,
     BewerbungenCollection,
@@ -51,7 +51,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
+from app.core.recording import build_redaction_filter, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import Batch, drain, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
@@ -71,24 +71,6 @@ REMINDERS_PER_PASS: Final = 36
 # The largest share inside the deadline beside the reminders', which owe a deadline a block's deletion does not: 24
 # would make 268 commands, 10.02 s. A season at capacity takes more passes.
 BLOCKS_CLEARED_PER_PASS: Final = 23
-
-
-async def _redact(
-    *, aktionen_collection: AktionenCollection, collection: Collection, ids: Sequence[Any], stamp: str, session: AsyncClientSession
-) -> int:
-    """Every log row naming the removed documents, emptied and stamped -- the erasure's second half."""
-
-    if not ids:
-        return 0
-
-    redacted = await patch_many_in_db(
-        collection=aktionen_collection,
-        db_filter=build_redaction_filter([(collection, list(ids))]),
-        update=build_redaction_update(at=stamp),
-        session=session,
-    )
-
-    return redacted.modified_count
 
 
 def _ended_after(saison_id: str) -> dict[str, Any]:
@@ -207,8 +189,8 @@ async def sweep_saison(
         result = await loeschen_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
-        redacted = await _redact(
-            aktionen_collection=aktionen_collection, collection=Collection.BEWERBUNGEN, ids=ids, stamp=stamp, session=session
+        redacted = await redact_log_rows_in_db(
+            aktionen_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -334,8 +316,8 @@ async def sweep_saison(
         result = await loeschen_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
-        redacted = await _redact(
-            aktionen_collection=aktionen_collection, collection=Collection.BEWERBUNGEN, ids=ids, stamp=stamp, session=session
+        redacted = await redact_log_rows_in_db(
+            aktionen_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -367,8 +349,8 @@ async def sweep_saison(
         result = await loeschen_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
-        redacted = await _redact(
-            aktionen_collection=aktionen_collection, collection=Collection.BEWERBUNGEN, ids=ids, stamp=stamp, session=session
+        redacted = await redact_log_rows_in_db(
+            aktionen_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -402,8 +384,8 @@ async def sweep_saison(
         result = await loeschen_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
-        redacted = await _redact(
-            aktionen_collection=aktionen_collection, collection=Collection.BEWERBUNGEN, ids=ids, stamp=stamp, session=session
+        redacted = await redact_log_rows_in_db(
+            aktionen_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
