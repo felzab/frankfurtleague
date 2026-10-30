@@ -5,7 +5,6 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
 from app.shared.schemas.bounds import BEWERBUNG_TOKEN_MAX_LENGTH
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomOptionalDateString
 from app.shared.schemas.responses import BaseReadModel
-from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # The raw token of a person's link. The ceiling counts what arrives and the strip runs after it, so the
 # published `maxLength` is what the backend accepts.
@@ -36,5 +35,3 @@ class FLBestaetigung(BaseReadModel):
     # Stored beside the send rather than derived from it: raising the bound would otherwise move the
     # deadline of every link already in somebody's inbox.
     frist: CustomDateString
-    # Null on every fresh mint: nothing is yet known about the message that link went out in.
-    zustellung: FLBewerbungZustellung | None = None

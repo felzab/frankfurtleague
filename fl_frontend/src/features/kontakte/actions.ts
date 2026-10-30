@@ -1,25 +1,33 @@
 "use server";
 
+import { drainSoon } from "@/core/afterResponse";
 import { isFreshlySignedIn } from "@/core/auth";
 import { getLaufendesLabel } from "@/core/einwilligung";
-import { describeLinkMail } from "@/features/schiedsrichter/notifications";
+import { formatAufzaehlung } from "@/core/format";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { schlechtesterVersand } from "@/shared/utils/linkVersand";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { kontakteMayMoveLinks } from "./linkMint";
 import { einladeKontakt, patchSaisonTeamKontakte } from "./mutations";
-import { describeKontaktVersand, mailKontaktLink } from "./notifications";
 import { mapEinladenRefusal, mapKontakteRefusal } from "./refusals";
-import { FLKontaktEinladenPayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
+import { FLKontaktEinladenPayloadSchema, KontakteSpeichernEingabeSchema } from "./schemas";
 import { mitLaufenderFassung } from "./utils";
 
-import type { FLKontaktRolle, FLSaisonTeamKontakte } from "@/core/generated/client/types";
+import type { FLKontaktMint, FLKontaktRolle, FLSaisonTeamKontakte } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
-import type { LinkVersand } from "@/shared/utils/linkVersand";
-import type { KontaktVersand } from "./notifications";
-import type { FLPatchSaisonTeamKontaktePayload } from "./schemas";
+import type { KontakteSpeichernEingabe } from "./schemas";
+
+/**
+ * What the administrator is told of the links a write owed: the addresses the write's own transaction read, never the
+ * ones this caller sent, a save landing between the two having moved a mailbox. The Postausgang mails them at once,
+ * behind the response; the editor then shows what became of each.
+ */
+function linkSatz(owed: readonly FLKontaktMint[]): string {
+  const adressen = formatAufzaehlung(owed.map(({ email }) => email));
+
+  return owed.length === 1 ? `Der Bestätigungslink geht an ${adressen}.` : `Die Bestätigungslinks gehen an ${adressen}.`;
+}
 
 /**
  * The three seats one club holds for one season, written whole. The season's competition facts stay
@@ -29,12 +37,10 @@ import type { FLPatchSaisonTeamKontaktePayload } from "./schemas";
 export async function patchSaisonTeamKontakteAction(
   // Composed by the caller: the editor's own guard refuses a body before this is reached, and a
   // field no control renders is a block with no repair.
-  rawPayload: FLPatchSaisonTeamKontaktePayload,
-  // The send's outcome beside the sentence rather than one the caller parses: the editor grades its
-  // toast on it, and the save landed either way.
-): Promise<ActionResult<{ versandSatz?: string; versand?: LinkVersand }>> {
+  rawPayload: KontakteSpeichernEingabe,
+): Promise<ActionResult<{ versandSatz?: string }>> {
   return runAdminMutation("patchSaisonTeamKontakteAction", async (session) => {
-    const validated = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(rawPayload);
+    const validated = KontakteSpeichernEingabeSchema.safeParse(rawPayload);
 
     if (!validated.success) {
       return {
@@ -73,20 +79,9 @@ export async function patchSaisonTeamKontakteAction(
     // and not across requests, no public team read carries `kontakte`, and the admin's own list is
     // uncached.
 
-    // One message per person this save newly seated: unmailed, a minted link sits in the database
-    // alone and the seat never confirms. Together, each settling its own send and never throwing.
-    const versendet: KontaktVersand[] = await Promise.all(
-      saisonTeam.bestaetigungen.map(async (mint) => ({
-        email: mint.email,
-        versand: await mailKontaktLink({
-          operation: "patchSaisonTeamKontakteAction",
-          saisonTeamId: saisonTeam.saison_team_id,
-          saisonId: saisonTeam.saison_id,
-          mint: mint,
-          anlass: "empfang",
-        }),
-      })),
-    );
+    // Owed in the save's own transaction, one per person it newly seated.
+    const owed = saisonTeam.bestaetigungen;
+    if (owed.length > 0) drainSoon();
 
     return {
       success: true,
@@ -94,22 +89,17 @@ export async function patchSaisonTeamKontakteAction(
       // not expect to have to check for.
       message: validated.data.kontakte === null ? "Kontakte entfernt" : "Kontakte gespeichert",
       // Its own field rather than folded into the message: the editor's toast says it in place of the
-      // save's sentence, and a save that mailed nothing has no sentence to hand it.
-      versandSatz: describeKontaktVersand(versendet) ?? undefined,
-      versand: schlechtesterVersand(versendet.map(({ versand }) => versand)),
+      // save's sentence, and a save that owed no link has no sentence to hand it.
+      versandSatz: owed.length === 0 ? undefined : linkSatz(owed),
     };
   });
 }
 
 /**
  * A fresh link for one unconfirmed seat, the seat's earlier one opening nothing afterwards. **Always a
- * step-up write**: every call mints a bearer link.
+ * step-up write**: every call owes a bearer link.
  */
-export async function einladeKontaktAction(rawPayload: {
-  team_id: string;
-  saison_id: string;
-  rolle: FLKontaktRolle;
-}): Promise<ActionResult<{ versand: LinkVersand }>> {
+export async function einladeKontaktAction(rawPayload: { team_id: string; saison_id: string; rolle: FLKontaktRolle }): Promise<ActionResult> {
   return runAdminMutation("einladeKontaktAction", { stepUp: true }, async () => {
     const validated = FLKontaktEinladenPayloadSchema.safeParse(rawPayload);
 
@@ -131,21 +121,11 @@ export async function einladeKontaktAction(rawPayload: {
       throw error;
     }
 
-    const mint = mintOperation.bestaetigung;
-    const versand = await mailKontaktLink({
-      operation: "einladeKontaktAction",
-      saisonTeamId: mintOperation.saison_team_id,
-      saisonId: mintOperation.saison_id,
-      mint: mint,
-      anlass: "erneut",
-    });
+    drainSoon();
 
     return {
       success: true,
-      // The address the MINT read in its own transaction, never one the page showed: a save landing
-      // between the two moved the mailbox the credential was made for.
-      message: describeLinkMail(mint.email, versand),
-      versand: versand,
+      message: `${linkSatz([mintOperation.bestaetigung])} Der vorherige Link gilt nicht mehr.`,
     };
   });
 }
@@ -154,7 +134,7 @@ export async function einladeKontaktAction(rawPayload: {
  * The one read serving a stored block, memoised for the request. A block moving between it and the
  * write is refused there (`REQ-KONTAKT-001`), so the race costs a sentence rather than a stale judgement.
  */
-async function gespeicherteKontakte({ team_id, saison_id }: Pick<FLPatchSaisonTeamKontaktePayload, "team_id" | "saison_id">) {
+async function gespeicherteKontakte({ team_id, saison_id }: Pick<KontakteSpeichernEingabe, "team_id" | "saison_id">) {
   const { teams } = await getTeamMemberships();
   const gespeichert: FLSaisonTeamKontakte | null =
     teams.find(({ id }) => id === team_id)?.memberships.find((membership) => membership.saison_id === saison_id)?.kontakte ?? null;

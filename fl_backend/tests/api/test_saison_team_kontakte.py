@@ -20,21 +20,19 @@ from app.api.teams.schemas import (
 )
 from app.api.teams.services import (
     compose_kontakte_herkunft,
-    departing_holders,
     kontakte_stand_of,
-    links_owed,
 )
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.schemas.literals import FLKontaktRolle
 from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, saison_document, saison_team_document
 from tests.erasure import erased
 from tests.isolation import InterleavedCollection
+from tests.postausgang import MAIL_NOW
 from tests.worker import worker_database
 
 # Marked per class rather than for the module: what the payload refuses and what the composition
@@ -248,10 +246,12 @@ async def write_kontakte(
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection,
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=database.client,
         actor=FRESH_ADMIN_ACTOR,
         today=TODAY,
+        germany_now=MAIL_NOW,
     )
 
 
@@ -1010,69 +1010,3 @@ class TestTheLabelASaveNames:
 
         assert code == Code.FASSUNG_UNZULAESSIG
         assert stored["kontakte"] == as_stored(NEW_KONTAKTE)
-
-
-class TestWhomTheSaveTakesOffTheRow:
-    """The pure half of `abgaenge`, over the block and the links the endpoint composes from the payload."""
-
-    @staticmethod
-    def leaving(stored: Any, sent: Any) -> list[tuple[list[FLKontaktRolle], str]]:
-        return [(abgang.rollen, abgang.email) for abgang in TestWhomTheSaveTakesOffTheRow.abgaenge(stored, sent)]
-
-    @staticmethod
-    def abgaenge(stored: Any, sent: Any) -> list[Any]:
-        kontakte = compose_kontakte_herkunft(kontakte=sent, stored=stored)
-        owed = links_owed(kontakte=kontakte, stored=stored)
-
-        return departing_holders(stored=stored, kontakte=kontakte, owed=owed, schule=TEAM_NAME)
-
-    def test_a_seat_handed_to_another_person_answers_the_mailbox_it_held(self):
-        handed = {**RESAVED_AS_RENDERED, "stellvertretung": person("Lea")}
-
-        assert self.leaving(SEEDED_KONTAKTE, handed) == [(["stellvertretung"], "klara@example.com")]
-
-    def test_a_cleared_block_answers_every_mailbox_once_with_every_seat_it_held(self):
-        """The Trainer's second seat rides on the first's notice: one mailbox, one message."""
-
-        assert self.leaving(NEW_KONTAKTE, None) == [
-            (["trainer", "ansprechperson"], "lea@example.com"),
-            (["stellvertretung"], "nils@example.com"),
-        ]
-
-    def test_the_same_people_saved_again_answer_nobody(self):
-        recased = {**RESAVED_AS_RENDERED, "trainer": person("Ida", email="IDA@Example.com")}
-
-        assert self.leaving(SEEDED_KONTAKTE, recased) == []
-
-    def test_a_mailbox_seated_again_under_another_name_is_not_told_it_left(self):
-        """It is minted a fresh link (`links_owed` reads it as a handover), and a leaving notice beside that link would contradict it."""
-
-        renamed = {**RESAVED_AS_RENDERED, "trainer": {**person("Ida"), "vorname": "Ida-Marie"}}
-
-        assert self.leaving(SEEDED_KONTAKTE, renamed) == []
-
-    def test_a_person_moving_to_another_seat_of_the_row_is_not_told_they_left(self):
-        moved = {**RESAVED_AS_RENDERED, "ansprechperson": person("Klara"), "stellvertretung": person("Jonas")}
-
-        assert self.leaving(SEEDED_KONTAKTE, moved) == []
-
-    def test_a_trainer_losing_the_paired_seat_alone_is_told_of_that_seat(self):
-        """Still seated as the Trainer, so a rule asking whether the mailbox stays anywhere tells them nothing."""
-
-        unpaired = {**NEW_KONTAKTE, "ansprechperson": person("Jonas"), "trainer_ist_zugleich": None}
-
-        assert [(abgang.rollen, abgang.email, abgang.bleibt_als) for abgang in self.abgaenge(NEW_KONTAKTE, unpaired)] == [
-            (["ansprechperson"], "lea@example.com", ["trainer"])
-        ]
-
-    def test_a_trainer_keeping_the_paired_seat_alone_is_told_of_the_trainer_seat(self):
-        handed = {**NEW_KONTAKTE, "trainer": person("Jonas"), "trainer_ist_zugleich": None}
-
-        assert [(abgang.rollen, abgang.email, abgang.bleibt_als) for abgang in self.abgaenge(NEW_KONTAKTE, handed)] == [
-            (["trainer"], "lea@example.com", ["ansprechperson"])
-        ]
-
-    def test_a_mailbox_leaving_the_row_is_told_it_keeps_no_seat(self):
-        """The other arm: a notice saying a seat stays would leave a mailbox off the row waiting on links that died."""
-
-        assert [abgang.bleibt_als for abgang in self.abgaenge(NEW_KONTAKTE, None)] == [[], []]

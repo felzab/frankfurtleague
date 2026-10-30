@@ -6,6 +6,7 @@ seat still unconfirmed, and the application's two confirmation operations answer
 season row, with the ban list asked at the mint and at the press as the application's links ask it.
 """
 
+import dataclasses
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -47,6 +48,7 @@ from tests.database import a_clean_database, on_the_seed_loop
 from tests.erasure import erased
 from tests.isolation import InterleavedCollection
 from tests.plans import plans_of_sent_reads
+from tests.postausgang import MAIL_NOW, drained
 from tests.records import record_collections
 from tests.whole_database import where_held
 from tests.worker import worker_database
@@ -174,6 +176,52 @@ def on_a_league(
     return on_the_seed_loop(_run())
 
 
+@dataclasses.dataclass(frozen=True)
+class Link:
+    """One link a write owed, as the Postausgang handed its mail out: where it went, what it names, and the raw link."""
+
+    rollen: list[str]
+    email: str
+    token: str
+    frist: str
+    schule: str
+    zeile: str
+
+
+@dataclasses.dataclass(frozen=True)
+class Mailed:
+    """A write's answer, beside each link it owed as the mail carrying it went out, in the answer's order."""
+
+    answer: Any
+    bestaetigungen: list[Link]
+
+    @property
+    def bestaetigung(self) -> Link:
+        [link] = self.bestaetigungen
+        return link
+
+
+async def mailed(database: AsyncDatabase, answer: Any, owed: list[Any]) -> Mailed:
+    """The outbox drained as the frontend drains it after the write, each mail matched to the person the answer names."""
+
+    mails = await drained(database, database.client)
+    links = [
+        Link(
+            rollen=list(mail.daten.rollen),
+            email=mail.an,
+            token=str(mail.token),
+            frist=str(mail.daten.frist),
+            schule=mail.daten.schule,
+            zeile=mail.daten.zeile,
+        )
+        for mail in mails
+        if mail.daten.art == "kontakt_bestaetigung"
+    ]
+    assert [(link.rollen, link.email) for link in links] == [(mint.rollen, mint.email) for mint in owed], "the answer and the mails part"
+
+    return Mailed(answer=answer, bestaetigungen=links)
+
+
 async def save(
     database: AsyncDatabase,
     kontakte: Any,
@@ -181,13 +229,13 @@ async def save(
     actor: SessionActor = FRESH_ADMIN_ACTOR,
     saison_teams: Any = None,
     today: str = TODAY,
-) -> Any:
-    """`PATCH .../kontakte`, composed against whatever the row holds now."""
+) -> Mailed:
+    """`PATCH .../kontakte`, composed against whatever the row holds now, and the links it owed."""
 
     row = await database[Collection.SAISON_TEAMS].find_one({"_id": ROW_OID})
     assert row is not None
 
-    return await patch_saison_team_kontakte(
+    answer = await patch_saison_team_kontakte(
         team_id=TEAM_OID,
         saison_id=SAISON_ID,
         kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate(
@@ -196,24 +244,32 @@ async def save(
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=database.client,
         actor=actor,
         today=today,
+        germany_now=MAIL_NOW,
     )
 
+    return await mailed(database, answer, answer.bestaetigungen)
 
-async def resend(database: AsyncDatabase, seat: str, *, today: str = TODAY) -> Any:
-    return await einladen_kontakt(
+
+async def resend(database: AsyncDatabase, seat: str, *, today: str = TODAY) -> Mailed:
+    answer = await einladen_kontakt(
         team_id=TEAM_OID,
         saison_id=SAISON_ID,
         seat=seat,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=database.client,
         today=today,
+        germany_now=MAIL_NOW,
     )
+
+    return await mailed(database, answer, [answer.bestaetigung])
 
 
 async def replace(database: AsyncDatabase) -> Any:
@@ -282,6 +338,7 @@ async def answer(
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
         aktionen_collection=database[Collection.AKTIONEN],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=database.client,
         config=build_test_config(),
@@ -327,10 +384,9 @@ class TestTheSaveMintsForEachPersonItNewlySeats:
         assert [(mint.rollen, mint.email, mint.frist, mint.schule, mint.zeile) for mint in response.bestaetigungen] == [
             (["trainer"], "ida@example.com", FRIST, TEAM_NAME, "offen")
         ]
-        assert response.saison_team_id == ROW_OID
         token = response.bestaetigungen[0].token
         assert row["bestaetigungen"] == {
-            "trainer": {"token_hash": hash_token(token), "verschickt_am": TODAY, "frist": FRIST, "abgelehnt_am": None},
+            "trainer": {"token_hashes": [hash_token(token)], "verschickt_am": TODAY, "frist": FRIST, "abgelehnt_am": None},
             "ansprechperson": None,
             "stellvertretung": None,
         }
@@ -505,7 +561,7 @@ class TestTheResend:
             "jonas@example.com",
             FRIST,
         )
-        assert (response.bestaetigung.schule, response.saison_team_id) == (TEAM_NAME, ROW_OID)
+        assert response.bestaetigung.schule == TEAM_NAME
         assert (row["bestaetigungen"]["trainer"], row["bestaetigungen"]["stellvertretung"]) == (None, None)
         assert (view.rolle, view.zustand) == ("ansprechperson", "gueltig")
 
@@ -521,7 +577,7 @@ class TestTheResend:
         assert code == Code.BEWERBUNG_TOKEN_UNKNOWN
         assert row["bestaetigungen"]["trainer"]["frist"] == bestaetigungsfrist_from(today="2026-04-05") == again.bestaetigung.frist
         # The two seats the re-send did not name keep the links already in their inboxes.
-        assert row["bestaetigungen"]["ansprechperson"]["token_hash"] == hash_token(first.bestaetigungen[1].token)
+        assert row["bestaetigungen"]["ansprechperson"]["token_hashes"] == [hash_token(first.bestaetigungen[1].token)]
 
     def test_a_resend_for_a_trainer_holding_a_second_seat_answers_both(self, mongo_replica_set_url: str):
         paired = {**STORED_UNCONFIRMED, "stellvertretung": stored("Ida"), "trainer_ist_zugleich": "stellvertretung"}
@@ -571,7 +627,7 @@ def _seat_paths(block: str, *leaves: str) -> set[str]:
 # What each handler resolves off the row its token found, `_id` the answer's alone, which keys its patch on it. Neither
 # holds the wording label a seat confirmed under: the page names its own, and the press records it.
 SAISON_ANSICHT_RESOLVES = frozenset(
-    _seat_paths("bestaetigungen", "token_hash", "abgelehnt_am", "frist")
+    _seat_paths("bestaetigungen", "token_hashes", "abgelehnt_am", "frist")
     | _seat_paths("kontakte", "email", "einwilligung.bestaetigt_am", "einwilligung.eingetragen_von")
     | {"kontakte.trainer_ist_zugleich", "saison_id", "name", "austritt"}
 )
@@ -663,7 +719,7 @@ class TestTheLinkConfirms:
         """
 
         before = {**STORED_UNCONFIRMED, confirmed: stored("Ida", bestaetigt_am="2026-03-20"), newly: stored("Lea")}
-        spent = compose_kontakt_bestaetigung(token_hash=hash_token("the-link-already-answered"), today="2026-03-10")
+        spent = {**compose_kontakt_bestaetigung(today="2026-03-10"), "token_hashes": [hash_token("the-link-already-answered")]}
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await save(database, PAIRED)
@@ -805,7 +861,7 @@ class TestTheLinkConfirms:
             OTHER_TEAM_OID,
             STORED_UNCONFIRMED,
             bestaetigungen={
-                "trainer": compose_kontakt_bestaetigung(token_hash=hash_token("the-other-clubs-link"), today=TODAY),
+                "trainer": {**compose_kontakt_bestaetigung(today=TODAY), "token_hashes": [hash_token("the-other-clubs-link")]},
                 "ansprechperson": None,
                 "stellvertretung": None,
             },
@@ -1015,7 +1071,7 @@ class TestAnApplicationsLinkIsAnsweredAsBefore:
                     "$set": {
                         "kontakte": STORED_UNCONFIRMED,
                         "bestaetigungen": {
-                            "trainer": compose_kontakt_bestaetigung(token_hash=hashes["trainer"], today=TODAY),
+                            "trainer": {**compose_kontakt_bestaetigung(today=TODAY), "token_hashes": [hashes["trainer"]]},
                             "ansprechperson": None,
                             "stellvertretung": None,
                         },
@@ -1502,38 +1558,9 @@ class TestTheReplacementTakesThemOffTheApplication:
         assert "ida@example.com" not in str(log)
 
 
-class TestTheSaveAnswersWhomItTookOff:
-    def test_a_seat_handed_on_answers_the_mailbox_it_held_and_saving_again_answers_nobody(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            await save(database, THREE)
-            handed = await save(database, {**THREE, "ansprechperson": person("Lea")})
-
-            return handed, await save(database, {**THREE, "ansprechperson": person("Lea")})
-
-        handed, again = on_a_league(mongo_replica_set_url, body)
-
-        assert [(abgang.rollen, abgang.email, abgang.schule) for abgang in handed.abgaenge] == [
-            (["ansprechperson"], "jonas@example.com", TEAM_NAME)
-        ]
-        assert again.abgaenge == []
-
-    def test_a_paired_trainer_losing_one_seat_is_told_of_it_while_a_person_linked_to_another_seat_is_not(self, mongo_replica_set_url: str):
-        """Jonas moves from the Ansprechperson's seat to the one Ida leaves, so answering every lost seat without the links tells him too."""
-
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            await save(database, PAIRED)
-
-            return await save(
-                database,
-                {"trainer": person("Ida"), "ansprechperson": person("Klara"), "stellvertretung": person("Jonas"), "trainer_ist_zugleich": None},
-            )
-
-        response = on_a_league(mongo_replica_set_url, body)
-
-        assert [(abgang.rollen, abgang.email) for abgang in response.abgaenge] == [(["stellvertretung"], "ida@example.com")]
-
-    def test_a_confirmed_person_moved_to_a_new_mailbox_is_linked_there_and_the_old_one_is_answered(self, mongo_replica_set_url: str):
-        """The league's route for a person holding contact seats alone: the new mailbox confirms afresh, and the old one hears it left."""
+class TestAConfirmedPersonMovedToANewMailbox:
+    def test_is_linked_there_unconfirmed(self, mongo_replica_set_url: str):
+        """The league's route for a person holding contact seats alone: the new mailbox confirms afresh."""
 
         confirmed = {**STORED_UNCONFIRMED, "trainer": stored("Ida", bestaetigt_am="2026-03-20")}
 
@@ -1545,5 +1572,4 @@ class TestTheSaveAnswersWhomItTookOff:
         response, row = on_a_league(mongo_replica_set_url, body, kontakte=confirmed)
 
         assert [(mint.rollen, mint.email) for mint in response.bestaetigungen] == [(["trainer"], "ida@neu.example.com")]
-        assert [(abgang.rollen, abgang.email) for abgang in response.abgaenge] == [(["trainer"], "ida@example.com")]
         assert row["kontakte"]["trainer"]["einwilligung"]["bestaetigt_am"] is None

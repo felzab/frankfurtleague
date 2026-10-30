@@ -462,19 +462,19 @@ export const BewerbungenGetBewerbungenQueryParams = zod.object({
 });
 
 /**
- * Store one school's application to play one season as submitted, and mint one confirmation link per contact person.
+ * Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.
  *
  * Everything the league decides -- `status`, `eingereicht_am`, `entscheidung` and each consent's
- * scope, source and date -- is written here and never taken off the payload. The three raw tokens are answered
- * for the caller to mail and stored only as hashes; the response is the one place outside the recipients' inboxes
- * they ever exist.
+ * scope, source and date -- is written here and never taken off the payload. One mail per person is owed in the
+ * same transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming
+ * who is still to answer, every other person their link. Each link is minted when its mail is handed out; no token
+ * is answered.
  *
  * An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
- * application it holds and stores none: fresh links where no message to any seat is known to have
- * reached its inbox, none otherwise. The same key over other details is refused (`REQ-BEWERBUNG-015`).
+ * application it holds, stores none and owes nothing again. The same key over other details is refused
+ * (`REQ-BEWERBUNG-015`).
  *
- * An address the ban list holds, on any seat, is refused (`REQ-BEWERBUNG-018`) on a first press and on a
- * replay alike, before any link is minted.
+ * An address the ban list holds, on any seat, is refused (`REQ-BEWERBUNG-018`) on a first press.
  *
  * A seat naming a consent wording other than the one the form now shows is refused (`REQ-EINWILLIGUNG-001`),
  * and only once the key has been looked up: a stored key is answered whatever wording it names.
@@ -723,9 +723,10 @@ export const BewerbungenPostBewerbungBody = zod
 /**
  * Record one person's consent or decline for the seat their link opens, and for a second seat they hold.
  *
- * A decline empties the slot. Server-to-server only: the answer carries the addresses the outbound messages are composed
- * from. Refuses, writing nothing: `REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and
- * on a team's season row `REQ-KONTAKT-004` and `-006`.
+ * A decline empties the slot; on an application it owes the Ansprechperson who still stands the notice naming who
+ * refused, in the same transaction, which stands as the deletion notice too. Refuses, writing nothing:
+ * `REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and on a team's season row
+ * `REQ-KONTAKT-004` and `-006`.
  * @summary Confirm or decline one seat of a Bewerbung or of a team's season row
  */
 export const bewerbungenPostEinwilligungBodyGeburtsdatumOneRegExp = new RegExp("^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$");
@@ -797,62 +798,15 @@ export const BewerbungenGetKuerzelParams = zod.object({
 });
 
 /**
- * Run one season's six retention clocks as of today, and answer the reminders and deletion notices the caller must mail.
+ * Run one season's six retention clocks as of today, each reminder and deletion notice owed in the write it belongs to.
  *
- * Every reminder answered is already stamped and committed. A deletion candidate is only listed: the caller stamps the
- * delivered notices through `/angekuendigt` and erases the announced ones through `/loeschen`. A row that cannot be written
- * is passed over, counted in `fehlgeschlagen` and met again by the next pass. 404 where no season has the id.
+ * The drain sends what the pass owed. A row that cannot be written is passed over, counted in `fehlgeschlagen` and met
+ * again by the next pass. 404 where no season has the id.
  * @summary Run one season's retention clocks
  */
 export const BewerbungenSweepSaisonParams = zod.object({
   saison_id: zod.string(),
 });
-
-/**
- * Stamp the named candidates whose deletion notice was delivered.
- *
- * An id that no longer qualifies, or already carries a stamp, is skipped. 404 where no season has the id.
- * @summary Stamp the candidates whose notice was delivered
- */
-export const BewerbungenAngekuendigtBewerbungenParams = zod.object({
-  saison_id: zod.string(),
-});
-
-export const bewerbungenAngekuendigtBewerbungenBodyBewerbungIdsItemRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const bewerbungenAngekuendigtBewerbungenBodyBewerbungIdsMax = 83;
-
-export const BewerbungenAngekuendigtBewerbungenBody = zod
-  .object({
-    bewerbung_ids: zod
-      .array(zod.string().regex(bewerbungenAngekuendigtBewerbungenBodyBewerbungIdsItemRegExp))
-      .max(bewerbungenAngekuendigtBewerbungenBodyBewerbungIdsMax),
-  })
-  .describe(
-    "The candidates from one pass's deletion list that this step names. The backend re-judges each, skipping one that no longer qualifies.",
-  );
-
-/**
- * Erase the named candidates that still qualify and carry the announcement stamp, and redact every log row naming them.
- *
- * Any other id is skipped. 404 where no season has the id.
- * @summary Erase the notified deletion candidates
- */
-export const BewerbungenLoeschenBewerbungenParams = zod.object({
-  saison_id: zod.string(),
-});
-
-export const bewerbungenLoeschenBewerbungenBodyBewerbungIdsItemRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const bewerbungenLoeschenBewerbungenBodyBewerbungIdsMax = 83;
-
-export const BewerbungenLoeschenBewerbungenBody = zod
-  .object({
-    bewerbung_ids: zod
-      .array(zod.string().regex(bewerbungenLoeschenBewerbungenBodyBewerbungIdsItemRegExp))
-      .max(bewerbungenLoeschenBewerbungenBodyBewerbungIdsMax),
-  })
-  .describe(
-    "The candidates from one pass's deletion list that this step names. The backend re-judges each, skipping one that no longer qualifies.",
-  );
 
 /**
  * Answer which kit colours this season has assigned, so the form can offer the rest.
@@ -940,10 +894,10 @@ export const BewerbungenGetBewerbungByIdParams = zod.object({
 });
 
 /**
- * Decline an application, recording who decided and the reason they gave.
+ * Decline an application, recording who decided and the reason they gave, and owe every person of it the decline.
  *
  * The submission itself is untouched: a decline moves `status` and `entscheidung` and nothing else,
- * so what the school wrote stays the record the decision was taken against.
+ * so what the school wrote stays the record the decision was taken against. The mails carry the reason verbatim.
  * @summary Decline a Bewerbung
  */
 export const bewerbungenAblehnenBewerbungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -966,6 +920,7 @@ export const BewerbungenAblehnenBewerbungBody = zod
  * IRREVERSIBLE. `saison_teams` has no DELETE, so a club entered in error leaves only through an
  * `austritt`, which is a public record carrying a stated reason. Refused while any contact person has yet to
  * confirm their own seat (`REQ-BEWERBUNG-013`), so every seat enters the season as its person confirmed it.
+ * The acceptance is owed to every person of the application in the same transaction, naming the seats each holds.
  * @summary Accept a Bewerbung and enter the school into the season
  */
 export const bewerbungenAnnehmenBewerbungPathBewerbungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1010,7 +965,7 @@ export const BewerbungenAnnehmenBewerbungBody = zod
   .describe("Which group the school enters, and the kit colour the league assigns it; the season is the application's own.");
 
 /**
- * Mint a fresh link for one seat and answer it raw, for the caller to mail; the old link then opens nothing.
+ * Void one seat's link and owe its person a fresh one in the same transaction; the old link then opens nothing.
  *
  * Where one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.
  * The answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.
@@ -1028,7 +983,7 @@ export const BewerbungenErneutEinwilligungParams = zod.object({
 });
 
 /**
- * Write another person into a seat its own holder stepped out of, and mint the fresh link to mail them.
+ * Write another person into a seat its own holder stepped out of, and owe them their link in the same transaction.
  *
  * It runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.
  * The record written is administrative and confirms nothing: the new person's own link is what asks them, and an
@@ -1082,19 +1037,16 @@ export const BewerbungenBesetzeKontaktSitzBody = zod
   .describe("The person seated where a contact person stepped out, who has agreed to nothing yet.");
 
 /**
- * Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.
- *
- * **The mailbox the link leaves is answered in `abgang_email`** for the caller to tell, as the contacts editor's save
- * answers one it takes off a seat; null where the corrected address is the one the seat held.
+ * Write a corrected address onto one seat and owe a fresh link there in the same transaction; the old link then opens nothing.
  *
  * The only repair there is for a link the mail provider will not carry: everything else the school typed stays the
  * record the decision is taken against. Where one person holds two seats both are corrected, and the confirmation
  * deadline restarts from today exactly as a re-send restarts it.
  *
- * The seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day
- * deletion because its notice could not arrive is a deletion candidate again once the corrected link is answered
- * for or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this
- * write would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm
+ * The fresh link's mail is the seat's last mail, so an application held back from the fourteen-day deletion because
+ * its notice could not arrive is a deletion candidate again once that mail is not refused.
+ *
+ * Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this write would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm
  * — the mirrored seat included (`REQ-BEWERBUNG-011`) — on a seat holding another address than `bisherige_email`, the address the
  * caller's page showed, as after a Widerspruch and a reseat (`REQ-BEWERBUNG-021`), and on an address another contact person on this
  * application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming
@@ -1536,19 +1488,16 @@ export const RegistrierungenGetRegistrierungenQueryParams = zod.object({
 });
 
 /**
- * Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.
+ * Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.
  *
  * Everything the league decides -- the team, the season, `status`, `eingereicht_am` and the
- * deadline -- is taken off the invite and the clock and never off the payload. The raw confirmation
- * token is answered for the caller to mail and stored only as a hash; this response is the one
- * place outside the recipient's inbox it ever exists.
+ * deadline -- is taken off the invite and the clock and never off the payload. The mail is owed in
+ * the Postausgang in the same transaction, its link minted when it is handed out; no token is answered.
  *
  * An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
- * registration it holds and stores none: a fresh link where no message is known to have reached the
- * inbox and nothing is confirmed, none otherwise. The same key over other details is refused
- * (`REQ-REGISTRIERUNG-011`), and so is a key whose stored address, the one the answer mails, has been
- * banned since (`REQ-REGISTRIERUNG-009`), before any link is minted. A key whose registration the team has since
- * admitted is refused too (`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.
+ * registration it holds, stores none and owes no second mail. The same key over other details is refused
+ * (`REQ-REGISTRIERUNG-011`). A key whose registration the team has since admitted is refused too
+ * (`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.
  * @summary Register through a team's link
  */
 export const registrierungenPostRegistrierungBodyEmailMax = 254;
@@ -1720,34 +1669,23 @@ export const RegistrierungenPatchEinwilligungBody = zod
   );
 
 /**
- * Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.
+ * Run the four registration retention clocks over one season, as of today in Europe/Berlin.
  *
  * A declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a
- * decision is erased whatever the pupil answered, because no admission can be taken for a season that is over. The confirmed ones
- * among them are listed in `benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is
- * told neither before nor after, its address never having been confirmed. A call whose erasure names somebody to tell answers once
- * that erasure has committed, so the rest of the season's registrations wait for the next call; the two clocks below do not run
- * for a `past` season, whose own end takes every row they read.
+ * decision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the two clocks
+ * below do not run for a `past` season, whose own end takes every row they read.
  *
  * Otherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having
- * named that day. Then one reminder per registration at its reminder age, earliest deadline first: a fresh link is minted and
- * `erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and the link already
- * in that inbox stays valid beside the fresh one. One call reminds a bounded share of the registrations due; the rest stay due and
- * the calls after it remind them. A registration whose last message the mail provider refused is not chased at all, and one whose
- * address the ban list holds is sent nothing and has nothing written: it stays due, so every pass asks the ban list for it again
- * until its deadline, and reminds it once a lift comes first; each pass logs how many it withheld, never which. Every removal
- * names this season alone, is made inside a transaction and takes its log rows with it.
+ * named that day. Then one reminder per registration at its reminder age, earliest deadline first: `erinnert_am` is stamped and the
+ * reminder owed in the Postausgang in one transaction, its link joining the one already in that inbox. One call reminds a bounded
+ * share of the registrations due; the rest stay due and the calls after it remind them. Every removal names this season alone, is
+ * made inside a transaction and takes its log rows with it.
  *
- * Whatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transactions, so no later step of the same
- * call can answer an error in their place; where the request's deadline cuts them after one has committed, the call answers what
- * committed and warns once.
+ * A registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of
+ * its clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
+ * nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.
  *
- * A registration whose write fails, the database refusing it or anything else, or one the answer cannot carry, is passed over
- * alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it again and one
- * failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.
- *
- * 404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes
- * nothing, though it logs the count of withheld registrations again.
+ * 404 where no season has the id. Idempotent per day: a run after every due reminder is owed writes nothing.
  * @summary Run one season's registration retention clocks
  */
 export const RegistrierungenSweepRegistrierungenParams = zod.object({
@@ -1755,12 +1693,12 @@ export const RegistrierungenSweepRegistrierungenParams = zod.object({
 });
 
 /**
- * Decline one pending registration, confirmed or not: its state and the decision are written, and nothing else.
+ * Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.
  *
  * The decision records the declining seat holder's address and a reason from a closed set, never free text:
  * `andere_person` where the team answered that the registration is not the person its address belongs to. The
- * row stays until the retention sweep erases it a month later. The answer carries the address the pupil's link
- * went to, for the decline mail and nothing else, and whether that address was ever confirmed.
+ * row stays until the retention sweep erases it a month later. The note is owed in the same transaction, and only
+ * where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.
  *
  * Refuses, in this order, no pending registration with this id (404) and no seat on its team's season
  * (`REQ-FUNKTION-001`).
@@ -2049,28 +1987,27 @@ export const SaisonsActivateSaisonParams = zod.object({
 });
 
 /**
- * Mint one registration link per admitted team of this season and answer each team's raw link once, for the caller to mail.
+ * Give every admitted team of this season a fresh registration link and owe it to the team's confirmed seats, one mail each.
  *
- * **Every team mailed is minted for, and any link that team already held is REVOKED in the same per-team transaction** — the copy in
- * somebody's inbox opens nothing from that moment. A stored link is a hash, so the value to put in a message is one that has just been
- * made; there is nothing to re-send. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the
+ * **Every team mailed gets a fresh invite, and any link that team already held is REVOKED in the same per-team transaction** — the
+ * copy in somebody's inbox opens nothing from that moment. The mails are owed in that transaction too, each minting its link when it is
+ * handed out; no link is answered. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the
  * press. A team this skips is left exactly as it was.
  *
  * Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
- * has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a delivery
- * record and `erneut` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it
- * holds rather than losing it to a press that mails nobody. **The fifth is read off
- * the delivery record**, which only `POST /zustellung/angenommen` writes — so pressing twice mails nobody twice, while a link minted and
- * never sent is still sent. **The first is read off the junction row's `austritt` record**, so a team out of the season by either route is
- * passed over; minting for one team by hand is not refused, that being a deliberate act rather than a bulk one.
+ * has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already has a mail owed or
+ * sent and `erneut` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it
+ * holds rather than losing it to a press that mails nobody. **The fifth is read off the last mail owed about the live link**, so pressing
+ * twice mails nobody twice, while a link whose mail was given up or barred is sent again. **The first is read off the junction row's
+ * `austritt` record**, so a team out of the season by either route is passed over; minting for one team by hand is not refused, that
+ * being a deliberate act rather than a bulk one.
  *
- * The answer carries the raw link per team and is the only place each appears. Refused where the season has ended (`REQ-EINLADUNG-002`);
- * 404 where no season holds that id; a season holding no team answers an empty list.
+ * Refused where the season has ended (`REQ-EINLADUNG-002`); 404 where no season holds that id; a season holding no team answers an
+ * empty list.
  *
- * **An administrator whose access is revoked while the mailing runs is refused `REQ-AUTH-006` at the next team**, and the answer
- * carries no link at all: every team minted for before that point has lost the link it held and holds one nobody was sent. Running the
- * mailing again, as an administrator who still holds access, mints and answers those teams' links anew, none of them carrying a
- * delivery record yet.
+ * **An administrator whose access is revoked while the mailing runs is refused `REQ-AUTH-006` at the next team**: every team done before
+ * that point holds its fresh link and its mails, and running the mailing again, as an administrator who still holds access, skips those
+ * teams and reaches the rest.
  * @summary Mint every admitted team a link
  */
 export const SaisonsPostEinladungenVersandParams = zod.object({
@@ -2087,7 +2024,7 @@ export const SaisonsPostEinladungenVersandBody = zod.object({
  * Per team of this season, the mailboxes the send would write to and the reason it would skip a team — and it writes nothing itself.
  *
  * Decided by the function the send itself decides by, so the list read here is the list performed. `erneut` mirrors the send's own
- * switch: left false, a team whose live link already carries a delivery record reads as `bereits_gesendet`, and pressing the send with
+ * switch: left false, a team whose live link already has a mail owed or sent reads as `bereits_gesendet`, and pressing the send with
  * `erneut` true instead makes this preview's own answer wrong unless the same value is asked for here.
  *
  * **`ersetzt_link` is the warning this list carries**: the send mints for every team it answers, so a team already holding a link has that
@@ -2095,8 +2032,8 @@ export const SaisonsPostEinladungenVersandBody = zod.object({
  * so a page offering the press reads that fact here or nowhere.
  *
  * Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that
- * block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a
- * delivery record and `erneut` is false. A season holding
+ * block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already has a mail
+ * owed or sent and `erneut` is false. A season holding
  * no team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.
  * @summary Who the send would reach
  */
@@ -2239,12 +2176,12 @@ export const SchiedsrichterGetSchiedsrichterQueryParams = zod.object({
 });
 
 /**
- * Create a referee and mint their confirmation link.
+ * Create a referee and owe them their confirmation link.
  *
  * `inactive_since` is set to null here and is on no payload. **Entering a referee IS the
  * invitation**: the payload requires an email address, and there is no second press deciding
  * whether this person is asked, because a referee nobody asked is a name nobody consented to
- * publish. The raw token is answered once, for the caller to mail, and the row stores only its hash.
+ * publish. The link goes out through the Postausgang, which mints it; the answer names the address and the deadline.
  *
  * Refused `REQ-SCHIEDSRICHTER-007` where the address given is on the ban list.
  * @summary Create a Schiedsrichter
@@ -2401,7 +2338,8 @@ export const SchiedsrichterDeleteSchiedsrichterParams = zod.object({
  *
  * Answers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a
  * lapsed link without reading a clock of its own; and the live change of the referee's address, which the address tool shows,
- * beside why the tool refuses it this administrator, null where it opens it.
+ * beside why the tool refuses it this administrator, null where it opens it. `zustellung` says what became of the last
+ * confirmation mail the referee was owed, null where none was.
  * @summary One Schiedsrichter
  */
 export const schiedsrichterGetSchiedsrichterByIdPathSchiedsrichterIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2415,9 +2353,9 @@ export const SchiedsrichterGetSchiedsrichterByIdParams = zod.object({
  *
  * Only the name. `payment` is NOT propagated: the fee on a match is what was agreed for it.
  *
- * **A corrected address on an UNCONFIRMED referee retires their link and answers a fresh one** in
- * `bestaetigung`, for the caller to mail to the new address: the old link was posted to a mailbox
- * nobody reads, and leaving it live is a credential in the wrong inbox.
+ * **A corrected address on an UNCONFIRMED referee retires their link and owes a fresh one** to the
+ * new address, named in `bestaetigung`: the old link was posted to a mailbox nobody reads, and
+ * leaving it live is a credential in the wrong inbox.
  *
  * **A CONFIRMED referee's address is refused here** (`REQ-SCHIEDSRICHTER-011`), retired or not: it is who signs in as the
  * person, and moves only through an address change: the address tool, `POST /adresswechsel`, or the person's own account page.
@@ -2465,12 +2403,9 @@ export const SchiedsrichterPatchSchiedsrichterBody = zod.object({
 });
 
 /**
- * Mint a fresh confirmation link for this referee and answer the raw token once, for the caller to mail.
+ * Owe this referee a fresh confirmation link, which the Postausgang mints and mails, and answer where it goes.
  *
- * It replaces the whole block, so the previous link stops working at once and the delivery state
- * of the message that link went out in goes with it — a bounce recorded against a replaced address
- * would otherwise hold the fresh link's referee unreachable for ever. The deadline restarts from
- * today.
+ * It replaces the whole block, so the previous link stops working at once. The deadline restarts from today.
  *
  * Refused where the referee is retired (`REQ-SCHIEDSRICHTER-001`), where they have already
  * answered (`REQ-SCHIEDSRICHTER-004`), where they carry no email address
@@ -2492,8 +2427,8 @@ export const SchiedsrichterEinladenSchiedsrichterParams = zod.object({
 /**
  * Clear `inactive_since`, putting the referee back into the picker and every default read.
  *
- * **A retired referee who has not answered is minted a fresh link**, answered once for the caller
- * to mail: a retired referee's save stores a new address and mails nothing, so coming back is what
+ * **A retired referee who has not answered is owed a fresh link**, named in `bestaetigung`: a
+ * retired referee's save stores a new address and mails nothing, so coming back is what
  * asks them. A row holding no address a link can go to comes back unasked, and so does one whose
  * person has answered. Where a link is minted, an address on the ban list is refused
  * `REQ-SCHIEDSRICHTER-007` and the row stays retired, and one from a sign-in or confirmation older than
@@ -2852,7 +2787,8 @@ export const SpielberichtePutSpielberichtBerichtBody = zod
  *
  * Newest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still
  * holding its party's question is served; `limit` cuts the others, and `vollstaendig` is false where it left the
- * oldest of them out. A season no document has answers no rows rather than 404.
+ * oldest of them out. Each seat holding a link names what became of the last mail owed to it. A season no document
+ * has answers no rows rather than 404.
  * @summary A season's fixture confirmations, or one fixture's
  */
 export const spielbestaetigungenGetSpielbestaetigungenQuerySpielIdOneRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2953,7 +2889,9 @@ export const SpielbestaetigungenGetSpielbestaetigungAnsichtBody = zod
   .describe("The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.");
 
 /**
- * Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what the caller must mail.
+ * Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what it did, counted.
+ *
+ * Each mail is owed through the Postausgang in the transaction that writes its row.
  *
  * The close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club
  * to an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of
@@ -2962,21 +2900,11 @@ export const SpielbestaetigungenGetSpielbestaetigungAnsichtBody = zod
  * that closes an agreement beside it, and once the day it was about has passed: the public fixture then stops
  * counting it as that club's agreement.
  *
- * A closing owes its party a notice where the party's first request or Einteilung went out, about a day today or later:
- * for a move, the slot it left or the one the fixture holds now; for a referee taken off the fixture -- ahead of a move
- * it shares a close with, and never for the referee's own decline, which closed its row as it was given -- and for a
- * call-off, the slot the row was about. The closed row holds the
- * notice, and the notice step answers a share of those the season's rows hold, each built off the fixture and the
- * mailboxes or address as they stand: a team's move in `neue_ansetzungen`, a referee's in
- * `schiedsrichter_neue_ansetzungen`, a referee taken off in `schiedsrichter_gewechselt`, a call-off in `spiel_abgesagt`
- * and `schiedsrichter_spiel_abgesagt`, and the notice an administrator's discard holds, that the date stands, in
- * `vorschlag_verworfen`. A notice is answered on every pass until the caller stamps it through
- * `/mitgeteilt`; one answered as often as `app/api/spielbestaetigungen/services.py :: MITTEILUNG_VERSUCHE_HOECHSTENS`
- * allows, or about no day still to come, is given up: answered in `mitteilungen_aufgegeben` by its row, its fixture
- * and its party's kind, never a person, for the administrator to tell by hand, and answered so on every pass until
- * `/mitgeteilt` stamps it too, so a lost answer loses no give-up. One with nobody left to tell, or whose closing the
- * fixture has since undone -- reinstated, its referee booked again, back at the row's slot -- is dropped unanswered,
- * the mint asking its party afresh.
+ * A closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,
+ * about a day today or later: for a move, the slot it left or the one the fixture holds now; for a referee taken off
+ * the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row
+ * as it was given -- and for a call-off, the slot the row was about. A club is told at every address its season row's
+ * seats hold now, a referee at the address their record holds; a party nobody is left to tell is told nothing.
  *
  * The mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and
  * ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for
@@ -2984,89 +2912,32 @@ export const SpielbestaetigungenGetSpielbestaetigungAnsichtBody = zod
  * decline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased
  * referee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period
  * (`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed.
- * Each seat holding an address gets one link, a person holding two seats one link naming both, and the raw tokens are
- * answered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so a request that never went
- * out shows as never asked. An open row's occupied seat holding no link -- its holder replaced,
- * newly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows are answered in
- * `einteilungen`, with the referee's address and no token. A fixture holding rows about an Ansetzung it has left is asked
- * once the close has shut them and each one's notice that its links are void is answered, in this answer or an earlier
- * one, so that notice goes out first.
+ * Each seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the
+ * mail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's
+ * occupied seat holding no link -- its holder replaced, newly seated, or a ban since lifted -- is owed one too. A
+ * fixture holding an unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing
+ * its notice first.
  *
- * The reminder mints a fresh link per seat on each team row whose deadline lies a reminder's count of days away
- * (`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), appended beside the
- * links already mailed so every one of them answers until the deadline, and stamps the day BEFORE answering: a failed send
- * costs one reminder, never a daily repeat. It passes over each seat whose last mail the provider refused, and reminds no
- * row this pass inserted nor one whose request was stamped today; where this pass's mint gave one of a row's seats a fresh
- * link, that request is the seat's message of the day and the row's other seats are reminded beside it.
+ * The reminder owes a fresh link per person on each team row whose deadline lies a reminder's count of days away
+ * (`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), minted beside the
+ * links already mailed so every one of them answers until the deadline, and stamps the day. It passes over each seat
+ * whose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where
+ * this pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's
+ * other seats are reminded beside it.
  *
- * A row whose first request was never stamped as sent, inserted on an earlier pass, is asked again on every pass until a
- * stamp lands or it stops taking an answer, a team row after its deadline and a referee row after the fixture's day: a
- * team row in `anfragen`, with a fresh link per seat appended the same way and each
- * refused seat passed over; a referee row in `einteilungen`, unless the provider refused the last mail recorded to the
- * referee's address. A row with nobody left to ask is not asked and stays unstamped, so it shows as never asked.
+ * A seat whose address the ban list holds is owed nothing and has nothing written, so it stays due and a later pass asks
+ * it once the ban is lifted.
  *
- * A seat whose address the ban list holds is minted nothing and has nothing written, so it stays due and a later pass mints
- * it once the ban is lifted; each pass logs how many seats it withheld, never which.
+ * Each step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id
+ * and counted in `fehlgeschlagen`; any other failure is raised, every step committed before it standing with its mails.
  *
- * Each step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has
- * committed something owed a message, a later failure is logged and the call answers what committed. A row whose write or
- * answer fails is passed over alone, logged by id and counted in `fehlgeschlagen`.
- *
- * A season that is not `active` is passed by whole -- nothing closed, minted or reminded, every list empty -- so a
- * mistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.
+ * A season that is not `active` is passed by whole -- nothing closed, minted or reminded -- so a mistyped call, or one for
+ * a season ended since the listing, mails nobody. 404 where no season has the id.
  * @summary Run one season's fixture confirmation pass
  */
 export const SpielbestaetigungenSweepSpielbestaetigungenParams = zod.object({
   saison_id: zod.string(),
 });
-
-/**
- * Record that the first message about the rows named went out, team and referee rows alike.
- *
- * Every named row of this season not yet stamped is stamped today, answered or closed since or not: the stamp says the
- * request was mailed, which a row closed for a move needs before its parties are told the date changed. A row already
- * stamped keeps the day it has, and an id of another season is skipped. A row whose stamp fails is passed over alone,
- * logged by id, left unstamped and counted in `fehlgeschlagen`. 404 where no season has the id. An empty list answers zero.
- * @summary Stamp the confirmations whose first message went out
- */
-export const SpielbestaetigungenAngefragtSpielbestaetigungenParams = zod.object({
-  saison_id: zod.string(),
-});
-
-export const spielbestaetigungenAngefragtSpielbestaetigungenBodySpielbestaetigungIdsItemRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const spielbestaetigungenAngefragtSpielbestaetigungenBodySpielbestaetigungIdsMax = 83;
-
-export const SpielbestaetigungenAngefragtSpielbestaetigungenBody = zod
-  .object({
-    spielbestaetigung_ids: zod
-      .array(zod.string().regex(spielbestaetigungenAngefragtSpielbestaetigungenBodySpielbestaetigungIdsItemRegExp))
-      .max(spielbestaetigungenAngefragtSpielbestaetigungenBodySpielbestaetigungIdsMax),
-  })
-  .describe("Which rows' first messages went. Stamped whether or not answered or closed since: the stamp records the send.");
-
-/**
- * Record that the notices about the rows named went out, or were given up and logged, so no later pass answers them again.
- *
- * Every named row of this season still holding its notice stops holding it. A row holding none -- stamped already,
- * dropped, or never owing one -- and an id of another season are left alone and not counted. No claim is checked:
- * one process runs the pass, so no second pass can hold the rows named. One
- * transaction, recorded under the system actor. 404 where no season has the id. An empty list answers zero.
- * @summary Stamp the confirmations whose notice went out
- */
-export const SpielbestaetigungenMitgeteiltSpielbestaetigungenParams = zod.object({
-  saison_id: zod.string(),
-});
-
-export const spielbestaetigungenMitgeteiltSpielbestaetigungenBodySpielbestaetigungIdsItemRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-export const spielbestaetigungenMitgeteiltSpielbestaetigungenBodySpielbestaetigungIdsMax = 25;
-
-export const SpielbestaetigungenMitgeteiltSpielbestaetigungenBody = zod
-  .object({
-    spielbestaetigung_ids: zod
-      .array(zod.string().regex(spielbestaetigungenMitgeteiltSpielbestaetigungenBodySpielbestaetigungIdsItemRegExp))
-      .max(spielbestaetigungenMitgeteiltSpielbestaetigungenBodySpielbestaetigungIdsMax),
-  })
-  .describe("Which rows' notices went, or were given up: each stops being owed, so no later pass answers it again.");
 
 /**
  * Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.
@@ -3152,10 +3023,11 @@ export const SpielbestaetigungenEintragenSpielbestaetigungBody = zod
  * IRREVERSIBLE: the decline stays as the club gave it, and the row is closed `verworfen`, which is that club's one
  * answer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture
  * counts it as the club's agreement, the league having kept the date, until a pass closes it again as it closes an
- * agreement beside it. Where its day is still to come, the row holds the club a notice that the date stands, which
- * the confirmation pass mails. Refused for any other row -- open, agreed, declined without a proposal, a referee's, closed, or
- * about an Ansetzung the fixture has left, the fixture moving while this request runs included (`REQ-ANSETZUNG-014`):
- * the confirmation pass closes that row and tells its club of the move.
+ * agreement beside it. Where its day is still to come, the club is owed a notice that the date stands, at every
+ * address its season row's seats hold now, in the same transaction. Refused for any other row -- open, agreed,
+ * declined without a proposal, a referee's, closed, or about an Ansetzung the fixture has left, the fixture moving
+ * while this request runs included (`REQ-ANSETZUNG-014`): the confirmation pass closes that row and tells its club of
+ * the move.
  * @summary Discard a club's proposed date
  */
 export const spielbestaetigungenVerwerfenSpielbestaetigungPathSpielbestaetigungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -4240,9 +4112,8 @@ export const TeamsDeleteEinladungParams = zod.object({
  * What this team's live registration link for the season is, or that it holds none, beside the window deciding what it opens.
  *
  * **No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became
- * of the last message sent about it — a `versand.zustellung` absent, or naming no message, means nobody has mailed it, which is a state
- * rather than a delivery failure. The minter is `null` beside `erstellt_von_gesperrt` where the ban list holds that address, as no barred
- * address is served in plain.
+ * of the last mail owed about it — `zustellung` null means nobody was ever owed it, which is a state rather than a delivery failure.
+ * The minter is `null` beside `erstellt_von_gesperrt` where the ban list holds that address, as no barred address is served in plain.
  *
  * `laeuft` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of
  * the link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.
@@ -4259,7 +4130,8 @@ export const TeamsGetEinladungParams = zod.object({
  * Mint the link a team's players register through, revoking whatever link that team held for this season.
  *
  * **The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of
- * this response is lost and the repair is another mint. Mailing it is a separate press.
+ * this response is lost and the repair is another mint. Mailing the team's link is a separate press
+ * (`POST /teams/{team_id}/saisons/{saison_id}/einladung/versand`), whose mails mint links of their own beside this one.
  *
  * The reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left
  * holding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh
@@ -4283,6 +4155,33 @@ export const TeamsPostEinladungParams = zod.object({
 });
 
 /**
+ * Owe this team's live registration link to every seat of its season row whose own person has confirmed it, one mail each.
+ *
+ * The write mints nothing and revokes nothing: each mail mints a link of its own when it is handed out, so a link copied off the mint
+ * stays valid beside the mailed ones. `empfaenger` names who is owed it, one entry per stored address, and is empty where nobody has
+ * confirmed a seat, which owes nothing. Pressed twice on one day, the second owes nothing again; a later day's press mails the seats
+ * afresh. A barred address is stopped when its mail is handed out.
+ *
+ * 404 where `einladung_id` is not this team's live invite for the season, a link replaced or withdrawn since the caller read it among
+ * them, and where the season holds no row for the team.
+ * @summary Mail this team's live registration link to its confirmed contact seats
+ */
+export const teamsPostEinladungVersandPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const TeamsPostEinladungVersandParams = zod.object({
+  team_id: zod.string().regex(teamsPostEinladungVersandPathTeamIdRegExp),
+  saison_id: zod.string(),
+});
+
+export const teamsPostEinladungVersandBodyEinladungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
+
+export const TeamsPostEinladungVersandBody = zod
+  .object({
+    einladung_id: zod.string().regex(teamsPostEinladungVersandBodyEinladungIdRegExp),
+  })
+  .describe("The one live link a team's panel shows, to be mailed to the team's confirmed seats.");
+
+/**
  * Rewrite the three people this team is reached through for one season. Null clears the block.
  *
  * Its own endpoint so the contacts editor and the club editor cannot clobber one row. The one
@@ -4294,18 +4193,15 @@ export const TeamsPostEinladungParams = zod.object({
  * `bestaetigt_am` are the server's: a seat keeping its person keeps both, and a seat newly filled or handed
  * on is stored as the league's entry, unconfirmed.
  *
- * **Each person the save newly seats is minted a confirmation link**, answered raw once in `bestaetigungen` for the
- * caller to mail: one per person, covering both seats where the Trainer holds a second. A seat keeping its person
- * keeps their link, and a seat emptied or handed on loses the one it held and its links on the team's open match
- * confirmations, so the person who left it holds nothing live. A save newly seating an address the ban list holds is
+ * **Each person the save newly seats is owed a confirmation link**, mailed through the Postausgang in this write's own
+ * transaction and named in `bestaetigungen` by the address it goes to, never by the link: one per person, covering
+ * both seats where the Trainer holds a second. A seat keeping its person keeps their link, and a seat emptied or
+ * handed on loses the one it held and its links on the team's open match confirmations, so the person who left it
+ * holds nothing live. A save newly seating an address the ban list holds is
  * refused `REQ-KONTAKT-003`, as the re-send to one is. On a row of a `past` season, or of a team that has left it, the
- * link is how its person learns of the entry, and it takes their Widerspruch alone. A save minting a link, emptying
+ * link is how its person learns of the entry, and it takes their Widerspruch alone. A save owing a link, emptying
  * or handing on a seat, or voiding a link its person could still answer, is refused `REQ-AUTH-009` as the clearing
  * is; a save doing none of these is not.
- *
- * **Each mailbox the save takes off a seat is answered in `abgaenge`** for the caller to tell, with every seat it
- * lost, a mailbox still holding another seat of the row included. A mailbox the save mints a link is not one: that
- * link's mail names the seats it holds now.
  *
  * **A seat the same person keeps keeps its record whole**, each choice and its evidence included; a seat newly filled
  * or handed to another person is born granting nothing, its media consent off and no choice evidenced, since only a
@@ -4471,15 +4367,15 @@ export const TeamsPatchSaisonTeamKontakteBody = zod
   );
 
 /**
- * Mint a fresh confirmation link for one contact seat and answer it raw once, for the caller to mail.
+ * Owe one contact seat a fresh confirmation link, mailed through the Postausgang in this write's own transaction.
  *
  * It replaces the seat's link WHOLE, and its pair's where the Trainer holds both and has not confirmed the other:
- * the previous link stops opening anything, the delivery state of the message it went out in goes with it, and the
- * deadline restarts from today.
+ * the previous link stops opening anything from this write on, and the deadline restarts from today. The answer names
+ * the address the mail is owed to, never the link.
  *
  * Refused where the season has ended or the team has left it (`REQ-KONTAKT-005`), where the seat holds nobody or its
  * person has already confirmed it (`REQ-KONTAKT-002`), and where its address is on the ban list (`REQ-KONTAKT-003`).
- * 404 for a team and season holding no row, and for a path naming no seat. Every call mints, so every call from a
+ * 404 for a team and season holding no row, and for a path naming no seat. Every call owes a bearer link, so every call from a
  * sign-in or confirmation older than `STEP_UP_WINDOW_HOURS` is refused `REQ-AUTH-009`.
  * @summary Send one contact seat a fresh confirmation link
  */

@@ -1260,23 +1260,15 @@ available is a read that failed: reload the page until it gives a figure.
 (`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`).
 
 **Each pass that could list the seasons writes one `spielbestaetigung.sweep_pass` line**, the
-record of what it did, counting the rows it closed, the first requests and Einteilungen
-it stamped as asked, the reminders the backend stamped for it to mail, whether or not each then
-went, the notices it stamped out, told or given up, the notices given up and the rows it passed over, at `INFO`,
-and as a warning where it passed rows over or gave a notice up. A notice of a
-move, a referee taken off or a call-off is answered on every pass until its stamp lands, and given
-up after the attempts `fl_backend/app/api/spielbestaetigungen/services.py :: MITTEILUNG_VERSUCHE_HOECHSTENS`
-allows or once its day has passed, a move's once both the slot it left and the fixture's new one have.
-Each notice given up writes a `spielbestaetigung.mitteilung_aufgegeben` warning naming its
-`spiel_id` and its `partei`, a club's contacts or the referee nobody told: open that fixture's
-confirmations panel in the match editor and tell them by hand. The line is written before the
-notice's stamp, so it repeats every hour until a stamp lands. A season it could not sweep files `spielbestaetigung.sweep_failed` besides, and a listing
-that failed files that line and no pass line. A request or an Einteilung whose stamp never landed
-is asked again on every pass until one does or the row stops taking an answer (a club's after its
-deadline, a referee's after the fixture's day), each address whose last
-mail the provider refused passed over, so a stamp call failing hour after hour mails those seats
-and referees hourly until it is repaired. Every link such a mail
-carried stays live until the deadline beside the later ones:
+record of what it did, counting the rows it closed, the rows it asked and reminded, the mails it
+owed and the rows it passed over, at `INFO`, and as a warning where it passed rows over. Every mail
+it owes, a request, a reminder, an Einteilung or the notice of a move, a referee taken off or a
+call-off, is a Postausgang row written in the transaction that writes its confirmation row, so a
+row reads as asked exactly where its mail is owed; the drain after the pass sends them and retries
+each, and a mail it gives up is counted in its `postausgang.drain` line and reported to the
+heartbeat. A notice about a day gone by is owed nobody. A listing or a season's pass that fails
+ends the job, which the scheduler logs and the heartbeat reports; the next pass repeats nothing
+that committed. Every link a mail carried stays live until the deadline beside the later ones:
 
 ```bash
 docker compose logs --since 2h frontend | grep spielbestaetigung.sweep_

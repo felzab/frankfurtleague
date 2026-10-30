@@ -59,7 +59,7 @@ def registrierung_document(
         "geburtsdatum": None if einwilligung is None else "2009-05-04",
         "einwilligung": einwilligung,
         "bestaetigung": {
-            "token_hash": TOKEN_HASH,
+            "token_hashes": [TOKEN_HASH],
             "verschickt_am": eingereicht_am,
             "erinnert_am": None,
             "frist": "2026-04-08",

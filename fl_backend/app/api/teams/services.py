@@ -5,6 +5,8 @@ from itertools import combinations, product
 from typing import Any, get_args
 
 from app.api.bewerbungen.services import bestaetigungsfrist_from, row_takes_confirmations, saison_link_is_over, seat_is_answered
+from app.api.postausgang.schemas import FLKontaktLinkDaten, FLPostausgangBezug, FLPostausgangLage, FLPostausgangLink
+from app.api.postausgang.services import OwedMail
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_COUNTED_AS_ABSAGE,
@@ -16,7 +18,6 @@ from app.api.spiele.schemas import (
 from app.api.teams.schemas import (
     FLGruppen,
     FLGruppenTeam,
-    FLKontaktAbgang,
     FLKontaktMint,
     FLPublicTeamsFilterParams,
     FLTeam,
@@ -852,7 +853,8 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
                 "pipeline": [
                     {
                         "$project": {
-                            "_id": 0,
+                            # The row's id, which its links' mails are owed about: `mit_linkstand` reads their state by it.
+                            "_id": 1,
                             "saison_id": 1,
                             "gruppe": 1,
                             "austritt": 1,
@@ -864,7 +866,7 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
                     },
                     # Each link's state and never its hash, which only the link's own lookup reads. Unset
                     # rather than projected field by field: a sub-path projection drops a null seat's key.
-                    {"$unset": [f"bestaetigungen.{seat}.token_hash" for seat in KONTAKT_ROLLEN]},
+                    {"$unset": [f"bestaetigungen.{seat}.token_hashes" for seat in KONTAKT_ROLLEN]},
                 ],
                 "as": "memberships",
             }
@@ -873,10 +875,34 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
     ]
 
 
-def mit_abgelaufen(teams_raw: Sequence[Mapping[str, Any]], *, today: str) -> list[dict[str, Any]]:
-    """The memberships read with each stored seat link judged as its press judges it (`saison_link_is_over`).
+def membership_row_ids(teams_raw: Sequence[Mapping[str, Any]]) -> list[Any]:
+    """Every season row the memberships read holds a link on, whose mails `postausgang/crud.py :: lagen_of` reads."""
 
-    Lapsed only on an unanswered seat: an answered seat's link has nothing left to collect.
+    return [row["_id"] for team in teams_raw for row in team.get("memberships", []) if isinstance(row.get("bestaetigungen"), Mapping)]
+
+
+def _lage_sitz(row: Mapping[str, Any], seat: str) -> str:
+    """The seat the mail carrying this seat's link was owed about (`kontakt_bezug`): the one a Trainer mirrors, where one link holds both.
+
+    One link holds both exactly where the two entries are one: the write minting it stores the same entry under each,
+    and its hand-out writes the same hash into both.
+    """
+
+    zugleich = (row.get("kontakte") or {}).get("trainer_ist_zugleich")
+    links = row.get("bestaetigungen") or {}
+    if seat == "trainer" and zugleich in KONTAKT_ROLLEN and links.get(zugleich) == links.get("trainer"):
+        return str(zugleich)
+
+    return seat
+
+
+def mit_linkstand(
+    teams_raw: Sequence[Mapping[str, Any]], *, today: str, lagen: Mapping[tuple[Any, str | None], FLPostausgangLage]
+) -> list[dict[str, Any]]:
+    """The memberships read with each stored seat link judged as its press judges it (`saison_link_is_over`), and what became of its mail.
+
+    Lapsed only on an unanswered seat: an answered seat's link has nothing left to collect. The row's id goes here, the
+    membership naming its row by its season.
     """
 
     def judged(row: Mapping[str, Any]) -> Any:
@@ -889,10 +915,17 @@ def mit_abgelaufen(teams_raw: Sequence[Mapping[str, Any]], *, today: str) -> lis
             return offen and saison_link_is_over(frist=link.get("frist"), today=today)
 
         return {
-            seat: {**link, "abgelaufen": abgelaufen(seat, link)} if isinstance(link, Mapping) else link for seat, link in bestaetigungen.items()
+            seat: {**link, "abgelaufen": abgelaufen(seat, link), "zustellung": lagen.get((row["_id"], _lage_sitz(row, seat)))}
+            if isinstance(link, Mapping)
+            else link
+            for seat, link in bestaetigungen.items()
         }
 
-    return [{**team, "memberships": [{**row, "bestaetigungen": judged(row)} for row in team.get("memberships", [])]} for team in teams_raw]
+    def served(row: Mapping[str, Any]) -> dict[str, Any]:
+        rest = {key: value for key, value in row.items() if key != "_id"}
+        return {**rest, "bestaetigungen": judged(row)}
+
+    return [{**team, "memberships": [served(row) for row in team.get("memberships", [])]} for team in teams_raw]
 
 
 def _seat_identifier(row: Mapping[str, Any], seat: str) -> str | None:
@@ -1078,14 +1111,14 @@ def kontakte_fassungen_gehalten(*, kontakte: Mapping[str, Any] | None, stored: A
 # `bestaetigungen.<slot>` as an application keeps its own.
 
 
-def compose_kontakt_bestaetigung(*, token_hash: str, today: str) -> dict[str, Any]:
-    """One seat's fresh link: a live hash, mailed today, its deadline the application's bound, nobody declined.
+def compose_kontakt_bestaetigung(*, today: str) -> dict[str, Any]:
+    """One seat's fresh link: mailed today, its deadline the application's bound, nobody declined.
 
-    Written WHOLE wherever a link is minted, so the delivery state of the message an older link went
-    out in goes with it.
+    No link yet: the hand-out of the mail the same write owes mints it into `token_hashes`, so the link the seat held
+    before opens nothing from this write on. Written WHOLE wherever a link is owed.
     """
 
-    return {"token_hash": token_hash, "verschickt_am": today, "frist": bestaetigungsfrist_from(today=today), "abgelehnt_am": None}
+    return {"token_hashes": [], "verschickt_am": today, "frist": bestaetigungsfrist_from(today=today), "abgelehnt_am": None}
 
 
 def people_of(kontakte: Any) -> list[tuple[FLKontaktRolle, ...]]:
@@ -1162,8 +1195,8 @@ def compose_bestaetigungen_nach(*, kontakte: Any, stored_kontakte: Any, stored_b
     return block
 
 
-def _live_link(*, kontakte: Mapping[str, Any], bestaetigungen: Mapping[str, Any], slot: str, today: str) -> str | None:
-    """The hash of the link this seat's person can still answer, or `None`: answered, declined and lapsed links open nothing."""
+def _live_link(*, kontakte: Mapping[str, Any], bestaetigungen: Mapping[str, Any], slot: str, today: str) -> list[str] | None:
+    """The hashes of the link this seat's person can still answer, or `None`: answered, declined, lapsed and unminted links open nothing."""
 
     entry = bestaetigungen.get(slot)
     seat = kontakte.get(slot)
@@ -1173,9 +1206,9 @@ def _live_link(*, kontakte: Mapping[str, Any], bestaetigungen: Mapping[str, Any]
     if entry.get("abgelehnt_am") is not None or str(entry.get("frist") or "") < today:
         return None
 
-    token_hash = entry.get("token_hash")
+    token_hashes = entry.get("token_hashes")
 
-    return str(token_hash) if token_hash else None
+    return list(token_hashes) if isinstance(token_hashes, list) and token_hashes else None
 
 
 def seats_changing_holder(*, stored: Any, kontakte: Any) -> tuple[FLKontaktRolle, ...]:
@@ -1195,34 +1228,6 @@ def seats_changing_holder(*, stored: Any, kontakte: Any) -> tuple[FLKontaktRolle
     )
 
 
-def departing_holders(*, stored: Any, kontakte: Any, owed: Iterable[Sequence[FLKontaktRolle]], schule: str) -> list[FLKontaktAbgang]:
-    """Per seat on the sign-in fold: a Trainer losing the paired seat alone still holds the row, and is told of both.
-
-    A mailbox `owed` links is told nothing: its link mail names the seats it holds now.
-    """
-
-    stored_block = stored if isinstance(stored, Mapping) else {}
-    block = kontakte if isinstance(kontakte, Mapping) else {}
-    linked = {sign_in_identifier(str(block[seat]["email"])) for seats in owed for seat in seats}
-    kept: dict[str, list[FLKontaktRolle]] = {}
-    for slot in KONTAKT_ROLLEN:
-        if isinstance(seat := block.get(slot), Mapping):
-            kept.setdefault(sign_in_identifier(str(seat["email"])), []).append(slot)
-    leaving: dict[str, FLKontaktAbgang] = {}
-
-    for slot in KONTAKT_ROLLEN:
-        held, seat = stored_block.get(slot), block.get(slot)
-        if not isinstance(held, Mapping) or (folded := sign_in_identifier(str(held["email"]))) in linked:
-            continue
-        if isinstance(seat, Mapping) and sign_in_identifier(str(seat["email"])) == folded:
-            continue
-        # One notice per mailbox, every seat it lost beside the first.
-        abgang = FLKontaktAbgang(rollen=[], email=str(held["email"]), schule=schule, bleibt_als=kept.get(folded, []))
-        leaving.setdefault(folded, abgang).rollen.append(slot)
-
-    return list(leaving.values())
-
-
 def voids_a_live_link(*, stored_kontakte: Any, kontakte: Any, stored_bestaetigungen: Any, bestaetigungen: Any, today: str) -> bool:
     """Whether a save drops a link somebody can still answer: a bearer credential voided, as a mint is one handed out.
 
@@ -1240,7 +1245,7 @@ def voids_a_live_link(*, stored_kontakte: Any, kontakte: Any, stored_bestaetigun
         live = _live_link(kontakte=stored_slots, bestaetigungen=stored_links, slot=slot, today=today)
         kept = left.get(slot)
         # Still reached: a kept person's seat re-minted beside a newly seated pair ends the link it held.
-        if live is not None and (not isinstance(kept, Mapping) or kept.get("token_hash") != live):
+        if live is not None and (not isinstance(kept, Mapping) or kept.get("token_hashes") != live):
             return True
 
     return False
@@ -1252,20 +1257,51 @@ def compose_bestaetigungen_mit(*, stored_bestaetigungen: Any, minted: Mapping[st
     return {slot: minted[slot] if slot in minted else stored_links.get(slot) for slot in KONTAKT_ROLLEN}
 
 
-def mint_answer(
-    *, token: str, seats: Sequence[FLKontaktRolle], kontakte: Mapping[str, Any], row: Mapping[str, Any], frist: str, zeile: FLKontaktZeile
-) -> FLKontaktMint:
-    """One person's raw link with what its mail names, every value off the row this transaction wrote, the seats' person being one."""
+def kontakt_bezug(saison_team_id: Any, seats: Sequence[FLKontaktRolle]) -> FLPostausgangBezug:
+    """The season row and the person's seat a delivery is read by: the one the Trainer mirrors, where they hold two."""
 
-    person = kontakte[seats[0]]
+    return FLPostausgangBezug(sammlung=Collection.SAISON_TEAMS, id=saison_team_id, sitz=min(seats, key=lambda seat: seat == "trainer"))
 
-    return FLKontaktMint(
-        token=token,
-        rollen=list(seats),
-        email=str(person["email"]),
-        frist=frist,
-        schule=str(row.get("name") or ""),
-        zeile=zeile,
+
+def owed_kontakt_link(
+    *,
+    row: Mapping[str, Any],
+    saison_id: str,
+    kontakte: Mapping[str, Any],
+    seats: Sequence[FLKontaktRolle],
+    frist: str,
+    zeile: FLKontaktZeile,
+    schluessel: str,
+) -> tuple[OwedMail, FLKontaktMint]:
+    """One person's confirmation link, owed in the write that seats or re-sends it, and the answer naming whom it is owed.
+
+    Every value off the row this transaction read and the block it writes, the seats' person being one. The link
+    supersedes every earlier one the seats held, the write having emptied them already; it is minted only while each seat
+    still holds the address, so a save moving the seat on before the hand-out drops the mail.
+    """
+
+    email = str(kontakte[seats[0]]["email"])
+
+    return (
+        OwedMail(
+            schluessel=schluessel,
+            an=email,
+            daten=FLKontaktLinkDaten(
+                art="kontakt_bestaetigung",
+                saison_id=saison_id,
+                schule=str(row.get("name") or ""),
+                rollen=list(seats),
+                frist=frist,
+                zeile=zeile,
+            ),
+            bezug=kontakt_bezug(row["_id"], seats),
+            link=FLPostausgangLink(
+                pfade=[f"bestaetigungen.{seat}.token_hashes" for seat in seats],
+                adressen=[f"kontakte.{seat}.email" for seat in seats],
+                ersetzt=True,
+            ),
+        ),
+        FLKontaktMint(rollen=list(seats), email=email),
     )
 
 

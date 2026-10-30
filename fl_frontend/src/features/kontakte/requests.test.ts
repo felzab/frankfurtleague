@@ -2,7 +2,7 @@ import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import type { FLPatchSaisonTeamKontaktePayload } from "./schemas.ts";
+import type { KontakteSpeichernEingabe } from "./schemas.ts";
 
 /* The real actions over their real `mutations.ts`: the client they send through, the session and the
    request are the doubles. */
@@ -21,17 +21,15 @@ const SAISON_ID = "2526";
 let blockAnswer: Record<string, unknown> = {};
 
 /** A block cleared whole, which every label check admits without a read, so the save reaches the client. */
-const CLEARED: FLPatchSaisonTeamKontaktePayload = { team_id: TEAM_ID, saison_id: SAISON_ID, kontakte: null, kontakte_stand: "9f2c" };
+const CLEARED: KontakteSpeichernEingabe = { team_id: TEAM_ID, saison_id: SAISON_ID, kontakte: null, kontakte_stand: "9f2c" };
 
 beforeEach(() => {
   blockAnswer = {
     saison_id: SAISON_ID,
     team_id: TEAM_ID,
-    saison_team_id: "c".repeat(24),
     kontakte: null,
     kontakte_stand: "a1b2",
     bestaetigungen: [],
-    abgaenge: [],
   };
 });
 
@@ -54,7 +52,7 @@ describe("what the season's contacts save sends", () => {
   it("refuses a body without the block, and sends a cleared one as null", async () => {
     const { kontakte: _omitted, ...withoutBlock } = CLEARED;
 
-    const refused = await patchSaisonTeamKontakteAction(withoutBlock as FLPatchSaisonTeamKontaktePayload);
+    const refused = await patchSaisonTeamKontakteAction(withoutBlock as KontakteSpeichernEingabe);
     expect(refused.success, "a save that forgot the block was sent").toBe(false);
     expect(sent, "a save that forgot the block reached the client, where a default writes one").toStrictEqual([]);
 

@@ -1,14 +1,11 @@
 // Redesign: goes with its last importer.
-import { frontend_config } from "@/core/config";
+import { drainSoon } from "@/core/afterResponse";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
-import { buildRegistrierungBestaetigungEmail } from "@/core/registrierungEmail";
 import { turnstileRefusal } from "@/core/turnstile";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken";
-import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/registrierungen/constants";
 import { postRegistrierung } from "@/features/registrierungen/mutations";
 import { FLPostRegistrierungPayloadSchema } from "@/features/registrierungen/schemas";
-import { abgewiesenerVersand, mapRegistrierungSubmitRefusal } from "@/features/registrierungen/utils";
-import { sendZielMail } from "@/features/zustellung/notifications";
+import { mapRegistrierungSubmitRefusal } from "@/features/registrierungen/utils";
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
 import { REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
@@ -35,11 +32,10 @@ export async function POST(request: NextRequest) {
 
       if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, REGISTRIERUNG_NEU_OEFFNEN) };
 
-      let eingang;
       try {
         // Passed on as the page sent it, none included: a page loaded before the form sent a key
         // still submits, and the backend judges the key's shape.
-        eingang = await postRegistrierung(parsed.data, request.headers.get(IDEMPOTENCY_KEY_HEADER));
+        await postRegistrierung(parsed.data, request.headers.get(IDEMPOTENCY_KEY_HEADER));
       } catch (error) {
         const refusal = mapRegistrierungSubmitRefusal(error);
         if (refusal === null) throw error;
@@ -47,47 +43,10 @@ export async function POST(request: NextRequest) {
         return { success: false as const, ...refusal };
       }
 
-      const token = eingang.bestaetigung_token;
-      // A replay whose row is confirmed, or whose link may already be in the inbox, hands none: no live
-      // link for a confirmed row, and no second mail.
-      if (token === null) return { success: true as const };
+      // The write owed the confirmation mail; it leaves now rather than at the next pass.
+      drainSoon();
 
-      // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not
-      // production must not mail production links.
-      const origin = frontend_config.AUTH_URL;
-
-      // After the write and never before it: outside production this send is withheld after writing
-      // the message to the sink, and the row has to survive that so the person can still be reached
-      // about it.
-      const { delivered, withheld, gesperrt } = await sendZielMail({
-        operation: "postRegistrierung",
-        // `eingang` is the occasion the application flow already names for a confirmation link sent
-        // at a submission.
-
-        // No idempotency key: the body carries a token minted for this one row, so no second send
-        // can ever compose it again.
-        auftrag: { ziel: "registrierung", zielId: eingang.registrierung_id, anlass: "eingang" },
-        recipients: [eingang.email],
-        buildMail: () =>
-          buildRegistrierungBestaetigungEmail({
-            // Off the write's own answer and never off the body: anyone holding the invite could
-            // otherwise decide what the league's message says about the team it names.
-            teamName: eingang.team,
-            saisonId: eingang.saison_id,
-            origin: origin,
-            token: token,
-            fristTage: REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
-          }),
-      });
-
-      // A withheld send is this deployment and not the address, so it answers as a send: the sink
-      // holds the message and the link is followed out of it. A barred one answers as a send too.
-      if (delivered.length === 0 && withheld.length === 0 && gesperrt === 0) {
-        return { success: false as const, ...abgewiesenerVersand() };
-      }
-
-      // The bare acknowledgement: which row was written and which link was minted is the mail's, and
-      // an echo carrying either would put a live token in the browser's own history.
+      // The bare acknowledgement: which row was written is the mail's to say.
       return { success: true as const };
     },
   });

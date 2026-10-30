@@ -15,7 +15,7 @@ from app.api.adresswechsel.services import compose_postausgang
 from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
 from app.api.berechtigungen.antraege import compose_antrag
-from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter, compose_bestaetigungen, hash_token
+from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter, hash_token
 from app.api.identitaet.crud import erase_pupil_actor_in_session, unattribute_in_session
 from app.api.spielberichte.crud import pull_bericht_lage
 from app.api.spieler.person_router import _read_the_squad
@@ -32,6 +32,7 @@ from tests.documents import (
     adresswechsel_document,
     bericht_document,
     kontaktperson_document,
+    minted_bestaetigungen,
     spiel_document,
     spielbericht_document,
     spielbestaetigung_document,
@@ -221,8 +222,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "wunschgegner": None,
             "entscheidung": None,
             "bestaetigungsfrist": "2026-02-15",
-            "bestaetigungen": compose_bestaetigungen(
-                hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
+            "bestaetigungen": minted_bestaetigungen(hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
             ),
         },
         "aktionen": {
@@ -254,16 +254,15 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "gesperrt_bis_saison_id": "2031",
         },
         # `widerrufen_am` is null rather than absent because `uniq_einladung_live` reaches the rows
-        # holding null, and `versand` is the empty carrier the mint writes.
+        # holding null.
         "einladungen": {
             "_id": EINLADUNG_OID,
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
-            "token_hash": "b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819200",
+            "token_hashes": ["b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819200"],
             "erstellt_am": "2026-03-15",
             "erstellt_von": "admin@example.invalid",
             "widerrufen_am": None,
-            "versand": {},
         },
         # Every key the submission writes, `geburtsdatum`, `einwilligung` and `entscheidung`
         # included: each is a stored null rather than an absent key, which is what `required` means.
@@ -283,7 +282,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "geburtsdatum": None,
             "einwilligung": None,
             "bestaetigung": {
-                "token_hash": "c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80919200",
+                "token_hashes": ["c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80919200"],
                 "verschickt_am": "2026-03-16",
                 "erinnert_am": None,
                 "frist": "2026-03-23",

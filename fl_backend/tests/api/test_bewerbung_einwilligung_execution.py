@@ -12,12 +12,8 @@ from app.api.bewerbungen.admin_router import erneut_einwilligung
 from app.api.bewerbungen.einwilligung_router import get_einwilligung_ansicht, post_einwilligung
 from app.api.bewerbungen.router import get_bewerbung_by_id, get_bewerbungen
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload, FLBewerbungenFilterParams
-from app.api.bewerbungen.services import (
-    TOKEN_HASH_FIELDS,
-    hash_token,
-)
+from app.api.bewerbungen.services import hash_token
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
-from app.api.teams.services import compose_bestaetigungen_mit, compose_kontakt_bestaetigung
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
@@ -30,6 +26,7 @@ from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, kontaktperson_document, saison_document, team_document
+from tests.postausgang import MAIL_NOW, drained
 from tests.worker import worker_database
 
 # Module level, as the submission suite marks its own: every test below reaches a real mongod.
@@ -74,7 +71,7 @@ def _seat_paths(block: str, *leaves: str) -> set[str]:
 # rather than from `app/api/bewerbungen/services.py :: _per_seat`, so a projection widened by a field
 # no handler reads fails here.
 ANSICHT_RESOLVES = frozenset(
-    _seat_paths("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am")
+    _seat_paths("bestaetigungen", "token_hashes", "abgelehnt_am")
     | _seat_paths("kontakte", "email", "einwilligung.bestaetigt_am")
     | _seat_paths("kontakte", "einwilligung.eingetragen_von")
     | {"kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist", "schule.team_name", "team_id"}
@@ -83,7 +80,7 @@ ANSICHT_RESOLVES = frozenset(
 # `_id` is here and not in the view's, whose own line says why
 # (`app/api/bewerbungen/services.py :: EINWILLIGUNG_ANSICHT_FIELDS`).
 ANTWORT_RESOLVES = frozenset(
-    _seat_paths("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am")
+    _seat_paths("bestaetigungen", "token_hashes", "abgelehnt_am")
     | _seat_paths("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.umfang", "einwilligung.medien")
     | _seat_paths("kontakte", "einwilligung.nachweis", "einwilligung.eingetragen_von")
     | {"_id", "kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist"}
@@ -156,7 +153,11 @@ async def ansicht(database: AsyncDatabase, token: str, *, bewerbungen: Any = Non
     )
 
 
-async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, *, bewerbungen: Any = None, **overrides: Any) -> Any:
+async def answer(
+    database: AsyncDatabase, client: AsyncMongoClient, token: str, *, bewerbungen: Any = None, now: datetime = NOW, **overrides: Any
+) -> Any:
+    """One answer through the seat's link; a case reading the mail it owes passes `MAIL_NOW`, which the stamps then carry."""
+
     body = {
         "token": token,
         "antwort": "erteilt",
@@ -174,11 +175,12 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         saisons_collection=database[Collection.SAISONS],
         aktionen_collection=database[Collection.AKTIONEN],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=client,
         config=build_test_config(),
         today=TODAY,
-        germany_now=NOW,
+        germany_now=now,
     )
 
 
@@ -187,9 +189,12 @@ async def resend(database: AsyncDatabase, seat: str, bewerbung_id: ObjectId = BE
         bewerbung_id=bewerbung_id,
         seat=seat,
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        teams_collection=database[Collection.TEAMS],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=database.client,
         today=TODAY,
+        germany_now=MAIL_NOW,
     )
 
 
@@ -413,13 +418,8 @@ class TestWhatAConfirmationWrites:
             },
         }
         # NOT nulled on use: single use is the stamp's doing, so the reopened link can show its state.
-        assert document["bestaetigungen"]["trainer"]["token_hash"] == HASHES["trainer"]
-        assert (response.ergebnis, response.ausstehend, response.geburtsdatum, response.whatsapp) == (
-            "bestaetigt",
-            ["ansprechperson", "stellvertretung"],
-            AN_ADULTS_BIRTHDATE,
-            True,
-        )
+        assert document["bestaetigungen"]["trainer"]["token_hashes"] == [HASHES["trainer"]]
+        assert (response.ergebnis, response.geburtsdatum, response.whatsapp) == ("bestaetigt", AN_ADULTS_BIRTHDATE, True)
         # One write, one row, one image: the confirmation is a patch and files the pre-image like any other.
         assert [row["operation"] for row in rows] == ["patch_one"]
         assert rows[0]["before"]["kontakte"]["trainer"]["geburtsdatum"] is None
@@ -455,7 +455,7 @@ class TestWhatAConfirmationWrites:
 
         response, document = on_a_league(mongo_replica_set_url, body, documents=[paired])
 
-        assert response.ausstehend == ["stellvertretung"]
+        assert response.ergebnis == "bestaetigt"
         for seat in ("trainer", "ansprechperson"):
             assert document["kontakte"][seat]["geburtsdatum"] == AN_ADULTS_BIRTHDATE
             assert document["kontakte"][seat]["einwilligung"]["bestaetigt_am"] == TODAY
@@ -593,9 +593,12 @@ class TestTheMediaConsent:
                     CLUB_NAME,
                     "ADX",
                     kontakte=kontakte(),
-                    bestaetigungen=compose_bestaetigungen_mit(
-                        stored_bestaetigungen=None, minted={"trainer": compose_kontakt_bestaetigung(token_hash=hash_token(raw), today=TODAY)}
-                    ),
+                    # The Trainer's seat as a hand-out of its mail leaves it, the other two never mailed.
+                    bestaetigungen={
+                        "trainer": {"token_hashes": [hash_token(raw)], "verschickt_am": TODAY, "frist": "2026-04-15", "abgelehnt_am": None},
+                        "ansprechperson": None,
+                        "stellvertretung": None,
+                    },
                 )
             )
 
@@ -767,7 +770,6 @@ class TestADecline:
         # The Ansprechperson's objection notice names the deletion day, so no second notice follows it.
         assert document["loeschung_angekuendigt_am"] == TODAY
         assert (response.ergebnis, response.geburtsdatum, response.medien) == ("abgelehnt", None, False)
-        assert response.ausstehend == list(KONTAKT_ROLLEN)
         assert view.zustand == "abgelehnt"
 
     def test_the_seat_leaves_every_log_image_and_an_earlier_answer_beside_it_stays(self, mongo_replica_set_url: str):
@@ -806,38 +808,67 @@ class TestADecline:
         assert on_a_league(mongo_replica_set_url, body) == Code.BEWERBUNG_SEAT_ALREADY_ANSWERED
 
 
-class TestWhatTheAnswerHandsTheMailer:
-    """The five fields the frontend server composes its two messages from, none of which reaches a browser."""
+async def owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:
+    """Every mail the Postausgang holds, as owed: its key, its recipient and its facts."""
 
-    def test_a_confirmation_names_the_season_the_seat_the_person_the_deadline_and_the_mailbox(self, mongo_replica_set_url: str):
-        response = on_a_league(mongo_replica_set_url, lambda database, client: answer(database, client, RAW["stellvertretung"]))
+    return await database[Collection.POSTAUSGANG].find({}, {"_id": 0, "schluessel": 1, "an": 1, "daten": 1}).to_list(length=None)
 
-        assert (response.saison_id, response.rolle, response.vorname) == (SAISON_ID, "stellvertretung", "Bramblewick")
-        assert response.bestaetigungsfrist == "2026-04-03"
-        assert (response.ansprechperson_email, response.ansprechperson_rollen) == ("quillhilde@example.com", ["ansprechperson"])
 
-    def test_one_mailbox_holding_two_seats_is_answered_with_both(self, mongo_replica_set_url: str):
-        """`rollenText` is the mailbox's, not the seat's: told one seat, a person holding two reads a message about somebody else."""
+class TestWhatAWiderspruchOwesTheSubmitter:
+    """The notice naming who refused, owed in the decline's own transaction; a confirmation owes nobody anything."""
+
+    def test_a_confirmation_owes_no_mail(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await answer(database, client, RAW["stellvertretung"], now=MAIL_NOW)
+
+            return await owed(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == []
+
+    def test_another_seats_decline_owes_the_ansprechperson_the_notice_naming_who_refused(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False, now=MAIL_NOW)
+
+            return await owed(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == [
+            {
+                "schluessel": f"{Collection.BEWERBUNGEN}/{BEWERBUNG_OID}/widerspruch/stellvertretung",
+                "an": "quillhilde@example.com",
+                "daten": {
+                    "art": "bewerbung_widerspruch",
+                    "saison_id": SAISON_ID,
+                    "rollen": ["ansprechperson"],
+                    # Off the read before the decline: nothing left in the record names whose entry was refused.
+                    "abgelehnt": {"vorname": "Bramblewick", "rollen": ["stellvertretung"]},
+                    "frist": "2026-04-03",
+                },
+            }
+        ]
+
+    def test_one_person_holding_two_seats_is_owed_one_notice_naming_both(self, mongo_replica_set_url: str):
+        """The seats are the person's, not the seat's: told one, a person holding two reads a mail about somebody else."""
 
         double = bewerbung_document(kontakte=kontakte(trainer_ist_zugleich="ansprechperson"))
 
-        response = on_a_league(
-            mongo_replica_set_url, lambda database, client: answer(database, client, RAW["stellvertretung"]), documents=[double]
-        )
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False, now=MAIL_NOW)
 
-        assert response.ansprechperson_rollen == ["trainer", "ansprechperson"]
+            return await owed(database)
 
-    def test_the_ansprechpersons_own_decline_leaves_no_mailbox_and_still_names_who_declined(self, mongo_replica_set_url: str):
-        """The two halves this response exists for: the seat it would address is the seat that just emptied itself."""
+        [notice] = on_a_league(mongo_replica_set_url, body, documents=[double])
 
-        response = on_a_league(
-            mongo_replica_set_url,
-            lambda database, client: answer(database, client, RAW["ansprechperson"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False),
-        )
+        assert (notice["an"], notice["daten"]["rollen"]) == ("wraxlington@example.com", ["trainer", "ansprechperson"])
 
-        assert (response.ansprechperson_email, response.ansprechperson_rollen) == (None, [])
-        # Off the pre-image: the clearing update ran before this was read, so a re-read would answer nobody.
-        assert (response.rolle, response.vorname) == ("ansprechperson", "Quillhilde")
+    def test_the_ansprechpersons_own_decline_owes_nobody(self, mongo_replica_set_url: str):
+        """The seat the notice would address is the seat that just emptied itself."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await answer(database, client, RAW["ansprechperson"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False, now=MAIL_NOW)
+
+            return await owed(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == []
 
     def test_the_ansprechpersons_own_decline_announces_no_deletion(self, mongo_replica_set_url: str):
         """Nobody is told of it, so the deletion notice still goes to whoever holds that seat at the deadline."""
@@ -849,20 +880,12 @@ class TestWhatTheAnswerHandsTheMailer:
 
         assert on_a_league(mongo_replica_set_url, body).get("loeschung_angekuendigt_am") is None
 
-    def test_another_seats_decline_still_reaches_the_ansprechperson(self, mongo_replica_set_url: str):
-        response = on_a_league(
-            mongo_replica_set_url,
-            lambda database, client: answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False),
-        )
-
-        assert (response.ansprechperson_email, response.vorname) == ("quillhilde@example.com", "Bramblewick")
-
-    def test_no_other_seats_address_travels(self, mongo_replica_set_url: str):
-        """One mailbox and no more: this response is the mailer's, and a second address is one nothing here would send to."""
+    def test_no_other_seats_address_reaches_the_answer(self, mongo_replica_set_url: str):
+        """The answer is the browser's: an address or a name in it is one nothing here would send to."""
 
         rendered = on_a_league(mongo_replica_set_url, lambda database, client: answer(database, client, RAW["trainer"])).model_dump_json()
 
-        assert kontakte()["stellvertretung"]["email"] not in rendered and kontakte()["trainer"]["email"] not in rendered
+        assert MAIL_DOMAIN not in rendered
         assert NACHNAME not in rendered and TELEFON not in rendered
 
 
@@ -872,19 +895,24 @@ class TestNoHashReachesAnAdminRead:
     The response model drops every hash field itself, so a projection loading one into the process still passes here.
     """
 
-    def test_neither_admin_read_serves_a_hash_while_the_document_holds_four(self, mongo_replica_set_url: str):
-        # A reminded seat holds the first mail's hash beside the fresh one, and both open the link:
-        # a fixture without one leaves the second field untested on both reads.
-        erinnert_hash = hash_token("the-first-link-this-seat-was-mailed")
+    def test_neither_admin_read_serves_a_hash_while_a_seat_holds_two(self, mongo_replica_set_url: str):
+        # A reminded seat holds the first mail's hash beside the reminder's, and both open the link: a fixture without
+        # one leaves the array's second entry untested on both reads.
+        erinnert_hash = hash_token("the-reminders-link-this-seat-was-mailed")
         reminded = bewerbung_document()
-        reminded["bestaetigungen"]["trainer"] |= {"token_hash_zuvor": erinnert_hash, "erinnert_am": TODAY}
+        reminded["bestaetigungen"]["trainer"] |= {"token_hashes": [HASHES["trainer"], erinnert_hash], "erinnert_am": TODAY}
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             one = await get_bewerbung_by_id(
-                bewerbung_id=BEWERBUNG_OID, bewerbungen_collection=database[Collection.BEWERBUNGEN], sperrliste=ban_list(database), today=TODAY
+                bewerbung_id=BEWERBUNG_OID,
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                postausgang_collection=database[Collection.POSTAUSGANG],
+                sperrliste=ban_list(database),
+                today=TODAY,
             )
             many = await get_bewerbungen(
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                postausgang_collection=database[Collection.POSTAUSGANG],
                 sperrliste=ban_list(database),
                 filters=FLBewerbungenFilterParams(),
             )
@@ -893,8 +921,7 @@ class TestNoHashReachesAnAdminRead:
 
         one, many, document = on_a_league(mongo_replica_set_url, body, documents=[reminded])
 
-        assert all(document["bestaetigungen"][seat]["token_hash"] == HASHES[seat] for seat in KONTAKT_ROLLEN)
-        assert document["bestaetigungen"]["trainer"]["token_hash_zuvor"] == erinnert_hash
+        assert document["bestaetigungen"]["trainer"]["token_hashes"] == [HASHES["trainer"], erinnert_hash]
         for rendered in (one, many):
             assert "token_hash" not in rendered
             assert not any(token_hash in rendered for token_hash in (*HASHES.values(), erinnert_hash))
@@ -909,7 +936,11 @@ class TestTheEditorsRead:
     def test_it_answers_whether_the_confirmation_deadline_has_passed(self, mongo_replica_set_url: str, frist: str, abgelaufen: bool):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             return await get_bewerbung_by_id(
-                bewerbung_id=BEWERBUNG_OID, bewerbungen_collection=database[Collection.BEWERBUNGEN], sperrliste=ban_list(database), today=TODAY
+                bewerbung_id=BEWERBUNG_OID,
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                postausgang_collection=database[Collection.POSTAUSGANG],
+                sperrliste=ban_list(database),
+                today=TODAY,
             )
 
         read = on_a_league(mongo_replica_set_url, body, documents=[bewerbung_document(bestaetigungsfrist=frist)])
@@ -919,28 +950,33 @@ class TestTheEditorsRead:
 
 class TestAResend:
     def test_a_fresh_link_voids_the_old_and_restarts_the_deadline(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+        """The link reaches the seat through the hand-out of the mail the re-send owes, which mints it into `token_hashes`."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await resend(database, "trainer")
+            [mail] = await drained(database, client)
 
             with pytest.raises(APIError) as conflict:
                 await ansicht(database, RAW["trainer"])
 
-            return response, conflict.value.error_code, await ansicht(database, response.token), await stored(database)
+            assert mail.token is not None
+            return response, mail, conflict.value.error_code, await ansicht(database, mail.token), await stored(database)
 
-        response, old_code, view, document = on_a_league(mongo_replica_set_url, body)
+        response, mail, old_code, view, document = on_a_league(mongo_replica_set_url, body)
 
         assert old_code == Code.BEWERBUNG_TOKEN_UNKNOWN
         assert (view.zustand, view.rolle) == ("gueltig", "trainer")
         assert (response.rolle, response.bestaetigungsfrist) == ("trainer", "2026-04-15")
+        assert (mail.an, mail.daten.art) == ("wraxlington@example.com", "bewerbung_bestaetigung")
         assert document["bestaetigungsfrist"] == "2026-04-15"
         assert document["bestaetigungen"]["trainer"] == {
-            "token_hash": hash_token(response.token),
+            "token_hashes": [hash_token(mail.token or "")],
             "verschickt_am": TODAY,
             "erinnert_am": None,
             "abgelehnt_am": None,
         }
         # The other seats' links still open.
-        assert document["bestaetigungen"]["ansprechperson"]["token_hash"] == HASHES["ansprechperson"]
+        assert document["bestaetigungen"]["ansprechperson"]["token_hashes"] == [HASHES["ansprechperson"]]
 
     def test_a_restarted_deadline_takes_back_the_announcement(self, mongo_replica_set_url: str):
         """The notice named the old deadline, so the new one is announced again before the application is deleted."""

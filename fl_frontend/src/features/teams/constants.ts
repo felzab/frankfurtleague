@@ -1,3 +1,4 @@
+import { KONTAKT_ROLLE_LANGFORM, TRIKOT_FARBEN } from "@/core/teamVokabular";
 import { NICHT_HINTERLEGT, nichtHinterlegt } from "@/shared/utils/format";
 
 import type { FLAustrittType, FLKontaktKenntnisnahme, FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "@/core/generated/client/types";
@@ -119,48 +120,14 @@ export function schulformLabel(schulform: FLSchulform): string {
   return SCHULFORM_OPTIONS.find((option) => option.value === schulform)?.label ?? "";
 }
 
-export type TrikotFarbeOption = {
-  readonly value: FLTrikotFarbe;
-  readonly label: string;
-  /**
-   * The swatch's fill, copied from the league's colour sheet and authoritative over any eyeballed
-   * match. A changed hex recolours every row already stored under its slug, and contradicts every
-   * acceptance mail already sent, which states the hex to the school.
-   */
-  readonly hex: string;
-};
+export type TrikotFarbeOption = (typeof TRIKOT_FARBEN)[number];
 
 /**
- * The league's kit palette in its colour sheet's order, neutrals first, then round the colour wheel.
- * A swatch draws from `hex`, never a Tailwind token: the colour sheet's hex codes are authoritative,
- * and no theme scale tracks them.
+ * The league's kit palette, which the mail builders state to a school too: `fl_frontend/src/core/teamVokabular.ts ::
+ * TRIKOT_FARBEN` holds it. A swatch draws from `hex`, never a Tailwind token: the colour sheet's hex codes are
+ * authoritative, and no theme scale tracks them.
  */
-export const TRIKOT_FARBE_OPTIONS: readonly TrikotFarbeOption[] = [
-  { value: "schwarz", label: "Schwarz", hex: "#111111" },
-  { value: "weiss", label: "Weiß", hex: "#f5f5f5" },
-  { value: "grau", label: "Grau", hex: "#8a9199" },
-  { value: "braun", label: "Braun", hex: "#7a4a28" },
-  { value: "bordeaux", label: "Bordeaux", hex: "#8e2430" },
-  { value: "rot", label: "Rot", hex: "#e52521" },
-  { value: "koralle", label: "Koralle", hex: "#ff5f37" },
-  { value: "orange", label: "Orange", hex: "#f47b20" },
-  { value: "gold", label: "Gold", hex: "#e9a928" },
-  { value: "gelb", label: "Gelb", hex: "#fff84f" },
-  { value: "limette", label: "Limette", hex: "#a8c83a" },
-  { value: "hellgruen", label: "Hellgrün", hex: "#75db06" },
-  { value: "gruen", label: "Grün", hex: "#0e7615" },
-  { value: "smaragd", label: "Smaragd", hex: "#008f68" },
-  { value: "tuerkis", label: "Türkis", hex: "#00a6a6" },
-  { value: "cyan", label: "Cyan", hex: "#1ba8c8" },
-  { value: "hellblau", label: "Hellblau", hex: "#74d3fc" },
-  { value: "meerblau", label: "Meerblau", hex: "#5a87d6" },
-  { value: "blau", label: "Blau", hex: "#2455c3" },
-  { value: "dunkelblau", label: "Dunkelblau", hex: "#142b63" },
-  { value: "flieder", label: "Flieder", hex: "#d49cf1" },
-  { value: "violett", label: "Violett", hex: "#7138b5" },
-  { value: "magenta", label: "Magenta", hex: "#c52a87" },
-  { value: "rosa", label: "Rosa", hex: "#e14b9a" },
-];
+export const TRIKOT_FARBE_OPTIONS: readonly TrikotFarbeOption[] = TRIKOT_FARBEN;
 
 const trikotFarbeOption = (farbe: FLTrikotFarbe): TrikotFarbeOption | undefined => TRIKOT_FARBE_OPTIONS.find((o) => o.value === farbe);
 
@@ -244,14 +211,15 @@ export const KONTAKT_WHATSAPP_LABELS: Readonly<Record<FLKontaktKenntnisnahme["um
  * The three seats a season holds per club, in both surfaces' order.
  *
  * TWO wordings, as `AUSTRITT_OPTIONS` carries three: the admin takes the short form, the public one
- * the long form. Both live here, so no two surfaces name a seat differently.
+ * the long form, which `fl_frontend/src/core/teamVokabular.ts :: KONTAKT_ROLLE_LANGFORM` holds for the mails too. Both
+ * are read from here, so no two surfaces name a seat differently.
  */
 export const KONTAKT_ROLLEN = [
   // The Ansprechperson leads and the Trainer closes: the coach claim is answered on the Trainer's
   // own panel, and it names a seat the reader has already typed.
-  { value: "ansprechperson", label: "Ansprechperson", langform: "Ansprechperson" },
-  { value: "stellvertretung", label: "Stellvertretung", langform: "Stellvertretung" },
-  { value: "trainer", label: "Trainer", langform: "Trainerin oder Trainer" },
+  { value: "ansprechperson", label: "Ansprechperson", langform: KONTAKT_ROLLE_LANGFORM.ansprechperson },
+  { value: "stellvertretung", label: "Stellvertretung", langform: KONTAKT_ROLLE_LANGFORM.stellvertretung },
+  { value: "trainer", label: "Trainer", langform: KONTAKT_ROLLE_LANGFORM.trainer },
 ] as const;
 
 export type KontaktRolle = (typeof KONTAKT_ROLLEN)[number]["value"];

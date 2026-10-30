@@ -12,7 +12,7 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.bewerbungen.services import compose_bestaetigungen, hash_token
+from app.api.bewerbungen.services import hash_token
 from app.api.identitaet.schemas import FLErasureAnsichtResponse, FLErasureResponse
 from app.api.identitaet.services import build_erasure_seat_pipeline
 from app.api.kontakte.crud import erase_kontaktperson_in_session
@@ -35,7 +35,7 @@ from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import bestaetigte_kenntnisnahme
+from tests.documents import bestaetigte_kenntnisnahme, minted_bestaetigungen
 from tests.erasure import erased
 from tests.plans import plans_of_sent_reads
 from tests.wire import commands_sent
@@ -199,7 +199,7 @@ def saison_team_document(row_id: ObjectId, saison_id: str, team_id: ObjectId) ->
 # The three live links every seeded application carries, so an erasure has bookkeeping to reach.
 # Minted as the shared application builder mints them, from this prefix on the submission's day.
 LINK_PREFIX = "link"
-BESTAETIGUNGEN = compose_bestaetigungen(hashes={slot: hash_token(f"{LINK_PREFIX}-{slot}") for slot in KONTAKT_ROLLEN}, today="2026-01-05")
+BESTAETIGUNGEN = minted_bestaetigungen(hashes={slot: hash_token(f"{LINK_PREFIX}-{slot}") for slot in KONTAKT_ROLLEN}, today="2026-01-05")
 
 
 def bewerbung_document(row_id: ObjectId, team_id: ObjectId) -> dict[str, Any]:

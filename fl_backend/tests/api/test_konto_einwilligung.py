@@ -938,7 +938,7 @@ async def _both_homes(database: AsyncDatabase) -> None:
             link_prefix=BEWERBUNG_LINK,
         )
     )
-    link = {"token_hash": hash_token(SAISON_TOKEN), "verschickt_am": "2026-09-01", "frist": "2026-09-15", "abgelehnt_am": None}
+    link = {"token_hashes": [hash_token(SAISON_TOKEN)], "verschickt_am": "2026-09-01", "frist": "2026-09-15", "abgelehnt_am": None}
     await database[Collection.SAISON_TEAMS].update_one(
         {"team_id": TEAM_B_OID, "saison_id": ACTIVE_SAISON},
         {"$set": {"bestaetigungen": {"trainer": None, "ansprechperson": None, "stellvertretung": link}}},

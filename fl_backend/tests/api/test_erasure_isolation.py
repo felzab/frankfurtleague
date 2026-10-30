@@ -37,6 +37,7 @@ from tests.documents import (
 )
 from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.postausgang import MAIL_NOW
 from tests.whole_database import where_folded_to
 from tests.worker import worker_database
 
@@ -94,11 +95,10 @@ async def a_league(database: AsyncDatabase) -> None:
             "_id": EINLADUNG_OID,
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
-            "token_hash": hash_token(EINLADUNG_TOKEN),
+            "token_hashes": [hash_token(EINLADUNG_TOKEN)],
             "erstellt_am": "2026-03-15",
             "erstellt_von": "admin@frankfurtleague.de",
             "widerrufen_am": None,
-            "versand": {},
         }
     )
     await database[Collection.BEWERBUNGEN].insert_one(
@@ -176,10 +176,12 @@ async def contacts_saved(database: AsyncDatabase, client: AsyncMongoClient, kont
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=client,
         actor=FRESH_ADMIN_ACTOR,
         today=TODAY,
+        germany_now=MAIL_NOW,
     )
 
 

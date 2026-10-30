@@ -549,15 +549,16 @@ async def a_registration_submitted(
             }
         ),
         idempotency_key=None,
-        teams_collection=database[Collection.TEAMS],
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         einladungen_collection=database[Collection.EINLADUNGEN] if einladungen_collection is None else einladungen_collection,
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
+        germany_now=NOW,
     )
 
 
@@ -573,11 +574,10 @@ async def a_running_season_open_to_its_team(database: AsyncDatabase) -> None:
             "_id": EINLADUNG,
             "saison_id": "2026",
             "team_id": TEAM_OID,
-            "token_hash": hash_token(EINLADUNG_TOKEN),
+            "token_hashes": [hash_token(EINLADUNG_TOKEN)],
             "erstellt_am": "2026-03-15",
             "erstellt_von": "admin@frankfurtleague.de",
             "widerrufen_am": None,
-            "versand": {},
         }
     )
 

@@ -228,6 +228,7 @@ STEP_UP_WRITES = [
     pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/kontakte/{seat}/bestaetigung/einladen", id="a contact seat's fresh link"),
     pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/replace", id="a club's replacement"),
     pytest.param("delete", "/api/v0/teams/{team_id}/saisons/{saison_id}/einladung", id="a club's link revoked"),
+    pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/einladung/versand", id="a club's link mailed to its seats"),
 ]
 # What each path parameter is filled with: an id where the route converts one, the season or the seat otherwise.
 PATH_VALUES = {"saison_id": "2026", "seat": "trainer"}

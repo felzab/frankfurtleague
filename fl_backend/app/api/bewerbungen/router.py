@@ -3,6 +3,7 @@ from collections.abc import Mapping, Sequence
 from typing import Annotated, Any, get_args
 
 from fastapi import APIRouter, Depends, Query
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.bewerbungen.schemas import (
@@ -24,11 +25,14 @@ from app.api.bewerbungen.services import (
     dubletten_schluessel_of,
     entscheider_adressen,
     mit_vorenthaltener_entscheidung,
+    mit_zustellung,
 )
+from app.api.postausgang.crud import lagen_of
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
+from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
-from app.core.dependencies import BewerbungenCollection, get_german_date_str
+from app.core.dependencies import BewerbungenCollection, PostausgangCollection, get_german_date_str
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -52,15 +56,21 @@ async def _as_served(
     rows: Sequence[Mapping[str, Any]],
     *,
     sperrliste: BanList,
+    postausgang_collection: AsyncCollection,
 ) -> list[dict[str, Any]]:
-    barred = await adressen_gesperrt(sperrliste, entscheider_adressen(rows))
+    # Concurrently: the ban list and the Postausgang are two collections, and neither read waits on the other.
+    barred, lagen = await asyncio.gather(
+        adressen_gesperrt(sperrliste, entscheider_adressen(rows)),
+        lagen_of(postausgang_collection=postausgang_collection, sammlung=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows]),
+    )
 
-    return [mit_vorenthaltener_entscheidung(row, barred) for row in rows]
+    return [mit_zustellung(mit_vorenthaltener_entscheidung(row, barred), lagen) for row in rows]
 
 
 @router.get("", response_model=FLBewerbungenListResponse, summary="List Bewerbungen")
 async def get_bewerbungen(
     bewerbungen_collection: BewerbungenCollection,
+    postausgang_collection: PostausgangCollection,
     sperrliste: SperrlisteLookup,
     filters: FLBewerbungenFilters,
 ) -> FLBewerbungenListResponse:
@@ -110,7 +120,9 @@ async def get_bewerbungen(
     # would hand whoever writes them the power to 500 this page. Answering short leaves the
     # administrator a usable list, and `vollstaendig` reports the cut.
     return FLBewerbungenListResponse(
-        bewerbungen=FLBewerbungListAdapter.validate_python(await _as_served(served, sperrliste=sperrliste)),
+        bewerbungen=FLBewerbungListAdapter.validate_python(
+            await _as_served(served, sperrliste=sperrliste, postausgang_collection=postausgang_collection)
+        ),
         vollstaendig=len(read) <= filters.limit,
         anzahl_je_status=dict(zip(get_args(FLBewerbungStatus.__value__), counted, strict=True)),
         anzahl_je_saisonbezug=dict(zip(saisonbezug_terms, bezogen, strict=True)),
@@ -122,6 +134,7 @@ async def get_bewerbungen(
 async def get_bewerbung_by_id(
     bewerbung_id: CustomRouteObjectId,
     bewerbungen_collection: BewerbungenCollection,
+    postausgang_collection: PostausgangCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungSingleResponse:
@@ -131,7 +144,7 @@ async def get_bewerbung_by_id(
     """
 
     bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=WITHOUT_TOKEN_HASHES)
-    [served] = await _as_served([bewerbung_raw], sperrliste=sperrliste)
+    [served] = await _as_served([bewerbung_raw], sperrliste=sperrliste, postausgang_collection=postausgang_collection)
 
     return FLBewerbungSingleResponse(
         bewerbung=FLBewerbung(**served),

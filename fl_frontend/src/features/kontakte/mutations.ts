@@ -16,7 +16,7 @@ import type {
 } from "@/core/generated/client/types";
 
 // Both ids go in the PATH, as every junction write spells them — a backend payload model that saw
-// one refuses the whole body.
+// one refuses the whole body. The body is built from the fields its operation declares.
 export async function patchSaisonTeamKontakte({
   team_id,
   saison_id,
@@ -26,10 +26,7 @@ export async function patchSaisonTeamKontakte({
   return teamsPatchSaisonTeamKontakte(team_id, saison_id, { kontakte: kontakte, kontakte_stand: kontakte_stand });
 }
 
-/**
- * The token is ANSWERED rather than mailed by the backend, as the save's are: every message this app
- * sends is composed here. The seat's earlier link stops opening anything.
- */
+/** The backend owes the link's mail in the write itself; the seat's earlier link stops opening anything. */
 export async function einladeKontakt({
   team_id,
   saison_id,

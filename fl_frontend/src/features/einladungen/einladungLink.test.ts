@@ -1,70 +1,27 @@
-import { cacheCalls, doubleActionRequest, doubleActions } from "@/test-support/actionDoubles.ts";
+import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
 import { doubleApiAnswers } from "@/test-support/apiClientDouble.ts";
 import { assertRedactedAtTheEdge } from "@/test-support/edgeRedaction.ts";
-import { doubleSendMail } from "@/test-support/mailDouble.ts";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { SITE_URL } from "@/core/brand.ts";
-
-import { einladungsLink } from "./einladungLink.ts";
-
-import type { ApiCall } from "@/test-support/apiClientDouble.ts";
+import { buildEinladungEmail, einladungsLink } from "@/core/einladungEmail.ts";
+import { renderMail } from "@/core/emailShell.ts";
 
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
 
 vi.doMock("@/core/config.ts", () => ({ frontend_config: { AUTH_URL: ORIGIN } }));
 
-/* The real actions, their mutations and the fan-out they hand each message to, called: the request they
-   run in, the backend client, the reads and the mailer are the doubles. */
+/* The real mint action and its mutation, called: the request it runs in and the backend client are the doubles. */
 doubleActionRequest();
-const mail = doubleSendMail();
-
-/** Whether `call` is the delivery report a sent message files, which the backend applies. */
-const reportsDelivery = ({ endpoint }: ApiCall): boolean => endpoint.startsWith("/zustellung/");
-const REPORTED = { angewendet: true };
-const mint = doubleApiAnswers((call) => Promise.resolve(reportsDelivery(call) ? REPORTED : {}));
-/** Answers the write a case presses with `next`, a delivery report after it as the endpoint does. */
-const answerTheWrite = (next: () => Promise<unknown>): void =>
-  mint.answerWith((call) => (reportsDelivery(call) ? Promise.resolve(REPORTED) : next()));
-const invite = doubleActions({ modules: ["/src/features/einladungen/queries.ts"] });
-const teams = doubleActions({ modules: ["/src/features/teams/queries.ts"] });
-const { mailEinladungAction, postEinladungAction, postEinladungVersandAction } = await import("./actions.ts");
+const mint = doubleApiAnswers(() => Promise.resolve({}));
+/** Answers the write a case presses with `next`. */
+const answerTheWrite = (next: () => Promise<unknown>): void => mint.answerWith(() => next());
+const { postEinladungAction } = await import("./actions.ts");
 
 const TEAM_ID = "6890a1b2c3d4e5f607182932";
 const SAISON_ID = "2627";
 const EINLADUNG_ID = "b".repeat(24);
-const ADDRESS = "erika@beispiel.de";
-
-/** The live invite and the one confirmed contact the single press reads before it mails. */
-function answerTheSinglePressReads(): void {
-  invite.answerWith(() => Promise.resolve({ einladung: { id: EINLADUNG_ID } }));
-  teams.answerWith(() =>
-    Promise.resolve({
-      teams: [
-        {
-          id: TEAM_ID,
-          name: "Ernst-Reuter-Schule",
-          memberships: [
-            {
-              saison_id: SAISON_ID,
-              kontakte: {
-                trainer: null,
-                ansprechperson: { vorname: "Erika", email: ADDRESS, einwilligung: { bestaetigt_am: "2026-08-20" } },
-                stellvertretung: null,
-              },
-            },
-          ],
-        },
-      ],
-    }),
-  );
-}
-
-/** The text of every message the fan-out was handed since the case began, composed as it would be sent. */
-function mailedTexts(): string[] {
-  return mail.sent.map(({ text }) => text);
-}
 
 describe("the invite link the mail carries", () => {
   it("puts the token on the origin it was handed, under the registration page's path", () => {
@@ -102,63 +59,16 @@ describe("the origin each press mints its invite link on", () => {
     expect(result.success ? result.link : result.error).toBe(`${ORIGIN}/registrierung?token=token-mint`);
   });
 
-  it("is the configured one in the message the single press mails", async () => {
-    answerTheSinglePressReads();
+  it("is the one the builder is handed in the mail a hand-out sends, and never the published one", () => {
+    const { text } = renderMail(
+      buildEinladungEmail({ art: "einladung", team: "Ernst-Reuter-Schule", saison_id: SAISON_ID }, { origin: ORIGIN, token: "token-mail" }),
+    );
 
-    const result = await mailEinladungAction({ team_id: TEAM_ID, saison_id: SAISON_ID, einladung_id: EINLADUNG_ID, token: "token-mail" });
-
-    expect(result.success, "the press mailed nothing, so the origin below is judged on nothing").toBe(true);
     assert.ok(
-      mailedTexts().some((text) => text.includes(`${ORIGIN}/registrierung?token=token-mail`)),
+      text.includes(`${ORIGIN}/registrierung?token=token-mail`),
       "the mailed link is minted on an origin this run was not configured with",
     );
     // The close's legal links are drawn on the origin the builder is handed, apart from the link.
-    assert.ok(!mailedTexts().some((text) => text.includes(SITE_URL)), "the message sends a reader of this run to the published site");
-  });
-
-  it("is the configured one in the message the season-wide press mails", async () => {
-    answerTheWrite(() =>
-      Promise.resolve({
-        saison_id: SAISON_ID,
-        zeilen: [
-          {
-            team_id: TEAM_ID,
-            team_name: "Ernst-Reuter-Schule",
-            uebersprungen: null,
-            einladung_id: EINLADUNG_ID,
-            token: "token-versand",
-            ersetzt_link: false,
-            hatte_link: false,
-            empfaenger: [{ rolle: "ansprechperson", vorname: "Erika", email: ADDRESS }],
-          },
-        ],
-      }),
-    );
-
-    const result = await postEinladungVersandAction({ id: SAISON_ID, erneut: false });
-
-    expect(result.success, "the press mailed nothing, so the origin below is judged on nothing").toBe(true);
-    assert.ok(
-      mailedTexts().some((text) => text.includes(`${ORIGIN}/registrierung?token=token-versand`)),
-      "the mailed link is minted on an origin this run was not configured with",
-    );
-    // The close's legal links are drawn on the origin the builder is handed, apart from the link.
-    assert.ok(!mailedTexts().some((text) => text.includes(SITE_URL)), "the message sends a reader of this run to the published site");
-  });
-});
-
-/* The single press mints nothing, so its writes are the message and the delivery report filed after
-   it, and the admin spine refreshes the panel's delivery record after a write alone. */
-describe("the single press's write", () => {
-  it("is the fan-out's send, after which the panel is refreshed", async () => {
-    answerTheSinglePressReads();
-
-    const result = await mailEinladungAction({ team_id: TEAM_ID, saison_id: SAISON_ID, einladung_id: EINLADUNG_ID, token: "token-mail" });
-
-    expect(result.success, "the press mailed nothing, so its write is judged on nothing").toBe(true);
-    expect(
-      cacheCalls.filter(({ name }) => name === "refresh"),
-      "a press whose writes were its message left the panel standing",
-    ).toStrictEqual([{ name: "refresh", args: [] }]);
+    assert.ok(!text.includes(SITE_URL), "the message sends a reader of this run to the published site");
   });
 });

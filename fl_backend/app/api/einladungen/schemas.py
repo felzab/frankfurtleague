@@ -2,20 +2,10 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# The application's slice declares the delivery state, and one shape is stored at every home the
-# register names (`app/api/zustellung/services.py :: ZIEL_PFADE`).
+from app.api.postausgang.schemas import FLPostausgangLage
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import FLKontaktRolle
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
-from app.shared.schemas.zustellung import FLBewerbungZustellung
-
-
-class FLEinladungVersand(BaseReadModel):
-    """The carrier a message about this invite is recorded in."""
-
-    # Absent until something is mailed, and null never: the send writes the whole record
-    # (`app/api/zustellung/services.py :: compose_ziel_zustellung_update`).
-    zustellung: FLBewerbungZustellung | None = None
 
 
 class FLEinladung(BaseReadModel):
@@ -30,13 +20,12 @@ class FLEinladung(BaseReadModel):
     # Required as a KEY and null while the invite stands: `uniq_einladung_live` reaches the rows
     # holding null, so a row that could omit it would fall outside the one-live-invite rule.
     widerrufen_am: CustomOptionalDateString
-    versand: FLEinladungVersand | None = None
 
 
 class FLEinladungRecord(FLEinladung):
-    """One minted link as `einladungen` stores it, its hash with it."""
+    """One minted link as `einladungen` stores it: the hash of the copied link and of every mailed one, each live."""
 
-    token_hash: str
+    token_hashes: list[str]
 
 
 class FLEinladungZeile(FLEinladung):
@@ -45,6 +34,8 @@ class FLEinladungZeile(FLEinladung):
     # Null exactly where `erstellt_von_gesperrt` is set, as the grants list withholds its actors.
     erstellt_von: CustomNonEmptyString | None
     erstellt_von_gesperrt: bool
+    # What became of the last mail owed about it, null where none was ever owed.
+    zustellung: FLPostausgangLage | None
 
 
 class FLEinladungMintResponse(BaseAPIResponse):
@@ -125,12 +116,8 @@ class FLEinladungVersandVorschauZeile(_EinladungVersandZeile):
 
 
 class FLEinladungVersandZeile(_EinladungVersandZeile):
-    """One team as the press left it."""
+    """One team as the press left it: `empfaenger` are owed the team's link, which each mail's hand-out mints."""
 
-    # Null exactly where the team was skipped. The raw value is answered here and never again, a
-    # link being recoverable from no read.
-    einladung_id: CustomObjectId | None
-    token: str | None
     # Whether the team held a live link when the press read it, which a failed row's page needs to
     # say that link still opens. Null where the press failed before reading it: false would say none
     # existed.
@@ -140,9 +127,25 @@ class FLEinladungVersandZeile(_EinladungVersandZeile):
 class FLEinladungVersandPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    # False by default, so pressing twice mails nobody twice: a team whose live link already carries
-    # a delivery record is skipped unless this says otherwise.
+    # False by default, so pressing twice mails nobody twice: a team whose live link already has a mail owed or sent is
+    # skipped unless this says otherwise.
     erneut: bool = False
+
+
+class FLEinladungMailPayload(BaseModel):
+    """The one live link a team's panel shows, to be mailed to the team's confirmed seats."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # The row the panel read, so a link replaced or withdrawn since is refused rather than another one mailed.
+    einladung_id: CustomObjectId
+
+
+class FLEinladungMailResponse(BaseAPIResponse):
+    """Who the team's live link is owed to: its confirmed seats, one entry per stored address, none where nobody confirmed."""
+
+    einladung_id: CustomObjectId
+    empfaenger: list[FLEinladungEmpfaenger]
 
 
 class FLEinladungVersandVorschauResponse(BaseAPIResponse):

@@ -3,6 +3,8 @@ from fastapi import APIRouter, Depends
 from app.api.adresswechsel.crud import verwehrte_adressen
 from app.api.adresswechsel.services import build_address_filter
 from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.postausgang.crud import lage_of
+from app.api.postausgang.schemas import FLPostausgangBezug
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichter,
     FLSchiedsrichterFilterParams,
@@ -16,12 +18,14 @@ from app.api.schiedsrichter.services import (
     build_referee_filter,
     frist_abgelaufen,
 )
+from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, build_query, build_sort, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     AdresswechselCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
+    PostausgangCollection,
     SchiedsrichterCollection,
     get_german_date_str,
 )
@@ -81,6 +85,7 @@ async def get_schiedsrichter_by_id(
     adresswechsel_collection: AdresswechselCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    postausgang_collection: PostausgangCollection,
     today: str = Depends(get_german_date_str),
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
@@ -93,7 +98,8 @@ async def get_schiedsrichter_by_id(
 
     Answers whether the consent link's deadline has passed today, by the rule its press refuses on, so the editor marks a
     lapsed link without reading a clock of its own; and the live change of the referee's address, which the address tool shows,
-    beside why the tool refuses it this administrator, null where it opens it.
+    beside why the tool refuses it this administrator, null where it opens it. `zustellung` says what became of the last
+    confirmation mail the referee was owed, null where none was.
     """
 
     schiedsrichter_raw = await pull_one_from_db(collection=schiedsrichter_collection, db_filter=build_referee_filter(schiedsrichter_id))
@@ -114,4 +120,8 @@ async def get_schiedsrichter_by_id(
         bestaetigung_abgelaufen=frist_abgelaufen(schiedsrichter_raw.get(BESTAETIGUNG_FELD), today=today),
         adresswechsel_id=None if offen is None else offen["_id"],
         adresswechsel_einsehbar_verwehrt=None if identifier is None else verwehrt.get(identifier),
+        zustellung=await lage_of(
+            postausgang_collection=postausgang_collection,
+            bezug=FLPostausgangBezug(sammlung=Collection.SCHIEDSRICHTER, id=schiedsrichter_raw["_id"], sitz=None),
+        ),
     )

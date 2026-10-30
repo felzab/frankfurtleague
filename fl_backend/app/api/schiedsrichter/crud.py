@@ -1,11 +1,16 @@
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.crud import redact_images_in_session
+from app.api.postausgang.schemas import FLPostausgangBezug, FLPostausgangLink, FLSchiedsrichterBestaetigungDaten
+from app.api.postausgang.services import enqueue_mail
 from app.api.schiedsrichter.services import (
+    ADRESSE_PFAD,
+    TOKEN_HASHES_PFAD,
     booked_image_edits,
     build_assignment_filter,
     build_booked_image_filter,
@@ -18,6 +23,36 @@ from app.core.crud import erase_many_from_db, patch_many_in_db, post_one_to_db, 
 from app.core.recording import build_redaction_filter, build_redaction_update
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.custom import CustomObjectId
+
+
+async def owe_the_bestaetigung(
+    *,
+    postausgang_collection: AsyncCollection,
+    schiedsrichter_id: Any,
+    email: str,
+    frist: str,
+    # The referee's `version` after the write owing the mail: the same on a retry of that write, another on every other.
+    version: int,
+    now: datetime,
+    # REQUIRED: the mail is owed by the write that minted the block, and stands or falls with it.
+    session: AsyncClientSession,
+) -> None:
+    """Owe the referee their confirmation link at the address the write left them, the link minted when it is handed out.
+
+    The fresh link replaces every earlier one, and is minted only while the record still holds this address: a
+    correction since stops the mail rather than sending a live link to the replaced mailbox.
+    """
+
+    await enqueue_mail(
+        postausgang_collection=postausgang_collection,
+        session=session,
+        schluessel=f"schiedsrichter/{schiedsrichter_id}/bestaetigung/{version}",
+        an=email,
+        daten=FLSchiedsrichterBestaetigungDaten(art="schiedsrichter_bestaetigung", frist=frist),
+        now=now,
+        bezug=FLPostausgangBezug(sammlung=Collection.SCHIEDSRICHTER, id=schiedsrichter_id, sitz=None),
+        link=FLPostausgangLink(pfade=[TOKEN_HASHES_PFAD], adressen=[ADRESSE_PFAD], ersetzt=True),
+    )
 
 
 async def ensure_ghost_schiedsrichter(

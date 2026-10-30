@@ -1,7 +1,8 @@
-from typing import Annotated, Final, Literal, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 
+from app.api.postausgang.schemas import FLPostausgangLage
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
 from app.shared.schemas.aktor import FLVonAdmin
 from app.shared.schemas.bestaetigung import CustomToken
@@ -17,10 +18,6 @@ from app.shared.schemas.custom import (
 )
 from app.shared.schemas.literals import FLKontaktRolle, FLSpielSeite
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
-
-# One delivery shape at every home `app/api/zustellung/services.py :: ZIEL_PFADE` names, as the
-# referee's carrier declares it.
-from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 type FLSpielbestaetigungAntwortArt = Literal["zugesagt", "abgelehnt"]
 
@@ -85,14 +82,14 @@ class FLSpielbestaetigungAnsetzung(BaseModel):
 
 
 class FLSpielbestaetigungSitz(BaseReadModel):
-    """One seat's link bookkeeping as an administrator reads it -- and NO `token_hashes`.
+    """One seat's link as an administrator reads it -- and NO `token_hashes`, nor the address it was owed to.
 
     The hashes are raw document keys the token filter alone reads; a model declaring them would serve
     every live link's hash through the admin read.
     """
 
-    # Null until a delivery report names the message this seat's link went out in.
-    zustellung: FLBewerbungZustellung | None = None
+    # What became of the last mail owed to the seat, read off the Postausgang; null where none was, or on a write's answer.
+    zustellung: FLPostausgangLage | None = None
 
 
 class FLSpielbestaetigungKontakte(BaseModel):
@@ -145,12 +142,8 @@ class FLSpielbestaetigungGeschlossen(BaseModel):
     grund: FLSpielbestaetigungGrund
 
 
-class FLSpielbestaetigung(BaseModel):
-    """One party's confirmation of one Ansetzung, as stored and as an administrator reads it.
-
-    The close reaches an answered row too, so an agreement a move overtook records why it stopped
-    applying (`app/api/spielbestaetigungen/services.py :: build_closable_filter`).
-    """
+class _FLSpielbestaetigungFelder(BaseModel):
+    """Every field a confirmation row stores and an administrator reads alike: all but its seats."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     saison_id: str
@@ -159,22 +152,32 @@ class FLSpielbestaetigung(BaseModel):
     ansetzung: FLSpielbestaetigungAnsetzung
     # STORED rather than derived from the fixture's date: raising the bound moves no request already sent.
     frist: CustomDateString
-    # Null from the mint until the mail went out, so a bounce never reads as a silence.
+    # Null from the mint until it owes the party a mail, so a row nobody could be asked on reads as never asked.
     angefragt_am: CustomOptionalDateString
     erinnert_am: list[CustomDateString]
-    # Null on a referee row, whose referee answers signed in rather than by a link.
-    kontakte: FLSpielbestaetigungKontakte | None
     antwort: FLSpielbestaetigungAntwort | None
     geschlossen: FLSpielbestaetigungGeschlossen | None
 
 
-class FLSpielbestaetigungSitzRecord(FLSpielbestaetigungSitz):
-    """One seat as `spielbestaetigungen` stores it: every link the seat was mailed, by its hash."""
+class FLSpielbestaetigung(_FLSpielbestaetigungFelder):
+    """One party's confirmation of one Ansetzung, as an administrator reads it.
+
+    The close reaches an answered row too, so an agreement a move overtook records why it stopped
+    applying (`app/api/spielbestaetigungen/services.py :: build_closable_filter`).
+    """
+
+    # Null on a referee row, whose referee answers signed in rather than by a link.
+    kontakte: FLSpielbestaetigungKontakte | None
+
+
+class FLSpielbestaetigungSitzRecord(BaseModel):
+    """One seat as `spielbestaetigungen` stores it: every link the seat was mailed, by its hash, and the address they went to."""
 
     token_hashes: list[str]
+    email: str
 
 
-class FLSpielbestaetigungKontakteRecord(FLSpielbestaetigungKontakte):
+class FLSpielbestaetigungKontakteRecord(BaseModel):
     trainer: FLSpielbestaetigungSitzRecord | None
     ansprechperson: FLSpielbestaetigungSitzRecord | None
     stellvertretung: FLSpielbestaetigungSitzRecord | None
@@ -193,22 +196,11 @@ class FLSpielbestaetigungAntwortRecord(FLSpielbestaetigungAntwort):
     ]
 
 
-class FLSpielbestaetigungMitteilung(BaseModel):
-    """A moved fixture's notice still owed, and how many passes have tried to send it."""
-
-    versuche: int
-
-
-class FLSpielbestaetigungGeschlossenRecord(FLSpielbestaetigungGeschlossen):
-    mitteilung: FLSpielbestaetigungMitteilung | None = None
-
-
-class FLSpielbestaetigungRecord(FLSpielbestaetigung):
+class FLSpielbestaetigungRecord(_FLSpielbestaetigungFelder):
     """One confirmation as `spielbestaetigungen` stores it, with the keys no read serves."""
 
     kontakte: FLSpielbestaetigungKontakteRecord | None
     antwort: FLSpielbestaetigungAntwortRecord | None
-    geschlossen: FLSpielbestaetigungGeschlossenRecord | None
 
 
 # --- The ADMINISTRATOR: the season's rows read, a row settled on its party's behalf, a proposal discarded.
@@ -375,8 +367,8 @@ class FLSpielbestaetigungSchiedsrichterAntwortResponse(BaseAPIResponse):
     zustand: FLSpielbestaetigungAntwortArt
 
 
-# --- The PASS, system tier. The backend decides and mints, the frontend mails: what leaves here is
-# what a message needs and no name (`READ-ANSETZUNG-002`).
+# --- The PASS, system tier. It owes every mail through the Postausgang, and answers counts alone: no address, no
+# link and no name (`READ-ANSETZUNG-002`).
 
 
 class FLSpielbestaetigungSweepSaisonsResponse(BaseAPIResponse):
@@ -385,172 +377,13 @@ class FLSpielbestaetigungSweepSaisonsResponse(BaseAPIResponse):
     saison_ids: list[str]
 
 
-class FLSpielbestaetigungSweepLink(BaseModel):
-    """One LINK and its mailbox; the RAW token exists here and in the mail alone.
-
-    Per link: one person on two seats gets one button naming both roles, two people on one inbox two.
-    """
-
-    address: str
-    rollen: list[FLKontaktRolle]
-    token: str
-
-
-class FLSpielbestaetigungSweepAnfrage(BaseModel):
-    """One team row's request or reminder: the fixture, the stored deadline, and every link due a message."""
-
-    spielbestaetigung_id: CustomObjectId
-    spiel_id: CustomObjectId
-    seite: FLSpielSeite
-    ansetzung: FLSpielbestaetigungAnsichtAnsetzung
-    frist: CustomDateString
-    links: list[FLSpielbestaetigungSweepLink]
-
-
-class FLSpielbestaetigungSweepEinteilung(BaseModel):
-    """A referee row just minted, or one no stamp records as told: the referee is told to the panel, with no token."""
-
-    spielbestaetigung_id: CustomObjectId
-    spiel_id: CustomObjectId
-    ansetzung: FLSpielbestaetigungAnsichtAnsetzung
-    address: str
-
-
-class FLSpielbestaetigungSweepEmpfaenger(BaseModel):
-    """A mailbox told something without a link."""
-
-    address: str
-    rollen: list[FLKontaktRolle]
-
-
-class FLSpielbestaetigungSweepNeueAnsetzung(BaseModel):
-    """A team row a move closed, so a link in its mailboxes is known void before the fresh request arrives."""
-
-    spielbestaetigung_id: CustomObjectId
-    spiel_id: CustomObjectId
-    team1_name: str
-    team2_name: str
-    # The slot the row was about. The fixture's new one may be undated, so it is not stated here.
-    alt: FLSpielbestaetigungTermin
-    empfaenger: list[FLSpielbestaetigungSweepEmpfaenger]
-
-
-class FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung(BaseModel):
-    """The same for a referee row: one address, no seat, the delivery lane recording no seat."""
-
-    spielbestaetigung_id: CustomObjectId
-    spiel_id: CustomObjectId
-    team1_name: str
-    team2_name: str
-    alt: FLSpielbestaetigungTermin
-    address: str
-
-
-class FLSpielbestaetigungSweepSchiedsrichterGewechselt(BaseModel):
-    """A referee row closed because its referee was taken off the fixture after their Einteilung went out: the slot they were told of."""
-
-    spielbestaetigung_id: CustomObjectId
-    spiel_id: CustomObjectId
-    team1_name: str
-    team2_name: str
-    alt: FLSpielbestaetigungTermin
-    address: str
-
-
-class FLSpielbestaetigungSweepSpielAbgesagt(BaseModel):
-    """A team row closed because its fixture was called off after its request went out: the slot it was asked about."""
-
-    spielbestaetigung_id: CustomObjectId
-    spiel_id: CustomObjectId
-    team1_name: str
-    team2_name: str
-    alt: FLSpielbestaetigungTermin
-    empfaenger: list[FLSpielbestaetigungSweepEmpfaenger]
-
-
-class FLSpielbestaetigungSweepVorschlagVerworfen(BaseModel):
-    """A club's decline whose proposed date the administrator discarded: the slot it was asked about, which stands."""
-
-    spielbestaetigung_id: CustomObjectId
-    spiel_id: CustomObjectId
-    team1_name: str
-    team2_name: str
-    alt: FLSpielbestaetigungTermin
-    empfaenger: list[FLSpielbestaetigungSweepEmpfaenger]
-
-
-class FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt(BaseModel):
-    """The same for a referee row whose Einteilung went out: one address, no seat."""
-
-    spielbestaetigung_id: CustomObjectId
-    spiel_id: CustomObjectId
-    team1_name: str
-    team2_name: str
-    alt: FLSpielbestaetigungTermin
-    address: str
-
-
-class FLSpielbestaetigungSweepAufgegeben(BaseModel):
-    """A notice given up unsent, for the administrator to tell by hand: the fixture and the party's kind, never a person."""
-
-    spielbestaetigung_id: CustomObjectId
-    spiel_id: CustomObjectId
-    partei: Literal["team", "schiedsrichter"]
-
-
 class FLSpielbestaetigungSweepResponse(BaseAPIResponse):
-    """One season's pass: the requests still to stamp, the reminders already stamped, and the notices still to stamp."""
+    """One season's pass, counted: what it closed, the rows it asked or reminded, and the mails it owed the Postausgang."""
 
     saison_id: str
-    # Unstamped until `/angefragt` names them, so a send that failed leaves a row visibly never asked.
-    anfragen: list[FLSpielbestaetigungSweepAnfrage]
-    # Stamped before this answers, so a failed send costs one reminder rather than a daily repeat.
-    erinnerungen: list[FLSpielbestaetigungSweepAnfrage]
-    einteilungen: list[FLSpielbestaetigungSweepEinteilung]
-    neue_ansetzungen: list[FLSpielbestaetigungSweepNeueAnsetzung]
-    schiedsrichter_neue_ansetzungen: list[FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung]
-    schiedsrichter_gewechselt: list[FLSpielbestaetigungSweepSchiedsrichterGewechselt]
-    spiel_abgesagt: list[FLSpielbestaetigungSweepSpielAbgesagt]
-    schiedsrichter_spiel_abgesagt: list[FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt]
-    vorschlag_verworfen: list[FLSpielbestaetigungSweepVorschlagVerworfen]
     geschlossen: int
-    fehlgeschlagen: int
-    # Answered on every pass until `/mitgeteilt` stamps them, as the notices are: a lost answer loses no give-up.
-    mitteilungen_aufgegeben: list[FLSpielbestaetigungSweepAufgegeben]
-
-
-# The notices one pass answers. Answered from rows holding them, so a share past it waits for the next pass rather than
-# for a stamp list it would outrun.
-MITTEILUNGEN_PER_PASS: Final = 25
-
-# Three commands a row beside the call's other 3:
-# 252 commands at a 38 ms round trip plus 1.32 ms take 9.91 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
-ANFRAGEN_LISTED_PER_PASS: Final = 83
-
-
-class FLSpielbestaetigungSweepAngefragtPayload(BaseModel):
-    """Which rows' first messages went. Stamped whether or not answered or closed since: the stamp records the send."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    spielbestaetigung_ids: list[CustomObjectId] = Field(max_length=ANFRAGEN_LISTED_PER_PASS)
-
-
-class FLSpielbestaetigungSweepAngefragtResponse(BaseAPIResponse):
-    saison_id: str
     angefragt: int
+    erinnert: int
+    # Every mail this pass owed, requests, reminders, Einteilungen and notices alike, one per recipient.
+    mails: int
     fehlgeschlagen: int
-
-
-class FLSpielbestaetigungSweepMitgeteiltPayload(BaseModel):
-    """Which rows' notices went, or were given up: each stops being owed, so no later pass answers it again."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    spielbestaetigung_ids: list[CustomObjectId] = Field(max_length=MITTEILUNGEN_PER_PASS)
-
-
-class FLSpielbestaetigungSweepMitgeteiltResponse(BaseAPIResponse):
-    saison_id: str
-    # The named rows still owing their notice, now owing none; a row stamped already, or of another season, is not counted.
-    mitgeteilt: int

@@ -11,7 +11,7 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 
-import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
+import { zustellungChip } from "@/features/bewerbungen/zustellLage";
 import { eintragenSpielbestaetigungAction, verwerfenSpielbestaetigungAction } from "@/features/spielbestaetigungen/actions";
 import { ANTWORT_LABELS, SCHIEDSRICHTER_PARTEI, SCHLIESSGRUND_LABELS } from "@/features/spielbestaetigungen/constants";
 import { FLSpielbestaetigungEintragenPayloadSchema } from "@/features/spielbestaetigungen/schemas";
@@ -217,7 +217,7 @@ function BestaetigungZeile({
         {KONTAKT_ROLLEN.flatMap(({ value, label }) => {
           const sitz = zeile.kontakte?.[value] ?? null;
           if (sitz === null) return [];
-          const chip = sitz.zustellung === null ? null : ZUSTELLUNG_CHIP[sitz.zustellung.stand];
+          const chip = zustellungChip(sitz.zustellung);
           return [
             <Angabe
               key={value}

@@ -3,11 +3,12 @@ from typing import Annotated, Literal, Self, get_args
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-from app.api.teams.schemas import FLKontaktRolle
+from app.api.registrierungen.schemas import FLRegistrierungAblehnungsgrund
 from app.core.collections import Collection
-from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomStrippedNonEmptyString
+from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
 from app.shared.schemas.kontakt import CustomEmail
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.literals import FLGruppenNames, FLKontaktRolle, FLKontaktZeile, FLTrikotFarbe
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # Each kind of mail is one member of `FLPostausgangDaten` below, carrying the facts its builder renders and never a
 # sentence: a date where the mail prints one, a seat where it names one. A kind joins with the write that owes it, its
@@ -45,10 +46,245 @@ class FLSperreDaten(BaseModel):
     gesperrt_bis_saison_id: str
 
 
-FLPostausgangDaten = Annotated[FLAnmeldecodeDaten | FLPasskeyDaten | FLKontoLoeschungDaten | FLSperreDaten, Field(discriminator="art")]
+class FLSchiedsrichterBestaetigungDaten(BaseModel):
+    """A referee's confirmation link, owed by their entry, a corrected address, a re-send or their return."""
+
+    art: Literal["schiedsrichter_bestaetigung"]
+    # The link's last day, the one date the mail states.
+    frist: CustomDateString
+
+
+class FLSpielMailTermin(BaseModel):
+    """A fixture's slot as a mail names it: its two sides in the fixture's order, its day and its hour."""
+
+    team1: str
+    team2: str
+    datum: CustomDateString
+    uhrzeit: CustomTimeString
+
+
+class FLSpielMailAnsetzung(FLSpielMailTermin):
+    """A fixture as a mail asking about it states it, its ground among the rest."""
+
+    # The ground's name; null where nobody assigned one.
+    ort: str | None
+
+
+class FLSpielAnfrageDaten(BaseModel):
+    """A club's request to confirm a fixture, or the reminder of it, each carrying a link of its own."""
+
+    art: Literal["spiel_anfrage", "spiel_erinnerung"]
+    # The reader's own club, one of the two sides.
+    team: str
+    ansetzung: FLSpielMailAnsetzung
+    # The row's stored deadline, which a reminder repeats.
+    frist: CustomDateString
+
+
+class FLSpielEinteilungDaten(BaseModel):
+    """A referee's word that they are booked onto a fixture, which they answer on their own panel."""
+
+    art: Literal["spiel_einteilung"]
+    ansetzung: FLSpielMailAnsetzung
+
+
+class FLSpielHinweisDaten(BaseModel):
+    """A party's word that a fixture it was asked about moved or was called off: the slot it was asked about."""
+
+    art: Literal["spiel_neu_angesetzt", "spiel_abgesagt"]
+    # A club was asked by a link, a referee was booked; each is told what of theirs no longer stands.
+    empfaenger: Literal["team", "schiedsrichter"]
+    termin: FLSpielMailTermin
+
+
+class FLSpielEinteilungAufgehobenDaten(BaseModel):
+    """A referee's word that they were taken off a fixture after being told of it: the slot they were told of."""
+
+    art: Literal["spiel_einteilung_aufgehoben"]
+    termin: FLSpielMailTermin
+
+
+class FLSpielVorschlagVerworfenDaten(BaseModel):
+    """A club's word that the league kept the date it declined and proposed another for: the slot that stands."""
+
+    art: Literal["spiel_vorschlag_verworfen"]
+    termin: FLSpielMailTermin
+
+
+# --- The season's and the applications' mails.
+
+
+class FLRegistrierungLinkDaten(BaseModel):
+    """A pupil's confirmation link, first or as the one reminder, which joins the first link rather than replacing it."""
+
+    art: Literal["registrierung_bestaetigung", "registrierung_erinnerung"]
+    # The junction row's name, else the club's: what the pupil registered for.
+    team: str
+    saison_id: str
+    # The window in days, never a date: the reminder states that the window has not moved.
+    frist_tage: int = Field(ge=1)
+
+
+class FLRegistrierungAbsageDaten(BaseModel):
+    """A team's decline, to a pupil whose address was confirmed."""
+
+    art: Literal["registrierung_absage"]
+    vorname: str
+    team: str
+    saison_id: str
+    grund: FLRegistrierungAblehnungsgrund | None
+
+
+class FLEinladungDaten(BaseModel):
+    """A team's registration link, to one confirmed contact seat, for the pupils to register through."""
+
+    art: Literal["einladung"]
+    # The junction row's name: a seat holding two teams tells them apart by it.
+    team: str
+    saison_id: str
+
+
+class FLBewerbungLinkDaten(BaseModel):
+    """One person's confirmation link on an application: at its submission, a re-send, a correction or a reseat, or the one reminder.
+
+    `rollen` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.
+    """
+
+    art: Literal["bewerbung_bestaetigung", "bewerbung_erinnerung"]
+    saison_id: str
+    # The school as submitted, or the picked club's name: a contact who never heard of the application places it by this.
+    schule: str
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    # The day the links stop working, which the reminder repeats rather than moves.
+    frist: CustomDateString
+
+
+class FLBewerbungPerson(BaseModel):
+    """Another person's seats, as a mail names them to the submitter: a first name where one stands, and the seats."""
+
+    vorname: str | None
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
+
+
+class FLBewerbungEingangDaten(BaseModel):
+    """The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer."""
+
+    art: Literal["bewerbung_eingang"]
+    saison_id: str
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    ausstehend: list[FLBewerbungPerson]
+    frist: CustomDateString
+
+
+class FLBewerbungZusageDaten(BaseModel):
+    """An acceptance, to one person of the application, naming the seats they were entered for."""
+
+    art: Literal["bewerbung_zusage"]
+    team: str
+    saison_id: str
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    gruppe: FLGruppenNames
+    # Null while no kit colour is assigned; the mail then says so rather than guessing one.
+    trikot_farbe: FLTrikotFarbe | None
+    # As the school submitted it, null where it named none.
+    wunschgegner: str | None
+
+
+class FLBewerbungAbsageDaten(BaseModel):
+    """A decline, to one person of the application, with the administrator's reason verbatim."""
+
+    art: Literal["bewerbung_absage"]
+    team: str
+    saison_id: str
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    grund: str
+
+
+class FLBewerbungLoeschungDaten(BaseModel):
+    """The fourteen-day deletion notice, to the submitter, naming who never confirmed; owed in the erasure's own write."""
+
+    art: Literal["bewerbung_loeschung"]
+    saison_id: str
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    ausstehend: list[FLBewerbungPerson]
+
+
+class FLBewerbungWiderspruchDaten(BaseModel):
+    """A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too."""
+
+    art: Literal["bewerbung_widerspruch"]
+    saison_id: str
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    abgelehnt: FLBewerbungPerson
+    frist: CustomDateString
+
+
+class FLKontaktLinkDaten(BaseModel):
+    """One person an administrator seated on a team's season row, asked to confirm: no name, the address being unconfirmed."""
+
+    art: Literal["kontakt_bestaetigung"]
+    saison_id: str
+    # The team's name in that season, which is the school the reader is asked about.
+    schule: str
+    rollen: list[FLKontaktRolle] = Field(min_length=1)
+    frist: CustomDateString
+    # The row's state at the write: a closed row's link takes the Widerspruch alone, and the mail asks only that.
+    zeile: FLKontaktZeile
+
+
+FLPostausgangDaten = Annotated[
+    FLAnmeldecodeDaten
+    | FLPasskeyDaten
+    | FLKontoLoeschungDaten
+    | FLSperreDaten
+    | FLSchiedsrichterBestaetigungDaten
+    | FLSpielAnfrageDaten
+    | FLSpielEinteilungDaten
+    | FLSpielHinweisDaten
+    | FLSpielEinteilungAufgehobenDaten
+    | FLSpielVorschlagVerworfenDaten
+    | FLRegistrierungLinkDaten
+    | FLRegistrierungAbsageDaten
+    | FLEinladungDaten
+    | FLBewerbungLinkDaten
+    | FLBewerbungEingangDaten
+    | FLBewerbungZusageDaten
+    | FLBewerbungAbsageDaten
+    | FLBewerbungLoeschungDaten
+    | FLBewerbungWiderspruchDaten
+    | FLKontaktLinkDaten,
+    Field(discriminator="art"),
+]
 
 # Every member's `art`, spelled again as one closed set for the row's own field, which outlives its data.
-FLPostausgangArt = Literal["anmeldecode", "passkey_hinzugefuegt", "passkey_geloescht", "konto_loeschung", "sperre"]
+FLPostausgangArt = Literal[
+    "anmeldecode",
+    "passkey_hinzugefuegt",
+    "passkey_geloescht",
+    "konto_loeschung",
+    "sperre",
+    "schiedsrichter_bestaetigung",
+    "spiel_anfrage",
+    "spiel_erinnerung",
+    "spiel_einteilung",
+    "spiel_neu_angesetzt",
+    "spiel_abgesagt",
+    "spiel_einteilung_aufgehoben",
+    "spiel_vorschlag_verworfen",
+    "registrierung_bestaetigung",
+    "registrierung_erinnerung",
+    "registrierung_absage",
+    "einladung",
+    "bewerbung_bestaetigung",
+    "bewerbung_erinnerung",
+    "bewerbung_eingang",
+    "bewerbung_zusage",
+    "bewerbung_absage",
+    "bewerbung_loeschung",
+    "bewerbung_widerspruch",
+    "kontakt_bestaetigung",
+]
+
 
 _MEMBER_ARTEN = {art for member in get_args(get_args(FLPostausgangDaten)[0]) for art in get_args(member.model_fields["art"].annotation)}
 if set(get_args(FLPostausgangArt)) != _MEMBER_ARTEN:
@@ -80,10 +316,17 @@ class FLPostausgangBezug(BaseModel):
 
 
 class FLPostausgangLink(BaseModel):
-    """Where the hand-out stores the hash of the link it mints: the dotted path of the record's `token_hashes` array."""
+    """Where the hand-out stores the hash of the link it mints, and what the record must still say for it to mint one."""
 
-    pfad: Annotated[str, StringConstraints(pattern=r"^([a-z_]+\.)*token_hashes$")]
-    # Set where the fresh link supersedes every link the array held; clear where the earlier ones stay valid beside it.
+    # The dotted path of each `token_hashes` array the link answers through: one per seat, a person holding two seats
+    # being sent one link for both.
+    pfade: list[Annotated[str, StringConstraints(pattern=r"^([a-z_]+\.)*token_hashes$")]] = Field(min_length=1)
+    # The dotted paths holding the recipient's address on the record. The link is minted only while each still holds the
+    # row's `an`: a seat emptied, handed on or re-addressed since the mail was owed mints nothing, and the mail is dropped.
+    # Empty where the record holds no address to judge: a team's registration link, which is the team's and no person's
+    # credential, its recipients standing on another record.
+    adressen: list[Annotated[str, StringConstraints(pattern=r"^[a-z_]+(\.[a-z_]+)*$")]]
+    # Set where the fresh link supersedes every link the arrays held; clear where the earlier ones stay valid beside it.
     ersetzt: bool
 
 
@@ -91,6 +334,13 @@ class FLPostausgangZustellung(BaseModel):
     stand: FLPostausgangZustellStand
     grund: str | None
     am: datetime
+
+
+class FLPostausgangLage(BaseReadModel):
+    """What became of the last mail owed about one record and seat, as an editor reads it beside the link."""
+
+    stand: FLPostausgangStand
+    zustellung: FLPostausgangZustellung | None
 
 
 class FLPostausgangZeile(BaseModel):

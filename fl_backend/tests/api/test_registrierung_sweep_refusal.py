@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from app.api.bewerbungen.services import ZUSTELLUNG_ABGEWIESEN, hash_token, latest_decision_due
+from app.api.bewerbungen.services import hash_token, latest_decision_due
 from app.api.registrierungen import sweep_router
 from app.api.registrierungen.services import (
     bestaetigung_erasure_is_due,
@@ -14,7 +14,6 @@ from app.api.registrierungen.services import (
     build_undecided_filter,
     decline_erasure_is_due,
     erinnerung_is_due,
-    link_is_unreachable,
 )
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_ERINNERUNG_TAGE
@@ -36,15 +35,11 @@ def einwilligung() -> dict[str, Any]:
     return eigene_einwilligung_document(text_version="2026-10-spielerseite-5", bestaetigt_am=TODAY)
 
 
-def zustellung(stand: str) -> dict[str, Any]:
-    return {"nachricht_id": "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794", "stand": stand, "grund": None, "am": "2026-03-29T10:00:00.000000+00:00"}
-
-
 def bestaetigung(**overrides: Any) -> dict[str, Any]:
     """One live link mailed at its reminder mark, inside its deadline, that each case moves one thing of."""
 
     return {
-        "token_hash": FIRST_HASH,
+        "token_hashes": [FIRST_HASH],
         "verschickt_am": MAILED_ON_THE_MARK,
         "erinnert_am": None,
         "frist": "2026-04-05",
@@ -114,24 +109,6 @@ class TestTheReminderMark:
         stored = registrierung(bestaetigung=bestaetigung(frist=frist))
 
         assert erinnerung_is_due(registrierung_raw=stored, today=TODAY) == due
-
-    @pytest.mark.parametrize("stand", sorted(ZUSTELLUNG_ABGEWIESEN))
-    def test_an_address_the_provider_refuses_is_not_chased(self, stand: str):
-        """The one chase a registration gets is spent on nobody where the address is already known to reject it."""
-
-        stored = registrierung(bestaetigung=bestaetigung(zustellung=zustellung(stand)))
-
-        assert link_is_unreachable(bestaetigung=stored["bestaetigung"])
-        assert not erinnerung_is_due(registrierung_raw=stored, today=TODAY)
-
-    @pytest.mark.parametrize("stand", ["angenommen", "zugestellt", "verzoegert"])
-    def test_an_address_a_later_message_may_still_reach_is_chased(self, stand: str):
-        """A delayed message still arrives, and a delivered one arrived: neither is a reason to skip the chase."""
-
-        stored = registrierung(bestaetigung=bestaetigung(zustellung=zustellung(stand)))
-
-        assert not link_is_unreachable(bestaetigung=stored["bestaetigung"])
-        assert erinnerung_is_due(registrierung_raw=stored, today=TODAY)
 
 
 class TestTheDeadlineClock:
@@ -225,7 +202,7 @@ class TestWhatEachClockReads:
             "bestaetigung.frist": {"$lt": TODAY},
         }
 
-    def test_the_reminder_reads_the_unchased_at_their_mark_whose_address_was_not_refused(self):
+    def test_the_reminder_reads_the_unchased_at_their_mark(self):
         assert CLOCK_FILTERS["reminder"] == {
             "saison_id": SAISON_ID,
             "status": "eingereicht",
@@ -233,7 +210,6 @@ class TestWhatEachClockReads:
             "bestaetigung.erinnert_am": None,
             "bestaetigung.frist": {"$gte": TODAY},
             "bestaetigung.verschickt_am": {"$lte": THE_MARK},
-            "bestaetigung.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
         }
 
     def test_the_decline_clock_reads_the_decisions_whose_month_is_behind_them(self):
@@ -275,13 +251,14 @@ class TestWhatEachClockReads:
         assert CLOCK_FILTERS[clock]["saison_id"] == SAISON_ID
 
 
-# The reminder's three commands a row -- the update, its read-back and its log row -- pinned on the wire by
+# The reminder's commands a row -- the stamp's update, its read-back and its log row, then the Postausgang's key
+# lookup and its insert -- pinned on the wire by
 # `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheReminderClockTakesAShareEachCall`.
-ROUND_TRIPS_A_ROW = 3
+ROUND_TRIPS_A_ROW = 5
 
 # The other commands of the worst call erasing one page per clock, counted on the wire by
 # `fl_backend/tests/api/test_registrierung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
-OTHER_COMMANDS = 16
+OTHER_COMMANDS = 14
 
 # The per-command cost, the widest of fifteen whole passes at a full share timed locally, 2026-10-20.
 PER_COMMAND_S = 0.00127

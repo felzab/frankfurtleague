@@ -55,15 +55,3 @@ export function hinweisFehlt(hinweis: HinweisVersand | null | undefined): boolea
 
   return hinweis !== null && hinweis !== undefined && versandGrad(hinweis) === "fehlgeschlagen";
 }
-
-/** A failed link outranks one held back, so a write sending several reports the one its administrator must act on. */
-const RANG: Readonly<Record<VersandGrad, number>> = { gesendet: 0, abgelegt: 1, fehlgeschlagen: 2 };
-
-/** The worst-graded of several links one write sent, `undefined` where it sent none. */
-export function schlechtesterVersand(versendet: readonly LinkVersand[]): LinkVersand | undefined {
-  return versendet.reduce<LinkVersand | undefined>(
-    (schlechtester, versand) =>
-      schlechtester === undefined || RANG[versandGrad(versand)] > RANG[versandGrad(schlechtester)] ? versand : schlechtester,
-    undefined,
-  );
-}
