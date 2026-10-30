@@ -435,5 +435,5 @@ class TestALaterWriteRaisesTheVersionAndKeepsTheAdoption:
             "bericht.seiten",
             "bericht.geaendert_am",
         }
-        # Stored as ObjectIds, which the validator requires.
+        # Stored as ObjectIds, which every lookup by id matches.
         assert update["$set"]["bericht.torschuetzen"][0]["spieler_id"] == LIVE1
