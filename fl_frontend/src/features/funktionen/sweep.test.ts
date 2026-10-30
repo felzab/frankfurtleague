@@ -19,14 +19,17 @@ let listing: () => Promise<readonly string[]> = () => Promise.resolve(accounts);
 const deleteCalls: string[] = [];
 /** Per address, what `deleteAccountFor` does where it was not simply there to delete. */
 const deleteOutcomes = new Map<string, "gone" | "throws">();
-/** Every load of `fl_frontend/src/core/mail.ts`, the one module reaching the mail provider, which the sweep never reaches. */
-const mailerLoads: string[] = [];
+/** Every drain the sweep started, the one way a mail reaches the provider, which the sweep never starts. */
+const drains: string[] = [];
 
-// Watched rather than doubled, the real module standing: any load is the regression, at import or at a send.
-vi.doMock("@/core/mail.ts", async (importOriginal) => {
-  mailerLoads.push("@/core/mail.ts");
-  return importOriginal();
-});
+// Doubled at the drain alone, the module standing: the client every slice sends through loads it, so a load is no send.
+vi.doMock("@/core/mail.ts", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  drainPostausgang: () => {
+    drains.push("drain");
+    return Promise.resolve();
+  },
+}));
 
 /** Which of `identifiers` the doubled read answers unreferenced, handed the batch alone or an address re-asked alone. */
 let referenzen: (identifiers: readonly string[]) => readonly string[] = () => [];
@@ -268,7 +271,12 @@ describe("a pass meeting a failure", () => {
 
     expect(lines.map(({ event }) => event)).toStrictEqual(["konto.referenzen_failed", "konto.delete_failed"]);
     assert.ok(!JSON.stringify(lines).includes("@"), "a line carries an address");
-    expect(mailerLoads, "the sweep reached the mailer").toStrictEqual([]);
+    // No mail owed through the sign-in library's route, and none sent: every other mail is a backend write's to owe.
+    expect(
+      calls.filter(({ endpoint }) => endpoint.startsWith("/postausgang/")),
+      "the sweep owed a mail",
+    ).toStrictEqual([]);
+    expect(drains, "the sweep drained the Postausgang").toStrictEqual([]);
   });
 });
 
