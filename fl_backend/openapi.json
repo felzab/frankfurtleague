@@ -2791,7 +2791,8 @@
         "required": [
           "verschickt_am",
           "erinnert_am",
-          "frist"
+          "frist",
+          "zustellung"
         ],
         "title": "FLBestaetigung",
         "type": "object"
@@ -2999,7 +3000,8 @@
         "required": [
           "verschickt_am",
           "erinnert_am",
-          "abgelehnt_am"
+          "abgelehnt_am",
+          "zustellung"
         ],
         "title": "FLBewerbungBestaetigung",
         "type": "object"
@@ -5162,6 +5164,9 @@
             ]
           }
         },
+        "required": [
+          "zustellung"
+        ],
         "title": "FLEinladungVersand",
         "type": "object"
       },
@@ -5466,6 +5471,7 @@
           "erstellt_am",
           "erstellt_von",
           "widerrufen_am",
+          "versand",
           "erstellt_von_gesperrt"
         ],
         "title": "FLEinladungZeile",
@@ -10237,8 +10243,12 @@
           }
         },
         "required": [
+          "umfang",
+          "datum",
           "bestaetigt_am",
-          "text_version"
+          "text_version",
+          "medien",
+          "nachweis"
         ],
         "title": "FLRegistrierungEinwilligung",
         "type": "object"

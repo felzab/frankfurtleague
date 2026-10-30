@@ -268,7 +268,7 @@ export interface FLBewerbungBestaetigung {
   erinnert_am: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   verschickt_am: string;
-  zustellung?: FLBewerbungZustellung | null;
+  zustellung: FLBewerbungZustellung | null;
 }
 
 /**
@@ -1479,7 +1479,7 @@ export interface FLBestaetigung {
   frist: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   verschickt_am: string;
-  zustellung?: FLBewerbungZustellung | null;
+  zustellung: FLBewerbungZustellung | null;
 }
 
 export type FLBestaetigungZustand = (typeof FLBestaetigungZustand)[keyof typeof FLBestaetigungZustand];
@@ -2337,7 +2337,7 @@ export interface FLEinladungMintResponse {
  * The carrier a message about this invite is recorded in.
  */
 export interface FLEinladungVersand {
-  zustellung?: FLBewerbungZustellung | null;
+  zustellung: FLBewerbungZustellung | null;
 }
 
 /**
@@ -2354,7 +2354,7 @@ export interface FLEinladungZeile {
   saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
-  versand?: FLEinladungVersand | null;
+  versand: FLEinladungVersand | null;
   widerrufen_am: string | null;
 }
 
@@ -3970,11 +3970,11 @@ export interface FLRefusedPayloadBody {
  */
 export interface FLRegistrierungEinwilligung {
   bestaetigt_am: string | null;
-  datum?: string | null;
-  medien?: boolean | null;
-  nachweis?: FLEinwilligungNachweise;
+  datum: string | null;
+  medien: boolean | null;
+  nachweis: FLEinwilligungNachweise;
   text_version: string;
-  umfang?: FLEinwilligungUmfang | null;
+  umfang: FLEinwilligungUmfang | null;
 }
 
 /**

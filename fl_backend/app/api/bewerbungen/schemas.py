@@ -48,7 +48,7 @@ from app.shared.schemas.literals import (
     FLSortOrder,
     FLTrikotFarbe,
 )
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # `eingereicht` is the only state a submission arrives in; the other two are the triage's, and
@@ -99,7 +99,7 @@ CustomNachrichtId = Annotated[str, StringConstraints(strip_whitespace=True, min_
 CustomZustellgrund = Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=128, pattern=SINGLE_LINE_PATTERN)]
 
 
-class FLBewerbungBestaetigung(BaseModel):
+class FLBewerbungBestaetigung(BaseReadModel):
     """One seat's confirmation bookkeeping as the triage reads it, without its link's hash."""
 
     # The day the link was last mailed; a re-send moves it.

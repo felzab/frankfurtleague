@@ -6,11 +6,11 @@ from pydantic import BaseModel, ConfigDict, Field
 # register names (`app/api/zustellung/services.py :: ZIEL_PFADE`).
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import FLKontaktRolle
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 
-class FLEinladungVersand(BaseModel):
+class FLEinladungVersand(BaseReadModel):
     """The carrier a message about this invite is recorded in."""
 
     # Absent until something is mailed, and null never: the send writes the whole record
@@ -18,7 +18,7 @@ class FLEinladungVersand(BaseModel):
     zustellung: FLBewerbungZustellung | None = None
 
 
-class FLEinladung(BaseModel):
+class FLEinladung(BaseReadModel):
     """One minted link as it is served, without its hash."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
