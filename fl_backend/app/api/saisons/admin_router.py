@@ -498,23 +498,14 @@ async def activate_saison(
     """
 
     async def judge_and_roll_the_league_over(session: AsyncClientSession) -> FLActivateSaisonResponse:
-        """Judge, then demote every incumbent and promote the target. Every figure is read in-session, the status again outside it."""
-
-        async def the_targets_status(status_session: AsyncClientSession | None) -> str:
-            """`REQ-ACTIVATE-002`'s input, read either through the transaction or outside it.
-
-            A season id naming nothing raises the 404 here, before any demotion.
-            """
-
-            target = await pull_one_from_db(
-                collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=status_session
-            )
-
-            return str(target["status"])
+        """Judge, then demote every incumbent and promote the target. Every figure is read in-session."""
 
         # THROUGH the session, as the draw's reads are: a retry after a write conflict judges the
-        # league as it stands then.
-        target_status = await the_targets_status(session)
+        # league as it stands then. A season id naming nothing raises the 404 here, before any demotion.
+        target_raw = await pull_one_from_db(
+            collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=session
+        )
+        target_status = str(target_raw["status"])
 
         # `$ne` on the target, so re-activating the current season is not blocked by its own fixtures.
         outgoing = await pull_many_from_db(
@@ -561,6 +552,8 @@ async def activate_saison(
             session=session,
         )
 
+        # Raises the target's version even where it is already `active`, so a rival demoting it under
+        # this rollover conflicts with the write and the retry judges it `past`.
         activated_raw = await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
@@ -568,27 +561,6 @@ async def activate_saison(
             session=session,
             return_document=ReturnDocument.AFTER,
         )
-
-        # A target already `active` joins no write set, so a rival demoting it raises no conflict to
-        # retry on. Re-judged outside the session; the window to the
-        # commit is the residue.
-
-        # The STATUS alone, because it is the only input a rival can move here: an undraw and a
-        # replace each need a `future` season, a draw only adds fixtures, and a new incumbent arrives
-        # only from a rollover that demotes this target.
-
-        # Dated-ness rides on the in-session count for the same reason: this branch re-promotes a
-        # season that is already live, so a matchday drawn under it cannot make the league go live
-        # undated.
-        if target_status == "active":
-            refuse(
-                find_activation_refusal(
-                    target_status=await the_targets_status(None),
-                    target_fixtures=target_fixtures,
-                    undated_spieltage=undated_spieltage,
-                    outgoing_unplayed=unplayed,
-                )
-            )
 
         # ERASED rather than deleted: a retention period
         # ended, which is the distinction between the two helpers, and a `before` image would
