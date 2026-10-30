@@ -173,11 +173,7 @@ class FLSaison(_SaisonStored):
 
 
 class FLSaisonRecord(_SaisonStored):
-    """A season as `saisons` stores it: no derived schedule, and the passes' own clocks, which no read serves."""
-
-    sweep_gelaufen_am: str | None = None
-    registrierung_sweep_gelaufen_am: str | None = None
-    spiel_sweep_gelaufen_am: str | None = None
+    """A season as `saisons` stores it: no derived schedule."""
 
 
 FLSaisonListAdapter = TypeAdapter(list[FLSaison])
