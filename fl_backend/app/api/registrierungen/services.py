@@ -604,26 +604,6 @@ def compose_confirmation_update(
 # The other member of the status enum, read by the clock below and written by the team's decline.
 DECLINED: Final = "abgelehnt"
 
-# The season key this pass stamps, spelled once: the read that finds a stale season and the update
-# that writes the day are one decision, and a rename reaching one of them alone stamps nothing.
-REGISTRIERUNG_SWEEP_FELD: Final = "registrierung_sweep_gelaufen_am"
-
-
-def build_stale_stamp_filter(*, today: str) -> Mapping[str, Any]:
-    """Every season this pass has not stamped today, so the hourly pass writes, and logs, the first of the day alone."""
-
-    return {REGISTRIERUNG_SWEEP_FELD: {"$ne": today}}
-
-
-def compose_sweep_stamp(*, today: str) -> Mapping[str, Any]:
-    """The whole PASS's day, written on every stale season at once.
-
-    It says when the registration sweep last ran, never when a season was visited.
-    """
-
-    return {"$set": {REGISTRIERUNG_SWEEP_FELD: today}}
-
-
 # One row per PUPIL, so a season's registrations outgrow a page long before its fixtures do.
 SWEEP_PAGE: Final = LIST_LIMIT_MAX
 

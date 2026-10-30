@@ -43,27 +43,16 @@ PRIOR_SAISONS_SQUAD = 9
 PERMITTED_KADER = 4
 REFUSED_KADER = 2
 
-# The other value of the closed set, so a case moves `tiebreak_order` to something the model accepts.
-OTHER_TIEBREAK = "direkter_vergleich"
-STORED_TIEBREAK = "tordifferenz"
-
-# 4 groups x 2 qualifiers is 8, which the ladder enters at the Viertelfinale: 4 fixtures.
-KNOCKOUT_FIXTURES = 4
-PLAYED_KNOCKOUT_FIXTURES = 1
-
 # Fixed rather than generated, so a failure names the same rows every run.
 TEAM_OID = ObjectId("6890a1b2c3d4e5f607240001")
 OTHER_TEAM_OID = ObjectId("6890a1b2c3d4e5f607240002")
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072400a1")
-KNOCKOUT_SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072400a2")
 MEMBERSHIP_ID = "6890a1b2c3d4e5f60724{:04d}"
 SPIEL_ID = "6890a1b2c3d4e5f60725{:04d}"
 
 
 def rules_document(**overrides: Any) -> dict[str, Any]:
-    return documents.rules_document(
-        **{"teams_per_group": STORED_PER_GROUP, "max_kadergroesse": STORED_KADER, "tiebreak_order": STORED_TIEBREAK, **overrides}
-    )
+    return documents.rules_document(**{"teams_per_group": STORED_PER_GROUP, "max_kadergroesse": STORED_KADER, **overrides})
 
 
 def saison_document() -> dict[str, Any]:
@@ -113,43 +102,15 @@ def spiel_document(*, spiel_nr: int, **overrides: Any) -> dict[str, Any]:
     return {**documents.spiel_document(spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=spiel_nr, spieltag_id=SPIELTAG_OID), **overrides}
 
 
+# The day every drawn fixture is dated, which is the season's start, and the day before it.
+FIRST_FIXTURE_DAY = "2026-03-15"
+THE_DAY_BEFORE = "2026-03-14"
+
+
 def drawn_spiele() -> list[dict[str, Any]]:
     """One matchday's fixtures. A null `quelle` on either side, so nothing here can be read as a wired placing."""
 
-    return [spiel_document(_id=ObjectId(SPIEL_ID.format(nr)), spiel_nr=nr, datum="2026-03-15") for nr in range(1, DRAWN_FIXTURES + 1)]
-
-
-def knockout_spieltag_document() -> dict[str, Any]:
-    """The season's first bracket matchday, inside its span and after the group matchday above."""
-
-    return {
-        "_id": KNOCKOUT_SPIELTAG_OID,
-        "beginn": "2026-04-15",
-        "ende": "2026-04-15",
-        "position": 1,
-        "saison_phase": "viertelfinale",
-        "saison_id": SAISON_ID,
-    }
-
-
-def knockout_spiele(*, played: int = 0) -> list[dict[str, Any]]:
-    """The bracket's first round, `played` of them carrying a result.
-
-    A RESULT and every other field null, so what closes the window is what `has_taken_place` reads
-    rather than a side or a booking another rule answers for.
-    """
-
-    return [
-        spiel_document(
-            _id=ObjectId(SPIEL_ID.format(100 + nr)),
-            spiel_nr=DRAWN_FIXTURES + nr,
-            saison_phase="viertelfinale",
-            spieltag_id=KNOCKOUT_SPIELTAG_OID,
-            datum="2026-04-15",
-            ergebnis="3:1" if nr <= played else None,
-        )
-        for nr in range(1, KNOCKOUT_FIXTURES + 1)
-    ]
+    return [spiel_document(_id=ObjectId(SPIEL_ID.format(nr)), spiel_nr=nr, datum=FIRST_FIXTURE_DAY) for nr in range(1, DRAWN_FIXTURES + 1)]
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -175,7 +136,7 @@ def on_a_database(
     return on_the_seed_loop(_run())
 
 
-async def patch_the_rules(database: AsyncDatabase, **overrides: Any) -> Any:
+async def patch_the_rules(database: AsyncDatabase, *, today: str = THE_DAY_BEFORE, **overrides: Any) -> Any:
     """The whole rules object every time, `rules` being required on the patch, so a case names only the value it changes."""
 
     return await patch_saison(
@@ -195,6 +156,7 @@ async def patch_the_rules(database: AsyncDatabase, **overrides: Any) -> Any:
         spieltage_collection=database[Collection.SPIELTAGE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         db=database.client,
+        today=today,
     )
 
 
@@ -256,79 +218,28 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
         assert response.updated_document.rules.teams_per_group == WIDER_PER_GROUP
 
 
-class TestTheKnockoutIsWhatFreezesTheTiebreak:
-    """`REQ-RULES-012` through the endpoint, whose count of PLAYED bracket fixtures is what the rule turns on.
+class TestTheStartIsWhatFreezesTheScoring:
+    """`REQ-RULES-005` through the endpoint, whose read of the season's start is what the rule turns on."""
 
-    The phase and the predicate are both the endpoint's own: a case here reaches neither by handing
-    a number in, which is what the unit tests do.
-    """
-
-    def test_a_played_knockout_fixture_freezes_the_order(self, mongo_replica_set_url: str):
-        """The bracket was seeded from the group placings this order decides, and one round of it is now on the record."""
+    def test_the_points_freeze_on_the_first_fixtures_day(self, mongo_replica_set_url: str):
+        """The table is derived, so a scoring change on a season under way would rewrite standings already played."""
 
         async def body(database: AsyncDatabase) -> APIError:
             with pytest.raises(APIError) as refusal:
-                await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
+                await patch_the_rules(database, today=FIRST_FIXTURE_DAY, win_points=2)
 
             return refusal.value
 
-        refusal = on_a_database(
-            mongo_replica_set_url,
-            body,
-            spiele=[*drawn_spiele(), *knockout_spiele(played=PLAYED_KNOCKOUT_FIXTURES)],
-            spieltage=[knockout_spieltag_document()],
-        )
+        refusal = on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
 
-        assert refusal.error_code == Code.RULES_TIEBREAK_AFTER_KNOCKOUT
+        assert refusal.error_code == Code.RULES_SAISON_FINISHED
 
-    def test_a_knockout_fixture_holding_only_a_shoot_out_freezes_it_too(self, mongo_replica_set_url: str):
-        """Through the route, so the endpoint's projection is proven to carry `elfmeterschiessen` to the predicate."""
-
-        decided = [{**knockout_spiele()[0], "elfmeterschiessen": {"team1": 5, "team2": 4}}, *knockout_spiele()[1:]]
-
-        async def body(database: AsyncDatabase) -> APIError:
-            with pytest.raises(APIError) as refusal:
-                await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
-
-            return refusal.value
-
-        refusal = on_a_database(
-            mongo_replica_set_url,
-            body,
-            spiele=[*drawn_spiele(), *decided],
-            spieltage=[knockout_spieltag_document()],
-        )
-
-        assert refusal.error_code == Code.RULES_TIEBREAK_AFTER_KNOCKOUT
-
-    def test_a_drawn_but_unplayed_bracket_leaves_the_order_open(self, mongo_replica_set_url: str):
-        """The boundary: the fixtures exist and are wired, and re-seeding them costs nobody a round they already played."""
+    def test_the_same_edit_goes_through_the_day_before(self, mongo_replica_set_url: str):
+        """The boundary: an activated season waiting for its first fixture still takes a corrected rule."""
 
         async def body(database: AsyncDatabase) -> Any:
-            return await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
+            return await patch_the_rules(database, today=THE_DAY_BEFORE, win_points=2)
 
-        response = on_a_database(
-            mongo_replica_set_url,
-            body,
-            spiele=[*drawn_spiele(), *knockout_spiele()],
-            spieltage=[knockout_spieltag_document()],
-        )
+        response = on_a_database(mongo_replica_set_url, body, spiele=drawn_spiele())
 
-        assert response.updated_document.rules.tiebreak_order == OTHER_TIEBREAK
-
-    def test_a_played_group_fixture_leaves_the_order_open(self, mongo_replica_set_url: str):
-        """The narrowing to the bracket: a group still being played is exactly where re-ordering it is a normal correction."""
-
-        played_gruppenphase = [{**drawn_spiele()[0], "ergebnis": "2:0"}, *drawn_spiele()[1:]]
-
-        async def body(database: AsyncDatabase) -> Any:
-            return await patch_the_rules(database, tiebreak_order=OTHER_TIEBREAK)
-
-        response = on_a_database(
-            mongo_replica_set_url,
-            body,
-            spiele=[*played_gruppenphase, *knockout_spiele()],
-            spieltage=[knockout_spieltag_document()],
-        )
-
-        assert response.updated_document.rules.tiebreak_order == OTHER_TIEBREAK
+        assert response.updated_document.rules.win_points == 2

@@ -1305,13 +1305,10 @@ export const getBewerbungenGetSweepSaisonsUrl = () => {
 };
 
 /**
- * Answer every season's id, oldest first, so the caller runs the clocks one season at a time, and the day each pass last ran.
+ * Answer every season's id, oldest first, so the caller runs the clocks one season at a time.
  *
  * System tier rather than the base one: a season taking applications is `future`, which the base tier is never served,
  * and the two clocks that matter run over exactly those seasons.
- *
- * Null against this database means no pass has ever run, never that the last one found nothing to do: a pass that reminds
- * nobody and deletes nothing records the day exactly as a busy one does. Reading it writes nothing.
  * @summary Every season the sweep has to visit
  */
 export const bewerbungenGetSweepSaisons = async (
@@ -1352,7 +1349,7 @@ export const getBewerbungenSweepSaisonUrl = (saisonId: string) => {
  * An application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,
  * is passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it
  * again and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks
- * passed over: a day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.
+ * passed over.
  *
  * 404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,
  * though it logs the count of withheld seats again.
@@ -1366,9 +1363,6 @@ export const getBewerbungenSweepSaisonUrl = (saisonId: string) => {
  * reports of their remarks and every card's reason; the answers' way, day and role and the reports' scorers, cards and
  * result stay as the record. Each strip is its own transaction after the blocks' share: one that fails is
  * logged under the season's id and counted in `fehlgeschlagen`, and the blocks clear all the same.
- *
- * One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
- * answers it. So a day's first call records the day and the rest of that day's calls record nothing.
  * @summary Run one season's retention clocks
  */
 export const bewerbungenSweepSaison = async (
@@ -2838,15 +2832,10 @@ export const getRegistrierungenSweepRegistrierungenUrl = (saisonId: string) => {
  *
  * A registration whose write fails, the database refusing it or anything else, or one the answer cannot carry, is passed over
  * alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it again and one
- * failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over: a
- * day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.
+ * failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.
  *
  * 404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes
  * nothing, though it logs the count of withheld registrations again.
- *
- * One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
- * answers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record
- * nothing.
  * @summary Run one season's registration retention clocks
  */
 export const registrierungenSweepRegistrierungen = async (
@@ -4035,11 +4024,11 @@ export const getSpielbestaetigungenGetSpielbestaetigungenUrl = (params: Spielbes
 };
 
 /**
- * Every confirmation row of the season, or of its one fixture, and the day the confirmation pass last ran over it.
+ * Every confirmation row of the season, or of its one fixture.
  *
  * Newest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still
  * holding its party's question is served; `limit` cuts the others, and `vollstaendig` is false where it left the
- * oldest of them out. A season no document has answers no rows and a null day rather than 404.
+ * oldest of them out. A season no document has answers no rows rather than 404.
  * @summary A season's fixture confirmations, or one fixture's
  */
 export const spielbestaetigungenGetSpielbestaetigungen = async (
@@ -4174,12 +4163,11 @@ export const getSpielbestaetigungenGetSpielSweepSaisonsUrl = () => {
 };
 
 /**
- * Answer every `active` season's id, oldest first, and the day a confirmation pass last ran over any of them.
+ * Answer every `active` season's id, oldest first.
  *
  * `active` alone: a confirmation serves no purpose once its season is over, and a season that ended with a fixture nobody
  * entered a result for would otherwise be asked about a day long gone. System tier because this is the timer's own
- * bookkeeping, asked by the process running the pass and by no page. Null means no pass has run over these seasons. Reading
- * it writes nothing.
+ * bookkeeping, asked by the process running the pass and by no page. Reading it writes nothing.
  * @summary Every season the confirmation pass visits
  */
 export const spielbestaetigungenGetSpielSweepSaisons = async (
@@ -4252,11 +4240,10 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
  * it once the ban is lifted; each pass logs how many seats it withheld, never which.
  *
  * Each step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has
- * committed something owed a message, a later failure -- the stamp of the pass's day on this season included -- is logged
- * and the call answers what committed. A row whose write or answer fails is passed over alone, logged by id and counted in
- * `fehlgeschlagen`.
+ * committed something owed a message, a later failure is logged and the call answers what committed. A row whose write or
+ * answer fails is passed over alone, logged by id and counted in `fehlgeschlagen`.
  *
- * A season that is not `active` is passed by whole -- nothing closed, minted, reminded or stamped, every list empty -- so a
+ * A season that is not `active` is passed by whole -- nothing closed, minted or reminded, every list empty -- so a
  * mistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.
  * @summary Run one season's fixture confirmation pass
  */
