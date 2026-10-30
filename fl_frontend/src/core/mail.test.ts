@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { getRequestTraceId, runWithRequestScope } from "./requestScope.ts";
+
 import type { FLPostausgangAusgabe, FLPostausgangErgebnisPayload } from "./generated/client/types.ts";
 
 /** Everything the drain did, in the order it did it: a send to the provider, or a report to the backend. */
@@ -16,11 +18,16 @@ let provider: () => Response | Promise<Response> = () => Response.json({ id: "re
 
 let apiKey: string | undefined = "re_test";
 
+/** The one request scope with deadline left, where a case names one: the transport refuses a claim under any other. */
+let liveTrace: string | undefined;
+
 const SDK_DOUBLE = {
   postausgangPostAusgabe: async () => {
+    if (liveTrace !== undefined && getRequestTraceId() !== liveTrace)
+      throw new Error("The request's deadline had passed before this call was sent.");
     const claim = claims.shift() ?? { mails: [], aufgegeben: 0 };
     const held = claim.mails.length > 0;
-    return { acknowledged: 1, beanspruchung: held ? "claim-1" : null, beansprucht_bis: null, mails: claim.mails, aufgegeben: claim.aufgegeben };
+    return { beanspruchung: held ? "claim-1" : null, beansprucht_bis: null, mails: claim.mails, aufgegeben: claim.aufgegeben };
   },
   postausgangPostErgebnis: async (payload: FLPostausgangErgebnisPayload) => {
     schritte.push({ art: "report", payload });
@@ -29,7 +36,7 @@ const SDK_DOUBLE = {
     const key = ({ gesendet: "gesendet", wiederholen: "wiederholt", aufgeben: "aufgegeben", zurueckgehalten: "zurueckgehalten" } as const)[
       ergebnis
     ];
-    return { acknowledged: 1, ...counted, [key]: 1 };
+    return { ...counted, [key]: 1 };
   },
 };
 
@@ -78,6 +85,7 @@ beforeEach(() => {
   schritte.length = 0;
   claims = [];
   apiKey = "re_test";
+  liveTrace = undefined;
   provider = () => Response.json({ id: "re-1" });
   vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
     schritte.push({
@@ -117,6 +125,20 @@ describe("one drain of the Postausgang", () => {
     ]);
     // The claim's own give-ups count with the reports', which is what the heartbeat reads.
     expect(zaehlung).toMatchObject({ gesendet: 2, aufgegeben: 1 });
+  });
+
+  /* A call made while a drain runs waits on it. Served by that drain, or by one more under its caller's spent deadline,
+     the call's mail, a sign-in code tried once among them, would wait for the hourly pass and lapse. */
+  it("serves a call made during a drain that fails, under the call's own deadline", async () => {
+    liveTrace = "trace-waiting";
+    claims = [{ mails: [handed(1)], aufgegeben: 0 }];
+
+    const failing = runWithRequestScope({ traceId: "trace-spent" }, drainPostausgang);
+    const waiting = runWithRequestScope({ traceId: "trace-waiting" }, drainPostausgang);
+
+    await expect(failing).rejects.toThrow("deadline");
+    await expect(waiting).resolves.toMatchObject({ gesendet: 1 });
+    expect(reports()).toStrictEqual([{ id: handed(1).id, ergebnis: "gesendet", nachricht_id: "re-1" }]);
   });
 
   /* The row arrives sealed under the frontend's own key (`fl_frontend/src/core/auth.ts :: oweSignInMail`): a builder

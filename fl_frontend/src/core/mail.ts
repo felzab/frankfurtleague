@@ -277,35 +277,38 @@ export async function sendSperreNotice({
   });
 }
 
-/** What one drain settled, by the backend's counts. */
-type DrainZaehlung = Omit<FLPostausgangErgebnisResponse, "acknowledged">;
+/** What one drain settled: the backend's counts, summed over every report it made. */
+type DrainZaehlung = Record<keyof FLPostausgangErgebnisResponse, number>;
 
-/** The one drain this process runs, and whether a call arrived while it ran. */
+/** The one drain this process runs, and the one every call made while it runs waits on. */
 let drainLaeuft: Promise<DrainZaehlung> | undefined;
-let nochmalDrainen = false;
+let drainDanach: Promise<DrainZaehlung> | undefined;
 
 /**
  * Every mail owed now: claimed a page at a time, each sent, and each outcome reported as its send returns, so a drain
  * cut short leaves no sent mail unreported but the one in flight. Answers what it settled, `aufgegeben` the mails the
  * heartbeat reports.
  *
- * One drain at a time in this process: a call while one runs is answered by it, which then claims once more for what
- * was owed since. Rejects where a hand-out or a report fails, the rows it held going to the next drain once their lease
+ * One drain at a time in this process: a call while one runs waits on the next, started once that one settles however
+ * it settles. Rejects where a hand-out or a report fails, the rows it held going to the next drain once their lease
  * lapses.
  */
 export function drainPostausgang(): Promise<DrainZaehlung> {
   if (drainLaeuft !== undefined) {
-    nochmalDrainen = true;
-    return drainLaeuft;
+    // Started from this call's context, so it runs under this call's deadline rather than the running drain's, which
+    // may be what that drain failed on.
+    const danach = () => {
+      drainDanach = undefined;
+      return drainPostausgang();
+    };
+    drainDanach ??= drainLaeuft.then(danach, danach);
+    return drainDanach;
   }
 
   const lauf = (async () => {
     const zaehlung: DrainZaehlung = { gesendet: 0, wiederholt: 0, aufgegeben: 0, zurueckgehalten: 0, ignoriert: 0 };
     try {
-      do {
-        nochmalDrainen = false;
-        await drainen(zaehlung);
-      } while (nochmalDrainen);
+      await drainen(zaehlung);
     } finally {
       drainLaeuft = undefined;
       // Counts alone: the row is each mail's record, and this line what the drain as a whole did.
