@@ -14,8 +14,6 @@ and a write shaped like one of those would escape the log.
 
 import re
 from collections.abc import Mapping, Sequence, Set
-from contextvars import ContextVar
-from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Any, Final
 
@@ -40,35 +38,6 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 # binary default puts each after „Z“. Per read rather than a default: a collated operation cannot
 # use a simple-collation index on a string bound.
 GERMAN_COLLATION: Mapping[str, Any] = {"locale": "de"}
-
-
-@dataclass
-class WritesSent:
-    """Whether this request has handed the driver a write, which is what may leave one standing after its answer is lost."""
-
-    sent: bool = False
-
-
-# A RECORD rather than a flag: a task started inside the request copies this context, and marking a
-# shared record reaches the request where rebinding a flag would not. Bound per request by
-# `app/core/middlewares.py :: TraceContextMiddleware`.
-writes_sent_var: ContextVar[WritesSent | None] = ContextVar("writes_sent", default=None)
-
-
-def a_write_may_stand() -> bool:
-    """Whether a write this request sent may stand, the judgement `DB-FAIL-002` is answered on."""
-
-    record = writes_sent_var.get()
-    # Unbound is outside any request, where nothing says what was sent: unknown is the answer that
-    # never sends a person to repeat a write already standing.
-    return record is None or record.sent
-
-
-def _sending_a_write() -> None:
-    # Marked BEFORE the driver call: a write whose answer the deadline cut may have landed.
-    record = writes_sent_var.get()
-    if record is not None:
-        record.sent = True
 
 
 async def pull_one_from_db(
@@ -158,7 +127,6 @@ async def patch_one_in_db(
     if expected is not None:
         db_filter = {**db_filter, VERSION_FIELD: expected}
 
-    _sending_a_write()
     # `BEFORE` whatever the caller asked for: `find_one_and_update` yields one image, and only the
     # update's own is taken with the write.
     before = await collection.find_one_and_update(filter=db_filter, update=update, session=session, return_document=ReturnDocument.BEFORE)
@@ -234,7 +202,6 @@ async def patch_many_in_db(
         db_filter = _changed_by(db_filter, update)
     update, _ = _versioned(collection, update, checks=False)
 
-    _sending_a_write()
     result = await collection.update_many(filter=db_filter, update=update, session=session)
 
     # A fan-out that changed nothing records nothing, as a removal that took nothing: so a
@@ -270,7 +237,6 @@ async def anchor_in_db(
     Logs no row: it changes nothing a reader sees, and the transaction's other writes are the action.
     """
 
-    _sending_a_write()
     # `$inc`, never a `$set` of a constant, which rewrites nothing the second time and joins no write set.
     await collection.update_many(filter=db_filter, update={"$inc": {ANCHOR_FIELD: 1}}, session=session)
 
@@ -285,7 +251,6 @@ async def post_one_to_db(
 
     document = _created(collection, document)
 
-    _sending_a_write()
     result = await collection.insert_one(document=document, session=session)
 
     # No `before`: a create replaced nothing, and a null there is what tells the page this row offers
@@ -309,7 +274,6 @@ async def post_many_to_db(
 
     documents = [_created(collection, document) for document in documents]
 
-    _sending_a_write()
     try:
         result = await collection.insert_many(documents=documents, session=session)
     except BulkWriteError as failure:
@@ -378,7 +342,6 @@ async def delete_many_from_db(
     # document this call never removed.
     before = await collection.find(filter=db_filter, session=session).to_list(length=None)
 
-    _sending_a_write()
     result = await collection.delete_many(filter=db_filter, session=session)
 
     if result.deleted_count != len(before):
@@ -418,7 +381,6 @@ async def erase_many_from_db(
     preserve what this call destroys.
     """
 
-    _sending_a_write()
     # `session` carries no default here for its own reason: an erasure is one transaction over the
     # person, their squad rows and the log, and any one of the three alone leaves it defeated.
     result = await collection.delete_many(filter=db_filter, session=session)

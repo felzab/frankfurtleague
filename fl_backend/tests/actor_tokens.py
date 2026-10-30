@@ -17,7 +17,6 @@ from app.core.security import (
     Factor,
     SessionActor,
     actor_header_value,
-    get_step_up_check,
 )
 
 Lane = Literal["admin", "person"]
@@ -52,9 +51,6 @@ def verified_actor(email: str, *, signed_in_before_s: int = SESSION_AGE_S, facto
 # What a handler called without a request is handed. Judged at the clock, so it stays inside the
 # enrolment window for the first minutes of a run and inside the step-up window for its first hours.
 FRESH_ADMIN_ACTOR = verified_actor("admin@example.com")
-
-# The check a handler stepping up some of its calls is handed, over that actor: it refuses none.
-FRESH_STEP_UP_CHECK = get_step_up_check(FRESH_ADMIN_ACTOR)
 
 
 class SignedActor(Mapping[str, str]):

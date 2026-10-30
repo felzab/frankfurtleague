@@ -277,7 +277,6 @@
           "REQ-REGISTRIERUNG-016",
           "REQ-REGISTRIERUNG-017",
           "REQ-REGISTRIERUNG-018",
-          "REQ-REGISTRIERUNG-019",
           "REQ-REPLACE-001",
           "REQ-REPLACE-002",
           "REQ-REPLACE-003",
@@ -1931,6 +1930,20 @@
         "title": "FLAktorPerson",
         "type": "object"
       },
+      "FLAnmeldecodeDaten": {
+        "properties": {
+          "art": {
+            "const": "anmeldecode",
+            "title": "Art",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art"
+        ],
+        "title": "FLAnmeldecodeDaten",
+        "type": "object"
+      },
       "FLAnmeldungResponse": {
         "description": "The sign-in gate's whole answer: the records' two flags, the ban and the grant, and no record itself.\n\nThe ban narrows neither flag: whether a barred person signs in is the gate's to decide.",
         "properties": {
@@ -2915,7 +2928,8 @@
         "required": [
           "verschickt_am",
           "erinnert_am",
-          "abgelehnt_am"
+          "abgelehnt_am",
+          "zustellung"
         ],
         "title": "FLBewerbungBestaetigung",
         "type": "object"
@@ -5108,8 +5122,23 @@
             ]
           }
         },
+        "required": [
+          "zustellung"
+        ],
         "title": "FLEinladungVersand",
         "type": "object"
+      },
+      "FLEinladungVersandGrund": {
+        "enum": [
+          "austritt_eingetragen",
+          "erzeugung_fehlgeschlagen",
+          "erzeugung_ungewiss",
+          "kein_kontaktblock",
+          "keine_bestaetigte_kontaktperson",
+          "kontakte_gesperrt",
+          "bereits_gesendet"
+        ],
+        "type": "string"
       },
       "FLEinladungVersandPayload": {
         "additionalProperties": false,
@@ -5196,22 +5225,12 @@
           "uebersprungen": {
             "anyOf": [
               {
-                "enum": [
-                  "austritt_eingetragen",
-                  "erzeugung_fehlgeschlagen",
-                  "erzeugung_ungewiss",
-                  "kein_kontaktblock",
-                  "keine_bestaetigte_kontaktperson",
-                  "kontakte_gesperrt",
-                  "bereits_gesendet"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLEinladungVersandGrund"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Uebersprungen"
+            ]
           }
         },
         "required": [
@@ -5285,22 +5304,12 @@
           "uebersprungen": {
             "anyOf": [
               {
-                "enum": [
-                  "austritt_eingetragen",
-                  "erzeugung_fehlgeschlagen",
-                  "erzeugung_ungewiss",
-                  "kein_kontaktblock",
-                  "keine_bestaetigte_kontaktperson",
-                  "kontakte_gesperrt",
-                  "bereits_gesendet"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLEinladungVersandGrund"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Uebersprungen"
+            ]
           }
         },
         "required": [
@@ -5412,6 +5421,7 @@
           "erstellt_am",
           "erstellt_von",
           "widerrufen_am",
+          "versand",
           "erstellt_von_gesperrt"
         ],
         "title": "FLEinladungZeile",
@@ -6559,6 +6569,11 @@
               }
             ]
           },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
           "vorname": {
             "minLength": 1,
             "title": "Vorname",
@@ -6575,110 +6590,10 @@
           "rolle",
           "ist_nachnominiert",
           "inactive_since",
-          "nummer_doppelt"
+          "nummer_doppelt",
+          "version"
         ],
         "title": "FLKaderZeile",
-        "type": "object"
-      },
-      "FLKaderZeileResponse": {
-        "description": "The row as a representative's edit or austragen left it, its shirt marker judged against the squad after the write.",
-        "properties": {
-          "inactive_since": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Inactive Since"
-          },
-          "ist_nachnominiert": {
-            "title": "Ist Nachnominiert",
-            "type": "boolean"
-          },
-          "nachname": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nachname"
-          },
-          "nummer": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nummer"
-          },
-          "nummer_doppelt": {
-            "title": "Nummer Doppelt",
-            "type": "boolean"
-          },
-          "position": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerPosition"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "rolle": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerRolle"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "spieler_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spieler Id",
-            "type": "string"
-          },
-          "stufe": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielerStufe"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "vorname": {
-            "minLength": 1,
-            "title": "Vorname",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spieler_id",
-          "vorname",
-          "nachname",
-          "nummer",
-          "position",
-          "stufe",
-          "rolle",
-          "ist_nachnominiert",
-          "inactive_since",
-          "nummer_doppelt"
-        ],
-        "title": "FLKaderZeileResponse",
         "type": "object"
       },
       "FLKartenFarbe": {
@@ -7396,6 +7311,20 @@
         "title": "FLKontoEinwilligungenResponse",
         "type": "object"
       },
+      "FLKontoLoeschungDaten": {
+        "properties": {
+          "art": {
+            "const": "konto_loeschung",
+            "title": "Art",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art"
+        ],
+        "title": "FLKontoLoeschungDaten",
+        "type": "object"
+      },
       "FLKontoRegistrierungEinwilligung": {
         "description": "One pending registration its pupil confirmed: its choices to withdraw, and what it stores.",
         "properties": {
@@ -8021,6 +7950,36 @@
         "title": "FLOffeneRegistrierungenResponse",
         "type": "object"
       },
+      "FLPasskeyDaten": {
+        "properties": {
+          "art": {
+            "enum": [
+              "passkey_hinzugefuegt",
+              "passkey_geloescht"
+            ],
+            "title": "Art",
+            "type": "string"
+          },
+          "konto": {
+            "maxLength": 256,
+            "pattern": "^/[a-z0-9/_-]*$",
+            "title": "Konto",
+            "type": "string"
+          },
+          "zeitpunkt": {
+            "format": "date-time",
+            "title": "Zeitpunkt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art",
+          "zeitpunkt",
+          "konto"
+        ],
+        "title": "FLPasskeyDaten",
+        "type": "object"
+      },
       "FLPatchBerechtigungPayload": {
         "additionalProperties": false,
         "properties": {
@@ -8090,6 +8049,17 @@
                 "type": "null"
               }
             ]
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8136,6 +8106,17 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Start Date",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8210,6 +8191,17 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8239,6 +8231,17 @@
           "kontakte_stand": {
             "title": "Kontakte Stand",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8334,6 +8337,17 @@
                 "type": "null"
               }
             ]
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8372,6 +8386,17 @@
               }
             ],
             "title": "Schule"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8652,6 +8677,17 @@
             ],
             "title": "Nachname"
           },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
           "vorname": {
             "maxLength": 80,
             "minLength": 1,
@@ -8683,6 +8719,17 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8722,6 +8769,17 @@
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
             "title": "Ende",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -8770,6 +8828,17 @@
             "pattern": "^\\s*[A-Za-z]{3}\\s*$",
             "title": "Shorthand",
             "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           },
           "website_url": {
             "anyOf": [
@@ -9445,18 +9514,384 @@
         "title": "FLPostTeamPayload",
         "type": "object"
       },
-      "FLPostTeamResponse": {
+      "FLPostausgangAnmeldungPayload": {
+        "additionalProperties": false,
+        "description": "One mail of the sign-in library, owed to the address it names.",
         "properties": {
-          "created_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Created Id",
+          "an": {
+            "maxLength": 254,
+            "title": "An",
+            "type": "string"
+          },
+          "daten": {
+            "discriminator": {
+              "mapping": {
+                "anmeldecode": "#/components/schemas/FLAnmeldecodeDaten",
+                "konto_loeschung": "#/components/schemas/FLKontoLoeschungDaten",
+                "passkey_geloescht": "#/components/schemas/FLPasskeyDaten",
+                "passkey_hinzugefuegt": "#/components/schemas/FLPasskeyDaten"
+              },
+              "propertyName": "art"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLAnmeldecodeDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLPasskeyDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLKontoLoeschungDaten"
+              }
+            ],
+            "title": "Daten"
+          },
+          "geheim": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geheim"
+          },
+          "gueltig_bis": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gueltig Bis"
+          },
+          "schluessel": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Schluessel",
             "type": "string"
           }
         },
         "required": [
-          "created_id"
+          "schluessel",
+          "an",
+          "daten",
+          "geheim",
+          "gueltig_bis"
         ],
-        "title": "FLPostTeamResponse",
+        "title": "FLPostausgangAnmeldungPayload",
+        "type": "object"
+      },
+      "FLPostausgangAnmeldungResponse": {
+        "properties": {
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "FLPostausgangAnmeldungResponse",
+        "type": "object"
+      },
+      "FLPostausgangAusgabe": {
+        "description": "One owed mail a claim hands out, server to server alone: it names its recipient and may carry a live link or secret.",
+        "properties": {
+          "an": {
+            "title": "An",
+            "type": "string"
+          },
+          "daten": {
+            "discriminator": {
+              "mapping": {
+                "anmeldecode": "#/components/schemas/FLAnmeldecodeDaten",
+                "konto_loeschung": "#/components/schemas/FLKontoLoeschungDaten",
+                "passkey_geloescht": "#/components/schemas/FLPasskeyDaten",
+                "passkey_hinzugefuegt": "#/components/schemas/FLPasskeyDaten",
+                "sperre": "#/components/schemas/FLSperreDaten"
+              },
+              "propertyName": "art"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLAnmeldecodeDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLPasskeyDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLKontoLoeschungDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLSperreDaten"
+              }
+            ],
+            "title": "Daten"
+          },
+          "geheim": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geheim"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
+          },
+          "versuch": {
+            "minimum": 1.0,
+            "title": "Versuch",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "an",
+          "daten",
+          "token",
+          "geheim",
+          "versuch"
+        ],
+        "title": "FLPostausgangAusgabe",
+        "type": "object"
+      },
+      "FLPostausgangAusgabeResponse": {
+        "description": "The owed mails one claim holds, oldest first; `beanspruchung` and `beansprucht_bis` are null exactly where it holds none.",
+        "properties": {
+          "aufgegeben": {
+            "minimum": 0.0,
+            "title": "Aufgegeben",
+            "type": "integer"
+          },
+          "beansprucht_bis": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beansprucht Bis"
+          },
+          "beanspruchung": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beanspruchung"
+          },
+          "mails": {
+            "items": {
+              "$ref": "#/components/schemas/FLPostausgangAusgabe"
+            },
+            "title": "Mails",
+            "type": "array"
+          }
+        },
+        "required": [
+          "beanspruchung",
+          "beansprucht_bis",
+          "mails",
+          "aufgegeben"
+        ],
+        "title": "FLPostausgangAusgabeResponse",
+        "type": "object"
+      },
+      "FLPostausgangEreignisPayload": {
+        "additionalProperties": false,
+        "description": "One delivery event about a message the provider accepted, named by the row the message was sent from.",
+        "properties": {
+          "am": {
+            "format": "date-time",
+            "title": "Am",
+            "type": "string"
+          },
+          "grund": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grund"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "stand": {
+            "enum": [
+              "zugestellt",
+              "verzoegert",
+              "unzustellbar",
+              "unterdrueckt",
+              "beschwerde"
+            ],
+            "title": "Stand",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "stand",
+          "grund",
+          "am"
+        ],
+        "title": "FLPostausgangEreignisPayload",
+        "type": "object"
+      },
+      "FLPostausgangEreignisResponse": {
+        "description": "Whether the event reached a row; false where no row has the id, or the row's state may not follow into it.\n\nFalse rather than a refusal: the provider repeats a settled event for hours if anything but a success answers it.",
+        "properties": {
+          "angewendet": {
+            "title": "Angewendet",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "angewendet"
+        ],
+        "title": "FLPostausgangEreignisResponse",
+        "type": "object"
+      },
+      "FLPostausgangErgebnis": {
+        "additionalProperties": false,
+        "properties": {
+          "ergebnis": {
+            "enum": [
+              "gesendet",
+              "wiederholen",
+              "aufgeben",
+              "zurueckgehalten"
+            ],
+            "title": "Ergebnis",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "nachricht_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nachricht Id"
+          }
+        },
+        "required": [
+          "id",
+          "ergebnis",
+          "nachricht_id"
+        ],
+        "title": "FLPostausgangErgebnis",
+        "type": "object"
+      },
+      "FLPostausgangErgebnisPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "beanspruchung": {
+            "minLength": 1,
+            "title": "Beanspruchung",
+            "type": "string"
+          },
+          "ergebnisse": {
+            "items": {
+              "$ref": "#/components/schemas/FLPostausgangErgebnis"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Ergebnisse",
+            "type": "array"
+          }
+        },
+        "required": [
+          "beanspruchung",
+          "ergebnisse"
+        ],
+        "title": "FLPostausgangErgebnisPayload",
+        "type": "object"
+      },
+      "FLPostausgangErgebnisResponse": {
+        "properties": {
+          "aufgegeben": {
+            "minimum": 0.0,
+            "title": "Aufgegeben",
+            "type": "integer"
+          },
+          "gesendet": {
+            "minimum": 0.0,
+            "title": "Gesendet",
+            "type": "integer"
+          },
+          "ignoriert": {
+            "minimum": 0.0,
+            "title": "Ignoriert",
+            "type": "integer"
+          },
+          "wiederholt": {
+            "minimum": 0.0,
+            "title": "Wiederholt",
+            "type": "integer"
+          },
+          "zurueckgehalten": {
+            "minimum": 0.0,
+            "title": "Zurueckgehalten",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "gesendet",
+          "wiederholt",
+          "aufgegeben",
+          "zurueckgehalten",
+          "ignoriert"
+        ],
+        "title": "FLPostausgangErgebnisResponse",
         "type": "object"
       },
       "FLReferenzenPayload": {
@@ -10114,8 +10549,12 @@
           }
         },
         "required": [
+          "umfang",
+          "datum",
           "bestaetigt_am",
-          "text_version"
+          "text_version",
+          "medien",
+          "nachweis"
         ],
         "title": "FLRegistrierungEinwilligung",
         "type": "object"
@@ -10534,6 +10973,11 @@
           },
           "status": {
             "$ref": "#/components/schemas/FLSaisonStatus"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -10545,6 +10989,7 @@
           "id",
           "status",
           "spielplan",
+          "version",
           "schedule"
         ],
         "title": "FLSaison",
@@ -10799,6 +11244,11 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
             "type": "string"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -10810,7 +11260,8 @@
           "spieler_id",
           "saison_id",
           "ist_nachnominiert",
-          "inactive_since"
+          "inactive_since",
+          "version"
         ],
         "title": "FLSaisonSpielerResponse",
         "type": "object"
@@ -11184,36 +11635,6 @@
         "title": "FLSaisonTeamKontaktePayload",
         "type": "object"
       },
-      "FLSaisonTeamPersonEinwilligungPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
-          },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
-            "title": "Text Version",
-            "type": "string"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
-          }
-        },
-        "required": [
-          "umfang",
-          "medien",
-          "text_version",
-          "nachweis_stand"
-        ],
-        "title": "FLSaisonTeamPersonEinwilligungPayload",
-        "type": "object"
-      },
       "FLSaisonTeamPersonEinwilligungResponse": {
         "description": "Which of the row's seats the press reached, and the two answers they now all hold.",
         "properties": {
@@ -11447,6 +11868,11 @@
               }
             ],
             "title": "Schule"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -11455,7 +11881,11 @@
           "schule",
           "default_payment",
           "id",
-          "inactive_since"
+          "inactive_since",
+          "bestaetigung",
+          "einwilligung",
+          "geburtsdatum",
+          "version"
         ],
         "title": "FLSchiedsrichter",
         "type": "object"
@@ -11682,7 +12112,8 @@
           "name",
           "schule",
           "kontakt",
-          "honorar"
+          "honorar",
+          "geburtsdatum"
         ],
         "title": "FLSchiedsrichterSelbst",
         "type": "object"
@@ -12170,6 +12601,31 @@
           "desc"
         ],
         "type": "string"
+      },
+      "FLSperreDaten": {
+        "description": "The ban's own notice, the one mail a ban does not stop (`app/api/postausgang/services.py :: UNGESPERRT`).",
+        "properties": {
+          "art": {
+            "const": "sperre",
+            "title": "Art",
+            "type": "string"
+          },
+          "gesperrt_bis_saison_id": {
+            "title": "Gesperrt Bis Saison Id",
+            "type": "string"
+          },
+          "grund": {
+            "title": "Grund",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art",
+          "grund",
+          "gesperrt_bis_saison_id"
+        ],
+        "title": "FLSperreDaten",
+        "type": "object"
       },
       "FLSperrlisteListResponse": {
         "description": "The bans, newest first, and how many there are.\n\n`anzahl_gesamt` is what makes a ban past the cap liftable: one enforced and not rendered is a\nperson barred by a row nobody can reach.",
@@ -13147,11 +13603,7 @@
           },
           "seiten_geaendert": {
             "items": {
-              "enum": [
-                "team1",
-                "team2"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLSpielSeite"
             },
             "title": "Seiten Geaendert",
             "type": "array"
@@ -13216,7 +13668,7 @@
           "eingereicht_von": {
             "discriminator": {
               "mapping": {
-                "admin": "#/components/schemas/FLSpielberichtVonAdmin",
+                "admin": "#/components/schemas/FLVonAdmin",
                 "schiedsrichter": "#/components/schemas/FLSpielberichtVonSchiedsrichter"
               },
               "propertyName": "art"
@@ -13226,7 +13678,7 @@
                 "$ref": "#/components/schemas/FLSpielberichtVonSchiedsrichter"
               },
               {
-                "$ref": "#/components/schemas/FLSpielberichtVonAdmin"
+                "$ref": "#/components/schemas/FLVonAdmin"
               }
             ],
             "title": "Eingereicht Von"
@@ -13271,7 +13723,7 @@
           "uebernommen_von": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSpielberichtUebernommenVon"
+                "$ref": "#/components/schemas/FLVonAdmin"
               },
               {
                 "type": "null"
@@ -13403,12 +13855,7 @@
             "type": "string"
           },
           "seite": {
-            "enum": [
-              "team1",
-              "team2"
-            ],
-            "title": "Seite",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielSeite"
           },
           "spieler_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -13449,12 +13896,7 @@
             "type": "string"
           },
           "seite": {
-            "enum": [
-              "team1",
-              "team2"
-            ],
-            "title": "Seite",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielSeite"
           },
           "spieler_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -13687,11 +14129,7 @@
           },
           "seiten_geaendert": {
             "items": {
-              "enum": [
-                "team1",
-                "team2"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/FLSpielSeite"
             },
             "title": "Seiten Geaendert",
             "type": "array"
@@ -13924,12 +14362,7 @@
             "type": "string"
           },
           "seite": {
-            "enum": [
-              "team1",
-              "team2"
-            ],
-            "title": "Seite",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielSeite"
           },
           "spieler_id": {
             "anyOf": [
@@ -13951,35 +14384,6 @@
           "eigentor"
         ],
         "title": "FLSpielberichtTorschuetze",
-        "type": "object"
-      },
-      "FLSpielberichtUebernommenVon": {
-        "properties": {
-          "art": {
-            "const": "admin",
-            "title": "Art",
-            "type": "string"
-          }
-        },
-        "required": [
-          "art"
-        ],
-        "title": "FLSpielberichtUebernommenVon",
-        "type": "object"
-      },
-      "FLSpielberichtVonAdmin": {
-        "description": "An administrator who wrote the block first, naming nobody, as an administrator's settle does.",
-        "properties": {
-          "art": {
-            "const": "admin",
-            "title": "Art",
-            "type": "string"
-          }
-        },
-        "required": [
-          "art"
-        ],
-        "title": "FLSpielberichtVonAdmin",
         "type": "object"
       },
       "FLSpielberichtVonSchiedsrichter": {
@@ -14352,31 +14756,12 @@
           "beantwortet_von": {
             "anyOf": [
               {
-                "discriminator": {
-                  "mapping": {
-                    "admin": "#/components/schemas/FLVonAdmin",
-                    "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
-                    "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-                  },
-                  "propertyName": "art"
-                },
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
-                  },
-                  {
-                    "$ref": "#/components/schemas/FLVonAdmin"
-                  },
-                  {
-                    "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-                  }
-                ]
+                "$ref": "#/components/schemas/FLSpielbestaetigungVon"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Beantwortet Von"
+            ]
           },
           "frist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -14447,26 +14832,7 @@
             "title": "Begruendung"
           },
           "von": {
-            "discriminator": {
-              "mapping": {
-                "admin": "#/components/schemas/FLVonAdmin",
-                "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
-                "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-              },
-              "propertyName": "art"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
-              },
-              {
-                "$ref": "#/components/schemas/FLVonAdmin"
-              },
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-              }
-            ],
-            "title": "Von"
+            "$ref": "#/components/schemas/FLSpielbestaetigungVon"
           },
           "vorschlag": {
             "anyOf": [
@@ -14548,26 +14914,7 @@
         "description": "What the answer recorded: its way, its role, and the answering club's own proposal, which no view of the link serves.\n\nSo a page shows that proposal from this response, never from a re-read. No receipt is mailed off it.",
         "properties": {
           "beantwortet_von": {
-            "discriminator": {
-              "mapping": {
-                "admin": "#/components/schemas/FLVonAdmin",
-                "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
-                "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-              },
-              "propertyName": "art"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
-              },
-              {
-                "$ref": "#/components/schemas/FLVonAdmin"
-              },
-              {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
-              }
-            ],
-            "title": "Beantwortet Von"
+            "$ref": "#/components/schemas/FLSpielbestaetigungVon"
           },
           "vorschlag": {
             "anyOf": [
@@ -14848,6 +15195,9 @@
             ]
           }
         },
+        "required": [
+          "zustellung"
+        ],
         "title": "FLSpielbestaetigungSitz",
         "type": "object"
       },
@@ -15475,6 +15825,27 @@
         "title": "FLSpielbestaetigungTermin",
         "type": "object"
       },
+      "FLSpielbestaetigungVon": {
+        "discriminator": {
+          "mapping": {
+            "admin": "#/components/schemas/FLVonAdmin",
+            "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
+            "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
+          },
+          "propertyName": "art"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
+          },
+          {
+            "$ref": "#/components/schemas/FLVonAdmin"
+          },
+          {
+            "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
+          }
+        ]
+      },
       "FLSpielbestaetigungVonKontakt": {
         "description": "The seat whose link was pressed, never the person: two seats one person holds share a link, and the first seat in order is recorded.",
         "properties": {
@@ -15702,6 +16073,11 @@
             "title": "Spieler Id",
             "type": "string"
           },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
           "vorname": {
             "minLength": 1,
             "title": "Vorname",
@@ -15712,7 +16088,8 @@
           "spieler_id",
           "vorname",
           "nachname",
-          "inactive_since"
+          "inactive_since",
+          "version"
         ],
         "title": "FLSpielerAdminSingleResponse",
         "type": "object"
@@ -15846,6 +16223,11 @@
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Team Id",
             "type": "string"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -15856,7 +16238,8 @@
           "rolle",
           "ist_nachnominiert",
           "saison_id",
-          "inactive_since"
+          "inactive_since",
+          "version"
         ],
         "title": "FLSpielerMembership",
         "type": "object"
@@ -15955,7 +16338,9 @@
         },
         "required": [
           "vorname",
-          "nachname"
+          "nachname",
+          "nummer",
+          "position"
         ],
         "title": "FLSpielerPublic",
         "type": "object"
@@ -16260,6 +16645,11 @@
             ],
             "title": "Nachname"
           },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
           "vorname": {
             "minLength": 1,
             "title": "Vorname",
@@ -16275,6 +16665,7 @@
           "einwilligung",
           "email",
           "adresswechsel_id",
+          "version",
           "adresswechsel_einsehbar_verwehrt",
           "memberships"
         ],
@@ -16317,6 +16708,11 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -16325,7 +16721,8 @@
           "default_mietpreis",
           "id",
           "maps_link",
-          "inactive_since"
+          "inactive_since",
+          "version"
         ],
         "title": "FLSpielort",
         "type": "object"
@@ -16894,6 +17291,11 @@
                 "type": "null"
               }
             ]
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -16904,6 +17306,7 @@
           "kontakte",
           "bestaetigungen",
           "adresswechsel",
+          "version",
           "kontakte_stand"
         ],
         "title": "FLTeamMembership",
@@ -16962,6 +17365,11 @@
             "title": "Shorthand",
             "type": "string"
           },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
           "website_url": {
             "anyOf": [
               {
@@ -16983,7 +17391,8 @@
           "website_url",
           "address",
           "id",
-          "inactive_since"
+          "inactive_since",
+          "version"
         ],
         "title": "FLTeamRecord",
         "type": "object"
@@ -17170,6 +17579,11 @@
             "title": "Shorthand",
             "type": "string"
           },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          },
           "website_url": {
             "anyOf": [
               {
@@ -17192,6 +17606,7 @@
           "address",
           "id",
           "inactive_since",
+          "version",
           "memberships"
         ],
         "title": "FLTeamWithMemberships",
@@ -22580,6 +22995,304 @@
         ]
       }
     },
+    "/api/v0/postausgang/anmeldung": {
+      "post": {
+        "description": "Owe one mail the sign-in library sends -- the code, a passkey notice, the deletion link -- to the address named.\n\nA replay of the same `schluessel` writes nothing and answers the row its first call wrote. `geheim` is stored as it\narrives, encrypted under a key this service never holds, and dropped once the mail is settled; `gueltig_bis` is both\nthe last moment a hand-out may send it and the moment the row is deleted, settled or not.",
+        "operationId": "postausgang_post_anmeldung",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostausgangAnmeldungPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPostausgangAnmeldungResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "SystemKey": []
+          }
+        ],
+        "summary": "Owe one mail of the sign-in library",
+        "tags": [
+          "postausgang"
+        ]
+      }
+    },
+    "/api/v0/postausgang/ausgabe": {
+      "post": {
+        "description": "Claim, oldest first and a page at a time, the owed mails no claim holds, for five minutes, and hand each out.\n\nA mail past its deadline is given up rather than handed out, and counted in `aufgegeben`. A mail to an address a\nstanding ban holds is stopped as `gesperrt`, the ban's own notice alone excepted. A mail carrying a link has it minted\nhere, its hash written to the record the mail is about and the raw token answered once, in `token`; a record gone\nsince stops the mail as `entfallen`. A second call inside the lease is answered none of these rows. The caller sends\neach under the idempotency key its `versuch` names and reports every outcome, with `beanspruchung`, to `POST /postausgang/ergebnis`;\nwhere the lease lapses first, the next call hands the row out again with a fresh link and number, every earlier link\nstaying valid unless the mail's link supersedes them. Server to server alone: the answer names addresses, live links\nand secrets.",
+        "operationId": "postausgang_post_ausgabe",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPostausgangAusgabeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "SystemKey": []
+          }
+        ],
+        "summary": "Claim the mails owed now and hand them out",
+        "tags": [
+          "postausgang"
+        ]
+      }
+    },
+    "/api/v0/postausgang/ereignis": {
+      "post": {
+        "description": "Record what the mail provider reported about one message, on the row of the mail it was.\n\nThe row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds\nit all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before\nanything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later\none changes nothing. Both answer `angewendet: false`, as does an id no row has, rather than a refusal the provider\nwould retry for hours.",
+        "operationId": "postausgang_post_ereignis",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostausgangEreignisPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPostausgangEreignisResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "SystemKey": []
+          }
+        ],
+        "summary": "Record one delivery event on its mail's row",
+        "tags": [
+          "postausgang"
+        ]
+      }
+    },
+    "/api/v0/postausgang/ergebnis": {
+      "post": {
+        "description": "Settle each named mail the named claim still holds, by the outcome of its send, and nothing else.\n\n`gesendet` records the provider's message id, which every later event about the message names; `zurueckgehalten` a\ndeployment that sends no mail; `aufgeben` a refusal every send would meet, any 4xx but a 429. `wiederholen`, for a\n429, a 5xx or a send that never reached the provider, hands the mail back for a drain a minute from now, or gives it\nup where it has grown past its deadline; a mail of the sign-in library is given up at once, its library's repair\nbeing a fresh one. A mail the claim does not hold -- unknown,\nsettled already, or claimed since by another drain after this claim lapsed -- is left alone and counted in `ignoriert`.\nA repeated id counts once, by its first outcome. One transaction; a settled row keeps no facts and no secret.",
+        "operationId": "postausgang_post_ergebnis",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostausgangErgebnisPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPostausgangErgebnisResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "$ref": "#/components/responses/400",
+            "description": "Bad Request"
+          },
+          "401": {
+            "$ref": "#/components/responses/401",
+            "description": "Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/403",
+            "description": "Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/404",
+            "description": "Not Found"
+          },
+          "409": {
+            "$ref": "#/components/responses/409",
+            "description": "Conflict"
+          },
+          "410": {
+            "$ref": "#/components/responses/410",
+            "description": "Gone"
+          },
+          "422": {
+            "$ref": "#/components/responses/422",
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "$ref": "#/components/responses/429",
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "$ref": "#/components/responses/500",
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/503",
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "SystemKey": []
+          }
+        ],
+        "summary": "Settle the mails a claim handed out",
+        "tags": [
+          "postausgang"
+        ]
+      }
+    },
     "/api/v0/registrierungen": {
       "get": {
         "description": "Every pending registration, newest first, narrowed by season, team and status.\n\n`vollstaendig` is false where more rows exist than one read serves, `bestaetigt` says whether the pupil answered their own\nlink, and a barred decision's author is served as `null` beside `entscheidung.von_gesperrt`.",
@@ -22828,7 +23541,7 @@
     },
     "/api/v0/registrierungen/bestaetigung": {
       "post": {
-        "description": "Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.\n\nRefuses, writing nothing: `REQ-REGISTRIERUNG-004`, `-005`, `-006`, `-007`, `-010`, `-012`, `-017`, `-019` and\n`REQ-EINWILLIGUNG-001`.",
+        "description": "Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.\n\nRefuses, writing nothing: `REQ-REGISTRIERUNG-004`, `-005`, `-006`, `-007`, `-010`, `-012`, `-017` and\n`REQ-EINWILLIGUNG-001`.",
         "operationId": "registrierungen_post_bestaetigung",
         "requestBody": {
           "content": {
@@ -28198,7 +28911,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLKaderZeileResponse"
+                  "$ref": "#/components/schemas/FLKaderZeile"
                 }
               }
             },
@@ -28304,7 +29017,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLKaderZeileResponse"
+                  "$ref": "#/components/schemas/FLKaderZeile"
                 }
               }
             },
@@ -30678,7 +31391,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLPostTeamResponse"
+                  "$ref": "#/components/schemas/FLCreatedResponse"
                 }
               }
             },
@@ -32051,7 +32764,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLSaisonTeamPersonEinwilligungPayload"
+                "$ref": "#/components/schemas/FLSitzEinwilligungPayload"
               }
             }
           },

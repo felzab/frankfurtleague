@@ -54,7 +54,6 @@ describe("the matchday's write", () => {
     const id = "6890a1b2c3d4e5f607182931";
     answerWith(() =>
       Promise.resolve({
-        acknowledged: 1,
         spieltag_id: id,
         updated_document: { id, ...span, anzahl_spiele: 4, position: 1, saison_phase: "gruppenphase", saison_id: "2026" },
       }),
@@ -112,7 +111,7 @@ describe("the German the ordering refusal renders", () => {
     expect(message).toMatch(/die Spiele des Spieltags, der später gespielt werden soll/);
   });
 
-  /* `FLPatchSpieltagPayload` refines `ende >= beginn` and the follower arm fires on
+  /* `FLPatchSpieltagPayloadSchema` refines `ende >= beginn` and the follower arm fires on
      `beginn > following.beginn`, so every refusal it can produce carries an `ende` past the
      neighbour. An imperative to widen it would name a step the admin has taken. */
   it("asks for no wider Ende, which the refused payload already carries", () => {

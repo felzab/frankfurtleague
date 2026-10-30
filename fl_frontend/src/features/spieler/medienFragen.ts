@@ -3,7 +3,7 @@ import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { nullAfterLoggingUnexplained } from "@/shared/utils/degradedRead";
 
 import type { EinwilligungSeite } from "@/core/einwilligungSeiten";
-import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
+import type { FLSaisonTeamKontakte } from "@/core/generated/client/types";
 import type { MedienFragen } from "./nachweis";
 
 // The pages that ask the media choice through a control of its own; every other page asks it through its switch, so a

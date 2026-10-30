@@ -431,7 +431,7 @@ class _ListedInto:
 # What each read resolves, spelled out here rather than read off the projections under test. The seat's bare block
 # is the other club's, holding nothing: the address the projection removes leaves its parents.
 VIEW_FIXTURE_RESOLVES = frozenset(
-    {"datum", "uhrzeit", "ort.spielort_id", "ort.name", "ort.maps_link", "ergebnis", "elfmeterschiessen", "sonderereignis"}
+    {"datum", "uhrzeit", "ort.spielort_id", "ort.name", "ort.maps_link", "ergebnis", "sonderereignis"}
     | {f"{slot}.{part}" for slot in ("team1", "team2") for part in ("team_id", "name", "tore")}
 )
 VIEW_CLUBS_RESOLVE = frozenset({"team_id", "name", "austritt.datum", "kontakte.stellvertretung.email", "kontakte.stellvertretung"})
@@ -1509,7 +1509,8 @@ class TestARefereesDeclineReturnsTheFixture:
 
         before, after, halbfinale, resolved, row = on_a_refereed_fixture(mongo_replica_set_url, body, spiele=DUE_RESOLUTION)
 
-        assert after == {**before, "schiedsrichter": None}
+        # Seeded without a version, so the one write leaves it at 1.
+        assert after == {**before, "schiedsrichter": None, "version": 1}
         assert halbfinale["team1"] is None and resolved["team1"]["team_id"] == TEAM1
         assert row["antwort"] == {
             "art": "abgelehnt",

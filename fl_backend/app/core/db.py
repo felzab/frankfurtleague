@@ -155,6 +155,9 @@ async def lifespan(app: FastAPI):
 
         await warn_about_the_grants(app.state.db_client[config.db_base_name][Collection.BERECHTIGUNGEN])
 
+        # The one line per start that says which build runs: the json-file driver records no image version of its own.
+        fl_logger.info("system.started", extra={"version": config.app_version})
+
         yield
 
     finally:

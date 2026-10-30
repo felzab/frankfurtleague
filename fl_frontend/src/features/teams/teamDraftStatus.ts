@@ -3,10 +3,10 @@ import { formatSpielDatum, nichtHinterlegt } from "@/shared/utils/format";
 
 import { AUSTRITT_OPTIONS, SAISON_ABSCHNITT, schulformLabel, trikotFarbeLabel } from "./constants";
 
+import type { FLGruppenNames, FLSchulform, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { FLAddress } from "@/shared/schemas";
 import type { FLDraftStatus, FLFieldDescriptor } from "@/shared/utils/draftStatus";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { FLGruppenNames, FLSchulform, FLTrikotFarbe } from "./schemas";
 import type { AustrittDraft } from "./types";
 
 /**

@@ -1,12 +1,12 @@
 import { ContractBreakError } from "@/core/errors";
 
-import type { FLLoeschungLaufResponse } from "./schemas";
+import type { FLLoeschungLaufResponse } from "@/core/generated/client/types";
 
 /**
  * Every call of one pass summed, the last answered call's season and remainder beside the sums. A pass reaches each
  * person once, so the sums count persons; one who failed stays due for the next pass.
  */
-type LoeschungSumme = Omit<FLLoeschungLaufResponse, "acknowledged" | "nach">;
+type LoeschungSumme = Omit<FLLoeschungLaufResponse, "nach">;
 
 /** A pass that ended on a call's answer, or on a call that threw: what remains is then unknown. */
 export type LoeschungLauf =

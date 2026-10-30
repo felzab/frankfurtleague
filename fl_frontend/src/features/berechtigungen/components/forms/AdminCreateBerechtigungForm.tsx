@@ -11,7 +11,7 @@ import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { TextField } from "@/shared/components/ui/TextField";
 
-import type { FLPostBerechtigungPayload } from "@/features/berechtigungen/schemas";
+import type { FLPostBerechtigungPayload } from "@/core/generated/client/types";
 
 const EMPTY_DRAFT: FLPostBerechtigungPayload = { email: "" };
 

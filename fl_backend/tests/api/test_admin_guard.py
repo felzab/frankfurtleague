@@ -7,16 +7,11 @@ import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
+from app.api.berechtigungen.guard import verify_actor_is_admin
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS
 from app.api.spieler import schemas as spieler_schemas
 from app.core.codes import Code
-from app.core.security import (
-    PERSON_ACTOR_BINDERS,
-    bind_actor,
-    verify_access_admin,
-    verify_access_base,
-    verify_access_system,
-    verify_actor_is_admin,
-)
+from app.core.security import bind_actor, verify_access_admin, verify_access_base, verify_access_system
 from tests.core.app_source import api_routes, application
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
@@ -139,6 +134,11 @@ SYSTEM_WRITES = [
     ("/api/v0/adresswechsel/sweep", "post"),
     # The address change's owed notices, claimed and stamped by the frontend's pass as the grants' are.
     ("/api/v0/adresswechsel/sweep/postausgang", "post"),
+    # The Postausgang's drain, the sign-in library's mails and the provider's events: none holds a session.
+    ("/api/v0/postausgang/ausgabe", "post"),
+    ("/api/v0/postausgang/ergebnis", "post"),
+    ("/api/v0/postausgang/anmeldung", "post"),
+    ("/api/v0/postausgang/ereignis", "post"),
     ("/api/v0/adresswechsel/sweep/postausgang/zugestellt", "post"),
     # A POST storing nothing, exempt for the identity reads' reason: the frontend's server asks a live change's new address.
     ("/api/v0/adresswechsel/sweep/adresse", "post"),

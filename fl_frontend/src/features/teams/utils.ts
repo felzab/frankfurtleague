@@ -4,11 +4,19 @@ import { KADER_ABSCHNITT } from "@/features/spieler/constants";
 
 import { EINWILLIGUNG_UMFANG, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS, WEBSITE_URL_SCHEME } from "./constants";
 
-import type { FLSaison, FLSaisonPhase } from "@/features/saisons/schemas";
+import type {
+  FLGruppenTeam,
+  FLKontaktperson,
+  FLSaison,
+  FLSaisonPhase,
+  FLSaisonTeamKontakte,
+  FLTeamMembership,
+  FLTeamWithMemberships,
+  FLTrikotFarbe,
+} from "@/core/generated/client/types";
 import type { FLSpiel } from "@/features/spiele/types";
 import type { FLSpielErgebnisFor } from "@/features/spiele/utils";
 import type { TrikotFarbeOption } from "./constants";
-import type { FLGruppenTeam, FLKontaktperson, FLSaisonTeamKontakte, FLTeamMembership, FLTeamWithMemberships, FLTrikotFarbe } from "./schemas";
 import type { AdminKontakteRow, AdminKontaktSeat, GruppeOffer, KontaktpersonDraft, SaisonTeamKontakteDraft } from "./types";
 
 /**
@@ -377,7 +385,7 @@ export function isRetireable(
 
 /**
  * What a website box reports upward: the whole URL, or `null` for a box nobody filled. **The one
- * place `""` becomes `null`** — the single spelling `OptionalExternalUrlSchema` states is kept by
+ * place `""` becomes `null`** — the single spelling of absence the API publishes is kept by
  * coercing here, not by every reader testing for two.
  */
 export function toWebsiteUrl(typed: string): string | null {

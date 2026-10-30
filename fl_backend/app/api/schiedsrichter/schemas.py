@@ -15,7 +15,7 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.einwilligung import CustomEinwilligungTextVersion, FLEinwilligungStand
 from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
 from app.shared.schemas.literals import FLAdresswechselEinsehbarVerwehrt, FLBestaetigungZustand, FLEinwilligungUmfang, FLSortOrder
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 
 class _SchiedsrichterWritable(BaseModel):
@@ -45,7 +45,8 @@ class FLPostSchiedsrichterPayload(_SchiedsrichterPayload):
 
 
 class FLPatchSchiedsrichterPayload(_SchiedsrichterPayload):
-    pass
+    # The `version` the editor was served; absent, the save is checked against nothing.
+    version: int | None = None
 
 
 class FLSchiedsrichterMint(BaseModel):
@@ -62,7 +63,7 @@ class FLSchiedsrichterMint(BaseModel):
     email: CustomNonEmptyString
 
 
-class FLSchiedsrichter(_SchiedsrichterWritable):
+class FLSchiedsrichter(_SchiedsrichterWritable, BaseReadModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     # Nullable where the payload is not, for the one row that stands behind nobody
     # (`app/core/sentinels.py :: GHOST_SCHIEDSRICHTER_ID`). The floor stays on the string branch, an
@@ -79,6 +80,8 @@ class FLSchiedsrichter(_SchiedsrichterWritable):
     bestaetigung: FLBestaetigung | None = None
     einwilligung: FLEinwilligung | None = None
     geburtsdatum: CustomOptionalDateString = None
+    # The writes counted so far, which the editor's save sends back.
+    version: int = 0
 
 
 class FLSchiedsrichterBestaetigungRecord(FLBestaetigung):
@@ -195,7 +198,7 @@ class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     adresswechsel_einsehbar_verwehrt: FLAdresswechselEinsehbarVerwehrt | None
 
 
-class FLSchiedsrichterSelbst(BaseModel):
+class FLSchiedsrichterSelbst(BaseReadModel):
     """One referee record's stored data as its own person reads it: contact details and fee, never the link's bookkeeping.
 
     For `app/api/spieler/schemas.py :: FLSpielerSelbst`'s reason, the account page's entry extends it.

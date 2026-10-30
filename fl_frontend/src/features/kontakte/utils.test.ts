@@ -14,7 +14,7 @@ import {
   teamPageHref,
 } from "./utils";
 
-import type { FLKontaktperson, FLTeamMembership } from "@/features/teams/schemas";
+import type { FLKontaktperson, FLTeamMembership } from "@/core/generated/client/types";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft } from "@/features/teams/types";
 
 /** The label the backend runs on the application form, which a seat opened blank stamps. */
@@ -354,6 +354,7 @@ describe("resolveTeamSaisonMembership", () => {
     bestaetigungen: null,
     adresswechsel: null,
     kontakte_stand: TOKEN,
+    version: 0,
   });
 
   /* The header names the SELECTED season and a save writes onto that season's row. Falling back to

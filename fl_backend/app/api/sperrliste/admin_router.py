@@ -6,6 +6,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
 from app.api.berechtigungen.crud import pull_the_list_to_judge, withhold_in_the_outbox
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.berechtigungen.services import lebendige
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import read_sperrliste_page
@@ -38,7 +39,7 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_step_up
+from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_step_up
 from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT

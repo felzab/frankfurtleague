@@ -19,8 +19,7 @@ import { CARDS_CASCADE_CLASSES, PAGE_RISE_CLASSES } from "@/shared/components/ui
 
 import { ACTION_REQUIRED_LABELS, bestaetigungNotizen, buildActionRequiredSections, saisonBestaetigungen } from "../../utils";
 
-import type { FLBracketFault, FLSpielberichtZustandEintrag } from "@/core/generated/client/types";
-import type { FLSpielbestaetigung } from "@/features/spielbestaetigungen/schemas";
+import type { FLBracketFault, FLSpielberichtZustandEintrag, FLSpielbestaetigung } from "@/core/generated/client/types";
 import type { SpielCardNotes } from "@/features/spiele/components/collections/SpielCardsList";
 import type { ActionRequiredCategory, FLSpiel } from "@/features/spiele/types";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
@@ -69,7 +68,7 @@ export function AdminSpieleActionRequiredView({
   /** The season's confirmation rows; `null` where their read failed, which the page says rather than showing empty tabs as clear. */
   bestaetigungen: readonly FLSpielbestaetigung[] | null;
   bestaetigungenVollstaendig: boolean;
-  /** The season's reports and their states, served with the list whatever `SPIELBERICHT_EINGABE` reads. */
+  /** The season's reports and their states, served with the list. */
   spielberichte: readonly FLSpielberichtZustandEintrag[];
   today: string;
   isFinishedSaison: boolean;

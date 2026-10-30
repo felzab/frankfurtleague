@@ -11,7 +11,6 @@ const CONFIG = {
     API_URL: API_URL,
     APP_ENV: "production",
     AUTH_URL: "https://liga.example.de",
-    LOESCHUNG_SWEEP: "on",
   },
   internalApiKeyBase: () => "base-key-double",
   internalApiKeySystem: () => "system-key-double",
@@ -39,7 +38,6 @@ const LEFT_FOR_THE_CUT_MS = 12000;
 const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 
 const AKTIVIERT = {
-  acknowledged: 1,
   updated_document: {
     id: SAISON_ID,
     start_date: "2026-03-01",
@@ -55,7 +53,6 @@ const AKTIVIERT = {
 };
 
 const ERSTER_LAUF = {
-  acknowledged: 1,
   abgeschlossene_saison_id: "2025",
   spieler: 2,
   saison_spieler: 3,

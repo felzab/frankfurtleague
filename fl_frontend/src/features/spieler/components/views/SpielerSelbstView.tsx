@@ -7,7 +7,7 @@ import { textLink } from "@/shared/components/ui/textLink";
 
 import { SpielerAngaben } from "../ui/SpielerAngaben";
 
-import type { FLSpielerSelbst } from "../../schemas";
+import type { FLSpielerSelbst } from "@/core/generated/client/types";
 
 /**
  * A pupil's own data, read-only: the consent the record holds is changed on the account page, which

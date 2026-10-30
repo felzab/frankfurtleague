@@ -101,7 +101,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # row would be refused. Checked at each write rather than at the commit, so a rollover demotes
     # before it promotes (`app/api/saisons/admin_router.py :: activate_saison`).
     UniqueIndex(Collection.SAISONS, "uniq_saison_active", ("status",), "at most one season is active", partial_filter={"status": "active"}),
-    # Also the READ path of every admin-tier request (`app/core/security.py :: verify_actor_is_admin`),
+    # Also the READ path of every admin-tier request (`app/api/berechtigungen/guard.py :: verify_actor_is_admin`),
     # and what refuses a second grant a Playground paste adds for an address already holding one.
     UniqueIndex(Collection.BERECHTIGUNGEN, "uniq_berechtigung_adresse", ("adresse",), "one grant per address"),
     # What makes a pass run twice mint once, and a second decline need a new stand rather than a
@@ -129,6 +129,8 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # Two requests about one address meet here. Unfiltered, a lapsed row too: the write asking anew removes that one first
     # (`app/api/berechtigungen/antraege.py :: clear_the_address_in_session`), the TTL monitor passing up to a minute late.
     UniqueIndex(Collection.BERECHTIGUNGEN_ANTRAEGE, "uniq_berechtigung_antrag_adresse", ("adresse",), "one request per address"),
+    # Also the READ path of every enqueue, which finds a replay's row by it (`app/api/postausgang/services.py :: enqueue_mail`).
+    UniqueIndex(Collection.POSTAUSGANG, "uniq_postausgang_schluessel", ("schluessel",), "one row per owed mail"),
 )
 
 
@@ -354,6 +356,19 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("email", ASCENDING),),
         "the changes naming an address as their new one, which every erasure and its preview read",
     ),
+    # Equality on `stand` and the claim's own sort after it; the lease and the deadline are read off the open rows alone.
+    SupportIndex(
+        Collection.POSTAUSGANG,
+        "postausgang_offen",
+        (("stand", ASCENDING), ("erfasst_am", ASCENDING), ("_id", ASCENDING)),
+        "the drain's claim of the open rows, oldest first",
+    ),
+    SupportIndex(
+        Collection.POSTAUSGANG,
+        "postausgang_bezug",
+        (("bezug.sammlung", ASCENDING), ("bezug.id", ASCENDING), ("bezug.sitz", ASCENDING), ("erfasst_am", DESCENDING), ("_id", DESCENDING)),
+        "the newest mail about one record and seat, which says whether its holder's mail arrives",
+    ),
 )
 
 
@@ -402,6 +417,8 @@ TTL_INDEXES: Sequence[TTLIndex] = (
         0,
         "a request nobody decided is removed once the TTL monitor next passes after it lapsed",
     ),
+    # Zero: `loeschen_am` is the date itself, a retention after the row's final state or a secret's own lapse.
+    TTLIndex(Collection.POSTAUSGANG, "postausgang_loeschen_am", "loeschen_am", 0, "a mail's row is removed on its delete date"),
 )
 
 

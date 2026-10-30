@@ -1,16 +1,15 @@
 import { cache } from "react";
 
-import { apiClient } from "@/core/api";
+import { registrierungenGetOffeneRegistrierungen, registrierungenGetRegistrierungen } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runPersonRead } from "@/shared/utils/personRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { postBestaetigungAnsicht, postEinladungAnsicht } from "./mutations";
-import { FLOffeneRegistrierungenResponseSchema, FLRegistrierungenListResponseSchema } from "./schemas";
 import { einladungZustand, mapRegistrierungAnsichtRefusal } from "./utils";
 
+import type { FLOffeneRegistrierungenResponse, FLRegistrierungenListResponse } from "@/core/generated/client/types";
 import type { Leserichtung } from "@/shared/utils/leserichtung";
-import type { FLOffeneRegistrierungenResponse, FLRegistrierung, FLRegistrierungenListResponse } from "./schemas";
 import type { RegistrierungStart, SpielerBestaetigungAnsicht } from "./types";
 
 /**
@@ -19,18 +18,8 @@ import type { RegistrierungStart, SpielerBestaetigungAnsicht } from "./types";
  * arguments alone, `cache` comparing them by identity.
  */
 export const getOffeneRegistrierungen = cache(
-  async (teamId: string, saisonId: string, order: Leserichtung): Promise<FLOffeneRegistrierungenResponse> => {
-    // Optional as published, though the page always sends one end.
-    const filters: { order?: Leserichtung } = { order: order };
-
-    return runPersonRead(() =>
-      apiClient<FLOffeneRegistrierungenResponse>(
-        `/registrierungen/kader/${encodeURIComponent(teamId)}/${encodeURIComponent(saisonId)}`,
-        FLOffeneRegistrierungenResponseSchema,
-        { authType: "admin", params: filters },
-      ),
-    );
-  },
+  async (teamId: string, saisonId: string, order: Leserichtung): Promise<FLOffeneRegistrierungenResponse> =>
+    runPersonRead(() => registrierungenGetOffeneRegistrierungen(encodeURIComponent(teamId), encodeURIComponent(saisonId), { order: order })),
 );
 
 /**
@@ -39,14 +28,7 @@ export const getOffeneRegistrierungen = cache(
  */
 export async function getAdminRegistrierungen(order: Leserichtung): Promise<FLRegistrierungenListResponse> {
   // `eingereicht` alone: a declined row waits out its month and asks nothing of an administrator.
-  const filters: { status?: FLRegistrierung["status"]; order?: Leserichtung } = { status: "eingereicht", order: order };
-
-  return runAdminRead(() =>
-    apiClient<FLRegistrierungenListResponse>("/registrierungen", FLRegistrierungenListResponseSchema, {
-      authType: "admin",
-      params: filters,
-    }),
-  );
+  return runAdminRead(() => registrierungenGetRegistrierungen({ status: "eingereicht", order: order }));
 }
 
 /**

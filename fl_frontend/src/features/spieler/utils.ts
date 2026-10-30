@@ -1,6 +1,6 @@
 import { kaderName } from "./constants";
 
-import type { FLSpielerRolle, FLSpielerWithMemberships } from "./schemas";
+import type { FLSpielerRolle, FLSpielerWithMemberships } from "@/core/generated/client/types";
 import type { RowReturn, SpielerTeamOption } from "./types";
 
 /**

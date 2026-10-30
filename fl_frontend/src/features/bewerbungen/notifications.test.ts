@@ -3,8 +3,8 @@ import { doubleSendMail } from "@/test-support/mailDouble.ts";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import type { Mail } from "@/core/emailShell.ts";
+import type { FLKontaktperson } from "@/core/generated/client/types.ts";
 import type { MailOutcome } from "@/test-support/mailDouble.ts";
-import type { FLKontaktperson } from "../teams/schemas.ts";
 import type { BewerbungSeats } from "./notifications.ts";
 
 /** The WHOLE call, the error argument included: that argument is the channel an address travels on. */
@@ -30,7 +30,7 @@ const MUTATIONS_DOUBLE = {
   meldeZustellungAngenommen: async (payload: { rollen?: unknown }) => {
     gemeldet.push(payload);
     if (zustellungFails) throw new Error("the backend refused the record");
-    return { acknowledged: 1, angewendet: payload.rollen };
+    return { angewendet: payload.rollen };
   },
 };
 

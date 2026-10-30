@@ -63,13 +63,6 @@ const OHNE_ADRESSE: Readonly<Record<Vorenthalten["vorenthalten"], string>> = {
   geloescht: "Eine nicht genannte Adresse",
 };
 
-/** A withheld address inside a sentence rather than opening it, read off the same words. */
-function ohneAdresseImSatz(vorenthalten: Vorenthalten["vorenthalten"]): string {
-  const wort = OHNE_ADRESSE[vorenthalten];
-
-  return `${wort.charAt(0).toLowerCase()}${wort.slice(1)}`;
-}
-
 /** The `owner` tier as a person of either gender holds it, never the masculine word for both. */
 const INHABER = "Inhaberin oder Inhaber";
 
@@ -117,42 +110,6 @@ function urheberSatz(urheber: Urheber, verb: string): string {
 
   const von = urheberName(urheber.von);
   return urheber.am === null ? `${verb} von ${von}.` : `${verb} von ${von} am ${formatZeitpunkt(urheber.am)}.`;
-}
-
-/** How a request ended, told to its requester alone. */
-export type AntragEnde = {
-  readonly art: "antrag_abgelehnt" | "antrag_beendet";
-  // The address the request was for, or why it is withheld.
-  readonly adresse: string | Vorenthalten;
-  // Whether it asked for an owner's promotion rather than access.
-  readonly inhaber: boolean;
-};
-
-/** The request as its requester asked it, a named address set in the emphasis grade. */
-function antragSatz({ art, adresse, inhaber }: AntragEnde): readonly Lauf[] {
-  const fuer: Lauf = typeof adresse === "string" ? { stark: adresse } : ohneAdresseImSatz(adresse.vorenthalten);
-  const antrag: readonly Lauf[] = inhaber
-    ? ["Dein Antrag, ", fuer, " zur Inhaberin oder zum Inhaber der Verwaltung zu ernennen,"]
-    : ["Dein Antrag auf Zugang zur Verwaltung für ", fuer];
-
-  return [...antrag, art === "antrag_abgelehnt" ? " wurde abgelehnt." : " endete, weil sich die Adresse geändert hat."];
-}
-
-/**
- * A request's end, mailed to the administrator who asked for it under the request's own subject. It names the address they
- * asked about, which they typed, and nobody who acted: never who refused it.
- */
-export function buildAntragEndeEmail(ende: AntragEnde, rawOrigin: string): Mail {
-  const origin = mailOrigin(rawOrigin);
-
-  return {
-    art: "mitteilung",
-    betreff: ANTRAG[ende.inhaber ? "ernennung" : "zugang"].betreff,
-    origin: origin,
-    vorname: "",
-    absaetze: [[antragSatz(ende)]],
-    aktion: { label: ZIEL_LABEL, href: `${origin}${ZIEL_PFAD}` },
-  };
 }
 
 /**

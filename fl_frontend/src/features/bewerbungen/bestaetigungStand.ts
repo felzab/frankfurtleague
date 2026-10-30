@@ -3,9 +3,9 @@ import { formatSpielDatum } from "@/shared/utils/format";
 
 import { istDauerhaftUnzustellbar } from "./zustellung";
 
+import type { FLBewerbung } from "@/core/generated/client/types";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { FLBewerbungZustellung } from "@/shared/schemas";
-import type { FLBewerbung } from "./schemas";
 
 /** Narrowed to the two blocks a confirmation moves, so a caller holding a queue row rather than a whole application still reads its seats. */
 type BewerbungSitze = Pick<FLBewerbung, "bestaetigungen" | "kontakte">;
@@ -46,8 +46,8 @@ export type SitzBestaetigung = {
 export function bestaetigungsStand(bewerbung: BewerbungSitze & Pick<FLBewerbung, "status">): SitzBestaetigung[] {
   const { bestaetigungen, kontakte, status } = bewerbung;
 
-  // `KONTAKT_ROLLEN` and never a list of this file's own: the seat order is the label table's
-  // (`.claude/rules/frontend.md` **admin**).
+  // `KONTAKT_ROLLEN` and never a list of this file's own: the seat order is the label table's, which
+  // every admin section is ordered by (`docs/decisions.md`, **admin**).
   return KONTAKT_ROLLEN.map(({ value, label }) => {
     const person = kontakte[value];
     const verlauf = bestaetigungen[value];
@@ -260,7 +260,6 @@ export function loeschungsSatz({
 
   return gehalten
     ? `Die Frist für die Bestätigungen ist am ${tag} abgelaufen. Gelöscht wird die Bewerbung nicht, solange die Ansprechperson per E-Mail nicht erreichbar ist.`
-    : // The sweep's own cadence (`fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep`).
-      // The local stack arms no sweep, so there the row outlives this sentence.
+    : // The scheduler's own cadence (`fl_frontend/src/instrumentation-node.ts :: armScheduler`).
       `Die Frist für die Bestätigungen ist am ${tag} abgelaufen. Die Bewerbung wird bei der nächsten stündlichen Prüfung gelöscht.`;
 }

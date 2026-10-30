@@ -2,7 +2,7 @@ import { cacheCalls, doubleActionRequest, loggedLines } from "@/test-support/act
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, refusalCodes, refused } from "@/test-support/refusals.ts";
 import { saisonRules } from "@/test-support/saisonRules.ts";
-import { assert, beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { SITE_CACHE_TAG } from "@/core/siteCache.ts";
 import { TEAMS_EINTRAG } from "@/features/admin/constants.ts";
@@ -10,30 +10,15 @@ import { TEAMS_EINTRAG } from "@/features/admin/constants.ts";
 import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, REGELN_ABSCHNITT, SPIELTAGE_UNDATED } from "./constants.ts";
 import { mapActivateRefusal, mapRulesRefusal, mapSaisonIdRefusal, mapSpielplanRefusal, mapSwapRefusal, mapUndrawRefusal } from "./refusals.ts";
 
+import type { FLSaisonRules } from "@/core/generated/client/types.ts";
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
-import type { FLSaisonRules } from "./schemas.ts";
-
-/** The deletion's switch as the doubled config answers it, which a case sets: off where it sets nothing, as production. */
-let loeschungSwitch: string | undefined = "off";
 
 /* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
 doubleActionRequest();
-// A getter, so a case can move the switch the one loaded module reads.
-vi.doMock("@/core/config.ts", () => ({
-  frontend_config: {
-    get LOESCHUNG_SWEEP() {
-      return loeschungSwitch;
-    },
-  },
-}));
 const { answerWith, calls } = doubleApiAnswers();
 const { activateSaisonAction, generateSpielplanAction, patchSaisonAction, postSaisonAction, swapGruppenAction, undrawSpielplanAction } =
   await import("./actions.ts");
 const { APIBadStatusError, APINetworkError } = await import("@/core/errors.ts");
-
-beforeEach(() => {
-  loeschungSwitch = "off";
-});
 
 const SAISON_ID = "2026";
 
@@ -68,11 +53,10 @@ const TEAM2_ID = "68c1f0a2b3c4d5e6f7a8b9c1";
 /** Each write's answer as the backend sends it where the write landed. */
 function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
   const stored = { ...SAISON, status: "future", schedule: [], spielplan: null };
-  if (endpoint === "/saisons") return { acknowledged: 1, created_id: SAISON_ID };
-  if (endpoint.endsWith("/activate")) return { acknowledged: 1, updated_document: stored, deactivated: 1 };
+  if (endpoint === "/saisons") return { created_id: SAISON_ID };
+  if (endpoint.endsWith("/activate")) return { updated_document: stored, deactivated: 1 };
   if (endpoint.endsWith("/gruppen/swap")) {
     return {
-      acknowledged: 1,
       saison_id: SAISON_ID,
       team1_id: TEAM1_ID,
       team1_gruppe: "B",
@@ -82,17 +66,18 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
     };
   }
   if (endpoint.endsWith("/spielplan")) {
-    const counts = { acknowledged: 1, saison_id: SAISON_ID, spieltage: 3, spiele: 12 };
+    const counts = { saison_id: SAISON_ID, spieltage: 3, spiele: 12 };
     return method === "DELETE"
       ? { ...counts, watermark_cleared: true }
       : { ...counts, generiert_am: "2026-03-01", removed_spieltage: 3, removed_spiele: 12 };
   }
-  return { acknowledged: 1, updated_document: stored };
+  return { updated_document: stored };
 }
 
 describe("the season's writes", () => {
   it("reach each published path and method, the id in the path and the fields alone in the body", async () => {
-    answerWith((call) => Promise.resolve(landed(call)));
+    // The activation runs the pupils' deletion after it, which this case answers as having deleted nobody.
+    answerWith((call) => Promise.resolve(call.endpoint === LAUF ? gelaufen(0, 0) : landed(call)));
 
     await postSaisonAction(SAISON);
     await patchSaisonAction(SAISON);
@@ -106,6 +91,7 @@ describe("the season's writes", () => {
       { endpoint: "/saisons", method: "POST", body: SAISON },
       { endpoint: `/saisons/${id}`, method: "PATCH", body: fields },
       { endpoint: `/saisons/${id}/activate`, method: "POST", body: undefined },
+      { endpoint: LAUF, method: "POST", body: undefined },
       { endpoint: `/saisons/${id}/spielplan`, method: "POST", body: { replace: true } },
       { endpoint: `/saisons/${id}/spielplan`, method: "DELETE", body: undefined },
       { endpoint: `/saisons/${id}/gruppen/swap`, method: "POST", body: { team1_id: TEAM1_ID, team2_id: TEAM2_ID } },
@@ -154,7 +140,6 @@ describe("the saison actions against the codes their endpoints publish", () => {
       "REQ-RULES-009",
       "REQ-RULES-010",
       "REQ-RULES-011",
-      "REQ-RULES-012",
       "REQ-RULES-013",
     )) {
       expect(answerShown(code, mapRulesRefusal), `${code} reaches the admin as a generic conflict`).not.toBe(null);
@@ -174,7 +159,6 @@ describe("the saison actions against the codes their endpoints publish", () => {
         "REQ-RULES-009",
         "REQ-RULES-010",
         "REQ-RULES-011",
-        "REQ-RULES-012",
         "REQ-RULES-013",
       ),
       refuseWith: answerWith,
@@ -196,19 +180,11 @@ describe("the saison actions against the codes their endpoints publish", () => {
   });
 
   it("answers every refusal the group swap publishes", async () => {
-    for (const code of refusalCodes(
-      "REQ-SWAP-001",
-      "REQ-SWAP-002",
-      "REQ-SWAP-003",
-      "REQ-SWAP-004",
-      "REQ-SWAP-005",
-      "REQ-SWAP-006",
-      "REQ-SWAP-007",
-    )) {
+    for (const code of refusalCodes("REQ-SWAP-001", "REQ-SWAP-002", "REQ-SWAP-003", "REQ-SWAP-005", "REQ-SWAP-006", "REQ-SWAP-007")) {
       expect(answerShown(code, mapSwapRefusal), `${code} reaches the admin as a generic failure`).not.toBe(null);
     }
     await assertEachAnswered({
-      codes: refusalCodes("REQ-SWAP-001", "REQ-SWAP-002", "REQ-SWAP-003", "REQ-SWAP-004", "REQ-SWAP-005", "REQ-SWAP-006", "REQ-SWAP-007"),
+      codes: refusalCodes("REQ-SWAP-001", "REQ-SWAP-002", "REQ-SWAP-003", "REQ-SWAP-005", "REQ-SWAP-006", "REQ-SWAP-007"),
       refuseWith: answerWith,
       act: () => swapGruppenAction({ saison_id: SAISON_ID, team1_id: "68c1f0a2b3c4d5e6f7a8b9c0", team2_id: "68c1f0a2b3c4d5e6f7a8b9c1" }),
       mapped: mapSwapRefusal,
@@ -229,11 +205,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
       "REQ-RULES-001",
       "REQ-RULES-007",
       "REQ-RULES-013",
-      "REQ-RULES-014",
-      "REQ-RULES-015",
-      "REQ-RULES-016",
       "REQ-RULES-017",
-      "REQ-RULES-018",
       "REQ-SPIELPLAN-001",
       "REQ-SPIELPLAN-002",
       "REQ-SPIELPLAN-003",
@@ -264,11 +236,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
           "REQ-RULES-001",
           "REQ-RULES-007",
           "REQ-RULES-013",
-          "REQ-RULES-014",
-          "REQ-RULES-015",
-          "REQ-RULES-016",
           "REQ-RULES-017",
-          "REQ-RULES-018",
           "REQ-SPIELPLAN-001",
           "REQ-SPIELPLAN-002",
           "REQ-SPIELPLAN-003",
@@ -303,7 +271,7 @@ describe("the undraw action", () => {
      with two zeroes and `watermark_cleared`. */
   it("reports the three outcomes a 200 can carry apart", async () => {
     const undrawn = async (spieltage: number, spiele: number, watermark_cleared: boolean) => {
-      answerWith(() => Promise.resolve({ acknowledged: 1, saison_id: SAISON_ID, spieltage, spiele, watermark_cleared }));
+      answerWith(() => Promise.resolve({ saison_id: SAISON_ID, spieltage, spiele, watermark_cleared }));
       const result = await undrawSpielplanAction({ id: SAISON_ID });
       expect(result.success, result.success ? "" : result.error).toBe(true);
       return result.success ? (result.message ?? "") : "";
@@ -320,7 +288,7 @@ describe("the undraw action", () => {
   /* This press is the half of `REQ-RULES-011`'s repair loop that reopens the three shape rules, so
      the message reporting it says where they and the clubs are changed before the redraw. */
   it("names where the reopened numbers and the clubs are changed", async () => {
-    answerWith(() => Promise.resolve({ acknowledged: 1, saison_id: SAISON_ID, spieltage: 3, spiele: 12, watermark_cleared: true }));
+    answerWith(() => Promise.resolve({ saison_id: SAISON_ID, spieltage: 3, spiele: 12, watermark_cleared: true }));
 
     const result = await undrawSpielplanAction({ id: SAISON_ID });
 
@@ -480,6 +448,12 @@ describe("the German each widened refusal renders", () => {
 
 const LAUF = "/identitaet/loeschung/lauf";
 
+/** A deletion call: the generated call carries its `nach` in the endpoint's query. */
+const isLauf = ({ endpoint }: ApiCall): boolean => endpoint.split("?")[0] === LAUF;
+
+/** The query one call carried, as the backend reads it. */
+const queryOf = ({ endpoint }: ApiCall): Record<string, string> => Object.fromEntries(new URL(endpoint, "http://backend").searchParams);
+
 /** The activation's own message where it closed one season, as `landed` answers it. */
 const AKTIVIERT = `Saison ${SAISON_ID} ist jetzt aktiv. Die vorherige Saison ist abgeschlossen.`;
 
@@ -489,7 +463,6 @@ const VORNE = `${"e".repeat(23)}5`;
 
 /** One call of the deletion: whom it erased, who is still due after it, and where the pass goes on. */
 const gelaufen = (spieler: number, verbleibend: number, nach: string | null = null, seit: string | null = "2025") => ({
-  acknowledged: 1,
   abgeschlossene_saison_id: seit,
   spieler: spieler,
   saison_spieler: spieler * 2,
@@ -507,14 +480,14 @@ const gelaufen = (spieler: number, verbleibend: number, nach: string | null = nu
 function aktivierungUndLaeufe(...laeufe: (() => Promise<unknown>)[]): void {
   let lauf = 0;
   answerWith((call) => {
-    if (call.endpoint !== LAUF) return Promise.resolve(landed(call));
+    if (!isLauf(call)) return Promise.resolve(landed(call));
     const antwort = laeufe[lauf] ?? (() => Promise.resolve(gelaufen(0, 0)));
     lauf += 1;
     return antwort();
   });
 }
 
-const laeufe = (): number => calls.filter(({ endpoint }) => endpoint === LAUF).length;
+const laeufe = (): number => calls.filter(isLauf).length;
 
 /** The message of a press the action answered as saved, or a failure naming what it answered instead. */
 async function umgestellt(): Promise<string> {
@@ -524,10 +497,6 @@ async function umgestellt(): Promise<string> {
 }
 
 describe("the deletion the activation runs", () => {
-  beforeEach(() => {
-    loeschungSwitch = "on";
-  });
-
   /* The spine clears the tag once the body settles: a run behind the answer lands after the clear, and a squad page
      names deleted pupils until the lifetime passes. One list reads the order rather than assuming it. */
   it("runs the pass to its end after the activation, the tag cleared after the last call's answer", async () => {
@@ -540,14 +509,14 @@ describe("the deletion the activation runs", () => {
     const laeufeAntworten = [gelaufen(2, 1, ORT), gelaufen(1, 0)];
     answerWith(async (call) => {
       nachtragen();
-      if (call.endpoint !== LAUF) {
+      if (!isLauf(call)) {
         order.push(`${call.method ?? "GET"} ${call.endpoint}`);
         return landed(call);
       }
       const antwort = laeufeAntworten.shift() ?? gelaufen(0, 0);
       // A turn of the event loop before the answer lands, so a drop that does not wait on it runs first.
       await new Promise((resolve) => setImmediate(resolve));
-      order.push(`answered ${call.endpoint}`);
+      order.push(`answered ${LAUF}`);
       return antwort;
     });
 
@@ -564,19 +533,8 @@ describe("the deletion the activation runs", () => {
     expect(message).toBe(`${AKTIVIERT} 3 Spielerinnen und Spieler ohne Kadereintrag seit Saison 2025 wurden gelöscht.`);
   });
 
-  /* Unset is what a skipped validation leaves: a test negating "off" would delete there. */
-  for (const schalter of ["off", undefined]) {
-    it(`calls nothing more and answers as before where the switch reads ${String(schalter)}`, async () => {
-      loeschungSwitch = schalter;
-      aktivierungUndLaeufe(() => Promise.resolve(gelaufen(2, 0)));
-
-      expect(await umgestellt()).toBe(AKTIVIERT);
-      expect(laeufe(), `the switch reads ${String(schalter)} and the press deleted`).toBe(0);
-    });
-  }
-
   it("deletes nobody where the activation was refused", async () => {
-    answerWith((call) => (call.endpoint === LAUF ? Promise.resolve(gelaufen(1, 0)) : Promise.reject(refused("REQ-ACTIVATE-001"))));
+    answerWith((call) => (isLauf(call) ? Promise.resolve(gelaufen(1, 0)) : Promise.reject(refused("REQ-ACTIVATE-001"))));
     expect((await activateSaisonAction({ id: SAISON_ID })).success).toBe(false);
 
     expect(laeufe(), "a season that did not turn active had its pupils deleted").toBe(0);
@@ -653,8 +611,8 @@ describe("the deletion the activation runs", () => {
   it("hands each call the place the last answer named, past a call that erased nobody, until one names none", async () => {
     let vorne = 0;
     answerWith((call) => {
-      if (call.endpoint !== LAUF) return Promise.resolve(landed(call));
-      const { nach } = call.params as { nach?: string };
+      if (!isLauf(call)) return Promise.resolve(landed(call));
+      const { nach } = queryOf(call);
       if (nach === VORNE) return Promise.resolve(gelaufen(1, 10));
       return Promise.resolve(++vorne <= 3 ? { ...gelaufen(0, 11, VORNE), fehlgeschlagen: 10 } : gelaufen(0, 11));
     });
@@ -662,7 +620,7 @@ describe("the deletion the activation runs", () => {
     const message = await umgestellt();
 
     // A first call carrying no `nach` at all, never a null one: present, the server reads it as an id.
-    expect(calls.filter(({ endpoint }) => endpoint === LAUF).map(({ params }) => params)).toStrictEqual([{}, { nach: VORNE }]);
+    expect(calls.filter(isLauf).map(queryOf)).toStrictEqual([{}, { nach: VORNE }]);
     expect(message).toBe(
       `${AKTIVIERT} Eine Spielerin oder ein Spieler ohne Kadereintrag seit Saison 2025 wurde gelöscht. 10 weitere Löschungen stehen noch aus.`,
     );

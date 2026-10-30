@@ -25,7 +25,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 
-import type { FLGruppenNames, FLTrikotFarbe } from "@/features/teams/schemas";
+import type { FLGruppenNames, FLTrikotFarbe } from "@/core/generated/client/types";
 import type { GruppeOffer } from "@/features/teams/types";
 
 /**

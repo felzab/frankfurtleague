@@ -28,7 +28,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 
-import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/features/spieler/schemas";
+import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import type { SpielerFieldPath } from "@/features/spieler/spielerDraftStatus";
 import type { SpielerSaisonContext, SpielerTeamOption } from "@/features/spieler/types";
 import type { Key } from "@heroui/react/rac";

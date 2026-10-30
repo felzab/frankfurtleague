@@ -1,7 +1,7 @@
 import { austrittZustand } from "@/features/teams/constants";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLAustritt } from "@/features/teams/schemas";
+import type { FLAustritt } from "@/core/generated/client/types";
 import type { TeamSaisonMembership } from "@/features/teams/types";
 import type { RailBanner } from "@/shared/components/ui/railBanner";
 

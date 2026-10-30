@@ -1,5 +1,5 @@
-import type { FLGruppenNames } from "../teams/schemas";
 import type {
+  FLGruppenNames,
   FLPostSaisonPayload,
   FLSaisonBewerbung,
   FLSaisonPhaseSchedule,
@@ -7,21 +7,7 @@ import type {
   FLSaisonRules,
   FLSaisonSpielplan,
   FLSaisonStatus,
-} from "./schemas";
-
-// `"_id"` sorts chronologically: the season id is the four-character year string. A property of the
-// id format rather than a coincidence.
-type FLSaisonsSortOptions = "_id" | "start_date" | "end_date";
-
-export type FLSaisonsFilterParams = {
-  // No `saison_id`: this narrows a LIST, where `GET /saisons/{saison_id}` names one. The endpoint
-  // declares no such parameter, and an undeclared one is dropped in silence rather than refused.
-  status?: FLSaisonStatus;
-
-  limit?: number;
-  sort_by?: FLSaisonsSortOptions;
-  order?: "asc" | "desc";
-};
+} from "@/core/generated/client/types";
 
 /**
  * One entry of the season switcher. Deliberately not `FLSaison`: the switcher is a Client Component,
@@ -78,18 +64,17 @@ export type SaisonRolloverContext = {
    */
   hasUndatierteSpieltage: boolean;
   /**
-   * Whom the activation's deletion takes, counted and never named, and whether the switch lets it. `null` without a
-   * rollover or a season it closes; `"unlesbar"` where the count's read failed, the page standing.
+   * Whom the activation's deletion takes, counted and never named. `null` without a rollover or a season it closes;
+   * `"unlesbar"` where the count's read failed, the page standing.
    */
   loeschung: SaisonLoeschungVorschau | "unlesbar" | null;
 };
 
-/** The page's reading of `LOESCHUNG_SWEEP` beside the count: a client component never reads the config itself. */
+/** Whom the activation's deletion takes, by count. */
 export type SaisonLoeschungVorschau = {
   /** The season the activation closes, which the rule counts its squad rows from. */
   abgeschlosseneSaisonId: string;
   spieler: number;
-  eingeschaltet: boolean;
 };
 
 /**

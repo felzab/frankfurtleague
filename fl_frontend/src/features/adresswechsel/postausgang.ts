@@ -6,7 +6,7 @@ import { logger } from "@/core/logging";
 import { postAdresswechselPostausgang, postAdresswechselZugestellt } from "./mutations";
 import { adresswechselWirksam, mailAdresswechselNichtWirksam } from "./notifications";
 
-import type { FLAdresswechselPostausgangZeile } from "./schemas";
+import type { FLAdresswechselPostausgangZeile } from "@/core/generated/client/types";
 
 /**
  * Whether a drain is running, and whether an end arrived while it ran, per module instance: the claim hands a second

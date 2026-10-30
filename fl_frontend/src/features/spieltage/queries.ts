@@ -1,25 +1,25 @@
 import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
-import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
+import { spieltageGetSpieltage, spieltageGetSpieltageForAdmin, spieltageGetSpieltagForAdmin } from "@/core/generated/client/sdk";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
-import { FLSpieltageListResponseSchema, FLSpieltageSingleResponseSchema } from "./schemas";
+import type {
+  FLSpieltageListResponse,
+  FLSpieltageSingleResponse,
+  SpieltageGetSpieltageForAdminParams,
+  SpieltageGetSpieltageParams,
+} from "@/core/generated/client/types";
 
-import type { FLSpieltageListResponse, FLSpieltageSingleResponse } from "./schemas";
-import type { FLSpieltageFilterParams } from "./types";
-
-export async function getSpieltage(filters: FLSpieltageFilterParams = {}): Promise<FLSpieltageListResponse> {
+export async function getSpieltage(filters: SpieltageGetSpieltageParams = {}): Promise<FLSpieltageListResponse> {
   "use cache";
 
   cacheTag(SITE_CACHE_TAG);
   cacheLife("minutes");
 
-  return apiClient<FLSpieltageListResponse>("/spieltage", FLSpieltageListResponseSchema, {
-    params: filters,
-  });
+  return spieltageGetSpieltage(filters);
 }
 
 /** One in-flight admin matchday read per filter set, held for the length of one render pass. */
@@ -29,15 +29,13 @@ const adminSpieltageInFlight = cache((): Map<string, Promise<FLSpieltageListResp
  * A season's matchdays for the admin surfaces, a planned season's included — `getSpieltage` refuses
  * that season, though a matchday is dated before it. **Uncached**.
  */
-export function getAdminSpieltage(filters: FLSpieltageFilterParams = {}): Promise<FLSpieltageListResponse> {
+export function getAdminSpieltage(filters: SpieltageGetSpieltageForAdminParams = {}): Promise<FLSpieltageListResponse> {
   // Keyed on the filters SERIALIZED, for the reason `fl_frontend/src/features/spiele/queries.ts :: getAdminSpiele` gives.
   const key = JSON.stringify(filters, Object.keys(filters).sort());
   const held = adminSpieltageInFlight().get(key);
   if (held !== undefined) return held;
 
-  const started = runAdminRead(() =>
-    apiClient<FLSpieltageListResponse>("/spieltage/list/admin", FLSpieltageListResponseSchema, { authType: "admin", params: filters }),
-  );
+  const started = runAdminRead(() => spieltageGetSpieltageForAdmin(filters));
   adminSpieltageInFlight().set(key, started);
 
   return started;
@@ -49,11 +47,9 @@ export function getAdminSpieltage(filters: FLSpieltageFilterParams = {}): Promis
  */
 export const getAdminSpieltagById = cache(async (spieltagId: string): Promise<FLSpieltageSingleResponse | null> =>
   runAdminRead(() =>
-    apiClient<FLSpieltageSingleResponse>(`/spieltage/${spieltagId}/admin`, FLSpieltageSingleResponseSchema, { authType: "admin" }).catch(
-      (error: unknown) => {
-        if (isRecordMissing(error)) return null;
-        throw error;
-      },
-    ),
+    spieltageGetSpieltagForAdmin(spieltagId).catch((error: unknown) => {
+      if (isRecordMissing(error)) return null;
+      throw error;
+    }),
   ),
 );

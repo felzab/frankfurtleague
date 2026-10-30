@@ -17,7 +17,7 @@ import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { Switch } from "@/shared/components/ui/Switch";
 import { TextField } from "@/shared/components/ui/TextField";
 
-import type { FLAustrittType } from "@/features/teams/schemas";
+import type { FLAustrittType } from "@/core/generated/client/types";
 import type { TeamFieldPath } from "@/features/teams/teamDraftStatus";
 import type { Key } from "@heroui/react/rac";
 import type { CalendarDate } from "@internationalized/date";

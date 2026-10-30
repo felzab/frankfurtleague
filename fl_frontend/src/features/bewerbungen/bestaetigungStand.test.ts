@@ -12,10 +12,10 @@ import {
   zusageHindernis,
 } from "./bestaetigungStand.ts";
 
+import type { FLBewerbung, FLBewerbungBestaetigung } from "@/core/generated/client/types.ts";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { FLBewerbungZustellstand } from "@/shared/schemas.ts";
 import type { SitzBestaetigung } from "./bestaetigungStand.ts";
-import type { FLBewerbung, FLBewerbungBestaetigung } from "./schemas.ts";
 
 type Sitze = Pick<FLBewerbung, "bestaetigungen" | "kontakte" | "status">;
 type Person = FLBewerbung["kontakte"]["trainer"];

@@ -9,8 +9,9 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.identitaet.crud import refuse_without_a_seat
 from app.api.identitaet.lookup import SubjektLookup
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.spieler.crud import refuse_a_taken_rolle
-from app.api.spieler.schemas import FLKaderResponse, FLKaderZeile, FLKaderZeileResponse, FLPatchKaderZeilePayload
+from app.api.spieler.schemas import FLKaderResponse, FLKaderZeile, FLPatchKaderZeilePayload
 from app.api.spieler.services import build_kader_pipeline, find_kader_stufe_refusal, mark_shared_nummern
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, patch_one_in_db, pull_one_from_db, refuse, set_inactive_since
@@ -20,9 +21,8 @@ from app.core.dependencies import (
     SaisonSpielerCollection,
     get_german_date_str,
 )
-from app.core.exceptions import DocumentNotFoundError
 from app.core.routing import by_id
-from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, verify_access_admin
+from app.core.security import verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
 from app.shared.schemas.literals import FLSpielerStufe
@@ -78,18 +78,13 @@ async def _the_row_as_written(
     saison_id: str,
     spieler_id: CustomObjectId,
     session: AsyncClientSession,
-) -> FLKaderZeileResponse:
+) -> FLKaderZeile:
     """Read back inside the write's own transaction, so the shirt marker is the squad's after this write and before any other."""
 
     kader = await _read_the_squad(saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, session=session)
-    zeile = next((zeile for zeile in kader if zeile.spieler_id == spieler_id), None)
+    [zeile] = [zeile for zeile in kader if zeile.spieler_id == spieler_id]
 
-    # A row whose person is gone, a hand edit the squad read drops, is answered as the live-row
-    # filter answers a row it misses; raised inside the transaction, the write it follows is undone.
-    if zeile is None:
-        raise DocumentNotFoundError()
-
-    return FLKaderZeileResponse.model_validate(zeile.model_dump())
+    return zeile
 
 
 @router.get(SQUAD_PATH, response_model=FLKaderResponse, summary="Read a team's squad as its seat holder")
@@ -129,7 +124,7 @@ async def get_kader(
 
 @router.patch(
     ROW_PATH,
-    response_model=FLKaderZeileResponse,
+    response_model=FLKaderZeile,
     summary="Update a squad entry as its team's seat holder",
 )
 async def patch_kader_zeile(
@@ -142,7 +137,7 @@ async def patch_kader_zeile(
     saisons_collection: SaisonsCollection,
     records: SubjektLookup,
     db: DBClient,
-) -> FLKaderZeileResponse:
+) -> FLKaderZeile:
     """
     Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.
 
@@ -155,7 +150,7 @@ async def patch_kader_zeile(
 
     row = _live_row(team_id=team_id, saison_id=saison_id, spieler_id=spieler_id)
 
-    async def edit_the_row(session: AsyncClientSession) -> FLKaderZeileResponse:
+    async def edit_the_row(session: AsyncClientSession) -> FLKaderZeile:
         """Judge, then rewrite the row. Everything judged is read in-session."""
 
         await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
@@ -203,7 +198,7 @@ async def patch_kader_zeile(
 
 @router.delete(
     ROW_PATH,
-    response_model=FLKaderZeileResponse,
+    response_model=FLKaderZeile,
     summary="Take a Spieler out of the squad as its team's seat holder (austragen)",
 )
 async def delete_kader_zeile(
@@ -215,7 +210,7 @@ async def delete_kader_zeile(
     records: SubjektLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> FLKaderZeileResponse:
+) -> FLKaderZeile:
     """
     Take a player out of this team's squad for the season, as any contact seat of the team may. SOFT: the row stays.
 
@@ -224,7 +219,7 @@ async def delete_kader_zeile(
     another team's pupil and an ausgetragen row alike. Refused `REQ-FUNKTION-001` without a seat.
     """
 
-    async def take_the_row_out(session: AsyncClientSession) -> FLKaderZeileResponse:
+    async def take_the_row_out(session: AsyncClientSession) -> FLKaderZeile:
         """Judge the seat, then stamp the row: the live-row filter is the write's own, so an ausgetragen row is a 404 here."""
 
         await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)

@@ -1,5 +1,13 @@
-import type { FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "@/features/teams/schemas";
-import type { FLBewerbung, FLBewerbungEinwilligungAnsichtResponse, FLBewerbungKontaktpersonPayload, FLBewerbungSchulePayload } from "./schemas";
+import type {
+  FLBewerbung,
+  FLBewerbungEinwilligungAnsichtResponse,
+  FLBewerbungEinwilligungAnsichtResponseQuelle,
+  FLBewerbungKontaktpersonPayload,
+  FLBewerbungSchulePayload,
+  FLSchulform,
+  FLTrainerZugleich,
+  FLTrikotFarbe,
+} from "@/core/generated/client/types";
 
 /** A club as the triage needs to know it, so any read carrying the two fields answers. */
 export type NamedTeam = { id: string; name: string };
@@ -13,28 +21,6 @@ export type AdminBewerbungRow = FLBewerbung & {
   // Answered against the season the header names, so the facet reading it stays a pure function of a
   // row: `fl_frontend/src/shared/utils/facets.ts :: Facet` sees nothing but the item.
   inSelectedSaison: boolean;
-};
-
-type FLBewerbungenSortingOptions = "eingereicht_am";
-
-/**
- * What the triage list may narrow on. No `bewerbung_id`: `GET /bewerbungen/{bewerbung_id}` names one.
- *
- * Omission is meaningful: `apiClient` drops undefined params rather than serialising them, so an
- * absent `status` is every state rather than none.
- */
-export type FLBewerbungenFilterParams = {
-  saison_id?: string;
-  // Which side of `saison_id` the read covers, the endpoint reading it beside that season alone: the
-  // bar offers the complement, and no season id can express it.
-  saisonbezug?: string;
-  // Comma-joined rather than an array: `apiClient` serialises one value per key, and the endpoint
-  // splits this back into the `$in` a multi-select facet's selection needs.
-  status?: string;
-
-  limit?: number;
-  sort_by?: FLBewerbungenSortingOptions;
-  order?: "asc" | "desc";
 };
 
 /**
@@ -100,18 +86,12 @@ export type KuerzelVerdikt = { shorthand: string; vergeben: boolean };
  */
 export type LinkZustand = "bestaetigt" | "abgelehnt" | "abgelaufen" | "ungueltig" | "gesperrt";
 
-/** A link still open, and so a seat the page can still be answered for. */
-export type EinwilligungGeoeffnet = FLBewerbungEinwilligungAnsichtResponse;
-
-/** Which record a link opened: an application's seat, or a seat an administrator typed onto a team's season row. */
-export type EinwilligungQuelle = FLBewerbungEinwilligungAnsichtResponse["quelle"];
-
 /**
  * A spent link keeps the record it opened where the read answered one, so its panel says what is true of
  * that record; a link opening nothing names none.
  */
 export type EinwilligungAnsicht =
   // One member per open state, so a check of `zustand` narrows to the one the caller handles.
-  | { zustand: "gueltig"; ansicht: EinwilligungGeoeffnet }
-  | { zustand: "saison_vorbei"; ansicht: EinwilligungGeoeffnet }
-  | { zustand: LinkZustand; quelle?: EinwilligungQuelle };
+  | { zustand: "gueltig"; ansicht: FLBewerbungEinwilligungAnsichtResponse }
+  | { zustand: "saison_vorbei"; ansicht: FLBewerbungEinwilligungAnsichtResponse }
+  | { zustand: LinkZustand; quelle?: FLBewerbungEinwilligungAnsichtResponseQuelle };

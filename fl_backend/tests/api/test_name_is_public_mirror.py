@@ -41,10 +41,6 @@ INITIAL = "M."
 # a scope no enum holds is a state it has to answer rather than one it may assume away.
 UNKNOWN_UMFANG = "kader"
 
-# A stamp `$type` calls a string and no writer composes. Its own state because the Mongo arm was
-# spelled `$type`, which admits it while the ruling asks for a record that is stamped.
-EMPTY_STAMP = ""
-
 # A key the document does not carry, which is what `$type` answering "missing" is: the two keys were
 # added to `_EINWILLIGUNG` out of `required`, so a stored record really can be short of either.
 ABSENT: Final = "<no such key>"
@@ -70,19 +66,15 @@ NAME_IS_PUBLIC: Final[tuple[ConsentCase, ...]] = (
     ConsentCase("no record at all", None, False),
     ConsentCase("public, confirmed", _record("kader_oeffentlich", CONFIRMED), True),
     ConsentCase("public, unconfirmed", _record("kader_oeffentlich", None), False),
-    ConsentCase("public, an empty stamp", _record("kader_oeffentlich", EMPTY_STAMP), False),
     ConsentCase("public, no stamp key", _record("kader_oeffentlich", ABSENT), False),
     ConsentCase("internal, confirmed", _record("intern", CONFIRMED), False),
     ConsentCase("internal, unconfirmed", _record("intern", None), False),
-    ConsentCase("internal, an empty stamp", _record("intern", EMPTY_STAMP), False),
     ConsentCase("internal, no stamp key", _record("intern", ABSENT), False),
     ConsentCase("an unknown scope, confirmed", _record(UNKNOWN_UMFANG, CONFIRMED), False),
     ConsentCase("an unknown scope, unconfirmed", _record(UNKNOWN_UMFANG, None), False),
-    ConsentCase("an unknown scope, an empty stamp", _record(UNKNOWN_UMFANG, EMPTY_STAMP), False),
     ConsentCase("an unknown scope, no stamp key", _record(UNKNOWN_UMFANG, ABSENT), False),
     ConsentCase("no scope key, confirmed", _record(ABSENT, CONFIRMED), False),
     ConsentCase("no scope key, unconfirmed", _record(ABSENT, None), False),
-    ConsentCase("no scope key, an empty stamp", _record(ABSENT, EMPTY_STAMP), False),
     ConsentCase("no scope key, no stamp key", _record(ABSENT, ABSENT), False),
 )
 
@@ -104,9 +96,7 @@ def test_the_table_closes_over_every_input_and_both_verdicts():
     spanned = {_inputs(case) for case in NAME_IS_PUBLIC}
 
     assert spanned == {(None, None)} | {
-        (umfang, stamp)
-        for umfang in ("kader_oeffentlich", "intern", UNKNOWN_UMFANG, ABSENT)
-        for stamp in (CONFIRMED, None, EMPTY_STAMP, ABSENT)
+        (umfang, stamp) for umfang in ("kader_oeffentlich", "intern", UNKNOWN_UMFANG, ABSENT) for stamp in (CONFIRMED, None, ABSENT)
     }
     assert {case.published for case in NAME_IS_PUBLIC} == {True, False}
 

@@ -120,7 +120,7 @@ export const ansetzungGeaendert = (draft: SpielBannerAnsetzung, stored: SpielBan
   ANSETZUNG_QUELLEN.some((quelle) => draft[quelle] !== stored[quelle]);
 
 /** The days from `today` to `datum`, each `YYYY-MM-DD`: `Date.parse` reads both as a UTC midnight, so the count is exact. */
-export const tageBis = (datum: string, today: string): number => (Date.parse(datum) - Date.parse(today)) / DAY_MS;
+const tageBis = (datum: string, today: string): number => (Date.parse(datum) - Date.parse(today)) / DAY_MS;
 
 /**
  * Inside the deadline's days and strictly after `today`, the sweep's own floor: a fixture whose day has come is asked
@@ -188,7 +188,6 @@ export function buildSpielBanners({
   ansetzung,
   storedAnsetzung,
   isActiveSaison,
-  isSpielSweepOn,
   austrittTage,
   today,
 }: {
@@ -230,8 +229,6 @@ export function buildSpielBanners({
   storedAnsetzung: SpielBannerAnsetzung;
   /** The fixture's season is the running one, the only kind the sweep visits. */
   isActiveSaison: boolean;
-  /** The confirmations' pass is switched on: off, it sends no request, whatever the fixture. */
-  isSpielSweepOn: boolean;
   /** The day each club the draft fields left this season on, where it has. */
   austrittTage: readonly string[];
   /** The German today the page was rendered on. */
@@ -422,7 +419,6 @@ export function buildSpielBanners({
   // The notice the deadline promises cannot be given: the next pass asks at once, and the link answers that day alone.
   // Raised only by a save that asks, never as a standing hint on every near fixture.
   if (
-    isSpielSweepOn &&
     ansetzungGeaendert(ansetzung, storedAnsetzung) &&
     ohneVorlauf(ansetzung.datum, today) &&
     wirdAngefragt(ansetzung, { isActiveSaison, sonderereignis, hasAnyTore, hasShootOut, austrittTage, today })

@@ -8,6 +8,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 from pymongo.results import InsertOneResult
 
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.bewerbungen.services import mint_token
 from app.api.einladungen.schemas import (
     FLEinladungVersandPayload,
@@ -105,15 +106,7 @@ from app.core.dependencies import (
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import fl_logger
-from app.core.security import (
-    StepUpCheck,
-    bind_actor,
-    get_actor_email,
-    get_step_up_check,
-    verify_access_admin,
-    verify_actor_is_admin,
-    verify_step_up,
-)
+from app.core.security import SessionActor, bind_actor, get_actor_email, verify_access_admin, verify_admin_actor, verify_step_up
 from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.literals import FLGruppenNames
@@ -498,23 +491,14 @@ async def activate_saison(
     """
 
     async def judge_and_roll_the_league_over(session: AsyncClientSession) -> FLActivateSaisonResponse:
-        """Judge, then demote every incumbent and promote the target. Every figure is read in-session, the status again outside it."""
-
-        async def the_targets_status(status_session: AsyncClientSession | None) -> str:
-            """`REQ-ACTIVATE-002`'s input, read either through the transaction or outside it.
-
-            A season id naming nothing raises the 404 here, before any demotion.
-            """
-
-            target = await pull_one_from_db(
-                collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=status_session
-            )
-
-            return str(target["status"])
+        """Judge, then demote every incumbent and promote the target. Every figure is read in-session."""
 
         # THROUGH the session, as the draw's reads are: a retry after a write conflict judges the
-        # league as it stands then.
-        target_status = await the_targets_status(session)
+        # league as it stands then. A season id naming nothing raises the 404 here, before any demotion.
+        target_raw = await pull_one_from_db(
+            collection=saisons_collection, db_filter={"_id": saison_id}, projection={"status": 1}, session=session
+        )
+        target_status = str(target_raw["status"])
 
         # `$ne` on the target, so re-activating the current season is not blocked by its own fixtures.
         outgoing = await pull_many_from_db(
@@ -561,6 +545,8 @@ async def activate_saison(
             session=session,
         )
 
+        # Raises the target's version even where it is already `active`, so a rival demoting it under
+        # this rollover conflicts with the write and the retry judges it `past`.
         activated_raw = await patch_one_in_db(
             collection=saisons_collection,
             db_filter={"_id": saison_id},
@@ -568,27 +554,6 @@ async def activate_saison(
             session=session,
             return_document=ReturnDocument.AFTER,
         )
-
-        # A target already `active` joins no write set, so a rival demoting it raises no conflict to
-        # retry on. Re-judged outside the session; the window to the
-        # commit is the residue.
-
-        # The STATUS alone, because it is the only input a rival can move here: an undraw and a
-        # replace each need a `future` season, a draw only adds fixtures, and a new incumbent arrives
-        # only from a rollover that demotes this target.
-
-        # Dated-ness rides on the in-session count for the same reason: this branch re-promotes a
-        # season that is already live, so a matchday drawn under it cannot make the league go live
-        # undated.
-        if target_status == "active":
-            refuse(
-                find_activation_refusal(
-                    target_status=await the_targets_status(None),
-                    target_fixtures=target_fixtures,
-                    undated_spieltage=undated_spieltage,
-                    outgoing_unplayed=unplayed,
-                )
-            )
 
         # ERASED rather than deleted: a retention period
         # ended, which is the distinction between the two helpers, and a `before` image would
@@ -759,7 +724,7 @@ async def generate_spielplan(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
     db: DBClient,
-    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
+    actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     # An absent body is `replace: false`, so a first draw needs no confirmation and nothing replaces
     # a season by leaving the flag out.
     spielplan_data: Annotated[FLGenerateSpielplanPayload, Body(default_factory=FLGenerateSpielplanPayload)],
@@ -776,7 +741,7 @@ async def generate_spielplan(
     """
 
     if spielplan_data.replace:
-        refuse_unconfirmed()
+        verify_step_up(actor)
 
     # A read first, so an unknown season is a 404 rather than a refusal about what it does not hold.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])

@@ -10,11 +10,10 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { eraseAufAnfrage, readErasureAnsicht, recordAbmeldung } from "./mutations";
 import { mapAbmeldungRefusal, mapErasureRefusal } from "./refusals";
-import { FLAbmeldungPayloadSchema, FLErasureAnsichtPayloadSchema, FLErasurePayloadSchema } from "./schemas";
+import { FLErasureAdressePayloadSchema, FLErasurePayloadSchema } from "./schemas";
 
-import type { FLErasureResponse } from "@/core/schemas";
+import type { FLErasureAdressePayload, FLErasureAnsichtResponse, FLErasurePayload, FLErasureResponse } from "@/core/generated/client/types";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
-import type { FLAbmeldungPayload, FLErasureAnsichtPayload, FLErasureAnsichtResponse, FLErasurePayload } from "./schemas";
 
 /** What became of the address's sign-in account once its league records were gone. */
 export type KontoNachLoeschung = "geloescht" | "keines" | "nichtGeloescht" | "unklar";
@@ -68,10 +67,10 @@ function loeschungSatz(konto: KontoNachLoeschung, gespeichert: boolean, spiele: 
  * before anyone confirms a press the backend would turn away.
  */
 export async function readErasureAnsichtAction(
-  rawPayload: FLErasureAnsichtPayload,
+  rawPayload: FLErasureAdressePayload,
 ): Promise<QueryResult<{ ansicht: FLErasureAnsichtResponse }>> {
   return runAdminMutation("readErasureAnsichtAction", async () => {
-    const validated = FLErasureAnsichtPayloadSchema.safeParse(rawPayload);
+    const validated = FLErasureAdressePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
       return {
@@ -143,9 +142,9 @@ const ANMELDUNGEN_NICHT_BEENDET = "Laufende Anmeldungen der Adresse konnten nich
  * Ends every session of an address without barring it and without a mail. A step-up
  * write: nothing brings an ended session back, and unasked, a stolen session could sign administrators out again and again.
  */
-export async function endAnmeldungenAction(rawPayload: FLAbmeldungPayload): Promise<ActionResult<{ konto: boolean }>> {
+export async function endAnmeldungenAction(rawPayload: FLErasureAdressePayload): Promise<ActionResult<{ konto: boolean }>> {
   return runAdminMutation("endAnmeldungenAction", { stepUp: true }, async () => {
-    const validated = FLAbmeldungPayloadSchema.safeParse(rawPayload);
+    const validated = FLErasureAdressePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
       return {

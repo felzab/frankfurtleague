@@ -27,14 +27,14 @@ import { appToast } from "@/shared/utils/appToast";
 
 import { FormLoeschungAnsicht } from "./FormLoeschungAnsicht";
 
-import type { LoeschungAnsicht } from "./FormLoeschungAnsicht";
+import type { FLErasureAnsichtResponse } from "@/core/generated/client/types";
 
 /**
  * What the arming read left the reveal holding, carried WITH the address it was read for. A refusal's `reason` is
  * whole, said once for the reveal's body and the closed press alike, so the two cannot part.
  */
 type Gelesen = { adresse: string } & (
-  { status: "reading" } | { status: "read"; ansicht: LoeschungAnsicht } | { status: "refused"; reason: string }
+  { status: "reading" } | { status: "read"; ansicht: FLErasureAnsichtResponse } | { status: "refused"; reason: string }
 );
 
 type Fehler = { email?: string; anlass?: string };

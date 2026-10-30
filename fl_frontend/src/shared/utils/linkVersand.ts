@@ -1,4 +1,4 @@
-import type { AdresswechselWeg } from "@/core/adresswechsel";
+import type { FLAdresswechselWeg } from "@/core/generated/client/types";
 
 /**
  * How one link mail ended. `zurueckgehalten` is a deployment that mails nothing filing it
@@ -41,7 +41,7 @@ export type HinweisVersand = LinkVersand | "ungewiss";
  * link before an approval, no notice on a re-send.
  */
 export type AdresswechselVersand = {
-  weg: AdresswechselWeg;
+  weg: FLAdresswechselWeg;
   link: LinkVersand | null;
   hinweis: HinweisVersand | null;
 };

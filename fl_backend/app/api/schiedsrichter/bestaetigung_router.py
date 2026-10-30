@@ -25,7 +25,6 @@ from app.api.schiedsrichter.services import (
     find_expired_token_refusal,
     find_medien_refusal,
     find_unknown_token_refusal,
-    frist_of,
     zustand_of,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
@@ -79,8 +78,7 @@ async def get_bestaetigung_ansicht(
     refuse(find_unknown_token_refusal(found=raw is not None))
     assert raw is not None
 
-    bestaetigung = raw.get(BESTAETIGUNG_FELD)
-    frist = frist_of(bestaetigung)
+    bestaetigung = raw[BESTAETIGUNG_FELD]
     einwilligung = raw.get(EINWILLIGUNG_FELD)
 
     gesperrt = await adressen_gesperrt(sperrliste, [str((raw.get("kontakt") or {}).get("email") or "")])
@@ -91,7 +89,7 @@ async def get_bestaetigung_ansicht(
         # paragraph a person reads before consenting has to state.
         mindestalter=SCHIEDSRICHTER_MIN_AGE_YEARS,
         medien_mindestalter=MEDIEN_MIN_AGE_YEARS,
-        frist=frist,
+        frist=bestaetigung["frist"],
     )
 
 
@@ -147,7 +145,7 @@ async def post_bestaetigung(
         # valid day and presses again is told their answer stands, never that the link expired and
         # to ask for another.
         refuse(find_already_confirmed_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD)))
-        refuse(find_expired_token_refusal(frist=frist_of(raw.get(BESTAETIGUNG_FELD)), today=today))
+        refuse(find_expired_token_refusal(frist=raw[BESTAETIGUNG_FELD]["frist"], today=today))
         # A new acceptance: the running label alone, so a page loaded before a deploy is told to reload.
         refuse(find_fassung_refusal(seite="bestaetigung_schiedsrichter", genannt={EINWILLIGUNG_FELD: antwort_data.text_version}))
         # Asked at the press rather than only at the mint: a ban entered after the link went out

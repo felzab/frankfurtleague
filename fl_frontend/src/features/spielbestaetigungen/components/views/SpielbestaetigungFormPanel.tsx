@@ -36,11 +36,8 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
 import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 
-import type {
-  FLSpielbestaetigungAntwortPayload,
-  FLSpielbestaetigungTermin,
-  FLSpielbestaetigungVon,
-} from "@/features/spielbestaetigungen/schemas";
+import type { FLSpielbestaetigungAntwort, FLSpielbestaetigungTermin } from "@/core/generated/client/types";
+import type { FLSpielbestaetigungAntwortPayload } from "@/features/spielbestaetigungen/schemas";
 import type { SpielbestaetigungLinkZustand } from "@/features/spielbestaetigungen/utils";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { CalendarDate, Time } from "@internationalized/date";
@@ -52,8 +49,8 @@ const ANDEREN_TERMIN_VORSCHLAGEN = "Anderen Termin vorschlagen";
 export type SpielbestaetigungAbschluss =
   | { zustand: "zugesagt-neu" }
   | { zustand: "abgelehnt-neu"; vorschlag: FLSpielbestaetigungTermin }
-  | { zustand: "zugesagt"; beantwortet_von: FLSpielbestaetigungVon }
-  | { zustand: "abgelehnt"; beantwortet_von: FLSpielbestaetigungVon }
+  | { zustand: "zugesagt"; beantwortet_von: FLSpielbestaetigungAntwort["von"] }
+  | { zustand: "abgelehnt"; beantwortet_von: FLSpielbestaetigungAntwort["von"] }
   | { zustand: "verworfen"; termin: FLSpielbestaetigungTermin }
   | { zustand: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "abgelehnt" | "verworfen"> };
 
@@ -63,7 +60,7 @@ export type SpielbestaetigungAntwort =
   | (PublicEnvelope & {
       success: false;
       zustand?: SpielbestaetigungLinkZustand;
-      beantwortet_von?: FLSpielbestaetigungVon;
+      beantwortet_von?: FLSpielbestaetigungAntwort["von"];
       termin?: FLSpielbestaetigungTermin;
     });
 
@@ -95,7 +92,7 @@ const toTime = (stored: string): Time | null => (stored === "" ? null : parseTim
 /** A refused press as the panel it swaps the form for: an answered link keeps the seat that answered. */
 function spentAbschluss(
   zustand: SpielbestaetigungLinkZustand,
-  beantwortetVon: FLSpielbestaetigungVon | undefined,
+  beantwortetVon: FLSpielbestaetigungAntwort["von"] | undefined,
   termin: FLSpielbestaetigungTermin | undefined,
 ): SpielbestaetigungAbschluss {
   // As an answered state without its seat: a discard read back without the date it kept claims nothing either.

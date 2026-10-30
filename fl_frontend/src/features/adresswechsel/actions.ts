@@ -34,17 +34,15 @@ import {
   FLAdresswechselVerwerfenPayloadSchema,
 } from "./schemas";
 
-import type { ActionResult, QueryResult } from "@/shared/types/types";
-import type { HinweisVersand, LinkVersand } from "@/shared/utils/linkVersand";
-import type { EinsehbarVerwehrt } from "./einsehbar";
 import type {
-  FLAdresswechselEinladenPayload,
-  FLAdresswechselGenehmigungPayload,
   FLAdresswechselVerwaltungAnsichtPayload,
   FLAdresswechselVerwaltungAnsichtResponse,
   FLAdresswechselVerwaltungPayload,
-  FLAdresswechselVerwerfenPayload,
-} from "./schemas";
+} from "@/core/generated/client/types";
+import type { ActionResult, QueryResult } from "@/shared/types/types";
+import type { HinweisVersand, LinkVersand } from "@/shared/utils/linkVersand";
+import type { EinsehbarVerwehrt } from "./einsehbar";
+import type { FLAdresswechselEinladenPayload, FLAdresswechselGenehmigungPayload, FLAdresswechselVerwerfenPayload } from "./schemas";
 
 /** What the tool's two link writes answer: each message's outcome. */
 export type AdresswechselGesendet = ActionResult<{ versand: LinkVersand | null; hinweis: HinweisVersand | null }>;

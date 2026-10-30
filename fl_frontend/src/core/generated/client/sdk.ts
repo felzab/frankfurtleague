@@ -82,7 +82,7 @@ import type {
   FLGesperrtPayload,
   FLGesperrtResponse,
   FLKaderResponse,
-  FLKaderZeileResponse,
+  FLKaderZeile,
   FLKontaktEinladenResponse,
   FLKontoAdresswechselFreigabePayload,
   FLKontoAdresswechselFreigabeResponse,
@@ -111,6 +111,13 @@ import type {
   FLPatchSpieltagPayload,
   FLPatchTeamPayload,
   FLPatchTeamResponse,
+  FLPostausgangAnmeldungPayload,
+  FLPostausgangAnmeldungResponse,
+  FLPostausgangAusgabeResponse,
+  FLPostausgangEreignisPayload,
+  FLPostausgangEreignisResponse,
+  FLPostausgangErgebnisPayload,
+  FLPostausgangErgebnisResponse,
   FLPostBerechtigungPayload,
   FLPostBerechtigungResponse,
   FLPostBewerbungPayload,
@@ -127,7 +134,6 @@ import type {
   FLPostSperrlisteResponse,
   FLPostSpielortPayload,
   FLPostTeamPayload,
-  FLPostTeamResponse,
   FLReferenzenPayload,
   FLReferenzenResponse,
   FLRegistrierungAblehnenPayload,
@@ -146,7 +152,6 @@ import type {
   FLSaisonSpielerResponse,
   FLSaisonsSingleResponse,
   FLSaisonTeamEinwilligungAntwortResponse,
-  FLSaisonTeamPersonEinwilligungPayload,
   FLSaisonTeamPersonEinwilligungResponse,
   FLSaisonTeamResponse,
   FLSchiedsrichterBestaetigungAnsichtResponse,
@@ -2293,6 +2298,144 @@ export const kontoGetEinwilligungen = async (options?: Parameters<typeof adminKe
   });
 };
 
+export const getPostausgangPostAnmeldungUrl = () => {
+  return `/api/v0/postausgang/anmeldung`;
+};
+
+/**
+ * Owe one mail the sign-in library sends -- the code, a passkey notice, the deletion link -- to the address named.
+ *
+ * A replay of the same `schluessel` writes nothing and answers the row its first call wrote. `geheim` is stored as it
+ * arrives, encrypted under a key this service never holds, and dropped once the mail is settled; `gueltig_bis` is both
+ * the last moment a hand-out may send it and the moment the row is deleted, settled or not.
+ * @summary Owe one mail of the sign-in library
+ */
+export const postausgangPostAnmeldung = async (
+  fLPostausgangAnmeldungPayload: FLPostausgangAnmeldungPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLPostausgangAnmeldungResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return systemKeyTransport<FLPostausgangAnmeldungResponse>(getPostausgangPostAnmeldungUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPostausgangAnmeldungPayload),
+  });
+};
+
+export const getPostausgangPostAusgabeUrl = () => {
+  return `/api/v0/postausgang/ausgabe`;
+};
+
+/**
+ * Claim, oldest first and a page at a time, the owed mails no claim holds, for five minutes, and hand each out.
+ *
+ * A mail past its deadline is given up rather than handed out, and counted in `aufgegeben`. A mail to an address a
+ * standing ban holds is stopped as `gesperrt`, the ban's own notice alone excepted. A mail carrying a link has it minted
+ * here, its hash written to the record the mail is about and the raw token answered once, in `token`; a record gone
+ * since stops the mail as `entfallen`. A second call inside the lease is answered none of these rows. The caller sends
+ * each under the idempotency key its `versuch` names and reports every outcome, with `beanspruchung`, to `POST /postausgang/ergebnis`;
+ * where the lease lapses first, the next call hands the row out again with a fresh link and number, every earlier link
+ * staying valid unless the mail's link supersedes them. Server to server alone: the answer names addresses, live links
+ * and secrets.
+ * @summary Claim the mails owed now and hand them out
+ */
+export const postausgangPostAusgabe = async (options?: Parameters<typeof systemKeyTransport>[1]): Promise<FLPostausgangAusgabeResponse> => {
+  return systemKeyTransport<FLPostausgangAusgabeResponse>(getPostausgangPostAusgabeUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getPostausgangPostEreignisUrl = () => {
+  return `/api/v0/postausgang/ereignis`;
+};
+
+/**
+ * Record what the mail provider reported about one message, on the row of the mail it was.
+ *
+ * The row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds
+ * it all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before
+ * anything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later
+ * one changes nothing. Both answer `angewendet: false`, as does an id no row has, rather than a refusal the provider
+ * would retry for hours.
+ * @summary Record one delivery event on its mail's row
+ */
+export const postausgangPostEreignis = async (
+  fLPostausgangEreignisPayload: FLPostausgangEreignisPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLPostausgangEreignisResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return systemKeyTransport<FLPostausgangEreignisResponse>(getPostausgangPostEreignisUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPostausgangEreignisPayload),
+  });
+};
+
+export const getPostausgangPostErgebnisUrl = () => {
+  return `/api/v0/postausgang/ergebnis`;
+};
+
+/**
+ * Settle each named mail the named claim still holds, by the outcome of its send, and nothing else.
+ *
+ * `gesendet` records the provider's message id, which every later event about the message names; `zurueckgehalten` a
+ * deployment that sends no mail; `aufgeben` a refusal every send would meet, any 4xx but a 429. `wiederholen`, for a
+ * 429, a 5xx or a send that never reached the provider, hands the mail back for a drain a minute from now, or gives it
+ * up where it has grown past its deadline; a mail of the sign-in library is given up at once, its library's repair
+ * being a fresh one. A mail the claim does not hold -- unknown,
+ * settled already, or claimed since by another drain after this claim lapsed -- is left alone and counted in `ignoriert`.
+ * A repeated id counts once, by its first outcome. One transaction; a settled row keeps no facts and no secret.
+ * @summary Settle the mails a claim handed out
+ */
+export const postausgangPostErgebnis = async (
+  fLPostausgangErgebnisPayload: FLPostausgangErgebnisPayload,
+  options?: Parameters<typeof systemKeyTransport>[1],
+): Promise<FLPostausgangErgebnisResponse> => {
+  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return systemKeyTransport<FLPostausgangErgebnisResponse>(getPostausgangPostErgebnisUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
+    body: JSON.stringify(fLPostausgangErgebnisPayload),
+  });
+};
+
 export const getRegistrierungenGetRegistrierungenUrl = (params?: RegistrierungenGetRegistrierungenParams) => {
   const stringifiedParams = serializeQuery(params);
 
@@ -2367,7 +2510,7 @@ export const getRegistrierungenPostBestaetigungUrl = () => {
 /**
  * Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.
  *
- * Refuses, writing nothing: `REQ-REGISTRIERUNG-004`, `-005`, `-006`, `-007`, `-010`, `-012`, `-017`, `-019` and
+ * Refuses, writing nothing: `REQ-REGISTRIERUNG-004`, `-005`, `-006`, `-007`, `-010`, `-012`, `-017` and
  * `REQ-EINWILLIGUNG-001`.
  * @summary Confirm one registration and record the pupil's consent
  */
@@ -4392,8 +4535,8 @@ export const spielerDeleteKaderZeile = async (
   saisonId: string,
   spielerId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLKaderZeileResponse> => {
-  return adminKeyTransport<FLKaderZeileResponse>(getSpielerDeleteKaderZeileUrl(teamId, saisonId, spielerId), {
+): Promise<FLKaderZeile> => {
+  return adminKeyTransport<FLKaderZeile>(getSpielerDeleteKaderZeileUrl(teamId, saisonId, spielerId), {
     ...options,
     method: "DELETE",
   });
@@ -4419,7 +4562,7 @@ export const spielerPatchKaderZeile = async (
   spielerId: string,
   fLPatchKaderZeilePayload: FLPatchKaderZeilePayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLKaderZeileResponse> => {
+): Promise<FLKaderZeile> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -4432,7 +4575,7 @@ export const spielerPatchKaderZeile = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLKaderZeileResponse>(getSpielerPatchKaderZeileUrl(teamId, saisonId, spielerId), {
+  return adminKeyTransport<FLKaderZeile>(getSpielerPatchKaderZeileUrl(teamId, saisonId, spielerId), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -5092,7 +5235,7 @@ export const getTeamsPostTeamUrl = () => {
 export const teamsPostTeam = async (
   fLPostTeamPayload: FLPostTeamPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLPostTeamResponse> => {
+): Promise<FLCreatedResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -5105,7 +5248,7 @@ export const teamsPostTeam = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLPostTeamResponse>(getTeamsPostTeamUrl(), {
+  return adminKeyTransport<FLCreatedResponse>(getTeamsPostTeamUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -5520,7 +5663,7 @@ export const getTeamsPatchEinwilligungUrl = (teamId: string, saisonId: string) =
 export const teamsPatchEinwilligung = async (
   teamId: string,
   saisonId: string,
-  fLSaisonTeamPersonEinwilligungPayload: FLSaisonTeamPersonEinwilligungPayload,
+  fLSitzEinwilligungPayload: FLSitzEinwilligungPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
 ): Promise<FLSaisonTeamPersonEinwilligungResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
@@ -5539,7 +5682,7 @@ export const teamsPatchEinwilligung = async (
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSaisonTeamPersonEinwilligungPayload),
+    body: JSON.stringify(fLSitzEinwilligungPayload),
   });
 };
 

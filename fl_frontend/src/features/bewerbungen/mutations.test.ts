@@ -4,7 +4,7 @@ import { assert, beforeEach, describe, expect, it } from "vitest";
 import type { SentApiRequest } from "@/test-support/apiClientDouble.ts";
 
 /* What these cases read is what each mutation asks the client for, never what it answers. */
-const sent = doubleApiClient(() => ({ acknowledged: 1 }));
+const sent = doubleApiClient(() => ({}));
 
 const { ablehnenBewerbung, annehmenBewerbung, besetzenKontaktSitz, erneutSendenEinwilligung, korrigierenKontaktEmail } =
   await import("./mutations.ts");

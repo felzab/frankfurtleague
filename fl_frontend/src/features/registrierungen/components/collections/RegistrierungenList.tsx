@@ -31,7 +31,7 @@ import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusRow, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLOffeneRegistrierung, FLRegistrierungAblehnungsgrund } from "@/features/registrierungen/schemas";
+import type { FLOffeneRegistrierung, FLRegistrierungAblehnenPayload } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
 import type { RefObject } from "react";
 
@@ -102,7 +102,7 @@ function RegistrierungKarte({ registrierung, adresse }: { registrierung: FLOffen
     });
   };
 
-  const ablehnen = (confirm: typeof aufnahme, grund: FLRegistrierungAblehnungsgrund | null) => {
+  const ablehnen = (confirm: typeof aufnahme, grund: FLRegistrierungAblehnenPayload["grund"]) => {
     ablehnungZuletzt.current = confirm === ablehnung;
     entscheide(confirm, () => ablehnenRegistrierungAction({ ...ziel, grund: grund }), {
       erfolg: "Registrierung abgelehnt",

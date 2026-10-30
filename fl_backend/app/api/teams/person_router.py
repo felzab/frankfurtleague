@@ -18,7 +18,8 @@ from app.api.konto.services import (
     sitz_wahlen_der_zeile,
     widerruf_line,
 )
-from app.api.teams.schemas import FLSaisonTeamPersonEinwilligungPayload, FLSaisonTeamPersonEinwilligungResponse, FLTeamSitz, FLTeamSitzeResponse
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
+from app.api.teams.schemas import FLSaisonTeamPersonEinwilligungResponse, FLTeamSitz, FLTeamSitzeResponse
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
@@ -30,10 +31,11 @@ from app.core.dependencies import (
 )
 from app.core.journal import Journal
 from app.core.recording import log_stamp
-from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, loeschung_journal_hash, verify_access_admin
+from app.core.security import loeschung_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
+from app.shared.schemas.einwilligung import FLSitzEinwilligungPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # The person lane's binder, as `app/api/registrierungen/person_router.py` declares it and for its reason.
@@ -58,7 +60,7 @@ def _as_sitz(kontakte: Mapping[str, Any], slot: str) -> FLTeamSitz:
 
 
 # `/person/sitze`, its own segment: the admin router serves this team and season under its own paths,
-# and `fl_backend/tests/api/test_admin_guard.py` fails at collection on two routes serving one operation.
+# and one path in both routers would be answered by whichever was mounted first.
 @router.get("/{team_id:objectid}/saisons/{saison_id}/person/sitze", response_model=FLTeamSitzeResponse, summary="A team's seats in one season")
 async def get_team_sitze(
     team_id: CustomRouteObjectId,
@@ -98,7 +100,7 @@ async def get_team_sitze(
 async def patch_einwilligung(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    einwilligung_data: Annotated[FLSaisonTeamPersonEinwilligungPayload, Body()],
+    einwilligung_data: Annotated[FLSitzEinwilligungPayload, Body()],
     identifier: KontaktIdentifier,
     saison_teams_collection: SaisonTeamsCollection,
     records: SubjektLookup,

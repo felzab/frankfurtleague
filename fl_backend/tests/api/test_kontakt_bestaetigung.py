@@ -3,8 +3,7 @@ API · a contact seat an administrator types into a team's season row is mailed 
 
 The contacts save mints one link per person it newly seats, the per-seat re-send mints one for any
 seat still unconfirmed, and the application's two confirmation operations answer the link on the
-season row. Driven against the shipped validators, with the ban list asked at the mint and at the
-press as the application's links ask it.
+season row, with the ban list asked at the mint and at the press as the application's links ask it.
 """
 
 from collections.abc import Awaitable, Callable, Mapping
@@ -37,11 +36,11 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.recording import log_stamp
-from app.core.security import STEP_UP_WINDOW_S, get_step_up_check
+from app.core.security import STEP_UP_WINDOW_S, SessionActor
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from tests import documents
-from tests.actor_tokens import FRESH_STEP_UP_CHECK, verified_actor
+from tests.actor_tokens import FRESH_ADMIN_ACTOR, verified_actor
 from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
@@ -78,7 +77,7 @@ AN_ADULTS_BIRTHDATE = "1984-05-09"
 ADMIN = "admin@frankfurtleague.de"
 
 # Past the step-up window by a minute.
-STALE_STEP_UP_CHECK = get_step_up_check(verified_actor("admin@example.com", signed_in_before_s=STEP_UP_WINDOW_S + 60))
+STALE_ADMIN_ACTOR = verified_actor("admin@example.com", signed_in_before_s=STEP_UP_WINDOW_S + 60)
 
 TELEFON = {"Ida": "+4917010000001", "Jonas": "+4917010000002", "Klara": "+4917010000003", "Lea": "+4917010000004"}
 
@@ -179,7 +178,7 @@ async def save(
     database: AsyncDatabase,
     kontakte: Any,
     *,
-    step_up: Any = FRESH_STEP_UP_CHECK,
+    actor: SessionActor = FRESH_ADMIN_ACTOR,
     saison_teams: Any = None,
     today: str = TODAY,
 ) -> Any:
@@ -199,7 +198,7 @@ async def save(
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         sperrliste=ban_list(database),
         db=database.client,
-        refuse_unconfirmed=step_up,
+        actor=actor,
         today=today,
     )
 
@@ -959,7 +958,7 @@ class TestTheStepUp:
             before = await row_now(database)
 
             return (
-                await refused(save(database, {**THREE, "stellvertretung": None}, step_up=STALE_STEP_UP_CHECK)),
+                await refused(save(database, {**THREE, "stellvertretung": None}, actor=STALE_ADMIN_ACTOR)),
                 before,
                 await row_now(database),
             )
@@ -978,7 +977,7 @@ class TestTheStepUp:
             before = await row_now(database)
 
             return (
-                await refused(save(database, {**THREE, "trainer": None}, step_up=STALE_STEP_UP_CHECK)),
+                await refused(save(database, {**THREE, "trainer": None}, actor=STALE_ADMIN_ACTOR)),
                 before,
                 await row_now(database),
             )
@@ -996,7 +995,7 @@ class TestTheStepUp:
         edited["trainer"] = {**edited["trainer"], "telefon": "+4917099999999"}
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            return await save(database, edited, step_up=STALE_STEP_UP_CHECK)
+            return await save(database, edited, actor=STALE_ADMIN_ACTOR)
 
         assert on_a_league(mongo_replica_set_url, body, kontakte=STORED_UNCONFIRMED).bestaetigungen == []
 

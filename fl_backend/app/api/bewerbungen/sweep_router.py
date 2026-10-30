@@ -78,9 +78,8 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Both shares at three commands a row beside the worst call's other 81
-# (`tests/api/test_bewerbung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
-# 267 commands at 36 ms plus 1.38 ms take 9.98 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
+# Both shares at three commands a row beside the worst call's other 81: 267 commands at 36 ms plus 1.38 ms take 9.98 s
+# of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 39
 
 # The largest share inside the deadline beside the reminders', which owe a deadline a block's deletion does not: 24
@@ -335,10 +334,9 @@ async def sweep_saison(
                 session=session,
             )
         )
-        # Judged row by row: a decision date a hand edit left unreadable is passed over in place, and the rest of the page goes.
-        taken = batch.took([row for row, due in batch.judged(rows, lambda row: decline_erasure_is_due(bewerbung_raw=row, today=today)) if due])
+        taken = batch.took([row for row in rows if decline_erasure_is_due(bewerbung_raw=row, today=today)])
         if not taken:
-            refuse_a_stalled_page(read=len(rows), moved=len(batch.refused), page=SWEEP_PAGE, clock="decline", saison_id=saison_id)
+            refuse_a_stalled_page(read=len(rows), moved=0, page=SWEEP_PAGE, clock="decline", saison_id=saison_id)
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]
@@ -485,7 +483,7 @@ async def sweep_saison(
     if season_has_ended(saison_status=saison_status):
         ohne_entscheidung, redacted_undecided, passed = await drain(
             db=db,
-            page_of=lambda session, batch: session.with_transaction(erase_the_undecided, batch),
+            page_of=erase_the_undecided,
             page=SWEEP_PAGE,
             what="Application",
             clock="season's end",
@@ -494,7 +492,7 @@ async def sweep_saison(
 
     abgelehnte, redacted_declined, passed = await drain(
         db=db,
-        page_of=lambda session, batch: session.with_transaction(erase_declined, batch),
+        page_of=erase_declined,
         page=SWEEP_PAGE,
         what="Application",
         clock="decline",
@@ -506,7 +504,7 @@ async def sweep_saison(
     if season_after_has_ended(later_saison_status=later_saison_status):
         angenommene, redacted_accepted, passed = await drain(
             db=db,
-            page_of=lambda session, batch: session.with_transaction(erase_accepted, batch),
+            page_of=erase_accepted,
             page=SWEEP_PAGE,
             what="Application",
             clock="acceptance",
@@ -516,7 +514,7 @@ async def sweep_saison(
         cleared, passed = await run_isolated(
             db=db,
             batch=Batch(share=BLOCKS_CLEARED_PER_PASS),
-            attempt=lambda session, batch: session.with_transaction(clear_the_blocks, batch),
+            attempt=clear_the_blocks,
             moved=lambda blocks: blocks[0],
             owes=False,
             what="Season team",
@@ -528,7 +526,7 @@ async def sweep_saison(
         stripped_confirmations, passed = await run_isolated(
             db=db,
             batch=Batch(),
-            attempt=lambda session, batch: session.with_transaction(strip_the_confirmations, batch),
+            attempt=strip_the_confirmations,
             moved=lambda _: 0,
             owes=False,
             what="Season",
@@ -539,7 +537,7 @@ async def sweep_saison(
         stripped_reports, passed = await run_isolated(
             db=db,
             batch=Batch(),
-            attempt=lambda session, batch: session.with_transaction(strip_the_reports, batch),
+            attempt=strip_the_reports,
             moved=lambda _: 0,
             owes=False,
             what="Season",
@@ -594,7 +592,7 @@ async def sweep_saison(
     reminded, passed = await run_isolated(
         db=db,
         batch=share,
-        attempt=lambda session, batch: session.with_transaction(remind, batch),
+        attempt=remind,
         moved=lambda answered: len({erinnerung.bewerbung_id for erinnerung in answered}),
         owes=True,
         what="Application",
@@ -680,7 +678,7 @@ async def angekuendigt_bewerbungen(
     stamped, passed = await run_isolated(
         db=db,
         batch=Batch(),
-        attempt=lambda session, batch: session.with_transaction(stamp_the_notified, batch),
+        attempt=stamp_the_notified,
         moved=lambda count: count,
         owes=False,
         what="Application",
@@ -751,7 +749,7 @@ async def loeschen_bewerbungen(
     erased, passed = await run_isolated(
         db=db,
         batch=Batch(),
-        attempt=lambda session, batch: session.with_transaction(erase_the_notified, batch),
+        attempt=erase_the_notified,
         moved=lambda counts: counts[0],
         owes=False,
         what="Application",

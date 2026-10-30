@@ -210,7 +210,6 @@ class Code(StrEnum):
     REGISTRIERUNG_SCHON_AUFGENOMMEN = "REQ-REGISTRIERUNG-016"
     REGISTRIERUNG_WAHLEN_UNPASSEND = "REQ-REGISTRIERUNG-017"
     REGISTRIERUNG_PERSON_FEHLT = "REQ-REGISTRIERUNG-018"
-    REGISTRIERUNG_OHNE_GEBURTSDATUM = "REQ-REGISTRIERUNG-019"
     # A replacement is neither an entry nor a swap: ONE junction row changes hands and the season's
     # fixtures follow it, so it carries codes of its own.
     REPLACE_SAISON_FINISHED = "REQ-REPLACE-001"
@@ -261,7 +260,7 @@ class Code(StrEnum):
     SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT = "REQ-SCHIEDSRICHTER-009"
     SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL = "REQ-SCHIEDSRICHTER-011"
     # One code over two readers: each slice words it for its own, an administrator being told plainly
-    # what a visitor is told neutrally (`.claude/rules/cross-surface.md`).
+    # what a visitor is told neutrally.
     SPERRLISTE_ADRESSE_GESPERRT = "REQ-SPERRLISTE-001"
     SPERRLISTE_KEINE_SAISON = "REQ-SPERRLISTE-002"
     SPERRLISTE_VERWALTUNG = "REQ-SPERRLISTE-003"

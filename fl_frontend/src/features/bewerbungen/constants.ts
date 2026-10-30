@@ -1,9 +1,9 @@
 import { formatAufzaehlung } from "@/core/format";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
+import type { FLBewerbungStatus } from "@/core/generated/client/types";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { PillTone } from "@/shared/components/ui/badges";
-import type { FLBewerbungStatus } from "./schemas";
 
 // Its own module and not an export of a `"use client"` view: every export of a client module becomes
 // a client reference on the server side.
@@ -133,12 +133,6 @@ export const BEWERBUNG_ERINNERUNG_TAGE = 3;
  * token, which no control renders, so it tells a visitor nothing about their link.
  */
 export const BEWERBUNG_TOKEN_MAX_LENGTH = 128;
-
-/**
- * How many ids one sweep pass sends back, restated from
- * `fl_backend/app/api/bewerbungen/schemas.py :: DELETIONS_LISTED_PER_PASS`.
- */
-export const DELETIONS_LISTED_PER_PASS = 83;
 
 /**
  * The picker key standing for „meine Schule ist nicht dabei“.

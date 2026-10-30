@@ -5,8 +5,8 @@ import { ansichtOf } from "./link";
 import { postAdresswechselAnsicht, postAdresswechselVerwaltungAnsicht } from "./mutations";
 import { mapAdresswechselAnsichtRefusal, mapVerwaltungAnsichtRefusal } from "./refusals";
 
+import type { FLAdresswechselVerwaltungAnsichtResponse } from "@/core/generated/client/types";
 import type { AdresswechselAnsicht } from "./link";
-import type { FLAdresswechselVerwaltungAnsichtResponse } from "./schemas";
 
 /** What one address link opens, either side's, live or ended. */
 export async function getAdresswechselAnsicht(token: string): Promise<AdresswechselAnsicht> {
@@ -30,7 +30,7 @@ export async function getAdresswechselAnsicht(token: string): Promise<Adresswech
 
 /** What the address tool shows of one change or address: the read's answer, or the sentence of its own refusal. */
 export type VerwaltungAnsichtGelesen =
-  { status: "read"; ansicht: Omit<FLAdresswechselVerwaltungAnsichtResponse, "acknowledged"> } | { status: "refused"; reason: string };
+  { status: "read"; ansicht: FLAdresswechselVerwaltungAnsichtResponse } | { status: "refused"; reason: string };
 
 /** The change a link from an editor, a reveal or the account page names, read as the tool opens on it. */
 export async function getAdresswechselVerwaltungAnsicht(adresswechselId: string): Promise<VerwaltungAnsichtGelesen> {

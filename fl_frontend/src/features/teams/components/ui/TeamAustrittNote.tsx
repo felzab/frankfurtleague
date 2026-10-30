@@ -2,7 +2,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 
 import { austrittZustand } from "../../constants";
 
-import type { FLAustritt } from "../../schemas";
+import type { FLAustritt } from "@/core/generated/client/types";
 
 /** Not a `Callout`: those grades describe what a save is about to do, not a standing public fact. */
 export function TeamAustrittNote({ austritt }: { austritt: FLAustritt | null }) {

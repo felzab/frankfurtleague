@@ -2,10 +2,9 @@ import { bestaetigteEinwilligung } from "@/test-support/einwilligung.ts";
 import { describe, expect, it } from "vitest";
 
 // Relative import, not the "@/" alias: Node's resolver does not read tsconfig paths.
-import { FLSpielerWithMembershipsSchema } from "./schemas.ts";
 import { collectHeldRollen, countLiveSquadRows, judgeRowReturn, nummerPayload, squadIsFull } from "./utils.ts";
 
-import type { FLSpielerMembership, FLSpielerWithMemberships } from "./schemas.ts";
+import type { FLSpielerMembership, FLSpielerWithMemberships } from "@/core/generated/client/types.ts";
 
 const TEAM_A = "6890a1b2c3d4e5f607180001";
 const TEAM_B = "6890a1b2c3d4e5f607180002";
@@ -19,10 +18,11 @@ const MEMBERSHIP: FLSpielerMembership = {
   ist_nachnominiert: false,
   rolle: null,
   inactive_since: null,
+  version: 0,
 };
 
-/** Complete and parsed at construction: a drifted field fails where the fixture is built rather than wherever it is read. */
-const SPIELER: FLSpielerWithMemberships = FLSpielerWithMembershipsSchema.parse({
+/** Complete at construction, typed as the generated read: a drifted field fails where the fixture is built. */
+const SPIELER: FLSpielerWithMemberships = {
   id: "6890a1b2c3d4e5f607180003",
   vorname: "X",
   nachname: null,
@@ -33,7 +33,8 @@ const SPIELER: FLSpielerWithMemberships = FLSpielerWithMembershipsSchema.parse({
   adresswechsel_id: null,
   adresswechsel_einsehbar_verwehrt: null,
   memberships: [MEMBERSHIP],
-} satisfies FLSpielerWithMemberships);
+  version: 0,
+};
 
 function person(
   id: string,

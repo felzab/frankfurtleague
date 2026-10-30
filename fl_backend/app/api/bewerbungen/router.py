@@ -1,8 +1,10 @@
+import asyncio
 from collections.abc import Mapping, Sequence
 from typing import Annotated, Any, get_args
 
 from fastapi import APIRouter, Depends, Query
 
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.bewerbungen.schemas import (
     FLBewerbung,
     FLBewerbungenFilterParams,
@@ -24,12 +26,11 @@ from app.api.bewerbungen.services import (
     mit_vorenthaltener_entscheidung,
 )
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
-from app.core.concurrency import gather_cancelling
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import BewerbungenCollection, get_german_date_str
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
+from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # Admin-guarded, not base, as `schiedsrichter` is: an application carries three people's names,
@@ -79,13 +80,13 @@ async def get_bewerbungen(
     saisonbezug_terms = build_bewerbungen_saisonbezug_terms(saison_id=filters.saison_id)
 
     # Concurrently, so five counts and the collision pass cost one round trip's latency rather than six.
-    counted, bezogen, cells = await gather_cancelling(
-        gather_cancelling(
+    counted, bezogen, cells = await asyncio.gather(
+        asyncio.gather(
             # `bewerbungen_saison_id_status_queue` carries both terms, so a count walks keys and
             # fetches nothing; measured, the complement loses the COUNT_SCAN and stays an IXSCAN.
             *(bewerbungen_collection.count_documents({**beyond_status, "status": status}) for status in get_args(FLBewerbungStatus.__value__))
         ),
-        gather_cancelling(*(bewerbungen_collection.count_documents({**beyond_saison, **term}) for term in saisonbezug_terms.values())),
+        asyncio.gather(*(bewerbungen_collection.count_documents({**beyond_saison, **term}) for term in saisonbezug_terms.values())),
         aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_dubletten_pipeline(beyond_status)),
     )
 

@@ -256,8 +256,8 @@ class TestTheJunctionPatchPayload:
 
         assert [entry["loc"][-1] for entry in failure.value.errors()] == [field]
 
-    def test_it_takes_the_three_fields_and_nothing_about_the_contacts(self):
-        assert set(FLPatchSaisonTeamPayload.model_fields) == {"gruppe", "austritt", "trikot_farbe"}
+    def test_it_takes_the_three_fields_and_the_version_and_nothing_about_the_contacts(self):
+        assert set(FLPatchSaisonTeamPayload.model_fields) == {"gruppe", "austritt", "trikot_farbe", "version"}
 
     def test_a_contact_block_sent_here_is_refused(self):
         """`extra="forbid"`, so a stale client is a 422 rather than a block this endpoint never judged."""

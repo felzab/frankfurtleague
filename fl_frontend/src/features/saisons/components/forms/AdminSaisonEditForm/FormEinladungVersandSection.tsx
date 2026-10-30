@@ -26,7 +26,7 @@ import { nichtHinterlegt } from "@/shared/utils/format";
 import { schlechtesterVersand, versandGrad } from "@/shared/utils/linkVersand";
 import { meldeLinkVersand, REGISTRIERUNGSLINK_TITEL } from "@/shared/utils/linkVersandToast";
 
-import type { FLEinladungVersandGrund, FLEinladungVersandVorschauZeile } from "@/features/einladungen/schemas";
+import type { FLEinladungVersandGrund, FLEinladungVersandVorschauZeile } from "@/core/generated/client/types";
 import type { EinladungVersandErgebnis } from "@/features/einladungen/types";
 import type { LinkVersand } from "@/shared/utils/linkVersand";
 import type { VersandTitel } from "@/shared/utils/linkVersandToast";

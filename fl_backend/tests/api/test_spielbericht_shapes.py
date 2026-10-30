@@ -9,7 +9,6 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
     FLSpielberichtKarte,
-    FLSpielberichtSeite,
     FLSpielberichtVonSchiedsrichter,
 )
 from app.api.spielberichte.services import (
@@ -29,6 +28,7 @@ from app.api.spielberichte.services import (
 )
 from app.core.codes import Code
 from app.core.exceptions import APIError
+from app.shared.schemas.literals import FLSpielSeite
 from tests.documents import bericht_document
 
 TEAM1 = ObjectId("650000000000000000000201")
@@ -245,7 +245,7 @@ class TestANewlyNamedPupilIsInTheSquad:
 
 
 # The clubs `spiel` fields, as the report's last write found them.
-SEITEN: dict[FLSpielberichtSeite, ObjectId | None] = {"team1": TEAM1, "team2": TEAM2}
+SEITEN: dict[FLSpielSeite, ObjectId | None] = {"team1": TEAM1, "team2": TEAM2}
 
 
 def gespeichert(**fields: Any) -> FLSpielberichtBericht:
@@ -372,7 +372,7 @@ class TestAGroupFixtureTakesNoShootOut:
             )
         )
 
-        keine: dict[FLSpielberichtSeite, set[ObjectId]] = {"team1": set(), "team2": set()}
+        keine: dict[FLSpielSeite, set[ObjectId]] = {"team1": set(), "team2": set()}
 
         # Through the judgement both writes ask, so the rule is held where it is called as well as where it is written.
         with pytest.raises(APIError) as refused:

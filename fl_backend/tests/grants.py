@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 
 from fastapi import FastAPI
 
-from app.core.security import GrantLookup, get_grant_lookup
+from app.api.berechtigungen.guard import GrantLookup, get_grant_lookup
 from tests.config import ADMINISTRATORS
 
 # Before any sign-in a case states, so the check this answers admits every one of them.

@@ -21,9 +21,10 @@ import { getEinladung, getEinladungVersandVorschau } from "./queries";
 import { mapEinladungRefusal } from "./refusals";
 import { FLEinladungKeyPayloadSchema, FLEinladungMailPayloadSchema, FLEinladungVersandPayloadSchema } from "./schemas";
 
+import type { FLEinladungVersandVorschauZeile } from "@/core/generated/client/types";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type { LinkVersand } from "@/shared/utils/linkVersand";
-import type { FLEinladungKeyPayload, FLEinladungMailPayload, FLEinladungVersandPayload, FLEinladungVersandVorschauZeile } from "./schemas";
+import type { z } from "zod";
 import type { EinladungVersandErgebnis } from "./types";
 
 /** Scopes the bulk send's key to the row each team's link was minted on, which no second press reuses. */
@@ -35,7 +36,7 @@ const VERSAND_IDEMPOTENZ_TAG = "versand";
  * administrator will ever see.
  */
 export async function postEinladungAction(
-  rawPayload: FLEinladungKeyPayload,
+  rawPayload: z.input<typeof FLEinladungKeyPayloadSchema>,
 ): Promise<ActionResult<{ einladung_id: string; token: string; link: string }>> {
   return runAdminMutation("postEinladungAction", async (session) => {
     const validated = FLEinladungKeyPayloadSchema.safeParse(rawPayload);
@@ -75,7 +76,9 @@ export async function postEinladungAction(
  * Mails the minted link to the team's confirmed contact seats. **A second press, never part of the
  * mint**: the link is shown for copying first, and this is what puts it in an inbox.
  */
-export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): Promise<ActionResult<{ versand: LinkVersand }>> {
+export async function mailEinladungAction(
+  rawPayload: z.input<typeof FLEinladungMailPayloadSchema>,
+): Promise<ActionResult<{ versand: LinkVersand }>> {
   return runAdminMutation("mailEinladungAction", { stepUp: true }, async () => {
     const validated = FLEinladungMailPayloadSchema.safeParse(rawPayload);
 
@@ -191,7 +194,7 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
 }
 
 /** Closes the team's live link. Nothing reverses it: the next link is a fresh mint with a fresh value. */
-export async function deleteEinladungAction(rawPayload: FLEinladungKeyPayload): Promise<ActionResult> {
+export async function deleteEinladungAction(rawPayload: z.input<typeof FLEinladungKeyPayloadSchema>): Promise<ActionResult> {
   return runAdminMutation("deleteEinladungAction", { stepUp: true }, async () => {
     const validated = FLEinladungKeyPayloadSchema.safeParse(rawPayload);
 
@@ -211,7 +214,7 @@ export async function deleteEinladungAction(rawPayload: FLEinladungKeyPayload): 
  * (`fl_frontend/src/features/spiele/actions.ts :: previewAdminSpielDataAction`).
  */
 export async function previewEinladungVersandAction(
-  rawPayload: FLEinladungVersandPayload,
+  rawPayload: z.input<typeof FLEinladungVersandPayloadSchema>,
 ): Promise<QueryResult<{ zeilen: readonly FLEinladungVersandVorschauZeile[] }>> {
   return runAdminMutation("previewEinladungVersandAction", async () => {
     const validated = FLEinladungVersandPayloadSchema.safeParse(rawPayload);
@@ -234,7 +237,7 @@ export async function previewEinladungVersandAction(
  * preview read.
  */
 export async function postEinladungVersandAction(
-  rawPayload: FLEinladungVersandPayload,
+  rawPayload: z.input<typeof FLEinladungVersandPayloadSchema>,
 ): Promise<ActionResult<{ zeilen: readonly EinladungVersandErgebnis[]; versendet: readonly LinkVersand[] }>> {
   return runAdminMutation("postEinladungVersandAction", { stepUp: true }, async () => {
     const validated = FLEinladungVersandPayloadSchema.safeParse(rawPayload);

@@ -19,9 +19,9 @@ import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { linkVersandOf, sendZielMail } from "@/features/zustellung/notifications";
 
 import type { Mail } from "@/core/emailShell";
+import type { FLAdresswechselPostausgangZeile, FLAdresswechselVerwaltungMintResponse } from "@/core/generated/client/types";
 import type { ZustellAnlass } from "@/features/bewerbungen/zustellung";
 import type { AdresswechselVersand, HinweisVersand } from "@/shared/utils/linkVersand";
-import type { FLAdresswechselPostausgangZeile, FLAdresswechselVerwaltungMintResponse } from "./schemas";
 
 /** What a start or a re-send minted, whichever tier answered it: the account page's start carries no `weg`, its own being `konto`. */
 export type AdresswechselMint = Pick<

@@ -5,6 +5,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends, Query
 from pymongo.asynchronous.client_session import AsyncClientSession
 
+from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.saisons.crud import pull_current_saison_id
 from app.api.spielberichte.crud import (
     anchor_the_pupils_named,
@@ -21,7 +22,6 @@ from app.api.spielberichte.schemas import (
     FLSpielberichtPayload,
     FLSpielberichtSpieler,
     FLSpielberichtVon,
-    FLSpielberichtVonAdmin,
 )
 from app.api.spielberichte.services import (
     BerichtLage,
@@ -44,8 +44,9 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
+from app.core.security import bind_actor, verify_access_admin, verify_step_up
 from app.core.transactions import transaction_session
+from app.shared.schemas.aktor import FLVonAdmin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -194,7 +195,7 @@ async def patch_spielbericht(
         judge_bericht(lage=lage, payload=payload, gespeichert=block, neu=neu, today=today)
 
         await anchor_the_pupils_named(spieler_collection=spieler_collection, spieler_ids=set().union(*neu.values()), session=session)
-        von: FLSpielberichtVon = FLSpielberichtVonAdmin(art="admin")
+        von: FLSpielberichtVon = FLVonAdmin(art="admin")
         dokument = await write_bericht(
             spielberichte_collection=spielberichte_collection,
             spiel_raw=lage.spiel,

@@ -15,7 +15,7 @@ import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
-import type { FLVerwaltung } from "@/features/berechtigungen/schemas";
+import type { FLVerwaltung } from "@/core/generated/client/types";
 
 /**
  * One grant's tier change, an owner's alone, escalated where the row stands as its revoke is: the armed

@@ -21,7 +21,7 @@ from app.api.teams.admin_router import delete_einladung, get_einladung, post_ein
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
-from tests.actor_tokens import FRESH_STEP_UP_CHECK
+from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document
@@ -119,7 +119,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, saison_status: str = "active", teams: tuple[ObjectId, ...] = tuple(TEAM_NAMES)) -> Any:
-    """The SHIPPED validators and indexes, one season, and the four teams in their four skip states.
+    """The shipped indexes, one season, and the four teams in their four skip states.
 
     `ALREADY_MAILED`'s invitation carries a delivery record, the state only
     `POST /zustellung/angenommen` writes and the only one the press skips on.
@@ -157,7 +157,7 @@ async def mint(database: AsyncDatabase, team_id: ObjectId, *, saison_id: str = S
         db=database.client,
         erstellt_von=ADMIN,
         today=TODAY,
-        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+        actor=FRESH_ADMIN_ACTOR,
     )
 
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { bestaetigteEmpfaenger } from "./empfaenger.ts";
 
-import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas.ts";
+import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/core/generated/client/types.ts";
 
 const person = (vorname: string, email: string, bestaetigtAm: string | null): FLKontaktperson => ({
   vorname: vorname,

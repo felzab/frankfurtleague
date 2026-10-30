@@ -22,7 +22,7 @@ from app.shared.schemas.literals import (
     FLSpielerPosition,
     FLSpielerStufe,
 )
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 # --- The INVITE's read, the SUBMISSION and the administrator's read of what it stored. Every
 # payload below is reached from a request body alone, so each forbids an undeclared key; the read
@@ -49,7 +49,7 @@ class FLRegistrierungEntscheidungZeile(FLRegistrierungEntscheidung):
     von_gesperrt: bool
 
 
-class FLRegistrierungEinwilligung(FLEinwilligung):
+class FLRegistrierungEinwilligung(FLEinwilligung, BaseReadModel):
     """A pending registration's consent record, each choice and `datum` optional here alone.
 
     A returning pupil's page asks no choice.

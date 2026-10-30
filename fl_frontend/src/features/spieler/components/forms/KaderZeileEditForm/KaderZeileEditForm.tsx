@@ -25,7 +25,7 @@ import { FormKaderZeileAustragenSection } from "./FormKaderZeileAustragenSection
 import { FormKaderZeileSection } from "./FormKaderZeileSection";
 import { deriveKaderZeileDraftStatus } from "./kaderZeileDraftStatus";
 
-import type { FLKaderZeile, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/features/spieler/schemas";
+import type { FLKaderZeile, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import type { FLKaderZeileDraftFields } from "./kaderZeileDraftStatus";
 
 /**

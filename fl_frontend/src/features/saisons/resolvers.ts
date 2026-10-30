@@ -8,8 +8,8 @@ import { SAISON_ID_LENGTH } from "./constants";
 import { getAdminSaisons, getSaisons } from "./queries";
 import { searchWithoutSaisonId } from "./utils";
 
+import type { FLSaison, FLSaisonStatus } from "@/core/generated/client/types";
 import type { NextPageProps } from "@/shared/types/types";
-import type { FLSaison, FLSaisonStatus } from "./schemas";
 
 // Untrimmed: `SaisonSelector` matches the raw parameter, so a padded id it cannot find is malformed
 // here too, and stripped rather than shown on the page alone.

@@ -9,7 +9,7 @@ import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
 import { Select } from "@/shared/components/ui/Select";
 
-import type { FLGruppenNames } from "@/features/teams/schemas";
+import type { FLGruppenNames } from "@/core/generated/client/types";
 import type { GruppeOffer } from "@/features/teams/types";
 import type { Key } from "@heroui/react/rac";
 

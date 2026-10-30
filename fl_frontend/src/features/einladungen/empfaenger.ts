@@ -1,5 +1,4 @@
-import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
-import type { FLEinladungEmpfaenger } from "./schemas";
+import type { FLEinladungEmpfaenger, FLSaisonTeamKontakte } from "@/core/generated/client/types";
 
 /**
  * The seat order a shared mailbox is NAMED for, and the one

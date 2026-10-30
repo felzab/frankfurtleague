@@ -240,15 +240,4 @@ export const FLBewerbungZustellstandSchema = z.enum(["angenommen", "zugestellt",
 }) satisfies z.ZodType<wire.FLBewerbungZustellungStand>;
 export type FLBewerbungZustellstand = wire.FLBewerbungZustellungStand;
 
-/** Mirrors `FLBewerbungZustellung` — what became of the last message sent to one seat. */
-export const FLBewerbungZustellungSchema = z.object({
-  // The provider's own id for that message. An event naming another one is about a message a
-  // re-send has already replaced, and marking this seat from it would grade the wrong link.
-  nachricht_id: z.string(),
-  stand: FLBewerbungZustellstandSchema,
-  // The provider's stable token, never its prose, which quotes the recipient's address.
-  grund: z.string().nullable(),
-  // Not `CustomDateStringSchema`: an instant, and the key an out-of-order event is judged against.
-  am: z.string(),
-}) satisfies z.ZodType<wire.FLBewerbungZustellung>;
 export type FLBewerbungZustellung = wire.FLBewerbungZustellung;

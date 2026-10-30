@@ -10,7 +10,6 @@ from app.api.bewerbungen.services import season_has_ended
 from app.api.spielberichte.schemas import (
     FLSpielberichtBericht,
     FLSpielberichtBerichtPayload,
-    FLSpielberichtSeite,
     FLSpielberichtSpieler,
     FLSpielberichtVon,
     FLSpielberichtVorschlag,
@@ -22,8 +21,9 @@ from app.core.collections import Collection
 from app.core.crud import VERSION_FIELD, refuse
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.shared.schemas.literals import FLSpielSeite
 
-SEITEN: Final[tuple[FLSpielberichtSeite, ...]] = ("team1", "team2")
+SEITEN: Final[tuple[FLSpielSeite, ...]] = ("team1", "team2")
 
 # What the report's judges and its form read off the fixture; no money, no notice.
 SPIEL_FIELDS: Final[Mapping[str, int]] = {
@@ -73,7 +73,7 @@ def build_bericht_kader_pipeline(*, saison_id: str, team_ids: Sequence[ObjectId]
                 "_id": 0,
                 "spieler_id": 1,
                 "team_id": 1,
-                # Each a key its validator requires, null where unset: a row lacking one is refused at its write.
+                # Each a key every row is written with, null where unset, which the read model requires.
                 "vorname": "$person.vorname",
                 "nachname": "$person.nachname",
                 "nummer": 1,
@@ -123,19 +123,19 @@ def build_zustand_pipeline(*, saison_id: str) -> list[Mapping[str, Any]]:
     ]
 
 
-def team_id_of(spiel_raw: Mapping[str, Any], seite: FLSpielberichtSeite) -> ObjectId | None:
+def team_id_of(spiel_raw: Mapping[str, Any], seite: FLSpielSeite) -> ObjectId | None:
     side = spiel_raw.get(seite)
 
     return None if side is None else side["team_id"]
 
 
-def seiten_of(spiel_raw: Mapping[str, Any]) -> dict[FLSpielberichtSeite, ObjectId | None]:
+def seiten_of(spiel_raw: Mapping[str, Any]) -> dict[FLSpielSeite, ObjectId | None]:
     """The clubs the fixture fields now, as a report's `seiten` stores them."""
 
     return {seite: team_id_of(spiel_raw, seite) for seite in SEITEN}
 
 
-def seiten_geaendert(gespeichert: Mapping[str, Any], spiel_raw: Mapping[str, Any]) -> frozenset[FLSpielberichtSeite]:
+def seiten_geaendert(gespeichert: Mapping[str, Any], spiel_raw: Mapping[str, Any]) -> frozenset[FLSpielSeite]:
     """The sides on which the fixture fields another club than the report's last write found there."""
 
     jetzt = seiten_of(spiel_raw)
@@ -143,7 +143,7 @@ def seiten_geaendert(gespeichert: Mapping[str, Any], spiel_raw: Mapping[str, Any
     return frozenset(seite for seite in SEITEN if gespeichert[seite] != jetzt[seite])
 
 
-def live_kader(lage: BerichtLage, seite: FLSpielberichtSeite) -> list[Mapping[str, Any]]:
+def live_kader(lage: BerichtLage, seite: FLSpielSeite) -> list[Mapping[str, Any]]:
     """That side's live squad: an open knockout slot fields nobody."""
 
     team_id = team_id_of(lage.spiel, seite)
@@ -151,10 +151,10 @@ def live_kader(lage: BerichtLage, seite: FLSpielberichtSeite) -> list[Mapping[st
     return [row for row in lage.kader if team_id is not None and row["team_id"] == team_id and row["inactive_since"] is None]
 
 
-def genannte_ids(bericht: Mapping[str, Any] | FLSpielberichtBerichtPayload | None) -> dict[FLSpielberichtSeite, set[ObjectId]]:
+def genannte_ids(bericht: Mapping[str, Any] | FLSpielberichtBerichtPayload | None) -> dict[FLSpielSeite, set[ObjectId]]:
     """Every pupil a block names, per side; a scorer nobody named is no id."""
 
-    named: dict[FLSpielberichtSeite, set[ObjectId]] = {seite: set() for seite in SEITEN}
+    named: dict[FLSpielSeite, set[ObjectId]] = {seite: set() for seite in SEITEN}
     if bericht is None:
         return named
 
@@ -168,7 +168,7 @@ def genannte_ids(bericht: Mapping[str, Any] | FLSpielberichtBerichtPayload | Non
 
 def neu_genannt(
     payload: FLSpielberichtBerichtPayload, gespeichert: Mapping[str, Any] | None, spiel_raw: Mapping[str, Any]
-) -> dict[FLSpielberichtSeite, set[ObjectId]]:
+) -> dict[FLSpielSeite, set[ObjectId]]:
     """The pupils this write names that the stored block did not name on that side, the only ones judged against the squad.
 
     So a correction keeps a scorer ausgetragen or erased since the match.
@@ -285,7 +285,7 @@ def find_bericht_stand_refusal(*, stand: int | None, gespeichert: Mapping[str, A
     )
 
 
-def find_nicht_im_kader_refusal(*, lage: BerichtLage, neu: Mapping[FLSpielberichtSeite, set[ObjectId]]) -> WriteRefusal | None:
+def find_nicht_im_kader_refusal(*, lage: BerichtLage, neu: Mapping[FLSpielSeite, set[ObjectId]]) -> WriteRefusal | None:
     """`REQ-BERICHT-003`: a pupil newly named on a side is in that side's live squad of the season."""
 
     for seite in SEITEN:
@@ -335,7 +335,7 @@ def judge_bericht(
     lage: BerichtLage,
     payload: FLSpielberichtBerichtPayload,
     gespeichert: Mapping[str, Any] | None,
-    neu: Mapping[FLSpielberichtSeite, set[ObjectId]],
+    neu: Mapping[FLSpielSeite, set[ObjectId]],
     today: str,
 ) -> None:
     """Every refusal both writers of a report owe, in order."""
@@ -409,7 +409,7 @@ def compose_ansicht(
     spiel = lage.spiel
     bericht = None if dokument is None else dokument.get("bericht")
 
-    def team(seite: FLSpielberichtSeite) -> dict[str, Any] | None:
+    def team(seite: FLSpielSeite) -> dict[str, Any] | None:
         side = spiel.get(seite)
         return None if side is None else {"team_id": side["team_id"], "name": side["name"]}
 
@@ -434,7 +434,7 @@ def compose_ansicht(
 
 
 def bericht_unveraendert(
-    payload: FLSpielberichtBerichtPayload, gespeichert: Mapping[str, Any] | None, seiten: Mapping[FLSpielberichtSeite, ObjectId | None]
+    payload: FLSpielberichtBerichtPayload, gespeichert: Mapping[str, Any] | None, seiten: Mapping[FLSpielSeite, ObjectId | None]
 ) -> bool:
     """Whether the stored block already says what the payload says, for the clubs `seiten` names, so a save of it writes nothing.
 
@@ -449,7 +449,7 @@ def bericht_unveraendert(
 
 
 def compose_neuer_bericht(
-    payload: FLSpielberichtBerichtPayload, *, von: FLSpielberichtVon, seiten: Mapping[FLSpielberichtSeite, ObjectId | None], now: datetime
+    payload: FLSpielberichtBerichtPayload, *, von: FLSpielberichtVon, seiten: Mapping[FLSpielSeite, ObjectId | None], now: datetime
 ) -> dict[str, Any]:
     """The block's first write: version 1, and no adoption."""
 
@@ -467,7 +467,7 @@ def compose_neuer_bericht(
 
 
 def compose_bericht_update(
-    payload: FLSpielberichtBerichtPayload, *, seiten: Mapping[FLSpielberichtSeite, ObjectId | None], now: datetime
+    payload: FLSpielberichtBerichtPayload, *, seiten: Mapping[FLSpielSeite, ObjectId | None], now: datetime
 ) -> dict[str, Any]:
     """A later write of the block: the content replaced, the version raised, who first wrote it and the adoption kept.
 

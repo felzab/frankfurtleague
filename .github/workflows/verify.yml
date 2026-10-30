@@ -239,6 +239,7 @@ jobs:
             ${{ env.VERIFY_TAG }}:frontend
             ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
+          build-args: APP_VERSION=${{ steps.meta-frontend.outputs.version }}
           outputs: type=docker,dest=${{ runner.temp }}/frontend.tar
           cache-from: ${{ github.event_name != 'push' && 'type=gha,scope=frontend' || '' }}
           cache-to: type=gha,scope=frontend,mode=max
@@ -251,6 +252,7 @@ jobs:
             ${{ env.VERIFY_TAG }}:backend
             ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
+          build-args: APP_VERSION=${{ steps.meta-backend.outputs.version }}
           outputs: type=docker,dest=${{ runner.temp }}/backend.tar
           cache-from: ${{ github.event_name != 'push' && 'type=gha,scope=backend' || '' }}
           cache-to: type=gha,scope=backend,mode=max

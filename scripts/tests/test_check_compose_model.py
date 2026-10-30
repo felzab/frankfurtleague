@@ -989,7 +989,7 @@ def test_the_backend_s_files_are_read_off_config_py_as_the_backend_itself_names_
 def test_each_field_shape_is_read_as_pydantic_reads_it():
     """An alias as a string or a module constant, an inherited field, a default; a class variable and a private name are no field."""
     path = settings_file(
-        "class BackendSecrets(BaseSettings, _Base):\n"
+        "class _SecretFields(BaseSettings, _Base):\n"
         "    model_config = SettingsConfigDict()\n"
         '    plain: SecretStr = Field(description="x")\n'
         "    constant: SecretStr = Field(validation_alias=NAMED)\n"
@@ -1020,11 +1020,11 @@ def test_each_field_shape_is_read_as_pydantic_reads_it():
 def test_a_field_naming_its_file_another_way_refuses(field: str, said: str):
     """Read past, it would count as its own name, and a file compose mounts under the real one would read as never read."""
     with pytest.raises(ValueError, match=said):
-        checker.backend_schema_files(settings_file(f"class BackendSecrets(BaseSettings, _Base):\n    secret: SecretStr = {field}\n"))
+        checker.backend_schema_files(settings_file(f"class _SecretFields(BaseSettings, _Base):\n    secret: SecretStr = {field}\n"))
 
 
 def test_two_aliases_for_one_field_refuse():
-    body = 'class BackendSecrets(BaseSettings):\n    secret: Annotated[SecretStr, Field(validation_alias="a")] = Field(validation_alias="b")\n'
+    body = 'class _SecretFields(BaseSettings):\n    secret: Annotated[SecretStr, Field(validation_alias="a")] = Field(validation_alias="b")\n'
 
     with pytest.raises(ValueError, match="two validation_alias values"):
         checker.backend_schema_files(settings_file(body))
@@ -1033,8 +1033,8 @@ def test_two_aliases_for_one_field_refuse():
 @pytest.mark.parametrize(
     ("body", "said"),
     [
-        pytest.param("class Other(BaseSettings):\n    secret: SecretStr\n", "declares no BackendSecrets class", id="no-class"),
-        pytest.param("class BackendSecrets(BaseSettings):\n    model_config = SettingsConfigDict()\n", "declares no field", id="no-field"),
+        pytest.param("class Other(BaseSettings):\n    secret: SecretStr\n", "declares no _SecretFields class", id="no-class"),
+        pytest.param("class _SecretFields(BaseSettings):\n    model_config = SettingsConfigDict()\n", "declares no field", id="no-field"),
     ],
 )
 def test_a_declaration_the_backend_reader_cannot_find_refuses(body: str, said: str):
@@ -1048,7 +1048,7 @@ def test_a_field_behind_constants_is_read_where_pydantic_finds_it():
         'Inner = Annotated[SecretStr, Field(validation_alias="inner_file")]\n'
         "Outer = Annotated[Inner, Field(min_length=1)]\n"
         'HELD = Field(validation_alias="held_file")\n\n\n'
-        "class BackendSecrets(BaseSettings):\n"
+        "class _SecretFields(BaseSettings):\n"
         "    nested: Outer\n"
         "    held: SecretStr = HELD\n"
     )
@@ -1062,42 +1062,42 @@ def test_a_field_behind_constants_is_read_where_pydantic_finds_it():
     ("body", "said"),
     [
         pytest.param(
-            "class BackendSecrets(BaseSettings, ForeignKey):\n    secret: SecretStr\n", "inherits from ForeignKey", id="base-from-the-backend"
+            "class _SecretFields(BaseSettings, ForeignKey):\n    secret: SecretStr\n", "inherits from ForeignKey", id="base-from-the-backend"
         ),
-        pytest.param("class BackendSecrets(BaseSettings, Mixin):\n    secret: SecretStr\n", "inherits from Mixin", id="base-bound-nowhere"),
-        pytest.param("class BackendSecrets(Generic[T]):\n    secret: SecretStr\n", r"inherits from Generic\[T\]", id="base-subscripted"),
+        pytest.param("class _SecretFields(BaseSettings, Mixin):\n    secret: SecretStr\n", "inherits from Mixin", id="base-bound-nowhere"),
+        pytest.param("class _SecretFields(Generic[T]):\n    secret: SecretStr\n", r"inherits from Generic\[T\]", id="base-subscripted"),
         pytest.param(
-            "class BackendSecrets(BaseSettings):\n    if True:\n        secret: SecretStr\n", "holds a If statement", id="compound-statement"
-        ),
-        pytest.param(
-            "class BackendSecrets(BaseSettings):\n    secret: ForeignKey\n", "ForeignKey from app.core.keys", id="alias-from-the-backend"
+            "class _SecretFields(BaseSettings):\n    if True:\n        secret: SecretStr\n", "holds a If statement", id="compound-statement"
         ),
         pytest.param(
-            "class BackendSecrets(BaseSettings):\n    secret: Unbound\n", "Unbound, which config.py binds nowhere", id="alias-bound-nowhere"
+            "class _SecretFields(BaseSettings):\n    secret: ForeignKey\n", "ForeignKey from app.core.keys", id="alias-from-the-backend"
         ),
         pytest.param(
-            "type Key = Annotated[SecretStr, Field(validation_alias='k')]\n\n\nclass BackendSecrets(BaseSettings):\n    secret: Key\n",
+            "class _SecretFields(BaseSettings):\n    secret: Unbound\n", "Unbound, which config.py binds nowhere", id="alias-bound-nowhere"
+        ),
+        pytest.param(
+            "type Key = Annotated[SecretStr, Field(validation_alias='k')]\n\n\nclass _SecretFields(BaseSettings):\n    secret: Key\n",
             "Key, which config.py binds nowhere",
             id="type-statement",
         ),
         pytest.param(
             "if True:\n    NAMED = 'other_file'\n\n\n"
-            "class BackendSecrets(BaseSettings):\n    secret: SecretStr = Field(validation_alias=NAMED)\n",
+            "class _SecretFields(BaseSettings):\n    secret: SecretStr = Field(validation_alias=NAMED)\n",
             "NAMED, which config.py binds more than once",
             id="rebound-constant",
         ),
         pytest.param(
-            "class BackendSecrets(BaseSettings):\n    secret: SecretStr = KEY_FIELD\n",
+            "class _SecretFields(BaseSettings):\n    secret: SecretStr = KEY_FIELD\n",
             "KEY_FIELD, which config.py binds nowhere",
             id="value-bound-nowhere",
         ),
         pytest.param(
-            "RING_A = RING_B\nRING_B = RING_A\n\n\nclass BackendSecrets(BaseSettings):\n    secret: SecretStr = RING_A\n",
+            "RING_A = RING_B\nRING_B = RING_A\n\n\nclass _SecretFields(BaseSettings):\n    secret: SecretStr = RING_A\n",
             "a ring of constants",
             id="constant-ring",
         ),
         pytest.param(
-            "class BackendSecrets(BaseSettings, Other):\n    secret: SecretStr\n\n\nclass Other(BackendSecrets):\n    pass\n",
+            "class _SecretFields(BaseSettings, Other):\n    secret: SecretStr\n\n\nclass Other(_SecretFields):\n    pass\n",
             "inherits from itself",
             id="class-ring",
         ),
@@ -1114,7 +1114,7 @@ def test_main_refuses_at_2_where_the_backend_reader_cannot_follow_the_settings(m
     project = new_root("fl-compose-main-unread-")
     production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
     local = rendered_stack(project, "nginx/local")
-    monkeypatch.setattr(checker, "BACKEND_CONFIG", settings_file("class BackendSecrets(BaseSettings, ForeignKey):\n    secret: SecretStr\n"))
+    monkeypatch.setattr(checker, "BACKEND_CONFIG", settings_file("class _SecretFields(BaseSettings, ForeignKey):\n    secret: SecretStr\n"))
 
     code, said = run_main(production, local, project)
 

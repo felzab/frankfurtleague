@@ -44,7 +44,6 @@ from app.shared.schemas.einwilligung import (
     CustomEinwilligungTextVersion,
     FLEinwilligungNachweise,
     FLEinwilligungStand,
-    FLEinwilligungStandPayload,
 )
 from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.literals import (
@@ -234,6 +233,8 @@ class FLSaisonTeamRecord(BaseModel):
     bestaetigungen: FLSaisonTeamBestaetigungenRecord | None = None
     name: str
     shorthand: str
+    # 0 until a write raises it, as the create stamps it.
+    version: int = 0
 
 
 class FLSaisonTeamBestaetigungAnsicht(FLSaisonTeamBestaetigung, BaseReadModel):
@@ -452,7 +453,7 @@ class FLTeam(_TeamWritable):
 FLTeamListAdapter = TypeAdapter(list[FLTeam])
 
 
-class FLTeamRecord(_TeamWritable):
+class FLTeamRecord(_TeamWritable, BaseReadModel):
     """The club document as it is STORED, and what the write endpoints echo.
 
     The season-scoped fields would mean re-running the team pipeline, whose junction join is strict
@@ -461,6 +462,8 @@ class FLTeamRecord(_TeamWritable):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     inactive_since: CustomOptionalDateString
+    # 0 until a write raises it, as the create stamps it.
+    version: int = 0
 
 
 class FLGruppenTeam(BaseModel):
@@ -505,6 +508,8 @@ class FLTeamMembership(BaseReadModel):
     # Composed after the read from the `adresswechsel` collection, never projected off the season row; required, so a
     # read that forgot to compose it fails rather than answering every seat as holding no change.
     adresswechsel: FLSaisonTeamAdresswechsel | None
+    # The row's count of writes, which its two editors' saves send back.
+    version: int = 0
 
     @computed_field
     @property
@@ -577,7 +582,8 @@ class FLPostTeamPayload(_TeamPayload):
 
 
 class FLPatchTeamPayload(_TeamPayload):
-    pass
+    # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
+    version: int | None = None
 
 
 class FLPostSaisonTeamPayload(BaseModel):
@@ -610,6 +616,8 @@ class FLPatchSaisonTeamPayload(BaseModel):
     # would silently reinstate a team or clear a colour with nobody having asked for it.
     austritt: Annotated[FLAustritt, BeforeValidator(strip_austritt_grund)] | None
     trikot_farbe: FLTrikotFarbe | None
+    # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
+    version: int | None = None
 
 
 class FLPatchSaisonTeamKontaktePayload(BaseModel):
@@ -627,26 +635,8 @@ class FLPatchSaisonTeamKontaktePayload(BaseModel):
     # One opaque token rather than the read block echoed back, which would put a read model on a
     # request body. Required with no default: an omitted precondition judges nothing.
     kontakte_stand: str
-
-
-class SitzEinwilligungPayload(BaseModel):
-    """A seat holder's own two choices for every seat they hold on one row, under the name each seat control publishes.
-
-    Both choices on every press: a page that sent one alone would leave the other judged by nothing.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    umfang: FLKontaktKenntnisnahmeUmfang
-    medien: bool
-    # The label of the account page's seat control the press was given under, recorded on its evidence.
-    text_version: CustomEinwilligungTextVersion
-    # The row's `nachweis_stand` as the page was served it.
-    nachweis_stand: FLEinwilligungStandPayload
-
-
-class FLSaisonTeamPersonEinwilligungPayload(SitzEinwilligungPayload):
-    pass
+    # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
+    version: int | None = None
 
 
 class FLReplaceSaisonTeamPayload(BaseModel):
@@ -732,10 +722,6 @@ class FLTeamsSingleResponse(BaseAPIResponse):
 
     format: Literal["single"] = "single"
     team: FLTeam
-
-
-class FLPostTeamResponse(BaseAPIResponse):
-    created_id: CustomObjectId
 
 
 class FLPatchTeamResponse(BaseAPIResponse):

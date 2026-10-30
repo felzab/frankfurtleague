@@ -34,9 +34,16 @@ import { FormKontakteLinkSection } from "./FormKontakteLinkSection";
 import { FormSaisonSection } from "./FormSaisonSection";
 import { FormVereinSection } from "./FormVereinSection";
 
+import type {
+  FLAustrittType,
+  FLGruppenNames,
+  FLPostTeamPayload,
+  FLSchulform,
+  FLTeamRecord,
+  FLTrikotFarbe,
+} from "@/core/generated/client/types";
 import type { TeamEinladungState } from "@/features/einladungen/types";
 import type { SaisonGruppenSwapContext } from "@/features/saisons/types";
-import type { FLAustrittType, FLGruppenNames, FLPostTeamPayload, FLSchulform, FLTeamRecord, FLTrikotFarbe } from "@/features/teams/schemas";
 import type { FLTeamDraftFields, TeamFieldPath } from "@/features/teams/teamDraftStatus";
 import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";

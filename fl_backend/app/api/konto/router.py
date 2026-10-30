@@ -62,6 +62,7 @@ from app.api.konto.services import (
     kontext_zeile,
 )
 from app.api.schiedsrichter.services import build_selbst_referee_pipeline
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.api.spieler.services import build_selbst_pupil_pipeline
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -86,11 +87,10 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.security import (
-    PERSON_ACTOR_BINDERS,
-    KontaktIdentifier,
-    StepUpCheck,
-    get_person_confirmation_check,
+    SessionActor,
     verify_access_admin,
+    verify_person_actor,
+    verify_person_passkey_confirmation,
     verify_recent_person_confirmation,
 )
 from app.core.transactions import transaction_session
@@ -298,7 +298,7 @@ async def post_adresswechsel(
     aktionen_collection: AktionenCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
-    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_person_confirmation_check)],
+    actor: Annotated[SessionActor, Depends(verify_person_actor)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLKontoAdresswechselMintResponse:
     """
@@ -333,7 +333,7 @@ async def post_adresswechsel(
         genehmigung = None
         if bestand.berechtigung is not None:
             # The change hands the grant over, so it asks the passkey a revoke does: this lane admits a sign-in by code.
-            refuse_unconfirmed()
+            verify_person_passkey_confirmation(actor)
             grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
             announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
             gesperrt = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in lebendige(grants)], session=session)
@@ -400,7 +400,7 @@ async def post_adresswechsel_freigabe(
     adresswechsel_collection: AdresswechselCollection,
     berechtigungen_collection: BerechtigungenCollection,
     db: DBClient,
-    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_person_confirmation_check)],
+    actor: Annotated[SessionActor, Depends(verify_person_actor)],
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLKontoAdresswechselFreigabeResponse:
     """
@@ -429,7 +429,7 @@ async def post_adresswechsel_freigabe(
         refuse(find_abgelaufen_refusal(abgelaufen=ist_abgelaufen(record, now=germany_now)))
         # As the start: the press lets a link go that hands over any grant the address holds at the effect.
         if await live_grant_of(identifier, berechtigungen_collection=berechtigungen_collection, session=session) is not None:
-            refuse_unconfirmed()
+            verify_person_passkey_confirmation(actor)
 
         return await patch_one_in_db(
             collection=adresswechsel_collection,

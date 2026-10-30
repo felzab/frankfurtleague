@@ -71,6 +71,8 @@ INCOMING_SIDE = {"team_id": INCOMING, "name": "Incoming", "shorthand": "INX", "t
 
 # The day the replacement runs, and a departure from the same squad that predates it.
 REPLACED_ON = "2026-04-15"
+# After the replacement day, so the season it runs on has not started.
+FIRST_GROUP_FIXTURE_DAY = "2026-05-01"
 NOW = datetime(2026, 4, 15, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`.
 REDACTED_AT = "2026-04-15T10:30:00+00:00"
@@ -189,6 +191,7 @@ def gruppen_fixture(
     sonderereignis: str | None = None,
     tore: tuple[int | None, int | None] = (None, None),
     saison_id: str = SAISON_ID,
+    datum: str = FIRST_GROUP_FIXTURE_DAY,
 ) -> dict[str, Any]:
     """`datum`, `uhrzeit` and `spieltag_id` are the schedule a replacement leaves standing, so every fixture carries all three."""
 
@@ -197,7 +200,7 @@ def gruppen_fixture(
         saison_id=saison_id,
         spiel_nr=spiel_nr,
         spieltag_id=SPIELTAG_OID,
-        datum="2026-03-15",
+        datum=datum,
         uhrzeit="18:00:00",
         team1=side(home, tore[0]),
         team2=side(away, tore[1]),
@@ -642,46 +645,19 @@ class TestAPhantomRowIsRepaired:
         assert row is not None, "a gate refused the row this endpoint exists to repair"
 
 
-class TestAClubThatHasPlayedIsNotReplaced:
-    def test_a_played_fixture_refuses_it(self, mongo_replica_set_url: str):
-        """`REQ-REPLACE-002` through the route, with the whole write rolled back."""
+class TestAStartedSeasonIsNotReplaced:
+    def test_a_group_fixture_dated_on_the_replacement_day_refuses_it(self, mongo_replica_set_url: str):
+        """From the season's first fixture day a club leaves by its Austritt and is not replaced, with the whole write rolled back."""
 
         code, row, spiele = on_a_seeded_season(
             mongo_replica_set_url,
             _refused,
-            spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, ergebnis="2:1", tore=(2, 1)), gruppen_fixture(2, RIVAL, WITHDRAWN)],
+            spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, datum=REPLACED_ON), gruppen_fixture(2, RIVAL, WITHDRAWN)],
         )
 
         assert code == Code.REPLACE_OUTGOING_HAS_A_RECORD
         assert row is not None, "the junction row was handed over anyway"
         assert spiele[2]["team2"] == side(WITHDRAWN), "the fan-out ran before the refusal, or outside the transaction"
-
-    def test_a_fixture_called_off_still_permits_it(self, mongo_replica_set_url: str):
-        """Kills trusting `REQ-SWAP-002`/`-004`'s summaries: `ausgefallen` is "called off" and leaves NO record to rewrite."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await call_replace(database, client)
-            return await row_of(database, INCOMING)
-
-        row = on_a_seeded_season(
-            mongo_replica_set_url,
-            body,
-            spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, sonderereignis="ausgefallen")],
-        )
-
-        assert row is not None
-
-    def test_a_goal_count_with_no_result_refuses_it(self, mongo_replica_set_url: str):
-        """The hand-edited shape. Kills a check reading `ergebnis` alone, which would hand another club somebody's goals."""
-
-        code, row, _ = on_a_seeded_season(
-            mongo_replica_set_url,
-            _refused,
-            spiele=[gruppen_fixture(1, WITHDRAWN, RIVAL, tore=(1, None))],
-        )
-
-        assert code == Code.REPLACE_OUTGOING_HAS_A_RECORD
-        assert row is not None
 
 
 class TestTheSeasonGateOnTheRoute:
@@ -695,8 +671,8 @@ class TestTheSeasonGateOnTheRoute:
         assert spiele[1]["team1"] == side(WITHDRAWN)
 
     @pytest.mark.parametrize("saison_status", ["future", "active"])
-    def test_a_planned_or_started_season_permits_it(self, mongo_replica_set_url: str, saison_status: str):
-        """Kills borrowing the entry gate's `future`-only window (`REQ-ENTER-001`): a club withdraws from a season that has already started."""
+    def test_a_planned_or_activated_season_permits_it(self, mongo_replica_set_url: str, saison_status: str):
+        """Kills borrowing the entry gate's `future`-only window (`REQ-ENTER-001`): an activated season is open until its first fixture."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_replace(database, client)

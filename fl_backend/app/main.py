@@ -26,6 +26,7 @@ from app.api.identitaet.person_router import router as identitaet_person_router
 from app.api.identitaet.router import router as identitaet_router
 from app.api.identitaet.sweep_router import router as identitaet_sweep_router
 from app.api.konto.router import router as konto_router
+from app.api.postausgang.router import router as postausgang_router
 from app.api.registrierungen.einwilligung_router import router as registrierungen_einwilligung_router
 from app.api.registrierungen.person_router import router as registrierungen_person_router
 from app.api.registrierungen.public_router import router as registrierungen_public_router
@@ -87,6 +88,7 @@ ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
     "einwilligung": (einwilligung_router,),
     "identitaet": (identitaet_router, identitaet_admin_router, identitaet_person_router, identitaet_sweep_router),
     "konto": (konto_router,),
+    "postausgang": (postausgang_router,),
     "registrierungen": (
         registrierungen_router,
         registrierungen_public_router,

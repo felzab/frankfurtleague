@@ -1,4 +1,4 @@
-import type { FLEinladungVersandGrund, FLEinladungZeile } from "./schemas";
+import type { FLEinladungVersandGrund, FLEinladungZeile } from "@/core/generated/client/types";
 
 /**
  * What the team editor's invite panel is rendered from. **`laeuft` rides beside the row rather than

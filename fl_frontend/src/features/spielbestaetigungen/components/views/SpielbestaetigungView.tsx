@@ -21,11 +21,7 @@ import { formatSpielDatum, formatUhrzeit, NICHT_HINTERLEGT } from "@/shared/util
 
 import { SpielbestaetigungFormPanel } from "./SpielbestaetigungFormPanel";
 
-import type {
-  FLSpielbestaetigungAnsichtResponse,
-  FLSpielbestaetigungTermin,
-  FLSpielbestaetigungVon,
-} from "@/features/spielbestaetigungen/schemas";
+import type { FLSpielbestaetigungAnsichtResponse, FLSpielbestaetigungAntwort, FLSpielbestaetigungTermin } from "@/core/generated/client/types";
 import type { SpielbestaetigungLinkZustand } from "@/features/spielbestaetigungen/utils";
 import type { SpielbestaetigungAbschluss } from "./SpielbestaetigungFormPanel";
 
@@ -36,8 +32,8 @@ import type { SpielbestaetigungAbschluss } from "./SpielbestaetigungFormPanel";
 export type SpielbestaetigungStart =
   | { zustand: "gueltig"; ansicht: FLSpielbestaetigungAnsichtResponse; token: string }
   | { zustand: "vorschlag"; ansicht: FLSpielbestaetigungAnsichtResponse; token: string }
-  | { zustand: "zugesagt"; beantwortet_von: FLSpielbestaetigungVon }
-  | { zustand: "abgelehnt"; beantwortet_von: FLSpielbestaetigungVon }
+  | { zustand: "zugesagt"; beantwortet_von: FLSpielbestaetigungAntwort["von"] }
+  | { zustand: "abgelehnt"; beantwortet_von: FLSpielbestaetigungAntwort["von"] }
   | { zustand: "verworfen"; termin: FLSpielbestaetigungTermin }
   | { zustand: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "abgelehnt" | "verworfen"> | "unlesbar" };
 

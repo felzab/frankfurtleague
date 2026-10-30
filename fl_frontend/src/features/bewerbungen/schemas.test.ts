@@ -2,6 +2,7 @@ import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { renderMarkup, textOf } from "@/test-support/renderMarkup.ts";
 import { assert, describe, expect, it } from "vitest";
 
+import { gleicheAdresse } from "@/features/teams/kontaktePersonen";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import { FormTeamSection } from "./components/forms/BewerbungForm/FormTeamSection.tsx";
@@ -12,14 +13,10 @@ import {
   SCHULE_NICHT_IN_LISTE,
 } from "./constants.ts";
 import {
-  FLBewerbungEinwilligungAnsichtPayloadSchema,
   FLBewerbungEinwilligungAntwortPayloadSchema,
   FLBewerbungKontaktEmailPayloadSchema,
-  FLBewerbungTrikotFarbenResponseSchema,
-  FLBewerbungZustellungAngenommenPayloadSchema,
   FLBewerbungZustellungEreignisPayloadSchema,
   FLPostBewerbungPayloadSchema,
-  gleicheAdresse,
   ZUSTELLUNG_GRUND_MAX_LENGTH,
   ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH,
   ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH,
@@ -456,23 +453,6 @@ describe("the colour the school wishes for", () => {
   });
 });
 
-describe("what the season's assigned colours parse as", () => {
-  const colourAnswer = (vergeben: unknown) => FLBewerbungTrikotFarbenResponseSchema.safeParse({ acknowledged: 1, saison_id: "2627", vergeben });
-
-  /* First, because the refusals below are only refusals if the shape parses at all. */
-  it("reads a season that has assigned some of the palette, and one that has assigned none", () => {
-    expect(colourAnswer(["rot", "blau"]).success).toBe(true);
-    expect(colourAnswer([]).success).toBe(true);
-  });
-
-  /* Pinned HERE rather than by `apiContract.test.ts`: that comparison reads a field's own type and
-     never descends into an array's items, so `z.array(z.string())` would agree with the document. */
-  it("refuses a colour the league's palette does not hold", () => {
-    expect(colourAnswer(["rot", "neonpink"]).success, "the mirror admits a colour outside FLTrikotFarbe").toBe(false);
-    expect(colourAnswer(["rot", 7]).success, "the mirror admits a value that is not a colour at all").toBe(false);
-  });
-});
-
 describe("the opponent the school wishes for", () => {
   /* Free text and never a club id: a school may name one that has not applied yet, which is the whole
      reason this is not a picker. */
@@ -715,7 +695,7 @@ describe("the one field of a submitted application an administrator may move", (
   });
 });
 
-describe("what the two delivery writes may put on the wire", () => {
+describe("what the delivery event may put on the wire", () => {
   const MESSAGE_FOR = {
     bewerbung_id: "6890a1b2c3d4e5f607190001",
     rollen: ["ansprechperson"],
@@ -723,45 +703,37 @@ describe("what the two delivery writes may put on the wire", () => {
     am: "2026-03-15T09:30:00.000Z",
   };
 
-  const accepted = (overrides: Record<string, unknown>) =>
-    FLBewerbungZustellungAngenommenPayloadSchema.safeParse({ ...MESSAGE_FOR, ...overrides });
   const ereignis = (overrides: Record<string, unknown>) =>
     FLBewerbungZustellungEreignisPayloadSchema.safeParse({ ...MESSAGE_FOR, stand: "zugestellt", grund: null, ...overrides });
 
   /* First, because every case below asserts a refusal: over an envelope already refused each of them
      would pass on a shape it never named. */
-  it("takes the envelope each write composes", () => {
-    expect(accepted({}).success).toBe(true);
+  it("takes the envelope the webhook composes", () => {
     expect(ereignis({}).success).toBe(true);
   });
 
-  /* Past the ceiling the endpoint answers 422, and neither caller retries: the acceptance's is caught
-     and logged, and the event's route answers the provider 200 so it stops resending. */
-  for (const [was, meldung] of [
-    ["the acceptance", accepted],
-    ["the event", ereignis],
-  ] as const) {
-    it(`refuses a message id past the endpoint's ceiling in ${was}, and takes one at it`, () => {
-      expect(meldung({ nachricht_id: "a".repeat(ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH) }).success).toBe(true);
-      expect(meldung({ nachricht_id: "a".repeat(ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH + 1) }).success).toBe(false);
-    });
+  /* Past the ceiling the endpoint answers 422, and the route answers the provider 200 so it stops
+     resending: the event would be lost without a word. */
+  it("refuses a message id past the endpoint's ceiling, and takes one at it", () => {
+    expect(ereignis({ nachricht_id: "a".repeat(ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH) }).success).toBe(true);
+    expect(ereignis({ nachricht_id: "a".repeat(ZUSTELLUNG_NACHRICHT_ID_MAX_LENGTH + 1) }).success).toBe(false);
+  });
 
-    /* The LENGTH alone, which is what the endpoint states at this field; whether the value is an
-       instant at all is screened before either payload is composed. */
-    it(`refuses an instant past the endpoint's ceiling in ${was}, and takes one at it`, () => {
-      expect(meldung({ am: "2".repeat(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH) }).success).toBe(true);
-      expect(meldung({ am: "2".repeat(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH + 1) }).success).toBe(false);
-    });
+  /* The LENGTH alone, which is what the endpoint states at this field; whether the value is an
+     instant at all is screened before the payload is composed. */
+  it("refuses an instant past the endpoint's ceiling, and takes one at it", () => {
+    expect(ereignis({ am: "2".repeat(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH) }).success).toBe(true);
+    expect(ereignis({ am: "2".repeat(ZUSTELLUNG_ZEITPUNKT_MAX_LENGTH + 1) }).success).toBe(false);
+  });
 
-    /* `strip_whitespace=True` runs ahead of the endpoint's own floor, so spaces alone is an empty
-       value there while a ceiling without the trim would send it. */
-    it(`refuses a message id of whitespace alone in ${was}`, () => {
-      expect(meldung({ nachricht_id: "   " }).success).toBe(false);
-      expect(meldung({ am: "   " }).success).toBe(false);
-    });
-  }
+  /* `strip_whitespace=True` runs ahead of the endpoint's own floor, so spaces alone is an empty
+     value there while a ceiling without the trim would send it. */
+  it("refuses a message id of whitespace alone", () => {
+    expect(ereignis({ nachricht_id: "   " }).success).toBe(false);
+    expect(ereignis({ am: "   " }).success).toBe(false);
+  });
 
-  /* No floor on this one, unlike the two above: the endpoint bounds the reason's length and takes an
+  /* No floor on this one, unlike the message id and the instant: the endpoint bounds the reason's length and takes an
      empty one, a bounce being a fact about the mailbox with or without the provider's token. */
   it("bounds the reason and still takes an empty one", () => {
     expect(ereignis({ grund: "" }).success).toBe(true);
@@ -793,24 +765,18 @@ describe("the ceiling on the confirmation link's own token", () => {
   /* A decline, so the body is whole without a date and no clock decides the case. */
   const antwortBody = { antwort: "abgelehnt", geburtsdatum: null, whatsapp: false, medien: false, text_version: "2026-08" };
 
-  const verdicts = (token: string) => [
-    FLBewerbungEinwilligungAnsichtPayloadSchema.safeParse({ token: token }),
-    FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ token: token, ...antwortBody }),
-  ];
+  const verdict = (token: string) => FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ token: token, ...antwortBody });
 
   /* No control renders the token, so past `CustomBewerbungToken`'s ceiling the endpoint's
      `REQ-VAL-001` naming it marks nothing, and the page can only report a failed save. */
   it("answers a token past the endpoint's ceiling with the sentence the missing one gets", () => {
-    for (const parsed of verdicts("x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH + 1))) {
-      expect(parsed.success).toBe(false);
-      expect(parsed.error?.issues.map((issue) => issue.message)).toStrictEqual(["Bitte öffne den Link aus Deiner E-Mail erneut."]);
-    }
+    const parsed = verdict("x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH + 1));
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues.map((issue) => issue.message)).toStrictEqual(["Bitte öffne den Link aus Deiner E-Mail erneut."]);
   });
 
   it("takes a token at the ceiling, as the endpoint does", () => {
-    for (const parsed of verdicts("x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH))) {
-      expect(parsed.success).toBe(true);
-    }
+    expect(verdict("x".repeat(BEWERBUNG_TOKEN_MAX_LENGTH)).success).toBe(true);
   });
 });
 

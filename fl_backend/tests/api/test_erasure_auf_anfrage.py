@@ -35,7 +35,6 @@ from app.core.crud import ANCHOR_FIELD, patch_one_in_db
 from app.core.db import DEAD_GRANT, collection_dependency
 from app.core.journal import JOURNAL_TOKEN
 from app.core.recording import Actor
-from app.core.security import get_recent_confirmation_check
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH
@@ -178,7 +177,7 @@ async def erased_by_the_handler(
         **erasure_collections(database, **replaced),
         sperrliste=ban_list(database),
         # Refusing none: the window is held over HTTP, in `tests/api/test_step_up_execution.py`.
-        refuse_unconfirmed=get_recent_confirmation_check(FRESH_ADMIN_ACTOR),
+        actor=FRESH_ADMIN_ACTOR,
         db=client,
         config=CONFIG,
         operator=OPERATOR,

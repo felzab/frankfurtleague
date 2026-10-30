@@ -1,7 +1,6 @@
 import { side, spielbestaetigungFields, spielFields } from "@/test-support/fixtures.ts";
 import { assert, describe, expect, it } from "vitest";
 
-import { FLSpielbestaetigungSchema } from "../spielbestaetigungen/schemas.ts";
 import {
   ACTION_REQUIRED_LABELS,
   bestaetigungNotizen,
@@ -10,9 +9,7 @@ import {
   saisonBestaetigungen,
 } from "./utils.ts";
 
-import type { FLBracketFault, FLSpielberichtZustand } from "@/core/generated/client/types";
-import type { SpielbestaetigungFields } from "@/test-support/fixtures.ts";
-import type { FLSpielbestaetigung } from "../spielbestaetigungen/schemas.ts";
+import type { FLBracketFault, FLSpielberichtZustand, FLSpielbestaetigung, FLSpielbestaetigungAntwort } from "@/core/generated/client/types";
 import type { FLSpiel } from "../spiele/types.ts";
 import type { FLActionUrgency } from "./utils.ts";
 
@@ -214,9 +211,9 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
     team2_id: "6890a1b2c3d4e5f607182933",
     stand: "0".repeat(64),
   };
-  const zeile = (overrides: Partial<SpielbestaetigungFields> = {}): FLSpielbestaetigung =>
-    FLSpielbestaetigungSchema.parse(spielbestaetigungFields({ ansetzung: ANSETZUNG, ...overrides }));
-  const VORSCHLAG = {
+  const zeile = (overrides: Partial<FLSpielbestaetigung> = {}): FLSpielbestaetigung =>
+    spielbestaetigungFields({ ansetzung: ANSETZUNG, ...overrides });
+  const VORSCHLAG: FLSpielbestaetigungAntwort = {
     art: "abgelehnt",
     am: "2026-07-28",
     von: { art: "kontakt", rolle: "trainer" },
@@ -296,7 +293,13 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
 
   describe("a referee's own decline", () => {
     const partei = { art: "schiedsrichter" as const, schiedsrichter_id: "6890a1b2c3d4e5f607182935" };
-    const ABGELEHNT = { art: "abgelehnt", am: "2026-07-28", von: { art: "schiedsrichter" }, vorschlag: null, begruendung: null };
+    const ABGELEHNT: FLSpielbestaetigungAntwort = {
+      art: "abgelehnt",
+      am: "2026-07-28",
+      von: { art: "schiedsrichter" },
+      vorschlag: null,
+      begruendung: null,
+    };
     const abgelehnt = zeile({
       partei,
       kontakte: null,

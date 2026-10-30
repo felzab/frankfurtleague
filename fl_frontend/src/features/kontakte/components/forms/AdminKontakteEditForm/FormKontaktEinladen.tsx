@@ -18,7 +18,7 @@ import { benannt } from "@/shared/utils/benannt";
 import { BESTAETIGUNGSLINK_TITEL, meldeLinkVersand } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
-import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
+import type { FLKontaktRolle } from "@/core/generated/client/types";
 
 /**
  * A fresh link for one stored, unconfirmed seat, on the referee's pattern

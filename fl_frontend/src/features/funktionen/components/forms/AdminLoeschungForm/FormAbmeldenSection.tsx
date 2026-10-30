@@ -11,7 +11,7 @@ import { Label } from "@heroui/react/label";
 
 import { UEBERALL_ABMELDEN } from "@/features/admin/constants";
 import { endAnmeldungenAction } from "@/features/funktionen/actions";
-import { FLAbmeldungPayloadSchema } from "@/features/funktionen/schemas";
+import { FLErasureAdressePayloadSchema } from "@/features/funktionen/schemas";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
@@ -40,7 +40,7 @@ export function FormAbmeldenSection() {
   const handlePress = () => {
     if (!isConfirming) {
       // Judged at the press and never between keystrokes, in the write's own words.
-      const geprueft = FLAbmeldungPayloadSchema.shape.email.safeParse(email);
+      const geprueft = FLErasureAdressePayloadSchema.shape.email.safeParse(email);
       setFehler(geprueft.success ? null : (geprueft.error.issues[0]?.message ?? null));
       if (!geprueft.success) return;
     }

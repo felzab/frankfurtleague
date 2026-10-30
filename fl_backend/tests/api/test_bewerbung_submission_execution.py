@@ -141,7 +141,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future") -> Any:
-    """The SHIPPED validators and indexes, so a document production would refuse fails here too."""
+    """A clean database carrying the shipped indexes, so a duplicate production would refuse fails here too."""
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
@@ -207,12 +207,12 @@ class TestWhatASubmissionStores:
         assert stored["eingereicht_am"] == TODAY
         assert stored["team_id"] == EXISTING_OID
         assert stored["schule"] is None
-        # Present and null, never absent: `required` in the validator means the KEY is there, so an
-        # omitted null is a rejection rather than a stored null.
+        # Present and null, never absent: the record model requires the KEY, so an omitted one is a document the
+        # read-back refuses.
         assert "entscheidung" in stored and stored["entscheidung"] is None
 
     def test_a_new_school_is_stored_with_no_club_named(self, mongo_replica_set_url: str):
-        """The other branch, which the validator types differently: `schule` is the object and `team_id` the null."""
+        """The other branch: `schule` is the object and `team_id` the null."""
 
         async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             response = await submit(database, team_id=None, schule=schule_block())
@@ -229,7 +229,7 @@ class TestWhatASubmissionStores:
     def test_each_consent_is_the_one_the_server_composed(self, mongo_replica_set_url: str):
         """The applicant supplied a wording version and a tick; the scope, the source, the day and the empty stamp are the league's.
 
-        `administrativ` on every seat, the shipped validator accepting it: nobody has confirmed yet.
+        `administrativ` on every seat: nobody has confirmed yet.
         """
 
         async def body(database: AsyncDatabase) -> Mapping[str, Any]:
@@ -268,7 +268,7 @@ class TestWhatASubmissionStores:
         assert on_a_league(mongo_replica_set_url, body)["wunschgegner"] == "Zorbanax-Gesamtschule"
 
     def test_a_submission_naming_no_opponent_still_writes_the_key(self, mongo_replica_set_url: str):
-        """The validator cannot require it, so only the write keeps every application this endpoint makes one shape."""
+        """Only the write keeps every application this endpoint makes one shape."""
 
         async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             response = await submit(database)
@@ -282,7 +282,7 @@ class TestWhatASubmissionStores:
         assert "wunschgegner" in stored and stored["wunschgegner"] is None
 
     def test_the_year_group_the_school_named_is_stored(self, mongo_replica_set_url: str):
-        """The write is the only thing putting this key in the document, the validator not requiring it."""
+        """The write is the only thing putting this key in the document."""
 
         async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             response = await submit(database, stufengroesse=118)
@@ -896,8 +896,7 @@ class TestASubmissionMadeOverTheWire:
         assert submitted.response.json()["error_code"] == Code.BEWERBUNG_PICKED_CLUB_UNUSABLE
 
 
-# The validator refuses what the models refuse: `gute_spieler` is non-nullable on every side, not
-# the payload alone, so the stored shape is `bsonType: "int"` and no null.
+# `gute_spieler` is non-nullable on every side, not the payload alone, so the stored shape is an int and no null.
 
 
 def _parsed_kontakte() -> dict[str, Any]:

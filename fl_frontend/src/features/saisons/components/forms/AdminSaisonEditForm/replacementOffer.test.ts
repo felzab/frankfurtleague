@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import { buildReplacementContext, describePlatz, describeUebernommeneSpiele } from "./replacementOffer.ts";
 
+import type { FLAustritt } from "@/core/generated/client/types.ts";
 import type { FLSpiel } from "../../../../spiele/types.ts";
-import type { FLAustritt } from "../../../../teams/schemas.ts";
 
 /**
  * A fixture with neither side filled, each case supplying the clubs it is about. Deliberately not a

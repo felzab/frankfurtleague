@@ -3,17 +3,14 @@ import "server-only";
 import { ADRESSWECHSEL_WARTEZEIT_DAUER } from "./adresswechsel";
 import { ADRESSWECHSEL_STOPPEN } from "./adresswechselAntworten";
 import { KONTAKT_EMAIL } from "./brand";
-import { COPY } from "./copy";
 import { BRAND_NAME, mailOrigin } from "./emailShell";
 import { formatZeitpunkt } from "./format";
 
-import type { AdresswechselWeg } from "./adresswechsel";
 import type { Absatz, Mail } from "./emailShell";
+import type { FLAdresswechselWeg } from "./generated/client/types";
 
 /** The one address page, both links' and every record's, under the segment `robots.ts` already turns crawlers back from. */
 export const ADRESSWECHSEL_PFAD = "/bestaetigung/adresse";
-
-const ADMINISTRATOREN_PFAD = "/bereich/admin/administratoren";
 
 /**
  * The one spelling of the address page's link, the stop link's too, the page telling them apart by hash.
@@ -29,7 +26,7 @@ export interface AdresswechselLinkData {
   origin: string;
   /** The raw token. It is a bearer credential and is never taken apart here. */
   token: string;
-  weg: AdresswechselWeg;
+  weg: FLAdresswechselWeg;
   /** The instant the link lapses, as the mint's own transaction set it. */
   gueltigBis: string;
 }
@@ -70,14 +67,14 @@ export interface AdresswechselHinweisData {
   origin: string;
   /** The raw stop token, a bearer credential like the link's. */
   stoppToken: string;
-  weg: AdresswechselWeg;
+  weg: FLAdresswechselWeg;
   /** The approval's deadline, which only `freigabe`'s notice states: the stop link outlives it. */
   gueltigBis: string;
   vorname: string;
 }
 
 /** Why the address on file is told, per way the change was started. */
-function anlassAbsatz(weg: AdresswechselWeg, gueltigBis: string): Absatz {
+function anlassAbsatz(weg: FLAdresswechselWeg, gueltigBis: string): Absatz {
   switch (weg) {
     case "konto":
       return [
@@ -158,31 +155,5 @@ export function buildAdresswechselNichtWirksamEmail({ origin }: { origin: string
     absaetze: [
       ["Die Änderung Deiner E-Mail-Adresse ist nicht wirksam geworden.", ["Wir helfen Dir gern weiter: ", { adresse: KONTAKT_EMAIL }]],
     ],
-  };
-}
-
-/**
- * Tells another holder of the administration that a grant holder's change waits for an approval. It names no
- * address and no person, and links to the page without an id: whoever reads it signs in to learn the rest.
- */
-export function buildAdresswechselGenehmigungEmail({ origin }: { origin: string }): Mail {
-  const site = mailOrigin(origin);
-
-  return {
-    art: "mitteilung",
-    betreff: "Eine Adressänderung wartet auf Deine Genehmigung",
-    origin: site,
-    vorname: "",
-    absaetze: [
-      // Never that the person gave the address: on the lost-mailbox way an administrator typed it.
-      [
-        "Für eine Person mit Zugang zur Verwaltung ist eine neue E-Mail-Adresse eingetragen.",
-        "Der Zugang wechselt erst zu ihr, wenn die Änderung genehmigt ist.",
-      ],
-      [
-        `Prüfe die Änderung unter „${COPY.seite.administratoren}“, und genehmige sie nur, wenn Du sicher bist, dass die Person sie selbst angefragt hat.`,
-      ],
-    ],
-    aktion: { label: "Zu den Administratoren", href: `${site}${ADMINISTRATOREN_PFAD}` },
   };
 }

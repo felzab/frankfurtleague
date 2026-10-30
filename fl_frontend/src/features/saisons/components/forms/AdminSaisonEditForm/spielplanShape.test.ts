@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { describeShapeRows, readShape, SHAPE_FIELDS } from "./spielplanShape.ts";
 
-import type { FLSaisonRules, FLSpielplanShape } from "@/features/saisons/schemas";
+import type { FLSaisonRules, FLSpielplanShape } from "@/core/generated/client/types";
 
 const STORED: FLSaisonRules = saisonRules({ teams_per_group: 6, max_kadergroesse: 12, erlaubte_stufen: ["E1"] });
 

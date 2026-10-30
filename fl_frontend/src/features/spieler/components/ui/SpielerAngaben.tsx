@@ -10,8 +10,8 @@ import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { ausgetragenSeit, kaderName, NUMMER_NICHT_HINTERLEGT, rolleLabel } from "../../constants";
 
+import type { FLSpielerSelbst, FLSpielerSelbstKaderZeile } from "@/core/generated/client/types";
 import type { ReactNode } from "react";
-import type { FLSpielerSelbst, FLSpielerSelbstKaderZeile } from "../../schemas";
 
 /** One squad row, linked to the squad where everyone reads it rather than repeated here. */
 function KaderEintrag({ zeile }: { zeile: FLSpielerSelbstKaderZeile }) {

@@ -12,7 +12,7 @@ const CONFIG = { frontend_config: { AUTH_URL: "https://liga.example.de" } };
 /** What the client answers in this case, whichever endpoint the action reads. */
 let apiAnswer: () => unknown = () => undefined;
 // The delivery report each accepted or refused message files, which the backend applies.
-doubleApiClient(({ endpoint }) => (endpoint.startsWith("/zustellung/") ? { acknowledged: 1, angewendet: true } : apiAnswer()));
+doubleApiClient(({ endpoint }) => (endpoint.startsWith("/zustellung/") ? { angewendet: true } : apiAnswer()));
 /** The club list the action reads, which each case names. */
 let sendTeams: () => unknown = () => undefined;
 const TEAMS = { getTeamMemberships: async () => sendTeams() };
@@ -84,13 +84,11 @@ const BEIDE_BESTAETIGT = {
 /* Each case presses on a team id of its own: `getEinladung` is wrapped in React's `cache`, and one
    shared id would let an earlier case's answer stand where a later one changes the live row. */
 const teamsHolding = (teamId: string, kontakte: unknown) => () => ({
-  acknowledged: 1,
   teams: [{ id: teamId, name: "Ernst-Reuter-Schule", memberships: [{ saison_id: SAISON_ID, kontakte: kontakte }] }],
 });
 
 /** The live invite the read answers, whose id is what the press judges the caller's against. */
 const liveRow = (einladungId: string) => () => ({
-  acknowledged: 1,
   saison_id: SAISON_ID,
   team_id: "x",
   einladung: {
@@ -233,7 +231,7 @@ describe("what the single invite press answers", () => {
   it("refuses where no link stands at all, and composes nothing", async () => {
     const teamId = "1a".repeat(12);
     sendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
-    apiAnswer = () => ({ acknowledged: 1, saison_id: SAISON_ID, team_id: "x", einladung: null, laeuft: true });
+    apiAnswer = () => ({ saison_id: SAISON_ID, team_id: "x", einladung: null, laeuft: true });
 
     const res = await press(teamId);
 
@@ -298,7 +296,7 @@ describe("what the season-wide press answers", () => {
   });
 
   const pressSeason = (zeilen: unknown[]) => {
-    apiAnswer = () => ({ acknowledged: 1, saison_id: SAISON_ID, zeilen: zeilen });
+    apiAnswer = () => ({ saison_id: SAISON_ID, zeilen: zeilen });
     return postEinladungVersandAction({ id: SAISON_ID, erneut: false });
   };
 

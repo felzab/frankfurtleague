@@ -57,7 +57,7 @@ from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
-from tests.actor_tokens import FRESH_STEP_UP_CHECK
+from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.api import test_spielbestaetigung_sweep_refusal as budget
 from tests.bans import ban_list
 from tests.config import build_test_config
@@ -456,8 +456,6 @@ class TestTheMintNeverAsksWhatTheCloseShuts:
         [
             pytest.param({}, NEXT_WEEK, id="a club gone on the fixture's day"),
             pytest.param({}, YESTERDAY, id="a club gone before it"),
-            pytest.param({"team1": side(ALPHA, 2)}, None, id="a lone goal count"),
-            pytest.param({"elfmeterschiessen": {"team1": 4, "team2": 3}}, None, id="a lone shoot-out"),
         ],
     )
     def test_two_passes_mint_nothing(self, mongo_replica_set_url: str, spiel_fields: dict[str, Any], austritt_tag: str | None):
@@ -991,7 +989,7 @@ async def hand_alphas_trainer_to(database: AsyncDatabase, client: AsyncMongoClie
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         sperrliste=ban_list(database),
         db=client,
-        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+        actor=FRESH_ADMIN_ACTOR,
         today=TODAY,
     )
 

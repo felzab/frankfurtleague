@@ -1,7 +1,8 @@
 import { saisonRules } from "@/test-support/saisonRules.ts";
 import { assert, describe, expect, it } from "vitest";
 
-import { FLPostSaisonPayloadSchema, MAX_QUALIFIERS } from "@/features/saisons/schemas";
+import { MAX_QUALIFIERS } from "@/features/saisons/constants";
+import { FLPostSaisonPayloadSchema } from "@/features/saisons/schemas";
 import { GRUPPEN_OPTIONS } from "@/features/teams/constants";
 
 import {
@@ -21,7 +22,7 @@ import {
   teamsPerGroupFloor,
 } from "./shapeOffer.ts";
 
-import type { FLSpielplanShape } from "@/features/saisons/schemas";
+import type { FLSpielplanShape } from "@/core/generated/client/types";
 import type { SaisonGruppenOccupancy } from "@/features/saisons/types";
 
 const RULES = saisonRules({ max_kadergroesse: 50, erlaubte_stufen: ["E1"] });
@@ -52,9 +53,9 @@ const refusalOf = (options: readonly { id: string; refusal: string | null }[], c
   options.find((row) => row.id === String(count))?.refusal;
 
 describe("the group count offer", () => {
-  /* The whole claim, one row at a time: an open row the create refuses is the offer
-     `.claude/rules/cross-surface.md`'s **saisons** clause bars, and a closed row it would have taken
-     is an offer narrowed past the rules. */
+  /* The whole claim, one row at a time: an open row the create refuses offers what the write path
+     refuses, which a ratified decision bars, and a closed row it would have taken is an offer
+     narrowed past the rules. */
   it("opens exactly the counts a create saves", () => {
     for (const qualifiers of SHAPE_COUNT_UNIVERSE) {
       for (const row of groupCountOptions({ groups: 1, qualifiers, occupancy: NOBODY_ENTERED })) {

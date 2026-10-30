@@ -10,8 +10,8 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { assert, describe, expect, it } from "vitest";
 
+import type { FLSaisonRules } from "@/core/generated/client/types.ts";
 import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus.ts";
-import type { FLSaisonRules } from "@/features/saisons/schemas.ts";
 
 // The server action modules the season editor reaches.
 doubleActions({ modules: ["@/features/einladungen/actions.ts", "@/features/saisons/actions.ts", "@/features/teams/actions.ts"] });

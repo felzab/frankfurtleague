@@ -859,6 +859,7 @@ def build_team_memberships_pipeline() -> list[Mapping[str, Any]]:
                             "trikot_farbe": 1,
                             "kontakte": 1,
                             "bestaetigungen": 1,
+                            "version": 1,
                         }
                     },
                     # Each link's state and never its hash, which only the link's own lookup reads. Unset
@@ -1555,14 +1556,16 @@ def find_replacement_pair_refusal(*, team_id: Any, incoming_team_id: Any) -> Wri
 def find_replacement_refusal(
     *,
     saison_status: str,
-    fixtures_with_a_record: int,
+    # `app/api/saisons/crud.py :: has_started`: once the season is under way, a club leaves it by its
+    # Austritt and is never replaced.
+    started: bool,
     incoming_inactive_since: str | None,
     incoming_already_entered: bool,
 ) -> WriteRefusal | None:
     """Why handing this row to another club must be refused, or `None`.
 
-    **The order is the argument**: the season, then the outgoing club's record, then the incoming
-    club -- so a repairable refusal never sends anyone to repair a doomed replacement.
+    **The order is the argument**: the season, then the incoming club -- so a repairable refusal never
+    sends anyone to repair a doomed replacement.
     """
 
     if saison_status == "past":
@@ -1571,9 +1574,7 @@ def find_replacement_refusal(
             status=HTTPStatus.CONFLICT,
         )
 
-    # The OUTGOING club's own fixtures, whatever the phase: the incoming club inherits the schedule
-    # entire, so a record on any of it would be credited to a club that never played it.
-    if fixtures_with_a_record > 0:
+    if started:
         return WriteRefusal(
             error_code=Code.REPLACE_OUTGOING_HAS_A_RECORD,
             status=HTTPStatus.CONFLICT,

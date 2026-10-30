@@ -25,7 +25,8 @@ import {
 } from "./BestaetigungPanels";
 import { BestaetigungSaisonVorbei } from "./BestaetigungSaisonVorbei";
 
-import type { EinwilligungGeoeffnet, EinwilligungQuelle, LinkZustand } from "@/features/bewerbungen/types";
+import type { FLBewerbungEinwilligungAnsichtResponse, FLBewerbungEinwilligungAnsichtResponseQuelle } from "@/core/generated/client/types";
+import type { LinkZustand } from "@/features/bewerbungen/types";
 import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
 import type { KontaktFassung } from "./BestaetigungHinweise";
 
@@ -34,14 +35,14 @@ import type { KontaktFassung } from "./BestaetigungHinweise";
  * state is a panel that names nobody, and a dead link handed onward identifies nobody either.
  */
 export type BestaetigungStart =
-  | { zustand: "gueltig"; ansicht: EinwilligungGeoeffnet; token: string; fassung: KontaktFassung }
-  | { zustand: "saison_vorbei"; ansicht: EinwilligungGeoeffnet; token: string }
-  | { zustand: LinkZustand | "unlesbar"; quelle?: EinwilligungQuelle };
+  | { zustand: "gueltig"; ansicht: FLBewerbungEinwilligungAnsichtResponse; token: string; fassung: KontaktFassung }
+  | { zustand: "saison_vorbei"; ansicht: FLBewerbungEinwilligungAnsichtResponse; token: string }
+  | { zustand: LinkZustand | "unlesbar"; quelle?: FLBewerbungEinwilligungAnsichtResponseQuelle };
 
 type Stand =
   | BestaetigungStart
-  | { zustand: "erfolg"; ansicht: EinwilligungGeoeffnet; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
-  | { zustand: "widersprochen-neu"; ansicht: EinwilligungGeoeffnet };
+  | { zustand: "erfolg"; ansicht: FLBewerbungEinwilligungAnsichtResponse; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
+  | { zustand: "widersprochen-neu"; ansicht: FLBewerbungEinwilligungAnsichtResponse };
 
 /** One heading per state, uppercased by the page rather than typed so, as the application page does it. A barred link's page has none. */
 const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
@@ -57,10 +58,10 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
 };
 
 /** Every seat one answer on this link writes, so the page names the reader what the mail that brought them here named them. */
-const linkRollen = ({ rolle, zugleich_rolle }: EinwilligungGeoeffnet): string => rollenLangform([rolle, zugleich_rolle]);
+const linkRollen = ({ rolle, zugleich_rolle }: FLBewerbungEinwilligungAnsichtResponse): string => rollenLangform([rolle, zugleich_rolle]);
 
 /** The press's answer folded into the page's state, carrying the read that the panel still names the person from. */
-function nachAntwort(abschluss: BestaetigungAbschluss, ansicht: EinwilligungGeoeffnet, token: string): Stand {
+function nachAntwort(abschluss: BestaetigungAbschluss, ansicht: FLBewerbungEinwilligungAnsichtResponse, token: string): Stand {
   if (abschluss.zustand === "erfolg") return { ...abschluss, ansicht: ansicht };
   if (abschluss.zustand === "widersprochen-neu") return { zustand: "widersprochen-neu", ansicht: ansicht };
   // The season closed since the page opened, and the token still takes a Widerspruch. Named off the read after the

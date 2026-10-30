@@ -1,7 +1,7 @@
 import hashlib
 import hmac
 import secrets
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPStatus
@@ -12,15 +12,11 @@ from fastapi import Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import SecretStr
 
-from app.api.berechtigungen.crud import live_unbarred_grant_since
-from app.api.berechtigungen.services import signed_in_since
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core import clock
 from app.core.codes import Code
 from app.core.config import BackendConfig, get_app_config
-from app.core.dependencies import BerechtigungenCollection
 from app.core.exceptions import ACTOR_TOKEN_CHALLENGE, APIError
-from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, AktorFunktion, PersonActor, actor_var, request_var
+from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, PersonActor, actor_var, request_var
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, ENROLMENT_WINDOW_MINUTES, PERSON_WINDOW_DAYS, STEP_UP_WINDOW_HOURS
 from app.shared.sub_keys import derive_sub_key
@@ -58,8 +54,8 @@ def verify_api_key(select_key: KeySelector, error_code: Code, *, scheme_name: st
     return dependency
 
 
-# Module-level objects, so a router declares the same callable every time and a test can compare
-# guards by identity (`fl_backend/tests/api/test_admin_guard.py`).
+# Module-level objects, so every router declares the same callable: FastAPI caches a dependency per
+# request by its callable, and runs a guard declared twice once.
 verify_access_base = verify_api_key(lambda config: config.internal_api_key_base, error_code=Code.WRONG_BASE_KEY, scheme_name="BaseKey")
 verify_access_system = verify_api_key(lambda config: config.internal_api_key_system, error_code=Code.WRONG_SYSTEM_KEY, scheme_name="SystemKey")
 verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admin, error_code=Code.WRONG_ADMIN_KEY, scheme_name="AdminKey")
@@ -175,34 +171,14 @@ def verify_person_actor(actor: Annotated[SessionActor, Depends(get_session_actor
     return actor
 
 
-# When the live grant a folded identifier holds took effect, `None` for none: the one question the actor check asks.
-GrantLookup = Callable[[str], Awaitable[datetime | None]]
+def signed_in_since(auth_time: int, seit: datetime) -> bool:
+    """Whether a sign-in at `auth_time` is no older than `seit`, for a grant's date and an owner's alike.
 
+    Judged to the second `auth_time` is floored to, so nothing the frontend's guard admits is refused
+    here.
+    """
 
-def get_grant_lookup(berechtigungen_collection: BerechtigungenCollection, sperrliste: SperrlisteLookup) -> GrantLookup:
-    """The actor check's read: a live grant, and no ban on its address."""
-
-    async def grant_since(identifier: str) -> datetime | None:
-        return await live_unbarred_grant_since(identifier, berechtigungen_collection=berechtigungen_collection, sperrliste=sperrliste)
-
-    return grant_since
-
-
-async def verify_actor_is_admin(
-    # First, so a request naming nobody is refused before the grant read opens the database.
-    actor: Annotated[SessionActor, Depends(verify_admin_actor)],
-    grant_since: Annotated[GrantLookup, Depends(get_grant_lookup)],
-) -> None:
-    """Refuse an actor who holds no live grant, read per request, or signed in before it."""
-
-    # Folded, as every grant is stored, or a mixed-case identifier locks an administrator out of the
-    # panel. Either tier admits: `owner` holds every power `administration` does.
-    seit = await grant_since(sign_in_identifier(actor.email))
-    if seit is None:
-        raise APIError(HTTPStatus.FORBIDDEN, Code.ACTOR_NOT_ADMIN)
-
-    if not signed_in_since(actor.auth_time, seit):
-        raise refused_session()
+    return auth_time >= int(seit.timestamp())
 
 
 def get_actor_auth_time(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> int:
@@ -230,55 +206,33 @@ def confirmation_required(window_s: int) -> APIError:
 
 
 def verify_recent_confirmation(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> None:
-    """Refuse a write the page steps up to the enrolment window from an older sign-in or confirmation."""
+    """Refuse a write the page steps up to the enrolment window from an older sign-in or confirmation.
+
+    A write stepped up on some calls alone declares the actor and calls this on exactly those calls.
+    """
 
     if confirmed_before(actor, ENROLMENT_WINDOW_S):
         raise confirmation_required(ENROLMENT_WINDOW_S)
 
 
-def get_recent_confirmation_check(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> Callable[[], None]:
-    """`verify_recent_confirmation`'s window on the calls a handler judges to end a grant."""
-
-    def refuse_unconfirmed() -> None:
-        if confirmed_before(actor, ENROLMENT_WINDOW_S):
-            raise confirmation_required(ENROLMENT_WINDOW_S)
-
-    return refuse_unconfirmed
-
-
 def verify_step_up(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> None:
-    """Refuse a write stepped up on every call from a sign-in or confirmation older than the step-up window.
+    """Refuse a write stepped up from a sign-in or confirmation older than the step-up window.
 
-    One stepped up on some calls takes `get_step_up_check` instead, and its handler judges the call.
+    A write stepped up on some calls alone declares the actor and calls this on exactly those calls.
     """
 
     if confirmed_before(actor, STEP_UP_WINDOW_S):
         raise confirmation_required(STEP_UP_WINDOW_S)
 
 
-# Called by a handler on exactly the calls it judges a step-up write, it refuses one from a sign-in or
-# confirmation older than the step-up window.
-StepUpCheck = Callable[[], None]
+def verify_person_passkey_confirmation(actor: SessionActor) -> None:
+    """Refuse a person's write ending or handing over their grant without a fresh passkey, as a revoke does.
 
+    The person's lane admits a sign-in by code, so the handler calls this on exactly the calls it judges to reach a grant.
+    """
 
-def get_step_up_check(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> StepUpCheck:
-    """The step-up of a write stepped up on some calls alone."""
-
-    def refuse_unconfirmed() -> None:
-        if confirmed_before(actor, STEP_UP_WINDOW_S):
-            raise confirmation_required(STEP_UP_WINDOW_S)
-
-    return refuse_unconfirmed
-
-
-def get_person_confirmation_check(actor: Annotated[SessionActor, Depends(verify_person_actor)]) -> StepUpCheck:
-    """A grant holder's own erasure asks a fresh passkey, as a revoke does: the person's lane admits a sign-in by code."""
-
-    def refuse_unconfirmed() -> None:
-        if actor.factor != PASSKEY_FACTOR or confirmed_before(actor, ENROLMENT_WINDOW_S):
-            raise confirmation_required(ENROLMENT_WINDOW_S)
-
-    return refuse_unconfirmed
+    if actor.factor != PASSKEY_FACTOR or confirmed_before(actor, ENROLMENT_WINDOW_S):
+        raise confirmation_required(ENROLMENT_WINDOW_S)
 
 
 def verify_recent_person_confirmation(actor: Annotated[SessionActor, Depends(verify_person_actor)]) -> None:
@@ -289,32 +243,6 @@ def verify_recent_person_confirmation(actor: Annotated[SessionActor, Depends(ver
 
     if confirmed_before(actor, ENROLMENT_WINDOW_S):
         raise confirmation_required(ENROLMENT_WINDOW_S)
-
-
-# Whether a folded identifier is on the ban list: what a person's route asks beside the session.
-BanLookup = Callable[[str], Awaitable[bool]]
-
-
-def get_ban_lookup(sperrliste: SperrlisteLookup) -> BanLookup:
-    """The person check's read, keyed as the grant check keys its own ban read."""
-
-    async def is_gesperrt(identifier: str) -> bool:
-        return bool(await adressen_gesperrt(sperrliste, [identifier]))
-
-    return is_gesperrt
-
-
-async def verify_person_is_unbarred(
-    # First, so a request naming nobody is refused before the ban read opens the database.
-    actor: Annotated[SessionActor, Depends(verify_person_actor)],
-    is_gesperrt: Annotated[BanLookup, Depends(get_ban_lookup)],
-) -> SessionActor:
-    """Refuse a person the ban list holds, read per request: the frontend's guard misses a ban entered since."""
-
-    if await is_gesperrt(sign_in_identifier(actor.email)):
-        raise APIError(HTTPStatus.FORBIDDEN, Code.PERSON_BARRED)
-
-    return actor
 
 
 @dataclass(frozen=True)
@@ -369,8 +297,8 @@ def _the_application() -> Attribution[None]:
     return Attribution(SYSTEM_ACTOR, None)
 
 
-# Module-level objects, as the three key guards are, so a router declares the same callable every
-# time and a test compares binders by identity.
+# Module-level objects, as the three key guards are, so a handler declaring its router's binder is
+# answered from the run the router started.
 bind_actor = actor_binder(attribute_the_administrator)
 bind_public_actor = actor_binder(_the_public)
 bind_system_actor = actor_binder(_the_application)
@@ -406,35 +334,3 @@ def loeschung_journal_hash(identifier: str, *, schluessel: SecretStr) -> str:
     """What the erasure journal records for a person: a keyed hash of the identifier as `sign_in_identifier` folds it."""
 
     return _keyed_fold(identifier, schluessel=schluessel, label=LOESCHUNG_JOURNAL_VERSION)
-
-
-def person_actor_binder(funktion: AktorFunktion) -> Callable[..., AsyncIterator[str]]:
-    """The binder a person's router declares, fixing the Funktion its writes are recorded under and yielding the folded identifier.
-
-    The Funktion is never read off the request: the handler re-derives that the person holds it before
-    writing, so the record names what was checked.
-    """
-
-    def the_person(
-        # The ban check rides the binder, so a router declaring it cannot serve a barred person.
-        actor: Annotated[SessionActor, Depends(verify_person_is_unbarred)],
-        config: Annotated[BackendConfig, Depends(get_app_config)],
-    ) -> Attribution[str]:
-        # What the handler authorises against, so one mailbox's two spellings cannot hold two answers.
-        identifier = sign_in_identifier(actor.email)
-        pseudonym = akteur_pseudonym(identifier, schluessel=config.sperrliste_schluessel)
-
-        return Attribution(PersonActor(pseudonym=pseudonym, funktion=funktion), identifier)
-
-    return actor_binder(the_person)
-
-
-PERSON_ACTOR_BINDERS: Final[Mapping[AktorFunktion, Callable[..., AsyncIterator[str]]]] = {
-    funktion: person_actor_binder(funktion) for funktion in get_args(AktorFunktion)
-}
-
-# A handler's folded address, from the binder its router declares, which FastAPI then runs once a
-# request; another Funktion's alias runs a second binder, recording the writes under that Funktion.
-KontaktIdentifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["kontakt"])]
-SpielerIdentifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["spieler"])]
-SchiedsrichterIdentifier = Annotated[str, Depends(PERSON_ACTOR_BINDERS["schiedsrichter"])]

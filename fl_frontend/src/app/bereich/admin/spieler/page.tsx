@@ -10,8 +10,8 @@ import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 
+import type { FLTeamWithMemberships } from "@/core/generated/client/types";
 import type { AdminSpielerRow, SpielerTeamOption } from "@/features/spieler/types";
-import type { FLTeamWithMemberships } from "@/features/teams/schemas";
 import type { NextPageProps } from "@/shared/types/types";
 
 function teamsInSaison(teams: FLTeamWithMemberships[], saisonId: string): SpielerTeamOption[] {

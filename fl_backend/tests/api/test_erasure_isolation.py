@@ -21,7 +21,7 @@ from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLPatchSaiso
 from app.core.collections import Collection
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.folding import sign_in_identifier
-from tests.actor_tokens import FRESH_STEP_UP_CHECK
+from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
@@ -178,7 +178,7 @@ async def contacts_saved(database: AsyncDatabase, client: AsyncMongoClient, kont
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         sperrliste=ban_list(database),
         db=client,
-        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
+        actor=FRESH_ADMIN_ACTOR,
         today=TODAY,
     )
 

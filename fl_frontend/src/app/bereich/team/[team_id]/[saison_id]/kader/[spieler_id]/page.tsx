@@ -7,7 +7,7 @@ import { KaderZeileEditForm } from "@/features/spieler/components/forms/KaderZei
 import { kaderName, orderStufen } from "@/features/spieler/constants";
 import { getKader } from "@/features/spieler/queries";
 
-import type { FLSpielerRolle } from "@/features/spieler/schemas";
+import type { FLSpielerRolle } from "@/core/generated/client/types";
 import type { NextPageProps } from "@/shared/types/types";
 
 /**

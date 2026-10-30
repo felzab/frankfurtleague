@@ -16,12 +16,12 @@ import { benannt } from "@/shared/utils/benannt";
 
 import { SPIELBERICHT_EINTRAEGE_MAX } from "../../../constants";
 
-import type { FLSpielberichtSeite } from "../../../schemas";
+import type { FLSpielSeite } from "@/core/generated/client/types";
 import type { Auswahl } from "./AuswahlSelect";
 import type { KaderOption, SpielberichtKontext } from "./spielberichtDraft";
 
 /** The two sides as a picker offers them, by the names the form's heading uses. */
-export const seitenOptionen = (kontext: SpielberichtKontext): readonly Auswahl<FLSpielberichtSeite>[] => [
+export const seitenOptionen = (kontext: SpielberichtKontext): readonly Auswahl<FLSpielSeite>[] => [
   { id: "team1", label: kontext.team1Name },
   { id: "team2", label: kontext.team2Name },
 ];
@@ -30,7 +30,7 @@ export const seitenOptionen = (kontext: SpielberichtKontext): readonly Auswahl<F
  * The pupils one entry may name: that side's live squad, and the one it already names where the squad lacks them,
  * so a stored entry keeps its name rather than reading as unpicked.
  */
-export function personOptionen(kontext: SpielberichtKontext, seite: FLSpielberichtSeite | null, gewaehlt: string): readonly KaderOption[] {
+export function personOptionen(kontext: SpielberichtKontext, seite: FLSpielSeite | null, gewaehlt: string): readonly KaderOption[] {
   if (seite === null) return [];
 
   const kader = kontext.kader[seite];
@@ -41,7 +41,7 @@ export function personOptionen(kontext: SpielberichtKontext, seite: FLSpielberic
 }
 
 /** The chosen side fields no live squad, so its picker offers nobody new and the entry says why. */
-export const ohneKader = (kontext: SpielberichtKontext, seite: FLSpielberichtSeite | null): boolean =>
+export const ohneKader = (kontext: SpielberichtKontext, seite: FLSpielSeite | null): boolean =>
   seite !== null && kontext.kader[seite].length === 0;
 
 /**
