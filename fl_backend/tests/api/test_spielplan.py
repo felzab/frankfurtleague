@@ -1125,9 +1125,6 @@ RECORDED_EDITS: Mapping[str, RecordedEdit] = {
         ko={"team2_quelle": None},
     ),
     "ergebnis": RecordedEdit(why="a result", gruppe={"ergebnis": "2:1"}),
-    # Beside a result rather than behind it: `apply_payload_to_spiel` keeps a shoot-out only where it
-    # stores a result too, so one standing alone came by the hand edit route the goals above did.
-    "elfmeterschiessen": RecordedEdit(why="a shoot-out standing without a result", gruppe={"elfmeterschiessen": {"team1": 4, "team2": 3}}),
     # The value awarding NOTHING on purpose: `has_taken_place` reads it as untouched, so reaching for
     # that narrower question instead of this window is the mistake this entry is here to fail.
     "sonderereignis": RecordedEdit(why="a cancellation, which awards nothing and is still a record", gruppe={"sonderereignis": "ausgefallen"}),

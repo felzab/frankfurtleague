@@ -293,7 +293,6 @@ RECORDED_FACT_FIELDS: tuple[str, ...] = (
     "team1_quelle",
     "team2_quelle",
     "ergebnis",
-    "elfmeterschiessen",
     "sonderereignis",
     "ort.spielort_id",
     "schiedsrichter.schiedsrichter_id",
@@ -335,12 +334,6 @@ def holds_a_recorded_fact(spiel: Mapping[str, Any]) -> bool:
     """
 
     if spiel.get("ergebnis") is not None or spiel.get("sonderereignis") is not None:
-        return True
-
-    # Beside `ergebnis` rather than behind it: `apply_payload_to_spiel` keeps a shoot-out only where
-    # it stores a result too, so one standing alone is a hand edit -- which is the same route the
-    # goals below and the note further down are read for.
-    if spiel.get("elfmeterschiessen") is not None:
         return True
 
     # Both slots spelled out, as `_a_side_is_off_the_draw` above is, and refused by the same sweep:
