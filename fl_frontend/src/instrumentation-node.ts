@@ -131,7 +131,7 @@ function armScheduler(passes: Awaited<ReturnType<typeof loadJobs>>, heartbeat: s
  * since the last pass in it, and nothing for an idle pass: the heartbeat is what says a pass ran.
  */
 async function runPass({ jobs, drain, takeDrainCounts }: Awaited<ReturnType<typeof loadJobs>>): Promise<readonly string[]> {
-  const ausfaelle: string[] = [];
+  const failures: string[] = [];
   const zaehlungen: Record<string, Durchlauf["count"]> = {};
 
   const failed = (name: string, error: unknown) => {
@@ -141,7 +141,7 @@ async function runPass({ jobs, drain, takeDrainCounts }: Awaited<ReturnType<type
       name: error instanceof Error ? error.name : undefined,
       ...requestOf(error),
     });
-    ausfaelle.push(`${name} failed`);
+    failures.push(`${name} failed`);
   };
 
   for (const { name, run } of jobs) {
@@ -151,7 +151,7 @@ async function runPass({ jobs, drain, takeDrainCounts }: Awaited<ReturnType<type
 
       zaehlungen[name] = durchlauf.count;
       if (durchlauf.error !== undefined) failed(name, durchlauf.error);
-      else if (durchlauf.open > 0) ausfaelle.push(`${name} left ${String(durchlauf.open)}`);
+      else if (durchlauf.open > 0) failures.push(`${name} left ${String(durchlauf.open)}`);
     } catch (error) {
       failed(name, error);
     }
@@ -165,13 +165,13 @@ async function runPass({ jobs, drain, takeDrainCounts }: Awaited<ReturnType<type
   // drain meets it.
   const outbox = takeDrainCounts();
   zaehlungen["outbox"] = outbox;
-  if (outbox.abandoned > 0) ausfaelle.push(`outbox gave up ${String(outbox.abandoned)}`);
+  if (outbox.abandoned > 0) failures.push(`outbox gave up ${String(outbox.abandoned)}`);
 
   const geschehen = Object.values(zaehlungen).some((count) => Object.values(count).some((value) => typeof value === "number" && value > 0));
-  if (ausfaelle.length > 0) logger.warn("scheduler.pass", { ...zaehlungen, ausfaelle: ausfaelle });
+  if (failures.length > 0) logger.warn("scheduler.pass", { ...zaehlungen, failures });
   else if (geschehen) logger.info("scheduler.pass", zaehlungen);
 
-  return ausfaelle;
+  return failures;
 }
 
 /** Long enough for the monitor's answer, short enough that a hung one never reaches the next pass. */
@@ -182,15 +182,13 @@ const HEARTBEAT_TIMEOUT_MS = 10 * 1000;
  * (https://betterstack.com/docs/uptime/cron-and-heartbeat-monitor/). A pass that never pings is what the monitor
  * alerts on, so the ping never fails the pass: its own failure is a line.
  */
-async function ping(url: string | undefined, ausfaelle: readonly string[]): Promise<void> {
+async function ping(url: string | undefined, failures: readonly string[]): Promise<void> {
   if (url === undefined) return;
 
   try {
     const signal = AbortSignal.timeout(HEARTBEAT_TIMEOUT_MS);
     const res =
-      ausfaelle.length === 0
-        ? await fetch(url, { signal })
-        : await fetch(`${url}/fail`, { method: "POST", body: ausfaelle.join("\n"), signal });
+      failures.length === 0 ? await fetch(url, { signal }) : await fetch(`${url}/fail`, { method: "POST", body: failures.join("\n"), signal });
     if (!res.ok) logger.warn("scheduler.heartbeat_refused", { status: res.status });
   } catch (error) {
     // The error's name alone: its message can quote the address, whose token is the credential.

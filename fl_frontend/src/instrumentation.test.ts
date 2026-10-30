@@ -244,7 +244,7 @@ describe("the pass's one line", () => {
         fields: {
           erasure: { spieler: 4, failed: 0 },
           outbox: { sent: 0, repeated: 0, abandoned: 0, withheld: 0, ignored: 0 },
-          ausfaelle: ["erasure failed"],
+          failures: ["erasure failed"],
         },
       },
     ]);
