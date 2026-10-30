@@ -480,7 +480,7 @@ class FLPostBewerbungPayload(BaseModel):
     # sibling's omission is a 422.
 
     # `SINGLE_LINE_PATTERN` earns a second reason here:
-    # `fl_frontend/src/core/bewerbungEmail.ts :: wunschgegnerSatz` sets this inside a sentence, and a
+    # `fl_frontend/src/core/bewerbungEmail.ts :: wunschgegnerAbsatz` sets this inside a sentence, and a
     # break there still opens a line in a line-oriented text body.
 
     # No floor, `parse_empty_string_to_none` leaving nothing between null and a real name:
