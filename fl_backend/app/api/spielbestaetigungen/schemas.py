@@ -20,7 +20,7 @@ from app.shared.schemas.responses import BaseAPIResponse
 # referee's carrier declares it.
 from app.shared.schemas.zustellung import FLBewerbungZustellung
 
-FLSpielbestaetigungAntwortArt = Literal["zugesagt", "abgelehnt"]
+type FLSpielbestaetigungAntwortArt = Literal["zugesagt", "abgelehnt"]
 
 # Why a row stopped applying. `verworfen` closes an open decline carrying a proposal alone: the decline stands
 # as the record, and what is discarded is the administrator's obligation to act on its proposal.
@@ -247,11 +247,9 @@ class FLSpielbestaetigungEintragenPayload(BaseModel):
     begruendung: CustomSpielbestaetigungBegruendung
 
 
-class FLSpielbestaetigungEintragenResponse(BaseAPIResponse):
-    updated_document: FLSpielbestaetigung
+class FLSpielbestaetigungWriteResponse(BaseAPIResponse):
+    """Shared by the administrator's two presses, both answering the row as it now stands."""
 
-
-class FLSpielbestaetigungVerwerfenResponse(BaseAPIResponse):
     updated_document: FLSpielbestaetigung
 
 

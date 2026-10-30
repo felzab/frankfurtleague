@@ -30,12 +30,11 @@ from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAntwortPayload,
     FLSpielbestaetigungAntwortResponse,
     FLSpielbestaetigungEintragenPayload,
-    FLSpielbestaetigungEintragenResponse,
     FLSpielbestaetigungenFilterParams,
     FLSpielbestaetigungenListResponse,
     FLSpielbestaetigungSchiedsrichterAntwortPayload,
     FLSpielbestaetigungSchiedsrichterAntwortResponse,
-    FLSpielbestaetigungVerwerfenResponse,
+    FLSpielbestaetigungWriteResponse,
 )
 from app.api.spielbestaetigungen.services import (
     build_held_filter,
@@ -969,7 +968,7 @@ SETTLE_REASON = "Telefonisch mit dem Trainer abgestimmt"
 
 async def eintragen(
     database: AsyncDatabase, client: AsyncMongoClient, row_id: ObjectId, *, spielbestaetigungen: Any = None
-) -> FLSpielbestaetigungEintragenResponse:
+) -> FLSpielbestaetigungWriteResponse:
     return await eintragen_spielbestaetigung(
         spielbestaetigung_id=row_id,
         eintragen_data=FLSpielbestaetigungEintragenPayload(begruendung=SETTLE_REASON),
@@ -981,7 +980,7 @@ async def eintragen(
 
 async def verwerfen(
     database: AsyncDatabase, client: AsyncMongoClient, row_id: ObjectId, *, spielbestaetigungen: Any = None
-) -> FLSpielbestaetigungVerwerfenResponse:
+) -> FLSpielbestaetigungWriteResponse:
     return await verwerfen_spielbestaetigung(
         spielbestaetigung_id=row_id,
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),

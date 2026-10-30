@@ -15779,12 +15779,7 @@
             "type": "string"
           },
           "art": {
-            "enum": [
-              "zugesagt",
-              "abgelehnt"
-            ],
-            "title": "Art",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
           },
           "begruendung": {
             "anyOf": [
@@ -15841,17 +15836,19 @@
         "title": "FLSpielbestaetigungAntwort",
         "type": "object"
       },
+      "FLSpielbestaetigungAntwortArt": {
+        "enum": [
+          "zugesagt",
+          "abgelehnt"
+        ],
+        "type": "string"
+      },
       "FLSpielbestaetigungAntwortPayload": {
         "additionalProperties": false,
         "description": "One club's answer about one Ansetzung, from whichever of its seats pressed first.",
         "properties": {
           "antwort": {
-            "enum": [
-              "zugesagt",
-              "abgelehnt"
-            ],
-            "title": "Antwort",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
           },
           "begruendung": {
             "anyOf": [
@@ -15929,12 +15926,7 @@
             ]
           },
           "zustand": {
-            "enum": [
-              "zugesagt",
-              "abgelehnt"
-            ],
-            "title": "Zustand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
           }
         },
         "required": [
@@ -15961,18 +15953,6 @@
           "begruendung"
         ],
         "title": "FLSpielbestaetigungEintragenPayload",
-        "type": "object"
-      },
-      "FLSpielbestaetigungEintragenResponse": {
-        "properties": {
-          "updated_document": {
-            "$ref": "#/components/schemas/FLSpielbestaetigung"
-          }
-        },
-        "required": [
-          "updated_document"
-        ],
-        "title": "FLSpielbestaetigungEintragenResponse",
         "type": "object"
       },
       "FLSpielbestaetigungGeschlossen": {
@@ -16091,12 +16071,7 @@
         "description": "A referee's answer about one row naming them: a decline gives a reason, which the administrator reads.",
         "properties": {
           "antwort": {
-            "enum": [
-              "zugesagt",
-              "abgelehnt"
-            ],
-            "title": "Antwort",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
           },
           "begruendung": {
             "anyOf": [
@@ -16128,12 +16103,7 @@
             "type": "string"
           },
           "zustand": {
-            "enum": [
-              "zugesagt",
-              "abgelehnt"
-            ],
-            "title": "Zustand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielbestaetigungAntwortArt"
           }
         },
         "required": [
@@ -16866,18 +16836,6 @@
         "title": "FLSpielbestaetigungTermin",
         "type": "object"
       },
-      "FLSpielbestaetigungVerwerfenResponse": {
-        "properties": {
-          "updated_document": {
-            "$ref": "#/components/schemas/FLSpielbestaetigung"
-          }
-        },
-        "required": [
-          "updated_document"
-        ],
-        "title": "FLSpielbestaetigungVerwerfenResponse",
-        "type": "object"
-      },
       "FLSpielbestaetigungVonAdmin": {
         "description": "An administrator's settlement, naming nobody: the row is the league's record of how a date was agreed, not of who typed it.",
         "properties": {
@@ -16951,6 +16909,19 @@
           "uhrzeit"
         ],
         "title": "FLSpielbestaetigungVorschlagPayload",
+        "type": "object"
+      },
+      "FLSpielbestaetigungWriteResponse": {
+        "description": "Shared by the administrator's two presses, both answering the row as it now stands.",
+        "properties": {
+          "updated_document": {
+            "$ref": "#/components/schemas/FLSpielbestaetigung"
+          }
+        },
+        "required": [
+          "updated_document"
+        ],
+        "title": "FLSpielbestaetigungWriteResponse",
         "type": "object"
       },
       "FLSpielbestaetigungenListResponse": {
@@ -28716,7 +28687,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungEintragenResponse"
+                  "$ref": "#/components/schemas/FLSpielbestaetigungWriteResponse"
                 }
               }
             },
@@ -28795,7 +28766,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungVerwerfenResponse"
+                  "$ref": "#/components/schemas/FLSpielbestaetigungWriteResponse"
                 }
               }
             },

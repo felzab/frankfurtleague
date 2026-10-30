@@ -184,7 +184,6 @@ import type {
   FLSpielbestaetigungAntwortPayload,
   FLSpielbestaetigungAntwortResponse,
   FLSpielbestaetigungEintragenPayload,
-  FLSpielbestaetigungEintragenResponse,
   FLSpielbestaetigungenListResponse,
   FLSpielbestaetigungenSelbstResponse,
   FLSpielbestaetigungSchiedsrichterAntwortPayload,
@@ -195,7 +194,7 @@ import type {
   FLSpielbestaetigungSweepMitgeteiltResponse,
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungSweepSaisonsResponse,
-  FLSpielbestaetigungVerwerfenResponse,
+  FLSpielbestaetigungWriteResponse,
   FLSpieleActionRequiredResponse,
   FLSpieleAdminListResponse,
   FLSpieleAdminSingleResponse,
@@ -4450,7 +4449,7 @@ export const spielbestaetigungenEintragenSpielbestaetigung = async (
   spielbestaetigungId: string,
   fLSpielbestaetigungEintragenPayload: FLSpielbestaetigungEintragenPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielbestaetigungEintragenResponse> => {
+): Promise<FLSpielbestaetigungWriteResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -4463,7 +4462,7 @@ export const spielbestaetigungenEintragenSpielbestaetigung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLSpielbestaetigungEintragenResponse>(getSpielbestaetigungenEintragenSpielbestaetigungUrl(spielbestaetigungId), {
+  return adminKeyTransport<FLSpielbestaetigungWriteResponse>(getSpielbestaetigungenEintragenSpielbestaetigungUrl(spielbestaetigungId), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -4490,8 +4489,8 @@ export const getSpielbestaetigungenVerwerfenSpielbestaetigungUrl = (spielbestaet
 export const spielbestaetigungenVerwerfenSpielbestaetigung = async (
   spielbestaetigungId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielbestaetigungVerwerfenResponse> => {
-  return adminKeyTransport<FLSpielbestaetigungVerwerfenResponse>(getSpielbestaetigungenVerwerfenSpielbestaetigungUrl(spielbestaetigungId), {
+): Promise<FLSpielbestaetigungWriteResponse> => {
+  return adminKeyTransport<FLSpielbestaetigungWriteResponse>(getSpielbestaetigungenVerwerfenSpielbestaetigungUrl(spielbestaetigungId), {
     ...options,
     method: "POST",
   });

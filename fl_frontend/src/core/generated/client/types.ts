@@ -6765,14 +6765,6 @@ export interface FLSpielbestaetigungAnsichtResponse {
   zustand: FLSpielbestaetigungAnsichtResponseZustand;
 }
 
-export type FLSpielbestaetigungAntwortPayloadAntwort =
-  (typeof FLSpielbestaetigungAntwortPayloadAntwort)[keyof typeof FLSpielbestaetigungAntwortPayloadAntwort];
-
-export const FLSpielbestaetigungAntwortPayloadAntwort = {
-  zugesagt: "zugesagt",
-  abgelehnt: "abgelehnt",
-} as const;
-
 export interface FLSpielbestaetigungVorschlagPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   datum: string;
@@ -6784,7 +6776,7 @@ export interface FLSpielbestaetigungVorschlagPayload {
  * One club's answer about one Ansetzung, from whichever of its seats pressed first.
  */
 export interface FLSpielbestaetigungAntwortPayload {
-  antwort: FLSpielbestaetigungAntwortPayloadAntwort;
+  antwort: FLSpielbestaetigungAntwortArt;
   begruendung: string | null;
   /**
    * @minLength 1
@@ -6794,14 +6786,6 @@ export interface FLSpielbestaetigungAntwortPayload {
   vorschlag: FLSpielbestaetigungVorschlagPayload | null;
 }
 
-export type FLSpielbestaetigungAntwortResponseZustand =
-  (typeof FLSpielbestaetigungAntwortResponseZustand)[keyof typeof FLSpielbestaetigungAntwortResponseZustand];
-
-export const FLSpielbestaetigungAntwortResponseZustand = {
-  zugesagt: "zugesagt",
-  abgelehnt: "abgelehnt",
-} as const;
-
 /**
  * What the answer recorded: its way, its role, and the answering club's own proposal, which no view of the link serves.
  *
@@ -6810,7 +6794,7 @@ export const FLSpielbestaetigungAntwortResponseZustand = {
 export interface FLSpielbestaetigungAntwortResponse {
   beantwortet_von: FLSpielbestaetigungVonKontakt | FLSpielbestaetigungVonAdmin | FLSpielbestaetigungVonSchiedsrichter;
   vorschlag: FLSpielbestaetigungTermin | null;
-  zustand: FLSpielbestaetigungAntwortResponseZustand;
+  zustand: FLSpielbestaetigungAntwortArt;
 }
 
 /**
@@ -6827,38 +6811,18 @@ export interface FLSpielbestaetigungEintragenPayload {
   begruendung: string;
 }
 
-export interface FLSpielbestaetigungEintragenResponse {
-  updated_document: FLSpielbestaetigung;
-}
-
-export type FLSpielbestaetigungSchiedsrichterAntwortPayloadAntwort =
-  (typeof FLSpielbestaetigungSchiedsrichterAntwortPayloadAntwort)[keyof typeof FLSpielbestaetigungSchiedsrichterAntwortPayloadAntwort];
-
-export const FLSpielbestaetigungSchiedsrichterAntwortPayloadAntwort = {
-  zugesagt: "zugesagt",
-  abgelehnt: "abgelehnt",
-} as const;
-
 /**
  * A referee's answer about one row naming them: a decline gives a reason, which the administrator reads.
  */
 export interface FLSpielbestaetigungSchiedsrichterAntwortPayload {
-  antwort: FLSpielbestaetigungSchiedsrichterAntwortPayloadAntwort;
+  antwort: FLSpielbestaetigungAntwortArt;
   begruendung: string | null;
 }
-
-export type FLSpielbestaetigungSchiedsrichterAntwortResponseZustand =
-  (typeof FLSpielbestaetigungSchiedsrichterAntwortResponseZustand)[keyof typeof FLSpielbestaetigungSchiedsrichterAntwortResponseZustand];
-
-export const FLSpielbestaetigungSchiedsrichterAntwortResponseZustand = {
-  zugesagt: "zugesagt",
-  abgelehnt: "abgelehnt",
-} as const;
 
 export interface FLSpielbestaetigungSchiedsrichterAntwortResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spielbestaetigung_id: string;
-  zustand: FLSpielbestaetigungSchiedsrichterAntwortResponseZustand;
+  zustand: FLSpielbestaetigungAntwortArt;
 }
 
 export type FLSpielbestaetigungSelbstZustand = (typeof FLSpielbestaetigungSelbstZustand)[keyof typeof FLSpielbestaetigungSelbstZustand];
@@ -7123,7 +7087,10 @@ export interface FLSpielbestaetigungSweepSaisonsResponse {
   saison_ids: string[];
 }
 
-export interface FLSpielbestaetigungVerwerfenResponse {
+/**
+ * Shared by the administrator's two presses, both answering the row as it now stands.
+ */
+export interface FLSpielbestaetigungWriteResponse {
   updated_document: FLSpielbestaetigung;
 }
 
