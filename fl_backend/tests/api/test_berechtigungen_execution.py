@@ -407,6 +407,7 @@ class TestWhatAGrantStoresAndQueues:
             "erteilt_von": APPROVER[ANNA],
             "erteilt_am": NOW.astimezone(UTC).replace(tzinfo=None),
             "gesehen_am": NOW.astimezone(UTC).replace(tzinfo=None),
+            "version": 0,
         }
 
     def test_a_grant_and_a_revoke_made_here_each_queue_their_notice_as_they_happened(self, mongo_replica_set_url: str):

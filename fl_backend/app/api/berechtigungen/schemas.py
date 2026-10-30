@@ -70,6 +70,8 @@ class FLBerechtigung(BaseModel):
     ernannt_am: datetime | None = None
     # Written by an address change's move alone, read by the four-eyes rule and never by a session's check.
     fortgefuehrt: FLBerechtigungFortgefuehrt | None = None
+    # 0 until a write raises it, as the grant's insert stamps it.
+    version: int = 0
 
 
 class FLBerechtigungAdresswechsel(BaseModel):
@@ -109,6 +111,8 @@ class FLBerechtigungZeile(BaseModel):
     erteilt_am: FLUtcInstant
     # Null on a barred row, whose change the ban refuses anyway.
     adresswechsel: FLBerechtigungAdresswechsel | None
+    # The count of the grant's writes, which a tier change sends back to be refused once another write has raised it.
+    version: int
 
 
 class FLBerechtigungAntragGenehmigung(BaseModel):
@@ -176,6 +180,8 @@ class FLPatchBerechtigungPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     verwaltung: FLVerwaltung
+    # The `version` the list served the grant at; absent, the change is checked against nothing.
+    version: int | None = None
 
 
 class FLPostBerechtigungResponse(BaseAPIResponse):

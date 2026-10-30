@@ -1394,6 +1394,7 @@ export interface FLBerechtigungZeile {
   gesperrt: boolean;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
+  version: number;
   verwaltung: FLVerwaltung;
 }
 
@@ -3259,6 +3260,7 @@ export interface FLOffeneRegistrierungenResponse {
 }
 
 export interface FLPatchBerechtigungPayload {
+  version?: number | null;
   verwaltung: FLVerwaltung;
 }
 

@@ -58,7 +58,7 @@ from app.api.identitaet.services import adresswechsel_einsehbar_verwehrt
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
 from app.api.sperrliste.services import withheld_actor
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_one_in_db, post_one_to_db, refuse
+from app.core.crud import VERSION_FIELD, aggregate_many_from_db, erase_many_from_db, patch_one_in_db, post_one_to_db, refuse
 from app.core.dependencies import (
     AdresswechselCollection,
     BerechtigungenAngekuendigtCollection,
@@ -182,6 +182,7 @@ async def get_berechtigungen(
                 else _adresswechsel_zeile(
                     record, akteur=akteur, auth_time=auth_time, inhaber=inhaber, grants=rows, announced=announced, barred=barred_im_wechsel
                 ),
+                version=grant.version,
             )
         )
 
@@ -576,6 +577,7 @@ async def patch_berechtigung(
         await _move_the_tier_in_session(
             grant,
             verwaltung=verwaltung,
+            version=berechtigung_data.version,
             records=records,
             barred=barred,
             geaendert_von=geaendert_von,
@@ -598,6 +600,8 @@ async def _move_the_tier_in_session(
     grant: Mapping[str, Any],
     *,
     verwaltung: str,
+    # Required, so no caller forgets the form's version: the payload's, or `None` where no form was read.
+    version: int | None,
     records: Sequence[Mapping[str, Any]],
     barred: Set[str],
     geaendert_von: str,
@@ -635,6 +639,8 @@ async def _move_the_tier_in_session(
                 # Its owner's power dates from now, so the promoted holder's older sessions keep
                 # administering and hold none of it.
                 **({"ernannt_am": now} if verwaltung == OWNER else {}),
+                # Taken into the filter by the helper: a tier change opened before another write is refused.
+                VERSION_FIELD: version,
             }
         },
         session=session,
@@ -756,6 +762,8 @@ async def post_antrag_genehmigung(
             await _move_the_tier_in_session(
                 grant,
                 verwaltung=OWNER,
+                # An approval saves no form, so it is checked against no version.
+                version=None,
                 records=records,
                 barred=barred,
                 geaendert_von=operator,

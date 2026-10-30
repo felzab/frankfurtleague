@@ -455,6 +455,7 @@ export const BerechtigungenPatchBerechtigungParams = zod.object({
 });
 
 export const BerechtigungenPatchBerechtigungBody = zod.object({
+  version: zod.union([zod.int(), zod.null()]).optional(),
   verwaltung: zod.enum(["owner", "administration"]),
 });
 

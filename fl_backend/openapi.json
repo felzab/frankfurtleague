@@ -2638,6 +2638,10 @@
             "title": "Id",
             "type": "string"
           },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
           "verwaltung": {
             "$ref": "#/components/schemas/FLVerwaltung"
           }
@@ -2650,7 +2654,8 @@
           "erteilt_von",
           "erteilt_von_gesperrt",
           "erteilt_am",
-          "adresswechsel"
+          "adresswechsel",
+          "version"
         ],
         "title": "FLBerechtigungZeile",
         "type": "object"
@@ -8044,6 +8049,17 @@
       "FLPatchBerechtigungPayload": {
         "additionalProperties": false,
         "properties": {
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
           "verwaltung": {
             "$ref": "#/components/schemas/FLVerwaltung"
           }
