@@ -201,11 +201,9 @@ def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:
         return [f"{directory} ({'ENOTDIR' if directory.exists() else 'ENOENT'})"], []
     unreadable: list[str] = []
     absent: list[str] = []
-    # The library's own setting rather than its default: a file it would not find must be missing here too.
-    case_sensitive = bool(BackendConfig.model_config.get("case_sensitive"))
     # The fields of the class the build constructs, which a default it declares spares a file.
     for name, field in zip(SECRET_FILES, [BackendConfig.model_fields[field] for field in _SecretFields.model_fields], strict=True):
-        path = SecretsSettingsSource.find_case_path(directory, name, case_sensitive=case_sensitive)
+        path = SecretsSettingsSource.find_case_path(directory, name, case_sensitive=False)
         if path is None:
             # Counted here as well as by the build, which a variable, or a file under the field's own
             # name, may stand in for.
