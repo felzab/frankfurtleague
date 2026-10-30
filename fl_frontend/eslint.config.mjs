@@ -598,7 +598,7 @@ const SOURCE_BANS = [
     // reached by a write whose answer was lost.
     syntax(
       `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name="updateTag"], ${readsOff('"updateTag"')})`,
-      "The save spines, fl_frontend/src/core/action.ts and the old fl_frontend/src/shared/utils/adminMutation.ts, clear the site's cache tag after every write that may stand, a lost answer included: an action clears nothing itself.",
+      "The save spines, fl_frontend/src/core/action.ts on its administrator's and person's lanes and the old fl_frontend/src/shared/utils/adminMutation.ts, clear the site's cache tag after every write that may stand, a lost answer included: an action clears nothing itself.",
     ),
     SOURCE,
     { allow: ["src/shared/utils/adminMutation.ts", "src/core/action.ts"] },
