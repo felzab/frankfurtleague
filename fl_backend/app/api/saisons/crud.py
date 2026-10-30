@@ -45,6 +45,23 @@ async def pull_massgebliche_saison_id(saisons_collection: AsyncCollection, sessi
     return str(running["_id"])
 
 
+async def has_started(*, spiele_collection: AsyncCollection, saison_id: str, today: str, session: AsyncClientSession | None = None) -> bool:
+    """Whether this season has started: from the German day of its earliest group-phase fixture, never while none is dated.
+
+    The one predicate every start lock reads. Some fixture is dated today or earlier exactly when the
+    earliest one is, so no sort is needed.
+    """
+
+    # `$type` beside `$lte`, so an undated fixture's null is never compared.
+    started = await spiele_collection.find_one(
+        {"saison_id": saison_id, "saison_phase": "gruppenphase", "datum": {"$type": "string", "$lte": today}},
+        {"_id": 1},
+        session=session,
+    )
+
+    return started is not None
+
+
 async def pull_saison_id_and_rules(
     saisons_collection: AsyncCollection,
     saison_id: str | None,
