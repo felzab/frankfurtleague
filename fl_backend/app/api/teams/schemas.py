@@ -57,7 +57,7 @@ from app.shared.schemas.literals import (
     FLTrainerZugleich,
     FLTrikotFarbe,
 )
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # Read off the closed set rather than chosen beside it: a cap over the set size is one
@@ -129,7 +129,7 @@ class _KontaktKenntnisnahmeWritable(BaseModel):
     datum: CustomDateString
 
 
-class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable):
+class FLKontaktKenntnisnahme(_KontaktKenntnisnahmeWritable, BaseReadModel):
     """Which wording this person was shown, and how the record came to be held.
 
     Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's
@@ -232,7 +232,7 @@ class FLSaisonTeamRecord(BaseModel):
     shorthand: str
 
 
-class FLSaisonTeamBestaetigungAnsicht(FLSaisonTeamBestaetigung):
+class FLSaisonTeamBestaetigungAnsicht(FLSaisonTeamBestaetigung, BaseReadModel):
     """One seat's link as the contacts editor reads it: the stored link and whether it has lapsed."""
 
     # Judged on the read by the rule the seat's press refuses on, at the server's date, so no client
@@ -399,7 +399,7 @@ class FLSaisonTeamKontaktePayload(FLSaisonTeamKontakte):
         return self
 
 
-class FLTeamStatistik(BaseModel):
+class FLTeamStatistik(BaseReadModel):
     # `default=` by keyword, never `Field(0, ge=0)`: a positional one leaves the field looking
     # required to Pyright while ruff and the tests stay silent.
     anzahl_gespielte_spiele: int = Field(default=0, ge=0)
@@ -489,7 +489,7 @@ class FLGruppen(RootModel[Mapping[FLGruppenNames, list[FLGruppenTeam]]]):
     """
 
 
-class FLTeamMembership(BaseModel):
+class FLTeamMembership(BaseReadModel):
     """One junction row as seen from its club: which season, which group, and the record if any."""
 
     saison_id: str

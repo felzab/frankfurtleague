@@ -9,7 +9,7 @@ from app.core import clock
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SAISON_ID_LENGTH
 from app.shared.schemas.custom import CustomDateString, CustomObjectId, refuse_reversed_span
 from app.shared.schemas.literals import FLGruppenNames, FLSaisonPhase, FLSaisonStatus, FLSortOrder, FLSpielerStufe
-from app.shared.schemas.responses import BaseAPIResponse
+from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
 type FLSaisonsSortOptions = Literal["_id", "start_date", "end_date"]
 
@@ -166,7 +166,7 @@ class _SaisonStored(_SaisonWritable):
     spielplan: FLSaisonSpielplan | None = None
 
 
-class FLSaison(_SaisonStored):
+class FLSaison(_SaisonStored, BaseReadModel):
     # DERIVED, and on no document. Injected before validation, because a computed field would close
     # an import cycle.
     schedule: tuple[FLSaisonPhaseSchedule, ...]
