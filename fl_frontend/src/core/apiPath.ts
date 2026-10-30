@@ -8,6 +8,7 @@ export function isPathAsSpelled(endpoint: string, builtPathname: string, basePat
   const spelled = endpoint.split(/[?#]/)[0] ?? "";
 
   // Catches renavigation — `..`, `.`, an empty segment — and nothing else: an id carrying a plain `/`
-  // survives parsing untouched and reads exactly like a nested endpoint, so only the caller can refuse it.
+  // survives parsing untouched and reads exactly like a nested endpoint, which is why every generated path builder
+  // percent-encodes its parameters (`fl_frontend/src/core/generated/client/sdk.ts`).
   return builtPathname === `${basePathname}${spelled}`;
 }
