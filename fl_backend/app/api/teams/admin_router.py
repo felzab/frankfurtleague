@@ -123,13 +123,13 @@ from app.core.exceptions import DocumentNotFoundError
 from app.core.recording import build_redaction_filter, log_stamp
 from app.core.routing import by_id
 from app.core.security import (
-    StepUpCheck,
+    SessionActor,
     bind_actor,
     get_actor_auth_time,
     get_actor_email,
-    get_step_up_check,
     verify_access_admin,
     verify_actor_is_admin,
+    verify_admin_actor,
     verify_step_up,
 )
 from app.core.transactions import transaction_session
@@ -621,7 +621,7 @@ async def patch_saison_team_kontakte(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
-    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
+    actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     today: str = Depends(get_german_date_str),
 ) -> FLPatchSaisonTeamKontakteResponse:
     """
@@ -657,7 +657,7 @@ async def patch_saison_team_kontakte(
     """
 
     if kontakte_data.kontakte is None:
-        refuse_unconfirmed()
+        verify_step_up(actor)
 
     db_filter = {"team_id": team_id, "saison_id": saison_id}
     payload = kontakte_data.model_dump(mode="json")
@@ -733,7 +733,7 @@ async def patch_saison_team_kontakte(
             today=today,
         )
         if links or voids:
-            refuse_unconfirmed()
+            verify_step_up(actor)
 
         updated_raw = await patch_one_in_db(
             collection=saison_teams_collection,
@@ -1063,7 +1063,7 @@ async def post_einladung(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
-    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
+    actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     erstellt_von: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
 ) -> FLEinladungMintResponse:
@@ -1114,7 +1114,7 @@ async def post_einladung(
         # Judged on what this transaction voided, which aborts with the refusal: only a link somebody
         # holds makes the mint a step-up write.
         if widerrufen.modified_count:
-            refuse_unconfirmed()
+            verify_step_up(actor)
 
         document = compose_einladung(
             saison_id=saison_id,

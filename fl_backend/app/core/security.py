@@ -249,21 +249,6 @@ def verify_step_up(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) 
         raise confirmation_required(STEP_UP_WINDOW_S)
 
 
-# Called by a handler on exactly the calls it judges a step-up write, it refuses one from a sign-in or
-# confirmation older than the step-up window.
-StepUpCheck = Callable[[], None]
-
-
-def get_step_up_check(actor: Annotated[SessionActor, Depends(verify_admin_actor)]) -> StepUpCheck:
-    """The step-up of a write stepped up on some calls alone."""
-
-    def refuse_unconfirmed() -> None:
-        if confirmed_before(actor, STEP_UP_WINDOW_S):
-            raise confirmation_required(STEP_UP_WINDOW_S)
-
-    return refuse_unconfirmed
-
-
 def verify_person_passkey_confirmation(actor: SessionActor) -> None:
     """Refuse a person's write ending or handing over their grant without a fresh passkey, as a revoke does.
 
