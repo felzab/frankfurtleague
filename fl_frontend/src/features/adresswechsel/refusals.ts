@@ -7,10 +7,9 @@ import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/a
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
-import type { Code, FLApprovalDenied } from "@/core/generated/client/types";
+import type { Code, FLAddressChangeViewableDenied, FLApprovalDenied } from "@/core/generated/client/types";
 import type { RefusalParts } from "@/shared/utils/refusal";
 import type { FieldErrors } from "@/shared/utils/validation";
-import type { EinsehbarVerwehrt } from "./einsehbar";
 import type { AdresswechselLinkZustand } from "./link";
 
 // ---- The link page ------------------------------------------------------------------------------
@@ -236,7 +235,7 @@ export function mapVerwaltungLinkRefusal(error: unknown): string | null {
 }
 
 /** Who discards a change the approval left open, by why the tool refuses this approver, the tool's discard being the only one. */
-function verwerfen(verwehrt: EinsehbarVerwehrt | null): Omit<RefusalParts, "reason"> {
+function verwerfen(verwehrt: FLAddressChangeViewableDenied | null): Omit<RefusalParts, "reason"> {
   switch (verwehrt) {
     case null:
       return { repair: { before: "Verwirf sie", after: "" }, where: ADRESSWECHSEL_EINTRAG.label };
@@ -251,14 +250,14 @@ function verwerfen(verwehrt: EinsehbarVerwehrt | null): Omit<RefusalParts, "reas
   }
 }
 
-const ohneGenehmigung = (grund: string, verwehrt: EinsehbarVerwehrt | null): string =>
+const ohneGenehmigung = (grund: string, verwehrt: FLAddressChangeViewableDenied | null): string =>
   buildRefusal({
     reason: `${grund}, deshalb ist nichts genehmigt. Die Änderung bleibt offen, bis sie verworfen wird oder abläuft`,
     ...verwerfen(verwehrt),
   });
 
 /** The approval of a change whose new address an account signs in at, worded as the backend's `address_change_occupied` at the effect is. */
-export const kontoBelegtGenehmigung = (verwehrt: EinsehbarVerwehrt | null): string =>
+export const kontoBelegtGenehmigung = (verwehrt: FLAddressChangeViewableDenied | null): string =>
   ohneGenehmigung("Mit der neuen Adresse meldet sich inzwischen jemand an", verwehrt);
 
 /**
@@ -282,7 +281,7 @@ export const GENEHMIGUNG_VERWEHRT: Readonly<Record<FLApprovalDenied, string>> = 
 };
 
 /** Said beside the press it refuses, the administrators page holding the change's row. */
-const genehmigungWorte = (verwehrt: EinsehbarVerwehrt | null): Readonly<Record<string, string>> =>
+const genehmigungWorte = (verwehrt: FLAddressChangeViewableDenied | null): Readonly<Record<string, string>> =>
   ({
     address_change_approval_younger: GENEHMIGUNG_VERWEHRT.younger,
     address_change_ended: BEENDET,
@@ -314,7 +313,7 @@ const genehmigungWorte = (verwehrt: EinsehbarVerwehrt | null): Readonly<Record<s
  * The approval's refusal, or `null`, `document_not_found` and `duplicate_key` among them, which the shared reader words. `verwehrt` is the
  * row's served reason the tool refuses this approver, which picks the discard's wording and nothing else.
  */
-export function mapGenehmigungRefusal(error: unknown, verwehrt: EinsehbarVerwehrt | null): string | null {
+export function mapGenehmigungRefusal(error: unknown, verwehrt: FLAddressChangeViewableDenied | null): string | null {
   if (isRecordMissing(error)) return KEIN_ADRESSWECHSEL;
   if (!isRefusal(error)) return null;
 

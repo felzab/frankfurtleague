@@ -12,15 +12,14 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { TextField } from "@/shared/components/ui/TextField";
 
-import type { FLKontakt } from "@/core/generated/client/types";
-import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
+import type { FLAddressChangeViewableDenied, FLKontakt } from "@/core/generated/client/types";
 import type { SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 
 /**
  * A confirmed referee's address, which the save refuses to move (`schiedsrichter_adresse_only_per_change`): shown, with the
  * change pending at it, and changed nowhere on this page, as the pupil editor shows its own.
  */
-export type BestaetigteAdresse = { email: string; adresswechselId: string | null; adresswechselVerwehrt: EinsehbarVerwehrt | null };
+export type BestaetigteAdresse = { email: string; adresswechselId: string | null; adresswechselVerwehrt: FLAddressChangeViewableDenied | null };
 
 /**
  * Each field submits `null` when emptied. `FLKontakt` admits a blank string too, so this is

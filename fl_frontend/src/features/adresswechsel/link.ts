@@ -2,6 +2,7 @@
 // module's exports arrive only as references to render, and calling one throws.
 import type {
   FLAddressChangeEndArt,
+  FLAddressChangeViewEndedSeite,
   FLAddressChangeViewPreviousState,
   FLAddressChangeViewResponse,
   FLAddressChangeWay,
@@ -24,7 +25,7 @@ export type AdresswechselAnsicht =
   | { zustand: NurAblehnbar; way: FLAddressChangeWay }
   // Pressed, so the backend refuses the decline too: told apart from `abgelaufen`, whose link was never pressed.
   | { zustand: "approval_expired"; way: FLAddressChangeWay }
-  | { zustand: "ended"; seite: "new" | "previous"; art: FLAddressChangeEndArt }
+  | { zustand: "ended"; seite: FLAddressChangeViewEndedSeite; art: FLAddressChangeEndArt }
   | { zustand: Exclude<AdresswechselLinkZustand, NurAblehnbar> };
 
 type OhnePresse = { zustand: "ended" | "confirmed" | "approval_expired" | "barred" | "invalid" };

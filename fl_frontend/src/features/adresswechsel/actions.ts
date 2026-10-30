@@ -37,9 +37,9 @@ import type {
   FLAddressChangeVerwaltungPayload,
   FLAddressChangeVerwaltungViewPayload,
   FLAddressChangeVerwaltungViewResponse,
+  FLAddressChangeViewableDenied,
 } from "@/core/generated/client/types";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
-import type { EinsehbarVerwehrt } from "./einsehbar";
 import type { FLAdresswechselEinladenPayload, FLAdresswechselGenehmigungPayload, FLAdresswechselVerwerfenPayload } from "./schemas";
 
 /** What the tool's two link writes answer: whether a link to the new mailbox is owed, the address on file asked first otherwise. */
@@ -156,7 +156,7 @@ export async function genehmigeAdresswechselAction(
   rawPayload: FLAdresswechselGenehmigungPayload,
   // The row's served reason the address tool refuses this approver, sent by the page: it words the discard a refusal
   // sends them to, and authorises nothing, the backend judging the approval and the tool on their own.
-  einsehbarVerwehrt: EinsehbarVerwehrt | null,
+  einsehbarVerwehrt: FLAddressChangeViewableDenied | null,
 ): Promise<ActionResult> {
   // The enrolment's window, the grant write's own: the approval hands a grant to another address.
   return runAdminMutation("genehmigeAdresswechselAction", { stepUp: "enrolment" }, async () => {

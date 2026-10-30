@@ -50,13 +50,13 @@ import { WORDING_UNREADABLE } from "@/shared/utils/refusal";
 import { FormKontaktEinladen } from "./FormKontaktEinladen";
 
 import type {
+  FLAddressChangeViewableDenied,
   FLSaisonTeamAddressChange,
   FLSaisonTeamConfirmationsView,
   FLSaisonTeamConfirmationView,
   FLSaisonTeamKontakte,
   FLTrainerAlso,
 } from "@/core/generated/client/types";
-import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
 import type { KontakteFieldPath } from "@/features/kontakte/kontakteDraftStatus";
 import type { MedienFragen } from "@/features/spieler/nachweis";
 import type { KontaktRolle } from "@/features/teams/constants";
@@ -269,7 +269,7 @@ export function FormKontakteSection({
 }
 
 /** A seat's pending change, the stored address it is at, and why the address tool refuses this reader the change. */
-type SitzAdresswechsel = { id: string; adresse: string | null; denied: EinsehbarVerwehrt | null };
+type SitzAdresswechsel = { id: string; adresse: string | null; denied: FLAddressChangeViewableDenied | null };
 
 /** A seat's pending change with the stored address it is at, which the line under the seat names. */
 function sitzAdresswechsel(

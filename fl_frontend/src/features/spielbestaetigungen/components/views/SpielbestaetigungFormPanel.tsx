@@ -36,7 +36,7 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
 import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 
-import type { FLSpielbestaetigungAppointment, FLSpielbestaetigungVon } from "@/core/generated/client/types";
+import type { FLSpielbestaetigungAntwortArt, FLSpielbestaetigungAppointment, FLSpielbestaetigungVon } from "@/core/generated/client/types";
 import type { FLSpielbestaetigungAntwortPayload } from "@/features/spielbestaetigungen/schemas";
 import type { SpielbestaetigungLinkZustand } from "@/features/spielbestaetigungen/utils";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
@@ -56,7 +56,7 @@ export type SpielbestaetigungAbschluss =
 
 /** The route's answer: the echo of what was stored, or a refusal naming the link's state where the link died. */
 export type SpielbestaetigungAntwort =
-  | { success: true; zustand: "zugesagt" | "declined"; vorschlag: FLSpielbestaetigungAppointment | null }
+  | { success: true; zustand: FLSpielbestaetigungAntwortArt; vorschlag: FLSpielbestaetigungAppointment | null }
   | (PublicEnvelope & {
       success: false;
       zustand?: SpielbestaetigungLinkZustand;
