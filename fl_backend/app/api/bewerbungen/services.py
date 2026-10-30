@@ -1305,8 +1305,10 @@ def latest_decision_due(*, today: str) -> str:
     return day.isoformat()
 
 
-def seat_reminder_is_due(*, kontakte: Any, bestaetigungen: Any, seat: str, today: str) -> bool:
-    """Whether this seat's one reminder is owed today: open, unanswered, never reminded, and mailed three or more days ago.
+def seat_reminder_is_due(*, kontakte: Any, bestaetigungen: Any, seat: str, today: str, unerreichbar: bool) -> bool:
+    """Whether this seat's one reminder is owed today: open, unanswered, never reminded, mailed three or more days ago, and reachable.
+
+    `unerreichbar` is `lage_unzustellbar` of the seat's last mail (`seat_lage`).
 
     A re-sent seat carries a later `verschickt_am` and reaches its mark on its own; one already
     reminded never is again.
@@ -1319,11 +1321,19 @@ def seat_reminder_is_due(*, kontakte: Any, bestaetigungen: Any, seat: str, today
     if entry.get("erinnert_am") is not None or not isinstance(entry.get("verschickt_am"), str):
         return False
 
+    # A seat gets ONE chase, and spending it on an address the provider has refused, or whose person reported the mail
+    # as spam, spends it on nobody; a correction is what makes the seat due again, its mail being the seat's last.
+    if unerreichbar:
+        return False
+
     return days_after(day=entry["verschickt_am"], days=BEWERBUNG_ERINNERUNG_TAGE) <= today
 
 
-def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str) -> list[FLKontaktRolle]:
-    """Every seat of this application owed a reminder today, in declaration order; none once the link is over."""
+def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str, unerreichbar: Collection[str]) -> list[FLKontaktRolle]:
+    """Every seat of this application owed a reminder today, in declaration order; none once the link is over.
+
+    `unerreichbar` names the seats whose last mail did not arrive.
+    """
 
     if link_is_over(bestaetigungsfrist=bewerbung_raw.get("bestaetigungsfrist"), status=bewerbung_raw.get("status"), today=today):
         return []
@@ -1333,7 +1343,7 @@ def reminder_seats(*, bewerbung_raw: Mapping[str, Any], today: str) -> list[FLKo
     return [
         seat_named(seat) or cast(FLKontaktRolle, seat)
         for seat in KONTAKT_ROLLEN
-        if seat_reminder_is_due(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=seat, today=today)
+        if seat_reminder_is_due(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=seat, today=today, unerreichbar=seat in unerreichbar)
     ]
 
 
@@ -1500,17 +1510,18 @@ def vorname_of(*, kontakte: Any, seat: str) -> str | None:
 # --- The MAILS an application owes, each to one person: an address is one person (one seat, or two the Trainer holds).
 
 
-def bewerbung_link(seats: Sequence[str]) -> FLPostausgangLink:
+def bewerbung_link(seats: Sequence[str], *, ersetzt: bool) -> FLPostausgangLink:
     """Where one person's mailed link lives on the application, and the addresses it is minted for while they still stand.
 
-    Every seat the person holds, so one press answers both; never superseding, so a reminder's link joins the first, a
-    re-send having voided the old links in its own write.
+    Every seat the person holds, so one press answers both. A reminder's link joins the first (`ersetzt` clear); every
+    other mail's supersedes what the seat holds at its hand-out, so a link owed before a re-send and handed out after it
+    opens nothing, as the re-send's write promised.
     """
 
     return FLPostausgangLink(
         pfade=[f"bestaetigungen.{seat}.token_hashes" for seat in seats],
         adressen=[f"kontakte.{seat}.email" for seat in seats],
-        ersetzt=False,
+        ersetzt=ersetzt,
     )
 
 
@@ -1575,7 +1586,7 @@ def owed_link(
         an=str(kontakte[seats[0]]["email"]),
         daten=FLBewerbungLinkDaten(art=art, saison_id=saison_id, schule=schule, rollen=list(seats), frist=frist),
         bezug=bewerbung_bezug(bewerbung_id, seats),
-        link=bewerbung_link(seats),
+        link=bewerbung_link(seats, ersetzt=art != "bewerbung_erinnerung"),
     )
 
 
@@ -1614,7 +1625,7 @@ def owed_at_submission(*, bewerbung_id: Any, kontakte: Any, saison_id: str, schu
                     frist=frist,
                 ),
                 bezug=bewerbung_bezug(bewerbung_id, seats),
-                link=bewerbung_link(seats),
+                link=bewerbung_link(seats, ersetzt=True),
             )
         )
 
@@ -1801,27 +1812,37 @@ def mit_vorenthaltener_entscheidung(row: Mapping[str, Any], gesperrt: Collection
     return {**row, "entscheidung": {**entscheidung.model_dump(), "von": von, "von_gesperrt": von is None}}
 
 
-def mit_zustellung(row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLPostausgangLage]) -> dict[str, Any]:
-    """A stored application with each seat's last mail beside its bookkeeping, as every read serves it.
+def seat_lage(*, row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLPostausgangLage], seat: str) -> FLPostausgangLage | None:
+    """The last mail owed this seat of a stored application, `None` where none was.
 
     A Trainer who is another seat's person reads that seat's mail: one person is sent one mail for both, read by the
     seat it mirrors (`bewerbung_bezug`).
     """
 
+    kontakte = row.get("kontakte")
+    zugleich = kontakte.get("trainer_ist_zugleich") if isinstance(kontakte, Mapping) else None
+    gespiegelt = lagen.get((row["_id"], zugleich)) if seat == "trainer" and zugleich else None
+
+    return gespiegelt or lagen.get((row["_id"], seat))
+
+
+def unerreichbare_seats(*, row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLPostausgangLage]) -> set[str]:
+    """The seats of a stored application whose last mail did not arrive."""
+
+    return {seat for seat in KONTAKT_ROLLEN if lage_unzustellbar(seat_lage(row=row, lagen=lagen, seat=seat))}
+
+
+def mit_zustellung(row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLPostausgangLage]) -> dict[str, Any]:
+    """A stored application with each seat's last mail beside its bookkeeping, as every read serves it."""
+
     bestaetigungen = row.get("bestaetigungen")
     if not isinstance(bestaetigungen, Mapping):
         return dict(row)
 
-    kontakte = row.get("kontakte")
-    zugleich = kontakte.get("trainer_ist_zugleich") if isinstance(kontakte, Mapping) else None
-
-    def lage(seat: str) -> FLPostausgangLage | None:
-        gespiegelt = lagen.get((row["_id"], zugleich)) if seat == "trainer" and zugleich else None
-        return gespiegelt or lagen.get((row["_id"], seat))
-
     return {
         **row,
         "bestaetigungen": {
-            seat: {**entry, "zustellung": lage(seat)} if isinstance(entry, Mapping) else entry for seat, entry in bestaetigungen.items()
+            seat: {**entry, "zustellung": seat_lage(row=row, lagen=lagen, seat=seat)} if isinstance(entry, Mapping) else entry
+            for seat, entry in bestaetigungen.items()
         },
     }
