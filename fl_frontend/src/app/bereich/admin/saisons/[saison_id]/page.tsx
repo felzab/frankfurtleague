@@ -21,7 +21,7 @@ import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
-import type { FLLoeschungVorschauResponse } from "@/features/saisons/schemas";
+import type { FLLoeschungVorschauResponse } from "@/core/generated/client/types";
 import type { SaisonGruppenSwapContext, SaisonOffeneSpiel, SaisonRolloverContext, SaisonSpielplanContext } from "@/features/saisons/types";
 import type { NextPageProps } from "@/shared/types/types";
 

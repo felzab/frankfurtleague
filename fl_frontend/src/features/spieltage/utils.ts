@@ -1,6 +1,6 @@
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 
-import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "@/features/saisons/schemas";
+import type { FLSaisonPhase, FLSaisonPhaseSchedule } from "@/core/generated/client/types";
 import type { FLSpiel } from "@/features/spiele/types";
 import type { FLSpieltagWithSpiele } from "./types";
 

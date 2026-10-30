@@ -16,7 +16,7 @@ vi.doMock("next/cache", () => ({ cacheTag: () => void declared.push("cacheTag"),
 // real client reaches a backend no test process runs, at a base URL no test run holds.
 /** Every request the doubled client was asked for, cumulative across every pass in this file. */
 const reads = doubleApiClient(({ endpoint }) =>
-  endpoint.endsWith("/loeschung/vorschau") ? { acknowledged: 1, abgeschlossene_saison_id: "2526", spieler: 4 } : { saisons: [{ id: "2526" }] },
+  endpoint.endsWith("/loeschung/vorschau") ? { abgeschlossene_saison_id: "2526", spieler: 4 } : { saisons: [{ id: "2526" }] },
 );
 
 serveServerReact();

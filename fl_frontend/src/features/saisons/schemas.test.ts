@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { FLPatchSaisonPayloadSchema, FLPostSaisonPayloadSchema } from "./schemas";
 
-import type { FLSaisonRules } from "./schemas";
+import type { FLSaisonRules } from "@/core/generated/client/types";
 
 const rules = saisonRules({ number_of_groups: 4, max_kadergroesse: 50, erlaubte_stufen: ["E1", "E2", "Q1", "Q2"] });
 

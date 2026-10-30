@@ -62,7 +62,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 import { spielplanHoldsADraw, spielplanPress, spielplanReplacesDraw } from "./blockedReasons";
 import { buildSpielplanControlInput, describeShapeRows, readShape, SHAPE_FIELDS } from "./spielplanShape";
 
-import type { FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
+import type { FLSaisonRules, FLSaisonStatus } from "@/core/generated/client/types";
 import type { SaisonGruppenOccupancy, SaisonSpielplanContext } from "@/features/saisons/types";
 import type { Key } from "@heroui/react/rac";
 import type { RedrawDraft } from "./spielplanShape";

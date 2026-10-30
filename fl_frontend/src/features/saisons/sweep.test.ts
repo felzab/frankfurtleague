@@ -20,7 +20,6 @@ let laufAnswer: (nach: string | null) => unknown = () => gelaufen(0, 0);
 
 /** One call of the pupils' deletion: whom it erased, who is still due after it, and where the pass goes on. */
 const gelaufen = (spieler: number, verbleibend: number, nach: string | null = null) => ({
-  acknowledged: 1,
   abgeschlossene_saison_id: "2526",
   spieler: spieler,
   saison_spieler: spieler,
@@ -32,21 +31,22 @@ const gelaufen = (spieler: number, verbleibend: number, nach: string | null = nu
 });
 
 /** The grants' claim with nothing to announce. */
-const NOTHING_CLAIMED = { acknowledged: 1, beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
+const NOTHING_CLAIMED = { beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
 
 /** Every deletion call, with the place it carried. */
 const laufCalls: { params: Record<string, string> }[] = [];
 
 // Replaced at the module boundary: the real client reaches a backend no test process runs.
-doubleApiClient(async ({ endpoint, params }, schema) => {
+doubleApiClient(async ({ endpoint }, schema) => {
   // The grants' pass is armed by the same boot and answers to its own suite
   // (`fl_frontend/src/features/berechtigungen/abgleich.test.ts`): here it claims nothing and is not recorded.
   if (endpoint.startsWith("/berechtigungen")) return schema.parse(NOTHING_CLAIMED);
-  expect(endpoint, `the pass reached a route nothing here answers: ${endpoint}`).toBe(LAUF);
-  const carried = (params ?? {}) as Record<string, string>;
+  // The generated call carries its query in the endpoint.
+  const sent = new URL(endpoint, "http://backend");
+  expect(sent.pathname, `the pass reached a route nothing here answers: ${endpoint}`).toBe(LAUF);
+  const carried = Object.fromEntries(sent.searchParams);
   laufCalls.push({ params: carried });
-  // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift.
-  return schema.parse(await laufAnswer(carried.nach ?? null));
+  return laufAnswer(carried.nach ?? null);
 });
 
 const LOGGING_DOUBLE = {
@@ -304,7 +304,7 @@ describe("one pass of the pupils' deletion", () => {
 const LAUF_SENDER = "postLoeschungLauf";
 const LAUF_SENDER_MODULE = "features/saisons/mutations.ts";
 
-/** The path's second spelling, Orval's from the published contract: a sender no caller may reach yet. */
+/** The path's one spelling, Orval's from the published contract, which `postLoeschungLauf` alone may reach. */
 const GENERATED_MODULE = "core/generated/client/sdk.ts";
 const GENERATED_URL = "getIdentitaetPostLoeschungLaufUrl";
 const GENERATED_SENDERS = ["identitaetPostLoeschungLauf", GENERATED_URL];
@@ -355,9 +355,8 @@ describe("the deletion pass's callers", () => {
 
     expect(uses.sort()).toStrictEqual(["features/saisons/actions.ts :: activateSaisonAction", "features/saisons/sweep.ts :: sweepLoeschung"]);
     // The generated URL builder spells the path in both arms of its query ternary.
-    expect(senders.sort()).toStrictEqual(
-      [`${GENERATED_MODULE} :: ${GENERATED_URL}`, `${GENERATED_MODULE} :: ${GENERATED_URL}`, `${LAUF_SENDER_MODULE} :: ${LAUF_SENDER}`].sort(),
-    );
-    expect(generatedUses).toStrictEqual([]);
+    expect(senders).toStrictEqual([`${GENERATED_MODULE} :: ${GENERATED_URL}`, `${GENERATED_MODULE} :: ${GENERATED_URL}`]);
+    // Its import, and its one call.
+    expect(generatedUses.sort()).toStrictEqual([`${LAUF_SENDER_MODULE} :: (module)`, `${LAUF_SENDER_MODULE} :: ${LAUF_SENDER}`]);
   });
 });

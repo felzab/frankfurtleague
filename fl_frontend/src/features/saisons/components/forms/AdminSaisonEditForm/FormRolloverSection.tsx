@@ -28,7 +28,7 @@ import { formatSpielDatum, PLACEHOLDER } from "@/shared/utils/format";
 
 import { rolloverBlockedReason } from "./blockedReasons";
 
-import type { FLSaisonStatus } from "@/features/saisons/schemas";
+import type { FLSaisonStatus } from "@/core/generated/client/types";
 import type { SaisonLoeschungVorschau, SaisonRolloverContext } from "@/features/saisons/types";
 import type { SaisonBanner } from "./banners";
 

@@ -9,7 +9,7 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { assert, beforeEach, describe, expect, it } from "vitest";
 
-import type { FLSaisonPhase } from "@/features/saisons/schemas.ts";
+import type { FLSaisonPhase } from "@/core/generated/client/types.ts";
 import type { AdminSpieltagEditRow } from "@/features/spieltage/types.ts";
 
 const { calls, answered } = doubleActions({

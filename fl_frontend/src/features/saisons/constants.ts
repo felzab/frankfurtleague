@@ -1,7 +1,7 @@
 import { TEAMS_EINTRAG } from "@/features/admin/constants";
 
+import type { FLSaisonPhase, FLSaisonRulesTiebreakOrder } from "@/core/generated/client/types";
 import type { PillTone } from "@/shared/components/ui/badges";
-import type { FLSaisonPhase, FLSaisonTiebreakOrder } from "./schemas";
 
 export const SAISONS_CRUD_COPY = {
   searchLabel: "Saisons suchen",
@@ -12,10 +12,16 @@ export const SAISONS_CRUD_COPY = {
 
 /**
  * The phases in the competition's own playing order, which `PHASE_RANK` in
- * `fl_frontend/src/features/spiele/utils.ts` ranks against. The schema owns the SET; this owns the
- * SEQUENCE.
+ * `fl_frontend/src/features/spiele/utils.ts` ranks against. The generated `FLSaisonPhase` owns the
+ * SET, which `PHASE_LABELS` below is held to; this owns the SEQUENCE.
  */
 export const SAISON_PHASE_OPTIONS: readonly FLSaisonPhase[] = ["gruppenphase", "achtelfinale", "viertelfinale", "halbfinale", "finale"];
+
+/**
+ * `2 ** (knockout rounds)`, mirroring `fl_backend/app/api/spiele/schemas.py :: MAX_QUALIFIERS`.
+ * Derived so a new round raises it at both ends.
+ */
+export const MAX_QUALIFIERS = 2 ** (SAISON_PHASE_OPTIONS.length - 1);
 
 /**
  * The one German spelling of each phase, for every surface. Not an export from
@@ -52,7 +58,7 @@ export type TiebreakRung = {
 };
 
 type TiebreakOption = {
-  readonly value: FLSaisonTiebreakOrder;
+  readonly value: FLSaisonRulesTiebreakOrder;
   /** Names the CRITERION, for the picker's trigger and the change list. */
   readonly label: string;
   /**
@@ -108,15 +114,15 @@ export const TIEBREAK_ORDER_OPTIONS: readonly TiebreakOption[] = [
 export const TIEBREAK_LADDER_TAIL = "Bleibt es gleich, stehen die Teams gleichauf.";
 
 // The find cannot miss: the parse refuses anything outside the closed set before a render sees it.
-const tiebreakOption = (value: FLSaisonTiebreakOrder): TiebreakOption | undefined =>
+const tiebreakOption = (value: FLSaisonRulesTiebreakOrder): TiebreakOption | undefined =>
   TIEBREAK_ORDER_OPTIONS.find((option) => option.value === value);
 
-export function tiebreakLabel(value: FLSaisonTiebreakOrder): string {
+export function tiebreakLabel(value: FLSaisonRulesTiebreakOrder): string {
   return tiebreakOption(value)?.label ?? "";
 }
 
 /** The chain this option applies, top rung first. */
-export function tiebreakLadder(value: FLSaisonTiebreakOrder): readonly TiebreakRung[] {
+export function tiebreakLadder(value: FLSaisonRulesTiebreakOrder): readonly TiebreakRung[] {
   return tiebreakOption(value)?.ladder ?? [];
 }
 

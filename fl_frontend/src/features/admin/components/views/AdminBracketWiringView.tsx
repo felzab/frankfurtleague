@@ -18,7 +18,7 @@ import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 import { benannt } from "@/shared/utils/benannt";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
-import type { FLSaisonPhase } from "@/features/saisons/schemas";
+import type { FLSaisonPhase } from "@/core/generated/client/types";
 import type { FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/types";
 import type { FLSlotHerkunft } from "@/features/spiele/utils";
 import type { FLSpieltagWithSpiele } from "@/features/spieltage/types";

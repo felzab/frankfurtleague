@@ -12,7 +12,7 @@ import {
 } from "@/features/saisons/constants";
 import { drawGruppenRefusal, drawnSpieltage, drawShapeRefusal, fitsAnOfferedShape } from "@/features/saisons/shapeOffer";
 
-import type { FLSaisonStatus, FLSpielplanShape } from "@/features/saisons/schemas";
+import type { FLSaisonStatus, FLSpielplanShape } from "@/core/generated/client/types";
 import type { SaisonGruppenOccupancy } from "@/features/saisons/types";
 
 /** Everything the draw control and the undraw beside it are decided from, read from one page render. */

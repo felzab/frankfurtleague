@@ -21,7 +21,7 @@ import {
   toWebsiteUrl,
 } from "./utils.ts";
 
-import type { FLSaisonPhase } from "../saisons/schemas.ts";
+import type { FLSaisonPhase } from "@/core/generated/client/types.ts";
 import type { FLSpiel } from "../spiele/types.ts";
 import type { FLGruppenTeam, FLKontaktperson, FLSaisonTeamKontakte, FLTeamWithMemberships } from "./schemas.ts";
 

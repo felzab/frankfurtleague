@@ -4,7 +4,7 @@ import { KADER_ABSCHNITT } from "@/features/spieler/constants";
 
 import { EINWILLIGUNG_UMFANG, GRUPPEN_OPTIONS, KONTAKT_ROLLEN, TRIKOT_FARBE_OPTIONS, WEBSITE_URL_SCHEME } from "./constants";
 
-import type { FLSaison, FLSaisonPhase } from "@/features/saisons/schemas";
+import type { FLSaison, FLSaisonPhase } from "@/core/generated/client/types";
 import type { FLSpiel } from "@/features/spiele/types";
 import type { FLSpielErgebnisFor } from "@/features/spiele/utils";
 import type { TrikotFarbeOption } from "./constants";

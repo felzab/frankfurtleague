@@ -1,7 +1,8 @@
 import { saisonRules } from "@/test-support/saisonRules.ts";
 import { assert, describe, expect, it } from "vitest";
 
-import { FLPostSaisonPayloadSchema, MAX_QUALIFIERS } from "@/features/saisons/schemas";
+import { MAX_QUALIFIERS } from "@/features/saisons/constants";
+import { FLPostSaisonPayloadSchema } from "@/features/saisons/schemas";
 import { GRUPPEN_OPTIONS } from "@/features/teams/constants";
 
 import {
@@ -21,7 +22,7 @@ import {
   teamsPerGroupFloor,
 } from "./shapeOffer.ts";
 
-import type { FLSpielplanShape } from "@/features/saisons/schemas";
+import type { FLSpielplanShape } from "@/core/generated/client/types";
 import type { SaisonGruppenOccupancy } from "@/features/saisons/types";
 
 const RULES = saisonRules({ max_kadergroesse: 50, erlaubte_stufen: ["E1"] });
