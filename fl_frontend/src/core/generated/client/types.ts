@@ -1490,6 +1490,29 @@ export interface FLBerechtigungenListResponse {
 }
 
 /**
+ * One person's confirmation bookkeeping as an administrator reads it, and no token hash.
+ *
+ * The hash is a raw document key the confirmation query alone reads, so no read serves one.
+ */
+export interface FLBestaetigung {
+  erinnert_am: string | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  frist: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  verschickt_am: string;
+  zustellung: FLBewerbungZustellung | null;
+}
+
+export type FLBestaetigungZustand = (typeof FLBestaetigungZustand)[keyof typeof FLBestaetigungZustand];
+
+export const FLBestaetigungZustand = {
+  gueltig: "gueltig",
+  bestaetigt: "bestaetigt",
+  abgelaufen: "abgelaufen",
+  gesperrt: "gesperrt",
+} as const;
+
+/**
  * The school's address, with the Stadtteil REQUIRED.
  *
  * Its own subclass rather than a change to `FLAddressPayload`, which an admin address shares: a
@@ -2391,6 +2414,14 @@ export type FLBracketFault =
   | FLBracketFaultClash;
 
 /**
+ * The id a create minted, which the caller reads the new record by.
+ */
+export interface FLCreatedResponse {
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  created_id: string;
+}
+
+/**
  * The link a visitor presents, and nothing else: the row it opens says which team and season it is for.
  */
 export interface FLEinladungAnsichtPayload {
@@ -2594,11 +2625,12 @@ export const FLEinwilligungUmfang = {
 /**
  * What this person agreed may be published about them.
  *
- * The keys the validator requires stand TOGETHER, as `FLAustritt` does: a scope with no
- * confirmation date claims somebody consented, and no surface can tell that from one somebody gave.
+ * Its keys stand TOGETHER, as `FLAustritt`'s do: a scope with no confirmation date claims somebody
+ * consented, and no surface can tell that from one somebody gave.
  */
 export interface FLEinwilligung {
-  bestaetigt_am: string | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  bestaetigt_am: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   datum: string;
   medien: boolean;
@@ -2938,9 +2970,9 @@ export const FLSpielerPosition = {
   Angriff: "Angriff",
 } as const;
 
-export type FLKaderZeileRolle = (typeof FLKaderZeileRolle)[keyof typeof FLKaderZeileRolle] | null;
+export type FLSpielerRolle = (typeof FLSpielerRolle)[keyof typeof FLSpielerRolle];
 
-export const FLKaderZeileRolle = {
+export const FLSpielerRolle = {
   kapitaen: "kapitaen",
   co_kapitaen: "co_kapitaen",
 } as const;
@@ -2958,7 +2990,7 @@ export interface FLKaderZeile {
   nummer: string | null;
   nummer_doppelt: boolean;
   position: FLSpielerPosition | null;
-  rolle: FLKaderZeileRolle;
+  rolle: FLSpielerRolle | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieler_id: string;
   stufe: FLSpielerStufe | null;
@@ -2978,13 +3010,6 @@ export interface FLKaderResponse {
   team_id: string;
 }
 
-export type FLKaderZeileResponseRolle = (typeof FLKaderZeileResponseRolle)[keyof typeof FLKaderZeileResponseRolle] | null;
-
-export const FLKaderZeileResponseRolle = {
-  kapitaen: "kapitaen",
-  co_kapitaen: "co_kapitaen",
-} as const;
-
 /**
  * The row as a representative's edit or austragen left it, its shirt marker judged against the squad after the write.
  */
@@ -2995,7 +3020,7 @@ export interface FLKaderZeileResponse {
   nummer: string | null;
   nummer_doppelt: boolean;
   position: FLSpielerPosition | null;
-  rolle: FLKaderZeileResponseRolle;
+  rolle: FLSpielerRolle | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieler_id: string;
   stufe: FLSpielerStufe | null;
@@ -3292,13 +3317,6 @@ export interface FLKontoSitzEinwilligung {
   umfang: FLKontaktKenntnisnahmeUmfang;
 }
 
-export type FLSpielerSelbstKaderZeileRolle = (typeof FLSpielerSelbstKaderZeileRolle)[keyof typeof FLSpielerSelbstKaderZeileRolle] | null;
-
-export const FLSpielerSelbstKaderZeileRolle = {
-  kapitaen: "kapitaen",
-  co_kapitaen: "co_kapitaen",
-} as const;
-
 /**
  * One squad row as its own pupil reads it, with the name the club played that season under.
  */
@@ -3307,7 +3325,7 @@ export interface FLSpielerSelbstKaderZeile {
   ist_nachnominiert: boolean;
   nummer: string | null;
   position: FLSpielerPosition | null;
-  rolle: FLSpielerSelbstKaderZeileRolle;
+  rolle: FLSpielerRolle | null;
   saison_id: string;
   stufe: FLSpielerStufe | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -3421,13 +3439,6 @@ export interface FLPatchBerechtigungPayload {
   verwaltung: FLVerwaltung;
 }
 
-export type FLPatchKaderZeilePayloadRolle = (typeof FLPatchKaderZeilePayloadRolle)[keyof typeof FLPatchKaderZeilePayloadRolle] | null;
-
-export const FLPatchKaderZeilePayloadRolle = {
-  kapitaen: "kapitaen",
-  co_kapitaen: "co_kapitaen",
-} as const;
-
 /**
  * What a team's seat holder may change on a live squad row, WHOLESALE for `FLPatchSpielerPayload`'s reason.
  *
@@ -3437,7 +3448,7 @@ export const FLPatchKaderZeilePayloadRolle = {
 export interface FLPatchKaderZeilePayload {
   nummer: string | null;
   position: FLSpielerPosition | null;
-  rolle: FLPatchKaderZeilePayloadRolle;
+  rolle: FLSpielerRolle | null;
   stufe: FLSpielerStufe | null;
 }
 
@@ -3455,13 +3466,6 @@ export interface FLPatchSaisonResponse {
   updated_document: FLSaison;
 }
 
-export type FLPatchSaisonSpielerPayloadRolle = (typeof FLPatchSaisonSpielerPayloadRolle)[keyof typeof FLPatchSaisonSpielerPayloadRolle] | null;
-
-export const FLPatchSaisonSpielerPayloadRolle = {
-  kapitaen: "kapitaen",
-  co_kapitaen: "co_kapitaen",
-} as const;
-
 /**
  * Replaces the squad row WHOLESALE — see `FLPatchSpielerPayload` for why nothing has a default.
  *
@@ -3470,7 +3474,7 @@ export const FLPatchSaisonSpielerPayloadRolle = {
 export interface FLPatchSaisonSpielerPayload {
   nummer: string | null;
   position: FLSpielerPosition | null;
-  rolle: FLPatchSaisonSpielerPayloadRolle;
+  rolle: FLSpielerRolle | null;
   stufe: FLSpielerStufe | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
@@ -3558,23 +3562,8 @@ export interface FLSchiedsrichterMint {
   token: string;
 }
 
-/**
- * One referee's confirmation bookkeeping as the editor reads it -- and NO `token_hash`.
- *
- * The hash is a raw document key the confirm query alone reads, as
- * `app/api/bewerbungen/schemas.py :: FLBewerbungBestaetigung` keeps its own off the wire.
- */
-export interface FLSchiedsrichterBestaetigung {
-  erinnert_am: string | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  frist: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  verschickt_am: string;
-  zustellung?: FLBewerbungZustellung | null;
-}
-
 export interface FLSchiedsrichter {
-  bestaetigung?: FLSchiedsrichterBestaetigung | null;
+  bestaetigung?: FLBestaetigung | null;
   /** @minimum 0 */
   default_payment: number;
   einwilligung?: FLEinwilligung | null;
@@ -3924,13 +3913,6 @@ export interface FLPostSaisonResponse {
   created_id: string;
 }
 
-export type FLPostSaisonSpielerPayloadRolle = (typeof FLPostSaisonSpielerPayloadRolle)[keyof typeof FLPostSaisonSpielerPayloadRolle] | null;
-
-export const FLPostSaisonSpielerPayloadRolle = {
-  kapitaen: "kapitaen",
-  co_kapitaen: "co_kapitaen",
-} as const;
-
 /**
  * One player's membership of one team's squad for one season.
  *
@@ -3940,7 +3922,7 @@ export const FLPostSaisonSpielerPayloadRolle = {
 export interface FLPostSaisonSpielerPayload {
   nummer: string | null;
   position: FLSpielerPosition | null;
-  rolle: FLPostSaisonSpielerPayloadRolle;
+  rolle: FLSpielerRolle | null;
   /**
    * @minLength 4
    * @maxLength 4
@@ -4012,11 +3994,6 @@ export interface FLPostSpielortPayload {
   default_mietpreis: number;
   /** @minLength 1 */
   name: string;
-}
-
-export interface FLPostSpielortResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  created_id: string;
 }
 
 export interface FLPostTeamPayload {
@@ -4107,7 +4084,8 @@ export interface FLRegistrierungBestaetigung {
  * A returning pupil's page asks no choice.
  */
 export interface FLRegistrierungEinwilligung {
-  bestaetigt_am: string | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  bestaetigt_am: string;
   datum?: string | null;
   medien?: boolean | null;
   nachweis?: FLEinwilligungNachweise;
@@ -4419,13 +4397,6 @@ export interface FLReplaceSaisonTeamResponse {
   trikot_farbe: FLTrikotFarbe | null;
 }
 
-export type FLSaisonSpielerResponseRolle = (typeof FLSaisonSpielerResponseRolle)[keyof typeof FLSaisonSpielerResponseRolle] | null;
-
-export const FLSaisonSpielerResponseRolle = {
-  kapitaen: "kapitaen",
-  co_kapitaen: "co_kapitaen",
-} as const;
-
 /**
  * A junction row, which has no read model of its own -- so it is echoed as it was written.
  */
@@ -4434,7 +4405,7 @@ export interface FLSaisonSpielerResponse {
   ist_nachnominiert: boolean;
   nummer: string | null;
   position: FLSpielerPosition | null;
-  rolle: FLSaisonSpielerResponseRolle;
+  rolle: FLSpielerRolle | null;
   saison_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieler_id: string;
@@ -4552,24 +4523,6 @@ export interface FLSaisonsSingleResponse {
   saison: FLSaison;
 }
 
-export interface FLSchiedsrichterBestaetigungAnsichtPayload {
-  /**
-   * @minLength 1
-   * @maxLength 128
-   */
-  token: string;
-}
-
-export type FLSchiedsrichterBestaetigungAnsichtResponseZustand =
-  (typeof FLSchiedsrichterBestaetigungAnsichtResponseZustand)[keyof typeof FLSchiedsrichterBestaetigungAnsichtResponseZustand];
-
-export const FLSchiedsrichterBestaetigungAnsichtResponseZustand = {
-  gueltig: "gueltig",
-  bestaetigt: "bestaetigt",
-  abgelaufen: "abgelaufen",
-  gesperrt: "gesperrt",
-} as const;
-
 /**
  * What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).
  *
@@ -4581,16 +4534,8 @@ export interface FLSchiedsrichterBestaetigungAnsichtResponse {
   /** @exclusiveMinimum 0 */
   medien_mindestalter: number;
   mindestalter: number;
-  zustand: FLSchiedsrichterBestaetigungAnsichtResponseZustand;
+  zustand: FLBestaetigungZustand;
 }
-
-export type FLSchiedsrichterBestaetigungPayloadUmfang =
-  (typeof FLSchiedsrichterBestaetigungPayloadUmfang)[keyof typeof FLSchiedsrichterBestaetigungPayloadUmfang];
-
-export const FLSchiedsrichterBestaetigungPayloadUmfang = {
-  kader_oeffentlich: "kader_oeffentlich",
-  intern: "intern",
-} as const;
 
 export interface FLSchiedsrichterBestaetigungPayload {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -4599,23 +4544,17 @@ export interface FLSchiedsrichterBestaetigungPayload {
   /**
    * @minLength 1
    * @maxLength 64
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   text_version: string;
   /**
    * @minLength 1
    * @maxLength 128
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   token: string;
-  umfang: FLSchiedsrichterBestaetigungPayloadUmfang;
+  umfang: FLEinwilligungUmfang;
 }
-
-export type FLSchiedsrichterBestaetigungResponseUmfang =
-  (typeof FLSchiedsrichterBestaetigungResponseUmfang)[keyof typeof FLSchiedsrichterBestaetigungResponseUmfang];
-
-export const FLSchiedsrichterBestaetigungResponseUmfang = {
-  kader_oeffentlich: "kader_oeffentlich",
-  intern: "intern",
-} as const;
 
 /**
  * What the person just recorded, read back off the updated document.
@@ -4627,7 +4566,7 @@ export interface FLSchiedsrichterBestaetigungResponse {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   bestaetigt_am: string;
   medien: boolean;
-  umfang: FLSchiedsrichterBestaetigungResponseUmfang;
+  umfang: FLEinwilligungUmfang;
 }
 
 export interface FLSchiedsrichterListResponse {
@@ -4665,25 +4604,6 @@ export interface FLSchiedsrichterSelbst {
   schule: string | null;
 }
 
-export type FLSchiedsrichterSelbstEinwilligungPayloadUmfang =
-  (typeof FLSchiedsrichterSelbstEinwilligungPayloadUmfang)[keyof typeof FLSchiedsrichterSelbstEinwilligungPayloadUmfang];
-
-export const FLSchiedsrichterSelbstEinwilligungPayloadUmfang = {
-  kader_oeffentlich: "kader_oeffentlich",
-  intern: "intern",
-} as const;
-
-export interface FLSchiedsrichterSelbstEinwilligungPayload {
-  medien: boolean;
-  nachweis_stand: FLEinwilligungStandPayload;
-  /**
-   * @minLength 1
-   * @maxLength 64
-   */
-  text_version: string;
-  umfang: FLSchiedsrichterSelbstEinwilligungPayloadUmfang;
-}
-
 /**
  * The record as it stands after the write, everything the person did not move unchanged.
  */
@@ -4713,6 +4633,24 @@ export interface FLSchiedsrichterSingleResponse {
  */
 export interface FLSchiedsrichterWriteResponse {
   updated_document: FLSchiedsrichter;
+}
+
+/**
+ * A pupil's, a referee's or a registration's own two choices on their record.
+ *
+ * Both choices on every press, and no member defaulted: a default would let a page that forgot one
+ * reset the person's other choice.
+ */
+export interface FLSelbstEinwilligungPayload {
+  medien: boolean;
+  nachweis_stand: FLEinwilligungStandPayload;
+  /**
+   * @minLength 1
+   * @maxLength 64
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  text_version: string;
+  umfang: FLEinwilligungUmfang;
 }
 
 /**
@@ -5267,12 +5205,12 @@ export interface FLSpielbestaetigungVonKontakt {
 }
 
 /**
- * An administrator's settlement, naming nobody: the row is the league's record of how a date was agreed, not of who typed it.
+ * An administrator's act, naming nobody: the record keeps how a thing was settled, not who typed it.
  */
-export const FLSpielbestaetigungVonAdminValue = {
+export const FLVonAdminValue = {
   art: "admin",
 } as const;
-export type FLSpielbestaetigungVonAdmin = typeof FLSpielbestaetigungVonAdminValue;
+export type FLVonAdmin = typeof FLVonAdminValue;
 
 export const FLSpielbestaetigungVonSchiedsrichterValue = {
   art: "schiedsrichter",
@@ -5297,7 +5235,7 @@ export interface FLSpielbestaetigungAntwort {
   am: string;
   art: FLSpielbestaetigungAntwortArt;
   begruendung: string | null;
-  von: FLSpielbestaetigungVonKontakt | FLSpielbestaetigungVonAdmin | FLSpielbestaetigungVonSchiedsrichter;
+  von: FLSpielbestaetigungVonKontakt | FLVonAdmin | FLSpielbestaetigungVonSchiedsrichter;
   vorschlag: FLSpielbestaetigungTermin | null;
 }
 
@@ -5391,25 +5329,6 @@ export interface FLSpielbestaetigungAnsichtAnsetzung {
   uhrzeit: string;
 }
 
-/**
- * A POST that reads: the token travels in a body, never in a second URL.
- */
-export interface FLSpielbestaetigungAnsichtPayload {
-  /**
-   * @minLength 1
-   * @maxLength 128
-   */
-  token: string;
-}
-
-export type FLSpielbestaetigungAnsichtResponseSeite =
-  (typeof FLSpielbestaetigungAnsichtResponseSeite)[keyof typeof FLSpielbestaetigungAnsichtResponseSeite];
-
-export const FLSpielbestaetigungAnsichtResponseSeite = {
-  team1: "team1",
-  team2: "team2",
-} as const;
-
 export type FLSpielbestaetigungAnsichtResponseZustand =
   (typeof FLSpielbestaetigungAnsichtResponseZustand)[keyof typeof FLSpielbestaetigungAnsichtResponseZustand];
 
@@ -5430,10 +5349,10 @@ export const FLSpielbestaetigungAnsichtResponseZustand = {
  */
 export interface FLSpielbestaetigungAnsichtResponse {
   ansetzung: FLSpielbestaetigungAnsichtAnsetzung;
-  beantwortet_von: FLSpielbestaetigungVonKontakt | FLSpielbestaetigungVonAdmin | FLSpielbestaetigungVonSchiedsrichter | null;
+  beantwortet_von: FLSpielbestaetigungVonKontakt | FLVonAdmin | FLSpielbestaetigungVonSchiedsrichter | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   frist: string;
-  seite: FLSpielbestaetigungAnsichtResponseSeite;
+  seite: FLSpielSeite;
   vorschlag: FLSpielbestaetigungTermin | null;
   zustand: FLSpielbestaetigungAnsichtResponseZustand;
 }
@@ -5454,6 +5373,7 @@ export interface FLSpielbestaetigungAntwortPayload {
   /**
    * @minLength 1
    * @maxLength 128
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
    */
   token: string;
   vorschlag: FLSpielbestaetigungVorschlagPayload | null;
@@ -5465,7 +5385,7 @@ export interface FLSpielbestaetigungAntwortPayload {
  * So a page shows that proposal from this response, never from a re-read. No receipt is mailed off it.
  */
 export interface FLSpielbestaetigungAntwortResponse {
-  beantwortet_von: FLSpielbestaetigungVonKontakt | FLSpielbestaetigungVonAdmin | FLSpielbestaetigungVonSchiedsrichter;
+  beantwortet_von: FLSpielbestaetigungVonKontakt | FLVonAdmin | FLSpielbestaetigungVonSchiedsrichter;
   vorschlag: FLSpielbestaetigungTermin | null;
   zustand: FLSpielbestaetigungAntwortArt;
 }
@@ -5526,14 +5446,6 @@ export interface FLSpielbestaetigungSelbst {
   zustand: FLSpielbestaetigungSelbstZustand;
 }
 
-export type FLSpielbestaetigungSweepAnfrageSeite =
-  (typeof FLSpielbestaetigungSweepAnfrageSeite)[keyof typeof FLSpielbestaetigungSweepAnfrageSeite];
-
-export const FLSpielbestaetigungSweepAnfrageSeite = {
-  team1: "team1",
-  team2: "team2",
-} as const;
-
 /**
  * One LINK and its mailbox; the RAW token exists here and in the mail alone.
  *
@@ -5553,7 +5465,7 @@ export interface FLSpielbestaetigungSweepAnfrage {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   frist: string;
   links: FLSpielbestaetigungSweepLink[];
-  seite: FLSpielbestaetigungSweepAnfrageSeite;
+  seite: FLSpielSeite;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -5820,19 +5732,12 @@ export interface FLSpielerPublic {
   nachname: string | null;
   nummer?: string | null;
   position?: FLSpielerPosition | null;
-  vorname?: string | null;
+  vorname: string | null;
 }
 
 export interface FLSpielerListResponse {
   spieler: FLSpielerPublic[];
 }
-
-export type FLSpielerMembershipRolle = (typeof FLSpielerMembershipRolle)[keyof typeof FLSpielerMembershipRolle] | null;
-
-export const FLSpielerMembershipRolle = {
-  kapitaen: "kapitaen",
-  co_kapitaen: "co_kapitaen",
-} as const;
 
 /**
  * One squad row as seen from its player.
@@ -5845,7 +5750,7 @@ export interface FLSpielerMembership {
   ist_nachnominiert: boolean;
   nummer: string | null;
   position: FLSpielerPosition | null;
-  rolle: FLSpielerMembershipRolle;
+  rolle: FLSpielerRolle | null;
   saison_id: string;
   stufe: FLSpielerStufe | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -5903,25 +5808,6 @@ export interface FLSpielerSelbst {
   spieler_id: string;
   /** @minLength 1 */
   vorname: string;
-}
-
-export type FLSpielerSelbstEinwilligungPayloadUmfang =
-  (typeof FLSpielerSelbstEinwilligungPayloadUmfang)[keyof typeof FLSpielerSelbstEinwilligungPayloadUmfang];
-
-export const FLSpielerSelbstEinwilligungPayloadUmfang = {
-  kader_oeffentlich: "kader_oeffentlich",
-  intern: "intern",
-} as const;
-
-export interface FLSpielerSelbstEinwilligungPayload {
-  medien: boolean;
-  nachweis_stand: FLEinwilligungStandPayload;
-  /**
-   * @minLength 1
-   * @maxLength 64
-   */
-  text_version: string;
-  umfang: FLSpielerSelbstEinwilligungPayloadUmfang;
 }
 
 /**
@@ -6210,6 +6096,18 @@ export interface FLTeamsMembershipsResponse {
 export interface FLTeamsSingleResponse {
   format: "single";
   team: FLTeam;
+}
+
+/**
+ * The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.
+ */
+export interface FLTokenPayload {
+  /**
+   * @minLength 1
+   * @maxLength 128
+   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
+   */
+  token: string;
 }
 
 /**
