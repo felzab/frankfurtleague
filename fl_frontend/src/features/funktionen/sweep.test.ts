@@ -3,6 +3,7 @@ import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { APIBadStatusError, APINetworkError } from "@/core/errors.ts";
 
+import type { FLReferenzenPayload, FLReferenzenResponse } from "@/core/generated/client/types.ts";
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 
 /** One line a pass wrote, as the logger was handed it: an error's message is kept, since that is where an address would hide. */
@@ -31,10 +32,9 @@ vi.doMock("@/core/mail.ts", async (importOriginal) => {
 let referenzen: (identifiers: readonly string[]) => readonly string[] = () => [];
 
 // Replaced at the module boundary: the real client reaches a backend no test process runs.
-const calls = doubleApiClient((call, schema) => {
-  const { identifiers } = JSON.parse(call.body ?? "{}") as { identifiers: string[] };
-  // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift.
-  return schema.parse({ acknowledged: 1, unreferenziert: referenzen(identifiers) });
+const calls = doubleApiClient((call) => {
+  const { identifiers } = JSON.parse(call.body ?? "{}") as FLReferenzenPayload;
+  return { unreferenziert: [...referenzen(identifiers)] } satisfies FLReferenzenResponse;
 });
 
 const record =
@@ -60,10 +60,9 @@ vi.doMock("@/core/logging.ts", () => ({
 
 const { runKontoSweep } = await import("./sweep.ts");
 const { REFERENZEN_ADRESSEN_MAX } = await import("./constants.ts");
-const { FLReferenzenPayloadSchema } = await import("./schemas.ts");
 
 /** The addresses one call asked about. */
-const askedIn = (call: ApiCall): string[] => FLReferenzenPayloadSchema.parse(JSON.parse(call.body ?? "{}")).identifiers;
+const askedIn = (call: ApiCall): string[] => (JSON.parse(call.body ?? "{}") as FLReferenzenPayload).identifiers;
 
 /** `count` distinct addresses, as the store folds them. */
 const adressen = (count: number, prefix = "person"): string[] => Array.from({ length: count }, (_, at) => `${prefix}${String(at)}@schule.de`);

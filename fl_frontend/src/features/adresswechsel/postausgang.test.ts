@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { APIBadStatusError } from "@/core/errors.ts";
 
+import type { FLAdresswechselZugestelltResponse } from "@/core/generated/client/types.ts";
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 
 /* The real drain over the backend client's double; what it delivers each notice through is a double too, the notices
@@ -55,18 +56,18 @@ let claims: unknown[] = [];
 let holdClaim: Promise<void> | null = null;
 let stampFails: Error | null = null;
 
-const calls = doubleApiClient((call: ApiCall, schema) => {
+const calls = doubleApiClient((call: ApiCall) => {
   if (call.endpoint === CLAIM) {
     return (holdClaim ?? Promise.resolve()).then(() => {
       const next = claims.length > 1 ? claims.shift() : claims[0];
       if (next instanceof Error) throw next;
-      return schema.parse(next);
+      return next;
     });
   }
 
   if (stampFails !== null) return Promise.reject(stampFails);
   const ids = (JSON.parse(call.body ?? "{}") as { ids: string[] }).ids;
-  return schema.parse({ zugestellt: ids.length, ignoriert: 0 });
+  return { zugestellt: ids.length, ignoriert: 0 } satisfies FLAdresswechselZugestelltResponse;
 });
 
 const { runAdresswechselPostausgang } = await import("./postausgang.ts");

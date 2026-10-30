@@ -7,7 +7,7 @@ import { z } from "zod";
 import { asSignInIdentifier } from "@/core/emailAddress.ts";
 
 import { ERASURE_ANLASS_MAX_LENGTH } from "./constants.ts";
-import { FLAbmeldungPayloadSchema, FLErasureAnsichtPayloadSchema, FLErasurePayloadSchema } from "./schemas.ts";
+import { FLErasureAdressePayloadSchema, FLErasurePayloadSchema } from "./schemas.ts";
 
 const ANLASS = "E-Mail vom 12.10.2026, Betreff Löschung meiner Daten";
 
@@ -20,11 +20,10 @@ const REFUSALS = z
   .object({ anlass: PROBE })
   .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "erasure_refusals.json"), "utf8")));
 
-/** The three payloads keyed on an address, each judged on the address alone. */
+/** The two payloads keyed on an address, each judged on the address alone. */
 const LOOKUPS = [
-  ["the reveal", (email: unknown) => FLErasureAnsichtPayloadSchema.safeParse({ email: email }).success],
+  ["the reveal and the sign-out", (email: unknown) => FLErasureAdressePayloadSchema.safeParse({ email: email }).success],
   ["the erasure", (email: unknown) => FLErasurePayloadSchema.safeParse({ email: email, anlass: ANLASS }).success],
-  ["the sign-out", (email: unknown) => FLAbmeldungPayloadSchema.safeParse({ email: email }).success],
 ] as const;
 
 describe("the address the erasure, its reveal and the sign-out look up", () => {
@@ -71,9 +70,8 @@ describe("the mailbox each lookup asks for", () => {
       "no row is trimmed, so the case compares nothing",
     );
     const parsed = [
-      ["the reveal", (email: string) => FLErasureAnsichtPayloadSchema.parse({ email: email }).email],
+      ["the reveal and the sign-out", (email: string) => FLErasureAdressePayloadSchema.parse({ email: email }).email],
       ["the erasure", (email: string) => FLErasurePayloadSchema.parse({ email: email, anlass: ANLASS }).email],
-      ["the sign-out", (email: string) => FLAbmeldungPayloadSchema.parse({ email: email }).email],
     ] as const;
     for (const [payload, asked] of parsed) {
       for (const row of ADDRESSES) {

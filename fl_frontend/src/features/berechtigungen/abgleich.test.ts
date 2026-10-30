@@ -5,6 +5,7 @@ import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { ERASED_ACTOR_MARKER } from "@/core/erasedActor.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
 
+import type { FLBerechtigungAngekuendigtResponse } from "@/core/generated/client/types.ts";
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 import type { MailOutcome } from "@/test-support/mailDouble.ts";
 
@@ -49,7 +50,6 @@ const aenderung = (fields: Record<string, unknown> = {}) => ({
 });
 
 const claimOf = (aenderungen: unknown[], extra: Record<string, unknown> = {}) => ({
-  acknowledged: 1,
   beanspruchung: aenderungen.length === 0 ? null : "claim-1",
   beansprucht_bis: aenderungen.length === 0 ? null : "2026-09-27T01:10:00Z",
   aenderungen: aenderungen,
@@ -67,17 +67,17 @@ let holdClaim: Promise<void> | null = null;
 /** What the stamp throws, where a case says the backend refused it. */
 let stampFails: Error | null = null;
 
-const calls = doubleApiClient((call: ApiCall, schema) => {
+const calls = doubleApiClient((call: ApiCall) => {
   if (call.endpoint === "/berechtigungen/abgleich") {
     return (holdClaim ?? Promise.resolve()).then(() => {
       if (claim instanceof Error) throw claim;
-      return schema.parse(claim);
+      return claim;
     });
   }
 
   if (stampFails !== null) return Promise.reject(stampFails);
   const ids = (JSON.parse(call.body ?? "{}") as { ids: string[] }).ids;
-  return schema.parse({ acknowledged: 1, angekuendigt: ids.length, ignoriert: 0 });
+  return { angekuendigt: ids.length, ignoriert: 0 } satisfies FLBerechtigungAngekuendigtResponse;
 });
 
 const mail = doubleSendMail();

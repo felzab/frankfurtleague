@@ -32,16 +32,9 @@ export type FLEinwilligungFassung = wire.FLEinwilligungFassung;
 export const FLEinwilligungFassungResponseSchema = z.custom<wire.FLEinwilligungFassungResponse>();
 export const FLEinwilligungSeitenResponseSchema = z.custom<wire.FLEinwilligungSeitenResponse>();
 
-export type FLErasureResponse = wire.FLErasureResponse;
-export const FLErasureResponseSchema = z.custom<FLErasureResponse>();
-
-export type FLSelbstErasureAnsichtResponse = wire.FLSelbstErasureAnsichtResponse;
-export const FLSelbstErasureAnsichtResponseSchema = z.custom<FLSelbstErasureAnsichtResponse>();
-
-// Redesign: the objects below go with their last importers, which compose them: `fl_frontend/src/features/funktionen/
-// schemas.ts` extends the erasure's rows and reads the grant's tier, `fl_frontend/src/core/funktionen.test.ts` reads a
-// seat's season states. Each `satisfies` the generated type, so a backend change that moves one fails the type check
-// here.
+// Redesign: the objects below go with their last importers: `fl_frontend/src/core/signInGate.ts` names the subject
+// read's answer by them, `fl_frontend/src/core/funktionen.test.ts` reads a seat's season states. Each `satisfies` the
+// generated type, so a backend change that moves one fails the type check here.
 
 export const FLSubjektSitzSchema = z.object({
   saison_id: z.string(),
@@ -61,34 +54,3 @@ export const FLSubjektResponseSchema = z.object({
   berechtigt_seit: z.string().nullable(),
   inhaber_seit: z.string().nullable(),
 }) satisfies z.ZodType<FLSubjektResponse>;
-
-export const FLSelbstErasureSpielerSchema = z.object({
-  vorname: z.string(),
-  nachname: z.string().nullable(),
-}) satisfies z.ZodType<wire.FLSelbstErasureSpieler>;
-
-export const FLSelbstErasureSchiedsrichterSchema = z.object({
-  name: z.string().nullable(),
-}) satisfies z.ZodType<wire.FLSelbstErasureSchiedsrichter>;
-
-export const FLSelbstErasureSitzSchema = z.object({
-  saison_id: z.string(),
-  team_name: z.string(),
-  rolle: FLSubjektSitzSchema.shape.rolle,
-  vorname: z.string(),
-  nachname: z.string(),
-}) satisfies z.ZodType<wire.FLSelbstErasureSitz>;
-
-export const FLSelbstErasureBewerbungSchema = z.object({
-  saison_id: z.string(),
-  rolle: FLSubjektSitzSchema.shape.rolle,
-  vorname: z.string(),
-  nachname: z.string(),
-}) satisfies z.ZodType<wire.FLSelbstErasureBewerbung>;
-
-export const FLSelbstErasureRegistrierungSchema = z.object({
-  saison_id: z.string(),
-  team_name: z.string().nullable(),
-  vorname: z.string(),
-  nachname: z.string(),
-}) satisfies z.ZodType<wire.FLSelbstErasureRegistrierung>;
