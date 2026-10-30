@@ -38,7 +38,7 @@ function spiel(fields: Partial<FLSpiel> = {}): FLSpiel {
     saison_phase: "gruppenphase",
     saison_id: "2027",
     notiz: null,
-    ansetzung_bestaetigt: null,
+    ansetzung_confirmed: null,
     ...fields,
   };
 }

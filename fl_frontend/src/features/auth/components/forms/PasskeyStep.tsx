@@ -98,7 +98,7 @@ export function PasskeyStep(props: Props) {
           ? { label: COPY.anmeldung.passkey.spaeter, isDisabled: isPending, onPress: () => router.push(props.later) }
           : undefined
       }
-      zeile={fehler}
+      row={fehler}
     />
   );
 }

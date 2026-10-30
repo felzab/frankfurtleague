@@ -64,7 +64,7 @@ async function AdminSpieltagEditContent({ params }: { params: NextPageProps<{ sp
     label,
     beginn: spieltag.beginn,
     ende: spieltag.ende,
-    anzahl_spiele: spieltag.anzahl_spiele,
+    anzahl_spiele: spieltag.count_spiele,
     saison_phase: spieltag.saison_phase,
     saison_id: spieltag.saison_id,
     spieleAngelegt: attached.length,

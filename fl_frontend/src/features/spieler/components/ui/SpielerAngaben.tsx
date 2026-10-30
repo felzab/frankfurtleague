@@ -10,11 +10,11 @@ import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { ausgetragenSeit, kaderName, NUMMER_NICHT_HINTERLEGT, rolleLabel } from "../../constants";
 
-import type { FLSpielerSelf, FLSpielerSelfKaderZeile } from "@/core/generated/client/types";
+import type { FLSpielerSelf, FLSpielerSelfKaderRow } from "@/core/generated/client/types";
 import type { ReactNode } from "react";
 
 /** One squad row, linked to the squad where everyone reads it rather than repeated here. */
-function KaderEintrag({ zeile }: { zeile: FLSpielerSelfKaderZeile }) {
+function KaderEintrag({ zeile }: { zeile: FLSpielerSelfKaderRow }) {
   const fakten: readonly (readonly [string, ReactNode])[] = [
     ["nummer", zeile.nummer === null ? <Leer>{NUMMER_NICHT_HINTERLEGT}</Leer> : `Nummer ${zeile.nummer}`],
     ["position", zeile.position ?? <Leer>{nichtHinterlegt("Position")}</Leer>],
@@ -41,7 +41,7 @@ function KaderEintrag({ zeile }: { zeile: FLSpielerSelfKaderZeile }) {
           <span className={labelBadge("warning")}>{ausgetragenSeit(zeile.inactive_since)}</span>
         </p>
       ) : (
-        zeile.ist_nachnominiert && (
+        zeile.is_nachnominiert && (
           <p>
             <span className={labelBadge("info")}>Nachnominiert</span>
           </p>

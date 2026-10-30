@@ -61,9 +61,9 @@ const SPIELER = { spieler_id: "b".repeat(24) };
 /* Keyed by the FOLDED identifier, as the endpoint's own join is: a guard sending the address as the
    session holds it then asks about a mailbox this holds nothing for. */
 const RECORDS = new Map<string, Subject>([
-  [ADMIN_EMAIL, { ...HOLDS_NOTHING, sitze: [SEAT], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z", konto: true }],
-  [PERSON_EMAIL, { ...HOLDS_NOTHING, spieler: [SPIELER], konto: true }],
-  [FOLDED_EMAIL, { ...HOLDS_NOTHING, spieler: [SPIELER], konto: true }],
+  [ADMIN_EMAIL, { ...HOLDS_NOTHING, seats: [SEAT], verwaltung: "administration", granted_since: "2026-01-01T00:00:00Z", account: true }],
+  [PERSON_EMAIL, { ...HOLDS_NOTHING, spieler: [SPIELER], account: true }],
+  [FOLDED_EMAIL, { ...HOLDS_NOTHING, spieler: [SPIELER], account: true }],
 ]);
 
 /** One call the guard put on the wire. */
@@ -98,7 +98,7 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
   const asked = (JSON.parse(body) as { email?: string }).email ?? "";
 
   // The sign-in gate's own read too, which every session a case mints passes.
-  return new Response(JSON.stringify(answerAt(new URL(url).pathname, RECORDS.get(asked) ?? { ...HOLDS_NOTHING, konto: false })), {
+  return new Response(JSON.stringify(answerAt(new URL(url).pathname, RECORDS.get(asked) ?? { ...HOLDS_NOTHING, account: false })), {
     status: 200,
     headers: { "content-type": "application/json" },
   });
@@ -191,7 +191,7 @@ describe("who the seam answers for", () => {
 
     expect(answer?.admin).toBe(false);
     expect(answer?.email).toBe(ADMIN_EMAIL);
-    expect(answer?.subjekt.sitze).toStrictEqual([SEAT]);
+    expect(answer?.subject.seats).toStrictEqual([SEAT]);
   });
 
   it("marks the same address an administrator once the passkey made the session", async () => {
@@ -222,10 +222,10 @@ describe("who the seam answers for", () => {
       () =>
         void RECORDS.set(ADMIN_EMAIL, {
           ...HOLDS_NOTHING,
-          sitze: [SEAT],
+          seats: [SEAT],
           verwaltung: "administration",
-          berechtigt_seit: "2026-01-01T00:00:00Z",
-          konto: true,
+          granted_since: "2026-01-01T00:00:00Z",
+          account: true,
         }),
     );
     const { cookie, row } = await signIn(ADMIN_EMAIL);
@@ -236,15 +236,15 @@ describe("who the seam answers for", () => {
     for (const grantedAfterMs of [60 * 1000, -60 * 1000]) {
       RECORDS.set(ADMIN_EMAIL, {
         ...HOLDS_NOTHING,
-        sitze: [SEAT],
+        seats: [SEAT],
         verwaltung: "administration",
-        berechtigt_seit: new Date(row.createdAt.getTime() + grantedAfterMs).toISOString(),
-        konto: true,
+        granted_since: new Date(row.createdAt.getTime() + grantedAfterMs).toISOString(),
+        account: true,
       });
       beginRenderPass();
       const answer = await getSubjectSession();
       assert.ok(answer, "the person's lane refused the session its grant postdates");
-      expect(answer.subjekt.sitze).toStrictEqual([SEAT]);
+      expect(answer.subject.seats).toStrictEqual([SEAT]);
       marks.push(answer.admin);
     }
 
@@ -268,7 +268,7 @@ describe("who the seam answers for", () => {
   it("answers the three lists, the two flags and the grant alone, carrying nothing else the backend answers", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
     arriveAs(cookie);
-    const { konto: _account, ...records } = RECORDS.get(ADMIN_EMAIL) ?? assert.fail("the administrator holds no records here");
+    const { account: _account, ...records } = RECORDS.get(ADMIN_EMAIL) ?? assert.fail("the administrator holds no records here");
     // A key no contract names, as a later backend could answer one beside the records.
     nextAnswer = new Response(JSON.stringify({ ...records, beigefuegt: "kein Feld des Vertrags" }), {
       status: 200,
@@ -278,7 +278,7 @@ describe("who the seam answers for", () => {
     const answer = await getSubjectSession();
 
     assert.ok(answer);
-    expect(Object.keys(answer.subjekt).sort()).toStrictEqual([
+    expect(Object.keys(answer.subject).sort()).toStrictEqual([
       "berechtigt_seit",
       "gesperrt",
       "inhaber_seit",
@@ -288,7 +288,7 @@ describe("who the seam answers for", () => {
       "unbestaetigt",
       "verwaltung",
     ]);
-    expect(answer.subjekt.verwaltung).toBe("administration");
+    expect(answer.subject.verwaltung).toBe("administration");
   });
 
   /* Raised on a body carrying no record, which is the only shape the lookup sets it on: the landing
@@ -296,12 +296,12 @@ describe("who the seam answers for", () => {
   it("carries the lookup's pending flag as the lookup answered it", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, unbestaetigt: true }), {
+    nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, unconfirmed: true }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
 
-    expect((await getSubjectSession())?.subjekt.unbestaetigt).toBe(true);
+    expect((await getSubjectSession())?.subject.unconfirmed).toBe(true);
   });
 
   /* The person the flag tells apart: no record anywhere, whom the landing tells the league holds
@@ -314,7 +314,7 @@ describe("who the seam answers for", () => {
       headers: { "content-type": "application/json" },
     });
 
-    expect((await getSubjectSession())?.subjekt.unbestaetigt).toBe(false);
+    expect((await getSubjectSession())?.subject.unconfirmed).toBe(false);
   });
 
   /* A session the ban's own ending missed, or one minted racing it, is refused on the request itself;
@@ -322,7 +322,7 @@ describe("who the seam answers for", () => {
   it("answers a barred subject no session, and records no actor for it", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, spieler: [SPIELER], gesperrt: true }), {
+    nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, spieler: [SPIELER], barred: true }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
@@ -346,7 +346,7 @@ describe("who the seam answers for", () => {
 
     expect(answer?.admin).toBe(false);
     expect(answer?.email).toBe(PERSON_EMAIL);
-    expect(answer?.subjekt.spieler).toStrictEqual([SPIELER]);
+    expect(answer?.subject.spieler).toStrictEqual([SPIELER]);
     expect(actor?.email, "the request scope holds a spelling the join and the log do not share").toBe(PERSON_EMAIL);
   });
 
@@ -367,7 +367,7 @@ describe("who the seam answers for", () => {
     expect(answer?.email).toBe(FOLDED_EMAIL);
     expect(actor?.email).toBe(FOLDED_EMAIL);
     expect((JSON.parse(lastSent().body) as { email: string }).email).toBe(FOLDED_EMAIL);
-    expect(answer?.subjekt.spieler, "the lookup was asked about a mailbox the league holds nothing for").toStrictEqual([SPIELER]);
+    expect(answer?.subject.spieler, "the lookup was asked about a mailbox the league holds nothing for").toStrictEqual([SPIELER]);
   });
 });
 

@@ -70,7 +70,7 @@ async function AdminSpielerEditContent({
   const saison: SpielerSaisonMembership = {
     saisonId: selectedSaison.id,
     saisonStatus: selectedSaison.status,
-    erlaubteStufen: orderStufen(selectedSaison.rules.erlaubte_stufen),
+    erlaubteStufen: orderStufen(selectedSaison.rules.allowed_stufen),
     nachnominierungLaeuft: nachnominierung?.nachnominierung ?? null,
     membership:
       membership === null
@@ -81,7 +81,7 @@ async function AdminSpielerEditContent({
             nummer: membership.nummer ?? "",
             position: membership.position,
             stufe: membership.stufe,
-            ist_nachnominiert: membership.ist_nachnominiert,
+            ist_nachnominiert: membership.is_nachnominiert,
             rolle: membership.rolle,
             inactive_since: membership.inactive_since,
           },
@@ -115,8 +115,8 @@ async function AdminSpielerEditContent({
         inactive_since: spieler.inactive_since,
         geburtsdatum: spieler.geburtsdatum,
         email: spieler.email,
-        adresswechsel_id: spieler.adresswechsel_id,
-        adresswechsel_einsehbar_verwehrt: spieler.adresswechsel_einsehbar_verwehrt,
+        adresswechsel_id: spieler.address_change_id,
+        adresswechsel_einsehbar_verwehrt: spieler.address_change_viewable_denied,
       }}
       // Off the record this page already holds: no read of its own, the memberships tier being the
       // only one that serves the field.

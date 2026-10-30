@@ -3,7 +3,7 @@ import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { APIBadStatusError, APINetworkError } from "@/core/errors.ts";
 
-import type { FLReferenzenPayload, FLReferenzenResponse } from "@/core/generated/client/types.ts";
+import type { FLReferencesPayload, FLReferencesResponse } from "@/core/generated/client/types.ts";
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 
 /** One line a pass wrote, as the logger was handed it: an error's message is kept, since that is where an address would hide. */
@@ -36,8 +36,8 @@ let referenzen: (identifiers: readonly string[]) => readonly string[] = () => []
 
 // Replaced at the module boundary: the real client reaches a backend no test process runs.
 const calls = doubleApiClient((call) => {
-  const { identifiers } = JSON.parse(call.body ?? "{}") as FLReferenzenPayload;
-  return { unreferenziert: [...referenzen(identifiers)] } satisfies FLReferenzenResponse;
+  const { identifiers } = JSON.parse(call.body ?? "{}") as FLReferencesPayload;
+  return { unreferenced: [...referenzen(identifiers)] } satisfies FLReferencesResponse;
 });
 
 const record =
@@ -65,7 +65,7 @@ const { runKontoSweep } = await import("./sweep.ts");
 const { REFERENZEN_ADRESSEN_MAX } = await import("./constants.ts");
 
 /** The addresses one call asked about. */
-const askedIn = (call: ApiCall): string[] => (JSON.parse(call.body ?? "{}") as FLReferenzenPayload).identifiers;
+const askedIn = (call: ApiCall): string[] => (JSON.parse(call.body ?? "{}") as FLReferencesPayload).identifiers;
 
 /** `count` distinct addresses, as the store folds them. */
 const adressen = (count: number, prefix = "person"): string[] => Array.from({ length: count }, (_, at) => `${prefix}${String(at)}@schule.de`);
@@ -148,7 +148,7 @@ describe("a pass meeting a failure", () => {
     };
 
     // The batch it could not judge is what the pass left, which the heartbeat names.
-    expect((await runKontoSweep()).offen).toBe(REFERENZEN_ADRESSEN_MAX);
+    expect((await runKontoSweep()).open).toBe(REFERENZEN_ADRESSEN_MAX);
 
     expect(deleteCalls).toStrictEqual(zweiter);
     expect(failures().map(({ event, fields }) => ({ event, fields }))).toStrictEqual([
@@ -208,11 +208,11 @@ describe("a pass meeting a failure", () => {
       throw new APIBadStatusError({
         message: "The backend refused the request.",
         url: "http://backend:8000/api/v0/identitaet/referenzen",
-        endpoint: "/identitaet/referenzen",
+        endpoint: "/identity/references",
         method: "POST",
         readOnly: true,
         statusCode: 409,
-        serverErrorCode: "kein_inhaber",
+        serverErrorCode: "no_owner",
         traceId: TRACE_ID,
       });
     };
@@ -226,7 +226,7 @@ describe("a pass meeting a failure", () => {
         fields: {
           name: "APIBadStatusError",
           status: 409,
-          server_error_code: "kein_inhaber",
+          server_error_code: "no_owner",
           trace_id: TRACE_ID,
           anzahl: 2,
         },
@@ -273,7 +273,7 @@ describe("a pass meeting a failure", () => {
     assert.ok(!JSON.stringify(lines).includes("@"), "a line carries an address");
     // No mail owed through the sign-in library's route, and none sent: every other mail is a backend write's to owe.
     expect(
-      calls.filter(({ endpoint }) => endpoint.startsWith("/postausgang/")),
+      calls.filter(({ endpoint }) => endpoint.startsWith("/outbox/")),
       "the sweep owed a mail",
     ).toStrictEqual([]);
     expect(drains, "the sweep drained the Postausgang").toStrictEqual([]);
@@ -292,7 +292,7 @@ describe("what a completed pass answers", () => {
 
     expect(await runKontoSweep()).toStrictEqual({
       count: { unreferenziert: 4, geloescht: 1, bereits_geloescht: 1, fehlgeschlagen: 1 },
-      offen: 1,
+      open: 1,
     });
   });
 });

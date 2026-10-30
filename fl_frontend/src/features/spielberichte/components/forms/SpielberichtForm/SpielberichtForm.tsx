@@ -88,7 +88,7 @@ export function SpielberichtForm({
       failureTitle: "Spielbericht nicht gespeichert",
     });
 
-  const status = deriveSpielberichtDraftStatus({ kontext, stored: gespeichert, draft, fieldErrors });
+  const status = deriveSpielberichtDraftStatus({ context: kontext, stored: gespeichert, draft, fieldErrors });
   const isDirty = status.isDirty && !hasSaved;
 
   // The latch's job ends when the refreshed report arrives and the two agree.

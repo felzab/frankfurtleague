@@ -70,7 +70,7 @@ describe("the four base-tier public reads", () => {
     await getBewerbungSchulen();
     await getBewerbungKuerzel("GG");
 
-    for (const endpoint of ["/bewerbungen/fenster", "/bewerbungen/fenster/2627", "/bewerbungen/schulen", "/bewerbungen/kuerzel/GG"]) {
+    for (const endpoint of ["/bewerbungen/window", "/bewerbungen/window/2627", "/bewerbungen/schulen", "/bewerbungen/kuerzel/GG"]) {
       assert.ok(
         calls.some((call) => call.endpoint === endpoint),
         `nothing asked for ${endpoint}`,
@@ -84,7 +84,7 @@ describe("the four base-tier public reads", () => {
     await getBewerbungFenster("26/27");
     await getBewerbungKuerzel("G/G");
 
-    for (const endpoint of ["/bewerbungen/fenster/26%2F27", "/bewerbungen/kuerzel/G%2FG"]) {
+    for (const endpoint of ["/bewerbungen/window/26%2F27", "/bewerbungen/kuerzel/G%2FG"]) {
       assert.ok(
         calls.some((call) => call.endpoint === endpoint),
         `a path segment reached the client unencoded; expected ${endpoint}`,
@@ -134,8 +134,8 @@ describe("the two memoised reads across a render pass", () => {
     expect(endpointsSince(before).sort()).toStrictEqual([
       `/bewerbungen/${ONE_ID}`,
       `/bewerbungen/${OTHER_ID}`,
-      "/bewerbungen/fenster/2627",
-      "/bewerbungen/fenster/2728",
+      "/bewerbungen/window/2627",
+      "/bewerbungen/window/2728",
     ]);
   });
 
@@ -150,6 +150,6 @@ describe("the two memoised reads across a render pass", () => {
     await Promise.all([getBewerbungById(ONE_ID), getBewerbungFenster("2627")]);
     await Promise.all([getBewerbungById(ONE_ID), getBewerbungFenster("2627")]);
 
-    expect(endpointsSince(before).sort()).toStrictEqual([`/bewerbungen/${ONE_ID}`, "/bewerbungen/fenster/2627"]);
+    expect(endpointsSince(before).sort()).toStrictEqual([`/bewerbungen/${ONE_ID}`, "/bewerbungen/window/2627"]);
   });
 });

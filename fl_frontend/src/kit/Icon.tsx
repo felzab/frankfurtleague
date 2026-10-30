@@ -55,7 +55,7 @@ const GLYPHS = {
   // The theme row's three: the moon for the dark theme, the sun for the light, the screen for the system's.
   dunkel: Moon,
   // An outcome is a mark in a ring: the bare check is an item chosen, the bare cross a close or a clear.
-  erledigt: CircleCheck,
+  done: CircleCheck,
   error: CircleX,
   filter: ListFilter,
   haken: Check,

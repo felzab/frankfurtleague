@@ -64,7 +64,7 @@ export type KartenSchluessel = {
 };
 
 /**
- * Whether each card may name no reason (`bericht_grund_fehlt`): each caution the season-end strip left reasonless in the
+ * Whether each card may name no reason (`bericht_grund_missing`): each caution the season-end strip left reasonless in the
  * stored report excuses one equal caution, those listed earlier without a reason using it first, as the backend counts.
  */
 export const gruendeErlassen = (bestand: readonly KartenSchluessel[], karten: readonly KartenSchluessel[]): boolean[] => {
@@ -151,7 +151,7 @@ const berichtPayload = <TTor extends z.ZodType<string | null>, TKarten extends z
 export const FLSpielberichtPayloadSchema = z.object({
   // A null scorer is a goal nobody was named for, never an erased pupil, whose entry keeps their id.
   bericht: berichtPayload({ torschuetze: CustomObjectIdStringSchema.nullable(), karten: kartenListe(karte(CustomObjectIdStringSchema)) }),
-  // The version the form opened on, `null` where no report stood: one composed on another is refused (`bericht_inzwischen_geaendert`).
+  // The version the form opened on, `null` where no report stood: one composed on another is refused (`bericht_meanwhile_changed`).
   bericht_stand: z.int().nullable(),
 });
 

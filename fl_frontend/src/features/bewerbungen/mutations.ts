@@ -1,32 +1,32 @@
 import {
-  bewerbungenAblehnenBewerbung,
-  bewerbungenAnnehmenBewerbung,
-  bewerbungenErneutEinwilligung,
-  bewerbungenGetEinwilligungAnsicht,
+  bewerbungenAcceptBewerbung,
+  bewerbungenDeclineBewerbung,
+  bewerbungenGetEinwilligungView,
   bewerbungenGetSweepSaisons,
   bewerbungenPostBewerbung,
   bewerbungenPostEinwilligung,
   bewerbungenPostKontaktEmail,
-  bewerbungenPostKontaktSitz,
+  bewerbungenPostKontaktSeat,
+  bewerbungenResendEinwilligung,
   bewerbungenSweepSaison,
 } from "@/core/generated/client/sdk";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 
 import type {
-  FLAblehnenBewerbungPayload,
-  FLAblehnenBewerbungResponse,
-  FLAnnehmenBewerbungPayload,
-  FLAnnehmenBewerbungResponse,
-  FLBewerbungEinwilligungAbgelehnt,
-  FLBewerbungEinwilligungAnsichtResponse,
+  FLAcceptBewerbungPayload,
+  FLAcceptBewerbungResponse,
   FLBewerbungEinwilligungAntwortResponse,
-  FLBewerbungEinwilligungErneutResponse,
-  FLBewerbungEinwilligungErteilt,
+  FLBewerbungEinwilligungDeclined,
+  FLBewerbungEinwilligungGiven,
+  FLBewerbungEinwilligungResendResponse,
+  FLBewerbungEinwilligungViewResponse,
   FLBewerbungKontaktEmailPayload,
   FLBewerbungKontaktEmailResponse,
-  FLBewerbungKontaktSitzPayload,
+  FLBewerbungKontaktSeatPayload,
   FLBewerbungSweepResponse,
   FLCreatedResponse,
+  FLDeclineBewerbungPayload,
+  FLDeclineBewerbungResponse,
   FLKontaktRolle,
   FLPostBewerbungPayload,
   FLSaisonTeamEinwilligungAntwortResponse,
@@ -44,14 +44,14 @@ export async function annehmenBewerbung({
   id,
   gruppe,
   trikot_farbe,
-}: { id: string } & FLAnnehmenBewerbungPayload): Promise<FLAnnehmenBewerbungResponse> {
-  return bewerbungenAnnehmenBewerbung(id, { gruppe: gruppe, trikot_farbe: trikot_farbe });
+}: { id: string } & FLAcceptBewerbungPayload): Promise<FLAcceptBewerbungResponse> {
+  return bewerbungenAcceptBewerbung(id, { gruppe: gruppe, trikot_farbe: trikot_farbe });
 }
 
 // Moves `status` and `entscheidung` and nothing else: what the school wrote stays the record the
 // decision was taken against.
-export async function ablehnenBewerbung({ id, grund }: { id: string } & FLAblehnenBewerbungPayload): Promise<FLAblehnenBewerbungResponse> {
-  return bewerbungenAblehnenBewerbung(id, { grund: grund });
+export async function ablehnenBewerbung({ id, grund }: { id: string } & FLDeclineBewerbungPayload): Promise<FLDeclineBewerbungResponse> {
+  return bewerbungenDeclineBewerbung(id, { grund: grund });
 }
 
 /** Records one school's application. */
@@ -63,13 +63,13 @@ export async function postBewerbung(payload: FLPostBewerbungPayload, idempotency
  * A POST that reads. The token is the credential, and a GET would put it in a query string the
  * backend's own route template does not redact.
  */
-export async function postEinwilligungAnsicht(payload: FLTokenPayload): Promise<FLBewerbungEinwilligungAnsichtResponse> {
-  return bewerbungenGetEinwilligungAnsicht(payload, { readOnly: true });
+export async function postEinwilligungAnsicht(payload: FLTokenPayload): Promise<FLBewerbungEinwilligungViewResponse> {
+  return bewerbungenGetEinwilligungView(payload, { readOnly: true });
 }
 
 /** Records one contact person's answer and spends their token. */
 export async function postEinwilligung(
-  payload: FLBewerbungEinwilligungErteilt | FLBewerbungEinwilligungAbgelehnt,
+  payload: FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined,
 ): Promise<FLBewerbungEinwilligungAntwortResponse | FLSaisonTeamEinwilligungAntwortResponse> {
   return bewerbungenPostEinwilligung(payload);
 }
@@ -85,8 +85,8 @@ export async function erneutSendenEinwilligung({
 }: {
   id: string;
   rolle: FLKontaktRolle;
-}): Promise<FLBewerbungEinwilligungErneutResponse> {
-  return bewerbungenErneutEinwilligung(id, rolle);
+}): Promise<FLBewerbungEinwilligungResendResponse> {
+  return bewerbungenResendEinwilligung(id, rolle);
 }
 
 /** **The only field of a submitted application an administrator may move**, answered with a link the caller mails to it. */
@@ -94,9 +94,9 @@ export async function korrigierenKontaktEmail({
   id,
   rolle,
   email,
-  bisherige_email,
+  previous_email: previous_email,
 }: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktEmailPayload): Promise<FLBewerbungKontaktEmailResponse> {
-  return bewerbungenPostKontaktEmail(id, rolle, { email: email, bisherige_email: bisherige_email });
+  return bewerbungenPostKontaktEmail(id, rolle, { email: email, previous_email: previous_email });
 }
 
 /** The one path that writes a NAME onto a submitted application, and it runs on a seat its own holder emptied. */
@@ -108,8 +108,8 @@ export async function besetzenKontaktSitz({
   email,
   telefon,
   text_version,
-}: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktSitzPayload): Promise<FLBewerbungKontaktEmailResponse> {
-  return bewerbungenPostKontaktSitz(id, rolle, {
+}: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktSeatPayload): Promise<FLBewerbungKontaktEmailResponse> {
+  return bewerbungenPostKontaktSeat(id, rolle, {
     vorname: vorname,
     nachname: nachname,
     email: email,

@@ -8,13 +8,13 @@ import { KONTAKT_ROLLE_LANGFORM, rollenText, TRIKOT_FARBEN } from "./teamVocabul
 import type { Absatz, Mail } from "./emailShell";
 import type { CalendarDay } from "./format";
 import type {
-  FLBewerbungAbsageDaten,
-  FLBewerbungEingangDaten,
-  FLBewerbungLinkDaten,
-  FLBewerbungLoeschungDaten,
+  FLBewerbungAbsageData,
+  FLBewerbungErasureData,
+  FLBewerbungLinkData,
   FLBewerbungPerson,
-  FLBewerbungWiderspruchDaten,
-  FLBewerbungZusageDaten,
+  FLBewerbungReceivedData,
+  FLBewerbungWiderspruchData,
+  FLBewerbungZusageData,
 } from "./generated/client/types";
 import type { MailLink, MailOrt } from "./mailKinds";
 
@@ -83,7 +83,7 @@ function personName({ vorname, rollen }: FLBewerbungPerson): string {
  * The reader's own floor, one of the two the confirmation page asks against: a person holding a seat besides the
  * Trainer's is asked the higher one (`fl_backend/app/api/bewerbungen/services.py :: mindestalter_for`).
  */
-function altersSatz(rollen: readonly FLBewerbungLinkDaten["rollen"][number][]): string {
+function altersSatz(rollen: readonly FLBewerbungLinkData["rollen"][number][]): string {
   return rollen.every((rolle) => rolle === "trainer")
     ? `${KONTAKT_ROLLE_LANGFORM.trainer} kann sein, wer mindestens 16 Jahre alt ist.`
     : `${KONTAKT_ROLLE_LANGFORM.ansprechperson} oder ${KONTAKT_ROLLE_LANGFORM.stellvertretung} kann sein, wer mindestens 18 Jahre alt ist.`;
@@ -94,7 +94,7 @@ const FARBE_HEX = /^#[0-9a-f]{6}$/i;
 
 /** What an accepted application is told, each person naming the seats they were entered for. */
 export function buildBewerbungZusageEmail(
-  { team, saison_id, rollen, gruppe, trikot_farbe, wunschgegner }: FLBewerbungZusageDaten,
+  { team, saison_id, rollen, gruppe, trikot_farbe, wunschgegner }: FLBewerbungZusageData,
   { origin }: MailOrt,
 ): Mail {
   const site = mailOrigin(origin);
@@ -130,12 +130,12 @@ export function buildBewerbungZusageEmail(
       ],
     },
     nachBlock: [einteilungAbsatz(gruppe, farbe?.label ?? null), ...(gegner === "" ? [] : [wunschgegnerAbsatz(gegner)]), websiteSatz(site)],
-    aktion: ligaAktion(site),
+    button: ligaAktion(site),
   };
 }
 
 /** The mail states the decision and the reason it was given, and says that it covers this application rather than the school. */
-export function buildBewerbungAbsageEmail({ team, saison_id, rollen, grund }: FLBewerbungAbsageDaten, { origin }: MailOrt): Mail {
+export function buildBewerbungAbsageEmail({ team, saison_id, rollen, grund }: FLBewerbungAbsageData, { origin }: MailOrt): Mail {
   return {
     art: "mitteilung",
     subjectLine: `Absage für die Saison ${saison_id}`,
@@ -163,7 +163,7 @@ export function buildBewerbungAbsageEmail({ team, saison_id, rollen, grund }: FL
 }
 
 /** What one person is asked to confirm: every seat they hold, answered through the one link. */
-export function buildBewerbungBestaetigungEmail({ saison_id, schule, rollen, frist }: FLBewerbungLinkDaten, { origin, token }: MailLink): Mail {
+export function buildBewerbungBestaetigungEmail({ saison_id, schule, rollen, frist }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
   const bis = fristText(frist);
 
@@ -202,11 +202,11 @@ export function buildBewerbungBestaetigungEmail({ saison_id, schule, rollen, fri
         { label: "Link gültig bis", value: bis },
       ],
     },
-    aktion: { label: "Eintrag bestätigen", href: kontaktBestaetigungsLink(site, token) },
+    button: { label: "Eintrag bestätigen", href: kontaktBestaetigungsLink(site, token) },
   };
 }
 
-export function buildBewerbungErinnerungEmail({ saison_id, schule, rollen, frist }: FLBewerbungLinkDaten, { origin, token }: MailLink): Mail {
+export function buildBewerbungErinnerungEmail({ saison_id, schule, rollen, frist }: FLBewerbungLinkData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
   const bis = fristText(frist);
 
@@ -240,7 +240,7 @@ export function buildBewerbungErinnerungEmail({ saison_id, schule, rollen, frist
     },
     // A fresh link, minted beside the first one rather than in place of it: a reminder that voided
     // the link somebody is still looking at would punish the reader it is chasing.
-    aktion: { label: "Eintrag bestätigen", href: kontaktBestaetigungsLink(site, token) },
+    button: { label: "Eintrag bestätigen", href: kontaktBestaetigungsLink(site, token) },
   };
 }
 
@@ -249,7 +249,7 @@ export function buildBewerbungErinnerungEmail({ saison_id, schule, rollen, frist
  * is the one person who can ask a colleague in the corridor; the mail carries the submitter's own link.
  */
 export function buildBewerbungEingangEmail(
-  { saison_id, rollen, ausstehend, frist }: FLBewerbungEingangDaten,
+  { saison_id, rollen, pending: ausstehend, frist }: FLBewerbungReceivedData,
   { origin, token }: MailLink,
 ): Mail {
   const site = mailOrigin(origin);
@@ -287,7 +287,7 @@ export function buildBewerbungEingangEmail(
         { label: "Frist", value: bis },
       ],
     },
-    aktion: { label: "Meinen Eintrag bestätigen", href: kontaktBestaetigungsLink(site, token) },
+    button: { label: "Meinen Eintrag bestätigen", href: kontaktBestaetigungsLink(site, token) },
   };
 }
 
@@ -295,7 +295,7 @@ export function buildBewerbungEingangEmail(
  * What the submitter is told as the application is deleted. Owed in the erasure's own write and worded in the present,
  * `ausstehend` naming the people the deleted application still held.
  */
-export function buildBewerbungGeloeschtEmail({ saison_id, rollen, ausstehend }: FLBewerbungLoeschungDaten, { origin }: MailOrt): Mail {
+export function buildBewerbungGeloeschtEmail({ saison_id, rollen, pending: ausstehend }: FLBewerbungErasureData, { origin }: MailOrt): Mail {
   const site = mailOrigin(origin);
 
   return {
@@ -324,13 +324,13 @@ export function buildBewerbungGeloeschtEmail({ saison_id, rollen, ausstehend }: 
         { label: "Nicht bestätigt", value: formatAufzaehlung(ausstehend.map(personName)) },
       ],
     },
-    aktion: neuBewerbenAktion(site, saison_id),
+    button: neuBewerbenAktion(site, saison_id),
   };
 }
 
 /** What the submitter is told when a person refuses their entry; `abgelehnt` was read before the decline emptied it. */
 export function buildBewerbungWiderspruchEmail(
-  { saison_id, rollen, abgelehnt, frist }: FLBewerbungWiderspruchDaten,
+  { saison_id, rollen, declined: abgelehnt, frist }: FLBewerbungWiderspruchData,
   { origin }: MailOrt,
 ): Mail {
   const site = mailOrigin(origin);
@@ -360,6 +360,6 @@ export function buildBewerbungWiderspruchEmail(
         { label: "Widerspruch von", value: wer },
       ],
     },
-    aktion: neuBewerbenAktion(site, saison_id),
+    button: neuBewerbenAktion(site, saison_id),
   };
 }

@@ -2,17 +2,12 @@ import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { isRecordMissing } from "@/core/errors";
-import {
-  saisonsGetActiveSaison,
-  saisonsGetLoeschungVorschau,
-  saisonsGetSaisons,
-  saisonsGetSaisonsVerwaltung,
-} from "@/core/generated/client/sdk";
+import { saisonsGetActiveSaison, saisonsGetErasurePreview, saisonsGetSaisons, saisonsGetSaisonsVerwaltung } from "@/core/generated/client/sdk";
 import { SITE_CACHE_TAG } from "@/core/siteCache";
 import { runAdminRead } from "@/shared/utils/adminRead";
 
 import type {
-  FLLoeschungVorschauResponse,
+  FLErasurePreviewResponse,
   FLSaisonsAdminListResponse,
   FLSaisonsListResponse,
   FLSaisonsSingleResponse,
@@ -39,8 +34,8 @@ export const getAdminSaisons = cache(async (): Promise<FLSaisonsAdminListRespons
  * Whom activating `saisonId` would delete, on the statuses that activation leaves. Read afresh on every
  * render: a count from before another season's activation names people who are already gone.
  */
-export async function getLoeschungVorschau(saisonId: string): Promise<FLLoeschungVorschauResponse> {
-  return runAdminRead(() => saisonsGetLoeschungVorschau(saisonId));
+export async function getLoeschungVorschau(saisonId: string): Promise<FLErasurePreviewResponse> {
+  return runAdminRead(() => saisonsGetErasurePreview(saisonId));
 }
 
 /**

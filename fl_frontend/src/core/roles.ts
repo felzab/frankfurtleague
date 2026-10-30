@@ -1,15 +1,15 @@
-import type { FLSubjektSitz } from "./generated/client/types";
+import type { FLSubjectSeat } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
 /** One contact seat on a season that grants a panel, carrying the name the club PLAYED that season under. */
 type KontaktRole = {
   art: "kontakt";
   // The contact-seat sense of the word, never the captaincy's.
-  rolle: FLSubjektSitz["rolle"];
+  rolle: FLSubjectSeat["rolle"];
   team_id: string;
   saison_id: string;
   team_name: string;
-  saison_status: FLSubjektSitz["saison_status"];
+  saison_status: FLSubjectSeat["saison_status"];
 };
 
 type SpielerRole = { art: "spieler"; spieler_id: string };
@@ -24,7 +24,7 @@ export type Role = KontaktRole | SpielerRole | SchiedsrichterRole | Administrati
 
 // Held to the backend's own season predicate by `fl_backend/tests/shared/grants_a_panel.json`, which
 // both tiers' suites answer row by row.
-export function grantsAPanel(status: FLSubjektSitz["saison_status"]): boolean {
+export function grantsAPanel(status: FLSubjectSeat["saison_status"]): boolean {
   // A switch rather than a comparison: a status added to the enum fails `tsc` here until somebody
   // decides whether it grants.
   switch (status) {
@@ -50,7 +50,7 @@ export function isSeatAt(role: Role, teamId: string, saisonId: string): role is 
  * "confirmed" for the two tiers to part on.
  */
 export function rolesOf(subject: SubjectSession): { roles: Role[]; unbestaetigt: boolean } {
-  const { sitze, spieler, schiedsrichter, unbestaetigt } = subject.subjekt;
+  const { seats: sitze, spieler, schiedsrichter, unconfirmed: unbestaetigt } = subject.subject;
 
   const roles: Role[] = [
     // Per seat and never per team: one junction row seats one person twice where the trainer is also

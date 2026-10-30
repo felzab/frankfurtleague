@@ -55,14 +55,14 @@ export async function getSchiedsrichterById(schiedsrichterId: string): Promise<F
  * A token the backend will not parse matches no record, so the page calls the link void rather than
  * offering a reload that cannot succeed.
  */
-function mapSchiedsrichterAnsichtRefusal(error: unknown): "ungueltig" | null {
+function mapSchiedsrichterAnsichtRefusal(error: unknown): "invalid" | null {
   if (!isRefusal(error)) return null;
 
-  if (error.serverErrorCode === "payload_refused") return "ungueltig";
+  if (error.serverErrorCode === "payload_refused") return "invalid";
 
   // Every rule's refusal alike, as the refused payload is: a confirmed or lapsed link answers its own
   // state in a 200, so a refusal is a token nothing could place, and a code nobody planned reads the same way.
-  return isRuleRefusal(error) ? "ungueltig" : null;
+  return isRuleRefusal(error) ? "invalid" : null;
 }
 
 export type SchiedsrichterBestaetigungRefusal = {
@@ -77,7 +77,7 @@ const ALTER_AUSSERHALB_UNGELESEN = "Mit diesem Geburtsdatum bist Du zu jung oder
 
 /** The link's own view, read again after a refused press: its floors where it is open, its state where not. */
 export type GelesenerSchiedsrichterLink =
-  | { readonly zustand: "gueltig"; readonly ansicht: { readonly mindestalter: number; readonly medien_mindestalter: number } }
+  | { readonly zustand: "valid"; readonly ansicht: { readonly minimum_age: number; readonly medien_minimum_age: number } }
   | { readonly zustand: SchiedsrichterLinkZustand };
 
 // A thunk, never a resolved read: the codes naming one state alone answer without it, and a caller resolving it
@@ -95,12 +95,12 @@ export async function mapSchiedsrichterBestaetigungRefusal(
 
   const ansicht = async () => {
     const link = await gelesen();
-    return link?.zustand === "gueltig" ? link.ansicht : null;
+    return link?.zustand === "valid" ? link.ansicht : null;
   };
   // The panel a reload opens on, which the press's own panel stands in for where the read finds the link open or reads nothing.
   const stand = async (sonst: SchiedsrichterLinkZustand): Promise<SchiedsrichterLinkZustand> => {
     const link = await gelesen();
-    return link === null || link.zustand === "gueltig" ? sonst : link.zustand;
+    return link === null || link.zustand === "valid" ? sonst : link.zustand;
   };
 
   switch (error.serverErrorCode) {
@@ -111,26 +111,26 @@ export async function mapSchiedsrichterBestaetigungRefusal(
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     // The switch is offered from the served age on the browser's day, so a clock disagreeing with the
     // backend's sends this, which a reopened link would offer again: switching it off is the repair.
-    case "medien_alter":
-      return { error: medienNochNicht((await ansicht())?.medien_mindestalter ?? null) };
+    case "medien_age":
+      return { error: medienNochNicht((await ansicht())?.medien_minimum_age ?? null) };
     // The backend's judgement of the label: a page opened before a
     // deploy moved it posts words other than those the backend runs, and only the mail's link reopens it.
-    case "fassung_unzulaessig":
+    case "wording_not_allowed":
       return { error: FASSUNG_NEU_OEFFNEN };
-    case "link_ungueltig":
-      return { zustand: "ungueltig" };
+    case "link_invalid":
+      return { zustand: "invalid" };
     // Judged ahead of the ban, which the view ranks first: an address barred since reads as a reload shows it.
-    case "link_abgelaufen":
-      return { zustand: await stand("abgelaufen") };
-    case "bestaetigung_vorhanden":
-      return { zustand: await stand("bestaetigt") };
+    case "link_expired":
+      return { zustand: await stand("expired") };
+    case "confirmation_exists":
+      return { zustand: await stand("confirmed") };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
-    case "link_gesperrt":
-      return { zustand: "gesperrt" };
+    case "link_barred":
+      return { zustand: "barred" };
     // The one refusal that spends nothing, so it lands on the field and the typed date survives it;
     // a `zustand` here would swap a live form for a dead-link panel.
-    case "bestaetigung_alter": {
-      const floor = (await ansicht())?.mindestalter ?? null;
+    case "confirmation_age": {
+      const floor = (await ansicht())?.minimum_age ?? null;
 
       // A view that went unread names no floor: one guessed could send the person to correct a date that was right.
       return { fieldErrors: { geburtsdatum: floor === null ? ALTER_AUSSERHALB_UNGELESEN : alterAusserhalb(floor) } };
@@ -147,8 +147,7 @@ export async function mapSchiedsrichterBestaetigungRefusal(
 export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promise<SchiedsrichterAnsicht> {
   return runWithIncomingTrace(() =>
     postSchiedsrichterBestaetigungAnsicht({ token: token }).then(
-      (ansicht): SchiedsrichterAnsicht =>
-        ansicht.zustand === "gueltig" ? { zustand: "gueltig", ansicht: ansicht } : { zustand: ansicht.zustand },
+      (ansicht): SchiedsrichterAnsicht => (ansicht.state === "valid" ? { zustand: "valid", ansicht: ansicht } : { zustand: ansicht.state }),
       (error: unknown) => {
         // Anything but a refusal is a failed read, which is the page's own state rather than a panel
         // calling a live link void.
@@ -161,7 +160,7 @@ export async function getSchiedsrichterBestaetigungAnsicht(token: string): Promi
 }
 
 /**
- * The signed-in referee's own records, refused `funktion_nicht_gehalten` where the backend holds no confirmed
+ * The signed-in referee's own records, refused `role_not_held` where the backend holds no confirmed
  * referee row for the address the page's own check passed.
  */
 // Never `"use cache"`, which keys on the arguments rather than the caller.

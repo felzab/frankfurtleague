@@ -36,7 +36,7 @@ const kontaktePayload = (overrides: Record<string, unknown> = {}) => ({
   // Each seat its own person: two seats sharing an address or a number are refused as one person twice.
   ansprechperson: kontaktpersonPayload({ vorname: "Max", email: "max@beispiel.de", telefon: "069 7654321" }),
   stellvertretung: kontaktpersonPayload({ vorname: "Lena", email: "lena@beispiel.de", telefon: "069 2345678" }),
-  trainer_ist_zugleich: null,
+  trainer_is_also: null,
   ...overrides,
 });
 
@@ -100,13 +100,13 @@ describe("FLSaisonTeamKontaktePayloadSchema", () => {
   it("compares a paired Trainer as one person with the seat it holds", () => {
     const max = kontaktpersonPayload({ vorname: "Max", email: "max@beispiel.de", telefon: "069 7654321" });
 
-    expect(
-      pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: max, trainer_ist_zugleich: "ansprechperson" })),
-    ).toStrictEqual([]);
+    expect(pathsRefused(FLSaisonTeamKontaktePayloadSchema, kontaktePayload({ trainer: max, trainer_is_also: "ansprechperson" }))).toStrictEqual(
+      [],
+    );
     expect(
       pathsRefused(
         FLSaisonTeamKontaktePayloadSchema,
-        kontaktePayload({ trainer: { ...max, vorname: "Maximilian" }, trainer_ist_zugleich: "ansprechperson" }),
+        kontaktePayload({ trainer: { ...max, vorname: "Maximilian" }, trainer_is_also: "ansprechperson" }),
       ),
     ).toStrictEqual(["ansprechperson.vorname"]);
   });

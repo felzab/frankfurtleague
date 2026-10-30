@@ -88,7 +88,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
         titel={COPY.anmeldung.postfach}
         satz={COPY.anmeldung.codeUnterwegs}
         adresse={address}
-        code={{ label: COPY.anmeldung.code, versuch, isDisabled: pruefe, onComplete: (code) => void check(code) }}
+        code={{ label: COPY.anmeldung.code, attempt: versuch, isDisabled: pruefe, onComplete: (code) => void check(code) }}
         back={{
           label: COPY.anmeldung.andereAdresse,
           isDisabled: pruefe,
@@ -97,7 +97,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
             setVerlassen(answer);
           },
         }}
-        zeile={codeFehler}
+        row={codeFehler}
       />
     );
   }
@@ -143,7 +143,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
       // `isBusy` is the whole of the double-press guard: a second prompt aborts the first, which would then read
       // as a refusal of a press made while it ran.
       passkey={{ label: COPY.anmeldung.mitPasskey, isBusy: passkeyLaeuft, onPress: () => void mitPasskey() }}
-      zeile={passkeyFehler ?? sendFehler}
+      row={passkeyFehler ?? sendFehler}
     />
   );
 }

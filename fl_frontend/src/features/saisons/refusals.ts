@@ -33,7 +33,7 @@ const TOO_MANY_FIXTURES =
 
 /**
  * The half `saison_span_below_spielplan` and the draw's `saison_span_below_spielplan_as_stored` share: the dates repair every state, because
- * `fl_backend/app/api/saisons/schedule.py :: group_matchdays` is flat from an even `teams_per_group`
+ * `fl_backend/app/api/saisons/schedule.py :: group_matchdays` is flat from an even `teams_per_gruppe`
  * down to the odd one and a smaller number does not always buy a day back.
  */
 const SPAN_BELOW_SCHEDULE =
@@ -55,19 +55,19 @@ export function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?:
 
   switch (error.serverErrorCode) {
     case "rules_bracket_impossible":
-      return { fieldErrors: { "rules.qualifiers_per_group": BRACKET_HAS_NO_SHAPE } };
+      return { fieldErrors: { "rules.qualifiers_per_gruppe": BRACKET_HAS_NO_SHAPE } };
     case "rules_gruppen_in_use":
-      return { fieldErrors: { "rules.number_of_groups": "Eine Gruppe, die noch Teams hält, kann nicht wegfallen." } };
+      return { fieldErrors: { "rules.number_of_gruppen": "Eine Gruppe, die noch Teams hält, kann nicht wegfallen." } };
     case "rules_capacity_below_use":
-      return { fieldErrors: { "rules.teams_per_group": "Mindestens eine Gruppe hält schon mehr Teams als dieses Maximum." } };
+      return { fieldErrors: { "rules.teams_per_gruppe": "Mindestens eine Gruppe hält schon mehr Teams als dieses Maximum." } };
     case "rules_qualifiers_below_wiring":
       return {
         fieldErrors: {
-          "rules.qualifiers_per_group": "Ein Platz im KO-Baum verweist auf eine Platzierung, die dann nicht mehr erreicht wird.",
+          "rules.qualifiers_per_gruppe": "Ein Platz im KO-Baum verweist auf eine Platzierung, die dann nicht mehr erreicht wird.",
         },
       };
     case "rules_qualifiers_above_gruppe":
-      return { fieldErrors: { "rules.qualifiers_per_group": GROUP_OVER_QUALIFIES } };
+      return { fieldErrors: { "rules.qualifiers_per_gruppe": GROUP_OVER_QUALIFIES } };
     // Only a step that introduces or worsens it is refused, and an equal count is allowed — so the
     // message says "mehr" rather than promising a rule the server does not apply.
     case "rules_unentschieden_outvalues_win":
@@ -150,7 +150,7 @@ export function mapSpielplanRefusal(error: unknown, carriedShape: boolean): stri
         `Ein Spielplan lässt sich nur für eine geplante Saison neu anlegen, zu deren Spielen noch nichts eingetragen ist: ${RECORDED_FACTS_NONE}. ` +
         "Diese Saison erfüllt das inzwischen nicht mehr. Lade die Seite neu."
       );
-    case "spielplan_berichte_eingereicht":
+    case "spielplan_berichte_submitted":
       return SPIELBERICHTE_HALTEN_DEN_SPIELPLAN;
     // These three read the shape alone, whose numbers the Spielplan panel holds.
     case "rules_bracket_impossible":
@@ -239,7 +239,7 @@ export function mapSwapRefusal(error: unknown): string | null {
  */
 export function mapUndrawRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
-  if (error.serverErrorCode === "spielplan_berichte_eingereicht") return SPIELBERICHTE_HALTEN_DEN_SPIELPLAN;
+  if (error.serverErrorCode === "spielplan_berichte_submitted") return SPIELBERICHTE_HALTEN_DEN_SPIELPLAN;
   if (error.serverErrorCode !== "spielplan_undraw_outside_its_window") return null;
 
   return (

@@ -130,9 +130,9 @@ export async function RecentAndUpcomingSpieleGrid() {
     saison === null
       ? [KEINE_SPIELE, KEINE_SPIELE]
       : await Promise.all([
-          runWithIncomingTrace(() => getSpiele({ spiel_status: "ab_heute", limit: 6 }).catch(nullUnlessContractBreak)),
+          runWithIncomingTrace(() => getSpiele({ spiel_status: "from_today", limit: 6 }).catch(nullUnlessContractBreak)),
           runWithIncomingTrace(() =>
-            getSpiele({ spiel_status: "vergangen", sort_by: "datum", order: "desc", limit: 6 }).catch(nullUnlessContractBreak),
+            getSpiele({ spiel_status: "past", sort_by: "datum", order: "desc", limit: 6 }).catch(nullUnlessContractBreak),
           ),
         ]);
 

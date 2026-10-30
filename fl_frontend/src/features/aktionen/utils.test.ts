@@ -1,13 +1,13 @@
 import { assert, describe, expect, it } from "vitest";
 
 import { GELOESCHT_ACTOR_MARKER } from "@/core/geloeschtActor.ts";
-import { FLAktorPersonFunktion } from "@/core/generated/client/types.ts";
+import { FLActorPersonFunktion } from "@/core/generated/client/types.ts";
 import { GELOESCHTE_PERSON } from "@/features/berechtigungen/constants.ts";
 
 import { AKTION_HERKUNFT_LABELS, AKTOR_FUNKTION_LABELS, AKTOR_HERKUNFT } from "./constants.ts";
 import { describeAktionDatensatz, formatAktionZeitpunkt, herkunftOfAktor, labelForCollection, personAkteurLabel } from "./utils.ts";
 
-import type { FLAktion } from "@/core/generated/client/types.ts";
+import type { FLActionLogEntry } from "@/core/generated/client/types.ts";
 
 describe("formatAktionZeitpunkt", () => {
   it("renders a stored UTC instant in German local time", () => {
@@ -71,16 +71,16 @@ describe("describeAktionDatensatz", () => {
 });
 
 /** Every kind the origin map places, which its type holds to every kind the read model accepts. */
-const AKTOR_KINDS = Object.keys(AKTOR_HERKUNFT) as FLAktion["actor"]["kind"][];
+const AKTOR_KINDS = Object.keys(AKTOR_HERKUNFT) as FLActionLogEntry["actor"]["kind"][];
 
 /** A pseudonym as the log read serves one: already cut to the start a row shows. */
 const PSEUDONYM = "3f9a07c2";
 
 /** A valid actor of each kind: a signed-in person carries a pseudonym and a Funktion where every other kind carries `email`. */
-function actorOf(kind: FLAktion["actor"]["kind"]): FLAktion["actor"] {
+function actorOf(kind: FLActionLogEntry["actor"]["kind"]): FLActionLogEntry["actor"] {
   return kind === "person_session"
     ? { kind: kind, pseudonym: PSEUDONYM, funktion: "spieler" }
-    : { kind: kind, email: "SENTINEL", email_gesperrt: false };
+    : { kind: kind, email: "SENTINEL", email_barred: false };
 }
 
 describe("herkunftOfAktor", () => {
@@ -103,12 +103,12 @@ describe("herkunftOfAktor", () => {
   /* Its own value and not the people's: nobody signed in for a public submission, and nobody is named
      by the `PUBLIC` its `email` holds. */
   it("keeps a public submission off both of the origins it is not", () => {
-    expect(herkunftOfAktor({ kind: "public", email: "PUBLIC", email_gesperrt: false })).toBe("public");
-    expect(herkunftOfAktor({ kind: "public", email: "PUBLIC", email_gesperrt: false })).not.toBe(
-      herkunftOfAktor({ kind: "admin_session", email: "a@b.de", email_gesperrt: false }),
+    expect(herkunftOfAktor({ kind: "public", email: "PUBLIC", email_barred: false })).toBe("public");
+    expect(herkunftOfAktor({ kind: "public", email: "PUBLIC", email_barred: false })).not.toBe(
+      herkunftOfAktor({ kind: "admin_session", email: "a@b.de", email_barred: false }),
     );
-    expect(herkunftOfAktor({ kind: "public", email: "PUBLIC", email_gesperrt: false })).not.toBe(
-      herkunftOfAktor({ kind: "system", email: "SYSTEM", email_gesperrt: false }),
+    expect(herkunftOfAktor({ kind: "public", email: "PUBLIC", email_barred: false })).not.toBe(
+      herkunftOfAktor({ kind: "system", email: "SYSTEM", email_barred: false }),
     );
   });
 
@@ -129,12 +129,12 @@ describe("personAkteurLabel", () => {
 
   /* Every Funktion the contract lists, so two sharing one word fail here rather than reading alike on a row. */
   it("names every Funktion in its own word", () => {
-    const labels = Object.values(FLAktorPersonFunktion).map((funktion) =>
+    const labels = Object.values(FLActorPersonFunktion).map((funktion) =>
       personAkteurLabel({ kind: "person_session", pseudonym: PSEUDONYM, funktion: funktion }),
     );
 
     expect(labels).toStrictEqual(["Kontakt · 3f9a07c2", "Spieler · 3f9a07c2", "Schiedsrichter · 3f9a07c2"]);
-    expect(new Set(Object.values(AKTOR_FUNKTION_LABELS)).size).toBe(Object.values(FLAktorPersonFunktion).length);
+    expect(new Set(Object.values(AKTOR_FUNKTION_LABELS)).size).toBe(Object.values(FLActorPersonFunktion).length);
   });
 
   /* The redacted actor of a person erased since: the marker read as a pseudonym's start would name somebody. */

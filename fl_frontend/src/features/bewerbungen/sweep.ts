@@ -32,12 +32,12 @@ export async function runBewerbungSweep() {
     count: {
       bewerbung_fehlgeschlagen: saisons.uebergangen.bewerbung,
       registrierung_fehlgeschlagen: saisons.uebergangen.registrierung,
-      adresswechsel_entfernt: adressen.entfernt,
-      adresswechsel_wirksam: adressen.wirksam,
-      adresswechsel_verworfen: adressen.verworfen,
-      adresswechsel_verbleibend: adressen.verbleibend,
+      adresswechsel_entfernt: adressen.removed,
+      adresswechsel_wirksam: adressen.effective,
+      adresswechsel_verworfen: adressen.discarded,
+      adresswechsel_verbleibend: adressen.remaining,
     },
-    offen: saisons.uebergangen.bewerbung + saisons.uebergangen.registrierung + adressen.verbleibend,
+    open: saisons.uebergangen.bewerbung + saisons.uebergangen.registrierung + adressen.remaining,
     error: saisons.fehler,
   };
 }
@@ -56,10 +56,10 @@ async function sweepAlleSaisons(): Promise<{ uebergangen: Uebergangen; fehler?: 
     // Its own event per half: one line for both cannot say which stopped, and that is the question
     // `docs/ops/runbooks.md` section 9 sends an operator to the logs with.
     await halbe("bewerbung.sweep_failed", saisonId, fehler, async () => {
-      uebergangen.bewerbung += (await postBewerbungSweep(saisonId)).fehlgeschlagen;
+      uebergangen.bewerbung += (await postBewerbungSweep(saisonId)).failed;
     });
     await halbe("registrierung.sweep_failed", saisonId, fehler, async () => {
-      uebergangen.registrierung += (await postRegistrierungSweep(saisonId)).fehlgeschlagen;
+      uebergangen.registrierung += (await postRegistrierungSweep(saisonId)).failed;
     });
   }
 

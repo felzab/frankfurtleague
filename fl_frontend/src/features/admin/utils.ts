@@ -12,7 +12,7 @@ import { deriveSlotHerkunft, isAbgesagt } from "@/features/spiele/utils";
 import { formatSpielDatum, NICHT_HINTERLEGT } from "@/shared/utils/format";
 import { typedObjectEntries } from "@/shared/utils/type";
 
-import type { FLBracketFault, FLSpielberichtZustandEintrag, FLSpielbestaetigung } from "@/core/generated/client/types";
+import type { FLBracketFault, FLSpielberichtStateEntry, FLSpielbestaetigung } from "@/core/generated/client/types";
 import type { SaisonBestaetigungen } from "@/features/spielbestaetigungen/types";
 import type { ActionRequiredCategory, FLSpiel, FLSpielWithStoredSides } from "../spiele/types";
 
@@ -151,7 +151,7 @@ export function categorizeActionRequired<
   // The season's rows, as `bracketFaults` read, never derived: the editor passes none for the reason it passes no faults.
   bestaetigungen: SaisonBestaetigungen = KEINE_BESTAETIGUNGEN,
   // Read, never derived, as the faults are: the backend judges a report against the stored result and its adoption.
-  spielberichte: readonly Pick<FLSpielberichtZustandEintrag, "spiel_id" | "zustand">[] = [],
+  spielberichte: readonly Pick<FLSpielberichtStateEntry, "spiel_id" | "state">[] = [],
 ): Record<ActionRequiredCategory, T[]> {
   // Keyed in the label table's order so `Object.keys` agrees with it, which a test asserts.
   const categorized: Record<ActionRequiredCategory, T[]> = {
@@ -174,7 +174,7 @@ export function categorizeActionRequired<
   // The states awaiting the administrator, by name: a report on a fixture called off since reads `abgesagt`, and the
   // fixture already sits under „Abgesagt“ with nothing to adopt.
   const vorgeschlageneSpielIds = new Set(
-    spielberichte.filter((bericht) => SPIELBERICHT_ZUSTAENDE_OFFEN.has(bericht.zustand)).map((bericht) => bericht.spiel_id),
+    spielberichte.filter((bericht) => SPIELBERICHT_ZUSTAENDE_OFFEN.has(bericht.state)).map((bericht) => bericht.spiel_id),
   );
 
   for (const spiel of spiele) {
@@ -257,7 +257,7 @@ export function buildActionRequiredSections({
   today: string;
   bracketFaults: readonly FLBracketFault[];
   bestaetigungen: SaisonBestaetigungen;
-  spielberichte: readonly FLSpielberichtZustandEintrag[];
+  spielberichte: readonly FLSpielberichtStateEntry[];
 }): readonly FLActionRequiredSection[] {
   const categorized = categorizeActionRequired(spiele, today, bracketFaults, bestaetigungen, spielberichte);
 
@@ -283,17 +283,17 @@ export function bestaetigungNotizen(
         [spiel.team1, spiel.team2].find((seite) => seite?.team_id === teamId)?.name ?? NICHT_HINTERLEGT;
 
       const saetze = geltendeBestaetigungen(bySpielId.get(spiel.id) ?? [], spiel, { austritte, today }).flatMap((zeile) => {
-        if (zeile.partei.art !== "team") return [];
-        const team = teamName(zeile.partei.team_id);
+        if (zeile.party.art !== "team") return [];
+        const team = teamName(zeile.party.team_id);
 
         if (category === "vorschlag_offen") {
           return istVorschlagOffen(zeile) && zeile.antwort?.vorschlag ? [`Vorschlag von ${team}: ${terminText(zeile.antwort.vorschlag)}`] : [];
         }
         if (!istUeberfaellig(zeile, today)) return [];
         return [
-          zeile.angefragt_am === null
+          zeile.asked_at === null
             ? `${team}: Anfrage nicht verschickt`
-            : `${team}: angefragt am ${formatSpielDatum(zeile.angefragt_am)}, keine Antwort`,
+            : `${team}: angefragt am ${formatSpielDatum(zeile.asked_at)}, keine Antwort`,
         ];
       });
 

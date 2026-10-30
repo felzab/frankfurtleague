@@ -1,11 +1,11 @@
 import type {
   FLBewerbung,
-  FLBewerbungEinwilligungAnsichtResponse,
-  FLBewerbungEinwilligungAnsichtResponseQuelle,
+  FLBewerbungEinwilligungViewResponse,
+  FLBewerbungEinwilligungViewResponseQuelle,
   FLBewerbungKontaktpersonPayload,
   FLBewerbungSchulePayload,
   FLSchulform,
-  FLTrainerZugleich,
+  FLTrainerAlso,
   FLTrikotFarbe,
 } from "@/core/generated/client/types";
 
@@ -30,7 +30,7 @@ export type AdminBewerbungRow = FLBewerbung & {
 export type BewerbungKontaktpersonDraft = Omit<FLBewerbungKontaktpersonPayload, "einwilligung"> & {
   // `erteilt` starts `false`, which `z.literal(true)` refuses: an untouched box is an acknowledgement
   // nobody made, and the payload type admits no other value.
-  einwilligung: { text_version: string; erteilt: boolean };
+  einwilligung: { text_version: string; given: boolean };
 };
 
 /** The three seats mid-entry. All three are present: an application is what three reachable people submitted. */
@@ -38,7 +38,7 @@ export type BewerbungKontakteDraft = {
   trainer: BewerbungKontaktpersonDraft;
   ansprechperson: BewerbungKontaktpersonDraft;
   stellvertretung: BewerbungKontaktpersonDraft;
-  trainer_ist_zugleich: FLTrainerZugleich | null;
+  trainer_is_also: FLTrainerAlso | null;
 };
 
 /**
@@ -57,8 +57,8 @@ export type BewerbungFormDraft = {
   auswahl: string | null;
   schule: BewerbungSchuleDraft;
   kontakte: BewerbungKontakteDraft;
-  trikot: { vorhandener_satz: string; wunschfarbe: FLTrikotFarbe | null };
-  kader: { voraussichtliche_groesse: number | null; gute_spieler: number | null };
+  trikot: { existing_satz: string; wunschfarbe: FLTrikotFarbe | null };
+  kader: { expected_size: number | null; good_spieler: number | null };
   // The head count of the Abi-Jahrgang the team comes from, never the whole school. Beside `kader`
   // rather than inside it: it counts a cohort, and the squad is drawn from that cohort.
   stufengroesse: number | null;
@@ -72,19 +72,19 @@ export type BewerbungFormDraft = {
  * Which state the page renders. `unlesbar` is not `fensterZustand`'s: the read failed, and a page
  * that answered "abgelaufen" there would state a deadline it never learnt.
  */
-export type FensterZustand = "laeuft" | "noch-nicht" | "geschlossen" | "vorbei" | "keine-frist";
+export type FensterZustand = "running" | "noch-nicht" | "closed" | "vorbei" | "keine-frist";
 
 /**
  * A blur-time verdict on a Kürzel, kept with the value it judged. **The value, not just the answer**:
  * a refusal about `GG` says nothing about the `GY` the box holds a keystroke later.
  */
-export type KuerzelVerdikt = { shorthand: string; vergeben: boolean };
+export type KuerzelVerdikt = { shorthand: string; taken: boolean };
 
 /**
  * An application's `abgelaufen` and `ungueltig` render one wording, since telling them apart tells a
  * guessed link that a record once existed; a season row's spent link is worded for the row its read named.
  */
-export type LinkZustand = "bestaetigt" | "abgelehnt" | "abgelaufen" | "ungueltig" | "gesperrt";
+export type LinkZustand = "confirmed" | "declined" | "expired" | "invalid" | "barred";
 
 /**
  * A spent link keeps the record it opened where the read answered one, so its panel says what is true of
@@ -92,6 +92,6 @@ export type LinkZustand = "bestaetigt" | "abgelehnt" | "abgelaufen" | "ungueltig
  */
 export type EinwilligungAnsicht =
   // One member per open state, so a check of `zustand` narrows to the one the caller handles.
-  | { zustand: "gueltig"; ansicht: FLBewerbungEinwilligungAnsichtResponse }
-  | { zustand: "saison_vorbei"; ansicht: FLBewerbungEinwilligungAnsichtResponse }
-  | { zustand: LinkZustand; quelle?: FLBewerbungEinwilligungAnsichtResponseQuelle };
+  | { zustand: "valid"; ansicht: FLBewerbungEinwilligungViewResponse }
+  | { zustand: "saison_past"; ansicht: FLBewerbungEinwilligungViewResponse }
+  | { zustand: LinkZustand; quelle?: FLBewerbungEinwilligungViewResponseQuelle };

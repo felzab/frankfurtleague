@@ -39,7 +39,7 @@ const sentence = (res: { success: boolean; message?: string; error?: string }): 
 
 beforeEach(() => {
   calls.length = 0;
-  sendTeams = teamsHolding({ trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null });
+  sendTeams = teamsHolding({ trainer: null, ansprechperson: null, stellvertretung: null, trainer_is_also: null });
 });
 
 describe("what the single invite press answers", () => {

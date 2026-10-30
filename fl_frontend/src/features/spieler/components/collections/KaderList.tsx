@@ -12,16 +12,16 @@ import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 
-import type { FLKaderZeile } from "@/core/generated/client/types";
+import type { FLKaderRow } from "@/core/generated/client/types";
 
 /**
  * **A card per squad row at every width, never a table**: a row is a record, and the squad joins no
  * admin roster. An ausgetragen row is listed with its day and no control: only the administrator
  * brings it back.
  */
-export function KaderList({ kader, kaderHref }: { kader: readonly FLKaderZeile[]; kaderHref: string }) {
+export function KaderList({ kader, kaderHref }: { kader: readonly FLKaderRow[]; kaderHref: string }) {
   /** EMPTY rather than absent where the row has none, for `fl_frontend/src/features/spieler/components/collections/AdminSpielerTable.tsx`' reason. */
-  const renderNummer = (zeile: FLKaderZeile) => (
+  const renderNummer = (zeile: FLKaderRow) => (
     <span
       // A fixed height, as the admin list's chip: an empty span has no line box to size it.
       className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide ${
@@ -32,21 +32,21 @@ export function KaderList({ kader, kaderHref }: { kader: readonly FLKaderZeile[]
     </span>
   );
 
-  const renderBadges = (zeile: FLKaderZeile) => {
+  const renderBadges = (zeile: FLKaderRow) => {
     if (zeile.inactive_since !== null) return <span className={labelBadge("warning")}>{ausgetragenSeit(zeile.inactive_since)}</span>;
 
     return (
       <>
         {zeile.rolle !== null && <span className={`${labelBadge("brandSolid")} shrink-0`}>{rolleLabel(zeile.rolle)}</span>}
-        {zeile.ist_nachnominiert && <span className={labelBadge("info")}>Nachnominiert</span>}
+        {zeile.is_nachnominiert && <span className={labelBadge("info")}>Nachnominiert</span>}
         {/* On both rows of the pair, the backend having composed it for each: either is where it is repaired. */}
-        {zeile.nummer_doppelt && <span className={labelBadge("warning")}>{NUMMER_DOPPELT}</span>}
+        {zeile.nummer_double && <span className={labelBadge("warning")}>{NUMMER_DOPPELT}</span>}
       </>
     );
   };
 
   // Absent rather than punctuated where the row holds neither, so no card carries a stray separator.
-  const renderMeta = (zeile: FLKaderZeile) => {
+  const renderMeta = (zeile: FLKaderRow) => {
     const parts = [zeile.position, zeile.stufe].filter((part) => part !== null);
 
     return parts.length === 0 ? null : <span className={IDENTITY_LINE_CLASSES}>{parts.join(" · ")}</span>;

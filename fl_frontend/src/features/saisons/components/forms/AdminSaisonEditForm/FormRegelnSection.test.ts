@@ -27,11 +27,11 @@ const STATUS = declaredStatus<SaisonFieldPath>([
   "rules.draw_points",
   "rules.tiebreak_order",
   "rules.forfeit_ergebnis",
-  "rules.number_of_groups",
-  "rules.teams_per_group",
-  "rules.qualifiers_per_group",
+  "rules.number_of_gruppen",
+  "rules.teams_per_gruppe",
+  "rules.qualifiers_per_gruppe",
   "rules.max_kadergroesse",
-  "rules.erlaubte_stufen",
+  "rules.allowed_stufen",
 ]);
 
 const RULES: FLSaisonRules = saisonRules();
@@ -121,9 +121,9 @@ describe("the rules panel's freezes", () => {
 /* One German noun phrase per frozen field. A field the write path adds and this table leaves out goes
    unnamed in the panel and fails nothing here. */
 const GERMAN_OF: Record<string, string> = {
-  number_of_groups: "Gruppen",
-  teams_per_group: "Teams pro Gruppe",
-  qualifiers_per_group: "Qualifikanten",
+  number_of_gruppen: "Gruppen",
+  teams_per_gruppe: "Teams pro Gruppe",
+  qualifiers_per_gruppe: "Qualifikanten",
 };
 
 /**
@@ -135,7 +135,7 @@ const GERMAN_OF: Record<string, string> = {
 const names = (german: string, text: string): boolean => new RegExp(`(?<!\\p{L})${german}(?!\\p{L})`, "u").test(text);
 
 /** The one frozen field a redraw alone moves, spelled as `GERMAN_OF` is, so the case reads no backend file. */
-const REDRAWABLE_SHAPE_FIELD = "qualifiers_per_group";
+const REDRAWABLE_SHAPE_FIELD = "qualifiers_per_gruppe";
 
 /** Which of the panel's repairs name one field, by position. */
 const repairsNaming = (repairs: readonly string[], field: string): Set<number> =>
@@ -217,7 +217,7 @@ describe("the rules panel's shape offer", () => {
   /* A season written by hand can hold a count the offer does not carry; dropped, the save sends a number nobody
      chose. */
   it("keeps a stored count the offer does not carry, and stands on it", () => {
-    render(panel({ rules: { ...RULES, number_of_groups: 3 } }));
+    render(panel({ rules: { ...RULES, number_of_gruppen: 3 } }));
 
     expect(trigger(/^Gruppen/).textContent).toMatch(/^3/);
   });
@@ -251,14 +251,14 @@ describe("the season editor's one reading of the season, handed to its panels", 
           },
           ersatz: { rows: [], candidates: [] },
           spielplan: {
-            spielplan: { generiert_am: "2026-07-01", spieltage: 5, spiele: 15 },
+            spielplan: { generated_at: "2026-07-01", spieltage: 5, spiele: 15 },
             spieltageCount: 5,
             schedule: [
-              { phase: "gruppenphase", matchdays: 3, matches_per_matchday: 4 },
-              { phase: "halbfinale", matchdays: 1, matches_per_matchday: 2 },
-              { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
+              { phase: "gruppenphase", spieltage: 3, matches_per_spieltag: 4 },
+              { phase: "halbfinale", spieltage: 1, matches_per_spieltag: 2 },
+              { phase: "finale", spieltage: 1, matches_per_spieltag: 1 },
             ],
-            bestand: { spiele: 15, erfasst: 2, angesetzt: 4 },
+            holdings: { spiele: 15, erfasst: 2, angesetzt: 4 },
             eingereichteBerichte: 0,
           },
           hasDrawnSpiele: true,

@@ -54,20 +54,14 @@ describe("the words the grants page names the owner tier in", () => {
   it("never name the tier by the masculine word alone, on a badge, a control, a consequence, an answer or a refusal", () => {
     const stufen = [true, false].flatMap((eigene) =>
       (["owner", "administration"] as const).flatMap((ziel) =>
-        ["a@schule.de", null].map((adresse) => stufeWorte({ adresse: adresse, erteiltAm: "27.09.2026", ziel: ziel, eigene: eigene })),
+        ["a@schule.de", null].map((adresse) => stufeWorte({ adresse: adresse, erteiltAm: "27.09.2026", ziel: ziel, own: eigene })),
       ),
     );
     const refusals = [
-      ...refusalCodes("berechtigung_inhaber", "berechtigung_mindestzahl", "berechtigung_nur_inhaber").map((code) =>
-        mapEntziehenRefusal(refused(code)),
+      ...refusalCodes("grant_owner", "grant_minimum_count", "grant_only_owner").map((code) => mapEntziehenRefusal(refused(code))),
+      ...refusalCodes("duplicate_key", "grant_barred", "grant_only_owner", "grant_last_owner", "grant_approval_request_open").map((code) =>
+        mapStufeRefusal(refused(code)),
       ),
-      ...refusalCodes(
-        "duplicate_key",
-        "berechtigung_gesperrt",
-        "berechtigung_nur_inhaber",
-        "berechtigung_letzter_inhaber",
-        "berechtigung_antrag_offen",
-      ).map((code) => mapStufeRefusal(refused(code))),
     ];
     const worte = [
       INHABER_LABEL,
@@ -113,8 +107,8 @@ describe("a refusal of an owner's power", () => {
   const WORDED_BY = [
     [mapLoeschungAufAnfrageRefusal, "verwaltung_adresse"],
     [mapAbmeldungRefusal, "verwaltung_adresse"],
-    [mapEntziehenRefusal, "berechtigung_nur_inhaber"],
-    [mapStufeRefusal, "berechtigung_nur_inhaber"],
+    [mapEntziehenRefusal, "grant_only_owner"],
+    [mapStufeRefusal, "grant_only_owner"],
     [alsFehler(mapVerwaltungAnsichtRefusal), "verwaltung_adresse"],
     [mapVerwaltungStartRefusal, "verwaltung_adresse"],
     [alsFehler(mapVerwaltungLinkRefusal), "verwaltung_adresse"],

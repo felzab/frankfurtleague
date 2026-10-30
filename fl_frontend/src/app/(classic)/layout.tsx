@@ -18,7 +18,7 @@ export default function ClassicLayout({ children }: { children: React.ReactNode 
   return (
     <ClassicFrame
       links={[ABOUT, KONTAKT]}
-      signIn={ROUTES.anmeldung.path()}
+      signIn={ROUTES.signIn.path()}
       groups={[]}
       liga={[ABOUT, KONTAKT, IMPRESSUM, DATENSCHUTZ]}
       social={{ instagram: INSTAGRAM_URL, threads: THREADS_URL }}

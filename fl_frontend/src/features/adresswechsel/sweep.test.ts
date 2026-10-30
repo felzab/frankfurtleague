@@ -1,19 +1,19 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import type { FLAdresswechselSweepResponse } from "@/core/generated/client/types.ts";
+import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types.ts";
 
 /** One call's answer, `nach` the place the next call starts after. */
-const antwort = (entfernt: number, verbleibend: number, nach: string | null = null): FLAdresswechselSweepResponse => ({
-  entfernt: entfernt,
-  verworfen: 0,
-  wirksam: 0,
-  verbleibend: verbleibend,
+const antwort = (entfernt: number, verbleibend: number, nach: string | null = null): FLAddressChangeSweepResponse => ({
+  removed: entfernt,
+  discarded: 0,
+  effective: 0,
+  remaining: verbleibend,
   nach: nach,
 });
 
 /** The pass's answers in turn; past the last, a place-free answer ends any loop rather than hanging it. */
-let antworten: (FLAdresswechselSweepResponse | Error)[] = [];
+let antworten: (FLAddressChangeSweepResponse | Error)[] = [];
 /** Every call in the order sent: the sweep's place, or the carry's list. */
 const calls: string[] = [];
 
@@ -21,7 +21,7 @@ const calls: string[] = [];
 const ORT = `${"d".repeat(23)}4`;
 
 doubleApiClient((call) => {
-  if (call.endpoint.endsWith("/umzuege")) {
+  if (call.endpoint.endsWith("/moves")) {
     calls.push("umzuege");
     return { umzuege: [] };
   }

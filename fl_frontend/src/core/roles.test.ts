@@ -20,14 +20,14 @@ const VERDICTS = z
 
 describe("which of a subject's seats grant a panel", () => {
   it("grants nothing for a seat on a past season", () => {
-    expect(rolesOf(person({ sitze: [seat({ saison_status: "past" })] })).roles).toStrictEqual([]);
+    expect(rolesOf(person({ seats: [seat({ saison_status: "past" })] })).roles).toStrictEqual([]);
   });
 
   /* Judged seat by seat: a resolver reading one seat's status for all, or keeping every seat once any
      grants, passes each single-seat case. */
   it("keeps the granting seat alone of a past and an active one", () => {
     const { roles } = rolesOf(
-      person({ sitze: [seat({ saison_id: "2024/25", saison_status: "past" }), seat({ saison_id: "2025/26", saison_status: "active" })] }),
+      person({ seats: [seat({ saison_id: "2024/25", saison_status: "past" }), seat({ saison_id: "2025/26", saison_status: "active" })] }),
     );
 
     expect(roles.map((role) => (role.art === "kontakt" ? role.saison_id : null))).toStrictEqual(["2025/26"]);
@@ -35,7 +35,7 @@ describe("which of a subject's seats grant a panel", () => {
 
   for (const status of ["active", "future"] as const) {
     it(`grants one Funktion for a seat whose season is ${status}, carrying its team's name and its season's status`, () => {
-      expect(rolesOf(person({ sitze: [seat({ saison_status: status })] })).roles).toStrictEqual([
+      expect(rolesOf(person({ seats: [seat({ saison_status: status })] })).roles).toStrictEqual([
         {
           art: "kontakt",
           rolle: "ansprechperson",
@@ -51,7 +51,7 @@ describe("which of a subject's seats grant a panel", () => {
   /* Per seat and never per team: a resolver collapsing one junction row's two seats into one drops
      the second seat's `rolle`. */
   it("answers two seats on one team as two Funktionen naming that one team", () => {
-    const { roles } = rolesOf(person({ sitze: [seat({ rolle: "trainer" }), seat({ rolle: "ansprechperson" })] }));
+    const { roles } = rolesOf(person({ seats: [seat({ rolle: "trainer" }), seat({ rolle: "ansprechperson" })] }));
 
     expect(roles.length).toBe(2);
     expect(new Set(roles.map((role) => (role.art === "kontakt" ? role.team_id : null)))).toStrictEqual(new Set([SEAT.team_id]));
@@ -59,7 +59,7 @@ describe("which of a subject's seats grant a panel", () => {
   });
 
   it("answers one team's seats in two granting seasons as two Funktionen", () => {
-    const { roles } = rolesOf(person({ sitze: [seat({ saison_id: "2025/26" }), seat({ saison_id: "2026/27", saison_status: "future" })] }));
+    const { roles } = rolesOf(person({ seats: [seat({ saison_id: "2025/26" }), seat({ saison_id: "2026/27", saison_status: "future" })] }));
 
     expect(roles.map((role) => (role.art === "kontakt" ? role.saison_id : null))).toStrictEqual(["2025/26", "2026/27"]);
   });
@@ -84,8 +84,8 @@ describe("the Funktionen no season narrows", () => {
 describe("the pending flag", () => {
   /* Both values: a resolver answering a constant passes whichever single one a case asked about. */
   it("passes the lookup's flag through unchanged", () => {
-    expect(rolesOf(person({ unbestaetigt: true })).unbestaetigt).toBe(true);
-    expect(rolesOf(person({ unbestaetigt: false })).unbestaetigt).toBe(false);
+    expect(rolesOf(person({ unconfirmed: true })).unbestaetigt).toBe(true);
+    expect(rolesOf(person({ unconfirmed: false })).unbestaetigt).toBe(false);
   });
 });
 

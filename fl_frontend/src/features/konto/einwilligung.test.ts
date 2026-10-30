@@ -41,14 +41,14 @@ const MAPPERS = [
 
 /** The code set the three mappers share, each code asked of the writes publishing it alone. */
 const GETEILT = [
-  ["fassung_unzulaessig", "a stale wording or choice", SEITE_VERALTET],
+  ["wording_not_allowed", "a stale wording or choice", SEITE_VERALTET],
   // The record is the person's and only the grant was refused, so never the lost record's sentence.
-  ["erteilung_nicht_zugelassen", "a grant on a record taking a withdrawal alone", NUR_WIDERRUF],
+  ["giving_not_allowed", "a grant on a record taking a withdrawal alone", NUR_WIDERRUF],
 ] as const;
 
 /** The consent codes each write's service raises: a withdraw-only write takes no media choice. */
-const GRANT_CODES = refusalCodes("fassung_unzulaessig", "medien_alter", "erteilung_nicht_zugelassen");
-const WITHDRAW_CODES = refusalCodes("fassung_unzulaessig", "erteilung_nicht_zugelassen");
+const GRANT_CODES = refusalCodes("wording_not_allowed", "medien_age", "giving_not_allowed");
+const WITHDRAW_CODES = refusalCodes("wording_not_allowed", "giving_not_allowed");
 const CODES: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ["PATCH /spieler/konto/einwilligung", new Set(GRANT_CODES)],
   ["PATCH /bewerbungen/{bewerbung_id}/konto/einwilligung", new Set(WITHDRAW_CODES)],
@@ -90,7 +90,7 @@ describe("the consent writes' mappers", () => {
 
     /* The shared answer to a lost Funktion names a team, which these records have none of. */
     it(`words ${art} no longer the person's by that record`, () => {
-      expect(mapper(refused("funktion_nicht_gehalten", 403))).toStrictEqual({ error: eintragWeg });
+      expect(mapper(refused("role_not_held", 403))).toStrictEqual({ error: eintragWeg });
     });
 
     /* A barred address is the person spine's, which words it once for every person write; answering
@@ -106,7 +106,7 @@ describe("the consent writes' mappers", () => {
   for (const operation of ["PATCH /spieler/konto/einwilligung", ...EIGENE_WEITERE]) {
     it(`names the media floor its record was served on ${operation}, and asks for a reload, at any status`, () => {
       for (const status of [403, 409, 422, 429]) {
-        expect(mapEigeneEinwilligungRefusal(refused("medien_alter", status), MEDIEN_ALTER)).toStrictEqual({
+        expect(mapEigeneEinwilligungRefusal(refused("medien_age", status), MEDIEN_ALTER)).toStrictEqual({
           error: "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben. Lade die Seite neu.",
         });
       }
@@ -115,7 +115,7 @@ describe("the consent writes' mappers", () => {
 
   /* The words themselves, through the mapper: the table above takes the sentence from the module it tests. */
   it("tells a pupil whose registration closed to reload, in sentences of their own", () => {
-    expect(mapRegistrierungEinwilligungRefusal(refused("funktion_nicht_gehalten", 403))).toStrictEqual({
+    expect(mapRegistrierungEinwilligungRefusal(refused("role_not_held", 403))).toStrictEqual({
       error: "Diese Registrierung ist nicht mehr offen. Lade die Seite neu. Dort steht, was jetzt für Dich gilt.",
     });
   });

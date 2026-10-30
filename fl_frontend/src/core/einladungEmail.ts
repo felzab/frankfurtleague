@@ -3,7 +3,7 @@ import "server-only";
 import { BRAND_NAME, mailOrigin } from "./emailShell";
 
 import type { Mail } from "./emailShell";
-import type { FLEinladungDaten } from "./generated/client/types";
+import type { FLInvitationData } from "./generated/client/types";
 import type { MailLink } from "./mailKinds";
 
 /**
@@ -18,7 +18,7 @@ export function einladungsLink(origin: string, token: string): string {
  * What one confirmed contact seat is sent: the team's link, standing alone in the highlighted box, since it is to be
  * passed on rather than pressed, and so no button.
  */
-export function buildEinladungEmail({ team: teamName, saison_id: saisonId }: FLEinladungDaten, { origin, token }: MailLink): Mail {
+export function buildEinladungEmail({ team: teamName, saison_id: saisonId }: FLInvitationData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
 
   return {

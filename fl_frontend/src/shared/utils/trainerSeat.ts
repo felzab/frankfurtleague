@@ -4,9 +4,9 @@
  * them.
  */
 export function mirrorTrainerSeat<Seat extends string, Person, Block extends Record<Seat, Person> & { trainer: Person }>(
-  block: Block & { trainer_ist_zugleich: Seat | null },
-): Block & { trainer_ist_zugleich: Seat | null } {
-  const seat = block.trainer_ist_zugleich;
+  block: Block & { trainer_is_also: Seat | null },
+): Block & { trainer_is_also: Seat | null } {
+  const seat = block.trainer_is_also;
 
   return seat === null ? block : { ...block, trainer: block[seat] };
 }

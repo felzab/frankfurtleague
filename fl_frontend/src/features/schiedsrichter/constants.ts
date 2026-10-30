@@ -86,7 +86,7 @@ export const SCHIEDSRICHTER_KORREKTUR_HINWEIS =
 
 /**
  * The two states that close the send, worded for the administrator at the control rather than left
- * to the round trip that `schiedsrichter_retired` and `schiedsrichter_keine_adresse` answer with.
+ * to the round trip that `schiedsrichter_retired` and `schiedsrichter_no_adresse` answer with.
  */
 export const SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE = "Trage zuerst eine E-Mail-Adresse ein und speichere.";
 export const SCHIEDSRICHTER_EINLADEN_STILLGELEGT = "Reaktiviere den Eintrag, bevor Du einen Link sendest.";

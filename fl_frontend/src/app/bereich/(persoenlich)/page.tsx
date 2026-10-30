@@ -11,7 +11,7 @@ export default async function PersoenlichStartPage() {
 
   // An address holding a grant, past the administrator's window or short of the passkey, owes a fresh
   // sign-in or its passkey step, which `/bereich/admin` sends it on to, not a person's landing.
-  if (!subject.admin && subject.subjekt.verwaltung !== null) redirect("/bereich/admin");
+  if (!subject.admin && subject.subject.verwaltung !== null) redirect("/bereich/admin");
 
   const { roles: funktionen, unbestaetigt } = rolesOf(subject);
   const ziele = zieleOf(funktionen);

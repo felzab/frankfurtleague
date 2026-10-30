@@ -126,8 +126,8 @@ export type SaisonSpielplanContext = {
    */
   schedule: readonly FLSaisonPhaseSchedule[];
   /** What a confirmed replace would destroy, and what `spielplan_replace_outside_its_window` weighs against it. */
-  bestand: SpielplanBestand;
-  /** How many of the season's fixtures hold a submitted report, which `spielplan_berichte_eingereicht` keeps the Spielplan for. */
+  holdings: SpielplanBestand;
+  /** How many of the season's fixtures hold a submitted report, which `spielplan_berichte_submitted` keeps the Spielplan for. */
   eingereichteBerichte: number;
 };
 
@@ -209,11 +209,11 @@ export type SaisonReplacementContext = {
  */
 export type FLSaisonRulesDraft = Omit<
   FLSaisonRules,
-  "win_points" | "draw_points" | "teams_per_group" | "max_kadergroesse" | "forfeit_ergebnis"
+  "win_points" | "draw_points" | "teams_per_gruppe" | "max_kadergroesse" | "forfeit_ergebnis"
 > & {
   win_points: number | null;
   draw_points: number | null;
-  teams_per_group: number | null;
+  teams_per_gruppe: number | null;
   max_kadergroesse: number | null;
   forfeit_ergebnis: { sieger_tore: number | null; verlierer_tore: number | null };
 };

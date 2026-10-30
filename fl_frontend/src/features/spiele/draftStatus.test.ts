@@ -40,7 +40,7 @@ const STORED: FLSpielJoinedAdmin = {
   ergebnis: "3:1",
   elfmeterschiessen: null,
   notiz: null,
-  ansetzung_bestaetigt: null,
+  ansetzung_confirmed: null,
   version: 1,
 };
 

@@ -49,7 +49,7 @@ export const FLSpielbestaetigungAntwortPayloadSchema = z
     vorschlag: FLSpielbestaetigungTerminSchema.nullable(),
     begruendung: begruendung.nullable(),
   })
-  .refine((antwort) => antwort.antwort !== "abgelehnt" || antwort.vorschlag !== null, {
+  .refine((antwort) => antwort.antwort !== "declined" || antwort.vorschlag !== null, {
     error: "Bitte schlag einen anderen Termin vor.",
     path: ["vorschlag"],
   })
@@ -89,7 +89,7 @@ export const FLSpielbestaetigungEintragenPayloadSchema = z.object({
     "Die Begründung",
   ),
 });
-export type FLSpielbestaetigungEintragenPayload = z.infer<typeof FLSpielbestaetigungEintragenPayloadSchema>;
+export type FLSpielbestaetigungEnterPayload = z.infer<typeof FLSpielbestaetigungEintragenPayloadSchema>;
 
 // Redesign: goes with its last importer.
 export const FLSpielbestaetigungVerwerfenPayloadSchema = z.object({

@@ -70,7 +70,7 @@ export function FormEinwilligungSection({
           </Angabe>
           <Angabe label="Erteilt am">{formatSpielDatum(einwilligung.datum)}</Angabe>
           <Angabe label="Bestätigt am">
-            {einwilligung.bestaetigt_am === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.bestaetigt_am)}
+            {einwilligung.confirmed_at === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.confirmed_at)}
           </Angabe>
           {/* The key rather than a German gloss of it, which would be a second name for one
                 wording. */}

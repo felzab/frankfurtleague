@@ -18,7 +18,7 @@ describe("the sign-in template", () => {
       <SignInPage
         view="adresse"
         titel={WORTE.titel}
-        zeile={null}
+        row={null}
         adresse={{ label: WORTE.adresse, value: "", onChange: () => undefined }}
         check={null}
         send={{ label: WORTE.codeSenden, onPress: () => undefined }}
@@ -38,7 +38,7 @@ describe("the sign-in template", () => {
       <SignInPage
         view="adresse"
         titel={WORTE.titel}
-        zeile={null}
+        row={null}
         adresse={{ label: WORTE.adresse, value: "", onChange: () => undefined, error }}
         check={null}
         send={{ label: WORTE.codeSenden, onPress: () => undefined }}
@@ -66,10 +66,10 @@ describe("the sign-in template", () => {
       <SignInPage
         view="code"
         titel={WORTE.postfach}
-        zeile={null}
+        row={null}
         satz={WORTE.codeUnterwegs}
         adresse={ADRESSE}
-        code={{ label: WORTE.code, versuch: 0, isDisabled: false, onComplete: () => undefined }}
+        code={{ label: WORTE.code, attempt: 0, isDisabled: false, onComplete: () => undefined }}
         back={{ label: WORTE.andereAdresse, onPress: () => undefined }}
       />,
     );
@@ -84,7 +84,7 @@ describe("the sign-in template", () => {
       <SignInPage
         view="angemeldet"
         titel={WORTE.titel}
-        zeile={null}
+        row={null}
         satz={WORTE.angemeldetAls}
         adresse={ADRESSE}
         continue={{ label: COPY.shared.uebersicht, href: "/" }}
@@ -100,7 +100,7 @@ describe("the sign-in template", () => {
       <SignInPage
         view="passkey"
         titel={WORTE.passkey.anmelden.titel}
-        zeile={null}
+        row={null}
         satz={WORTE.passkey.anmelden.satz}
         adresse={ADRESSE}
         los={{ label: WORTE.passkey.anmelden.knopf, onPress: () => undefined }}

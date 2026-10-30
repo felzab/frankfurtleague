@@ -36,12 +36,12 @@ const FLSaisonRulesSchema = z.object({
     .nonnegative({ error: "Ein Unentschieden bringt 0 oder mehr Punkte." }),
   // Required on both sides: a season that never carried it must fail loudly rather than seed a
   // bracket from a number nobody chose.
-  qualifiers_per_group: z
+  qualifiers_per_gruppe: z
     .int({ error: "Bitte gib die Zahl der Qualifikanten pro Gruppe ein." })
     .positive({ error: "Mindestens 1 Team pro Gruppe muss weiterkommen." }),
-  // The season runs the first `number_of_groups` of the closed name set, so the set's own size is the
+  // The season runs the first `number_of_gruppen` of the closed name set, so the set's own size is the
   // ceiling: a literal under it is a group count no season can be created with.
-  number_of_groups: z
+  number_of_gruppen: z
     .int({ error: "Bitte gib die Zahl der Gruppen ein." })
     .positive({ error: "Eine Saison braucht mindestens 1 Gruppe." })
     .max(FLGruppenNamesSchema.options.length, {
@@ -50,7 +50,7 @@ const FLSaisonRulesSchema = z.object({
   // The floor stops a group phase that generates no fixture at all; the ceiling bounds one GROUP,
   // where what a whole season may play is `rules_spiele_over_one_read`, weighing every group and the bracket at
   // once.
-  teams_per_group: z
+  teams_per_gruppe: z
     .int({ error: "Bitte gib die Zahl der Teams pro Gruppe ein." })
     .min(2, { error: "Eine Gruppe braucht mindestens 2 Teams, sonst entsteht kein Spiel." })
     .max(16, { error: "Eine Gruppe fasst höchstens 16 Teams." }),
@@ -62,7 +62,7 @@ const FLSaisonRulesSchema = z.object({
   forfeit_ergebnis: FLSaisonForfeitErgebnisSchema,
   // A subset of the league's closed level set, never empty: no level makes every squad entry
   // unfillable.
-  erlaubte_stufen: z.array(FLSpielerStufeSchema).min(1, { error: "Bitte wähle mindestens eine Stufe aus." }),
+  allowed_stufen: z.array(FLSpielerStufeSchema).min(1, { error: "Bitte wähle mindestens eine Stufe aus." }),
 });
 
 /**
@@ -102,19 +102,19 @@ const saisonIdReference = z
  */
 const groupCannotOverQualify = {
   error: "Eine Gruppe kann nicht mehr Teams qualifizieren, als sie fasst.",
-  path: ["rules", "qualifiers_per_group"],
+  path: ["rules", "qualifiers_per_gruppe"],
 };
 
 const bracketMustHaveAShape = {
   error: `Die Zahl der Gruppen mal die Qualifikanten pro Gruppe muss eine Zweierpotenz von 2 bis ${String(MAX_QUALIFIERS)} ergeben.`,
-  path: ["rules", "qualifiers_per_group"],
+  path: ["rules", "qualifiers_per_gruppe"],
 };
 
 /** Zero is not a power of two, hence the `n > 0`. */
 const isPowerOfTwo = (n: number) => n > 0 && (n & (n - 1)) === 0;
 
-const hasPlayableBracket = (rules: { number_of_groups: number; qualifiers_per_group: number }) => {
-  const qualifiers = rules.number_of_groups * rules.qualifiers_per_group;
+const hasPlayableBracket = (rules: { number_of_gruppen: number; qualifiers_per_gruppe: number }) => {
+  const qualifiers = rules.number_of_gruppen * rules.qualifiers_per_gruppe;
 
   return qualifiers >= 2 && qualifiers <= MAX_QUALIFIERS && isPowerOfTwo(qualifiers);
 };
@@ -202,7 +202,7 @@ export const FLPostSaisonPayloadSchema = z
   .refine((saison) => saison.end_date >= saison.start_date, endsAfterItStarts)
   .refine((saison) => windowRunsForwards(saison.bewerbung), windowEndsAfterItOpens)
   .refine((saison) => windowRunsForwards(saison.registrierung), registrationWindowEndsAfterItOpens)
-  .refine((saison) => saison.rules.qualifiers_per_group <= saison.rules.teams_per_group, groupCannotOverQualify)
+  .refine((saison) => saison.rules.qualifiers_per_gruppe <= saison.rules.teams_per_gruppe, groupCannotOverQualify)
   .refine((saison) => hasPlayableBracket(saison.rules), bracketMustHaveAShape);
 
 export const FLPatchSaisonPayloadSchema = z
@@ -226,9 +226,9 @@ export const FLActivateSaisonPayloadSchema = z.object({
  * Picked from the rules, so each bound is stated once.
  */
 const FLSpielplanShapeSchema = FLSaisonRulesSchema.pick({
-  number_of_groups: true,
-  teams_per_group: true,
-  qualifiers_per_group: true,
+  number_of_gruppen: true,
+  teams_per_gruppe: true,
+  qualifiers_per_gruppe: true,
 });
 
 /** An id in the path, plus the replace confirmation and the shape this draw runs from. Both left out is the first draw, which destroys nothing. */

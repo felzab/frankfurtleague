@@ -22,7 +22,7 @@ const SPIELTAG: FLSpieltagWithSpiele = {
   id: "6890a1b2c3d4e5f607180201",
   beginn: null,
   ende: null,
-  anzahl_spiele: 0,
+  count_spiele: 0,
   position: 1,
   saison_phase: "viertelfinale",
   saison_id: "2026",
@@ -153,10 +153,10 @@ describe("spieltagLabels", () => {
 // The 2026 season's own shape: four groups of four give three group matchdays, and eight qualifiers
 // play the last three rounds — so `achtelfinale` is absent rather than present with a zero.
 const SCHEDULE_2026: FLSaisonPhaseSchedule[] = [
-  { phase: "gruppenphase", matchdays: 3, matches_per_matchday: 8 },
-  { phase: "viertelfinale", matchdays: 1, matches_per_matchday: 4 },
-  { phase: "halbfinale", matchdays: 1, matches_per_matchday: 2 },
-  { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
+  { phase: "gruppenphase", spieltage: 3, matches_per_spieltag: 8 },
+  { phase: "viertelfinale", spieltage: 1, matches_per_spieltag: 4 },
+  { phase: "halbfinale", spieltage: 1, matches_per_spieltag: 2 },
+  { phase: "finale", spieltage: 1, matches_per_spieltag: 1 },
 ];
 
 const makeSpieltag = (phase: FLSaisonPhase) => ({ saison_phase: phase });

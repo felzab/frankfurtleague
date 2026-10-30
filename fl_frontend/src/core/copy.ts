@@ -128,7 +128,7 @@ export const COPY = katalog({
     /** The end states of a page a mail opens; each page names its own sentence for the done state. */
     // Session 4: the mailed pages read these.
     ende: {
-      erledigtAm: (erledigt: Copy, tag: CalendarDay) => `${erledigt} am ${formatDatumLang(tag)}.`,
+      erledigtAm: (done: Copy, tag: CalendarDay) => `${done} am ${formatDatumLang(tag)}.`,
       linkUngueltig: "Dieser Link gilt nicht mehr.",
       zurStartseite: "Zur Startseite",
       zumKonto: "Zum Konto",

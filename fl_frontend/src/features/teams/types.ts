@@ -7,8 +7,8 @@ import type {
   FLPatchSaisonTeamPayload,
   FLPostSaisonTeamPayload,
   FLPostTeamPayload,
-  FLSaisonTeamAdresswechsel,
-  FLSaisonTeamBestaetigungenAnsicht,
+  FLSaisonTeamAddressChange,
+  FLSaisonTeamConfirmationsView,
   FLSaisonTeamKontakte,
   FLTrikotFarbe,
 } from "@/core/generated/client/types";
@@ -41,7 +41,7 @@ export type AustrittDraft = Omit<FLAustritt, "type"> & {
 /** One contact person mid-edit. Every other field is typed, so an unanswered one is the empty string. */
 export type KontaktpersonDraft = Omit<FLKontaktperson, "einwilligung"> & {
   // Null on a seat the editor opened: the save that seats the person stamps who did.
-  einwilligung: Omit<FLKontaktKenntnisnahme, "eingetragen_von"> & { eingetragen_von: FLKontaktKenntnisnahme["eingetragen_von"] | null };
+  einwilligung: Omit<FLKontaktKenntnisnahme, "entered_by"> & { entered_by: FLKontaktKenntnisnahme["entered_by"] | null };
 };
 
 /**
@@ -78,9 +78,9 @@ export type TeamSaisonMembership = {
     trikot_farbe: FLTrikotFarbe | null;
     kontakte: FLSaisonTeamKontakte | null;
     /** Each seat's link, read beside the block for the contacts editor. */
-    bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null;
+    confirmations: FLSaisonTeamConfirmationsView | null;
     /** Each seat's pending address change, read beside the block for the contacts editor. */
-    adresswechsel: FLSaisonTeamAdresswechsel | null;
+    address_change: FLSaisonTeamAddressChange | null;
     /** The token `PATCH .../kontakte` judges a save against, carried from the read (`kontakte_moved_under_the_save`). */
     kontakte_stand: string;
   } | null;

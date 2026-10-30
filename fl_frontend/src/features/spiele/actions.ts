@@ -39,7 +39,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawUebernim
     }
 
     // A failed parse costs the adoption, never the edit: the report reads not adopted, and adopting it again repairs that.
-    const uebernimmtBericht = SpielePatchSpielQueryParams.shape.uebernimmt_bericht.safeParse(rawUebernimmtBericht);
+    const uebernimmtBericht = SpielePatchSpielQueryParams.shape.adopts_bericht.safeParse(rawUebernimmtBericht);
 
     // A refusal reaches the form rather than the error page: it is about what was submitted, and
     // the editor is where the wrong value still sits.
@@ -61,7 +61,7 @@ export async function patchAdminSpielDataAction(rawPayload: unknown, rawUebernim
       // own forfeit, so `voided_sonderereignis` never travels without the result it produced.
       voidedFixtures: patch_operation.advanced_to.filter((advancement) => advancement.voided_ergebnis !== null).map((entry) => entry.spiel_nr),
       releasedFixtures: patch_operation.released_sides.map((released) => released.spiel_nr),
-      berichtUebernommen: patch_operation.bericht_uebernommen,
+      berichtUebernommen: patch_operation.bericht_adopted,
     };
   });
 }

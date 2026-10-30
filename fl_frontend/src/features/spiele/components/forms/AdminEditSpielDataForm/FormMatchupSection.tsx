@@ -40,7 +40,7 @@ export function FormMatchupSection({
   spielData: FLSpiel;
   saisonSpiele: FLSpiel[];
   teams: FLTeam[];
-  /** The season's `rules.number_of_groups`, bounding each picker's group offer; `null` offers all. */
+  /** The season's `rules.number_of_gruppen`, bounding each picker's group offer; `null` offers all. */
   numberOfGroups: number | null;
   knockoutTeamIds: ReadonlySet<string>;
   /**

@@ -39,7 +39,7 @@ async function AdresswechselContent(props: NextPageProps) {
   const { token } = await props.searchParams;
 
   // A missing or repeated parameter is no link at all and reads as the dead link.
-  if (typeof token !== "string" || token === "") return <AdresswechselLinkView start={{ zustand: "ungueltig" }} />;
+  if (typeof token !== "string" || token === "") return <AdresswechselLinkView start={{ zustand: "invalid" }} />;
 
   // A failed read is its own state, the dead-link panel calling a live link void. A broken contract is
   // no failed read: it reaches the error boundary, which logs it.

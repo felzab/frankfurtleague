@@ -50,7 +50,7 @@ export function AdminSpielberichtPanel({
   today: string;
 }) {
   const panel = formPanel();
-  const zustand = stand?.lesen.zustand ?? null;
+  const zustand = stand?.lesen.state ?? null;
 
   return (
     <section className={panel.root()}>
@@ -97,12 +97,12 @@ function BerichtInhalt({
 }) {
   const saisonHref = useSaisonHref();
   const { lesen } = stand;
-  const { bericht, zustand, spiel } = lesen;
+  const { bericht, state: zustand, spiel } = lesen;
   // Both writes refuse a called-off fixture (`bericht_abgesagt`), and its result is no proposal's to set.
   const istAbgesagt = zustand === "abgesagt";
   // A proposal by side about clubs that left: its score beside this fixture's clubs would read as theirs, as the card's
   // chip withholds it (`fl_frontend/src/features/spielberichte/utils.ts :: berichtChip`).
-  const zeigtVorschlag = !istAbgesagt && zustand !== "teams_geaendert";
+  const zeigtVorschlag = !istAbgesagt && zustand !== "teams_changed";
 
   return (
     <>
@@ -113,18 +113,18 @@ function BerichtInhalt({
           <p className="muted-meta">
             {[
               // The save's own word, the first one's day: a report the league wrote first was never sent by anyone.
-              `Erstmals gespeichert am ${berlinZeitpunkt(bericht.eingereicht_am)}`,
-              `Geändert am ${berlinZeitpunkt(bericht.geaendert_am)}`,
-              ...(bericht.uebernommen_am === null ? [] : [`Übernommen am ${berlinZeitpunkt(bericht.uebernommen_am)}`]),
+              `Erstmals gespeichert am ${berlinZeitpunkt(bericht.submitted_at)}`,
+              `Geändert am ${berlinZeitpunkt(bericht.changed_at)}`,
+              ...(bericht.adopted_at === null ? [] : [`Übernommen am ${berlinZeitpunkt(bericht.adopted_at)}`]),
             ].join(" · ")}
           </p>
 
-          {zustand === "abweichend" && (
+          {zustand === "differing" && (
             <p className="muted-hint">
               Das gespeicherte Ergebnis ist nicht aus diesem Bericht übernommen, oder der Bericht wurde seitdem geändert.
             </p>
           )}
-          {zustand === "teams_geaendert" && (
+          {zustand === "teams_changed" && (
             <p className="muted-hint">
               Der Bericht wurde für andere Teams geschrieben, als jetzt im Spiel stehen. Übernehmen lässt er sich erst, wenn er für diese Teams
               neu gespeichert ist.

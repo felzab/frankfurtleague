@@ -35,7 +35,7 @@ export function SpielCard({
   asListitem = true,
   today,
   isFinishedSaison,
-  bestaetigungen,
+  confirmations: bestaetigungen,
   berichtChip,
 }: {
   spielData: FLSpiel;
@@ -54,7 +54,7 @@ export function SpielCard({
   /** Required: a card omitting it promises a Termin for a finished season's undated fixture. */
   isFinishedSaison: boolean;
   /** The season's confirmation rows, an administrator's read: each party's answer to the Ansetzung this fixture holds. */
-  bestaetigungen?: SaisonBestaetigungen;
+  confirmations?: SaisonBestaetigungen;
   /** The report's proposal still to be adopted, an administrator's read the card shows only beside its edit link. */
   berichtChip?: BerichtChip;
 }) {
@@ -155,7 +155,7 @@ export function SpielCard({
       <div className="flex h-fit w-full flex-row items-center justify-center gap-x-2">
         <SpielStatusChip
           spielStatus={spielStatus}
-          ansetzungBestaetigt={spielData.ansetzung_bestaetigt}
+          ansetzungBestaetigt={spielData.ansetzung_confirmed}
         />
         <SaisonPhaseChip saisonPhase={spielData.saison_phase} />
         {/* Keyed on the edit link, as the answers below are: `ergebnis_vorschlag` is withheld from the public tier. */}
@@ -176,7 +176,7 @@ export function SpielCard({
       {adminEditHref !== undefined && bestaetigungen !== undefined && (
         <AntwortChips
           spielData={spielData}
-          bestaetigungen={bestaetigungen.bySpielId.get(spielData.id) ?? []}
+          confirmations={bestaetigungen.bySpielId.get(spielData.id) ?? []}
           austritte={bestaetigungen.austritte}
           today={today}
         />
@@ -191,12 +191,12 @@ export function SpielCard({
  */
 function AntwortChips({
   spielData,
-  bestaetigungen,
+  confirmations: bestaetigungen,
   austritte,
   today,
 }: {
   spielData: FLSpiel;
-  bestaetigungen: readonly FLSpielbestaetigung[];
+  confirmations: readonly FLSpielbestaetigung[];
   austritte: ReadonlyMap<string, string>;
   today: string;
 }) {
@@ -204,15 +204,15 @@ function AntwortChips({
   const parteien = [
     {
       name: spielData.team1?.name,
-      zeile: zeilen.find((zeile) => zeile.partei.art === "team" && zeile.partei.team_id === spielData.team1?.team_id),
+      zeile: zeilen.find((zeile) => zeile.party.art === "team" && zeile.party.team_id === spielData.team1?.team_id),
     },
     {
       name: spielData.team2?.name,
-      zeile: zeilen.find((zeile) => zeile.partei.art === "team" && zeile.partei.team_id === spielData.team2?.team_id),
+      zeile: zeilen.find((zeile) => zeile.party.art === "team" && zeile.party.team_id === spielData.team2?.team_id),
     },
     {
       name: SCHIEDSRICHTER_PARTEI,
-      zeile: zeilen.find((zeile) => zeile.partei.art === "schiedsrichter") ?? schiedsrichterAbsage(bestaetigungen, spielData),
+      zeile: zeilen.find((zeile) => zeile.party.art === "schiedsrichter") ?? schiedsrichterAbsage(bestaetigungen, spielData),
     },
   ].flatMap(({ name, zeile }) => (name === undefined || zeile === undefined ? [] : [{ name, zeile }]));
 

@@ -16,7 +16,7 @@ import { getEinladung, getEinladungVersandVorschau } from "./queries";
 import { mapEinladungRefusal } from "./refusals";
 import { EinladungMailenEingabeSchema, FLEinladungKeyPayloadSchema, FLEinladungVersandPayloadSchema } from "./schemas";
 
-import type { FLEinladungVersandVorschauZeile, FLEinladungVersandZeile } from "@/core/generated/client/types";
+import type { FLInvitationDispatchPreviewRow, FLInvitationDispatchRow } from "@/core/generated/client/types";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type { z } from "zod";
 
@@ -37,7 +37,7 @@ export async function postEinladungAction(
 
     // A mint voiding a standing link is a step-up write and the first mint is not, so a read decides; made
     // only for a session past the window, the one it can refuse.
-    const standing = isFreshlySignedIn(session) ? null : (await getEinladung(validated.data.team_id, validated.data.saison_id)).einladung;
+    const standing = isFreshlySignedIn(session) ? null : (await getEinladung(validated.data.team_id, validated.data.saison_id)).invitation;
     const unconfirmed = standing === null ? null : refuseUnconfirmed(session);
     if (unconfirmed !== null) return unconfirmed;
 
@@ -52,7 +52,7 @@ export async function postEinladungAction(
 
     return {
       success: true,
-      einladung_id: mintOperation.einladung_id,
+      einladung_id: mintOperation.invitation_id,
       token: mintOperation.token,
       // Spelled here and never in the panel: `frontend_config.AUTH_URL` is server-only, and a link
       // built in the browser would carry whichever host the page was opened on.
@@ -109,7 +109,7 @@ export async function mailEinladungAction(rawPayload: z.input<typeof EinladungMa
       throw error;
     }
 
-    const gesamt = versandOperation.empfaenger.length;
+    const gesamt = versandOperation.recipient.length;
     if (gesamt === 0) {
       return {
         success: false,
@@ -146,7 +146,7 @@ export async function deleteEinladungAction(rawPayload: z.input<typeof FLEinladu
  */
 export async function previewEinladungVersandAction(
   rawPayload: z.input<typeof FLEinladungVersandPayloadSchema>,
-): Promise<QueryResult<{ zeilen: readonly FLEinladungVersandVorschauZeile[] }>> {
+): Promise<QueryResult<{ zeilen: readonly FLInvitationDispatchPreviewRow[] }>> {
   return runAdminMutation("previewEinladungVersandAction", async () => {
     const validated = FLEinladungVersandPayloadSchema.safeParse(rawPayload);
 
@@ -158,7 +158,7 @@ export async function previewEinladungVersandAction(
     // key, and this read has to name a value either way to describe the press it precedes.
     const vorschau = await getEinladungVersandVorschau(validated.data.id, validated.data.erneut ?? false);
 
-    return { success: true, zeilen: vorschau.zeilen };
+    return { success: true, zeilen: vorschau.rows };
   });
 }
 
@@ -168,7 +168,7 @@ export async function previewEinladungVersandAction(
  */
 export async function postEinladungVersandAction(
   rawPayload: z.input<typeof FLEinladungVersandPayloadSchema>,
-): Promise<ActionResult<{ zeilen: readonly FLEinladungVersandZeile[]; gemeint: number; erreicht: number }>> {
+): Promise<ActionResult<{ zeilen: readonly FLInvitationDispatchRow[]; gemeint: number; erreicht: number }>> {
   return runAdminMutation("postEinladungVersandAction", { stepUp: true }, async () => {
     const validated = FLEinladungVersandPayloadSchema.safeParse(rawPayload);
 
@@ -185,14 +185,13 @@ export async function postEinladungVersandAction(
       throw error;
     }
 
-    const { zeilen } = versandOperation;
+    const { rows: zeilen } = versandOperation;
     // Every team this press meant to write to: a pass-over by the rule the preview showed is none, the league's own
     // failure to mint is one.
     const gemeint = zeilen.filter(
-      (zeile) =>
-        zeile.uebersprungen === null || zeile.uebersprungen === "erzeugung_fehlgeschlagen" || zeile.uebersprungen === "erzeugung_ungewiss",
+      (zeile) => zeile.skipped === null || zeile.skipped === "erzeugung_failed" || zeile.skipped === "erzeugung_uncertain",
     ).length;
-    const erreicht = zeilen.filter((zeile) => zeile.empfaenger.length > 0).length;
+    const erreicht = zeilen.filter((zeile) => zeile.recipient.length > 0).length;
 
     return { success: true, zeilen: zeilen, message: versandSatz(erreicht, gemeint, zeilen.length), gemeint: gemeint, erreicht: erreicht };
   });

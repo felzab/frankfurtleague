@@ -1,6 +1,6 @@
 import { FLSpielberichtVorschlagSonderereignis } from "@/core/generated/client/types";
 
-import type { FLKartenFarbe, FLKartenGrund, FLSpielberichtZustand } from "@/core/generated/client/types";
+import type { FLKartenFarbe, FLKartenGrund, FLSpielberichtState } from "@/core/generated/client/types";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLSpielberichtSonderereignis } from "./schemas";
 
@@ -47,21 +47,21 @@ export const SPIELBERICHT_SONDEREREIGNIS_OPTIONS: readonly FLSpielberichtSondere
   FLSpielberichtVorschlagSonderereignis,
 );
 
-export const SPIELBERICHT_ZUSTAND_LABELS: Record<FLSpielberichtZustand, string> = {
+export const SPIELBERICHT_ZUSTAND_LABELS: Record<FLSpielberichtState, string> = {
   vorgeschlagen: "Vorgeschlagen",
-  uebernommen: "Übernommen",
-  abweichend: "Nicht übernommen",
+  adopted: "Übernommen",
+  differing: "Nicht übernommen",
   abgesagt: "Abgesagt",
-  teams_geaendert: "Teams geändert",
+  teams_changed: "Teams geändert",
 };
 
 /** One tone per state on the panel and on a fixture card alike; `abgesagt` in the fixture status chip's own. */
-export const SPIELBERICHT_ZUSTAND_TONE: Record<FLSpielberichtZustand, PillTone> = {
+export const SPIELBERICHT_ZUSTAND_TONE: Record<FLSpielberichtState, PillTone> = {
   vorgeschlagen: "info",
-  uebernommen: "success",
-  abweichend: "warning",
+  adopted: "success",
+  differing: "warning",
   abgesagt: "danger",
-  teams_geaendert: "warning",
+  teams_changed: "warning",
 };
 
 /**
@@ -69,5 +69,5 @@ export const SPIELBERICHT_ZUSTAND_TONE: Record<FLSpielberichtZustand, PillTone> 
  * until it is named here. Mirrors `fl_backend/app/api/spielberichte/services.py :: BERICHT_ZUSTAENDE_OFFEN`, which
  * decides the fixtures the triage unions in.
  */
-const ZUSTAENDE_OFFEN = ["vorgeschlagen", "abweichend", "teams_geaendert"] as const satisfies readonly FLSpielberichtZustand[];
-export const SPIELBERICHT_ZUSTAENDE_OFFEN: ReadonlySet<FLSpielberichtZustand> = new Set(ZUSTAENDE_OFFEN);
+const ZUSTAENDE_OFFEN = ["vorgeschlagen", "differing", "teams_changed"] as const satisfies readonly FLSpielberichtState[];
+export const SPIELBERICHT_ZUSTAENDE_OFFEN: ReadonlySet<FLSpielberichtState> = new Set(ZUSTAENDE_OFFEN);

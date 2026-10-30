@@ -45,7 +45,7 @@ export default async function AdminSpielsuchePage(props: NextPageProps) {
       spielorte={spielorteRes.spielorte.map((spielort) => ({ id: spielort.id, name: spielort.name }))}
       schiedsrichter={schiedsrichterRes.schiedsrichter.map((row) => ({ id: row.id, name: row.name }))}
       bestaetigungen={bestaetigungenRes?.spielbestaetigungen ?? null}
-      bestaetigungenVollstaendig={bestaetigungenRes?.vollstaendig ?? true}
+      bestaetigungenVollstaendig={bestaetigungenRes?.complete ?? true}
       austritte={Object.fromEntries(
         teamsRes.teams.flatMap((team) => {
           const austritt = team.memberships.find((membership) => membership.saison_id === saison.id)?.austritt;

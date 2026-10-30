@@ -34,7 +34,7 @@ import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
-import type { FLBestaetigung, FLEinwilligung, FLPostausgangLage } from "@/core/generated/client/types";
+import type { FLConfirmation, FLEinwilligung, FLOutboxState } from "@/core/generated/client/types";
 
 /**
  * The re-send's accessible name, its link named for this panel as the address change's panel names its
@@ -47,18 +47,18 @@ const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.
 
 /** What the last link reached, where one has gone out at all. */
 function LinkStand({
-  bestaetigung,
+  confirmation: bestaetigung,
   offenUndAbgelaufen,
-  zustellung,
+  delivery: zustellung,
 }: {
-  bestaetigung: FLBestaetigung;
+  confirmation: FLConfirmation;
   offenUndAbgelaufen: boolean;
-  zustellung: FLPostausgangLage | null;
+  delivery: FLOutboxState | null;
 }) {
   return (
     <dl className={FIELD_PAIR_CLASSES}>
       <LinkStandAngaben
-        verschicktAm={bestaetigung.verschickt_am}
+        verschicktAm={bestaetigung.sent_at}
         frist={bestaetigung.frist}
         istAbgelaufen={offenUndAbgelaufen}
         zustellung={zustellung}
@@ -66,7 +66,7 @@ function LinkStand({
           // A state rather than a gap: nothing reminds a referee, so „Keine Erinnerung“ is the fact
           // rather than a day that went missing.
           <Angabe label="Erinnert am">
-            {bestaetigung.erinnert_am === null ? <Leer>Keine Erinnerung</Leer> : formatSpielDatum(bestaetigung.erinnert_am)}
+            {bestaetigung.reminded_at === null ? <Leer>Keine Erinnerung</Leer> : formatSpielDatum(bestaetigung.reminded_at)}
           </Angabe>
         }
       />
@@ -101,7 +101,7 @@ function EinwilligungStand({
         />
       </Angabe>
       <Angabe label="Bestätigt am">
-        {einwilligung.bestaetigt_am === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.bestaetigt_am)}
+        {einwilligung.confirmed_at === null ? <Leer>Nicht bestätigt</Leer> : formatSpielDatum(einwilligung.confirmed_at)}
       </Angabe>
       {/* The key rather than a German gloss of it, which would be a second name for one wording. */}
       <Angabe label={EINWILLIGUNG_FASSUNG_FRAGE}>
@@ -126,9 +126,9 @@ export function FormBestaetigungSection({
   schiedsrichterId,
   hatAdresse,
   isRetired,
-  bestaetigung,
+  confirmation: bestaetigung,
   istAbgelaufen,
-  zustellung,
+  delivery: zustellung,
   einwilligung,
   istFassungBekannt,
   geburtsdatum,
@@ -138,11 +138,11 @@ export function FormBestaetigungSection({
   /** The STORED address, never the draft's: an unsaved box is not somewhere a message can go. */
   hatAdresse: boolean;
   isRetired: boolean;
-  bestaetigung: FLBestaetigung | null;
+  confirmation: FLConfirmation | null;
   /** The read's judgement of the link's deadline, never this browser's day. */
   istAbgelaufen: boolean;
   /** What became of the last confirmation mail, off the Postausgang; null where none was owed. */
-  zustellung: FLPostausgangLage | null;
+  delivery: FLOutboxState | null;
   einwilligung: FLEinwilligung | null;
   /** Whether the registry holds the stored label, resolved by the page through the words read. */
   istFassungBekannt: boolean | null;
@@ -155,7 +155,7 @@ export function FormBestaetigungSection({
   const stepUp = useStepUp();
   const panel = formPanel();
 
-  const istBestaetigt = einwilligung?.bestaetigt_am != null;
+  const istBestaetigt = einwilligung?.confirmed_at != null;
   const sendeLabel = bestaetigung === null ? "Bestätigungslink senden" : "Link erneut senden";
   const sendeName = bestaetigung === null ? sendeLabel : BESTAETIGUNG_ERNEUT;
 
@@ -218,11 +218,11 @@ export function FormBestaetigungSection({
           <p className="muted-hint">Für diese Person wurde noch kein Bestätigungslink gesendet.</p>
         ) : (
           <LinkStand
-            bestaetigung={bestaetigung}
+            confirmation={bestaetigung}
             // A date an administrator reads as a deadline says nothing once it is past, and the
             // answer („einen neuen schicken“) is the control in this same panel; an answered link's says nothing at all.
             offenUndAbgelaufen={!istBestaetigt && istAbgelaufen}
-            zustellung={zustellung}
+            delivery={zustellung}
           />
         )}
 

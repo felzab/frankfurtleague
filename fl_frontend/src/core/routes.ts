@@ -60,7 +60,7 @@ export const ROUTES = {
   impressum: { path: () => "/impressum" as const, titel: COPY.seite.impressum, indexed: true },
   datenschutz: { path: () => "/datenschutz" as const, titel: COPY.seite.datenschutz, indexed: true },
   /** Signing in, which every page signed out offers as „Anmelden“. */
-  anmeldung: { path: () => "/signin" as const, titel: COPY.anmeldung.titel, indexed: false },
+  signIn: { path: () => "/signin" as const, titel: COPY.anmeldung.titel, indexed: false },
   /** The passkey step a sign-in reaches where its session is to set one up, use one or is offered one. */
   signInPasskey: { path: () => "/signin/passkey" as const, titel: COPY.anmeldung.passkeyTitel, indexed: false },
 

@@ -22,7 +22,7 @@ export default async function RegistrierungenPage({ params, searchParams }: Next
     <RegistrierungenView
       registrierungen={offen.registrierungen}
       adresse={{ team_id: team_id, saison_id: saison_id }}
-      unvollstaendig={offen.vollstaendig ? null : { richtung: richtung, umkehrHref: leserichtungHrefFromRoute(query, umgekehrt(richtung)) }}
+      unvollstaendig={offen.complete ? null : { richtung: richtung, umkehrHref: leserichtungHrefFromRoute(query, umgekehrt(richtung)) }}
     />
   );
 }

@@ -21,9 +21,9 @@ import {
   FLPostBerechtigungPayloadSchema,
 } from "./schemas";
 
-import type { FLPostBerechtigungPayload } from "@/core/generated/client/types";
+import type { FLPostGrantPayload } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
-import type { FLBerechtigungAntragKeyPayload, FLBerechtigungKeyPayload, FLPatchBerechtigungPayload } from "./schemas";
+import type { FLBerechtigungAntragKeyPayload, FLBerechtigungKeyPayload, FLPatchGrantPayload } from "./schemas";
 
 /**
  * The enrolment's five-minute window rather than the step-up's: a
@@ -32,7 +32,7 @@ import type { FLBerechtigungAntragKeyPayload, FLBerechtigungKeyPayload, FLPatchB
 const ZUGANG_STEP_UP = { stepUp: "enrolment" } as const;
 
 export async function postBerechtigungAction(
-  rawPayload: FLPostBerechtigungPayload,
+  rawPayload: FLPostGrantPayload,
 ): Promise<ActionResult<{ created_id: string; beantragt: boolean }>> {
   return runAdminMutation("postBerechtigungAction", ZUGANG_STEP_UP, async () => {
     const validated = FLPostBerechtigungPayloadSchema.safeParse(rawPayload);
@@ -50,7 +50,7 @@ export async function postBerechtigungAction(
       throw error;
     }
 
-    const { created_id, beantragt } = postOperation;
+    const { created_id, requested: beantragt } = postOperation;
     // Ends no session: one made before the grant administers nothing, every guard holding it against the
     // grant's own time on every request.
 
@@ -83,7 +83,7 @@ export async function deleteBerechtigungAction(rawPayload: FLBerechtigungKeyPayl
  * An owner's promotion, demotion or step-down. Ends no session: the tier is read on every request,
  * so the next one already holds the new tier.
  */
-export async function patchBerechtigungAction(rawPayload: FLPatchBerechtigungPayload): Promise<ActionResult<{ beantragt: boolean }>> {
+export async function patchBerechtigungAction(rawPayload: FLPatchGrantPayload): Promise<ActionResult<{ beantragt: boolean }>> {
   return runAdminMutation("patchBerechtigungAction", ZUGANG_STEP_UP, async () => {
     const validated = FLPatchBerechtigungPayloadSchema.safeParse(rawPayload);
 
@@ -100,7 +100,7 @@ export async function patchBerechtigungAction(rawPayload: FLPatchBerechtigungPay
       throw error;
     }
 
-    if (patchOperation.beantragt) return { success: true, beantragt: true, message: ERNENNUNG_BEANTRAGT_MESSAGE };
+    if (patchOperation.requested) return { success: true, beantragt: true, message: ERNENNUNG_BEANTRAGT_MESSAGE };
 
     // Done whether it moved the tier or found it there: a repeated press names the tier the grant holds.
     return { success: true, beantragt: false, message: STUFE_GEAENDERT_MESSAGE[validated.data.verwaltung] };

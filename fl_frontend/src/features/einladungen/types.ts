@@ -1,4 +1,4 @@
-import type { FLEinladungZeile } from "@/core/generated/client/types";
+import type { FLInvitationRow } from "@/core/generated/client/types";
 
 /**
  * What the team editor's invite panel is rendered from. **`laeuft` rides beside the row rather than
@@ -6,6 +6,6 @@ import type { FLEinladungZeile } from "@/core/generated/client/types";
  * no expiry date of its own.
  */
 export type TeamEinladungState = {
-  einladung: FLEinladungZeile | null;
+  einladung: FLInvitationRow | null;
   laeuft: boolean;
 };

@@ -7,34 +7,34 @@ import { asSignInIdentifier } from "./emailAddress";
 import { setRequestActor } from "./requestScope";
 import { lookUpSubjekt } from "./signInGate";
 
-import type { FLSubjektResponse, FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler } from "./generated/client/types";
+import type { FLSubjectResponse, FLSubjectSchiedsrichter, FLSubjectSeat, FLSubjectSpieler } from "./generated/client/types";
 import type { RequestActor } from "./requestScope";
 
 /** Read-only to the depth a panel reaches: what the league holds is the endpoint's to change. */
 type SubjectRecords = {
-  readonly sitze: readonly Readonly<FLSubjektSitz>[];
-  readonly spieler: readonly Readonly<FLSubjektSpieler>[];
-  readonly schiedsrichter: readonly Readonly<FLSubjektSchiedsrichter>[];
+  readonly seats: readonly Readonly<FLSubjectSeat>[];
+  readonly spieler: readonly Readonly<FLSubjectSpieler>[];
+  readonly schiedsrichter: readonly Readonly<FLSubjectSchiedsrichter>[];
   // Beside the lists rather than read off them: the lookup drops every unconfirmed record, so empty
   // lists alone cannot tell a person awaiting confirmation from one the league holds nothing for.
-  readonly unbestaetigt: boolean;
+  readonly unconfirmed: boolean;
   // The backend's own verdict, never recomputed here; `getSubjectSession` serves no subject that
   // carries it set, so only a caller of the lookup itself ever reads it `true`.
-  readonly gesperrt: boolean;
+  readonly barred: boolean;
   // The grant the address holds, stored and never derived: whether it may act as an administrator is
   // `SubjectSession["admin"]`, which the session's factor and window narrow further.
-  readonly verwaltung: FLSubjektResponse["verwaltung"];
+  readonly verwaltung: FLSubjectResponse["verwaltung"];
   // When that grant took effect, which the same verdict holds the session's own making against.
-  readonly berechtigt_seit: FLSubjektResponse["berechtigt_seit"];
+  readonly granted_since: FLSubjectResponse["granted_since"];
   // When its `owner` tier took effect, which no panel reads: an owner's controls ask it of the session.
-  readonly inhaber_seit: FLSubjektResponse["inhaber_seit"];
+  readonly inhaber_seit: FLSubjectResponse["inhaber_seit"];
 };
 
 /**
  * `admin` is the administrator's whole verdict (`fl_frontend/src/core/auth.ts :: isAdminSession`),
  * so a control gated on it admits exactly the sessions the administrator's own lane admits.
  */
-export type SubjectSession = { readonly email: string; readonly admin: boolean; readonly subjekt: SubjectRecords };
+export type SubjectSession = { readonly email: string; readonly admin: boolean; readonly subject: SubjectRecords };
 
 // React's `cache`, never `"use cache"`, which would hand one request's session to another: a layout,
 // a guard and a page of one render pass share one session read, one lookup and one actor.
@@ -53,11 +53,11 @@ const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; a
   if (email === "") return null;
 
   // The records and the two flags, never the parsed body (`fl_frontend/src/core/signInGate.ts :: lookUpSubjekt`).
-  const subjekt = await lookUpSubjekt(email);
+  const subject = await lookUpSubjekt(email);
 
   // On every request rather than only at the ban: a session minted racing the ban, or one its ending
   // missed, is no session here.
-  if (subjekt.gesperrt) return null;
+  if (subject.barred) return null;
 
   // Built here rather than at the write: a person's route refuses a request naming no session
   // (`fl_backend/app/api/sperrliste/guard.py :: person_actor_binder`).
@@ -65,7 +65,7 @@ const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; a
   if (actor === null) return null;
 
   // Off the lookup this guard already made, so the verdict costs no second read.
-  return { subject: { email: email, admin: isAdminSession(served, subjekt), subjekt: subjekt }, actor: actor };
+  return { subject: { email: email, admin: isAdminSession(served, subject), subject: subject }, actor: actor };
 });
 
 /**

@@ -1,31 +1,31 @@
 import {
-  spielbestaetigungenEintragenSpielbestaetigung,
-  spielbestaetigungenGetSpielbestaetigungAnsicht,
+  spielbestaetigungenDiscardSpielbestaetigung,
+  spielbestaetigungenEnterSpielbestaetigung,
+  spielbestaetigungenGetSpielbestaetigungView,
   spielbestaetigungenGetSweepSaisons,
   spielbestaetigungenPostSchiedsrichterAntwort,
   spielbestaetigungenPostSpielbestaetigung,
   spielbestaetigungenSweepSpielbestaetigungen,
-  spielbestaetigungenVerwerfenSpielbestaetigung,
 } from "@/core/generated/client/sdk";
 
 import type {
-  FLSpielbestaetigungAnsichtResponse,
   FLSpielbestaetigungAntwortPayload,
   FLSpielbestaetigungAntwortResponse,
   FLSpielbestaetigungSchiedsrichterAntwortPayload,
   FLSpielbestaetigungSchiedsrichterAntwortResponse,
   FLSpielbestaetigungSweepResponse,
+  FLSpielbestaetigungViewResponse,
   FLSweepSaisonsResponse,
   FLTokenPayload,
 } from "@/core/generated/client/types";
-import type { FLSpielbestaetigungEintragenPayload, FLSpielbestaetigungVerwerfenPayload } from "./schemas";
+import type { FLSpielbestaetigungEnterPayload, FLSpielbestaetigungVerwerfenPayload } from "./schemas";
 
 /**
  * A POST that reads. The token is the credential, and a GET would put it in a query string the
  * backend's own route template does not redact.
  */
-export async function postSpielbestaetigungAnsicht(payload: FLTokenPayload): Promise<FLSpielbestaetigungAnsichtResponse> {
-  return spielbestaetigungenGetSpielbestaetigungAnsicht(payload, { readOnly: true });
+export async function postSpielbestaetigungAnsicht(payload: FLTokenPayload): Promise<FLSpielbestaetigungViewResponse> {
+  return spielbestaetigungenGetSpielbestaetigungView(payload, { readOnly: true });
 }
 
 /** One club's answer, at the base tier: the token authorises, and an over-declared tier succeeds silently. */
@@ -55,10 +55,10 @@ export async function postSpielbestaetigungSweep(saisonId: string): Promise<FLSp
   return spielbestaetigungenSweepSpielbestaetigungen(saisonId);
 }
 
-export async function eintragenSpielbestaetigung({ id, ...fields }: FLSpielbestaetigungEintragenPayload): Promise<void> {
-  return spielbestaetigungenEintragenSpielbestaetigung(id, fields);
+export async function eintragenSpielbestaetigung({ id, ...fields }: FLSpielbestaetigungEnterPayload): Promise<void> {
+  return spielbestaetigungenEnterSpielbestaetigung(id, fields);
 }
 
 export async function verwerfenSpielbestaetigung({ id }: FLSpielbestaetigungVerwerfenPayload): Promise<void> {
-  return spielbestaetigungenVerwerfenSpielbestaetigung(id);
+  return spielbestaetigungenDiscardSpielbestaetigung(id);
 }

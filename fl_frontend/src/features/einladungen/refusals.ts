@@ -13,7 +13,7 @@ export function mapEinladungRefusal(error: unknown): { error?: string; fieldErro
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
-    case "einladung_team_nicht_eingetragen":
+    case "invitation_team_not_entered":
       return {
         error: buildRefusal({
           reason: "Dieses Team steht nicht in dieser Saison",

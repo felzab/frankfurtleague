@@ -15,7 +15,7 @@ const person = (overrides: Partial<KontaktpersonDraft> = {}): KontaktpersonDraft
   email: "erika@beispiel.de",
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: kenntnisnahme({ text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" }),
+  einwilligung: kenntnisnahme({ text_version: "2025-08", datum: "2025-09-01", confirmed_at: "2025-09-02" }),
   ...overrides,
 });
 
@@ -25,7 +25,7 @@ const block = (overrides: Partial<NonNullable<FLKontakteDraftFields["kontakte"]>
     trainer: person(),
     ansprechperson: person({ vorname: "Max" }),
     stellvertretung: person({ vorname: "Lena" }),
-    trainer_ist_zugleich: null,
+    trainer_is_also: null,
     ...overrides,
   },
 });
@@ -45,7 +45,7 @@ describe("deriveKontakteDraftStatus", () => {
     );
     // Read from the table rather than quoted: the wording is the product's, and pinning it here
     // makes rewording the question read as a regression.
-    expect(status.byPath.get("kontakte.trainer_ist_zugleich")?.draftText).toBe(trainerZugleichLabel(null));
+    expect(status.byPath.get("kontakte.trainer_is_also")?.draftText).toBe(trainerZugleichLabel(null));
   });
 
   /* The rows are unconditional: keyed on `kontakte` itself, every row reporting the loss would be
@@ -61,7 +61,7 @@ describe("deriveKontakteDraftStatus", () => {
       "kontakte.stellvertretung.einwilligung",
       "kontakte.trainer",
       "kontakte.trainer.einwilligung",
-      "kontakte.trainer_ist_zugleich",
+      "kontakte.trainer_is_also",
     ]);
     // `draftText: null` is what makes the change list render each of these as a removal.
     expect(status.byPath.get("kontakte.trainer")?.draftText).toBe(null);
@@ -96,13 +96,13 @@ describe("deriveKontakteDraftStatus", () => {
 
     expect(status.isDirty).toBe(false);
     expect(status.fields.length).toBe(7);
-    expect(status.byPath.get("kontakte.trainer_ist_zugleich")?.draftText).toBe(null);
+    expect(status.byPath.get("kontakte.trainer_is_also")?.draftText).toBe(null);
   });
 
   /* The editor opens a block of empty seats as no block at all, and a claim is all the two can still
      differ by, so a row an erasure emptied would otherwise open dirty. */
   it("reads a block holding nobody as no block, whatever claim it carries", () => {
-    const nobodyHeld = block({ trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: "ansprechperson" });
+    const nobodyHeld = block({ trainer: null, ansprechperson: null, stellvertretung: null, trainer_is_also: "ansprechperson" });
 
     for (const [stored, draft] of [
       [nobodyHeld, EMPTY],
@@ -111,12 +111,12 @@ describe("deriveKontakteDraftStatus", () => {
       const status = deriveKontakteDraftStatus({ stored, draft, fieldErrors: {} });
 
       expect(status.isDirty, "nobody on file in one shape reads as a change from the other").toBe(false);
-      expect(status.byPath.get("kontakte.trainer_ist_zugleich")?.storedText).toBe(null);
+      expect(status.byPath.get("kontakte.trainer_is_also")?.storedText).toBe(null);
     }
     // The control: the same claim over somebody is still read, so the silence above is not the row going dark.
-    expect(
-      deriveKontakteDraftStatus({ stored: block({ trainer_ist_zugleich: "ansprechperson" }), draft: block(), fieldErrors: {} }).isDirty,
-    ).toBe(true);
+    expect(deriveKontakteDraftStatus({ stored: block({ trainer_is_also: "ansprechperson" }), draft: block(), fieldErrors: {} }).isDirty).toBe(
+      true,
+    );
   });
 
   it("finds a contact error under the seat that holds the field", () => {
@@ -131,7 +131,7 @@ describe("deriveKontakteDraftStatus", () => {
   });
 
   it("names who seated the person where the record says", () => {
-    const stored = block({ trainer: person({ einwilligung: { ...person().einwilligung, eingetragen_von: "bewerbung" } }) });
+    const stored = block({ trainer: person({ einwilligung: { ...person().einwilligung, entered_by: "bewerbung" } }) });
     const status = deriveKontakteDraftStatus({ stored, draft: stored, fieldErrors: {} });
 
     expect(status.byPath.get("kontakte.trainer.einwilligung")?.draftText).toBe(
@@ -145,7 +145,7 @@ describe("deriveKontakteDraftStatus", () => {
       draft: block({
         trainer: person({
           // As the editor opens a seat: nobody has seated its person yet.
-          einwilligung: kenntnisnahme({ text_version: "", datum: "", bestaetigt_am: null, eingetragen_von: null }),
+          einwilligung: kenntnisnahme({ text_version: "", datum: "", confirmed_at: null, entered_by: null }),
         }),
       }),
       fieldErrors: { "kontakte.trainer.einwilligung.datum": "Bitte gib an, wann die Kenntnisnahme erfasst wurde." },
@@ -178,7 +178,7 @@ describe("deriveKontakteDraftStatus", () => {
     ["2025-09-02", "Geburtsdatum nicht hinterlegt"],
   ] as const) {
     it(`reads a missing birthdate on a seat confirmed ${bestaetigtAm ?? "never"} as „${worte}“`, () => {
-      const ohneDatum = person({ geburtsdatum: null, einwilligung: { ...person().einwilligung, bestaetigt_am: bestaetigtAm } });
+      const ohneDatum = person({ geburtsdatum: null, einwilligung: { ...person().einwilligung, confirmed_at: bestaetigtAm } });
       const status = deriveKontakteDraftStatus({ stored: EMPTY, draft: block({ trainer: ohneDatum }), fieldErrors: {} });
 
       expect(status.byPath.get("kontakte.trainer")?.draftText).toBe(`Erika Mustermann, erika@beispiel.de, 069 1234567, ${worte}`);

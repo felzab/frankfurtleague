@@ -45,6 +45,6 @@ export function buildLoeschungEmail({ origin, token }: { origin: string; token: 
       // opening it on another device is not surprised by the sign-in it asks for.
       [`Der Link gilt ${String(LOESCHUNG_LINK_GUELTIG_STUNDEN)} Stunden.`, "Öffne ihn in dem Browser, in dem Du angemeldet bist."],
     ],
-    aktion: { label: "Zur Löschung", href: loeschungsLink(site, token) },
+    button: { label: "Zur Löschung", href: loeschungsLink(site, token) },
   };
 }

@@ -29,7 +29,7 @@ export type SpielberichtKontext = {
   readonly saisonPhase: FLSaisonPhase;
   readonly kader: Readonly<Record<FLSpielSeite, readonly KaderOption[]>>;
   /** The pupils the stored block names outside both live squads, so an older entry keeps its name. */
-  readonly genannt: readonly KaderOption[];
+  readonly named: readonly KaderOption[];
   /** The sides fielding another club than the report's last write found there. */
   readonly seitenGeaendert: ReadonlySet<FLSpielSeite>;
 };
@@ -235,7 +235,7 @@ function descriptorsFor(
     if (spieler === UNBEKANNT) return TORSCHUETZE_UNBEKANNT_LABEL;
     if (spieler === "") return OFFEN;
     const kader = seite === null ? [] : kontext.kader[seite];
-    return [...kader, ...kontext.genannt].find((option) => option.id === spieler)?.label ?? spieler;
+    return [...kader, ...kontext.named].find((option) => option.id === spieler)?.label ?? spieler;
   };
 
   return [
@@ -307,12 +307,12 @@ function descriptorsFor(
 }
 
 export function deriveSpielberichtDraftStatus({
-  kontext,
+  context: kontext,
   stored,
   draft,
   fieldErrors,
 }: {
-  kontext: SpielberichtKontext;
+  context: SpielberichtKontext;
   stored: SpielberichtDraft;
   draft: SpielberichtDraft;
   fieldErrors: FieldErrors;
@@ -321,13 +321,13 @@ export function deriveSpielberichtDraftStatus({
 }
 
 /** The form's view of a report read, either reader's: a side not yet filled is named as the cards name it. */
-export function kontextOf(read: Pick<SpielberichtAnsicht, "spiel" | "kader" | "genannt" | "seiten_geaendert">): SpielberichtKontext {
+export function kontextOf(read: Pick<SpielberichtAnsicht, "spiel" | "kader" | "named" | "seiten_changed">): SpielberichtKontext {
   return {
     team1Name: read.spiel.team1?.name ?? PLACEHOLDER.slot,
     team2Name: read.spiel.team2?.name ?? PLACEHOLDER.slot,
     saisonPhase: read.spiel.saison_phase,
     kader: { team1: read.kader.team1.map(kaderOptionOf), team2: read.kader.team2.map(kaderOptionOf) },
-    genannt: read.genannt.map(kaderOptionOf),
-    seitenGeaendert: new Set(read.seiten_geaendert),
+    named: read.named.map(kaderOptionOf),
+    seitenGeaendert: new Set(read.seiten_changed),
   };
 }

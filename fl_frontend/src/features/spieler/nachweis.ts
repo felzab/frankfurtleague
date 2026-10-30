@@ -28,10 +28,10 @@ function beleg({ am, text_version }: FLEinwilligungBeleg): string {
  */
 export type Bestaetigung = { am: string; textVersion: string; gefragt: boolean | null } | null;
 
-type BestaetigterDatensatz = { bestaetigt_am: string | null; text_version: string };
+type BestaetigterDatensatz = { confirmed_at: string | null; text_version: string };
 
 /** The confirmation a consent record holds, for a choice every page confirming such a record asks. */
-export function bestaetigungOf({ bestaetigt_am, text_version }: BestaetigterDatensatz): Bestaetigung {
+export function bestaetigungOf({ confirmed_at: bestaetigt_am, text_version }: BestaetigterDatensatz): Bestaetigung {
   return bestaetigt_am === null ? null : { am: bestaetigt_am, textVersion: text_version, gefragt: true };
 }
 
@@ -56,7 +56,7 @@ export function medienBestaetigungOf(datensatz: BestaetigterDatensatz, medienFra
  */
 export function beschreibeNachweis(nachweis: FLEinwilligungNachweis | null, bestaetigung: Bestaetigung): string {
   if (nachweis !== null) {
-    const zuvor = nachweis.erteilt_zuvor === null ? "" : ` (zuvor erteilt am ${beleg(nachweis.erteilt_zuvor)})`;
+    const zuvor = nachweis.given_before === null ? "" : ` (zuvor erteilt am ${beleg(nachweis.given_before)})`;
     return `seit ${beleg(nachweis)}${zuvor}`;
   }
 

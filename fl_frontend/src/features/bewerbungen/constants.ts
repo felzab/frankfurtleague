@@ -27,9 +27,9 @@ type BewerbungStatusOption = {
  * here as one fact, so no two surfaces can name one state differently.
  */
 export const BEWERBUNG_STATUS_OPTIONS: readonly BewerbungStatusOption[] = [
-  { value: "eingereicht", label: "Eingereicht" },
-  { value: "angenommen", label: "Angenommen" },
-  { value: "abgelehnt", label: "Abgelehnt" },
+  { value: "submitted", label: "Eingereicht" },
+  { value: "accepted", label: "Angenommen" },
+  { value: "declined", label: "Abgelehnt" },
 ];
 
 export function bewerbungStatusLabel(status: FLBewerbungStatus): string {
@@ -42,9 +42,9 @@ export function bewerbungStatusLabel(status: FLBewerbungStatus): string {
  * seat's Widerspruch already wears.
  */
 export const BEWERBUNG_STATUS_TINT: Record<FLBewerbungStatus, PillTone> = {
-  eingereicht: "info",
-  angenommen: "success",
-  abgelehnt: "danger",
+  submitted: "info",
+  accepted: "success",
+  declined: "danger",
 };
 
 /** Which of the two things an application asks the league to enter: a school it does not hold yet, or a club it does. */

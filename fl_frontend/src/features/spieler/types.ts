@@ -53,7 +53,7 @@ export type SpielerSaisonMembership = {
   saisonId: string;
   saisonStatus: "past" | "active" | "future";
   membership: SpielerSquadFields | null;
-  /** `rules.erlaubte_stufen` — the only levels this season's picker offers, beside "Keine Angabe". */
+  /** `rules.allowed_stufen` — the only levels this season's picker offers, beside "Keine Angabe". */
   erlaubteStufen: FLSpielerStufe[];
   /**
    * The backend's verdict, never the season's status: an active season whose matchday 1 is undated or

@@ -58,7 +58,7 @@ export function markBewerbungDubletten(
   for (const bewerbung of bewerbungen) {
     // The ROW's own status and not the key's: two open applications collide on a Kürzel a third,
     // declined one also carries, and marking that one asks for a decision already taken.
-    if (bewerbung.status !== "eingereicht") continue;
+    if (bewerbung.status !== "submitted") continue;
 
     const schluessel = dublettenSchluessel(bewerbung);
 

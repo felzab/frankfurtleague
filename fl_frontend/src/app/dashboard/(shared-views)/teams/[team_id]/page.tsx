@@ -31,7 +31,7 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
   // Unlogged: the body makes this read uncaught, so its failure reaches the error boundary, which logs it.
   const teamRes = await getTeam(team_id, {
     saison_id: saisonId,
-    statistik_scope: "gesamt",
+    statistik_scope: "total",
   }).catch(() => null);
   const teamData = teamRes?.team;
   if (!teamData) return NOT_FOUND_METADATA;
@@ -63,7 +63,7 @@ async function TeamDetailsContent(props: NextPageProps<{ team_id: string }>) {
   const [teamRes, spieleRes, isFinishedSaison] = await Promise.all([
     // "gesamt", not the default: this page shows the club's whole season, playoffs included, and is
     // the only surface that does.
-    getTeam(team_id, { saison_id: specifiedSaisonId, statistik_scope: "gesamt" }),
+    getTeam(team_id, { saison_id: specifiedSaisonId, statistik_scope: "total" }),
     getSpiele({ team_id: team_id, saison_id: specifiedSaisonId }),
     resolveIsFinishedSaison(specifiedSaisonId),
   ]);

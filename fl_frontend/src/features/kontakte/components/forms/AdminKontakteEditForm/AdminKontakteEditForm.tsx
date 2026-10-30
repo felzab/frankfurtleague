@@ -206,11 +206,11 @@ export function AdminKontakteEditForm({
             medienFragen={medienFragen}
             value={kontakte}
             stored={storedKontakte}
-            bestaetigungen={storedMembership?.bestaetigungen ?? null}
-            adresswechsel={storedMembership?.adresswechsel ?? null}
+            confirmations={storedMembership?.confirmations ?? null}
+            address_change={storedMembership?.address_change ?? null}
             teamId={teamId}
             saisonId={saison.saisonId}
-            nimmtLinks={kontaktZeile(saison.saisonStatus, storedMembership?.austritt ?? null) === "offen"}
+            nimmtLinks={kontaktZeile(saison.saisonStatus, storedMembership?.austritt ?? null) === "open"}
             isMember={storedMembership !== null}
             teamHref={teamPageHref(teamId, saison.saisonId)}
             banners={banners}

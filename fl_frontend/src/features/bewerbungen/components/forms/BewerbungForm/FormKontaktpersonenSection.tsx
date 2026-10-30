@@ -23,7 +23,7 @@ import { Switch } from "@/shared/components/ui/Switch";
 import { TextField } from "@/shared/components/ui/TextField";
 import { textLink } from "@/shared/components/ui/textLink";
 
-import type { FLTrainerZugleich } from "@/core/generated/client/types";
+import type { FLTrainerAlso } from "@/core/generated/client/types";
 import type { BewerbungKontaktpersonDraft } from "@/features/bewerbungen/types";
 import type { ReactNode } from "react";
 
@@ -64,7 +64,7 @@ const SEAT_HINT: Record<SeatRolle, ReactNode> = {
  * One sentence per answer rather than the seat's label spliced into one: German inflects the article
  * with the noun, so a template reading correctly for these two need not for a label anybody adds.
  */
-const ZUGLEICH_HINWEIS: Record<FLTrainerZugleich, string> = {
+const ZUGLEICH_HINWEIS: Record<FLTrainerAlso, string> = {
   ansprechperson: "Die Angaben der Ansprechperson gelten auch für die Trainerin oder den Trainer.",
   stellvertretung: "Die Angaben der Stellvertretung gelten auch für die Trainerin oder den Trainer.",
 };
@@ -92,9 +92,9 @@ export function FormKontaktpersonenSection({
    * Which seat the Trainer IS. `undefined` on the two seats that carry no picker, and on the Trainer
    * panel while nobody has answered — the state the group renders with no chip pressed.
    */
-  trainerWahl?: FLTrainerZugleich | null;
+  trainerWahl?: FLTrainerAlso | null;
   /** Absent on the two seats the claim points AT, which is what makes this the Trainer's panel. */
-  onTrainerWahl?: (seat: FLTrainerZugleich | null) => void;
+  onTrainerWahl?: (seat: FLTrainerAlso | null) => void;
   onChange: (next: BewerbungKontaktpersonDraft) => void;
   onFieldLeft: (paths: readonly string[]) => void;
 }) {

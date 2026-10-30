@@ -128,14 +128,14 @@ export function mapEinwilligungErneutRefusal(error: unknown): string | null {
       });
     // Answered, declined, or a seat holding no link to answer: one sentence for all three, because
     // the control is offered from a page whose state has since moved.
-    case "bewerbung_sitz_already_answered":
+    case "bewerbung_seat_already_answered":
       return buildRefusal({
         reason: "Für diese Rolle steht keine Bestätigung mehr aus",
         repair: LADE_DIE_SEITE_NEU,
       });
     // Not the repairs' sentence: this control has no address box to type another address into, so it
     // names the correction beside it, whose label the strip shows.
-    case "bewerbung_kontakt_gesperrt":
+    case "bewerbung_kontakt_barred":
       return ERNEUT_ADRESSE_GESPERRT;
     default:
       return null;
@@ -160,7 +160,7 @@ export function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldE
       return { error: ANGABEN_STEHEN_FEST };
     // The pencil stands on a seat the page drew as outstanding, so the person answered under it: the
     // correction is refused because their own answer named this address, not because a rule shut a box.
-    case "bewerbung_sitz_already_answered":
+    case "bewerbung_seat_already_answered":
       return {
         error: buildRefusal({
           reason: "Für diese Rolle hat die Person inzwischen selbst geantwortet, und danach wird ihre Adresse nicht mehr geändert",
@@ -171,10 +171,10 @@ export function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldE
     // thing to change, and the submission words the same collision the same way.
     case "bewerbung_kontakt_email_taken":
       return { fieldErrors: { email: ADRESSE_SCHON_VERGEBEN } };
-    case "bewerbung_kontakt_gesperrt":
+    case "bewerbung_kontakt_barred":
       return { fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT_FELD } };
     // A Widerspruch and a reseat since the page was read: the address typed was meant for the person replaced.
-    case "bewerbung_sitz_anders_besetzt":
+    case "bewerbung_seat_differently_seated":
       return {
         error: buildRefusal({
           reason: "Für diese Rolle ist inzwischen eine andere Adresse hinterlegt als die, die Du korrigieren wolltest",
@@ -195,7 +195,7 @@ export function mapKontaktSitzRefusal(error: unknown): { error?: string; fieldEr
       return { error: ANGABEN_STEHEN_FEST };
     // The control stands on a seat the page drew as a Widerspruch, so the seat has moved under it —
     // never that a rule shut a door: the one open seat is the one its own holder stepped out of.
-    case "bewerbung_sitz_already_answered":
+    case "bewerbung_seat_already_answered":
       return {
         error: buildRefusal({
           reason: "Neu besetzt wird nur eine Rolle, deren Person selbst widersprochen hat, und für diese Rolle gilt das nicht mehr",
@@ -204,11 +204,11 @@ export function mapKontaktSitzRefusal(error: unknown): { error?: string; fieldEr
       };
     case "bewerbung_kontakt_email_taken":
       return { fieldErrors: { email: ADRESSE_SCHON_VERGEBEN } };
-    case "bewerbung_kontakt_gesperrt":
+    case "bewerbung_kontakt_barred":
       return { fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT_FELD } };
     // The backend's judgement of the label: a page opened before a
     // deploy moved the form's label would seat the person under words other than those the backend runs.
-    case "fassung_unzulaessig":
+    case "wording_not_allowed":
       return { error: BEWERBUNG_VERALTET };
     default:
       return null;

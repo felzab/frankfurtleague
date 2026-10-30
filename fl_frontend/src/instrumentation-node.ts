@@ -44,7 +44,7 @@ export async function registerOnNode() {
  * What one job did in a pass, by count and never by person: `offen` the owed deletions or erasures it left, and
  * `error` what ended a job part-way, after the work its counts record.
  */
-type Durchlauf = { readonly count: Readonly<Record<string, number | string | null>>; readonly offen: number; readonly error?: unknown };
+type Durchlauf = { readonly count: Readonly<Record<string, number | string | null>>; readonly open: number; readonly error?: unknown };
 
 /**
  * One background job. It rejects, or resolves with an `error`, where it could not finish what it owes; each job is
@@ -59,9 +59,9 @@ type Job = { readonly name: string; readonly run: () => Promise<Durchlauf | void
 async function loadJobs(): Promise<{
   jobs: readonly Job[];
   drain: () => Promise<void>;
-  takeDrainCounts: () => Readonly<Record<string, number>> & { readonly aufgegeben: number };
+  takeDrainCounts: () => Readonly<Record<string, number>> & { readonly abandoned: number };
 }> {
-  const [bewerbungen, konto, loeschung, spiele, berechtigungen, mail] = await Promise.all([
+  const [bewerbungen, account, erasure, spiele, grants, mail] = await Promise.all([
     import("./features/bewerbungen/sweep"),
     import("./features/funktionen/sweep"),
     import("./features/saisons/sweep"),
@@ -73,10 +73,10 @@ async function loadJobs(): Promise<{
   return {
     jobs: [
       { name: "bewerbungen", run: bewerbungen.runBewerbungSweep },
-      { name: "konto", run: konto.runKontoSweep },
-      { name: "loeschung", run: loeschung.runLoeschungSweep },
+      { name: "konto", run: account.runKontoSweep },
+      { name: "loeschung", run: erasure.runLoeschungSweep },
       { name: "spielbestaetigungen", run: spiele.runSpielSweep },
-      { name: "berechtigungen", run: berechtigungen.runBerechtigungenAbgleich },
+      { name: "berechtigungen", run: grants.runBerechtigungenAbgleich },
     ],
     drain: mail.drainOutbox,
     takeDrainCounts: mail.takeDrainCounts,
@@ -101,20 +101,20 @@ const FIRST_PASS_DELAY_MS = 60 * 1000;
  * nothing until `register` returns (installed `03-file-conventions/instrumentation.md`).
  */
 function armScheduler(passes: Awaited<ReturnType<typeof loadJobs>>, heartbeat: string | undefined): void {
-  let laeuft = false;
+  let running = false;
   const tick = async () => {
     // A pass slower than the hour would otherwise run beside itself over the same rows.
-    if (laeuft) {
+    if (running) {
       logger.warn("scheduler.pass_skipped");
       return;
     }
 
-    laeuft = true;
+    running = true;
     try {
       // A background pass under a trace of its own: its writes drain nothing behind a response, the pass draining last.
       await ping(heartbeat, await runInBackground(mintTraceId(), () => runPass(passes)));
     } finally {
-      laeuft = false;
+      running = false;
     }
   };
 
@@ -151,7 +151,7 @@ async function runPass({ jobs, drain, takeDrainCounts }: Awaited<ReturnType<type
 
       zaehlungen[name] = durchlauf.count;
       if (durchlauf.error !== undefined) failed(name, durchlauf.error);
-      else if (durchlauf.offen > 0) ausfaelle.push(`${name} left ${String(durchlauf.offen)}`);
+      else if (durchlauf.open > 0) ausfaelle.push(`${name} left ${String(durchlauf.open)}`);
     } catch (error) {
       failed(name, error);
     }
@@ -163,9 +163,9 @@ async function runPass({ jobs, drain, takeDrainCounts }: Awaited<ReturnType<type
   }
   // Every drain's, a write's among them, whether this pass's own one finished or not: a mail is given up by whichever
   // drain meets it.
-  const postausgang = takeDrainCounts();
-  zaehlungen["postausgang"] = postausgang;
-  if (postausgang.aufgegeben > 0) ausfaelle.push(`postausgang gave up ${String(postausgang.aufgegeben)}`);
+  const outbox = takeDrainCounts();
+  zaehlungen["postausgang"] = outbox;
+  if (outbox.abandoned > 0) ausfaelle.push(`postausgang gave up ${String(outbox.abandoned)}`);
 
   const geschehen = Object.values(zaehlungen).some((count) => Object.values(count).some((value) => typeof value === "number" && value > 0));
   if (ausfaelle.length > 0) logger.warn("scheduler.pass", { ...zaehlungen, ausfaelle: ausfaelle });

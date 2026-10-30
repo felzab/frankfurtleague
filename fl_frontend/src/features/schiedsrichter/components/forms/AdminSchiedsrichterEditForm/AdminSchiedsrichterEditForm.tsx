@@ -29,7 +29,7 @@ import { FormHonorarSection } from "./FormHonorarSection";
 import { FormKontaktSection } from "./FormKontaktSection";
 import { FormPersonSection } from "./FormPersonSection";
 
-import type { FLBestaetigung, FLEinwilligung, FLKontakt, FLPostausgangLage } from "@/core/generated/client/types";
+import type { FLConfirmation, FLEinwilligung, FLKontakt, FLOutboxState } from "@/core/generated/client/types";
 import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
 import type { FLPatchSchiedsrichterPayload, FLSchiedsrichterPayloadDraft } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterDraftFields, SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
@@ -48,7 +48,7 @@ type AdminSchiedsrichterEditFormProps = {
     // never edited, so they travel beside the values rather than through `buildPayload`.
     geburtsdatum: string | null;
     einwilligung: FLEinwilligung | null;
-    bestaetigung: FLBestaetigung | null;
+    bestaetigung: FLConfirmation | null;
     /** The change pending at the stored address, which the address tool shows and this page links to. */
     adresswechsel_id: string | null;
     /** Why the address tool refuses this administrator that change, as the read serves it: the page then links nowhere. */
@@ -56,7 +56,7 @@ type AdminSchiedsrichterEditFormProps = {
     /** Whether the link's deadline has passed, as the read judged it rather than this browser's day. */
     abgelaufen: { bestaetigung: boolean };
     /** What became of the last confirmation mail the referee was owed, read off the Postausgang. */
-    zustellung: FLPostausgangLage | null;
+    zustellung: FLOutboxState | null;
   };
   /** Whether the registry holds the stored label, which no record of the row says. */
   istFassungBekannt: boolean | null;
@@ -81,7 +81,7 @@ export function AdminSchiedsrichterEditForm({ schiedsrichter, istFassungBekannt,
   const [kontakt, setKontakt] = useState<FLKontakt>(schiedsrichter.kontakt);
   const [defaultPayment, setDefaultPayment] = useState<number | null>(schiedsrichter.default_payment);
   const bestaetigteAdresse =
-    schiedsrichter.einwilligung?.bestaetigt_am != null && schiedsrichter.kontakt.email !== null
+    schiedsrichter.einwilligung?.confirmed_at != null && schiedsrichter.kontakt.email !== null
       ? {
           email: schiedsrichter.kontakt.email,
           adresswechselId: schiedsrichter.adresswechsel_id,
@@ -250,9 +250,9 @@ export function AdminSchiedsrichterEditForm({ schiedsrichter, istFassungBekannt,
             schiedsrichterId={schiedsrichter.id}
             hatAdresse={gespeicherteAdresseGilt}
             isRetired={isRetired}
-            bestaetigung={schiedsrichter.bestaetigung}
+            confirmation={schiedsrichter.bestaetigung}
             istAbgelaufen={schiedsrichter.abgelaufen.bestaetigung}
-            zustellung={schiedsrichter.zustellung}
+            delivery={schiedsrichter.zustellung}
             einwilligung={schiedsrichter.einwilligung}
             istFassungBekannt={istFassungBekannt}
             geburtsdatum={schiedsrichter.geburtsdatum}

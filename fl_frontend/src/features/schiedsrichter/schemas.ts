@@ -108,7 +108,7 @@ export const FLSchiedsrichterBestaetigungPayloadSchema = z.object({
   // confirming person read.
   text_version: LinkAntwortTextVersionSchema,
 });
-export type FLSchiedsrichterBestaetigungPayload = z.infer<typeof FLSchiedsrichterBestaetigungPayloadSchema>;
+export type FLSchiedsrichterConfirmationPayload = z.infer<typeof FLSchiedsrichterBestaetigungPayloadSchema>;
 
 // Redesign: goes with its last importer.
 /**

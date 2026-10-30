@@ -34,12 +34,12 @@ it("drains behind every write that landed, and behind nothing else", async () =>
   expect(drains, "a landed write asked for no drain").toBe(1);
 
   await sendToBackend("/spielorte", { authType: "base" });
-  await sendToBackend("/adresswechsel/ansicht", { authType: "base", method: "POST", body: "{}", readOnly: true });
+  await sendToBackend("/address_change/view", { authType: "base", method: "POST", body: "{}", readOnly: true });
   status = 409;
   await expect(sendToBackend("/spielorte", { authType: "base", method: "POST", body: "{}" })).rejects.toThrow();
   status = 200;
   // The drain's own claim and report, and every scheduler job's write: the pass drains last.
-  await runInBackground("0".repeat(32), () => sendToBackend("/postausgang/ausgabe", { authType: "system", method: "POST" }));
+  await runInBackground("0".repeat(32), () => sendToBackend("/outbox/handout", { authType: "system", method: "POST" }));
 
   expect(drains, "a read, a refused write or a background pass's write asked for a drain").toBe(1);
 });

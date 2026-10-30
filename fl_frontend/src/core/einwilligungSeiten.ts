@@ -1,6 +1,6 @@
 import z from "zod";
 
-import type { FLEinwilligungFassung } from "./generated/client/types";
+import type { FLEinwilligungWording } from "./generated/client/types";
 
 /** The pages this frontend renders a running label's words on, spelled as the backend keys them. */
 export type EinwilligungSeite =
@@ -122,14 +122,14 @@ const genau = <K extends string>(schluessel: readonly K[]) =>
  * page's: a label of another page, or one whose keys were never kept.
  */
 export function gekeyteFassung<A extends string, B extends string = never>(
-  fassung: FLEinwilligungFassung,
+  fassung: FLEinwilligungWording,
   absatzSchluessel: readonly A[],
   bedienSchluessel: readonly B[] = [],
 ): GekeyteFassung<A, B> {
   return {
     textVersion: fassung.text_version,
     absaetze: genau(absatzSchluessel).parse(fassung.absaetze_nach_schluessel) as Record<A, string>,
-    schalter: fassung.schalter,
-    bedienelemente: genau(bedienSchluessel).parse(fassung.bedienelemente) as Record<B, string>,
+    schalter: fassung.switch,
+    bedienelemente: genau(bedienSchluessel).parse(fassung.controls) as Record<B, string>,
   };
 }

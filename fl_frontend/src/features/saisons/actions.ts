@@ -23,9 +23,9 @@ import { describeSpielplanUmfang } from "./utils";
 
 import type {
   FLActivateSaisonResponse,
+  FLErasureSweepResponse,
   FLGenerateSpielplanPayload,
   FLGenerateSpielplanResponse,
-  FLLoeschungSweepResponse,
   FLPatchSaisonPayload,
   FLSwapGruppenPayload,
   FLSwapGruppenResponse,
@@ -142,7 +142,7 @@ export async function activateSaisonAction(rawPayload: { id: string }): Promise<
  * AWAITED inside the action's body, so the spine clears the site's cache tag after the last deletion: a run behind the
  * answer lands after that clear, and a squad page names deleted pupils until the `minutes` lifetime has passed.
  */
-async function loeschenNachUmstellung(senden: (nach: string | null) => Promise<FLLoeschungSweepResponse>): Promise<string[]> {
+async function loeschenNachUmstellung(senden: (nach: string | null) => Promise<FLErasureSweepResponse>): Promise<string[]> {
   let vonDerFristBeendet = false;
   // Each call answering its own cut: one the deadline ends would otherwise answer the whole press as of unknown
   // outcome, sending the administrator to check an activation that stands.
@@ -172,7 +172,7 @@ async function loeschenNachUmstellung(senden: (nach: string | null) => Promise<F
 /** Singular and plural spelled out, and nothing said where nobody was due. */
 function loeschungsSaetze(lauf: LoeschungSweep): string[] {
   const saetze: string[] = [];
-  const seit = lauf.abgeschlossene_saison_id;
+  const seit = lauf.completed_saison_id;
 
   if (seit !== null && lauf.spieler === 1) {
     saetze.push(`Eine Spielerin oder ein Spieler ohne Kadereintrag seit Saison ${seit} wurde gelöscht.`);
@@ -183,10 +183,10 @@ function loeschungsSaetze(lauf: LoeschungSweep): string[] {
   // A run cut short cannot say what remains, only who finishes it.
   if (lauf.abgebrochen) {
     saetze.push("Die Löschung ist nicht vollständig durchgelaufen. Was noch aussteht, löscht der nächste stündliche Durchlauf.");
-  } else if (lauf.verbleibend === 1) {
+  } else if (lauf.remaining === 1) {
     saetze.push("Eine weitere Löschung steht noch aus.");
-  } else if (lauf.verbleibend > 1) {
-    saetze.push(`${String(lauf.verbleibend)} weitere Löschungen stehen noch aus.`);
+  } else if (lauf.remaining > 1) {
+    saetze.push(`${String(lauf.remaining)} weitere Löschungen stehen noch aus.`);
   }
 
   return saetze;

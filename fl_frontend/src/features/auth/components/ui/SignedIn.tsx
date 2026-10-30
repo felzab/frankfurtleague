@@ -42,7 +42,7 @@ export function SignedIn({ address }: { address: string }) {
       continue={{ label: COPY.shared.uebersicht, href: SIGN_IN_LANDING }}
       // One press, as every sign-out is.
       signOut={{ label: COPY.shared.verb.abmelden, isBusy: isPending, onPress: () => void abmelden() }}
-      zeile={fehler}
+      row={fehler}
     />
   );
 }

@@ -32,9 +32,9 @@ import { BestaetigungHinweise, KlickBestaetigung, MedienHinweis, WhatsappHinweis
 import { ANTWORT_NICHT_GESPEICHERT, ANTWORT_NICHT_GESPEICHERT_SATZ, BestaetigungAbschnitt } from "./BestaetigungPanels";
 
 import type {
-  FLBewerbungEinwilligungAbgelehnt,
-  FLBewerbungEinwilligungAnsichtResponse,
-  FLBewerbungEinwilligungErteilt,
+  FLBewerbungEinwilligungDeclined,
+  FLBewerbungEinwilligungGiven,
+  FLBewerbungEinwilligungViewResponse,
 } from "@/core/generated/client/types";
 import type { LinkZustand } from "@/features/bewerbungen/types";
 import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
@@ -47,11 +47,11 @@ export type BestaetigungAbschluss =
   | { zustand: "erfolg"; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
   | { zustand: "widersprochen-neu" }
   // `ansicht` is the read the route made after the refusal, where it found a closed season.
-  | { zustand: LinkZustand | "saison_vorbei"; ansicht?: FLBewerbungEinwilligungAnsichtResponse };
+  | { zustand: LinkZustand | "saison_vorbei"; ansicht?: FLBewerbungEinwilligungViewResponse };
 
 type EinwilligungAntwort =
   | { success: true; ergebnis: "bestaetigt" | "abgelehnt"; geburtsdatum: string | null; whatsapp: boolean; medien: boolean }
-  | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei"; ansicht?: FLBewerbungEinwilligungAnsichtResponse });
+  | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei"; ansicht?: FLBewerbungEinwilligungViewResponse });
 
 /**
  * What the armed press sends. A constant rather than a literal in the branch: it is where
@@ -94,10 +94,10 @@ function antwortPayload(
   entwurf: Entwurf,
   ablehnen: boolean,
   medienAngeboten: boolean,
-): FLBewerbungEinwilligungErteilt | FLBewerbungEinwilligungAbgelehnt {
-  if (ablehnen) return { token: token, antwort: "abgelehnt" };
+): FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined {
+  if (ablehnen) return { token: token, antwort: "declined" };
 
-  return { token: token, antwort: "erteilt", text_version: textVersion, ...beurteilt(entwurf, medienAngeboten) };
+  return { token: token, antwort: "given", text_version: textVersion, ...beurteilt(entwurf, medienAngeboten) };
 }
 
 /**
@@ -341,7 +341,7 @@ export function BestaetigungFormPanel({
   // sending a 190-year-old to the submitter for a replacement is the wrong repair.
   const istZuJung = fieldErrors.geburtsdatum !== undefined && entwurf.geburtsdatum !== "" && entwurf.geburtsdatum > spaeteste;
 
-  const sende = async (payload: FLBewerbungEinwilligungErteilt | FLBewerbungEinwilligungAbgelehnt): Promise<void> => {
+  const sende = async (payload: FLBewerbungEinwilligungGiven | FLBewerbungEinwilligungDeclined): Promise<void> => {
     const gesendet = await postPublicForm<EinwilligungAntwort>("/api/bestaetigung/kontakt", payload);
 
     if (!gesendet.answered) {

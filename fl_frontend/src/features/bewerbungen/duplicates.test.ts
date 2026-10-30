@@ -29,7 +29,7 @@ function bewerbung(
     team = null,
     kuerzel = null,
     saisonId = "2627",
-    status = "eingereicht",
+    status = "submitted",
   }: { team?: string | null; kuerzel?: string | null; saisonId?: string; status?: FLBewerbung["status"] },
 ): Kandidat {
   return {
@@ -84,8 +84,8 @@ describe("applications a triage has to decide between", () => {
   it("passes over a decided application whose key collides", () => {
     const dubletten = markBewerbungDubletten(
       [
-        bewerbung("a", { team: CLUB, status: "angenommen" }),
-        bewerbung("b", { kuerzel: "GG", status: "abgelehnt" }),
+        bewerbung("a", { team: CLUB, status: "accepted" }),
+        bewerbung("b", { kuerzel: "GG", status: "declined" }),
         bewerbung("c", { kuerzel: "GG" }),
       ],
       [CLUB_KOLLIDIERT, SHORTHAND_COLLIDES],

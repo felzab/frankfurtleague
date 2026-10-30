@@ -48,7 +48,7 @@ export function AdminBewerbungView({
 }) {
   const saisonHref = useSaisonHref();
 
-  const isOpen = bewerbung.status === "eingereicht";
+  const isOpen = bewerbung.status === "submitted";
 
   // What each panel holds typed, which every other panel's write re-keys the page over. The acceptance
   // guards on the reason alone: the strip's boxes open only on a seat that closes it.
@@ -82,7 +82,7 @@ export function AdminBewerbungView({
             bewerbungId={bewerbung.id}
             neubesetzung={neubesetzung}
             staende={staende}
-            frist={bewerbung.bestaetigungsfrist}
+            frist={bewerbung.confirmation_deadline}
             fristAbgelaufen={fristAbgelaufen}
             isOpen={isOpen}
             isDirty={grundGetippt}

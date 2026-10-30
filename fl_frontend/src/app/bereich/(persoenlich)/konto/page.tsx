@@ -14,7 +14,7 @@ export default async function KontoPage() {
   // A granted address whose administrator verdict lapsed owes a fresh sign-in or its passkey step
   // before its passkeys, as the landing sends it; here the section
   // stands empty.
-  if (!subject.admin && subject.subjekt.verwaltung !== null) redirect("/bereich/admin");
+  if (!subject.admin && subject.subject.verwaltung !== null) redirect("/bereich/admin");
 
   return (
     <KontoPanel

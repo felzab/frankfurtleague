@@ -15,7 +15,7 @@ import { FOCUS_HEADING, focusRow, focusSection } from "@/shared/utils/focusAfter
 import { AdminBerechtigungAntragAblehnenPanel } from "../forms/AdminBerechtigungAntragAblehnenPanel";
 import { AdminBerechtigungAntragGenehmigenPanel } from "../forms/AdminBerechtigungAntragGenehmigenPanel";
 
-import type { FLBerechtigungAntragZeile } from "@/core/generated/client/types";
+import type { FLGrantApprovalRequestRow } from "@/core/generated/client/types";
 import type { ReactNode } from "react";
 
 /** The eyebrow naming the fact at the fact, as the grants' own cards carry it. */
@@ -34,7 +34,7 @@ function Fakt({ label, children, numeric = false }: { label: string; children: R
 export const AdminBerechtigungAntraegeList = memo(function AdminBerechtigungAntraegeList({
   antraege,
 }: {
-  antraege: readonly FLBerechtigungAntragZeile[];
+  antraege: readonly FLGrantApprovalRequestRow[];
 }) {
   // No empty section on every visit: once the last is decided, the page's own heading takes the focus.
   if (antraege.length === 0) return null;
@@ -51,7 +51,7 @@ export const AdminBerechtigungAntraegeList = memo(function AdminBerechtigungAntr
       </h2>
       <ul className="flex w-full flex-col gap-3">
         {antraege.map((antrag) => {
-          const gestelltAm = formatInstant(antrag.angefragt_am);
+          const gestelltAm = formatInstant(antrag.asked_at);
           // What each control's name tells the row apart by: the address, or the request's moment where it is withheld.
           const zeile = antrag.adresse ?? `Antrag vom ${gestelltAm}`;
           return (
@@ -70,7 +70,7 @@ export const AdminBerechtigungAntraegeList = memo(function AdminBerechtigungAntr
                     <span className={IDENTITY_NAME_CLASSES}>
                       <VonOderGesperrt
                         von={antrag.adresse}
-                        gesperrt={antrag.gesperrt}
+                        gesperrt={antrag.barred}
                       />
                     </span>
                   </div>
@@ -86,8 +86,8 @@ export const AdminBerechtigungAntraegeList = memo(function AdminBerechtigungAntr
                 </Fakt>
                 <Fakt label={GESTELLT_VON_LABEL}>
                   <VonOderGesperrt
-                    von={antrag.gestartet_von}
-                    gesperrt={antrag.gestartet_von_gesperrt}
+                    von={antrag.started_by}
+                    gesperrt={antrag.started_by_barred}
                   />
                 </Fakt>
                 <Fakt

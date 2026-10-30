@@ -186,8 +186,8 @@ export function fitsAnOfferedShape(occupancy: SaisonGruppenOccupancy): boolean {
  */
 export function drawShapeRefusal({ shape, occupancy }: { shape: FLSpielplanShape; occupancy: SaisonGruppenOccupancy }): ShapeRefusal | null {
   return (
-    drawGruppenRefusal({ groups: shape.number_of_groups, teams: shape.teams_per_group, occupancy }) ??
-    bracketRefusal(shape.number_of_groups, shape.qualifiers_per_group)
+    drawGruppenRefusal({ groups: shape.number_of_gruppen, teams: shape.teams_per_gruppe, occupancy }) ??
+    bracketRefusal(shape.number_of_gruppen, shape.qualifiers_per_gruppe)
   );
 }
 
@@ -197,9 +197,9 @@ export function drawShapeRefusal({ shape, occupancy }: { shape: FLSpielplanShape
  * `fl_frontend/src/features/saisons/utils.ts :: buildSpielplanVorschau` reads the server's sum instead.
  */
 export function drawnSpieltage({
-  number_of_groups: groups,
-  teams_per_group: teams,
-  qualifiers_per_group: qualifiers,
+  number_of_gruppen: groups,
+  teams_per_gruppe: teams,
+  qualifiers_per_gruppe: qualifiers,
 }: FLSpielplanShape): number {
   // `group_matchdays`: an odd group plays one more, the bye its rounds leave rather than rounding.
   let spieltage = teams < 2 ? 0 : teams % 2 === 0 ? teams - 1 : teams;
@@ -213,7 +213,7 @@ export function drawnSpieltage({
   return spieltage;
 }
 
-/** The `qualifiers_per_group` offer as the season stands. */
+/** The `qualifiers_per_gruppe` offer as the season stands. */
 export function qualifierCountOptions({
   groups,
   qualifiers,

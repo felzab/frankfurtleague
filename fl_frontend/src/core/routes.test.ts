@@ -17,7 +17,7 @@ const PAGES = new Set(
 
 describe("the links every rail frame writes", () => {
   // The rail's foot signed out, and the strip's and „Mehr“'s two legal pages.
-  it.each(["anmeldung", "impressum", "datenschutz"] as const)("lead to a page answering at the %s row's address", (row) => {
+  it.each(["signIn", "impressum", "datenschutz"] as const)("lead to a page answering at the %s row's address", (row) => {
     expect(PAGES.has(ROUTES[row].path())).toBe(true);
   });
 });

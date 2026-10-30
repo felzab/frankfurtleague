@@ -266,10 +266,10 @@ export function buildSpielplanVorschau(schedule: readonly FLSaisonPhaseSchedule[
   const vorschau: SpielplanVorschau = { spieltage: 0, spiele: 0, koRunden: [] };
 
   for (const entry of schedule) {
-    vorschau.spieltage += entry.matchdays;
+    vorschau.spieltage += entry.spieltage;
     // The product IS the phase's whole fixture count: the byes an odd group's extra matchday carries
     // are exactly what cancels it back to one fixture per pair.
-    vorschau.spiele += entry.matchdays * entry.matches_per_matchday;
+    vorschau.spiele += entry.spieltage * entry.matches_per_spieltag;
     if (entry.phase !== "gruppenphase") vorschau.koRunden.push(entry.phase);
   }
 

@@ -10,8 +10,8 @@ import type {
   FLSpielberichtSeiten,
   FLSpielberichtSpiel,
   FLSpielberichtSpieler,
+  FLSpielberichtStateEntry,
   FLSpielberichtVorschlag,
-  FLSpielberichtZustandEintrag,
 } from "@/core/generated/client/types";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -27,10 +27,10 @@ export type BerichtChip = { readonly worte: string; readonly vorschlag: FLSpielb
  * What an administrator's fixture card says of its report, in its state's tone; `null` for a state awaiting nobody.
  * `abweichend` reads „nicht übernommen“, never „geändert“: a first report beside a hand-typed result reads it too.
  */
-export function berichtChip({ zustand, ergebnis_vorschlag }: FLSpielberichtZustandEintrag): BerichtChip | null {
+export function berichtChip({ state: zustand, ergebnis_vorschlag }: FLSpielberichtStateEntry): BerichtChip | null {
   if (!SPIELBERICHT_ZUSTAENDE_OFFEN.has(zustand)) return null;
   // No score: it was proposed for other clubs than the fixture fields now, and beside the card it would read as theirs.
-  if (zustand === "teams_geaendert") {
+  if (zustand === "teams_changed") {
     return { worte: "Bericht zu anderen Teams", vorschlag: null, tone: SPIELBERICHT_ZUSTAND_TONE[zustand] };
   }
 
@@ -112,7 +112,7 @@ export function berlinZeitpunkt(stamp: string): string {
   return Number.isNaN(instant.getTime()) ? stamp : `${BERLIN_ZEITPUNKT.format(instant)} Uhr`;
 }
 
-/** Why a fixture takes no report today, `null` where it takes one, as `bericht_nicht_gespielt` and `bericht_abgesagt` judge a write. */
+/** Why a fixture takes no report today, `null` where it takes one, as `bericht_not_played` and `bericht_abgesagt` judge a write. */
 export type BerichtSperre = "abgesagt" | "undatiert" | "kuenftig";
 
 export function berichtSperre(spiel: Pick<FLSpielberichtSpiel, "datum" | "sonderereignis">, today: string): BerichtSperre | null {
@@ -142,13 +142,13 @@ const NEU_EINTRAGEN = "Lade die Seite neu und trage Deine Änderung dort erneut 
 const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
   schiedsrichter: {
     // Ahead of the spine's own reading, whose sentence names a team: the referee's record is what went.
-    funktion_nicht_gehalten: "Du bist nicht mehr als Schiedsrichterin oder Schiedsrichter eingetragen. Lade die Seite neu.",
-    bericht_nicht_gespielt: buildRefusal({
+    role_not_held: "Du bist nicht mehr als Schiedsrichterin oder Schiedsrichter eingetragen. Lade die Seite neu.",
+    bericht_not_played: buildRefusal({
       reason: "Dieses Spiel hat noch kein Datum oder noch nicht stattgefunden",
       repair: LADE_DIE_SEITE_NEU,
     }),
-    bericht_nicht_geleitet: buildRefusal({ reason: "Dieses Spiel leitest Du nicht mehr", repair: LADE_DIE_SEITE_NEU }),
-    bericht_nicht_im_kader: buildRefusal({
+    bericht_not_officiated: buildRefusal({ reason: "Dieses Spiel leitest Du nicht mehr", repair: LADE_DIE_SEITE_NEU }),
+    bericht_not_in_kader: buildRefusal({
       reason: "Eine gewählte Person steht nicht mehr im Kader ihres Teams",
       repair: "Lade die Seite neu und wähle neu",
     }),
@@ -156,13 +156,13 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
       reason: "Dieses Spiel ist inzwischen als ausgefallen oder annulliert eingetragen und nimmt keinen Spielbericht an",
       repair: LADE_DIE_SEITE_NEU,
     }),
-    bericht_grund_fehlt: GRUND_FEHLT,
-    bericht_elfmeter_in_der_gruppe: ELFMETER_IN_DER_GRUPPE,
+    bericht_grund_missing: GRUND_FEHLT,
+    bericht_elfmeter_in_the_gruppe: ELFMETER_IN_DER_GRUPPE,
     saison_past: buildRefusal({
       reason: "Die Saison dieses Spiels ist vorbei, und den Spielbericht kannst Du nicht mehr ändern",
       repair: LADE_DIE_SEITE_NEU,
     }),
-    bericht_inzwischen_geaendert: buildRefusal({
+    bericht_meanwhile_changed: buildRefusal({
       reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Verwaltung oder von Dir in einem anderen Fenster",
       repair: NEU_EINTRAGEN,
     }),
@@ -171,8 +171,8 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
   admin: {
     // A reload, no date to enter: the correction page states an undated or future fixture before any press, so this
     // arrives only where the fixture moved under the page, and an entered date may be the future one.
-    bericht_nicht_gespielt: buildRefusal({ reason: "Das Spiel hat noch kein Datum oder findet erst noch statt", repair: LADE_DIE_SEITE_NEU }),
-    bericht_nicht_im_kader: buildRefusal({
+    bericht_not_played: buildRefusal({ reason: "Das Spiel hat noch kein Datum oder findet erst noch statt", repair: LADE_DIE_SEITE_NEU }),
+    bericht_not_in_kader: buildRefusal({
       reason: "Eine gewählte Person steht nicht im Kader ihres Teams",
       repair: "Lade die Seite neu und wähle neu",
     }),
@@ -180,9 +180,9 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
       reason: "Das Spiel ist als ausgefallen oder annulliert eingetragen",
       repair: "Entferne das Sonderereignis im Spiel, um den Spielbericht zu bearbeiten",
     }),
-    bericht_grund_fehlt: GRUND_FEHLT,
-    bericht_elfmeter_in_der_gruppe: ELFMETER_IN_DER_GRUPPE,
-    bericht_inzwischen_geaendert: buildRefusal({
+    bericht_grund_missing: GRUND_FEHLT,
+    bericht_elfmeter_in_the_gruppe: ELFMETER_IN_DER_GRUPPE,
+    bericht_meanwhile_changed: buildRefusal({
       reason: "Der Spielbericht wurde inzwischen geändert, etwa von der Schiedsrichterin oder dem Schiedsrichter",
       repair: NEU_EINTRAGEN,
     }),

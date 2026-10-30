@@ -47,14 +47,13 @@ async function LoeschungContent(props: NextPageProps) {
   if (subject === null) return <LoeschungView start={{ zustand: "anmelden" }} />;
 
   // A grant holder's press asks for the passkey first, whichever factor made the session.
-  const verwaltend = subject.subjekt.verwaltung === null ? null : await readGrantHolderStepUp();
-  if (subject.subjekt.verwaltung !== null && verwaltend === null) return <LoeschungView start={{ zustand: "anmelden" }} />;
+  const verwaltend = subject.subject.verwaltung === null ? null : await readGrantHolderStepUp();
+  if (subject.subject.verwaltung !== null && verwaltend === null) return <LoeschungView start={{ zustand: "anmelden" }} />;
   if (verwaltend !== null && !verwaltend.hasPasskey) return <LoeschungView start={{ zustand: "ohnePasskey" }} />;
 
   // Uncaught: without the list the page cannot say what goes, so a failed read reaches the error boundary.
-  const { spieler, schiedsrichter, sitze, bewerbungen, registrierungen, adresswechsel, verwaltung, letzter_inhaber } =
-    await getLoeschungAnsicht();
-  const ansicht = { spieler, schiedsrichter, sitze, bewerbungen, registrierungen, adresswechsel, verwaltung, letzter_inhaber };
+  const { spieler, schiedsrichter, seats, bewerbungen, registrierungen, address_change, verwaltung, last_owner } = await getLoeschungAnsicht();
+  const ansicht = { spieler, schiedsrichter, seats, bewerbungen, registrierungen, address_change, verwaltung, last_owner };
 
   return (
     <LoeschungView

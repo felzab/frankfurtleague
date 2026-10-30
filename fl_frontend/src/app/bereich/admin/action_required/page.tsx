@@ -23,7 +23,7 @@ export default async function AdminOverviewPage(props: NextPageProps) {
       overviewSpiele={adminRes.spiele}
       bracketFaults={adminRes.bracket_faults}
       bestaetigungen={bestaetigungenRes?.spielbestaetigungen ?? null}
-      bestaetigungenVollstaendig={bestaetigungenRes?.vollstaendig ?? true}
+      bestaetigungenVollstaendig={bestaetigungenRes?.complete ?? true}
       // The states the list's union was judged on, from its own snapshot.
       spielberichte={adminRes.spielberichte}
       today={getGermanTodayStr()}

@@ -239,7 +239,7 @@ function catchRedirect(): unknown {
 const Seat = z.object({ team_id: z.string().min(1), saison_id: z.string().min(1) });
 
 /** A signed-in person holding a contact seat at each team and season named, in seasons that grant a panel. */
-const sitzend = (...sitze: { team_id: string; saison_id: string }[]) => person({ sitze: sitze.map((at) => seat(at)) });
+const sitzend = (...seats: { team_id: string; saison_id: string }[]) => person({ seats: seats.map((at) => seat(at)) });
 
 describe("the person lane", () => {
   const melden = action({

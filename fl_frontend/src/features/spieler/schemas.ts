@@ -117,7 +117,7 @@ const kaderZeileKeyFields = {
 
 // Redesign: goes with its last importer.
 /**
- * Mirrors `FLPatchKaderZeilePayload`, wholesale: an omitted field would erase a stored one. The club
+ * Mirrors `FLPatchKaderRowPayload`, wholesale: an omitted field would erase a stored one. The club
  * and the Nachnominierung are the stored row's, and a seat holder's write names neither.
  */
 export const FLPatchKaderZeilePayloadSchema = z.object({
@@ -127,7 +127,7 @@ export const FLPatchKaderZeilePayloadSchema = z.object({
   stufe: FLSpielerStufeSchema.nullable(),
   rolle: FLSpielerRolleSchema.nullable(),
 });
-export type FLPatchKaderZeilePayload = z.infer<typeof FLPatchKaderZeilePayloadSchema>;
+export type FLPatchKaderRowPayload = z.infer<typeof FLPatchKaderZeilePayloadSchema>;
 
 // Redesign: goes with its last importer.
 /** The austragen's whole argument: the row's three ids, every one in the path, and no request body. */

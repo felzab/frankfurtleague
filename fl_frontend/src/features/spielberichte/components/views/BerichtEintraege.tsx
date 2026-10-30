@@ -16,12 +16,12 @@ export function BerichtEintraege({ lesen, bericht }: { lesen: SpielberichtAnsich
 
   // A side fielding another club since is named by its place, never by the club now on it, which the entry is not about.
   const team = (seite: FLSpielSeite) =>
-    lesen.seiten_geaendert.includes(seite)
+    lesen.seiten_changed.includes(seite)
       ? `früheres ${seite === "team1" ? "Team 1" : "Team 2"}`
       : ((seite === "team1" ? spiel.team1?.name : spiel.team2?.name) ?? "");
   const person = (spielerId: string | null): string => {
     if (spielerId === null) return TORSCHUETZE_UNBEKANNT_LABEL;
-    const genannt = [...lesen.kader.team1, ...lesen.kader.team2, ...lesen.genannt].find((spieler) => spieler.spieler_id === spielerId);
+    const genannt = [...lesen.kader.team1, ...lesen.kader.team2, ...lesen.named].find((spieler) => spieler.spieler_id === spielerId);
     return genannt === undefined ? spielerId : spielerLabel(genannt);
   };
 

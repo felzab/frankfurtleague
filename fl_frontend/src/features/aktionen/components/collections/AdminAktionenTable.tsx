@@ -39,7 +39,7 @@ import {
 } from "../../constants";
 import { describeAktionDatensatz, formatAktionZeitpunkt, herkunftOfAktor, labelForCollection, personAkteurLabel } from "../../utils";
 
-import type { FLAktion } from "@/core/generated/client/types";
+import type { FLActionLogEntry } from "@/core/generated/client/types";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { AktionHerkunft } from "../../constants";
@@ -70,7 +70,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
   filteredAktionen,
   emptiness,
 }: {
-  filteredAktionen: FLAktion[];
+  filteredAktionen: FLActionLogEntry[];
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
 }) {
@@ -81,7 +81,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
   const router = useRouter();
 
   /** Both halves of one press: the number for a support request, and the narrowing for its rows. */
-  const handleCopyVorgang = async (aktion: FLAktion) => {
+  const handleCopyVorgang = async (aktion: FLActionLogEntry) => {
     const copied = await copyTextToClipboard(aktion.trace_id);
 
     if (copied) appToast.success("Vorgangsnummer kopiert", { description: "Die Liste zeigt jetzt nur noch diesen Vorgang." });
@@ -93,7 +93,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     router.push(withSaisonId(`/bereich/admin/aktionen?trace_id=${encodeURIComponent(aktion.trace_id)}`, selectedFromUrl));
   };
 
-  const renderAkteur = (aktion: FLAktion) => {
+  const renderAkteur = (aktion: FLActionLogEntry) => {
     const { actor } = aktion;
     const herkunft = herkunftOfAktor(actor);
 
@@ -121,7 +121,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
             ) : (
               <VonOderGesperrt
                 von={actor.email}
-                gesperrt={actor.email_gesperrt}
+                gesperrt={actor.email_barred}
               />
             )}
           </span>
@@ -146,7 +146,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
    * The when leads and the who follows it, an audit row being who did what when and the when its sort
    * key. One source for both layouts, so the table's cells and the phone cards cannot disagree.
    */
-  const renderZeitpunkt = (aktion: FLAktion) => {
+  const renderZeitpunkt = (aktion: FLActionLogEntry) => {
     const { datum, uhrzeit } = formatAktionZeitpunkt(aktion.at);
 
     return (
@@ -160,15 +160,15 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     );
   };
 
-  const renderArtTag = (aktion: FLAktion) => (
+  const renderArtTag = (aktion: FLActionLogEntry) => (
     <span className={labelBadge(AKTION_OPERATION_TINTS[aktion.operation])}>{AKTION_OPERATION_LABELS[aktion.operation]}</span>
   );
 
   // A tag of its own and never a word inside a sentence: the area names carry three grammatical
   // genders, so any article or pronoun agreeing with the value is wrong for most of them.
-  const renderBereichTag = (aktion: FLAktion) => <span className={labelBadge("info")}>{labelForCollection(aktion.collection)}</span>;
+  const renderBereichTag = (aktion: FLActionLogEntry) => <span className={labelBadge("info")}>{labelForCollection(aktion.collection)}</span>;
 
-  const renderAufruf = (aktion: FLAktion) =>
+  const renderAufruf = (aktion: FLActionLogEntry) =>
     aktion.request === null ? (
       <span className="fluid-xs">
         <Leer>Ohne Aufruf</Leer>
@@ -180,7 +180,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
       </span>
     );
 
-  const renderDatensatz = (aktion: FLAktion) => {
+  const renderDatensatz = (aktion: FLActionLogEntry) => {
     const datensatz = describeAktionDatensatz(aktion);
 
     if (datensatz.kind === "dokument") return <span className="font-mono fluid-xs break-all text-foreground">{datensatz.id}</span>;
@@ -215,19 +215,19 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
    * Nothing at all where a write replaced nothing: an insert has no earlier state, so a badge there would announce an
    * absence that is the normal case. A redaction reports in place of the copy, because the values it names are gone.
    */
-  const renderStandBadge = (aktion: FLAktion) => {
+  const renderStandBadge = (aktion: FLActionLogEntry) => {
     if (aktion.redacted_at !== null) {
       const datum = formatAktionZeitpunkt(aktion.redacted_at).datum;
 
       // A copy still standing kept all the redaction did not reach: the record's own state, and anybody it left.
-      return aktion.stand_gesichert ? (
+      return aktion.stand_secured ? (
         <span className={labelBadge("danger")}>Einzelne Werte gelöscht am {datum}</span>
       ) : (
         <span className={labelBadge("danger")}>Werte gelöscht am {datum}</span>
       );
     }
 
-    if (aktion.stand_gesichert) return <span className={labelBadge("success")}>Stand gesichert</span>;
+    if (aktion.stand_secured) return <span className={labelBadge("success")}>Stand gesichert</span>;
 
     return null;
   };
@@ -236,7 +236,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
    * The operation and the area are one fact about the write, and the request that made it belongs
    * with the record it was made against: that is why one column holds all four.
    */
-  const renderAenderung = (aktion: FLAktion) => (
+  const renderAenderung = (aktion: FLActionLogEntry) => (
     <div className="flex min-w-0 flex-col items-start gap-2">
       <div className="flex flex-row flex-wrap gap-2">
         {renderArtTag(aktion)}
@@ -255,13 +255,13 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
   );
 
   // The row has no name to be announced by, so the moment it happened is what tells two of them apart.
-  const zeitpunktLabel = (aktion: FLAktion) => {
+  const zeitpunktLabel = (aktion: FLActionLogEntry) => {
     const { datum, uhrzeit } = formatAktionZeitpunkt(aktion.at);
 
     return uhrzeit === null ? datum : `${datum} um ${uhrzeit} Uhr`;
   };
 
-  const renderActions = (aktion: FLAktion) => (
+  const renderActions = (aktion: FLActionLogEntry) => (
     <RowActions>
       {/* Only where the row names ONE document: a fan-out matched a set and a bulk create named
           nothing, so neither has a single history to open. */}
@@ -328,7 +328,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
               <Table.Body
                 items={filteredAktionen}
                 renderEmptyState={() => <AdminCrudEmptyRow message={EMPTY_MESSAGES[emptiness]} />}>
-                {(aktion: FLAktion) => (
+                {(aktion: FLActionLogEntry) => (
                   <Table.Row
                     id={aktion.id}
                     className="border-b border-border/50 last:border-b-0">

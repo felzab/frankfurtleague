@@ -26,7 +26,7 @@ const person = (vorname: string, overrides: Partial<BewerbungKontaktpersonDraft>
   nachname: "Mustermann",
   email: `${vorname.toLowerCase()}@beispiel.de`,
   telefon: `069 ${vorname.length}234567`,
-  einwilligung: { text_version: "2026-08", erteilt: true },
+  einwilligung: { text_version: "2026-08", given: true },
   ...overrides,
 });
 
@@ -50,10 +50,10 @@ const validDraft = (overrides: Partial<BewerbungFormDraft> = {}): BewerbungFormD
     trainer: person("Tim"),
     ansprechperson: person("Erika"),
     stellvertretung: person("Lena"),
-    trainer_ist_zugleich: null,
+    trainer_is_also: null,
   },
-  trikot: { vorhandener_satz: "15 rote", wunschfarbe: "rot" },
-  kader: { voraussichtliche_groesse: 14, gute_spieler: 3 },
+  trikot: { existing_satz: "15 rote", wunschfarbe: "rot" },
+  kader: { expected_size: 14, good_spieler: 3 },
   stufengroesse: 90,
   ...overrides,
 });
@@ -133,7 +133,7 @@ describe("the three people have to be tellable apart", () => {
         trainer: person("Erika"),
         ansprechperson: person("Erika"),
         stellvertretung: person("Lena"),
-        trainer_ist_zugleich: "ansprechperson",
+        trainer_is_also: "ansprechperson",
       },
     });
 
@@ -153,7 +153,7 @@ describe("the three people have to be tellable apart", () => {
         trainer: person("Erika"),
         ansprechperson: person("Erika"),
         stellvertretung: person("Erika"),
-        trainer_ist_zugleich: "ansprechperson",
+        trainer_is_also: "ansprechperson",
       },
     });
 
@@ -174,7 +174,7 @@ describe("the three people have to be tellable apart", () => {
           trainer: person("Tim"),
           ansprechperson: person("Erika"),
           stellvertretung: person("Lena"),
-          trainer_ist_zugleich: "ansprechperson",
+          trainer_is_also: "ansprechperson",
         },
       }),
     );
@@ -194,12 +194,12 @@ describe("the three people have to be tellable apart", () => {
     const sharedSeat = validDraft({
       kontakte: {
         ...draft.kontakte,
-        trainer: person("Tim", { einwilligung: { text_version: "2026-08", erteilt: false } }),
+        trainer: person("Tim", { einwilligung: { text_version: "2026-08", given: false } }),
         stellvertretung: person("Lena", { email: draft.kontakte.ansprechperson.email }),
       },
     });
 
-    expect(refusedPaths(sharedSeat)).toStrictEqual(["kontakte.stellvertretung.email", "kontakte.trainer.einwilligung.erteilt"]);
+    expect(refusedPaths(sharedSeat)).toStrictEqual(["kontakte.stellvertretung.email", "kontakte.trainer.einwilligung.given"]);
   });
 
   /* Read off the issues rather than the field map, which keeps a box's first message: the empty box's
@@ -218,7 +218,7 @@ describe("the three people have to be tellable apart", () => {
     const payload = bewerbungPayload(validDraft());
     const withoutSeat = Object.fromEntries(Object.entries(payload.kontakte).filter(([sitz]) => sitz !== "stellvertretung"));
 
-    for (const kontakte of [withoutSeat, { ...payload.kontakte, trainer_ist_zugleich: "trainer" }]) {
+    for (const kontakte of [withoutSeat, { ...payload.kontakte, trainer_is_also: "trainer" }]) {
       const parsed = FLPostBewerbungPayloadSchema.safeParse({ ...payload, kontakte });
 
       expect(parsed.success, JSON.stringify(Object.keys(kontakte))).toBe(false);
@@ -233,7 +233,7 @@ describe("the three people have to be tellable apart", () => {
         trainer: person("Tim"),
         ansprechperson: person("Erika"),
         stellvertretung: person("Lena"),
-        trainer_ist_zugleich: "ansprechperson",
+        trainer_is_also: "ansprechperson",
       },
     });
 
@@ -282,17 +282,17 @@ describe("the Kenntnisnahme each seat carries", () => {
      that would record the absence of an acknowledgement as an answer to the question. */
   it("refuses an unticked box on the seat that left it unticked", () => {
     const without = validDraft({
-      kontakte: { ...validDraft().kontakte, stellvertretung: person("Lena", { einwilligung: { text_version: "2026-08", erteilt: false } }) },
+      kontakte: { ...validDraft().kontakte, stellvertretung: person("Lena", { einwilligung: { text_version: "2026-08", given: false } }) },
     });
 
-    expect(refusedPaths(without)).toStrictEqual(["kontakte.stellvertretung.einwilligung.erteilt"]);
+    expect(refusedPaths(without)).toStrictEqual(["kontakte.stellvertretung.einwilligung.given"]);
   });
 
   /* The version is what a stored record cites. Without it the record claims acknowledgement of wording
      nobody can identify afterwards. */
   it("refuses a Kenntnisnahme citing no wording version", () => {
     const without = validDraft({
-      kontakte: { ...validDraft().kontakte, trainer: person("Tim", { einwilligung: { text_version: "  ", erteilt: true } }) },
+      kontakte: { ...validDraft().kontakte, trainer: person("Tim", { einwilligung: { text_version: "  ", given: true } }) },
     });
 
     expect(refusedPaths(without)).toStrictEqual(["kontakte.trainer.einwilligung.text_version"]);
@@ -437,11 +437,11 @@ describe("the colour the school wishes for", () => {
   /* Answered on the PAYLOAD, unlike the stored field it becomes: a school has a wish, and an empty
      row standing for „keine“ satisfies the browser's `required` while meaning the opposite. */
   it("refuses a submission naming no colour", () => {
-    expect(refusedPaths(validDraft({ trikot: { vorhandener_satz: "15 rote", wunschfarbe: null } }))).toStrictEqual(["trikot.wunschfarbe"]);
+    expect(refusedPaths(validDraft({ trikot: { existing_satz: "15 rote", wunschfarbe: null } }))).toStrictEqual(["trikot.wunschfarbe"]);
   });
 
   it("accepts one naming a colour, and asks for nothing about the shirts themselves", () => {
-    expect(refusedPaths(validDraft({ trikot: { vorhandener_satz: "", wunschfarbe: "blau" } }))).toStrictEqual([]);
+    expect(refusedPaths(validDraft({ trikot: { existing_satz: "", wunschfarbe: "blau" } }))).toStrictEqual([]);
   });
 });
 
@@ -515,44 +515,40 @@ describe("the squad the school estimates", () => {
   /* The estimate the league plans a season's groups against. Zero teams is not a team, and an empty
      box is `null` rather than a number the form invented. */
   it("refuses a squad of nobody and a squad nobody estimated", () => {
-    expect(refusedPaths(validDraft({ kader: { voraussichtliche_groesse: 0, gute_spieler: 0 } }))).toStrictEqual([
-      "kader.voraussichtliche_groesse",
-    ]);
-    expect(refusedPaths(validDraft({ kader: { voraussichtliche_groesse: null, gute_spieler: 0 } }))).toStrictEqual([
-      "kader.voraussichtliche_groesse",
-    ]);
+    expect(refusedPaths(validDraft({ kader: { expected_size: 0, good_spieler: 0 } }))).toStrictEqual(["kader.expected_size"]);
+    expect(refusedPaths(validDraft({ kader: { expected_size: null, good_spieler: 0 } }))).toStrictEqual(["kader.expected_size"]);
   });
 
   /* Answered rather than nullable: „keiner“ is a number, and a blank box left the league guessing
      whether the school meant none or had not looked. */
   it("refuses an unanswered count of active players and accepts a count of none", () => {
-    expect(refusedPaths(validDraft({ kader: { voraussichtliche_groesse: 14, gute_spieler: null } }))).toStrictEqual(["kader.gute_spieler"]);
-    expect(refusedPaths(validDraft({ kader: { voraussichtliche_groesse: 14, gute_spieler: 0 } }))).toStrictEqual([]);
+    expect(refusedPaths(validDraft({ kader: { expected_size: 14, good_spieler: null } }))).toStrictEqual(["kader.good_spieler"]);
+    expect(refusedPaths(validDraft({ kader: { expected_size: 14, good_spieler: 0 } }))).toStrictEqual([]);
   });
 
   it("refuses a negative count of active players", () => {
-    expect(refusedPaths(validDraft({ kader: { voraussichtliche_groesse: 14, gute_spieler: -1 } }))).toStrictEqual(["kader.gute_spieler"]);
+    expect(refusedPaths(validDraft({ kader: { expected_size: 14, good_spieler: -1 } }))).toStrictEqual(["kader.good_spieler"]);
   });
 
   /* A fraction is not an unanswered box, and `z.int()` collapsed the two into one `invalid_type`: both
      counts told a school that typed `1.5` to say how many players it expects. */
-  const kaderRefusal = (feld: "voraussichtliche_groesse" | "gute_spieler", padded2: number): string => {
-    const kader = { voraussichtliche_groesse: 14, gute_spieler: 3, [feld]: padded2 };
+  const kaderRefusal = (feld: "expected_size" | "good_spieler", padded2: number): string => {
+    const kader = { expected_size: 14, good_spieler: 3, [feld]: padded2 };
     const parsed = FLPostBewerbungPayloadSchema.safeParse(bewerbungPayload(validDraft({ kader })));
 
     return parsed.success ? "" : (parsed.error.issues.find((issue) => issue.path.join(".") === `kader.${feld}`)?.message ?? "");
   };
 
   it("tells each count apart from its own empty box when a fraction is typed", () => {
-    expect(kaderRefusal("voraussichtliche_groesse", 1.5)).toBe("Ein Kader zählt keine halben Spieler.");
-    expect(kaderRefusal("gute_spieler", 1.5)).toBe("Bitte gib eine ganze Zahl an Spielern ein.");
+    expect(kaderRefusal("expected_size", 1.5)).toBe("Ein Kader zählt keine halben Spieler.");
+    expect(kaderRefusal("good_spieler", 1.5)).toBe("Bitte gib eine ganze Zahl an Spielern ein.");
   });
 
   /* The half these sit beside: the empty box keeps the message that names what the field is FOR, which
      is the one a school reads most often. */
   it("keeps each count's own empty-box message", () => {
-    expect(kaderRefusal("voraussichtliche_groesse", NaN)).toMatch(/^Bitte gib an, mit wie vielen Spielern/);
-    expect(kaderRefusal("gute_spieler", NaN)).toMatch(/Verbandsliga/);
+    expect(kaderRefusal("expected_size", NaN)).toMatch(/^Bitte gib an, mit wie vielen Spielern/);
+    expect(kaderRefusal("good_spieler", NaN)).toMatch(/Verbandsliga/);
   });
 });
 
@@ -599,8 +595,8 @@ describe("the squad question asks for one level in both halves", () => {
      back — and each half survives being reverted on its own. */
   it("names the same level in the label and in the refusal", () => {
     const section = renderMarkup(FormTeamSection, {
-      trikot: { vorhandener_satz: "", wunschfarbe: null },
-      kader: { voraussichtliche_groesse: 14, gute_spieler: null },
+      trikot: { existing_satz: "", wunschfarbe: null },
+      kader: { expected_size: 14, good_spieler: null },
       wunschgegner: "",
       schulen: [],
       vergebeneFarben: [],
@@ -611,13 +607,13 @@ describe("the squad question asks for one level in both halves", () => {
       onFarbePicked: () => undefined,
     });
     // The label of the field whose box writes the strong count, which stands before that box.
-    const box = section.indexOf('name="kader.gute_spieler"');
+    const box = section.indexOf('name="kader.good_spieler"');
     const opening = section.lastIndexOf('data-slot="label"', box);
     const label = box < 0 || opening < 0 ? "" : textOf(section.slice(section.indexOf(">", opening) + 1, section.indexOf("</label>", opening)));
     const refusal =
       FLPostBewerbungPayloadSchema.safeParse(
-        bewerbungPayload(validDraft({ kader: { voraussichtliche_groesse: 14, gute_spieler: null } })),
-      ).error?.issues.find((issue) => issue.path.join(".") === "kader.gute_spieler")?.message ?? "";
+        bewerbungPayload(validDraft({ kader: { expected_size: 14, good_spieler: null } })),
+      ).error?.issues.find((issue) => issue.path.join(".") === "kader.good_spieler")?.message ?? "";
 
     assert.ok(label !== "", "the squad field carries no label to compare against");
     assert.ok(refusal !== "", "an unanswered squad field is not refused, so there is nothing to compare");
@@ -631,7 +627,7 @@ describe("the one field of a submitted application an administrator may move", (
     id: "6890a1b2c3d4e5f607190001",
     rolle: "ansprechperson" as const,
     email: "erika@schule.de",
-    bisherige_email: "erika.alt@schule.de",
+    previous_email: "erika.alt@schule.de",
   };
 
   const refusalFor = (payload: unknown): Record<string, string> => {
@@ -646,7 +642,7 @@ describe("the one field of a submitted application an administrator may move", (
       "id",
       "rolle",
       "email",
-      "bisherige_email",
+      "previous_email",
     ]);
   });
 
@@ -693,7 +689,7 @@ describe("the consenting answer's birth date", () => {
   it("is refused missing, on the date's own path, in German", () => {
     const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({
       token: "x".repeat(20),
-      antwort: "erteilt",
+      antwort: "given",
       geburtsdatum: "",
       whatsapp: false,
       medien: false,
@@ -730,7 +726,7 @@ describe("the label a confirmation's answer names", () => {
      body the endpoint answers with a code no box can carry. */
   it("is refused empty or blank, as the endpoint refuses it", () => {
     // A consent, the one answer naming a label, with a date inside every floor and ceiling for decades.
-    const antwort = { token: "kein-echtes-token", antwort: "erteilt", geburtsdatum: "1980-01-01", whatsapp: false, medien: false };
+    const antwort = { token: "kein-echtes-token", antwort: "given", geburtsdatum: "1980-01-01", whatsapp: false, medien: false };
 
     for (const text_version of ["", "   "]) {
       const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ ...antwort, text_version });

@@ -231,8 +231,8 @@ describe("the triage's refusals against the codes its endpoints publish", () => 
 const ENTSCHIEDEN: FLBewerbung = {
   id: BEWERBUNG_ID,
   saison_id: "2026",
-  eingereicht_am: "2026-09-01",
-  status: "eingereicht",
+  submitted_at: "2026-09-01",
+  status: "submitted",
   team_id: null,
   schule: {
     team_name: "Gymnasium Beispiel",
@@ -249,22 +249,22 @@ const ENTSCHIEDEN: FLBewerbung = {
       nachname: "Meier",
       telefon: "069 1234567",
       geburtsdatum: null,
-      einwilligung: kenntnisnahme({ text_version: FORM_LABEL, datum: "2026-09-01", bestaetigt_am: null }),
+      einwilligung: kenntnisnahme({ text_version: FORM_LABEL, datum: "2026-09-01", confirmed_at: null }),
     },
     stellvertretung: null,
-    trainer_ist_zugleich: null,
+    trainer_is_also: null,
   },
-  trikot: { vorhandener_satz: "Ein Satz", wunschfarbe: "rot" },
-  kader: { voraussichtliche_groesse: 14, gute_spieler: 2 },
+  trikot: { existing_satz: "Ein Satz", wunschfarbe: "rot" },
+  kader: { expected_size: 14, good_spieler: 2 },
   stufengroesse: 96,
   wunschgegner: null,
-  entscheidung: null,
-  bestaetigungen: {
+  decision: null,
+  confirmations: {
     trainer: null,
-    ansprechperson: { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null },
+    ansprechperson: { sent_at: "2026-09-01", reminded_at: null, declined_at: null, delivery: null },
     stellvertretung: null,
   },
-  bestaetigungsfrist: "2026-09-15",
+  confirmation_deadline: "2026-09-15",
 };
 
 /** Both decisions, each pressed as its panel presses it and answered, where it lands, with `document`. */
@@ -294,7 +294,7 @@ const DECISIONS = [
 
 /** Each repair's payload, as its control sends it for the Ansprechperson's seat. */
 const ERNEUT = { id: BEWERBUNG_ID, rolle: "ansprechperson" } as const;
-const KORREKTUR = { id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@example.de", bisherige_email: PERSON.email } as const;
+const KORREKTUR = { id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@example.de", previous_email: PERSON.email } as const;
 const SITZ = {
   id: BEWERBUNG_ID,
   rolle: "ansprechperson",
@@ -306,7 +306,7 @@ const SITZ = {
 } as const;
 
 /** The paths of the three repairs above, each a write that mints the seat's link and so spends the one it held. */
-const ERNEUT_PATH = `/bewerbungen/${BEWERBUNG_ID}/einwilligung/ansprechperson/erneut`;
+const ERNEUT_PATH = `/bewerbungen/${BEWERBUNG_ID}/einwilligung/ansprechperson/resend`;
 const KORREKTUR_PATH = `/bewerbungen/${BEWERBUNG_ID}/kontakte/ansprechperson/email`;
 const SITZ_PATH = `/bewerbungen/${BEWERBUNG_ID}/kontakte/ansprechperson`;
 
@@ -314,14 +314,14 @@ const SITZ_PATH = `/bewerbungen/${BEWERBUNG_ID}/kontakte/ansprechperson`;
 const VOR_DER_REPARATUR = { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: "2026-09-01" } };
 
 /** The re-send's answer to each state it cannot compose a message from. */
-async function unsendableAnswers(): Promise<Record<"weg" | "leer" | "ohneAdresse" | "ohneTeam", string>> {
+async function unsendableAnswers(): Promise<Record<"way" | "leer" | "ohneAdresse" | "ohneTeam", string>> {
   const pressOn = async (gelesen: unknown): Promise<string> => {
     readWith(() => Promise.resolve(gelesen));
     return errorOf(await einwilligungErneutSendenAction(ERNEUT));
   };
 
   return {
-    weg: await pressOn(null),
+    way: await pressOn(null),
     leer: await pressOn({ bewerbung: { ...GELESEN.bewerbung, kontakte: { ansprechperson: null } } }),
     ohneAdresse: await pressOn({ bewerbung: { ...GELESEN.bewerbung, kontakte: { ansprechperson: { ...PERSON, email: "" } } } }),
     ohneTeam: await pressOn({ bewerbung: { ...GELESEN.bewerbung, schule: null, team_id: null } }),
@@ -379,7 +379,7 @@ describe("the application's writes", () => {
       {
         endpoint: `${bewerbung}/kontakte/ansprechperson/email`,
         method: "POST",
-        body: { email: KORREKTUR.email, bisherige_email: PERSON.email },
+        body: { email: KORREKTUR.email, previous_email: PERSON.email },
       },
       { endpoint: `${bewerbung}/kontakte/ansprechperson`, method: "POST", body: person },
     ]);
@@ -657,20 +657,20 @@ describe("the re-sent confirmation link", () => {
   /* The button carries no address box, so the repairs' „Trage eine andere Adresse ein“ would name a
      field that is not there: the sentence names the correction control beside it instead. */
   it("words a barred address with the control the administrator can use from the button", () => {
-    const answered = mapEinwilligungErneutRefusal(refused("bewerbung_kontakt_gesperrt", 409));
+    const answered = mapEinwilligungErneutRefusal(refused("bewerbung_kontakt_barred", 409));
 
     assert.ok(String(answered).includes(`„${ADRESSE_KORRIGIEREN}“`), "the sentence names a control the strip does not label so");
     expect(String(answered)).not.toMatch(/Trage eine andere Adresse ein/);
   });
 
   it("answers every code the re-send publishes through its own mapper", async () => {
-    for (const code of refusalCodes("bewerbung_already_decided", "bewerbung_sitz_already_answered", "bewerbung_kontakt_gesperrt")) {
+    for (const code of refusalCodes("bewerbung_already_decided", "bewerbung_seat_already_answered", "bewerbung_kontakt_barred")) {
       expect(answerShown(code, mapEinwilligungErneutRefusal), `${code} is published on the re-send and reaches the admin unmapped`).not.toBe(
         null,
       );
     }
     await assertEachAnswered({
-      codes: refusalCodes("bewerbung_already_decided", "bewerbung_sitz_already_answered", "bewerbung_kontakt_gesperrt"),
+      codes: refusalCodes("bewerbung_already_decided", "bewerbung_seat_already_answered", "bewerbung_kontakt_barred"),
       refuseWith: answerWith,
       act: () => einwilligungErneutSendenAction({ id: BEWERBUNG_ID, rolle: "ansprechperson" }),
       mapped: mapEinwilligungErneutRefusal,
@@ -700,7 +700,7 @@ describe("the re-sent confirmation link", () => {
   it("refuses what it could not send before it spends the seat's link", async () => {
     const answers = await unsendableAnswers();
 
-    expect(answers.weg).toMatch(/Diese Bewerbung gibt es nicht mehr/);
+    expect(answers.way).toMatch(/Diese Bewerbung gibt es nicht mehr/);
     expect(answers.leer).toMatch(/Für diese Rolle steht niemand mehr in der Bewerbung/);
     expect(answers.ohneAdresse).toBe(ERNEUT_OHNE_ADRESSE);
     expect(answers.ohneTeam).toMatch(/Diese Bewerbung nennt kein Team/);
@@ -737,20 +737,20 @@ describe("the corrected contact address", () => {
   it("answers every code the correction publishes through its own mapper", async () => {
     for (const code of refusalCodes(
       "bewerbung_already_decided",
-      "bewerbung_sitz_already_answered",
+      "bewerbung_seat_already_answered",
       "bewerbung_kontakt_email_taken",
-      "bewerbung_kontakt_gesperrt",
-      "bewerbung_sitz_anders_besetzt",
+      "bewerbung_kontakt_barred",
+      "bewerbung_seat_differently_seated",
     )) {
       expect(answerShown(code, mapKontaktEmailRefusal), `${code} is published on the correction and reaches the admin unmapped`).not.toBe(null);
     }
     await assertEachAnswered({
       codes: refusalCodes(
         "bewerbung_already_decided",
-        "bewerbung_sitz_already_answered",
+        "bewerbung_seat_already_answered",
         "bewerbung_kontakt_email_taken",
-        "bewerbung_kontakt_gesperrt",
-        "bewerbung_sitz_anders_besetzt",
+        "bewerbung_kontakt_barred",
+        "bewerbung_seat_differently_seated",
       ),
       refuseWith: answerWith,
       act: () => kontaktEmailKorrigierenAction(KORREKTUR),
@@ -763,20 +763,20 @@ describe("the person seated where one stepped out", () => {
   it("answers every code the reseat publishes through its own mapper", async () => {
     for (const code of refusalCodes(
       "bewerbung_already_decided",
-      "bewerbung_sitz_already_answered",
+      "bewerbung_seat_already_answered",
       "bewerbung_kontakt_email_taken",
-      "bewerbung_kontakt_gesperrt",
-      "fassung_unzulaessig",
+      "bewerbung_kontakt_barred",
+      "wording_not_allowed",
     )) {
       expect(answerShown(code, mapKontaktSitzRefusal), `${code} is published on the reseat and reaches the admin unmapped`).not.toBe(null);
     }
     await assertEachAnswered({
       codes: refusalCodes(
         "bewerbung_already_decided",
-        "bewerbung_sitz_already_answered",
+        "bewerbung_seat_already_answered",
         "bewerbung_kontakt_email_taken",
-        "bewerbung_kontakt_gesperrt",
-        "fassung_unzulaessig",
+        "bewerbung_kontakt_barred",
+        "wording_not_allowed",
       ),
       refuseWith: answerWith,
       act: () =>

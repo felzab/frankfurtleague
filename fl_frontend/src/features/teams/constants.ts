@@ -2,7 +2,7 @@ import { FLGruppenNames } from "@/core/generated/client/types";
 import { KONTAKT_ROLLE_LANGFORM, TRIKOT_FARBEN } from "@/core/teamVocabulary";
 import { NICHT_HINTERLEGT, nichtHinterlegt } from "@/shared/utils/format";
 
-import type { FLAustrittType, FLKontaktKenntnisnahme, FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "@/core/generated/client/types";
+import type { FLAustrittType, FLKontaktKenntnisnahme, FLSchulform, FLTrainerAlso, FLTrikotFarbe } from "@/core/generated/client/types";
 
 export const TEAMS_CRUD_COPY = {
   searchLabel: "Teams suchen",
@@ -166,7 +166,7 @@ export function kontaktGeburtsdatumLeer(bestaetigtAm: string | null, ohneLabel =
 }
 
 type EingetragenVonOption = {
-  readonly value: FLKontaktKenntnisnahme["eingetragen_von"];
+  readonly value: FLKontaktKenntnisnahme["entered_by"];
   readonly label: string;
 };
 
@@ -174,7 +174,7 @@ type EingetragenVonOption = {
 const EINGETRAGEN_VON_LABELS = {
   bewerbung: "Mit der Bewerbung eingetragen",
   liga: "Von der Liga eingetragen",
-} as const satisfies Record<FLKontaktKenntnisnahme["eingetragen_von"], string>;
+} as const satisfies Record<FLKontaktKenntnisnahme["entered_by"], string>;
 
 /**
  * Who seated a contact person, in the order the contacts facet offers them: the applicant on the form,
@@ -186,7 +186,7 @@ export const EINGETRAGEN_VON_OPTIONS: readonly EingetragenVonOption[] = [
 ];
 
 /** The Herkunft every surface renders for a contact seat: who seated the person. */
-export function eingetragenVonLabel(von: FLKontaktKenntnisnahme["eingetragen_von"]): string {
+export function eingetragenVonLabel(von: FLKontaktKenntnisnahme["entered_by"]): string {
   return EINGETRAGEN_VON_LABELS[von];
 }
 
@@ -224,7 +224,7 @@ export type KontaktRolle = (typeof KONTAKT_ROLLEN)[number]["value"];
 type TrainerZugleichOption = {
   /** A picker's key is a string; `null` is the answer „Eine eigene Person“ spells on the wire. */
   readonly key: string;
-  readonly value: FLTrainerZugleich | null;
+  readonly value: FLTrainerAlso | null;
   readonly label: string;
 };
 
@@ -246,6 +246,6 @@ export const TRAINER_ZUGLEICH_OPTIONS: readonly TrainerZugleichOption[] = [
 export const TRAINER_ZUGLEICH_FRAGE = "Die Trainerin oder der Trainer ist";
 
 /** What every surface renders for a stored claim, the null answer included. */
-export function trainerZugleichLabel(seat: FLTrainerZugleich | null): string {
+export function trainerZugleichLabel(seat: FLTrainerAlso | null): string {
   return TRAINER_ZUGLEICH_OPTIONS.find((option) => option.value === seat)?.label ?? "";
 }

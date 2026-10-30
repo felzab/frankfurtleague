@@ -36,9 +36,9 @@ const editBanner = (code: Code): string => mapRulesRefusal(refused(code))?.error
 /* One German noun phrase per frozen field. The refusal states the freeze in one sentence, so a
    further shape field the write path adds and this table leaves out goes unnamed and fails nothing here. */
 const GERMAN_OF: Record<string, string> = {
-  number_of_groups: "Gruppen",
-  teams_per_group: "Teams pro Gruppe",
-  qualifiers_per_group: "Qualifikanten",
+  number_of_gruppen: "Gruppen",
+  teams_per_gruppe: "Teams pro Gruppe",
+  qualifiers_per_gruppe: "Qualifikanten",
 };
 
 /**
@@ -230,7 +230,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
       "saison_past",
       "spielplan_gruppen_off_rules",
       "spielplan_replace_outside_its_window",
-      "spielplan_berichte_eingereicht",
+      "spielplan_berichte_submitted",
     )) {
       for (const carriedShape of [false, true]) {
         const answered = answerShown(code, (error) => mapSpielplanRefusal(error, carriedShape));
@@ -242,11 +242,11 @@ describe("the saison actions against the codes their endpoints publish", () => {
   /* Which panel the answer sends the admin to follows the request: a first draw carries no numbers,
      a replace carries its own, and the action reads that off what it sent. */
   it("answers the draw's refusals for the panel the request took its numbers from", async () => {
-    const { number_of_groups, teams_per_group, qualifiers_per_group } = RULES;
+    const { number_of_gruppen: number_of_gruppen, teams_per_gruppe: teams_per_gruppe, qualifiers_per_gruppe: qualifiers_per_gruppe } = RULES;
 
     for (const [payload, carriedShape] of [
       [{ id: SAISON_ID }, false],
-      [{ id: SAISON_ID, replace: true, shape: { number_of_groups, teams_per_group, qualifiers_per_group } }, true],
+      [{ id: SAISON_ID, replace: true, shape: { number_of_gruppen, teams_per_gruppe, qualifiers_per_gruppe } }, true],
     ] as const) {
       await assertEachAnswered({
         codes: refusalCodes(
@@ -261,7 +261,7 @@ describe("the saison actions against the codes their endpoints publish", () => {
           "saison_past",
           "spielplan_gruppen_off_rules",
           "spielplan_replace_outside_its_window",
-          "spielplan_berichte_eingereicht",
+          "spielplan_berichte_submitted",
         ),
         refuseWith: answerWith,
         act: () => generateSpielplanAction(payload),
@@ -273,11 +273,11 @@ describe("the saison actions against the codes their endpoints publish", () => {
   /* Its own two codes, none of the draw's: the two share a path and a summary word, so a document read leaking either
      way would leave a real refusal answered by the generic failure message. */
   it("answers every refusal the undraw publishes", async () => {
-    for (const code of refusalCodes("spielplan_undraw_outside_its_window", "spielplan_berichte_eingereicht")) {
+    for (const code of refusalCodes("spielplan_undraw_outside_its_window", "spielplan_berichte_submitted")) {
       expect(answerShown(code, mapUndrawRefusal), `${code} reaches the admin as a generic failure`).not.toBe(null);
     }
     await assertEachAnswered({
-      codes: refusalCodes("spielplan_undraw_outside_its_window", "spielplan_berichte_eingereicht"),
+      codes: refusalCodes("spielplan_undraw_outside_its_window", "spielplan_berichte_submitted"),
       refuseWith: answerWith,
       act: () => undrawSpielplanAction({ id: SAISON_ID }),
       mapped: mapUndrawRefusal,
@@ -381,9 +381,9 @@ describe("the German each widened refusal renders", () => {
     expect(mapRulesRefusal(refused("saison_span_below_spielplan"))?.fieldErrors).toBe(undefined);
   });
 
-  /* Neither rules field repairs this in every state: `rules_saison_started` freezes `qualifiers_per_group`
+  /* Neither rules field repairs this in every state: `rules_saison_started` freezes `qualifiers_per_gruppe`
      on a past season, and `fl_backend/app/api/saisons/schedule.py :: group_matchdays` is flat from an
-     even `teams_per_group` down to the odd one. */
+     even `teams_per_gruppe` down to the odd one. */
   it("offers no rules field as a repair for the schedule refusal", () => {
     for (const text of [
       editBanner("saison_span_below_spielplan"),
@@ -465,7 +465,7 @@ describe("the German each widened refusal renders", () => {
   });
 });
 
-const LAUF = "/identitaet/loeschung/sweep";
+const LAUF = "/identity/erasure/sweep";
 
 /** A deletion call: the generated call carries its `nach` in the endpoint's query. */
 const isLauf = ({ endpoint }: ApiCall): boolean => endpoint.split("?")[0] === LAUF;

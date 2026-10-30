@@ -37,7 +37,7 @@ export default async function SaisontabellePage(props: NextPageProps) {
   return (
     <SaisontabelleView
       gruppenData={teamsRes.gruppen}
-      qualifiersPerGroup={teamsRes.qualifiers_per_group}
+      qualifiersPerGroup={teamsRes.qualifiers_per_gruppe}
       saisonId={specifiedSaisonId}
       isFinishedSaison={isFinishedSaison}
     />

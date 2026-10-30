@@ -23,7 +23,7 @@ type Act = { label: Copy; onPress: () => void; isBusy?: boolean; isDisabled?: bo
 type Head = {
   titel: Copy;
   /** The view's failure, worded by the catalogue; `null` keeps the line empty, holding its place. */
-  zeile: Copy | null;
+  row: Copy | null;
 };
 
 /** The e-mail view: the address field, „Code senden“, the „oder“ divider, the passkey by its button alone. */
@@ -56,7 +56,7 @@ type CodeView = Head & {
   code: {
     label: Copy;
     /** Counts the code's refusals: each one empties the boxes for the next code. */
-    versuch: number;
+    attempt: number;
     isDisabled: boolean;
     onComplete: (code: string) => void;
   };
@@ -116,7 +116,7 @@ export function SignInPage(props: SignInView) {
         <Body {...props} />
         {/* The code view's refusal is the code field's own, under the boxes. */}
         <StatusLine
-          status={props.view === "code" || props.zeile === null ? null : { tone: "error", text: props.zeile }}
+          status={props.view === "code" || props.row === null ? null : { tone: "error", text: props.row }}
           placement="column"
         />
       </div>
@@ -146,11 +146,11 @@ function Body(props: SignInView) {
           </div>
           <CodeField
             // Remounted on each refusal, so the boxes empty and the next six digits send by themselves.
-            key={code.versuch}
+            key={code.attempt}
             label={code.label}
             name="code"
             // The code's refusal stands under the boxes it refuses, in the field's own line.
-            error={props.zeile ?? undefined}
+            error={props.row ?? undefined}
             isDisabled={code.isDisabled}
             onComplete={code.onComplete}
           />

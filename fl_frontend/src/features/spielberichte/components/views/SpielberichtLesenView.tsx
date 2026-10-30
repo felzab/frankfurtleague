@@ -41,7 +41,7 @@ export function SpielberichtLesenView({ lesen }: { lesen: FLSpielberichtSchiedsr
                 {/* A proposal by side about clubs that left: beside the clubs heading this page it would read as theirs, as
                     the administrator's panel withholds it
                     (`fl_frontend/src/features/spielberichte/components/views/AdminSpielberichtPanel.tsx :: BerichtInhalt`). */}
-                {lesen.seiten_geaendert.length === 0 ? (
+                {lesen.seiten_changed.length === 0 ? (
                   <p className="fluid-sm font-semibold text-foreground">
                     Ergebnis: <VorschlagText vorschlag={bericht.ergebnis_vorschlag} />
                   </p>

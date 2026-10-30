@@ -44,13 +44,13 @@ export async function loescheKontoAction(token: string): Promise<ActionResult> {
     // Refused before the library spends the link, so the same link completes once another owner is made;
     // the backend refuses two owners at once. Read for an owner alone,
     // the one tier that can be the last.
-    if (subject.subjekt.verwaltung === "owner" && (await getLoeschungAnsicht()).letzter_inhaber) {
+    if (subject.subject.verwaltung === "owner" && (await getLoeschungAnsicht()).last_owner) {
       return { success: false, error: LETZTE_INHABERIN };
     }
 
     // A grant goes with the account, so a grant holder is held to a revoke's window, a passkey confirmation
     // of the enrolment's minutes, judged before the library spends the link.
-    if (subject.subjekt.verwaltung !== null) {
+    if (subject.subject.verwaltung !== null) {
       const verwaltend = await getKontoSession();
       if (verwaltend === null || enrolmentUntil(verwaltend) === null) {
         // The page's figures read again, so its next press asks first.
@@ -137,8 +137,8 @@ export async function starteAdresswechselAction(rawPayload: { email: string }): 
       throw error;
     }
 
-    const { verwaltung } = subject.subjekt;
-    const gesendet = gesendetSatz(mint.gueltig_bis, "start");
+    const { verwaltung } = subject.subject;
+    const gesendet = gesendetSatz(mint.valid_until, "start");
     return {
       success: true,
       // The tier off the grant the spine's subject read found: a grant's move waits on an approver, whom the start
@@ -172,7 +172,7 @@ export async function gibAdresswechselFreiAction(rawPayload: { id: string }): Pr
       throw error;
     }
 
-    return { success: true, message: gesendetSatz(freigabe.gueltig_bis, "freigabe") };
+    return { success: true, message: gesendetSatz(freigabe.valid_until, "freigabe") };
   });
 }
 

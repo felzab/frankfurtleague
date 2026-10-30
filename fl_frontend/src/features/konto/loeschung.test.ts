@@ -64,9 +64,9 @@ const GELOESCHT = {
 let loeschungAnswer: () => Response = () => Response.json(GELOESCHT);
 const loeschungen: { method: string; actor: string | null }[] = [];
 
-const LOESCHUNG_PATH = "/api/v0/identitaet/konto/loeschung";
+const LOESCHUNG_PATH = "/api/v0/identity/account/erasure";
 
-const ANSICHT_PATH = "/api/v0/identitaet/konto/loeschung/ansicht";
+const ANSICHT_PATH = "/api/v0/identity/account/erasure/view";
 
 /** Whether the preview reads the press as the last owner's, and how often it was read since the case began. */
 let letzterInhaber = false;
@@ -85,7 +85,7 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   }
 
   const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
-  const fixture = HELD.get(email ?? "") ?? { ...NO_RECORDS, sitze: [SEAT], konto: true };
+  const fixture = HELD.get(email ?? "") ?? { ...NO_RECORDS, seats: [SEAT], account: true };
   return Promise.resolve(Response.json(answerAt(path, fixture)));
 }) as typeof globalThis.fetch;
 
@@ -182,7 +182,7 @@ describe("a person's own account deletion, from the account page's press to the 
     let acts = 0;
 
     await assertEachAnswered({
-      codes: refusalCodes("duplicate_key", "letzter_inhaber_loeschung"),
+      codes: refusalCodes("duplicate_key", "last_owner_erasure"),
       // The write double's refusal, as the fetch double answers it: the API client raises it again from the body.
       refuseWith: (next) => {
         loeschungRefused = next().then(
@@ -224,7 +224,7 @@ describe("a person's own account deletion, from the account page's press to the 
     [
       "barred since the link was mailed",
       "gesperrt-seither@example.org",
-      () => void HELD.set("gesperrt-seither@example.org", { ...NO_RECORDS, gesperrt: true, konto: true }),
+      () => void HELD.set("gesperrt-seither@example.org", { ...NO_RECORDS, barred: true, account: true }),
     ],
     [
       "ended by its account after it was made",
@@ -251,9 +251,9 @@ describe("a person's own account deletion, from the account page's press to the 
     HELD.set(email, {
       ...NO_RECORDS,
       verwaltung: stufe,
-      berechtigt_seit: "2026-01-01T00:00:00Z",
+      granted_since: "2026-01-01T00:00:00Z",
       inhaber_seit: stufe === "owner" ? "2026-01-01T00:00:00Z" : null,
-      konto: false,
+      account: false,
     });
     const durchPasskey = await sessionByCode(auth, store, email);
     madeByPasskey(store, durchPasskey.row);
@@ -344,7 +344,7 @@ describe("a person's own account deletion, from the account page's press to the 
      was spent: its words add that a new link is needed. */
   it("words the backend's own last-owner refusal with the new link it needs, having asked the backend", async () => {
     const { row, token } = await verwaltendMitLink("zweite-inhaberin@example.org");
-    loeschungAnswer = () => Response.json({ error_code: "letzter_inhaber_loeschung", trace_id: "0".repeat(32) }, { status: 409 });
+    loeschungAnswer = () => Response.json({ error_code: "last_owner_erasure", trace_id: "0".repeat(32) }, { status: 409 });
 
     const answer = await loescheKontoAction(token);
 

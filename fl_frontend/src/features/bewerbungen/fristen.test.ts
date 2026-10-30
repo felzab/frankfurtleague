@@ -3,7 +3,7 @@ import { assert, describe, it } from "vitest";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_ERINNERUNG_TAGE } from "./constants.ts";
 
 import type { Mail } from "@/core/emailShell.ts";
-import type { FLBewerbungLinkDaten } from "@/core/generated/client/types";
+import type { FLBewerbungLinkData } from "@/core/generated/client/types";
 
 const {
   buildBewerbungBestaetigungEmail,
@@ -23,7 +23,7 @@ const FRIST = "2026-09-18";
 
 const AUSSTEHEND = [{ vorname: "Jonas", rollen: ["trainer" as const] }];
 
-const EIN_SITZ: Omit<FLBewerbungLinkDaten, "art"> = {
+const EIN_SITZ: Omit<FLBewerbungLinkData, "art"> = {
   saison_id: "2627",
   schule: "Ernst-Reuter-Schule",
   rollen: ["ansprechperson"],
@@ -31,19 +31,19 @@ const EIN_SITZ: Omit<FLBewerbungLinkDaten, "art"> = {
 };
 
 const MESSAGES = [
-  ["the link mail", buildBewerbungBestaetigungEmail({ ...EIN_SITZ, art: "bewerbung_bestaetigung" }, LINK)],
-  ["the reminder", buildBewerbungErinnerungEmail({ ...EIN_SITZ, art: "bewerbung_erinnerung" }, LINK)],
+  ["the link mail", buildBewerbungBestaetigungEmail({ ...EIN_SITZ, art: "bewerbung_confirmation" }, LINK)],
+  ["the reminder", buildBewerbungErinnerungEmail({ ...EIN_SITZ, art: "bewerbung_reminder" }, LINK)],
   [
     "the receipt",
     buildBewerbungEingangEmail(
-      { art: "bewerbung_eingang", saison_id: "2627", rollen: ["ansprechperson"], ausstehend: AUSSTEHEND, frist: FRIST },
+      { art: "bewerbung_received", saison_id: "2627", rollen: ["ansprechperson"], pending: AUSSTEHEND, frist: FRIST },
       LINK,
     ),
   ],
   [
     "the deletion notice",
     buildBewerbungGeloeschtEmail(
-      { art: "bewerbung_loeschung", saison_id: "2627", rollen: ["ansprechperson"], ausstehend: AUSSTEHEND },
+      { art: "bewerbung_erasure", saison_id: "2627", rollen: ["ansprechperson"], pending: AUSSTEHEND },
       { origin: ORIGIN },
     ),
   ],
@@ -54,7 +54,7 @@ const MESSAGES = [
         art: "bewerbung_widerspruch",
         saison_id: "2627",
         rollen: ["ansprechperson"],
-        abgelehnt: { vorname: "Mira", rollen: ["stellvertretung"] },
+        declined: { vorname: "Mira", rollen: ["stellvertretung"] },
         frist: FRIST,
       },
       { origin: ORIGIN },

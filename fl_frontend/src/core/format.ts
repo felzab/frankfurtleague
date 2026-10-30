@@ -50,9 +50,9 @@ export function formatUhrzeit(time: Uhrzeit | Date): string {
  * minute, since a link open 24 hours lapses mid-day. An unreadable stored instant is printed as it was
  * stored: `Intl`'s `format` throws on it, which would take a whole page or mail with it.
  */
-export function formatInstant(zeitpunkt: string | Date): string {
-  const datum = typeof zeitpunkt === "string" ? new Date(zeitpunkt) : zeitpunkt;
-  return Number.isNaN(datum.getTime()) ? String(zeitpunkt) : INSTANT.format(datum);
+export function formatInstant(instant: string | Date): string {
+  const datum = typeof instant === "string" ? new Date(instant) : instant;
+  return Number.isNaN(datum.getTime()) ? String(instant) : INSTANT.format(datum);
 }
 
 /**

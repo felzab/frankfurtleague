@@ -8,12 +8,12 @@ import { DEIN_BEREICH_TITEL, EINSAETZE_TITEL } from "./seitenNamen";
 import type { Fact, Mail, Run } from "./emailShell";
 import type { CalendarDay, Uhrzeit } from "./format";
 import type {
-  FLSpielAnfrageDaten,
-  FLSpielEinteilungAufgehobenDaten,
-  FLSpielEinteilungDaten,
-  FLSpielHinweisDaten,
+  FLSpielEinteilungData,
+  FLSpielEinteilungLiftedData,
+  FLSpielHinweisData,
   FLSpielMailAnsetzung,
-  FLSpielVorschlagVerworfenDaten,
+  FLSpielRequestData,
+  FLSpielVorschlagDiscardedData,
 } from "./generated/client/types";
 import type { MailLink, MailOrt } from "./mailKinds";
 
@@ -79,13 +79,13 @@ const alterTermin = (datum: string, uhrzeit: string): Run => ({ strong: `${datum
  * A club's request to confirm a fixture, or the reminder of it, to one mailbox of one of its teams. No name and no seat:
  * the administrator typed this address, so behind a typo its reader is a stranger, owed none.
  */
-export function buildSpielAnfrageEmail({ art, team, ansetzung: facts, frist }: FLSpielAnfrageDaten, { origin, token }: MailLink): Mail {
+export function buildSpielAnfrageEmail({ art, team, ansetzung: facts, frist }: FLSpielRequestData, { origin, token }: MailLink): Mail {
   const ansetzung = ansetzungText(facts);
   const spiel = `${ansetzung.team1} gegen ${ansetzung.team2} am ${ansetzung.datumText}`;
 
   return {
     art: "mitteilung",
-    subjectLine: art === "spiel_anfrage" ? `Bitte bestätigen: ${spiel}` : `Erinnerung: ${spiel} bestätigen`,
+    subjectLine: art === "spiel_request" ? `Bitte bestätigen: ${spiel}` : `Erinnerung: ${spiel} bestätigen`,
     // Through `mailOrigin` once, for the footer: the link is spelled by its own function, so a second derivation here
     // could send the two versions to different hosts.
     origin: mailOrigin(origin),
@@ -93,7 +93,7 @@ export function buildSpielAnfrageEmail({ art, team, ansetzung: facts, frist }: F
     absaetze: [
       [
         // The first request says the fixture is set, the reminder that the team's answer is still owed.
-        art === "spiel_anfrage"
+        art === "spiel_request"
           ? ["Die Verwaltung der ", BRAND_NAME, " hat das Spiel ", ...paarung(ansetzung.team1, ansetzung.team2), " angesetzt."]
           : ["Für das Spiel ", ...paarung(ansetzung.team1, ansetzung.team2), " steht die Antwort Deines Teams noch aus."],
         // Both answers named before the press, as the page offers both: a reader expecting one button meets two.
@@ -109,10 +109,10 @@ export function buildSpielAnfrageEmail({ art, team, ansetzung: facts, frist }: F
         "Es gilt die erste Antwort aus Deinem Team, danach funktioniert der Link nicht mehr.",
         "Kommt bis dahin keine Antwort, legt die Verwaltung der Liga den Termin fest.",
         // A reminder carries a fresh link, and the first request's still answers beside it.
-        ...(art === "spiel_erinnerung" ? ["Der Link aus der ersten Anfrage funktioniert weiterhin."] : []),
+        ...(art === "spiel_reminder" ? ["Der Link aus der ersten Anfrage funktioniert weiterhin."] : []),
       ],
     ],
-    aktion: { label: "Spieltermin bestätigen", href: spielBestaetigungsLink(origin, token) },
+    button: { label: "Spieltermin bestätigen", href: spielBestaetigungsLink(origin, token) },
   };
 }
 
@@ -120,7 +120,7 @@ export function buildSpielAnfrageEmail({ art, team, ansetzung: facts, frist }: F
  * The referee's word that they are booked. No token: the referee answers on their own panel, signed
  * in, so the control leads there rather than to a link page.
  */
-export function buildSpielEinteilungEmail({ ansetzung: facts }: FLSpielEinteilungDaten, { origin }: MailOrt): Mail {
+export function buildSpielEinteilungEmail({ ansetzung: facts }: FLSpielEinteilungData, { origin }: MailOrt): Mail {
   const site = mailOrigin(origin);
   const ansetzung = ansetzungText(facts);
 
@@ -144,12 +144,12 @@ export function buildSpielEinteilungEmail({ ansetzung: facts }: FLSpielEinteilun
     // The area by its name on screen, read from its constant.
     nachBlock: [[`Nach der Anmeldung findest Du das Spiel auf der Website unter „${DEIN_BEREICH_TITEL}“.`, "Dort sagst Du zu oder ab."]],
     // The heading the button opens on, read from its constant.
-    aktion: { label: EINSAETZE_TITEL, href: `${site}${SCHIEDSRICHTER_PANEL_PATH}` },
+    button: { label: EINSAETZE_TITEL, href: `${site}${SCHIEDSRICHTER_PANEL_PATH}` },
   };
 }
 
 /** What became of the earlier word, and what follows it, per reader: a team was asked, a referee booked. */
-const NEU_SAETZE: Record<FLSpielHinweisDaten["empfaenger"], readonly [string, string]> = {
+const NEU_SAETZE: Record<FLSpielHinweisData["recipient"], readonly [string, string]> = {
   team: [
     "Die Anfrage zum bisherigen Termin und ihr Link gelten nicht mehr.",
     "Bleibt Dein Team in diesem Spiel, bekommst Du für einen neuen Termin nach dem heutigen Tag eine neue Anfrage.",
@@ -161,7 +161,7 @@ const NEU_SAETZE: Record<FLSpielHinweisDaten["empfaenger"], readonly [string, st
 };
 
 /** What the call-off ends for each reader, and what a reinstated fixture brings: a team was asked, a referee booked. */
-const ABGESAGT_SAETZE: Record<FLSpielHinweisDaten["empfaenger"], readonly [string, string, string]> = {
+const ABGESAGT_SAETZE: Record<FLSpielHinweisData["recipient"], readonly [string, string, string]> = {
   team: [
     "Die Anfrage zu diesem Spiel und ihr Link gelten nicht mehr.",
     "Du musst nichts tun.",
@@ -179,10 +179,10 @@ const ABGESAGT_SAETZE: Record<FLSpielHinweisDaten["empfaenger"], readonly [strin
  * it knows. A move names no new slot, the next request stating it; a call-off has no button and no name, nothing being
  * left to answer and the address perhaps having changed hands since the request.
  */
-export function buildSpielHinweisEmail({ art, empfaenger, termin: alt }: FLSpielHinweisDaten, { origin }: MailOrt): Mail {
+export function buildSpielHinweisEmail({ art, recipient: empfaenger, appointment: alt }: FLSpielHinweisData, { origin }: MailOrt): Mail {
   const { team1, team2 } = alt;
 
-  if (art === "spiel_neu_angesetzt") {
+  if (art === "spiel_new_angesetzt") {
     return {
       art: "mitteilung",
       subjectLine: `Neu angesetzt: ${team1} gegen ${team2}`,
@@ -211,7 +211,7 @@ export function buildSpielHinweisEmail({ art, empfaenger, termin: alt }: FLSpiel
  * The word to a referee that their Einteilung is lifted, whoever took them off the fixture: no button, since nothing is
  * left for them to answer, and no name, since the address may have changed hands since the Einteilung.
  */
-export function buildSpielEinteilungAufgehobenEmail({ termin: alt }: FLSpielEinteilungAufgehobenDaten, { origin }: MailOrt): Mail {
+export function buildSpielEinteilungAufgehobenEmail({ appointment: alt }: FLSpielEinteilungLiftedData, { origin }: MailOrt): Mail {
   return {
     art: "mitteilung",
     subjectLine: `Nicht mehr eingeteilt: ${alt.team1} gegen ${alt.team2}`,
@@ -236,7 +236,7 @@ export function buildSpielEinteilungAufgehobenEmail({ termin: alt }: FLSpielEint
  * The word to a club that the league kept the date it declined and proposed another for: its answer said the league
  * decides, and nothing else tells it the league has. No button, nothing being left to answer.
  */
-export function buildSpielVorschlagVerworfenEmail({ termin: alt }: FLSpielVorschlagVerworfenDaten, { origin }: MailOrt): Mail {
+export function buildSpielVorschlagVerworfenEmail({ appointment: alt }: FLSpielVorschlagDiscardedData, { origin }: MailOrt): Mail {
   return {
     art: "mitteilung",
     subjectLine: `Termin bleibt: ${alt.team1} gegen ${alt.team2} am ${datumText(alt.datum)}`,

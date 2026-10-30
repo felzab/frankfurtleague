@@ -6,7 +6,7 @@ import { GELOESCHT_ACTOR_MARKER } from "./geloeschtActor";
 import { OFFENE_ANTRAEGE } from "./seitenNamen";
 
 import type { Mail, Run } from "./emailShell";
-import type { FLBerechtigungDaten, FLBerechtigungStand } from "./generated/client/types";
+import type { FLGrantData, FLGrantDataChange, FLGrantStand } from "./generated/client/types";
 import type { MailOrt } from "./mailKinds";
 
 const BETREFF = "Änderung beim Zugang zur Verwaltung";
@@ -42,15 +42,15 @@ const ANTRAG: Readonly<Record<"zugang" | "ernennung", { betreff: string; aufgabe
 };
 
 /** Why a grant's address is withheld, the notice naming neither a barred address nor an erased person's. */
-type Vorenthalten = { readonly vorenthalten: "gesperrt" | "geloescht" };
+type Vorenthalten = { readonly withheld: "barred" | "erased" };
 
 /** One change as the notice states it. */
 type Zugangsaenderung = {
-  // `beantragt`: a grant or a promotion asked for, sent to whoever could approve it.
-  readonly art: "erteilt" | "geaendert" | "entzogen" | "beantragt";
+  // `requested`: a grant or a promotion asked for, sent to whoever could approve it.
+  readonly art: FLGrantDataChange;
   readonly adresse: string | Vorenthalten;
   // The `owner` tier the grant holds now, or held until it ended.
-  readonly inhaber: boolean;
+  readonly owner: boolean;
 };
 
 /**
@@ -60,9 +60,9 @@ type Zugangsaenderung = {
 type Urheber = { readonly von: string | null; readonly am: string | null } | null;
 
 /** A withheld grant address, in the subject's place. An erased person's is named by nothing, not even that state. */
-const OHNE_ADRESSE: Readonly<Record<Vorenthalten["vorenthalten"], string>> = {
-  gesperrt: "Eine gesperrte Adresse",
-  geloescht: "Eine nicht genannte Adresse",
+const OHNE_ADRESSE: Readonly<Record<Vorenthalten["withheld"], string>> = {
+  barred: "Eine gesperrte Adresse",
+  erased: "Eine nicht genannte Adresse",
 };
 
 /** The `owner` tier as a person of either gender holds it, never the masculine word for both. */
@@ -75,24 +75,24 @@ const GESPERRTER_URHEBER = "einer gesperrten Adresse";
 const UNGENANNTER_URHEBER = "einer nicht genannten Adresse";
 
 /** The change's sentence, a named address set in the emphasis grade. */
-function aenderungsSatz({ art, adresse, inhaber }: Zugangsaenderung): readonly Run[] {
-  const subjekt: Run = typeof adresse === "string" ? { strong: adresse } : OHNE_ADRESSE[adresse.vorenthalten];
+function aenderungsSatz({ art, adresse, owner: inhaber }: Zugangsaenderung): readonly Run[] {
+  const subjekt: Run = typeof adresse === "string" ? { strong: adresse } : OHNE_ADRESSE[adresse.withheld];
 
   switch (art) {
-    case "erteilt":
+    case "granted":
       // An `owner` grant says so: the application writes one only as an owner's address change moves it, the
       // rest coming from the database, and an owner's grant is the one a holder most needs told.
       return [subjekt, inhaber ? ` hat jetzt Zugang zur Verwaltung als ${INHABER}.` : " hat jetzt Zugang zur Verwaltung."];
-    case "entzogen":
+    case "revoked":
       // An `owner` grant's end says so: an erasure ends one with no demotion before it, and the last owner's
       // end is the one a holder most needs told.
       return [
         subjekt,
         inhaber ? ` ist nicht mehr ${INHABER} der Verwaltung und hat keinen Zugang mehr.` : " hat keinen Zugang zur Verwaltung mehr.",
       ];
-    case "geaendert":
+    case "changed":
       return [subjekt, inhaber ? ` ist jetzt ${INHABER} der Verwaltung.` : ` ist nicht mehr ${INHABER} der Verwaltung und behält den Zugang.`];
-    case "beantragt":
+    case "requested":
       return inhaber
         ? ["Für ", subjekt, ` ist beantragt, ${INHABER} der Verwaltung zu werden.`]
         : ["Für ", subjekt, " ist ein Zugang zur Verwaltung beantragt."];
@@ -117,34 +117,34 @@ function urheberSatz(urheber: Urheber, verb: string): readonly Run[] {
 }
 
 /** A grant's address as the notice names it, or why it is withheld: a barred one, or an erased person's. */
-function adresseOf(daten: FLBerechtigungDaten, stand: FLBerechtigungStand | null): string | Vorenthalten {
-  return stand?.adresse ?? { vorenthalten: daten.vorenthalten ?? "gesperrt" };
+function adresseOf(daten: FLGrantData, stand: FLGrantStand | null): string | Vorenthalten {
+  return stand?.adresse ?? { withheld: daten.withheld ?? "barred" };
 }
 
 /**
  * A change as the notice words it. An address repointed under one id reaches here as two changes, its
  * removal and the new address's grant, so a `geaendert` is a change of tier alone.
  */
-function zugangsaenderungOf(daten: FLBerechtigungDaten): Zugangsaenderung {
-  const stand = daten.aenderung === "entzogen" ? daten.vorher : daten.jetzt;
+function zugangsaenderungOf(daten: FLGrantData): Zugangsaenderung {
+  const stand = daten.change === "revoked" ? daten.before : daten.now;
 
-  return { art: daten.aenderung, adresse: adresseOf(daten, stand), inhaber: stand?.verwaltung === "owner" };
+  return { art: daten.change, adresse: adresseOf(daten, stand), owner: stand?.verwaltung === "owner" };
 }
 
 /** Read off `urheber`, never off a null actor: an application's change whose actor is withheld is a barred one's. */
-function urheberOf(daten: FLBerechtigungDaten): Urheber {
-  if (daten.urheber === "datenbank") return null;
+function urheberOf(daten: FLGrantData): Urheber {
+  if (daten.author === "datenbank") return null;
 
-  return { von: daten.geaendert_von, am: daten.geaendert_am };
+  return { von: daten.changed_by, am: daten.changed_at };
 }
 
 /** **The body depends on the change alone**, never on when it is sent or to whom: every holder is owed the same notice. */
-export function buildBerechtigungEmail(daten: FLBerechtigungDaten, { origin: rawOrigin }: MailOrt): Mail {
+export function buildBerechtigungEmail(daten: FLGrantData, { origin: rawOrigin }: MailOrt): Mail {
   const aenderung = zugangsaenderungOf(daten);
   const urheber = urheberOf(daten);
   const origin = mailOrigin(rawOrigin);
   // A request is asked of its reader rather than told to them, so it is headed, signed and closed as one.
-  const antrag = aenderung.art === "beantragt" ? ANTRAG[aenderung.inhaber ? "ernennung" : "zugang"] : null;
+  const antrag = aenderung.art === "requested" ? ANTRAG[aenderung.owner ? "ernennung" : "zugang"] : null;
 
   return {
     art: "mitteilung",
@@ -152,6 +152,6 @@ export function buildBerechtigungEmail(daten: FLBerechtigungDaten, { origin: raw
     origin: origin,
     vorname: "",
     absaetze: [[aenderungsSatz(aenderung)], [urheberSatz(urheber, antrag === null ? "Geändert" : "Beantragt")], antrag?.aufgabe ?? [WARNSATZ]],
-    aktion: { label: ZIEL_LABEL, href: `${origin}${ZIEL_PFAD}` },
+    button: { label: ZIEL_LABEL, href: `${origin}${ZIEL_PFAD}` },
   };
 }

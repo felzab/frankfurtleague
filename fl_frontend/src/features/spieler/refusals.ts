@@ -53,7 +53,7 @@ export function mapKaderZeileRefusal(error: unknown): { error?: string; fieldErr
   if (error.serverErrorCode === "kader_rolle_taken") return { error: KADER_ROLLE_TAKEN };
   // On the picker as well as in the sentence: the form offers the season's levels, so only a season
   // narrowed under the open page reaches this, and the picker is where it is repaired.
-  if (error.serverErrorCode === "kader_stufe_nicht_erlaubt")
+  if (error.serverErrorCode === "kader_stufe_not_allowed")
     return { error: STUFE_NICHT_ZUGELASSEN, fieldErrors: { stufe: STUFE_NICHT_ZUGELASSEN } };
   return null;
 }

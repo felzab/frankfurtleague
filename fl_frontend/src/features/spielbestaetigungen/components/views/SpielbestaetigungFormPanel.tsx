@@ -36,7 +36,7 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 import { reportRefusedConfirmation } from "@/shared/utils/linkConfirmation";
 import { postPublicForm, UNKLAR_TITEL } from "@/shared/utils/publicSubmit";
 
-import type { FLSpielbestaetigungAntwort, FLSpielbestaetigungTermin } from "@/core/generated/client/types";
+import type { FLSpielbestaetigungAntwort, FLSpielbestaetigungAppointment } from "@/core/generated/client/types";
 import type { FLSpielbestaetigungAntwortPayload } from "@/features/spielbestaetigungen/schemas";
 import type { SpielbestaetigungLinkZustand } from "@/features/spielbestaetigungen/utils";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
@@ -48,20 +48,20 @@ const ANDEREN_TERMIN_VORSCHLAGEN = "Anderen Termin vorschlagen";
 /** What one press ends in, handed up to the page that swaps the form for the panel. */
 export type SpielbestaetigungAbschluss =
   | { zustand: "zugesagt-neu" }
-  | { zustand: "abgelehnt-neu"; vorschlag: FLSpielbestaetigungTermin }
-  | { zustand: "zugesagt"; beantwortet_von: FLSpielbestaetigungAntwort["von"] }
-  | { zustand: "abgelehnt"; beantwortet_von: FLSpielbestaetigungAntwort["von"] }
-  | { zustand: "verworfen"; termin: FLSpielbestaetigungTermin }
-  | { zustand: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "abgelehnt" | "verworfen"> };
+  | { zustand: "abgelehnt-neu"; vorschlag: FLSpielbestaetigungAppointment }
+  | { zustand: "zugesagt"; answered_by: FLSpielbestaetigungAntwort["von"] }
+  | { zustand: "declined"; answered_by: FLSpielbestaetigungAntwort["von"] }
+  | { zustand: "discarded"; appointment: FLSpielbestaetigungAppointment }
+  | { zustand: Exclude<SpielbestaetigungLinkZustand, "zugesagt" | "declined" | "discarded"> };
 
 /** The route's answer: the echo of what was stored, or a refusal naming the link's state where the link died. */
 export type SpielbestaetigungAntwort =
-  | { success: true; zustand: "zugesagt" | "abgelehnt"; vorschlag: FLSpielbestaetigungTermin | null }
+  | { success: true; zustand: "zugesagt" | "declined"; vorschlag: FLSpielbestaetigungAppointment | null }
   | (PublicEnvelope & {
       success: false;
       zustand?: SpielbestaetigungLinkZustand;
-      beantwortet_von?: FLSpielbestaetigungAntwort["von"];
-      termin?: FLSpielbestaetigungTermin;
+      answered_by?: FLSpielbestaetigungAntwort["von"];
+      appointment?: FLSpielbestaetigungAppointment;
     });
 
 /** The proposal mid-entry: `""` is a box nobody filled in, which the payload's schema then refuses. */
@@ -80,7 +80,7 @@ const zusagePayload = (token: string): FLSpielbestaetigungAntwortPayload => ({
 /** A proposal declines the date standing: the endpoint takes no decline without one. */
 const vorschlagPayload = (token: string, entwurf: Entwurf): FLSpielbestaetigungAntwortPayload => ({
   token: token,
-  antwort: "abgelehnt",
+  antwort: "declined",
   vorschlag: { datum: entwurf.datum, uhrzeit: entwurf.uhrzeit },
   // An empty box is no reason, as the endpoint reads one.
   begruendung: entwurf.begruendung.trim() === "" ? null : entwurf.begruendung,
@@ -93,13 +93,13 @@ const toTime = (stored: string): Time | null => (stored === "" ? null : parseTim
 function spentAbschluss(
   zustand: SpielbestaetigungLinkZustand,
   beantwortetVon: FLSpielbestaetigungAntwort["von"] | undefined,
-  termin: FLSpielbestaetigungTermin | undefined,
+  termin: FLSpielbestaetigungAppointment | undefined,
 ): SpielbestaetigungAbschluss {
   // As an answered state without its seat: a discard read back without the date it kept claims nothing either.
-  if (zustand === "verworfen") return termin === undefined ? { zustand: "ungueltig" } : { zustand: zustand, termin: termin };
-  if (zustand !== "zugesagt" && zustand !== "abgelehnt") return { zustand: zustand };
+  if (zustand === "discarded") return termin === undefined ? { zustand: "invalid" } : { zustand: zustand, appointment: termin };
+  if (zustand !== "zugesagt" && zustand !== "declined") return { zustand: zustand };
   // A route answering an answered state without its seat is the dead-link panel's: claiming nothing about who answered.
-  return beantwortetVon === undefined ? { zustand: "ungueltig" } : { zustand: zustand, beantwortet_von: beantwortetVon };
+  return beantwortetVon === undefined ? { zustand: "invalid" } : { zustand: zustand, answered_by: beantwortetVon };
 }
 
 /**
@@ -144,7 +144,7 @@ export function SpielbestaetigungFormPanel({
     startTransition(() => {
       if (!antwort.success) {
         reportRefusedConfirmation(antwort, {
-          onZustand: (zustand) => onAbschluss(spentAbschluss(zustand, antwort.beantwortet_von, antwort.termin)),
+          onZustand: (zustand) => onAbschluss(spentAbschluss(zustand, antwort.answered_by, antwort.appointment)),
           // The hook owns the press's one toast: none where a box shows the refusal.
           onRefusal: () =>
             reportSubmitFailure(
@@ -163,11 +163,11 @@ export function SpielbestaetigungFormPanel({
 
       setSubmitFieldErrors({}, {});
       // A stored decline always carries its proposal; one answered without it reads as the Zusage it cannot be.
-      if (antwort.zustand === "abgelehnt" && antwort.vorschlag !== null) {
+      if (antwort.zustand === "declined" && antwort.vorschlag !== null) {
         onAbschluss({ zustand: "abgelehnt-neu", vorschlag: antwort.vorschlag });
         return;
       }
-      onAbschluss(antwort.zustand === "zugesagt" ? { zustand: "zugesagt-neu" } : { zustand: "ungueltig" });
+      onAbschluss(antwort.zustand === "zugesagt" ? { zustand: "zugesagt-neu" } : { zustand: "invalid" });
     });
   };
 

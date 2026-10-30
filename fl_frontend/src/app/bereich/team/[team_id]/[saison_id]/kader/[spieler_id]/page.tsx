@@ -49,7 +49,7 @@ export default async function KaderZeilePage({ params }: NextPageProps<{ team_id
       teamId={team_id}
       saisonId={saison_id}
       zeile={zeile}
-      erlaubteStufen={orderStufen(kader.erlaubte_stufen)}
+      erlaubteStufen={orderStufen(kader.allowed_stufen)}
       heldRollen={heldRollen}
       kaderHref={kaderHref}
     />

@@ -67,7 +67,7 @@ export function SpielCardsList({
             onOpenInfoModal={() => setSelectedSpiel(spielData)}
             adminEditHref={isAdmin ? adminSpielEditHref(spielData.id, saisonId) : undefined}
             asListitem={!hasNotes}
-            bestaetigungen={bestaetigungen}
+            confirmations={bestaetigungen}
             berichtChip={berichtChipsBySpielId?.get(spielData.id)}
           />
         );

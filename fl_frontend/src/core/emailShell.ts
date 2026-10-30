@@ -59,7 +59,7 @@ export interface Mail {
    */
   readonly block?: { readonly titel: string; readonly facts: readonly Fact[] } | { readonly code: string } | { readonly link: string };
   readonly nachBlock?: readonly Absatz[];
-  readonly aktion?: Button;
+  readonly button?: Button;
 }
 
 /** What a mail is handed to the mailer as. */
@@ -232,7 +232,7 @@ function blockHtml(block: NonNullable<Mail["block"]>): Baustein {
   }
 
   const titel = `<p style="margin:0 0 ${String(GAP.factsTitel)}px;font-size:14px;line-height:20px;font-weight:700;color:${HEADING_COLOR};">${escapeHtml(singleLine(block.titel))}</p>`;
-  const zeilen = block.facts
+  const rows = block.facts
     .map(
       ({ label, value }) =>
         `<tr><td style="padding:4px 16px 4px 0;font-family:${FONT_STACK};${SMALL_TEXT}white-space:nowrap;vertical-align:top;">${escapeHtml(singleLine(label))}</td><td style="padding:4px 0;font-family:${FONT_STACK};font-size:14px;line-height:20px;color:${HEADING_COLOR};vertical-align:top;">${valueHtml(value)}</td></tr>`,
@@ -240,20 +240,20 @@ function blockHtml(block: NonNullable<Mail["block"]>): Baustein {
     .join("");
 
   return {
-    html: `${titel}<table ${TABLE_ATTRS} width="100%" style="${kasten}"><tr><td style="padding:${GAP.factsInner - 4}px ${GAP.factsInner}px;"><table ${TABLE_ATTRS}>${zeilen}</table></td></tr></table>`,
+    html: `${titel}<table ${TABLE_ATTRS} width="100%" style="${kasten}"><tr><td style="padding:${GAP.factsInner - 4}px ${GAP.factsInner}px;"><table ${TABLE_ATTRS}>${rows}</table></td></tr></table>`,
     gap: GAP.block,
   };
 }
 
 /** The button, 44 px high (11 + 22 + 11) and full width on a phone, then its link printed to copy. */
-function actionLogEntryBlocks(aktion: Button): Baustein[] {
+function buttonBlocks(button: Button): Baustein[] {
   return [
     {
-      html: `<table ${TABLE_ATTRS} class="fl-knopf" align="center" style="margin:0 auto;"><tr><td align="center" style="background-color:${BRAND_SOLID_COLOR};border-radius:8px;"><a href="${escapeHtml(singleLine(aktion.href))}" style="display:inline-block;padding:11px 24px;font-family:${FONT_STACK};font-size:16px;line-height:22px;font-weight:700;color:${ON_BRAND_COLOR};text-decoration:none;">${escapeHtml(singleLine(aktion.label))}</a></td></tr></table>`,
+      html: `<table ${TABLE_ATTRS} class="fl-knopf" align="center" style="margin:0 auto;"><tr><td align="center" style="background-color:${BRAND_SOLID_COLOR};border-radius:8px;"><a href="${escapeHtml(singleLine(button.href))}" style="display:inline-block;padding:11px 24px;font-family:${FONT_STACK};font-size:16px;line-height:22px;font-weight:700;color:${ON_BRAND_COLOR};text-decoration:none;">${escapeHtml(singleLine(button.label))}</a></td></tr></table>`,
       gap: GAP.absatz,
     },
     {
-      html: p(`${escapeHtml(SERVER_COPY.mail.knopfLink)}<br />${linkHtml(aktion.href, aktion.href, "word-break:break-all;")}`, SMALL_TEXT),
+      html: p(`${escapeHtml(SERVER_COPY.mail.knopfLink)}<br />${linkHtml(button.href, button.href, "word-break:break-all;")}`, SMALL_TEXT),
       gap: GAP.block,
     },
   ];
@@ -278,13 +278,13 @@ function renderHtml(mail: Mail, subjectLine: string): string {
     ...absatzBlocks(mail.absaetze),
     ...(mail.block === undefined ? [] : [blockHtml(mail.block)]),
     ...absatzBlocks(mail.nachBlock ?? []),
-    ...(mail.aktion === undefined ? [] : actionLogEntryBlocks(mail.aktion)),
+    ...(mail.button === undefined ? [] : buttonBlocks(mail.button)),
   ];
   // The gap before the footer's rule is the rule's own, whatever the last block asked for.
   const last = inhalt.length - 1;
   const koerper = inhalt.map((baustein, index) => (index === last ? { ...baustein, gap: GAP.vorLinie } : baustein));
 
-  const zeile = nichtDu(mail.art);
+  const row = nichtDu(mail.art);
   const fuss: Baustein[] = [
     { html: `<hr style="border:none;border-top:1px solid ${RULE_COLOR};margin:0;" />`, gap: GAP.nachLinie },
     { html: p(escapeHtml(VEREIN_ROW), FOOTER_TEXT), gap: GAP.fusszeile },
@@ -299,7 +299,7 @@ function renderHtml(mail: Mail, subjectLine: string): string {
     },
     ...(mail.art === "erstkontakt" ? [{ html: p(absatzHtml([WIDERSPRUCH]), MUTED_TEXT), gap: GAP.fusszeile }] : []),
     // Last, after the footer: it is not part of the message's content.
-    ...(zeile === undefined ? [] : [{ html: p(escapeHtml(zeile), MUTED_TEXT), gap: 0 }]),
+    ...(row === undefined ? [] : [{ html: p(escapeHtml(row), MUTED_TEXT), gap: 0 }]),
   ];
 
   const blocks = [...koerper, ...fuss];
@@ -339,8 +339,8 @@ function renderHtml(mail: Mail, subjectLine: string): string {
 </html>`;
 }
 
-function actionLogEntryText(aktion: Button): string[] {
-  return [`${singleLine(aktion.label)}: ${singleLine(aktion.href)}`];
+function buttonText(button: Button): string[] {
+  return [`${singleLine(button.label)}: ${singleLine(button.href)}`];
 }
 
 function renderText(mail: Mail, subjectLine: string): string {
@@ -358,13 +358,13 @@ function renderText(mail: Mail, subjectLine: string): string {
               : [singleLine(mail.block.titel), ...mail.block.facts.map(({ label, value }) => `${singleLine(label)}: ${valueText(value)}`)],
         ]),
     ...(mail.nachBlock ?? []).map((absatz) => [absatzText(absatz)]),
-    ...(mail.aktion === undefined ? [] : [actionLogEntryText(mail.aktion)]),
+    ...(mail.button === undefined ? [] : [buttonText(mail.button)]),
     [VEREIN_ROW, ...rechtsLinks(mail.origin).map(({ label, href }) => `${label}: ${href}`)],
     ...(mail.art === "erstkontakt" ? [[satzText(WIDERSPRUCH)]] : []),
   ];
-  const zeile = nichtDu(mail.art);
+  const row = nichtDu(mail.art);
 
-  return [...gruppen, ...(zeile === undefined ? [] : [[zeile]])].map((gruppe) => gruppe.join("\n")).join("\n\n");
+  return [...gruppen, ...(row === undefined ? [] : [[row]])].map((gruppe) => gruppe.join("\n")).join("\n\n");
 }
 
 /** One mail in both versions, from the same data, with the sender its kind names. */

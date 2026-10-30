@@ -8,7 +8,7 @@ import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { textLink } from "@/shared/components/ui/textLink";
 import { FOCUS_HEADING, focusSection } from "@/shared/utils/focusAfterWrite";
 
-import type { FLOffeneRegistrierung } from "@/core/generated/client/types";
+import type { FLOpenRegistrierung } from "@/core/generated/client/types";
 import type { Leserichtung } from "@/shared/utils/leserichtung";
 
 /** What a cut-short answer offers: which end of the queue is loaded, and the link to the other one. */
@@ -23,7 +23,7 @@ export function RegistrierungenView({
   adresse,
   unvollstaendig,
 }: {
-  registrierungen: readonly FLOffeneRegistrierung[];
+  registrierungen: readonly FLOpenRegistrierung[];
   adresse: { team_id: string; saison_id: string };
   /** Present only where the read served one end of a longer queue. */
   unvollstaendig: RegistrierungenUnvollstaendig | null;

@@ -46,7 +46,7 @@ describe("the fixture confirmation job", () => {
 
     expect(await runSpielSweep()).toStrictEqual({
       count: { geschlossen: 2, angefragt: 3, erinnert: 1, mails: 9, fehlgeschlagen: 1 },
-      offen: 0,
+      open: 0,
     });
     expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([LISTE, `${LISTE}/2627`, `${LISTE}/2728`]);
   });

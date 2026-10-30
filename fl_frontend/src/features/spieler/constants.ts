@@ -34,7 +34,7 @@ export const SPIELER_CRUD_COPY = {
 export const POSITION_OPTIONS: readonly FLSpielerPosition[] = Object.values(FLSpielerPosition);
 
 /**
- * **A form offers a SEASON's `rules.erlaubte_stufen`, not this.** This is the vocabulary, and the
+ * **A form offers a SEASON's `rules.allowed_stufen`, not this.** This is the vocabulary, and the
  * ordering authority a season's list is sorted against so no two seasons order alike.
  */
 export const STUFE_OPTIONS: readonly FLSpielerStufe[] = Object.values(FLSpielerStufe);
@@ -190,7 +190,7 @@ export function kaderName({ vorname, nachname }: { vorname: string; nachname: st
 }
 
 /**
- * `kader_stufe_nicht_erlaubt` in German. The form offers only the season's levels, so a seat holder meets it where
+ * `kader_stufe_not_allowed` in German. The form offers only the season's levels, so a seat holder meets it where
  * the season was narrowed under the open page, and the picker is where it is repaired.
  */
 export const STUFE_NICHT_ZUGELASSEN = "Diese Stufe ist in dieser Saison nicht zugelassen.";

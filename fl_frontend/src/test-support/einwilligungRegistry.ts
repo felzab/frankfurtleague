@@ -3,7 +3,7 @@ import { APIBadStatusError } from "@/core/errors";
 import REGISTRY from "./einwilligungRegistry.json";
 
 import type { EinwilligungSeite } from "@/core/einwilligungSeiten";
-import type { FLEinwilligungFassung } from "@/core/generated/client/types";
+import type { FLEinwilligungWording } from "@/core/generated/client/types";
 
 /**
  * A plain fixture of the consent registry: each page's running label and the words of those and of four older labels
@@ -11,12 +11,12 @@ import type { FLEinwilligungFassung } from "@/core/generated/client/types";
  * judges what the frontend does with words shaped like these, never the words themselves.
  */
 export const EINWILLIGUNG_REGISTRY: {
-  readonly laufende_fassungen: Readonly<Record<string, string>>;
-  readonly fassungen: Readonly<Record<string, FLEinwilligungFassung>>;
+  readonly running_wordings: Readonly<Record<string, string>>;
+  readonly fassungen: Readonly<Record<string, FLEinwilligungWording>>;
 } = REGISTRY;
 
 /** The words `textVersion` names, throwing where the fixture holds no such label. */
-export function fassungOf(textVersion: string): FLEinwilligungFassung {
+export function fassungOf(textVersion: string): FLEinwilligungWording {
   const fassung = Object.hasOwn(EINWILLIGUNG_REGISTRY.fassungen, textVersion) ? EINWILLIGUNG_REGISTRY.fassungen[textVersion] : undefined;
   if (fassung === undefined) throw new Error(`the consent fixture holds no label ${textVersion}`);
 
@@ -24,20 +24,18 @@ export function fassungOf(textVersion: string): FLEinwilligungFassung {
 }
 
 /** The words `seite` runs, throwing where the fixture runs no label there. */
-export function laufendeFassung(seite: EinwilligungSeite): FLEinwilligungFassung {
-  const textVersion = Object.hasOwn(EINWILLIGUNG_REGISTRY.laufende_fassungen, seite)
-    ? EINWILLIGUNG_REGISTRY.laufende_fassungen[seite]
-    : undefined;
+export function laufendeFassung(seite: EinwilligungSeite): FLEinwilligungWording {
+  const textVersion = Object.hasOwn(EINWILLIGUNG_REGISTRY.running_wordings, seite) ? EINWILLIGUNG_REGISTRY.running_wordings[seite] : undefined;
   if (textVersion === undefined) throw new Error(`the consent fixture runs no label on ${seite}`);
 
   return fassungOf(textVersion);
 }
 
-const FASSUNGEN = "/einwilligung/fassungen/";
+const FASSUNGEN = "/einwilligung/wordings/";
 
 /** The backend's answer to either consent-wording read, off the fixture; `undefined` for any other endpoint. */
 export function einwilligungAnswer(endpoint: string): unknown {
-  if (endpoint === "/einwilligung/seiten") return { laufende_fassungen: EINWILLIGUNG_REGISTRY.laufende_fassungen };
+  if (endpoint === "/einwilligung/seiten") return { laufende_fassungen: EINWILLIGUNG_REGISTRY.running_wordings };
   if (!endpoint.startsWith(FASSUNGEN)) return undefined;
 
   const textVersion = decodeURIComponent(endpoint.slice(FASSUNGEN.length));

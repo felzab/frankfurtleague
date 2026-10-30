@@ -4,7 +4,7 @@ import { assert, beforeEach, vi } from "vitest";
 import { APINetworkError } from "@/core/errors.ts";
 
 import type { MailVon } from "@/core/emailShell.ts";
-import type { FLPostausgangAnmeldungPayload } from "@/core/generated/client/types.ts";
+import type { FLOutboxSignInPayload } from "@/core/generated/client/types.ts";
 
 /** One sign-in mail the double sent, rendered as the drain renders it. */
 export type SentMail = {
@@ -27,24 +27,24 @@ const BACKEND = "https://backend.invalid/api/v0/postausgang/anmeldung";
  */
 export function doubleOutbox(): {
   sent: SentMail[];
-  owed: FLPostausgangAnmeldungPayload[];
+  owed: FLOutboxSignInPayload[];
   answerWith: (next: MailAnswer) => void;
 } {
   const sent: SentMail[] = [];
   // Every sign-in mail owed through the Postausgang, as the backend was handed it.
-  const owed: FLPostausgangAnmeldungPayload[] = [];
+  const owed: FLOutboxSignInPayload[] = [];
   const accepted: MailAnswer = () => "accepted";
   let answering = accepted;
 
-  const postausgangPostAnmeldung = async (payload: FLPostausgangAnmeldungPayload): Promise<void> => {
+  const outboxPostSignIn = async (payload: FLOutboxSignInPayload): Promise<void> => {
     const [{ authSecret, frontend_config }, { mailFor }, { renderMail }] = await Promise.all([
       import("@/core/config.ts"),
       import("@/core/mailKinds.ts"),
       import("@/core/emailShell.ts"),
     ]);
-    const geheim = payload.geheim === null ? null : await symmetricDecrypt({ key: authSecret(), data: payload.geheim });
-    const message = mailFor(payload.daten.art, payload.daten, { token: null, geheim: geheim, origin: frontend_config.AUTH_URL });
-    assert(message !== undefined, `no builder renders the sign-in kind ${payload.daten.art}`);
+    const secret = payload.secret === null ? null : await symmetricDecrypt({ key: authSecret(), data: payload.secret });
+    const message = mailFor(payload.data.art, payload.data, { token: null, secret: secret, origin: frontend_config.AUTH_URL });
+    assert(message !== undefined, `no builder renders the sign-in kind ${payload.data.art}`);
     const mail = { to: payload.an, ...renderMail(message) };
 
     if ((await answering(mail)) === "lost") {
@@ -58,7 +58,7 @@ export function doubleOutbox(): {
   // Imported after this call by the suite, so the modules it loads owe through the double.
   vi.doMock("@/core/generated/client/sdk.ts", async () => ({
     ...(await vi.importActual<object>("@/core/generated/client/sdk.ts")),
-    postausgangPostAnmeldung: postausgangPostAnmeldung,
+    outboxPostSignIn: outboxPostSignIn,
   }));
 
   // Back to accepted before every case: a case that named `lost` would hand it to the next case's mail.

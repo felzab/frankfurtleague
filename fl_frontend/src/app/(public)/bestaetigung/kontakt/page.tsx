@@ -42,7 +42,7 @@ async function BestaetigungContent(props: NextPageProps) {
   const { token } = await props.searchParams;
 
   // A missing or repeated parameter is no link at all and reads as the dead link.
-  if (typeof token !== "string" || token === "") return <BestaetigungView start={{ zustand: "ungueltig" }} />;
+  if (typeof token !== "string" || token === "") return <BestaetigungView start={{ zustand: "invalid" }} />;
 
   // A failed read is its own state, the dead-link panel calling a live link void. A broken contract is
   // no failed read: it reaches the error boundary, which logs it.
@@ -51,19 +51,19 @@ async function BestaetigungContent(props: NextPageProps) {
     getEinwilligungAnsicht(token).then(
       async (gelesen): Promise<BestaetigungStart> => {
         // Offered the Widerspruch alone, which shows no stamped words.
-        if (gelesen.zustand === "saison_vorbei") return { zustand: "saison_vorbei", ansicht: gelesen.ansicht, token: token };
-        if (gelesen.zustand !== "gueltig") return gelesen;
+        if (gelesen.zustand === "saison_past") return { zustand: "saison_past", ansicht: gelesen.ansicht, token: token };
+        if (gelesen.zustand !== "valid") return gelesen;
 
         // After the link's read, never beside it: the view names the label by how the seat was filled.
         // A failed read is the panel below; a label the registry does not hold reaches the error boundary.
-        const fassung = await getGenannteFassung(gelesen.ansicht.laufende_fassung).catch(nullUnlessContractBreak);
+        const fassung = await getGenannteFassung(gelesen.ansicht.running_wording).catch(nullUnlessContractBreak);
 
         // A page with no words to show is a page that cannot be answered, which the failed read's panel says.
         if (fassung === null) return { zustand: "unlesbar" };
 
         // Uncaught: words this page cannot key are a broken contract, which the error boundary logs.
         const worte = gekeyteFassung(fassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL);
-        return { zustand: "gueltig", ansicht: gelesen.ansicht, token: token, fassung: worte };
+        return { zustand: "valid", ansicht: gelesen.ansicht, token: token, wording: worte };
       },
       (error: unknown): BestaetigungStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
     ),

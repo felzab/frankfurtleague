@@ -17,7 +17,7 @@ import { getGermanTodayStr } from "@/shared/utils/date";
 
 import { alterAusserhalb, EINWILLIGUNG_UMFANG_OPTIONS } from "./constants";
 
-import type { FLRegistrierungBestaetigungAnsichtResponseSeite } from "@/core/generated/client/types";
+import type { FLRegistrierungConfirmationViewResponseSeite } from "@/core/generated/client/types";
 
 /** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
 const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link erneut.";
@@ -63,7 +63,7 @@ const FLEinwilligungUmfangSchema = z.enum(EINWILLIGUNG_UMFANG_OPTIONS, {
  * One person, one press, one token spent. **It bounds no age**: the floor arrives with the link's own read.
  *
  * Null where the page asks nothing: both choices and the date on the returning pupil's page
- * (`registrierung_wahlen_unpassend`).
+ * (`registrierung_choices_unsuitable`).
  */
 export const FLRegistrierungBestaetigungPayloadSchema = z.object({
   token: registrierungToken,
@@ -81,7 +81,7 @@ export const FLRegistrierungBestaetigungPayloadSchema = z.object({
  * The page's own, built at the floor the link answered: the date is judged against the German day
  * here as the endpoint judges it, so both tiers refuse the same two numbers on the same day.
  */
-export function buildRegistrierungBestaetigungPayloadSchema(mindestalter: number, seite: FLRegistrierungBestaetigungAnsichtResponseSeite) {
+export function buildRegistrierungBestaetigungPayloadSchema(mindestalter: number, seite: FLRegistrierungConfirmationViewResponseSeite) {
   // The new pupil's three tightened past the payload's null: an unanswered scope is a field error before any press.
   return seite === "bestaetigung_spieler"
     ? FLRegistrierungBestaetigungPayloadSchema.extend({
@@ -108,7 +108,7 @@ export const FLRegistrierungAufnehmenPayloadSchema = z.object({
 });
 
 /** A fixed choice and never free text: the decline note picks its sentence from it, and nothing a team types reaches the pupil. */
-const FLRegistrierungAblehnungsgrundSchema = z.enum(["andere_person"], { error: "Diesen Grund kennen wir nicht. Lade die Seite neu." });
+const FLRegistrierungAblehnungsgrundSchema = z.enum(["other_person"], { error: "Diesen Grund kennen wir nicht. Lade die Seite neu." });
 
 export const FLRegistrierungAblehnenPayloadSchema = z.object({
   grund: FLRegistrierungAblehnungsgrundSchema.nullable(),

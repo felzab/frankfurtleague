@@ -60,11 +60,11 @@ export function isRefusal(error: unknown): error is APIBadStatusError {
 }
 
 /**
- * Whether the backend found the Funktion the request acts in not held (`funktion_nicht_gehalten`): a write
+ * Whether the backend found the Funktion the request acts in not held (`role_not_held`): a write
  * answers it with `SITZ_WEG`, and a page reading for that seat renders the forbidden panel.
  */
 export function isFunktionLost(error: unknown): error is APIBadStatusError {
-  return isRefusal(error) && error.serverErrorCode === "funktion_nicht_gehalten";
+  return isRefusal(error) && error.serverErrorCode === "role_not_held";
 }
 
 /**

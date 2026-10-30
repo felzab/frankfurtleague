@@ -12,7 +12,7 @@ export const patchAdminSpielData = async (
   uebernimmtBericht: number | null,
 ): Promise<FLPatchSpielDataResponse> =>
   // Left out unseeded: sent, it adopts whatever report stands at that version.
-  spielePatchSpiel(spiel_id, fields, uebernimmtBericht === null ? {} : { uebernimmt_bericht: uebernimmtBericht });
+  spielePatchSpiel(spiel_id, fields, uebernimmtBericht === null ? {} : { adopts_bericht: uebernimmtBericht });
 
 /**
  * **Deliberately the same endpoint, payload and answer as the save.** Its own would be a second implementation of

@@ -28,7 +28,7 @@ let memberships: Answer;
 function answerFor({ endpoint }: ApiCall): unknown {
   if (endpoint === "/einwilligung/seiten") return einwilligungAnswer(endpoint);
   if (endpoint === "/teams/saisons") return memberships();
-  return endpoint.endsWith("/bestaetigung/einladen") ? resend() : save();
+  return endpoint.endsWith("/confirmation/invite") ? resend() : save();
 }
 
 const client = doubleApiAnswers(async (call) => {
@@ -64,13 +64,13 @@ const BLOCK = {
   trainer: sitz("Clara", "clara@schule.example"),
   ansprechperson: sitz("Anna", "anna@schule.example"),
   stellvertretung: sitz("Bernd", "bernd@schule.example"),
-  trainer_ist_zugleich: null,
+  trainer_is_also: null,
 };
 const GESPEICHERT = {
   trainer: gespeichert("Clara", "clara@schule.example"),
   ansprechperson: gespeichert("Anna", "anna@schule.example"),
   stellvertretung: gespeichert("Bernd", "bernd@schule.example"),
-  trainer_ist_zugleich: null,
+  trainer_is_also: null,
 };
 const PAYLOAD = { team_id: TEAM_ID, saison_id: "2627", kontakte: BLOCK, kontakte_stand: "9f2c" };
 
@@ -132,7 +132,7 @@ describe("the contacts save", () => {
   /* The backend refuses the save whole, storing nobody: the administrator is told at the save, in
      a sentence naming no address and no seat, since the refusal names neither. */
   it("answers a save seating a barred address with the ban", async () => {
-    save = () => refused("kontakt_sitz_gesperrt");
+    save = () => refused("kontakt_seat_barred");
 
     const res = await patchSaisonTeamKontakteAction(PAYLOAD);
 
@@ -198,8 +198,8 @@ describe("the re-send beside an unconfirmed seat", () => {
     const res = await einladeKontaktAction({ team_id: TEAM_ID, saison_id: "2627", rolle: "stellvertretung" });
 
     expect(res.success && res.message).toBe("Der Bestätigungslink geht an bernd@schule.example. Der vorherige Link gilt nicht mehr.");
-    expect(requestsOf(client.calls).filter(({ endpoint }) => endpoint.endsWith("/bestaetigung/einladen"))).toStrictEqual([
-      { endpoint: `/teams/${TEAM_ID}/saisons/2627/kontakte/stellvertretung/bestaetigung/einladen`, method: "POST", body: undefined },
+    expect(requestsOf(client.calls).filter(({ endpoint }) => endpoint.endsWith("/confirmation/invite"))).toStrictEqual([
+      { endpoint: `/teams/${TEAM_ID}/saisons/2627/kontakte/stellvertretung/confirmation/invite`, method: "POST", body: undefined },
     ]);
     expect(mail.sent).toStrictEqual([]);
   });
@@ -214,10 +214,10 @@ describe("the re-send beside an unconfirmed seat", () => {
 
   for (const [code, fragment] of [
     // „Rolle“, the word every screen names a contact seat by.
-    ["kontakt_sitz_ohne_bestaetigung", /^Für diese Rolle steht keine Bestätigung mehr aus\. Lade die Seite neu\.$/],
-    ["kontakt_sitz_gesperrt", /Sperrliste/],
+    ["kontakt_seat_without_confirmation", /^Für diese Rolle steht keine Bestätigung mehr aus\. Lade die Seite neu\.$/],
+    ["kontakt_seat_barred", /Sperrliste/],
     // A reload, the one action left: the reloaded editor offers no send on such a row.
-    ["kontakt_zeile_ohne_saison", /Saison ist vorbei oder das Team ist ausgetreten\. Lade die Seite neu, um den aktuellen Stand zu sehen\./],
+    ["kontakt_row_without_saison", /Saison ist vorbei oder das Team ist ausgetreten\. Lade die Seite neu, um den aktuellen Stand zu sehen\./],
   ] as const) {
     it(`words ${code} beside the seat`, async () => {
       resend = () => refused(code);

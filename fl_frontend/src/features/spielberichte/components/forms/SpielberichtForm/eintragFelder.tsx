@@ -36,7 +36,7 @@ export function personOptionen(kontext: SpielberichtKontext, seite: FLSpielSeite
   const kader = kontext.kader[seite];
   if (gewaehlt === "" || kader.some((option) => option.id === gewaehlt)) return kader;
 
-  const genannt = kontext.genannt.find((option) => option.id === gewaehlt);
+  const genannt = kontext.named.find((option) => option.id === gewaehlt);
   return genannt === undefined ? kader : [genannt, ...kader];
 }
 

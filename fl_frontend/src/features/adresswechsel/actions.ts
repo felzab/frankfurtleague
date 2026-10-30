@@ -34,9 +34,9 @@ import {
 import { runAdresswechselUmzuege } from "./umzug";
 
 import type {
-  FLAdresswechselVerwaltungAnsichtPayload,
-  FLAdresswechselVerwaltungAnsichtResponse,
-  FLAdresswechselVerwaltungPayload,
+  FLAddressChangeVerwaltungPayload,
+  FLAddressChangeVerwaltungViewPayload,
+  FLAddressChangeVerwaltungViewResponse,
 } from "@/core/generated/client/types";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type { EinsehbarVerwehrt } from "./einsehbar";
@@ -47,8 +47,8 @@ export type AdresswechselGesendet = ActionResult<{ link: boolean }>;
 
 /** What the address holds and the change pending at it, read when the administrator asks: a person's records are never browsed. */
 export async function readAdresswechselAnsichtAction(
-  rawPayload: FLAdresswechselVerwaltungAnsichtPayload,
-): Promise<QueryResult<{ ansicht: FLAdresswechselVerwaltungAnsichtResponse }>> {
+  rawPayload: FLAddressChangeVerwaltungViewPayload,
+): Promise<QueryResult<{ ansicht: FLAddressChangeVerwaltungViewResponse }>> {
   return runAdminMutation("readAdresswechselAnsichtAction", async () => {
     const validated = FLAdresswechselVerwaltungAnsichtPayloadSchema.safeParse(rawPayload);
 
@@ -68,7 +68,7 @@ export async function readAdresswechselAnsichtAction(
  * An administrator's start of a change for a person who says they cannot sign in: without a reason the address on
  * file approves it first, with one a waiting time follows the confirmation. Either way it gets a stop link.
  */
-export async function beantrageAdresswechselAction(rawPayload: FLAdresswechselVerwaltungPayload): Promise<AdresswechselGesendet> {
+export async function beantrageAdresswechselAction(rawPayload: FLAddressChangeVerwaltungPayload): Promise<AdresswechselGesendet> {
   return runAdminMutation("beantrageAdresswechselAction", { stepUp: true }, async () => {
     const validated = FLAdresswechselVerwaltungPayloadSchema.safeParse(rawPayload);
 
@@ -91,7 +91,7 @@ export async function beantrageAdresswechselAction(rawPayload: FLAdresswechselVe
       // The address the start names, never the one typed: a rival request landing between the two
       // replaced the mailbox the link is owed.
       message: describeAdresswechselMail(mint),
-      link: mint.weg !== "freigabe",
+      link: mint.way !== "release",
     };
   });
 }
@@ -107,7 +107,7 @@ export async function einladeAdresswechselAction(rawPayload: FLAdresswechselEinl
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
 
     // Before the re-mint, which kills the earlier link: a fresh one would be refused at its press.
-    if (await kontoAnNeuerAdresse({ adresswechsel_id: validated.data.id })) return { success: false, error: KONTO_BELEGT_ERNEUT };
+    if (await kontoAnNeuerAdresse({ address_change_id: validated.data.id })) return { success: false, error: KONTO_BELEGT_ERNEUT };
 
     let mint;
     try {
@@ -168,7 +168,7 @@ export async function genehmigeAdresswechselAction(
 
     // By the change's id, the approver perhaps being refused the tool's read of it; the effect would leave the account
     // at the new address standing beside the person's records.
-    if (await kontoAnNeuerAdresse({ adresswechsel_id: validated.data.id })) {
+    if (await kontoAnNeuerAdresse({ address_change_id: validated.data.id })) {
       return { success: false, error: kontoBelegtGenehmigung(verwehrt.data) };
     }
 
@@ -181,7 +181,7 @@ export async function genehmigeAdresswechselAction(
       throw error;
     }
 
-    if (antwort.wirksam) {
+    if (antwort.effective) {
       // The effect owed its account's carry on the change: behind the response, and by the hourly pass where this one
       // never runs.
       afterTheResponse(runAdresswechselUmzuege);

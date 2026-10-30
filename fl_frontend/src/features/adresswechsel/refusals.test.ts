@@ -17,17 +17,17 @@ import type { Code } from "@/core/generated/client/types.ts";
 describe("an approval refused for who presses it", () => {
   /* The closed press on the grant's row and the refused press say one reason alike, whichever the page showed first. */
   it("says the refusal in the closed press's own words", () => {
-    expect(mapGenehmigungRefusal(refused("adresswechsel_genehmigung_inhaber"), null)).toBe(GENEHMIGUNG_VERWEHRT.inhaber);
-    expect(mapGenehmigungRefusal(refused("adresswechsel_genehmigung_juenger"), null)).toBe(GENEHMIGUNG_VERWEHRT.juenger);
+    expect(mapGenehmigungRefusal(refused("address_change_approval_owner"), null)).toBe(GENEHMIGUNG_VERWEHRT.owner);
+    expect(mapGenehmigungRefusal(refused("address_change_approval_younger"), null)).toBe(GENEHMIGUNG_VERWEHRT.younger);
   });
 
   /* An owner promoted after signing in holds no owner's power yet: told only that an owner approves, they read it as false. */
   it("names the sign-in again to an owner refused for want of an owner's power", () => {
-    expect(mapGenehmigungRefusal(refused("adresswechsel_genehmigung_inhaber"), null) ?? "").toMatch(/melde Dich neu an\./);
+    expect(mapGenehmigungRefusal(refused("address_change_approval_owner"), null) ?? "").toMatch(/melde Dich neu an\./);
   });
 
   /* The codes name no tier, so each sentence naming an approver names both: an owner's change is another owner's. */
-  for (const code of ["adresswechsel_genehmigung_verwehrt", "adresswechsel_genehmigung_juenger"] as const) {
+  for (const code of ["address_change_approval_denied", "address_change_approval_younger"] as const) {
     it(`names an owner's approver as well on ${code}`, () => {
       expect(mapGenehmigungRefusal(refused(code), null) ?? "").toMatch(/Inhaberin oder (ein anderer )?Inhaber/);
     });
@@ -37,11 +37,11 @@ describe("an approval refused for who presses it", () => {
 describe("where an approval its effect refused sends the approver", () => {
   // Each of the effect's own refusals leaves the change standing unapproved, for somebody to discard.
   const OFFEN_GELASSEN: Code[] = [
-    "link_gesperrt",
-    "adresswechsel_ersetzte_gesperrt",
-    "adresswechsel_vergeben",
-    "adresswechsel_nicht_gedeckt",
-    "adresswechsel_neue_berechtigt",
+    "link_barred",
+    "address_change_replaced_barred",
+    "address_change_taken",
+    "address_change_not_covered",
+    "address_change_new_granted",
   ];
 
   /* The address tool is the only discard: a reader it opens the change for is sent there, a non-owner to an owner. */
@@ -60,13 +60,13 @@ describe("where an approval its effect refused sends the approver", () => {
 describe("what one refused press asks the link page to show", () => {
   /* One panel for every refusal that would tell the link's holder who holds an address. */
   for (const [code, zustand] of [
-    ["link_ungueltig", "ungueltig"],
-    ["link_abgelaufen", "abgelaufen"],
-    ["link_gesperrt", "gesperrt"],
-    ["adresswechsel_ersetzte_gesperrt", "nicht_bestaetigbar"],
-    ["adresswechsel_vergeben", "nicht_bestaetigbar"],
-    ["adresswechsel_nicht_gedeckt", "nicht_bestaetigbar"],
-    ["adresswechsel_neue_berechtigt", "nicht_bestaetigbar"],
+    ["link_invalid", "ungueltig"],
+    ["link_expired", "abgelaufen"],
+    ["link_barred", "gesperrt"],
+    ["address_change_replaced_barred", "nicht_bestaetigbar"],
+    ["address_change_taken", "nicht_bestaetigbar"],
+    ["address_change_not_covered", "nicht_bestaetigbar"],
+    ["address_change_new_granted", "nicht_bestaetigbar"],
     ["duplicate_key", "nicht_bestaetigbar"],
   ] as const) {
     it(`answers ${code} as the ${zustand} panel`, () => {
@@ -76,11 +76,11 @@ describe("what one refused press asks the link page to show", () => {
 
   /* The change ended or the link was answered since the page opened: the link's own read says how, never "void". */
   it("asks for the link to be read again where the change ended since the page opened", () => {
-    expect(mapAdresswechselPresseRefusal(refused("adresswechsel_beendet"))).toStrictEqual({ neuLesen: true });
+    expect(mapAdresswechselPresseRefusal(refused("address_change_ended"))).toStrictEqual({ neuLesen: true });
   });
 
   it("answers a stop link nothing matches as the void link's panel", () => {
-    expect(mapAdresswechselPresseRefusal(refused("link_ungueltig"))).toStrictEqual({ zustand: "ungueltig" });
+    expect(mapAdresswechselPresseRefusal(refused("link_invalid"))).toStrictEqual({ zustand: "ungueltig" });
   });
 
   it("sends a body the API could not read back to the mail's link", () => {
@@ -88,7 +88,7 @@ describe("what one refused press asks the link page to show", () => {
   });
 
   it("answers nothing for a code it does not word", () => {
-    expect(mapAdresswechselPresseRefusal(refused("adresswechsel_unveraendert", 409))).toBe(null);
+    expect(mapAdresswechselPresseRefusal(refused("address_change_unchanged", 409))).toBe(null);
     expect(mapAdresswechselPresseRefusal(new Error("network"))).toBe(null);
   });
 });
@@ -105,14 +105,14 @@ describe("what the tool's start says where the change it would end has ended", (
 describe("what the tool says where nobody could approve, and what an approval says past a deadline", () => {
   /* An administration-tier grant needs another administrator, never an owner: the sentence names both ways out. */
   it("names another administrator as well as another owner where nobody could approve a grant's move", () => {
-    const answered = mapVerwaltungStartRefusal(refused("adresswechsel_kein_genehmiger"));
+    const answered = mapVerwaltungStartRefusal(refused("address_change_no_approver"));
 
     expect(answered?.error ?? "").toMatch(/gib einer weiteren Person Zugang zur Verwaltung/);
   });
 
-  /* `link_abgelaufen` covers a lapsed link as well as the approval's week, so the sentence names neither deadline. */
+  /* `link_expired` covers a lapsed link as well as the approval's week, so the sentence names neither deadline. */
   it("says the change lapsed, never which deadline, where the approval meets -003", () => {
-    const answered = mapGenehmigungRefusal(refused("link_abgelaufen"), null);
+    const answered = mapGenehmigungRefusal(refused("link_expired"), null);
 
     assert.ok(answered?.startsWith("Diese Änderung ist abgelaufen"), answered ?? "no sentence");
   });

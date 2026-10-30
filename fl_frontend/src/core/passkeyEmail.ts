@@ -39,7 +39,7 @@ function build(ereignis: Ereignis, { zeitpunkt, origin, konto }: Anlass): Mail {
     vorname: "",
     absaetze: [ereignis.saetze(formatInstant(zeitpunkt))],
     // The reader's own account page, which is the only place either event can be acted on.
-    aktion: { label: "Zu Deinem Konto", href: `${site}${konto}` },
+    button: { label: "Zu Deinem Konto", href: `${site}${konto}` },
   };
 }
 

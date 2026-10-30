@@ -17,7 +17,7 @@ const MAIL: Mail = {
 describe("renderMail", () => {
   // A reader whose client shows the text version alone has no button to press.
   it("prints the button's link in the text version", () => {
-    const button = renderMail({ ...MAIL, aktion: { label: "Zum Eintrag", href: `${ORIGIN}/eintrag?token=eins` } });
+    const button = renderMail({ ...MAIL, button: { label: "Zum Eintrag", href: `${ORIGIN}/eintrag?token=eins` } });
     assert.include(button.text, `${ORIGIN}/eintrag?token=eins`);
   });
 
@@ -40,7 +40,7 @@ describe("renderMail", () => {
       vorname: boese,
       absaetze: [[boese, [{ strong: boese }]]],
       block: { titel: boese, facts: [{ label: boese, value: boese }] },
-      aktion: { label: boese, href: `${ORIGIN}/"><script>` },
+      button: { label: boese, href: `${ORIGIN}/"><script>` },
     });
 
     assert.notInclude(html, "<img src=x");

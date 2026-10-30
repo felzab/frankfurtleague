@@ -1,23 +1,23 @@
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLBewerbung, FLPostausgangLage } from "@/core/generated/client/types";
+import type { FLBewerbung, FLOutboxState } from "@/core/generated/client/types";
 import type { KontaktRolle } from "@/features/teams/constants";
 
 /** Narrowed to the two blocks a confirmation moves, so a caller holding a queue row rather than a whole application still reads its seats. */
-type BewerbungSitze = Pick<FLBewerbung, "bestaetigungen" | "kontakte">;
+type BewerbungSitze = Pick<FLBewerbung, "confirmations" | "kontakte">;
 
 /** What one seat's confirmation has reached. A seat that has answered carries the day it answered on. */
 type Stand =
-  | { art: "bestaetigt"; am: string }
-  | { art: "abgelehnt"; am: string }
+  | { art: "confirmed"; am: string }
+  | { art: "declined"; am: string }
   // No day: an erasure takes the seat's block with the person it belonged to, and the day it
   // happened on is stored nowhere the application can be read from.
-  | { art: "geloescht" }
+  | { art: "erased" }
   // Never answered, on an application already decided: its link opens nothing
   // (`fl_backend/app/api/bewerbungen/services.py :: link_is_over`), so nothing is outstanding.
   | { art: "unbeantwortet" }
-  | { art: "ausstehend"; verschicktAm: string; erinnertAm: string | null };
+  | { art: "pending"; verschicktAm: string; erinnertAm: string | null };
 
 export type SitzBestaetigung = {
   rolle: KontaktRolle;
@@ -34,41 +34,41 @@ export type SitzBestaetigung = {
    * What became of the last mail owed this seat, `null` where none was. **Beside `stand` and never inside it**: a seat
    * can be `bestaetigt` and have had an earlier link bounce.
    */
-  zustellung: FLPostausgangLage | null;
+  delivery: FLOutboxState | null;
   /** Rendered here rather than by each surface: the strip and the fact panel say one thing about one seat. */
   satz: string;
 };
 
 /** Each seat's state, in the label table's order. */
 export function bestaetigungsStand(bewerbung: BewerbungSitze & Pick<FLBewerbung, "status">): SitzBestaetigung[] {
-  const { bestaetigungen, kontakte, status } = bewerbung;
+  const { confirmations: bestaetigungen, kontakte, status } = bewerbung;
 
   // `KONTAKT_ROLLEN` and never a list of this file's own: the seat order is the label table's, which
   // every admin section is ordered by (`docs/decisions.md`, **admin**).
   return KONTAKT_ROLLEN.map(({ value, label }) => {
     const person = kontakte[value];
     const verlauf = bestaetigungen[value];
-    const bestaetigtAm = person?.einwilligung.bestaetigt_am ?? null;
-    const abgelehntAm = verlauf?.abgelehnt_am ?? null;
+    const bestaetigtAm = person?.einwilligung.confirmed_at ?? null;
+    const abgelehntAm = verlauf?.declined_at ?? null;
 
     // The stamp on the record wins over the block: a seat confirms once, and the block goes on
     // carrying the day its link went out.
     const stand: Stand =
       bestaetigtAm !== null
-        ? { art: "bestaetigt", am: bestaetigtAm }
+        ? { art: "confirmed", am: bestaetigtAm }
         : abgelehntAm !== null
-          ? { art: "abgelehnt", am: abgelehntAm }
+          ? { art: "declined", am: abgelehntAm }
           : // Either half missing is terminal, and `ausstehend` is left holding only the seats a link
             // can still reach: the endpoint refuses to mint against a null entry, and a null slot
             // names nobody who could answer one.
             person === null || verlauf === null
-            ? { art: "geloescht" }
+            ? { art: "erased" }
             : // The decided half of `link_is_over` alone. Past the deadline a still-open application
               // keeps `ausstehend`: a re-send restarts the deadline, so the seat waits on a control the
               // strip still offers.
-              status !== "eingereicht"
+              status !== "submitted"
               ? { art: "unbeantwortet" }
-              : { art: "ausstehend", verschicktAm: verlauf.verschickt_am, erinnertAm: verlauf.erinnert_am };
+              : { art: "pending", verschicktAm: verlauf.sent_at, erinnertAm: verlauf.reminded_at };
 
     const name = person === null ? null : `${person.vorname} ${person.nachname}`;
 
@@ -80,9 +80,9 @@ export function bestaetigungsStand(bewerbung: BewerbungSitze & Pick<FLBewerbung,
       // The empty string is what the form stores where nobody typed one, and a row cannot offer to
       // correct or re-send against it: both surfaces read `null` as "no address at all".
       email: person === null || person.email === "" ? null : person.email,
-      zugleichTrainer: kontakte.trainer_ist_zugleich === value,
+      zugleichTrainer: kontakte.trainer_is_also === value,
       stand: stand,
-      zustellung: verlauf?.zustellung ?? null,
+      delivery: verlauf?.delivery ?? null,
       satz: standSatz(stand),
     };
   });
@@ -90,7 +90,7 @@ export function bestaetigungsStand(bewerbung: BewerbungSitze & Pick<FLBewerbung,
 
 /** A seat the acceptance is still waiting on. A decline blocks it too: the emptied slot carries no confirmation. */
 export function istOffen({ stand }: SitzBestaetigung): boolean {
-  return stand.art !== "bestaetigt";
+  return stand.art !== "confirmed";
 }
 
 /**
@@ -98,7 +98,7 @@ export function istOffen({ stand }: SitzBestaetigung): boolean {
  * person's request, where a Widerspruch leaves a slot an administrator seats somebody else in.
  */
 function istEndgueltig({ stand }: SitzBestaetigung): boolean {
-  return stand.art === "geloescht";
+  return stand.art === "erased";
 }
 
 /**
@@ -106,9 +106,9 @@ function istEndgueltig({ stand }: SitzBestaetigung): boolean {
  * an erasure being one the league made and cannot take back.
  */
 export function endstand(staende: readonly SitzBestaetigung[]): string | null {
-  if (staende.some((sitz) => sitz.stand.art === "abgelehnt")) return "Widerspruch";
+  if (staende.some((sitz) => sitz.stand.art === "declined")) return "Widerspruch";
 
-  return staende.some((sitz) => sitz.stand.art === "geloescht") ? "Eintrag gelöscht" : null;
+  return staende.some((sitz) => sitz.stand.art === "erased") ? "Eintrag gelöscht" : null;
 }
 
 /**
@@ -117,7 +117,7 @@ export function endstand(staende: readonly SitzBestaetigung[]): string | null {
  * (`fl_backend/app/api/kontakte/services.py :: build_clearing_update`).
  */
 function leerSatz(stand: Stand): string {
-  return stand.art === "geloescht" ? "Auf eigenen Wunsch gelöscht" : "Niemand mehr in der Bewerbung";
+  return stand.art === "erased" ? "Auf eigenen Wunsch gelöscht" : "Niemand mehr in der Bewerbung";
 }
 
 /**
@@ -125,13 +125,13 @@ function leerSatz(stand: Stand): string {
  * heard from the league. A reminder a ban keeps back leaves nothing on the seat, so it reads as sent.
  */
 function standSatz(stand: Stand): string {
-  if (stand.art === "bestaetigt") return `Bestätigt am ${formatSpielDatum(stand.am)}`;
+  if (stand.art === "confirmed") return `Bestätigt am ${formatSpielDatum(stand.am)}`;
   // The queue's badge word in its participle: „Abgelehnt“ is the APPLICATION's own status, and one
   // root for a seat's refusal and the league's decision puts two facts about one row under one word.
-  if (stand.art === "abgelehnt") return `Widersprochen am ${formatSpielDatum(stand.am)}`;
+  if (stand.art === "declined") return `Widersprochen am ${formatSpielDatum(stand.am)}`;
   // One sentence for both, because it is one fact: neither seat can be confirmed. A second wording
   // would read as a third terminal state beside the Widerspruch.
-  if (stand.art === "geloescht" || stand.art === "unbeantwortet") return "Keine Bestätigung mehr möglich";
+  if (stand.art === "erased" || stand.art === "unbeantwortet") return "Keine Bestätigung mehr möglich";
 
   if (stand.erinnertAm !== null) return `Ausstehend, erinnert am ${formatSpielDatum(stand.erinnertAm)}`;
 
@@ -144,7 +144,7 @@ function standSatz(stand: Stand): string {
  * would put a second message in one mailbox over one decision.
  */
 export function linkAngebot(staende: readonly SitzBestaetigung[]): ReadonlySet<KontaktRolle> {
-  const wartend = staende.filter((sitz) => sitz.stand.art === "ausstehend");
+  const wartend = staende.filter((sitz) => sitz.stand.art === "pending");
   // Only where the Trainer's own row carries a control: a claimed pair whose Trainer seat has been
   // answered or emptied would otherwise be left with no way to send a link at all.
   const gepaart = wartend.some((sitz) => sitz.rolle === "trainer");
@@ -158,7 +158,7 @@ export function linkAngebot(staende: readonly SitzBestaetigung[]): ReadonlySet<K
  * parts them by the day the decline left behind.
  */
 export function sitzAngebot(staende: readonly SitzBestaetigung[]): ReadonlySet<KontaktRolle> {
-  const ausgestiegen = new Set(staende.filter((sitz) => sitz.stand.art === "abgelehnt").map((sitz) => sitz.rolle));
+  const ausgestiegen = new Set(staende.filter((sitz) => sitz.stand.art === "declined").map((sitz) => sitz.rolle));
   const spiegel = staende.find((sitz) => sitz.zugleichTrainer)?.rolle ?? null;
 
   if (spiegel !== null) {
@@ -174,7 +174,7 @@ export function sitzAngebot(staende: readonly SitzBestaetigung[]): ReadonlySet<K
 }
 
 /**
- * Whether two seats are one person, read off the claim `trainer_ist_zugleich` records. The one
+ * Whether two seats are one person, read off the claim `trainer_is_also` records. The one
  * exception the submission's duplicate-address rule makes, and so the one this side must make too.
  */
 function sindEinePerson(a: SitzBestaetigung, b: SitzBestaetigung): boolean {
@@ -212,7 +212,7 @@ export function zusageHindernis(staende: readonly SitzBestaetigung[], teamName: 
 
   // The repair beside the refusal: the control it sends the administrator to is `sitzAngebot`'s, so
   // both have to select the declined seat or this points at a row carrying no such control.
-  if (offen.some((sitz) => sitz.stand.art === "abgelehnt")) {
+  if (offen.some((sitz) => sitz.stand.art === "declined")) {
     return "Eine Kontaktperson hat widersprochen. Besetze ihre Rolle mit einer anderen Person oder lehne die Bewerbung ab.";
   }
 
@@ -230,12 +230,12 @@ export function zusageHindernis(staende: readonly SitzBestaetigung[], teamName: 
 export function loeschungsSatz({
   staende,
   frist,
-  eingereicht,
+  submitted: eingereicht,
   istAbgelaufen,
 }: {
   staende: readonly SitzBestaetigung[];
   frist: string;
-  eingereicht: boolean;
+  submitted: boolean;
   /** The read's judgement of the deadline on the server's day, never this browser's. */
   istAbgelaufen: boolean;
 }): string | null {
@@ -245,7 +245,7 @@ export function loeschungsSatz({
   // The fourteen-day clock's hold (`fl_backend/app/api/bewerbungen/system_router.py :: loeschen_the_unconfirmed`): an
   // application whose submitter's last mail did not arrive stands, so a promised deletion is false for exactly the row
   // an administrator can still repair.
-  const gehalten = staende.find((sitz) => sitz.rolle === "ansprechperson")?.zustellung?.unzustellbar === true;
+  const gehalten = staende.find((sitz) => sitz.rolle === "ansprechperson")?.delivery?.undeliverable === true;
 
   // The deadline's own day still reads as ahead: the link answers on it, and the sweep deletes the day after.
   if (!istAbgelaufen) {

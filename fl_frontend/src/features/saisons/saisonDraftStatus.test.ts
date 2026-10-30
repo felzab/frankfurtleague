@@ -8,7 +8,7 @@ import type { SaisonDraftFields } from "./types";
 const stored: SaisonDraftFields = {
   start_date: "2025-09-01",
   end_date: "2026-06-30",
-  rules: saisonRules({ teams_per_group: 5, max_kadergroesse: 50, erlaubte_stufen: ["E1", "E2", "Q1", "Q2"] }),
+  rules: saisonRules({ teams_per_gruppe: 5, max_kadergroesse: 50, allowed_stufen: ["E1", "E2", "Q1", "Q2"] }),
   bewerbung: { offen: true, von: "2025-05-01", bis: "2025-06-30" },
   registrierung: { offen: true, von: "2025-07-01", bis: "2025-08-15" },
 };
@@ -93,28 +93,28 @@ describe("deriveSaisonDraftStatus", () => {
   it("reads the allowed levels in the league's order, so reordering the same set is not a change", () => {
     const status = deriveSaisonDraftStatus({
       stored,
-      draft: draftFrom(rules({ erlaubte_stufen: ["Q2", "E1", "Q1", "E2"] })),
+      draft: draftFrom(rules({ allowed_stufen: ["Q2", "E1", "Q1", "E2"] })),
       fieldErrors: {},
     });
 
     expect(status.isDirty).toBe(false);
-    expect(status.byPath.get("rules.erlaubte_stufen")?.draftText).toBe("E1, E2, Q1, Q2");
+    expect(status.byPath.get("rules.allowed_stufen")?.draftText).toBe("E1, E2, Q1, Q2");
   });
 
   it("reports an added level as a change and reads it in sequence rather than at the end", () => {
     const status = deriveSaisonDraftStatus({
       stored,
-      draft: draftFrom(rules({ erlaubte_stufen: ["E1", "E2", "Q1", "Q2", "Q3"] })),
+      draft: draftFrom(rules({ allowed_stufen: ["E1", "E2", "Q1", "Q2", "Q3"] })),
       fieldErrors: {},
     });
 
-    expect(status.byPath.get("rules.erlaubte_stufen")?.draftText).toBe("E1, E2, Q1, Q2, Q3");
+    expect(status.byPath.get("rules.allowed_stufen")?.draftText).toBe("E1, E2, Q1, Q2, Q3");
   });
 
   it("treats an emptied level list as a removal, which is what the change list should show", () => {
-    const status = deriveSaisonDraftStatus({ stored, draft: draftFrom(rules({ erlaubte_stufen: [] })), fieldErrors: {} });
+    const status = deriveSaisonDraftStatus({ stored, draft: draftFrom(rules({ allowed_stufen: [] })), fieldErrors: {} });
 
-    const row = status.byPath.get("rules.erlaubte_stufen");
+    const row = status.byPath.get("rules.allowed_stufen");
     assert.ok(row?.isChanged);
     // `draftText: null` renders the row as a removal; the schema refuses it on save.
     expect(row.draftText).toBe(null);
@@ -127,13 +127,13 @@ describe("deriveSaisonDraftStatus", () => {
     const groupHoldsTeams = "Eine Gruppe, die noch Teams hält, kann nicht wegfallen.";
     const status = deriveSaisonDraftStatus({
       stored,
-      draft: draftFrom(rules({ number_of_groups: 1 })),
-      fieldErrors: { "rules.number_of_groups": groupHoldsTeams },
+      draft: draftFrom(rules({ number_of_gruppen: 1 })),
+      fieldErrors: { "rules.number_of_gruppen": groupHoldsTeams },
     });
 
     // The descriptor's default `errorPaths`, which is this table's: widen it and the message
     // answers on a path no input carries.
-    expect(status.byPath.get("rules.number_of_groups")?.error).toBe(groupHoldsTeams);
+    expect(status.byPath.get("rules.number_of_gruppen")?.error).toBe(groupHoldsTeams);
   });
 
   it("reports the whole application window as one row, freischaltung included", () => {
@@ -196,7 +196,7 @@ describe("deriveSaisonDraftStatus", () => {
   it("counts several changes across both groups, in the descriptor table's order", () => {
     const status = deriveSaisonDraftStatus({
       stored,
-      draft: { ...draftFrom({ start_date: "2025-09-08" }), ...rules({ teams_per_group: 6 }) },
+      draft: { ...draftFrom({ start_date: "2025-09-08" }), ...rules({ teams_per_gruppe: 6 }) },
       fieldErrors: {},
     });
 

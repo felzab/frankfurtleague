@@ -93,7 +93,7 @@ describe("applyFacets", () => {
   });
 
   it("matches an item on any of the several values it holds", () => {
-    // Row 1 holds both levels, so either selection finds it. A season's `erlaubte_stufen` is the real
+    // Row 1 holds both levels, so either selection finds it. A season's `allowed_stufen` is the real
     // case this covers.
     expect(ids(applyFacets(ROWS, FACETS, { stufe: ["E1"] }))).toStrictEqual(["1", "4"]);
     expect(ids(applyFacets(ROWS, FACETS, { stufe: ["Q1"] }))).toStrictEqual(["1", "2"]);

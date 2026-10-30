@@ -13,7 +13,7 @@ import { getAdresswechselUmzuege, postAdresswechselUmzuegeErledigt } from "./mut
  */
 export async function runAdresswechselUmzuege(): Promise<void> {
   for (;;) {
-    const { umzuege } = await getAdresswechselUmzuege();
+    const { moves: umzuege } = await getAdresswechselUmzuege();
     if (umzuege.length === 0) return;
 
     for (const { von, nach } of umzuege) {

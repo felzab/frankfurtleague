@@ -51,7 +51,7 @@ async function RegistrierungContent(props: NextPageProps) {
             (error: unknown): RegistrierungStart => nullUnlessContractBreak(error) ?? { zustand: "unlesbar" },
           ),
         )
-      : { zustand: "ungueltig" };
+      : { zustand: "invalid" };
 
   return (
     <RegistrierungView

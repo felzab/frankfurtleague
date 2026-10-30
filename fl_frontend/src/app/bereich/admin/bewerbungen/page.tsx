@@ -56,12 +56,12 @@ async function BewerbungenTable({ searchParams }: { searchParams: NextPageProps[
   return (
     <AdminBewerbungenView
       bewerbungen={buildBewerbungRows(bewerbungenRes.bewerbungen, teamsRes.teams, selectedSaisonId)}
-      anzahlJeStatus={bewerbungenRes.anzahl_je_status}
-      anzahlJeSaisonbezug={bewerbungenRes.anzahl_je_saisonbezug}
-      dublettenSchluessel={bewerbungenRes.dubletten_schluessel}
+      anzahlJeStatus={bewerbungenRes.count_per_status}
+      anzahlJeSaisonbezug={bewerbungenRes.count_per_saison_reference}
+      dublettenSchluessel={bewerbungenRes.duplicates_key}
       richtung={richtung}
       unvollstaendig={
-        bewerbungenRes.vollstaendig ? null : { richtung: richtung, umkehrHref: leserichtungHrefFromRoute(params, umgekehrt(richtung)) }
+        bewerbungenRes.complete ? null : { richtung: richtung, umkehrHref: leserichtungHrefFromRoute(params, umgekehrt(richtung)) }
       }
     />
   );

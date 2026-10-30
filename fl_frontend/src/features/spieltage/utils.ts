@@ -108,7 +108,7 @@ export function buildSpieltagPhaseProgress(
 
   // A phase absent from the schedule expects 0, the same answer `expected_matches` gives: a matchday
   // may legally sit in a phase this season's bracket does not reach.
-  const expectedByPhase = new Map(schedule.map((entry) => [entry.phase, entry.matchdays]));
+  const expectedByPhase = new Map(schedule.map((entry) => [entry.phase, entry.spieltage]));
 
   return SAISON_PHASE_OPTIONS.map((phase) => ({
     phase,

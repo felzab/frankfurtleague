@@ -4,13 +4,13 @@ import { KONTAKT_EMAIL } from "./brand";
 import { BRAND_NAME, mailOrigin, WIDERSPRUCH } from "./emailShell";
 
 import type { Mail } from "./emailShell";
-import type { FLSperreDaten } from "./generated/client/types";
+import type { FLSperreData } from "./generated/client/types";
 import type { MailOrt } from "./mailKinds";
 
 /**
  * What is kept, named because the reader cannot be shown it, the account only while a record holds the
  * address (`docs/datenschutz.md :: 6`). It names no grant: a barred address holds none
- * (`sperrliste_verwaltung`, `berechtigung_gesperrt`).
+ * (`sperrliste_verwaltung`, `grant_barred`).
  */
 const GESPEICHERT_SAETZE = [
   "In der Sperrliste stehen nur ein Prüfwert Deiner Adresse, der Grund, das Datum und wer die Sperre eingetragen hat.",
@@ -25,7 +25,7 @@ const EINLEITUNG = [
   "Mit ihr kannst Du Dich vorerst weder anmelden noch für eine Saison registrieren, und Du kannst weder als Kontaktperson in einer Bewerbung genannt noch als Schiedsrichterin oder Schiedsrichter eingetragen werden.",
 ] as const;
 
-export function buildSperreEmail({ grund, gesperrt_bis_saison_id: gesperrtBisSaisonId }: FLSperreDaten, { origin }: MailOrt): Mail {
+export function buildSperreEmail({ grund, barred_until_saison_id: gesperrtBisSaisonId }: FLSperreData, { origin }: MailOrt): Mail {
   return {
     art: "mitteilung",
     subjectLine: "Deine E-Mail-Adresse ist gesperrt",

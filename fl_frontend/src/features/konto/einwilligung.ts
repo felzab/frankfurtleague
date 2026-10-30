@@ -25,7 +25,7 @@ export const medienZuJung = (alter: number): string => `Fotos, Videos und Interv
  */
 export const MedienMindestalterSchema = z.int().positive();
 
-// `funktion_nicht_gehalten` on a record admitting a grant: the address holds no such record of its own now.
+// `role_not_held` on a record admitting a grant: the address holds no such record of its own now.
 export const EINTRAG_WEG = "Diese Angaben sind nicht mehr bei Dir eingetragen. Lade die Seite neu.";
 
 // The same code on a pending application, whose page offers no grant: the application is decided, or
@@ -37,7 +37,7 @@ export const BEWERBUNG_NICHT_MEHR_OFFEN =
 export const REGISTRIERUNG_NICHT_MEHR_OFFEN =
   "Diese Registrierung ist nicht mehr offen. Lade die Seite neu. Dort steht, was jetzt für Dich gilt.";
 
-// A grant on the person's own record that takes a withdrawal alone (`erteilung_nicht_zugelassen`): the page
+// A grant on the person's own record that takes a withdrawal alone (`giving_not_allowed`): the page
 // offers none there, so a page drawn before the record stopped admitting one sent it, and a refused write
 // never refreshes the page.
 export const NUR_WIDERRUF = "Hier kannst Du eine Erlaubnis nur zurücknehmen. Lade die Seite neu.";
@@ -48,8 +48,8 @@ export const NUR_WIDERRUF = "Hier kannst Du eine Erlaubnis nur zurücknehmen. La
  * publication sweep.
  */
 export const EINWILLIGUNG_WAHL_SAETZE: Readonly<Record<string, string>> = {
-  fassung_unzulaessig: SEITE_VERALTET,
-  erteilung_nicht_zugelassen: NUR_WIDERRUF,
+  wording_not_allowed: SEITE_VERALTET,
+  giving_not_allowed: NUR_WIDERRUF,
 } satisfies Partial<Record<Code, string>>;
 
 function mapEinwilligungWahlRefusal(error: unknown): { error: string } | null {
@@ -61,7 +61,7 @@ function mapEinwilligungWahlRefusal(error: unknown): { error: string } | null {
 }
 
 /**
- * One consent write's mapper: the shared code set, with the write's `funktion_nicht_gehalten` worded ahead of
+ * One consent write's mapper: the shared code set, with the write's `role_not_held` worded ahead of
  * the shared reader, whose sentence names a team, by the record the write changes.
  */
 const einwilligungRefusalMapper =
@@ -74,7 +74,7 @@ const mapEigeneWahlRefusal = einwilligungRefusalMapper(EINTRAG_WEG);
 /** A pupil's, a referee's or a season's seats' consent write, the three taking a grant, by its record's served media floor. */
 export function mapEigeneEinwilligungRefusal(error: unknown, medienMindestalter: number): { error: string } | null {
   // The switch is offered only from the floor, so this reaches a page drawn before a birthdate was corrected.
-  if (isRefusal(error) && error.serverErrorCode === "medien_alter") {
+  if (isRefusal(error) && error.serverErrorCode === "medien_age") {
     return { error: `${medienZuJung(medienMindestalter)} Lade die Seite neu.` };
   }
 

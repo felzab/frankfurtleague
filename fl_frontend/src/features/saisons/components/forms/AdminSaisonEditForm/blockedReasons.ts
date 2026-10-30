@@ -26,7 +26,7 @@ export type SpielplanControlInput = {
   spieltageCount: number;
   /** `spielplan_replace_outside_its_window`'s condition: how many fixtures carry something entered against them. */
   erfassteSpieleCount: number;
-  /** `spielplan_berichte_eingereicht`'s condition, which closes the replace and the undraw alike: how many fixtures hold a submitted report. */
+  /** `spielplan_berichte_submitted`'s condition, which closes the replace and the undraw alike: how many fixtures hold a submitted report. */
   eingereichteBerichteCount: number;
   /** Whether the season's served schedule reaches a knockout round at all, which a FIRST draw is judged on. */
   hasKoRunden: boolean;

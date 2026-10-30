@@ -1,7 +1,7 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
-import { FLAustrittType, FLGruppenNames, FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "@/core/generated/client/types";
+import { FLAustrittType, FLGruppenNames, FLSchulform, FLTrainerAlso, FLTrikotFarbe } from "@/core/generated/client/types";
 // The applications slice declares this width, a school proposing a Kürzel before any club exists to
 // hold it (`docs/glossary.md :: Kürzel`). A literal beside it is compared by nothing.
 import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
@@ -97,7 +97,7 @@ const FLKontaktpersonPayloadSchema = z.object({
  * Which OTHER seat the Trainer also holds. One nullable field rather than two flags, which would let a row claim both
  * seats at once.
  */
-export const FLTrainerZugleichSchema = z.enum(FLTrainerZugleich, {
+export const FLTrainerZugleichSchema = z.enum(FLTrainerAlso, {
   error: "Bitte wähle, wer zugleich Trainerin oder Trainer ist.",
 });
 
@@ -117,7 +117,7 @@ export const FLSaisonTeamKontaktePayloadSchema = z
     trainer: FLKontaktpersonPayloadSchema.nullable(),
     ansprechperson: FLKontaktpersonPayloadSchema.nullable(),
     stellvertretung: FLKontaktpersonPayloadSchema.nullable(),
-    trainer_ist_zugleich: FLTrainerZugleichSchema.nullable(),
+    trainer_is_also: FLTrainerZugleichSchema.nullable(),
   })
   // The application's two rules, so a refusal lands on the box rather than on a 422 naming the block.
   .superRefine(

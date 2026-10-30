@@ -25,7 +25,7 @@ import {
 import type { FLSpielplanShape } from "@/core/generated/client/types";
 import type { SaisonGruppenOccupancy } from "@/features/saisons/types";
 
-const RULES = saisonRules({ max_kadergroesse: 50, erlaubte_stufen: ["E1"] });
+const RULES = saisonRules({ max_kadergroesse: 50, allowed_stufen: ["E1"] });
 
 /**
  * The PAYLOAD rather than a field schema: `rules_bracket_impossible` and `rules_qualifiers_above_gruppe` read two of the three
@@ -62,7 +62,7 @@ describe("the group count offer", () => {
         const groups = Number(row.id);
         // Groups of the largest size the schema takes, so `rules_qualifiers_above_gruppe` cannot be what closes a row
         // here: the team count bounds the qualifiers and never the groups.
-        const shape = { number_of_groups: groups, qualifiers_per_group: qualifiers, teams_per_group: MAX_TEAMS_PER_GROUP };
+        const shape = { number_of_gruppen: groups, qualifiers_per_gruppe: qualifiers, teams_per_gruppe: MAX_TEAMS_PER_GROUP };
 
         expect(row.refusal === null, `${String(groups)} groups qualifying ${String(qualifiers)}`).toBe(saves(shape));
       }
@@ -76,7 +76,7 @@ describe("the group count offer", () => {
       const offered = new Set(counts(groupCountOptions({ groups: 1, qualifiers, occupancy: NOBODY_ENTERED })));
 
       for (const groups of upTo(MAX_GROUPS + 1)) {
-        const shape = { number_of_groups: groups, qualifiers_per_group: qualifiers, teams_per_group: MAX_TEAMS_PER_GROUP };
+        const shape = { number_of_gruppen: groups, qualifiers_per_gruppe: qualifiers, teams_per_gruppe: MAX_TEAMS_PER_GROUP };
         if (!saves(shape)) continue;
 
         assert.ok(offered.has(groups), `${String(groups)} groups qualifying ${String(qualifiers)} saves and is not on offer`);
@@ -102,7 +102,7 @@ describe("the qualifier count offer", () => {
     for (const groups of GROUP_COUNT_UNIVERSE) {
       for (const teams of [MIN_TEAMS_PER_GROUP, 4, MAX_TEAMS_PER_GROUP]) {
         for (const row of qualifierCountOptions({ groups, qualifiers: 1, teams })) {
-          const shape = { number_of_groups: groups, qualifiers_per_group: Number(row.id), teams_per_group: teams };
+          const shape = { number_of_gruppen: groups, qualifiers_per_gruppe: Number(row.id), teams_per_gruppe: teams };
 
           expect(row.refusal === null, `${String(groups)} groups of ${String(teams)} qualifying ${row.id}`).toBe(saves(shape));
         }
@@ -121,7 +121,7 @@ describe("the qualifier count offer", () => {
      group's size, which is where a bound off by one opens a row the create refuses: a group of three
      qualifying four. */
   it("closes a qualifier count one past the group's size, which a create refuses", () => {
-    const shape = { number_of_groups: 1, qualifiers_per_group: 4, teams_per_group: 3 };
+    const shape = { number_of_gruppen: 1, qualifiers_per_gruppe: 4, teams_per_gruppe: 3 };
 
     expect(saves(shape), "the create takes four qualifiers from a group of three, so the row below may stand open").toBe(false);
     expect(refusalOf(qualifierCountOptions({ groups: 1, qualifiers: 1, teams: 3 }), 4)).toBe(SHAPE_REFUSAL_NOTE.overQualifies);
@@ -160,7 +160,7 @@ describe("what a closed row says", () => {
 describe("the team count", () => {
   /* Drift either bound and the stepper offers a size the create refuses, or hides one it takes. */
   it("is bounded where the schema bounds it", () => {
-    const held = (teams: number) => ({ number_of_groups: 2, qualifiers_per_group: 2, teams_per_group: teams });
+    const held = (teams: number) => ({ number_of_gruppen: 2, qualifiers_per_gruppe: 2, teams_per_gruppe: teams });
 
     expect(saves(held(MIN_TEAMS_PER_GROUP))).toBe(true);
     expect(saves(held(MIN_TEAMS_PER_GROUP - 1))).toBe(false);
@@ -265,7 +265,7 @@ describe("the draw's own offer", () => {
       const occupancy: SaisonGruppenOccupancy = Object.fromEntries(
         GRUPPEN_OPTIONS.slice(0, groups).map((gruppe) => [gruppe, MIN_TEAMS_PER_GROUP]),
       );
-      const shape = { number_of_groups: groups, qualifiers_per_group: 2, teams_per_group: MIN_TEAMS_PER_GROUP };
+      const shape = { number_of_gruppen: groups, qualifiers_per_gruppe: 2, teams_per_gruppe: MIN_TEAMS_PER_GROUP };
       const refusal = refusalOf(drawGroupCountOptions({ groups, qualifiers: 2, teams: MIN_TEAMS_PER_GROUP, occupancy }), groups);
 
       expect(refusal === null, `${String(groups)} groups of ${String(MIN_TEAMS_PER_GROUP)}`).toBe(saves(shape));
@@ -331,18 +331,18 @@ describe("the draw's refusal over a replace's three numbers", () => {
   /* `find_spielplan_refusal` runs ahead of `find_rules_refusal`, so where both refuse the groups are named. */
   it("names the groups ahead of the bracket, and the bracket where the groups fit", () => {
     const shape = (over: Partial<FLSpielplanShape>): FLSpielplanShape => ({
-      number_of_groups: 2,
-      teams_per_group: 4,
-      qualifiers_per_group: 2,
+      number_of_gruppen: 2,
+      teams_per_gruppe: 4,
+      qualifiers_per_gruppe: 2,
       ...over,
     });
 
     expect(drawShapeRefusal({ shape: shape({}), occupancy: { A: 4, B: 4 } })).toBe(null);
-    expect(drawShapeRefusal({ shape: shape({ teams_per_group: 5, qualifiers_per_group: 3 }), occupancy: { A: 4, B: 4 } })).toBe(
+    expect(drawShapeRefusal({ shape: shape({ teams_per_gruppe: 5, qualifiers_per_gruppe: 3 }), occupancy: { A: 4, B: 4 } })).toBe(
       "gruppenOffSize",
     );
-    expect(drawShapeRefusal({ shape: shape({ qualifiers_per_group: 3 }), occupancy: { A: 4, B: 4 } })).toBe("noBracket");
-    expect(drawShapeRefusal({ shape: shape({ qualifiers_per_group: 16 }), occupancy: { A: 4, B: 4 } })).toBe("bracketTooLarge");
+    expect(drawShapeRefusal({ shape: shape({ qualifiers_per_gruppe: 3 }), occupancy: { A: 4, B: 4 } })).toBe("noBracket");
+    expect(drawShapeRefusal({ shape: shape({ qualifiers_per_gruppe: 16 }), occupancy: { A: 4, B: 4 } })).toBe("bracketTooLarge");
   });
 });
 
@@ -351,14 +351,14 @@ describe("the draw's refusal over a replace's three numbers", () => {
    undercount offers a replace the span refuses. */
 describe("the matchdays a replace's numbers imply", () => {
   it("counts an even group's round robin one short of its size, and an odd group's at its size", () => {
-    const oneGroup = (teams: number): number => drawnSpieltage({ number_of_groups: 1, teams_per_group: teams, qualifiers_per_group: 1 });
+    const oneGroup = (teams: number): number => drawnSpieltage({ number_of_gruppen: 1, teams_per_gruppe: teams, qualifiers_per_gruppe: 1 });
 
     expect([2, 3, 4, 5, 16].map(oneGroup)).toStrictEqual([1, 3, 3, 5, 15]);
   });
 
   it("adds one per knockout round, and none for a product no bracket takes", () => {
     const sixteenPerGroup = (groups: number, qualifiers: number): number =>
-      drawnSpieltage({ number_of_groups: groups, teams_per_group: 16, qualifiers_per_group: qualifiers });
+      drawnSpieltage({ number_of_gruppen: groups, teams_per_gruppe: 16, qualifiers_per_gruppe: qualifiers });
 
     expect([
       sixteenPerGroup(1, 1),
@@ -377,6 +377,6 @@ describe("the group cap", () => {
      ceiling is a third spelling of it. Let them part and the picker offers a season the create
      refuses outright. */
   it("is a group count a create saves", () => {
-    expect(saves({ number_of_groups: MAX_GROUPS, qualifiers_per_group: 1, teams_per_group: MAX_TEAMS_PER_GROUP })).toBe(true);
+    expect(saves({ number_of_gruppen: MAX_GROUPS, qualifiers_per_gruppe: 1, teams_per_gruppe: MAX_TEAMS_PER_GROUP })).toBe(true);
   });
 });

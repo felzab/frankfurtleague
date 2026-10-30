@@ -6,7 +6,7 @@ import type { FLSchiedsrichter } from "@/core/generated/client/types";
 
 type Stored = Pick<FLSchiedsrichter, "einwilligung" | "kontakt">;
 
-const unanswered = (stored: Stored): boolean => (stored.einwilligung?.bestaetigt_am ?? null) === null;
+const unanswered = (stored: Stored): boolean => (stored.einwilligung?.confirmed_at ?? null) === null;
 
 /**
  * A save moving a referee's address, which mints an unconfirmed referee a consent link and is refused a confirmed one, over

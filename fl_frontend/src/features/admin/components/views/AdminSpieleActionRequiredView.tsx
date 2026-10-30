@@ -19,7 +19,7 @@ import { CARDS_CASCADE_CLASSES, PAGE_RISE_CLASSES } from "@/shared/components/ui
 
 import { ACTION_REQUIRED_LABELS, bestaetigungNotizen, buildActionRequiredSections, saisonBestaetigungen } from "../../utils";
 
-import type { FLBracketFault, FLSpielberichtZustandEintrag, FLSpielbestaetigung } from "@/core/generated/client/types";
+import type { FLBracketFault, FLSpielberichtStateEntry, FLSpielbestaetigung } from "@/core/generated/client/types";
 import type { SpielCardNotes } from "@/features/spiele/components/collections/SpielCardsList";
 import type { ActionRequiredCategory, FLSpiel } from "@/features/spiele/types";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
@@ -69,7 +69,7 @@ export function AdminSpieleActionRequiredView({
   bestaetigungen: readonly FLSpielbestaetigung[] | null;
   bestaetigungenVollstaendig: boolean;
   /** The season's reports and their states, served with the list. */
-  spielberichte: readonly FLSpielberichtZustandEintrag[];
+  spielberichte: readonly FLSpielberichtStateEntry[];
   today: string;
   isFinishedSaison: boolean;
 }) {
@@ -104,7 +104,7 @@ export function AdminSpieleActionRequiredView({
       bracket_fault: { tone: "danger", bySpielId: groupBracketFaultsBySpielId(bracketFaults) },
       // The tone of the chip naming the same club's state on the card below.
       vorschlag_offen: {
-        tone: ANTWORT_LABELS.abgelehnt.tone,
+        tone: ANTWORT_LABELS.declined.tone,
         bySpielId: bestaetigungNotizen("vorschlag_offen", overviewSpiele, saison, today),
       },
       bestaetigung_ueberfaellig: {

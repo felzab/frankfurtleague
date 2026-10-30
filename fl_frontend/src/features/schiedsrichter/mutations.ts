@@ -1,23 +1,23 @@
 import {
   schiedsrichterDeleteSchiedsrichter,
-  schiedsrichterEinladenSchiedsrichter,
-  schiedsrichterGetBestaetigungAnsicht,
+  schiedsrichterGetConfirmationView,
+  schiedsrichterInviteSchiedsrichter,
   schiedsrichterPatchEinwilligung,
   schiedsrichterPatchSchiedsrichter,
-  schiedsrichterPostBestaetigung,
+  schiedsrichterPostConfirmation,
   schiedsrichterPostSchiedsrichter,
   schiedsrichterReactivateSchiedsrichter,
 } from "@/core/generated/client/sdk";
 
 import type {
-  FLKontoEinwilligungPayload,
+  FLAccountEinwilligungPayload,
   FLPatchSchiedsrichterResponse,
   FLPostSchiedsrichterPayload,
   FLPostSchiedsrichterResponse,
-  FLSchiedsrichterBestaetigungAnsichtResponse,
-  FLSchiedsrichterBestaetigungPayload,
-  FLSchiedsrichterBestaetigungResponse,
-  FLSchiedsrichterKontoEinwilligungResponse,
+  FLSchiedsrichterAccountEinwilligungResponse,
+  FLSchiedsrichterConfirmationPayload,
+  FLSchiedsrichterConfirmationResponse,
+  FLSchiedsrichterConfirmationViewResponse,
   FLSchiedsrichterMintResponse,
   FLSchiedsrichterReactivateResponse,
   FLTokenPayload,
@@ -47,15 +47,15 @@ export async function reactivateSchiedsrichter({ id }: FLSchiedsrichterKeyPayloa
 // Replaces the whole bookkeeping block, so the previous token stops working at once and the
 // delivery state of the message it went out in goes with it.
 export async function einladeSchiedsrichter({ id }: FLSchiedsrichterEinladenPayload): Promise<FLSchiedsrichterMintResponse> {
-  return schiedsrichterEinladenSchiedsrichter(id);
+  return schiedsrichterInviteSchiedsrichter(id);
 }
 
 /**
  * A POST that reads. The token is the credential, and a GET would put it in a query string the
  * backend's own route template does not redact.
  */
-export async function postSchiedsrichterBestaetigungAnsicht(payload: FLTokenPayload): Promise<FLSchiedsrichterBestaetigungAnsichtResponse> {
-  return schiedsrichterGetBestaetigungAnsicht(payload, { readOnly: true });
+export async function postSchiedsrichterBestaetigungAnsicht(payload: FLTokenPayload): Promise<FLSchiedsrichterConfirmationViewResponse> {
+  return schiedsrichterGetConfirmationView(payload, { readOnly: true });
 }
 
 /**
@@ -63,16 +63,16 @@ export async function postSchiedsrichterBestaetigungAnsicht(payload: FLTokenPayl
  * and an admin key on this call would make the public page a route into the admin tier.
  */
 export async function postSchiedsrichterBestaetigung(
-  payload: FLSchiedsrichterBestaetigungPayload,
-): Promise<FLSchiedsrichterBestaetigungResponse> {
-  return schiedsrichterPostBestaetigung(payload);
+  payload: FLSchiedsrichterConfirmationPayload,
+): Promise<FLSchiedsrichterConfirmationResponse> {
+  return schiedsrichterPostConfirmation(payload);
 }
 
 // The referee's own press on the account page, under the person lane's actor; the record is named in
 // the path because one address may hold several referee rows.
 export async function patchSchiedsrichterKontoEinwilligung(
   schiedsrichterId: string,
-  payload: FLKontoEinwilligungPayload,
-): Promise<FLSchiedsrichterKontoEinwilligungResponse> {
+  payload: FLAccountEinwilligungPayload,
+): Promise<FLSchiedsrichterAccountEinwilligungResponse> {
   return schiedsrichterPatchEinwilligung(schiedsrichterId, payload);
 }

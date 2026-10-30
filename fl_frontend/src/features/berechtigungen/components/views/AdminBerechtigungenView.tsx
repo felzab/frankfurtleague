@@ -8,14 +8,14 @@ import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
 import { AdminBerechtigungAntraegeList } from "../collections/AdminBerechtigungAntraegeList";
 import { AdminBerechtigungenList } from "../collections/AdminBerechtigungenList";
 
-import type { FLBerechtigungAntragZeile, FLBerechtigungZeile } from "@/core/generated/client/types";
+import type { FLGrantApprovalRequestRow, FLGrantRow } from "@/core/generated/client/types";
 import type { SearchKey } from "@/shared/hooks/useFuzzySearch";
 
 /* Module scope: a fresh array here would defeat useFuzzySearch's memo on every render. Each reads what
    the card prints through the card's own function. */
-const SEARCH_KEYS: readonly SearchKey<FLBerechtigungZeile>[] = [
-  { name: "adresse", getFn: (zeile) => vonOderGesperrt(zeile.adresse, zeile.gesperrt) },
-  { name: "erteilt_von", getFn: (zeile) => erteiltVonAnzeige(zeile.erteilt_von, zeile.erteilt_von_gesperrt) },
+const SEARCH_KEYS: readonly SearchKey<FLGrantRow>[] = [
+  { name: "adresse", getFn: (zeile) => vonOderGesperrt(zeile.adresse, zeile.barred) },
+  { name: "erteilt_von", getFn: (zeile) => erteiltVonAnzeige(zeile.granted_by, zeile.granted_by_barred) },
 ];
 
 /** **No `renderDeleteModal`**: a revoke is confirmed on the row itself, as a ban's removal is. */
@@ -24,8 +24,8 @@ export function AdminBerechtigungenView({
   antraege,
   inhaberAdresse,
 }: {
-  berechtigungen: FLBerechtigungZeile[];
-  antraege: FLBerechtigungAntragZeile[];
+  berechtigungen: FLGrantRow[];
+  antraege: FLGrantApprovalRequestRow[];
   inhaberAdresse: string | null;
 }) {
   const zugaengeId = useId();
@@ -44,7 +44,7 @@ export function AdminBerechtigungenView({
             {ALLE_ZUGAENGE}
           </h2>
         )}
-        <AdminCrudView<FLBerechtigungZeile>
+        <AdminCrudView<FLGrantRow>
           items={berechtigungen}
           searchKeys={SEARCH_KEYS}
           shape="cards"

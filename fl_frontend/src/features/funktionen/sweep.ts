@@ -21,7 +21,7 @@ type Zaehlung = {
  * nothing rejects, for the heartbeat to name; the pass resolves to what it did, `offen` the accounts it could not judge
  * or delete.
  */
-export async function runKontoSweep(): Promise<{ count: Zaehlung; offen: number }> {
+export async function runKontoSweep(): Promise<{ count: Zaehlung; open: number }> {
   const konten = await listAccounts();
   const zaehlung: Zaehlung = { unreferenziert: 0, geloescht: 0, bereits_geloescht: 0, fehlgeschlagen: 0 };
 
@@ -32,7 +32,7 @@ export async function runKontoSweep(): Promise<{ count: Zaehlung; offen: number 
     let unreferenziert: readonly string[];
 
     try {
-      ({ unreferenziert } = await postReferenzen({ identifiers: batch }));
+      ({ unreferenced: unreferenziert } = await postReferenzen({ identifiers: batch }));
     } catch (error) {
       // Kept, every one: an answer that never came says nothing about any address in it.
       zaehlung.fehlgeschlagen += batch.length;
@@ -47,7 +47,7 @@ export async function runKontoSweep(): Promise<{ count: Zaehlung; offen: number 
     }
   }
 
-  return { count: zaehlung, offen: zaehlung.fehlgeschlagen };
+  return { count: zaehlung, open: zaehlung.fehlgeschlagen };
 }
 
 /** One account, deleted only where the read answers its address unreferenced again, alone. */
@@ -55,7 +55,7 @@ async function loescheKonto(adresse: string, zaehlung: Zaehlung): Promise<void> 
   try {
     // Asked again immediately before the delete rather than trusted from the batch: a record entered
     // since then keeps its account, and the race narrows to the seconds between this answer and the delete.
-    const { unreferenziert } = await postReferenzen({ identifiers: [adresse] });
+    const { unreferenced: unreferenziert } = await postReferenzen({ identifiers: [adresse] });
     if (!unreferenziert.includes(adresse)) return;
 
     if (await deleteAccountFor(adresse)) zaehlung.geloescht += 1;

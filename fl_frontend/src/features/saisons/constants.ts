@@ -142,7 +142,7 @@ export const RECORDED_FACTS_NONE =
 export const RECORDED_FACTS_ANY = "ein Ergebnis, ein Ausfall, ein Ort, ein Schiedsrichter, eine Notiz oder eine von Hand geänderte Herkunft";
 
 /**
- * `spielplan_berichte_eingereicht`, for the Spielplan panel's closed control and for the refusal alike: no page takes a report
+ * `spielplan_berichte_submitted`, for the Spielplan panel's closed control and for the refusal alike: no page takes a report
  * back, so the way on is the one the draw does not need, editing the fixtures.
  */
 export const SPIELBERICHTE_HALTEN_DEN_SPIELPLAN =

@@ -19,7 +19,7 @@ async function beantworteterStand(token: string): Promise<Exclude<Spielbestaetig
 
   // An open link is the write's refusal and this read disagreeing, and an unread one says nothing either way: the
   // panel naming nothing is the one answer that claims nothing about a row.
-  return gelesen === null || gelesen.zustand === "gueltig" || gelesen.zustand === "vorschlag" ? { zustand: "ungueltig" } : gelesen;
+  return gelesen === null || gelesen.zustand === "valid" || gelesen.zustand === "vorschlag" ? { zustand: "invalid" } : gelesen;
 }
 
 // A route handler and not a server action.
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       }
 
       // The echo alone, never the seat that pressed: the reader is shown what was stored and nothing else the write knows.
-      return { success: true as const, zustand: antwort.zustand, vorschlag: antwort.vorschlag };
+      return { success: true as const, zustand: antwort.state, vorschlag: antwort.vorschlag };
     },
   });
 }

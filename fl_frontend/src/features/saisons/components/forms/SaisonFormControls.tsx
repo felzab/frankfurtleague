@@ -73,7 +73,7 @@ export function SaisonRuleNumberField({
 }
 
 /**
- * `number_of_groups` and `qualifiers_per_group`, whose legal values SKIP: a floor and a ceiling can
+ * `number_of_gruppen` and `qualifiers_per_gruppe`, whose legal values SKIP: a floor and a ceiling can
  * only describe a set that skips by admitting the values between, which offers a value the write
  * path refuses, as a ratified decision bars.
  */

@@ -5,7 +5,7 @@ import { rollenLangform } from "@/features/bewerbungen/constants";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { GekeyteFassung } from "@/core/einwilligungSeiten";
-import type { FLEinwilligungFassung, FLKontaktRolle } from "@/core/generated/client/types";
+import type { FLEinwilligungWording, FLKontaktRolle } from "@/core/generated/client/types";
 import type { Slots } from "@/shared/utils/stampedSlots";
 import type { EinwilligungWorte, Gewaehrung, PersonUmfang, SitzUmfang } from "./EinwilligungForm";
 
@@ -32,7 +32,7 @@ const absatz = (text: string, werte: Slots) => (
 );
 
 /** The media floor a record's entry serves, which every paragraph naming it fills. */
-type MedienBoden = { readonly medien_mindestalter: number };
+type MedienBoden = { readonly medien_minimum_age: number };
 
 /**
  * A record's words, admitting a grant exactly where its label gives no reason for a withdrawal alone, so
@@ -48,7 +48,7 @@ function personWorte(
   frage: string,
   eintrag: MedienBoden,
 ): EinwilligungWorte<PersonUmfang> {
-  const werte: Slots = { medienMinAlter: String(eintrag.medien_mindestalter) };
+  const werte: Slots = { medienMinAlter: String(eintrag.medien_minimum_age) };
   const { absaetze } = gekeyt;
 
   return {
@@ -68,7 +68,7 @@ export type SpielerGrund = "nichtAktiv" | "bisAufnahme";
  * the registry does not stamp.
  */
 export function spielerWorte(
-  fassung: FLEinwilligungFassung,
+  fassung: FLEinwilligungWording,
   frage: string,
   eintrag: MedienBoden,
   grund?: SpielerGrund,
@@ -82,7 +82,7 @@ export function spielerWorte(
 
 /** The control's words for a referee's record; a retired one's carries the reason it takes a withdrawal alone. */
 export function schiedsrichterWorte(
-  fassung: FLEinwilligungFassung,
+  fassung: FLEinwilligungWording,
   frage: string,
   eintrag: MedienBoden,
   nichtAktiv: boolean,
@@ -97,12 +97,12 @@ export type SitzGrund = "vorbei" | "bisZusage";
 
 /** The control's words for one team season's contact seats: WhatsApp beside the media choice, each a switch. */
 export function sitzWorte(
-  fassung: FLEinwilligungFassung,
+  fassung: FLEinwilligungWording,
   sitz: MedienBoden & { readonly team_name: string; readonly saison_id: string },
   grund?: SitzGrund,
 ): Gewaehrung<SitzUmfang> {
   const gekeyt = gekeyteFassung(fassung, SITZ_ABSATZ_SCHLUESSEL, SITZ_UMFANG_SCHLUESSEL);
-  const werte: Slots = { medienMinAlter: String(sitz.medien_mindestalter), team: sitz.team_name, saison: sitz.saison_id };
+  const werte: Slots = { medienMinAlter: String(sitz.medien_minimum_age), team: sitz.team_name, saison: sitz.saison_id };
   const nurWiderruf =
     grund === undefined ? undefined : grund === "vorbei" ? gekeyt.absaetze.nurWiderrufVorbei : gekeyt.absaetze.nurWiderrufBisZusage;
 
@@ -132,12 +132,12 @@ export type Fuellung = Readonly<Record<string, string | null>>;
  * The words a person confirmed, filled from the record's present context, or `null` where a slot is
  * served empty; throws for a slot nothing maps.
  */
-export function bestaetigteWorte(fassung: FLEinwilligungFassung, fuellung: Fuellung) {
-  const offen = fassung.platzhalter.filter((slot) => !SELBST_GEFUELLT.has(slot) && !Object.hasOwn(fuellung, slot));
+export function bestaetigteWorte(fassung: FLEinwilligungWording, fuellung: Fuellung) {
+  const offen = fassung.placeholder.filter((slot) => !SELBST_GEFUELLT.has(slot) && !Object.hasOwn(fuellung, slot));
   if (offen.length > 0) throw new Error(`the confirmed wording ${fassung.text_version} has no value for ${offen.join(", ")}`);
 
   // A sentence with its subject blanked misstates what was agreed as surely as a literal slot does.
-  if (fassung.platzhalter.some((slot) => fuellung[slot] === null)) return null;
+  if (fassung.placeholder.some((slot) => fuellung[slot] === null)) return null;
   const werte = fuellung as Slots;
 
   return (
@@ -181,11 +181,11 @@ export const bewerbungTitel = (bewerbung: {
 /** What heads one confirmation's words on a seat's record: the roles it confirmed, and the day where stored. */
 export const sitzBestaetigungZeile = (bestaetigung: {
   readonly rollen: readonly FLKontaktRolle[];
-  readonly bestaetigt_am: string | null;
+  readonly confirmed_at: string | null;
 }): string =>
-  bestaetigung.bestaetigt_am === null
+  bestaetigung.confirmed_at === null
     ? `Als ${rollenLangform(bestaetigung.rollen)}`
-    : `Als ${rollenLangform(bestaetigung.rollen)}, bestätigt am ${formatSpielDatum(bestaetigung.bestaetigt_am)}`;
+    : `Als ${rollenLangform(bestaetigung.rollen)}, bestätigt am ${formatSpielDatum(bestaetigung.confirmed_at)}`;
 
 /** A pending registration's record title, under the pupil's; its team gone, the season alone names it. */
 export const registrierungTitel = (registrierung: { readonly team_name: string | null; readonly saison_id: string }): string =>

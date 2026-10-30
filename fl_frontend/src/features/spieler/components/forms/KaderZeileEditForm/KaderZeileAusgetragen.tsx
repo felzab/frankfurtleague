@@ -11,13 +11,13 @@ import { focusSection } from "@/shared/utils/focusAfterWrite";
 
 import { KADERZEILE_PLACE } from "./FormKaderZeileAustragenSection";
 
-import type { FLKaderZeile } from "@/core/generated/client/types";
+import type { FLKaderRow } from "@/core/generated/client/types";
 
 /**
  * An ausgetragen row on its own page: what it held, read-only, with no editor and no control. Its panel
  * stands where the austragen panel stood, so the write that drew it lands the focus on its heading.
  */
-export function KaderZeileAusgetragen({ zeile, kaderHref }: { zeile: FLKaderZeile & { inactive_since: string }; kaderHref: string }) {
+export function KaderZeileAusgetragen({ zeile, kaderHref }: { zeile: FLKaderRow & { inactive_since: string }; kaderHref: string }) {
   const panel = formPanel();
   const facts = [
     { term: "Nummer", value: zeile.nummer },

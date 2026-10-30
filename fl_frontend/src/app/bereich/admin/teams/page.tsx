@@ -88,7 +88,7 @@ async function TeamsTable({ searchParams }: { searchParams: NextPageProps["searc
 
   // The group filter offers what this season runs rather than the league's closed set
   // (`docs/glossary.md :: Gruppe`).
-  const numberOfGroups = selectedSaison?.rules.number_of_groups ?? null;
+  const numberOfGroups = selectedSaison?.rules.number_of_gruppen ?? null;
 
   return (
     <AdminTeamsView

@@ -21,7 +21,7 @@ let reactivate: Answer;
 
 function answerFor({ endpoint, method }: ApiCall): unknown {
   if (method === "GET") return row();
-  if (endpoint.endsWith("/einladen")) return mint();
+  if (endpoint.endsWith("/invite")) return mint();
   if (endpoint.endsWith("/reactivate")) return reactivate();
   return method === "PATCH" ? save() : create();
 }
@@ -66,7 +66,7 @@ const withRow = (email: string | null, name?: string | null) => () => ({
 const owed = (email: string) => ({ frist: "2026-10-05", email });
 
 /** Every re-send the case sent. */
-const mints = () => requestsOf(client.calls).filter(({ endpoint }) => endpoint.endsWith("/einladen"));
+const mints = () => requestsOf(client.calls).filter(({ endpoint }) => endpoint.endsWith("/invite"));
 
 beforeEach(() => {
   row = withRow("anna@example.de");
@@ -86,9 +86,7 @@ describe("the re-send the editor's panel presses", () => {
     const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
     expect(res.success).toBe(true);
-    expect(mints()).toStrictEqual([
-      { endpoint: `/schiedsrichter/${SCHIEDSRICHTER_ID}/bestaetigung/einladen`, method: "POST", body: undefined },
-    ]);
+    expect(mints()).toStrictEqual([{ endpoint: `/schiedsrichter/${SCHIEDSRICHTER_ID}/confirmation/invite`, method: "POST", body: undefined }]);
     expect(mail.sent).toStrictEqual([]);
   });
 
@@ -137,9 +135,9 @@ describe("the re-send the editor's panel presses", () => {
      shared sentence, which names no rule. */
   for (const [code, fragment] of [
     ["schiedsrichter_retired", /stillgelegt/],
-    ["bestaetigung_vorhanden", /schon bestätigt/],
-    ["schiedsrichter_keine_adresse", /keine verwendbare E-Mail-Adresse hinterlegt/],
-    ["schiedsrichter_adresse_gesperrt", /Sperrliste/],
+    ["confirmation_exists", /schon bestätigt/],
+    ["schiedsrichter_no_adresse", /keine verwendbare E-Mail-Adresse hinterlegt/],
+    ["schiedsrichter_adresse_barred", /Sperrliste/],
   ] as const) {
     it(`words ${code} at the panel`, async () => {
       mint = () => {
@@ -254,7 +252,7 @@ describe("the reactivation of an unanswered referee", () => {
 
   it("words the ban the return is refused on", async () => {
     reactivate = () => {
-      throw refused("schiedsrichter_adresse_gesperrt");
+      throw refused("schiedsrichter_adresse_barred");
     };
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });

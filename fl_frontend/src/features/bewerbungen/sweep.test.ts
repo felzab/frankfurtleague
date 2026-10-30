@@ -132,7 +132,7 @@ describe("one pass of the applications' job", () => {
         adresswechsel_verworfen: 0,
         adresswechsel_verbleibend: 2,
       },
-      offen: 17,
+      open: 17,
       error: undefined,
     });
   });
@@ -140,7 +140,7 @@ describe("one pass of the applications' job", () => {
   it("leaves none where nothing was passed over", async () => {
     seasons(["2627"]);
 
-    expect((await runBewerbungSweep()).offen).toBe(0);
+    expect((await runBewerbungSweep()).open).toBe(0);
   });
 });
 
@@ -192,7 +192,7 @@ describe("a half that fails", () => {
 
     const lauf = await runBewerbungSweep();
 
-    expect([lauf.count.bewerbung_fehlgeschlagen, lauf.offen, lauf.error instanceof AggregateError]).toStrictEqual([3, 3, true]);
+    expect([lauf.count.bewerbung_fehlgeschlagen, lauf.open, lauf.error instanceof AggregateError]).toStrictEqual([3, 3, true]);
   });
 });
 
