@@ -11,7 +11,7 @@ from app.api.bewerbungen.services import build_schluessel_filter, days_after, pa
 from app.api.einladungen.services import find_live_einladung_filter, find_unknown_einladung_refusal
 from app.api.einwilligung.services import find_fassung_refusal
 from app.api.postausgang.schemas import FLPostausgangBezug, FLRegistrierungLinkDaten
-from app.api.postausgang.services import enqueue_mail
+from app.api.postausgang.services import OwedMail, enqueue_mails
 from app.api.registrierungen.crud import person_at_the_address
 from app.api.registrierungen.schemas import (
     FLEinladungAnsichtResponse,
@@ -315,22 +315,26 @@ async def post_registrierung(
         )
         registrierung_id = created.inserted_id
 
-        await enqueue_mail(
+        await enqueue_mails(
             postausgang_collection=postausgang_collection,
             session=session,
-            schluessel=f"{Collection.REGISTRIERUNGEN}/{registrierung_id}/bestaetigung",
-            an=str(registrierung_data.email),
-            daten=FLRegistrierungLinkDaten(
-                art="registrierung_bestaetigung",
-                # Off the invite the token opened, never the body: anyone holding the link could otherwise word the
-                # league's message. `or {}` for the type checker alone: `refuse` above has raised where the row is missing.
-                team=str((junction_raw or {}).get("name", "")),
-                saison_id=saison_id,
-                frist_tage=REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
-            ),
+            mails=[
+                OwedMail(
+                    schluessel=f"{Collection.REGISTRIERUNGEN}/{registrierung_id}/bestaetigung",
+                    an=str(registrierung_data.email),
+                    daten=FLRegistrierungLinkDaten(
+                        art="registrierung_bestaetigung",
+                        # Off the invite the token opened, never the body: anyone holding the link could otherwise word the
+                        # league's message. `or {}` for the type checker alone: `refuse` above has raised where the row is missing.
+                        team=str((junction_raw or {}).get("name", "")),
+                        saison_id=saison_id,
+                        frist_tage=REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
+                    ),
+                    bezug=FLPostausgangBezug(sammlung=Collection.REGISTRIERUNGEN, id=registrierung_id, sitz=None),
+                    link=REGISTRIERUNG_LINK,
+                )
+            ],
             now=germany_now,
-            bezug=FLPostausgangBezug(sammlung=Collection.REGISTRIERUNGEN, id=registrierung_id, sitz=None),
-            link=REGISTRIERUNG_LINK,
         )
 
         return FLPostRegistrierungResponse(registrierung_id=registrierung_id)

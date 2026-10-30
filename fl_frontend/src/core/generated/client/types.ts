@@ -685,9 +685,9 @@ export const FLPostausgangLageStand = {
   aufgegeben: "aufgegeben",
 } as const;
 
-export type FLPostausgangZustellungStand = (typeof FLPostausgangZustellungStand)[keyof typeof FLPostausgangZustellungStand];
+export type FLPostausgangZustellStand = (typeof FLPostausgangZustellStand)[keyof typeof FLPostausgangZustellStand];
 
-export const FLPostausgangZustellungStand = {
+export const FLPostausgangZustellStand = {
   zugestellt: "zugestellt",
   verzoegert: "verzoegert",
   unzustellbar: "unzustellbar",
@@ -698,7 +698,7 @@ export const FLPostausgangZustellungStand = {
 export interface FLPostausgangZustellung {
   am: string;
   grund: string | null;
-  stand: FLPostausgangZustellungStand;
+  stand: FLPostausgangZustellStand;
 }
 
 /**
@@ -706,6 +706,12 @@ export interface FLPostausgangZustellung {
  */
 export interface FLPostausgangLage {
   stand: FLPostausgangLageStand;
+  /**
+   * Whether the mail did not arrive: given up, or refused, suppressed or marked as spam by its recipient.
+   *
+   * The one judgement of it, which the backend's refusals and every page showing the seat read.
+   */
+  readonly unzustellbar: boolean;
   zustellung: FLPostausgangZustellung | null;
 }
 
@@ -3731,17 +3737,6 @@ export interface FLPostausgangAnmeldungPayload {
   daten: FLAnmeldecodeDaten | FLPasskeyDaten | FLKontoLoeschungDaten;
   geheim: string | null;
   gueltig_bis: string | null;
-  /**
-   * @minLength 1
-   * @maxLength 256
-   * @pattern ^[^\x00\n\v\f\r\u0085\u2028\u2029]*$
-   */
-  schluessel: string;
-}
-
-export interface FLPostausgangAnmeldungResponse {
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
 }
 
 /**
@@ -3921,25 +3916,14 @@ export interface FLPostausgangAusgabe {
 }
 
 /**
- * The owed mails one claim holds, oldest first; `beanspruchung` and `beansprucht_bis` are null exactly where it holds none.
+ * The owed mails one claim holds, oldest first; `beanspruchung` is null exactly where it holds none.
  */
 export interface FLPostausgangAusgabeResponse {
   /** @minimum 0 */
   aufgegeben: number;
-  beansprucht_bis: string | null;
   beanspruchung: string | null;
   mails: FLPostausgangAusgabe[];
 }
-
-export type FLPostausgangEreignisPayloadStand = (typeof FLPostausgangEreignisPayloadStand)[keyof typeof FLPostausgangEreignisPayloadStand];
-
-export const FLPostausgangEreignisPayloadStand = {
-  zugestellt: "zugestellt",
-  verzoegert: "verzoegert",
-  unzustellbar: "unzustellbar",
-  unterdrueckt: "unterdrueckt",
-  beschwerde: "beschwerde",
-} as const;
 
 /**
  * One delivery event about a message the provider accepted, named by the row the message was sent from.
@@ -3949,7 +3933,7 @@ export interface FLPostausgangEreignisPayload {
   grund: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  stand: FLPostausgangEreignisPayloadStand;
+  stand: FLPostausgangZustellStand;
 }
 
 /**
@@ -3961,30 +3945,27 @@ export interface FLPostausgangEreignisResponse {
   angewendet: boolean;
 }
 
-export type FLPostausgangErgebnisErgebnis = (typeof FLPostausgangErgebnisErgebnis)[keyof typeof FLPostausgangErgebnisErgebnis];
+export type FLPostausgangErgebnisPayloadErgebnis =
+  (typeof FLPostausgangErgebnisPayloadErgebnis)[keyof typeof FLPostausgangErgebnisPayloadErgebnis];
 
-export const FLPostausgangErgebnisErgebnis = {
+export const FLPostausgangErgebnisPayloadErgebnis = {
   gesendet: "gesendet",
   wiederholen: "wiederholen",
   aufgeben: "aufgeben",
   zurueckgehalten: "zurueckgehalten",
 } as const;
 
-export interface FLPostausgangErgebnis {
-  ergebnis: FLPostausgangErgebnisErgebnis;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  id: string;
-  nachricht_id: string | null;
-}
-
+/**
+ * The outcome of one handed-out mail's send, reported as the send returns.
+ */
 export interface FLPostausgangErgebnisPayload {
   /** @minLength 1 */
   beanspruchung: string;
-  /**
-   * @minItems 1
-   * @maxItems 64
-   */
-  ergebnisse: FLPostausgangErgebnis[];
+  ergebnis: FLPostausgangErgebnisPayloadErgebnis;
+  grund: string | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  nachricht_id: string | null;
 }
 
 export interface FLPostausgangErgebnisResponse {

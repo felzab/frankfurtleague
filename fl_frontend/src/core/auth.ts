@@ -1,7 +1,6 @@
 import "server-only";
 
 import { AsyncLocalStorage } from "node:async_hooks";
-import { randomUUID } from "node:crypto";
 
 import { cache } from "react";
 import { headers } from "next/headers";
@@ -17,7 +16,6 @@ import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { MongoServerError } from "mongodb";
 
-import { drainSoon } from "./afterResponse";
 import { CODE_VALIDITY_MINUTES } from "./authEmail";
 import { MONGO_DB_NAME } from "./authIndexes";
 import { authSecret, frontend_config } from "./config";
@@ -726,7 +724,7 @@ const DISABLED_PATHS: readonly string[] = [
 ];
 
 /**
- * Owes one mail of the sign-in library through the Postausgang, then drains it at once. A secret -- the code, the
+ * Owes one mail of the sign-in library through the Postausgang, which the write drains at once. A secret -- the code, the
  * deletion token -- leaves sealed under this frontend's own secret by the library's own cipher
  * (`better-auth/crypto :: symmetricEncrypt`), so no backend row holds it readable; the drain opens it
  * (`fl_frontend/src/core/mail.ts :: zustellen`). The backend tries the mail once: a failed send's repair is the
@@ -738,14 +736,11 @@ async function oweSignInMail(
   geheim?: { readonly wert: string; readonly gueltigMs: number },
 ): Promise<void> {
   await postausgangPostAnmeldung({
-    // Fresh for every mail: nothing the library calls a send for repeats an earlier call.
-    schluessel: `${daten.art}/${randomUUID()}`,
     an: an,
     daten: daten,
     geheim: geheim === undefined ? null : await symmetricEncrypt({ key: authSecret(), data: geheim.wert }),
     gueltig_bis: geheim === undefined ? null : new Date(Date.now() + geheim.gueltigMs).toISOString(),
   });
-  drainSoon();
 }
 
 /**

@@ -1,6 +1,6 @@
 "use server";
 
-import { afterTheResponse, drainSoon } from "@/core/afterResponse";
+import { afterTheResponse } from "@/core/afterResponse";
 import { accountStandsAt } from "@/core/auth";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -86,9 +86,6 @@ export async function beantrageAdresswechselAction(rawPayload: FLAdresswechselVe
       throw error;
     }
 
-    // The start owed both mails in its own transaction.
-    drainSoon();
-
     return {
       success: true,
       // The address the start names, never the one typed: a rival request landing between the two
@@ -120,8 +117,6 @@ export async function einladeAdresswechselAction(rawPayload: FLAdresswechselEinl
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
-
-    drainSoon();
 
     return {
       success: true,
@@ -187,9 +182,8 @@ export async function genehmigeAdresswechselAction(
     }
 
     if (antwort.wirksam) {
-      // The effect owed the grant's notices and the completion notice, and its account's carry on the change: each behind
-      // the response, and by the hourly pass where this one never runs.
-      drainSoon();
+      // The effect owed its account's carry on the change: behind the response, and by the hourly pass where this one
+      // never runs.
       afterTheResponse(runAdresswechselUmzuege);
       return { success: true, message: "Die neue Adresse gilt jetzt, und der Zugang zur Verwaltung ist mit ihr gewechselt." };
     }

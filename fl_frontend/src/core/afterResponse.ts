@@ -3,13 +3,12 @@ import { after } from "next/server";
 import { frontend_config } from "./config";
 import { requestOf } from "./errors";
 import { logger } from "./logging";
-import { drainPostausgang } from "./mail";
-import { getRequestTraceId, runBehindTheResponse } from "./requestScope";
+import { getRequestTraceId, runBehindTheResponse, runInBackground } from "./requestScope";
 import { mintTraceId } from "./trace";
 
 /**
- * Next's `after`, the one way work is scheduled behind a response: a stopping server waits on every pending
- * callback, so each runs under the one deadline the container's stop grace is measured against.
+ * Next's `after`, the one way a request's own work is scheduled behind its response: a stopping server waits on every
+ * pending callback, so each runs under the one deadline the container's stop grace is measured against.
  */
 export function afterTheResponse(work: () => Promise<void>): void {
   const traceId = getRequestTraceId() ?? mintTraceId();
@@ -18,19 +17,29 @@ export function afterTheResponse(work: () => Promise<void>): void {
 }
 
 /**
- * The Postausgang drained once behind the response, for a write that owed a mail: the mail leaves at once rather than
- * at the next hourly pass, which retries whatever this drain could not send. A restore's hold sends nothing, the owed
- * mail waiting in the Postausgang for the first drain after it (`docs/ops/runbooks.md` §13).
+ * The Postausgang drained behind the response, which `fl_frontend/src/core/api.ts :: sendToBackend` asks for after
+ * every write: a mail the write owed leaves at once rather than at the next hourly pass, which retries whatever this
+ * drain could not send. A background pass rather than the request's half, so no 30-second cut ends a page of sends:
+ * each send and report is bounded by its own bound, and a drain a stop cuts leaves its rows to the next once their
+ * lease lapses. Concurrent calls coalesce in the drain itself (`fl_frontend/src/core/mail.ts :: drainPostausgang`). A
+ * restore's hold sends nothing, the owed mail waiting in the Postausgang for the first drain after it
+ * (`docs/ops/runbooks.md` §13).
  */
 export function drainSoon(): void {
   if (frontend_config.RESTORE_HOLD === "on") return;
 
-  afterTheResponse(async () => {
-    try {
-      await drainPostausgang();
-    } catch (error) {
-      // The name and the call's facts, never a mail: the hourly pass drains what this one left.
-      logger.error("postausgang.drain_failed", undefined, { name: error instanceof Error ? error.name : undefined, ...requestOf(error) });
-    }
-  });
+  const traceId = getRequestTraceId() ?? mintTraceId();
+  after(() => runInBackground(traceId, drain));
+}
+
+async function drain(): Promise<void> {
+  try {
+    // Loaded where it runs: the drain sends through the client whose writes call `drainSoon`, and a static import would
+    // close that cycle.
+    const { drainPostausgang } = await import("./mail");
+    await drainPostausgang();
+  } catch (error) {
+    // The name and the call's facts, never a mail: the hourly pass drains what this one left.
+    logger.error("postausgang.drain_failed", undefined, { name: error instanceof Error ? error.name : undefined, ...requestOf(error) });
+  }
 }

@@ -2,7 +2,6 @@
 
 import { unstable_rethrow } from "next/navigation";
 
-import { drainSoon } from "@/core/afterResponse";
 import { APIBadStatusError } from "@/core/errors";
 import { getTeamSaisons } from "@/features/teams/queries";
 import { logActionFailure } from "@/shared/utils/actionFailure";
@@ -98,9 +97,6 @@ export async function annehmenBewerbungAction(
       throw error;
     }
 
-    // The write owed every person's acceptance; they leave now rather than at the next pass.
-    drainSoon();
-
     const aufnahme = describeAufnahme({
       createdTeam: annahmeOperation.created_team,
       gruppe: annahmeOperation.gruppe,
@@ -139,7 +135,6 @@ export async function ablehnenBewerbungAction(rawPayload: { id: string } & FLAbl
     // No tag moves, unlike the acceptance: this moves the application's own `status` and
     // `entscheidung`, and no cached read holds an application. The spine's refresh is what brings
     // the uncached triage reads back.
-    drainSoon();
 
     return { success: true, message: `Die Bewerbung ist abgelehnt. ${ENTSCHEIDUNG_GEHT_AN_ALLE("Absage")}` };
   });
@@ -192,7 +187,6 @@ export async function einwilligungErneutSendenAction(rawPayload: { id: string; r
 
     // No tag moves, as on the decline: this moves the application's own confirmation block
     // and its deadline, and no cached read holds an application — both triage reads are uncached.
-    drainSoon();
 
     // The address the WRITE matched, never the read above: a correction landing between the two moved the mailbox.
     return { success: true, message: linkSatz(erneutOperation.email) };
@@ -228,7 +222,6 @@ export async function kontaktEmailKorrigierenAction(
 
     // No tag moves, as on the decline: this moves the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
-    drainSoon();
 
     // The address the write just stored, never the one typed: the form its mail goes to.
     return { success: true, message: linkSatz(korrekturOperation.email) };
@@ -263,7 +256,6 @@ export async function besetzeKontaktSitzAction(
 
     // No tag moves, for the correction's reason: this writes the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
-    drainSoon();
 
     // As stored, never as typed.
     return { success: true, message: linkSatz(sitzOperation.email) };

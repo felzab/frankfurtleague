@@ -102,7 +102,6 @@ import type {
   FLPatchTeamPayload,
   FLPatchTeamResponse,
   FLPostausgangAnmeldungPayload,
-  FLPostausgangAnmeldungResponse,
   FLPostausgangAusgabeResponse,
   FLPostausgangEreignisPayload,
   FLPostausgangEreignisResponse,
@@ -2034,15 +2033,16 @@ export const getPostausgangPostAnmeldungUrl = () => {
 /**
  * Owe one mail the sign-in library sends -- the code, a passkey notice, the deletion link -- to the address named.
  *
- * A replay of the same `schluessel` writes nothing and answers the row its first call wrote. `geheim` is stored as it
- * arrives, encrypted under a key this service never holds, and dropped once the mail is settled; `gueltig_bis` is both
- * the last moment a hand-out may send it and the moment the row is deleted, settled or not.
+ * Every call owes a mail of its own, under a key minted here: the library asks for each send once, and nothing repeats
+ * the call. `geheim` is stored as it arrives, encrypted under a key this service never holds, and dropped once the mail
+ * is settled; `gueltig_bis` is both the last moment a hand-out may send it and the moment the row is deleted, settled
+ * or not.
  * @summary Owe one mail of the sign-in library
  */
 export const postausgangPostAnmeldung = async (
   fLPostausgangAnmeldungPayload: FLPostausgangAnmeldungPayload,
   options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLPostausgangAnmeldungResponse> => {
+): Promise<void> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -2055,7 +2055,7 @@ export const postausgangPostAnmeldung = async (
     }
     return headers;
   };
-  return systemKeyTransport<FLPostausgangAnmeldungResponse>(getPostausgangPostAnmeldungUrl(), {
+  return systemKeyTransport<void>(getPostausgangPostAnmeldungUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -2132,16 +2132,17 @@ export const getPostausgangPostErgebnisUrl = () => {
 };
 
 /**
- * Settle each named mail the named claim still holds, by the outcome of its send, and nothing else.
+ * Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.
  *
- * `gesendet` records the provider's message id, which every later event about the message names; `zurueckgehalten` a
- * deployment that sends no mail; `aufgeben` a refusal every send would meet, any 4xx but a 429. `wiederholen`, for a
- * 429, a 5xx or a send that never reached the provider, hands the mail back for a drain a minute from now, or gives it
- * up where it has grown past its deadline; a mail of the sign-in library is given up at once, its library's repair
- * being a fresh one. A mail the claim does not hold -- unknown,
- * settled already, or claimed since by another drain after this claim lapsed -- is left alone and counted in `ignoriert`.
- * A repeated id counts once, by its first outcome. One transaction; a settled row keeps no facts and no secret.
- * @summary Settle the mails a claim handed out
+ * `gesendet` records the provider's message id; `zurueckgehalten` a deployment that sends no mail; `aufgeben` a
+ * refusal every send would meet, any 4xx but a 429. A failed send's `grund`, the provider's own name for the refusal,
+ * is recorded on the row, the send's one record of why. `wiederholen`, for a 429, a 5xx or a send that never reached the
+ * provider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a
+ * mail of the sign-in library is given up at once, its library's repair being a fresh one. A mail the claim does not
+ * hold -- unknown, settled already, or claimed since by another drain after this claim lapsed -- is left alone and
+ * counted in `ignoriert`; the answer counts one outcome. Each write names the claim, so its check and the outcome are
+ * one atomic operation on one row, needing no transaction; a settled row keeps no facts and no secret.
+ * @summary Settle one mail a claim handed out
  */
 export const postausgangPostErgebnis = async (
   fLPostausgangErgebnisPayload: FLPostausgangErgebnisPayload,

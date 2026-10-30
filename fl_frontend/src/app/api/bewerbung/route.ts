@@ -1,5 +1,4 @@
 // Redesign: goes with its last importer.
-import { drainSoon } from "@/core/afterResponse";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { turnstileRefusal } from "@/core/turnstile";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken";
@@ -50,9 +49,6 @@ export async function POST(request: NextRequest) {
       }
 
       // No cache to move: no public read holds an application, and both triage reads are uncached.
-
-      // The write owed every person's first mail; they leave now rather than at the next pass.
-      drainSoon();
 
       return { success: true as const, message: EINGEGANGEN };
     },

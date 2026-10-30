@@ -1,10 +1,7 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
-import { assert, beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
-
-/** Every line as it was written, its fields whole. */
-const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
 
 const LISTE = "/spielbestaetigungen/sweep";
 
@@ -32,38 +29,26 @@ const calls = doubleApiClient(async (call: ApiCall) => {
   return answer;
 });
 
-vi.doMock("@/core/logging.ts", () => ({
-  logger: {
-    debug: () => undefined,
-    info: (event: string, fields?: unknown) => void lines.push({ level: "info", event, fields }),
-    warn: (event: string, fields?: unknown) => void lines.push({ level: "warn", event, fields }),
-    error: (event: string, _message: unknown, fields?: unknown) => void lines.push({ level: "error", event, fields }),
-  },
-}));
-
 const { runSpielSweep } = await import("./sweep.ts");
 
 beforeEach(() => {
-  lines.length = 0;
   calls.length = 0;
   listeAnswer = () => ({ saison_ids: ["2627", "2728"] });
   passAnswer = (saisonId) => pass(saisonId);
 });
 
 describe("the fixture confirmation job", () => {
-  it("sweeps every listed season and writes one line counting what the passes did", async () => {
-    passAnswer = (saisonId) => pass(saisonId, saisonId === "2627" ? { geschlossen: 2, angefragt: 3, mails: 7 } : { erinnert: 1, mails: 2 });
+  /* The counts, summed over the seasons, are the one record of what the job did, on the scheduler's pass line; the rows
+     it passed over owe no deletion, so it leaves nothing the heartbeat names. */
+  it("sweeps every listed season and answers what the passes did", async () => {
+    passAnswer = (saisonId) =>
+      pass(saisonId, saisonId === "2627" ? { geschlossen: 2, angefragt: 3, mails: 7 } : { erinnert: 1, mails: 2, fehlgeschlagen: 1 });
 
-    await runSpielSweep();
-
+    expect(await runSpielSweep()).toStrictEqual({
+      zaehlung: { geschlossen: 2, angefragt: 3, erinnert: 1, mails: 9, fehlgeschlagen: 1 },
+      offen: 0,
+    });
     expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([LISTE, `${LISTE}/2627`, `${LISTE}/2728`]);
-    expect(lines).toStrictEqual([
-      {
-        level: "info",
-        event: "spielbestaetigung.sweep_pass",
-        fields: { geschlossen: 2, angefragt: 3, erinnert: 1, mails: 9, fehlgeschlagen: 0 },
-      },
-    ]);
   });
 
   /* The scheduler reports a pass ending on a failure to the heartbeat, which a job answering with a line alone keeps from it. */
@@ -72,13 +57,5 @@ describe("the fixture confirmation job", () => {
 
     await expect(runSpielSweep()).rejects.toThrow("the backend went away");
     expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([LISTE, `${LISTE}/2627`]);
-  });
-
-  it("warns where a pass passed rows over, each pass moving on past them", async () => {
-    passAnswer = (saisonId) => pass(saisonId, { fehlgeschlagen: 1 });
-
-    await runSpielSweep();
-
-    expect(lines.map(({ level, event }) => [level, event])).toStrictEqual([["warn", "spielbestaetigung.sweep_pass"]]);
   });
 });

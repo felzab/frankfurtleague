@@ -57,7 +57,7 @@ from app.api.postausgang.schemas import (
     FLPostausgangLage,
     FLPostausgangLink,
 )
-from app.api.postausgang.services import ANMELDE_ARTEN, enqueue_mail
+from app.api.postausgang.services import ANMELDE_ARTEN, OwedMail, enqueue_mails
 from app.api.registrierungen.services import build_loeschung_registrierung_filter, registrierung_ist_bestaetigt
 from app.api.schiedsrichter.services import build_self_referee_filter, vorname_of
 from app.api.sperrliste.lookup import BanList, Saison, adressen_gesperrt
@@ -395,15 +395,19 @@ async def owe_the_link_in_session(
     replaced since mails nothing. Keyed by the write's instant, a re-send owing a mail of its own.
     """
 
-    await enqueue_mail(
+    await enqueue_mails(
         postausgang_collection=postausgang_collection,
         session=session,
-        schluessel=f"adresswechsel/{adresswechsel_id}/link/{now.isoformat()}",
-        an=email,
-        daten=FLAdresswechselLinkDaten(art="adresswechsel_link", weg=weg, gueltig_bis=gueltig_bis),
+        mails=[
+            OwedMail(
+                schluessel=f"adresswechsel/{adresswechsel_id}/link/{now.isoformat()}",
+                an=email,
+                daten=FLAdresswechselLinkDaten(art="adresswechsel_link", weg=weg, gueltig_bis=gueltig_bis),
+                bezug=_bezug(adresswechsel_id),
+                link=FLPostausgangLink(pfade=["token_hashes"], adressen=["email"], ersetzt=True),
+            )
+        ],
         now=now,
-        bezug=_bezug(adresswechsel_id),
-        link=FLPostausgangLink(pfade=["token_hashes"], adressen=["email"], ersetzt=True),
     )
 
 
@@ -420,15 +424,19 @@ async def owe_the_hinweis_in_session(
 ) -> None:
     """Owe the address on file its notice of the change, with the stop link, minted beside any earlier hand-out's."""
 
-    await enqueue_mail(
+    await enqueue_mails(
         postausgang_collection=postausgang_collection,
         session=session,
-        schluessel=f"adresswechsel/{adresswechsel_id}/hinweis",
-        an=adresse,
-        daten=FLAdresswechselHinweisDaten(art="adresswechsel_hinweis", weg=weg, gueltig_bis=gueltig_bis, vorname=vorname),
+        mails=[
+            OwedMail(
+                schluessel=f"adresswechsel/{adresswechsel_id}/hinweis",
+                an=adresse,
+                daten=FLAdresswechselHinweisDaten(art="adresswechsel_hinweis", weg=weg, gueltig_bis=gueltig_bis, vorname=vorname),
+                bezug=_bezug(adresswechsel_id),
+                link=FLPostausgangLink(pfade=["stopp.token_hashes"], adressen=["adresse"], ersetzt=False),
+            )
+        ],
         now=now,
-        bezug=_bezug(adresswechsel_id),
-        link=FLPostausgangLink(pfade=["stopp.token_hashes"], adressen=["adresse"], ersetzt=False),
     )
 
 
@@ -440,12 +448,16 @@ async def owe_the_refusal_notice_in_session(
     Off the record as it stood before the end: never why, nor the address on file.
     """
 
-    await enqueue_mail(
+    await enqueue_mails(
         postausgang_collection=postausgang_collection,
         session=session,
-        schluessel=f"adresswechsel/{record['_id']}/verworfen",
-        an=str(record["email"]),
-        daten=FLAdresswechselVerworfenDaten(art="adresswechsel_verworfen"),
+        mails=[
+            OwedMail(
+                schluessel=f"adresswechsel/{record['_id']}/verworfen",
+                an=str(record["email"]),
+                daten=FLAdresswechselVerworfenDaten(art="adresswechsel_verworfen"),
+            )
+        ],
         now=now,
     )
 
@@ -866,15 +878,19 @@ async def move_the_address_in_session(
         },
         session=session,
     )
-    await enqueue_mail(
+    await enqueue_mails(
         postausgang_collection=postausgang_collection,
         session=session,
-        schluessel=f"adresswechsel/{record['_id']}/wirksam",
-        an=alt,
-        # Greeting nobody on the lost-mailbox way: that mailbox may have passed to a stranger.
-        daten=FLAdresswechselWirksamDaten(
-            art="adresswechsel_wirksam", zeitpunkt=now, vorname=None if record["weg"] == "wartezeit" else bestand.vorname
-        ),
+        mails=[
+            OwedMail(
+                schluessel=f"adresswechsel/{record['_id']}/wirksam",
+                an=alt,
+                # Greeting nobody on the lost-mailbox way: that mailbox may have passed to a stranger.
+                daten=FLAdresswechselWirksamDaten(
+                    art="adresswechsel_wirksam", zeitpunkt=now, vorname=None if record["weg"] == "wartezeit" else bestand.vorname
+                ),
+            )
+        ],
         now=now,
     )
 

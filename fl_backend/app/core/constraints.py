@@ -129,7 +129,7 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # Two requests about one address meet here. Unfiltered, a lapsed row too: the write asking anew removes that one first
     # (`app/api/berechtigungen/antraege.py :: clear_the_address_in_session`), the TTL monitor passing up to a minute late.
     UniqueIndex(Collection.BERECHTIGUNGEN_ANTRAEGE, "uniq_berechtigung_antrag_adresse", ("adresse",), "one request per address"),
-    # Also the READ path of every enqueue, which finds a replay's row by it (`app/api/postausgang/services.py :: enqueue_mail`).
+    # Also the READ path of every enqueue, which finds a replay's row by it (`app/api/postausgang/services.py :: enqueue_mails`).
     UniqueIndex(Collection.POSTAUSGANG, "uniq_postausgang_schluessel", ("schluessel",), "one row per owed mail"),
 )
 

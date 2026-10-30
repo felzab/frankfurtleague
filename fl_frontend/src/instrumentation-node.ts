@@ -1,7 +1,9 @@
 import { BootRefusal } from "./core/bootRefusal";
 import { requestOf } from "./core/errors";
 import { logger } from "./core/logging";
+import { runInBackground } from "./core/requestScope";
 import { HOUR_MS } from "./core/timeUnits";
+import { mintTraceId } from "./core/trace";
 
 // The code `scripts/lib/_lib.sh :: check_frontend_boot_config` reads as a refusal, apart from a fault's 1:
 // collapsed into one, a host's bad file would read as a check the deploy could not make, and go on.
@@ -39,17 +41,26 @@ export async function registerOnNode() {
 }
 
 /**
- * One background job. It rejects where it could not finish what it owes, and resolves to the number of owed deletions
- * or erasures it left, none where it returns nothing; each job is idempotent, so a pass after a failed one repeats
- * nothing that went.
+ * What one job did in a pass, by count and never by person: `offen` the owed deletions or erasures it left, and
+ * `fehler` what ended a job part-way, after the work its counts record.
  */
-type Job = { readonly name: string; readonly run: () => Promise<number | void> };
+type Durchlauf = { readonly zaehlung: Readonly<Record<string, number | string | null>>; readonly offen: number; readonly fehler?: unknown };
+
+/**
+ * One background job. It rejects, or resolves with a `fehler`, where it could not finish what it owes; each job is
+ * idempotent, so a pass after a failed one repeats nothing that went. A job that counts nothing resolves to nothing.
+ */
+type Job = { readonly name: string; readonly run: () => Promise<Durchlauf | void> };
 
 /**
  * Every job, run in this order each pass and then the Postausgang's drain, which sends what they owed. Imported here,
  * never at the top of the module: a boot that judges and ends loads none of them.
  */
-async function loadJobs(): Promise<{ jobs: readonly Job[]; drain: () => Promise<{ aufgegeben: number }> }> {
+async function loadJobs(): Promise<{
+  jobs: readonly Job[];
+  drain: () => Promise<void>;
+  takeDrainCounts: () => Readonly<Record<string, number>> & { readonly aufgegeben: number };
+}> {
   const [bewerbungen, konto, loeschung, spiele, berechtigungen, mail] = await Promise.all([
     import("./features/bewerbungen/sweep"),
     import("./features/funktionen/sweep"),
@@ -68,12 +79,13 @@ async function loadJobs(): Promise<{ jobs: readonly Job[]; drain: () => Promise<
       { name: "berechtigungen", run: berechtigungen.runBerechtigungenAbgleich },
     ],
     drain: mail.drainPostausgang,
+    takeDrainCounts: mail.takeDrainCounts,
   };
 }
 
 /**
  * Every job is idempotent and selects on a date or a lapse, so the hour decides only how late in the day a deadline is
- * acted on; a write that owes a mail drains at once besides (`fl_frontend/src/core/afterResponse.ts :: drainSoon`).
+ * acted on; every write drains the Postausgang behind its answer besides (`fl_frontend/src/core/api.ts :: sendToBackend`).
  */
 const PASS_INTERVAL_MS = HOUR_MS;
 
@@ -88,7 +100,7 @@ const FIRST_PASS_DELAY_MS = 60 * 1000;
  * timer and no cross-process lease is built. Armed and returned at once, the first pass never awaited: Next serves
  * nothing until `register` returns (installed `03-file-conventions/instrumentation.md`).
  */
-function armScheduler({ jobs, drain }: Awaited<ReturnType<typeof loadJobs>>, heartbeat: string | undefined): void {
+function armScheduler(passes: Awaited<ReturnType<typeof loadJobs>>, heartbeat: string | undefined): void {
   let laeuft = false;
   const tick = async () => {
     // A pass slower than the hour would otherwise run beside itself over the same rows.
@@ -99,7 +111,8 @@ function armScheduler({ jobs, drain }: Awaited<ReturnType<typeof loadJobs>>, hea
 
     laeuft = true;
     try {
-      await ping(heartbeat, await runPass(jobs, drain));
+      // A background pass under a trace of its own: its writes drain nothing behind a response, the pass draining last.
+      await ping(heartbeat, await runInBackground(mintTraceId(), () => runPass(passes)));
     } finally {
       laeuft = false;
     }
@@ -112,35 +125,51 @@ function armScheduler({ jobs, drain }: Awaited<ReturnType<typeof loadJobs>>, hea
   handle.unref();
 }
 
-/** Every job, each whatever the one before it did, then the drain; answers what the heartbeat names, empty for a pass that did all it owed. */
-async function runPass(jobs: readonly Job[], drain: () => Promise<{ aufgegeben: number }>): Promise<readonly string[]> {
+/**
+ * Every job, each whatever the one before it did, then the drain; answers what the heartbeat names, empty for a pass
+ * that did all it owed. Writes one `scheduler.pass` line where anything happened, every job's counts and every drain's
+ * since the last pass in it, and nothing for an idle pass: the heartbeat is what says a pass ran.
+ */
+async function runPass({ jobs, drain, takeDrainCounts }: Awaited<ReturnType<typeof loadJobs>>): Promise<readonly string[]> {
   const ausfaelle: string[] = [];
+  const zaehlungen: Record<string, Durchlauf["zaehlung"]> = {};
 
-  const run = async (name: string, job: () => Promise<string | undefined>) => {
-    try {
-      const ausfall = await job();
-      if (ausfall !== undefined) ausfaelle.push(`${name} ${ausfall}`);
-    } catch (error) {
-      // The job's name and the error's, never a person: a failure on any job's path can carry an address.
-      logger.error("scheduler.job_failed", undefined, {
-        job: name,
-        name: error instanceof Error ? error.name : undefined,
-        ...requestOf(error),
-      });
-      ausfaelle.push(`${name} failed`);
-    }
+  const failed = (name: string, error: unknown) => {
+    // The job's name and the error's, never a person: a failure on any job's path can carry an address.
+    logger.error("scheduler.job_failed", undefined, {
+      job: name,
+      name: error instanceof Error ? error.name : undefined,
+      ...requestOf(error),
+    });
+    ausfaelle.push(`${name} failed`);
   };
 
-  for (const { name, run: job } of jobs) {
-    await run(name, async () => {
-      const offen = await job();
-      return typeof offen === "number" && offen > 0 ? `left ${String(offen)}` : undefined;
-    });
+  for (const { name, run } of jobs) {
+    try {
+      const durchlauf = await run();
+      if (durchlauf === undefined) continue;
+
+      zaehlungen[name] = durchlauf.zaehlung;
+      if (durchlauf.fehler !== undefined) failed(name, durchlauf.fehler);
+      else if (durchlauf.offen > 0) ausfaelle.push(`${name} left ${String(durchlauf.offen)}`);
+    } catch (error) {
+      failed(name, error);
+    }
   }
-  await run("postausgang", async () => {
-    const { aufgegeben } = await drain();
-    return aufgegeben > 0 ? `gave up ${String(aufgegeben)}` : undefined;
-  });
+  try {
+    await drain();
+  } catch (error) {
+    failed("postausgang", error);
+  }
+  // Every drain's, a write's among them, whether this pass's own one finished or not: a mail is given up by whichever
+  // drain meets it.
+  const postausgang = takeDrainCounts();
+  zaehlungen["postausgang"] = postausgang;
+  if (postausgang.aufgegeben > 0) ausfaelle.push(`postausgang gave up ${String(postausgang.aufgegeben)}`);
+
+  const geschehen = Object.values(zaehlungen).some((zaehlung) => Object.values(zaehlung).some((wert) => typeof wert === "number" && wert > 0));
+  if (ausfaelle.length > 0) logger.warn("scheduler.pass", { ...zaehlungen, ausfaelle: ausfaelle });
+  else if (geschehen) logger.info("scheduler.pass", zaehlungen);
 
   return ausfaelle;
 }
@@ -169,7 +198,7 @@ async function ping(url: string | undefined, ausfaelle: readonly string[]): Prom
   }
 }
 
-/** The boot gates, each writing its own CRITICAL line before it throws: the environment and the secret files, the deployment a preflight names, then the signing key. */
+/** The boot gates, each writing its own CRITICAL line before it throws: the environment and the secret files, then the deployment a preflight names. */
 async function passBootGates() {
   // Importing it *is* the gate — validation runs during this module load, before anything is served.
   // Taken apart where it loads: the whole namespace would carry every secret's reader.

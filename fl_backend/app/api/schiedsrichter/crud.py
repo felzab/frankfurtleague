@@ -7,7 +7,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.postausgang.schemas import FLPostausgangBezug, FLPostausgangLink, FLSchiedsrichterBestaetigungDaten
-from app.api.postausgang.services import enqueue_mail
+from app.api.postausgang.services import OwedMail, enqueue_mails
 from app.api.schiedsrichter.services import (
     ADRESSE_PFAD,
     TOKEN_HASHES_PFAD,
@@ -42,15 +42,19 @@ async def owe_the_bestaetigung(
     correction since stops the mail rather than sending a live link to the replaced mailbox.
     """
 
-    await enqueue_mail(
+    await enqueue_mails(
         postausgang_collection=postausgang_collection,
         session=session,
-        schluessel=f"schiedsrichter/{schiedsrichter_id}/bestaetigung/{version}",
-        an=email,
-        daten=FLSchiedsrichterBestaetigungDaten(art="schiedsrichter_bestaetigung", frist=frist),
+        mails=[
+            OwedMail(
+                schluessel=f"schiedsrichter/{schiedsrichter_id}/bestaetigung/{version}",
+                an=email,
+                daten=FLSchiedsrichterBestaetigungDaten(art="schiedsrichter_bestaetigung", frist=frist),
+                bezug=FLPostausgangBezug(sammlung=Collection.SCHIEDSRICHTER, id=schiedsrichter_id, sitz=None),
+                link=FLPostausgangLink(pfade=[TOKEN_HASHES_PFAD], adressen=[ADRESSE_PFAD], ersetzt=True),
+            )
+        ],
         now=now,
-        bezug=FLPostausgangBezug(sammlung=Collection.SCHIEDSRICHTER, id=schiedsrichter_id, sitz=None),
-        link=FLPostausgangLink(pfade=[TOKEN_HASHES_PFAD], adressen=[ADRESSE_PFAD], ersetzt=True),
     )
 
 

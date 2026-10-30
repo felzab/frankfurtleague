@@ -1133,11 +1133,11 @@ inside it is not, and a `scheduler.pass_skipped` line in every hour says a pass 
 the frontend service arms a fresh timer, and the jobs select on dates, lapses and season statuses
 rather than on the hour that ran them, so the pass that follows does whatever the missed hours owed.
 
-**Each hourly pass writes one line for each half of the retention sweep**, `bewerbung.sweep_pass`
-and `registrierung.sweep_pass`:
+**Each hourly pass that did anything writes one line**, `scheduler.pass`, every job's counts in
+it:
 
 ```bash
-docker compose logs --since 2h frontend | grep -E 'bewerbung.sweep_pass|registrierung.sweep_pass'
+docker compose logs --since 2h frontend | grep scheduler.pass
 ```
 
 **A half that did not finish says why in the frontend's log.** Each files its own failure line,
@@ -1160,11 +1160,10 @@ names the season**, as it takes an ended season's fixture confirmations whole: i
 theirs the season's end could not strip, the contact blocks clear all the same, and every later pass
 tries again.
 
-**A `bewerbung.sweep_pass` or `registrierung.sweep_pass` warning is a clock passing rows over, not a
-pass that ran clean.** A clock failing on every row still finishes its pass, so this count is the
-only sign of it. Each pass writes one line for each half, its `fehlgeschlagen` summing the rows that
-half's clocks passed over across every season: `INFO` at zero, and a warning above it. The
-backend's lines then name each row, as above.
+**A `bewerbung_fehlgeschlagen` or `registrierung_fehlgeschlagen` above zero is a clock passing rows
+over, not a pass that ran clean.** A clock failing on every row still finishes its pass, so this
+count, summing the rows that half's clocks passed over across every season, is the only sign of it.
+The backend's lines then name each row, as above.
 
 **A clock owing a message answers what it had done when the deadline stops it taking rows apart;
 every other clock fails the call.** The clocks owing one are the two reminder clocks and the
@@ -1174,18 +1173,17 @@ where the warning names a commit unanswered, under `unknown_outcome`, the rows i
 written with nobody told, and a later pass meets again only those it did not write. Any other clock
 the deadline stops there fails its call, as the failure lines above report.
 
-**The half after the seasons stamps no day, so its own line is the record.** Every pass ends by
+**The half after the seasons stamps no day, so its counts are the record.** Every pass ends by
 ending the address changes whose step lapsed and making the due ones take effect, each end owing its
 notice to the Postausgang: each replaced address gets its completion notice and the new address of a
 confirmed change refused at its due time or lapsed unapproved a notice naming nobody. The pass ends
 by carrying each sign-in account an effect still owes
-(`fl_frontend/src/features/adresswechsel/umzug.ts :: runAdresswechselUmzuege`). It writes one line per pass holding its
-counts and no person, `adresswechsel.sweep_pass`, at `INFO` where the pass left no row due, and as a
-warning where it left rows due. A half that threw fails the applications' job once the seasons have run, which
+(`fl_frontend/src/features/adresswechsel/umzug.ts :: runAdresswechselUmzuege`). Its counts and no person
+are the pass line's `adresswechsel_` ones, `adresswechsel_verbleibend` the rows it left due. A half that threw fails the applications' job once the seasons have run, which
 `scheduler.job_failed` names as `bewerbungen`.
 
 **A notice the drain could not send stays owed in the Postausgang**, which retries it as it retries
-every owed mail, and a notice it gives up is counted in its `postausgang.drain` line and reported to
+every owed mail, and a notice it gives up is counted on the pass's line and reported to
 the heartbeat. **An account's carry the pass could not
 make stays owed on the change**, and the account sweep keeps the replaced address's account until it
 is made: the next pass, or the next confirmation, tries it again, and a pass whose carry threw
@@ -1202,13 +1200,9 @@ held an account of its own, and the person signs in there anew.
 **The pupils' deletion runs on every pass**
 (`fl_frontend/src/features/saisons/sweep.ts :: runLoeschungSweep`). It stamps no day either: each
 pass deletes the pupils the season-after rule makes due, drops the squad cache after its last call,
-and writes one `loeschung.sweep_pass` line, at `INFO` where it left no pupil due and as a warning
-where it left pupils it failed or passed over; a pass whose call threw fails the job after that line, which
-`scheduler.job_failed` names as `loeschung`:
-
-```bash
-docker compose logs --since 2h frontend | grep loeschung.sweep_
-```
+and counts on the pass's line what it erased and the pupils it failed or passed over; a pass whose
+call threw fails the job, its counts on that line all the same, which `scheduler.job_failed` names
+as `loeschung`.
 
 **Activating a season runs the same deletion first, inside the press, but only as far as the
 press's own deadline reaches** (`fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS`): the
@@ -1266,13 +1260,12 @@ available is a read that failed: reload the page until it gives a figure.
 **The fixture confirmations run on every pass**
 (`fl_frontend/src/features/spielbestaetigungen/sweep.ts :: runSpielSweep`).
 
-**Each pass that could list the seasons writes one `spielbestaetigung.sweep_pass` line**, the
-record of what it did, counting the rows it closed, the rows it asked and reminded, the mails it
-owed and the rows it passed over, at `INFO`, and as a warning where it passed rows over. Every mail
+**Each pass that could list the seasons counts on the pass's line**, the record of what it did:
+the rows it closed, the rows it asked and reminded, the mails it owed and the rows it passed over. Every mail
 it owes, a request, a reminder, an Einteilung or the notice of a move, a referee taken off or a
 call-off, is a Postausgang row written in the transaction that writes its confirmation row, so a
 row reads as asked exactly where its mail is owed; the drain after the pass sends them and retries
-each, and a mail it gives up is counted in its `postausgang.drain` line and reported to the
+each, and a mail it gives up is counted on the pass's line and reported to the
 heartbeat. A notice about a day gone by is owed nobody. A listing or a season's pass that fails
 ends the job, which the scheduler logs and the heartbeat reports; the next pass repeats nothing
 that committed. Every link a mail carried stays live until the deadline beside the later ones:
@@ -1288,24 +1281,16 @@ dated fixture of the running season inside the answer window
 referee, spread over as many hourly passes as the per-pass share needs, and a fixture inside the
 deadline's own days is due the day it is asked.
 
-**The account sweep stores no date, so its own line in the frontend's log is the answer**
-([`spec.md`](spec.md) §1.1). Every pass that completes writes one `konto.sweep_completed` line,
-counting the accounts it listed, those answered unreferenced, deleted, already gone, and those a
-failure left for the next pass, never naming an address:
-
-```bash
-docker compose logs --since 2h frontend | grep konto.sweep_
-```
-
-**No `konto.sweep_completed` line in two hours means no pass completed, or the line went
-unwritten.** A pass whose sign-in store could not be listed rejects, which `scheduler.job_failed`
+**The account sweep stores no date, so its counts on the pass's line are the answer**
+([`spec.md`](spec.md) §1.1): the accounts answered unreferenced, deleted, already gone, and those a
+failure left for the next pass, never naming an address. A pass whose sign-in store could not be
+listed rejects, which `scheduler.job_failed`
 names as `konto` and the heartbeat as `konto failed`. Every other failure inside a pass is a line of
 its own, and the next pass asks again.
 
 **A `konto.referenzen_failed` line carrying `kein_inhaber` means the backend reads no live
-`owner` grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass still writes its
-`konto.sweep_completed` line, its `fehlgeschlagen` equal to its `gelistet`, so a completion line
-alone does not say the sweep works. Either the backend reads another database than the league's,
+`owner` grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass still counts, its
+`fehlgeschlagen` every account the store listed, so a pass's line alone does not say the sweep works. Either the backend reads another database than the league's,
 which `DB_BASE_NAME` in `fl_backend/.env` names, or the `owner` grant is gone; the backend's boot warns
 `berechtigungen.no_grant` or `berechtigungen.no_owner` in both cases. Repair the setting, or write the `owner` grant as
 [section 3](#3-granting-or-revoking-admin-access) says.
@@ -1686,8 +1671,9 @@ carries the address. Ask when they tried and read that window:
 - `auth.sign_in_gate_address_refused`: the backend refused the address as none
   its own rule accepts, though the sign-in form took it; the two address rules disagree.
 - `auth.code_send_failed` or `auth.sign_in_failed`: the gate admitted the
-  address, and the send or the library call around it failed; `mail.send_failed` under the same trace id
-  is the provider refusing the message.
+  address, and the send or the library call around it failed; the code's own Postausgang row
+  (`art: "anmeldecode"`) reading `aufgegeben` is the provider refusing it, its `grund` the provider's own
+  name for the refusal.
 - `auth.code_mail_capped`, an info line: five codes had been asked for the address inside the
   hour, so this one was sent nothing. The five count every request,
   a stranger's and one the gate refused included, so an address can be capped with nothing mailed;
@@ -1701,8 +1687,8 @@ carries the address. Ask when they tried and read that window:
   person already held still stands, bar a send racing the hundredth. Only admitted addresses count,
   so a run of these is a flood over members' addresses or an evening outgrowing the figure; it lifts
   within the hour, or at once by the sweep in §17.
-- A stack that is not production mails nothing: its `postausgang.drain` line counts the code under
-  `zurueckgehalten`, and the message is in its sink. On the local stack that is `.tmp-mail/`, which
+- A stack that is not production mails nothing: the code's Postausgang row reads `zurueckgehalten`,
+  and the message is in its sink. On the local stack that is `.tmp-mail/`, which
   every `./scripts/ops/local.sh` start empties of what earlier runs filed, so a code there is this
   run's.
 

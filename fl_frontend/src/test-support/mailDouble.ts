@@ -4,7 +4,7 @@ import { assert, beforeEach, vi } from "vitest";
 import { APINetworkError } from "@/core/errors.ts";
 
 import type { MailVon } from "@/core/emailShell.ts";
-import type { FLPostausgangAnmeldungPayload, FLPostausgangAnmeldungResponse } from "@/core/generated/client/types.ts";
+import type { FLPostausgangAnmeldungPayload } from "@/core/generated/client/types.ts";
 
 /** One sign-in mail the double sent, rendered as the drain renders it. */
 export type SentMail = {
@@ -18,7 +18,7 @@ export type SentMail = {
 /** How the double answers one owed sign-in mail: sent, or `lost`, a backend that never answered the enqueue. */
 type MailAnswer = (mail: SentMail) => "accepted" | "lost" | Promise<"accepted" | "lost">;
 
-const BACKEND = "https://backend.invalid/api/v1/postausgang/anmeldung";
+const BACKEND = "https://backend.invalid/api/v0/postausgang/anmeldung";
 
 /**
  * Stands in for the Postausgang and its drain in one step: a sign-in mail owed is recorded as the backend would store it,
@@ -36,7 +36,7 @@ export function doublePostausgang(): {
   const accepted: MailAnswer = () => "accepted";
   let answering = accepted;
 
-  const postausgangPostAnmeldung = async (payload: FLPostausgangAnmeldungPayload): Promise<FLPostausgangAnmeldungResponse> => {
+  const postausgangPostAnmeldung = async (payload: FLPostausgangAnmeldungPayload): Promise<void> => {
     const [{ authSecret, frontend_config }, { mailFor }, { renderMail }] = await Promise.all([
       import("@/core/config.ts"),
       import("@/core/mailKinds.ts"),
@@ -53,18 +53,12 @@ export function doublePostausgang(): {
 
     owed.push(payload);
     sent.push(mail);
-    return { id: (owed.length - 1).toString(16).padStart(24, "0") };
   };
 
   // Imported after this call by the suite, so the modules it loads owe through the double.
   vi.doMock("@/core/generated/client/sdk.ts", async () => ({
     ...(await vi.importActual<object>("@/core/generated/client/sdk.ts")),
     postausgangPostAnmeldung: postausgangPostAnmeldung,
-  }));
-  // Nothing to drain, the stand-in above having sent it: the real call reaches Next's `after`, which a suite holds no scope for.
-  vi.doMock("@/core/afterResponse.ts", async () => ({
-    ...(await vi.importActual<object>("@/core/afterResponse.ts")),
-    drainSoon: () => undefined,
   }));
 
   // Back to accepted before every case: a case that named `lost` would hand it to the next case's mail.

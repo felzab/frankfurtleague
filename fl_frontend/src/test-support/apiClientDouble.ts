@@ -11,10 +11,9 @@ export type ApiCall = {
   endpoint: string;
   method: string | undefined;
   body: string | undefined;
-  params: unknown;
   headers: Headers;
   readOnly: boolean | undefined;
-  /** As the caller named it, `undefined` being the client's own default, a base-tier call. */
+  /** The key tier, which the operation's `security` names. */
   authType: FetchOptions["authType"];
 };
 
@@ -22,10 +21,9 @@ export type ApiCall = {
 type ApiOptions = {
   method?: string;
   body?: string;
-  params?: unknown;
   headers?: HeadersInit;
   readOnly?: boolean;
-  authType?: FetchOptions["authType"];
+  authType: FetchOptions["authType"];
 };
 
 /**
@@ -42,12 +40,11 @@ export function doubleApiClient(answer: (call: ApiCall) => unknown): ApiCall[] {
   // Sent through the real client's own dispatch, so the write the admin spine judges its answer by is
   // recorded here exactly as the real client records it. A generated call's query is already in `endpoint`, and its tier
   // is the operation's own.
-  const sendToBackend = async (endpoint: string, options: ApiOptions = {}): Promise<unknown> => {
+  const sendToBackend = async (endpoint: string, options: ApiOptions): Promise<unknown> => {
     const call: ApiCall = {
       endpoint,
       method: options.method,
       body: options.body,
-      params: options.params,
       headers: new Headers(options.headers),
       readOnly: options.readOnly,
       authType: options.authType,
@@ -66,18 +63,17 @@ export function doubleApiClient(answer: (call: ApiCall) => unknown): ApiCall[] {
 }
 
 /** One request as the backend reads it, and whether the caller declared it a read. */
-export type SentApiRequest = { endpoint: string; method: string | undefined; body: unknown; params?: unknown; readOnly?: true };
+export type SentApiRequest = { endpoint: string; method: string | undefined; body: unknown; readOnly?: true };
 
 /**
- * The query and the read-only mark appear only where a call carried them, so a comparison naming
- * neither fails on a value leaked into a query, and on a write marked a read, which records no write.
+ * The read-only mark appears only where a call carried it, so a comparison naming none fails on a write marked a read,
+ * which records no write. The query is the endpoint's own.
  */
 export const requestsOf = (calls: readonly ApiCall[]): SentApiRequest[] =>
-  calls.map(({ endpoint, method, body, params, readOnly }) => ({
+  calls.map(({ endpoint, method, body, readOnly }) => ({
     endpoint,
     method,
     body: body === undefined ? undefined : (JSON.parse(body) as unknown),
-    ...(params === undefined ? {} : { params }),
     ...(readOnly === true ? { readOnly } : {}),
   }));
 

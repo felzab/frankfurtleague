@@ -1,5 +1,5 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import type { FLAdresswechselSweepResponse } from "@/core/generated/client/types.ts";
 
@@ -32,21 +32,10 @@ doubleApiClient((call) => {
   return next;
 });
 
-const lines: { level: string; event: string; fields: unknown }[] = [];
-vi.doMock("@/core/logging.ts", () => ({
-  logger: {
-    debug: () => undefined,
-    info: (event: string, fields: unknown) => void lines.push({ level: "info", event, fields }),
-    warn: (event: string, fields: unknown) => void lines.push({ level: "warn", event, fields }),
-    error: (event: string, _error: unknown, fields: unknown) => void lines.push({ level: "error", event, fields }),
-  },
-}));
-
 const { sweepAdresswechsel } = await import("./sweep.ts");
 
 beforeEach(() => {
   calls.length = 0;
-  lines.length = 0;
 });
 
 describe("the address changes' hourly pass", () => {
@@ -62,13 +51,10 @@ describe("the address changes' hourly pass", () => {
 
   /* Each call counts every lapsed change standing, an earlier page's failures among them, so the remainder is the last
      call's: a sum would count the first page's unreached rows as left behind. */
-  it("warns with the last call's remainder, never a sum, and resolves to it for the heartbeat", async () => {
+  it("answers the last call's remainder, never a sum, beside the pages' summed counts", async () => {
     antworten = [antwort(2, 5, ORT), antwort(3, 1)];
 
-    expect(await sweepAdresswechsel()).toBe(1);
-    expect(lines).toStrictEqual([
-      { level: "warn", event: "adresswechsel.sweep_pass", fields: { entfernt: 5, wirksam: 0, verworfen: 0, verbleibend: 1 } },
-    ]);
+    expect(await sweepAdresswechsel()).toStrictEqual({ entfernt: 5, wirksam: 0, verworfen: 0, verbleibend: 1 });
   });
 
   /* A place not past the one sent would hold the pass, and every clock behind it, for ever. */

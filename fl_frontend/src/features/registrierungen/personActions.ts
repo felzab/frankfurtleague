@@ -2,7 +2,6 @@
 
 import z from "zod";
 
-import { drainSoon } from "@/core/afterResponse";
 import { mapRegistrierungEinwilligungRefusal, WAHL_GESPEICHERT } from "@/features/konto/einwilligung";
 import { FLSpielerKontoEinwilligungPayloadSchema } from "@/features/spieler/schemas";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
@@ -72,9 +71,6 @@ export async function ablehnenRegistrierungAction(rawPayload: RegistrierungAdres
       if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
-
-    // The decline owed the pupil's note where their address was confirmed; it leaves now rather than at the next pass.
-    drainSoon();
 
     // The same words whatever the note does: a team told that a note was withheld would learn that the
     // pupil's address is barred, which no seat holder is told.

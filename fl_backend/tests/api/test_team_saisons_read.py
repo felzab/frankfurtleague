@@ -159,8 +159,12 @@ def test_each_seats_link_is_served_by_its_state_and_never_by_its_hash(mongo_repl
         "abgelehnt_am": None,
         "abgelaufen": False,
     }
-    assert (trainer["zustellung"]["stand"], trainer["zustellung"]["zustellung"]["stand"]) == ("gesendet", "unzustellbar")
-    assert served["ansprechperson"]["zustellung"] == {"stand": "gesendet", "zustellung": None}
+    assert (trainer["zustellung"]["stand"], trainer["zustellung"]["zustellung"]["stand"], trainer["zustellung"]["unzustellbar"]) == (
+        "gesendet",
+        "unzustellbar",
+        True,
+    )
+    assert served["ansprechperson"]["zustellung"] == {"stand": "gesendet", "zustellung": None, "unzustellbar": False}
     assert served["stellvertretung"] is None
     # Twice: the read drops the hashes, and the model declares none, so neither alone carries them to the wire.
     assert "token_hash" not in json.dumps(roh, default=str)

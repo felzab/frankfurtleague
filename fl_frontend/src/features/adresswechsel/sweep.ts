@@ -1,7 +1,6 @@
 import "server-only";
 
 import { ContractBreakError } from "@/core/errors";
-import { logger } from "@/core/logging";
 
 import { postAdresswechselSweep } from "./mutations";
 import { runAdresswechselUmzuege } from "./umzug";
@@ -11,9 +10,9 @@ import type { FLAdresswechselSweepResponse } from "@/core/generated/client/types
 /**
  * Every pending change whose step lapsed, and every one whose waiting time ended, then every account's carry still
  * owed; run in the applications' job (`fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`). A failure
- * rejects, for the heartbeat to name; the pass resolves to the lapsed changes it could not end.
+ * rejects, for the heartbeat to name; the pass resolves to what it did, `verbleibend` the lapsed changes it could not end.
  */
-export async function sweepAdresswechsel(): Promise<number> {
+export async function sweepAdresswechsel(): Promise<Omit<FLAdresswechselSweepResponse, "nach">> {
   let entfernt = 0;
   let wirksam = 0;
   let verworfen = 0;
@@ -32,13 +31,9 @@ export async function sweepAdresswechsel(): Promise<number> {
     nach = antwort.nach;
   } while (nach !== null);
 
-  // The last call's count, never a sum: each call counts every lapsed change standing, an earlier page's failures among them.
-  const felder = { entfernt: entfernt, wirksam: wirksam, verworfen: verworfen, verbleibend: antwort.verbleibend };
-  if (antwort.verbleibend === 0) logger.info("adresswechsel.sweep_pass", felder);
-  else logger.warn("adresswechsel.sweep_pass", felder);
-
   // An effect of this pass, or one whose press lost its answer, owes its account's carry.
   await runAdresswechselUmzuege();
 
-  return antwort.verbleibend;
+  // The last call's count, never a sum: each call counts every lapsed change standing, an earlier page's failures among them.
+  return { entfernt: entfernt, wirksam: wirksam, verworfen: verworfen, verbleibend: antwort.verbleibend };
 }

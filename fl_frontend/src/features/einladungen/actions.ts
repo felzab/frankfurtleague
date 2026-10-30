@@ -1,6 +1,5 @@
 "use server";
 
-import { drainSoon } from "@/core/afterResponse";
 import { isFreshlySignedIn } from "@/core/auth";
 import { frontend_config } from "@/core/config";
 import { einladungsLink } from "@/core/einladungEmail";
@@ -121,9 +120,6 @@ export async function mailEinladungAction(rawPayload: z.input<typeof EinladungMa
       };
     }
 
-    // The write owed the mails; they leave now rather than at the next pass.
-    drainSoon();
-
     return { success: true, message: adressenSatz(gesamt, gesamt) };
   });
 }
@@ -197,9 +193,6 @@ export async function postEinladungVersandAction(
         zeile.uebersprungen === null || zeile.uebersprungen === "erzeugung_fehlgeschlagen" || zeile.uebersprungen === "erzeugung_ungewiss",
     ).length;
     const erreicht = zeilen.filter((zeile) => zeile.empfaenger.length > 0).length;
-
-    // The write owed the mails; they leave now rather than at the next pass.
-    if (erreicht > 0) drainSoon();
 
     return { success: true, zeilen: zeilen, message: versandSatz(erreicht, gemeint, zeilen.length), gemeint: gemeint, erreicht: erreicht };
   });

@@ -1,5 +1,4 @@
 // Redesign: goes with its last importer.
-import { drainSoon } from "@/core/afterResponse";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { turnstileRefusal } from "@/core/turnstile";
 import { TURNSTILE_HEADER } from "@/core/turnstileToken";
@@ -42,9 +41,6 @@ export async function POST(request: NextRequest) {
 
         return { success: false as const, ...refusal };
       }
-
-      // The write owed the confirmation mail; it leaves now rather than at the next pass.
-      drainSoon();
 
       // The bare acknowledgement: which row was written is the mail's to say.
       return { success: true as const };

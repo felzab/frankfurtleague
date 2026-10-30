@@ -1,7 +1,5 @@
 import "server-only";
 
-import { logger } from "@/core/logging";
-
 import { getSpielbestaetigungSweepSaisons, postSpielbestaetigungSweep } from "./mutations";
 
 import type { FLSpielbestaetigungSweepResponse } from "@/core/generated/client/types";
@@ -13,9 +11,10 @@ type Zaehler = Omit<FLSpielbestaetigungSweepResponse, "saison_id">;
  * One pass over every season the listing answers, for the scheduler (`fl_frontend/src/instrumentation-node.ts ::
  * armScheduler`), whose drain after its jobs sends every mail the pass owed. Rejects where the listing or a season's
  * pass fails, the seasons after it left to the next pass; each season's pass is idempotent. The fixture pages show what
- * it closed within the `minutes` lifetime their cached read keeps.
+ * it closed within the `minutes` lifetime their cached read keeps. Answers what it did, the rows it passed over owing
+ * no deletion.
  */
-export async function runSpielSweep(): Promise<void> {
+export async function runSpielSweep(): Promise<{ zaehlung: Zaehler; offen: number }> {
   const { saison_ids: saisonIds } = await getSpielbestaetigungSweepSaisons();
 
   const zaehler: Zaehler = { geschlossen: 0, angefragt: 0, erinnert: 0, mails: 0, fehlgeschlagen: 0 };
@@ -30,8 +29,5 @@ export async function runSpielSweep(): Promise<void> {
     zaehler.fehlgeschlagen += antwort.fehlgeschlagen;
   }
 
-  // A warning where rows were passed over, each pass moving on past them: only that count tells such a pass from a
-  // healthy one.
-  if (zaehler.fehlgeschlagen === 0) logger.info("spielbestaetigung.sweep_pass", zaehler);
-  else logger.warn("spielbestaetigung.sweep_pass", zaehler);
+  return { zaehlung: zaehler, offen: 0 };
 }

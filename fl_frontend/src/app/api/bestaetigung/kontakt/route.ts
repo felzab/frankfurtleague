@@ -1,5 +1,4 @@
 // Redesign: goes with its last importer.
-import { drainSoon } from "@/core/afterResponse";
 import { postEinwilligung } from "@/features/bewerbungen/mutations";
 import { getEinwilligungAnsicht } from "@/features/bewerbungen/queries";
 import { FLBewerbungEinwilligungAntwortPayloadSchema } from "@/features/bewerbungen/schemas";
@@ -46,10 +45,6 @@ export async function POST(request: NextRequest) {
 
         return { success: false as const, ...refusal };
       }
-
-      // An application's Widerspruch owed the submitter its notice in the same write; it leaves now rather than at the
-      // next pass. A season row's seat was typed in by an administrator, so its answer owes nobody anything.
-      if (antwort.quelle === "bewerbung" && antwort.ergebnis === "abgelehnt") drainSoon();
 
       // The echo alone, never `ausstehend` and never an address: which other seats are open is the
       // submitter's business, and this person is shown what was stored for them and nothing more.
