@@ -2604,8 +2604,8 @@ export const FLEinwilligungUmfang = {
 /**
  * What this person agreed may be published about them.
  *
- * The keys the validator requires stand TOGETHER, as `FLAustritt` does: a scope with no
- * confirmation date claims somebody consented, and no surface can tell that from one somebody gave.
+ * Its keys stand TOGETHER, as `FLAustritt`'s do: a scope with no confirmation date claims somebody
+ * consented, and no surface can tell that from one somebody gave.
  */
 export interface FLEinwilligung {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -5794,7 +5794,7 @@ export interface FLSpielerPublic {
   nachname: string | null;
   nummer?: string | null;
   position?: FLSpielerPosition | null;
-  vorname?: string | null;
+  vorname: string | null;
 }
 
 export interface FLSpielerListResponse {

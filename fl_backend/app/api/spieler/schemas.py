@@ -38,8 +38,8 @@ type FLSpielerRolle = Literal["kapitaen", "co_kapitaen"]
 class FLEinwilligung(BaseModel):
     """What this person agreed may be published about them.
 
-    The keys the validator requires stand TOGETHER, as `FLAustritt` does: a scope with no
-    confirmation date claims somebody consented, and no surface can tell that from one somebody gave.
+    Its keys stand TOGETHER, as `FLAustritt`'s do: a scope with no confirmation date claims somebody
+    consented, and no surface can tell that from one somebody gave.
     """
 
     umfang: FLEinwilligungUmfang
@@ -78,8 +78,7 @@ class _SaisonSpielerWritable(BaseModel):
     position: FLSpielerPosition | None
     stufe: FLSpielerStufe | None
     # On the JUNCTION, not the person: a role is held within one team for one season. ONE field
-    # rather than a flag per role, because two booleans can both be true and no validator sees a
-    # second field to refuse it.
+    # rather than a flag per role, because two booleans can both be true.
     rolle: FLSpielerRolle | None
 
 
@@ -100,10 +99,7 @@ class FLSpielerPublic(_SpielerPerson):
     # Narrowed from `_SpielerPerson`'s non-empty string: the mask answers `null` for a person whose
     # record does not publish them (`READ-PUPIL-003`), and a required forename would 500 the squad
     # list over a withheld row rather than withholding it.
-
-    # DEFAULTED for a row the `spieler` validator refuses, one hand-written without the key: the
-    # mask's published arm is `$vorname` itself, so such a row reaches `$project` with no key at all.
-    vorname: str | None = None
+    vorname: str | None
 
     # Defaulted because an unnarrowed read joins LOOSELY: a person whose every squad row is retired
     # survives the unwind, and `$project` omits a joined key rather than nulling it. Required fields
