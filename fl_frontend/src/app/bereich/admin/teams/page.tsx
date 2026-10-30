@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
@@ -40,7 +39,6 @@ export default function AdminTeamsPage(props: NextPageProps) {
 }
 
 async function CreateTeamModalLoader({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
-  await connection();
   const [viewedSaison, saisonsRes, membershipsRes] = await Promise.all([
     resolveAdminSaison(searchParams),
     getAdminSaisons(),
@@ -70,8 +68,6 @@ async function CreateTeamModalLoader({ searchParams }: { searchParams: NextPageP
  * (`fl_frontend/src/features/teams/queries.ts :: getTeamMemberships`); a club in no season is listed too.
  */
 async function TeamsTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
-  await connection();
-
   const [membershipsRes, saisonsRes, selectedSaison] = await Promise.all([
     getTeamMemberships(),
     getAdminSaisons(),

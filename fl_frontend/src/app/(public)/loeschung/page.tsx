@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { getSubjectSession } from "@/core/subject";
 import { LoeschungView } from "@/features/konto/components/views/LoeschungView";
@@ -37,7 +36,6 @@ export default function LoeschungPage(props: NextPageProps) {
 }
 
 async function LoeschungContent(props: NextPageProps) {
-  await connection();
   const { token } = await props.searchParams;
 
   // A missing or repeated parameter is no link at all.

@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { istFassungBekannt } from "@/core/einwilligung";
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
@@ -39,7 +38,6 @@ async function AdminSpielerEditContent({
   params: NextPageProps<{ spieler_id: string }>["params"];
   searchParams: NextPageProps["searchParams"];
 }) {
-  await connection();
   const spielerId = await resolveSpielerId(params);
 
   const [membershipsRes, selectedSaison, teamsRes] = await Promise.all([

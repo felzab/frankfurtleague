@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { AdminSpielerView } from "@/features/spieler/components/views/AdminSpielerView";
@@ -46,8 +45,6 @@ export default function AdminSpielerPage(props: NextPageProps) {
  * (`fl_frontend/src/features/spieler/queries.ts :: getSpielerMemberships`); a player in no squad is listed too.
  */
 async function SpielerTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
-  await connection();
-
   const [membershipsRes, selectedSaison, teamsRes] = await Promise.all([
     getSpielerMemberships(),
     resolveAdminSaison(searchParams),

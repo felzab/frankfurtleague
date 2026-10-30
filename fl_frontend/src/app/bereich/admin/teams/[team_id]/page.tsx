@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { EinladungLinkHolder } from "@/features/einladungen/components/EinladungLinkHolder";
 import { getEinladung } from "@/features/einladungen/queries";
@@ -42,7 +41,6 @@ async function AdminTeamEditContent({
   params: NextPageProps<{ team_id: string }>["params"];
   searchParams: NextPageProps["searchParams"];
 }) {
-  await connection();
   const teamId = await resolveTeamId(params);
 
   // Every season's status for the retirement's refusal: the request-cached list the season's resolution reads anyway.

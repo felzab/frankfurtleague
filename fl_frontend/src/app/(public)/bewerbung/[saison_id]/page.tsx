@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { frontend_config } from "@/core/config";
 import { getLaufendeFassung } from "@/core/einwilligung";
@@ -18,9 +17,6 @@ import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
 export async function generateMetadata(props: NextPageProps<{ saison_id: string }>): Promise<Metadata> {
-  // `generateMetadata` is not part of the App Shell, so it awaits at the top level.
-  await connection();
-
   // Answered here and thrown in the body: a `notFound()` in this function leaves the page the layout's
   // title, while the body's throw renders the same panel. The status is 200 either way.
   const saison_id = await parseSaisonIdParam(props.params);
@@ -57,7 +53,6 @@ export default function BewerbungPage(props: NextPageProps<{ saison_id: string }
 }
 
 async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
-  await connection();
   const saison_id = await resolveSaisonIdParam(props.params);
 
   // The window and whether the season has ended, never the season: the backend withholds a `future` season
@@ -115,12 +110,12 @@ async function BewerbungContent(props: NextPageProps<{ saison_id: string }>) {
       fassung={fassung}
       fenster={fenster.fenster}
       isUnlesbar={fenster.isUnlesbar}
-      // Legal here: the connection() above already made the scope dynamic.
+      // Legal here: the reads above already made the scope dynamic.
       today={getGermanTodayStr()}
       schulen={schulen.schulen}
       isSchulenLesbar={schulen.isSchulenLesbar}
       vergebeneFarben={vergeben}
-      // Off the request's settings, past `connection()`: a prerendered shell would carry the build's, which is none.
+      // Off the request's settings, past the reads above: a prerendered shell would carry the build's, which is none.
       siteKey={frontend_config.TURNSTILE_SITE_KEY}
     />
   );
