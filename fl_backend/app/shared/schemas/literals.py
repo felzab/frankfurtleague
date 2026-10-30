@@ -116,10 +116,6 @@ type FLRegistrierungStatus = Literal["eingereicht", "abgelehnt"]
 # unreadable one never reaches the backend. `gesperrt` ranks first.
 type FLBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]
 
-# The arms a delivery EVENT may carry. `angenommen` is the sender's own answer and no event reports it, so
-# an event claiming it would overwrite a refusal with the accept that preceded it.
-type FLBewerbungZustellEreignis = Literal["zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"]
-
 # --- The Verwaltung and an address's change
 
 # `owner` holds every power `administration` does and is reached only by an owner's tier change, never by

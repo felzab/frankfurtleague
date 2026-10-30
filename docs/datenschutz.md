@@ -800,30 +800,21 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   reports what became of a message's DELIVERY and nothing about what its recipient did with it: the
   six delivery events are subscribed and `email.opened` and `email.clicked` are not
   ([`ops/runbooks.md`](ops/runbooks.md#10-the-mail-providers-dashboard) holds the dashboard's own
-  half of that). A delivery state is stored beside the record its message was
-  sent about and goes with that record: an application's is erased with the application, a
-  registration's with the registration at whichever of its clocks takes it, a referee's with
-  their row on request or with the link a re-send replaces, and a season contact person's with
-  their seat's link, which a re-send replaces and an erasure, the row's clearing or replacement and
-  the season-and-one clock below each remove; a fixture confirmation's sits beside each seat's link
-  on the row, which any write emptying or handing on that seat removes from every row of its team
-  that season, answered and closed ones too, the person's erasure and their Widerspruch on the season
-  row among them, and which that same clock removes. **A Widerspruch
-  empties the seat and keeps its link entry, the delivery state of the message included**, on an application until the application goes
-  and on a team's season row until a save fills that seat again or the row is cleared or replaced
-  (`fl_backend/app/api/teams/services.py :: compose_bestaetigungen_nach`), because that entry is what lets
-  the page answer a second press as already declined
+  half of that). **A delivery state is stored on the Postausgang row its message was sent from, and
+  goes with that row**: a row keeps no facts and no secret once it is sent or given up, and the
+  database deletes it no later than thirty days after that, the period the mail provider keeps its own copy
+  (`fl_backend/app/api/postausgang/services.py :: NACHLAUF`). An erasure of its recipient deletes it
+  at once, sent or owed, the sign-in library's deletion link alone excepted
+  (`fl_backend/app/api/identitaet/crud.py :: erase_the_mails_in_session`; `docs/glossary.md ::
+Zustellstand`). No record the message was about carries it, so a row can outlive that record by
+  its thirty days, and no longer. Ruled 2026-10-26. **A Widerspruch empties the seat and keeps its
+  link entry**, on an application until the application goes and on a team's season row until a
+  save fills that seat again or the row is cleared or replaced
+  (`fl_backend/app/api/teams/services.py :: compose_bestaetigungen_nach`), because that entry is
+  what lets the page answer a second press as already declined
   (`fl_backend/app/api/bewerbungen/services.py :: compose_decline_update`,
   `:: compose_saison_decline_update`); it names no address, and nothing reaches it on the person's
-  erasure, their slot holding nobody by then. An invite's stays on the invite entry,
-  which nothing deletes (above), past the erasure of the contact person it was mailed to
-  ([section 11](#11-open-and-owed-a-decision))
-  (`docs/glossary.md :: Zustellstand`, `fl_backend/app/api/zustellung/services.py :: ZIEL_PFADE`).
-  A message about no record kept, on each lane
-  `fl_frontend/src/app/api/mail/zustellung/route.ts :: OHNE_EINTRAG` names, stores no state: any
-  state but delivered is a line in the application's log without the address, and goes with that
-  log. **No delivery state has a clock of its own**, so none outlives the record it hangs on and none is
-  kept for its own sake. Ruled 2026-09-08.
+  erasure, their slot holding nobody by then. Ruled 2026-09-08.
 - **A declined application is kept for one month after the decision, its three people's contact
   details included, then deleted. An accepted application is kept for the season it was accepted
   for and the season after it, then deleted.** The retention sweep runs both clocks, the confirmation page states both periods to the

@@ -155,8 +155,7 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRe
 # was ever mailed": a retired referee whose corrected address was stored unmailed holds none.
 
 
-# The carrier key, which `app/api/zustellung/services.py :: ZIEL_PFADE` also spells for this kind.
-# A test holds the two equal: parted, a bounce would be filed under a path no link is stored at.
+# The record's confirmation block, under which the hand-out stores the hashes it mints.
 BESTAETIGUNG_FELD: Final = "bestaetigung"
 
 # Where the hand-out stores the hashes of the links it mints, and the address it mints them for.

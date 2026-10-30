@@ -323,7 +323,7 @@ def _bound_to_a_value_in(scope: ast.Module | Declaration) -> frozenset[str]:
     """Every name one scope binds to a value rather than to a declaration.
 
     A call on one of these reaches whatever its caller passed, and following that would take a call
-    graph: `app/api/bewerbungen/zustellung_router.py :: _apply` takes its predicate as `judge`.
+    graph.
     """
 
     parameters = {argument.arg for argument in _parameters_of(scope)}

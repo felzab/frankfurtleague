@@ -19,7 +19,6 @@ from app.api.bewerbungen.person_router import router as bewerbungen_person_route
 from app.api.bewerbungen.public_router import router as bewerbungen_public_router
 from app.api.bewerbungen.router import router as bewerbungen_router
 from app.api.bewerbungen.sweep_router import router as bewerbungen_sweep_router
-from app.api.bewerbungen.zustellung_router import router as bewerbungen_zustellung_router
 from app.api.einwilligung.router import router as einwilligung_router
 from app.api.identitaet.admin_router import router as identitaet_admin_router
 from app.api.identitaet.person_router import router as identitaet_person_router
@@ -61,7 +60,6 @@ from app.api.system.router import router as system_router
 from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.person_router import router as teams_person_router
 from app.api.teams.router import router as teams_router
-from app.api.zustellung.router import router as zustellung_router
 from app.core.config import BackendConfig
 from app.core.db import lifespan
 from app.core.exception_handlers import FAILURE_RESPONSES, FAILURE_STATUSES, register_exception_handlers
@@ -83,7 +81,6 @@ ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
         bewerbungen_einwilligung_router,
         bewerbungen_person_router,
         bewerbungen_sweep_router,
-        bewerbungen_zustellung_router,
     ),
     "einwilligung": (einwilligung_router,),
     "identitaet": (identitaet_router, identitaet_admin_router, identitaet_person_router, identitaet_sweep_router),
@@ -113,7 +110,6 @@ ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
     "spieltage": (spieltage_router, spieltage_admin_router),
     "system": (root_router, system_router),
     "teams": (teams_router, teams_admin_router, teams_person_router),
-    "zustellung": (zustellung_router,),
 }
 
 
