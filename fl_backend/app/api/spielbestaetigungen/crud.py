@@ -38,7 +38,7 @@ ANSICHT_SPIEL_FIELDS: Mapping[str, int] = {
     "_id": 0,
     **dict.fromkeys(ANSETZUNG_QUELLEN.values(), 1),
     **dict.fromkeys(("team1.name", "team2.name", "team1.tore", "team2.tore", "ort.name", "ort.maps_link"), 1),
-    **dict.fromkeys(("ergebnis", "elfmeterschiessen", "sonderereignis"), 1),
+    **dict.fromkeys(("ergebnis", "sonderereignis"), 1),
 }
 
 

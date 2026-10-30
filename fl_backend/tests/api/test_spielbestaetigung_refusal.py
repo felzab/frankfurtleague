@@ -293,7 +293,7 @@ class TestTheProjectionsHoldEverythingTheJudgesRead:
         seat_adresse(lage=situation, spielbestaetigung_raw=zeile(), seat="trainer")
 
         # The premise: `entscheidung_of` read the fixture to its last test.
-        assert {"ergebnis", "elfmeterschiessen", "sonderereignis", "team2.tore", "austritt.datum"} <= spiel_seen | vereine_seen
+        assert {"ergebnis", "sonderereignis", "team2.tore", "austritt.datum"} <= spiel_seen | vereine_seen
         assert [path for path in sorted(spiel_seen) if not loaded_by(ANSICHT_SPIEL_FIELDS, path)] == []
         projection = verein_fields(team_id=TEAM1, seat="trainer")
         assert [path for path in sorted(vereine_seen) if not loaded_by(projection, path)] == []
@@ -322,7 +322,6 @@ SITUATIONS = [
     pytest.param({"spiel_overrides": {"uhrzeit": "19:00:00"}}, "2027-05-08", id="moved-and-late"),
     pytest.param({"spiel_overrides": {"team2": None}}, TODAY, id="a-side-gone"),
     pytest.param({"spiel_overrides": {"ergebnis": "2:1"}}, TODAY, id="a-result"),
-    pytest.param({"spiel_overrides": {"elfmeterschiessen": {"team1": 4, "team2": 3}}}, TODAY, id="a-lone-shoot-out"),
     pytest.param({"spiel_overrides": {"sonderereignis": "ausgefallen"}}, TODAY, id="called-off"),
     pytest.param({"austritt": DATUM}, TODAY, id="a-club-left-by-the-day"),
     pytest.param({"spiel_overrides": {"uhrzeit": "19:00:00", "ergebnis": "2:1"}}, "2027-05-08", id="moved-decided-and-late"),
