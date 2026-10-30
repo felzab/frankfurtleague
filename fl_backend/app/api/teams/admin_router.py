@@ -264,7 +264,7 @@ async def get_teams_for_admin(
     season is still planned, so an admin who cannot see one cannot enter it.
     """
 
-    # The whole body below mirrors `app/api/teams/router.py :: get_teams`, which cannot be called
+    # The whole body below mirrors `app/api/teams/public_router.py :: get_teams`, which cannot be called
     # here: the gate is inside it, and refusing the planned season is the one thing this must not do.
     filters.saison_id, saison_rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 

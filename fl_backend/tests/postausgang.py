@@ -3,8 +3,8 @@ from datetime import UTC, datetime
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.postausgang.router import post_ausgabe, post_ergebnis
 from app.api.postausgang.schemas import FLPostausgangAusgabe, FLPostausgangErgebnis, FLPostausgangErgebnisPayload
+from app.api.postausgang.system_router import post_ausgabe, post_ergebnis
 from app.core.collections import Collection
 from tests.bans import ban_list
 

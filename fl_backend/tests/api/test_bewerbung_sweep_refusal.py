@@ -17,7 +17,7 @@ from app.api.bewerbungen.services import (
     unerreichbare_seats,
     vorname_of,
 )
-from app.api.bewerbungen.sweep_router import BLOCKS_CLEARED_PER_PASS, REMINDERS_PER_PASS
+from app.api.bewerbungen.system_router import BLOCKS_CLEARED_PER_PASS, REMINDERS_PER_PASS
 from app.api.postausgang.schemas import FLPostausgangLage, FLPostausgangZustellStand, FLPostausgangZustellung
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.shared.schemas.bounds import BEWERBUNG_ERINNERUNG_TAGE

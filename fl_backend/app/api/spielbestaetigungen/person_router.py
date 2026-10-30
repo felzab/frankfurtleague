@@ -100,7 +100,7 @@ async def get_eigene_spielbestaetigungen(
         subjekt = await funktionen_of(identifier, records, session=session)
         refuse(find_eigener_eintrag_refusal(gehalten=bool(subjekt.schiedsrichter)))
 
-        # The seasons the pass mints in, as `app/api/spielbestaetigungen/sweep_router.py :: get_spiel_sweep_saisons` lists them.
+        # The seasons the pass mints in, as `app/api/spielbestaetigungen/system_router.py :: get_spiel_sweep_saisons` lists them.
         saisons = await pull_many_from_db(
             collection=saisons_collection, db_filter={"status": "active"}, projection=["_id"], limit=LIST_LIMIT_MAX, session=session
         )

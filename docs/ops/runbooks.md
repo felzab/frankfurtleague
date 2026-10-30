@@ -392,7 +392,7 @@ ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `erteilt_am`, or by
 
 **The state announces itself, and the read degrades rather than refusing.** `GET /bewerbungen` serves at most
 `LIST_LIMIT_DEFAULT` rows and reads one row past that to answer whether more exist, so it never counts the
-filtered set (`fl_backend/app/api/bewerbungen/router.py :: get_bewerbungen`). Where more do exist it answers
+filtered set (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen`). Where more do exist it answers
 `vollstaendig: false` and the triage page raises a standing warning that cannot be dismissed
 (`fl_frontend/src/features/bewerbungen/components/ui/BewerbungenUnvollstaendigNotice.tsx ::
 BewerbungenUnvollstaendigNotice`). Answering short and saying so is the deliberate choice over refusing past a
@@ -432,7 +432,7 @@ would mean a backend call, and the edge carries exactly one backend path
 the backend container. Nothing in this repository wraps that.
 
 **Declining does not shrink the working set.** A decided application stays listed, the record being what the
-decision was taken against (`fl_backend/app/api/bewerbungen/router.py :: get_bewerbungen`), so an operator who declines down the queue and sees the
+decision was taken against (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen`), so an operator who declines down the queue and sees the
 notice unchanged has not found a fault. Removal is not an alternative either: the collection's whole write
 surface is the two decisions (`fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung` and
 `:: ablehnen_bewerbung`) plus the public submission, so a flooded row stays.
@@ -664,7 +664,7 @@ that seat's own link, not by the person's role; a seat on a team's season row is
 
 - **The seat is unanswered and its link still works.** Their own Widerspruch, on the confirmation
   page the link opens, empties the seat at once and tells the submitter so the school can name
-  somebody else (`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung`).
+  somebody else (`fl_backend/app/api/bewerbungen/public_router.py :: post_einwilligung`).
   Send them the link again rather than erasing for them; the record then says the person refused
   rather than that an administrator removed them. **An address the ban list holds takes no second
   link** (`bewerbung_kontakt_gesperrt`), and the link it already holds opens on the ban's sentence alone,

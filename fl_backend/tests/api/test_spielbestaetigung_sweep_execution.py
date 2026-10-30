@@ -13,7 +13,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import SWEEP_PAGE, days_after, hash_token
 from app.api.postausgang.schemas import FLPostausgangZustellung
 from app.api.spielbestaetigungen.person_router import post_schiedsrichter_antwort
-from app.api.spielbestaetigungen.router import post_spielbestaetigung
+from app.api.spielbestaetigungen.public_router import post_spielbestaetigung
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAntwortPayload,
     FLSpielbestaetigungSchiedsrichterAntwortPayload,
@@ -29,7 +29,7 @@ from app.api.spielbestaetigungen.services import (
     seat_holding,
     seite_of,
 )
-from app.api.spielbestaetigungen.sweep_router import (
+from app.api.spielbestaetigungen.system_router import (
     CLOSES_PER_PASS,
     get_spiel_sweep_saisons,
     sweep_spielbestaetigungen,

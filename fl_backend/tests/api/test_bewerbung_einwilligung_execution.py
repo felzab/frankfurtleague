@@ -8,9 +8,8 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.admin_router import erneut_einwilligung
-from app.api.bewerbungen.einwilligung_router import get_einwilligung_ansicht, post_einwilligung
-from app.api.bewerbungen.router import get_bewerbung_by_id, get_bewerbungen
+from app.api.bewerbungen.admin_router import erneut_einwilligung, get_bewerbung_by_id, get_bewerbungen
+from app.api.bewerbungen.public_router import get_einwilligung_ansicht, post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload, FLBewerbungenFilterParams
 from app.api.bewerbungen.services import hash_token
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id

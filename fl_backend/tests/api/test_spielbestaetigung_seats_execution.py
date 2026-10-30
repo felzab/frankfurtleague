@@ -2,7 +2,7 @@
 API · every write moving a season seat's holder voids that seat's links on its team's match confirmations, at the write
 
 Each writer of an existing season row's seats is driven against the shipped validators, and straight after it commits,
-with no sweep run, each link is opened through the link's own view (`app/api/spielbestaetigungen/router.py ::
+with no sweep run, each link is opened through the link's own view (`app/api/spielbestaetigungen/public_router.py ::
 get_spielbestaetigung_ansicht`): a link it refuses with `link_ungueltig` is voided. A contact's erasure and their
 Widerspruch also take every reason they typed, matched on the holder each answer stored.
 """
@@ -17,14 +17,14 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.einwilligung_router import post_einwilligung
+from app.api.bewerbungen.public_router import post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
 from app.api.bewerbungen.services import hash_token
-from app.api.bewerbungen.sweep_router import sweep_saison
+from app.api.bewerbungen.system_router import sweep_saison
 from app.api.identitaet.services import build_erasure_seat_pipeline
 from app.api.identitaet.wiederherstellung import Read, Window, replay_line
 from app.api.kontakte.crud import erase_kontaktperson_in_session
-from app.api.spielbestaetigungen.router import get_spielbestaetigung_ansicht
+from app.api.spielbestaetigungen.public_router import get_spielbestaetigung_ansicht
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
 from app.api.teams.services import compose_kontakt_bestaetigung

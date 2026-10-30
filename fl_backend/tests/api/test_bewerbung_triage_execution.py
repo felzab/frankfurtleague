@@ -17,10 +17,10 @@ from app.api.bewerbungen.admin_router import (
     annehmen_bewerbung,
     besetze_kontakt_sitz,
     erneut_einwilligung,
+    get_bewerbungen,
     korrigiere_kontakt_email,
 )
-from app.api.bewerbungen.einwilligung_router import post_einwilligung
-from app.api.bewerbungen.router import get_bewerbungen
+from app.api.bewerbungen.public_router import post_einwilligung
 from app.api.bewerbungen.schemas import (
     FLAblehnenBewerbungPayload,
     FLAnnehmenBewerbungPayload,
@@ -1793,7 +1793,7 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
     """A hand-built block would let this suite agree with itself while disagreeing with the endpoint.
 
     The state a reseat runs on is whatever the Widerspruch actually leaves
-    (`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung`).
+    (`fl_backend/app/api/bewerbungen/public_router.py :: post_einwilligung`).
     """
 
     return await post_einwilligung(

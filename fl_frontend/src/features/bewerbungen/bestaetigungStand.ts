@@ -142,7 +142,7 @@ function standSatz(stand: Stand): string {
 
 /**
  * The seats a re-send is offered on. One person holding two of them gets ONE control: a single
- * answer covers both (`fl_backend/app/api/bewerbungen/einwilligung_router.py`), so a second control
+ * answer covers both (`fl_backend/app/api/bewerbungen/public_router.py`), so a second control
  * would put a second message in one mailbox over one decision.
  */
 export function linkAngebot(staende: readonly SitzBestaetigung[]): ReadonlySet<KontaktRolle> {
@@ -244,7 +244,7 @@ export function loeschungsSatz({
   if (!eingereicht || !staende.some(istOffen)) return null;
 
   const tag = formatSpielDatum(frist);
-  // The fourteen-day clock's hold (`fl_backend/app/api/bewerbungen/sweep_router.py :: erase_the_unconfirmed`): an
+  // The fourteen-day clock's hold (`fl_backend/app/api/bewerbungen/system_router.py :: erase_the_unconfirmed`): an
   // application whose submitter's last mail did not arrive stands, so a promised deletion is false for exactly the row
   // an administrator can still repair.
   const gehalten = istUnzustellbar(staende.find((sitz) => sitz.rolle === "ansprechperson")?.zustellung ?? null);

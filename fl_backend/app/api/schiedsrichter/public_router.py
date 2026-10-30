@@ -37,9 +37,9 @@ from app.core.transactions import transaction_session
 from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 
-# A THIRD router beside the admin one and the reference read, both guarded whole: the token is the
-# whole credential, so these two endpoints alone are base-tier and bind the public actor — no
-# browser sends the `X-FL-Actor`.
+# Beside the admin and person routers, each guarded whole: the token is the whole credential, so
+# these two endpoints alone are base-tier and bind the public actor — no browser sends the
+# `X-FL-Actor`.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/schiedsrichter/bestaetigung",
     dependencies=[Depends(verify_access_base), Depends(bind_public_actor)],

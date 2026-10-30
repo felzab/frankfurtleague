@@ -1,17 +1,29 @@
+import asyncio
 from datetime import datetime
 from typing import Annotated, Any, Final
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query
 from pydantic import SecretStr
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
-from app.api.identitaet.crud import erase_if_still_due, faellige_seite, saison_statuses
-from app.api.identitaet.schemas import FLErasure, FLLoeschungLaufParams, FLLoeschungLaufResponse
+from app.api.berechtigungen.crud import verwaltung_of
+from app.api.identitaet.crud import erase_if_still_due, faellige_seite, find_anmeldung, find_subjekt, saison_statuses, unreferenced_of
+from app.api.identitaet.lookup import SubjektLookup
+from app.api.identitaet.schemas import (
+    FLAnmeldungResponse,
+    FLErasure,
+    FLLoeschungLaufParams,
+    FLLoeschungLaufResponse,
+    FLReferenzenPayload,
+    FLReferenzenResponse,
+    FLSubjektPayload,
+    FLSubjektResponse,
+)
 from app.api.identitaet.services import abgeschlossene_saison_id
-from app.api.sperrliste.lookup import BanList, SperrlisteLookup
+from app.api.sperrliste.lookup import BanList, SperrlisteLookup, hash_gesperrt
 from app.core.codes import Code
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.dependencies import (
@@ -40,14 +52,111 @@ from app.core.logging import fl_logger
 from app.core.recording import log_stamp
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import UNKNOWN_COMMIT_RESULT, diagnosis_of, transaction_session
+from app.shared.folding import sign_in_identifier
 
-# System tier and the system actor, as the application sweep's router is: the rule deletes, whichever
-# caller triggers it, and neither the hourly pass nor an activation's press holds a person's session here.
+# System tier and the system actor: the key is held by the frontend process alone, which is exactly
+# who may ask which records a mailbox matches, and no session stands behind the caller.
 router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/identitaet/loeschung",
+    prefix=f"/api/v{API_VERSION}/identitaet",
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
+
+@router.post(
+    "/subjekt",
+    response_model=FLSubjektResponse,
+    summary="Say which league records one mailbox holds",
+)
+async def get_subjekt(
+    subjekt_data: Annotated[FLSubjektPayload, Body()],
+    records: SubjektLookup,
+    sperrliste: SperrlisteLookup,
+    berechtigungen_collection: BerechtigungenCollection,
+) -> FLSubjektResponse:
+    """Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its ban and its grant.
+
+    The address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with three empty lists rather
+    than a 404.
+    """
+
+    identifier = sign_in_identifier(str(subjekt_data.email))
+
+    # Keyed from the payload's own value, as the ban write keys it: that payload type runs the rule
+    # `canonical_address` runs, so an address the hash would refuse was answered 422 before here.
+    ban_key = sperrliste.hash_of(str(subjekt_data.email))
+
+    # Concurrently, every page a signed-in person or an administrator renders waiting on this answer:
+    # the records, the ban and the grant cost the longest of the three rather than their sum.
+    subjekt, gesperrt, grant = await asyncio.gather(
+        find_subjekt(identifier, records),
+        hash_gesperrt(sperrliste, ban_key),
+        verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier),
+    )
+    verwaltung, berechtigt_seit, inhaber_seit = (None, None, None) if grant is None else grant
+
+    return FLSubjektResponse(
+        **subjekt.model_dump(), gesperrt=gesperrt, verwaltung=verwaltung, berechtigt_seit=berechtigt_seit, inhaber_seit=inhaber_seit
+    )
+
+
+@router.post(
+    "/anmeldung",
+    response_model=FLAnmeldungResponse,
+    summary="Say whether one mailbox may be offered a sign-in",
+)
+async def get_anmeldung(
+    anmeldung_data: Annotated[FLSubjektPayload, Body()],
+    records: SubjektLookup,
+    sperrliste: SperrlisteLookup,
+    berechtigungen_collection: BerechtigungenCollection,
+) -> FLAnmeldungResponse:
+    """Answer what the sign-in gate decides on for one mailbox: two flags, its ban and its grant's tier, and never a record.
+
+    The address is matched on the sign-in fold, and a mailbox the league holds nothing for is answered with both flags false.
+    """
+
+    # Keyed as `get_subjekt` keys, for its reason.
+    identifier = sign_in_identifier(str(anmeldung_data.email))
+    ban_key = sperrliste.hash_of(str(anmeldung_data.email))
+
+    # Concurrently, for `get_subjekt`'s reason: a sign-in waits on this answer.
+    anmeldung, gesperrt, grant = await asyncio.gather(
+        find_anmeldung(identifier, records),
+        hash_gesperrt(sperrliste, ban_key),
+        verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier),
+    )
+
+    return FLAnmeldungResponse(**anmeldung.model_dump(), gesperrt=gesperrt, verwaltung=None if grant is None else grant[0])
+
+
+@router.post(
+    "/referenzen",
+    response_model=FLReferenzenResponse,
+    summary="Say which of these sign-in addresses no record references",
+)
+async def get_referenzen(
+    referenzen_data: Annotated[FLReferenzenPayload, Body()],
+    records: SubjektLookup,
+    berechtigungen_collection: BerechtigungenCollection,
+    adresswechsel_collection: AdresswechselCollection,
+) -> FLReferenzenResponse:
+    """Answer which of these sign-in addresses no league record references, each once and in the spelling it was asked in.
+
+    The whole batch is refused while no live grant is an owner's, since such a database would call every address unreferenced.
+    """
+
+    return FLReferenzenResponse(
+        unreferenziert=await unreferenced_of(
+            referenzen_data.identifiers,
+            records,
+            berechtigungen_collection=berechtigungen_collection,
+            adresswechsel_collection=adresswechsel_collection,
+        )
+    )
+
+
+# The erasure pass is system-tier for the same reason: the rule deletes, whichever caller triggers
+# it, and neither the hourly pass nor an activation's press holds a person's session here.
 # Twenty commands a pupil, each the round trip plus at most 2.03 ms, timed locally 2026-10-16 and
 # again over 20,000 log rows: this share fits `app/core/middlewares.py :: REQUEST_DEADLINE_S` at a 37 ms
 # round trip.
@@ -116,7 +225,7 @@ async def _erase_one(
 
 
 @router.post(
-    "/lauf",
+    "/loeschung/lauf",
     response_model=FLLoeschungLaufResponse,
     summary="Delete one share of the pupils the season-after rule makes due",
 )

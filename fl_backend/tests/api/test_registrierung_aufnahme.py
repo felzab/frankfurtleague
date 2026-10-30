@@ -13,15 +13,15 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.konto.services import compose_person_move
-from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.registrierungen.person_router import ablehnen, aufnehmen, get_offene_registrierungen
+from app.api.registrierungen.person_router import patch_einwilligung as patch_registrierung_einwilligung
+from app.api.registrierungen.public_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.registrierungen.schemas import (
     FLOffeneRegistrierungenParams,
     FLRegistrierungAblehnenPayload,
     FLRegistrierungAufnehmenPayload,
     FLRegistrierungBestaetigungPayload,
 )
-from app.api.registrierungen.selbst_router import patch_einwilligung as patch_registrierung_einwilligung
 from app.api.registrierungen.services import (
     compose_confirmation_update,
 )

@@ -10,8 +10,8 @@ from fastapi import FastAPI
 from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.router import get_anmeldung, get_subjekt
 from app.api.identitaet.schemas import FLSubjektPayload, FLSubjektResponse
+from app.api.identitaet.system_router import get_anmeldung, get_subjekt
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app

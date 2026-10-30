@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.einwilligung.router import get_fassung
+from app.api.einwilligung.public_router import get_fassung
 from app.api.einwilligung.services import find_fassung_refusal
 from app.core.codes import Code
 from app.core.config import API_VERSION

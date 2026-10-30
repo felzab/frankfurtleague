@@ -61,7 +61,7 @@ async def get_spieltage_for_admin(
     are drawn while it is planned, and dating them is what this list is for.
     """
 
-    # Mirrors `app/api/spieltage/router.py :: get_spieltage`, which cannot be called here: the gate
+    # Mirrors `app/api/spieltage/public_router.py :: get_spieltage`, which cannot be called here: the gate
     # is inside it, and refusing the planned season is the one thing this must not do.
     filters.saison_id, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=filters.saison_id)
 

@@ -223,7 +223,7 @@ class FLBewerbungenFilterParams(BaseModel):
 
     saison_id: str | None = None
     # A list for `status`'s reason below, the facet offering these being multi-select. What each
-    # value narrows to is published at `app/api/bewerbungen/router.py :: get_bewerbungen`.
+    # value narrows to is published at `app/api/bewerbungen/admin_router.py :: get_bewerbungen`.
     saisonbezug: Annotated[list[FLBewerbungSaisonbezug] | None, BeforeValidator(parse_status_list, json_schema_input_type=str)] = None
     # A LIST, because the facet offering these is multi-select and a two-status selection has no
     # other request that expresses it. Published as the STRING it arrives as.

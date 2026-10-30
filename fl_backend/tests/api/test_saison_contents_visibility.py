@@ -7,16 +7,16 @@ from bson import ObjectId
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spiele.admin_router import get_spiel_for_admin
-from app.api.spiele.router import get_spiel, get_spiele
+from app.api.spiele.public_router import get_spiel, get_spiele
 from app.api.spiele.schemas import FLSpieleFilterParams
 from app.api.spieler.admin_router import get_spieler_memberships
-from app.api.spieler.router import get_spieler
+from app.api.spieler.public_router import get_spieler
 from app.api.spieler.schemas import FLSpielerFilterParams
 from app.api.spieltage.admin_router import get_spieltage_for_admin
-from app.api.spieltage.router import get_spieltag, get_spieltage
+from app.api.spieltage.public_router import get_spieltag, get_spieltage
 from app.api.spieltage.schemas import FLSpieltageFilterParams
 from app.api.teams.admin_router import get_team_memberships
-from app.api.teams.router import get_team, get_teams
+from app.api.teams.public_router import get_team, get_teams
 from app.api.teams.schemas import FLTeamsFilterParams, FLTeamSingleFilterParams
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError

@@ -57,7 +57,7 @@ from app.core.transactions import transaction_session
 from app.shared.schemas.bestaetigung import FLTokenPayload
 
 # Base tier and the public actor: the token is the whole credential, as a sign-in code is, for
-# `app/api/bewerbungen/einwilligung_router.py`'s reason.
+# `app/api/bewerbungen/public_router.py`'s reason.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen",
     dependencies=[Depends(verify_access_base), Depends(bind_public_actor)],

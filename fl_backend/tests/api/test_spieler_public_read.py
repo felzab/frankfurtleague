@@ -13,7 +13,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spieler.admin_router import _as_single
-from app.api.spieler.router import get_spieler, get_spieler_by_id
+from app.api.spieler.public_router import get_spieler, get_spieler_by_id
 from app.api.spieler.schemas import (
     FLSaisonSpielerResponse,
     FLSpieler,

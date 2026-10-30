@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.bewerbungen.router import FLBewerbungenFilters, get_bewerbungen
+from app.api.bewerbungen.admin_router import FLBewerbungenFilters, get_bewerbungen
 from app.api.bewerbungen.schemas import FLBewerbungenFilterParams
 from app.api.bewerbungen.services import dubletten_schluessel_of, mit_zustellung
 from app.api.postausgang.schemas import FLPostausgangLage
@@ -211,7 +211,7 @@ def run_list(collection: _ArchiveCollection, **filters: Any) -> Any:
 class TestTheListDegradesRatherThanRefusing:
     """A tripwire would let an anonymous writer choose when this page 500s.
 
-    The reason it does not sits at `app/api/bewerbungen/router.py :: get_bewerbungen`.
+    The reason it does not sits at `app/api/bewerbungen/admin_router.py :: get_bewerbungen`.
     """
 
     def test_an_archive_past_the_cap_is_served_short(self):

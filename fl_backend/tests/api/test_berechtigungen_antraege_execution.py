@@ -37,7 +37,7 @@ from app.api.berechtigungen.antraege import (
     erase_antraege_in_session,
 )
 from app.api.berechtigungen.schemas import FLPatchBerechtigungPayload, FLPostBerechtigungPayload
-from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich
+from app.api.berechtigungen.system_router import post_berechtigungen_abgleich
 from app.api.identitaet.wiederherstellung import Window, plan_replay
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.codes import Code

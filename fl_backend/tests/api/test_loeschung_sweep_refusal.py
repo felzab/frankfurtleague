@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from app.api.identitaet import sweep_router
+from app.api.identitaet import system_router
 from app.api.identitaet.services import (
     abgeschlossene_saison_id,
     behaltene_saison_ids,
@@ -121,11 +121,11 @@ OTHER_COMMANDS = 3 + 1
 # The per-command cost, the largest of two windows timing whole calls locally, 2026-10-16.
 PER_COMMAND_S = 0.00203
 
-# The round trip `sweep_router.LOESCHUNGEN_PER_PASS`'s comment sizes the share for.
+# The round trip `system_router.LOESCHUNGEN_PER_PASS`'s comment sizes the share for.
 ROUND_TRIP_S = 0.037
 
 
 def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names():
     """A share raised past its budget passes every case counting its own pupils, and times out a whole call in production."""
 
-    assert (sweep_router.LOESCHUNGEN_PER_PASS * COMMANDS_A_PERSON + OTHER_COMMANDS) * (ROUND_TRIP_S + PER_COMMAND_S) < REQUEST_DEADLINE_S
+    assert (system_router.LOESCHUNGEN_PER_PASS * COMMANDS_A_PERSON + OTHER_COMMANDS) * (ROUND_TRIP_S + PER_COMMAND_S) < REQUEST_DEADLINE_S

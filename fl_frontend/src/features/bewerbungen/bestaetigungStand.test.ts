@@ -370,7 +370,7 @@ describe("the two seats one person holds", () => {
   const twinned = person("Anna", null);
   const PAAR = seatsOf({ ansprechperson: twinned, trainer: twinned, zugleich: "ansprechperson" });
 
-  /* One answer writes both seats (`fl_backend/app/api/bewerbungen/einwilligung_router.py`), so two
+  /* One answer writes both seats (`fl_backend/app/api/bewerbungen/public_router.py`), so two
      controls would put two messages in one mailbox over one decision. */
   it("are offered one link, on the Trainer's own row", () => {
     expect([...linkAngebot(standsOf2(PAAR))].sort()).toStrictEqual(["stellvertretung", "trainer"]);

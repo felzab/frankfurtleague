@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from app.api.bewerbungen.services import hash_token, latest_decision_due
-from app.api.registrierungen import sweep_router
+from app.api.registrierungen import system_router
 from app.api.registrierungen.services import (
     bestaetigung_erasure_is_due,
     build_decline_filter,
@@ -263,11 +263,11 @@ OTHER_COMMANDS = 14
 # The per-command cost, the widest of fifteen whole passes at a full share timed locally, 2026-10-20.
 PER_COMMAND_S = 0.00127
 
-# The round trip `sweep_router.REMINDERS_PER_PASS`'s comment sizes the share for.
+# The round trip `system_router.REMINDERS_PER_PASS`'s comment sizes the share for.
 ROUND_TRIP_S = 0.037
 
 
 def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names():
     """A share raised past its budget passes every case that counts its own rows, and times out a whole pass in production."""
 
-    assert (sweep_router.REMINDERS_PER_PASS * ROUND_TRIPS_A_ROW + OTHER_COMMANDS) * (ROUND_TRIP_S + PER_COMMAND_S) < REQUEST_DEADLINE_S
+    assert (system_router.REMINDERS_PER_PASS * ROUND_TRIPS_A_ROW + OTHER_COMMANDS) * (ROUND_TRIP_S + PER_COMMAND_S) < REQUEST_DEADLINE_S

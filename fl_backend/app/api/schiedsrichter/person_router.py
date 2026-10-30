@@ -105,7 +105,7 @@ async def patch_einwilligung(
 
     eigener_eintrag = build_selbst_referee_filter(identifier, schiedsrichter_id=schiedsrichter_id)
     gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
-    # For `app/api/spieler/selbst_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
+    # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
     am = log_stamp(germany_now)
     journal = Journal()
 

@@ -14,9 +14,8 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import build_schluessel_filter, hash_token
-from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
 from app.api.registrierungen.person_router import aufnehmen
-from app.api.registrierungen.public_router import post_einladung_ansicht, post_registrierung
+from app.api.registrierungen.public_router import get_bestaetigung_ansicht, post_einladung_ansicht, post_registrierung
 from app.api.registrierungen.schemas import FLPostRegistrierungPayload, FLRegistrierungAufnehmenPayload
 from app.api.registrierungen.services import (
     compose_confirmation_update,

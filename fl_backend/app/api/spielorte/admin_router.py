@@ -12,11 +12,26 @@ from app.api.spielorte.schemas import (
     FLPatchSpielortResponse,
     FLPostSpielortPayload,
     FLSpielort,
+    FLSpielorteFilterParams,
+    FLSpielorteListResponse,
+    FLSpielorteSingleResponse,
+    FLSpielortListAdapter,
     FLSpielortWriteResponse,
 )
 from app.api.spielorte.services import build_unplayed_booking_filter, find_venue_retire_refusal
 from app.core.config import API_VERSION
-from app.core.crud import insert_live, patch_many_in_db, patch_one_in_db, pull_many_from_db, refuse, set_inactive_since
+from app.core.crud import (
+    GERMAN_COLLATION,
+    build_query,
+    build_sort,
+    insert_live,
+    patch_many_in_db,
+    patch_one_in_db,
+    pull_many_from_db,
+    pull_one_from_db,
+    refuse,
+    set_inactive_since,
+)
 from app.core.dependencies import DBClient, SpieleCollection, SpielorteCollection, get_german_date_str
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
@@ -25,10 +40,52 @@ from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.responses import FLCreatedResponse
 
+# Admin-guarded, not base. `default_mietpreis` is money (`READ-MONEY-001`) and the only field
+# withheld: `address` moves with it because no public page reads the parts, not to hide them --
+# `maps_link` publishes the address whole (`READ-ADDRESS-001`).
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielorte",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
+
+
+@router.get("", response_model=FLSpielorteListResponse, summary="List Spielorte")
+async def get_spielorte(
+    spielorte_collection: SpielorteCollection,
+    filters: FLSpielorteFilterParams = Depends(),
+) -> FLSpielorteListResponse:
+    """An admin-tier read: the rent is money (`READ-MONEY-001`) and the address parts serve no public page (`READ-ADDRESS-001`).
+
+    Deactivated venues stay retrievable for a historical match. `maps_link` is a Maps search string, not a URL.
+    """
+
+    # Empty `terms`: nothing here is matched by value -- `include_inactive` is translated, and
+    # the rest is paging and ordering.
+    db_filter = build_query(filters, terms=frozenset(), include_inactive=filters.include_inactive)
+    db_sort = build_sort(sort_by=filters.sort_by, order=filters.order)
+
+    spielorte_raw = await pull_many_from_db(
+        collection=spielorte_collection,
+        db_filter=db_filter,
+        limit=filters.limit,
+        sort_by=db_sort,
+        collation=GERMAN_COLLATION,
+    )
+    spielorte = FLSpielortListAdapter.validate_python(spielorte_raw)
+
+    return FLSpielorteListResponse(spielorte=spielorte)
+
+
+@router.get(by_id("spielort_id"), response_model=FLSpielorteSingleResponse, summary="One Spielort")
+async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: SpielorteCollection) -> FLSpielorteSingleResponse:
+    """Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`).
+
+    Deactivated ones included -- a historical match's venue is the case worth answering.
+    """
+
+    spielort_raw = await pull_one_from_db(collection=spielorte_collection, db_filter={"_id": spielort_id})
+
+    return FLSpielorteSingleResponse(spielort=FLSpielort(**spielort_raw))
 
 
 def _maps_link(name: str, address: FLAddress) -> str:

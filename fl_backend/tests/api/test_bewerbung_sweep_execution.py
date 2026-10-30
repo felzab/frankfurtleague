@@ -15,13 +15,13 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.admin_router import erneut_einwilligung
-from app.api.bewerbungen.einwilligung_router import get_einwilligung_ansicht
+from app.api.bewerbungen.public_router import get_einwilligung_ansicht
 from app.api.bewerbungen.services import (
     SWEEP_PAGE,
     compose_confirmation_update,
     hash_token,
 )
-from app.api.bewerbungen.sweep_router import (
+from app.api.bewerbungen.system_router import (
     BLOCKS_CLEARED_PER_PASS,
     REMINDERS_PER_PASS,
     get_sweep_saisons,

@@ -14,12 +14,12 @@ from app.api.einwilligung import services as einwilligung_services
 from app.api.schiedsrichter.admin_router import (
     delete_schiedsrichter,
     einladen_schiedsrichter,
+    get_schiedsrichter,
     patch_schiedsrichter,
     post_schiedsrichter,
     reactivate_schiedsrichter,
 )
-from app.api.schiedsrichter.bestaetigung_router import get_bestaetigung_ansicht, post_bestaetigung
-from app.api.schiedsrichter.router import get_schiedsrichter
+from app.api.schiedsrichter.public_router import get_bestaetigung_ansicht, post_bestaetigung
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLPostSchiedsrichterPayload,

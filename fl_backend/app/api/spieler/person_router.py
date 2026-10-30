@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
@@ -6,25 +7,53 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.identitaet.crud import refuse_without_a_seat
+from app.api.identitaet.crud import funktionen_of, refuse_without_a_seat
 from app.api.identitaet.lookup import SubjektLookup
+from app.api.identitaet.services import ist_eigener_spieler, may_grant_on_spieler
+from app.api.konto.crud import press_einwilligung
+from app.api.konto.services import (
+    KONTO_SEITE_SPIELER,
+    compose_person_move,
+    compose_spieler_selbst,
+    find_eigener_eintrag_refusal,
+    widerruf_line,
+)
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
+from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier, SpielerIdentifier
 from app.api.spieler.crud import refuse_a_taken_rolle
-from app.api.spieler.schemas import FLKaderResponse, FLKaderZeile, FLPatchKaderZeilePayload
-from app.api.spieler.services import build_kader_pipeline, find_kader_stufe_refusal, mark_shared_nummern
-from app.core.config import API_VERSION
+from app.api.spieler.schemas import (
+    FLKaderResponse,
+    FLKaderZeile,
+    FLPatchKaderZeilePayload,
+    FLSpielerSelbstEinwilligungResponse,
+    FLSpielerSelbstResponse,
+)
+from app.api.spieler.services import (
+    build_kader_pipeline,
+    build_selbst_pupil_filter,
+    build_selbst_pupil_pipeline,
+    find_kader_stufe_refusal,
+    mark_shared_nummern,
+)
+from app.core.collections import Collection
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, patch_one_in_db, pull_one_from_db, refuse, set_inactive_since
 from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
     SaisonSpielerCollection,
+    SpielerCollection,
     get_german_date_str,
+    get_germany_now,
 )
+from app.core.journal import Journal
+from app.core.recording import log_stamp
 from app.core.routing import by_id
-from app.core.security import verify_access_admin
+from app.core.security import loeschung_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
+from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
+from app.shared.schemas.einwilligung import FLSelbstEinwilligungPayload
 from app.shared.schemas.literals import FLSpielerStufe
 
 # The person lane's binder IN PLACE of `bind_actor` and the grants check, which a seat holder holding
@@ -33,6 +62,7 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spieler/kader",
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["kontakt"])],
 )
+
 
 SQUAD_PATH = f"{by_id('team_id')}/{{saison_id}}"
 ROW_PATH = f"{SQUAD_PATH}{by_id('spieler_id')}"
@@ -237,3 +267,127 @@ async def delete_kader_zeile(
 
     async with transaction_session(db) as session:
         return await session.with_transaction(take_the_row_out)
+
+
+# A router of its own, binding the pupil's Funktion: `router` binds `kontakt` at ROUTER level, and a
+# second binder on one of its routes would record these writes under the wrong Funktion, nothing
+# failing.
+spieler_router = APIRouter(
+    prefix=f"/api/v{API_VERSION}/spieler/selbst",
+    dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["spieler"])],
+)
+
+
+@spieler_router.get("", response_model=FLSpielerSelbstResponse, summary="A signed-in pupil's own record")
+async def get_selbst(identifier: SpielerIdentifier, spieler_collection: SpielerCollection) -> FLSpielerSelbstResponse:
+    """
+    Answer the signed-in address's own pupil record's stored data with every squad row it holds.
+
+    PERSON TIER: the whole surname and the birthdate, never masked, and never the sign-in address itself. A retired
+    record is served too. Its consent is the account page's (`GET /konto/einwilligungen`), so none is served here.
+
+    Refuses an address holding no confirmed pupil record (`funktion_nicht_gehalten`).
+    """
+
+    rows = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_selbst_pupil_pipeline(identifier))
+    row = rows[0] if rows else None
+    refuse(find_eigener_eintrag_refusal(gehalten=row is not None and ist_eigener_spieler(row)))
+    assert row is not None
+
+    return FLSpielerSelbstResponse.model_validate({"spieler": compose_spieler_selbst(row)})
+
+
+@spieler_router.patch(
+    "/einwilligung",
+    response_model=FLSpielerSelbstEinwilligungResponse,
+    summary="Change a signed-in pupil's own publication and media consent",
+)
+async def patch_einwilligung(
+    einwilligung_data: Annotated[FLSelbstEinwilligungPayload, Body()],
+    identifier: SpielerIdentifier,
+    spieler_collection: SpielerCollection,
+    records: SubjektLookup,
+    db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
+    today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
+) -> FLSpielerSelbstEinwilligungResponse:
+    """
+    Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.
+
+    Writes those two on this one record, each moved choice with its evidence (`nachweis.<choice>`), and nothing else:
+    the confirmation day, the day given and the wording they confirmed stand, and no other document is written. A
+    PATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is
+    taken on a live record alone; a withdrawal on a retired one too.
+
+    Refuses, in this order: an address holding no confirmed pupil record (`funktion_nicht_gehalten`); a `nachweis_stand`
+    other than the record's own, either choice having moved since the page was served (`fassung_unzulaessig`); a
+    grant on a retired record (`erteilung_nicht_zugelassen`); a `text_version` naming no version of the account page's pupil
+    control, or a grant naming any but the page's running one (`fassung_unzulaessig`); `medien` moving to `true` where
+    the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_alter`). Each
+    refusal writes nothing.
+
+    **The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a
+    name is served, and nothing here can.
+    """
+
+    eigener_eintrag = build_selbst_pupil_filter(identifier)
+    gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
+    # One instant for the evidence and its journal line, so a replay stamps the moment the person pressed.
+    am = log_stamp(germany_now)
+    journal = Journal()
+
+    @journal.attempted
+    async def write(session: AsyncClientSession) -> FLSpielerSelbstEinwilligungResponse:
+        row = await spieler_collection.find_one(eigener_eintrag, projection={"einwilligung": 1, "geburtsdatum": 1}, session=session)
+        refuse(find_eigener_eintrag_refusal(gehalten=row is not None and ist_eigener_spieler(row)))
+        assert row is not None
+        gespeichert = row["einwilligung"]
+
+        async def darf_erteilen() -> bool:
+            return may_grant_on_spieler(await funktionen_of(identifier, records, session=session), row["_id"])
+
+        await press_einwilligung(
+            bloecke=[gespeichert],
+            geburtsdaten=[row.get("geburtsdatum")],
+            gewaehlt=gewaehlt,
+            nachweis_stand=einwilligung_data.nachweis_stand.model_dump(),
+            text_version=einwilligung_data.text_version,
+            seite=KONTO_SEITE_SPIELER,
+            darf_erteilen=darf_erteilen,
+            today=today,
+        )
+
+        update = compose_person_move(gespeichert=gespeichert, gewaehlt=gewaehlt, am=am, text_version=einwilligung_data.text_version)
+        updated = (
+            None
+            if update is None
+            else await patch_one_in_db(
+                collection=spieler_collection,
+                db_filter={"_id": row["_id"]},
+                update=update,
+                session=session,
+                return_document=ReturnDocument.AFTER,
+            )
+        )
+        line = widerruf_line(
+            person_hash=loeschung_journal_hash(identifier, schluessel=config.sperrliste_schluessel),
+            collection=Collection.SPIELER,
+            record_id=row["_id"],
+            bloecke=[gespeichert],
+            gewaehlt=gewaehlt,
+            am=am,
+            text_version=einwilligung_data.text_version,
+        )
+        if line is not None:
+            journal.note(line)
+        # A press moving neither choice is no act, so nothing was written and the record answers as stored.
+        einwilligung = gespeichert if updated is None else updated["einwilligung"]
+
+        return FLSpielerSelbstEinwilligungResponse.model_validate(
+            {"spieler_id": row["_id"], "einwilligung": einwilligung, "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung])}
+        )
+
+    async with journal:
+        async with transaction_session(db) as session:
+            return await session.with_transaction(write)

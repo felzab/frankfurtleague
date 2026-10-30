@@ -18,7 +18,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.einwilligung_router import get_einwilligung_ansicht, post_einwilligung
+from app.api.bewerbungen.public_router import get_einwilligung_ansicht, post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
 from app.api.bewerbungen.services import (
     SEAT_MIN_AGE_YEARS,

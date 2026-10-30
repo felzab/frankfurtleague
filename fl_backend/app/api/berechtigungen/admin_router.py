@@ -293,7 +293,7 @@ async def post_berechtigung(
 
     adresse = sign_in_identifier(str(berechtigung_data.email))
     akteur = sign_in_identifier(erteilt_von)
-    # Keyed from the payload's own value, as the ban write keys it (`app/api/identitaet/router.py :: get_subjekt`).
+    # Keyed from the payload's own value, as the ban write keys it (`app/api/identitaet/system_router.py :: get_subjekt`).
     gehasht = sperrliste.hash_of(str(berechtigung_data.email))
 
     async def judge_and_grant(session: AsyncClientSession) -> tuple[ObjectId, bool]:

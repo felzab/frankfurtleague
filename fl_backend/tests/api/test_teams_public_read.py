@@ -9,7 +9,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import advance_bracket_winners
 from app.api.teams.admin_router import get_teams_for_admin
-from app.api.teams.router import get_team, get_teams
+from app.api.teams.public_router import get_team, get_teams
 from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamsFilterParams, FLTeamSingleFilterParams
 from app.api.teams.services import build_team_pipeline
 from app.core.collections import Collection

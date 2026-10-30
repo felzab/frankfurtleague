@@ -20,7 +20,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.adresswechsel.schemas import FLAdresswechselSweepParams, FLAdresswechselUmzuegeErledigtPayload
 from app.api.adresswechsel.services import compose_genehmigung, wirksam_ab_von
-from app.api.adresswechsel.sweep_router import (
+from app.api.adresswechsel.system_router import (
     ADRESSWECHSEL_PER_PASS,
     get_adresswechsel_umzuege,
     post_adresswechsel_umzuege_erledigt,

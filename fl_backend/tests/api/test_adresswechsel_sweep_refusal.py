@@ -5,7 +5,7 @@ Arithmetic alone, so the default tier holds it; the clock against a real mongod 
 `tests/api/test_adresswechsel_sweep_execution.py`'s.
 """
 
-from app.api.adresswechsel import sweep_router
+from app.api.adresswechsel import system_router
 from app.core.middlewares import REQUEST_DEADLINE_S
 
 # One lapsed change's commands on the wire, pinned by
@@ -29,7 +29,7 @@ SEASON_READ = 1
 # for, timed locally 2026-10-21: a due change reads the whole log, 1.41 ms empty, 2.26 ms at 20,000 rows.
 PER_COMMAND_S = 0.00318
 
-# The round trip `sweep_router.ADRESSWECHSEL_PER_PASS`'s comment sizes the share for.
+# The round trip `system_router.ADRESSWECHSEL_PER_PASS`'s comment sizes the share for.
 ROUND_TRIP_S = 0.037
 
 
@@ -41,4 +41,4 @@ def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment
 
     dearest = max(COMMANDS_A_LAPSE, COMMANDS_A_DUE_PERSON)
 
-    assert (sweep_router.ADRESSWECHSEL_PER_PASS * dearest + OTHER_COMMANDS + SEASON_READ) * (ROUND_TRIP_S + PER_COMMAND_S) < REQUEST_DEADLINE_S
+    assert (system_router.ADRESSWECHSEL_PER_PASS * dearest + OTHER_COMMANDS + SEASON_READ) * (ROUND_TRIP_S + PER_COMMAND_S) < REQUEST_DEADLINE_S

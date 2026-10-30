@@ -9,7 +9,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.schiedsrichter.services import build_ghost_schiedsrichter, build_real_referees_filter
 from app.api.spieler.admin_router import delete_spieler, get_spieler_memberships, patch_spieler, post_saison_spieler, reactivate_spieler
-from app.api.spieler.router import get_spieler, get_spieler_by_id
+from app.api.spieler.public_router import get_spieler, get_spieler_by_id
 from app.api.spieler.schemas import FLPatchSpielerPayload, FLPostSaisonSpielerPayload, FLSpielerFilterParams
 from app.api.spieler.services import build_ghost_spieler, build_real_spieler_filter
 from app.core.collections import Collection

@@ -15,10 +15,11 @@ from app.api.identitaet.schemas import FLErasureResponse
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.schiedsrichter.admin_router import (
     delete_schiedsrichter,
+    get_schiedsrichter,
+    get_schiedsrichter_by_id,
     patch_schiedsrichter,
     reactivate_schiedsrichter,
 )
-from app.api.schiedsrichter.router import get_schiedsrichter, get_schiedsrichter_by_id
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLSchiedsrichterFilterParams,

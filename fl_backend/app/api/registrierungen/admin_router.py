@@ -20,8 +20,8 @@ from app.core.security import bind_actor, verify_access_admin
 # Admin-guarded, not base, as the application's own list is: a registration holds a pupil's name,
 # their address and, once they have confirmed, their date of birth (`READ-CONTACT-001`).
 
-# `public_router.py` and `einwilligung_router.py` share this prefix at base tier and read no stored
-# registration but the one a link they were handed opens.
+# `public_router.py` shares this prefix at base tier and reads no stored registration but the one a
+# link it was handed opens.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/registrierungen",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],

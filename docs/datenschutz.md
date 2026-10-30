@@ -826,7 +826,7 @@ Zustellstand`). No record the message was about carries it, so a row can outlive
   season row's page promises them. Ruled 2026-10-15.
 - **A season's contact persons follow the accepted application's clock**: their contact block is
   cleared when the season after the one they were collected for ends, and the confirmation links
-  beside it with it (`fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison`). The consent text scopes
+  beside it with it (`fl_backend/app/api/bewerbungen/system_router.py :: sweep_saison`). The consent text scopes
   itself to one season, and the clearing uses the mechanism the erasure already had. Ruled
   2026-09-02.
 - **A season's fixture confirmations keep the clubs' answers as the season's record, and lose from
@@ -836,7 +836,7 @@ Zustellstand`). No record the message was about carries it, so a row can outlive
   their seats' link hashes and their delivery records, on the rows and in the log's images, until
   nothing of them is left. The strip is a transaction of its own after the blocks'
   share, so a failing strip holds back no block and is tried again on the next pass
-  (`fl_backend/app/api/bewerbungen/sweep_router.py :: strip_the_confirmations`). Which way each club answered,
+  (`fl_backend/app/api/bewerbungen/system_router.py :: strip_the_confirmations`). Which way each club answered,
   its day, the answering role and a proposed date stay, naming nobody, and the rows have no clock of
   their own, a season's fixtures being kept as the league's record. A person's erasure or
   Widerspruch takes their part sooner ([section 5](#5-erasure-reaches-everyone-who-asks)). A
@@ -856,16 +856,16 @@ Zustellstand`). No record the message was about carries it, so a row can outlive
   loses on that same clearing what characterises the pupils' conduct**: from the pass that clears the
   contact blocks, every pass strips the season's `spielberichte` of the remarks and every
   card's reason, on the reports and in the log's images, in a transaction of its own after the
-  confirmations' strip (`fl_backend/app/api/bewerbungen/sweep_router.py :: strip_the_reports`). The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`).
+  confirmations' strip (`fl_backend/app/api/bewerbungen/system_router.py :: strip_the_reports`). The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`).
   Ruled 2026-10-20.
 - **The frontend process's hourly scheduler is what turns those clocks from an intention into a mechanism**
   (`fl_frontend/src/instrumentation-node.ts :: armScheduler`, running
   `fl_frontend/src/features/bewerbungen/sweep.ts :: runBewerbungSweep`, which calls
-  `fl_backend/app/api/bewerbungen/sweep_router.py :: sweep_saison` and
-  `fl_backend/app/api/registrierungen/sweep_router.py :: sweep_registrierungen` per season, then
-  `fl_backend/app/api/adresswechsel/sweep_router.py :: sweep_adresswechsel`, `POST /adresswechsel/sweep`; and
+  `fl_backend/app/api/bewerbungen/system_router.py :: sweep_saison` and
+  `fl_backend/app/api/registrierungen/system_router.py :: sweep_registrierungen` per season, then
+  `fl_backend/app/api/adresswechsel/system_router.py :: sweep_adresswechsel`, `POST /adresswechsel/sweep`; and
   `fl_frontend/src/features/saisons/sweep.ts :: runLoeschungSweep`, which calls
-  `fl_backend/app/api/identitaet/sweep_router.py :: post_loeschung_lauf`). Every job runs on every pass, with no
+  `fl_backend/app/api/identitaet/system_router.py :: post_loeschung_lauf`). Every job runs on every pass, with no
   switch to hold one back. A pass pings the heartbeat monitor, and `/fail` naming each job that threw or left an owed
   deletion or erasure, so a claim that one of their periods was honoured rests on that report and on each job's
   per-pass line in the frontend's log rather than on reading the data

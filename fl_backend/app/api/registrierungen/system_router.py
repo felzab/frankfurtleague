@@ -60,7 +60,7 @@ REMINDERS_PER_PASS: Final = 49
 async def _redact(*, aktionen_collection: AktionenCollection, ids: Sequence[Any], stamp: str, session: AsyncClientSession) -> int:
     """Every log row naming the erased registrations, emptied and stamped.
 
-    A twin of `app/api/bewerbungen/sweep_router.py :: _redact` with the collection fixed: two instances are
+    A twin of `app/api/bewerbungen/system_router.py :: _redact` with the collection fixed: two instances are
     too few to abstract.
     """
 

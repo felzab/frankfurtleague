@@ -25,18 +25,18 @@ from app.api.adresswechsel.admin_router import (
     post_adresswechsel_genehmigung,
     post_adresswechsel_verwaltung,
 )
-from app.api.adresswechsel.router import get_adresswechsel_ansicht, post_adresswechsel_antwort, post_adresswechsel_stopp
+from app.api.adresswechsel.public_router import get_adresswechsel_ansicht, post_adresswechsel_antwort, post_adresswechsel_stopp
 from app.api.adresswechsel.schemas import (
     FLAdresswechselAntwortPayload,
     FLAdresswechselSweepParams,
     FLAdresswechselVerwaltungAnsichtPayload,
     FLAdresswechselVerwaltungPayload,
 )
-from app.api.adresswechsel.sweep_router import sweep_adresswechsel
-from app.api.konto.router import delete_adresswechsel as stop_on_the_account_page
-from app.api.konto.router import get_adresswechsel, post_adresswechsel, post_adresswechsel_freigabe
+from app.api.adresswechsel.system_router import sweep_adresswechsel
+from app.api.konto.person_router import delete_adresswechsel as stop_on_the_account_page
+from app.api.konto.person_router import get_adresswechsel, post_adresswechsel, post_adresswechsel_freigabe
 from app.api.konto.schemas import FLKontoAdresswechselFreigabePayload, FLKontoAdresswechselPayload
-from app.api.postausgang.router import post_ausgabe
+from app.api.postausgang.system_router import post_ausgabe
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.core.security import PASSKEY_FACTOR, SessionActor

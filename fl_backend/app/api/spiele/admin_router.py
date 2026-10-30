@@ -107,7 +107,7 @@ async def get_spiele_for_admin(
     Each referee carries their whole name, and each booking its money.
     """
 
-    # Mirrors `app/api/spiele/router.py :: get_spiele`, which cannot be called here: the gate is
+    # Mirrors `app/api/spiele/public_router.py :: get_spiele`, which cannot be called here: the gate is
     # inside it, and emptying the planned season is the one thing this must not do.
     if filters.saison_id is None:
         filters.saison_id = await pull_current_saison_id(saisons_collection=saisons_collection)

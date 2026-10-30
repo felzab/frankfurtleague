@@ -17,7 +17,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.postausgang.crud import read_the_newest
-from app.api.postausgang.router import post_anmeldung, post_ausgabe, post_ereignis, post_ergebnis
 from app.api.postausgang.schemas import (
     FLAnmeldecodeDaten,
     FLPostausgangAnmeldungPayload,
@@ -43,6 +42,7 @@ from app.api.postausgang.services import (
     enqueue_mails,
     unzustellbar,
 )
+from app.api.postausgang.system_router import post_anmeldung, post_ausgabe, post_ereignis, post_ergebnis
 from app.core.collections import Collection
 from app.core.transactions import transaction_session
 from tests.bans import ban_list

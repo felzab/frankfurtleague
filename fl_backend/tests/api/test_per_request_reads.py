@@ -11,9 +11,9 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.berechtigungen import crud as berechtigungen_crud
 from app.api.identitaet import crud as identitaet_crud
-from app.api.identitaet import router as identitaet_router
+from app.api.identitaet import system_router as identitaet_system_router
 from app.api.identitaet.schemas import FLAnmeldung, FLSubjekt, FLSubjektPayload
-from app.api.konto import router as konto_router
+from app.api.konto import person_router as konto_person_router
 from app.core.collections import Collection
 from tests.bans import ban_list
 from tests.documents import bestaetigte_kenntnisnahme
@@ -96,13 +96,13 @@ class TestTheSubjectLookupsReads:
         async def verwaltung_of(**_: Any) -> None:
             return await reads.answer("grant", None)
 
-        monkeypatch.setattr(identitaet_router, "find_subjekt", find_subjekt)
-        monkeypatch.setattr(identitaet_router, "hash_gesperrt", hash_gesperrt)
-        monkeypatch.setattr(identitaet_router, "verwaltung_of", verwaltung_of)
+        monkeypatch.setattr(identitaet_system_router, "find_subjekt", find_subjekt)
+        monkeypatch.setattr(identitaet_system_router, "hash_gesperrt", hash_gesperrt)
+        monkeypatch.setattr(identitaet_system_router, "verwaltung_of", verwaltung_of)
 
         stand_in = cast(Any, None)
         asyncio.run(
-            identitaet_router.get_subjekt(
+            identitaet_system_router.get_subjekt(
                 subjekt_data=FLSubjektPayload(email=IDENTIFIER),
                 records=stand_in,
                 sperrliste=ban_list({Collection.SPERRLISTE: stand_in, Collection.SAISONS: stand_in}),
@@ -192,13 +192,13 @@ class TestTheSignInGatesReads:
         async def verwaltung_of(**_: Any) -> None:
             return await reads.answer("grant", None)
 
-        monkeypatch.setattr(identitaet_router, "find_anmeldung", find_anmeldung)
-        monkeypatch.setattr(identitaet_router, "hash_gesperrt", hash_gesperrt)
-        monkeypatch.setattr(identitaet_router, "verwaltung_of", verwaltung_of)
+        monkeypatch.setattr(identitaet_system_router, "find_anmeldung", find_anmeldung)
+        monkeypatch.setattr(identitaet_system_router, "hash_gesperrt", hash_gesperrt)
+        monkeypatch.setattr(identitaet_system_router, "verwaltung_of", verwaltung_of)
 
         stand_in = cast(Any, None)
         asyncio.run(
-            identitaet_router.get_anmeldung(
+            identitaet_system_router.get_anmeldung(
                 anmeldung_data=FLSubjektPayload(email=IDENTIFIER),
                 records=stand_in,
                 sperrliste=ban_list({Collection.SPERRLISTE: stand_in, Collection.SAISONS: stand_in}),
@@ -243,12 +243,12 @@ class TestTheAccountReadsReads:
         """The Funktionen the page judges a grant by come from the rows the read already holds, never a second read of them."""
 
         reads = _Reads()
-        monkeypatch.setattr(konto_router, "aggregate_many_from_db", reads.aggregate)
+        monkeypatch.setattr(konto_person_router, "aggregate_many_from_db", reads.aggregate)
         monkeypatch.setattr(identitaet_crud, "aggregate_many_from_db", reads.aggregate)
         snapshot = object()
 
         asyncio.run(
-            konto_router.get_einwilligungen(
+            konto_person_router.get_einwilligungen(
                 identifier=IDENTIFIER,
                 spieler_collection=cast(Any, SPIELER),
                 schiedsrichter_collection=cast(Any, SCHIEDSRICHTER),

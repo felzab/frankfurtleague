@@ -37,7 +37,7 @@ from app.api.berechtigungen.schemas import (
     FLPostBerechtigungPayload,
 )
 from app.api.berechtigungen.services import compose_mitteilung
-from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich
+from app.api.berechtigungen.system_router import post_berechtigungen_abgleich
 from app.api.sperrliste.admin_router import delete_sperrliste_eintrag
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.codes import Code

@@ -7,13 +7,13 @@ from fastapi.routing import APIRoute
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spiele.admin_router import get_spiel_for_admin, get_spiele_for_admin
-from app.api.spiele.router import get_spiele
+from app.api.spiele.public_router import get_spiele
 from app.api.spiele.schemas import FLSpieleFilterParams
 from app.api.spieltage.admin_router import get_spieltag_for_admin, get_spieltage_for_admin
-from app.api.spieltage.router import get_spieltage
+from app.api.spieltage.public_router import get_spieltage
 from app.api.spieltage.schemas import FLSpieltageFilterParams
 from app.api.teams.admin_router import get_teams_for_admin
-from app.api.teams.router import get_teams
+from app.api.teams.public_router import get_teams
 from app.api.teams.schemas import FLTeamsFilterParams
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundError

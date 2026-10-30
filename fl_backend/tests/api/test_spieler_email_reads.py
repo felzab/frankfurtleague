@@ -13,14 +13,14 @@ from app.api.adresswechsel.admin_router import post_adresswechsel_verwaltung
 from app.api.adresswechsel.schemas import FLAdresswechselVerwaltungPayload
 from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
 from app.api.identitaet.person_router import get_erasure_ansicht
-from app.api.konto.router import get_einwilligungen
-from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
+from app.api.konto.person_router import get_einwilligungen
 from app.api.registrierungen.person_router import aufnehmen, get_offene_registrierungen
+from app.api.registrierungen.public_router import get_bestaetigung_ansicht
 from app.api.registrierungen.schemas import (
     FLOffeneRegistrierungenParams,
     FLRegistrierungAufnehmenPayload,
 )
-from app.api.spieler.selbst_router import get_selbst, patch_einwilligung
+from app.api.spieler.person_router import get_selbst, patch_einwilligung
 from app.core.collections import Collection
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of

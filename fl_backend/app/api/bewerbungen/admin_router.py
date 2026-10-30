@@ -1,9 +1,10 @@
+import asyncio
 import secrets
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, get_args
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Query
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
@@ -14,20 +15,35 @@ from app.api.bewerbungen.schemas import (
     FLAblehnenBewerbungResponse,
     FLAnnehmenBewerbungPayload,
     FLAnnehmenBewerbungResponse,
+    FLBewerbung,
     FLBewerbungEinwilligungErneutResponse,
+    FLBewerbungenFilterParams,
+    FLBewerbungenListResponse,
     FLBewerbungKontaktEmailPayload,
     FLBewerbungKontaktEmailResponse,
     FLBewerbungKontaktSitzPayload,
     FLBewerbungKontaktSitzResponse,
+    FLBewerbungListAdapter,
+    FLBewerbungSingleResponse,
+    FLBewerbungStatus,
 )
 from app.api.bewerbungen.services import (
+    WITHOUT_TOKEN_HASHES,
     bestaetigungsfrist_from,
+    bestaetigungsfrist_passed,
+    build_bewerbungen_saison_term,
+    build_bewerbungen_saisonbezug_terms,
+    build_bewerbungen_sort,
+    build_bewerbungen_status_term,
+    build_dubletten_pipeline,
     build_erneut_filter,
     claimed_pair_seat,
     compose_erneut_update,
     compose_kontakt_email_update,
     compose_kontakt_seat_update,
     compose_new_club,
+    dubletten_schluessel_of,
+    entscheider_adressen,
     find_acceptance_subject_refusal,
     find_already_answered_refusal,
     find_kontakt_email_refusal,
@@ -37,6 +53,8 @@ from app.api.bewerbungen.services import (
     find_sitz_inhaber_refusal,
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
+    mit_vorenthaltener_entscheidung,
+    mit_zustellung,
     owed_link,
     paired_seat,
     parse_new_club,
@@ -44,15 +62,16 @@ from app.api.bewerbungen.services import (
     seat_named,
 )
 from app.api.einwilligung.services import find_fassung_refusal
+from app.api.postausgang.crud import lagen_of
 from app.api.postausgang.schemas import FLBewerbungAbsageDaten, FLBewerbungZusageDaten
 from app.api.postausgang.services import OwedMail, enqueue_mails
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
+from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.services import find_club_entry_refusal
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import insert_live, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.crud import aggregate_many_from_db, insert_live, patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
@@ -70,10 +89,118 @@ from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.literals import FLKontaktRolle
 
+# Admin-guarded, not base, as `schiedsrichter` is: an application carries three people's names,
+# addresses, telephone numbers and dates of birth (`READ-CONTACT-001`), and says which schools
+# asked and were turned down. `public_router.py` shares this prefix at base tier and reads no
+# stored application.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/bewerbungen",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
+
+# `Query()` and never `Depends()`: on a `Depends()` model a `list` field is read as a BODY field, so
+# it publishes no query parameter at all and answers `None` whatever the query string holds.
+FLBewerbungenFilters = Annotated[FLBewerbungenFilterParams, Query()]
+
+
+async def _as_served(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    sperrliste: BanList,
+    postausgang_collection: AsyncCollection,
+) -> list[dict[str, Any]]:
+    # Concurrently: the ban list and the Postausgang are two collections, and neither read waits on the other.
+    barred, lagen = await asyncio.gather(
+        adressen_gesperrt(sperrliste, entscheider_adressen(rows)),
+        lagen_of(postausgang_collection=postausgang_collection, sammlung=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows]),
+    )
+
+    return [mit_zustellung(mit_vorenthaltener_entscheidung(row, barred), lagen) for row in rows]
+
+
+@router.get("", response_model=FLBewerbungenListResponse, summary="List Bewerbungen")
+async def get_bewerbungen(
+    bewerbungen_collection: BewerbungenCollection,
+    postausgang_collection: PostausgangCollection,
+    sperrliste: SperrlisteLookup,
+    filters: FLBewerbungenFilters,
+) -> FLBewerbungenListResponse:
+    """Every application, newest first, narrowed by `saison_id` with `saisonbezug` and by any of the three statuses.
+
+    `vollstaendig` is false where more rows exist than one read serves, and each count covers the values its facet left out.
+    `dubletten_schluessel` names every key two or more open applications share: the season and the club id or upper-cased
+    Kürzel, joined by `team` or `kuerzel`. A barred administrator is served as `null` beside `entscheidung.von_gesperrt`.
+    """
+
+    # The season term alone, because each count answers for the status it names: counted with the
+    # request's own status term applied, every status the caller did not ask for would read zero.
+    beyond_status = build_bewerbungen_saison_term(saison_id=filters.saison_id, saisonbezug=filters.saisonbezug)
+    # And the mirror: a relation counted with the season term applied would read zero for the side
+    # the read left out, leaving the other season's queue reachable from nothing on this page.
+    beyond_saison = build_bewerbungen_status_term(filters.status)
+    saisonbezug_terms = build_bewerbungen_saisonbezug_terms(saison_id=filters.saison_id)
+
+    # Concurrently, so five counts and the collision pass cost one round trip's latency rather than six.
+    counted, bezogen, cells = await asyncio.gather(
+        asyncio.gather(
+            # `bewerbungen_saison_id_status_queue` carries both terms, so a count walks keys and
+            # fetches nothing; measured, the complement loses the COUNT_SCAN and stays an IXSCAN.
+            *(bewerbungen_collection.count_documents({**beyond_status, "status": status}) for status in get_args(FLBewerbungStatus.__value__))
+        ),
+        asyncio.gather(*(bewerbungen_collection.count_documents({**beyond_saison, **term}) for term in saisonbezug_terms.values())),
+        aggregate_many_from_db(collection=bewerbungen_collection, pipeline=build_dubletten_pipeline(beyond_status)),
+    )
+
+    # One row over what is served, and the extra never is: it answers whether the list is whole
+    # without a count, and counting the filtered set is the unbounded work this read must not do.
+
+    # The projection keeps the token hashes from crossing the wire at all, where the read model
+    # would drop them only after they had (`app/api/bewerbungen/public_router.py :: get_schulen`).
+    read = await pull_many_from_db(
+        collection=bewerbungen_collection,
+        db_filter={**beyond_status, **beyond_saison},
+        limit=filters.limit + 1,
+        sort_by=build_bewerbungen_sort(sort_by=filters.sort_by, order=filters.order),
+        projection=WITHOUT_TOKEN_HASHES,
+    )
+
+    # Sliced before validation, so the probe row is never parsed and never reaches the wire.
+    served = read[: filters.limit]
+
+    # Degrades rather than refusing: the rows are written by an anonymous public form, so a tripwire
+    # would hand whoever writes them the power to 500 this page. Answering short leaves the
+    # administrator a usable list, and `vollstaendig` reports the cut.
+    return FLBewerbungenListResponse(
+        bewerbungen=FLBewerbungListAdapter.validate_python(
+            await _as_served(served, sperrliste=sperrliste, postausgang_collection=postausgang_collection)
+        ),
+        vollstaendig=len(read) <= filters.limit,
+        anzahl_je_status=dict(zip(get_args(FLBewerbungStatus.__value__), counted, strict=True)),
+        anzahl_je_saisonbezug=dict(zip(saisonbezug_terms, bezogen, strict=True)),
+        dubletten_schluessel=dubletten_schluessel_of(cells),
+    )
+
+
+@router.get(by_id("bewerbung_id"), response_model=FLBewerbungSingleResponse, summary="One Bewerbung")
+async def get_bewerbung_by_id(
+    bewerbung_id: CustomRouteObjectId,
+    bewerbungen_collection: BewerbungenCollection,
+    postausgang_collection: PostausgangCollection,
+    sperrliste: SperrlisteLookup,
+    today: str = Depends(get_german_date_str),
+) -> FLBewerbungSingleResponse:
+    """One application, its decision's administrator withheld as the list withholds it.
+
+    `bestaetigungsfrist_abgelaufen` says whether its confirmation deadline has passed today.
+    """
+
+    bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=WITHOUT_TOKEN_HASHES)
+    [served] = await _as_served([bewerbung_raw], sperrliste=sperrliste, postausgang_collection=postausgang_collection)
+
+    return FLBewerbungSingleResponse(
+        bewerbung=FLBewerbung(**served),
+        bestaetigungsfrist_abgelaufen=bestaetigungsfrist_passed(bestaetigungsfrist=bewerbung_raw.get("bestaetigungsfrist"), today=today),
+    )
 
 
 def _entscheidung(*, today: str, von: str, grund: str | None) -> dict[str, Any]:

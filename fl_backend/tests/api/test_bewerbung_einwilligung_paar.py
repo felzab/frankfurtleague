@@ -8,7 +8,7 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.bewerbungen.einwilligung_router import post_einwilligung
+from app.api.bewerbungen.public_router import post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
 from app.api.bewerbungen.services import hash_token
 from app.core.codes import Code

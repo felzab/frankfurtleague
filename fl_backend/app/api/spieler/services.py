@@ -139,7 +139,7 @@ def build_spieler_pipeline(filters: FLSpielerFilterParams, withheld_saison_ids: 
     """`withheld_saison_ids` are the seasons whose rows this read may not serve.
 
     Empty is the honest default -- a league planning none withholds none -- so the caller that joins
-    across seasons is the one supplying them (`app/api/spieler/router.py`).
+    across seasons is the one supplying them (`app/api/spieler/public_router.py`).
     """
 
     # First, ahead of the loose join below, which keeps a person holding no squad row.

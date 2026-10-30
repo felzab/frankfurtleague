@@ -25,7 +25,7 @@ from app.api.adresswechsel.services import (
     build_address_filter,
     build_addresses_filter,
 )
-from app.api.adresswechsel.sweep_router import get_adresswechsel_adresse
+from app.api.adresswechsel.system_router import get_adresswechsel_adresse
 from app.api.berechtigungen.admin_router import delete_antrag, get_berechtigungen
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.berechtigungen.crud import live_unbarred_grant_since
@@ -35,9 +35,9 @@ from app.api.identitaet.admin_router import erase_auf_anfrage, get_erasure_ansic
 from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_of
 from app.api.identitaet.schemas import FLErasureAdressePayload, FLErasurePayload
 from app.api.identitaet.wiederherstellung import Read, Window, plan_replay, replay_line
-from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
+from app.api.registrierungen.public_router import get_bestaetigung_ansicht
 from app.api.registrierungen.services import compose_ablehnung_update, erinnerung_is_due
-from app.api.schiedsrichter.router import get_schiedsrichter_by_id
+from app.api.schiedsrichter.admin_router import get_schiedsrichter_by_id
 from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.admin_router import get_spieler_memberships
 from app.api.spieler.services import build_spieler_memberships_pipeline

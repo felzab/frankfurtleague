@@ -69,7 +69,7 @@ from app.core.transactions import Batch, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 
-# System tier and the system actor, for `app/api/bewerbungen/sweep_router.py`'s reason: the timer
+# System tier and the system actor, for `app/api/bewerbungen/system_router.py`'s reason: the timer
 # holds no session, and an invented administrator for a machine is what `SYSTEM_ACTOR` exists to avoid.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielbestaetigungen/sweep",

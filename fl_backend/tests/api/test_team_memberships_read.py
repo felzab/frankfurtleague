@@ -7,9 +7,9 @@ import pytest
 from bson import ObjectId
 
 from app.api.bewerbungen.services import find_saison_frist_refusal, hash_token
-from app.api.postausgang.router import post_ereignis
 from app.api.postausgang.schemas import FLPostausgangEreignisPayload, FLPostausgangZustellStand
 from app.api.postausgang.services import enqueue_mails
+from app.api.postausgang.system_router import post_ereignis
 from app.api.teams.admin_router import get_team_memberships
 from app.api.teams.schemas import FLTeamMembership, FLTeamsMembershipsResponse
 from app.api.teams.services import build_team_memberships_pipeline, compose_kontakt_bestaetigung, owed_kontakt_link

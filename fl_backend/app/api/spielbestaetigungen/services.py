@@ -691,7 +691,7 @@ def compose_seat_entry(*, email: str) -> dict[str, Any]:
     """One seat's entry as every mint writes it, on a fresh row and on a seat minted afresh on an open one.
 
     No hash until the hand-out mints the link the mint owes. The address the link is owed to, against which the hand-out
-    judges whether the seat still names the mail's recipient (`app/api/postausgang/router.py :: _link_record_filter`).
+    judges whether the seat still names the mail's recipient (`app/api/postausgang/system_router.py :: _link_record_filter`).
     """
 
     return {"token_hashes": [], "email": email}

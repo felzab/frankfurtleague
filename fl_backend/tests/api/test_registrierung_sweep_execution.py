@@ -15,7 +15,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.services import hash_token
 from app.api.registrierungen.services import SWEEP_PAGE
-from app.api.registrierungen.sweep_router import REMINDERS_PER_PASS, sweep_registrierungen
+from app.api.registrierungen.system_router import REMINDERS_PER_PASS, sweep_registrierungen
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
