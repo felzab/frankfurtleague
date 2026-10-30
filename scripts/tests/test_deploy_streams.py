@@ -1065,6 +1065,21 @@ def test_the_retired_administrator_list_refuses_naming_it_and_no_address() -> No
     assert "credential-lines-passed" not in output, output
 
 
+def test_the_ban_list_key_under_its_retired_name_refuses_naming_it_and_no_value() -> None:
+    """Renamed `SPERRLISTE_KEY` by the naming pass: no setting reads the old name, so its value would sit where `docker inspect` prints it."""
+    body = (
+        "printf 'DB_BASE_NAME=fl_db\\nSPERRLISTE_SCHLUESSEL=a value no case reads\\n' > fl_backend/.env\n"
+        "refuse_credential_lines fl_backend/.env\necho credential-lines-passed\n"
+    )
+    code, output, _ = _run(body)
+
+    assert code == 2, output
+    assert "fl_backend/.env:2 SPERRLISTE_SCHLUESSEL" in output, output
+    assert "a value no case reads" not in output, output
+    assert "DB_BASE_NAME" not in output, output
+    assert "credential-lines-passed" not in output, output
+
+
 # --- each start mode, run whole over an environment file a preflight refuses ------------------------------
 
 # Records each call's arguments, one call a line, and answers every one, `version` included, as a
