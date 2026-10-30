@@ -8,12 +8,12 @@ from app.api.berechtigungen.schemas import FLGrantReconciliationResponse
 from app.api.berechtigungen.services import compare, compose_announced, compose_mitteilung, ernannt, gefunden
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION
-from app.core.crud import loeschen_many_from_db, patch_many_in_db, post_many_to_db
+from app.core.crud import erase_many_from_db, patch_many_in_db, post_many_to_db
 from app.core.dependencies import (
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenCollection,
     DBClient,
-    PostausgangCollection,
+    GrantsAnnouncedCollection,
+    GrantsCollection,
+    OutboxCollection,
     get_germany_now,
 )
 from app.core.security import bind_system_actor, verify_access_system
@@ -33,9 +33,9 @@ router = APIRouter(
     summary="Owe a notice of every change to the grants made in the database",
 )
 async def post_grants_reconciliation(
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     now: datetime = Depends(get_germany_now),
@@ -68,14 +68,14 @@ async def post_grants_reconciliation(
                     compose_mitteilung(grant_id=grant_id, art=art, jetzt=jetzt, before=vorher, changed_by=None, now=now, barred=barred)
                     for grant_id, art, jetzt, vorher in changes
                 ],
-                postausgang_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 berechtigungen_collection=berechtigungen_collection,
                 now=now,
                 session=session,
             )
             # The record now accounts for each change, its notice owed. Bookkeeping, so removed with no image: an image
             # carries the address into a log every administrator reads for twelve months.
-            await loeschen_many_from_db(
+            await erase_many_from_db(
                 collection=berechtigungen_angekuendigt_collection,
                 db_filter={"_id": {"$in": [grant_id for grant_id, _, _, _ in changes]}},
                 session=session,

@@ -33,7 +33,7 @@ from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.main import create_app
-from app.shared.schemas.bestaetigung import FLTokenPayload
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
@@ -42,6 +42,7 @@ from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
+from tests.delivery import a_mail_that_bounced
 from tests.documents import (
     ban_document,
     kontaktperson_document,
@@ -52,10 +53,9 @@ from tests.documents import (
     team_document,
 )
 from tests.isolation import COMMITTED, InterleavedCollection, Rival, outcome_of
-from tests.postausgang import MAIL_NOW, drained
+from tests.outbox import MAIL_NOW, drained
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
-from tests.zustellung import a_mail_that_bounced
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
 pytestmark = pytest.mark.db
@@ -118,7 +118,7 @@ def application(bewerbung_id: ObjectId, *, saison_id: str = SAISON_ID, **overrid
         kontakte=kontakte(),
         submitted_at=MAILED_ON_THE_MARK,
         confirmation_deadline="2026-04-12",
-        schule=documents.neue_schule_document(SCHOOL_NAME, "ZXX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
+        schule=documents.new_schule_document(SCHOOL_NAME, "ZXX", full_name=f"{SCHOOL_NAME}-Gesamtschule", schulform="gesamtschule"),
     )
 
     return {**stored, **overrides}
@@ -202,10 +202,10 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=today,
         germany_now=now,
@@ -229,17 +229,17 @@ async def stored(database: AsyncDatabase, bewerbung_id: ObjectId) -> Mapping[str
 
 
 async def log_rows_naming(database: AsyncDatabase, collection: Collection, row_id: ObjectId) -> list[Mapping[str, Any]]:
-    return await database[Collection.AKTIONEN].find({"collection": str(collection), "document_id": row_id}).to_list(length=None)
+    return await database[Collection.ACTION_LOG].find({"collection": str(collection), "document_id": row_id}).to_list(length=None)
 
 
 async def loeschung_rows(database: AsyncDatabase) -> list[Mapping[str, Any]]:
-    return await database[Collection.AKTIONEN].find({"operation": "erase_many"}).sort("_id", 1).to_list(length=None)
+    return await database[Collection.ACTION_LOG].find({"operation": "erase_many"}).sort("_id", 1).to_list(length=None)
 
 
 async def owed(database: AsyncDatabase, art: str) -> list[Mapping[str, Any]]:
     """Every mail of one kind the Postausgang holds, by key: its key, its recipient and its facts."""
 
-    rows = await database[Collection.POSTAUSGANG].find({"art": art}, {"_id": 0, "key": 1, "an": 1, "data": 1}).to_list(length=None)
+    rows = await database[Collection.OUTBOX].find({"art": art}, {"_id": 0, "key": 1, "an": 1, "data": 1}).to_list(length=None)
 
     return sorted(rows, key=lambda row: str(row["key"]))
 
@@ -247,7 +247,7 @@ async def owed(database: AsyncDatabase, art: str) -> list[Mapping[str, Any]]:
 async def reminded(database: AsyncDatabase) -> set[Any]:
     """The applications the reminder clock has owed a mail about."""
 
-    rows = await database[Collection.POSTAUSGANG].find({"art": "bewerbung_reminder"}, {"reference.id": 1}).to_list(length=None)
+    rows = await database[Collection.OUTBOX].find({"art": "bewerbung_reminder"}, {"reference.id": 1}).to_list(length=None)
 
     return {row["reference"]["id"] for row in rows}
 
@@ -290,7 +290,7 @@ async def resend(database: AsyncDatabase, seat: str) -> Any:
         seat=seat,
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=database.client,
         today=TODAY,
@@ -423,7 +423,7 @@ class TestTheReminderClock:
             # The reminders' links: the fourteen-day notice beside them carries none.
             tokens = [mail.token for mail in await drained(database, client) if mail.data.art == "bewerbung_reminder"]
 
-            return tokens, stamped, await database[Collection.AKTIONEN].find({}).to_list(length=None)
+            return tokens, stamped, await database[Collection.ACTION_LOG].find({}).to_list(length=None)
 
         tokens, stamped, every_row = on_a_league(mongo_replica_set_url, body)
 
@@ -707,7 +707,7 @@ class TestTheSeasonsOwnEndClock:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await sweep(database, client, now=MAIL_NOW)
 
-            return response, await database[Collection.POSTAUSGANG].count_documents({})
+            return response, await database[Collection.OUTBOX].count_documents({})
 
         response, mails = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
 
@@ -982,10 +982,10 @@ class TestAnActivationInsideAnLoeschenTransactionKeepsTheSeasonsRows:
                     saison_teams_collection=reaching(Collection.SAISON_TEAMS),
                     saisons_collection=database[Collection.SAISONS],
                     teams_collection=database[Collection.TEAMS],
-                    aktionen_collection=database[Collection.AKTIONEN],
+                    aktionen_collection=database[Collection.ACTION_LOG],
                     spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                     spielberichte_collection=database[Collection.SPIELBERICHTE],
-                    postausgang_collection=database[Collection.POSTAUSGANG],
+                    outbox_collection=database[Collection.OUTBOX],
                     db=client,
                     today=TODAY,
                     germany_now=NOW,
@@ -1063,8 +1063,8 @@ def refusing_its_redaction(collection: Collection, row: Mapping[str, Any]) -> di
 async def refuse_the_redaction_of(database: AsyncDatabase, collection: Collection, row_id: ObjectId) -> None:
     row = await database[collection].find_one({"_id": row_id})
     assert row is not None
-    await database[Collection.AKTIONEN].insert_one(refusing_its_redaction(collection, row))
-    await refuse_writes_breaking(database, Collection.AKTIONEN, {"required": ["trace_id"]})
+    await database[Collection.ACTION_LOG].insert_one(refusing_its_redaction(collection, row))
+    await refuse_writes_breaking(database, Collection.ACTION_LOG, {"required": ["trace_id"]})
 
 
 # What the planted log image's refusal reads as on a passed-over line: the driver's type and the server's code.
@@ -1267,7 +1267,7 @@ def through_the_app(url: str, path: str, body: Mapping[str, Any] | None, *, auth
 
         status = asyncio.run(_called())
 
-        return status, list(database[Collection.AKTIONEN].find({"operation": "erase_many"}))
+        return status, list(database[Collection.ACTION_LOG].find({"operation": "erase_many"}))
     finally:
         client.close()
 
@@ -1401,7 +1401,7 @@ class TestEachCappedClockMakesProgressAcrossPasses:
             return (
                 response.erased,
                 await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID}),
-                await database[Collection.POSTAUSGANG].count_documents({"art": "bewerbung_erasure"}),
+                await database[Collection.OUTBOX].count_documents({"art": "bewerbung_erasure"}),
             )
 
         assert on_a_league(mongo_replica_set_url, body) == (overflow, 0, overflow)
@@ -1449,7 +1449,7 @@ class TestEachPerRowLoopCostsTheRoundTripsItsShareIsSizedAt:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
             async def counted(rows: list[dict[str, Any]]) -> int:
                 # The first run's mails gone too: keys it owed would cost the second run no insert.
-                await database[Collection.POSTAUSGANG].delete_many({})
+                await database[Collection.OUTBOX].delete_many({})
                 await database[Collection.BEWERBUNGEN].delete_many({})
                 await database[Collection.BEWERBUNGEN].insert_many(rows)
 
@@ -1796,7 +1796,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
             response = await sweep(database, client)
             stored = {name: await confirmations.find_one({"_id": row["_id"]}) for name, row in rows.items()}
             images = {
-                name: (await database[Collection.AKTIONEN].find_one({"document_id": row["_id"], "before": {"$ne": None}}) or {})["before"]
+                name: (await database[Collection.ACTION_LOG].find_one({"document_id": row["_id"], "before": {"$ne": None}}) or {})["before"]
                 for name, row in rows.items()
             }
 
@@ -1902,7 +1902,7 @@ class TestTheSeasonsEndStripsItsConfirmations:
             await sweep(database, client)
             stored = {name: await confirmations.find_one({"_id": row["_id"]}) for name, row in rows.items()}
             images = {
-                name: (await database[Collection.AKTIONEN].find_one({"document_id": row["_id"], "before": {"$ne": None}}) or {})["before"]
+                name: (await database[Collection.ACTION_LOG].find_one({"document_id": row["_id"], "before": {"$ne": None}}) or {})["before"]
                 for name, row in rows.items()
             }
 
@@ -1965,17 +1965,17 @@ class TestTheSeasonsEndStripsItsReports:
                 )
             response = await sweep(database, client)
             redacted = {
-                kind: await database[Collection.AKTIONEN].count_documents({"redacted_at": {"$ne": None}, "collection": selector})
+                kind: await database[Collection.ACTION_LOG].count_documents({"redacted_at": {"$ne": None}, "collection": selector})
                 for kind, selector in (("reports", "spielberichte"), ("others", {"$ne": "spielberichte"}))
             }
             stored = {name: (await berichte.find_one({"_id": report["_id"]}) or {})["bericht"] for name, report in reports.items()}
             images = {
-                name: (await database[Collection.AKTIONEN].find_one({"document_id": report["_id"], "before": {"$ne": None}}) or {})["before"][
+                name: (await database[Collection.ACTION_LOG].find_one({"document_id": report["_id"], "before": {"$ne": None}}) or {})["before"][
                     "bericht"
                 ]
                 for name, report in reports.items()
             }
-            removal = await database[Collection.AKTIONEN].find_one({"collection": "spielberichte", "operation": "delete_many"})
+            removal = await database[Collection.ACTION_LOG].find_one({"collection": "spielberichte", "operation": "delete_many"})
 
             return response, stored, images, (removal or {})["before"], redacted
 

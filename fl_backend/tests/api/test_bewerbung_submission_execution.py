@@ -28,16 +28,16 @@ from app.core.recording import PUBLIC_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.schemas.bestaetigung import FLTokenPayload
-from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE
+from app.shared.schemas.bounds import BEWERBUNG_CONFIRMATION_FRIST_DAYS
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
-from tests.documents import ADDRESS, ban_document, minted_bestaetigungen, rules_document, saison_document, saison_team_document, team_document
+from tests.documents import ADDRESS, ban_document, minted_confirmations, rules_document, saison_document, saison_team_document, team_document
 from tests.holds import HoldsAfterItsLookup
-from tests.postausgang import MAIL_NOW, drained
+from tests.outbox import MAIL_NOW, drained
 from tests.worker import worker_database
 
 # Module level, as `tests/api/test_bewerbung_triage_execution.py` marks its suite: every test below
@@ -180,7 +180,7 @@ async def submit(database: AsyncDatabase, *, key: UUID | None = None, bewerbunge
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=database.client,
         today=TODAY,
@@ -316,13 +316,13 @@ class TestWhatASubmissionStores:
 async def owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     """Every mail the Postausgang holds, by key, as owed: its recipient and its facts."""
 
-    rows = await database[Collection.POSTAUSGANG].find({}, {"_id": 0, "key": 1, "an": 1, "data": 1}).to_list(length=None)
+    rows = await database[Collection.OUTBOX].find({}, {"_id": 0, "key": 1, "an": 1, "data": 1}).to_list(length=None)
 
     return sorted(rows, key=lambda row: str(row["key"]))
 
 
 def frist_from_today() -> str:
-    return (date.fromisoformat(TODAY) + timedelta(days=BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)).isoformat()
+    return (date.fromisoformat(TODAY) + timedelta(days=BEWERBUNG_CONFIRMATION_FRIST_DAYS)).isoformat()
 
 
 class TestWhatTheCreateOwes:
@@ -420,7 +420,7 @@ class TestWhatTheCreateOwes:
         async def body(database: AsyncDatabase) -> Any:
             await submit(database)
             tokens = [mail.token for mail in await drained(database, database.client)]
-            rows = await database[Collection.AKTIONEN].find({}).to_list(length=None)
+            rows = await database[Collection.ACTION_LOG].find({}).to_list(length=None)
 
             return tokens, str(rows)
 
@@ -435,7 +435,7 @@ class TestWhatTheLogRecords:
     def test_one_row_naming_the_application_and_holding_no_image(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Mapping[str, Any]:
             response = await submit(database)
-            rows = await database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN)}).to_list(length=None)
+            rows = await database[Collection.ACTION_LOG].find({"collection": str(Collection.BEWERBUNGEN)}).to_list(length=None)
 
             assert len(rows) == 1
             assert rows[0]["document_id"] == response.created_id
@@ -451,7 +451,7 @@ class TestWhatTheLogRecords:
 
         async def body(database: AsyncDatabase) -> str:
             await submit(database)
-            rows = await database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN)}).to_list(length=None)
+            rows = await database[Collection.ACTION_LOG].find({"collection": str(Collection.BEWERBUNGEN)}).to_list(length=None)
 
             return str(rows)
 
@@ -779,7 +779,7 @@ def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, 
             response=response,
             stored=database[Collection.BEWERBUNGEN].count_documents({}),
             keyed=database[Collection.BEWERBUNGEN].count_documents({"idempotency_key": {"$exists": True}}),
-            log_rows=list(database[Collection.AKTIONEN].find({"collection": str(Collection.BEWERBUNGEN)})),
+            log_rows=list(database[Collection.ACTION_LOG].find({"collection": str(Collection.BEWERBUNGEN)})),
         )
     finally:
         client.close()
@@ -905,7 +905,7 @@ def _stored_application(**fields: Any) -> dict[str, Any]:
         "wunschgegner": None,
         "decision": None,
         "confirmation_deadline": bestaetigungsfrist_from(today=TODAY),
-        "confirmations": minted_bestaetigungen(
+        "confirmations": minted_confirmations(
             hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today=TODAY
         ),
         **fields,

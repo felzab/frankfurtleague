@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.postausgang.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxState
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.literals import FLKontaktRolle
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
@@ -17,7 +17,7 @@ class FLEinladung(BaseReadModel):
     created_at: CustomDateString
     # The bound actor, on no payload: a link and its `aktionen` row cannot then name two people.
     created_by: CustomNonEmptyString
-    # Required as a KEY and null while the invite stands: `uniq_einladung_live` reaches the rows
+    # Required as a KEY and null while the invite stands: `uniq_invitation_live` reaches the rows
     # holding null, so a row that could omit it would fall outside the one-live-invite rule.
     widerrufen_am: CustomOptionalDateString
 

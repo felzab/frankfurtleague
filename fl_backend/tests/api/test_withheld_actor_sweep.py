@@ -4,7 +4,7 @@ API · no admin-tier read answers a barred administrator's address in plain, a l
 Every admin-tier read is named here once: with the request showing it a row a barred administrator
 wrote, or with why no answer of it names an administrator. The two listings agree with the mounted
 routes, so a new read fails until someone says which it is. The
-image `GET /aktionen/{aktion_id}` serves is the document as the write replaced it, barred addresses
+image `GET /action_log/{action_log_entry_id}` serves is the document as the write replaced it, barred addresses
 included, since a restore starts from it: the seeded log row
 carries none, and one holding the barred address would fail this sweep by design.
 """
@@ -29,12 +29,12 @@ from app.core.collections import Collection
 from app.core.recording import log_stamp
 from app.core.security import verify_access_admin
 from app.main import create_app
-from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, grants_for_the_suite
 from tests.core.app_source import api_routes, application
 from tests.database import a_clean_database_sync
 from tests.documents import ban_document, saison_document
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -147,7 +147,7 @@ def _seed(url: str, *, ban_until: str | None) -> None:
     try:
         database = a_clean_database_sync(client, url, DATABASE_NAME)
         database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
-        database[Collection.BERECHTIGUNGEN].insert_many(
+        database[Collection.GRANTS].insert_many(
             [
                 *grants_for_the_suite(),
                 {
@@ -159,7 +159,7 @@ def _seed(url: str, *, ban_until: str | None) -> None:
             ]
         )
         # Asked on the real clock: the list serves a request only until its `bis`, and the TTL index removes it then.
-        database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_one(
+        database[Collection.GRANT_APPROVAL_REQUESTS].insert_one(
             compose_antrag(
                 adresse="antrag.verwalterin@beispielschule.de",
                 verwaltung="administration",
@@ -174,7 +174,7 @@ def _seed(url: str, *, ban_until: str | None) -> None:
                 *([] if ban_until is None else [ban_document(BARRED, bis=ban_until, created_by=OWNER)]),
             ]
         )
-        database[Collection.EINLADUNGEN].insert_one(
+        database[Collection.INVITATIONS].insert_one(
             compose_einladung(saison_id=SAISON_ID, team_id=TEAM_OID, token_hashes=["a" * 64], created_by=BARRED, today="2026-04-01")
         )
         database[Collection.BEWERBUNGEN].insert_one(
@@ -190,7 +190,7 @@ def _seed(url: str, *, ban_until: str | None) -> None:
         # The real clock, never a date: the retention index removes a row a year past `at_date`, so a
         # fixed one would leave the `/action_log` reads nothing to answer once that year had run.
         recorded = datetime.now(UTC)
-        database[Collection.AKTIONEN].insert_one(
+        database[Collection.ACTION_LOG].insert_one(
             {
                 "_id": AKTION_OID,
                 "at": log_stamp(recorded),
@@ -242,7 +242,7 @@ def _answers(url: str) -> dict[str, tuple[int, str]]:
         answered: dict[str, tuple[int, str]] = {}
         async with app_client(url, app=_served()) as http:
             for route, request in NAMES_AN_ADMINISTRATOR.items():
-                response = await http.get(request, headers=SignedActor(OWNER, ADMIN_KEY))
+                response = await http.get(request, headers=StampedHeaders(OWNER, ADMIN_KEY))
                 answered[route] = (response.status_code, response.text)
 
         return answered

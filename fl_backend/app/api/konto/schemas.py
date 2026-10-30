@@ -101,7 +101,7 @@ class FLAccountSeatEinwilligung(BaseModel):
 class FLAccountBewerbungSeatEinwilligung(BaseModel):
     """One pending application on which the address holds a confirmed contact seat, with its two choices to withdraw.
 
-    Pending alone: an accepted application's seats are its season row's, listed under `sitze`.
+    Pending alone: an accepted application's seats are its season row's, listed under `seats`.
     """
 
     bewerbung_id: CustomObjectId

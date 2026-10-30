@@ -50,10 +50,10 @@ VERTRETUNG_MIN_AGE_YEARS: Final = 18
 # How long an application's three people have to confirm their own seats before it is deleted; a
 # re-send restarts the clock. Days rather than a date, so the deadline is derived from the mint and
 # never stored twice.
-BEWERBUNG_BESTAETIGUNG_FRIST_TAGE: Final = 14
+BEWERBUNG_CONFIRMATION_FRIST_DAYS: Final = 14
 # The age at which one seat's link is due its single reminder, counted from the mint and set more
-# than a week inside `BEWERBUNG_BESTAETIGUNG_FRIST_TAGE`, so a person reminded still has time to answer.
-BEWERBUNG_ERINNERUNG_TAGE: Final = 3
+# than a week inside `BEWERBUNG_CONFIRMATION_FRIST_DAYS`, so a person reminded still has time to answer.
+BEWERBUNG_REMINDER_DAYS: Final = 3
 
 # The raw confirmation token as it arrives on every public consent endpoint, a referee's included:
 # one mint spells them all. Wide over the 43 characters `secrets.token_urlsafe(32)` mints, and a
@@ -94,7 +94,7 @@ KONTAKT_NAME_MAX_LENGTH: Final = 80
 # The school's estimate of its squad, and the strong players inside it. A ceiling that is a SQUAD
 # SIZE, not `int32`: past this the number is a typo. Not the season's `max_kadergroesse`, which an
 # application is held true against nothing of.
-BEWERBUNG_KADER_GROESSE_MAX: Final = 200
+BEWERBUNG_KADER_SIZE_MAX: Final = 200
 
 # How many pupils one Abi-Jahrgang holds, the ones who never play included. A ceiling that is a
 # COHORT rather than `int32`: no German school graduates a thousand pupils in one year.
@@ -112,12 +112,12 @@ LIST_LIMIT_MAX: Final = 1024
 # The most addresses one references call judges, about a millisecond each: 250 took a median of 0.24 s
 # over 400 season rows and 2,000 pupils (a local server, 2026-10-15), far inside
 # `app/core/middlewares.py :: REQUEST_DEADLINE_S` on a slower one.
-REFERENZEN_ADRESSEN_MAX: Final = 250
+REFERENCES_ADRESSEN_MAX: Final = 250
 
 # How long the action log keeps a row, counted from the write it recorded. Seconds because that is
 # the unit `create_index(expireAfterSeconds=)` takes, and a plain year because the database counts
 # no calendar months.
-AKTION_RETENTION_SECONDS: Final = 365 * 24 * 60 * 60
+ACTION_LOG_ENTRY_RETENTION_SECONDS: Final = 365 * 24 * 60 * 60
 
 # Why an address was barred, in an administrator's own words. A reason is a sentence rather than a
 # page, and the row is read on a card. Named so the frontend mirror refuses at the same length.
@@ -129,47 +129,47 @@ AUSTRITT_GRUND_MAX_LENGTH: Final = 500
 
 # The request an administrator's erasure answers, written onto every log row it files: a mail's date
 # and subject fit, and the log keeps it twelve months beyond every redaction, so a letter does not.
-LOESCHUNG_ANLASS_MAX_LENGTH: Final = 200
+ERASURE_ANLASS_MAX_LENGTH: Final = 200
 
 # How many FULL seasons a ban outlives the one it was entered under. The season it is entered in
 # does not count, so the fifth one after it is the last the ban covers.
-SPERRE_DAUER_SAISONS: Final = 5
+SPERRE_DURATION_SAISONS: Final = 5
 
 # What the log read serves of a person's pseudonym, and what its page shows: enough to tell two people
 # apart by eye. The whole value would hand every administrator's browser a stable key to one person,
 # which no control reads.
-AKTEUR_PSEUDONYM_SHOWN: Final = 8
+ACTOR_PSEUDONYM_SHOWN: Final = 8
 
 # How long a referee has to confirm; a re-send restarts it. Longer than the registration's seven
 # days, which is the window a mistyped address is caught in: this link waits on an adult with no
 # second route in.
-SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE: Final = 14
+SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS: Final = 14
 
 # How long a step of an address change waits from its asking: the new mailbox's link, or the address
 # on file's approval. NIST SP 800-63B-4 `#issuedrecovery` caps an emailed recovery code at 24 hours
 # (read 2026-10-20).
-ADRESSWECHSEL_GUELTIG_STUNDEN: Final = 24
+ADDRESS_CHANGE_VALID_HOURS: Final = 24
 
 # A change an administrator started with a reason waits this long after its confirmation, the address
 # on file free to stop it: a school week and its weekends, past any holiday weekend three days fit inside.
-ADRESSWECHSEL_WARTEZEIT_TAGE: Final = 7
+ADDRESS_CHANGE_WAITING_PERIOD_DAYS: Final = 7
 
 # How long a write waiting on a second administrator's approval waits from its start before it lapses: a week, so an
 # approver away for a weekend is no reason to start it again.
-GENEHMIGUNG_TAGE: Final = 7
+APPROVAL_DAYS: Final = 7
 
 # How long an ended change's record is kept, holding no address, so each link answers what became of it.
-ADRESSWECHSEL_NACHLAUF_TAGE: Final = 30
+ADDRESS_CHANGE_RETENTION_DAYS: Final = 30
 
 # A row stores the deadline it was given, so raising this moves no request already sent; a fixture
 # dated inside it is due the day it is asked.
-SPIEL_BESTAETIGUNG_FRIST_TAGE: Final = 7
-# Also the longest a confirmation link answers, as long as `BEWERBUNG_BESTAETIGUNG_FRIST_TAGE` and
-# `SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE` let the other adult links: the edge's error log accepts a
+SPIEL_CONFIRMATION_FRIST_DAYS: Final = 7
+# Also the longest a confirmation link answers, as long as `BEWERBUNG_CONFIRMATION_FRIST_DAYS` and
+# `SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS` let the other adult links: the edge's error log accepts a
 # link's token because it answers nothing past such a deadline.
-SPIEL_ANFRAGE_VORLAUF_TAGE: Final = 14
-SPIEL_ERINNERUNG_TAGE_ERSTE: Final = 3
-SPIEL_ERINNERUNG_TAGE_ZWEITE: Final = 1
+SPIEL_REQUEST_LEAD_TIME_DAYS: Final = 14
+SPIEL_REMINDER_DAYS_FIRST: Final = 3
+SPIEL_REMINDER_DAYS_SECOND: Final = 1
 
 # `SPERRLISTE_GRUND_MAX_LENGTH`'s figure for its reason: a sentence read on a card, neither mailed as a
 # decline's reason is nor copied onto a year of log rows as an erasure's occasion is.
@@ -179,7 +179,7 @@ SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH: Final = 500
 # report whole on a log row, which this keeps far under BSON's document ceiling.
 SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH: Final = 2000
 # The most scorers, and the most cards, one report lists, for the remarks' reason.
-SPIELBERICHT_EINTRAEGE_MAX: Final = 60
+SPIELBERICHT_ENTRIES_MAX: Final = 60
 
 # The age a referee consents at. Its own constant rather than the application contact's, though the
 # numbers agree: the two floors are separate judgements, so raising one must not silently raise the
@@ -189,16 +189,16 @@ SCHIEDSRICHTER_MIN_AGE_YEARS: Final = 16
 # How long a pupil has to confirm their own registration. Seven rather than the application's
 # fourteen because it carries a second job: the window inside which a mistyped address is discovered
 # and the person registers again.
-REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE: Final = 7
+REGISTRIERUNG_CONFIRMATION_FRIST_DAYS: Final = 7
 
 # The age at which one registration link is due its single reminder, counted from the mint and set
-# well inside `REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE`, so a pupil reminded still has days to answer.
-REGISTRIERUNG_ERINNERUNG_TAGE: Final = 3
+# well inside `REGISTRIERUNG_CONFIRMATION_FRIST_DAYS`, so a pupil reminded still has days to answer.
+REGISTRIERUNG_REMINDER_DAYS: Final = 3
 
 # The age a pupil consents at. Its own constant rather than the referee's or the application
 # contact's, though the numbers agree: the floors are separate judgements, so raising one must not
 # silently raise another.
-REGISTRIERUNG_MIN_ALTER_JAHRE: Final = 16
+REGISTRIERUNG_MIN_AGE_YEARS: Final = 16
 
 # ONE constant for the pupil and the referee, unlike the floors above: the media consent is one
 # judgement over every record carrying `medien`, and nobody below it is recognisable in a published

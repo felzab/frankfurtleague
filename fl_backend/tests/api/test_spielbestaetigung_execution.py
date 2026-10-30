@@ -43,19 +43,19 @@ from app.api.teams.admin_router import replace_saison_team
 from app.api.teams.schemas import FLReplaceSaisonTeamPayload
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.bans import ban_list
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
-from tests.loeschung import geloescht
+from tests.outbox import MAIL_NOW
 from tests.payloads import spiel_patch_body
 from tests.plans import plans_of_sent_reads
-from tests.postausgang import MAIL_NOW
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -94,7 +94,7 @@ REFEREE = "Otto Gruber"
 
 # Spelled out rather than through the code under test: the stellvertretung's address on the sign-in fold, keyed under the
 # suite's master by the holder's own label, so an unkeyed digest or another purpose's label fails here.
-_HALTER_KEY = hmac.new(build_test_config().sperrliste_schluessel.get_secret_value().encode("utf-8"), b"halter-v1", hashlib.sha256).digest()
+_HALTER_KEY = hmac.new(build_test_config().sperrliste_key.get_secret_value().encode("utf-8"), b"halter-v1", hashlib.sha256).digest()
 KLARA = hmac.new(_HALTER_KEY, b"klara@example.com", hashlib.sha256).hexdigest()
 
 
@@ -876,7 +876,7 @@ class TestALinkToAReplacedClubsFixture:
                 spiele_collection=database[Collection.SPIELE],
                 saison_spieler_collection=database[Collection.SAISON_SPIELER],
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                aktionen_collection=database[Collection.AKTIONEN],
+                aktionen_collection=database[Collection.ACTION_LOG],
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 db=client,
                 today=TODAY,
@@ -985,7 +985,7 @@ async def verwerfen(database: AsyncDatabase, client: AsyncMongoClient, row_id: O
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
         spiele_collection=database[Collection.SPIELE],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=TODAY,
         now=MAIL_NOW,
@@ -997,7 +997,7 @@ async def lesen(
 ) -> FLSpielbestaetigungenListResponse:
     return await get_spielbestaetigungen(
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        outbox_collection=database[Collection.OUTBOX],
         filters=FLSpielbestaetigungenFilterParams(saison_id=SAISON_ID, spiel_id=spiel_id, limit=limit),
     )
 
@@ -1056,7 +1056,7 @@ class TestTheDiscard:
             await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
             declined = (await row_now(database, ROW1))["antwort"]
             await verwerfen(database, client, ROW1)
-            owed = await database[Collection.POSTAUSGANG].find({}, {"an": 1, "art": 1, "reference": 1, "_id": 0}).to_list()
+            owed = await database[Collection.OUTBOX].find({}, {"an": 1, "art": 1, "reference": 1, "_id": 0}).to_list()
 
             return declined, await row_now(database, ROW1), owed
 
@@ -1327,7 +1327,7 @@ class TestAnAnswerAndItsWritersLoeschungCross:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def loeschen_the_trainer() -> None:
-                await geloescht(database, client, IDA, germany_now=GELOESCHT_AT)
+                await erased(database, client, IDA, germany_now=GELOESCHT_AT)
 
             confirmations = ConfirmationsRunningARivalBeforeTheWrite(database[Collection.SPIELBESTAETIGUNGEN], loeschen_the_trainer)
             outcome = await outcome_of(
@@ -1350,7 +1350,7 @@ class TestAnAnswerAndItsWritersLoeschungCross:
                 await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
 
             confirmations = ConfirmationsRunningARivalBeforeTheFirstFanOut(database[Collection.SPIELBESTAETIGUNGEN], answer_as_the_trainer)
-            await geloescht(database, client, IDA, germany_now=GELOESCHT_AT, spielbestaetigungen_collection=confirmations)
+            await erased(database, client, IDA, germany_now=GELOESCHT_AT, spielbestaetigungen_collection=confirmations)
 
             return confirmations, await row_now(database, ROW1)
 
@@ -1406,7 +1406,7 @@ DUE_RESOLUTION = [
 
 
 def confirmed_consent() -> dict[str, Any]:
-    return documents.eigene_einwilligung_document(text_version="2026-10-schiedsrichterseite-4", confirmed_at="2027-04-01")
+    return documents.own_einwilligung_document(text_version="2026-10-schiedsrichterseite-4", confirmed_at="2027-04-01")
 
 
 def referee_row(row_id: ObjectId = REFEREE_ROW, *, schiedsrichter_id: ObjectId = SCHIEDSRICHTER, **fields: Any) -> dict[str, Any]:
@@ -1554,7 +1554,7 @@ class TestARefereesDeclineReturnsTheFixture:
 # Enough of the season's other referees' rows that a walk of the season-leading index costs the planner a season.
 OTHER_REFEREES_ROWS = 2000
 
-REFEREE_INDEX_SCAN = "IXSCAN { partei.schiedsrichter_id: 1, saison_id: 1 }"
+REFEREE_INDEX_SCAN = "IXSCAN { party.schiedsrichter_id: 1, saison_id: 1 }"
 
 
 def reads_a_referees_rows(collection: str, command: Mapping[str, Any]) -> bool:
@@ -1571,7 +1571,7 @@ class TestARefereesOwnRowsAreReadThroughTheirIndex:
         "read",
         [
             pytest.param(lambda watched, watching: eigene(watched, watching), id="the panel"),
-            pytest.param(lambda watched, watching: geloescht(watched, watching, OTTO, germany_now=GELOESCHT_AT), id="the erasure"),
+            pytest.param(lambda watched, watching: erased(watched, watching, OTTO, germany_now=GELOESCHT_AT), id="the erasure"),
         ],
     )
     def test_the_read_walks_the_referee_index_past_a_season_of_other_rows(
@@ -1894,7 +1894,7 @@ class TestTheRefereesOwnRows:
 
         _, [(_, plan)] = on_a_refereed_fixture(mongo_replica_set_url, body)
 
-        assert plan == "IXSCAN { partei.schiedsrichter_id: 1, saison_id: 1 }", plan
+        assert plan == "IXSCAN { party.schiedsrichter_id: 1, saison_id: 1 }", plan
 
     def test_the_days_to_come_first_open_ahead_then_the_days_gone_by_latest_first(self, mongo_replica_set_url: str):
         """By day alone a past fixture would lead an upcoming one, and a season's twelfth past card the next Saturday's.

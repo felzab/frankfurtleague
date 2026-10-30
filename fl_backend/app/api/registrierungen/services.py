@@ -15,7 +15,7 @@ from app.api.bewerbungen.services import days_after, latest_decision_due, one_mo
 # every `running` a link is shown with and this flow's refusal, so a link and the write it opens
 # cannot disagree.
 from app.api.einladungen.services import registrierungsfenster_laeuft
-from app.api.postausgang.schemas import FLPostausgangLink
+from app.api.outbox.schemas import FLOutboxLink
 from app.api.registrierungen.schemas import FLRegistrierungEntscheidung, FLRegistrierungSeite
 
 # The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
@@ -32,8 +32,8 @@ from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     LIST_LIMIT_MAX,
     MEDIEN_MIN_AGE_YEARS,
-    REGISTRIERUNG_ERINNERUNG_TAGE,
-    REGISTRIERUNG_MIN_ALTER_JAHRE,
+    REGISTRIERUNG_MIN_AGE_YEARS,
+    REGISTRIERUNG_REMINDER_DAYS,
 )
 from app.shared.schemas.literals import FLConfirmationState
 
@@ -183,7 +183,7 @@ def compose_registrierung(
 
 # Where a registration's mailed link lives, and the address it is minted for while the row still holds it. Never
 # superseding: a reminder's link joins the first one, so a pupil still reading the first mail is not punished by the chase.
-REGISTRIERUNG_LINK: Final = FLPostausgangLink(paths=["confirmation.token_hashes"], adressen=["email"], replaced=False)
+REGISTRIERUNG_LINK: Final = FLOutboxLink(paths=["confirmation.token_hashes"], adressen=["email"], replaced=False)
 
 
 def compose_bestaetigung(*, today: str, frist: str) -> dict[str, Any]:
@@ -390,7 +390,7 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     age = whole_years_between(born=geburtsdatum, today=today)
 
     # The pupil's own floor and never a contact seat's: raising one must not silently raise the other.
-    if age < REGISTRIERUNG_MIN_ALTER_JAHRE:
+    if age < REGISTRIERUNG_MIN_AGE_YEARS:
         return WriteRefusal(
             error_code=Code.CONFIRMATION_AGE,
             status=HTTPStatus.UNPROCESSABLE_CONTENT,
@@ -585,7 +585,7 @@ def build_erinnerung_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
         "confirmation.frist": {"$gte": today},
         # The mark counted backwards from today, which is the same comparison the predicate makes
         # forwards from the send.
-        "confirmation.sent_at": {"$lte": days_after(day=today, days=-REGISTRIERUNG_ERINNERUNG_TAGE)},
+        "confirmation.sent_at": {"$lte": days_after(day=today, days=-REGISTRIERUNG_REMINDER_DAYS)},
     }
 
 
@@ -620,7 +620,7 @@ def erinnerung_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bo
     if not isinstance(verschickt_am, str) or not isinstance(frist, str) or frist < today:
         return False
 
-    return days_after(day=verschickt_am, days=REGISTRIERUNG_ERINNERUNG_TAGE) <= today
+    return days_after(day=verschickt_am, days=REGISTRIERUNG_REMINDER_DAYS) <= today
 
 
 def bestaetigung_loeschung_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:
@@ -838,8 +838,8 @@ def compose_person_update(*, registrierung_raw: Mapping[str, Any], gespeichert: 
         return {"$set": fields}
 
     erneuert = compose_erneuert(
-        pfad="einwilligung",
-        gespeichert=gespeichert,
+        path="einwilligung",
+        saved=gespeichert,
         erneuert=registrierung_raw["einwilligung"],
     )
 

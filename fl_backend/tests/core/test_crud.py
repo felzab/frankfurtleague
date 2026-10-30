@@ -22,8 +22,8 @@ from app.core.crud import (
     build_query,
     build_sort,
     delete_many_from_db,
+    erase_many_from_db,
     literal_pattern,
-    loeschen_many_from_db,
     patch_one_in_db,
     post_many_to_db,
     pull_one_from_db,
@@ -179,7 +179,7 @@ class _OneDocumentCollection:
         # collection's own database handle -- so a double standing in for a collection needs both.
         self.recorded: list[Mapping[str, Any]] = []
         self.name = Collection.TEAMS
-        self.database = {Collection.AKTIONEN: _RecordingCollection(self.recorded)}
+        self.database = {Collection.ACTION_LOG: _RecordingCollection(self.recorded)}
         self.codec_options = DEFAULT_CODEC_OPTIONS
 
     async def find_one_and_update(self, *, filter: Any, update: Any, session: Any, return_document: Any) -> Mapping[str, Any] | None:
@@ -331,14 +331,14 @@ class TestDeleteManyFromDb:
         assert len(stub.recorded) == rows
 
 
-class TestLoeschenManyFromDb:
+class TestEraseManyFromDb:
     @pytest.mark.parametrize(("documents", "rows"), [pytest.param([], 0, id="nothing removed"), pytest.param([STORED], 1, id="one removed")])
     def test_a_removal_records_a_row_exactly_where_it_took_something(self, documents: list[Mapping[str, Any]], rows: int):
         """`delete_many_from_db`'s rule, by the driver's count: this removal reads nothing first, keeping no image."""
 
         stub = _SetCollection(documents)
 
-        asyncio.run(loeschen_many_from_db(collection=as_collection(stub), db_filter=FILTER, session=TRANSACTION))
+        asyncio.run(erase_many_from_db(collection=as_collection(stub), db_filter=FILTER, session=TRANSACTION))
 
         assert len(stub.recorded) == rows
 
@@ -395,7 +395,7 @@ class _RefusedBatchCollection:
         self.recorded: list[Mapping[str, Any]] = []
         self.recorded_under: list[Any] = []
         self.name = Collection.TEAMS
-        self.database = {Collection.AKTIONEN: _RecordingCollection(self.recorded, self.recorded_under)}
+        self.database = {Collection.ACTION_LOG: _RecordingCollection(self.recorded, self.recorded_under)}
 
     async def insert_many(self, *, documents: Any, session: Any) -> None:
         raise self.failure

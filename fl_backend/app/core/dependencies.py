@@ -32,29 +32,29 @@ SaisonTeamsCollection = Annotated[AsyncCollection, Depends(collection_dependency
 
 SaisonSpielerCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SAISON_SPIELER))]
 
-AktionenCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.AKTIONEN))]
+ActionLogCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.ACTION_LOG))]
 
 BewerbungenCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.BEWERBUNGEN))]
 
 SperrlisteCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SPERRLISTE))]
 
-EinladungenCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.EINLADUNGEN))]
+InvitationsCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.INVITATIONS))]
 
 RegistrierungenCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.REGISTRIERUNGEN))]
 
-BerechtigungenCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.BERECHTIGUNGEN))]
+GrantsCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.GRANTS))]
 
-BerechtigungenAngekuendigtCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.BERECHTIGUNGEN_ANGEKUENDIGT))]
+GrantsAnnouncedCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.GRANTS_ANNOUNCED))]
 
 SpielbestaetigungenCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SPIELBESTAETIGUNGEN))]
 
 SpielberichteCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.SPIELBERICHTE))]
 
-AdresswechselCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.ADRESSWECHSEL))]
+AddressChangeCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.ADDRESS_CHANGES))]
 
-BerechtigungenAntraegeCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.BERECHTIGUNGEN_ANTRAEGE))]
+GrantsApprovalRequestsCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.GRANT_APPROVAL_REQUESTS))]
 
-PostausgangCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.POSTAUSGANG))]
+OutboxCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.OUTBOX))]
 
 
 # Injected rather than read at the call site, which is what keeps "today" substitutable in tests.

@@ -26,18 +26,17 @@ from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
-from tests.actor_tokens import SignedActor
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_AGE_YEARS
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
     bewerbung_document,
-    eigene_einwilligung_document,
     kontakte_document,
     kontaktperson_document,
-    neue_schule_document,
-    registrierung_bestaetigt,
+    new_schule_document,
+    own_einwilligung_document,
+    registrierung_confirmed,
     registrierung_document,
     saison_document,
     saison_team_document,
@@ -46,6 +45,7 @@ from tests.documents import (
     team_document,
 )
 from tests.records import record_collections
+from tests.session_headers import StampedHeaders
 from tests.worker import worker_database
 
 from .conftest import AUSTRITT, config_for
@@ -116,12 +116,12 @@ EXPECTED: dict[str, set[tuple[str, str]]] = {
 }
 
 
-def _person(email: str) -> SignedActor:
-    return SignedActor(email, ADMIN_KEY, lane="person")
+def _person(email: str) -> StampedHeaders:
+    return StampedHeaders(email, ADMIN_KEY, lane="person")
 
 
 def _einwilligung(**fields: Any) -> dict[str, Any]:
-    return eigene_einwilligung_document(text_version="2026-10-schiedsrichterseite-4", confirmed_at="2026-09-02", **fields)
+    return own_einwilligung_document(text_version="2026-10-schiedsrichterseite-4", confirmed_at="2026-09-02", **fields)
 
 
 def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
@@ -153,7 +153,7 @@ def _bewerbung(oid: ObjectId, *, status: str, kontakte: dict[str, Any]) -> dict[
         kontakte=kontakte,
         submitted_at="2026-09-01",
         confirmation_deadline="2026-09-15",
-        schule=neue_schule_document(f"Schule {oid}", "SWX"),
+        schule=new_schule_document(f"Schule {oid}", "SWX"),
     )
 
 
@@ -164,7 +164,7 @@ def _registrierung(oid: ObjectId, email: str, *, seite: Seite | None = "bestaeti
     bestaetigt = (
         None
         if seite is None
-        else registrierung_bestaetigt(seite, geburtsdatum="2008-05-09", today="2026-09-21", am="2026-09-21T08:00:00+00:00", **gewaehlt)
+        else registrierung_confirmed(seite, geburtsdatum="2008-05-09", today="2026-09-21", am="2026-09-21T08:00:00+00:00", **gewaehlt)
     )
 
     return registrierung_document(
@@ -295,7 +295,7 @@ def test_the_account_page_serves_a_registration_as_its_pupil_stored_it(mongo_rep
         "confirmed_text_version": LAUFENDE_FASSUNGEN["bestaetigung_spieler"],
         "umfang": "kader_oeffentlich",
         "medien": True,
-        "minimum_age": REGISTRIERUNG_MIN_ALTER_JAHRE,
+        "minimum_age": REGISTRIERUNG_MIN_AGE_YEARS,
         "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
         "context": {"team": "Schule3", "schule": "Schule3-Schule", "saison": ACTIVE},
         "vorname": "Wiltrudis",

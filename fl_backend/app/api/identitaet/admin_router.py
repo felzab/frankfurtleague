@@ -32,15 +32,15 @@ from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, post_one_to_db, refuse
 from app.core.dependencies import (
-    AdresswechselCollection,
-    AktionenCollection,
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenAntraegeCollection,
-    BerechtigungenCollection,
+    ActionLogCollection,
+    AddressChangeCollection,
     BewerbungenCollection,
     DBClient,
-    EinladungenCollection,
-    PostausgangCollection,
+    GrantsAnnouncedCollection,
+    GrantsApprovalRequestsCollection,
+    GrantsCollection,
+    InvitationsCollection,
+    OutboxCollection,
     RegistrierungenCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
@@ -87,9 +87,9 @@ async def get_erasure_view(
     saison_spieler_collection: SaisonSpielerCollection,
     registrierungen_collection: RegistrierungenCollection,
     spiele_collection: SpieleCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -98,7 +98,7 @@ async def get_erasure_view(
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLErasureViewResponse:
     """
-    Answer which of this address's records `POST /identitaet/loeschung` would remove or empty, by kind, name and the ids a page links each by.
+    Answer which of this address's records `POST /identity/erasure` would remove or empty, by kind, name and the ids a page links each by.
 
     ADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names
     every one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,
@@ -151,7 +151,7 @@ async def get_erasure_view(
             schiedsrichter_collection=schiedsrichter_collection,
             spieler_collection=spieler_collection,
             registrierungen_collection=registrierungen_collection,
-            key=config.sperrliste_schluessel,
+            key=config.sperrliste_key,
             session=session,
         )
         kader_rows = (
@@ -237,14 +237,14 @@ async def post_erasure(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
     registrierungen_collection: RegistrierungenCollection,
-    aktionen_collection: AktionenCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
-    einladungen_collection: EinladungenCollection,
+    aktionen_collection: ActionLogCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    outbox_collection: OutboxCollection,
+    einladungen_collection: InvitationsCollection,
     sperrliste_collection: SperrlisteCollection,
-    adresswechsel_collection: AdresswechselCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    adresswechsel_collection: AddressChangeCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     actor: Annotated[SessionActor, Depends(verify_admin_actor)],
     db: DBClient,
@@ -256,7 +256,7 @@ async def post_erasure(
     """
     Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.
 
-    ADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/konto/loeschung` runs and refuses nothing about the
+    ADMIN TIER, a step-up write. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the
     person's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.
     Three refusals are about who asks. The administrator's own address is refused (`own_adresse`): their account page
     serves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,
@@ -300,7 +300,7 @@ async def post_erasure(
             schiedsrichter_collection=schiedsrichter_collection,
             spieler_collection=spieler_collection,
             registrierungen_collection=registrierungen_collection,
-            key=config.sperrliste_schluessel,
+            key=config.sperrliste_key,
             session=session,
         )
         # Ending a grant holder's change is a discard, which only an owner makes.
@@ -329,14 +329,14 @@ async def post_erasure(
             aktionen_collection=aktionen_collection,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
             adresswechsel_collection=adresswechsel_collection,
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
             sperrliste=sperrliste,
             changed_by=operator,
-            key=config.sperrliste_schluessel,
+            key=config.sperrliste_key,
             stamp=log_stamp(germany_now),
             now=germany_now,
             session=session,
@@ -344,9 +344,7 @@ async def post_erasure(
 
         return FLErasureResponse(**geloescht.model_dump())
 
-    journal = LoeschungJournal[FLErasureResponse](
-        identifier, key=config.sperrliste_schluessel, berechtigungen_collection=berechtigungen_collection
-    )
+    journal = LoeschungJournal[FLErasureResponse](identifier, key=config.sperrliste_key, berechtigungen_collection=berechtigungen_collection)
     async with journal:
         # Around the whole transaction, every retry inside it, and reset in a `finally`: a value left
         # standing would land on whatever this context records next.
@@ -370,9 +368,9 @@ async def post_erasure(
 )
 async def post_sign_out(
     abmeldung_data: Annotated[FLErasureAdressePayload, Body()],
-    aktionen_collection: AktionenCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    aktionen_collection: ActionLogCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
     db: DBClient,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),

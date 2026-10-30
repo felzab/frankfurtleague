@@ -762,12 +762,12 @@ done
 spent_request link-json -A "$LINK_MARKER" -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/bestaetigung/spiel?token=${TOK}"
 spent_request link-head -A "$LINK_MARKER" --head "${BASE}/bestaetigung/spiel?token=${TOK}"
 
-# The account page's pair, on JSON posts the action pair's key leaves out, so only `konto` can refuse.
+# The account page's pair, on JSON posts the action pair's key leaves out, so only `account` can refuse.
 # Its burst read off the file, flooded past with five more for the refill the run takes.
-KONTO_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=konto burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
-[[ -n "$KONTO_BURST" ]] || refuse "nginx/shared/site.conf declares no konto burst this test can read."
-for _ in $(seq 1 $(( KONTO_BURST + 5 ))); do
-  action_request konto-flood -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/bereich/konto"
+ACCOUNT_BURST="$(sed -n 's/^[[:space:]]*limit_req zone=account burst=\([0-9]*\) nodelay;$/\1/p' "${REPO_ROOT}/nginx/shared/site.conf" | head -n 1)"
+[[ -n "$ACCOUNT_BURST" ]] || refuse "nginx/shared/site.conf declares no account burst this test can read."
+for _ in $(seq 1 $(( ACCOUNT_BURST + 5 ))); do
+  action_request account-flood -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/bereich/konto"
 done
 
 mapfile -t -O "$ACTION_SENT" ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
@@ -940,7 +940,7 @@ expect_action link-json some:429
 grade_spent link-json
 expect_action link-head some:429
 grade_spent link-head head
-expect_action konto-flood some:429
+expect_action account-flood some:429
 
 # A refusal's error line repeats the request line, live token included, so `limit_req_log_level` keeps
 # it below the log's own level. Read once every kept refusal's access line is written, which comes

@@ -36,19 +36,19 @@ from app.api.adresswechsel.system_router import sweep_address_change
 from app.api.konto.person_router import delete_address_change as stop_on_the_account_page
 from app.api.konto.person_router import get_address_change, post_address_change, post_address_change_release
 from app.api.konto.schemas import FLAccountAddressChangePayload, FLAccountAddressChangeReleasePayload
-from app.api.postausgang.system_router import post_handout
+from app.api.outbox.system_router import post_handout
 from app.core.collections import Collection
 from app.core.exceptions import APIError
 from app.core.security import PASSKEY_FACTOR, SessionActor
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.schemas.bestaetigung import FLTokenPayload
-from app.shared.schemas.bounds import ADRESSWECHSEL_WARTEZEIT_TAGE
+from app.shared.schemas.bounds import ADDRESS_CHANGE_WAITING_PERIOD_DAYS
+from app.shared.schemas.confirmation import FLTokenPayload
 from tests import documents
-from tests.actor_tokens import verified_actor
 from tests.bans import ban_list
 from tests.config import ADMINISTRATORS, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.records import record_collections
+from tests.session_headers import verified_actor
 
 SAISON_ID = "2026"
 # A century ahead of the real clock: the TTL monitor deletes an expired tombstone or day's count at its next pass,
@@ -58,7 +58,7 @@ NOW = datetime(2126, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # Past a step's 24 hours, past a grant's week of approval, and past a confirmed change's waiting time.
 AFTER_THE_DEADLINE = NOW + timedelta(hours=25)
 AFTER_THE_WEEK = NOW + timedelta(days=7, hours=1)
-AFTER_THE_WAIT = NOW + timedelta(days=ADRESSWECHSEL_WARTEZEIT_TAGE, hours=2)
+AFTER_THE_WAIT = NOW + timedelta(days=ADDRESS_CHANGE_WAITING_PERIOD_DAYS, hours=2)
 
 # One person holding a pupil row, a confirmed referee row, seats and registrations, each stored folded; and a spelling they may type.
 EMAIL = "lenore.quastenbach@schule.example"
@@ -107,7 +107,7 @@ def registration(registrierung_id: ObjectId, team_id: ObjectId, *, confirmed: bo
         token=token,
         submitted_at="2126-03-30",
         frist="2126-04-06",
-        confirmed=documents.registrierung_bestaetigt(
+        confirmed=documents.registrierung_confirmed(
             "bestaetigung_spieler",
             geburtsdatum="2009-05-04",
             today="2126-03-31",
@@ -121,7 +121,7 @@ def registration(registrierung_id: ObjectId, team_id: ObjectId, *, confirmed: bo
 
 
 async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
-    await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+    await database[Collection.GRANTS].insert_many(grants_for_the_suite())
     await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
     await database[Collection.TEAMS].insert_many(
         [documents.team_document(TEAM_OID, "Zorbanax", "ZOX"), documents.team_document(SECOND_TEAM_OID, "Quellbrunn", "QBX")]
@@ -140,7 +140,7 @@ async def _seed(database: AsyncDatabase, *, pupil: bool, records: bool) -> None:
                 email=EMAIL,
                 name="Lenore Quastenbach",
                 default_payment=20,
-                einwilligung=documents.eigene_einwilligung_document(text_version=REFEREE_LABEL, confirmed_at="2126-03-02"),
+                einwilligung=documents.own_einwilligung_document(text_version=REFEREE_LABEL, confirmed_at="2126-03-02"),
                 confirmation={
                     "token_hash": "c" * 64,
                     "sent_at": "2126-03-01",
@@ -242,9 +242,7 @@ async def granted(database: AsyncDatabase, adresse: str = EMAIL, *, verwaltung: 
     """A grant at `adresse`, written as the Playground writes one, before the clock's first sight of it."""
 
     grant_id = ObjectId()
-    await database[Collection.BERECHTIGUNGEN].insert_one(
-        {**grants_for_the_suite()[1], "_id": grant_id, "adresse": adresse, "verwaltung": verwaltung}
-    )
+    await database[Collection.GRANTS].insert_one({**grants_for_the_suite()[1], "_id": grant_id, "adresse": adresse, "verwaltung": verwaltung})
 
     return grant_id
 
@@ -319,7 +317,7 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
     mails = []
     while (
         claim := await post_handout(
-            postausgang_collection=database[Collection.POSTAUSGANG], sperrliste=ban_list(database), db=database, db_client=client, now=now
+            outbox_collection=database[Collection.OUTBOX], sperrliste=ban_list(database), db=database, db_client=client, now=now
         )
     ).mails:
         mails += claim.mails
@@ -327,9 +325,9 @@ async def handed_out(database: AsyncDatabase, client: AsyncMongoClient, answer: 
     held = [mail.id for mail in mails if mail.data.art in _LINKS]
     others = [mail.id for mail in mails if mail.data.art not in _LINKS]
     if held:
-        await database[Collection.POSTAUSGANG].update_many({"_id": {"$in": held}}, {"$set": {"stand": "sent"}})
+        await database[Collection.OUTBOX].update_many({"_id": {"$in": held}}, {"$set": {"stand": "sent"}})
     if others:
-        await database[Collection.POSTAUSGANG].update_many(
+        await database[Collection.OUTBOX].update_many(
             {"_id": {"$in": others}}, {"$set": {"lease": None, "leased_until": None}, "$inc": {"attempts": -1}}
         )
 
@@ -428,18 +426,18 @@ async def row(database: AsyncDatabase, collection: Collection, row_id: ObjectId)
 
 
 async def change(database: AsyncDatabase, address_change_id: ObjectId) -> Mapping[str, Any]:
-    return await row(database, Collection.ADRESSWECHSEL, address_change_id)
+    return await row(database, Collection.ADDRESS_CHANGES, address_change_id)
 
 
 async def owed(database: AsyncDatabase) -> list[dict[str, Any]]:
     """The notices the ends owe, in the order the drain hands them out: their kind, their recipient and whom they greet."""
 
-    rows = database[Collection.POSTAUSGANG].find(
+    rows = database[Collection.OUTBOX].find(
         {"art": {"$in": ["address_change_effective", "address_change_discarded"]}, "stand": "open"}, sort=[("recorded_at", 1), ("_id", 1)]
     )
     return [
         {
-            "art": row["art"].removeprefix("adresswechsel_"),
+            "art": row["art"].removeprefix("address_change_"),
             "an": row["an"],
             **({"vorname": row["data"]["vorname"]} if "vorname" in row["data"] else {}),
         }
@@ -452,7 +450,7 @@ async def carries(database: AsyncDatabase) -> list[tuple[str, str]]:
 
     return [
         (row["move"]["von"], row["move"]["nach"])
-        async for row in database[Collection.ADRESSWECHSEL].find({"move": {"$type": "object"}}, sort=[("_id", 1)])
+        async for row in database[Collection.ADDRESS_CHANGES].find({"move": {"$type": "object"}}, sort=[("_id", 1)])
     ]
 
 

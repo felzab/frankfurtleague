@@ -21,7 +21,7 @@ def ban_list(database: AsyncDatabase | Mapping[Collection, Any], *, saisons: Any
     return BanList(
         database[Collection.SPERRLISTE],
         database[Collection.SAISONS] if saisons is None else saisons,
-        _CONFIG.sperrliste_schluessel,
+        _CONFIG.sperrliste_key,
     )
 
 
@@ -34,7 +34,7 @@ async def ban_through_the_route(
     von: str,
     today: str,
     saisons: Any = None,
-    berechtigungen: Any = None,
+    grants: Any = None,
     notify: bool = False,
 ) -> FLPostSperrlisteResponse:
     """A ban as an administrator enters it: its own transaction and the anchors it writes, where `ban_document` seeds the row alone."""
@@ -44,8 +44,8 @@ async def ban_through_the_route(
         sperrliste_collection=database[Collection.SPERRLISTE],
         sperrliste=ban_list(database, saisons=saisons),
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN] if berechtigungen is None else berechtigungen,
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        berechtigungen_collection=database[Collection.GRANTS] if grants is None else grants,
+        outbox_collection=database[Collection.OUTBOX],
         db=client,
         config=_CONFIG,
         created_by=von,

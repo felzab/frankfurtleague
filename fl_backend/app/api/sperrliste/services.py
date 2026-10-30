@@ -16,11 +16,11 @@ from pydantic import SecretStr
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import canonical_address, sign_in_identifier
-from app.shared.schemas.bounds import SAISON_ID_LENGTH, SPERRE_DAUER_SAISONS
+from app.shared.schemas.bounds import SAISON_ID_LENGTH, SPERRE_DURATION_SAISONS
 from app.shared.sub_keys import derive_sub_key
 
 # One label per purpose: the same master keys the action log's pseudonyms
-# (`app/core/security.py :: AKTEUR_PSEUDONYM_VERSION`), and a mistake in one must not read the other.
+# (`app/core/security.py :: ACTOR_PSEUDONYM_VERSION`), and a mistake in one must not read the other.
 # Not a rotation scheme.
 SPERRLISTE_SCHLUESSEL_VERSION: Final = "sperrliste-v1"
 
@@ -47,7 +47,7 @@ def withheld_actor(actor: str | None, barred: Collection[str]) -> str | None:
 
 
 def compose_gesperrt_bis_saison_id(*, massgebliche_saison_id: str) -> str:
-    """The last season a ban entered now still covers, `SPERRE_DAUER_SAISONS` past the reference season.
+    """The last season a ban entered now still covers, `SPERRE_DURATION_SAISONS` past the reference season.
 
     Raises rather than composing a bound nothing can compare: `address_is_gesperrt` orders two of
     these as STRINGS, which holds only at one width.
@@ -59,12 +59,12 @@ def compose_gesperrt_bis_saison_id(*, massgebliche_saison_id: str) -> str:
     if not (massgebliche_saison_id.isascii() and massgebliche_saison_id.isdigit() and len(massgebliche_saison_id) == SAISON_ID_LENGTH):
         raise ValueError(f"a ban is bounded against a season id of {SAISON_ID_LENGTH} ASCII digits, and this league's is not one")
 
-    bound = f"{int(massgebliche_saison_id) + SPERRE_DAUER_SAISONS:0{SAISON_ID_LENGTH}d}"
+    bound = f"{int(massgebliche_saison_id) + SPERRE_DURATION_SAISONS:0{SAISON_ID_LENGTH}d}"
 
     # The ANSWER's width, where the clause above guards the input's: the format widens rather than
     # truncating, and a wider bound sorts nowhere near the ids it is compared with.
     if len(bound) != SAISON_ID_LENGTH:
-        raise ValueError(f"a bound {SPERRE_DAUER_SAISONS} seasons past {massgebliche_saison_id} needs over {SAISON_ID_LENGTH} digits")
+        raise ValueError(f"a bound {SPERRE_DURATION_SAISONS} seasons past {massgebliche_saison_id} needs over {SAISON_ID_LENGTH} digits")
 
     return bound
 

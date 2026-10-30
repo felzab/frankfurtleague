@@ -7,10 +7,10 @@ from app.api.bewerbungen.services import compose_einwilligung
 from app.api.registrierungen.services import compose_person_update
 from app.shared.einwilligung_nachweis import (
     compose_beleg,
+    compose_choices,
     compose_erneuert,
     compose_geboren,
-    compose_wahlen,
-    ist_erteilt,
+    is_given,
     nachweis_stand_of,
 )
 
@@ -71,20 +71,20 @@ class TestWhichValueGrants:
         ],
     )
     def test_a_value_grants_only_where_it_is_a_consent(self, wahl: Any, wert: Any, erteilt: bool):
-        assert ist_erteilt(wahl, wert) is erteilt
+        assert is_given(wahl, wert) is erteilt
 
 
 class TestTheEvidenceOfOneChoice:
     def test_a_grant_keeps_when_and_under_which_label_and_nothing_else(self):
         """No speaker: only the person's own write stamps evidence, so a field naming one would say nothing."""
 
-        assert compose_beleg(gespeichert=MEDIA_WITHDRAWN, wahl="medien", wert=True, am=LATER, text_version=ACCOUNT_LABEL) == {
+        assert compose_beleg(saved=MEDIA_WITHDRAWN, choice="medien", value=True, am=LATER, text_version=ACCOUNT_LABEL) == {
             "am": LATER,
             "text_version": ACCOUNT_LABEL,
         }
 
     def test_a_withdrawal_keeps_the_grant_it_ended(self):
-        assert compose_beleg(gespeichert=CONFIRMED, wahl="medien", wert=False, am=WITHDRAWN_AT, text_version=ACCOUNT_LABEL) == {
+        assert compose_beleg(saved=CONFIRMED, choice="medien", value=False, am=WITHDRAWN_AT, text_version=ACCOUNT_LABEL) == {
             "am": WITHDRAWN_AT,
             "text_version": ACCOUNT_LABEL,
             "given_before": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL},
@@ -93,7 +93,7 @@ class TestTheEvidenceOfOneChoice:
     def test_a_withdrawal_restated_keeps_the_grant_the_first_one_ended(self):
         """Not the first withdrawal itself: what a withdrawal proves is the grant it ended."""
 
-        assert compose_beleg(gespeichert=MEDIA_WITHDRAWN, wahl="medien", wert=False, am=LATER, text_version=ACCOUNT_LABEL) == {
+        assert compose_beleg(saved=MEDIA_WITHDRAWN, choice="medien", value=False, am=LATER, text_version=ACCOUNT_LABEL) == {
             "am": LATER,
             "text_version": ACCOUNT_LABEL,
             "given_before": {"am": GIVEN_AT, "text_version": CONFIRMED_LABEL},
@@ -102,14 +102,14 @@ class TestTheEvidenceOfOneChoice:
     def test_a_grant_after_a_withdrawal_drops_the_earlier_grant(self):
         """Bounded at one act per choice: the grant standing is its own evidence."""
 
-        beleg = compose_beleg(gespeichert=MEDIA_WITHDRAWN, wahl="medien", wert=True, am=LATER, text_version=ACCOUNT_LABEL)
+        beleg = compose_beleg(saved=MEDIA_WITHDRAWN, choice="medien", value=True, am=LATER, text_version=ACCOUNT_LABEL)
 
         assert "given_before" not in beleg
 
     def test_a_seat_answered_without_whatsapp_keeps_no_earlier_grant(self):
         """`kontaktdaten` withholds, so a seat's first answer declining WhatsApp is a withdrawal of nothing."""
 
-        assert compose_beleg(gespeichert=SEATED, wahl="umfang", wert="kontaktdaten", am=LATER, text_version="v6") == {
+        assert compose_beleg(saved=SEATED, choice="umfang", value="kontaktdaten", am=LATER, text_version="v6") == {
             "am": LATER,
             "text_version": "v6",
         }
@@ -119,8 +119,8 @@ class TestTheTwoShapesOfAWrite:
     def test_a_press_sets_the_moved_choice_and_its_evidence_dotted(self):
         """Dotted, so `confirmed_at`, the confirmed label and the other choice's evidence stay as stored."""
 
-        assert compose_wahlen(
-            pfad="einwilligung", gespeichert=CONFIRMED, gesetzt={"medien": False}, am=WITHDRAWN_AT, text_version=ACCOUNT_LABEL
+        assert compose_choices(
+            path="einwilligung", saved=CONFIRMED, gesetzt={"medien": False}, am=WITHDRAWN_AT, text_version=ACCOUNT_LABEL
         ) == {
             "einwilligung.medien": False,
             "einwilligung.nachweis.medien": {
@@ -162,7 +162,7 @@ REGISTERED: Final[Mapping[str, Any]] = {
 
 
 def renew(gespeichert: Mapping[str, Any], erneuert: Mapping[str, Any]) -> dict[str, Any]:
-    return compose_erneuert(pfad="einwilligung", gespeichert=gespeichert, erneuert=erneuert)
+    return compose_erneuert(path="einwilligung", saved=gespeichert, erneuert=erneuert)
 
 
 class TestARenewalFromTheSamePersonsLaterAnswers:

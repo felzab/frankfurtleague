@@ -27,8 +27,8 @@ from tests.api import test_registrierung_sweep_refusal as budget
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
-from tests.documents import eigene_einwilligung_document, rules_document, saison_document, team_document
-from tests.postausgang import MAIL_NOW
+from tests.documents import own_einwilligung_document, rules_document, saison_document, team_document
+from tests.outbox import MAIL_NOW
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
 
@@ -58,7 +58,7 @@ TEAM_NAME = "Adler"
 
 
 def einwilligung(*, confirmed_at: str = MAILED_ON_THE_MARK) -> dict[str, Any]:
-    stored = eigene_einwilligung_document(text_version="2026-10-spielerseite-5", confirmed_at=MAILED_ON_THE_MARK)
+    stored = own_einwilligung_document(text_version="2026-10-spielerseite-5", confirmed_at=MAILED_ON_THE_MARK)
 
     return {**stored, "confirmed_at": confirmed_at}
 
@@ -153,8 +153,8 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
-        aktionen_collection=database[Collection.AKTIONEN],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        aktionen_collection=database[Collection.ACTION_LOG],
+        outbox_collection=database[Collection.OUTBOX],
         db=client,
         today=today,
         germany_now=MAIL_NOW,
@@ -164,7 +164,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
 async def reminded(database: AsyncDatabase) -> list[Mapping[str, Any]]:
     """Every reminder owed, oldest first."""
 
-    return await database[Collection.POSTAUSGANG].find({"art": "registrierung_reminder"}).sort("_id", 1).to_list(length=None)
+    return await database[Collection.OUTBOX].find({"art": "registrierung_reminder"}).sort("_id", 1).to_list(length=None)
 
 
 async def reminded_ids(database: AsyncDatabase) -> list[ObjectId]:
@@ -182,7 +182,9 @@ async def standing(database: AsyncDatabase) -> list[ObjectId]:
 
 
 async def log_rows_naming(database: AsyncDatabase, row_id: ObjectId) -> list[Mapping[str, Any]]:
-    return await database[Collection.AKTIONEN].find({"collection": str(Collection.REGISTRIERUNGEN), "document_id": row_id}).to_list(length=None)
+    return (
+        await database[Collection.ACTION_LOG].find({"collection": str(Collection.REGISTRIERUNGEN), "document_id": row_id}).to_list(length=None)
+    )
 
 
 class TestTheReminderClock:
@@ -344,8 +346,8 @@ def refusing_its_redaction(row: Mapping[str, Any]) -> dict[str, Any]:
 async def refuse_the_redaction_of(database: AsyncDatabase, registrierung_id: ObjectId) -> None:
     row = await stored(database, registrierung_id)
     assert row is not None
-    await database[Collection.AKTIONEN].insert_one(refusing_its_redaction(row))
-    await refuse_writes_breaking(database, Collection.AKTIONEN, {"required": ["trace_id"]})
+    await database[Collection.ACTION_LOG].insert_one(refusing_its_redaction(row))
+    await refuse_writes_breaking(database, Collection.ACTION_LOG, {"required": ["trace_id"]})
 
 
 # What the planted log image's refusal reads as on a passed-over line: the driver's type and the server's code.
@@ -578,7 +580,7 @@ class TestTheReminderClockTakesAShareEachCall:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
             async def counted(due: int) -> int:
                 await database[Collection.REGISTRIERUNGEN].delete_many({})
-                await database[Collection.POSTAUSGANG].delete_many({})
+                await database[Collection.OUTBOX].delete_many({})
                 await database[Collection.REGISTRIERUNGEN].insert_many(overflowing()[:due])
 
                 return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
@@ -603,7 +605,7 @@ class TestTheReminderClockTakesAShareEachCall:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
             async def counted(rows: list[dict[str, Any]]) -> int:
                 await database[Collection.REGISTRIERUNGEN].delete_many({})
-                await database[Collection.POSTAUSGANG].delete_many({})
+                await database[Collection.OUTBOX].delete_many({})
                 await database[Collection.REGISTRIERUNGEN].insert_many(rows)
 
                 return await commands_sent(mongo_replica_set_url, DATABASE_NAME, sweep)
@@ -660,7 +662,7 @@ def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tuple[in
 
         status = asyncio.run(_called())
 
-        return status, list(database[Collection.AKTIONEN].find({"operation": "erase_many"}))
+        return status, list(database[Collection.ACTION_LOG].find({"operation": "erase_many"}))
     finally:
         client.close()
 

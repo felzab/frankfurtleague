@@ -40,15 +40,15 @@ from app.api.sperrliste.lookup import SperrlisteLookup, sperrliste_saison
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
 from app.core.dependencies import (
-    AdresswechselCollection,
-    AktionenCollection,
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenAntraegeCollection,
-    BerechtigungenCollection,
+    ActionLogCollection,
+    AddressChangeCollection,
     BewerbungenCollection,
     DBClient,
-    EinladungenCollection,
-    PostausgangCollection,
+    GrantsAnnouncedCollection,
+    GrantsApprovalRequestsCollection,
+    GrantsCollection,
+    InvitationsCollection,
+    OutboxCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
@@ -61,7 +61,7 @@ from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
-from app.shared.schemas.bestaetigung import FLTokenPayload
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 
 # The token is the whole credential, so these endpoints are base-tier and bind the public actor.
@@ -94,12 +94,12 @@ _NICHT_BESTAETIGBAR = frozenset({"ersetzte_gesperrt", "vergeben", "nicht_gedeckt
 )
 async def get_address_change_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],
-    adresswechsel_collection: AdresswechselCollection,
+    adresswechsel_collection: AddressChangeCollection,
     records: SubjektLookup,
     spieler_collection: SpielerCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAddressChangeViewResponse:
@@ -189,12 +189,12 @@ async def get_address_change_view(
     "",
     response_model=FLAddressChangeAntwortResponse,
     summary="Confirm or decline a pending address",
-    # `uniq_spieler_email` and `uniq_berechtigung_adresse` are published by the duplicate-key trace and stay unreached: the
+    # `uniq_spieler_email` and `uniq_grant_adresse` are published by the duplicate-key trace and stay unreached: the
     # in-session reads of another pupil and of the new address's grant include every row either index holds.
 )
 async def post_address_change_antwort(
     antwort_data: Annotated[FLAddressChangeAntwortPayload, Body()],
-    adresswechsel_collection: AdresswechselCollection,
+    adresswechsel_collection: AddressChangeCollection,
     records: SubjektLookup,
     spieler_collection: SpielerCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
@@ -202,14 +202,14 @@ async def post_address_change_antwort(
     bewerbungen_collection: BewerbungenCollection,
     registrierungen_collection: RegistrierungenCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
-    einladungen_collection: EinladungenCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    outbox_collection: OutboxCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
+    einladungen_collection: InvitationsCollection,
     sperrliste_collection: SperrlisteCollection,
     sperrliste: SperrlisteLookup,
-    aktionen_collection: AktionenCollection,
+    aktionen_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
@@ -271,7 +271,7 @@ async def post_address_change_antwort(
                     neue=str(record["email"]),
                     record_id=record["_id"],
                     am=stamp,
-                    key=config.sperrliste_schluessel,
+                    key=config.sperrliste_key,
                 )
             )
             return FLAddressChangeAntwortResponse(antwort="declined", effective_from=None, approval_open=False, effective=False)
@@ -290,12 +290,12 @@ async def post_address_change_antwort(
             spielbestaetigungen_collection=spielbestaetigungen_collection,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
             aktionen_collection=aktionen_collection,
-            key=config.sperrliste_schluessel,
+            key=config.sperrliste_key,
             now=germany_now,
             journal=journal,
             session=session,
@@ -341,8 +341,8 @@ async def post_address_change_antwort(
 )
 async def post_address_change_stop(
     stopp_data: Annotated[FLTokenPayload, Body()],
-    adresswechsel_collection: AdresswechselCollection,
-    aktionen_collection: AktionenCollection,
+    adresswechsel_collection: AddressChangeCollection,
+    aktionen_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
@@ -380,7 +380,7 @@ async def post_address_change_stop(
                 neue=str(record["email"]),
                 record_id=record["_id"],
                 am=stamp,
-                key=config.sperrliste_schluessel,
+                key=config.sperrliste_key,
             )
         )
 

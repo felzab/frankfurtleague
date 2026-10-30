@@ -17,7 +17,7 @@ from app.core.config import API_VERSION
 from app.openapi_document import build_document
 from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
-from tests.documents import bestaetigte_kenntnisnahme
+from tests.documents import confirmed_kenntnisnahme
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -86,7 +86,7 @@ def kontaktperson(nachname: str) -> dict[str, Any]:
         "email": KONTAKT_EMAIL,
         "telefon": KONTAKT_TELEFON,
         "geburtsdatum": KONTAKT_GEBURTSDATUM,
-        "einwilligung": bestaetigte_kenntnisnahme(),
+        "einwilligung": confirmed_kenntnisnahme(),
     }
 
 

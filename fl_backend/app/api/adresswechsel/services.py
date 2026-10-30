@@ -7,7 +7,7 @@ records it moves is read from the address when it takes effect (`app/api/adressw
 Invariants:
 - Every instant is stored as a BSON date and compared as one; a filter on one always carries `$type: "date"`, so a null
   never compares.
-- Every read of a live change carries `LIVE_TERMS`, the filter `uniq_adresswechsel_adresse` indexes.
+- Every read of a live change carries `LIVE_TERMS`, the filter `uniq_address_change_adresse` indexes.
 """
 
 import unicodedata
@@ -20,7 +20,7 @@ from app.core.clock import GERMANY as _GERMANY
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.bounds import ADRESSWECHSEL_GUELTIG_STUNDEN, ADRESSWECHSEL_WARTEZEIT_TAGE, GENEHMIGUNG_TAGE
+from app.shared.schemas.bounds import ADDRESS_CHANGE_VALID_HOURS, ADDRESS_CHANGE_WAITING_PERIOD_DAYS, APPROVAL_DAYS
 from app.shared.schemas.literals import FLAddressChangeEndArt, FLAddressChangeWaitsOn, FLAddressChangeWay, FLApprovalDenied
 
 ADRESSWECHSEL_WEGE: Final[tuple[str, ...]] = get_args(FLAddressChangeWay.__value__)
@@ -37,7 +37,7 @@ ADRESSWECHSEL_ENDE_ARTEN: Final[tuple[str, ...]] = get_args(FLAddressChangeEndAr
 # The tier of the grant a change moves ranked, and so who may approve it: `owner` another owner alone.
 _RANG: Final[Mapping[str, int]] = {"administration": 0, "owner": 1}
 
-# The one filter every read of a live change carries: `uniq_adresswechsel_adresse` indexes these rows alone.
+# The one filter every read of a live change carries: `uniq_address_change_adresse` indexes these rows alone.
 LIVE_TERMS: Final[Mapping[str, Any]] = {"ended": {"$type": "null"}}
 
 # A `$lookup` joining on the address carries these beside its key, for `build_address_filter`'s reason.
@@ -56,11 +56,11 @@ def als_utc(moment: Any) -> datetime | None:
 def gueltig_bis_ab(now: datetime) -> datetime:
     """When a step asked at `now` lapses: a link to the new mailbox, or the approval asked of the address on file."""
 
-    return now.astimezone(UTC) + timedelta(hours=ADRESSWECHSEL_GUELTIG_STUNDEN)
+    return now.astimezone(UTC) + timedelta(hours=ADDRESS_CHANGE_VALID_HOURS)
 
 
 def wirksam_ab_von(confirmed_at: datetime) -> datetime:
-    return confirmed_at.astimezone(UTC) + timedelta(days=ADRESSWECHSEL_WARTEZEIT_TAGE)
+    return confirmed_at.astimezone(UTC) + timedelta(days=ADDRESS_CHANGE_WAITING_PERIOD_DAYS)
 
 
 def _german_day(now: datetime) -> str:
@@ -75,7 +75,7 @@ def compose_genehmigung(*, verwaltung: str, started_by: str, now: datetime) -> d
         "verwaltung": verwaltung,
         # Its approver held their grant since then (`app/api/berechtigungen/services.py :: haelt_seit`).
         "asked_at": now.astimezone(UTC),
-        "bis": now.astimezone(UTC) + timedelta(days=GENEHMIGUNG_TAGE),
+        "bis": now.astimezone(UTC) + timedelta(days=APPROVAL_DAYS),
         # Folded, as `granted_by` stores an administrator: the one compared with the approver.
         "started_by": started_by,
         "approved_at": None,
@@ -94,7 +94,7 @@ def compose_record(
 ) -> dict[str, Any]:
     """The WHOLE record a start inserts, never reused, so a journal line's id names one change.
 
-    Both links' arrays empty: each mail's hand-out mints its link into them (`app/api/postausgang/system_router.py :: post_ausgabe`).
+    Both links' arrays empty: each mail's hand-out mints its link into them (`app/api/outbox/system_router.py :: post_handout`).
     """
 
     return {
@@ -183,7 +183,7 @@ def build_live_filter(address_change_id: Any, terms: Mapping[str, Any] | None = 
 
 
 def build_address_filter(adresse: str) -> dict[str, Any]:
-    """The live change of one folded address, which `uniq_adresswechsel_adresse` answers by equality.
+    """The live change of one folded address, which `uniq_address_change_adresse` answers by equality.
 
     The key's type stated beside its value: the planner reads an equality as no subset of the index's `$type` term.
     """
@@ -254,7 +254,7 @@ def build_due_terms(now: datetime) -> dict[str, Any]:
     }
 
 
-# Where a `$lookup` of the address's grant row lands, the unique index serving it (`uniq_berechtigung_adresse`).
+# Where a `$lookup` of the address's grant row lands, the unique index serving it (`uniq_grant_adresse`).
 GEHALTEN: Final = "_berechtigung"
 
 

@@ -46,7 +46,7 @@ from app.core.dependencies import (
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_step_up
 from app.core.transactions import transaction_session
-from app.shared.schemas.aktor import FLVonAdmin
+from app.shared.schemas.actor import FLVonAdmin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(

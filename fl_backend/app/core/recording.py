@@ -38,8 +38,8 @@ PUBLIC_ACTOR_EMAIL = "PUBLIC"
 
 # Stands where an erased person was a record's actor: fixed, never their keyed pseudonym, which
 # singles them out. No `@` and non-hex letters, so no address or pseudonym equals it; within
-# `AKTEUR_PSEUDONYM_SHOWN` characters, so a log row shows it whole.
-GELOESCHT_ACTOR_MARKER = "ERASED"
+# `ACTOR_PSEUDONYM_SHOWN` characters, so a log row shows it whole.
+ERASED_ACTOR_MARKER = "ERASED"
 
 
 @dataclass(frozen=True)
@@ -60,7 +60,7 @@ class Actor:
 # The kind of person a person's write was made as: a contact person, a pupil, a pending registrant
 # among them, or a referee, fixed by the route's binder. Not a panel's Funktion: an account-only person
 # holds none yet withdraws.
-AktorFunktion = Literal["kontakt", "spieler", "schiedsrichter"]
+ActorRole = Literal["kontakt", "spieler", "schiedsrichter"]
 
 
 @dataclass(frozen=True)
@@ -68,15 +68,15 @@ class PersonActor:
     """A signed-in person, recorded under a pseudonym and the kind they wrote as.
 
     Never an address, not even in a field of another name: the log outlives the person's erasure in
-    every row they wrote (`app/core/security.py :: akteur_pseudonym`).
+    every row they wrote (`app/core/security.py :: actor_pseudonym`).
     """
 
     pseudonym: str
-    funktion: AktorFunktion
+    role: ActorRole
     kind: Literal["person_session"] = "person_session"
 
     def as_document(self) -> dict[str, str]:
-        return {"kind": self.kind, "pseudonym": self.pseudonym, "funktion": self.funktion}
+        return {"kind": self.kind, "pseudonym": self.pseudonym, "funktion": self.role}
 
 
 SYSTEM_ACTOR = Actor(kind="system", email=SYSTEM_ACTOR_EMAIL)
@@ -126,11 +126,11 @@ async def record_write(
     inside a transaction the failure aborts it.
     """
 
-    if collection.name == Collection.AKTIONEN:
+    if collection.name == Collection.ACTION_LOG:
         # The log recording its own rows would recurse without end, and a redaction is itself a
         # write. What a redaction did is recoverable from the erasure row that caused it.
         return
-    if collection.name == Collection.POSTAUSGANG:
+    if collection.name == Collection.OUTBOX:
         # Bookkeeping of mail, and each row names an address: an image here would keep it in a log
         # every administrator reads for twelve months. The row is its own record of its mail.
         return
@@ -146,7 +146,7 @@ async def record_write(
 
     # The target's own database handle, not an injected one: that is what keeps this module off
     # `app/core/db.py`'s import path and out of a cycle.
-    await collection.database[Collection.AKTIONEN].insert_one(row, session=session)
+    await collection.database[Collection.ACTION_LOG].insert_one(row, session=session)
 
 
 # An act the log records, writing none of the logged collections: ending an address's sessions writes the
@@ -237,7 +237,7 @@ def build_redaction_filter(targets: Sequence[RedactionTarget]) -> Mapping[str, A
     """
 
     # Equality on `collection` and a match on `document_id` in each branch, the shape
-    # `aktionen_target` serves (`app/core/constraints.py :: SUPPORT_INDEXES`). An `$in` of no ids
+    # `action_log_target` serves (`app/core/constraints.py :: SUPPORT_INDEXES`). An `$in` of no ids
     # matches nothing rather than everything.
 
     # A `delete_many` row's `document_id` is an ARRAY, and `$in` matches it on its members, so the

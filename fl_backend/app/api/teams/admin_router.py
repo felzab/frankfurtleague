@@ -36,8 +36,8 @@ from app.api.einladungen.services import (
 from app.api.einwilligung.services import find_fassung_refusal
 from app.api.kontakte.crud import clear_seats, redact_seats_in_documents
 from app.api.kontakte.services import SEAT_FIELDS, build_accepted_application_pipeline, contact_block_image_edits, seated_people
-from app.api.postausgang.crud import lage_of, lagen_of
-from app.api.postausgang.services import OwedMail, enqueue_mails
+from app.api.outbox.crud import state_of, states_of
+from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.crud import has_started, pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
@@ -111,14 +111,14 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
-    AdresswechselCollection,
-    AktionenCollection,
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenCollection,
+    ActionLogCollection,
+    AddressChangeCollection,
     BewerbungenCollection,
     DBClient,
-    EinladungenCollection,
-    PostausgangCollection,
+    GrantsAnnouncedCollection,
+    GrantsCollection,
+    InvitationsCollection,
+    OutboxCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
@@ -192,10 +192,10 @@ async def _rewrite_the_outgoing_clubs_sides(
 @router.get("/saisons", response_model=FLTeamsSaisonsResponse, summary="Every team with its season memberships")
 async def get_team_saisons(
     teams_collection: TeamsCollection,
-    adresswechsel_collection: AdresswechselCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
+    adresswechsel_collection: AddressChangeCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    outbox_collection: OutboxCollection,
     today: str = Depends(get_german_date_str),
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
@@ -231,7 +231,7 @@ async def get_team_saisons(
         session=None,
     )
 
-    lagen = await lagen_of(postausgang_collection=postausgang_collection, collection=Collection.SAISON_TEAMS, ids=membership_row_ids(teams_raw))
+    lagen = await states_of(outbox_collection=outbox_collection, collection=Collection.SAISON_TEAMS, ids=membership_row_ids(teams_raw))
 
     return FLTeamsSaisonsResponse(
         teams=FLTeamWithMembershipsListAdapter.validate_python(
@@ -629,7 +629,7 @@ async def patch_saison_team_kontakte(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     actor: Annotated[SessionActor, Depends(verify_admin_actor)],
@@ -766,7 +766,7 @@ async def patch_saison_team_kontakte(
             voids=[seat_void_of(saison_id=saison_id, team_id=team_id, stored_kontakte=stored.get("kontakte"), kontakte=kontakte)],
             session=session,
         )
-        await enqueue_mails(postausgang_collection=postausgang_collection, session=session, mails=[mail for mail, _ in links], now=germany_now)
+        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=[mail for mail, _ in links], now=germany_now)
 
         return FLPatchSaisonTeamKontakteResponse(
             saison_id=saison_id,
@@ -798,7 +798,7 @@ async def replace_saison_team(
     spiele_collection: SpieleCollection,
     saison_spieler_collection: SaisonSpielerCollection,
     bewerbungen_collection: BewerbungenCollection,
-    aktionen_collection: AktionenCollection,
+    aktionen_collection: ActionLogCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -973,7 +973,7 @@ async def invite_kontakt(
     seat: str,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -1051,7 +1051,7 @@ async def invite_kontakt(
             zeile=kontakt_zeile_of(saison_status=saison_raw.get("status"), austritt=stored.get("austritt")),
             key=f"{Collection.SAISON_TEAMS}/{stored['_id']}/resend/{seats[0]}/{nonce}",
         )
-        await enqueue_mails(postausgang_collection=postausgang_collection, session=session, mails=[mail], now=germany_now)
+        await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=[mail], now=germany_now)
 
         return FLKontaktInviteResponse(saison_id=saison_id, team_id=team_id, confirmation=mint)
 
@@ -1068,7 +1068,7 @@ async def invite_kontakt(
 async def post_invitation(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    einladungen_collection: EinladungenCollection,
+    einladungen_collection: InvitationsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
@@ -1081,7 +1081,7 @@ async def post_invitation(
 
     **The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of
     this response is lost and the repair is another mint. Mailing the team's link is a separate press
-    (`POST /teams/{team_id}/saisons/{saison_id}/einladung/versand`), whose mails mint links of their own beside this one.
+    (`POST /teams/{team_id}/saisons/{saison_id}/invitation/dispatch`), whose mails mint links of their own beside this one.
 
     The reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left
     holding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh
@@ -1137,7 +1137,7 @@ async def post_invitation(
 
         return post_operation.inserted_id
 
-    # One transaction over the revoke and the mint: `uniq_einladung_live` refuses the second live row
+    # One transaction over the revoke and the mint: `uniq_invitation_live` refuses the second live row
     # outright, so the two landing apart would leave the mint failing against the team's own old link.
     async with transaction_session(db) as session:
         einladung_id = await session.with_transaction(mint_the_link)
@@ -1161,7 +1161,7 @@ async def post_invitation(
 async def delete_invitation(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    einladungen_collection: EinladungenCollection,
+    einladungen_collection: InvitationsCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLInvitationWriteResponse:
@@ -1199,9 +1199,9 @@ async def post_invitation_dispatch(
     team_id: CustomRouteObjectId,
     saison_id: str,
     mail_data: Annotated[FLInvitationMailPayload, Body()],
-    einladungen_collection: EinladungenCollection,
+    einladungen_collection: InvitationsCollection,
     saison_teams_collection: SaisonTeamsCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -1234,7 +1234,7 @@ async def post_invitation_dispatch(
         )
         empfaenger = bestaetigte_empfaenger(kontakte=row.get("kontakte"))
         await enqueue_mails(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=owed_einladung_mails(
                 invitation_id=mail_data.invitation_id,
@@ -1260,9 +1260,9 @@ async def post_invitation_dispatch(
 async def get_invitation(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    einladungen_collection: EinladungenCollection,
+    einladungen_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLInvitationResponse:
@@ -1294,7 +1294,7 @@ async def get_invitation(
         erstellt_von = FLEinladung.model_validate(live[0]).created_by
         barred = await adressen_gesperrt(sperrliste, [sign_in_identifier(erstellt_von)])
         withheld = withheld_actor(erstellt_von, barred)
-        lage = await lage_of(postausgang_collection=postausgang_collection, reference=einladung_bezug(live[0]["_id"]))
+        lage = await state_of(outbox_collection=outbox_collection, reference=einladung_bezug(live[0]["_id"]))
         einladung = FLInvitationRow.model_validate({**live[0], "created_by": withheld, "created_by_barred": withheld is None, "delivery": lage})
 
     return FLInvitationResponse(

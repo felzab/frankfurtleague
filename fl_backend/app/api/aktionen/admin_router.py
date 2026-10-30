@@ -18,7 +18,7 @@ from app.api.berechtigungen.guard import verify_actor_is_admin
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, build_query, pull_many_from_db, pull_one_from_db
-from app.core.dependencies import AktionenCollection
+from app.core.dependencies import ActionLogCollection
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -35,7 +35,7 @@ FLAktionenFilters = Annotated[FLAktionenFilterParams, Query()]
 # One `$group` over the three the bar narrows on: every dimension's counts off a single pass, and a
 # row per (area, operation, kind) the log holds.
 FACET_TALLY: Final[Sequence[Mapping[str, Any]]] = (
-    # Asked for in `aktionen_facets`'s key order, which is what makes the planner reach for it: the
+    # Asked for in `action_log_facets`'s key order, which is what makes the planner reach for it: the
     # `$group` alone scans the log, images and all.
     {"$sort": {"collection": ASCENDING, "operation": ASCENDING, "actor.kind": ASCENDING}},
     {
@@ -121,7 +121,7 @@ async def _as_served(rows: Sequence[Mapping[str, Any]], *, sperrliste: BanList) 
 
 @router.get("", response_model=FLActionLogListResponse, summary="List recorded admin actions")
 async def get_action_log(
-    aktionen_collection: AktionenCollection,
+    aktionen_collection: ActionLogCollection,
     sperrliste: SperrlisteLookup,
     filters: FLAktionenFilters,
 ) -> FLActionLogListResponse:
@@ -136,7 +136,7 @@ async def get_action_log(
 
     # Gathered, so the tally costs no round trip of its own.
     grouped, read = await asyncio.gather(
-        # Counted per option instead, this is a read per option, and `aktionen_target` indexes the
+        # Counted per option instead, this is a read per option, and `action_log_target` indexes the
         # area alone: every operation's own count would scan the log.
         aggregate_many_from_db(
             collection=aktionen_collection,
@@ -174,7 +174,7 @@ async def get_action_log(
 @router.get(by_id("action_log_entry_id"), response_model=FLActionLogEntrySingleResponse, summary="One recorded admin action")
 async def get_action_log_entry(
     action_log_entry_id: CustomRouteObjectId,
-    aktionen_collection: AktionenCollection,
+    aktionen_collection: ActionLogCollection,
     sperrliste: SperrlisteLookup,
 ) -> FLActionLogEntrySingleResponse:
     """One recorded write with the document it replaced, served as recorded; the actor is withheld as the list withholds it."""

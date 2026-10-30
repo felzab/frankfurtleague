@@ -20,8 +20,8 @@ from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document, spieler_document
+from tests.erasure import erased
 from tests.isolation import InterleavedCollection
-from tests.loeschung import geloescht
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -79,7 +79,7 @@ def on_a_clean_list(url: str, body: Body) -> Any:
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             # The ban re-judges its actor's grant inside its transaction.
-            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
+            await database[Collection.GRANTS].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(dict(SAISON_DOCUMENT))
 
             return await body(database, client)
@@ -118,7 +118,7 @@ class TestWhatABanStores:
         stored = on_a_clean_list(mongo_replica_set_url, body)
 
         assert set(stored) == {"_id", "adresse_hash", "key_version", "grund", "created_by", "created_at", "barred_until_saison_id"}
-        assert stored["adresse_hash"] == adresse_hash(BANNED, key=CONFIG.sperrliste_schluessel)
+        assert stored["adresse_hash"] == adresse_hash(BANNED, key=CONFIG.sperrliste_key)
         assert stored["grund"] == GRUND
         assert stored["created_by"] == ADMIN
         assert stored["created_at"] == TODAY
@@ -159,7 +159,7 @@ class TestWhatABanStores:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             await ban(database, client)
 
-            return repr([row async for row in database[Collection.AKTIONEN].find()])
+            return repr([row async for row in database[Collection.ACTION_LOG].find()])
 
         recorded = on_a_clean_list(mongo_replica_set_url, body)
 
@@ -255,7 +255,7 @@ class TestTheCheckASignUpWillAsk:
             return [
                 await address_is_gesperrt(
                     sperrliste_collection=database[Collection.SPERRLISTE],
-                    adresse_hash=adresse_hash(typed, key=CONFIG.sperrliste_schluessel),
+                    adresse_hash=adresse_hash(typed, key=CONFIG.sperrliste_key),
                     massgebliche_saison_id=ACTIVE_SAISON_ID,
                 )
                 for typed in (BANNED, BANNED_RETYPED, "Zorbanax@BEISPIELSCHULE.DE  ")
@@ -271,7 +271,7 @@ class TestTheCheckASignUpWillAsk:
 
             return await address_is_gesperrt(
                 sperrliste_collection=database[Collection.SPERRLISTE],
-                adresse_hash=adresse_hash(OTHER, key=CONFIG.sperrliste_schluessel),
+                adresse_hash=adresse_hash(OTHER, key=CONFIG.sperrliste_key),
                 massgebliche_saison_id=ACTIVE_SAISON_ID,
             )
 
@@ -290,7 +290,7 @@ class TestTheCheckASignUpWillAsk:
 
             return await address_is_gesperrt(
                 sperrliste_collection=database[Collection.SPERRLISTE],
-                adresse_hash=adresse_hash(BANNED, key=CONFIG.sperrliste_schluessel),
+                adresse_hash=adresse_hash(BANNED, key=CONFIG.sperrliste_key),
                 massgebliche_saison_id=ACTIVE_SAISON_ID,
             )
 
@@ -324,7 +324,7 @@ class TestWhatTheListServes:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client, email=OTHER)
             # Revoked as a paste revokes, then barred through the route by another administrator.
-            await database[Collection.BERECHTIGUNGEN].delete_one({"adresse": ADMIN})
+            await database[Collection.GRANTS].delete_one({"adresse": ADMIN})
             await ban(database, client, email=ADMIN, von=grants_for_the_suite()[0]["adresse"])
 
             served = await listed(database)
@@ -387,9 +387,9 @@ class TestWhatTheListServes:
 
             return sorted(rows[0])
 
-        # Sorted, so the order is the codepoint one rather than the projection's: `gesperrt_…`
-        # precedes `grund`.
-        assert on_a_clean_list(mongo_replica_set_url, body) == ["_id", "created_at", "created_by", "barred_until_saison_id", "grund"]
+        # Sorted, so the order is the codepoint one rather than the projection's: `barred_…`
+        # precedes `created_…`.
+        assert on_a_clean_list(mongo_replica_set_url, body) == ["_id", "barred_until_saison_id", "created_at", "created_by", "grund"]
 
     def test_the_newest_ban_is_served_first(self, mongo_replica_set_url: str):
         """Two rows on ONE day, which is the case `created_at` alone cannot order and an administrator meets first."""
@@ -436,7 +436,7 @@ class TestLiftingABan:
                 sperrliste_collection=database[Collection.SPERRLISTE],
                 db=client,
             )
-            recorded = await database[Collection.AKTIONEN].find_one({"operation": "delete_many", "collection": "sperrliste"})
+            recorded = await database[Collection.ACTION_LOG].find_one({"operation": "delete_many", "collection": "sperrliste"})
 
             assert recorded is not None
             return recorded
@@ -486,7 +486,7 @@ class TestAnLoeschungLeavesTheListStanding:
             await database[Collection.SPIELER].insert_one(
                 spieler_document(ObjectId(), "Zorbanax", "Mustermann", email=BANNED_RETYPED, geburtsdatum="2009-05-09")
             )
-            gone = await geloescht(database, client, BANNED, germany_now=NOW)
+            gone = await erased(database, client, BANNED, germany_now=NOW)
 
             return gone.spieler, before, await rows_of(database)
 
@@ -521,7 +521,7 @@ class TestTheKeyTheRowsWereTakenUnder:
 
             return await address_is_gesperrt(
                 sperrliste_collection=database[Collection.SPERRLISTE],
-                adresse_hash=adresse_hash(BANNED, key=CONFIG.sperrliste_schluessel),
+                adresse_hash=adresse_hash(BANNED, key=CONFIG.sperrliste_key),
                 massgebliche_saison_id=ACTIVE_SAISON_ID,
             )
 

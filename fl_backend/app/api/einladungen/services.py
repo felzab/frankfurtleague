@@ -11,7 +11,7 @@ from typing import Any, NamedTuple
 
 from app.api.bewerbungen.services import seat_named
 from app.api.einladungen.schemas import FLInvitationDispatchGrund, FLInvitationRecipient
-from app.api.postausgang.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxState
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
@@ -86,14 +86,14 @@ def registrierungsfenster_laeuft(*, registrierung: Any, today: str) -> bool:
     return bool(registrierung["offen"]) and str(registrierung["von"]) <= today <= str(registrierung["bis"])
 
 
-# The partial filter `uniq_einladung_live` is built on, spelled as it is: the equality with `None`
+# The partial filter `uniq_invitation_live` is built on, spelled as it is: the equality with `None`
 # does not imply it, so a read spelled that way scans every invite. The record model requires the key
 # (`app/api/einladungen/schemas.py :: FLEinladungRecord`), so the two select the same rows.
 LIVE_EINLADUNG: Mapping[str, Any] = {"widerrufen_am": {"$type": "null"}}
 
 
 def build_live_team_filter(*, saison_id: str, team_id: Any) -> Mapping[str, Any]:
-    """The live invite of one team and season, which `uniq_einladung_live` makes at most one row."""
+    """The live invite of one team and season, which `uniq_invitation_live` makes at most one row."""
 
     return {"saison_id": saison_id, "team_id": team_id, **LIVE_EINLADUNG}
 

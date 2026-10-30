@@ -22,7 +22,7 @@ from tests.documents import (
     bewerbung_document,
     kontakte_document,
     kontaktperson_document,
-    neue_schule_document,
+    new_schule_document,
     registrierung_document,
     saison_document,
     saison_team_document,
@@ -162,7 +162,7 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
             kontakte=kontakte_document(trainer=_seat(BEWERBUNG_OFFEN), ansprechperson=_seat(BEWERBUNG_UNBESTAETIGT, confirmed_at=None)),
             submitted_at="2026-01-01",
             confirmation_deadline="2026-01-15",
-            schule=neue_schule_document("Bewerberschule", "BWX"),
+            schule=new_schule_document("Bewerberschule", "BWX"),
         )
     )
     await database[Collection.SPIELER].insert_many(
@@ -185,16 +185,16 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
         [ban_document(GESPERRT_PFEIFE, bis=ACTIVE_SAISON), ban_document(GESPERRT, bis=ACTIVE_SAISON)]
     )
     granted = datetime(2026, 1, 1, tzinfo=UTC)
-    await database[Collection.BERECHTIGUNGEN].insert_one(
+    await database[Collection.GRANTS].insert_one(
         {"_id": GRANT_OID, "adresse": VERWALTUNG, "verwaltung": "administration", "granted_by": "PLAYGROUND", "granted_at": granted}
     )
     # The address changed in place in the database, which the comparison has not seen: the grant is in
     # effect for nobody until it does, and its account still stays.
-    await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].insert_one(
+    await database[Collection.GRANTS_ANNOUNCED].insert_one(
         {"_id": GRANT_OID, "adresse": "verena.vorher@schule.de", "verwaltung": "administration", "angekuendigt_am": granted}
     )
     if inhaberin is not None:
-        await database[Collection.BERECHTIGUNGEN].insert_one(
+        await database[Collection.GRANTS].insert_one(
             {"_id": ObjectId(), "adresse": inhaberin, "verwaltung": "owner", "granted_by": "PLAYGROUND", "granted_at": granted}
         )
 

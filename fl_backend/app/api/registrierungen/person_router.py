@@ -12,8 +12,8 @@ from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.services import ist_eigene_registrierung
 from app.api.konto.crud import press_widerruf
 from app.api.konto.services import KONTO_SEITE_SPIELER, compose_person_move, find_eigener_eintrag_refusal, widerruf_line
-from app.api.postausgang.schemas import FLPostausgangBezug, FLRegistrierungAbsageData
-from app.api.postausgang.services import OwedMail, enqueue_mails
+from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungAbsageData
+from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.crud import (
     nummern_rows,
     persons_at,
@@ -53,7 +53,7 @@ from app.api.spieltage.crud import nachnominierung_laeuft_in
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import (
-    loeschen_many_from_db,
+    erase_many_from_db,
     patch_one_in_db,
     post_one_to_db,
     pull_one_from_db,
@@ -61,9 +61,9 @@ from app.core.crud import (
     refuse,
 )
 from app.core.dependencies import (
-    AktionenCollection,
+    ActionLogCollection,
     DBClient,
-    PostausgangCollection,
+    OutboxCollection,
     RegistrierungenCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
@@ -76,9 +76,9 @@ from app.core.dependencies import (
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.routing import by_id
-from app.core.security import loeschung_journal_hash, verify_access_admin
+from app.core.security import erasure_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungChoice, nachweis_stand_of
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
@@ -192,7 +192,7 @@ async def admit(
     spieler_collection: SpielerCollection,
     records: SubjektLookup,
     spieltage_collection: SpieltageCollection,
-    aktionen_collection: AktionenCollection,
+    aktionen_collection: ActionLogCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -322,11 +322,11 @@ async def admit(
 
         # An ID filter alone: the log keeps a filter as text, so one naming the pupil would keep
         # what this erasure destroys.
-        await loeschen_many_from_db(
+        await erase_many_from_db(
             collection=registrierungen_collection, db_filter={"_id": registrierung_id, "saison_id": saison_id}, session=session
         )
         await redact_log_rows_in_db(
-            aktionen_collection=aktionen_collection,
+            action_log_collection=aktionen_collection,
             targets=[(Collection.REGISTRIERUNGEN, [registrierung_id])],
             at=log_stamp(germany_now),
             session=session,
@@ -361,7 +361,7 @@ async def decline(
     identifier: KontaktIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     records: SubjektLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
@@ -405,7 +405,7 @@ async def decline(
 
         if registrierung_ist_bestaetigt(einwilligung=registrierung_raw.get("einwilligung")):
             await enqueue_mails(
-                postausgang_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 session=session,
                 mails=[
                     OwedMail(
@@ -419,7 +419,7 @@ async def decline(
                             saison_id=saison_id,
                             grund=ablehnung_data.grund,
                         ),
-                        reference=FLPostausgangBezug(collection=Collection.REGISTRIERUNGEN, id=registrierung_id, seat=None),
+                        reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=registrierung_id, seat=None),
                     )
                 ],
                 now=germany_now,
@@ -460,7 +460,7 @@ async def patch_einwilligung(
     `wording_not_allowed` (the wording or the choices moved since the page was served) and `giving_not_allowed`.
     """
 
-    gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
+    gewaehlt: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
     # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
     am = log_stamp(germany_now)
     journal = Journal()
@@ -502,7 +502,7 @@ async def patch_einwilligung(
             )
         )
         line = widerruf_line(
-            person_hash=loeschung_journal_hash(identifier, key=config.sperrliste_schluessel),
+            person_hash=erasure_journal_hash(identifier, key=config.sperrliste_key),
             collection=Collection.REGISTRIERUNGEN,
             record_id=row["_id"],
             bloecke=[gespeichert],

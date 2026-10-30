@@ -28,7 +28,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.constraints import SUPPORT_INDEXES, UNIQUE_INDEXES
-from app.core.recording import GELOESCHT_ACTOR_MARKER
+from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.folding import canonical_address
 from app.shared.schemas.responses import BaseAPIResponse
 from tests.config import BASE_AUTH
@@ -164,9 +164,9 @@ class TestTheLinksLookups:
     def test_each_hash_a_stranger_drives_is_indexed_and_never_unique(self, key: str):
         """Indexed, as a stranger sends the lookup; never unique, as a kept record holds its hashes beside a live one's."""
 
-        keyed = [index for index in SUPPORT_INDEXES if index.collection == Collection.ADRESSWECHSEL and index.keys == ((key, ASCENDING),)]
+        keyed = [index for index in SUPPORT_INDEXES if index.collection == Collection.ADDRESS_CHANGES and index.keys == ((key, ASCENDING),)]
         assert len(keyed) == 1
-        assert not [index for index in UNIQUE_INDEXES if index.collection == Collection.ADRESSWECHSEL and key in index.keys]
+        assert not [index for index in UNIQUE_INDEXES if index.collection == Collection.ADDRESS_CHANGES and key in index.keys]
 
 
 # Each grant in effect since a day before the request, but `LATE`'s, granted after it, and `PROMOTED`'s owner tier, made after it.
@@ -275,9 +275,7 @@ class TestWhetherAnApprovalStillStands:
                 False,
                 id="an owner's change, its approver demoted since",
             ),
-            pytest.param(
-                a_change(started_by=CHANGED, approved_by=GELOESCHT_ACTOR_MARKER), GRANTS, set(), False, id="its approver erased since"
-            ),
+            pytest.param(a_change(started_by=CHANGED, approved_by=ERASED_ACTOR_MARKER), GRANTS, set(), False, id="its approver erased since"),
             # The effect of their own change carried `approved_by` to the row it granted afresh.
             pytest.param(a_change(started_by=CHANGED, approved_by=MOVED), GRANTS, set(), True, id="its approver's own address changed since"),
             pytest.param(

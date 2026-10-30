@@ -359,7 +359,7 @@ def referee_documents() -> list[dict[str, Any]]:
             "einwilligung": (
                 None
                 if schiedsrichter_id in (SCHIEDSRICHTER_UNBESTAETIGT, GHOST_SCHIEDSRICHTER_ID)
-                else documents.eigene_einwilligung_document(text_version="v1", confirmed_at="2026-01-20")
+                else documents.own_einwilligung_document(text_version="v1", confirmed_at="2026-01-20")
             ),
         }
         for schiedsrichter_id, (name, inactive_since) in REFEREES.items()
@@ -1036,7 +1036,7 @@ class TestAReleaseWritesWhatThePureModelPredicts:
                 saved=saved,
                 # The action log is where a second `$set` would still show, once merging stopped it
                 # from failing: one released fixture is one row.
-                writes_against_the_held_fixture=await database[Collection.AKTIONEN].count_documents({"document_id": GRUPPE_HELD}),
+                writes_against_the_held_fixture=await database[Collection.ACTION_LOG].count_documents({"document_id": GRUPPE_HELD}),
             )
 
         run = on_a_seeded_season(

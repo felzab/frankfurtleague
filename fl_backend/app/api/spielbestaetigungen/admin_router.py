@@ -7,8 +7,8 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.berechtigungen.guard import verify_actor_is_admin
-from app.api.postausgang.crud import lagen_of
-from app.api.postausgang.services import enqueue_mails
+from app.api.outbox.crud import states_of
+from app.api.outbox.services import enqueue_mails
 from app.api.spielbestaetigungen.crud import anchor_the_mailboxes_told, pull_admin_rows
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigung,
@@ -38,7 +38,7 @@ from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
-    PostausgangCollection,
+    OutboxCollection,
     SaisonTeamsCollection,
     SpielbestaetigungenCollection,
     SpieleCollection,
@@ -59,12 +59,10 @@ router = APIRouter(
 FLSpielbestaetigungenFilters = Annotated[FLSpielbestaetigungenFilterParams, Query()]
 
 
-async def _mit_zustellung(*, postausgang_collection: Any, rows: Sequence[Mapping[str, Any]]) -> list[FLSpielbestaetigung]:
+async def _mit_zustellung(*, outbox_collection: Any, rows: Sequence[Mapping[str, Any]]) -> list[FLSpielbestaetigung]:
     """The rows as served, each seat holding a link carrying what became of the last mail owed to it."""
 
-    lagen = await lagen_of(
-        postausgang_collection=postausgang_collection, collection=Collection.SPIELBESTAETIGUNGEN, ids=[row["_id"] for row in rows]
-    )
+    lagen = await states_of(outbox_collection=outbox_collection, collection=Collection.SPIELBESTAETIGUNGEN, ids=[row["_id"] for row in rows])
 
     def served(row: Mapping[str, Any]) -> FLSpielbestaetigung:
         kontakte = row.get("kontakte")
@@ -87,7 +85,7 @@ async def _mit_zustellung(*, postausgang_collection: Any, rows: Sequence[Mapping
 )
 async def get_spielbestaetigungen(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     filters: FLSpielbestaetigungenFilters,
 ) -> FLSpielbestaetigungenListResponse:
     """
@@ -108,7 +106,7 @@ async def get_spielbestaetigungen(
     )
 
     return FLSpielbestaetigungenListResponse(
-        spielbestaetigungen=await _mit_zustellung(postausgang_collection=postausgang_collection, rows=rows),
+        spielbestaetigungen=await _mit_zustellung(outbox_collection=outbox_collection, rows=rows),
         complete=vollstaendig,
     )
 
@@ -174,7 +172,7 @@ async def discard_spielbestaetigung(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spiele_collection: SpieleCollection,
     saison_teams_collection: SaisonTeamsCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     now: datetime = Depends(get_germany_now),
@@ -246,7 +244,7 @@ async def discard_spielbestaetigung(
                 await anchor_the_mailboxes_told(
                     saison_teams_collection=saison_teams_collection, saison_team_ids=[verein["_id"]], session=session
                 )
-            await enqueue_mails(postausgang_collection=postausgang_collection, session=session, mails=mails, now=now)
+            await enqueue_mails(outbox_collection=outbox_collection, session=session, mails=mails, now=now)
 
         # The fixture is judged and not written, so a move landing under this transaction raises no conflict: judged
         # again outside it before answering.

@@ -268,7 +268,7 @@ Take a fresh copy with:  ./scripts/ops/local.sh --refresh-db"
 E2E_DIR="${REPO_ROOT}/.tmp-e2e"
 
 # The local stack's secret files, which docker-compose.e2e.yml points at this stack's own copies.
-E2E_KEYS=(auth_secret sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
+E2E_KEYS=(auth_secret sperrliste_key internal_api_key_base internal_api_key_system internal_api_key_admin)
 
 # Generated on every start rather than copied from `secrets/`: the stack shares nothing with the
 # local one, and a key it held for longer than one run would be a key to keep. Each command is

@@ -34,9 +34,9 @@ from app.core.dependencies import (
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.routing import by_id
-from app.core.security import loeschung_journal_hash, verify_access_admin
+from app.core.security import erasure_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
-from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
+from app.shared.einwilligung_nachweis import FLEinwilligungChoice, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
 
@@ -54,7 +54,7 @@ async def get_self(identifier: SchiedsrichterIdentifier, schiedsrichter_collecti
     Answer every confirmed referee record the signed-in address holds, with its stored contact details.
 
     PERSON TIER: the fee set for them per fixture as `honorar`, never the confirmation link's bookkeeping. A retired
-    record is served too. Its consent is the account page's (`GET /konto/einwilligungen`), so none is served here.
+    record is served too. Its consent is the account page's (`GET /account/einwilligungen`), so none is served here.
 
     Refuses an address holding no confirmed referee record (`role_not_held`).
     """
@@ -102,7 +102,7 @@ async def patch_einwilligung(
     """
 
     eigener_eintrag = build_self_referee_filter(identifier, schiedsrichter_id=schiedsrichter_id)
-    gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
+    gewaehlt: dict[FLEinwilligungChoice, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
     # For `app/api/spieler/person_router.py :: patch_einwilligung`'s reason: a replay stamps the moment the person pressed.
     am = log_stamp(germany_now)
     journal = Journal()
@@ -144,7 +144,7 @@ async def patch_einwilligung(
             )
         )
         line = widerruf_line(
-            person_hash=loeschung_journal_hash(identifier, key=config.sperrliste_schluessel),
+            person_hash=erasure_journal_hash(identifier, key=config.sperrliste_key),
             collection=Collection.SCHIEDSRICHTER,
             record_id=row["_id"],
             bloecke=[gespeichert],

@@ -27,15 +27,15 @@ from app.api.sperrliste.lookup import BanList, SperrlisteLookup, hash_gesperrt
 from app.core.codes import Code
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.dependencies import (
-    AdresswechselCollection,
-    AktionenCollection,
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenAntraegeCollection,
-    BerechtigungenCollection,
+    ActionLogCollection,
+    AddressChangeCollection,
     BewerbungenCollection,
     DBClient,
-    EinladungenCollection,
-    PostausgangCollection,
+    GrantsAnnouncedCollection,
+    GrantsApprovalRequestsCollection,
+    GrantsCollection,
+    InvitationsCollection,
+    OutboxCollection,
     RegistrierungenCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
@@ -71,7 +71,7 @@ async def get_subject(
     subjekt_data: Annotated[FLSubjectPayload, Body()],
     records: SubjektLookup,
     sperrliste: SperrlisteLookup,
-    berechtigungen_collection: BerechtigungenCollection,
+    berechtigungen_collection: GrantsCollection,
 ) -> FLSubjectResponse:
     """Answer which confirmed, live contact seats, pupil records and referee records one mailbox holds, with its ban and its grant.
 
@@ -108,7 +108,7 @@ async def get_sign_in(
     anmeldung_data: Annotated[FLSubjectPayload, Body()],
     records: SubjektLookup,
     sperrliste: SperrlisteLookup,
-    berechtigungen_collection: BerechtigungenCollection,
+    berechtigungen_collection: GrantsCollection,
 ) -> FLSignInResponse:
     """Answer what the sign-in gate decides on for one mailbox: two flags, its ban and its grant's tier, and never a record.
 
@@ -137,8 +137,8 @@ async def get_sign_in(
 async def get_references(
     referenzen_data: Annotated[FLReferencesPayload, Body()],
     records: SubjektLookup,
-    berechtigungen_collection: BerechtigungenCollection,
-    adresswechsel_collection: AdresswechselCollection,
+    berechtigungen_collection: GrantsCollection,
+    adresswechsel_collection: AddressChangeCollection,
 ) -> FLReferencesResponse:
     """Answer which of these sign-in addresses no league record references, each once and in the spelling it was asked in.
 
@@ -179,7 +179,7 @@ async def _loeschen_one(
     aktionen_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
     adresswechsel_collection: AsyncCollection,
@@ -208,7 +208,7 @@ async def _loeschen_one(
             aktionen_collection=aktionen_collection,
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             einladungen_collection=einladungen_collection,
             sperrliste_collection=sperrliste_collection,
             adresswechsel_collection=adresswechsel_collection,
@@ -241,14 +241,14 @@ async def sweep_erasure(
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
     registrierungen_collection: RegistrierungenCollection,
-    aktionen_collection: AktionenCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
-    einladungen_collection: EinladungenCollection,
+    aktionen_collection: ActionLogCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    outbox_collection: OutboxCollection,
+    einladungen_collection: InvitationsCollection,
     sperrliste_collection: SperrlisteCollection,
-    adresswechsel_collection: AdresswechselCollection,
-    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
+    adresswechsel_collection: AddressChangeCollection,
+    berechtigungen_antraege_collection: GrantsApprovalRequestsCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
@@ -323,14 +323,14 @@ async def sweep_erasure(
                 aktionen_collection=aktionen_collection,
                 berechtigungen_collection=berechtigungen_collection,
                 berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-                postausgang_collection=postausgang_collection,
+                outbox_collection=outbox_collection,
                 einladungen_collection=einladungen_collection,
                 sperrliste_collection=sperrliste_collection,
                 adresswechsel_collection=adresswechsel_collection,
                 berechtigungen_antraege_collection=berechtigungen_antraege_collection,
                 sperrliste=sperrliste,
                 db=db,
-                key=config.sperrliste_schluessel,
+                key=config.sperrliste_key,
                 stamp=stamp,
                 now=germany_now,
             )

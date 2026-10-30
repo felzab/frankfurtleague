@@ -27,7 +27,7 @@ from app.api.bewerbungen.services import (
 from app.api.teams.schemas import FLKontaktperson, FLKontaktpersonPayload, normalise_telefon
 from app.core.exceptions import DocumentNotFoundError
 from app.shared.schemas.bounds import (
-    BEWERBUNG_KADER_GROESSE_MAX,
+    BEWERBUNG_KADER_SIZE_MAX,
     BEWERBUNG_STUFENGROESSE_MAX,
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
     BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
@@ -37,7 +37,7 @@ from app.shared.schemas.bounds import (
     TEAM_WEBSITE_URL_MAX_LENGTH,
 )
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLTrikotFarbe
-from tests.documents import ADDRESS, kontaktperson_document, minted_bestaetigungen
+from tests.documents import ADDRESS, kontaktperson_document, minted_confirmations
 
 # Fixed rather than generated, so a failure names the same club every run. Its own hex range, as
 # every other module in this suite carves one.
@@ -609,11 +609,11 @@ class TestTheSquadEstimateIsBoundedAsASquad:
 
     # The squad sits AT the ceiling in every case below, so a `good_spieler` row cannot be refused by
     # the subset rule instead of by the bound it is about.
-    AT_THE_SQUAD_CEILING = {"expected_size": BEWERBUNG_KADER_GROESSE_MAX, "good_spieler": 3}
+    AT_THE_SQUAD_CEILING = {"expected_size": BEWERBUNG_KADER_SIZE_MAX, "good_spieler": 3}
 
     @pytest.mark.parametrize("field", ["expected_size", "good_spieler"])
     def test_a_count_over_the_ceiling_is_refused(self, field: str, assert_rejects):
-        over = {**self.AT_THE_SQUAD_CEILING, field: BEWERBUNG_KADER_GROESSE_MAX + 1}
+        over = {**self.AT_THE_SQUAD_CEILING, field: BEWERBUNG_KADER_SIZE_MAX + 1}
 
         assert_rejects(FLPostBewerbungPayload, submission(kader=over), field)
 
@@ -621,9 +621,9 @@ class TestTheSquadEstimateIsBoundedAsASquad:
     def test_a_count_at_the_ceiling_is_accepted(self, field: str):
         """The control: without it each case above would pass on a field that refuses everything."""
 
-        at_the_bound = {**self.AT_THE_SQUAD_CEILING, field: BEWERBUNG_KADER_GROESSE_MAX}
+        at_the_bound = {**self.AT_THE_SQUAD_CEILING, field: BEWERBUNG_KADER_SIZE_MAX}
 
-        assert getattr(FLPostBewerbungPayload.model_validate(submission(kader=at_the_bound)).kader, field) == BEWERBUNG_KADER_GROESSE_MAX
+        assert getattr(FLPostBewerbungPayload.model_validate(submission(kader=at_the_bound)).kader, field) == BEWERBUNG_KADER_SIZE_MAX
 
 
 class TestTheYearGroupIsBoundedAsAYearGroup:
@@ -681,7 +681,7 @@ class TestTheStrongPlayersFitInsideTheSquad:
         [
             pytest.param(14, 15, id="one over the squad"),
             pytest.param(1, 2, id="one over the smallest squad"),
-            pytest.param(14, BEWERBUNG_KADER_GROESSE_MAX, id="inside its own ceiling and still past the squad"),
+            pytest.param(14, BEWERBUNG_KADER_SIZE_MAX, id="inside its own ceiling and still past the squad"),
         ],
     )
     def test_a_count_above_the_squad_is_refused(self, groesse: int, gute: int):
@@ -715,7 +715,7 @@ def stored_application(**overrides: Any) -> dict[str, Any]:
         # As a read serves each seat: its bookkeeping, and the delivery the read joins beside it.
         "confirmations": {
             seat: {**entry, "delivery": None}
-            for seat, entry in minted_bestaetigungen(hashes={seat: f"hash-{seat}" for seat in KONTAKT_ROLLEN}, today=TODAY).items()
+            for seat, entry in minted_confirmations(hashes={seat: f"hash-{seat}" for seat in KONTAKT_ROLLEN}, today=TODAY).items()
         },
         **overrides,
     }

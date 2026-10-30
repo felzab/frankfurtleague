@@ -35,19 +35,19 @@ from app.core.sentinels import GHOST_SPIELER_ID
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import nachweis_stand_of
-from app.shared.schemas.bestaetigung import FLTokenPayload
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
 from app.shared.tokens import hash_token
 from tests import documents
-from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.bans import ban_list
 from tests.config import ADMIN_KEY, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
-from tests.loeschung import geloescht
-from tests.postausgang import MAIL_NOW
+from tests.outbox import MAIL_NOW
 from tests.records import record_collections
+from tests.session_headers import StampedHeaders
 from tests.whole_database import where_held
 from tests.worker import worker_database
 
@@ -117,7 +117,7 @@ def on_a_league(
     matchday: bool = False,
     stellvertretung_bestaetigt: bool = True,
 ) -> Any:
-    """Two clubs in one active season, each with seats; `squad` live rows already on the first club.
+    """Two clubs in one active season, each with seats; `kader` live rows already on the first club.
 
     The first club also plays the `past` season before and the `future` one after, each seated by
     somebody holding no seat this season.
@@ -256,7 +256,7 @@ async def admit(
             spieler_collection=database[Collection.SPIELER] if spieler is None else spieler,
         ),
         spieltage_collection=database[Collection.SPIELTAGE],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
@@ -297,7 +297,7 @@ async def decline(
         identifier=identifier,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN] if registrierungen is None else registrierungen,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        outbox_collection=database[Collection.OUTBOX],
         records=record_collections(database),
         db=client,
         today=TODAY,
@@ -306,7 +306,7 @@ async def decline(
 
 
 async def notes_owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:
-    return await database[Collection.POSTAUSGANG].find({"art": "registrierung_absage"}).to_list(length=None)
+    return await database[Collection.OUTBOX].find({"art": "registrierung_absage"}).to_list(length=None)
 
 
 async def read(
@@ -360,7 +360,7 @@ STORED_GRANT = {"am": STORED_AM, "text_version": "2025-09"}
 
 
 def granted_under_an_older_label() -> dict[str, Any]:
-    return documents.eigene_einwilligung_document(text_version="2025-09", confirmed_at="2026-01-20", am=STORED_AM, medien=True)
+    return documents.own_einwilligung_document(text_version="2025-09", confirmed_at="2026-01-20", am=STORED_AM, medien=True)
 
 
 class TestWhatAnAdmissionWrites:
@@ -416,12 +416,14 @@ class TestWhatAnAdmissionWrites:
                 today=TODAY,
                 germany_now=NOW,
             )
-            imaged = await database[Collection.AKTIONEN].count_documents(
+            imaged = await database[Collection.ACTION_LOG].count_documents(
                 {"collection": Collection.REGISTRIERUNGEN, "document_id": registrierung_id, "before": {"$ne": None}}
             )
             await admit(database, client, registrierung_id)
             naming = (
-                await database[Collection.AKTIONEN].find({"collection": Collection.REGISTRIERUNGEN, "document_id": registrierung_id}).to_list()
+                await database[Collection.ACTION_LOG]
+                .find({"collection": Collection.REGISTRIERUNGEN, "document_id": registrierung_id})
+                .to_list()
             )
 
             remaining = await database[Collection.REGISTRIERUNGEN].count_documents({})
@@ -448,7 +450,7 @@ class TestWhatAnAdmissionWrites:
         before, after = on_a_league(mongo_replica_set_url, body)
 
         moved = {name for name in before.keys() | after.keys() if before.get(name) != after.get(name)}
-        assert moved == {Collection.SPIELER, Collection.SAISON_SPIELER, Collection.REGISTRIERUNGEN, Collection.SAISONS, Collection.AKTIONEN}
+        assert moved == {Collection.SPIELER, Collection.SAISON_SPIELER, Collection.REGISTRIERUNGEN, Collection.SAISONS, Collection.ACTION_LOG}
 
     def test_a_second_admission_answers_404_and_writes_nothing(self, mongo_replica_set_url: str):
         """The anchor and the log included: a second press that took the season's `$inc` would be a write nobody sees."""
@@ -911,7 +913,7 @@ class TestAReturningRegistration:
             await database[Collection.SPIELER].insert_one(a_stored_person(stored_id, einwilligung=dict(self.HELD)))
             registrierung_id = await seed(database, registrierung_document(confirmed=False))
             await confirm_as_returning(database, client)
-            gone = await geloescht(database, client, TYPED_EMAIL, germany_now=NOW)
+            gone = await erased(database, client, TYPED_EMAIL, germany_now=NOW)
             before = await snapshot(database)
             with pytest.raises(DocumentNotFoundError):
                 await admit(database, client, registrierung_id, spieler_id=None)
@@ -1236,7 +1238,7 @@ class TestThePendingReadServesNoAddress:
 
             async with app_client(mongo_replica_set_url, app=_served(), now=NOW) as http:
                 response = await http.get(
-                    f"/api/v{API_VERSION}/registrierungen/kader/{TEAM_OID}/{SAISON_ID}", headers=SignedActor(ANNA, ADMIN_KEY, lane="person")
+                    f"/api/v{API_VERSION}/registrierungen/kader/{TEAM_OID}/{SAISON_ID}", headers=StampedHeaders(ANNA, ADMIN_KEY, lane="person")
                 )
 
             return response.status_code, response.json()

@@ -20,8 +20,8 @@ from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLGrantSt
 from app.api.berechtigungen.services import Mitteilung, compare, compose_mitteilung, stand_of
 from app.api.kontakte.services import same_address
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
-from app.core.crud import aggregate_many_from_db, loeschen_many_from_db, patch_many_in_db
-from app.core.recording import GELOESCHT_ACTOR_MARKER
+from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db
+from app.core.recording import ERASED_ACTOR_MARKER
 from app.shared.folding import sign_in_identifier
 
 # The sites of a grant notice naming an address: the grant's own, before and after, and its actor's.
@@ -37,7 +37,7 @@ class GeloeschtGrantsAndAuthorship:
     queued_postausgang: int
     # The notices owed before it and not yet sent that named the person.
     withheld_postausgang: int
-    # The records whose author now reads `GELOESCHT_ACTOR_MARKER`, the five fields together.
+    # The records whose author now reads `ERASED_ACTOR_MARKER`, the five fields together.
     marked: int
 
 
@@ -87,7 +87,7 @@ def _withholding(data: Mapping[str, Any], identifier: str) -> dict[str, Any]:
             update[f"{site}.adresse"] = None
             update["withheld"] = "erased"
     if _names(data.get("changed_by"), identifier):
-        update["changed_by"] = GELOESCHT_ACTOR_MARKER
+        update["changed_by"] = ERASED_ACTOR_MARKER
 
     return update
 
@@ -103,10 +103,10 @@ def _withheld(mitteilung: Mitteilung, identifier: str) -> Mitteilung:
     return Mitteilung(grant_id=mitteilung.grant_id, data=daten)
 
 
-async def _withhold_queued(postausgang_collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> int:
+async def _withhold_queued(outbox_collection: AsyncCollection, identifier: str, session: AsyncClientSession) -> int:
     """Every grant notice still owed naming this person, written by id and grouped by what each loses."""
 
-    rows = await _rows_naming(postausgang_collection, _QUEUED_SITES, identifier, session, also=OFFENE_MITTEILUNG)
+    rows = await _rows_naming(outbox_collection, _QUEUED_SITES, identifier, session, also=OFFENE_MITTEILUNG)
 
     by_update: dict[tuple[tuple[str, Any], ...], list[ObjectId]] = {}
     for row in rows:
@@ -114,9 +114,7 @@ async def _withhold_queued(postausgang_collection: AsyncCollection, identifier: 
         by_update.setdefault(update, []).append(row["_id"])
 
     for update, ids in by_update.items():
-        await patch_many_in_db(
-            collection=postausgang_collection, db_filter={"_id": {"$in": ids}}, update={"$set": dict(update)}, session=session
-        )
+        await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": ids}}, update={"$set": dict(update)}, session=session)
 
     return len(rows)
 
@@ -167,7 +165,7 @@ async def loeschen_grants_and_authorship_in_session(
     *,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     bewerbungen_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
@@ -235,31 +233,31 @@ async def loeschen_grants_and_authorship_in_session(
     ]
 
     # Owed before this erasure's own: they are not yet withheld, and this erasure's carry no address of the person.
-    withheld = await _withhold_queued(postausgang_collection, identifier, session)
+    withheld = await _withhold_queued(outbox_collection, identifier, session)
 
     # No image of either: a grant's image is the address itself, and the announced record is bookkeeping.
     if grant_ids:
-        await loeschen_many_from_db(collection=berechtigungen_collection, db_filter={"_id": {"$in": grant_ids}}, session=session)
+        await erase_many_from_db(collection=berechtigungen_collection, db_filter={"_id": {"$in": grant_ids}}, session=session)
     if records:
-        await loeschen_many_from_db(
+        await erase_many_from_db(
             collection=berechtigungen_angekuendigt_collection, db_filter={"_id": {"$in": list(records_by_id)}}, session=session
         )
 
     # After the removals, so the person is no holder told: every administrator who remains is.
     await owe_in_session(
         mitteilungen,
-        postausgang_collection=postausgang_collection,
+        outbox_collection=outbox_collection,
         berechtigungen_collection=berechtigungen_collection,
         now=now,
         session=session,
     )
 
     # Fields an address change's effect carries too (`fl_backend/app/api/berechtigungen/loeschung.py :: carry_authorship_in_session`).
-    marked = await _set_authored(berechtigungen_collection, "granted_by", identifier, GELOESCHT_ACTOR_MARKER, session)
-    marked += await _set_authored(bewerbungen_collection, "decision.von", identifier, GELOESCHT_ACTOR_MARKER, session)
-    marked += await _set_authored(registrierungen_collection, "decision.von", identifier, GELOESCHT_ACTOR_MARKER, session)
-    marked += await _set_authored(sperrliste_collection, "created_by", identifier, GELOESCHT_ACTOR_MARKER, session)
-    marked += await _set_authored(einladungen_collection, "created_by", identifier, GELOESCHT_ACTOR_MARKER, session)
+    marked = await _set_authored(berechtigungen_collection, "granted_by", identifier, ERASED_ACTOR_MARKER, session)
+    marked += await _set_authored(bewerbungen_collection, "decision.von", identifier, ERASED_ACTOR_MARKER, session)
+    marked += await _set_authored(registrierungen_collection, "decision.von", identifier, ERASED_ACTOR_MARKER, session)
+    marked += await _set_authored(sperrliste_collection, "created_by", identifier, ERASED_ACTOR_MARKER, session)
+    marked += await _set_authored(einladungen_collection, "created_by", identifier, ERASED_ACTOR_MARKER, session)
 
     return GeloeschtGrantsAndAuthorship(
         removed_berechtigungen=len(grant_ids),

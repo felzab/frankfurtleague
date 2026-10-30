@@ -6,7 +6,7 @@ import * as zod from "zod";
  * Start a change of the address the person signs in on, its two mails owed in the same transaction and no link answered.
  *
  * The new mailbox is owed its link, and the address on file a notice with a stop link; **everything the address holds
- * as its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. Where it holds a
+ * as its person's own moves when the new mailbox confirms**, within `ADDRESS_CHANGE_VALID_HOURS`. Where it holds a
  * grant, the change also waits on another administrator's approval, an owner's for an owner's grant. The address's live
  * change ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.
  * **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
@@ -81,7 +81,7 @@ export const ActionLogGetActionLogEntryParams = zod.object({
  * **Nothing moves here.** Without a `grund` the change asks the address on file first: it is owed the request with its
  * stop link, and nothing goes to the new mailbox until that address approves on its account page. With a `grund`,
  * recording how the administrator established who asks, the new mailbox is owed its link and the address on file a
- * notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new mailbox
+ * notice with its stop link; the change then takes effect `ADDRESS_CHANGE_WAITING_PERIOD_DAYS` after the new mailbox
  * confirms. Where the address holds a grant, the change also waits on another administrator's approval, never this
  * one's. No link is answered. The address's live change ends replaced.
  *
@@ -121,7 +121,7 @@ export const AddressChangePostAddressChangeVerwaltungBody = zod
  * For the frontend's server alone, which asks its sign-in store whether an account stands there before a press, a link's
  * view or an approval; the link's own view never serves the address. A token or id naming no live change -- unknown,
  * ended, or the stop link's token -- is answered null rather than refused, so a lapsed or answered link costs no
- * error. Stores nothing, and a POST for `POST /identitaet/subjekt`'s reason: the token travels in the body, and the
+ * error. Stores nothing, and a POST for `POST /identity/subject`'s reason: the token travels in the body, and the
  * address only in the answer.
  * @summary Say which address a live change would move to
  */
@@ -972,7 +972,7 @@ export const EinwilligungGetWordingParams = zod.object({
  *
  * **Four eyes**: where another administrator could approve it -- a live, unbarred grant in effect now, neither this administrator
  * nor the address -- the grant is not made: a request is, answered with `requested` set and its id, and the grant takes effect
- * only on that approval (`POST /berechtigungen/antraege/{antrag_id}/genehmigung`). A lone administrator grants alone.
+ * only on that approval (`POST /grants/approval_requests/{approval_request_id}/approval`). A lone administrator grants alone.
  *
  * The address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live
  * grant already holds the address (`grant_exists`), where the ban list
@@ -997,7 +997,7 @@ export const GrantsPostGrantBody = zod.object({
  * the request back only until the replay of its journal line.
  *
  * A refusal queues, in the same transaction, a notice to the request's requester naming the address and tier it asked for and
- * nobody who refused it, for `POST /berechtigungen/abgleich` to hand out; a withdrawal tells nobody.
+ * nobody who refused it, for `POST /grants/reconciliation` to hand out; a withdrawal tells nobody.
  * @summary Refuse a grant or a promotion another administrator asked for, or withdraw one's own
  */
 export const grantsDeleteApprovalRequestPathApprovalRequestIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1052,7 +1052,7 @@ export const GrantsDeleteGrantParams = zod.object({
  *
  * **Four eyes on a promotion**: where another owner could approve it -- a live, unbarred `owner` grant in effect now, neither this
  * owner nor the promoted address -- the tier is not moved: a request is, answered with `requested` set, and the promotion takes
- * effect only on that approval (`POST /berechtigungen/antraege/{antrag_id}/genehmigung`). A lone owner promotes alone. A demotion
+ * effect only on that approval (`POST /grants/approval_requests/{approval_request_id}/approval`). A lone owner promotes alone. A demotion
  * and a step-down take effect at once.
  *
  * A promotion holds for a sign-in after it alone: the promoted administrator's older sessions keep administering and take no owner's
@@ -1061,7 +1061,7 @@ export const GrantsDeleteGrantParams = zod.object({
  * (`grant_approval_request_open`), and a demotion leaving no live, unbarred owner (`grant_last_owner`). Naming the tier the grant
  * holds changes nothing and answers 200. The change reaches the next request; its announcement is queued in the same transaction, after
  * any change to the row made in the database and not yet announced, and a grant found that way is stamped `gefunden_am` as
- * `POST /berechtigungen/abgleich` stamps one. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused
+ * `POST /grants/reconciliation` stamps one. A sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused
  * `confirmation_required`, as the grant's is.
  * @summary Change a grant between administrator and owner
  */
@@ -1079,7 +1079,7 @@ export const GrantsPatchGrantBody = zod.object({
 /**
  * Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.
  *
- * ADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/konto/loeschung` runs and refuses nothing about the
+ * ADMIN TIER, a step-up write. It runs the erasure `POST /identity/account/erasure` runs and refuses nothing about the
  * person's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.
  * Three refusals are about who asks. The administrator's own address is refused (`own_adresse`): their account page
  * serves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,
@@ -1149,7 +1149,7 @@ export const IdentitySweepErasureQueryParams = zod.object({
 });
 
 /**
- * Answer which of this address's records `POST /identitaet/loeschung` would remove or empty, by kind, name and the ids a page links each by.
+ * Answer which of this address's records `POST /identity/erasure` would remove or empty, by kind, name and the ids a page links each by.
  *
  * ADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names
  * every one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,
@@ -1262,7 +1262,7 @@ export const IdentityGetSubjectBody = zod
  * The row is the one `id` names, which the send carried as a tag, so an event arriving before the send's report finds
  * it all the same. Applied only where the row's delivery state is one the event's may follow -- a delay before
  * anything, a complaint after a delivery, nothing after a refusal -- so a redelivery or an event arriving after a later
- * one changes nothing. Both answer `angewendet: false`, as does an id no row has, rather than a refusal the provider
+ * one changes nothing. Both answer `applied: false`, as does an id no row has, rather than a refusal the provider
  * would retry for hours.
  * @summary Record one delivery event on its mail's row
  */
@@ -1876,7 +1876,7 @@ export const SaisonsActivateSaisonParams = zod.object({
 });
 
 /**
- * How many pupils `POST /identitaet/loeschung/sweep` deletes once this season is activated, and which season that activation closes.
+ * How many pupils `POST /identity/erasure/sweep` deletes once this season is activated, and which season that activation closes.
  *
  * Judged by the run's own rule over the statuses the activation leaves: the season now `active` turned `past`, this one
  * `active`, every other as it stands. A count and never a name, and writes nothing. It judges none of the activation's own
@@ -2248,7 +2248,7 @@ export const SchiedsrichterGetSchiedsrichterByIdParams = zod.object({
  * leaving it live is a credential in the wrong inbox.
  *
  * **A CONFIRMED referee's address is refused here** (`schiedsrichter_adresse_only_per_change`), retired or not: it is who signs in as the
- * person, and moves only through an address change: the address tool, `POST /adresswechsel`, or the person's own account page.
+ * person, and moves only through an address change: the address tool, `POST /address_change`, or the person's own account page.
  * A save keeping it lands, a pending change standing.
  *
  * **A RETIRED unconfirmed referee's corrected address is stored and mails nothing**: no consent is
@@ -2370,7 +2370,7 @@ export const SperrlistePostSperrlisteEntryBody = zod.object({
  * **The action log keeps a copy of the removed row** — the hash, its key label, the reason and the
  * administrator who entered it, and no address of the person it barred — for the twelve months
  * the rule gives every log row. The lifted ban is therefore readable
- * at `GET /aktionen` for that period and enforced by nothing from the moment this answers.
+ * at `GET /action_log` for that period and enforced by nothing from the moment this answers.
  * @summary Lift a ban
  */
 export const sperrlisteDeleteSperrlisteEntryPathSperrlisteIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2777,7 +2777,7 @@ export const SpielbestaetigungenPostSpielbestaetigungBody = zod
  * its booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `discarded`: a
  * decline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased
  * referee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period
- * (`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed.
+ * (`app/shared/schemas/bounds.py :: SPIEL_CONFIRMATION_FRIST_DAYS`) before the fixture, or today where that has passed.
  * Each seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the
  * mail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's
  * occupied seat holding no link -- its holder replaced, newly seated, or a ban since lifted -- is owed one too. A
@@ -2785,7 +2785,7 @@ export const SpielbestaetigungenPostSpielbestaetigungBody = zod
  * its notice first.
  *
  * The reminder owes a fresh link per person on each team row whose deadline lies a reminder's count of days away
- * (`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), minted beside the
+ * (`app/shared/schemas/bounds.py :: SPIEL_REMINDER_DAYS_FIRST`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), minted beside the
  * links already mailed so every one of them answers until the deadline, and stamps the day. It passes over each seat
  * whose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where
  * this pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's
@@ -4072,7 +4072,7 @@ export const TeamsGetInvitationParams = zod.object({
  *
  * **The raw link value is in this answer and in no other, ever**: the row stores an unkeyed SHA-256 of it, so a link nobody copied out of
  * this response is lost and the repair is another mint. Mailing the team's link is a separate press
- * (`POST /teams/{team_id}/saisons/{saison_id}/einladung/versand`), whose mails mint links of their own beside this one.
+ * (`POST /teams/{team_id}/saisons/{saison_id}/invitation/dispatch`), whose mails mint links of their own beside this one.
  *
  * The reissue is part of the same transaction, so the previous link stops opening anything the moment this answers, and the team is left
  * holding exactly one live invitation. The link carries no date: it expires with the season's registration window, which is judged afresh

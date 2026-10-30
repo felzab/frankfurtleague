@@ -382,7 +382,7 @@ export const FLKontaktKenntnisnahmeUmfang = {
 /**
  * One pending application on which the address holds a confirmed contact seat, with its two choices to withdraw.
  *
- * Pending alone: an accepted application's seats are its season row's, listed under `sitze`.
+ * Pending alone: an accepted application's seats are its season row's, listed under `seats`.
  */
 export interface FLAccountBewerbungSeatEinwilligung {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -3060,7 +3060,7 @@ export interface FLPasskeyData {
 }
 
 /**
- * The ban's own notice, the one mail a ban does not stop (`app/api/postausgang/services.py :: UNGESPERRT`).
+ * The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNGESPERRT`).
  */
 export interface FLSperreData {
   art: "sperre";

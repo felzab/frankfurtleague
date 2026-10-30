@@ -18,7 +18,7 @@ from app.api.spiele.services import (
 from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import eigene_einwilligung_document, schiedsrichter_document, spiel_document, spielbestaetigung_document
+from tests.documents import own_einwilligung_document, schiedsrichter_document, spiel_document, spielbestaetigung_document
 from tests.worker import worker_database
 
 from .conftest import AUSTRITT, PRIOR_SAISON, SAISON, TEAM_OIDS, SeededLeague
@@ -334,7 +334,7 @@ CLOSED_BY_A_MOVE = {"am": "2026-04-21", "grund": "ansetzung_changed"}
 
 
 def published() -> dict[str, Any]:
-    return eigene_einwilligung_document(text_version="v1", confirmed_at="2026-04-01")
+    return own_einwilligung_document(text_version="v1", confirmed_at="2026-04-01")
 
 
 def a_refereed_fixture(schiedsrichter_id: ObjectId = REFEREE_ID) -> dict[str, Any]:

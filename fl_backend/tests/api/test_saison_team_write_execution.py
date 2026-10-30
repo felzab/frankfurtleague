@@ -11,7 +11,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import bestaetigte_kenntnisnahme, rules_document, saison_document, saison_team_document, spiel_document, team_document
+from tests.documents import confirmed_kenntnisnahme, rules_document, saison_document, saison_team_document, spiel_document, team_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -285,7 +285,7 @@ KONTAKTPERSON = {
     "email": "a.koerner@example.de",
     "telefon": "+49 170 1234567",
     "geburtsdatum": "1984-05-09",
-    "einwilligung": bestaetigte_kenntnisnahme(),
+    "einwilligung": confirmed_kenntnisnahme(),
 }
 
 KONTAKTE = {

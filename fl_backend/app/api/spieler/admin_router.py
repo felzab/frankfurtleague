@@ -40,9 +40,9 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenCollection,
     DBClient,
+    GrantsAnnouncedCollection,
+    GrantsCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
@@ -94,8 +94,8 @@ def _as_junction(document) -> FLSaisonSpielerResponse:
 @router.get("/saisons", response_model=FLSpielerSaisonsResponse, summary="Every Spieler with their squad rows")
 async def get_spieler_saisons(
     spieler_collection: SpielerCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
     operator: str = Depends(get_actor_email),
     auth_time: int = Depends(get_actor_auth_time),
 ) -> FLSpielerSaisonsResponse:

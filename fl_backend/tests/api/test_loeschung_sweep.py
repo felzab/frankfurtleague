@@ -60,8 +60,8 @@ from tests.documents import (
     spieler_document,
     team_document,
 )
+from tests.erasure import erasure_collections
 from tests.isolation import InterleavedCollection
-from tests.loeschung import loeschung_collections
 from tests.whole_database import where_held
 from tests.wire import commands_by_name, commands_sent
 from tests.worker import worker_database
@@ -167,7 +167,7 @@ def on_a_league(url: str, body: Body, *, saisons: Mapping[str, str] = LEAGUE, mu
 async def run(database: AsyncDatabase, client: AsyncMongoClient, *, nach: Any = None, **replaced: Any) -> Any:
     return await sweep_erasure(
         params=FLLoeschungSweepParams(nach=nach),
-        **loeschung_collections(database, **({"saisons_collection": database[Collection.SAISONS]} | replaced)),
+        **erasure_collections(database, **({"saisons_collection": database[Collection.SAISONS]} | replaced)),
         sperrliste=ban_list(database),
         db=client,
         config=CONFIG,
@@ -364,7 +364,7 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
     await database[Collection.SCHIEDSRICHTER].insert_one(
         schiedsrichter_document(REFEREE, email=ADDRESS, name="Quirinus Schiedssloot", default_payment=20, einwilligung=None)
     )
-    await database[Collection.BERECHTIGUNGEN].insert_one(
+    await database[Collection.GRANTS].insert_one(
         {
             "_id": GRANT,
             "adresse": ADDRESS,
@@ -380,7 +380,7 @@ async def one_address_in_four_roles(database: AsyncDatabase) -> None:
     await edited(database, Collection.REGISTRIERUNGEN, REACHED_REGISTRATION, {"$set": {"nummer": "7"}})
     await edited(database, Collection.SAISON_TEAMS, SEAT_ROW, {"$set": {"gruppe": "B"}})
     await edited(database, Collection.SCHIEDSRICHTER, REFEREE, {"$set": {"schule": "Lindenschule"}})
-    await edited(database, Collection.BERECHTIGUNGEN, GRANT, {"$set": {"verwaltung": "administration"}})
+    await edited(database, Collection.GRANTS, GRANT, {"$set": {"verwaltung": "administration"}})
 
 
 class TestThePupilsOwnDataAlone:
@@ -394,7 +394,7 @@ class TestThePupilsOwnDataAlone:
             return (
                 counts(answer),
                 await where_held(database, "Pupillensloot", "Sitzsloot", "Schiedssloot", ADDRESS),
-                await database[Collection.AKTIONEN]
+                await database[Collection.ACTION_LOG]
                 .find(
                     {
                         "collection": {"$in": [str(Collection.SPIELER), str(Collection.SAISON_SPIELER), str(Collection.REGISTRIERUNGEN)]},
@@ -550,11 +550,11 @@ async def a_registration_submitted(
         ),
         idempotency_key=None,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        einladungen_collection=database[Collection.EINLADUNGEN] if einladungen_collection is None else einladungen_collection,
+        einladungen_collection=database[Collection.INVITATIONS] if einladungen_collection is None else einladungen_collection,
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
@@ -569,7 +569,7 @@ async def a_running_season_open_to_its_team(database: AsyncDatabase) -> None:
         {"_id": "2026"}, {"$set": {"registrierung": {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}}}
     )
     await database[Collection.SAISON_TEAMS].insert_one(saison_team_document("2026", TEAM_OID, "Lindenschule", "LSX"))
-    await database[Collection.EINLADUNGEN].insert_one(
+    await database[Collection.INVITATIONS].insert_one(
         {
             "_id": EINLADUNG,
             "saison_id": "2026",
@@ -626,7 +626,7 @@ class TestTwoAddressesRegisteringForOneSeasonWaitOnNeitherOther:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_running_season_open_to_its_team(database)
-            links = LinkReadThenRival(database[Collection.EINLADUNGEN], lambda: a_registration_submitted(database, client, position=2))
+            links = LinkReadThenRival(database[Collection.INVITATIONS], lambda: a_registration_submitted(database, client, position=2))
             await a_registration_submitted(database, client, position=3, einladungen_collection=links)
 
             return links.passes, await database[Collection.REGISTRIERUNGEN].count_documents({})
@@ -686,8 +686,8 @@ class TestOneRecordHoldsBackNobody:
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             await seeded(database, a_due_pupil(1), a_due_pupil(2))
-            await database[Collection.AKTIONEN].insert_one(refusing_its_redaction(numbered(1)))
-            await refuse_writes_breaking(database, Collection.AKTIONEN, {"required": ["trace_id"]})
+            await database[Collection.ACTION_LOG].insert_one(refusing_its_redaction(numbered(1)))
+            await refuse_writes_breaking(database, Collection.ACTION_LOG, {"required": ["trace_id"]})
 
             async with app_client(mongo_replica_set_url, app=_app(), now=NOW) as http:
                 response = await http.post(PATH, headers=SYSTEM_AUTH)
@@ -841,8 +841,8 @@ class TestEachCallTakesAShare:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seeded(database, *(a_due_pupil(position) for position in [*failing, last]))
-            await database[Collection.AKTIONEN].insert_many([refusing_its_redaction(numbered(position)) for position in failing])
-            await refuse_writes_breaking(database, Collection.AKTIONEN, {"required": ["trace_id"]})
+            await database[Collection.ACTION_LOG].insert_many([refusing_its_redaction(numbered(position)) for position in failing])
+            await refuse_writes_breaking(database, Collection.ACTION_LOG, {"required": ["trace_id"]})
             answers = await a_pass(database, client)
 
             return [(answer.spieler, answer.failed) for answer in answers], await database[Collection.SPIELER].count_documents(
@@ -918,7 +918,7 @@ class TestOnePupilCostsTheCommandsItsShareIsSizedAt:
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[int, int]:
             async def counted(due: int) -> int:
-                for collection in (Collection.SPIELER, Collection.SAISON_SPIELER, Collection.REGISTRIERUNGEN, Collection.AKTIONEN):
+                for collection in (Collection.SPIELER, Collection.SAISON_SPIELER, Collection.REGISTRIERUNGEN, Collection.ACTION_LOG):
                     await database[collection].delete_many({"_id": {"$ne": build_ghost_spieler()["_id"]}})
                 await seeded(database, *(a_due_pupil(position) for position in range(due)))
 

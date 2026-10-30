@@ -33,8 +33,8 @@ from app.core.dependencies import DBClient, SchiedsrichterCollection, get_german
 from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
-from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 
 # Beside the admin and person routers, each guarded whole: the token is the whole credential, so

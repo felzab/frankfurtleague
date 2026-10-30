@@ -19,7 +19,7 @@ from app.core.exceptions import APIError, DocumentNotFoundError
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import (
-    bestaetigte_kenntnisnahme,
+    confirmed_kenntnisnahme,
     saison_document,
     saison_spieler_document,
     saison_team_document,
@@ -93,7 +93,7 @@ OUTGOING_KONTAKTPERSON = {
     "email": "a.koerner@outgoing.example.de",
     "telefon": "+49 170 1234567",
     "geburtsdatum": "1984-05-09",
-    "einwilligung": bestaetigte_kenntnisnahme(),
+    "einwilligung": confirmed_kenntnisnahme(),
 }
 
 OUTGOING_KONTAKTE = {
@@ -285,7 +285,7 @@ async def call_replace(
         spiele_collection=database[Collection.SPIELE],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         db=client,
         today=REPLACED_ON,
@@ -497,7 +497,7 @@ class TestTheOutgoingPeopleLeaveTheLog:
             )
             await call_replace(database, client)
 
-            return await database[Collection.AKTIONEN].find({"collection": str(Collection.SAISON_TEAMS)}).sort("_id", 1).to_list(length=None)
+            return await database[Collection.ACTION_LOG].find({"collection": str(Collection.SAISON_TEAMS)}).sort("_id", 1).to_list(length=None)
 
         rows = on_a_seeded_season(mongo_replica_set_url, body)
 

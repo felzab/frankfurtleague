@@ -12,7 +12,7 @@ from app.core.collections import Collection
 from app.shared.tokens import hash_token
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document
-from tests.postausgang import MAIL_NOW
+from tests.outbox import MAIL_NOW
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -86,11 +86,11 @@ class TestARetriedMint:
 
         async def body() -> Any:
             async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=True) as (client, database):
-                await database[Collection.EINLADUNGEN].insert_one(dict(SEEDED_LINK))
+                await database[Collection.INVITATIONS].insert_one(dict(SEEDED_LINK))
 
                 zeile = await _mail_one_team(
-                    einladungen_collection=cast(AsyncCollection, _RetryFailsBeforeItsRead(database[Collection.EINLADUNGEN])),
-                    postausgang_collection=database[Collection.POSTAUSGANG],
+                    einladungen_collection=cast(AsyncCollection, _RetryFailsBeforeItsRead(database[Collection.INVITATIONS])),
+                    outbox_collection=database[Collection.OUTBOX],
                     db=cast(AsyncMongoClient, client),
                     saison_id=SAISON_ID,
                     team=TEAM,
@@ -101,7 +101,7 @@ class TestARetriedMint:
                     now=MAIL_NOW,
                 )
 
-                live = await database[Collection.EINLADUNGEN].find({"widerrufen_am": None}).to_list(length=None)
+                live = await database[Collection.INVITATIONS].find({"widerrufen_am": None}).to_list(length=None)
 
                 return zeile, [row["_id"] for row in live]
 

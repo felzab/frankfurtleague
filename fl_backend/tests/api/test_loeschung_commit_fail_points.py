@@ -24,7 +24,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.db import NO_OWNER
 from app.core.journal import JOURNAL_TOKEN
-from app.core.security import akteur_pseudonym, loeschung_journal_hash
+from app.core.security import actor_pseudonym, erasure_journal_hash
 from app.core.transactions import UNKNOWN_COMMIT_RESULT
 from tests.whole_database import where_held
 
@@ -173,7 +173,7 @@ class TestThePersonsOwnLoeschung:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await refusing.close()
 
-            return commits.answered, answer.berechtigungen
+            return commits.answered, answer.grants
 
         with caplog.at_level(logging.INFO):
             refused, removed = on_their_league(mongo_replica_set_url, body)
@@ -215,9 +215,9 @@ class TestAnLoeschungOnRequest:
             refused, geloescht = on_the_administrators_league(mongo_replica_set_url, body)
 
         assert journal_lines(caplog) == [
-            f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_schluessel)} loeschung "
-            f"pseudonym={akteur_pseudonym(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_schluessel)} "
-            f"halter={halter_of(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_schluessel)}"
+            f"{JOURNAL_TOKEN} {erasure_journal_hash(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)} loeschung "
+            f"pseudonym={actor_pseudonym(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)} "
+            f"halter={halter_of(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)}"
         ]
         # The premise last: one commit refused, so the line above is the rerun's alone.
         assert (refused, geloescht) == ([WRITE_CONFLICT, None], 1)
@@ -244,9 +244,9 @@ class TestAnLoeschungOnRequest:
         # The premise first, so a failure names its cause: one commit ran, its answer was lost, and the erasure landed.
         assert (commits, labelled, after) == ([MAX_TIME_EXPIRED], True, {IDENTIFIER: []})
         assert journal_lines(caplog) == [
-            f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_schluessel)} loeschung "
-            f"pseudonym={akteur_pseudonym(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_schluessel)} "
-            f"halter={halter_of(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_schluessel)}"
+            f"{JOURNAL_TOKEN} {erasure_journal_hash(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)} loeschung "
+            f"pseudonym={actor_pseudonym(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)} "
+            f"halter={halter_of(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_key)}"
         ]
 
 
@@ -421,9 +421,7 @@ class TestAConfirmationMintWhoseCommitAnswerIsLost:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await losing.close()
             standing = await confirmations.rows(database, closed=None)
-            owed = (
-                await database[Collection.POSTAUSGANG].find({"reference.id": {"$in": [row["_id"] for row in standing]}}, {"art": 1}).to_list()
-            )
+            owed = await database[Collection.OUTBOX].find({"reference.id": {"$in": [row["_id"] for row in standing]}}, {"art": 1}).to_list()
 
             return commits.answered, lost.value, standing, owed, await confirmations.a_pass(database, client)
 
@@ -440,7 +438,7 @@ class TestAConfirmationMintWhoseCommitAnswerIsLost:
             ("team", "19:00:00", confirmations.TODAY),
             ("team", "19:00:00", confirmations.TODAY),
         ]
-        assert sorted(mail["art"] for mail in owed) == ["spiel_request"] * 6 + ["spiel_einteilung"]
+        assert sorted(mail["art"] for mail in owed) == ["spiel_einteilung"] + ["spiel_request"] * 6
         assert (nxt.asked, nxt.mails) == (0, 0)
 
 

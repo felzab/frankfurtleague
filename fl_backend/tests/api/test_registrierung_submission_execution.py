@@ -27,8 +27,8 @@ from app.core.config import API_VERSION
 from app.core.exceptions import APIError
 from app.main import create_app
 from app.shared.folding import canonical_address
-from app.shared.schemas.bestaetigung import FLTokenPayload
-from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
+from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_FRIST_DAYS
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests import documents
 from tests.app_client import app_client
@@ -36,7 +36,7 @@ from tests.bans import ban_list
 from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.holds import HoldsAfterItsLookup
-from tests.postausgang import MAIL_NOW, drained
+from tests.outbox import MAIL_NOW, drained
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -168,7 +168,7 @@ def on_a_league(
             await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status, registrierung))
             await database[Collection.TEAMS].insert_many([club_document(TEAM_OID, TEAM_NAME), club_document(OTHER_TEAM_OID, OTHER_TEAM_NAME)])
             await database[Collection.SAISON_TEAMS].insert_one(junction_document(SAISON_ID, TEAM_OID, TEAM_NAME))
-            await database[Collection.EINLADUNGEN].insert_many(
+            await database[Collection.INVITATIONS].insert_many(
                 [
                     einladung_document(EINLADUNG_OID, TEAM_OID, TOKEN),
                     einladung_document(OTHER_EINLADUNG_OID, OTHER_TEAM_OID, OTHER_TOKEN),
@@ -181,7 +181,7 @@ def on_a_league(
             if spaetere_saison:
                 await database[Collection.SAISONS].insert_one(saison_document(SPAETERE_SAISON_ID, "future", registrierung))
                 await database[Collection.SAISON_TEAMS].insert_one(junction_document(SPAETERE_SAISON_ID, TEAM_OID, TEAM_NAME))
-                await database[Collection.EINLADUNGEN].insert_one(
+                await database[Collection.INVITATIONS].insert_one(
                     einladung_document(SPAETERE_EINLADUNG_OID, TEAM_OID, SPAETERE_TOKEN, saison_id=SPAETERE_SAISON_ID)
                 )
 
@@ -248,11 +248,11 @@ async def register(
         registrierung_data=FLPostRegistrierungPayload.model_validate(payload(**overrides)),
         idempotency_key=None if keyless else key or uuid4(),
         registrierungen_collection=registrierungen if registrierungen is not None else database[Collection.REGISTRIERUNGEN],
-        einladungen_collection=database[Collection.EINLADUNGEN],
+        einladungen_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        postausgang_collection=database[Collection.POSTAUSGANG],
+        outbox_collection=database[Collection.OUTBOX],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
@@ -261,13 +261,13 @@ async def register(
 
 
 async def owed_of(database: AsyncDatabase) -> list[Mapping[str, Any]]:
-    return [row async for row in database[Collection.POSTAUSGANG].find().sort("_id", 1)]
+    return [row async for row in database[Collection.OUTBOX].find().sort("_id", 1)]
 
 
 async def ansicht(database: AsyncDatabase, *, token: str = TOKEN) -> Any:
     return await post_invitation_view(
         ansicht_data=FLTokenPayload(token=token),
-        einladungen_collection=database[Collection.EINLADUNGEN],
+        einladungen_collection=database[Collection.INVITATIONS],
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
@@ -300,7 +300,7 @@ async def admit_as_the_team(database: AsyncDatabase, client: AsyncMongoClient, r
         spieler_collection=database[Collection.SPIELER],
         records=record_collections(database),
         spieltage_collection=database[Collection.SPIELTAGE],
-        aktionen_collection=database[Collection.AKTIONEN],
+        aktionen_collection=database[Collection.ACTION_LOG],
         sperrliste=ban_list(database),
         db=client,
         today=TODAY,
@@ -395,7 +395,7 @@ class TestWhatASubmissionStores:
             "art": "registrierung_confirmation",
             "team": TEAM_NAME,
             "saison_id": SAISON_ID,
-            "frist_days": REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
+            "frist_days": REGISTRIERUNG_CONFIRMATION_FRIST_DAYS,
         }
 
     def test_the_link_the_hand_out_mints_opens_the_registration(self, mongo_replica_set_url: str):
@@ -427,7 +427,7 @@ class TestWhatASubmissionStores:
 
         stored = on_a_league(mongo_replica_set_url, body)
 
-        assert REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE == 7
+        assert REGISTRIERUNG_CONFIRMATION_FRIST_DAYS == 7
         assert stored["confirmation"]["frist"] == FRIST
 
     def test_neither_a_person_nor_a_squad_row_is_written(self, mongo_replica_set_url: str):
@@ -479,7 +479,7 @@ class TestTheSubmissionKey:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await register(database, client, key=SCHLUESSEL)
-            await database[Collection.EINLADUNGEN].update_one({"_id": EINLADUNG_OID}, {"$set": {"widerrufen_am": TODAY}})
+            await database[Collection.INVITATIONS].update_one({"_id": EINLADUNG_OID}, {"$set": {"widerrufen_am": TODAY}})
             second = await register(database, client, key=SCHLUESSEL)
 
             return first.registrierung_id, second.registrierung_id

@@ -85,7 +85,7 @@ def booted_over(grants: Sequence[Mapping[str, Any]], mongo_url: str, caplog: pyt
         client.drop_database(name)
         if grants:
             stamped = {"granted_by": "PLAYGROUND", "granted_at": datetime(2026, 1, 1, tzinfo=UTC)}
-            client[name][Collection.BERECHTIGUNGEN].insert_many([{**grant, **stamped} for grant in grants])
+            client[name][Collection.GRANTS].insert_many([{**grant, **stamped} for grant in grants])
         with caplog.at_level(logging.WARNING, logger=FL_LOGGER_NAME):
             asyncio.run(enter())
     finally:

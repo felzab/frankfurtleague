@@ -14,13 +14,13 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.bewerbungen.admin_router import FLBewerbungenFilters, get_bewerbungen
 from app.api.bewerbungen.schemas import FLBewerbungenFilterParams
 from app.api.bewerbungen.services import dubletten_schluessel_of, mit_zustellung
-from app.api.postausgang.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxState
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from tests import documents
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import bestaetigte_kenntnisnahme
+from tests.documents import confirmed_kenntnisnahme
 from tests.worker import worker_database
 
 SAISON_ID = "2026"
@@ -34,7 +34,7 @@ KONTAKTPERSON = {
     "email": "a.koerner@example.de",
     "telefon": "+49 170 1234567",
     "geburtsdatum": "1984-05-09",
-    "einwilligung": bestaetigte_kenntnisnahme(),
+    "einwilligung": confirmed_kenntnisnahme(),
 }
 
 
@@ -62,7 +62,7 @@ def bewerbung_document(
         team_id=team_id,
         schule=None
         if team_id is not None
-        else documents.neue_schule_document(
+        else documents.new_schule_document(
             f"Schule {index}", shorthand, full_name=f"Schule {index} Gesamtschule", schulform="gesamtschule", website_url="https://example.de"
         ),
         trikot={"existing_satz": "16 rote Trikots", "wunschfarbe": "rot"},
@@ -201,7 +201,7 @@ def run_list(collection: _ArchiveCollection, **filters: Any) -> Any:
     return asyncio.run(
         get_bewerbungen(
             bewerbungen_collection=cast(AsyncCollection, collection),
-            postausgang_collection=cast(AsyncCollection, _NothingStored()),
+            outbox_collection=cast(AsyncCollection, _NothingStored()),
             sperrliste=ban_list({Collection.SPERRLISTE: _NothingStored(), Collection.SAISONS: _NothingStored()}),
             filters=FLBewerbungenFilterParams.model_validate(filters),
         )
@@ -563,7 +563,7 @@ class TestTheCollisionSurvivesTheReadsCap:
 
                 return await get_bewerbungen(
                     bewerbungen_collection=collection,
-                    postausgang_collection=database[Collection.POSTAUSGANG],
+                    outbox_collection=database[Collection.OUTBOX],
                     sperrliste=ban_list(database),
                     filters=FLBewerbungenFilterParams.model_validate({}),
                 )

@@ -23,8 +23,8 @@ from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
 from app.core.journal import JournalLine
 from app.shared.einwilligung import Seite
-from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, compose_wahlen, ist_erteilt, nachweis_stand_of
-from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE, SCHIEDSRICHTER_MIN_AGE_YEARS
+from app.shared.einwilligung_nachweis import CHOICES, FLEinwilligungChoice, compose_choices, is_given, nachweis_stand_of
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # The registry pages (`app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`) whose labels each control stamps.
@@ -36,21 +36,21 @@ KONTO_SEITE_KONTAKT: Final[Seite] = "konto_kontakt"
 _FASSUNG_ORT: Final = "einwilligung"
 
 
-def erteilt_etwas(*, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungWahl, Any]) -> bool:
+def erteilt_etwas(*, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungChoice, Any]) -> bool:
     """Whether a press GRANTS a choice the stored record withholds, in either vocabulary.
 
     A grant is admitted only where its record's grant predicate allows it, a withdrawal on every confirmed one (Art. 7(3) DSGVO).
     """
 
-    return any(ist_erteilt(wahl, wert) and not ist_erteilt(wahl, gespeichert.get(wahl)) for wahl, wert in gewaehlt.items())
+    return any(is_given(wahl, wert) and not is_given(wahl, gespeichert.get(wahl)) for wahl, wert in gewaehlt.items())
 
 
-def _bewegt(gespeichert: Mapping[str, Any], wahl: FLEinwilligungWahl, wert: Any) -> bool:
-    return wert != (ist_erteilt("medien", gespeichert.get("medien")) if wahl == "medien" else gespeichert.get(wahl))
+def _bewegt(gespeichert: Mapping[str, Any], wahl: FLEinwilligungChoice, wert: Any) -> bool:
+    return wert != (is_given("medien", gespeichert.get("medien")) if wahl == "medien" else gespeichert.get(wahl))
 
 
 def compose_person_move(
-    *, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungWahl, Any], am: str, text_version: str
+    *, gespeichert: Mapping[str, Any], gewaehlt: Mapping[FLEinwilligungChoice, Any], am: str, text_version: str
 ) -> dict[str, dict[str, Any]] | None:
     """The update moving a person's own block, at `einwilligung`, by the choices that change; `None` where none does.
 
@@ -58,14 +58,14 @@ def compose_person_move(
     `text_version`: the press's label is its evidence's.
     """
 
-    bewegt: list[FLEinwilligungWahl] = [wahl for wahl in WAHLEN if wahl in gewaehlt and _bewegt(gespeichert, wahl, gewaehlt[wahl])]
+    bewegt: list[FLEinwilligungChoice] = [wahl for wahl in CHOICES if wahl in gewaehlt and _bewegt(gespeichert, wahl, gewaehlt[wahl])]
     if not bewegt:
         return None
 
     return {
-        "$set": compose_wahlen(
-            pfad="einwilligung",
-            gespeichert=gespeichert,
+        "$set": compose_choices(
+            path="einwilligung",
+            saved=gespeichert,
             gesetzt={wahl: gewaehlt[wahl] for wahl in bewegt},
             am=am,
             text_version=text_version,
@@ -74,17 +74,17 @@ def compose_person_move(
 
 
 def compose_sitz_move(
-    *, sitze: Mapping[str, Mapping[str, Any]], gewaehlt: Mapping[FLEinwilligungWahl, Any], am: str, text_version: str
+    *, sitze: Mapping[str, Mapping[str, Any]], gewaehlt: Mapping[FLEinwilligungChoice, Any], am: str, text_version: str
 ) -> dict[str, dict[str, Any]] | None:
     """The update moving every held seat's block of one row or application, `sitze` keyed by slot; `None` where none moves."""
 
     gesetzt: dict[str, Any] = {}
     for slot, gespeichert in sitze.items():
         gesetzt.update(
-            compose_wahlen(
-                pfad=f"kontakte.{slot}.einwilligung",
-                gespeichert=gespeichert,
-                gesetzt={wahl: gewaehlt[wahl] for wahl in WAHLEN if wahl in gewaehlt and _bewegt(gespeichert, wahl, gewaehlt[wahl])},
+            compose_choices(
+                path=f"kontakte.{slot}.einwilligung",
+                saved=gespeichert,
+                gesetzt={wahl: gewaehlt[wahl] for wahl in CHOICES if wahl in gewaehlt and _bewegt(gespeichert, wahl, gewaehlt[wahl])},
                 am=am,
                 text_version=text_version,
             )
@@ -99,7 +99,7 @@ def widerruf_line(
     collection: DbCollection,
     record_id: ObjectId,
     bloecke: Sequence[Mapping[str, Any]],
-    gewaehlt: Mapping[FLEinwilligungWahl, Any],
+    gewaehlt: Mapping[FLEinwilligungChoice, Any],
     am: str,
     text_version: str,
 ) -> JournalLine | None:
@@ -108,10 +108,8 @@ def widerruf_line(
     A grant is never journalled: a restore taking one back leaves the person less exposed, never more.
     """
 
-    widerrufen: dict[FLEinwilligungWahl, Any] = {
-        wahl: wert
-        for wahl, wert in gewaehlt.items()
-        if not ist_erteilt(wahl, wert) and any(ist_erteilt(wahl, block.get(wahl)) for block in bloecke)
+    widerrufen: dict[FLEinwilligungChoice, Any] = {
+        wahl: wert for wahl, wert in gewaehlt.items() if not is_given(wahl, wert) and any(is_given(wahl, block.get(wahl)) for block in bloecke)
     }
     if not widerrufen:
         return None
@@ -123,7 +121,7 @@ def widerruf_line(
         record_id=record_id,
         am=am,
         text_version=text_version,
-        wahlen=widerrufen,
+        choices=widerrufen,
     )
 
 
@@ -231,7 +229,7 @@ def compose_spieler_konto(row: Mapping[str, Any], *, givable: bool, today: str, 
         "nachweis_stand": nachweis_stand_of(bloecke=[row["einwilligung"]]),
         "givable": givable,
         "medien_offered": medien_angeboten(geburtsdatum=row.get("geburtsdatum"), today=today),
-        "minimum_age": REGISTRIERUNG_MIN_ALTER_JAHRE,
+        "minimum_age": REGISTRIERUNG_MIN_AGE_YEARS,
         "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
         "context": {
             "team": None if team is None else team.get("name"),
@@ -328,21 +326,21 @@ def _sitz_schule(
     return bewerbung_schule(bewerbung_raw=bewerbung, club_name=(teams.get(row["team_id"]) or {}).get("name"))
 
 
-def sitz_wahlen_der_zeile(bloecke: Sequence[Mapping[str, Any]]) -> dict[FLEinwilligungWahl, Any]:
+def sitz_wahlen_der_zeile(bloecke: Sequence[Mapping[str, Any]]) -> dict[FLEinwilligungChoice, Any]:
     """Each choice as the account page serves one person's seats on a row: on where any held seat's is, so a withdrawal stays offered.
 
     One person's seats on a row may disagree, each seat's link being answered on its own.
     """
 
     return {
-        "umfang": "kontaktdaten_whatsapp" if any(ist_erteilt("umfang", block.get("umfang")) for block in bloecke) else "kontaktdaten",
-        "medien": any(ist_erteilt("medien", block.get("medien")) for block in bloecke),
+        "umfang": "kontaktdaten_whatsapp" if any(is_given("umfang", block.get("umfang")) for block in bloecke) else "kontaktdaten",
+        "medien": any(is_given("medien", block.get("medien")) for block in bloecke),
     }
 
 
 def geaenderte_sitz_wahlen(
-    *, bloecke: Sequence[Mapping[str, Any]], gedrueckt: Mapping[FLEinwilligungWahl, Any]
-) -> dict[FLEinwilligungWahl, Any]:
+    *, bloecke: Sequence[Mapping[str, Any]], gedrueckt: Mapping[FLEinwilligungChoice, Any]
+) -> dict[FLEinwilligungChoice, Any]:
     """The choices a seat press changed against the row its page served; one sent back as shown is no grant and no move.
 
     On seats answered apart, moving it would grant one what was never pressed.
@@ -535,8 +533,8 @@ def compose_registrierungen_self(
                 "saison_id": row["saison_id"],
                 "confirmed_text_version": block["text_version"],
                 "umfang": block.get("umfang"),
-                "medien": ist_erteilt("medien", block.get("medien")) if traegt_wahlen(block) else None,
-                "minimum_age": REGISTRIERUNG_MIN_ALTER_JAHRE,
+                "medien": is_given("medien", block.get("medien")) if traegt_wahlen(block) else None,
+                "minimum_age": REGISTRIERUNG_MIN_AGE_YEARS,
                 "medien_minimum_age": MEDIEN_MIN_AGE_YEARS,
                 "nachweis_stand": nachweis_stand_of(bloecke=[block]),
                 "context": {

@@ -3,15 +3,14 @@ from typing import Annotated, Literal, Self
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 from pydantic_core import PydanticCustomError
 
-from app.api.postausgang.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxState
 from app.api.teams.schemas import FLSaisonTeamKontakte, FLSaisonTeamKontaktePayload, _KontaktpersonWritablePayload
 from app.shared.alter import whole_years_between
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
-from app.shared.schemas.bestaetigung import CustomToken
 from app.shared.schemas.bounds import (
     ADDRESS_STADTTEIL_MAX_LENGTH,
     BEWERBUNG_GRUND_MAX_LENGTH,
-    BEWERBUNG_KADER_GROESSE_MAX,
+    BEWERBUNG_KADER_SIZE_MAX,
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     BEWERBUNG_STUFENGROESSE_MAX,
     BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
@@ -23,6 +22,7 @@ from app.shared.schemas.bounds import (
     TEAM_NAME_MAX_LENGTH,
     TEAM_WEBSITE_URL_MAX_LENGTH,
 )
+from app.shared.schemas.confirmation import CustomToken
 from app.shared.schemas.custom import (
     SINGLE_LINE_PATTERN,
     CustomDateString,
@@ -404,8 +404,8 @@ class FLBewerbungKaderPayload(FLBewerbungKader):
     # zero is its floor.
 
     # The CEILING keeps an int32 validator from answering 500 where this endpoint promises 422.
-    expected_size: int = Field(ge=1, le=BEWERBUNG_KADER_GROESSE_MAX)
-    good_spieler: int = Field(ge=0, le=BEWERBUNG_KADER_GROESSE_MAX)
+    expected_size: int = Field(ge=1, le=BEWERBUNG_KADER_SIZE_MAX)
+    good_spieler: int = Field(ge=0, le=BEWERBUNG_KADER_SIZE_MAX)
 
     @model_validator(mode="after")
     def the_strong_players_are_a_subset_of_the_squad(self) -> Self:

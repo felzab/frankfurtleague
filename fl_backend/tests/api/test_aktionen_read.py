@@ -371,7 +371,7 @@ class TestATruncatedPageSaysSo:
 
 
 class TestTheListNarrowsOnOneDocument:
-    """`aktionen_target`'s first purpose: one document's history, asked for in the STORED spelling.
+    """`action_log_target`'s first purpose: one document's history, asked for in the STORED spelling.
 
     The term is compiled rather than dumped (`app/api/aktionen/services.py :: document_id_term`).
     """

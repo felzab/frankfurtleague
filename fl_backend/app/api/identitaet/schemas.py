@@ -9,7 +9,7 @@ from app.api.berechtigungen.schemas import FLUtcInstant
 # would name a seat no other endpoint publishes.
 from app.api.sperrliste.schemas import ADDRESS_IN_FREE_TEXT
 from app.shared.folding import trimmed
-from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH, LOESCHUNG_ANLASS_MAX_LENGTH, REFERENZEN_ADRESSEN_MAX
+from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, KONTAKT_EMAIL_MAX_LENGTH, REFERENCES_ADRESSEN_MAX
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import FLAddressChangeViewableDenied, FLKontaktRolle, FLRegistrierungStatus, FLSaisonStatus, FLVerwaltung
@@ -208,7 +208,7 @@ class FLReferencesPayload(BaseModel):
 
     # Each held to no address rule, nor to a length: one address refused refuses the whole batch, and every
     # pass asks again, so the sweep would delete nothing ever after.
-    identifiers: list[str] = Field(min_length=1, max_length=REFERENZEN_ADRESSEN_MAX)
+    identifiers: list[str] = Field(min_length=1, max_length=REFERENCES_ADRESSEN_MAX)
 
 
 class FLReferencesResponse(BaseAPIResponse):
@@ -259,7 +259,7 @@ class FLErasurePayload(FLErasureAdressePayload):
     # The ceiling counts what arrives and the strip runs after it, so the published `maxLength` is the one the write keeps.
     anlass: Annotated[
         str,
-        StringConstraints(max_length=LOESCHUNG_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
+        StringConstraints(max_length=ERASURE_ANLASS_MAX_LENGTH, pattern=SINGLE_LINE_PATTERN),
         AfterValidator(str.strip),
         StringConstraints(min_length=1),
         AfterValidator(refuse_an_address_in_the_anlass),

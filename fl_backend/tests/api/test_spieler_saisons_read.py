@@ -20,7 +20,7 @@ from app.api.spieler.schemas import (
 )
 from app.api.spieler.services import build_real_spieler_filter, build_spieler_pipeline, build_spieler_saisons_pipeline
 from app.shared.folding import sign_in_identifier
-from tests.documents import eigene_einwilligung_document, saison_spieler_document, spieler_document
+from tests.documents import own_einwilligung_document, saison_spieler_document, spieler_document
 
 SAISON = "2026"
 PRIOR_SAISON = "2025"
@@ -273,7 +273,7 @@ class TestTheAddressASignedInPersonIsJoinedOn:
 
 
 # Passed rather than defaulted: `test_the_consent_record_reaches_this_read_whole` reads it back.
-EINWILLIGUNG = eigene_einwilligung_document(text_version="v1", confirmed_at="2026-01-20")
+EINWILLIGUNG = own_einwilligung_document(text_version="v1", confirmed_at="2026-01-20")
 
 
 def _spieler(name: str, *, inactive_since: str | None = None) -> dict[str, Any]:

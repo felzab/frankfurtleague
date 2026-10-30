@@ -32,7 +32,7 @@ from app.core.crud import aggregate_many_from_db
 from app.core.exceptions import DocumentNotFoundError
 from app.openapi_document import build_document
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
-from tests.documents import eigene_einwilligung_document, saison_spieler_document, spieler_document
+from tests.documents import own_einwilligung_document, saison_spieler_document, spieler_document
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -79,7 +79,7 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 def _consent(umfang: str, **fields: Any) -> dict[str, Any]:
     """A record its person confirmed under `umfang`, `fields` laid over it."""
 
-    return {**eigene_einwilligung_document(text_version="v1", confirmed_at="2026-01-20", umfang=umfang), **fields}
+    return {**own_einwilligung_document(text_version="v1", confirmed_at="2026-01-20", umfang=umfang), **fields}
 
 
 def _spieler(key: str, vorname: str, nachname: str | None, *, inactive_since: str | None = None) -> dict[str, Any]:

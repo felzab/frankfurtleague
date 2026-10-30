@@ -11,11 +11,11 @@ from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import FLAddressChangeWay, FLGruppenNames, FLKontaktRolle, FLKontaktRow, FLTrikotFarbe
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
-# Each kind of mail is one member of `FLPostausgangDaten` below, carrying the facts its builder renders and never a
+# Each kind of mail is one member of `FLOutboxData` below, carrying the facts its builder renders and never a
 # sentence: a date where the mail prints one, a seat where it names one. A kind joins with the write that owes it, its
 # member written from the facts that write holds.
 
-# --- The sign-in library's mails, each owed through `POST /postausgang/anmeldung` and never by a league write. Each
+# --- The sign-in library's mails, each owed through `POST /outbox/sign_in` and never by a league write. Each
 # secret one rides in the row's `secret`, never here.
 
 
@@ -34,13 +34,13 @@ class FLAccountErasureData(BaseModel):
     art: Literal["account_erasure"]
 
 
-FLPostausgangAnmeldeDaten = Annotated[FLSignInCodeData | FLPasskeyData | FLAccountErasureData, Field(discriminator="art")]
+FLOutboxSignInData = Annotated[FLSignInCodeData | FLPasskeyData | FLAccountErasureData, Field(discriminator="art")]
 
 # --- The league's mails.
 
 
 class FLSperreData(BaseModel):
-    """The ban's own notice, the one mail a ban does not stop (`app/api/postausgang/services.py :: UNGESPERRT`)."""
+    """The ban's own notice, the one mail a ban does not stop (`app/api/outbox/services.py :: UNGESPERRT`)."""
 
     art: Literal["sperre"]
     grund: str
@@ -56,7 +56,7 @@ class FLGrantData(BaseModel):
     now: FLGrantStand | None
     before: FLGrantStand | None
     # The administrator whose write made it; null where it was found in the database, or where a ban withholds them,
-    # `author` telling the two apart; `app/core/recording.py :: GELOESCHT_ACTOR_MARKER` for one erased since.
+    # `author` telling the two apart; `app/core/recording.py :: ERASED_ACTOR_MARKER` for one erased since.
     changed_by: str | None
     # Null where it was found in the database, nobody knowing when that edit was made.
     changed_at: AwareDatetime | None
@@ -285,7 +285,7 @@ class FLKontaktLinkData(BaseModel):
     row: FLKontaktRow
 
 
-FLPostausgangDaten = Annotated[
+FLOutboxData = Annotated[
     FLSignInCodeData
     | FLPasskeyData
     | FLAccountErasureData
@@ -315,7 +315,7 @@ FLPostausgangDaten = Annotated[
 ]
 
 # Every member's `art`, spelled again as one closed set for the row's own field, which outlives its data.
-FLPostausgangArt = Literal[
+FLOutboxArt = Literal[
     "sign_in_code",
     "passkey_hinzugefuegt",
     "passkey_erased",
@@ -349,29 +349,29 @@ FLPostausgangArt = Literal[
 ]
 
 
-_MEMBER_ARTEN = {art for member in get_args(get_args(FLPostausgangDaten)[0]) for art in get_args(member.model_fields["art"].annotation)}
-if set(get_args(FLPostausgangArt)) != _MEMBER_ARTEN:
-    raise RuntimeError("`FLPostausgangArt` and the members of `FLPostausgangDaten` name different kinds: add the kind to both.")
+_MEMBER_ARTEN = {art for member in get_args(get_args(FLOutboxData)[0]) for art in get_args(member.model_fields["art"].annotation)}
+if set(get_args(FLOutboxArt)) != _MEMBER_ARTEN:
+    raise RuntimeError("`FLOutboxArt` and the members of `FLOutboxData` name different kinds: add the kind to both.")
 
-# `offen` until a hand-out's report or the deadline settles it; each other state is final.
-FLPostausgangStand = Literal["open", "sent", "withheld", "barred", "dropped", "abandoned"]
+# `open` until a hand-out's report or the deadline settles it; each other state is final.
+FLOutboxStand = Literal["open", "sent", "withheld", "barred", "dropped", "abandoned"]
 
 # What the provider reports about a message it accepted. `sent` is the row's own state and no event's.
 type FLOutboxDeliveryStand = Literal["delivered", "delayed", "undeliverable", "suppressed", "complaint"]
 
 # The reports a reader of a seat's delivery takes as the mail not having arrived: refused by the provider's suppression
 # list, bounced for good, or marked as spam.
-UNZUSTELLBAR: Final[frozenset[FLOutboxDeliveryStand]] = frozenset({"undeliverable", "suppressed", "complaint"})
+UNDELIVERABLE: Final[frozenset[FLOutboxDeliveryStand]] = frozenset({"undeliverable", "suppressed", "complaint"})
 
 # Wide over the 36 characters the provider's id spells today, and a ceiling all the same: the value arrives from outside
 # and is stored.
-CustomNachrichtId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]
+CustomMessageId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]
 
 # The provider's own token for a refusal, bounded and on one line, never its prose.
-CustomZustellGrund = Annotated[str, StringConstraints(strip_whitespace=True, max_length=128, pattern=SINGLE_LINE_PATTERN)]
+CustomDeliveryGrund = Annotated[str, StringConstraints(strip_whitespace=True, max_length=128, pattern=SINGLE_LINE_PATTERN)]
 
 
-class FLPostausgangBezug(BaseModel):
+class FLOutboxReference(BaseModel):
     """The record a mail is about, and the contact seat on it where the record has seats: what a delivery state is read by."""
 
     collection: Collection
@@ -379,7 +379,7 @@ class FLPostausgangBezug(BaseModel):
     seat: FLKontaktRolle | None
 
 
-class FLPostausgangLink(BaseModel):
+class FLOutboxLink(BaseModel):
     """Where the hand-out stores the hash of the link it mints, and what the record must still say for it to mint one."""
 
     # The dotted path of each `token_hashes` array the link answers through: one per seat, a person holding two seats
@@ -403,7 +403,7 @@ class FLOutboxDelivery(BaseModel):
 class FLOutboxState(BaseReadModel):
     """What became of the last mail owed about one record and seat, as an editor reads it beside the link."""
 
-    stand: FLPostausgangStand
+    stand: FLOutboxStand
     delivery: FLOutboxDelivery | None
 
     @computed_field
@@ -414,24 +414,24 @@ class FLOutboxState(BaseReadModel):
         The one judgement of it, which the backend's refusals and every page showing the seat read.
         """
 
-        return self.stand == "abandoned" or (self.delivery is not None and self.delivery.stand in UNZUSTELLBAR)
+        return self.stand == "abandoned" or (self.delivery is not None and self.delivery.stand in UNDELIVERABLE)
 
 
-class FLPostausgangZeile(BaseModel):
+class FLOutboxRow(BaseModel):
     """One owed mail as `outbox` stores it."""
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     key: str
-    art: FLPostausgangArt
+    art: FLOutboxArt
     an: str
     # Both removed by the row's final state, after which only its delivery is read.
-    data: FLPostausgangDaten | None = Field(default=None)
+    data: FLOutboxData | None = Field(default=None)
     # Ciphertext the backend cannot read, under the frontend's key.
     secret: str | None = Field(default=None)
     # Null on a sign-in mail, which no league record holds.
-    reference: FLPostausgangBezug | None
-    link: FLPostausgangLink | None
-    stand: FLPostausgangStand
+    reference: FLOutboxReference | None
+    link: FLOutboxLink | None
+    stand: FLOutboxStand
     recorded_at: datetime
     # The last moment a hand-out may send the mail; a row still open after it is given up.
     frist: datetime
@@ -452,7 +452,7 @@ class FLOutboxHandout(BaseModel):
 
     id: CustomObjectId
     an: str
-    data: FLPostausgangDaten
+    data: FLOutboxData
     # The raw link token minted for this hand-out, whose hash alone the record keeps; null on a mail carrying no link.
     token: str | None
     secret: str | None
@@ -471,7 +471,7 @@ class FLOutboxHandoutResponse(BaseAPIResponse):
     abandoned: int = Field(ge=0)
 
 
-FLPostausgangErgebnisArt = Literal["sent", "retry", "abandon", "withheld"]
+FLOutboxResultArt = Literal["sent", "retry", "abandon", "withheld"]
 
 
 class FLOutboxResultPayload(BaseModel):
@@ -481,13 +481,13 @@ class FLOutboxResultPayload(BaseModel):
 
     lease: CustomStrippedNonEmptyString
     id: CustomObjectId
-    result: FLPostausgangErgebnisArt
+    result: FLOutboxResultArt
     # The provider's id for the accepted message: an operator's one way from the row to the message there, its dashboard's
     # page or `GET /emails/{id}` (https://resend.com/docs/api-reference/emails/retrieve-email), the provider offering no
     # search by tag. No event needs it, each finding its row by the row's own id.
-    message_id: CustomNachrichtId | None
+    message_id: CustomMessageId | None
     # The provider's own name for the refusal a failed send met, the row's one record of why.
-    grund: CustomZustellGrund | None
+    grund: CustomDeliveryGrund | None
 
     # Only a sent mail names a message, and a sent one may name none: the provider accepted it, and its answer carried no
     # readable id. Only a failed send names a refusal, and one that never reached the provider names none.
@@ -516,7 +516,7 @@ class FLOutboxSignInPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     an: CustomEmail
-    data: FLPostausgangAnmeldeDaten
+    data: FLOutboxSignInData
     # Encrypted by the frontend before it leaves it, under a key the backend never holds: the code, or the deletion token.
     secret: Annotated[str, StringConstraints(min_length=1, max_length=4096)] | None
     # When what the mail carries stops working: its last send and its deletion both. Required beside a secret.
@@ -539,7 +539,7 @@ class FLOutboxEventPayload(BaseModel):
     # before the send's report finds its row all the same.
     id: CustomObjectId
     stand: FLOutboxDeliveryStand
-    grund: CustomZustellGrund | None
+    grund: CustomDeliveryGrund | None
     # The provider's stamp, stored with the state; the order of states decides, never the order of stamps.
     am: AwareDatetime
 

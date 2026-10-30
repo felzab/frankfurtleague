@@ -114,7 +114,7 @@ def get_ban_list(
 ) -> BanList:
     """The request's ban list, keyed as every row of it is."""
 
-    return BanList(sperrliste_collection=sperrliste_collection, saisons_collection=saisons_collection, key=config.sperrliste_schluessel)
+    return BanList(sperrliste_collection=sperrliste_collection, saisons_collection=saisons_collection, key=config.sperrliste_key)
 
 
 SperrlisteLookup = Annotated[BanList, Depends(get_ban_list)]

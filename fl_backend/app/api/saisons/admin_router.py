@@ -31,7 +31,7 @@ from app.api.einladungen.services import (
 from app.api.identitaet.crud import faellige_anzahl, saison_statuses
 from app.api.identitaet.schemas import FLErasurePreviewResponse
 from app.api.identitaet.services import geschlossen_durch, statuses_after_activating
-from app.api.postausgang.services import enqueue_mails
+from app.api.outbox.services import enqueue_mails
 from app.api.saisons.crud import has_started, started_saison_ids
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
@@ -79,7 +79,7 @@ from app.core.crud import (
     build_query,
     build_sort,
     delete_many_from_db,
-    loeschen_many_from_db,
+    erase_many_from_db,
     patch_many_in_db,
     patch_one_in_db,
     post_many_to_db,
@@ -90,8 +90,8 @@ from app.core.crud import (
 )
 from app.core.dependencies import (
     DBClient,
-    EinladungenCollection,
-    PostausgangCollection,
+    InvitationsCollection,
+    OutboxCollection,
     RegistrierungenCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
@@ -571,7 +571,7 @@ async def activate_saison(
 
         # `$lt` and not `$lte`: the season named on a row is the last one the ban covers, so the row
         # lapses on the activation of the season AFTER it.
-        await loeschen_many_from_db(
+        await erase_many_from_db(
             collection=sperrliste_collection,
             db_filter={"barred_until_saison_id": {"$lt": saison_id}},
             session=session,
@@ -1095,7 +1095,7 @@ async def _gesperrte_empfaenger(sperrliste: BanList, entered: Sequence[Mapping[s
 async def _mail_one_team(
     *,
     einladungen_collection: AsyncCollection,
-    postausgang_collection: AsyncCollection,
+    outbox_collection: AsyncCollection,
     db: AsyncMongoClient,
     saison_id: str,
     team: Mapping[str, Any],
@@ -1137,7 +1137,7 @@ async def _mail_one_team(
             session=session,
         )
         versendet = bool(live) and bool(
-            await versendete_einladungen(postausgang_collection=postausgang_collection, einladung_ids=[live[0]["_id"]], session=session)
+            await versendete_einladungen(outbox_collection=outbox_collection, einladung_ids=[live[0]["_id"]], session=session)
         )
         plan = plan_einladung_versand(
             austritt=team.get("austritt"),
@@ -1175,7 +1175,7 @@ async def _mail_one_team(
             session=session,
         )
         await enqueue_mails(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=owed_einladung_mails(
                 invitation_id=post_operation.inserted_id,
@@ -1235,9 +1235,9 @@ async def _mail_one_team(
 async def get_invitations_dispatch_preview(
     saison_id: str,
     saison_teams_collection: SaisonTeamsCollection,
-    einladungen_collection: EinladungenCollection,
+    einladungen_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     resend: bool = False,
 ) -> FLInvitationDispatchPreviewResponse:
@@ -1263,7 +1263,7 @@ async def get_invitations_dispatch_preview(
     entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
     team_ids = [team["team_id"] for team in entered]
 
-    # Keyed on the teams just read rather than on the season alone: `uniq_einladung_live` makes that
+    # Keyed on the teams just read rather than on the season alone: `uniq_invitation_live` makes that
     # at most one row per team, so this read cannot truncate and report a mailed team as unmailed.
     live = await pull_many_from_db(
         collection=einladungen_collection,
@@ -1272,7 +1272,7 @@ async def get_invitations_dispatch_preview(
         projection=dict(WITHOUT_TOKEN_HASH),
     )
     by_team = {row["team_id"]: row for row in live}
-    versendet = await versendete_einladungen(postausgang_collection=postausgang_collection, einladung_ids=[row["_id"] for row in live])
+    versendet = await versendete_einladungen(outbox_collection=outbox_collection, einladung_ids=[row["_id"] for row in live])
     gesperrt = await _gesperrte_empfaenger(sperrliste, entered)
 
     zeilen: list[FLInvitationDispatchPreviewRow] = []
@@ -1311,7 +1311,7 @@ async def get_erasure_preview(
     registrierungen_collection: RegistrierungenCollection,
 ) -> FLErasurePreviewResponse:
     """
-    How many pupils `POST /identitaet/loeschung/sweep` deletes once this season is activated, and which season that activation closes.
+    How many pupils `POST /identity/erasure/sweep` deletes once this season is activated, and which season that activation closes.
 
     Judged by the run's own rule over the statuses the activation leaves: the season now `active` turned `past`, this one
     `active`, every other as it stands. A count and never a name, and writes nothing. It judges none of the activation's own
@@ -1342,9 +1342,9 @@ async def post_invitations_dispatch(
     saison_id: str,
     versand_data: Annotated[FLInvitationDispatchPayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
-    einladungen_collection: EinladungenCollection,
+    einladungen_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     created_by: str = Depends(get_actor_email),
@@ -1387,7 +1387,7 @@ async def post_invitations_dispatch(
     zeilen = [
         await _mail_one_team(
             einladungen_collection=einladungen_collection,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             db=db,
             saison_id=saison_id,
             team=team,

@@ -79,7 +79,7 @@ def spieler_document(spieler_id: ObjectId, vorname: str) -> dict[str, Any]:
     Consent passed, not defaulted: only a published, confirmed one serves the forename.
     """
 
-    published = documents.eigene_einwilligung_document(text_version=documents.EINWILLIGUNG["text_version"], confirmed_at="2026-01-20")
+    published = documents.own_einwilligung_document(text_version=documents.EINWILLIGUNG["text_version"], confirmed_at="2026-01-20")
 
     return documents.spieler_document(spieler_id, vorname, "Müller", einwilligung=published)
 
@@ -377,10 +377,10 @@ class TestTheAdminTierStillReadsThePlannedSeason:
         async def body(database: AsyncDatabase) -> Any:
             return await get_team_saisons(
                 teams_collection=database[Collection.TEAMS],
-                adresswechsel_collection=database[Collection.ADRESSWECHSEL],
-                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
-                postausgang_collection=database[Collection.POSTAUSGANG],
+                adresswechsel_collection=database[Collection.ADDRESS_CHANGES],
+                berechtigungen_collection=database[Collection.GRANTS],
+                berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
+                outbox_collection=database[Collection.OUTBOX],
                 operator=ADMINISTRATORS[0],
                 auth_time=int(time.time()),
             )
@@ -398,8 +398,8 @@ class TestTheAdminTierStillReadsThePlannedSeason:
         async def body(database: AsyncDatabase) -> Any:
             return await get_spieler_saisons(
                 spieler_collection=database[Collection.SPIELER],
-                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                berechtigungen_collection=database[Collection.GRANTS],
+                berechtigungen_angekuendigt_collection=database[Collection.GRANTS_ANNOUNCED],
                 operator=ADMINISTRATORS[0],
                 auth_time=int(time.time()),
             )

@@ -16,9 +16,9 @@ from app.api.registrierungen.services import (
     erinnerung_is_due,
 )
 from app.core.middlewares import REQUEST_DEADLINE_S
-from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_ERINNERUNG_TAGE
+from app.shared.schemas.bounds import REGISTRIERUNG_CONFIRMATION_FRIST_DAYS, REGISTRIERUNG_REMINDER_DAYS
 from app.shared.tokens import hash_token
-from tests.documents import eigene_einwilligung_document
+from tests.documents import own_einwilligung_document
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -33,7 +33,7 @@ FIRST_HASH = hash_token("first")
 
 
 def einwilligung() -> dict[str, Any]:
-    return eigene_einwilligung_document(text_version="2026-10-spielerseite-5", confirmed_at=TODAY)
+    return own_einwilligung_document(text_version="2026-10-spielerseite-5", confirmed_at=TODAY)
 
 
 def bestaetigung(**overrides: Any) -> dict[str, Any]:
@@ -66,7 +66,7 @@ def registrierung(**overrides: Any) -> dict[str, Any]:
 class TestTheReminderMark:
     """The three-day mark, on the one link a registration has: the day before, the day, the day after.
 
-    The bound is `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_ERINNERUNG_TAGE`.
+    The bound is `fl_backend/app/shared/schemas/bounds.py :: REGISTRIERUNG_REMINDER_DAYS`.
     """
 
     @pytest.mark.parametrize(
@@ -81,7 +81,7 @@ class TestTheReminderMark:
         stored = registrierung(confirmation=bestaetigung(sent_at=sent_at))
 
         assert erinnerung_is_due(registrierung_raw=stored, today=TODAY) == due
-        assert (REGISTRIERUNG_ERINNERUNG_TAGE, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE) == (3, 7)
+        assert (REGISTRIERUNG_REMINDER_DAYS, REGISTRIERUNG_CONFIRMATION_FRIST_DAYS) == (3, 7)
 
     @pytest.mark.parametrize(
         ("stored", "why"),

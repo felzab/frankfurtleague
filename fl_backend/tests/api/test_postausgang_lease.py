@@ -9,7 +9,7 @@ frontend's, read off its source.
 import re
 from pathlib import Path
 
-from app.api.postausgang.services import BEANSPRUCHUNG_DAUER, SEITE
+from app.api.outbox.services import LEASE_DURATION, SEITE
 
 FRONTEND_CORE = Path(__file__).resolve().parents[3] / "fl_frontend" / "src" / "core"
 
@@ -27,4 +27,4 @@ def test_the_lease_outlasts_a_page_of_sends_and_reports_at_their_bounds():
     send_s = _ms("mail.ts", "MAIL_TIMEOUT_MS") / 1000
 
     # The claim's own answer, then each send and the report after it.
-    assert call_s + SEITE * (send_s + call_s) < BEANSPRUCHUNG_DAUER.total_seconds()
+    assert call_s + SEITE * (send_s + call_s) < LEASE_DURATION.total_seconds()

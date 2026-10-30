@@ -29,20 +29,20 @@ from app.api.bewerbungen.services import (
     unerreichbare_seats,
 )
 from app.api.kontakte.services import contact_block_image_edits
-from app.api.postausgang.crud import lagen_of
-from app.api.postausgang.services import OwedMail, enqueue_mails
+from app.api.outbox.crud import states_of
+from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.spielberichte.crud import strip_the_seasons_reports
 from app.api.spielbestaetigungen.crud import strip_the_seasons_confirmations
 from app.api.spielbestaetigungen.services import seat_void_of
 from app.api.teams.crud import pull_team_names, void_moved_seats
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import anchor_in_db, loeschen_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, redact_log_rows_in_db
+from app.core.crud import anchor_in_db, erase_many_from_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, redact_log_rows_in_db
 from app.core.dependencies import (
-    AktionenCollection,
+    ActionLogCollection,
     BewerbungenCollection,
     DBClient,
-    PostausgangCollection,
+    OutboxCollection,
     SaisonsCollection,
     SaisonTeamsCollection,
     SpielberichteCollection,
@@ -133,10 +133,10 @@ async def sweep_saison(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
-    aktionen_collection: AktionenCollection,
+    aktionen_collection: ActionLogCollection,
     spielbestaetigungen_collection: SpielbestaetigungenCollection,
     spielberichte_collection: SpielberichteCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -186,11 +186,11 @@ async def sweep_saison(
             return len(rows), 0, 0
 
         ids = [row["_id"] for row in taken]
-        result = await loeschen_many_from_db(
+        result = await erase_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            aktionen_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
+            action_log_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -210,8 +210,8 @@ async def sweep_saison(
             )
         )
         # Each seat's last mail, read in the same transaction: a seat whose mail did not arrive is not chased.
-        lagen = await lagen_of(
-            postausgang_collection=postausgang_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
+        lagen = await states_of(
+            outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
         )
         # One mail a person: an address is one person, whose one link answers every seat they hold.
         personen_of = {
@@ -263,7 +263,7 @@ async def sweep_saison(
             )
         # In the stamps' own transaction: a stamp never stands without its mail, nor a mail without its stamp.
         await enqueue_mails(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[mail for _, mails in taken for mail in mails],
             now=germany_now,
@@ -287,8 +287,8 @@ async def sweep_saison(
         )
         # The submitter's last mail, read in the same transaction: a bounce it reports holds the application for the
         # administrator to correct the address.
-        lagen = await lagen_of(
-            postausgang_collection=postausgang_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
+        lagen = await states_of(
+            outbox_collection=outbox_collection, collection=Collection.BEWERBUNGEN, ids=[row["_id"] for row in rows], session=session
         )
 
         def due(row: Mapping[str, Any]) -> bool:
@@ -307,17 +307,17 @@ async def sweep_saison(
         # Owed in the erasure's own write, the notice carrying what it names: nothing of the application is left to
         # read once this commits.
         await enqueue_mails(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[notice for _, notice in owed if notice is not None],
             now=germany_now,
         )
         ids = [row["_id"] for row in taken]
-        result = await loeschen_many_from_db(
+        result = await erase_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            aktionen_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
+            action_log_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -346,11 +346,11 @@ async def sweep_saison(
         ids = [row["_id"] for row in taken]
         # The filter names the season and the ids and nothing else: it is stored as text, and any
         # other key would preserve what this call destroys.
-        result = await loeschen_many_from_db(
+        result = await erase_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            aktionen_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
+            action_log_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted
@@ -381,11 +381,11 @@ async def sweep_saison(
             return 0, 0, 0
 
         ids = [row["_id"] for row in taken]
-        result = await loeschen_many_from_db(
+        result = await erase_many_from_db(
             collection=bewerbungen_collection, db_filter={"saison_id": saison_id, "_id": {"$in": ids}}, session=session
         )
         redacted = await redact_log_rows_in_db(
-            aktionen_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
+            action_log_collection=aktionen_collection, targets=[(Collection.BEWERBUNGEN, ids)], at=stamp, session=session
         )
 
         return len(rows), result.deleted_count, redacted

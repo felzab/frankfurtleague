@@ -94,7 +94,7 @@ def referee(referee_id: ObjectId, name: str, email: str) -> dict[str, Any]:
         email=email,
         name=name,
         default_payment=20,
-        einwilligung=documents.eigene_einwilligung_document(text_version="2027-01-schiedsrichterseite-1", confirmed_at="2027-01-10"),
+        einwilligung=documents.own_einwilligung_document(text_version="2027-01-schiedsrichterseite-1", confirmed_at="2027-01-10"),
     )
 
 
@@ -252,7 +252,7 @@ class TestTheReportNeverWritesTheFixture:
             before = await database[Collection.SPIELE].find({}).sort("_id").to_list()
             await put(database, client, bericht(2, 1, [tor("team1", LINA), tor("team1", None), tor("team2", MIA)]))
             after = await database[Collection.SPIELE].find({}).sort("_id").to_list()
-            logged = await database[Collection.AKTIONEN].distinct("collection")
+            logged = await database[Collection.ACTION_LOG].distinct("collection")
 
             return before == after, logged
 
@@ -309,7 +309,7 @@ class TestASaveChangingNothingWritesNothing:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await put(database, client, bericht(bemerkungen="Starker Regen."))
             again = await outcome_of(put(database, client, bericht(stand=1, bemerkungen="Starker Regen.")))
-            logged = await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.SPIELBERICHTE)})
+            logged = await database[Collection.ACTION_LOG].count_documents({"collection": str(Collection.SPIELBERICHTE)})
 
             return again, (await stored(database))[0]["bericht"], logged
 

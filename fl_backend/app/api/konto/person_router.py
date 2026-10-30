@@ -67,13 +67,13 @@ from app.api.spieler.services import build_self_pupil_pipeline
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, patch_one_in_db, refuse
 from app.core.dependencies import (
-    AdresswechselCollection,
-    AktionenCollection,
-    BerechtigungenAngekuendigtCollection,
-    BerechtigungenCollection,
+    ActionLogCollection,
+    AddressChangeCollection,
     BewerbungenCollection,
     DBClient,
-    PostausgangCollection,
+    GrantsAnnouncedCollection,
+    GrantsCollection,
+    OutboxCollection,
     RegistrierungenCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
@@ -252,8 +252,8 @@ async def _adresswechsel_answer(
 async def get_address_change(
     identifier: KontaktIdentifier,
     records: SubjektLookup,
-    adresswechsel_collection: AdresswechselCollection,
-    berechtigungen_collection: BerechtigungenCollection,
+    adresswechsel_collection: AddressChangeCollection,
+    berechtigungen_collection: GrantsCollection,
     db: DBClient,
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLAccountAddressChangeResponse:
@@ -289,12 +289,12 @@ async def post_address_change(
     identifier: KontaktIdentifier,
     adresswechsel_data: Annotated[FLAccountAddressChangePayload, Body()],
     records: SubjektLookup,
-    adresswechsel_collection: AdresswechselCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    postausgang_collection: PostausgangCollection,
+    adresswechsel_collection: AddressChangeCollection,
+    berechtigungen_collection: GrantsCollection,
+    berechtigungen_angekuendigt_collection: GrantsAnnouncedCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
-    aktionen_collection: AktionenCollection,
+    aktionen_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     actor: Annotated[SessionActor, Depends(verify_person_actor)],
@@ -304,7 +304,7 @@ async def post_address_change(
     Start a change of the address the person signs in on, its two mails owed in the same transaction and no link answered.
 
     The new mailbox is owed its link, and the address on file a notice with a stop link; **everything the address holds
-    as its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. Where it holds a
+    as its person's own moves when the new mailbox confirms**, within `ADDRESS_CHANGE_VALID_HOURS`. Where it holds a
     grant, the change also waits on another administrator's approval, an owner's for an owner's grant. The address's live
     change ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.
     **Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start
@@ -351,7 +351,7 @@ async def post_address_change(
             record=record,
             adresswechsel_collection=adresswechsel_collection,
             aktionen_collection=aktionen_collection,
-            key=config.sperrliste_schluessel,
+            key=config.sperrliste_key,
             now=germany_now,
             journal=journal,
             session=session,
@@ -363,7 +363,7 @@ async def post_address_change(
             way="account",
             valid_until=record["valid_until"],
             vorname=bestand.vorname,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             now=germany_now,
             session=session,
         )
@@ -372,7 +372,7 @@ async def post_address_change(
             email=email,
             way="account",
             valid_until=record["valid_until"],
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             now=germany_now,
             session=session,
         )
@@ -393,9 +393,9 @@ async def post_address_change(
 async def post_address_change_release(
     identifier: KontaktIdentifier,
     freigabe_data: Annotated[FLAccountAddressChangeReleasePayload, Body()],
-    adresswechsel_collection: AdresswechselCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    postausgang_collection: PostausgangCollection,
+    adresswechsel_collection: AddressChangeCollection,
+    berechtigungen_collection: GrantsCollection,
+    outbox_collection: OutboxCollection,
     db: DBClient,
     actor: Annotated[SessionActor, Depends(verify_person_actor)],
     germany_now: datetime = Depends(get_germany_now),
@@ -442,7 +442,7 @@ async def post_address_change_release(
             email=str(approved["email"]),
             way=approved["way"],
             valid_until=gueltig_bis,
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             now=germany_now,
             session=session,
         )
@@ -466,9 +466,9 @@ async def post_address_change_release(
 async def delete_address_change(
     identifier: KontaktIdentifier,
     records: SubjektLookup,
-    adresswechsel_collection: AdresswechselCollection,
-    berechtigungen_collection: BerechtigungenCollection,
-    aktionen_collection: AktionenCollection,
+    adresswechsel_collection: AddressChangeCollection,
+    berechtigungen_collection: GrantsCollection,
+    aktionen_collection: ActionLogCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
@@ -503,7 +503,7 @@ async def delete_address_change(
                 neue=str(stored["email"]),
                 record_id=stored["_id"],
                 am=stamp,
-                key=config.sperrliste_schluessel,
+                key=config.sperrliste_key,
             )
         )
 

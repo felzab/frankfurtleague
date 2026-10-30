@@ -10,8 +10,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.bewerbungen.services import build_schluessel_filter, days_after, payload_fingerabdruck
 from app.api.einladungen.services import find_live_einladung_filter, find_unknown_einladung_refusal
 from app.api.einwilligung.services import find_fassung_refusal
-from app.api.postausgang.schemas import FLPostausgangBezug, FLRegistrierungLinkData
-from app.api.postausgang.services import OwedMail, enqueue_mails
+from app.api.outbox.schemas import FLOutboxReference, FLRegistrierungLinkData
+from app.api.outbox.services import OwedMail, enqueue_mails
 from app.api.registrierungen.crud import person_at_the_address
 from app.api.registrierungen.schemas import (
     FLInvitationViewResponse,
@@ -55,8 +55,8 @@ from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
-    EinladungenCollection,
-    PostausgangCollection,
+    InvitationsCollection,
+    OutboxCollection,
     RegistrierungenCollection,
     SaisonsCollection,
     SaisonSpielerCollection,
@@ -70,8 +70,8 @@ from app.core.dependencies import (
 from app.core.recording import log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 from app.core.transactions import transaction_session
-from app.shared.schemas.bestaetigung import FLTokenPayload
-from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_MIN_ALTER_JAHRE
+from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_CONFIRMATION_FRIST_DAYS, REGISTRIERUNG_MIN_AGE_YEARS
+from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 
 # `bind_public_actor`, never `bind_actor`: no browser sends `X-FL-Actor`, so that guard would refuse
@@ -125,7 +125,7 @@ async def _open_einladung(*, einladungen_collection: Any, token: str, session: A
 )
 async def post_invitation_view(
     ansicht_data: Annotated[FLTokenPayload, Body()],
-    einladungen_collection: EinladungenCollection,
+    einladungen_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
@@ -193,11 +193,11 @@ def _answer_as_the_first(*, stored: Mapping[str, Any], fingerabdruck: str) -> FL
 async def post_registrierung(
     registrierung_data: Annotated[FLPostRegistrierungPayload, Body()],
     registrierungen_collection: RegistrierungenCollection,
-    einladungen_collection: EinladungenCollection,
+    einladungen_collection: InvitationsCollection,
     saisons_collection: SaisonsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
-    postausgang_collection: PostausgangCollection,
+    outbox_collection: OutboxCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
@@ -287,7 +287,7 @@ async def post_registrierung(
         )
         refuse(find_gesperrt_refusal(barred=gesperrt))
 
-        frist = days_after(day=today, days=REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)
+        frist = days_after(day=today, days=REGISTRIERUNG_CONFIRMATION_FRIST_DAYS)
 
         created = await post_one_to_db(
             collection=registrierungen_collection,
@@ -312,7 +312,7 @@ async def post_registrierung(
         registrierung_id = created.inserted_id
 
         await enqueue_mails(
-            postausgang_collection=postausgang_collection,
+            outbox_collection=outbox_collection,
             session=session,
             mails=[
                 OwedMail(
@@ -324,9 +324,9 @@ async def post_registrierung(
                         # league's message. `or {}` for the type checker alone: `refuse` above has raised where the row is missing.
                         team=str((junction_raw or {}).get("name", "")),
                         saison_id=saison_id,
-                        frist_days=REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE,
+                        frist_days=REGISTRIERUNG_CONFIRMATION_FRIST_DAYS,
                     ),
-                    reference=FLPostausgangBezug(collection=Collection.REGISTRIERUNGEN, id=registrierung_id, seat=None),
+                    reference=FLOutboxReference(collection=Collection.REGISTRIERUNGEN, id=registrierung_id, seat=None),
                     link=REGISTRIERUNG_LINK,
                 )
             ],
@@ -388,7 +388,7 @@ async def get_confirmation_view(
         schule=str(team_raw["full_name"]),
         saison_id=str(raw["saison_id"]),
         seite=seite,
-        minimum_age=REGISTRIERUNG_MIN_ALTER_JAHRE,
+        minimum_age=REGISTRIERUNG_MIN_AGE_YEARS,
         medien_minimum_age=MEDIEN_MIN_AGE_YEARS,
     )
 

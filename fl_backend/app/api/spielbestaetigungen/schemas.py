@@ -3,11 +3,11 @@ from typing import Annotated, Literal, Self
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 from pydantic_core import PydanticCustomError
 
-from app.api.postausgang.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxState
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
-from app.shared.schemas.aktor import FLVonAdmin
-from app.shared.schemas.bestaetigung import CustomToken
+from app.shared.schemas.actor import FLVonAdmin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH
+from app.shared.schemas.confirmation import CustomToken
 from app.shared.schemas.custom import (
     SINGLE_LINE_PATTERN,
     CustomDateString,

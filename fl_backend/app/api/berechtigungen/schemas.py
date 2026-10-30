@@ -24,7 +24,7 @@ FLUtcInstant = Annotated[datetime, AfterValidator(as_utc)]
 FLBerechtigungAenderungArt = Literal["granted", "revoked", "changed"]
 
 # What a grant's notice tells: a change to a grant, or, no change of one yet, a grant or promotion asked for, waiting on
-# an approval (`app/api/postausgang/schemas.py :: FLGrantData`).
+# an approval (`app/api/outbox/schemas.py :: FLGrantData`).
 FLBerechtigungMitteilungArt = Literal[FLBerechtigungAenderungArt, Literal["requested"]]
 
 # Who made a queued change: an administrator through the application, or an edit in the database.
@@ -32,7 +32,7 @@ FLBerechtigungMitteilungArt = Literal[FLBerechtigungAenderungArt, Literal["reque
 FLBerechtigungUrheber = Literal["anwendung", "datenbank"]
 
 # Why a queued notice's GRANT address is withheld: its holder barred, or erased. Never the actor's,
-# whose `changed_by` says it alone: null for a ban, `app/core/recording.py :: GELOESCHT_ACTOR_MARKER`
+# whose `changed_by` says it alone: null for a ban, `app/core/recording.py :: ERASED_ACTOR_MARKER`
 # for an erasure.
 FLBerechtigungVorenthalten = Literal["barred", "erased"]
 
@@ -51,7 +51,7 @@ class FLBerechtigung(Anchored):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     adresse: CustomNonEmptyString
     verwaltung: FLVerwaltung
-    # An administrator's address for a grant made here, `app/core/recording.py :: GELOESCHT_ACTOR_MARKER`
+    # An administrator's address for a grant made here, `app/core/recording.py :: ERASED_ACTOR_MARKER`
     # once they are erased, and the marker the paste names itself by for one made in the Playground.
     granted_by: CustomNonEmptyString
     granted_at: datetime

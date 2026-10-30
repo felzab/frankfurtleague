@@ -9,7 +9,7 @@ from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN, Fassung, Seite
-from app.shared.einwilligung_nachweis import ist_erteilt
+from app.shared.einwilligung_nachweis import is_given
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 
 # The reader's own facts inside the words, spelled `{name}` in every label.
@@ -78,7 +78,7 @@ def find_self_medien_refusal(*, gespeichert: Any, medien: bool, geburtsdatum: An
     confirmation passes `None`.
     """
 
-    stand_erteilt = isinstance(gespeichert, Mapping) and ist_erteilt("medien", gespeichert.get("medien"))
+    stand_erteilt = isinstance(gespeichert, Mapping) and is_given("medien", gespeichert.get("medien"))
     if not medien or stand_erteilt or medien_angeboten(geburtsdatum=geburtsdatum, today=today):
         return None
 

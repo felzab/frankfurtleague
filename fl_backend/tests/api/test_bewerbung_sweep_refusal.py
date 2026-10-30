@@ -17,12 +17,12 @@ from app.api.bewerbungen.services import (
     vorname_of,
 )
 from app.api.bewerbungen.system_router import BLOCKS_CLEARED_PER_PASS, REMINDERS_PER_PASS
-from app.api.postausgang.schemas import FLOutboxDelivery, FLOutboxDeliveryStand, FLOutboxState
+from app.api.outbox.schemas import FLOutboxDelivery, FLOutboxDeliveryStand, FLOutboxState
 from app.core.middlewares import REQUEST_DEADLINE_S
-from app.shared.schemas.bounds import BEWERBUNG_ERINNERUNG_TAGE
+from app.shared.schemas.bounds import BEWERBUNG_REMINDER_DAYS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from app.shared.tokens import hash_token
-from tests.documents import kontaktperson_document, minted_bestaetigungen
+from tests.documents import kontaktperson_document, minted_confirmations
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -49,7 +49,7 @@ def kontakte(**overrides: Any) -> dict[str, Any]:
 def bestaetigungen(*, sent_at: str = MAILED_ON_THE_MARK, **entries: Any) -> dict[str, Any]:
     """Three live entries mailed on one day, any of them replaced by a case's own."""
 
-    return {**minted_bestaetigungen(hashes=HASHES, today=sent_at), **entries}
+    return {**minted_confirmations(hashes=HASHES, today=sent_at), **entries}
 
 
 APPLICATION_ID = "bewerbung"
@@ -109,7 +109,7 @@ class TestOneMonth:
 class TestTheReminderMark:
     """The three-day mark, on the seat: the day before, the day, the day after.
 
-    The bound is `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_ERINNERUNG_TAGE`.
+    The bound is `fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_REMINDER_DAYS`.
     """
 
     @pytest.mark.parametrize(
@@ -124,7 +124,7 @@ class TestTheReminderMark:
         block = bestaetigungen(sent_at=sent_at)
 
         assert seat_reminder_is_due(kontakte=kontakte(), confirmations=block, seat="trainer", today=TODAY, unerreichbar=False) == due
-        assert BEWERBUNG_ERINNERUNG_TAGE == 3
+        assert BEWERBUNG_REMINDER_DAYS == 3
 
     @pytest.mark.parametrize(
         ("kontakte_block", "bookkeeping", "why"),
