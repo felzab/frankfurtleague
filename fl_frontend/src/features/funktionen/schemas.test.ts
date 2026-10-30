@@ -18,7 +18,7 @@ const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const PROBE = z.array(z.object({ value: z.string(), refused: z.boolean() }));
 const REFUSALS = z
   .object({ anlass: PROBE })
-  .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "loeschung_refusals.json"), "utf8")));
+  .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "erasure_refusals.json"), "utf8")));
 
 /** The two payloads keyed on an address, each judged on the address alone. */
 const LOOKUPS = [
