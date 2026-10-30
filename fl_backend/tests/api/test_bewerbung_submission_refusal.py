@@ -718,7 +718,11 @@ def stored_application(**overrides: Any) -> dict[str, Any]:
         "wunschgegner": None,
         "entscheidung": None,
         "bestaetigungsfrist": bestaetigungsfrist_from(today=TODAY),
-        "bestaetigungen": minted_bestaetigungen(hashes={seat: f"hash-{seat}" for seat in KONTAKT_ROLLEN}, today=TODAY),
+        # As a read serves each seat: its bookkeeping, and the delivery the read joins beside it.
+        "bestaetigungen": {
+            seat: {**entry, "zustellung": None}
+            for seat, entry in minted_bestaetigungen(hashes={seat: f"hash-{seat}" for seat in KONTAKT_ROLLEN}, today=TODAY).items()
+        },
         **overrides,
     }
 

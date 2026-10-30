@@ -222,7 +222,8 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "wunschgegner": None,
             "entscheidung": None,
             "bestaetigungsfrist": "2026-02-15",
-            "bestaetigungen": minted_bestaetigungen(hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
+            "bestaetigungen": minted_bestaetigungen(
+                hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
             ),
         },
         "aktionen": {
