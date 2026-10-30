@@ -1,6 +1,6 @@
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 
 from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.spiele.schemas import SONDEREREIGNIS_NO_SHOW, FLBracketFault, FLSpielElfmeterschiessen, FLSpielJoinedAdmin
@@ -21,9 +21,10 @@ MINUTE_PATTERN = r"^[0-9]{1,3}(\+[0-9]{1,2})?$"
 CustomSpielberichtMinute = Annotated[str, StringConstraints(pattern=MINUTE_PATTERN)]
 
 # Multi-line, unlike a confirmation's reason: the referee's prose about the match, read on the editor's panel alone.
-# Stripped before the floor counts, so spaces alone are no remark.
+# The ceiling counts what arrives, so the published one is what is accepted; the floor counts after the strip, so
+# spaces alone are no remark.
 CustomSpielberichtBemerkungen = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH)
+    str, StringConstraints(max_length=SPIELBERICHT_BEMERKUNGEN_MAX_LENGTH), AfterValidator(str.strip), StringConstraints(min_length=1)
 ]
 
 FLSpielberichtSeite = Literal["team1", "team2"]
@@ -88,11 +89,10 @@ class FLSpielberichtKarte(BaseModel):
 
 
 class FLSpielberichtKartePayload(FLSpielberichtKarte):
-    """One card as a write sends it.
+    """One card as a write sends it: a caution names its reason unless the stored card's reason was stripped."""
 
-    A caution's reason is judged against the stored block, never here: a correction after the strip resends the
-    cautions whose reasons it stripped (`app/api/spielberichte/services.py :: find_grund_fehlt_refusal`).
-    """
+    # Judged against the stored block, never here: a correction after the strip resends the cautions whose
+    # reasons it stripped (`find_grund_fehlt_refusal`).
 
     model_config = ConfigDict(extra="forbid")
 

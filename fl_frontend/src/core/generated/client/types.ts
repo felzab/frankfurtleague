@@ -2056,55 +2056,11 @@ export const FLBookingResource = {
   schiedsrichter: "schiedsrichter",
 } as const;
 
-/**
- * A fixture still to be played booked onto a retired venue or referee.
- *
- * Nothing is taken off: only a person chooses between reactivating the row and booking another.
- */
-export interface FLBracketFaultBooking {
-  booking: FLBookingResource;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  booking_id: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  inactive_since: string;
-  name: string | null;
-  reason: "retired_booking";
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  spiel_nr: number;
-}
-
-/**
- * A venue or referee claimed less than `REQ-CLASH-001`'s buffer from another fixture's claim, one entry per claim.
- *
- * It names the fixture that refusal names, so the report and a save's 409 point at one match.
- */
-export interface FLBracketFaultClash {
-  booking: FLBookingResource;
-  name: string | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  other_datum: string;
-  other_saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  other_spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  other_spiel_nr: number;
-  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
-  other_uhrzeit: string;
-  reason: "double_booked";
-  saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  spiel_nr: number;
-}
-
 export type FLBracketFaultGruppeReason = (typeof FLBracketFaultGruppeReason)[keyof typeof FLBracketFaultGruppeReason];
 
 export const FLBracketFaultGruppeReason = {
-  gruppe_too_small: "gruppe_too_small",
   gruppe_not_run: "gruppe_not_run",
+  gruppe_too_small: "gruppe_too_small",
   seed_past_the_opening_round: "seed_past_the_opening_round",
   tie_unresolved: "tie_unresolved",
 } as const;
@@ -2126,43 +2082,13 @@ export interface FLBracketFaultGruppe {
   spiel_nr: number;
 }
 
-export type FLBracketFaultOccupantSide = (typeof FLBracketFaultOccupantSide)[keyof typeof FLBracketFaultOccupantSide];
-
-export const FLBracketFaultOccupantSide = {
-  team1: "team1",
-  team2: "team2",
-} as const;
-
-/**
- * One fixture fielding a team that left the season.
- *
- * The date rule and the carve-out are `REQ-ELIGIBILITY-001`'s. Nothing is emptied
- * (`docs/domain.md`'s what the model permits on purpose).
- */
-export interface FLBracketFaultOccupant {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  ausgeschieden_seit: string;
-  austritt_type: FLAustrittType;
-  reason: "departed_occupant";
-  side: FLBracketFaultOccupantSide;
-  spiel_datum: string | null;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  spiel_nr: number;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
-  /** @minLength 1 */
-  team_name: string;
-}
-
 export type FLBracketFaultQuelleReason = (typeof FLBracketFaultQuelleReason)[keyof typeof FLBracketFaultQuelleReason];
 
 export const FLBracketFaultQuelleReason = {
-  spiel_missing: "spiel_missing",
-  reference_cycle: "reference_cycle",
-  gruppenphase_feeder: "gruppenphase_feeder",
   feeder_not_played_first: "feeder_not_played_first",
+  gruppenphase_feeder: "gruppenphase_feeder",
+  reference_cycle: "reference_cycle",
+  spiel_missing: "spiel_missing",
 } as const;
 
 /**
@@ -2180,18 +2106,27 @@ export interface FLBracketFaultQuelle {
   spiel_nr: number;
 }
 
-export type FLBracketFaultSlotReason = (typeof FLBracketFaultSlotReason)[keyof typeof FLBracketFaultSlotReason];
+export type FLBracketFaultSpielReason = (typeof FLBracketFaultSpielReason)[keyof typeof FLBracketFaultSpielReason];
 
-export const FLBracketFaultSlotReason = {
-  gruppenphase_fixture_wired: "gruppenphase_fixture_wired",
-  source_feeds_another_fixture: "source_feeds_another_fixture",
+export const FLBracketFaultSpielReason = {
+  same_team: "same_team",
 } as const;
 
-export type FLBracketFaultSlotSide = (typeof FLBracketFaultSlotSide)[keyof typeof FLBracketFaultSlotSide];
+/**
+ * One fixture whose two references resolve to the same club; the fixture keeps its stored sides.
+ */
+export interface FLBracketFaultSpiel {
+  reason: FLBracketFaultSpielReason;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+  /** @exclusiveMinimum 0 */
+  spiel_nr: number;
+}
 
-export const FLBracketFaultSlotSide = {
-  team1: "team1",
-  team2: "team2",
+export type FLSpielQuelleGruppeType = (typeof FLSpielQuelleGruppeType)[keyof typeof FLSpielQuelleGruppeType];
+
+export const FLSpielQuelleGruppeType = {
+  gruppe: "gruppe",
 } as const;
 
 /**
@@ -2201,7 +2136,7 @@ export interface FLSpielQuelleGruppe {
   gruppe: FLGruppenNames;
   /** @exclusiveMinimum 0 */
   platz: number;
-  type: "gruppe";
+  type: FLSpielQuelleGruppeType;
 }
 
 export type FLSpielQuelleSpielAusgang = (typeof FLSpielQuelleSpielAusgang)[keyof typeof FLSpielQuelleSpielAusgang];
@@ -2211,6 +2146,12 @@ export const FLSpielQuelleSpielAusgang = {
   verlierer: "verlierer",
 } as const;
 
+export type FLSpielQuelleSpielType = (typeof FLSpielQuelleSpielType)[keyof typeof FLSpielQuelleSpielType];
+
+export const FLSpielQuelleSpielType = {
+  spiel: "spiel",
+} as const;
+
 /**
  * A slot fed by an earlier fixture: the side that came out of match `spiel_nr` as `ausgang`.
  */
@@ -2218,55 +2159,78 @@ export interface FLSpielQuelleSpiel {
   ausgang: FLSpielQuelleSpielAusgang;
   /** @exclusiveMinimum 0 */
   spiel_nr: number;
-  type: "spiel";
+  type: FLSpielQuelleSpielType;
 }
 
-/**
- * One slot carrying a reference it must not carry, whatever that reference names.
- *
- * The reference travels whole rather than decomposed: it groups the entries of a shared source, and
- * a toast arrives with no fixture to read it off.
- */
-export interface FLBracketFaultSlot {
-  quelle: FLSpielQuelleGruppe | FLSpielQuelleSpiel;
-  reason: FLBracketFaultSlotReason;
-  side: FLBracketFaultSlotSide;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  spiel_nr: number;
-}
+export type FLSpielQuelle = FLSpielQuelleGruppe | FLSpielQuelleSpiel;
 
-/**
- * One fixture whose two references resolve to the SAME club.
- *
- * It survives the write-path rule, which keys a source by identity, so two DIFFERENT sources
- * naming one club pass. The fixture keeps its stored sides.
- */
-export interface FLBracketFaultSpiel {
-  reason: "same_team";
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @exclusiveMinimum 0 */
-  spiel_nr: number;
-}
+export type FLBracketFaultSlotReason = (typeof FLBracketFaultSlotReason)[keyof typeof FLBracketFaultSlotReason];
 
-export type FLBracketFaultSpieltagSide = (typeof FLBracketFaultSpieltagSide)[keyof typeof FLBracketFaultSpieltagSide];
+export const FLBracketFaultSlotReason = {
+  gruppenphase_fixture_wired: "gruppenphase_fixture_wired",
+  source_feeds_another_fixture: "source_feeds_another_fixture",
+} as const;
 
-export const FLBracketFaultSpieltagSide = {
+export type FLSpielSeite = (typeof FLSpielSeite)[keyof typeof FLSpielSeite];
+
+export const FLSpielSeite = {
   team1: "team1",
   team2: "team2",
 } as const;
 
 /**
- * A club standing more than once on one Spieltag.
+ * One slot carrying a reference it must not carry, whatever that reference names.
+ */
+export interface FLBracketFaultSlot {
+  quelle: FLSpielQuelle;
+  reason: FLBracketFaultSlotReason;
+  side: FLSpielSeite;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+  /** @exclusiveMinimum 0 */
+  spiel_nr: number;
+}
+
+export type FLBracketFaultOccupantReason = (typeof FLBracketFaultOccupantReason)[keyof typeof FLBracketFaultOccupantReason];
+
+export const FLBracketFaultOccupantReason = {
+  departed_occupant: "departed_occupant",
+} as const;
+
+/**
+ * One fixture fielding a team on or after the day it left the season, or undated, with no recorded absence excusing it.
  *
- * One entry per APPEARANCE, the granularity `fl_backend/app/core/constraints.py :: report_relations`
- * counts in -- never deduplicated, because which to correct is a competition decision.
+ * Nothing is emptied.
+ */
+export interface FLBracketFaultOccupant {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  ausgeschieden_seit: string;
+  austritt_type: FLAustrittType;
+  reason: FLBracketFaultOccupantReason;
+  side: FLSpielSeite;
+  spiel_datum: string | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+  /** @exclusiveMinimum 0 */
+  spiel_nr: number;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  team_id: string;
+  /** @minLength 1 */
+  team_name: string;
+}
+
+export type FLBracketFaultSpieltagReason = (typeof FLBracketFaultSpieltagReason)[keyof typeof FLBracketFaultSpieltagReason];
+
+export const FLBracketFaultSpieltagReason = {
+  fielded_twice: "fielded_twice",
+} as const;
+
+/**
+ * A club standing more than once on one Spieltag, one entry per appearance.
  */
 export interface FLBracketFaultSpieltag {
-  reason: "fielded_twice";
-  side: FLBracketFaultSpieltagSide;
+  reason: FLBracketFaultSpieltagReason;
+  side: FLSpielSeite;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
   /** @exclusiveMinimum 0 */
@@ -2278,6 +2242,72 @@ export interface FLBracketFaultSpieltag {
   /** @minLength 1 */
   team_name: string;
 }
+
+export type FLBracketFaultBookingReason = (typeof FLBracketFaultBookingReason)[keyof typeof FLBracketFaultBookingReason];
+
+export const FLBracketFaultBookingReason = {
+  retired_booking: "retired_booking",
+} as const;
+
+/**
+ * A fixture still to be played booked onto a retired venue or referee.
+ *
+ * Nothing is taken off: only a person chooses between reactivating the row and booking another.
+ */
+export interface FLBracketFaultBooking {
+  booking: FLBookingResource;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  booking_id: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  inactive_since: string;
+  name: string | null;
+  reason: FLBracketFaultBookingReason;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+  /** @exclusiveMinimum 0 */
+  spiel_nr: number;
+}
+
+export type FLBracketFaultClashReason = (typeof FLBracketFaultClashReason)[keyof typeof FLBracketFaultClashReason];
+
+export const FLBracketFaultClashReason = {
+  double_booked: "double_booked",
+} as const;
+
+/**
+ * A venue or referee claimed less than four hours from another fixture's claim, one entry per claim.
+ *
+ * It names the fixture a save's clash refusal names.
+ */
+export interface FLBracketFaultClash {
+  booking: FLBookingResource;
+  name: string | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  other_datum: string;
+  other_saison_id: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  other_spiel_id: string;
+  /** @exclusiveMinimum 0 */
+  other_spiel_nr: number;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
+  other_uhrzeit: string;
+  reason: FLBracketFaultClashReason;
+  saison_id: string;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  spiel_id: string;
+  /** @exclusiveMinimum 0 */
+  spiel_nr: number;
+}
+
+export type FLBracketFault =
+  | FLBracketFaultGruppe
+  | FLBracketFaultQuelle
+  | FLBracketFaultSpiel
+  | FLBracketFaultSlot
+  | FLBracketFaultOccupant
+  | FLBracketFaultSpieltag
+  | FLBracketFaultBooking
+  | FLBracketFaultClash;
 
 /**
  * The id a create minted, which the caller reads the new record by.
@@ -3434,10 +3464,7 @@ export interface FLPatchSchiedsrichterResponse {
 }
 
 /**
- * The penalty shoot-out that settled a knockout fixture whose goals finished level.
- *
- * No `sieger`: a stored one could contradict the counts, and the `$expr` barring it is outside the
- * database validators' ratified scope.
+ * The penalty shoot-out that settled a level knockout fixture: the side with more goals in it won.
  */
 export interface FLSpielElfmeterschiessen {
   /** @minimum 0 */
@@ -3447,7 +3474,7 @@ export interface FLSpielElfmeterschiessen {
 }
 
 /**
- * The venue as the admin PATCH SUBMITS it: which ground, and what this fixture pays for it.
+ * The venue as the save sends it: which ground, and what this fixture pays for it.
  */
 export interface FLSpielOrtFieldPayload {
   /** @minimum 0 */
@@ -3457,7 +3484,7 @@ export interface FLSpielOrtFieldPayload {
 }
 
 /**
- * The referee as the admin PATCH SUBMITS it; `payment` stays for `mietpreis`' reason.
+ * The referee as the save sends it: who, and what this fixture pays them.
  */
 export interface FLSpielSchiedsrichterFieldPayload {
   /** @minimum 0 */
@@ -3477,11 +3504,9 @@ export const FLSonderereignis = {
 } as const;
 
 /**
- * One side of a fixture as the admin PATCH SUBMITS it.
+ * One side of a fixture as the save sends it: the team and its goals.
  *
- * No name and no shorthand: the server composes them from the season's `saison_teams` row.
- * A submitted copy is IGNORED rather than refused, as
- * the rule allows.
+ * The server composes the name and shorthand from the season's team row and ignores a copy sent.
  */
 export interface FLSpielTeamFieldPayload {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -3498,17 +3523,16 @@ export interface FLPatchSpielDataPayload {
   schiedsrichter_stand: string | null;
   sonderereignis: FLSonderereignis | null;
   team1: FLSpielTeamFieldPayload | null;
-  team1_quelle: FLSpielQuelleGruppe | FLSpielQuelleSpiel | null;
+  team1_quelle: FLSpielQuelle | null;
   team2: FLSpielTeamFieldPayload | null;
-  team2_quelle: FLSpielQuelleGruppe | FLSpielQuelleSpiel | null;
+  team2_quelle: FLSpielQuelle | null;
   uhrzeit: string | null;
 }
 
 /**
  * One fixture the bracket resolution rewrote, and the result that rewrite destroyed.
  *
- * Every voided field is `None` where a slot merely filled from empty, so "was anything destroyed"
- * is a null check.
+ * Every voided field is null where a slot merely filled from empty.
  */
 export interface FLSpielAdvancement {
   /** @pattern ^[0-9a-fA-F]{24}$ */
@@ -3520,21 +3544,11 @@ export interface FLSpielAdvancement {
   voided_sonderereignis: FLSonderereignis | null;
 }
 
-export type FLSpielReleasedSideSide = (typeof FLSpielReleasedSideSide)[keyof typeof FLSpielReleasedSideSide];
-
-export const FLSpielReleasedSideSide = {
-  team1: "team1",
-  team2: "team2",
-} as const;
-
 /**
- * One side another fixture gave up so a team can play this Spieltag.
- *
- * `team_name` rather than an id: the message quoting this has no `spiele` list to join against,
- * and the rename fan-out keeps the copy it reads fresh.
+ * One side another fixture gave up so a team can play this Spieltag, and the result that destroyed.
  */
 export interface FLSpielReleasedSide {
-  side: FLSpielReleasedSideSide;
+  side: FLSpielSeite;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spiel_id: string;
   /** @exclusiveMinimum 0 */
@@ -3547,22 +3561,11 @@ export interface FLSpielReleasedSide {
 }
 
 /**
- * What `patch_spiel_data` returns: every fixture it moved, and what that cost.
- *
- * Both lists report writes the caller did not ask for, each carrying the result it destroyed.
+ * Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.
  */
 export interface FLPatchSpielDataResponse {
   advanced_to: FLSpielAdvancement[];
-  bracket_faults: (
-    | FLBracketFaultGruppe
-    | FLBracketFaultQuelle
-    | FLBracketFaultSpiel
-    | FLBracketFaultSlot
-    | FLBracketFaultOccupant
-    | FLBracketFaultSpieltag
-    | FLBracketFaultBooking
-    | FLBracketFaultClash
-  )[];
+  bracket_faults: FLBracketFault[];
   released_sides: FLSpielReleasedSide[];
 }
 
@@ -4558,9 +4561,7 @@ export interface FLSperrlisteWriteResponse {
 }
 
 /**
- * The venue as a BASE-TIER read serves it: which ground, and where to find it.
- *
- * No `mietpreis`: what one fixture agreed to pay is admin-tier (`READ-MONEY-001`).
+ * The venue as the public reads serve it: which ground, and where to find it, without the rent.
  */
 export interface FLSpielOrtFieldPublic {
   /** @minLength 1 */
@@ -4572,20 +4573,17 @@ export interface FLSpielOrtFieldPublic {
 }
 
 /**
- * The referee as a BASE-TIER read serves it: on their consent, a forename and a surname initial (`READ-REFEREE-001`, `-004`).
+ * The referee as the public reads serve it: a forename and a surname initial where they consented, else no name.
  *
- * `payment` is withheld for `mietpreis`' reason, and the record's id under `READ-REFEREE-006`.
+ * Neither the payment nor the referee's id is served.
  */
 export interface FLSpielSchiedsrichterFieldPublic {
   name: string | null;
-  name_is_public?: boolean;
+  name_is_public: boolean;
 }
 
 /**
- * One side as a BASE-TIER read serves it, produced only by `build_spiele_pipeline`.
- *
- * Narrower than the junction row: every public surface listing a fixture carries this side, and
- * only a club's own page renders the free text a withdrawal names.
+ * One side as a read serves it, with the way its club left the season, null while it has not.
  */
 export interface FLSpielTeamFieldJoined {
   austritt_type: FLAustrittType | null;
@@ -4599,10 +4597,9 @@ export interface FLSpielTeamFieldJoined {
 }
 
 /**
- * One fixture as a BASE-TIER endpoint serves it: stored fields plus each side's joined season state.
+ * One fixture as the public reads serve it, each side with its club's standing in the season.
  *
- * A model rather than a default on the stored side, which would make every internal read of a raw
- * document quietly assert that nobody is disqualified.
+ * The referee is served only once they accepted the fixture as it stands.
  */
 export interface FLSpielJoined {
   ansetzung_bestaetigt: boolean | null;
@@ -4611,7 +4608,7 @@ export interface FLSpielJoined {
   ergebnis: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  notiz?: string | null;
+  notiz: string | null;
   ort: FLSpielOrtFieldPublic | null;
   /**
    * @minLength 4
@@ -4626,14 +4623,14 @@ export interface FLSpielJoined {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieltag_id: string;
   team1: FLSpielTeamFieldJoined | null;
-  team1_quelle: FLSpielQuelleGruppe | FLSpielQuelleSpiel | null;
+  team1_quelle: FLSpielQuelle | null;
   team2: FLSpielTeamFieldJoined | null;
-  team2_quelle: FLSpielQuelleGruppe | FLSpielQuelleSpiel | null;
+  team2_quelle: FLSpielQuelle | null;
   uhrzeit: string | null;
 }
 
 /**
- * The venue as the DOCUMENT holds it, and as the admin editor reads it back to round-trip the rent.
+ * The venue as stored and as the admin reads serve it, the rent included.
  */
 export interface FLSpielOrtField {
   /** @minLength 1 */
@@ -4647,7 +4644,7 @@ export interface FLSpielOrtField {
 }
 
 /**
- * The referee as the DOCUMENT holds it, and as the admin editor reads it back.
+ * The referee as stored and as the admin reads serve it: the whole name and the payment.
  */
 export interface FLSpielSchiedsrichterField {
   name: string | null;
@@ -4658,10 +4655,7 @@ export interface FLSpielSchiedsrichterField {
 }
 
 /**
- * The same fixture, carrying the two figures the base tier withholds (`READ-MONEY-001`).
- *
- * A second model rather than a projection per caller: a response whose shape follows the
- * credential is one no Zod mirror can express.
+ * The same fixture for the admin reads: the referee as booked, whole name and payment, and the venue's rent.
  */
 export interface FLSpielJoinedAdmin {
   ansetzung_bestaetigt: boolean | null;
@@ -4670,7 +4664,7 @@ export interface FLSpielJoinedAdmin {
   ergebnis: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  notiz?: string | null;
+  notiz: string | null;
   ort: FLSpielOrtField | null;
   /**
    * @minLength 4
@@ -4685,9 +4679,9 @@ export interface FLSpielJoinedAdmin {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   spieltag_id: string;
   team1: FLSpielTeamFieldJoined | null;
-  team1_quelle: FLSpielQuelleGruppe | FLSpielQuelleSpiel | null;
+  team1_quelle: FLSpielQuelle | null;
   team2: FLSpielTeamFieldJoined | null;
-  team2_quelle: FLSpielQuelleGruppe | FLSpielQuelleSpiel | null;
+  team2_quelle: FLSpielQuelle | null;
   uhrzeit: string | null;
 }
 
@@ -4898,10 +4892,7 @@ export const FLSpielberichtKartePayloadSeite = {
 } as const;
 
 /**
- * One card as a write sends it.
- *
- * A caution's reason is judged against the stored block, never here: a correction after the strip resends the
- * cautions whose reasons it stripped (`app/api/spielberichte/services.py :: find_grund_fehlt_refusal`).
+ * One card as a write sends it: a caution names its reason unless the stored card's reason was stripped.
  */
 export interface FLSpielberichtKartePayload {
   farbe: FLKartenFarbe;
@@ -5512,32 +5503,20 @@ export interface FLSpielbestaetigungenSelbstResponse {
  * match a fault or an open report names.
  */
 export interface FLSpieleActionRequiredResponse {
-  bracket_faults: (
-    | FLBracketFaultGruppe
-    | FLBracketFaultQuelle
-    | FLBracketFaultSpiel
-    | FLBracketFaultSlot
-    | FLBracketFaultOccupant
-    | FLBracketFaultSpieltag
-    | FLBracketFaultBooking
-    | FLBracketFaultClash
-  )[];
+  bracket_faults: FLBracketFault[];
   spielberichte: FLSpielberichtZustandEintrag[];
   spiele: FLSpielJoinedAdmin[];
 }
 
 /**
- * The admin surfaces' fixture list.
- *
- * The base tier reduces a referee's surname to an initial (`READ-REFEREE-001`) and the admin
- * fixture search matches on that name, so a surname typed there would find nothing.
+ * The admin surfaces' fixture list, each referee's whole name and the money included.
  */
 export interface FLSpieleAdminListResponse {
   spiele: FLSpielJoinedAdmin[];
 }
 
 /**
- * What `GET /spiele/{spiel_id}/admin` answers: the fixture the editor round-trips, money included.
+ * One fixture for the admin editor, money included.
  */
 export interface FLSpieleAdminSingleResponse {
   spiel: FLSpielJoinedAdmin;

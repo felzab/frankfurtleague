@@ -101,11 +101,9 @@ async def get_spiele_for_admin(
     today: str = Depends(get_german_date_str),
 ) -> FLSpieleAdminListResponse:
     """
-    List a season's Spiele for the admin surfaces, a `future` season's included.
+    List Spiele as `GET /spiele` does, a planned season's included, in the admin shape.
 
-    Same filters as `GET /spiele`, without its season gate -- which lists a planned season as empty,
-    so every admin surface counting fixtures reads zero. The admin fixture shape, so the referee
-    carries their whole name and the two figures ride along (`READ-MONEY-001`, `READ-REFEREE-001`).
+    Each referee carries their whole name, and each booking its money.
     """
 
     # Mirrors `app/api/spiele/router.py :: get_spiele`, which cannot be called here: the gate is
@@ -143,21 +141,13 @@ async def get_spiele_action_required(
     saison_id: str | None = None,
     today: str = Depends(get_german_date_str),
 ) -> FLSpieleActionRequiredResponse:
-    """List Spiele needing attention, and the bracket faults among them.
+    """List one season's Spiele needing the administrator, with the bracket's faults and every report's state.
 
-    Qualifying: cancelled, missing a date, time, venue or referee, past with no result, a
-    knockout side with neither team nor `quelle`, or holding a referee's report the administrator has
-    not adopted as it stands. Every report's state the season holds is served beside them. Scoped to `saison_id`, the active season when none
-    is named, which answers 404 while no season is active.
-
-    Also every fixture a club's unclosed confirmation about its Ansetzung as it stands puts before the
-    administrator: a decline proposing another date, a deadline passed unanswered, or a deadline of
-    today on a request sent today or never. The rows themselves are not served: `GET /spielbestaetigungen`
-    for the same season serves them, read separately, so a row reaching one of those states between
-    the two reads shows its fixture on the next.
-
-    The faults include a fixture still to be played that is booked onto a retired venue or referee,
-    and one whose venue or referee another fixture of any season claims less than four hours away.
+    The season is `saison_id`'s, else the active one, answering 404 while none is. A fixture qualifies when it is
+    called off; lacks a date, time, venue or referee; is past without a result; has a knockout side with neither
+    team nor source; holds a report not adopted as it stands; is put before the administrator by a club's
+    unclosed confirmation; or carries a bracket fault, a booking onto a retired venue or referee and a claim within
+    four hours of another fixture's among them.
     """
 
     # Resolved as every other admin read resolves an omitted season: the selector sends none for the
@@ -248,12 +238,7 @@ async def get_spiele_action_required(
     summary="One Spiel for the admin editor",
 )
 async def get_spiel_for_admin(spiel_id: CustomRouteObjectId, spiele_collection: SpieleCollection) -> FLSpieleAdminSingleResponse:
-    """
-    Return one match in the joined shape, plus the two figures the base tier withholds.
-
-    The editor reads here because it round-trips `ort.mietpreis` and `schiedsrichter.payment`,
-    which are admin-tier (`READ-MONEY-001`).
-    """
+    """Return one match in the admin shape, money included, for the editor."""
 
     spiele_raw = await aggregate_many_from_db(
         collection=spiele_collection,
@@ -297,14 +282,11 @@ async def patch_spiel_data(
     dry_run: Annotated[bool, Depends(previewing)] = False,
 ) -> FLPatchSpielDataResponse:
     """
-    Update one Spiel and resolve the season's bracket.
+    Save one Spiel wholesale and resolve the season's bracket, answering every fixture the save moved beyond it.
 
-    The payload is written wholesale: an omitted field is overwritten, and every name it carries is
-    composed by the server. A result can fill or empty the slots below it, each named in `advanced_to`.
-
-    With `uebernimmt_bericht`, the save also stamps the fixture's Spielbericht adopted at that version, in the same
-    transaction. A report corrected since that version, or written about other clubs than the save leaves on the
-    fixture, is left unstamped, and the save lands all the same: nothing is refused for it. A `dry_run` stamps nothing.
+    Every name is composed by the server. With `uebernimmt_bericht` the save also stamps the fixture's Spielbericht
+    adopted, where it still stands at that version about the clubs the save leaves; a miss refuses nothing. A
+    `dry_run` answers the same report and writes nothing.
     """
 
     async def season_of(session: AsyncClientSession | None) -> tuple[str, FLSaisonRules]:
@@ -394,8 +376,7 @@ async def patch_spiel_data(
         # slot the decline left; after the booking refusal, which names an erased referee as its own case.
         refuse(find_referee_stand_refusal(stored, spiel_data))
 
-        # Read after every refusal but the one it feeds: it validates fixtures of every season, and a
-        # hand-edited one raises, which would answer 500 for a save an earlier rule refuses.
+        # Read last, before the one rule it feeds: it spans every season's fixtures.
         booked = await pull_booked_slots(
             spiele_collection=spiele_collection, spiel_id=spiel_id, claims=find_claims_made(stored, spiel_data), session=session
         )
