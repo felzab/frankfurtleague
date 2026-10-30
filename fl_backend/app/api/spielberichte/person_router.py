@@ -43,14 +43,12 @@ from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
     SaisonSpielerCollection,
-    SaisonTeamsCollection,
     SpielberichteCollection,
     SpieleCollection,
     SpielerCollection,
     get_german_date_str,
     get_germany_now,
 )
-from app.core.drosselung import gedrosselt
 from app.core.routing import by_id
 from app.core.security import PERSON_ACTOR_BINDERS, SchiedsrichterIdentifier, verify_access_admin
 from app.core.transactions import transaction_session
@@ -168,7 +166,6 @@ async def get_spielbericht_bericht(
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
-    saison_teams_collection: SaisonTeamsCollection,
     spieler_collection: SpielerCollection,
     spielberichte_collection: SpielberichteCollection,
     records: SubjektLookup,
@@ -197,7 +194,6 @@ async def get_spielbericht_bericht(
             spiele_collection=spiele_collection,
             saisons_collection=saisons_collection,
             saison_spieler_collection=saison_spieler_collection,
-            saison_teams_collection=saison_teams_collection,
             spiel_id=spiel_id,
             session=session,
         )
@@ -231,7 +227,6 @@ async def get_spielbericht_bericht(
     responses={
         201: {"model": FLSpielberichtSchiedsrichterResponse, "description": "The report did not stand before, and this write created it"},
     },
-    dependencies=[Depends(gedrosselt)],
 )
 async def put_spielbericht_bericht(
     spiel_id: CustomRouteObjectId,
@@ -241,7 +236,6 @@ async def put_spielbericht_bericht(
     spiele_collection: SpieleCollection,
     saisons_collection: SaisonsCollection,
     saison_spieler_collection: SaisonSpielerCollection,
-    saison_teams_collection: SaisonTeamsCollection,
     spieler_collection: SpielerCollection,
     spielberichte_collection: SpielberichteCollection,
     records: SubjektLookup,
@@ -261,20 +255,18 @@ async def put_spielbericht_bericht(
     `bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on
     another version would replace a report its sender never saw.
 
-    Refuses, in this order, each writing nothing: a write past the person's ceiling for the German day
-    (`REQ-DROSSELUNG-001`); an address holding no confirmed, live referee record (`REQ-FUNKTION-001`); a fixture that
-    does not exist (`DB-COMMON-001`); one booked to none of its records (`REQ-BERICHT-002`); one whose season has
-    ended, whose report its referee only reads (`REQ-BERICHT-007`); a `bericht_stand` other than the version standing
-    now, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day is still to come
-    (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out proposed on a group-phase fixture
-    (`REQ-BERICHT-009`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil
-    the report already named on that side staying while the side fields the club it did (`REQ-BERICHT-003`); a yellow
-    or second yellow card naming no reason (`REQ-BERICHT-008`); and remarks naming a seat holder of either club, the
-    booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal but the ceiling's and
-    `REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's records included, so
-    a write landing on what was judged before that second asking refuses the report rather than letting it stand, and
-    one landing after it stands beside the report; a write of the report itself landing mid-press conflicts with this
-    one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two forms opened on no report: the later is
+    Refuses, in this order, each writing nothing: an address holding no confirmed, live referee record
+    (`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records
+    (`REQ-BERICHT-002`); one whose season has ended, whose report its referee only reads (`REQ-BERICHT-007`); a
+    `bericht_stand` other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated
+    or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out
+    proposed on a group-phase fixture (`REQ-BERICHT-009`); a pupil the write newly names on a side outside that side's
+    live squad of the season, a pupil the report already named on that side staying while the side fields the club it
+    did (`REQ-BERICHT-003`); and a yellow or second yellow card naming no reason (`REQ-BERICHT-008`). Every refusal but
+    `REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's records included, so a
+    write landing on what was judged before that second asking refuses the report rather than letting it stand, and one
+    landing after it stands beside the report; a write of the report itself landing mid-press conflicts with this one,
+    whose retry meets `REQ-BERICHT-006`. Two first writes at once are two forms opened on no report: the later is
     refused.
     """
 
@@ -291,7 +283,6 @@ async def put_spielbericht_bericht(
             spiele_collection=spiele_collection,
             saisons_collection=saisons_collection,
             saison_spieler_collection=saison_spieler_collection,
-            saison_teams_collection=saison_teams_collection,
             spiel_id=spiel_id,
             session=session,
         )
@@ -329,7 +320,6 @@ async def put_spielbericht_bericht(
             spiele_collection=spiele_collection,
             saisons_collection=saisons_collection,
             saison_spieler_collection=saison_spieler_collection,
-            saison_teams_collection=saison_teams_collection,
             spiel_id=spiel_id,
             session=None,
         )

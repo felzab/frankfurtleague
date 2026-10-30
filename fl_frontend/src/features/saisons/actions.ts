@@ -6,21 +6,12 @@ import { logger } from "@/core/logging";
 import { requestOutcomeUnknown, runAnsweringOwnCut } from "@/core/requestScope";
 import { TEAMS_EINTRAG } from "@/features/admin/constants";
 import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
-import { refusedReplay, restored, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { REGELN_ABSCHNITT } from "./constants";
 import { loeschungLaufen } from "./loeschung";
 import { activateSaison, generateSpielplan, patchSaison, postLoeschungLauf, postSaison, swapGruppen, undrawSpielplan } from "./mutations";
-import {
-  mapActivateRefusal,
-  mapRulesRefusal,
-  mapSaisonIdRefusal,
-  mapSpielplanRefusal,
-  mapSwapRefusal,
-  mapUndrawRefusal,
-  SAISON_REPLAY_REFUSALS,
-} from "./refusals";
+import { mapActivateRefusal, mapRulesRefusal, mapSaisonIdRefusal, mapSpielplanRefusal, mapSwapRefusal, mapUndrawRefusal } from "./refusals";
 import {
   FLActivateSaisonPayloadSchema,
   FLGenerateSpielplanPayloadSchema,
@@ -33,7 +24,6 @@ import { describeSpielplanUmfang } from "./utils";
 
 import type { FLSaisonRulesDraft, SaisonCreateDraft } from "@/features/saisons/types";
 import type { ActionResult } from "@/shared/types/types";
-import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type { LoeschungLauf } from "./loeschung";
 import type {
   FLActivateSaisonPayload,
@@ -108,21 +98,6 @@ export async function patchSaisonAction(
       saison: patchOperation,
       message: "Saison gespeichert",
     };
-  });
-}
-
-export async function undoAdminSaisonEditAction(rawPayload: FLPatchSaisonPayload): Promise<UndoOutcome> {
-  return runAdminUndo("undoAdminSaisonEditAction", async () => {
-    const validated = FLPatchSaisonPayloadSchema.safeParse(rawPayload);
-    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
-
-    try {
-      await patchSaison(validated.data);
-    } catch (error) {
-      return refusedReplay(error, SAISON_REPLAY_REFUSALS);
-    }
-
-    return restored();
   });
 }
 

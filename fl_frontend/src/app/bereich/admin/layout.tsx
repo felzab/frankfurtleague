@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { getAdminSession } from "@/core/auth";
 import { AdminAreaBoundary } from "@/features/admin/components/providers/AdminAreaBoundary";
@@ -39,7 +38,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
  */
 async function AdminSaisonSlot() {
   // The builder stage has no reachable Mongo, so a session lookup resolved at build time fails the image build.
-  await connection();
   if ((await getAdminSession()) === null) return null;
 
   return <SaisonMetadataDisplay tier="admin" />;

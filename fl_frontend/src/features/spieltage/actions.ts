@@ -1,15 +1,13 @@
 "use server";
 
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
-import { refusedReplay, restored, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { patchSpieltag } from "./mutations";
-import { mapSpieltagRefusal, SPIELTAG_REPLAY_REFUSALS } from "./refusals";
+import { mapSpieltagRefusal } from "./refusals";
 import { FLPatchSpieltagPayloadSchema } from "./schemas";
 
 import type { ActionResult } from "@/shared/types/types";
-import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type { FLPatchSpieltagPayload, FLSpieltagWriteResponse } from "./schemas";
 
 export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): Promise<ActionResult<{ spieltag?: FLSpieltagWriteResponse }>> {
@@ -32,20 +30,5 @@ export async function patchSpieltagAction(rawPayload: FLPatchSpieltagPayload): P
     }
 
     return { success: true, spieltag: patchOperation, message: "Spieltag gespeichert" };
-  });
-}
-
-export async function undoAdminSpieltagEditAction(rawPayload: FLPatchSpieltagPayload): Promise<UndoOutcome> {
-  return runAdminUndo("undoAdminSpieltagEditAction", async () => {
-    const validated = FLPatchSpieltagPayloadSchema.safeParse(rawPayload);
-    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
-
-    try {
-      await patchSpieltag(validated.data);
-    } catch (error) {
-      return refusedReplay(error, SPIELTAG_REPLAY_REFUSALS);
-    }
-
-    return restored();
   });
 }

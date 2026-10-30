@@ -16,8 +16,8 @@ import * as zod from "zod";
  * Refused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power
  * (`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds
  * (`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the
- * change moves a pupil (`-006`), a new address any entry names, confirmed or not (`-018`), a grant nobody could approve
- * (`-011`), and a reason naming a person of the records the change would move (`-008`).
+ * change moves a pupil (`-006`), a new address any entry names, confirmed or not (`-018`), and a grant nobody could
+ * approve (`-011`).
  * @summary Start an address change for a person who says they cannot sign in
  */
 export const adresswechselPostAdresswechselVerwaltungBodyAdresseMax = 254;
@@ -1226,16 +1226,11 @@ export const IdentitaetGetAnmeldungBody = zod
  * live grant and the administrator no owner's power (`REQ-PURGE-007`): the erasure ends the change, a discard only an
  * owner makes of it. The refusal tells that administrator some change the preview withholds names the address.
  *
- * `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does. No
- * redaction reaches it, so it is refused 422 where it holds an address, and, inside the write ahead of the erasure's first
- * step, where it holds a name of the person's own records as a whole word or before a genitive s (`REQ-PURGE-006`): each
- * name field whole and each of its words, but a particle such as `von` before a later word of its field and any single
- * letter. Names compare as stored, spacing aside, and equal where their plain lower or their plain upper case is: „Weiss“
- * is refused for „Weiß“, whose capitals it shares, and another spelling such as „Mueller“ for „Müller“ passes. A common
- * word equal to a name is refused with it. The grant notice names this administrator as ending the
- * person's grant. An address holding nothing is answered with every count zero. The 404 and the 409 answer only a database
- * changed by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once this has
- * answered.
+ * `anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does.
+ * No redaction reaches it, so it is refused 422 where it holds an address. The grant notice names this administrator
+ * as ending the person's grant. An address holding nothing is answered with every count zero. The 404 and the 409
+ * answer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is
+ * the caller's, once this has answered.
  * @summary Erase every record an address holds, on that person's request
  */
 export const identitaetEraseAufAnfrageBodyAnlassMax = 200;
@@ -1272,7 +1267,7 @@ export const IdentitaetEraseAufAnfrageBody = zod
  * and reason in a removed season's log images; the links its contact seats were mailed on their teams' open match
  * confirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,
  * which goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for
- * others, which name a marker in its place; its day counts; its rows in the log; every log image of a record the
+ * others, which name a marker in its place; its rows in the log; every log image of a record the
  * erasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;
  * a dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the
  * address under another grant's id; and the address in every notice still queued, withheld. Written besides: the
@@ -1334,7 +1329,7 @@ export const IdentitaetGetGesperrtBody = zod
  * writes waits for it to end: the entry then finds nobody, and the registration is stored for a pupil already gone.
  * Two calls at once therefore delete each pupil once. Deleted are
  * the pupil's own data alone: the pupil record, every squad row it holds and every registration at the address, a declined
- * one included, each with its log images, and their day counts as a pupil; every log row they wrote as a pupil keeps a
+ * one included, each with its log images; every log row they wrote as a pupil keeps a
  * fixed marker in their place. A contact seat, a referee record, a grant and anything else held at the same
  * address stand, and so do the log images naming them.
  *
@@ -1465,8 +1460,7 @@ export const IdentitaetGetSubjektBody = zod
  * Refused `REQ-AUTH-009` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the
  * address holds a grant;
  * `REQ-ADRESSWECHSEL-010` where the address holds nothing a change moves; `-007` where the typed address is the one
- * signed in; `-011` where nobody could approve the grant's move, the last owner making another first; and
- * `REQ-DROSSELUNG-001` past the day's count of starts and approvals.
+ * signed in; and `-011` where nobody could approve the grant's move, the last owner making another first.
  * @summary Start a change of the signed-in person's address
  */
 export const kontoPostAdresswechselBodyEmailMax = 254;
@@ -1483,8 +1477,7 @@ export const KontoPostAdresswechselBody = zod.object({
  * change its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.
  *
  * Refused `REQ-AUTH-009` as the start is; `REQ-ADRESSWECHSEL-002` where the change `id` names has ended; 404 where it
- * is no change of this address awaiting its approval; `REQ-ADRESSWECHSEL-003` past the approval's deadline; and
- * `REQ-DROSSELUNG-001` as the start is.
+ * is no change of this address awaiting its approval; and `REQ-ADRESSWECHSEL-003` past the approval's deadline.
  * @summary Approve the address change an administrator asked of the signed-in person
  */
 export const kontoPostAdresswechselFreigabeBodyIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1752,8 +1745,8 @@ export const RegistrierungenSweepRegistrierungenParams = zod.object({
  * row stays until the retention sweep erases it a month later. The answer carries the address the pupil's link
  * went to, for the decline mail and nothing else, and whether that address was ever confirmed.
  *
- * Refuses, in this order, a press past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), no pending
- * registration with this id (404) and no seat on its team's season (`REQ-FUNKTION-001`).
+ * Refuses, in this order, no pending registration with this id (404) and no seat on its team's season
+ * (`REQ-FUNKTION-001`).
  * @summary Decline a registration
  */
 export const registrierungenAblehnenPathRegistrierungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -1784,14 +1777,14 @@ export const RegistrierungenAblehnenBody = zod
  * it was on. The registration is deleted and its values redacted from the log in the same transaction, so a second
  * press meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.
  *
- * Refuses, in this order: a press past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), no pending
- * registration with this id (404), no seat on its team's season (`REQ-FUNKTION-001`), a registration the pupil has
- * not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban list holds (`REQ-REGISTRIERUNG-009`, worded to the team
- * as neutrally as to the pupil), a Stufe the season does not offer (`REQ-REGISTRIERUNG-003`), a registration
- * confirmed on the returning pupil's page whose address holds no stored person (`REQ-REGISTRIERUNG-018`: it carries
- * no choice, so it admits nobody, and the pupil registers again), a `spieler_id` that is not the person this
- * registration may be admitted into (`REQ-REGISTRIERUNG-014`), a person already playing in a squad this season
- * (`REQ-REGISTRIERUNG-015`) and a full squad (`REQ-SQUAD-003`). Nothing is written on any of them.
+ * Refuses, in this order: no pending registration with this id (404), no seat on its team's season
+ * (`REQ-FUNKTION-001`), a registration the pupil has not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban list
+ * holds (`REQ-REGISTRIERUNG-009`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
+ * (`REQ-REGISTRIERUNG-003`), a registration confirmed on the returning pupil's page whose address holds no stored
+ * person (`REQ-REGISTRIERUNG-018`: it carries no choice, so it admits nobody, and the pupil registers again), a
+ * `spieler_id` that is not the person this registration may be admitted into (`REQ-REGISTRIERUNG-014`), a person
+ * already playing in a squad this season (`REQ-REGISTRIERUNG-015`) and a full squad (`REQ-SQUAD-003`). Nothing is
+ * written on any of them.
  * @summary Admit a registration into the team's squad
  */
 export const registrierungenAufnehmenPathRegistrierungIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -2327,8 +2320,7 @@ export const SchiedsrichterGetBestaetigungAnsichtBody = zod.object({
  * (`REQ-EINWILLIGUNG-003`); a grant on a retired record (`REQ-EINWILLIGUNG-004`); a `text_version` naming no version of
  * the account page's referee control, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`);
  * `medien` moving to `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing
- * (`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), which
- * counts grants alone, so a withdrawal is never refused for it. Each refusal writes nothing.
+ * (`REQ-EINWILLIGUNG-002`). Each refusal writes nothing.
  *
  * **The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.
  * @summary Change a signed-in referee's own publication and media consent
@@ -2487,10 +2479,7 @@ export const SchiedsrichterReactivateSchiedsrichterParams = zod.object({
  * `gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still queued
  * for the address loses the address in the same transaction.
  *
- * `grund` is served, mailed to the address and kept past that person's erasure, so it is refused 422 where it holds a
- * name of the address's own records, as `POST /identitaet/erasure/ansicht` names each (`REQ-SPERRLISTE-004`). It is
- * matched as that erasure's `anlass` is: as stored, spacing aside, and equal where the plain lower or the plain upper case
- * is, so „Weiss“ is refused for „Weiß“ and another spelling such as „Mueller“ for „Müller“ passes.
+ * `grund` is served, mailed to the address and kept past that person's erasure.
  * @summary Ban an email address
  */
 export const sperrlistePostSperrlisteEintragBodyEmailMax = 254;
@@ -2548,10 +2537,9 @@ export const SpielberichteGetSpielberichteQueryParams = zod.object({
  * other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day is
  * still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out proposed on a
  * group-phase fixture (`REQ-BERICHT-009`); a pupil newly named on a side outside that side's live squad of the season
- * (`REQ-BERICHT-003`); a yellow or second yellow card naming no reason, unless the stored report holds that card, by
- * side, pupil and colour, stripped of its reason at the end of the season after the match (`REQ-BERICHT-008`); and remarks naming a seat
- * holder of either club, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each but
- * `REQ-BERICHT-006` is asked again outside the transaction just before answering; a write of the report landing
+ * (`REQ-BERICHT-003`); and a yellow or second yellow card naming no reason, unless the stored report holds that card,
+ * by side, pupil and colour, stripped of its reason at the end of the season after the match (`REQ-BERICHT-008`). Each
+ * but `REQ-BERICHT-006` is asked again outside the transaction just before answering; a write of the report landing
  * mid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two pages
  * opened on no report: the later is refused.
  * @summary Write one fixture's report as an administrator
@@ -2711,20 +2699,18 @@ export const SpielberichteGetSpielberichtBerichtParams = zod.object({
  * `bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on
  * another version would replace a report its sender never saw.
  *
- * Refuses, in this order, each writing nothing: a write past the person's ceiling for the German day
- * (`REQ-DROSSELUNG-001`); an address holding no confirmed, live referee record (`REQ-FUNKTION-001`); a fixture that
- * does not exist (`DB-COMMON-001`); one booked to none of its records (`REQ-BERICHT-002`); one whose season has
- * ended, whose report its referee only reads (`REQ-BERICHT-007`); a `bericht_stand` other than the version standing
- * now, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day is still to come
- * (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out proposed on a group-phase fixture
- * (`REQ-BERICHT-009`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil
- * the report already named on that side staying while the side fields the club it did (`REQ-BERICHT-003`); a yellow
- * or second yellow card naming no reason (`REQ-BERICHT-008`); and remarks naming a seat holder of either club, the
- * booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal but the ceiling's and
- * `REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's records included, so
- * a write landing on what was judged before that second asking refuses the report rather than letting it stand, and
- * one landing after it stands beside the report; a write of the report itself landing mid-press conflicts with this
- * one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two forms opened on no report: the later is
+ * Refuses, in this order, each writing nothing: an address holding no confirmed, live referee record
+ * (`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records
+ * (`REQ-BERICHT-002`); one whose season has ended, whose report its referee only reads (`REQ-BERICHT-007`); a
+ * `bericht_stand` other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated
+ * or whose day is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out
+ * proposed on a group-phase fixture (`REQ-BERICHT-009`); a pupil the write newly names on a side outside that side's
+ * live squad of the season, a pupil the report already named on that side staying while the side fields the club it
+ * did (`REQ-BERICHT-003`); and a yellow or second yellow card naming no reason (`REQ-BERICHT-008`). Every refusal but
+ * `REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's records included, so a
+ * write landing on what was judged before that second asking refuses the report rather than letting it stand, and one
+ * landing after it stands beside the report; a write of the report itself landing mid-press conflicts with this one,
+ * whose retry meets `REQ-BERICHT-006`. Two first writes at once are two forms opened on no report: the later is
  * refused.
  * @summary Write one fixture's report as its referee
  */
@@ -3046,14 +3032,13 @@ export const SpielbestaetigungenMitgeteiltSpielbestaetigungenBody = zod
  * the season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture
  * carries.
  *
- * Refuses, in this order: an answer past the person's ceiling for the German day (`REQ-DROSSELUNG-001`); an address
- * holding no live, confirmed referee record (`REQ-FUNKTION-001`); an id naming no row of an `active` season, or a row
- * naming none of those records (`REQ-ANSETZUNG-015`, one answer for both); a row already answered, by them or by the
- * league for them (`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off
- * or left by a club (`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the row, or which
- * books another referee or none (`REQ-ANSETZUNG-004`); and a fixture whose day has gone by (`REQ-ANSETZUNG-003`). An
- * acceptance is judged again outside the transaction just before answering, so a move or a reassignment landing
- * mid-answer refuses it rather than letting it stand.
+ * Refuses, in this order: an address holding no live, confirmed referee record (`REQ-FUNKTION-001`); an id naming no
+ * row of an `active` season, or a row naming none of those records (`REQ-ANSETZUNG-015`, one answer for both); a row
+ * already answered, by them or by the league for them (`REQ-ANSETZUNG-002`); one closed unanswered
+ * (`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club (`REQ-ANSETZUNG-005`), then one whose date,
+ * time, ground or sides moved since the row, or which books another referee or none (`REQ-ANSETZUNG-004`); and a
+ * fixture whose day has gone by (`REQ-ANSETZUNG-003`). An acceptance is judged again outside the transaction just
+ * before answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.
  *
  * **The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name
  * on the public fixture, and a decline takes it off.
@@ -3451,8 +3436,7 @@ export const SpielerGetKaderParams = zod.object({
  *
  * Stamps the row's `inactive_since`; the person stays in the league, and only an administrator
  * brings the row back. 404 where this team holds no live row for the player in this season,
- * another team's pupil and an ausgetragen row alike. Refused `REQ-DROSSELUNG-001` past the person's ceiling for the
- * German day, ahead of the 404, and `REQ-FUNKTION-001` without a seat.
+ * another team's pupil and an ausgetragen row alike. Refused `REQ-FUNKTION-001` without a seat.
  * @summary Take a Spieler out of the squad as its team's seat holder (austragen)
  */
 export const spielerDeleteKaderZeilePathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");
@@ -3469,8 +3453,7 @@ export const SpielerDeleteKaderZeileParams = zod.object({
  *
  * The team and the Nachnominierung flag stay the stored row's. 404 where this team holds no live
  * row for the player in this season: another team's pupil and an ausgetragen row answer alike, and
- * nothing is written. Refused `REQ-DROSSELUNG-001` past the person's ceiling for the German day, ahead of the 404 and
- * every rule, `REQ-FUNKTION-001` without a seat, `REQ-SQUAD-005` for a `stufe` the
+ * nothing is written. Refused `REQ-FUNKTION-001` without a seat, `REQ-SQUAD-005` for a `stufe` the
  * season's `erlaubte_stufen` does not offer unless the row already holds it, and `REQ-SQUAD-004`
  * for a `rolle` another live row of the squad holds. A shared `nummer` is permitted.
  * @summary Update a squad entry as its team's seat holder
@@ -3521,9 +3504,8 @@ export const SpielerGetSpielerNachnominierungParams = zod.object({
  * other than the record's own, either choice having moved since the page was served (`REQ-EINWILLIGUNG-003`); a
  * grant on a retired record (`REQ-EINWILLIGUNG-004`); a `text_version` naming no version of the account page's pupil
  * control, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`); `medien` moving to `true` where
- * the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`); and a
- * grant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), which counts grants alone, so a
- * withdrawal is never refused for it. Each refusal writes nothing.
+ * the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`). Each
+ * refusal writes nothing.
  *
  * **The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a
  * name is served, and nothing here can.
@@ -4485,8 +4467,7 @@ export const TeamsEinladenKontaktParams = zod.object({
  * (`REQ-EINWILLIGUNG-003`); a grant where the row grants no panel (`REQ-EINWILLIGUNG-004`); a `text_version` naming no
  * version of the account page's seat control, or a grant naming any but its running one (`REQ-EINWILLIGUNG-001`);
  * `medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is
- * missing (`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`),
- * which counts grants alone, so a withdrawal is never refused for it. Each refusal writes nothing.
+ * missing (`REQ-EINWILLIGUNG-002`). Each refusal writes nothing.
  * @summary Change a seat holder's own WhatsApp and media consent on one team's season
  */
 export const teamsPatchEinwilligungPathTeamIdRegExp = new RegExp("^[0-9a-fA-F]{24}$");

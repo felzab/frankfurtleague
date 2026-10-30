@@ -152,8 +152,6 @@ const SCHON_HINTERLEGT = "Das ist schon die hinterlegte Adresse.";
 
 const ADRESSE_BELEGT = "Mit dieser Adresse meldet sich schon eine andere Spielerin oder ein anderer Spieler an.";
 
-const NAME_IM_GRUND = "Der Grund enthält ein Wort, das einem Namen der Person gleicht.";
-
 /** The new address holds entries of its own (`REQ-ADRESSWECHSEL-018`): moving these onto it would join two people's. */
 const EINTRAEGE_DA = "Unter der neuen Adresse stehen schon Einträge bei der Liga.";
 
@@ -197,8 +195,6 @@ export function mapVerwaltungStartRefusal(error: unknown): { error?: string; fie
         error:
           "Diese Änderung könnte gerade niemand aus der Verwaltung genehmigen. Bei einem Zugang als Inhaberin oder Inhaber mache zuerst eine weitere Person zur Inhaberin oder zum Inhaber, sonst gib einer weiteren Person Zugang zur Verwaltung.",
       };
-    case "REQ-ADRESSWECHSEL-008":
-      return { error: NAME_IM_GRUND, fieldErrors: { grund: NAME_IM_GRUND } };
     default:
       return null;
   }

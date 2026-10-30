@@ -1,5 +1,4 @@
 import { notFound, redirect } from "next/navigation";
-import { connection } from "next/server";
 
 import { frontend_config } from "@/core/config";
 import { isRecordMissing } from "@/core/errors";
@@ -25,7 +24,6 @@ import type { NextPageProps } from "@/shared/types/types";
  * state and reads nothing: the form is one of the paths entering a pupil into a report.
  */
 export default async function SchiedsrichterSpielberichtPage({ params }: NextPageProps<{ spiel_id: string }>) {
-  await connection();
   const subject = await requireSubjectSession();
 
   // To the landing rather than a 404, as the referee panel sends a person who holds no referee record.

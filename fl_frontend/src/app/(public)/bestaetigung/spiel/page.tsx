@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { SpielbestaetigungView } from "@/features/spielbestaetigungen/components/views/SpielbestaetigungView";
 import { getSpielbestaetigungAnsicht } from "@/features/spielbestaetigungen/queries";
@@ -37,7 +36,6 @@ export default function SpielbestaetigungPage(props: NextPageProps) {
 }
 
 async function SpielbestaetigungContent(props: NextPageProps) {
-  await connection();
   const { token } = await props.searchParams;
 
   // A missing or repeated parameter is no link at all and reads as the dead link.

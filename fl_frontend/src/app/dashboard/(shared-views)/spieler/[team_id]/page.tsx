@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { runningSaisonId } from "@/app/dashboard/canonicalSaison";
 
@@ -18,8 +17,6 @@ import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
 export async function generateMetadata(props: NextPageProps<{ team_id: string }>): Promise<Metadata> {
-  await connection();
-
   // Every miss answered with the shared object, for `teams/[team_id]/page.tsx`'s reason.
   const team_id = await parseObjectIdParam(props.params, "team_id");
   if (team_id === null) return NOT_FOUND_METADATA;
@@ -51,7 +48,6 @@ export default function TeamSpielerPage(props: NextPageProps<{ team_id: string }
 }
 
 async function TeamSpielerContent(props: NextPageProps<{ team_id: string }>) {
-  await connection();
   const team_id = await resolveTeamId(props.params);
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);
 

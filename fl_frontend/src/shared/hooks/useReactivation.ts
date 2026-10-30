@@ -56,8 +56,8 @@ export function useReactivation<TPayload>({
 
           landing.landed();
           const title = `${noun} reaktiviert`;
-          // A warning where the link the return minted did not go out, graded and titled as the save's
-          // `offerUndo` grades the same send: the person holds no working link and nobody else is told.
+          // A warning where the link the return minted did not go out, graded and titled as an editor's
+          // save grades the same send: the person holds no working link and nobody else is told.
           const warn = versandWarnt(res.versand);
           const raise = warn ? appToast.warning : appToast.success;
           // Dropped where the action's sentence IS the title: every row-level reactivation answers with

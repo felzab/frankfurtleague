@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { runningSaisonId } from "@/app/dashboard/canonicalSaison";
 
@@ -19,8 +18,6 @@ import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata } from "next";
 
 export async function generateMetadata(props: NextPageProps<{ team_id: string }>): Promise<Metadata> {
-  await connection();
-
   // Every miss is answered with the shared object rather than thrown: a `notFound()` here leaves the
   // 404 the layout's title, and an object of its own inherits the layout's canonical.
   const team_id = await parseObjectIdParam(props.params, "team_id");
@@ -60,7 +57,6 @@ export default function TeamDetailsPage(props: NextPageProps<{ team_id: string }
 }
 
 async function TeamDetailsContent(props: NextPageProps<{ team_id: string }>) {
-  await connection();
   const team_id = await resolveTeamId(props.params);
   const specifiedSaisonId = await resolveSaisonId(props.searchParams);
 
@@ -76,7 +72,7 @@ async function TeamDetailsContent(props: NextPageProps<{ team_id: string }>) {
     notFound();
   }
 
-  // Legal here: the connection() above already made the scope dynamic.
+  // Legal here: the parameters above already made the scope dynamic.
   const today = getGermanTodayStr();
 
   return (

@@ -1,3 +1,5 @@
+import { ZEITZONE } from "@/core/format";
+
 import type { FLAddress } from "../schemas";
 
 /**
@@ -70,7 +72,7 @@ export function buildMapsSearchUrl(query: string): `https://${string}` {
 // `timeZone` is what carries this: without one the runtime's zone decides, so a server in UTC and a
 // browser west of it disagree about the day a fixture falls on.
 const SPIEL_DATE_FORMATTER = new Intl.DateTimeFormat("de-DE", {
-  timeZone: "Europe/Berlin",
+  timeZone: ZEITZONE,
   day: "2-digit",
   month: "2-digit",
   year: "numeric",

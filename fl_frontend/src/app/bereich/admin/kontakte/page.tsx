@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { AdminKontakteView } from "@/features/teams/components/views/AdminKontakteView";
@@ -38,8 +37,6 @@ export default function AdminKontaktePage(props: NextPageProps) {
  * are: a school's staff turns over, and a finished season records who was reachable while it ran.
  */
 async function KontakteTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
-  await connection();
-
   const [membershipsRes, selectedSaison] = await Promise.all([getTeamMemberships(), resolveAdminSaison(searchParams)]);
 
   const rows = buildKontaktRows(membershipsRes.teams, selectedSaison?.id);

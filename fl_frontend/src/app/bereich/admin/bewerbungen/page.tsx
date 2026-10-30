@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { AdminBewerbungenView } from "@/features/bewerbungen/components/views/AdminBewerbungenView";
 import { BEWERBUNGEN_CRUD_COPY } from "@/features/bewerbungen/constants";
@@ -40,7 +39,6 @@ export default function AdminBewerbungenPage(props: NextPageProps) {
  * other seasons — the row-flag shape `/bereich/admin/teams` uses.
  */
 async function BewerbungenTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
-  await connection();
   const params = (await searchParams) ?? {};
   const richtung = parseLeserichtung(params);
 

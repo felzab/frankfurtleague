@@ -1,5 +1,3 @@
-import { connection } from "next/server";
-
 import { judgeAdminRequest } from "@/core/auth";
 import { UnreadGrantError } from "@/core/errors";
 import { confirmedUntil } from "@/shared/utils/kontoMutation";
@@ -12,9 +10,6 @@ import { AdminStepUpProvider } from "./AdminStepUpProvider";
  * it whole, so each page's own read turns a refused session away.
  */
 export async function AdminSessionHold({ children }: { children: React.ReactNode }) {
-  // The builder stage has no reachable Mongo, so a session lookup resolved at build time fails the
-  // image build.
-  await connection();
   const judged = await judgeAdminRequest();
   if ("refused" in judged) {
     // An outage keeps the administrator in place with the admin boundary's retry, as

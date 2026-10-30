@@ -12,7 +12,6 @@ import {
   NUR_WIDERRUF,
   REGISTRIERUNG_NICHT_MEHR_OFFEN,
   SEITE_VERALTET,
-  ZUSTIMMEN_MORGEN,
 } from "./einwilligung.ts";
 
 /** A media floor no record is served today, so a sentence naming it took the floor it was handed. */
@@ -40,30 +39,16 @@ const MAPPERS = [
   ],
 ] as const;
 
-/**
- * The code set the three mappers share. A withdraw-only write publishes no ceiling, which refuses a
- * grant its page never sends, so each code is asked of the writes publishing it alone.
- */
+/** The code set the three mappers share, each code asked of the writes publishing it alone. */
 const GETEILT = [
   ["REQ-EINWILLIGUNG-001", "a stale wording", SEITE_VERALTET],
   ["REQ-EINWILLIGUNG-003", "a stale choice", SEITE_VERALTET],
   // The record is the person's and only the grant was refused, so never the lost record's sentence.
   ["REQ-EINWILLIGUNG-004", "a grant on a record taking a withdrawal alone", NUR_WIDERRUF],
-  // Ahead of the person spine's ceiling sentence, which says nothing of a withdrawal, never counted here.
-  ["REQ-DROSSELUNG-001", "a grant past the day's ceiling", ZUSTIMMEN_MORGEN],
 ] as const;
 
-/**
- * The consent codes each write's service raises, the ceiling's protocol family included: a withdraw-only write
- * counts no grant against the day's ceiling and takes no media choice.
- */
-const GRANT_CODES = refusalCodes(
-  "REQ-EINWILLIGUNG-001",
-  "REQ-EINWILLIGUNG-002",
-  "REQ-EINWILLIGUNG-003",
-  "REQ-EINWILLIGUNG-004",
-  "REQ-DROSSELUNG-001",
-);
+/** The consent codes each write's service raises: a withdraw-only write takes no media choice. */
+const GRANT_CODES = refusalCodes("REQ-EINWILLIGUNG-001", "REQ-EINWILLIGUNG-002", "REQ-EINWILLIGUNG-003", "REQ-EINWILLIGUNG-004");
 const WITHDRAW_CODES = refusalCodes("REQ-EINWILLIGUNG-001", "REQ-EINWILLIGUNG-003", "REQ-EINWILLIGUNG-004");
 const CODES: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ["PATCH /spieler/selbst/einwilligung", new Set(GRANT_CODES)],

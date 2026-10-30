@@ -41,10 +41,8 @@ reads like a constant of this league is nearly always one some season chose for 
   (`adresswechsel_postausgang`), one barred address (`sperrliste`), one address's access to the
   administration (`berechtigungen`), what the administrators have been told of it
   (`berechtigungen_angekuendigt`), what they are still to be told (`berechtigungen_postausgang`) and
-  a grant waiting on a second administrator's approval (`berechtigungen_antraege`), one recorded
-  write (`aktionen`), and one person's count of
-  writes on one day (`drosselung`) and one address's conflict point (`adressanker`), each operational
-  state rather than a fact about the league.
+  a grant waiting on a second administrator's approval (`berechtigungen_antraege`), and one recorded
+  write (`aktionen`).
 
 A school's kind survives the year and its Trainer does not, which is what puts those two on different
 documents.

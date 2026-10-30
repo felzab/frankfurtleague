@@ -40,10 +40,6 @@ export const REGISTRIERUNG_NICHT_MEHR_OFFEN =
 // never refreshes the page.
 export const NUR_WIDERRUF = "Hier kannst Du eine Erlaubnis nur zurücknehmen. Lade die Seite neu.";
 
-// A grant past the person's ceiling for the day (`REQ-DROSSELUNG-001`): the count starts again at
-// German midnight, and a withdrawal is never counted, so the page says both.
-export const ZUSTIMMEN_MORGEN = "Zustimmen kannst Du erst morgen. Widerrufen geht jederzeit.";
-
 /**
  * The code set every consent write shares, each with its sentence, so a refusal reads the same whichever
  * record it refused; a lost seat and a barred address are the person spine's. Exported for the
@@ -53,8 +49,6 @@ export const EINWILLIGUNG_WAHL_SAETZE: Readonly<Record<string, string>> = {
   "REQ-EINWILLIGUNG-001": SEITE_VERALTET,
   "REQ-EINWILLIGUNG-003": SEITE_VERALTET,
   "REQ-EINWILLIGUNG-004": NUR_WIDERRUF,
-  // Only a grant is counted, so this reaches a press that would have switched a choice on.
-  "REQ-DROSSELUNG-001": ZUSTIMMEN_MORGEN,
 };
 
 function mapEinwilligungWahlRefusal(error: unknown): { error: string } | null {

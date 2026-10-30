@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { RailColumn, RailFrame } from "@/kit/RailFrame";
 
@@ -80,11 +79,8 @@ export const RAIL_GROUPS: RailGroup[] = [
  * route lies in `(editor)`, every other page in `(liste)`.
  */
 export function VerwaltungFrame({ children }: { children: ReactNode }) {
-  // One judgement for both reads; the builder stage reaches no sign-in store, hence `connection()` first.
-  const session = connection().then(async () => {
-    const judged = await judgeAdminRequest();
-    return "session" in judged ? judged.session : null;
-  });
+  // One judgement for both reads.
+  const session = judgeAdminRequest().then((judged) => ("session" in judged ? judged.session : null));
 
   return (
     <RailFrame
