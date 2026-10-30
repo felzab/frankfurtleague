@@ -614,7 +614,7 @@ export const adresswechselPostAdresswechselZugestellt = async (
 };
 
 export const getAdresswechselDeleteAdresswechselUrl = (adresswechselId: string) => {
-  return `/api/v0/adresswechsel/${adresswechselId}`;
+  return `/api/v0/adresswechsel/${encodeURIComponent(String(adresswechselId))}`;
 };
 
 /**
@@ -640,7 +640,7 @@ export const adresswechselDeleteAdresswechsel = async (
 };
 
 export const getAdresswechselEinladenAdresswechselUrl = (adresswechselId: string) => {
-  return `/api/v0/adresswechsel/${adresswechselId}/einladen`;
+  return `/api/v0/adresswechsel/${encodeURIComponent(String(adresswechselId))}/einladen`;
 };
 
 /**
@@ -669,7 +669,7 @@ export const adresswechselEinladenAdresswechsel = async (
 };
 
 export const getAdresswechselPostAdresswechselGenehmigungUrl = (adresswechselId: string) => {
-  return `/api/v0/adresswechsel/${adresswechselId}/genehmigung`;
+  return `/api/v0/adresswechsel/${encodeURIComponent(String(adresswechselId))}/genehmigung`;
 };
 
 /**
@@ -724,7 +724,7 @@ export const aktionenGetAktionen = async (
 };
 
 export const getAktionenGetAktionByIdUrl = (aktionId: string) => {
-  return `/api/v0/aktionen/${aktionId}`;
+  return `/api/v0/aktionen/${encodeURIComponent(String(aktionId))}`;
 };
 
 /**
@@ -873,7 +873,7 @@ export const berechtigungenPostBerechtigungenAngekuendigt = async (
 };
 
 export const getBerechtigungenDeleteAntragUrl = (antragId: string) => {
-  return `/api/v0/berechtigungen/antraege/${antragId}`;
+  return `/api/v0/berechtigungen/antraege/${encodeURIComponent(String(antragId))}`;
 };
 
 /**
@@ -898,7 +898,7 @@ export const berechtigungenDeleteAntrag = async (
 };
 
 export const getBerechtigungenPostAntragGenehmigungUrl = (antragId: string) => {
-  return `/api/v0/berechtigungen/antraege/${antragId}/genehmigung`;
+  return `/api/v0/berechtigungen/antraege/${encodeURIComponent(String(antragId))}/genehmigung`;
 };
 
 /**
@@ -927,7 +927,7 @@ export const berechtigungenPostAntragGenehmigung = async (
 };
 
 export const getBerechtigungenDeleteBerechtigungUrl = (berechtigungId: string) => {
-  return `/api/v0/berechtigungen/${berechtigungId}`;
+  return `/api/v0/berechtigungen/${encodeURIComponent(String(berechtigungId))}`;
 };
 
 /**
@@ -952,7 +952,7 @@ export const berechtigungenDeleteBerechtigung = async (
 };
 
 export const getBerechtigungenPatchBerechtigungUrl = (berechtigungId: string) => {
-  return `/api/v0/berechtigungen/${berechtigungId}`;
+  return `/api/v0/berechtigungen/${encodeURIComponent(String(berechtigungId))}`;
 };
 
 /**
@@ -1165,7 +1165,7 @@ export const bewerbungenGetOffenesFenster = async (options?: Parameters<typeof b
 };
 
 export const getBewerbungenGetFensterUrl = (saisonId: string) => {
-  return `/api/v0/bewerbungen/fenster/${saisonId}`;
+  return `/api/v0/bewerbungen/fenster/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -1187,7 +1187,7 @@ export const bewerbungenGetFenster = async (
 };
 
 export const getBewerbungenGetKuerzelUrl = (shorthand: string) => {
-  return `/api/v0/bewerbungen/kuerzel/${shorthand}`;
+  return `/api/v0/bewerbungen/kuerzel/${encodeURIComponent(String(shorthand))}`;
 };
 
 /**
@@ -1243,7 +1243,7 @@ export const bewerbungenGetSweepSaisons = async (
 };
 
 export const getBewerbungenSweepSaisonUrl = (saisonId: string) => {
-  return `/api/v0/bewerbungen/sweep/${saisonId}`;
+  return `/api/v0/bewerbungen/sweep/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -1265,7 +1265,7 @@ export const bewerbungenSweepSaison = async (
 };
 
 export const getBewerbungenAngekuendigtBewerbungenUrl = (saisonId: string) => {
-  return `/api/v0/bewerbungen/sweep/${saisonId}/angekuendigt`;
+  return `/api/v0/bewerbungen/sweep/${encodeURIComponent(String(saisonId))}/angekuendigt`;
 };
 
 /**
@@ -1300,7 +1300,7 @@ export const bewerbungenAngekuendigtBewerbungen = async (
 };
 
 export const getBewerbungenLoeschenBewerbungenUrl = (saisonId: string) => {
-  return `/api/v0/bewerbungen/sweep/${saisonId}/loeschen`;
+  return `/api/v0/bewerbungen/sweep/${encodeURIComponent(String(saisonId))}/loeschen`;
 };
 
 /**
@@ -1335,7 +1335,7 @@ export const bewerbungenLoeschenBewerbungen = async (
 };
 
 export const getBewerbungenGetTrikotfarbenUrl = (saisonId: string) => {
-  return `/api/v0/bewerbungen/trikotfarben/${saisonId}`;
+  return `/api/v0/bewerbungen/trikotfarben/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -1438,7 +1438,7 @@ export const bewerbungenAngenommenZustellung = async (
 };
 
 export const getBewerbungenGetBewerbungByIdUrl = (bewerbungId: string) => {
-  return `/api/v0/bewerbungen/${bewerbungId}`;
+  return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}`;
 };
 
 /**
@@ -1458,7 +1458,7 @@ export const bewerbungenGetBewerbungById = async (
 };
 
 export const getBewerbungenAblehnenBewerbungUrl = (bewerbungId: string) => {
-  return `/api/v0/bewerbungen/${bewerbungId}/ablehnen`;
+  return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}/ablehnen`;
 };
 
 /**
@@ -1494,7 +1494,7 @@ export const bewerbungenAblehnenBewerbung = async (
 };
 
 export const getBewerbungenAnnehmenBewerbungUrl = (bewerbungId: string) => {
-  return `/api/v0/bewerbungen/${bewerbungId}/annehmen`;
+  return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}/annehmen`;
 };
 
 /**
@@ -1531,7 +1531,7 @@ export const bewerbungenAnnehmenBewerbung = async (
 };
 
 export const getBewerbungenErneutEinwilligungUrl = (bewerbungId: string, seat: string) => {
-  return `/api/v0/bewerbungen/${bewerbungId}/einwilligung/${seat}/erneut`;
+  return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}/einwilligung/${encodeURIComponent(String(seat))}/erneut`;
 };
 
 /**
@@ -1557,7 +1557,7 @@ export const bewerbungenErneutEinwilligung = async (
 };
 
 export const getBewerbungenBesetzeKontaktSitzUrl = (bewerbungId: string, seat: string) => {
-  return `/api/v0/bewerbungen/${bewerbungId}/kontakte/${seat}`;
+  return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}/kontakte/${encodeURIComponent(String(seat))}`;
 };
 
 /**
@@ -1607,7 +1607,7 @@ export const bewerbungenBesetzeKontaktSitz = async (
 };
 
 export const getBewerbungenKorrigiereKontaktEmailUrl = (bewerbungId: string, seat: string) => {
-  return `/api/v0/bewerbungen/${bewerbungId}/kontakte/${seat}/email`;
+  return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}/kontakte/${encodeURIComponent(String(seat))}/email`;
 };
 
 /**
@@ -1657,7 +1657,7 @@ export const bewerbungenKorrigiereKontaktEmail = async (
 };
 
 export const getBewerbungenPatchEinwilligungUrl = (bewerbungId: string) => {
-  return `/api/v0/bewerbungen/${bewerbungId}/person/einwilligung`;
+  return `/api/v0/bewerbungen/${encodeURIComponent(String(bewerbungId))}/person/einwilligung`;
 };
 
 /**
@@ -1693,7 +1693,7 @@ export const bewerbungenPatchEinwilligung = async (
 };
 
 export const getEinwilligungGetFassungUrl = (textVersion: string) => {
-  return `/api/v0/einwilligung/fassungen/${textVersion}`;
+  return `/api/v0/einwilligung/fassungen/${encodeURIComponent(String(textVersion))}`;
 };
 
 /**
@@ -2618,8 +2618,8 @@ export const getRegistrierungenGetOffeneRegistrierungenUrl = (
   const stringifiedParams = serializeQuery(params);
 
   return stringifiedParams.length > 0
-    ? `/api/v0/registrierungen/kader/${teamId}/${saisonId}?${stringifiedParams}`
-    : `/api/v0/registrierungen/kader/${teamId}/${saisonId}`;
+    ? `/api/v0/registrierungen/kader/${encodeURIComponent(String(teamId))}/${encodeURIComponent(String(saisonId))}?${stringifiedParams}`
+    : `/api/v0/registrierungen/kader/${encodeURIComponent(String(teamId))}/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -2644,7 +2644,7 @@ export const registrierungenGetOffeneRegistrierungen = async (
 };
 
 export const getRegistrierungenPatchEinwilligungUrl = (registrierungId: string) => {
-  return `/api/v0/registrierungen/selbst/${registrierungId}/einwilligung`;
+  return `/api/v0/registrierungen/selbst/${encodeURIComponent(String(registrierungId))}/einwilligung`;
 };
 
 /**
@@ -2680,7 +2680,7 @@ export const registrierungenPatchEinwilligung = async (
 };
 
 export const getRegistrierungenSweepRegistrierungenUrl = (saisonId: string) => {
-  return `/api/v0/registrierungen/sweep/${saisonId}`;
+  return `/api/v0/registrierungen/sweep/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -2725,7 +2725,7 @@ export const registrierungenSweepRegistrierungen = async (
 };
 
 export const getRegistrierungenAblehnenUrl = (registrierungId: string) => {
-  return `/api/v0/registrierungen/${registrierungId}/ablehnen`;
+  return `/api/v0/registrierungen/${encodeURIComponent(String(registrierungId))}/ablehnen`;
 };
 
 /**
@@ -2766,7 +2766,7 @@ export const registrierungenAblehnen = async (
 };
 
 export const getRegistrierungenAufnehmenUrl = (registrierungId: string) => {
-  return `/api/v0/registrierungen/${registrierungId}/aufnehmen`;
+  return `/api/v0/registrierungen/${encodeURIComponent(String(registrierungId))}/aufnehmen`;
 };
 
 /**
@@ -2917,7 +2917,7 @@ export const saisonsGetSaisonsForAdmin = async (
 };
 
 export const getSaisonsGetSaisonUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${saisonId}`;
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -2938,7 +2938,7 @@ export const saisonsGetSaison = async (
 };
 
 export const getSaisonsPatchSaisonUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${saisonId}`;
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -2974,7 +2974,7 @@ export const saisonsPatchSaison = async (
 };
 
 export const getSaisonsActivateSaisonUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${saisonId}/activate`;
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/activate`;
 };
 
 /**
@@ -2995,7 +2995,7 @@ export const saisonsActivateSaison = async (
 };
 
 export const getSaisonsPostEinladungenVersandUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${saisonId}/einladungen/versand`;
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/einladungen/versand`;
 };
 
 /**
@@ -3052,8 +3052,8 @@ export const getSaisonsPreviewEinladungenVersandUrl = (saisonId: string, params?
   const stringifiedParams = serializeQuery(params);
 
   return stringifiedParams.length > 0
-    ? `/api/v0/saisons/${saisonId}/einladungen/versand/vorschau?${stringifiedParams}`
-    : `/api/v0/saisons/${saisonId}/einladungen/versand/vorschau`;
+    ? `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/einladungen/versand/vorschau?${stringifiedParams}`
+    : `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/einladungen/versand/vorschau`;
 };
 
 /**
@@ -3085,7 +3085,7 @@ export const saisonsPreviewEinladungenVersand = async (
 };
 
 export const getSaisonsSwapGruppenUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${saisonId}/gruppen/swap`;
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/gruppen/swap`;
 };
 
 /**
@@ -3121,7 +3121,7 @@ export const saisonsSwapGruppen = async (
 };
 
 export const getSaisonsPreviewLoeschungUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${saisonId}/loeschung/vorschau`;
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/loeschung/vorschau`;
 };
 
 /**
@@ -3145,7 +3145,7 @@ export const saisonsPreviewLoeschung = async (
 };
 
 export const getSaisonsUndrawSpielplanUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${saisonId}/spielplan`;
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spielplan`;
 };
 
 /**
@@ -3169,7 +3169,7 @@ export const saisonsUndrawSpielplan = async (
 };
 
 export const getSaisonsGenerateSpielplanUrl = (saisonId: string) => {
-  return `/api/v0/saisons/${saisonId}/spielplan`;
+  return `/api/v0/saisons/${encodeURIComponent(String(saisonId))}/spielplan`;
 };
 
 /**
@@ -3382,7 +3382,7 @@ export const schiedsrichterGetSelbst = async (options?: Parameters<typeof adminK
 };
 
 export const getSchiedsrichterPatchEinwilligungUrl = (schiedsrichterId: string) => {
-  return `/api/v0/schiedsrichter/selbst/${schiedsrichterId}/einwilligung`;
+  return `/api/v0/schiedsrichter/selbst/${encodeURIComponent(String(schiedsrichterId))}/einwilligung`;
 };
 
 /**
@@ -3430,7 +3430,7 @@ export const schiedsrichterPatchEinwilligung = async (
 };
 
 export const getSchiedsrichterDeleteSchiedsrichterUrl = (schiedsrichterId: string) => {
-  return `/api/v0/schiedsrichter/${schiedsrichterId}`;
+  return `/api/v0/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}`;
 };
 
 /**
@@ -3448,7 +3448,7 @@ export const schiedsrichterDeleteSchiedsrichter = async (
 };
 
 export const getSchiedsrichterGetSchiedsrichterByIdUrl = (schiedsrichterId: string) => {
-  return `/api/v0/schiedsrichter/${schiedsrichterId}`;
+  return `/api/v0/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}`;
 };
 
 /**
@@ -3474,7 +3474,7 @@ export const schiedsrichterGetSchiedsrichterById = async (
 };
 
 export const getSchiedsrichterPatchSchiedsrichterUrl = (schiedsrichterId: string) => {
-  return `/api/v0/schiedsrichter/${schiedsrichterId}`;
+  return `/api/v0/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}`;
 };
 
 /**
@@ -3526,7 +3526,7 @@ export const schiedsrichterPatchSchiedsrichter = async (
 };
 
 export const getSchiedsrichterEinladenSchiedsrichterUrl = (schiedsrichterId: string) => {
-  return `/api/v0/schiedsrichter/${schiedsrichterId}/bestaetigung/einladen`;
+  return `/api/v0/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}/bestaetigung/einladen`;
 };
 
 /**
@@ -3559,7 +3559,7 @@ export const schiedsrichterEinladenSchiedsrichter = async (
 };
 
 export const getSchiedsrichterReactivateSchiedsrichterUrl = (schiedsrichterId: string) => {
-  return `/api/v0/schiedsrichter/${schiedsrichterId}/reactivate`;
+  return `/api/v0/schiedsrichter/${encodeURIComponent(String(schiedsrichterId))}/reactivate`;
 };
 
 /**
@@ -3650,7 +3650,7 @@ export const sperrlistePostSperrlisteEintrag = async (
 };
 
 export const getSperrlisteDeleteSperrlisteEintragUrl = (sperrlisteId: string) => {
-  return `/api/v0/sperrliste/${sperrlisteId}`;
+  return `/api/v0/sperrliste/${encodeURIComponent(String(sperrlisteId))}`;
 };
 
 /**
@@ -3725,7 +3725,7 @@ export const spielberichteGetSpielberichtePerson = async (
 };
 
 export const getSpielberichtePatchSpielberichtUrl = (spielId: string) => {
-  return `/api/v0/spielberichte/${spielId}`;
+  return `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}`;
 };
 
 /**
@@ -3778,8 +3778,8 @@ export const getSpielberichteGetSpielberichtAdminUrl = (spielId: string, params?
   const stringifiedParams = serializeQuery(params);
 
   return stringifiedParams.length > 0
-    ? `/api/v0/spielberichte/${spielId}/admin?${stringifiedParams}`
-    : `/api/v0/spielberichte/${spielId}/admin`;
+    ? `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}/admin?${stringifiedParams}`
+    : `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}/admin`;
 };
 
 /**
@@ -3803,7 +3803,7 @@ export const spielberichteGetSpielberichtAdmin = async (
 };
 
 export const getSpielberichteGetSpielberichtBerichtUrl = (spielId: string) => {
-  return `/api/v0/spielberichte/${spielId}/bericht`;
+  return `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}/bericht`;
 };
 
 /**
@@ -3831,7 +3831,7 @@ export const spielberichteGetSpielberichtBericht = async (
 };
 
 export const getSpielberichtePutSpielberichtBerichtUrl = (spielId: string) => {
-  return `/api/v0/spielberichte/${spielId}/bericht`;
+  return `/api/v0/spielberichte/${encodeURIComponent(String(spielId))}/bericht`;
 };
 
 /**
@@ -4049,7 +4049,7 @@ export const spielbestaetigungenGetSpielSweepSaisons = async (
 };
 
 export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: string) => {
-  return `/api/v0/spielbestaetigungen/sweep/${saisonId}`;
+  return `/api/v0/spielbestaetigungen/sweep/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -4127,7 +4127,7 @@ export const spielbestaetigungenSweepSpielbestaetigungen = async (
 };
 
 export const getSpielbestaetigungenAngefragtSpielbestaetigungenUrl = (saisonId: string) => {
-  return `/api/v0/spielbestaetigungen/sweep/${saisonId}/angefragt`;
+  return `/api/v0/spielbestaetigungen/sweep/${encodeURIComponent(String(saisonId))}/angefragt`;
 };
 
 /**
@@ -4165,7 +4165,7 @@ export const spielbestaetigungenAngefragtSpielbestaetigungen = async (
 };
 
 export const getSpielbestaetigungenMitgeteiltSpielbestaetigungenUrl = (saisonId: string) => {
-  return `/api/v0/spielbestaetigungen/sweep/${saisonId}/mitgeteilt`;
+  return `/api/v0/spielbestaetigungen/sweep/${encodeURIComponent(String(saisonId))}/mitgeteilt`;
 };
 
 /**
@@ -4203,7 +4203,7 @@ export const spielbestaetigungenMitgeteiltSpielbestaetigungen = async (
 };
 
 export const getSpielbestaetigungenPostSchiedsrichterAntwortUrl = (spielbestaetigungId: string) => {
-  return `/api/v0/spielbestaetigungen/${spielbestaetigungId}/antwort`;
+  return `/api/v0/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/antwort`;
 };
 
 /**
@@ -4256,7 +4256,7 @@ export const spielbestaetigungenPostSchiedsrichterAntwort = async (
 };
 
 export const getSpielbestaetigungenEintragenSpielbestaetigungUrl = (spielbestaetigungId: string) => {
-  return `/api/v0/spielbestaetigungen/${spielbestaetigungId}/eintragen`;
+  return `/api/v0/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/eintragen`;
 };
 
 /**
@@ -4296,7 +4296,7 @@ export const spielbestaetigungenEintragenSpielbestaetigung = async (
 };
 
 export const getSpielbestaetigungenVerwerfenSpielbestaetigungUrl = (spielbestaetigungId: string) => {
-  return `/api/v0/spielbestaetigungen/${spielbestaetigungId}/verwerfen`;
+  return `/api/v0/spielbestaetigungen/${encodeURIComponent(String(spielbestaetigungId))}/verwerfen`;
 };
 
 /**
@@ -4393,7 +4393,7 @@ export const spieleGetSpieleForAdmin = async (
 };
 
 export const getSpieleGetSpielUrl = (spielId: string) => {
-  return `/api/v0/spiele/${spielId}`;
+  return `/api/v0/spiele/${encodeURIComponent(String(spielId))}`;
 };
 
 /**
@@ -4410,7 +4410,9 @@ export const spieleGetSpiel = async (spielId: string, options?: Parameters<typeo
 export const getSpielePatchSpielDataUrl = (spielId: string, params?: SpielePatchSpielDataParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/spiele/${spielId}?${stringifiedParams}` : `/api/v0/spiele/${spielId}`;
+  return stringifiedParams.length > 0
+    ? `/api/v0/spiele/${encodeURIComponent(String(spielId))}?${stringifiedParams}`
+    : `/api/v0/spiele/${encodeURIComponent(String(spielId))}`;
 };
 
 /**
@@ -4448,7 +4450,7 @@ export const spielePatchSpielData = async (
 };
 
 export const getSpieleGetSpielForAdminUrl = (spielId: string) => {
-  return `/api/v0/spiele/${spielId}/admin`;
+  return `/api/v0/spiele/${encodeURIComponent(String(spielId))}/admin`;
 };
 
 /**
@@ -4494,7 +4496,7 @@ export const spielerGetSpieler = async (
 };
 
 export const getSpielerGetKaderUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/spieler/kader/${teamId}/${saisonId}`;
+  return `/api/v0/spieler/kader/${encodeURIComponent(String(teamId))}/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -4519,7 +4521,7 @@ export const spielerGetKader = async (
 };
 
 export const getSpielerDeleteKaderZeileUrl = (teamId: string, saisonId: string, spielerId: string) => {
-  return `/api/v0/spieler/kader/${teamId}/${saisonId}/${spielerId}`;
+  return `/api/v0/spieler/kader/${encodeURIComponent(String(teamId))}/${encodeURIComponent(String(saisonId))}/${encodeURIComponent(String(spielerId))}`;
 };
 
 /**
@@ -4543,7 +4545,7 @@ export const spielerDeleteKaderZeile = async (
 };
 
 export const getSpielerPatchKaderZeileUrl = (teamId: string, saisonId: string, spielerId: string) => {
-  return `/api/v0/spieler/kader/${teamId}/${saisonId}/${spielerId}`;
+  return `/api/v0/spieler/kader/${encodeURIComponent(String(teamId))}/${encodeURIComponent(String(saisonId))}/${encodeURIComponent(String(spielerId))}`;
 };
 
 /**
@@ -4607,7 +4609,7 @@ export const spielerGetSpielerMemberships = async (
 };
 
 export const getSpielerGetSpielerNachnominierungUrl = (saisonId: string) => {
-  return `/api/v0/spieler/nachnominierung/${saisonId}`;
+  return `/api/v0/spieler/nachnominierung/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -4696,7 +4698,7 @@ export const spielerPatchEinwilligung = async (
 };
 
 export const getSpielerDeleteSpielerUrl = (spielerId: string) => {
-  return `/api/v0/spieler/${spielerId}`;
+  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}`;
 };
 
 /**
@@ -4714,7 +4716,7 @@ export const spielerDeleteSpieler = async (
 };
 
 export const getSpielerGetSpielerByIdUrl = (spielerId: string) => {
-  return `/api/v0/spieler/${spielerId}`;
+  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}`;
 };
 
 /**
@@ -4737,7 +4739,7 @@ export const spielerGetSpielerById = async (
 };
 
 export const getSpielerPatchSpielerUrl = (spielerId: string) => {
-  return `/api/v0/spieler/${spielerId}`;
+  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}`;
 };
 
 /**
@@ -4770,7 +4772,7 @@ export const spielerPatchSpieler = async (
 };
 
 export const getSpielerReactivateSpielerUrl = (spielerId: string) => {
-  return `/api/v0/spieler/${spielerId}/reactivate`;
+  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}/reactivate`;
 };
 
 /**
@@ -4788,7 +4790,7 @@ export const spielerReactivateSpieler = async (
 };
 
 export const getSpielerPostSaisonSpielerUrl = (spielerId: string) => {
-  return `/api/v0/spieler/${spielerId}/saisons`;
+  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}/saisons`;
 };
 
 /**
@@ -4827,7 +4829,7 @@ export const spielerPostSaisonSpieler = async (
 };
 
 export const getSpielerDeleteSaisonSpielerUrl = (spielerId: string, saisonId: string) => {
-  return `/api/v0/spieler/${spielerId}/saisons/${saisonId}`;
+  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}/saisons/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -4849,7 +4851,7 @@ export const spielerDeleteSaisonSpieler = async (
 };
 
 export const getSpielerPatchSaisonSpielerUrl = (spielerId: string, saisonId: string) => {
-  return `/api/v0/spieler/${spielerId}/saisons/${saisonId}`;
+  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}/saisons/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -4887,7 +4889,7 @@ export const spielerPatchSaisonSpieler = async (
 };
 
 export const getSpielerReactivateSaisonSpielerUrl = (spielerId: string, saisonId: string) => {
-  return `/api/v0/spieler/${spielerId}/saisons/${saisonId}/reactivate`;
+  return `/api/v0/spieler/${encodeURIComponent(String(spielerId))}/saisons/${encodeURIComponent(String(saisonId))}/reactivate`;
 };
 
 /**
@@ -4964,7 +4966,7 @@ export const spielortePostSpielort = async (
 };
 
 export const getSpielorteDeleteSpielortUrl = (spielortId: string) => {
-  return `/api/v0/spielorte/${spielortId}`;
+  return `/api/v0/spielorte/${encodeURIComponent(String(spielortId))}`;
 };
 
 /**
@@ -4985,7 +4987,7 @@ export const spielorteDeleteSpielort = async (
 };
 
 export const getSpielorteGetSpielortUrl = (spielortId: string) => {
-  return `/api/v0/spielorte/${spielortId}`;
+  return `/api/v0/spielorte/${encodeURIComponent(String(spielortId))}`;
 };
 
 /**
@@ -5005,7 +5007,7 @@ export const spielorteGetSpielort = async (
 };
 
 export const getSpielortePatchSpielortUrl = (spielortId: string) => {
-  return `/api/v0/spielorte/${spielortId}`;
+  return `/api/v0/spielorte/${encodeURIComponent(String(spielortId))}`;
 };
 
 /**
@@ -5041,7 +5043,7 @@ export const spielortePatchSpielort = async (
 };
 
 export const getSpielorteReactivateSpielortUrl = (spielortId: string) => {
-  return `/api/v0/spielorte/${spielortId}/reactivate`;
+  return `/api/v0/spielorte/${encodeURIComponent(String(spielortId))}/reactivate`;
 };
 
 /**
@@ -5105,7 +5107,7 @@ export const spieltageGetSpieltageForAdmin = async (
 };
 
 export const getSpieltageGetSpieltagUrl = (spieltagId: string) => {
-  return `/api/v0/spieltage/${spieltagId}`;
+  return `/api/v0/spieltage/${encodeURIComponent(String(spieltagId))}`;
 };
 
 /**
@@ -5126,7 +5128,7 @@ export const spieltageGetSpieltag = async (
 };
 
 export const getSpieltagePatchSpieltagUrl = (spieltagId: string) => {
-  return `/api/v0/spieltage/${spieltagId}`;
+  return `/api/v0/spieltage/${encodeURIComponent(String(spieltagId))}`;
 };
 
 /**
@@ -5162,7 +5164,7 @@ export const spieltagePatchSpieltag = async (
 };
 
 export const getSpieltageGetSpieltagForAdminUrl = (spieltagId: string) => {
-  return `/api/v0/spieltage/${spieltagId}/admin`;
+  return `/api/v0/spieltage/${encodeURIComponent(String(spieltagId))}/admin`;
 };
 
 /**
@@ -5299,7 +5301,7 @@ export const teamsGetTeamMemberships = async (options?: Parameters<typeof adminK
 };
 
 export const getTeamsDeleteTeamUrl = (teamId: string) => {
-  return `/api/v0/teams/${teamId}`;
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}`;
 };
 
 /**
@@ -5319,7 +5321,9 @@ export const teamsDeleteTeam = async (teamId: string, options?: Parameters<typeo
 export const getTeamsGetTeamUrl = (teamId: string, params?: TeamsGetTeamParams) => {
   const stringifiedParams = serializeQuery(params);
 
-  return stringifiedParams.length > 0 ? `/api/v0/teams/${teamId}?${stringifiedParams}` : `/api/v0/teams/${teamId}`;
+  return stringifiedParams.length > 0
+    ? `/api/v0/teams/${encodeURIComponent(String(teamId))}?${stringifiedParams}`
+    : `/api/v0/teams/${encodeURIComponent(String(teamId))}`;
 };
 
 /**
@@ -5341,7 +5345,7 @@ export const teamsGetTeam = async (
 };
 
 export const getTeamsPatchTeamUrl = (teamId: string) => {
-  return `/api/v0/teams/${teamId}`;
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}`;
 };
 
 /**
@@ -5377,7 +5381,7 @@ export const teamsPatchTeam = async (
 };
 
 export const getTeamsReactivateTeamUrl = (teamId: string) => {
-  return `/api/v0/teams/${teamId}/reactivate`;
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/reactivate`;
 };
 
 /**
@@ -5392,7 +5396,7 @@ export const teamsReactivateTeam = async (teamId: string, options?: Parameters<t
 };
 
 export const getTeamsPostSaisonTeamUrl = (teamId: string) => {
-  return `/api/v0/teams/${teamId}/saisons`;
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons`;
 };
 
 /**
@@ -5427,7 +5431,7 @@ export const teamsPostSaisonTeam = async (
 };
 
 export const getTeamsPatchSaisonTeamUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}`;
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}`;
 };
 
 /**
@@ -5464,7 +5468,7 @@ export const teamsPatchSaisonTeam = async (
 };
 
 export const getTeamsDeleteEinladungUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}/einladung`;
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/einladung`;
 };
 
 /**
@@ -5486,7 +5490,7 @@ export const teamsDeleteEinladung = async (
 };
 
 export const getTeamsGetEinladungUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}/einladung`;
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/einladung`;
 };
 
 /**
@@ -5513,7 +5517,7 @@ export const teamsGetEinladung = async (
 };
 
 export const getTeamsPostEinladungUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}/einladung`;
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/einladung`;
 };
 
 /**
@@ -5548,7 +5552,7 @@ export const teamsPostEinladung = async (
 };
 
 export const getTeamsPatchSaisonTeamKontakteUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}/kontakte`;
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/kontakte`;
 };
 
 /**
@@ -5610,7 +5614,7 @@ export const teamsPatchSaisonTeamKontakte = async (
 };
 
 export const getTeamsEinladenKontaktUrl = (teamId: string, saisonId: string, seat: string) => {
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}/kontakte/${seat}/bestaetigung/einladen`;
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/kontakte/${encodeURIComponent(String(seat))}/bestaetigung/einladen`;
 };
 
 /**
@@ -5639,7 +5643,7 @@ export const teamsEinladenKontakt = async (
 };
 
 export const getTeamsPatchEinwilligungUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}/person/einwilligung`;
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/person/einwilligung`;
 };
 
 /**
@@ -5687,7 +5691,7 @@ export const teamsPatchEinwilligung = async (
 };
 
 export const getTeamsGetTeamSitzeUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}/person/sitze`;
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/person/sitze`;
 };
 
 /**
@@ -5709,7 +5713,7 @@ export const teamsGetTeamSitze = async (
 };
 
 export const getTeamsReplaceSaisonTeamUrl = (teamId: string, saisonId: string) => {
-  return `/api/v0/teams/${teamId}/saisons/${saisonId}/replace`;
+  return `/api/v0/teams/${encodeURIComponent(String(teamId))}/saisons/${encodeURIComponent(String(saisonId))}/replace`;
 };
 
 /**

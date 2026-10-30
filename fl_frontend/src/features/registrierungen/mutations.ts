@@ -58,7 +58,7 @@ export async function postRegistrierungAufnehmen(
   registrierungId: string,
   { spieler_id }: FLRegistrierungAufnehmenPayload,
 ): Promise<FLRegistrierungAufnahmeResponse> {
-  return registrierungenAufnehmen(encodeURIComponent(registrierungId), { spieler_id: spieler_id });
+  return registrierungenAufnehmen(registrierungId, { spieler_id: spieler_id });
 }
 
 /** Declines one registration under a fixed reason. */
@@ -66,7 +66,7 @@ export async function postRegistrierungAblehnen(
   registrierungId: string,
   { grund }: FLRegistrierungAblehnenPayload,
 ): Promise<FLRegistrierungAblehnungResponse> {
-  return registrierungenAblehnen(encodeURIComponent(registrierungId), { grund: grund });
+  return registrierungenAblehnen(registrierungId, { grund: grund });
 }
 
 /**
@@ -75,7 +75,7 @@ export async function postRegistrierungAblehnen(
  * answers is what to mail about work already done.
  */
 export async function postRegistrierungSweep(saisonId: string): Promise<FLRegistrierungSweepResponse> {
-  return registrierungenSweepRegistrierungen(encodeURIComponent(saisonId));
+  return registrierungenSweepRegistrierungen(saisonId);
 }
 
 // A pupil's own withdrawal on their pending registration, under the person lane's actor: the backend
@@ -84,5 +84,5 @@ export async function patchRegistrierungEinwilligung(
   registrierungId: string,
   payload: FLSelbstEinwilligungPayload,
 ): Promise<FLRegistrierungSelbstEinwilligungResponse> {
-  return registrierungenPatchEinwilligung(encodeURIComponent(registrierungId), payload);
+  return registrierungenPatchEinwilligung(registrierungId, payload);
 }

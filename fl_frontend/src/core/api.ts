@@ -145,8 +145,9 @@ export async function sendToBackend<T>(endpoint: string, options: FetchOptions =
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const urlObj = new URL(`${baseUrl}${cleanEndpoint}`);
 
-  // `new URL` resolves `..` before any check sees it, and a generated URL interpolates its path ids as given, so an id
-  // could aim an authenticated call at another resource. A caller's bug, so it throws rather than answering.
+  // `new URL` resolves `..` before any check sees it, and a generated URL's percent-encoding leaves an id of `.` or `..`
+  // as it is, so an id could aim an authenticated call at another resource. A caller's bug, so it throws rather than
+  // answering.
   if (!isPathAsSpelled(cleanEndpoint, urlObj.pathname, new URL(baseUrl).pathname)) {
     throw new Error(`Endpoint does not address the path it spells: ${endpoint}`);
   }

@@ -20,7 +20,7 @@ export async function getEinwilligungFassung(textVersion: string): Promise<FLEin
   cacheTag(SITE_CACHE_TAG);
 
   try {
-    const antwort = await einwilligungGetFassung(encodeURIComponent(textVersion));
+    const antwort = await einwilligungGetFassung(textVersion);
     // The longest life: a label's words never change, so no change outside a save can reach them.
     cacheLife("max");
     return antwort.fassung;

@@ -56,6 +56,9 @@ export default defineConfig({
       indexFiles: false,
       clean: true,
       formatter: "prettier",
+      // Each path parameter percent-encoded where its URL is built (https://orval.dev/docs/reference/configuration/output),
+      // so an id read off a page address or a stored record stays one segment and no call site encodes its own.
+      urlEncodeParameters: true,
       override: {
         header: SERVER_ONLY,
         operations,

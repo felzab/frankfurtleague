@@ -69,10 +69,12 @@ and Zod schemas for request bodies and parameters alone. Every module opens with
 `import 'server-only'`, so a client component may import a type from it with `import type` and
 nothing else. A change to the backend's routes or models regenerates both with `pnpm run contract`
 in `fl_frontend`, which exports the document and then runs Orval, committing what moves; the gate's
-db scope runs the same script and fails a tree where either is stale. The slices' hand-written Zod
-schemas in `schemas.ts` only name the answer's type for the calls made through
-`fl_frontend/src/core/api.ts :: apiClient`, which parses no answer, so a disagreement between one
-and the generated types is the first thing to check when behaviour looks impossible.
+db scope runs the same script and fails a tree where either is stale. Each path parameter is
+percent-encoded where its generated URL is built (Orval's `urlEncodeParameters`), so no call site
+encodes its own. An answer is typed by the generated types and parsed nowhere. The slices'
+hand-written Zod schemas in `schemas.ts` judge what a form submits, in the browser, where the
+`server-only` generated Zod cannot run, and the SDK call that takes their output holds it to the
+generated payload type.
 
 ## Rendering
 

@@ -11,7 +11,7 @@ import type { FLEinladungResponse, FLEinladungVersandVorschauResponse } from "@/
  */
 // `cache` memoizes per RENDER PASS.
 export const getEinladung = cache(async (teamId: string, saisonId: string): Promise<FLEinladungResponse> =>
-  runAdminRead(() => teamsGetEinladung(encodeURIComponent(teamId), encodeURIComponent(saisonId))),
+  runAdminRead(() => teamsGetEinladung(teamId, saisonId)),
 );
 
 /**
@@ -19,5 +19,5 @@ export const getEinladung = cache(async (teamId: string, saisonId: string): Prom
  * with it true, so a list read without the value the press will carry describes a different press.
  */
 export async function getEinladungVersandVorschau(saisonId: string, erneut: boolean): Promise<FLEinladungVersandVorschauResponse> {
-  return runAdminRead(() => saisonsPreviewEinladungenVersand(encodeURIComponent(saisonId), { erneut: erneut }));
+  return runAdminRead(() => saisonsPreviewEinladungenVersand(saisonId, { erneut: erneut }));
 }
