@@ -106,7 +106,6 @@ function registrierungslinksTitel(gemeint: number, erreicht: number): VersandTit
   return {
     gesendet: "Registrierungslinks gesendet",
     fehlgeschlagen: teils ? "Registrierungslinks teils nicht verschickt" : "Registrierungslinks nicht verschickt",
-    abgelegt: teils ? "Registrierungslinks teils zurückgehalten" : "Registrierungslinks zurückgehalten",
   };
 }
 

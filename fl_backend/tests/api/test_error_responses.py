@@ -426,7 +426,7 @@ class TestTraceContext:
 
 
 class TestAccessLine:
-    def test_every_request_writes_one_line_with_both_ids_and_timing(self, caplog):
+    def test_every_request_writes_one_line_with_its_trace_id_and_timing(self, caplog):
         with caplog.at_level(logging.INFO, logger="frankfurtleague"):
             client().get("/", headers={"traceparent": TRACEPARENT})
 

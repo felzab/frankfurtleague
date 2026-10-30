@@ -4,13 +4,19 @@
   // reads one file in either mode, and `ignoreExportsUsedInFile` there would loosen the default run
   // as `knip.json`'s schema ignore would loosen this one.
 
-  // Production code no `start` script reaches: the image build runs the first under the third, and
-  // the deploy's preflight runs the second. The last is the generated client, as in `knip.json`.
-  "entry": ["scripts/tsconfig-alias-hook.mjs!", "src/core/generated/**/*.ts!"],
+  // The generated client, as in `knip.json`.
+  "entry": ["src/core/generated/**/*.ts!"],
   // Every file but the tests' own support modules, one folder no production module imports
-  // (`fl_frontend/eslint.config.mjs :: kindOf`), the end-to-end journeys' support, and the lint's
-  // own rules, which only `eslint.config.mjs` imports.
-  "project": ["**/*.{js,cjs,mjs,jsx,ts,cts,mts,tsx}!", "!src/test-support/**!", "!e2e/**!", "!eslint-rules/**!"],
+  // (`fl_frontend/eslint.config.mjs :: kindOf`), the end-to-end journeys' support, the lint's own
+  // rules, which only `eslint.config.mjs` imports, and the alias hook, which only a database test
+  // loads (`fl_frontend/src/core/db.db.test.ts`).
+  "project": [
+    "**/*.{js,cjs,mjs,jsx,ts,cts,mts,tsx}!",
+    "!src/test-support/**!",
+    "!e2e/**!",
+    "!eslint-rules/**!",
+    "!scripts/tsconfig-alias-hook.mjs!"
+  ],
   // Built ahead of their first page, each named with the session that first uses it, which deletes
   // its line here and in `knip.json`.
   "ignoreFiles": [

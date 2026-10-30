@@ -186,8 +186,8 @@ def _row(
         # is why `at` cannot carry the retention (`app/core/constraints.py :: TTL_INDEXES`).
         "at_date": moment,
         "actor": actor.as_document(),
-        # The request's trace id and never this hop's span: a fan-out's rows and the write that
-        # caused them are one action on the page instead of forty only because they share it.
+        # The request's trace id: a fan-out's rows and the write that caused them are one action on
+        # the page instead of forty only because they share it.
         "trace_id": trace_id_var.get(),
         "request": {"method": request[0], "path": request[1]} if request is not None else None,
         "collection": collection,

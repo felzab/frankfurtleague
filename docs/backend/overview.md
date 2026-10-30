@@ -35,8 +35,8 @@ being written in the wrong file. `fl_backend/app/core/security.py` holds the gua
 - **`admin`** — every other read and write. An administrator's router also checks the actor's
   address against a stored grant (`Berechtigung`) on every request; a signed-in person's router binds
   the record that admits them (their `Funktion`) instead.
-- **`system`** — the frontend process's own calls: the retention sweeps, the mail delivery events and
-  the subject lookup.
+- **`system`** — the frontend process's own calls: the background passes, the Postausgang's hand-out
+  and its delivery events, and the sign-in's reads of what one mailbox holds.
 
 Each guard presents its key as a bearer scheme of its own, `BaseKey`, `AdminKey` or `SystemKey`, so
 an operation's `security` in `openapi.json` names the tier it takes.
@@ -62,9 +62,12 @@ stored document back through it after a migration paste.
 `fl_backend/app/core/crud.py`**, while a router may read through the driver directly. The helpers
 are keyword-only and accept a session, which is what lets a read inside a transaction see that
 transaction's own writes. A request making more than one write makes them in one transaction, so
-a refusal anywhere takes everything already written back with it. Every helper write except an
-anchor (`fl_backend/app/core/crud.py :: anchor_in_db`), which changes
-nothing a reader sees, records what it replaced or removed on the action log (`Aktion`,
+a refusal anywhere takes everything already written back with it. A background pass is the
+exception: it takes its rows a page or a row at a time, each in a transaction of its own
+(`fl_backend/app/core/transactions.py :: drain` for the paged ones), so a pass that fails part way
+keeps what it finished, and the next pass resumes from the stored state. Every helper write except
+an anchor (`fl_backend/app/core/crud.py :: anchor_in_db`), which changes nothing a reader sees,
+records what it replaced or removed on the action log (`Aktion`,
 `fl_backend/app/core/recording.py`), attributed to the actor its router bound.
 
 **The domain's relations are [`../domain.md`](../domain.md)'s**, and each write enforces the
