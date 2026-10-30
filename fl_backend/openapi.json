@@ -4199,26 +4199,6 @@
         ],
         "type": "string"
       },
-      "FLBewerbungSweepAngekuendigtPayload": {
-        "additionalProperties": false,
-        "description": "Which candidates' notices the caller delivered. The backend re-judges them: an id that has stopped qualifying is skipped.",
-        "properties": {
-          "bewerbung_ids": {
-            "items": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "type": "string"
-            },
-            "maxItems": 83,
-            "title": "Bewerbung Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "bewerbung_ids"
-        ],
-        "title": "FLBewerbungSweepAngekuendigtPayload",
-        "type": "object"
-      },
       "FLBewerbungSweepAngekuendigtResponse": {
         "properties": {
           "angekuendigt": {
@@ -4273,6 +4253,26 @@
         "title": "FLBewerbungSweepAusstehend",
         "type": "object"
       },
+      "FLBewerbungSweepAuswahlPayload": {
+        "additionalProperties": false,
+        "description": "The candidates from one pass's deletion list that this step names. The backend re-judges each, skipping one that no longer qualifies.",
+        "properties": {
+          "bewerbung_ids": {
+            "items": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "type": "string"
+            },
+            "maxItems": 83,
+            "title": "Bewerbung Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "bewerbung_ids"
+        ],
+        "title": "FLBewerbungSweepAuswahlPayload",
+        "type": "object"
+      },
       "FLBewerbungSweepErinnerung": {
         "description": "One reminder to send: one MAILBOX of one application, every seat it holds due today.\n\nGrouped as the first mail groups (`fl_frontend/src/features/bewerbungen/notifications.ts`), so\none person holding two seats gets one message and two people on one inbox get two.",
         "properties": {
@@ -4315,26 +4315,6 @@
           "seats"
         ],
         "title": "FLBewerbungSweepErinnerung",
-        "type": "object"
-      },
-      "FLBewerbungSweepLoeschenPayload": {
-        "additionalProperties": false,
-        "description": "Which candidates to erase. The backend re-selects them: an id that has stopped qualifying, or that was never announced, is skipped.",
-        "properties": {
-          "bewerbung_ids": {
-            "items": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "type": "string"
-            },
-            "maxItems": 83,
-            "title": "Bewerbung Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "bewerbung_ids"
-        ],
-        "title": "FLBewerbungSweepLoeschenPayload",
         "type": "object"
       },
       "FLBewerbungSweepLoeschenResponse": {
@@ -21927,7 +21907,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLBewerbungSweepAngekuendigtPayload"
+                "$ref": "#/components/schemas/FLBewerbungSweepAuswahlPayload"
               }
             }
           },
@@ -22015,7 +21995,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLBewerbungSweepLoeschenPayload"
+                "$ref": "#/components/schemas/FLBewerbungSweepAuswahlPayload"
               }
             }
           },

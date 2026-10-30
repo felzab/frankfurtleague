@@ -911,7 +911,9 @@ export const BewerbungenAngekuendigtBewerbungenBody = zod
       .array(zod.string().regex(bewerbungenAngekuendigtBewerbungenBodyBewerbungIdsItemRegExp))
       .max(bewerbungenAngekuendigtBewerbungenBodyBewerbungIdsMax),
   })
-  .describe("Which candidates' notices the caller delivered. The backend re-judges them: an id that has stopped qualifying is skipped.");
+  .describe(
+    "The candidates from one pass's deletion list that this step names. The backend re-judges each, skipping one that no longer qualifies.",
+  );
 
 /**
  * Erase the applications whose deletion notice went out, and redact every log row naming them.
@@ -939,7 +941,7 @@ export const BewerbungenLoeschenBewerbungenBody = zod
       .max(bewerbungenLoeschenBewerbungenBodyBewerbungIdsMax),
   })
   .describe(
-    "Which candidates to erase. The backend re-selects them: an id that has stopped qualifying, or that was never announced, is skipped.",
+    "The candidates from one pass's deletion list that this step names. The backend re-judges each, skipping one that no longer qualifies.",
   );
 
 /**

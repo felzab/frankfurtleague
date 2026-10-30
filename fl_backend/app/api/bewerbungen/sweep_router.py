@@ -9,11 +9,10 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from app.api.aktionen.crud import redact_images_in_session
 from app.api.bewerbungen.schemas import (
     DELETIONS_LISTED_PER_PASS,
-    FLBewerbungSweepAngekuendigtPayload,
     FLBewerbungSweepAngekuendigtResponse,
     FLBewerbungSweepAusstehend,
+    FLBewerbungSweepAuswahlPayload,
     FLBewerbungSweepErinnerung,
-    FLBewerbungSweepLoeschenPayload,
     FLBewerbungSweepLoeschenResponse,
     FLBewerbungSweepLoeschung,
     FLBewerbungSweepResponse,
@@ -668,7 +667,7 @@ async def sweep_saison(
 )
 async def angekuendigt_bewerbungen(
     saison_id: str,
-    angekuendigt_data: Annotated[FLBewerbungSweepAngekuendigtPayload, Body()],
+    angekuendigt_data: Annotated[FLBewerbungSweepAuswahlPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
@@ -745,7 +744,7 @@ async def angekuendigt_bewerbungen(
 )
 async def loeschen_bewerbungen(
     saison_id: str,
-    loeschen_data: Annotated[FLBewerbungSweepLoeschenPayload, Body()],
+    loeschen_data: Annotated[FLBewerbungSweepAuswahlPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     saisons_collection: SaisonsCollection,
     aktionen_collection: AktionenCollection,

@@ -2,9 +2,9 @@ from collections.abc import Mapping
 from typing import Any
 
 import pytest
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 
-from app.api.bewerbungen.schemas import DELETIONS_LISTED_PER_PASS, FLBewerbungSweepAngekuendigtPayload, FLBewerbungSweepLoeschenPayload
+from app.api.bewerbungen.schemas import DELETIONS_LISTED_PER_PASS, FLBewerbungSweepAuswahlPayload
 from app.api.bewerbungen.services import (
     ZUSTELLUNG_ABGEWIESEN,
     announcement_is_undeliverable,
@@ -337,23 +337,22 @@ def ids(count: int) -> list[str]:
     return [f"6890a1b2c3d4e5f6079{number:05x}" for number in range(count)]
 
 
-@pytest.mark.parametrize("payload", [FLBewerbungSweepAngekuendigtPayload, FLBewerbungSweepLoeschenPayload])
-class TestTheIdPayloadsTakeOnePassList:
-    """Both lists come from one pass's deletion list, so a longer one is no caller of this sweep and would outrun the request's budget."""
+class TestTheIdPayloadTakesOnePassList:
+    """The list comes from one pass's deletion list, so a longer one is no caller of this sweep and would outrun the request's budget."""
 
-    def test_a_whole_list_is_taken(self, payload: type[BaseModel]):
-        payload.model_validate({"bewerbung_ids": ids(DELETIONS_LISTED_PER_PASS)})
+    def test_a_whole_list_is_taken(self):
+        FLBewerbungSweepAuswahlPayload.model_validate({"bewerbung_ids": ids(DELETIONS_LISTED_PER_PASS)})
 
-    def test_one_id_past_it_is_refused(self, payload: type[BaseModel]):
+    def test_one_id_past_it_is_refused(self):
         with pytest.raises(ValidationError) as failure:
-            payload.model_validate({"bewerbung_ids": ids(DELETIONS_LISTED_PER_PASS + 1)})
+            FLBewerbungSweepAuswahlPayload.model_validate({"bewerbung_ids": ids(DELETIONS_LISTED_PER_PASS + 1)})
 
         assert [entry["type"] for entry in failure.value.errors()] == ["too_long"]
 
-    def test_the_published_schema_states_the_bound(self, payload: type[BaseModel]):
+    def test_the_published_schema_states_the_bound(self):
         """Published, so `openapi.json` tells the sweep job the bound the route refuses past; enforced alone, it states nothing."""
 
-        assert payload.model_json_schema()["properties"]["bewerbung_ids"]["maxItems"] == DELETIONS_LISTED_PER_PASS
+        assert FLBewerbungSweepAuswahlPayload.model_json_schema()["properties"]["bewerbung_ids"]["maxItems"] == DELETIONS_LISTED_PER_PASS
 
 
 # The per-row loops' three commands a row -- the update, its read-back and its log row -- pinned on the wire by

@@ -20,8 +20,7 @@ from app.api.bewerbungen.einwilligung_router import get_einwilligung_ansicht
 from app.api.bewerbungen.schemas import (
     DELETIONS_LISTED_PER_PASS,
     FLBewerbungEinwilligungAnsichtPayload,
-    FLBewerbungSweepAngekuendigtPayload,
-    FLBewerbungSweepLoeschenPayload,
+    FLBewerbungSweepAuswahlPayload,
     FLBewerbungZustellungAngenommenPayload,
     FLBewerbungZustellungEreignisPayload,
 )
@@ -230,7 +229,7 @@ async def announce(
 ) -> Any:
     return await angekuendigt_bewerbungen(
         saison_id=saison_id,
-        angekuendigt_data=FLBewerbungSweepAngekuendigtPayload(bewerbung_ids=ids),
+        angekuendigt_data=FLBewerbungSweepAuswahlPayload(bewerbung_ids=ids),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saisons_collection=database[Collection.SAISONS],
         db=client,
@@ -241,7 +240,7 @@ async def announce(
 async def erase(database: AsyncDatabase, client: AsyncMongoClient, ids: list[ObjectId], saison_id: str = SAISON_ID) -> Any:
     return await loeschen_bewerbungen(
         saison_id=saison_id,
-        loeschen_data=FLBewerbungSweepLoeschenPayload(bewerbung_ids=ids),
+        loeschen_data=FLBewerbungSweepAuswahlPayload(bewerbung_ids=ids),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saisons_collection=database[Collection.SAISONS],
         aktionen_collection=database[Collection.AKTIONEN],
