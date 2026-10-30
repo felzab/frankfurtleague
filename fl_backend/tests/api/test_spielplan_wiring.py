@@ -40,7 +40,7 @@ PAYLOAD_FIELDS: tuple[str, ...] = tuple(FLPatchSpielDataPayload.model_fields)
 def rules(*, groups: int, teams: int, qualifiers: int) -> FLSaisonRules:
     return FLSaisonRules.model_validate(
         rules_document(
-            qualifiers_per_group=qualifiers, number_of_groups=groups, teams_per_group=teams, erlaubte_stufen=["E1", "E2", "Q1", "Q2"]
+            qualifiers_per_gruppe=qualifiers, number_of_gruppen=groups, teams_per_gruppe=teams, allowed_stufen=["E1", "E2", "Q1", "Q2"]
         )
     )
 
@@ -131,7 +131,9 @@ class TestTheDrawnWiringIsWiringTheWritePathAccepts:
         refused = [
             (raw["spiel_nr"], refusal.error_code)
             for raw in drawn(shape).spiele
-            if (refusal := find_wiring_refusal(raw["_id"], payload_of(raw), with_the_slot_cleared(season, raw["_id"]), number_of_groups=groups))
+            if (
+                refusal := find_wiring_refusal(raw["_id"], payload_of(raw), with_the_slot_cleared(season, raw["_id"]), number_of_gruppen=groups)
+            )
             is not None
         ]
 

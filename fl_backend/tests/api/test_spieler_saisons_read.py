@@ -69,7 +69,7 @@ class TestTheSaisonsPipeline:
             "nummer": 1,
             "position": 1,
             "stufe": 1,
-            "ist_nachnominiert": 1,
+            "is_nachnominiert": 1,
             "rolle": 1,
             # A squad row really can be retired, unlike a team junction row, and dropping this makes it look live.
             "inactive_since": 1,
@@ -127,8 +127,8 @@ class TestTheResponseModel:
                         "geburtsdatum": "2009-05-04",
                         "einwilligung": EINWILLIGUNG,
                         "email": STORED_ADDRESS,
-                        "adresswechsel_id": None,
-                        "adresswechsel_einsehbar_verwehrt": None,
+                        "address_change_id": None,
+                        "address_change_viewable_denied": None,
                         "memberships": [],
                     }
                 ],
@@ -149,8 +149,8 @@ class TestTheResponseModel:
                     "geburtsdatum": "2009-05-04",
                     "einwilligung": EINWILLIGUNG,
                     "email": STORED_ADDRESS,
-                    "adresswechsel_id": None,
-                    "adresswechsel_einsehbar_verwehrt": None,
+                    "address_change_id": None,
+                    "address_change_viewable_denied": None,
                     "memberships": [
                         {
                             "saison_id": SAISON,
@@ -158,7 +158,7 @@ class TestTheResponseModel:
                             "nummer": "7",
                             "position": "Sturm",
                             "stufe": "Q1",
-                            "ist_nachnominiert": False,
+                            "is_nachnominiert": False,
                             "rolle": None,
                             "inactive_since": None,
                         }
@@ -177,8 +177,8 @@ class TestTheResponseModel:
                 "geburtsdatum": "2009-05-04",
                 "einwilligung": EINWILLIGUNG,
                 "email": STORED_ADDRESS,
-                "adresswechsel_id": None,
-                "adresswechsel_einsehbar_verwehrt": None,
+                "address_change_id": None,
+                "address_change_viewable_denied": None,
                 "memberships": [
                     {
                         "saison_id": SAISON,
@@ -186,7 +186,7 @@ class TestTheResponseModel:
                         "nummer": None,
                         "position": None,
                         "stufe": None,
-                        "ist_nachnominiert": False,
+                        "is_nachnominiert": False,
                         "rolle": None,
                         "inactive_since": None,
                     }
@@ -209,12 +209,12 @@ class TestTheResponseModel:
                     "nummer": "7",
                     "position": "Mittelfeld",
                     "stufe": "Q1",
-                    "ist_nachnominiert": True,
+                    "is_nachnominiert": True,
                     "rolle": None,
                 }
             )
 
-        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "ist_nachnominiert")]
+        assert [(entry["type"], entry["loc"][-1]) for entry in failure.value.errors()] == [("extra_forbidden", "is_nachnominiert")]
 
     @pytest.mark.parametrize("payload_model", [FLPostSaisonSpielerPayload, FLPatchSaisonSpielerPayload])
     def test_a_payload_keeps_the_role_required(self, payload_model):
@@ -227,7 +227,7 @@ class TestTheResponseModel:
 
         The backend makes the marker the create's own derivation.
         """
-        assert "ist_nachnominiert" not in payload_model.model_fields
+        assert "is_nachnominiert" not in payload_model.model_fields
 
 
 class TestWhichTierMayReadTheConsentRecord:
@@ -273,7 +273,7 @@ class TestTheAddressASignedInPersonIsJoinedOn:
 
 
 # Passed rather than defaulted: `test_the_consent_record_reaches_this_read_whole` reads it back.
-EINWILLIGUNG = eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-01-20")
+EINWILLIGUNG = eigene_einwilligung_document(text_version="v1", confirmed_at="2026-01-20")
 
 
 def _spieler(name: str, *, inactive_since: str | None = None) -> dict[str, Any]:
@@ -328,7 +328,7 @@ class TestTheSaisonsPipelineExecuted:
     def _by_surname(self, squads: Database) -> dict[str, FLSpielerWithMemberships]:
         raw = list(squads.spieler.aggregate(build_spieler_saisons_pipeline()))
         # With the key the read composes after the pipeline (`app/api/spieler/admin_router.py :: get_spieler_saisons`).
-        parsed = (FLSpielerWithMemberships.model_validate({**row, "adresswechsel_einsehbar_verwehrt": None}) for row in raw)
+        parsed = (FLSpielerWithMemberships.model_validate({**row, "address_change_viewable_denied": None}) for row in raw)
         return {player.nachname or "": player for player in parsed}
 
     def test_it_returns_every_player_exactly_once(self, squads: Database):

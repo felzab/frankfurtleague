@@ -79,13 +79,13 @@ class TestTheDueJudgement:
         assert faellig(kader) is due
 
     def test_a_pending_registration_keeps_its_pupil(self):
-        offene = offene_adressen([{"status": "eingereicht", "email": ADDRESS}])
+        offene = offene_adressen([{"status": "submitted", "email": ADDRESS}])
 
         assert offene == {ADDRESS}
         assert not faellig([], offene=offene)
 
     def test_a_declined_registration_keeps_nobody(self):
-        assert offene_adressen([{"status": "abgelehnt", "email": ADDRESS}]) == frozenset()
+        assert offene_adressen([{"status": "declined", "email": ADDRESS}]) == frozenset()
 
     def test_a_pupil_holding_no_address_is_never_due(self):
         """The registry erases by address, and nothing else may erase by a name."""

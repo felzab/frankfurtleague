@@ -78,7 +78,7 @@ async def _resolve_one_saison(
 
     # The groups the season RUNS alone: a standing built for any other would have the walk report a
     # reference to it as a table too short, where `find_gruppen_not_run` names the group.
-    gruppen_to_decide = referenced_gruppen & set(offered_gruppen(rules.number_of_groups))
+    gruppen_to_decide = referenced_gruppen & set(offered_gruppen(rules.number_of_gruppen))
 
     standings: Mapping[FLGruppenNames, DecidedStanding] = {}
     if gruppen_to_decide:
@@ -115,7 +115,7 @@ async def _resolve_one_saison(
 
     return BracketResolution(
         advancements=resolution.advancements,
-        bracket_faults=[*resolution.bracket_faults, *find_gruppen_not_run(spiele, number_of_groups=rules.number_of_groups)],
+        bracket_faults=[*resolution.bracket_faults, *find_gruppen_not_run(spiele, number_of_gruppen=rules.number_of_gruppen)],
     )
 
 
@@ -324,12 +324,12 @@ async def pull_booked_referee(
         return None
 
     row = await schiedsrichter_collection.find_one(
-        {"_id": schiedsrichter_id}, {"name": 1, "inactive_since": 1, "einwilligung.bestaetigt_am": 1}, session=session
+        {"_id": schiedsrichter_id}, {"name": 1, "inactive_since": 1, "einwilligung.confirmed_at": 1}, session=session
     )
     if row is None:
         return None
 
-    return BookedReferee(name=row["name"], inactive_since=row["inactive_since"], bestaetigt=is_confirmed(row.get("einwilligung")))
+    return BookedReferee(name=row["name"], inactive_since=row["inactive_since"], confirmed=is_confirmed(row.get("einwilligung")))
 
 
 async def anchor_a_booked_venue(

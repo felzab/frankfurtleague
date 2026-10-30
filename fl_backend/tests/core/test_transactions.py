@@ -416,7 +416,7 @@ class TestABatchNarrowsTheClocksOwnFilter:
     def test_a_filter_naming_its_own_ids_keeps_them_beside_the_rows_passed_over(self):
         """Merged rather than set beside, the term replaces the list's own ids and the read takes every row the rest admits."""
 
-        own = {"_id": {"$in": [1, 2]}, "status": "eingereicht"}
+        own = {"_id": {"$in": [1, 2]}, "status": "submitted"}
 
         assert Batch(passed=[3]).within(own) == {"$and": [own, {"_id": {"$nin": [3]}}]}
 

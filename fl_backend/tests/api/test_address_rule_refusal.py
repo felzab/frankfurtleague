@@ -13,7 +13,7 @@ from pydantic import BaseModel, EmailStr, TypeAdapter, ValidationError
 from pydantic.warnings import UnsupportedFieldAttributeWarning
 
 import app
-from app.api.identitaet.schemas import FLLoeschungAdressePayload, FLLoeschungPayload
+from app.api.identitaet.schemas import FLErasureAdressePayload, FLErasurePayload
 from app.core.codes import Code
 from app.core.config import API_VERSION
 from app.shared.folding import league_address
@@ -165,7 +165,7 @@ ADDRESS_FIELDS = _address_fields()
 # the sweep below comparing nothing and passing.
 KNOWN_ADDRESS_FIELDS = {
     "app.api.bewerbungen.schemas.FLBewerbungKontaktEmailPayload.email",
-    "app.api.identitaet.schemas.FLSubjektPayload.email",
+    "app.api.identitaet.schemas.FLSubjectPayload.email",
     "app.api.registrierungen.schemas.FLPostRegistrierungPayload.email",
     "app.api.sperrliste.schemas.FLPostSperrlistePayload.email",
     "app.api.teams.schemas._KontaktpersonWritablePayload.email",
@@ -203,8 +203,8 @@ class TestEveryAddressPayloadHoldsTheSameRule:
 
 # The lookup the reveal and the sign-out take, and the erasure's, which takes it beside the request it answers.
 LOESCHUNG_PAYLOADS: Mapping[str, Callable[[str], Any]] = {
-    "the lookup": lambda email: FLLoeschungAdressePayload(email=email),
-    "the erasure": lambda email: FLLoeschungPayload(email=email, anlass="Mail vom 30.03.2026"),
+    "the lookup": lambda email: FLErasureAdressePayload(email=email),
+    "the erasure": lambda email: FLErasurePayload(email=email, anlass="Mail vom 30.03.2026"),
 }
 
 
@@ -232,15 +232,15 @@ class TestTheLoeschungLooksUpWhatAnyRuleStored:
 
 # The payloads whose `email` reaches a `$regex` under no address rule, each with what its route's body
 # carries beside it. Raw JSON, because a lone surrogate is a JSON escape no encoder of a `str` writes.
-FREE_STRING_PAYLOADS: Mapping[str, tuple[type[FLLoeschungAdressePayload], str]] = {
-    "the lookup": (FLLoeschungAdressePayload, ""),
-    "the erasure": (FLLoeschungPayload, ', "anlass": "Mail vom 30.03.2026"'),
+FREE_STRING_PAYLOADS: Mapping[str, tuple[type[FLErasureAdressePayload], str]] = {
+    "the lookup": (FLErasureAdressePayload, ""),
+    "the erasure": (FLErasurePayload, ', "anlass": "Mail vom 30.03.2026"'),
 }
 
 PLAIN_ADDRESS = "a@schule.de"
 
 
-def validated_raw(payload: str, value: str) -> FLLoeschungAdressePayload:
+def validated_raw(payload: str, value: str) -> FLErasureAdressePayload:
     """`value` is JSON string content, escapes included, decoded as the route decodes its body before validating it."""
 
     model, rest = FREE_STRING_PAYLOADS[payload]

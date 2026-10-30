@@ -44,10 +44,10 @@ class FLSaisonRules(BaseModel):
     draw_points: int = Field(ge=0)
     # No default on any of the three: one would make the number a constant chosen here, as a
     # hardcoded 3/1/0 would.
-    qualifiers_per_group: QualifiersPerGroup
+    qualifiers_per_gruppe: QualifiersPerGroup
 
-    number_of_groups: NumberOfGroups
-    teams_per_group: TeamsPerGroup
+    number_of_gruppen: NumberOfGroups
+    teams_per_gruppe: TeamsPerGroup
 
     # Which figure separates two clubs level on points. No default, for the reason above.
     tiebreak_order: Literal["tordifferenz", "direkter_vergleich"]
@@ -59,7 +59,7 @@ class FLSaisonRules(BaseModel):
 
     # No validator holds `saison_spieler` to this: it bounds what the FORM offers, so narrowing it
     # cannot invalidate a season already played.
-    erlaubte_stufen: list[FLSpielerStufe] = Field(min_length=1)
+    allowed_stufen: list[FLSpielerStufe] = Field(min_length=1)
 
 
 class FLSaisonSpielplan(BaseModel):
@@ -69,7 +69,7 @@ class FLSaisonSpielplan(BaseModel):
     front of them, and a hash answers no question anyone standing there is asking.
     """
 
-    generiert_am: CustomDateString
+    generated_at: CustomDateString
     spieltage: int = Field(ge=0)
     spiele: int = Field(ge=0)
 
@@ -105,8 +105,8 @@ class FLSaisonPhaseSchedule(BaseModel):
     """
 
     phase: FLSaisonPhase
-    matchdays: int = Field(ge=0)
-    matches_per_matchday: int = Field(ge=0)
+    spieltage: int = Field(ge=0)
+    matches_per_spieltag: int = Field(ge=0)
 
 
 # Private, so the read model and both payloads state these fields once, and the base itself
@@ -186,7 +186,7 @@ class FLSaisonAdmin(FLSaison):
 
     # DERIVED per read by `app/api/saisons/crud.py :: has_started`, the predicate every start lock
     # reads, so a control closed on it closes exactly what the endpoint refuses.
-    begonnen: bool
+    begun: bool
 
 
 FLSaisonAdminListAdapter = TypeAdapter(list[FLSaisonAdmin])
@@ -306,9 +306,9 @@ class FLSpielplanShape(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    number_of_groups: NumberOfGroups
-    teams_per_group: TeamsPerGroup
-    qualifiers_per_group: QualifiersPerGroup
+    number_of_gruppen: NumberOfGroups
+    teams_per_gruppe: TeamsPerGroup
+    qualifiers_per_gruppe: QualifiersPerGroup
 
 
 class FLGenerateSpielplanPayload(BaseModel):
@@ -343,7 +343,7 @@ class FLGenerateSpielplanResponse(BaseAPIResponse):
     saison_id: str = Field(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH)
     spieltage: int = Field(ge=0)
     spiele: int = Field(ge=0)
-    generiert_am: CustomDateString
+    generated_at: CustomDateString
 
     # Off the replace's own `DeleteResult`s, so a confirmation is answered with what it destroyed
     # rather than with what was asked for. Zero on a first draw, which deletes nothing.

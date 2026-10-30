@@ -19,7 +19,7 @@ from app.api.konto.services import (
     widerruf_line,
 )
 from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier
-from app.api.teams.schemas import FLSaisonTeamKontoEinwilligungResponse, FLTeamSitz, FLTeamSitzeResponse
+from app.api.teams.schemas import FLSaisonTeamAccountEinwilligungResponse, FLTeamSeat, FLTeamSeatsResponse
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
@@ -35,7 +35,7 @@ from app.core.security import loeschung_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomRouteObjectId
-from app.shared.schemas.einwilligung import FLSitzEinwilligungPayload
+from app.shared.schemas.einwilligung import FLSeatEinwilligungPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # The person lane's binder, as `app/api/registrierungen/person_router.py` declares it and for its reason.
@@ -45,31 +45,31 @@ router = APIRouter(
 )
 
 
-def _as_sitz(kontakte: Mapping[str, Any], slot: str) -> FLTeamSitz:
+def _as_sitz(kontakte: Mapping[str, Any], slot: str) -> FLTeamSeat:
     person = kontakte.get(slot)
     if not isinstance(person, Mapping):
-        return FLTeamSitz.model_validate({"rolle": slot, "name": None, "bestaetigt": False})
+        return FLTeamSeat.model_validate({"rolle": slot, "name": None, "confirmed": False})
 
-    return FLTeamSitz.model_validate(
+    return FLTeamSeat.model_validate(
         {
             "rolle": slot,
             "name": " ".join(str(person.get(field) or "").strip() for field in ("vorname", "nachname")).strip() or None,
-            "bestaetigt": seat_is_confirmed({"kontakte": kontakte}, slot),
+            "confirmed": seat_is_confirmed({"kontakte": kontakte}, slot),
         }
     )
 
 
-# `/self/sitze`, its own segment: the admin router serves this team and season under its own paths,
+# `/self/seats`, its own segment: the admin router serves this team and season under its own paths,
 # and one path in both routers would be answered by whichever was mounted first.
-@router.get("/{team_id:objectid}/saisons/{saison_id}/self/sitze", response_model=FLTeamSitzeResponse, summary="A team's seats in one season")
-async def get_team_sitze(
+@router.get("/{team_id:objectid}/saisons/{saison_id}/self/seats", response_model=FLTeamSeatsResponse, summary="A team's seats in one season")
+async def get_team_seats(
     team_id: CustomRouteObjectId,
     saison_id: str,
     identifier: KontaktIdentifier,
     saison_teams_collection: SaisonTeamsCollection,
     records: SubjektLookup,
     db: DBClient,
-) -> FLTeamSitzeResponse:
+) -> FLTeamSeatsResponse:
     """
     The team's three seats in this season, each with its holder's name and whether that person has confirmed it.
 
@@ -77,30 +77,30 @@ async def get_team_sitze(
     confirmation date is served, whoever asks.
     """
 
-    # A snapshot rather than a transaction, for `get_offene_registrierungen`'s reason.
+    # A snapshot rather than a transaction, for `get_open_registrierungen`'s reason.
     async with db.start_session(snapshot=True) as session:
         await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
 
         # The seat just judged lives on this row, read in the same snapshot, so it stands and no 404 is owed.
         row = await saison_teams_collection.find_one(
             {"saison_id": saison_id, "team_id": team_id},
-            [f"kontakte.{slot}.{field}" for slot in KONTAKT_ROLLEN for field in ("vorname", "nachname", "einwilligung.bestaetigt_am")],
+            [f"kontakte.{slot}.{field}" for slot in KONTAKT_ROLLEN for field in ("vorname", "nachname", "einwilligung.confirmed_at")],
             session=session,
         )
         kontakte = (row or {}).get("kontakte") or {}
 
-    return FLTeamSitzeResponse(team_id=team_id, saison_id=saison_id, sitze=[_as_sitz(kontakte, slot) for slot in KONTAKT_ROLLEN])
+    return FLTeamSeatsResponse(team_id=team_id, saison_id=saison_id, seats=[_as_sitz(kontakte, slot) for slot in KONTAKT_ROLLEN])
 
 
 @router.patch(
-    "/{team_id:objectid}/saisons/{saison_id}/konto/einwilligung",
-    response_model=FLSaisonTeamKontoEinwilligungResponse,
+    "/{team_id:objectid}/saisons/{saison_id}/account/einwilligung",
+    response_model=FLSaisonTeamAccountEinwilligungResponse,
     summary="Change a seat holder's own WhatsApp and media consent on one team's season",
 )
 async def patch_einwilligung(
     team_id: CustomRouteObjectId,
     saison_id: str,
-    einwilligung_data: Annotated[FLSitzEinwilligungPayload, Body()],
+    einwilligung_data: Annotated[FLSeatEinwilligungPayload, Body()],
     identifier: KontaktIdentifier,
     saison_teams_collection: SaisonTeamsCollection,
     records: SubjektLookup,
@@ -108,7 +108,7 @@ async def patch_einwilligung(
     config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLSaisonTeamKontoEinwilligungResponse:
+) -> FLSaisonTeamAccountEinwilligungResponse:
     """
     Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.
 
@@ -119,12 +119,12 @@ async def patch_einwilligung(
     to `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the
     person confirmed a seat on, a past season's included.
 
-    Refuses, in this order: a row on which the address holds no confirmed seat (`funktion_nicht_gehalten`); a
+    Refuses, in this order: a row on which the address holds no confirmed seat (`role_not_held`); a
     `nachweis_stand` other than the held seats' own, either choice having moved since the page was served
-    (`fassung_unzulaessig`); a grant where the row grants no panel (`erteilung_nicht_zugelassen`); a `text_version` naming no
-    version of the account page's seat control, or a grant naming any but its running one (`fassung_unzulaessig`);
+    (`wording_not_allowed`); a grant where the row grants no panel (`giving_not_allowed`); a `text_version` naming no
+    version of the account page's seat control, or a grant naming any but its running one (`wording_not_allowed`);
     `medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is
-    missing (`medien_alter`). Each refusal writes nothing.
+    missing (`medien_age`). Each refusal writes nothing.
     """
 
     gedrueckt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
@@ -133,7 +133,7 @@ async def patch_einwilligung(
     journal = Journal()
 
     @journal.attempted
-    async def write(session: AsyncClientSession) -> FLSaisonTeamKontoEinwilligungResponse:
+    async def write(session: AsyncClientSession) -> FLSaisonTeamAccountEinwilligungResponse:
         row = await saison_teams_collection.find_one(
             {"saison_id": saison_id, "team_id": team_id},
             {f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in ("email", "geburtsdatum", "einwilligung")},
@@ -148,7 +148,7 @@ async def patch_einwilligung(
         async def darf_erteilen() -> bool:
             # The panel narrowing a grant waits on: a `past` season's seat and a withdrawn team's grant none.
             subjekt = await funktionen_of(identifier, records, session=session)
-            return holds_a_seat(subjekt.sitze, team_id=team_id, saison_id=saison_id)
+            return holds_a_seat(subjekt.seats, team_id=team_id, saison_id=saison_id)
 
         await press_einwilligung(
             bloecke=[sitz["einwilligung"] for sitz in sitze.values()],
@@ -179,7 +179,7 @@ async def patch_einwilligung(
             )
         )
         line = widerruf_line(
-            person_hash=loeschung_journal_hash(identifier, schluessel=config.sperrliste_schluessel),
+            person_hash=loeschung_journal_hash(identifier, key=config.sperrliste_schluessel),
             collection=Collection.SAISON_TEAMS,
             record_id=row["_id"],
             bloecke=[sitz["einwilligung"] for sitz in sitze.values()],
@@ -193,7 +193,7 @@ async def patch_einwilligung(
         bloecke = [kontakte[slot]["einwilligung"] for slot in rollen]
 
         # The row as the next read serves it: an unpressed choice its seats answered apart stays apart.
-        return FLSaisonTeamKontoEinwilligungResponse.model_validate(
+        return FLSaisonTeamAccountEinwilligungResponse.model_validate(
             {
                 "team_id": team_id,
                 "saison_id": saison_id,

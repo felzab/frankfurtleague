@@ -52,7 +52,7 @@ SPIEL_ID = "6890a1b2c3d4e5f60725{:04d}"
 
 
 def rules_document(**overrides: Any) -> dict[str, Any]:
-    return documents.rules_document(**{"teams_per_group": STORED_PER_GROUP, "max_kadergroesse": STORED_KADER, **overrides})
+    return documents.rules_document(**{"teams_per_gruppe": STORED_PER_GROUP, "max_kadergroesse": STORED_KADER, **overrides})
 
 
 def saison_document() -> dict[str, Any]:
@@ -207,7 +207,7 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
 
         async def body(database: AsyncDatabase) -> APIError:
             with pytest.raises(APIError) as refusal:
-                await patch_the_rules(database, teams_per_group=WIDER_PER_GROUP)
+                await patch_the_rules(database, teams_per_gruppe=WIDER_PER_GROUP)
 
             return refusal.value
 
@@ -219,10 +219,10 @@ class TestTheDrawItselfIsWhatFreezesTheShape:
         """The same season and the same matchday, minus its fixtures: a season still being set up widens freely."""
 
         async def body(database: AsyncDatabase) -> Any:
-            await patch_the_rules(database, teams_per_group=WIDER_PER_GROUP)
+            await patch_the_rules(database, teams_per_gruppe=WIDER_PER_GROUP)
             return await saved_rules(database)
 
-        assert on_a_database(mongo_replica_set_url, body)["teams_per_group"] == WIDER_PER_GROUP
+        assert on_a_database(mongo_replica_set_url, body)["teams_per_gruppe"] == WIDER_PER_GROUP
 
 
 class TestTheStartIsWhatFreezesTheScoring:

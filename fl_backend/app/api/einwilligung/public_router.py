@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.einwilligung.schemas import FLEinwilligungFassungResponse, FLEinwilligungSeitenResponse
+from app.api.einwilligung.schemas import FLEinwilligungSeitenResponse, FLEinwilligungWordingResponse
 from app.api.einwilligung.services import served_fassung
 from app.core.config import API_VERSION
 from app.core.exceptions import DocumentNotFoundError
@@ -14,18 +14,18 @@ router = APIRouter(
 
 
 @router.get(
-    "/fassungen/{text_version}",
-    response_model=FLEinwilligungFassungResponse,
+    "/wordings/{text_version}",
+    response_model=FLEinwilligungWordingResponse,
     summary="The words one consent label names",
 )
-async def get_fassung(text_version: str) -> FLEinwilligungFassungResponse:
+async def get_wording(text_version: str) -> FLEinwilligungWordingResponse:
     """The words a consent label names, which never change, so the answer may be cached; 404 for a label the registry lacks."""
 
     fassung = FASSUNGEN.get(text_version)
     if fassung is None:
         raise DocumentNotFoundError()
 
-    return FLEinwilligungFassungResponse(fassung=served_fassung(text_version, fassung))
+    return FLEinwilligungWordingResponse(wording=served_fassung(text_version, fassung))
 
 
 @router.get("/seiten", response_model=FLEinwilligungSeitenResponse, summary="The consent label each page stamps today")
@@ -35,4 +35,4 @@ async def get_seiten() -> FLEinwilligungSeitenResponse:
     A deploy moves it, so a reader caches it no longer than a request.
     """
 
-    return FLEinwilligungSeitenResponse(laufende_fassungen={seite: label for seite, label in LAUFENDE_FASSUNGEN.items()})
+    return FLEinwilligungSeitenResponse(running_wordings={seite: label for seite, label in LAUFENDE_FASSUNGEN.items()})

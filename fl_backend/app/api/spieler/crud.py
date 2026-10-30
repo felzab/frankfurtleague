@@ -141,7 +141,7 @@ async def another_pupil_holds(
     # The writing transaction's, so the judgement is read where the write lands; `None` for the link's view alone.
     session: AsyncClientSession | None,
 ) -> bool:
-    """Whether a pupil other than this one signs in on the address, which `adresswechsel_vergeben` refuses and the view reads alike."""
+    """Whether a pupil other than this one signs in on the address, which `address_change_taken` refuses and the view reads alike."""
 
     # One holder at most, `uniq_spieler_email` being unique, so the one read is compared rather than
     # narrowed by an `_id` term the composed filter would part from the address under `$and`.

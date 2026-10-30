@@ -71,7 +71,7 @@ from app.core.recording import act_row, log_stamp, request_var
 from app.core.security import loeschung_journal_hash
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, beleg_of, ist_erteilt
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAdresswechselEndeArt
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeEndArt
 
 # What the action log names as a replay's call: no route made it, and its path names the line it replays.
 REPLAY_METHOD: Final = "REPLAY"
@@ -98,11 +98,11 @@ def _widerspruch_update(home: Collection, *, kontakte: Mapping[str, Any], seats:
 
 
 # The ending each ending line replays, as its press ended the change.
-_ENDE_ART: Final[Mapping[str, FLAdresswechselEndeArt]] = {
-    "adresswechsel_abgelehnt": "abgelehnt",
-    "adresswechsel_gestoppt": "gestoppt",
-    "adresswechsel_verworfen": "verworfen",
-    "adresswechsel_verworfen_mitgeteilt": "verworfen",
+_ENDE_ART: Final[Mapping[str, FLAddressChangeEndArt]] = {
+    "adresswechsel_abgelehnt": "declined",
+    "adresswechsel_gestoppt": "stopped",
+    "adresswechsel_verworfen": "discarded",
+    "adresswechsel_verworfen_mitgeteilt": "discarded",
 }
 
 # A line's standing: to replay, replayed, already as the line left it or set since, held by somebody else or in another
@@ -132,15 +132,15 @@ class Window:
     since: datetime
     until: datetime
 
-    def sent_after_restore(self, verschickt_am: str) -> bool | None:
+    def sent_after_restore(self, sent_at: str) -> bool | None:
         """Whether the restored site sent a link the database holds, by its German day.
 
         The snapshot's went out by the snapshot's day, the site's from the restore's, so one sent on a day both fell on is `None`.
         """
 
-        if verschickt_am > _german_day(self.since):
+        if sent_at > _german_day(self.since):
             return True
-        if verschickt_am < _german_day(self.until):
+        if sent_at < _german_day(self.until):
             return False
         return None
 
@@ -193,7 +193,7 @@ def _strings(value: Any, path: str = "") -> Iterator[tuple[str, str]]:
             yield from _strings(member, f"{path}.{index}")
 
 
-async def where_held(database: AsyncDatabase, person_hashes: set[str], *, schluessel: SecretStr) -> dict[str, list[tuple[str, Any, str]]]:
+async def where_held(database: AsyncDatabase, person_hashes: set[str], *, key: SecretStr) -> dict[str, list[tuple[str, Any, str]]]:
     """For each hash, every collection, document and field holding an address that hashes to it.
 
     Every string carrying an `@` in every document: an erasure reaches an address wherever it is held, so no list of fields is whole.
@@ -209,15 +209,15 @@ async def where_held(database: AsyncDatabase, person_hashes: set[str], *, schlue
                 if "@" not in value:
                     continue
                 if value not in hashed:
-                    hashed[value] = loeschung_journal_hash(value, schluessel=schluessel)
+                    hashed[value] = loeschung_journal_hash(value, key=key)
                 if hashed[value] in held:
                     held[hashed[value]].append((name, document.get("_id"), path))
 
     return held
 
 
-def _holds(address: Any, line: JournalLine, schluessel: SecretStr) -> bool:
-    return isinstance(address, str) and loeschung_journal_hash(address, schluessel=schluessel) == line.person_hash
+def _holds(address: Any, line: JournalLine, key: SecretStr) -> bool:
+    return isinstance(address, str) and loeschung_journal_hash(address, key=key) == line.person_hash
 
 
 def _german_day(instant: datetime) -> str:
@@ -237,7 +237,7 @@ def _withdrawable(block: Mapping[str, Any], line: JournalLine) -> dict[FLEinwill
     return {wahl: wert for wahl, wert in line.wahlen.items() if ist_erteilt(wahl, block.get(wahl)) and not set_since(wahl)}
 
 
-async def _plan_widerruf(line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None) -> Plan:
+async def _plan_widerruf(line: JournalLine, database: AsyncDatabase, *, key: SecretStr, session: AsyncClientSession | None) -> Plan:
     assert line.collection is not None and line.am is not None and line.text_version is not None
     collection = database[line.collection]
     row = await collection.find_one({"_id": line.record_id}, session=session)
@@ -246,7 +246,7 @@ async def _plan_widerruf(line: JournalLine, database: AsyncDatabase, *, schluess
 
     if line.collection in _PERSON_ADDRESS:
         block = row.get("einwilligung")
-        if not _holds(_PERSON_ADDRESS[line.collection](row), line, schluessel) or not isinstance(block, Mapping):
+        if not _holds(_PERSON_ADDRESS[line.collection](row), line, key) or not isinstance(block, Mapping):
             return Plan("left for review")
         gewaehlt = _withdrawable(block, line)
         update = compose_person_move(gespeichert=block, gewaehlt=gewaehlt, am=line.am, text_version=line.text_version) if gewaehlt else None
@@ -256,7 +256,7 @@ async def _plan_widerruf(line: JournalLine, database: AsyncDatabase, *, schluess
             slot: kontakte[slot]["einwilligung"]
             for slot in KONTAKT_ROLLEN
             if isinstance(kontakte.get(slot), Mapping)
-            and _holds(kontakte[slot].get("email"), line, schluessel)
+            and _holds(kontakte[slot].get("email"), line, key)
             and isinstance(kontakte[slot].get("einwilligung"), Mapping)
         }
         if not sitze:
@@ -281,7 +281,7 @@ async def _plan_widerruf(line: JournalLine, database: AsyncDatabase, *, schluess
 
 
 async def _plan_widerspruch(
-    line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None, now: datetime, window: Window
+    line: JournalLine, database: AsyncDatabase, *, key: SecretStr, session: AsyncClientSession | None, now: datetime, window: Window
 ) -> Plan:
     assert line.collection is not None and line.am is not None
     home = line.collection
@@ -290,13 +290,13 @@ async def _plan_widerspruch(
     if row is None:
         return Plan("no such record")
 
-    kontakte, bestaetigungen = row.get("kontakte") or {}, row.get("bestaetigungen")
+    kontakte, bestaetigungen = row.get("kontakte") or {}, row.get("confirmations")
     declined_on = _german_day(datetime.fromisoformat(line.am))
 
     def linked_since(slot: str) -> bool | None:
         # A link the restored site sent is a seating since, which the decline must not empty.
         entry = bestaetigungen.get(slot) if isinstance(bestaetigungen, Mapping) else None
-        sent = entry.get("verschickt_am") if isinstance(entry, Mapping) else None
+        sent = entry.get("sent_at") if isinstance(entry, Mapping) else None
         return window.sent_after_restore(sent) if isinstance(sent, str) else False
 
     linked = {slot: linked_since(slot) for slot in line.sitze}
@@ -305,8 +305,8 @@ async def _plan_widerspruch(
         for slot in line.sitze
         if slot in KONTAKT_ROLLEN
         and isinstance(kontakte.get(slot), Mapping)
-        and _holds(kontakte[slot].get("email"), line, schluessel)
-        and not seat_is_answered(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=slot)
+        and _holds(kontakte[slot].get("email"), line, key)
+        and not seat_is_answered(kontakte=kontakte, confirmations=bestaetigungen, seat=slot)
         and linked[slot] is not True
     ]
     if any(linked[slot] is None for slot in offen):
@@ -343,7 +343,7 @@ async def _plan_widerspruch(
                 spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                 aktionen_collection=database[Collection.AKTIONEN],
                 adressen=seat_adressen(kontakte=row.get("kontakte"), seats=offen),
-                schluessel=schluessel,
+                key=key,
                 stamp=log_stamp(now),
                 session=session,
             )
@@ -362,24 +362,22 @@ async def _plan_widerspruch(
 
 
 async def _plan_adresswechsel(
-    line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None, now: datetime, window: Window
+    line: JournalLine, database: AsyncDatabase, *, key: SecretStr, session: AsyncClientSession | None, now: datetime, window: Window
 ) -> Plan:
-    record = await database[Collection.ADRESSWECHSEL].find_one(
-        {"_id": line.record_id}, {"email": 1, "verschickt_am": 1, "beendet": 1}, session=session
-    )
+    record = await database[Collection.ADRESSWECHSEL].find_one({"_id": line.record_id}, {"email": 1, "sent_at": 1, "ended": 1}, session=session)
     if record is None:
         return Plan("no such record")
-    if record.get("beendet") is not None:
+    if record.get("ended") is not None:
         return Plan("already done")
 
-    sent = record.get("verschickt_am")
+    sent = record.get("sent_at")
     asked_since = window.sent_after_restore(sent) if isinstance(sent, str) else False
     # A link the restored site sent, never the one the line ended.
     if asked_since is True:
         return Plan("already done")
     if asked_since is None:
         return Plan("left for review", detail="its pending change went out on the day of both the snapshot and the restore")
-    if not _holds(record.get("email"), line, schluessel):
+    if not _holds(record.get("email"), line, key):
         return Plan("left for review")
 
     # The address judged above, so a change replaced since this plan was made is not taken with it.
@@ -408,18 +406,18 @@ async def _plan_adresswechsel(
 
 
 async def _plan_antrag_ende(
-    line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None, now: datetime
+    line: JournalLine, database: AsyncDatabase, *, key: SecretStr, session: AsyncClientSession | None, now: datetime
 ) -> Plan:
     """An ended request the restore brought back, removed again; one lapsed since is gone to every reader already."""
 
     antrag = await database[Collection.BERECHTIGUNGEN_ANTRAEGE].find_one(
-        {"_id": line.record_id}, {"adresse": 1, "genehmigung": 1}, session=session
+        {"_id": line.record_id}, {"adresse": 1, "approval": 1}, session=session
     )
     if antrag is None:
         return Plan("no such record")
     if not ist_offen(antrag, now=now):
         return Plan("already done")
-    if not _holds(antrag.get("adresse"), line, schluessel):
+    if not _holds(antrag.get("adresse"), line, key):
         return Plan("left for review")
 
     async def rewrite_the_end(session: AsyncClientSession) -> Any:
@@ -427,7 +425,7 @@ async def _plan_antrag_ende(
         await remove_the_antrag_in_session(
             berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
             postausgang_collection=database[Collection.POSTAUSGANG],
-            antrag_id=antrag["_id"],
+            approval_request_id=antrag["_id"],
             now=now,
             session=session,
         )
@@ -447,7 +445,7 @@ def _records_of(database: AsyncDatabase) -> RecordCollections:
 
 
 async def _plan_adresswechsel_wirksam(
-    line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None, now: datetime
+    line: JournalLine, database: AsyncDatabase, *, key: SecretStr, session: AsyncClientSession | None, now: datetime
 ) -> Plan:
     """A change that took effect: moved again by the effect's own body, where the restored change still stands.
 
@@ -460,14 +458,14 @@ async def _plan_adresswechsel_wirksam(
         # store, one cluster, back at the replaced address, so somebody must tell the person to start it again.
         return Plan("left for review", detail="started after the snapshot: its person starts the change again")
 
-    beendet = record.get("beendet")
+    beendet = record.get("ended")
     if beendet is not None:
         return (
             Plan("already done")
-            if beendet.get("art") == "wirksam"
+            if beendet.get("art") == "effective"
             else Plan("left for review", detail="the restored change ended otherwise: its person starts the change again")
         )
-    if not _holds(record.get("email"), line, schluessel):
+    if not _holds(record.get("email"), line, key):
         return Plan("left for review", detail="the restored change names another address: its person starts the change again")
 
     records = _records_of(database)
@@ -476,23 +474,21 @@ async def _plan_adresswechsel_wirksam(
     )
     if bestand.leer:
         return Plan("left for review", detail="the address it replaced holds nothing in the restored database")
-    genehmigung = record.get("genehmigung")
-    sperrliste = BanList(
-        sperrliste_collection=database[Collection.SPERRLISTE], saisons_collection=database[Collection.SAISONS], schluessel=schluessel
-    )
-    if bestand.berechtigung is not None and (
-        not deckt(genehmigung, bestand.berechtigung.get("verwaltung"))
-        or (genehmigung or {}).get("genehmigt_am") is None
+    genehmigung = record.get("approval")
+    sperrliste = BanList(sperrliste_collection=database[Collection.SPERRLISTE], saisons_collection=database[Collection.SAISONS], key=key)
+    if bestand.grant is not None and (
+        not deckt(genehmigung, bestand.grant.get("verwaltung"))
+        or (genehmigung or {}).get("approved_at") is None
         # Judged as the effect judges it: an approver revoked or demoted in the restored database approves nothing. Never
         # barred there: a ban the snapshot holds predates the approval, which the actor check would then have refused.
         or not genehmigung_steht(
             betroffen=record["adresse"],
-            genehmigung=genehmigung,
+            approval=genehmigung,
             grants=await read_berechtigungen(berechtigungen_collection=database[Collection.BERECHTIGUNGEN], session=session),
             announced=await read_the_announced(
                 berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT], session=session
             ),
-            gesperrt=frozenset(),
+            barred=frozenset(),
         )
     ):
         return Plan("left for review", detail="its approval is not in the restored database: an administrator approves it again")
@@ -509,7 +505,7 @@ async def _plan_adresswechsel_wirksam(
     async def rewrite_the_effect(session: AsyncClientSession) -> Any:
         await move_the_address_in_session(
             record=record,
-            bestand=bestand,
+            holdings=bestand,
             sperrliste=sperrliste,
             adresswechsel_collection=database[Collection.ADRESSWECHSEL],
             spieler_collection=database[Collection.SPIELER],
@@ -525,7 +521,7 @@ async def _plan_adresswechsel_wirksam(
             einladungen_collection=database[Collection.EINLADUNGEN],
             sperrliste_collection=database[Collection.SPERRLISTE],
             aktionen_collection=database[Collection.AKTIONEN],
-            schluessel=schluessel,
+            key=key,
             now=now,
             session=session,
         )
@@ -583,7 +579,7 @@ async def _plan_pseudonym(line: JournalLine, database: AsyncDatabase, *, session
 
 
 async def plan_replay(
-    line: JournalLine, database: AsyncDatabase, *, schluessel: SecretStr, session: AsyncClientSession | None, now: datetime, window: Window
+    line: JournalLine, database: AsyncDatabase, *, key: SecretStr, session: AsyncClientSession | None, now: datetime, window: Window
 ) -> Plan:
     """What replaying a line would write on the restored database, judged in `session` where one is given.
 
@@ -592,22 +588,20 @@ async def plan_replay(
 
     match line.art:
         case "widerruf":
-            return await _plan_widerruf(line, database, schluessel=schluessel, session=session)
+            return await _plan_widerruf(line, database, key=key, session=session)
         case "widerspruch":
-            return await _plan_widerspruch(line, database, schluessel=schluessel, session=session, now=now, window=window)
+            return await _plan_widerspruch(line, database, key=key, session=session, now=now, window=window)
         case "adresswechsel_abgelehnt" | "adresswechsel_gestoppt" | "adresswechsel_verworfen" | "adresswechsel_verworfen_mitgeteilt":
-            return await _plan_adresswechsel(line, database, schluessel=schluessel, session=session, now=now, window=window)
+            return await _plan_adresswechsel(line, database, key=key, session=session, now=now, window=window)
         case "adresswechsel_wirksam":
-            return await _plan_adresswechsel_wirksam(line, database, schluessel=schluessel, session=session, now=now)
+            return await _plan_adresswechsel_wirksam(line, database, key=key, session=session, now=now)
         case "antrag_abgelehnt" | "antrag_zurueckgezogen" | "antrag_beendet":
-            return await _plan_antrag_ende(line, database, schluessel=schluessel, session=session, now=now)
+            return await _plan_antrag_ende(line, database, key=key, session=session, now=now)
         case "loeschung":
             return await _plan_pseudonym(line, database, session=session, now=now)
 
 
-async def replay_line(
-    entry: Read, client: AsyncMongoClient, database: AsyncDatabase, *, schluessel: SecretStr, now: datetime, window: Window
-) -> Plan:
+async def replay_line(entry: Read, client: AsyncMongoClient, database: AsyncDatabase, *, key: SecretStr, now: datetime, window: Window) -> Plan:
     """Judge the line again inside one transaction and write it where it stands to be replayed.
 
     Recorded under the system actor, the call naming the line, each line one action on the log's page.
@@ -618,7 +612,7 @@ async def replay_line(
     try:
 
         async def judged_and_rewritten(session: AsyncClientSession) -> Plan:
-            planned = await plan_replay(entry.line, database, schluessel=schluessel, session=session, now=now, window=window)
+            planned = await plan_replay(entry.line, database, key=key, session=session, now=now, window=window)
             if planned.rewrite is None:
                 return planned
             await planned.rewrite(session)
@@ -639,7 +633,7 @@ async def run_replay(
     apply: bool,
     client: AsyncMongoClient,
     database: AsyncDatabase,
-    schluessel: SecretStr,
+    key: SecretStr,
     now: datetime,
     out: TextIO,
 ) -> int:
@@ -653,7 +647,7 @@ async def run_replay(
     # Each person's last erasure, the read being oldest first.
     geloescht_at = {entry.line.person_hash: entry.timestamp for entry in read if entry.line.art == "loeschung"}
     replaced = {entry.line.zuvor for entry in read if entry.line.zuvor is not None}
-    held = await where_held(database, set(geloescht_at) | replaced, schluessel=schluessel)
+    held = await where_held(database, set(geloescht_at) | replaced, key=key)
     # A person whose erasure has run again: their own choices' records went with it, and nothing of theirs is left to replay.
     gone = {person_hash for person_hash in geloescht_at if not held[person_hash]}
     # An effect before its person's erasure left their records at the replaced address in a snapshot from before it.
@@ -687,9 +681,9 @@ async def run_replay(
 
         try:
             planned = (
-                await replay_line(entry, client, database, schluessel=schluessel, now=now, window=window)
+                await replay_line(entry, client, database, key=key, now=now, window=window)
                 if apply
-                else await plan_replay(line, database, schluessel=schluessel, session=None, now=now, window=window)
+                else await plan_replay(line, database, key=key, session=None, now=now, window=window)
             )
         # The type alone: a driver's or a validator's message can quote the stored document, an address among it.
         except (PyMongoError, APIError) as failure:
@@ -782,7 +776,7 @@ def _main() -> int:
                 apply=arguments.apply,
                 client=client,
                 database=client[config.db_base_name],
-                schluessel=config.sperrliste_schluessel,
+                key=config.sperrliste_schluessel,
                 now=clock.now(),
                 out=sys.stdout,
             )

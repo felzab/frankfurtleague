@@ -80,12 +80,12 @@ class TestTheAnswersShape:
     @pytest.mark.parametrize(
         "body",
         [
-            {"antwort": "abgelehnt", "vorschlag": None, "begruendung": "Halle belegt"},
+            {"antwort": "declined", "vorschlag": None, "begruendung": "Halle belegt"},
             {"antwort": "zugesagt", "vorschlag": VORSCHLAG, "begruendung": None},
             {"antwort": "zugesagt", "vorschlag": None, "begruendung": "danke"},
-            {"antwort": "abgelehnt", "vorschlag": VORSCHLAG, "begruendung": "eine\nzweite Zeile"},
-            {"antwort": "abgelehnt", "vorschlag": VORSCHLAG, "begruendung": "x" * (SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH + 1)},
-            {"antwort": "abgelehnt", "vorschlag": {**VORSCHLAG, "ort": "x"}, "begruendung": None},
+            {"antwort": "declined", "vorschlag": VORSCHLAG, "begruendung": "eine\nzweite Zeile"},
+            {"antwort": "declined", "vorschlag": VORSCHLAG, "begruendung": "x" * (SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH + 1)},
+            {"antwort": "declined", "vorschlag": {**VORSCHLAG, "ort": "x"}, "begruendung": None},
             {"antwort": "zugesagt", "vorschlag": None},
         ],
         ids=["decline-without-date", "accept-with-date", "accept-with-reason", "two-lines", "over-bound", "extra-key", "key-omitted"],
@@ -96,7 +96,7 @@ class TestTheAnswersShape:
 
     def test_an_empty_reason_is_none(self):
         parsed = FLSpielbestaetigungAntwortPayload.model_validate(
-            {"token": "t", "antwort": "abgelehnt", "vorschlag": VORSCHLAG, "begruendung": "   "}
+            {"token": "t", "antwort": "declined", "vorschlag": VORSCHLAG, "begruendung": "   "}
         )
 
         assert parsed.begruendung is None
@@ -108,8 +108,8 @@ class TestTheRefereesAnswersShape:
     @pytest.mark.parametrize(
         "body",
         [
-            {"antwort": "abgelehnt", "begruendung": None},
-            {"antwort": "abgelehnt", "begruendung": "   "},
+            {"antwort": "declined", "begruendung": None},
+            {"antwort": "declined", "begruendung": "   "},
             {"antwort": "zugesagt", "begruendung": "gern"},
         ],
         ids=["decline-without-reason", "decline-with-blank-reason", "accept-with-reason"],

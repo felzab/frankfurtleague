@@ -16,11 +16,11 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.adresswechsel.admin_router import post_adresswechsel_verwaltung
-from app.api.adresswechsel.schemas import FLAdresswechselVerwaltungPayload
-from app.api.schiedsrichter.admin_router import einladen_schiedsrichter, get_schiedsrichter_by_id, patch_schiedsrichter
-from app.api.schiedsrichter.public_router import post_bestaetigung
-from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterBestaetigungPayload
+from app.api.adresswechsel.admin_router import post_address_change_verwaltung
+from app.api.adresswechsel.schemas import FLAddressChangeVerwaltungPayload
+from app.api.schiedsrichter.admin_router import get_schiedsrichter_by_id, invite_schiedsrichter, patch_schiedsrichter
+from app.api.schiedsrichter.public_router import post_confirmation
+from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLSchiedsrichterConfirmationPayload
 from app.api.schiedsrichter.services import BESTAETIGUNG_FELD
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -79,7 +79,7 @@ def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
             await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
             await database[Collection.SCHIEDSRICHTER].insert_one(referee_document())
-            await einladen_schiedsrichter(
+            await invite_schiedsrichter(
                 schiedsrichter_id=SCHIEDSRICHTER_OID,
                 schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                 postausgang_collection=database[Collection.POSTAUSGANG],
@@ -90,8 +90,8 @@ def on_a_league(url: str, body: Body, *, confirmed: bool = True) -> Any:
             )
             (mail,) = await drained(database, client)
             if confirmed:
-                await post_bestaetigung(
-                    antwort_data=FLSchiedsrichterBestaetigungPayload.model_validate(
+                await post_confirmation(
+                    antwort_data=FLSchiedsrichterConfirmationPayload.model_validate(
                         {
                             "token": mail.token,
                             "geburtsdatum": "1984-05-09",
@@ -132,8 +132,8 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, *, email: str)
 async def request(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """An administrator's start through the address tool, with a reason, so the new mailbox is owed its link at once."""
 
-    return await post_adresswechsel_verwaltung(
-        adresswechsel_data=FLAdresswechselVerwaltungPayload.model_validate({"adresse": EMAIL, "email": NEW_EMAIL, "grund": GRUND}),
+    return await post_address_change_verwaltung(
+        adresswechsel_data=FLAddressChangeVerwaltungPayload.model_validate({"adresse": EMAIL, "email": NEW_EMAIL, "grund": GRUND}),
         adresswechsel_collection=database[Collection.ADRESSWECHSEL],
         records=record_collections(database),
         spieler_collection=database[Collection.SPIELER],
@@ -179,7 +179,7 @@ async def refused_code(call: Awaitable[Any]) -> str:
 
 
 class TestTheSaveOnAConfirmedReferee:
-    """`schiedsrichter_adresse_nur_per_wechsel`: a confirmed referee's address is who signs in as them, and the save moves it never."""
+    """`schiedsrichter_adresse_only_per_change`: a confirmed referee's address is who signs in as them, and the save moves it never."""
 
     @pytest.mark.parametrize("retired", [False, True], ids=["serving", "retired"])
     def test_a_save_moving_it_is_refused_and_nothing_of_the_save_lands(self, mongo_replica_set_url: str, retired: bool):
@@ -192,7 +192,7 @@ class TestTheSaveOnAConfirmedReferee:
 
         code, before, row = on_a_league(mongo_replica_set_url, body)
 
-        assert code == Code.SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL
+        assert code == Code.SCHIEDSRICHTER_ADRESSE_ONLY_PER_CHANGE
         assert row == before
 
     def test_a_save_keeping_it_with_its_domain_respelled_lands_and_leaves_a_pending_change_standing(self, mongo_replica_set_url: str):
@@ -204,9 +204,9 @@ class TestTheSaveOnAConfirmedReferee:
 
         minted, saved, row, change = on_a_league(mongo_replica_set_url, body)
 
-        assert saved.bestaetigung is None
+        assert saved.confirmation is None
         assert row["default_payment"] == 25
-        assert (change["beendet"], change["email"]) == (None, NEW_EMAIL)
+        assert (change["ended"], change["email"]) == (None, NEW_EMAIL)
 
 
 class TestAnUnconfirmedReferee:
@@ -221,7 +221,7 @@ class TestAnUnconfirmedReferee:
 
         saved, mail, row = on_a_league(mongo_replica_set_url, body, confirmed=False)
 
-        assert saved.bestaetigung is not None
+        assert saved.confirmation is not None
         assert (mail.an, row["kontakt"]["email"]) == (NEW_EMAIL, NEW_EMAIL)
         assert row[BESTAETIGUNG_FELD]["token_hashes"] == [hash_token(str(mail.token))]
 
@@ -233,7 +233,7 @@ class TestTheEditorsRead:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             before = await read(database)
             minted = await request(database, client)
-            return before.adresswechsel_id, (await read(database)).adresswechsel_id, minted.id
+            return before.address_change_id, (await read(database)).address_change_id, minted.id
 
         before, after, minted = on_a_league(mongo_replica_set_url, body)
 
@@ -252,6 +252,6 @@ class TestTheEditorsRead:
                 operator=ADMINISTRATORS[0],
                 auth_time=int(time.time()),
             )
-            return answered.bestaetigung_abgelaufen, answered.adresswechsel_id
+            return answered.confirmation_expired, answered.address_change_id
 
         assert on_a_league(mongo_replica_set_url, body, confirmed=False) == (True, None)

@@ -28,7 +28,7 @@ class Collection(StrEnum):
     SPIELORTE = "spielorte"
     SCHIEDSRICHTER = "schiedsrichter"
     #: A school's application to play a season. Stored as it arrived and never rewritten -- only the
-    #: triage moves `status`, `entscheidung` and `team_id`.
+    #: triage moves `status`, `decision` and `team_id`.
     BEWERBUNGEN = "bewerbungen"
     #: What every admin write did, and what it replaced. The one collection nothing here references
     #: and nothing references back (`fl_backend/app/core/recording.py`).
@@ -65,7 +65,7 @@ class Collection(StrEnum):
     BERECHTIGUNGEN_ANTRAEGE = "berechtigungen_antraege"
     #: Every mail the league owes, one row per recipient, each written in the transaction of the write owing it and settled
     #: by the drain that sends it; a settled row says what became of its message until its TTL index removes it.
-    POSTAUSGANG = "postausgang"
+    POSTAUSGANG = "outbox"
 
 
 # The collections a person edits through a form, one member per line: every update of one raises its `version`, and a

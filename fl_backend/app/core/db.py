@@ -64,8 +64,8 @@ def _refusal_for(error: BaseException) -> Refusal:
 # The two lines the boot goes on past: nobody can enter the administration, or no grant is out of an
 # administrator's reach. Warnings rather than refusals: the public site needs no administrator, and a
 # boot refused over the grants would take it down to repair a state only a Playground paste repairs.
-NO_GRANT = "berechtigungen.no_grant"
-NO_OWNER = "berechtigungen.no_owner"
+NO_GRANT = "grants.no_grant"
+NO_OWNER = "grants.no_owner"
 
 
 async def warn_about_the_grants(berechtigungen_collection: AsyncCollection) -> None:

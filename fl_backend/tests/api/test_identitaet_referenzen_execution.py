@@ -35,7 +35,7 @@ from .conftest import AUSTRITT, config_for
 
 DATABASE_NAME = worker_database("fl_identitaet_referenzen_test")
 
-PATH = f"/api/v{API_VERSION}/identitaet/referenzen"
+PATH = f"/api/v{API_VERSION}/identity/references"
 
 PAST_SAISON = "2425"
 ACTIVE_SAISON = "2526"
@@ -95,8 +95,8 @@ ASKED = [
 ]
 
 
-def _seat(email: str, *, bestaetigt_am: str | None = STAMP) -> dict[str, Any]:
-    return kontaktperson_document("Anna", bestaetigt_am=bestaetigt_am, email=email)
+def _seat(email: str, *, confirmed_at: str | None = STAMP) -> dict[str, Any]:
+    return kontaktperson_document("Anna", confirmed_at=confirmed_at, email=email)
 
 
 def _row(team_id: ObjectId, saison_id: str, shorthand: str, **fields: Any) -> dict[str, Any]:
@@ -105,7 +105,7 @@ def _row(team_id: ObjectId, saison_id: str, shorthand: str, **fields: Any) -> di
 
 def _referee(oid: Any, email: str, name: str, **fields: Any) -> dict[str, Any]:
     return schiedsrichter_document(
-        oid, email=email, name=name, default_payment=20, **{"einwilligung": {**EINWILLIGUNG, "bestaetigt_am": STAMP}, **fields}
+        oid, email=email, name=name, default_payment=20, **{"einwilligung": {**EINWILLIGUNG, "confirmed_at": STAMP}, **fields}
     )
 
 
@@ -118,12 +118,12 @@ def _registrierung(email: str, *, confirmed: bool) -> dict[str, Any]:
         vorname="Rita",
         nachname="Registriert",
         token=email,
-        eingereicht_am="2026-01-02",
+        submitted_at="2026-01-02",
         frist="2026-01-09",
         position="Mittelfeld",
         nummer="17",
         stufe="Q1",
-        bestaetigt=None
+        confirmed=None
         if not confirmed
         else {
             "geburtsdatum": "2009-05-04",
@@ -147,10 +147,10 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
                 PAST_SAISON,
                 "SVX",
                 kontakte=kontakte_document(
-                    trainer=_seat("Sitz.Vergangen@Schule.de"), ansprechperson=_seat(SITZ_VERGANGEN_OFFEN, bestaetigt_am=None)
+                    trainer=_seat("Sitz.Vergangen@Schule.de"), ansprechperson=_seat(SITZ_VERGANGEN_OFFEN, confirmed_at=None)
                 ),
             ),
-            _row(TEAM_OIDS[1], ACTIVE_SAISON, "SOX", kontakte=kontakte_document(trainer=_seat(SITZ_OFFEN, bestaetigt_am=None))),
+            _row(TEAM_OIDS[1], ACTIVE_SAISON, "SOX", kontakte=kontakte_document(trainer=_seat(SITZ_OFFEN, confirmed_at=None))),
             _row(TEAM_OIDS[2], ACTIVE_SAISON, "SWX", austritt=dict(AUSTRITT), kontakte=kontakte_document(trainer=_seat(SITZ_AUSGETRETEN))),
         ]
     )
@@ -158,10 +158,10 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
         bewerbung_document(
             ObjectId(),
             ACTIVE_SAISON,
-            "eingereicht",
-            kontakte=kontakte_document(trainer=_seat(BEWERBUNG_OFFEN), ansprechperson=_seat(BEWERBUNG_UNBESTAETIGT, bestaetigt_am=None)),
-            eingereicht_am="2026-01-01",
-            bestaetigungsfrist="2026-01-15",
+            "submitted",
+            kontakte=kontakte_document(trainer=_seat(BEWERBUNG_OFFEN), ansprechperson=_seat(BEWERBUNG_UNBESTAETIGT, confirmed_at=None)),
+            submitted_at="2026-01-01",
+            confirmation_deadline="2026-01-15",
             schule=neue_schule_document("Bewerberschule", "BWX"),
         )
     )
@@ -186,7 +186,7 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
     )
     granted = datetime(2026, 1, 1, tzinfo=UTC)
     await database[Collection.BERECHTIGUNGEN].insert_one(
-        {"_id": GRANT_OID, "adresse": VERWALTUNG, "verwaltung": "administration", "erteilt_von": "PLAYGROUND", "erteilt_am": granted}
+        {"_id": GRANT_OID, "adresse": VERWALTUNG, "verwaltung": "administration", "granted_by": "PLAYGROUND", "granted_at": granted}
     )
     # The address changed in place in the database, which the comparison has not seen: the grant is in
     # effect for nobody until it does, and its account still stays.
@@ -195,7 +195,7 @@ async def _seed(database: AsyncDatabase, *, inhaberin: str | None) -> None:
     )
     if inhaberin is not None:
         await database[Collection.BERECHTIGUNGEN].insert_one(
-            {"_id": ObjectId(), "adresse": inhaberin, "verwaltung": "owner", "erteilt_von": "PLAYGROUND", "erteilt_am": granted}
+            {"_id": ObjectId(), "adresse": inhaberin, "verwaltung": "owner", "granted_by": "PLAYGROUND", "granted_at": granted}
         )
 
 
@@ -249,7 +249,7 @@ class TestWhatKeepsAnAccount:
         status, body = answered(mongo_replica_set_url)
 
         assert status == 200, body
-        assert email not in body["unreferenziert"]
+        assert email not in body["unreferenced"]
 
 
 @pytest.mark.db
@@ -268,13 +268,13 @@ class TestWhatLetsAnAccountGo:
         status, body = answered(mongo_replica_set_url)
 
         assert status == 200, body
-        assert email in body["unreferenziert"]
+        assert email in body["unreferenced"]
 
     def test_the_answer_holds_each_once_in_the_spelling_asked_and_nothing_else(self, mongo_replica_set_url: str):
         assert answered(mongo_replica_set_url) == (
             200,
             {
-                "unreferenziert": [NIEMAND, GEIST_SCHIEDSRICHTER, REGISTRIERT_OFFEN, GESPERRT, AUSSER_DER_REGEL],
+                "unreferenced": [NIEMAND, GEIST_SCHIEDSRICHTER, REGISTRIERT_OFFEN, GESPERRT, AUSSER_DER_REGEL],
             },
         )
 
@@ -290,5 +290,5 @@ class TestALeagueWithoutAnOwner:
 
         status, body = on_the_seed_loop(_run())
 
-        assert (status, body["error_code"]) == (409, Code.KEIN_INHABER), body
-        assert "unreferenziert" not in body
+        assert (status, body["error_code"]) == (409, Code.NO_OWNER), body
+        assert "unreferenced" not in body

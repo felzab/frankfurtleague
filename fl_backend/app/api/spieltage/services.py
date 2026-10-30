@@ -50,13 +50,13 @@ def build_spieltage_filter(filters: FLSpieltageFilterParams) -> dict[str, Any]:
 
 
 def with_expected_matches(spieltag_raw: Mapping[str, Any], rules: FLSaisonRules) -> dict[str, Any]:
-    """One raw matchday with its derived `anzahl_spiele` attached, ready to validate.
+    """One raw matchday with its derived `count_spiele` attached, ready to validate.
 
     Every path validating a stored matchday goes through this, the echo included: the count is on
     no document, so an echo skipping it reports a matchday with no matches.
     """
 
-    return {**spieltag_raw, "anzahl_spiele": expected_matches(rules, spieltag_raw["saison_phase"])}
+    return {**spieltag_raw, "count_spiele": expected_matches(rules, spieltag_raw["saison_phase"])}
 
 
 def build_erster_spieltag_filter(*, saison_id: str) -> dict[str, Any]:

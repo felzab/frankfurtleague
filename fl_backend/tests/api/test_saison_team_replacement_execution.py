@@ -100,7 +100,7 @@ OUTGOING_KONTAKTE = {
     "trainer": dict(OUTGOING_KONTAKTPERSON),
     "ansprechperson": dict(OUTGOING_KONTAKTPERSON),
     "stellvertretung": dict(OUTGOING_KONTAKTPERSON),
-    "trainer_ist_zugleich": "ansprechperson",
+    "trainer_is_also": "ansprechperson",
 }
 
 OUTGOING_TRIKOT_FARBE = "bordeaux"
@@ -505,7 +505,7 @@ class TestTheOutgoingPeopleLeaveTheLog:
         for row in rows:
             image = row["before"]
             # The row was seeded before links existed, so its images hold no block for the redaction to add.
-            assert (image["kontakte"], "bestaetigungen" in image) == (None, False)
+            assert (image["kontakte"], "confirmations" in image) == (None, False)
             assert (image["austritt"], image["gruppe"], image["trikot_farbe"]) == (EXIT, "A", OUTGOING_TRIKOT_FARBE)
             assert row["redacted_at"] == REDACTED_AT
         assert OUTGOING_KONTAKTPERSON["email"] not in str(rows)
@@ -555,7 +555,7 @@ class TestTheOutgoingClubsSquadIsRetired:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await call_replace(database, client)
-            return response.ausgetragene_squad_rows, await squad_now(database)
+            return response.ausgetragene_kader_rows, await squad_now(database)
 
         ausgetragen, squad = on_a_seeded_season(mongo_replica_set_url, body)
 

@@ -51,15 +51,15 @@ SEAT_FIELDS: tuple[str, ...] = ("email", "vorname", "nachname")
 
 
 def build_accepted_application_pipeline(*, saison_id: str, team_id: Any) -> list[Mapping[str, Any]]:
-    """The club's accepted application for a season, projected to what the clearing judges and `bestaetigungen`.
+    """The club's accepted application for a season, projected to what the clearing judges and `confirmations`.
 
     Every one, unbounded: a capped read would leave an application holding the outgoing people that
     nothing reaches again.
     """
 
     return [
-        {"$match": {"saison_id": saison_id, "team_id": team_id, "status": "angenommen"}},
-        {"$project": {**{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in SEAT_FIELDS}, "bestaetigungen": 1}},
+        {"$match": {"saison_id": saison_id, "team_id": team_id, "status": "accepted"}},
+        {"$project": {**{f"kontakte.{slot}.{field}": 1 for slot in KONTAKT_ROLLEN for field in SEAT_FIELDS}, "confirmations": 1}},
     ]
 
 
@@ -116,12 +116,12 @@ def _emptied_seats(image: Mapping[str, Any], slots: Set[str], *, links: bool) ->
     edits: dict[str, None] = {f"kontakte.{slot}": None for slot in slots}
     # Where the live write takes the link with the seat, and only where the image holds the block: a
     # Widerspruch keeps it, its day recorded on it.
-    if links and isinstance(image.get("bestaetigungen"), Mapping):
-        edits.update({f"bestaetigungen.{slot}": None for slot in slots})
+    if links and isinstance(image.get("confirmations"), Mapping):
+        edits.update({f"confirmations.{slot}": None for slot in slots})
 
     # The submission digest was taken over every seat's details, theirs among them.
-    if "idempotenz_fingerabdruck" in image:
-        edits["idempotenz_fingerabdruck"] = None
+    if "idempotency_fingerprint" in image:
+        edits["idempotency_fingerprint"] = None
 
     return edits
 
@@ -207,14 +207,14 @@ def contact_block_image_edits(image: Mapping[str, Any]) -> dict[str, None]:
     them; nothing else does.
     """
 
-    blocks = {key: image.get(key) for key in ("kontakte", "bestaetigungen")}
+    blocks = {key: image.get(key) for key in ("kontakte", "confirmations")}
     held = any(isinstance(block, Mapping) and any(isinstance(block.get(slot), Mapping) for slot in KONTAKT_ROLLEN) for block in blocks.values())
 
-    # The fields the image holds alone: a row no save has minted a link on holds no `bestaetigungen`.
+    # The fields the image holds alone: a row no save has minted a link on holds no `confirmations`.
     return {key: None for key, block in blocks.items() if block is not None} if held else {}
 
 
-def build_clearing_update(slots: Sequence[str], *, bestaetigungen: bool = False) -> Mapping[str, Any]:
+def build_clearing_update(slots: Sequence[str], *, confirmations: bool = False) -> Mapping[str, Any]:
     """Null the named slots, and their confirmation bookkeeping where the caller found a block.
 
     Dotted keys, so the block itself survives: `app/api/teams/schemas.py :: FLSaisonTeamKontakte` requires
@@ -225,10 +225,10 @@ def build_clearing_update(slots: Sequence[str], *, bestaetigungen: bool = False)
 
     # The seat's confirmation bookkeeping goes with the person, on an application and on a season row
     # alike: a live link would otherwise outlive the erasure and confirm a slot that names nobody.
-    if bestaetigungen:
-        cleared.update({f"bestaetigungen.{slot}": None for slot in slots})
+    if confirmations:
+        cleared.update({f"confirmations.{slot}": None for slot in slots})
 
     # Whatever the block: the submission digest was taken over this person's details too, and a hash
     # of personal data is personal data. An `$unset` creates nothing
     # where none is held.
-    return {"$set": cleared, "$unset": {"idempotenz_fingerabdruck": ""}}
+    return {"$set": cleared, "$unset": {"idempotency_fingerprint": ""}}

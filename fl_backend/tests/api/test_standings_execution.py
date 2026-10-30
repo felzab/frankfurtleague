@@ -27,13 +27,13 @@ STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
-    qualifiers_per_group=2,
-    number_of_groups=4,
-    teams_per_group=4,
+    qualifiers_per_gruppe=2,
+    number_of_gruppen=4,
+    teams_per_gruppe=4,
     tiebreak_order="tordifferenz",
     max_kadergroesse=18,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
-    erlaubte_stufen=STUFEN,
+    allowed_stufen=STUFEN,
 )
 
 # Fixed rather than generated, so a failure names the same club every run.
@@ -153,7 +153,7 @@ def season_in_scope(scope: FLTeamStatistikScope) -> list[FLSpiel]:
     return [
         FLSpiel.model_validate(document)
         for document in spiel_documents()
-        if document["saison_id"] == SAISON_ID and (scope == "gesamt" or document["saison_phase"] == "gruppenphase")
+        if document["saison_id"] == SAISON_ID and (scope == "total" or document["saison_phase"] == "gruppenphase")
     ]
 
 
@@ -161,7 +161,7 @@ class TestTheTwoDerivationsAgree:
     """The pipeline reads the collection and `build_statistik_by_team` reads a list; the bracket resolution now trusts the second."""
 
     @pytest.mark.db
-    @pytest.mark.parametrize("scope", ["gruppenphase", "gesamt"])
+    @pytest.mark.parametrize("scope", ["gruppenphase", "total"])
     def test_the_figures_match_the_pipelines_over_the_same_fixtures(self, seeded: Database, scope: FLTeamStatistikScope):
         filters = FLTeamsFilterParams(saison_id=SAISON_ID, statistik_scope=scope)
         rows = list(seeded[Collection.TEAMS].aggregate(build_team_pipeline(filters=filters, rules=RULES)))
@@ -170,7 +170,7 @@ class TestTheTwoDerivationsAgree:
 
         # Guarded rather than assumed: an empty read, or a table of zeros, would agree with anything.
         assert {row["name"] for row in rows} == {"Anna", "Bodo", "Caro", "Dirk"}
-        assert any(row["statistik"]["anzahl_gespielte_spiele"] > 0 for row in rows)
+        assert any(row["statistik"]["count_gespielte_spiele"] > 0 for row in rows)
 
         for row in rows:
             expected = derived.get(row["_id"], ZERO_STATISTIK)
@@ -184,10 +184,10 @@ class TestTheScopeIsTheCallersFilter:
         """Both halves of one claim: the derivation filters nothing, so a caller handing it the wrong season answers the wrong question."""
 
         gruppenphase = build_statistik_by_team(season_in_scope("gruppenphase"), RULES)
-        gesamt = build_statistik_by_team(season_in_scope("gesamt"), RULES)
+        gesamt = build_statistik_by_team(season_in_scope("total"), RULES)
 
-        assert gruppenphase[ANNA].anzahl_gespielte_spiele == 3
-        assert gesamt[ANNA].anzahl_gespielte_spiele == 4
+        assert gruppenphase[ANNA].count_gespielte_spiele == 3
+        assert gesamt[ANNA].count_gespielte_spiele == 4
         assert gruppenphase[DIRK] == gesamt[DIRK]
 
 

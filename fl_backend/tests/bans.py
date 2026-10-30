@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.sperrliste.admin_router import post_sperrliste_eintrag
+from app.api.sperrliste.admin_router import post_sperrliste_entry
 from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.schemas import FLPostSperrlistePayload, FLPostSperrlisteResponse
 from app.core.collections import Collection
@@ -35,12 +35,12 @@ async def ban_through_the_route(
     today: str,
     saisons: Any = None,
     berechtigungen: Any = None,
-    benachrichtigen: bool = False,
+    notify: bool = False,
 ) -> FLPostSperrlisteResponse:
     """A ban as an administrator enters it: its own transaction and the anchors it writes, where `ban_document` seeds the row alone."""
 
-    return await post_sperrliste_eintrag(
-        sperrliste_data=FLPostSperrlistePayload(email=email, grund=grund, benachrichtigen=benachrichtigen),
+    return await post_sperrliste_entry(
+        sperrliste_data=FLPostSperrlistePayload(email=email, grund=grund, notify=notify),
         sperrliste_collection=database[Collection.SPERRLISTE],
         sperrliste=ban_list(database, saisons=saisons),
         saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
@@ -48,7 +48,7 @@ async def ban_through_the_route(
         postausgang_collection=database[Collection.POSTAUSGANG],
         db=client,
         config=_CONFIG,
-        erstellt_von=von,
+        created_by=von,
         today=today,
         now=datetime.fromisoformat(today).replace(hour=12, tzinfo=ZoneInfo("Europe/Berlin")),
     )

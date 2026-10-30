@@ -39,13 +39,13 @@ STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
-    qualifiers_per_group=2,
-    number_of_groups=4,
-    teams_per_group=4,
+    qualifiers_per_gruppe=2,
+    number_of_gruppen=4,
+    teams_per_gruppe=4,
     tiebreak_order="tordifferenz",
     max_kadergroesse=50,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
-    erlaubte_stufen=STUFEN,
+    allowed_stufen=STUFEN,
 )
 
 
@@ -137,7 +137,7 @@ class TestFLGruppen:
     def test_it_answers_the_groups_the_season_offers_and_no_others(self, team):
         """The season's count decides the keys, not the set's size: a key past it is a standings column for a group nobody plays in."""
 
-        two_groups = RULES.model_copy(update={"number_of_groups": 2})
+        two_groups = RULES.model_copy(update={"number_of_gruppen": 2})
         grouped = build_gruppen([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=two_groups)
 
         assert sorted(grouped.root) == ["A", "B"]
@@ -147,7 +147,7 @@ class TestFLGruppen:
         """The wire shape, not the Python object: the frontend parses the response body."""
         response = FLTeamsGroupedResponse(
             gruppen=build_gruppen([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=RULES),
-            qualifiers_per_group=RULES.qualifiers_per_group,
+            qualifiers_per_gruppe=RULES.qualifiers_per_gruppe,
         )
 
         body = response.model_dump()
@@ -156,18 +156,18 @@ class TestFLGruppen:
         assert body["gruppen"]["B"] == []
         assert body["format"] == "grouped"
         # The cutoff rides with the table it applies to, so no page marks one season's standing with another's number.
-        assert body["qualifiers_per_group"] == 2
+        assert body["qualifiers_per_gruppe"] == 2
 
     def test_a_row_carries_the_standings_fields_and_no_club_detail(self, team):
         """A public CLIENT component renders this, so every field listed is serialised into the page -- and an address here is a school's."""
         response = FLTeamsGroupedResponse(
             gruppen=build_gruppen([FLTeam.model_validate(team(gruppe="A"))], spiele=[], rules=RULES),
-            qualifiers_per_group=RULES.qualifiers_per_group,
+            qualifiers_per_gruppe=RULES.qualifiers_per_gruppe,
         )
 
         assert sorted(response.model_dump()["gruppen"]["A"][0]) == [
-            "anzahl_ausstehende_spiele",
             "austritt_type",
+            "count_pending_spiele",
             "id",
             "name",
             "shorthand",
@@ -278,7 +278,7 @@ class TestTheJunctionPatchPayload:
             "trainer": {**STORED_KONTAKTPERSON, "telefon": "nicht bekannt"},
             "ansprechperson": None,
             "stellvertretung": None,
-            "trainer_ist_zugleich": None,
+            "trainer_is_also": None,
         }
 
         assert FLSaisonTeamKontakte.model_validate(stored_but_unwritable).trainer is not None
@@ -297,7 +297,7 @@ class TestTheContactsPatchPayload:
         """The block is written whole or not at all, so a partial one is a form half filled in rather than a smaller truth."""
 
         with pytest.raises(ValidationError):
-            FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": {"trainer_ist_zugleich": None}})
+            FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": {"trainer_is_also": None}})
 
     def test_the_block_is_required_so_a_null_clears_it_deliberately(self):
         with pytest.raises(ValidationError) as failure:

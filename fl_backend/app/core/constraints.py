@@ -67,25 +67,25 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     UniqueIndex(
         Collection.BEWERBUNGEN,
         "uniq_bewerbung_idempotenz_schluessel",
-        ("idempotenz_schluessel",),
+        ("idempotency_key",),
         "one application per submission key",
-        partial_filter={"idempotenz_schluessel": {"$type": "string"}},
+        partial_filter={"idempotency_key": {"$type": "string"}},
     ),
     UniqueIndex(
         Collection.REGISTRIERUNGEN,
         "uniq_registrierung_idempotenz_schluessel",
-        ("idempotenz_schluessel",),
+        ("idempotency_key",),
         "one registration per submission key",
-        partial_filter={"idempotenz_schluessel": {"$type": "string"}},
+        partial_filter={"idempotency_key": {"$type": "string"}},
     ),
     # The same key after its registration was admitted, so a replay finds it here once the row above
     # is gone. Filtered for the reason above: a squad row an administrator wrote carries none.
     UniqueIndex(
         Collection.SAISON_SPIELER,
         "uniq_saison_spieler_idempotenz_schluessel",
-        ("idempotenz_schluessel",),
+        ("idempotency_key",),
         "one admitted registration per submission key",
-        partial_filter={"idempotenz_schluessel": {"$type": "string"}},
+        partial_filter={"idempotency_key": {"$type": "string"}},
     ),
     # One stored person per address, firing where two admissions for one new address race. Filtered
     # on `$type`, so persons holding no address are not one null key; an equality reader carries the
@@ -110,9 +110,9 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     UniqueIndex(
         Collection.SPIELBESTAETIGUNGEN,
         "uniq_spielbestaetigung_offen",
-        ("spiel_id", "partei.art", "partei.team_id", "partei.schiedsrichter_id", "ansetzung.stand"),
+        ("spiel_id", "party.art", "party.team_id", "party.schiedsrichter_id", "ansetzung.stand"),
         "one open confirmation per party per Ansetzung",
-        partial_filter={"antwort": {"$type": "null"}, "geschlossen": {"$type": "null"}},
+        partial_filter={"antwort": {"$type": "null"}, "closed": {"$type": "null"}},
     ),
     # What makes two first writes of one fixture's report one document: the second insert meets this.
     UniqueIndex(Collection.SPIELBERICHTE, "uniq_spielbericht_spiel_id", ("spiel_id",), "one report per fixture"),
@@ -124,13 +124,13 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         "uniq_adresswechsel_adresse",
         ("adresse",),
         "one live change per address",
-        partial_filter={"beendet": {"$type": "null"}, "adresse": {"$type": "string"}},
+        partial_filter={"ended": {"$type": "null"}, "adresse": {"$type": "string"}},
     ),
     # Two requests about one address meet here. Unfiltered, a lapsed row too: the write asking anew removes that one first
     # (`app/api/berechtigungen/antraege.py :: clear_the_address_in_session`), the TTL monitor passing up to a minute late.
     UniqueIndex(Collection.BERECHTIGUNGEN_ANTRAEGE, "uniq_berechtigung_antrag_adresse", ("adresse",), "one request per address"),
     # Also the READ path of every enqueue, which finds a replay's row by it (`app/api/postausgang/services.py :: enqueue_mails`).
-    UniqueIndex(Collection.POSTAUSGANG, "uniq_postausgang_schluessel", ("schluessel",), "one row per owed mail"),
+    UniqueIndex(Collection.POSTAUSGANG, "uniq_outbox_key", ("key",), "one row per owed mail"),
 )
 
 
@@ -190,13 +190,13 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("actor.pseudonym", ASCENDING), ("actor.funktion", ASCENDING)),
         "the rows a person wrote, which their erasure marks inside its transaction",
     ),
-    # Ending in the read's own sort order, `eingereicht_am` then `_id`: with the sort key unindexed
+    # Ending in the read's own sort order, `submitted_at` then `_id`: with the sort key unindexed
     # every request scans the collection and sorts it in memory, which is work proportional to an
     # archive an anonymous form can grow.
     SupportIndex(
         Collection.BEWERBUNGEN,
         "bewerbungen_saison_id_status_queue",
-        (("saison_id", ASCENDING), ("status", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
+        (("saison_id", ASCENDING), ("status", ASCENDING), ("submitted_at", DESCENDING), ("_id", DESCENDING)),
         "one season's queue narrowed to one status, which is what a triage tab reads",
     ),
     # Multikey, each array's every hash a key, so a lookup's equality on one finds its change. A tombstone keeps its
@@ -210,7 +210,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     SupportIndex(
         Collection.ADRESSWECHSEL,
         "adresswechsel_stopp_token_hashes",
-        (("stopp.token_hashes", ASCENDING),),
+        (("stop.token_hashes", ASCENDING),),
         "the address page's stop lookup, driven by strangers",
     ),
     # Not a unique one, though a hash collides with nothing: a revoked row keeps its hashes, so the
@@ -226,7 +226,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     SupportIndex(
         Collection.REGISTRIERUNGEN,
         "registrierungen_bestaetigung_token_hashes",
-        (("bestaetigung.token_hashes", ASCENDING),),
+        (("confirmation.token_hashes", ASCENDING),),
         "the confirmation page's lookup, driven by strangers",
     ),
     # One per clause of each `$or`, for the registration's pair's reason: a contact seat's link is
@@ -235,7 +235,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         SupportIndex(
             Collection.SAISON_TEAMS,
             f"saison_teams_bestaetigungen_{seat}_token_hashes",
-            ((f"bestaetigungen.{seat}.token_hashes", ASCENDING),),
+            ((f"confirmations.{seat}.token_hashes", ASCENDING),),
             "a contact seat's confirmation page, through the season row's lookup, driven by strangers",
         )
         for seat in KONTAKT_ROLLEN
@@ -245,7 +245,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         SupportIndex(
             Collection.BEWERBUNGEN,
             f"bewerbungen_bestaetigungen_{seat}_token_hashes",
-            ((f"bestaetigungen.{seat}.token_hashes", ASCENDING),),
+            ((f"confirmations.{seat}.token_hashes", ASCENDING),),
             "a contact seat's confirmation page, through the application's lookup, driven by strangers",
         )
         for seat in KONTAKT_ROLLEN
@@ -257,7 +257,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     SupportIndex(
         Collection.REGISTRIERUNGEN,
         "registrierungen_saison_id_team_id_queue",
-        (("saison_id", ASCENDING), ("team_id", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING), ("status", ASCENDING)),
+        (("saison_id", ASCENDING), ("team_id", ASCENDING), ("submitted_at", DESCENDING), ("_id", DESCENDING), ("status", ASCENDING)),
         "one team's pending registrations for one season, newest first, narrowed by status or not",
     ),
     SupportIndex(
@@ -289,7 +289,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     SupportIndex(
         Collection.SPIELBESTAETIGUNGEN,
         "spielbestaetigungen_partei_schiedsrichter_id_saison_id",
-        (("partei.schiedsrichter_id", ASCENDING), ("saison_id", ASCENDING)),
+        (("party.schiedsrichter_id", ASCENDING), ("saison_id", ASCENDING)),
         "a referee's own rows, on their panel and at their erasure",
     ),
     SupportIndex(
@@ -302,7 +302,7 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     SupportIndex(
         Collection.SPIELBERICHTE,
         "spielberichte_eingereicht_von_schiedsrichter_id",
-        (("bericht.eingereicht_von.schiedsrichter_id", ASCENDING),),
+        (("bericht.submitted_by.schiedsrichter_id", ASCENDING),),
         "the reports a leaving referee sent, read inside their erasure's transaction",
     ),
     # Under the collation the two squad reads sort names by: the report reads it on every form and panel read and twice
@@ -350,14 +350,20 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     # Equality on `stand` and the claim's own sort after it; the lease and the deadline are read off the open rows alone.
     SupportIndex(
         Collection.POSTAUSGANG,
-        "postausgang_offen",
-        (("stand", ASCENDING), ("erfasst_am", ASCENDING), ("_id", ASCENDING)),
+        "outbox_open",
+        (("stand", ASCENDING), ("recorded_at", ASCENDING), ("_id", ASCENDING)),
         "the drain's claim of the open rows, oldest first",
     ),
     SupportIndex(
         Collection.POSTAUSGANG,
-        "postausgang_bezug",
-        (("bezug.sammlung", ASCENDING), ("bezug.id", ASCENDING), ("bezug.sitz", ASCENDING), ("erfasst_am", DESCENDING), ("_id", DESCENDING)),
+        "outbox_reference",
+        (
+            ("reference.collection", ASCENDING),
+            ("reference.id", ASCENDING),
+            ("reference.seat", ASCENDING),
+            ("recorded_at", DESCENDING),
+            ("_id", DESCENDING),
+        ),
         "the newest mail about one record and seat, which says whether its holder's mail arrives",
     ),
 )
@@ -391,12 +397,12 @@ TTL_INDEXES: Sequence[TTLIndex] = (
         AKTION_RETENTION_SECONDS,
         "a log row is kept for twelve months after the write it recorded",
     ),
-    # A live change never expires, holding no date at `beendet.am`: the hourly pass ends it, taking its address out of the
+    # A live change never expires, holding no date at `ended.am`: the hourly pass ends it, taking its address out of the
     # log images, which a TTL deletion never would.
     TTLIndex(
         Collection.ADRESSWECHSEL,
         "adresswechsel_beendet_am",
-        "beendet.am",
+        "ended.am",
         ADRESSWECHSEL_NACHLAUF_TAGE * 86400,
         "an ended address change is removed once its tombstone's retention has passed",
     ),
@@ -404,12 +410,12 @@ TTL_INDEXES: Sequence[TTLIndex] = (
     TTLIndex(
         Collection.BERECHTIGUNGEN_ANTRAEGE,
         "berechtigungen_antraege_bis",
-        "genehmigung.bis",
+        "approval.bis",
         0,
         "a request nobody decided is removed once the TTL monitor next passes after it lapsed",
     ),
-    # Zero: `loeschen_am` is the date itself, a retention after the row's final state or a secret's own lapse.
-    TTLIndex(Collection.POSTAUSGANG, "postausgang_loeschen_am", "loeschen_am", 0, "a mail's row is removed on its delete date"),
+    # Zero: `erase_at` is the date itself, a retention after the row's final state or a secret's own lapse.
+    TTLIndex(Collection.POSTAUSGANG, "outbox_erase_at", "erase_at", 0, "a mail's row is removed on its delete date"),
 )
 
 

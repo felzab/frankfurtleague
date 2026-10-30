@@ -60,11 +60,11 @@ TEAM = ObjectId("6890a1b2c3d4e5f607840051")
 ASKED_FOR_THEM = ObjectId("6890a1b2c3d4e5f607840071")
 ASKED_BY_THEM = ObjectId("6890a1b2c3d4e5f607840072")
 
-ENTSCHEIDUNG = {"getroffen_am": "2026-03-01", "von": GELOESCHT, "grund": "Zu spät eingereicht"}
+ENTSCHEIDUNG = {"made_at": "2026-03-01", "von": GELOESCHT, "grund": "Zu spät eingereicht"}
 
 
-def grant(grant_id: ObjectId, adresse: str, erteilt_von: str) -> dict[str, Any]:
-    return {"_id": grant_id, "adresse": adresse, "verwaltung": "administration", "erteilt_von": erteilt_von, "erteilt_am": GRANTED_AT}
+def grant(grant_id: ObjectId, adresse: str, granted_by: str) -> dict[str, Any]:
+    return {"_id": grant_id, "adresse": adresse, "verwaltung": "administration", "granted_by": granted_by, "granted_at": GRANTED_AT}
 
 
 async def patched(database: AsyncDatabase, collection: Collection, document_id: Any, update: Mapping[str, Any]) -> None:
@@ -82,21 +82,21 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
     # Their own grant's tier change, and a grant they made revoked: the second keeps an array of images.
     await patched(database, Collection.BERECHTIGUNGEN, OWN_GRANT, {"$set": {"verwaltung": "owner"}})
     await patched(database, Collection.BERECHTIGUNGEN, CONTROL_GRANT, {"$set": {"verwaltung": "owner"}})
-    ban = documents.ban_document("gesperrt@example.com", bis="2030", erstellt_von=GELOESCHT)
+    ban = documents.ban_document("gesperrt@example.com", bis="2030", created_by=GELOESCHT)
     await database[Collection.SPERRLISTE].insert_one(ban)
     await database[Collection.EINLADUNGEN].insert_one(
         {
             "_id": EINLADUNG,
-            **compose_einladung(saison_id="2026", team_id=TEAM, token_hashes=["h" * 64], erstellt_von=GELOESCHT, today="2026-03-01"),
+            **compose_einladung(saison_id="2026", team_id=TEAM, token_hashes=["h" * 64], created_by=GELOESCHT, today="2026-03-01"),
         }
     )
     await patched(database, Collection.EINLADUNGEN, EINLADUNG, compose_widerruf_update(today="2026-03-02"))
     await database[Collection.BEWERBUNGEN].insert_one(
         documents.bewerbung_document(
-            BEWERBUNG, "2026", "abgelehnt", kontakte=documents.kontakte_document(), eingereicht_am="2026-02-01", entscheidung=ENTSCHEIDUNG
+            BEWERBUNG, "2026", "declined", kontakte=documents.kontakte_document(), submitted_at="2026-02-01", decision=ENTSCHEIDUNG
         )
     )
-    await patched(database, Collection.BEWERBUNGEN, BEWERBUNG, {"$set": {"loeschung_angekuendigt_am": "2026-03-05"}})
+    await patched(database, Collection.BEWERBUNGEN, BEWERBUNG, {"$set": {"erasure_announced_at": "2026-03-05"}})
     await database[Collection.REGISTRIERUNGEN].insert_one(
         documents.registrierung_document(
             REGISTRIERUNG,
@@ -106,13 +106,13 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
             vorname="Pia",
             nachname="Muster",
             token="registrierung",
-            eingereicht_am="2026-02-01",
+            submitted_at="2026-02-01",
             frist="2026-02-08",
-            status="abgelehnt",
-            entscheidung=ENTSCHEIDUNG,
+            status="declined",
+            decision=ENTSCHEIDUNG,
         )
     )
-    await patched(database, Collection.REGISTRIERUNGEN, REGISTRIERUNG, {"$set": {"entscheidung.grund": "Anderes Team"}})
+    await patched(database, Collection.REGISTRIERUNGEN, REGISTRIERUNG, {"$set": {"decision.grund": "Anderes Team"}})
     await database[Collection.SCHIEDSRICHTER].insert_many(
         [
             documents.schiedsrichter_document(
@@ -136,26 +136,24 @@ async def a_league_holding_their_images(database: AsyncDatabase, client: AsyncMo
                     email="ortrun.neupost@example.org",
                     token_hash="w" * 64,
                     day="2026-03-01",
-                    weg="wartezeit",
-                    genehmigung=compose_genehmigung(verwaltung="administration", gestartet_von=GELOESCHT, now=GRANTED_AT),
+                    way="waiting_period",
+                    approval=compose_genehmigung(verwaltung="administration", started_by=GELOESCHT, now=GRANTED_AT),
                 ),
             },
         ]
     )
     for change in (TO_THEM, STARTED_BY_THEM):
-        await patched(database, Collection.ADRESSWECHSEL, change, compose_end_update(art="verworfen", now=GRANTED_AT))
+        await patched(database, Collection.ADRESSWECHSEL, change, compose_end_update(art="discarded", now=GRANTED_AT))
     # A grant asked for them and one they asked for, each decided since, which removes it with its image.
     await database[Collection.BERECHTIGUNGEN_ANTRAEGE].insert_many(
         [
             {
                 "_id": ASKED_FOR_THEM,
-                **compose_antrag(
-                    adresse=GELOESCHT, verwaltung="administration", berechtigung_id=None, gestartet_von=OTHER_ADMIN, now=GRANTED_AT
-                ),
+                **compose_antrag(adresse=GELOESCHT, verwaltung="administration", grant_id=None, started_by=OTHER_ADMIN, now=GRANTED_AT),
             },
             {
                 "_id": ASKED_BY_THEM,
-                **compose_antrag(adresse=GRANTEE, verwaltung="administration", berechtigung_id=None, gestartet_von=GELOESCHT, now=GRANTED_AT),
+                **compose_antrag(adresse=GRANTEE, verwaltung="administration", grant_id=None, started_by=GELOESCHT, now=GRANTED_AT),
             },
         ]
     )
@@ -210,15 +208,15 @@ class TestTheJudgement:
     def test_a_grant_image_holding_a_pasted_spelling_is_judged_on_the_fold(self):
         addresses = IMAGE_ADDRESSES[Collection.BERECHTIGUNGEN]
 
-        assert address_image_edits({"adresse": GELOESCHT_AS_TYPED, "erteilt_von": OTHER_ADMIN}, identifier=GELOESCHT, addresses=addresses) == {
+        assert address_image_edits({"adresse": GELOESCHT_AS_TYPED, "granted_by": OTHER_ADMIN}, identifier=GELOESCHT, addresses=addresses) == {
             "adresse": None
         }
 
     def test_a_nested_actor_takes_the_marker_where_it_is_theirs_and_stays_where_it_is_not(self):
         addresses = IMAGE_ADDRESSES[Collection.ADRESSWECHSEL]
-        image = {"adresse": REFEREE_STORED, "genehmigung": {"gestartet_von": GELOESCHT, "genehmigt_von": OTHER_ADMIN}}
+        image = {"adresse": REFEREE_STORED, "approval": {"started_by": GELOESCHT, "approved_by": OTHER_ADMIN}}
 
-        assert address_image_edits(image, identifier=GELOESCHT, addresses=addresses) == {"genehmigung.gestartet_von": GELOESCHT_ACTOR_MARKER}
+        assert address_image_edits(image, identifier=GELOESCHT, addresses=addresses) == {"approval.started_by": GELOESCHT_ACTOR_MARKER}
 
     def test_every_field_naming_who_acted_takes_the_marker_and_every_own_address_goes_null(self):
         """The marker keeps a replayed image valid where its record model requires the field; a person's own address is nobody's to keep."""
@@ -228,14 +226,14 @@ class TestTheJudgement:
         }
 
         assert authored == {
-            (Collection.BERECHTIGUNGEN, "erteilt_von"),
-            (Collection.SPERRLISTE, "erstellt_von"),
-            (Collection.EINLADUNGEN, "erstellt_von"),
-            (Collection.BEWERBUNGEN, "entscheidung.von"),
-            (Collection.REGISTRIERUNGEN, "entscheidung.von"),
-            (Collection.ADRESSWECHSEL, "genehmigung.gestartet_von"),
-            (Collection.ADRESSWECHSEL, "genehmigung.genehmigt_von"),
-            (Collection.BERECHTIGUNGEN_ANTRAEGE, "genehmigung.gestartet_von"),
+            (Collection.BERECHTIGUNGEN, "granted_by"),
+            (Collection.SPERRLISTE, "created_by"),
+            (Collection.EINLADUNGEN, "created_by"),
+            (Collection.BEWERBUNGEN, "decision.von"),
+            (Collection.REGISTRIERUNGEN, "decision.von"),
+            (Collection.ADRESSWECHSEL, "approval.started_by"),
+            (Collection.ADRESSWECHSEL, "approval.approved_by"),
+            (Collection.BERECHTIGUNGEN_ANTRAEGE, "approval.started_by"),
         }
         assert {address.replacement for addresses in IMAGE_ADDRESSES.values() for address in addresses} == {GELOESCHT_ACTOR_MARKER, None}
 
@@ -271,15 +269,15 @@ def test_each_image_keeps_everything_but_the_address(mongo_replica_set_url: str)
     _, log, _ = after_the_pass(mongo_replica_set_url)
 
     own = image_of(log, Collection.BERECHTIGUNGEN, OWN_GRANT)["before"]
-    assert (own["adresse"], own["erteilt_von"]) == (None, OTHER_ADMIN)
+    assert (own["adresse"], own["granted_by"]) == (None, OTHER_ADMIN)
     (theirs,) = image_of(log, Collection.BERECHTIGUNGEN, THEIR_GRANT)["before"]
-    assert (theirs["adresse"], theirs["erteilt_von"]) == (GRANTEE, GELOESCHT_ACTOR_MARKER)
+    assert (theirs["adresse"], theirs["granted_by"]) == (GRANTEE, GELOESCHT_ACTOR_MARKER)
     (ban,) = next(row for row in log if row["collection"] == str(Collection.SPERRLISTE))["before"]
-    assert (ban["erstellt_von"], ban["grund"]) == (GELOESCHT_ACTOR_MARKER, "Falsches Geburtsdatum bei der Anmeldung")
+    assert (ban["created_by"], ban["grund"]) == (GELOESCHT_ACTOR_MARKER, "Falsches Geburtsdatum bei der Anmeldung")
     einladung = image_of(log, Collection.EINLADUNGEN, EINLADUNG)["before"]
-    assert (einladung["erstellt_von"], einladung["token_hashes"]) == (GELOESCHT_ACTOR_MARKER, ["h" * 64])
+    assert (einladung["created_by"], einladung["token_hashes"]) == (GELOESCHT_ACTOR_MARKER, ["h" * 64])
     for collection, document_id in ((Collection.BEWERBUNGEN, BEWERBUNG), (Collection.REGISTRIERUNGEN, REGISTRIERUNG)):
-        assert image_of(log, collection, document_id)["before"]["entscheidung"] == {**ENTSCHEIDUNG, "von": GELOESCHT_ACTOR_MARKER}
+        assert image_of(log, collection, document_id)["before"]["decision"] == {**ENTSCHEIDUNG, "von": GELOESCHT_ACTOR_MARKER}
     readdressed = image_of(log, Collection.SCHIEDSRICHTER, READDRESSED_REFEREE)["before"]
     assert (readdressed["kontakt"]["email"], readdressed["name"]) == (None, "Hiltrud Kesselring")
     readdressed_pupil = image_of(log, Collection.SPIELER, READDRESSED_PUPIL)["before"]
@@ -287,12 +285,12 @@ def test_each_image_keeps_everything_but_the_address(mongo_replica_set_url: str)
     to_them = image_of(log, Collection.ADRESSWECHSEL, TO_THEM)["before"]
     assert (to_them["email"], to_them["adresse"]) == (None, PUPIL_STORED)
     started = image_of(log, Collection.ADRESSWECHSEL, STARTED_BY_THEM)["before"]
-    assert (started["adresse"], started["genehmigung"]["gestartet_von"]) == (REFEREE_STORED, GELOESCHT_ACTOR_MARKER)
+    assert (started["adresse"], started["approval"]["started_by"]) == (REFEREE_STORED, GELOESCHT_ACTOR_MARKER)
     ((for_them,), (by_them,)) = (
         image_of(log, Collection.BERECHTIGUNGEN_ANTRAEGE, antrag)["before"] for antrag in (ASKED_FOR_THEM, ASKED_BY_THEM)
     )
-    assert (for_them["adresse"], for_them["genehmigung"]["gestartet_von"]) == (None, OTHER_ADMIN)
-    assert (by_them["adresse"], by_them["genehmigung"]["gestartet_von"]) == (GRANTEE, GELOESCHT_ACTOR_MARKER)
+    assert (for_them["adresse"], for_them["approval"]["started_by"]) == (None, OTHER_ADMIN)
+    assert (by_them["adresse"], by_them["approval"]["started_by"]) == (GRANTEE, GELOESCHT_ACTOR_MARKER)
 
 
 @pytest.mark.db

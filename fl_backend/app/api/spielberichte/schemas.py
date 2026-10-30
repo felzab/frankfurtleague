@@ -52,7 +52,7 @@ FLSpielberichtSonderereignis = Literal["abgebrochen", "nichtantreten_team1", "ni
 
 # Derived on every read from the report and the fixture, and stored nowhere. `abgesagt` is a report on a fixture called
 # off or struck out since it was sent: the match took no place, so nothing awaits the administrator.
-type FLSpielberichtZustand = Literal["vorgeschlagen", "uebernommen", "abweichend", "abgesagt", "teams_geaendert"]
+type FLSpielberichtState = Literal["vorgeschlagen", "adopted", "differing", "abgesagt", "teams_changed"]
 
 
 class FLSpielberichtVorschlag(BaseModel):
@@ -116,7 +116,7 @@ class FLSpielberichtSeiten(BaseModel):
 
 
 class FLSpielberichtBericht(BaseModel):
-    """The referee's account of one match, one proposal, a correction after its adoption reading `abweichend`.
+    """The referee's account of one match, one proposal, a correction after its adoption reading `differing`.
 
     `version` rises with each write of the content and the adoption records the one it took: adopted means equal, never
     a clock.
@@ -128,13 +128,13 @@ class FLSpielberichtBericht(BaseModel):
     # Its length is the payload's: the read keeps a ban reason's floor alone.
     bemerkungen: CustomNonEmptyString | None
     seiten: FLSpielberichtSeiten
-    eingereicht_am: FLUtcInstant
-    eingereicht_von: FLSpielberichtVon
-    geaendert_am: FLUtcInstant
+    submitted_at: FLUtcInstant
+    submitted_by: FLSpielberichtVon
+    changed_at: FLUtcInstant
     version: int
-    uebernommen_am: FLUtcInstant | None
-    uebernommen_von: FLVonAdmin | None
-    uebernommene_version: int | None
+    adopted_at: FLUtcInstant | None
+    adopted_by: FLVonAdmin | None
+    adopted_version: int | None
 
 
 class FLSpielbericht(BaseModel):
@@ -253,20 +253,20 @@ class _SpielberichtAnsicht(BaseAPIResponse):
     kader: FLSpielberichtKader
     # Every pupil the stored block names outside the squads served -- one ausgetragen since the match, or of a club a
     # knockout slot has since replaced -- so an entry stored before keeps its name.
-    genannt: list[FLSpielberichtSpieler]
+    named: list[FLSpielberichtSpieler]
     bericht: FLSpielberichtBericht | None
-    # The sides fielding another club than the report's last write found there, which reads `teams_geaendert`.
-    seiten_geaendert: list[FLSpielSeite]
+    # The sides fielding another club than the report's last write found there, which reads `teams_changed`.
+    seiten_changed: list[FLSpielSeite]
     # The document's count of writes, null where none is stored: a save sending it back is refused once another write
     # has raised it. Not `bericht.version`, the report's own, which only its content's writes raise.
     version: int | None
 
 
 class FLSpielberichtSchiedsrichterResponse(_SpielberichtAnsicht):
-    """The booked referee's form: the remarks and the card reasons included, and no `zustand`."""
+    """The booked referee's form: the remarks and the card reasons included, and no `state`."""
 
     # The fixture's season has ended: the page shows the report and offers no write (`saison_past`).
-    abgeschlossen: bool
+    completed: bool
 
 
 class FLSpielberichtAdminResponse(_SpielberichtAnsicht):
@@ -275,10 +275,10 @@ class FLSpielberichtAdminResponse(_SpielberichtAnsicht):
     Both squads empty unless the read asks `kader`, the correction's form; a write answers them always.
     """
 
-    zustand: FLSpielberichtZustand | None
+    state: FLSpielberichtState | None
 
 
-class FLSpielberichtPersonEintrag(BaseModel):
+class FLSpielberichtPersonEntry(BaseModel):
     """One played fixture booked to the signed-in referee, and when its report, whoever wrote it, was first sent."""
 
     spiel_id: CustomObjectId
@@ -286,34 +286,34 @@ class FLSpielberichtPersonEintrag(BaseModel):
     uhrzeit: CustomTimeString | None
     team1_name: str | None
     team2_name: str | None
-    eingereicht_am: FLUtcInstant | None
+    submitted_at: FLUtcInstant | None
 
 
-class FLSpielberichtPersonFruehererEintrag(FLSpielberichtPersonEintrag):
+class FLSpielberichtPersonEarlierEntry(FLSpielberichtPersonEntry):
     """One reported fixture of an ended season, its date null where it was cleared after the report: the report still stands."""
 
     datum: CustomDateString | None
 
 
 class FLSpielberichteSelfResponse(BaseAPIResponse):
-    """`spiele` of the running season, which the referee reports on; `fruehere` of ended ones, each holding a report they only read."""
+    """`spiele` of the running season, which the referee reports on; `earlier` of ended ones, each holding a report they only read."""
 
-    spiele: list[FLSpielberichtPersonEintrag]
-    fruehere: list[FLSpielberichtPersonFruehererEintrag]
+    spiele: list[FLSpielberichtPersonEntry]
+    earlier: list[FLSpielberichtPersonEarlierEntry]
 
 
-class FLSpielberichtZustandEintrag(BaseModel):
+class FLSpielberichtStateEntry(BaseModel):
     """One fixture's report as the triage reads it: its state and what it proposes."""
 
     spiel_id: CustomObjectId
-    zustand: FLSpielberichtZustand
+    state: FLSpielberichtState
     ergebnis_vorschlag: FLSpielberichtVorschlag
 
 
 class FLSpielberichteSaisonResponse(BaseAPIResponse):
     """Every report of one season that holds a block, each with its state."""
 
-    spielberichte: list[FLSpielberichtZustandEintrag]
+    spielberichte: list[FLSpielberichtStateEntry]
 
 
 # Here rather than beside the fixtures' models: it composes the fixtures' read and the reports', and this module imports those.
@@ -329,4 +329,4 @@ class FLSpieleActionRequiredResponse(BaseAPIResponse):
     spiele: list[FLSpielJoinedAdmin]
     bracket_faults: list[FLBracketFault] = Field(default_factory=list)
     # The states the union above was judged on, served rather than read again beside it: one snapshot for both.
-    spielberichte: list[FLSpielberichtZustandEintrag]
+    spielberichte: list[FLSpielberichtStateEntry]

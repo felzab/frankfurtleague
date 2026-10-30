@@ -18,12 +18,12 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.public_router import post_einwilligung
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAbgelehnt
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungDeclined
 from app.api.bewerbungen.system_router import sweep_saison
 from app.api.identitaet.services import build_loeschung_seat_pipeline
 from app.api.identitaet.wiederherstellung import Read, Window, replay_line
 from app.api.kontakte.crud import loeschen_kontaktperson_in_session
-from app.api.spielbestaetigungen.public_router import get_spielbestaetigung_ansicht
+from app.api.spielbestaetigungen.public_router import get_spielbestaetigung_view
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
 from app.api.teams.services import compose_kontakt_bestaetigung
@@ -92,7 +92,7 @@ def stored(vorname: str) -> dict[str, Any]:
     return documents.kontaktperson_document(
         vorname,
         einwilligung={"text_version": sent["einwilligung"]["text_version"], "datum": sent["einwilligung"]["datum"]},
-        eingetragen_von="liga",
+        entered_by="liga",
         nachname=sent["nachname"],
         email=sent["email"],
         telefon=sent["telefon"],
@@ -100,8 +100,8 @@ def stored(vorname: str) -> dict[str, Any]:
 
 
 SEATED = {"trainer": "Ida", "ansprechperson": "Jonas", "stellvertretung": "Klara"}
-STORED = {**{seat: stored(name) for seat, name in SEATED.items()}, "trainer_ist_zugleich": None}
-SENT = {**{seat: person(name) for seat, name in SEATED.items()}, "trainer_ist_zugleich": None}
+STORED = {**{seat: stored(name) for seat, name in SEATED.items()}, "trainer_is_also": None}
+SENT = {**{seat: person(name) for seat, name in SEATED.items()}, "trainer_is_also": None}
 
 
 def row_link(seat: str) -> str:
@@ -139,10 +139,10 @@ def confirmation_row(row: str, team_id: ObjectId, spiel: Mapping[str, Any], **fi
 
     return documents.spielbestaetigung_document(
         spiel,
-        partei={"art": "team", "team_id": team_id},
+        party={"art": "team", "team_id": team_id},
         frist="2026-04-11",
-        angefragt_am=TODAY,
-        kontakte={seat: {"token_hashes": [hash_token(link(row, seat))], "zustellung": None} for seat in KONTAKT_ROLLEN},
+        asked_at=TODAY,
+        kontakte={seat: {"token_hashes": [hash_token(link(row, seat))], "delivery": None} for seat in KONTAKT_ROLLEN},
         **fields,
     )
 
@@ -189,7 +189,7 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
                             "Adler",
                             "ADX",
                             kontakte=STORED,
-                            bestaetigungen={
+                            confirmations={
                                 seat: {**compose_kontakt_bestaetigung(today=TODAY), "token_hashes": [hash_token(row_link(seat))]}
                                 for seat in KONTAKT_ROLLEN
                             },
@@ -211,14 +211,14 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
 
 
 async def links_answering(database: AsyncDatabase) -> dict[str, set[str]]:
-    """Per row, the seats whose mailed link the link's view still opens; a seat absent here is refused `link_ungueltig`."""
+    """Per row, the seats whose mailed link the link's view still opens; a seat absent here is refused `link_invalid`."""
 
     answering: dict[str, set[str]] = {}
     for row in ROWS:
         answering[row] = set()
         for seat in KONTAKT_ROLLEN:
             try:
-                await get_spielbestaetigung_ansicht(
+                await get_spielbestaetigung_view(
                     ansicht_data=FLTokenPayload(token=link(row, seat)),
                     spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                     spiele_collection=database[Collection.SPIELE],
@@ -229,7 +229,7 @@ async def links_answering(database: AsyncDatabase) -> dict[str, set[str]]:
                     today=TODAY,
                 )
             except APIError as refused:
-                assert refused.error_code == "link_ungueltig"
+                assert refused.error_code == "link_invalid"
                 continue
             answering[row].add(seat)
 
@@ -301,7 +301,7 @@ async def loeschen_the_trainer(database: AsyncDatabase, client: AsyncMongoClient
             aktionen_collection=database[Collection.AKTIONEN],
             spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
             identifier=identifier,
-            schluessel=CONFIG.sperrliste_schluessel,
+            key=CONFIG.sperrliste_schluessel,
             saison_team_rows=rows,
             bewerbung_rows=[],
             stamp=AM,
@@ -335,7 +335,7 @@ async def contradict(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     """The Trainer's Widerspruch through the season row's own link."""
 
     return await post_einwilligung(
-        antwort_data=FLBewerbungEinwilligungAbgelehnt(token=row_link("trainer"), antwort="abgelehnt"),
+        antwort_data=FLBewerbungEinwilligungDeclined(token=row_link("trainer"), antwort="declined"),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
@@ -354,7 +354,7 @@ async def replay_the_widerspruch(database: AsyncDatabase, client: AsyncMongoClie
     """The Trainer's Widerspruch replayed onto a restore from a snapshot older than the press."""
 
     line = JournalLine(
-        person_hash=loeschung_journal_hash("ida@example.com", schluessel=CONFIG.sperrliste_schluessel),
+        person_hash=loeschung_journal_hash("ida@example.com", key=CONFIG.sperrliste_schluessel),
         art="widerspruch",
         collection=Collection.SAISON_TEAMS,
         record_id=ROW_OID,
@@ -367,7 +367,7 @@ async def replay_the_widerspruch(database: AsyncDatabase, client: AsyncMongoClie
         Read(timestamp=datetime(2026, 4, 1, 10, 30, 1, tzinfo=UTC), line=line),
         client,
         database,
-        schluessel=CONFIG.sperrliste_schluessel,
+        key=CONFIG.sperrliste_schluessel,
         now=datetime(2026, 4, 2, 9, 0, tzinfo=UTC),
         window=window,
     )
@@ -428,7 +428,7 @@ class TestEverySeatWriteVoidsItsLinks:
         """A void that changes nothing files no log row naming a write that changed nothing; the open row's Trainer entry is null."""
 
         async def hand_on_an_unasked_seat(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPIELBESTAETIGUNGEN].update_many({"partei.team_id": TEAM_OID}, {"$set": {"kontakte.trainer": None}})
+            await database[Collection.SPIELBESTAETIGUNGEN].update_many({"party.team_id": TEAM_OID}, {"$set": {"kontakte.trainer": None}})
             return await hand_the_trainer_on(database, client)
 
         _, _, logged = on_a_league(mongo_replica_set_url, hand_on_an_unasked_seat)
@@ -449,7 +449,7 @@ def declined(row: str, team_id: ObjectId, spiel: Mapping[str, Any], rolle: str, 
         team_id,
         spiel,
         antwort=documents.kontakt_antwort_document(rolle, adresse, begruendung=begruendung),
-        geschlossen={"am": TODAY, "grund": "ansetzung_geaendert"},
+        closed={"am": TODAY, "grund": "ansetzung_changed"},
     )
 
 
@@ -510,7 +510,7 @@ class TestALeavingContactsReasonsGo:
                 await patch_one_in_db(
                     collection=collection,
                     db_filter={"_id": row["_id"]},
-                    update={"$set": {"erinnert_am": [TODAY]}},
+                    update={"$set": {"reminded_at": [TODAY]}},
                     return_document=ReturnDocument.BEFORE,
                 )
             async with client.start_session() as session:
@@ -547,7 +547,7 @@ class TestAnAnsweredRowsLinkOutlivesNoHolder:
 
         links, stored_answers, _ = on_a_league(mongo_replica_set_url, hand_on_then_bar)
 
-        # Refused `link_ungueltig` (`links_answering` admits no other refusal), never served as `gesperrt`.
+        # Refused `link_invalid` (`links_answering` admits no other refusal), never served as `barred`.
         assert links["answered"] == ALL - {"trainer"}
         assert stored_answers == [row["antwort"] for row in ROWS.values()]
 
@@ -569,14 +569,14 @@ class TestALeavingPersonsLinksLeaveTheLog:
         found: dict[str, Any] = {}
 
         async def after_an_image(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            delivered = {"nachricht_id": "msg-1", "stand": "zugestellt", "grund": None, "am": "2026-04-01T09:00:00+00:00"}
+            delivered = {"message_id": "msg-1", "stand": "delivered", "grund": None, "am": "2026-04-01T09:00:00+00:00"}
             await database[Collection.SPIELBESTAETIGUNGEN].update_one(
-                {"_id": ROWS["answered"]["_id"]}, {"$set": {"kontakte.trainer.zustellung": delivered}}
+                {"_id": ROWS["answered"]["_id"]}, {"$set": {"kontakte.trainer.delivery": delivered}}
             )
             await patch_one_in_db(
                 collection=database[Collection.SPIELBESTAETIGUNGEN],
                 db_filter={"_id": ROWS["answered"]["_id"]},
-                update={"$set": {"erinnert_am": [TODAY]}},
+                update={"$set": {"reminded_at": [TODAY]}},
                 return_document=ReturnDocument.BEFORE,
             )
             await write(database, client)

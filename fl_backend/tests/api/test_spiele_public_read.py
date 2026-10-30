@@ -118,9 +118,9 @@ def joined_document() -> dict[str, Any]:
         **document,
         "team1": {**document["team1"], "austritt": None, AUSTRITT_TYPE_KEY: None},
         "team2": {**document["team2"], "austritt": dict(AUSTRITT), AUSTRITT_TYPE_KEY: AUSTRITT["type"]},
-        "ansetzung_bestaetigt": None,
+        "ansetzung_confirmed": None,
         # A referee publishing their name and agreeing to this fixture: both gates pass, so the reduction is what is left.
-        "schiedsrichter": {**document["schiedsrichter"], "name_is_public": True, "einsatz_bestaetigt": True},
+        "schiedsrichter": {**document["schiedsrichter"], "name_is_public": True, "einsatz_confirmed": True},
     }
 
 
@@ -218,14 +218,14 @@ def seeded_url(mongo_replica_set_url: str) -> Iterator[str]:
                 email="ada.kern@example.com",
                 name=SCHIEDSRICHTER_NAME,
                 default_payment=PAYMENT,
-                einwilligung=eigene_einwilligung_document(text_version="v1", bestaetigt_am="2026-03-01"),
+                einwilligung=eigene_einwilligung_document(text_version="v1", confirmed_at="2026-03-01"),
             )
         )
         # Agreeing to the fixture as it stands, without which the base tier withholds the referee whole.
         database[Collection.SPIELBESTAETIGUNGEN].insert_one(
             spielbestaetigung_document(
                 stored_document(),
-                partei={"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER_ID},
+                party={"art": "schiedsrichter", "schiedsrichter_id": SCHIEDSRICHTER_ID},
                 kontakte=None,
                 antwort={"art": "zugesagt", "am": "2026-03-02", "von": {"art": "schiedsrichter"}, "vorschlag": None, "begruendung": None},
             )
@@ -270,7 +270,7 @@ BASE_TIER_FIXTURE_FIELDS = frozenset(
         # Published by decision, and past what an erasure rewrites (`READ-FREETEXT-001`).
         "notiz",
         # A verdict and never a row: no seat, no answer's reason.
-        "ansetzung_bestaetigt",
+        "ansetzung_confirmed",
     }
 )
 
@@ -383,12 +383,12 @@ class TestTheFixtureShapes:
         assert parsed.schiedsrichter is not None and parsed.schiedsrichter.name == SCHIEDSRICHTER_NAME
 
     def test_a_referee_block_the_join_never_judged_is_refused(self):
-        """Required as `ansetzung_bestaetigt` is: served without its verdict, a read that skipped the gate would publish every referee."""
+        """Required as `ansetzung_confirmed` is: served without its verdict, a read that skipped the gate would publish every referee."""
 
         document = joined_document()
         unjudged = {
             **document,
-            "schiedsrichter": {key: value for key, value in document["schiedsrichter"].items() if key != "einsatz_bestaetigt"},
+            "schiedsrichter": {key: value for key, value in document["schiedsrichter"].items() if key != "einsatz_confirmed"},
         }
 
         with pytest.raises(ValidationError):

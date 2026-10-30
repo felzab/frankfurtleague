@@ -77,7 +77,7 @@ class TestARefusalNeverPermitsWhatItCannotSee:
 
     def test_the_wiring_refusal_refuses_to_judge(self, season, payload):
         with pytest.raises(ValueError, match=str(UNREAD_SPIEL_ID)):
-            find_wiring_refusal(UNREAD_SPIEL_ID, payload, season, number_of_groups=4)
+            find_wiring_refusal(UNREAD_SPIEL_ID, payload, season, number_of_gruppen=4)
 
     def test_the_booking_refusal_refuses_to_judge(self, season, payload):
         """It compares the payload's references against the STORED ones, so a slice without them judges a move it cannot see."""
@@ -86,7 +86,7 @@ class TestARefusalNeverPermitsWhatItCannotSee:
             find_booking_refusal(UNREAD_SPIEL_ID, payload, season, ResolvedReferences(teams={}), RULES)
 
 
-RULES = FLSaisonRules.model_validate(rules_document(max_kadergroesse=50, erlaubte_stufen=["E1", "E2"]))
+RULES = FLSaisonRules.model_validate(rules_document(max_kadergroesse=50, allowed_stufen=["E1", "E2"]))
 
 
 class _SeasonCollection:
@@ -217,7 +217,7 @@ TWICE_BOOKED_REFEREE = "6890a1b2c3d4e5f607230002"
 
 # Two groups, so the reference below names one this season does not run: a season offering every
 # name `FLGruppenNames` spells could hold no such reference at all.
-SWEPT_RULES = FLSaisonRules.model_validate(RULES.model_dump() | {"number_of_groups": 2})
+SWEPT_RULES = FLSaisonRules.model_validate(RULES.model_dump() | {"number_of_gruppen": 2})
 UNRUN_GRUPPE = "D"
 
 
@@ -256,7 +256,7 @@ def faulted_season(spiel: PayloadFactory) -> list[dict[str, Any]]:
                 # would otherwise double-book every fixture here against every other.
                 "ort": None,
                 "schiedsrichter": None,
-                "ansetzung_bestaetigt": None,
+                "ansetzung_confirmed": None,
                 **overrides,
             }
         )

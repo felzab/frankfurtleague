@@ -56,13 +56,13 @@ router = APIRouter(
 
 
 def _admin_ansicht(
-    lage: BerichtLage, *, kader_offen: bool, genannt: Sequence[FLSpielberichtSpieler], dokument: Mapping[str, Any] | None
+    lage: BerichtLage, *, kader_offen: bool, named: Sequence[FLSpielberichtSpieler], dokument: Mapping[str, Any] | None
 ) -> FLSpielberichtAdminResponse:
-    ansicht = compose_ansicht(lage, kader_offen=kader_offen, genannt=genannt, dokument=dokument)
+    ansicht = compose_ansicht(lage, kader_offen=kader_offen, named=named, dokument=dokument)
     bericht = ansicht["bericht"]
     zustand = None if bericht is None else bericht_zustand_of(FLSpielberichtBericht.model_validate(bericht), lage.spiel)
 
-    return FLSpielberichtAdminResponse.model_validate({**ansicht, "zustand": zustand})
+    return FLSpielberichtAdminResponse.model_validate({**ansicht, "state": zustand})
 
 
 @router.get(
@@ -79,7 +79,7 @@ async def get_spielberichte(
     Every report of one season holding a block, each with its state against its fixture and what it proposes.
 
     What the season editor counts before an undraw or a replace, which a submitted report refuses
-    (`spielplan_berichte_eingereicht`). Scoped to `saison_id`, the active season when none is named, which answers 404 while no
+    (`spielplan_berichte_submitted`). Scoped to `saison_id`, the active season when none is named, which answers 404 while no
     season is active.
     """
 
@@ -133,7 +133,7 @@ async def get_spielbericht_verwaltung(
             session=session,
         )
 
-    return _admin_ansicht(lage, kader_offen=kader, genannt=genannt, dokument=dokument)
+    return _admin_ansicht(lage, kader_offen=kader, named=genannt, dokument=dokument)
 
 
 @router.patch(
@@ -158,7 +158,7 @@ async def patch_spielbericht(
     """
     Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.
 
-    Every write changing it raises its `version`, so a report adopted before reads `abweichend` until it is adopted
+    Every write changing it raises its `version`, so a report adopted before reads `differing` until it is adopted
     again, and a write changing nothing writes nothing. Who first wrote the report stays recorded; a report an
     administrator writes first records an administrator, naming nobody.
 
@@ -166,13 +166,13 @@ async def patch_spielbericht(
     write.
 
     Refuses, in this order, each writing nothing: a fixture that does not exist (`document_not_found`); a `bericht_stand`
-    other than the version standing now, or than none where none stands (`bericht_inzwischen_geaendert`); one undated or whose day is
-    still to come (`bericht_nicht_gespielt`); one called off or struck out (`bericht_abgesagt`); a shoot-out proposed on a
-    group-phase fixture (`bericht_elfmeter_in_der_gruppe`); a pupil newly named on a side outside that side's live squad of the season
-    (`bericht_nicht_im_kader`); and a yellow or second yellow card naming no reason, unless the stored report holds that card,
-    by side, pupil and colour, stripped of its reason at the end of the season after the match (`bericht_grund_fehlt`). Each
-    but `bericht_inzwischen_geaendert` is asked again outside the transaction just before answering; a write of the report landing
-    mid-press conflicts with this one, whose retry meets `bericht_inzwischen_geaendert`. Two first writes at once are two pages
+    other than the version standing now, or than none where none stands (`bericht_meanwhile_changed`); one undated or whose day is
+    still to come (`bericht_not_played`); one called off or struck out (`bericht_abgesagt`); a shoot-out proposed on a
+    group-phase fixture (`bericht_elfmeter_in_the_gruppe`); a pupil newly named on a side outside that side's live squad of the season
+    (`bericht_not_in_kader`); and a yellow or second yellow card naming no reason, unless the stored report holds that card,
+    by side, pupil and colour, stripped of its reason at the end of the season after the match (`bericht_grund_missing`). Each
+    but `bericht_meanwhile_changed` is asked again outside the transaction just before answering; a write of the report landing
+    mid-press conflicts with this one, whose retry meets `bericht_meanwhile_changed`. Two first writes at once are two pages
     opened on no report: the later is refused.
     """
 
@@ -224,7 +224,7 @@ async def patch_spielbericht(
         judge_bericht(lage=jetzt, payload=payload, gespeichert=block, neu=neu, today=today)
 
         # The report as written, in the shape of the panel's read; no client reads it, the page reading again after the save.
-        return _admin_ansicht(lage, kader_offen=True, genannt=genannt, dokument=dokument)
+        return _admin_ansicht(lage, kader_offen=True, named=genannt, dokument=dokument)
 
     async with transaction_session(db) as session:
         return await session.with_transaction(write_the_report)

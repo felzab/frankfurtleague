@@ -241,7 +241,7 @@ def build_spieler_saisons_pipeline() -> list[Mapping[str, Any]]:
                             "nummer": 1,
                             "position": 1,
                             "stufe": 1,
-                            "ist_nachnominiert": 1,
+                            "is_nachnominiert": 1,
                             "rolle": 1,
                             "inactive_since": 1,
                             "version": 1,
@@ -261,7 +261,7 @@ def build_spieler_saisons_pipeline() -> list[Mapping[str, Any]]:
                 "as": "adresswechsel",
             }
         },
-        {"$set": {"adresswechsel_id": {"$ifNull": [{"$first": "$adresswechsel._id"}, None]}}},
+        {"$set": {"address_change_id": {"$ifNull": [{"$first": "$adresswechsel._id"}, None]}}},
         {"$unset": "adresswechsel"},
         {"$sort": {"vorname": 1, "nachname": 1}},
     ]
@@ -383,7 +383,7 @@ def build_kader_pipeline(*, saison_id: str, team_id: CustomObjectId) -> list[Map
                 "position": 1,
                 "stufe": 1,
                 "rolle": 1,
-                "ist_nachnominiert": 1,
+                "is_nachnominiert": 1,
                 "inactive_since": 1,
                 "version": 1,
             }
@@ -405,26 +405,26 @@ def shared_nummern(rows: Sequence[Mapping[str, Any]]) -> frozenset[str]:
 
 
 def mark_shared_nummern(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """Each row with `nummer_doppelt`, judged against the whole squad the rows are."""
+    """Each row with `nummer_double`, judged against the whole squad the rows are."""
 
     shared = shared_nummern(rows)
 
     # `shared` holds no null, so a row without a number is never marked.
-    return [{**row, "nummer_doppelt": row.get("inactive_since") is None and row.get("nummer") in shared} for row in rows]
+    return [{**row, "nummer_double": row.get("inactive_since") is None and row.get("nummer") in shared} for row in rows]
 
 
-def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, erlaubte_stufen: Sequence[str]) -> WriteRefusal | None:
-    """`kader_stufe_nicht_erlaubt`: the edit writes a Stufe the season's rules do not offer.
+def find_kader_stufe_refusal(*, stufe: str | None, stored_stufe: str | None, allowed_stufen: Sequence[str]) -> WriteRefusal | None:
+    """`kader_stufe_not_allowed`: the edit writes a Stufe the season's rules do not offer.
 
     The stored value passes: a season narrowed after the row was written leaves it valid,
     and refusing it would lock the row's other fields too.
     """
 
-    if stufe is None or stufe == stored_stufe or stufe in erlaubte_stufen:
+    if stufe is None or stufe == stored_stufe or stufe in allowed_stufen:
         return None
 
     return WriteRefusal(
-        error_code=Code.KADER_STUFE_NICHT_ERLAUBT,
+        error_code=Code.KADER_STUFE_NOT_ALLOWED,
         status=HTTPStatus.CONFLICT,
     )
 
@@ -478,7 +478,7 @@ def build_self_pupil_pipeline(identifier: str) -> list[Mapping[str, Any]]:
                             "position": 1,
                             "stufe": 1,
                             "rolle": 1,
-                            "ist_nachnominiert": 1,
+                            "is_nachnominiert": 1,
                             "inactive_since": 1,
                         }
                     },

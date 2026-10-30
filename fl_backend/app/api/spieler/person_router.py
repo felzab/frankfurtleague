@@ -23,9 +23,9 @@ from app.api.sperrliste.guard import PERSON_ACTOR_BINDERS, KontaktIdentifier, Sp
 from app.api.spieler.crud import refuse_a_taken_rolle
 from app.api.spieler.schemas import (
     FLKaderResponse,
-    FLKaderZeile,
-    FLPatchKaderZeilePayload,
-    FLSpielerKontoEinwilligungResponse,
+    FLKaderRow,
+    FLPatchKaderRowPayload,
+    FLSpielerAccountEinwilligungResponse,
     FLSpielerSelfResponse,
 )
 from app.api.spieler.services import (
@@ -53,7 +53,7 @@ from app.core.security import loeschung_journal_hash, verify_access_admin
 from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
-from app.shared.schemas.einwilligung import FLKontoEinwilligungPayload
+from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
 from app.shared.schemas.literals import FLSpielerStufe
 
 # The person lane's binder IN PLACE of `bind_actor` and the grants check, which a seat holder holding
@@ -76,7 +76,7 @@ def _live_row(*, team_id: CustomObjectId, saison_id: str, spieler_id: CustomObje
 
 async def _read_the_squad(
     *, saison_spieler_collection: AsyncCollection, team_id: CustomObjectId, saison_id: str, session: AsyncClientSession
-) -> list[FLKaderZeile]:
+) -> list[FLKaderRow]:
     """The whole squad, each row's shirt marker judged against every other: no single row carries what it is compared with."""
 
     rows = await aggregate_many_from_db(
@@ -86,7 +86,7 @@ async def _read_the_squad(
         session=session,
     )
 
-    return [FLKaderZeile.model_validate(row) for row in mark_shared_nummern(rows)]
+    return [FLKaderRow.model_validate(row) for row in mark_shared_nummern(rows)]
 
 
 async def _erlaubte_stufen(*, saisons_collection: AsyncCollection, saison_id: str, session: AsyncClientSession) -> list[FLSpielerStufe]:
@@ -98,7 +98,7 @@ async def _erlaubte_stufen(*, saisons_collection: AsyncCollection, saison_id: st
 
     # Through the model the rules are written under, as `refuse_a_full_squad` reads the cap: a list
     # that model refuses, an empty one included, fails here rather than reaching the page.
-    return FLSaisonRules.model_validate(saison_raw["rules"]).erlaubte_stufen
+    return FLSaisonRules.model_validate(saison_raw["rules"]).allowed_stufen
 
 
 async def _the_row_as_written(
@@ -108,7 +108,7 @@ async def _the_row_as_written(
     saison_id: str,
     spieler_id: CustomObjectId,
     session: AsyncClientSession,
-) -> FLKaderZeile:
+) -> FLKaderRow:
     """Read back inside the write's own transaction, so the shirt marker is the squad's after this write and before any other."""
 
     kader = await _read_the_squad(saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, session=session)
@@ -131,9 +131,9 @@ async def get_kader(
     The squad of one team in one season, for a person holding any contact seat on it.
 
     Every row, ausgetragen ones included and marked by `inactive_since`; each surname whole, and no
-    e-mail address or telephone number of anybody. `nummer_doppelt` marks a live row whose number
-    another live row of the squad wears, compared as stored. `erlaubte_stufen` is what the season's
-    rules offer an edit. Refused `funktion_nicht_gehalten` where the signed-in person holds no seat on this
+    e-mail address or telephone number of anybody. `nummer_double` marks a live row whose number
+    another live row of the squad wears, compared as stored. `allowed_stufen` is what the season's
+    rules offer an edit. Refused `role_not_held` where the signed-in person holds no seat on this
     team in this season, a seat on a `past` season holding none.
     """
 
@@ -145,7 +145,7 @@ async def get_kader(
         return FLKaderResponse(
             team_id=team_id,
             saison_id=saison_id,
-            erlaubte_stufen=await _erlaubte_stufen(saisons_collection=saisons_collection, saison_id=saison_id, session=session),
+            allowed_stufen=await _erlaubte_stufen(saisons_collection=saisons_collection, saison_id=saison_id, session=session),
             kader=await _read_the_squad(
                 saison_spieler_collection=saison_spieler_collection, team_id=team_id, saison_id=saison_id, session=session
             ),
@@ -154,33 +154,33 @@ async def get_kader(
 
 @router.patch(
     ROW_PATH,
-    response_model=FLKaderZeile,
+    response_model=FLKaderRow,
     summary="Update a squad entry as its team's seat holder",
 )
-async def patch_kader_zeile(
+async def patch_kader_row(
     team_id: CustomRouteObjectId,
     saison_id: str,
     spieler_id: CustomRouteObjectId,
-    zeile_data: Annotated[FLPatchKaderZeilePayload, Body()],
+    zeile_data: Annotated[FLPatchKaderRowPayload, Body()],
     identifier: KontaktIdentifier,
     saison_spieler_collection: SaisonSpielerCollection,
     saisons_collection: SaisonsCollection,
     records: SubjektLookup,
     db: DBClient,
-) -> FLKaderZeile:
+) -> FLKaderRow:
     """
     Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.
 
     The team and the Nachnominierung flag stay the stored row's. 404 where this team holds no live
     row for the player in this season: another team's pupil and an ausgetragen row answer alike, and
-    nothing is written. Refused `funktion_nicht_gehalten` without a seat, `kader_stufe_nicht_erlaubt` for a `stufe` the
-    season's `erlaubte_stufen` does not offer unless the row already holds it, and `kader_rolle_taken`
+    nothing is written. Refused `role_not_held` without a seat, `kader_stufe_not_allowed` for a `stufe` the
+    season's `allowed_stufen` does not offer unless the row already holds it, and `kader_rolle_taken`
     for a `rolle` another live row of the squad holds. A shared `nummer` is permitted.
     """
 
     row = _live_row(team_id=team_id, saison_id=saison_id, spieler_id=spieler_id)
 
-    async def edit_the_row(session: AsyncClientSession) -> FLKaderZeile:
+    async def edit_the_row(session: AsyncClientSession) -> FLKaderRow:
         """Judge, then rewrite the row. Everything judged is read in-session."""
 
         await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
@@ -193,7 +193,7 @@ async def patch_kader_zeile(
             find_kader_stufe_refusal(
                 stufe=zeile_data.stufe,
                 stored_stufe=stored_raw.get("stufe"),
-                erlaubte_stufen=await _erlaubte_stufen(saisons_collection=saisons_collection, saison_id=saison_id, session=session),
+                allowed_stufen=await _erlaubte_stufen(saisons_collection=saisons_collection, saison_id=saison_id, session=session),
             )
         )
 
@@ -229,10 +229,10 @@ async def patch_kader_zeile(
 
 @router.delete(
     ROW_PATH,
-    response_model=FLKaderZeile,
+    response_model=FLKaderRow,
     summary="Take a Spieler out of the squad as its team's seat holder (austragen)",
 )
-async def delete_kader_zeile(
+async def delete_kader_row(
     team_id: CustomRouteObjectId,
     saison_id: str,
     spieler_id: CustomRouteObjectId,
@@ -241,16 +241,16 @@ async def delete_kader_zeile(
     records: SubjektLookup,
     db: DBClient,
     today: str = Depends(get_german_date_str),
-) -> FLKaderZeile:
+) -> FLKaderRow:
     """
     Take a player out of this team's squad for the season, as any contact seat of the team may. SOFT: the row stays.
 
     Stamps the row's `inactive_since`; the person stays in the league, and only an administrator
     brings the row back. 404 where this team holds no live row for the player in this season,
-    another team's pupil and an ausgetragen row alike. Refused `funktion_nicht_gehalten` without a seat.
+    another team's pupil and an ausgetragen row alike. Refused `role_not_held` without a seat.
     """
 
-    async def take_the_row_out(session: AsyncClientSession) -> FLKaderZeile:
+    async def take_the_row_out(session: AsyncClientSession) -> FLKaderRow:
         """Judge the seat, then stamp the row: the live-row filter is the write's own, so an ausgetragen row is a 404 here."""
 
         await refuse_without_a_seat(identifier, records, team_id=team_id, saison_id=saison_id, session=session)
@@ -287,7 +287,7 @@ async def get_self(identifier: SpielerIdentifier, spieler_collection: SpielerCol
     PERSON TIER: the whole surname and the birthdate, never masked, and never the sign-in address itself. A retired
     record is served too. Its consent is the account page's (`GET /konto/einwilligungen`), so none is served here.
 
-    Refuses an address holding no confirmed pupil record (`funktion_nicht_gehalten`).
+    Refuses an address holding no confirmed pupil record (`role_not_held`).
     """
 
     rows = await aggregate_many_from_db(collection=spieler_collection, pipeline=build_self_pupil_pipeline(identifier))
@@ -299,12 +299,12 @@ async def get_self(identifier: SpielerIdentifier, spieler_collection: SpielerCol
 
 
 @spieler_router.patch(
-    "/konto/einwilligung",
-    response_model=FLSpielerKontoEinwilligungResponse,
+    "/account/einwilligung",
+    response_model=FLSpielerAccountEinwilligungResponse,
     summary="Change a signed-in pupil's own publication and media consent",
 )
 async def patch_einwilligung(
-    einwilligung_data: Annotated[FLKontoEinwilligungPayload, Body()],
+    einwilligung_data: Annotated[FLAccountEinwilligungPayload, Body()],
     identifier: SpielerIdentifier,
     spieler_collection: SpielerCollection,
     records: SubjektLookup,
@@ -312,7 +312,7 @@ async def patch_einwilligung(
     config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLSpielerKontoEinwilligungResponse:
+) -> FLSpielerAccountEinwilligungResponse:
     """
     Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.
 
@@ -321,11 +321,11 @@ async def patch_einwilligung(
     PATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is
     taken on a live record alone; a withdrawal on a retired one too.
 
-    Refuses, in this order: an address holding no confirmed pupil record (`funktion_nicht_gehalten`); a `nachweis_stand`
-    other than the record's own, either choice having moved since the page was served (`fassung_unzulaessig`); a
-    grant on a retired record (`erteilung_nicht_zugelassen`); a `text_version` naming no version of the account page's pupil
-    control, or a grant naming any but the page's running one (`fassung_unzulaessig`); `medien` moving to `true` where
-    the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_alter`). Each
+    Refuses, in this order: an address holding no confirmed pupil record (`role_not_held`); a `nachweis_stand`
+    other than the record's own, either choice having moved since the page was served (`wording_not_allowed`); a
+    grant on a retired record (`giving_not_allowed`); a `text_version` naming no version of the account page's pupil
+    control, or a grant naming any but the page's running one (`wording_not_allowed`); `medien` moving to `true` where
+    the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`medien_age`). Each
     refusal writes nothing.
 
     **The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a
@@ -339,7 +339,7 @@ async def patch_einwilligung(
     journal = Journal()
 
     @journal.attempted
-    async def write(session: AsyncClientSession) -> FLSpielerKontoEinwilligungResponse:
+    async def write(session: AsyncClientSession) -> FLSpielerAccountEinwilligungResponse:
         row = await spieler_collection.find_one(eigener_eintrag, projection={"einwilligung": 1, "geburtsdatum": 1}, session=session)
         refuse(find_eigener_eintrag_refusal(gehalten=row is not None and ist_eigener_spieler(row)))
         assert row is not None
@@ -372,7 +372,7 @@ async def patch_einwilligung(
             )
         )
         line = widerruf_line(
-            person_hash=loeschung_journal_hash(identifier, schluessel=config.sperrliste_schluessel),
+            person_hash=loeschung_journal_hash(identifier, key=config.sperrliste_schluessel),
             collection=Collection.SPIELER,
             record_id=row["_id"],
             bloecke=[gespeichert],
@@ -385,7 +385,7 @@ async def patch_einwilligung(
         # A press moving neither choice is no act, so nothing was written and the record answers as stored.
         einwilligung = gespeichert if updated is None else updated["einwilligung"]
 
-        return FLSpielerKontoEinwilligungResponse.model_validate(
+        return FLSpielerAccountEinwilligungResponse.model_validate(
             {"spieler_id": row["_id"], "einwilligung": einwilligung, "nachweis_stand": nachweis_stand_of(bloecke=[einwilligung])}
         )
 

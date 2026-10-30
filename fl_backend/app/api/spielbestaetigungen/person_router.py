@@ -91,7 +91,7 @@ async def get_self(
     ahead, each by its day; then the days gone by, the latest first. Nobody's address or seat is served, and no reason an
     administrator entered on the row.
 
-    Refuses an address holding no live, confirmed referee record (`funktion_nicht_gehalten`).
+    Refuses an address holding no live, confirmed referee record (`role_not_held`).
     """
 
     # A snapshot, so every row is judged against the fixture and clubs of its own moment; never a transaction, which a
@@ -148,18 +148,18 @@ async def get_self(
             {
                 "_id": row["_id"],
                 "spiel_id": row["spiel_id"],
-                "schiedsrichter_id": row["partei"]["schiedsrichter_id"],
+                "schiedsrichter_id": row["party"]["schiedsrichter_id"],
                 "ansetzung": ansetzung,
-                "zustand": schiedsrichter_zustand_of(spielbestaetigung_raw=row, lage=lage, today=today),
+                "state": schiedsrichter_zustand_of(spielbestaetigung_raw=row, lage=lage, today=today),
                 "begruendung": eigene_begruendung_of(row),
-                "eingetragen": eingetragen_of(row),
-                "vergangen": ansetzung.datum < today,
+                "entered": eingetragen_of(row),
+                "past": ansetzung.datum < today,
             }
         )
 
     eintraege = list(map(eintrag_of, rows))
-    kommend = sorted((e for e in eintraege if not e.vergangen), key=lambda e: (e.zustand != "gueltig", e.ansetzung.datum, str(e.id)))
-    vergangen = sorted((e for e in eintraege if e.vergangen), key=lambda e: (e.ansetzung.datum, str(e.id)), reverse=True)
+    kommend = sorted((e for e in eintraege if not e.past), key=lambda e: (e.state != "valid", e.ansetzung.datum, str(e.id)))
+    vergangen = sorted((e for e in eintraege if e.past), key=lambda e: (e.ansetzung.datum, str(e.id)), reverse=True)
 
     return FLSpielbestaetigungenSelfResponse(spielbestaetigungen=[*kommend, *vergangen])
 
@@ -190,12 +190,12 @@ async def post_schiedsrichter_antwort(
     the season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture
     carries.
 
-    Refuses, in this order: an address holding no live, confirmed referee record (`funktion_nicht_gehalten`); an id naming no
-    row of an `active` season, or a row naming none of those records (`ansetzung_fremde_zeile`, one answer for both); a row
-    already answered, by them or by the league for them (`ansetzung_beantwortet`); one closed unanswered
-    (`ansetzung_geschlossen`); a fixture decided, called off or left by a club (`ansetzung_entschieden`), then one whose date,
-    time, ground or sides moved since the row, or which books another referee or none (`ansetzung_geaendert`); and a
-    fixture whose day has gone by (`ansetzung_frist_vorbei`). An acceptance is judged again outside the transaction just
+    Refuses, in this order: an address holding no live, confirmed referee record (`role_not_held`); an id naming no
+    row of an `active` season, or a row naming none of those records (`ansetzung_foreign_row`, one answer for both); a row
+    already answered, by them or by the league for them (`ansetzung_answered`); one closed unanswered
+    (`ansetzung_closed`); a fixture decided, called off or left by a club (`ansetzung_decided`), then one whose date,
+    time, ground or sides moved since the row, or which books another referee or none (`ansetzung_changed`); and a
+    fixture whose day has gone by (`ansetzung_frist_past`). An acceptance is judged again outside the transaction just
     before answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.
 
     **The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name
@@ -248,13 +248,13 @@ async def post_schiedsrichter_antwort(
         except DocumentNotFoundError:
             refuse(first_press_refusal())
 
-        if antwort_data.antwort == "abgelehnt":
+        if antwort_data.antwort == "declined":
             # Never `PATCH /spiele/{spiel_id}`, which re-resolves the season's bracket: a person's press moves this one
             # block. A rival save of the fixture writes this document too, so the two conflict and one retries.
             try:
                 await patch_one_in_db(
                     collection=spiele_collection,
-                    db_filter={"_id": row["spiel_id"], "schiedsrichter.schiedsrichter_id": row["partei"]["schiedsrichter_id"]},
+                    db_filter={"_id": row["spiel_id"], "schiedsrichter.schiedsrichter_id": row["party"]["schiedsrichter_id"]},
                     update={"$set": {"schiedsrichter": None}},
                     session=session,
                     return_document=ReturnDocument.BEFORE,
@@ -278,7 +278,7 @@ async def post_schiedsrichter_antwort(
             assert jetzt is not None
             refuse(find_spent_link_refusal(spielbestaetigung_raw=row, lage=jetzt, today=today))
 
-        return FLSpielbestaetigungSchiedsrichterAntwortResponse(spielbestaetigung_id=spielbestaetigung_id, zustand=antwort_data.antwort)
+        return FLSpielbestaetigungSchiedsrichterAntwortResponse(spielbestaetigung_id=spielbestaetigung_id, state=antwort_data.antwort)
 
     async with transaction_session(db) as session:
         return await session.with_transaction(answer)

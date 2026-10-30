@@ -64,14 +64,14 @@ from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 # is `<tag>_<handler>`: a handler's name is unique within its slice. Which key a router takes its
 # guard publishes, as the operation's `security`.
 ROUTERS: Mapping[str, tuple[APIRouter, ...]] = {
-    "adresswechsel": (adresswechsel_public_router, adresswechsel_admin_router, adresswechsel_system_router),
-    "aktionen": (aktionen_admin_router,),
-    "berechtigungen": (berechtigungen_admin_router, berechtigungen_system_router),
+    "address_change": (adresswechsel_public_router, adresswechsel_admin_router, adresswechsel_system_router),
+    "action_log": (aktionen_admin_router,),
+    "grants": (berechtigungen_admin_router, berechtigungen_system_router),
     "bewerbungen": (bewerbungen_admin_router, bewerbungen_public_router, bewerbungen_person_router, bewerbungen_system_router),
     "einwilligung": (einwilligung_public_router,),
-    "identitaet": (identitaet_system_router, identitaet_admin_router, identitaet_person_router),
-    "konto": (konto_person_router,),
-    "postausgang": (postausgang_system_router,),
+    "identity": (identitaet_system_router, identitaet_admin_router, identitaet_person_router),
+    "account": (konto_person_router,),
+    "outbox": (postausgang_system_router,),
     "registrierungen": (
         registrierungen_admin_router,
         registrierungen_public_router,

@@ -53,7 +53,7 @@ class TestCorrectingOneContactAddress:
             "trainer": kontaktperson_document("Quillhilde"),
             "ansprechperson": kontaktperson_document("Ansgar"),
             "stellvertretung": kontaktperson_document("Stellan"),
-            "trainer_ist_zugleich": None,
+            "trainer_is_also": None,
         }
 
         refusal = find_kontakt_email_refusal(kontakte=seats, seats=("ansprechperson",), email="STELLAN@example.com")

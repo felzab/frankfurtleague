@@ -305,20 +305,20 @@ bind_system_actor = actor_binder(_the_application)
 AKTEUR_PSEUDONYM_VERSION: Final = "akteur-v1"
 
 
-def _keyed_fold(address: str, *, schluessel: SecretStr, label: str) -> str:
+def _keyed_fold(address: str, *, key: SecretStr, label: str) -> str:
     # Folded here rather than by each caller, as `app/api/sperrliste/services.py :: adresse_hash` folds its own: a
     # stored spelling handed in unfolded would hash to a value no other spelling of the mailbox matches.
-    return hmac.new(derive_sub_key(schluessel, label), sign_in_identifier(address).encode("utf-8"), hashlib.sha256).hexdigest()
+    return hmac.new(derive_sub_key(key, label), sign_in_identifier(address).encode("utf-8"), hashlib.sha256).hexdigest()
 
 
-def akteur_pseudonym(identifier: str, *, schluessel: SecretStr) -> str:
+def akteur_pseudonym(identifier: str, *, key: SecretStr) -> str:
     """What the log records for a signed-in person: a keyed hash of the identifier as `sign_in_identifier` folds it.
 
     Never `adresse_hash`, whose label would make this EQUAL the person's ban-row digest and whose
     address rule raises inside a binder.
     """
 
-    return _keyed_fold(identifier, schluessel=schluessel, label=AKTEUR_PSEUDONYM_VERSION)
+    return _keyed_fold(identifier, key=key, label=AKTEUR_PSEUDONYM_VERSION)
 
 
 # The erasure journal's label, a third beside the ban list's and the log's: under theirs a line would name a ban
@@ -326,7 +326,7 @@ def akteur_pseudonym(identifier: str, *, schluessel: SecretStr) -> str:
 LOESCHUNG_JOURNAL_VERSION: Final = "loeschung-v1"
 
 
-def loeschung_journal_hash(identifier: str, *, schluessel: SecretStr) -> str:
+def loeschung_journal_hash(identifier: str, *, key: SecretStr) -> str:
     """What the erasure journal records for a person: a keyed hash of the identifier as `sign_in_identifier` folds it."""
 
-    return _keyed_fold(identifier, schluessel=schluessel, label=LOESCHUNG_JOURNAL_VERSION)
+    return _keyed_fold(identifier, key=key, label=LOESCHUNG_JOURNAL_VERSION)

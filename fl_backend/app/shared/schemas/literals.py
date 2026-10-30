@@ -78,7 +78,7 @@ KONTAKT_ROLLEN: Final[tuple[FLKontaktRolle, ...]] = get_args(FLKontaktRolle.__va
 
 # A season row as a link minted on it sees it: open, or closed by its season ending, which outranks its
 # team having left it.
-type FLKontaktZeile = Literal["offen", "saison_vorbei", "ausgetreten"]
+type FLKontaktRow = Literal["open", "saison_past", "ausgetreten"]
 
 # Wider than the administrative payload's: the WhatsApp scope is the person's own, set on their
 # confirmation page and moved by their account page's seat PATCH; an administrator's payload offering it
@@ -87,7 +87,7 @@ type FLKontaktKenntnisnahmeUmfang = Literal["kontaktdaten", "kontaktdaten_whatsa
 
 # Who put this person in the seat: the applicant on the form, or the league's administration (a reseat,
 # the contacts editor). Not `verwaltung`, the access tier's word (`docs/glossary.md :: verwaltung`).
-type FLKontaktEingetragenVon = Literal["bewerbung", "liga"]
+type FLKontaktEnteredBy = Literal["bewerbung", "liga"]
 
 # --- The pupils
 
@@ -104,13 +104,13 @@ type FLEinwilligungUmfang = Literal["kader_oeffentlich", "intern"]
 
 # TWO members and not three: an admission deletes the row, its content having become the person and the
 # squad row, so a state naming an admitted registration would be one no document is ever read in.
-type FLRegistrierungStatus = Literal["eingereicht", "abgelehnt"]
+type FLRegistrierungStatus = Literal["submitted", "declined"]
 
 # --- A person's own link
 
 # What a reopened confirmation link shows. A token nothing opens is a refusal rather than a state, and an
-# unreadable one never reaches the backend. `gesperrt` ranks first.
-type FLBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]
+# unreadable one never reaches the backend. `barred` ranks first.
+type FLConfirmationState = Literal["valid", "confirmed", "expired", "barred"]
 
 # --- The Verwaltung and an address's change
 
@@ -120,20 +120,20 @@ type FLVerwaltung = Literal["owner", "administration"]
 
 # Why an administrator may not approve an act on a grant: their own address, their own start, an owner's
 # act without an owner's power, or a grant or tier younger than the request.
-type FLGenehmigungVerwehrt = Literal["eigene", "gestartet", "inhaber", "juenger"]
+type FLApprovalDenied = Literal["own", "started", "owner", "younger"]
 
 # How an address change takes effect: the person's own start, an administrator's the address on file
 # approves, or an administrator's with a recorded reason, waiting after its confirmation.
-type FLAdresswechselWeg = Literal["konto", "freigabe", "wartezeit"]
+type FLAddressChangeWay = Literal["account", "release", "waiting_period"]
 
 # Why the address tool refuses this reader an address's change, served beside every id a page links into
-# it: `eigene` their own address, `verwaltung` a grant holder's without an owner's power.
-type FLAdresswechselEinsehbarVerwehrt = Literal["eigene", "verwaltung"]
+# it: `own` their own address, `verwaltung` a grant holder's without an owner's power.
+type FLAddressChangeViewableDenied = Literal["own", "verwaltung"]
 
 # What the change waits on: the address on file's approval, the new mailbox's link, another
 # administrator's approval of a grant's move once the new mailbox confirmed, or its waiting time.
-type FLAdresswechselWartetAuf = Literal["freigabe", "neue_adresse", "genehmigung", "wartezeit"]
+type FLAddressChangeWaitsOn = Literal["release", "new_adresse", "approval", "waiting_period"]
 
-# How a change ended. `verworfen` is every discard: an administrator's, the pass's refusal when due,
+# How a change ended. `discarded` is every discard: an administrator's, the pass's refusal when due,
 # nothing left to move, and an erasure's.
-type FLAdresswechselEndeArt = Literal["wirksam", "abgelehnt", "gestoppt", "abgelaufen", "ersetzt", "verworfen"]
+type FLAddressChangeEndArt = Literal["effective", "declined", "stopped", "expired", "replaced", "discarded"]

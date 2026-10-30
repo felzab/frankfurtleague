@@ -454,12 +454,12 @@ class TestTheMarkerTheCreateStored:
 
         async def body(database: AsyncDatabase) -> Any:
             await database.saison_spieler.insert_one(
-                {**squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID), "ist_nachnominiert": True}
+                {**squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID), "is_nachnominiert": True}
             )
             echoed = await move(database, spieler_id_for(90), HOME_TEAM_OID, nummer="9")
             stored = await database.saison_spieler.find_one({"spieler_id": spieler_id_for(90)})
 
-            return echoed.ist_nachnominiert, stored["ist_nachnominiert"] if stored else None
+            return echoed.is_nachnominiert, stored["is_nachnominiert"] if stored else None
 
         assert on_a_database(mongo_replica_set_url, body) == (True, True)
 
@@ -484,7 +484,7 @@ class TestTheCreateDerivesTheLateEntryMarker:
             echoed = await enter(database, spieler_id_for(90), HOME_TEAM_OID)
             stored = await database.saison_spieler.find_one({"spieler_id": spieler_id_for(90)})
 
-            return announced.nachnominierung, echoed.ist_nachnominiert, bool(stored and stored["ist_nachnominiert"])
+            return announced.nachnominierung, echoed.is_nachnominiert, bool(stored and stored["is_nachnominiert"])
 
         return on_a_database(url, body)
 

@@ -12,7 +12,7 @@ from app.api.identitaet.lookup import SubjektLookup
 from app.api.identitaet.services import ist_eigene_registrierung
 from app.api.konto.crud import press_widerruf
 from app.api.konto.services import KONTO_SEITE_SPIELER, compose_person_move, find_eigener_eintrag_refusal, widerruf_line
-from app.api.postausgang.schemas import FLPostausgangBezug, FLRegistrierungAbsageDaten
+from app.api.postausgang.schemas import FLPostausgangBezug, FLRegistrierungAbsageData
 from app.api.postausgang.services import OwedMail, enqueue_mails
 from app.api.registrierungen.crud import (
     nummern_rows,
@@ -21,14 +21,14 @@ from app.api.registrierungen.crud import (
     pull_offene_registrierungen,
 )
 from app.api.registrierungen.schemas import (
-    FLOffeneRegistrierung,
     FLOffeneRegistrierungenParams,
-    FLOffeneRegistrierungenResponse,
-    FLRegistrierungAblehnenPayload,
-    FLRegistrierungAblehnungResponse,
-    FLRegistrierungAufnahmeResponse,
-    FLRegistrierungAufnehmenPayload,
-    FLRegistrierungKontoEinwilligungResponse,
+    FLOpenRegistrierung,
+    FLOpenRegistrierungenResponse,
+    FLRegistrierungAccountEinwilligungResponse,
+    FLRegistrierungAdmissionResponse,
+    FLRegistrierungAdmitPayload,
+    FLRegistrierungDeclinePayload,
+    FLRegistrierungRefusalResponse,
 )
 from app.api.registrierungen.services import (
     compose_ablehnung_update,
@@ -81,7 +81,7 @@ from app.core.transactions import transaction_session
 from app.shared.einwilligung_nachweis import FLEinwilligungWahl, nachweis_stand_of
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
-from app.shared.schemas.einwilligung import FLKontoEinwilligungPayload
+from app.shared.schemas.einwilligung import FLAccountEinwilligungPayload
 
 # The person lane's binder in place of `bind_actor`: a seat holder signs in by code and holds no
 # grant, so the administrator's actor check would refuse every one of them.
@@ -93,10 +93,10 @@ router = APIRouter(
 
 @router.get(
     "/kader/{team_id:objectid}/{saison_id}",
-    response_model=FLOffeneRegistrierungenResponse,
+    response_model=FLOpenRegistrierungenResponse,
     summary="A team's pending registrations for one season",
 )
-async def get_offene_registrierungen(
+async def get_open_registrierungen(
     team_id: CustomRouteObjectId,
     saison_id: str,
     params: Annotated[FLOffeneRegistrierungenParams, Query()],
@@ -106,14 +106,14 @@ async def get_offene_registrierungen(
     spieler_collection: SpielerCollection,
     records: SubjektLookup,
     db: DBClient,
-) -> FLOffeneRegistrierungenResponse:
+) -> FLOpenRegistrierungenResponse:
     """
     Every pending registration for this team's season, each marked admissible or not by whether the pupil has confirmed it.
 
     A confirmed row names the stored person its address resolves to, flagged where that person's name or birthdate
     differs. An unconfirmed row names nobody: its address is unproven.
     No address, telephone number, birthdate or consent record is served for anybody.
-    `vollstaendig` is false where more pending rows exist than `limit` serves.
+    `complete` is false where more pending rows exist than `limit` serves.
     """
 
     # A snapshot rather than a transaction: this writes nothing, and one point in time keeps the
@@ -143,48 +143,48 @@ async def get_offene_registrierungen(
             await nummern_rows(saison_spieler_collection=saison_spieler_collection, saison_id=saison_id, team_id=team_id, session=session)
         )
 
-        def as_served(row: Mapping[str, Any]) -> FLOffeneRegistrierung:
+        def as_served(row: Mapping[str, Any]) -> FLOpenRegistrierung:
             aufnehmbar = registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung"))
             person = by_address.get(sign_in_identifier(str(row["email"]))) if aufnehmbar else None
 
-            return FLOffeneRegistrierung.model_validate(
+            return FLOpenRegistrierung.model_validate(
                 {
                     "registrierung_id": row["_id"],
-                    "eingereicht_am": row["eingereicht_am"],
+                    "submitted_at": row["submitted_at"],
                     "vorname": row["vorname"],
                     "nachname": row["nachname"],
                     "nummer": row.get("nummer"),
                     "position": row.get("position"),
                     "stufe": row.get("stufe"),
-                    "aufnehmbar": aufnehmbar,
-                    "nummer_doppelt": row.get("nummer") in worn,
+                    "admissible": aufnehmbar,
+                    "nummer_double": row.get("nummer") in worn,
                     "person": None
                     if person is None
                     else {
                         "spieler_id": person["_id"],
                         "vorname": person["vorname"],
                         "nachname": person.get("nachname"),
-                        "weicht_ab": person_weicht_ab(registrierung_raw=row, spieler_raw=person),
+                        "deviates_from": person_weicht_ab(registrierung_raw=row, spieler_raw=person),
                     },
                 }
             )
 
-    return FLOffeneRegistrierungenResponse(
+    return FLOpenRegistrierungenResponse(
         team_id=team_id,
         saison_id=saison_id,
         registrierungen=[as_served(row) for row in served],
-        vollstaendig=len(read) <= params.limit,
+        complete=len(read) <= params.limit,
     )
 
 
 @router.post(
-    f"{by_id('registrierung_id')}/aufnehmen",
-    response_model=FLRegistrierungAufnahmeResponse,
+    f"{by_id('registrierung_id')}/admit",
+    response_model=FLRegistrierungAdmissionResponse,
     summary="Admit a registration into the team's squad",
 )
-async def aufnehmen(
+async def admit(
     registrierung_id: CustomRouteObjectId,
-    aufnahme_data: Annotated[FLRegistrierungAufnehmenPayload, Body()],
+    aufnahme_data: Annotated[FLRegistrierungAdmitPayload, Body()],
     identifier: KontaktIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_spieler_collection: SaisonSpielerCollection,
@@ -197,7 +197,7 @@ async def aufnehmen(
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLRegistrierungAufnahmeResponse:
+) -> FLRegistrierungAdmissionResponse:
     """
     Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.
 
@@ -215,19 +215,19 @@ async def aufnehmen(
     press meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.
 
     Refuses, in this order: no pending registration with this id (404), no seat on its team's season
-    (`funktion_nicht_gehalten`), a registration the pupil has not confirmed (`registrierung_unbestaetigt`), an address the ban list
-    holds (`registrierung_adresse_gesperrt`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
-    (`registrierung_stufe_nicht_erlaubt`), a registration confirmed on the returning pupil's page whose address holds no stored
-    person (`registrierung_person_fehlt`: it carries no choice, so it admits nobody, and the pupil registers again), a
-    `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_nicht_benannt`), a person
-    already playing in a squad this season (`registrierung_schon_im_kader`) and a full squad (`kader_full`). Nothing is
+    (`role_not_held`), a registration the pupil has not confirmed (`registrierung_unconfirmed`), an address the ban list
+    holds (`registrierung_adresse_barred`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer
+    (`registrierung_stufe_not_allowed`), a registration confirmed on the returning pupil's page whose address holds no stored
+    person (`registrierung_person_missing`: it carries no choice, so it admits nobody, and the pupil registers again), a
+    `spieler_id` that is not the person this registration may be admitted into (`registrierung_person_not_named`), a person
+    already playing in a squad this season (`registrierung_already_in_kader`) and a full squad (`kader_full`). Nothing is
     written on any of them.
     """
 
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
-    async def admit_the_pupil(session: AsyncClientSession) -> FLRegistrierungAufnahmeResponse:
+    async def admit_the_pupil(session: AsyncClientSession) -> FLRegistrierungAdmissionResponse:
         """Judge, then write the person, the squad row and the erasure. Everything judged is read in-session."""
 
         registrierung_raw = await pull_offene_registrierung(
@@ -244,11 +244,11 @@ async def aufnehmen(
         gesperrt = await adressen_gesperrt(
             sperrliste, [str(registrierung_raw["email"])], massgebliche_saison_id=massgebliche_saison_id, session=session
         )
-        refuse(find_gesperrt_refusal(gesperrt=bool(gesperrt)))
+        refuse(find_gesperrt_refusal(barred=bool(gesperrt)))
 
         saison_raw = await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["rules"], session=session)
-        erlaubte_stufen = list((saison_raw.get("rules") or {}).get("erlaubte_stufen") or [])
-        refuse(find_stufe_refusal(stufe=registrierung_raw.get("stufe"), erlaubte_stufen=erlaubte_stufen))
+        erlaubte_stufen = list((saison_raw.get("rules") or {}).get("allowed_stufen") or [])
+        refuse(find_stufe_refusal(stufe=registrierung_raw.get("stufe"), allowed_stufen=erlaubte_stufen))
 
         adresse = sign_in_identifier(str(registrierung_raw["email"]))
         resolved = await persons_at(spieler_collection=spieler_collection, adressen=[adresse], session=session)
@@ -299,7 +299,7 @@ async def aufnehmen(
         kader_fields = compose_kader_fields(
             registrierung_raw=registrierung_raw,
             team_id=team_id,
-            ist_nachnominiert=await nachnominierung_laeuft_in(
+            is_nachnominiert=await nachnominierung_laeuft_in(
                 spieltage_collection=spieltage_collection, saison_id=saison_id, today=today, session=session
             ),
         )
@@ -332,7 +332,7 @@ async def aufnehmen(
             session=session,
         )
 
-        return FLRegistrierungAufnahmeResponse(
+        return FLRegistrierungAdmissionResponse(
             registrierung_id=registrierung_id,
             spieler_id=spieler_id,
             team_id=team_id,
@@ -342,7 +342,7 @@ async def aufnehmen(
             nummer=kader_fields["nummer"],
             position=kader_fields["position"],
             stufe=kader_fields["stufe"],
-            ist_nachnominiert=kader_fields["ist_nachnominiert"],
+            is_nachnominiert=kader_fields["is_nachnominiert"],
         )
 
     # The squad cap's own write moved the season.
@@ -351,13 +351,13 @@ async def aufnehmen(
 
 
 @router.post(
-    f"{by_id('registrierung_id')}/ablehnen",
-    response_model=FLRegistrierungAblehnungResponse,
+    f"{by_id('registrierung_id')}/decline",
+    response_model=FLRegistrierungRefusalResponse,
     summary="Decline a registration",
 )
-async def ablehnen(
+async def decline(
     registrierung_id: CustomRouteObjectId,
-    ablehnung_data: Annotated[FLRegistrierungAblehnenPayload, Body()],
+    ablehnung_data: Annotated[FLRegistrierungDeclinePayload, Body()],
     identifier: KontaktIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     saison_teams_collection: SaisonTeamsCollection,
@@ -366,20 +366,20 @@ async def ablehnen(
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLRegistrierungAblehnungResponse:
+) -> FLRegistrierungRefusalResponse:
     """
     Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.
 
     The decision records the declining seat holder's address and a reason from a closed set, never free text:
-    `andere_person` where the team answered that the registration is not the person its address belongs to. The
+    `other_person` where the team answered that the registration is not the person its address belongs to. The
     row stays until the retention sweep erases it a month later. The note is owed in the same transaction, and only
     where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.
 
     Refuses, in this order, no pending registration with this id (404) and no seat on its team's season
-    (`funktion_nicht_gehalten`).
+    (`role_not_held`).
     """
 
-    async def decline_for_the_team(session: AsyncClientSession) -> FLRegistrierungAblehnungResponse:
+    async def decline_for_the_team(session: AsyncClientSession) -> FLRegistrierungRefusalResponse:
         registrierung_raw = await pull_offene_registrierung(
             registrierungen_collection=registrierungen_collection, registrierung_id=registrierung_id, session=session
         )
@@ -410,22 +410,22 @@ async def ablehnen(
                 mails=[
                     OwedMail(
                         # A decline is taken once: a pending row is what this transaction reads, and it leaves that state.
-                        schluessel=f"{Collection.REGISTRIERUNGEN}/{registrierung_id}/absage",
+                        key=f"{Collection.REGISTRIERUNGEN}/{registrierung_id}/absage",
                         an=str(registrierung_raw["email"]),
-                        daten=FLRegistrierungAbsageDaten(
+                        data=FLRegistrierungAbsageData(
                             art="registrierung_absage",
                             vorname=str(registrierung_raw["vorname"]),
                             team=str(junction_raw["name"]),
                             saison_id=saison_id,
                             grund=ablehnung_data.grund,
                         ),
-                        bezug=FLPostausgangBezug(sammlung=Collection.REGISTRIERUNGEN, id=registrierung_id, sitz=None),
+                        reference=FLPostausgangBezug(collection=Collection.REGISTRIERUNGEN, id=registrierung_id, seat=None),
                     )
                 ],
                 now=germany_now,
             )
 
-        return FLRegistrierungAblehnungResponse(registrierung_id=registrierung_id, vorname=registrierung_raw["vorname"])
+        return FLRegistrierungRefusalResponse(registrierung_id=registrierung_id, vorname=registrierung_raw["vorname"])
 
     async with transaction_session(db) as session:
         return await session.with_transaction(decline_for_the_team)
@@ -435,29 +435,29 @@ async def ablehnen(
 # binds the `kontakt` Funktion at router level, and a pending registrant writes as the pupil they
 # registered as.
 spieler_router = APIRouter(
-    prefix=f"/api/v{API_VERSION}/registrierungen/konto",
+    prefix=f"/api/v{API_VERSION}/registrierungen/account",
     dependencies=[Depends(verify_access_admin), Depends(PERSON_ACTOR_BINDERS["spieler"])],
 )
 
 
 @spieler_router.patch(
     f"{by_id('registrierung_id')}/einwilligung",
-    response_model=FLRegistrierungKontoEinwilligungResponse,
+    response_model=FLRegistrierungAccountEinwilligungResponse,
     summary="Withdraw a pupil's own publication and media consent on their pending registration",
 )
 async def patch_einwilligung(
     registrierung_id: CustomRouteObjectId,
-    einwilligung_data: Annotated[FLKontoEinwilligungPayload, Body()],
+    einwilligung_data: Annotated[FLAccountEinwilligungPayload, Body()],
     identifier: SpielerIdentifier,
     registrierungen_collection: RegistrierungenCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     germany_now: datetime = Depends(get_germany_now),
-) -> FLRegistrierungKontoEinwilligungResponse:
+) -> FLRegistrierungAccountEinwilligungResponse:
     """Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.
 
-    A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `funktion_nicht_gehalten`,
-    `fassung_unzulaessig` (the wording or the choices moved since the page was served) and `erteilung_nicht_zugelassen`.
+    A grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `role_not_held`,
+    `wording_not_allowed` (the wording or the choices moved since the page was served) and `giving_not_allowed`.
     """
 
     gewaehlt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
@@ -466,7 +466,7 @@ async def patch_einwilligung(
     journal = Journal()
 
     @journal.attempted
-    async def write(session: AsyncClientSession) -> FLRegistrierungKontoEinwilligungResponse:
+    async def write(session: AsyncClientSession) -> FLRegistrierungAccountEinwilligungResponse:
         # By the id alone: the predicate judges the status, the fold, the confirmation and the choices.
         row = await registrierungen_collection.find_one(
             {"_id": registrierung_id}, projection={"status": 1, "email": 1, "einwilligung": 1}, session=session
@@ -502,7 +502,7 @@ async def patch_einwilligung(
             )
         )
         line = widerruf_line(
-            person_hash=loeschung_journal_hash(identifier, schluessel=config.sperrliste_schluessel),
+            person_hash=loeschung_journal_hash(identifier, key=config.sperrliste_schluessel),
             collection=Collection.REGISTRIERUNGEN,
             record_id=row["_id"],
             bloecke=[gespeichert],
@@ -515,7 +515,7 @@ async def patch_einwilligung(
         # A press moving neither choice is no act, so nothing was written and the record answers as stored.
         einwilligung = gespeichert if updated is None else updated["einwilligung"]
 
-        return FLRegistrierungKontoEinwilligungResponse.model_validate(
+        return FLRegistrierungAccountEinwilligungResponse.model_validate(
             {
                 "registrierung_id": row["_id"],
                 "einwilligung": einwilligung,

@@ -27,7 +27,7 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.literals import FLAustrittType, FLGruppenNames, FLSaisonPhase, FLSonderereignis, FLSortOrder, FLSpielSeite
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
-type FLSpielStatus = Literal["ab_heute", "vergangen", "heute", "abgesagt", "unbekannt"]
+type FLSpielStatus = Literal["from_today", "past", "today", "abgesagt", "unknown"]
 
 # Each tuple below answers ONE consumer's question. They are deliberately NOT one predicate: a single
 # boolean would make independent consumers agree by accident, and a field telling five events apart
@@ -61,7 +61,7 @@ SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY: tuple[FLSonderereignis, ...] = (
     "nichtantreten_team2",
 )
 
-# `anzahl_abgesagte_spiele` counts fixtures that did not take place, so an annulment is in it and
+# `count_abgesagte_spiele` counts fixtures that did not take place, so an annulment is in it and
 # only an abandonment -- played until it stopped -- is out. Equal to the absence half above by
 # accident, never by derivation: the questions differ.
 SONDEREREIGNIS_COUNTED_AS_ABSAGE: tuple[FLSonderereignis, ...] = (
@@ -585,12 +585,12 @@ def _withheld_unless_agreed(block: Any) -> Any:
     if not isinstance(block, Mapping):
         return block
 
-    # Required, as `ansetzung_bestaetigt` is: only the join composes it, and a block without it is a read that skipped the gate.
-    if "einsatz_bestaetigt" not in block:
+    # Required, as `ansetzung_confirmed` is: only the join composes it, and a block without it is a read that skipped the gate.
+    if "einsatz_confirmed" not in block:
         raise ValueError("a served referee block carries the join's acceptance verdict")
 
     # `is True`, never `is not False`: a verdict of any other value publishes nobody.
-    return block if block["einsatz_bestaetigt"] is True else None
+    return block if block["einsatz_confirmed"] is True else None
 
 
 # A model rather than a default on the stored side, which would make every internal read of a raw
@@ -606,7 +606,7 @@ class FLSpielJoined(FLSpielCommon):
 
     # Here and never on `FLSpielCommon`, whose stored child `FLSpiel` would write it onto the fixture at
     # the next save. Required: only the join composes it.
-    ansetzung_bestaetigt: bool | None
+    ansetzung_confirmed: bool | None
 
     # The acceptance gate ahead of the consent gate; `FLSpielJoinedAdmin`
     # re-declares the field plainly, which drops this validator there.
@@ -711,12 +711,12 @@ class FLSpielReleasedSide(_VoidedResult):
 class FLPatchSpielDataResponse(BaseAPIResponse):
     """Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.
 
-    `version` is the fixture's own after the save, the one its next save sends; `bericht_uebernommen` says whether the
-    adoption `uebernimmt_bericht` asked for was stamped, null where none was asked or on a `dry_run`.
+    `version` is the fixture's own after the save, the one its next save sends; `bericht_adopted` says whether the
+    adoption `adopts_bericht` asked for was stamped, null where none was asked or on a `dry_run`.
     """
 
     advanced_to: list[FLSpielAdvancement] = Field(default_factory=list)
     released_sides: list[FLSpielReleasedSide] = Field(default_factory=list)
     bracket_faults: list[FLBracketFault] = Field(default_factory=list)
     version: int
-    bericht_uebernommen: bool | None
+    bericht_adopted: bool | None

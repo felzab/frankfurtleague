@@ -3,7 +3,7 @@ from typing import Annotated, Literal, Self
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 from pydantic_core import PydanticCustomError
 
-from app.api.postausgang.schemas import FLPostausgangLage
+from app.api.postausgang.schemas import FLOutboxState
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
 from app.shared.schemas.aktor import FLVonAdmin
 from app.shared.schemas.bestaetigung import CustomToken
@@ -20,28 +20,26 @@ from app.shared.schemas.custom import (
 from app.shared.schemas.literals import FLKontaktRolle, FLSpielSeite
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
-type FLSpielbestaetigungAntwortArt = Literal["zugesagt", "abgelehnt"]
+type FLSpielbestaetigungAntwortArt = Literal["zugesagt", "declined"]
 
-# Why a row stopped applying. `verworfen` closes an open decline carrying a proposal alone: the decline stands
+# Why a row stopped applying. `discarded` closes an open decline carrying a proposal alone: the decline stands
 # as the record, and what is discarded is the administrator's obligation to act on its proposal.
 FLSpielbestaetigungGrund = Literal[
-    "ansetzung_geaendert",
+    "ansetzung_changed",
     "austritt",
-    "spiel_entschieden",
+    "spiel_decided",
     "abgesagt",
-    "schiedsrichter_gewechselt",
+    "schiedsrichter_switched",
     # A referee's own decline, closed in its write: the row reads as that decline, and a re-booking is asked afresh.
-    "schiedsrichter_abgelehnt",
-    "verworfen",
-    "spiel_vergangen",
+    "schiedsrichter_declined",
+    "discarded",
+    "spiel_past",
 ]
 
-# What a reopened link shows; `gesperrt` ranks first. `vorschlag`: the other
+# What a reopened link shows; `barred` ranks first. `vorschlag`: the other
 # club's decline proposes another date; `abgesagt`: the fixture was called off, whatever was answered;
-# `verworfen`: the league discarded this decline's proposal.
-FLSpielbestaetigungZustand = Literal[
-    "gueltig", "vorschlag", "zugesagt", "abgelehnt", "verworfen", "abgelaufen", "ungueltig", "abgesagt", "gesperrt"
-]
+# `discarded`: the league discarded this decline's proposal.
+FLSpielbestaetigungZustand = Literal["valid", "vorschlag", "zugesagt", "declined", "discarded", "expired", "invalid", "abgesagt", "barred"]
 
 # Single-line because the triage card renders it as one, and a stored break would forge a second line
 # beside it. The ceiling and the pattern judge what arrives and the floor what the strip leaves, so
@@ -54,17 +52,17 @@ CustomSpielbestaetigungBegruendung = Annotated[
 ]
 
 
-class FLSpielbestaetigungParteiTeam(BaseModel):
+class FLSpielbestaetigungPartyTeam(BaseModel):
     art: Literal["team"]
     team_id: CustomObjectId
 
 
-class FLSpielbestaetigungParteiSchiedsrichter(BaseModel):
+class FLSpielbestaetigungPartySchiedsrichter(BaseModel):
     art: Literal["schiedsrichter"]
     schiedsrichter_id: CustomObjectId
 
 
-FLSpielbestaetigungPartei = Annotated[FLSpielbestaetigungParteiTeam | FLSpielbestaetigungParteiSchiedsrichter, Field(discriminator="art")]
+FLSpielbestaetigungPartei = Annotated[FLSpielbestaetigungPartyTeam | FLSpielbestaetigungPartySchiedsrichter, Field(discriminator="art")]
 
 
 class FLSpielbestaetigungAnsetzung(BaseModel):
@@ -82,7 +80,7 @@ class FLSpielbestaetigungAnsetzung(BaseModel):
     stand: str
 
 
-class FLSpielbestaetigungSitz(BaseReadModel):
+class FLSpielbestaetigungSeat(BaseReadModel):
     """One seat's link as an administrator reads it -- and NO `token_hashes`, nor the address it was owed to.
 
     The hashes are raw document keys the token filter alone reads; a model declaring them would serve
@@ -90,18 +88,18 @@ class FLSpielbestaetigungSitz(BaseReadModel):
     """
 
     # What became of the last mail owed to the seat, read off the Postausgang; null where none was, or on a write's answer.
-    zustellung: FLPostausgangLage | None = None
+    delivery: FLOutboxState | None = None
 
 
 class FLSpielbestaetigungKontakte(BaseModel):
     """The three seats, mirroring `kontakte`'s slots. Null per SEAT: an empty, barred or voided seat holds no link."""
 
-    trainer: FLSpielbestaetigungSitz | None
-    ansprechperson: FLSpielbestaetigungSitz | None
-    stellvertretung: FLSpielbestaetigungSitz | None
+    trainer: FLSpielbestaetigungSeat | None
+    ansprechperson: FLSpielbestaetigungSeat | None
+    stellvertretung: FLSpielbestaetigungSeat | None
 
 
-class FLSpielbestaetigungTermin(BaseModel):
+class FLSpielbestaetigungAppointment(BaseModel):
     """A date and time without a ground: a team's proposal, and the slot a moved fixture left."""
 
     datum: CustomDateString
@@ -132,13 +130,13 @@ class FLSpielbestaetigungAntwort(BaseModel):
     art: FLSpielbestaetigungAntwortArt
     am: CustomDateString
     von: FLSpielbestaetigungVon
-    vorschlag: FLSpielbestaetigungTermin | None
+    vorschlag: FLSpielbestaetigungAppointment | None
     # Its length and its one line are the payload's: the read keeps a ban reason's floor alone, as
     # `app/api/sperrliste/schemas.py`'s row does.
     begruendung: CustomNonEmptyString | None
 
 
-class FLSpielbestaetigungGeschlossen(BaseModel):
+class FLSpielbestaetigungClosed(BaseModel):
     am: CustomDateString
     grund: FLSpielbestaetigungGrund
 
@@ -149,15 +147,15 @@ class _FLSpielbestaetigungFelder(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     saison_id: str
     spiel_id: CustomObjectId
-    partei: FLSpielbestaetigungPartei
+    party: FLSpielbestaetigungPartei
     ansetzung: FLSpielbestaetigungAnsetzung
     # STORED rather than derived from the fixture's date: raising the bound moves no request already sent.
     frist: CustomDateString
     # Null from the mint until it owes the party a mail, so a row nobody could be asked on reads as never asked.
-    angefragt_am: CustomOptionalDateString
-    erinnert_am: list[CustomDateString]
+    asked_at: CustomOptionalDateString
+    reminded_at: list[CustomDateString]
     antwort: FLSpielbestaetigungAntwort | None
-    geschlossen: FLSpielbestaetigungGeschlossen | None
+    closed: FLSpielbestaetigungClosed | None
 
 
 class FLSpielbestaetigung(_FLSpielbestaetigungFelder):
@@ -220,10 +218,10 @@ class FLSpielbestaetigungenListResponse(BaseAPIResponse):
 
     spielbestaetigungen: list[FLSpielbestaetigung]
     # False where the cut left out rows not holding their question, so a cut list is never read as the season whole.
-    vollstaendig: bool
+    complete: bool
 
 
-class FLSpielbestaetigungEintragenPayload(BaseModel):
+class FLSpielbestaetigungEnterPayload(BaseModel):
     """The administrator's Zusage for a party that answered elsewhere, and how it was given.
 
     No way to choose: the one press records a Zusage, and a decline without a proposal would sit in no queue.
@@ -240,7 +238,7 @@ class FLSpielbestaetigungEintragenPayload(BaseModel):
 # (`READ-ANSETZUNG-001`).
 
 
-class FLSpielbestaetigungAnsichtAnsetzung(BaseModel):
+class FLSpielbestaetigungViewAnsetzung(BaseModel):
     """The clubs, the day, the hour and the ground a page or a message states.
 
     The fixture as it stands, or on a link whose fixture moved since, the Ansetzung the row asked about.
@@ -253,21 +251,21 @@ class FLSpielbestaetigungAnsichtAnsetzung(BaseModel):
     spielort: FLSpielOrtFieldPublic | None
 
 
-class FLSpielbestaetigungAnsichtResponse(BaseAPIResponse):
-    """What one link's page renders, filled in every state; the frontend narrows a spent one to its `zustand`."""
+class FLSpielbestaetigungViewResponse(BaseAPIResponse):
+    """What one link's page renders, filled in every state; the frontend narrows a spent one to its `state`."""
 
-    zustand: FLSpielbestaetigungZustand
+    state: FLSpielbestaetigungZustand
     seite: FLSpielSeite
-    ansetzung: FLSpielbestaetigungAnsichtAnsetzung
+    ansetzung: FLSpielbestaetigungViewAnsetzung
     frist: CustomDateString
     # The OTHER club's proposal, on `vorschlag` alone and null otherwise: its date and hour alone, never
     # that club's reason or which of its seats answered.
-    vorschlag: FLSpielbestaetigungTermin | None
-    # Non-null exactly on `zugesagt` and `abgelehnt`: a role, never a name.
-    beantwortet_von: FLSpielbestaetigungVon | None
+    vorschlag: FLSpielbestaetigungAppointment | None
+    # Non-null exactly on `zugesagt` and `declined`: a role, never a name.
+    answered_by: FLSpielbestaetigungVon | None
 
 
-class FLSpielbestaetigungVorschlagPayload(FLSpielbestaetigungTermin):
+class FLSpielbestaetigungVorschlagPayload(FLSpielbestaetigungAppointment):
     model_config = ConfigDict(extra="forbid")
 
 
@@ -286,7 +284,7 @@ class FLSpielbestaetigungAntwortPayload(BaseModel):
     def a_decline_proposes_and_an_acceptance_says_nothing_more(self) -> Self:
         """A 422 like every shape rule about the body: the page offers no decline without a date, and no reason beside an acceptance."""
 
-        if self.antwort == "abgelehnt" and self.vorschlag is None:
+        if self.antwort == "declined" and self.vorschlag is None:
             raise PydanticCustomError("decline_without_proposal", "a decline proposes another date")
 
         if self.antwort == "zugesagt" and (self.vorschlag is not None or self.begruendung is not None):
@@ -301,16 +299,16 @@ class FLSpielbestaetigungAntwortResponse(BaseAPIResponse):
     So a page shows that proposal from this response, never from a re-read. No receipt is mailed off it.
     """
 
-    zustand: FLSpielbestaetigungAntwortArt
-    beantwortet_von: FLSpielbestaetigungVon
-    vorschlag: FLSpielbestaetigungTermin | None
+    state: FLSpielbestaetigungAntwortArt
+    answered_by: FLSpielbestaetigungVon
+    vorschlag: FLSpielbestaetigungAppointment | None
 
 
 # --- A REFEREE'S OWN ROWS, read and answered signed in on the person lane. No deadline is served: a
 # referee answers until the fixture's day, which the Einteilung states.
 
-# Never `gesperrt`, the binder refusing a barred person first, nor `vorschlag`, a referee proposing no date.
-FLSpielbestaetigungSchiedsrichterZustand = Literal["gueltig", "zugesagt", "abgelehnt", "abgelaufen", "ungueltig", "abgesagt"]
+# Never `barred`, the binder refusing a barred person first, nor `vorschlag`, a referee proposing no date.
+FLSpielbestaetigungSchiedsrichterZustand = Literal["valid", "zugesagt", "declined", "expired", "invalid", "abgesagt"]
 
 
 class FLSpielbestaetigungSelf(BaseModel):
@@ -320,15 +318,15 @@ class FLSpielbestaetigungSelf(BaseModel):
     spiel_id: CustomObjectId
     # Which of the address's referee records the row names.
     schiedsrichter_id: CustomObjectId
-    ansetzung: FLSpielbestaetigungAnsichtAnsetzung
-    zustand: FLSpielbestaetigungSchiedsrichterZustand
+    ansetzung: FLSpielbestaetigungViewAnsetzung
+    state: FLSpielbestaetigungSchiedsrichterZustand
     # The referee's own decline reason, null on every other row.
     begruendung: CustomNonEmptyString | None
     # Whether the league recorded the answer for them, so the panel never shows it as their own; it names nobody.
-    eingetragen: bool
+    entered: bool
     # Whether the Ansetzung's day lies before today in Europe/Berlin, which the panel lists apart: judged here, so a
     # page rendered around midnight agrees with the order the read answered.
-    vergangen: bool
+    past: bool
 
 
 class FLSpielbestaetigungenSelfResponse(BaseAPIResponse):
@@ -348,7 +346,7 @@ class FLSpielbestaetigungSchiedsrichterAntwortPayload(BaseModel):
     def a_decline_gives_a_reason_and_an_acceptance_none(self) -> Self:
         """A 422 like every shape rule about the body: the panel offers no decline without a reason."""
 
-        if self.antwort == "abgelehnt" and self.begruendung is None:
+        if self.antwort == "declined" and self.begruendung is None:
             raise PydanticCustomError("decline_without_reason", "a decline names its reason")
 
         if self.antwort == "zugesagt" and self.begruendung is not None:
@@ -359,7 +357,7 @@ class FLSpielbestaetigungSchiedsrichterAntwortPayload(BaseModel):
 
 class FLSpielbestaetigungSchiedsrichterAntwortResponse(BaseAPIResponse):
     spielbestaetigung_id: CustomObjectId
-    zustand: FLSpielbestaetigungAntwortArt
+    state: FLSpielbestaetigungAntwortArt
 
 
 # --- The PASS, system tier. It owes every mail through the Postausgang, and answers counts alone: no address, no
@@ -370,9 +368,9 @@ class FLSpielbestaetigungSweepResponse(BaseAPIResponse):
     """One season's pass, counted: what it closed, the rows it asked or reminded, and the mails it owed the Postausgang."""
 
     saison_id: str
-    geschlossen: int
-    angefragt: int
-    erinnert: int
+    closed: int
+    asked: int
+    reminded: int
     # Every mail this pass owed, requests, reminders, Einteilungen and notices alike, one per recipient.
     mails: int
-    fehlgeschlagen: int
+    failed: int

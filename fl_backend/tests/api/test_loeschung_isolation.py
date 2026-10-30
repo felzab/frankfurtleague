@@ -97,8 +97,8 @@ async def a_league(database: AsyncDatabase) -> None:
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
             "token_hashes": [hash_token(EINLADUNG_TOKEN)],
-            "erstellt_am": "2026-03-15",
-            "erstellt_von": "admin@frankfurtleague.de",
+            "created_at": "2026-03-15",
+            "created_by": "admin@frankfurtleague.de",
             "widerrufen_am": None,
         }
     )
@@ -106,14 +106,14 @@ async def a_league(database: AsyncDatabase) -> None:
         bewerbung_document(
             BEWERBUNG_OID,
             SAISON_ID,
-            "eingereicht",
+            "submitted",
             kontakte=kontakte_document(
                 ansprechperson=kontaktperson_document("Quillhilde"),
                 stellvertretung=kontaktperson_document("Bramblewick"),
                 trainer=kontaktperson_document("Wigglesworth"),
             ),
-            eingereicht_am="2026-03-10",
-            bestaetigungsfrist="2026-04-10",
+            submitted_at="2026-03-10",
+            confirmation_deadline="2026-04-10",
             schule=neue_schule_document("Neue", "NEX"),
         )
     )
@@ -121,14 +121,14 @@ async def a_league(database: AsyncDatabase) -> None:
         bewerbung_document(
             STEPPED_OUT_OID,
             SAISON_ID,
-            "eingereicht",
+            "submitted",
             kontakte=kontakte_document(
                 ansprechperson=kontaktperson_document("Quintessa"),
                 stellvertretung=kontaktperson_document("Brunhilde"),
                 trainer=kontaktperson_document("Ottokar"),
             ),
-            eingereicht_am="2026-03-10",
-            bestaetigungsfrist="2026-04-10",
+            submitted_at="2026-03-10",
+            confirmation_deadline="2026-04-10",
             schule=neue_schule_document("Ander", "ANX"),
         )
     )

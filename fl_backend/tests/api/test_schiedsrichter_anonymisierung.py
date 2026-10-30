@@ -10,7 +10,7 @@ from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
-from app.api.identitaet.schemas import FLLoeschungResponse
+from app.api.identitaet.schemas import FLErasureResponse
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.schiedsrichter.admin_router import (
     delete_schiedsrichter,
@@ -163,8 +163,8 @@ def referee_document(schiedsrichter_id: ObjectId) -> dict[str, Any]:
         "inactive_since": None,
         # Seeded because the erasure adds no `$set` for any of the three: a row carrying none of
         # them would let a nulling write pass every case below.
-        "bestaetigung": {**compose_bestaetigung(today=MINTED_ON), "token_hashes": [TOKEN_HASHES[schiedsrichter_id]]},
-        "einwilligung": eigene_einwilligung_document(text_version="v1", bestaetigt_am=MINTED_ON, medien=True),
+        "confirmation": {**compose_bestaetigung(today=MINTED_ON), "token_hashes": [TOKEN_HASHES[schiedsrichter_id]]},
+        "einwilligung": eigene_einwilligung_document(text_version="v1", confirmed_at=MINTED_ON, medien=True),
         "geburtsdatum": GEBURTSDATUM,
     }
 
@@ -276,7 +276,7 @@ class TestTheRetirementKeepsTheDayItAlreadyCarries:
 # `find_booking_refusal` judges.
 A_FIXTURE_HELD_BY_THE_OTHER_REFEREE: dict[str, Any] = fixture_document(OTHER_SCHIEDSRICHTER_OID, ARCHIVED_SPIEL_OID, 9)
 
-THE_GHOST = BookedReferee(name=None, inactive_since=GHOST_INACTIVE_SINCE, bestaetigt=False)
+THE_GHOST = BookedReferee(name=None, inactive_since=GHOST_INACTIVE_SINCE, confirmed=False)
 
 
 def booking_refusal(booked: BookedReferee, schiedsrichter_id: ObjectId):
@@ -392,7 +392,7 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
 
 async def loeschen_the_referee(
     database: AsyncDatabase, client: AsyncMongoClient, schiedsrichter_id: ObjectId = SCHIEDSRICHTER_OID
-) -> FLLoeschungResponse:
+) -> FLErasureResponse:
     """The registry's erasure of the address the referee's history left them holding: the erasure is keyed on a mailbox, never on an id."""
 
     return await geloescht(database, client, KONTAKT[schiedsrichter_id]["email"], germany_now=NOW)

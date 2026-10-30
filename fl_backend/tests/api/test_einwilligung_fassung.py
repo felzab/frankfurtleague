@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.einwilligung.public_router import get_fassung
+from app.api.einwilligung.public_router import get_wording
 from app.api.einwilligung.services import find_fassung_refusal
 from app.core.codes import Code
 from app.core.config import API_VERSION
@@ -21,12 +21,12 @@ ANDERE_SEITE = "2026-09-bestaetigungsseite-6"
 
 
 class TestTheLabelAWriteStamps:
-    """`fassung_unzulaessig`: a record cites the words its person was shown, so the label it stamps must name them."""
+    """`wording_not_allowed`: a record cites the words its person was shown, so the label it stamps must name them."""
 
     def test_the_running_label_passes(self):
         """The floor: without it every refusal below would pass on a check refusing everything."""
 
-        assert find_fassung_refusal(seite="bewerbung", genannt={"trainer": LAUFENDE_FASSUNGEN["bewerbung"]}) is None
+        assert find_fassung_refusal(seite="bewerbung", named={"trainer": LAUFENDE_FASSUNGEN["bewerbung"]}) is None
 
     @pytest.mark.parametrize(
         "label",
@@ -37,10 +37,10 @@ class TestTheLabelAWriteStamps:
         ],
     )
     def test_a_new_acceptance_naming_any_other_label_is_refused(self, label: str):
-        refusal = find_fassung_refusal(seite="bewerbung", genannt={"trainer": LAUFENDE_FASSUNGEN["bewerbung"], "ansprechperson": label})
+        refusal = find_fassung_refusal(seite="bewerbung", named={"trainer": LAUFENDE_FASSUNGEN["bewerbung"], "ansprechperson": label})
 
         assert refusal is not None
-        assert refusal.error_code == Code.FASSUNG_UNZULAESSIG
+        assert refusal.error_code == Code.WORDING_NOT_ALLOWED
 
     @pytest.mark.parametrize(
         "held",
@@ -52,23 +52,23 @@ class TestTheLabelAWriteStamps:
     def test_an_unchanged_person_keeps_the_label_they_hold(self, held: str):
         """Whichever page it is a version of: a confirmed seat holds its confirmation page's label, and the save carries that record."""
 
-        assert find_fassung_refusal(seite="bewerbung", genannt={"trainer": held}, gehalten={"trainer": held}) is None
+        assert find_fassung_refusal(seite="bewerbung", named={"trainer": held}, gehalten={"trainer": held}) is None
 
     def test_a_held_label_is_kept_only_where_it_is_held(self):
         """Admitted per place: one seat's held label is no licence for another seat, or for a person handed that seat."""
 
-        refusal = find_fassung_refusal(seite="bewerbung", genannt={"ansprechperson": FRUEHERE}, gehalten={"trainer": FRUEHERE})
+        refusal = find_fassung_refusal(seite="bewerbung", named={"ansprechperson": FRUEHERE}, gehalten={"trainer": FRUEHERE})
 
         assert refusal is not None
-        assert refusal.error_code == Code.FASSUNG_UNZULAESSIG
+        assert refusal.error_code == Code.WORDING_NOT_ALLOWED
 
     def test_a_withdrawal_may_name_any_version_of_its_page_and_nothing_else(self):
         """A page loaded before a deploy may still take a consent back; it may not name another page's words."""
 
-        assert find_fassung_refusal(seite="bewerbung", genannt={"trainer": FRUEHERE}, jede_fassung=True) is None
+        assert find_fassung_refusal(seite="bewerbung", named={"trainer": FRUEHERE}, jede_fassung=True) is None
         for label in (ANDERE_SEITE, "2026-07"):
-            refusal = find_fassung_refusal(seite="bewerbung", genannt={"trainer": label}, jede_fassung=True)
-            assert refusal is not None and refusal.error_code == Code.FASSUNG_UNZULAESSIG, label
+            refusal = find_fassung_refusal(seite="bewerbung", named={"trainer": label}, jede_fassung=True)
+            assert refusal is not None and refusal.error_code == Code.WORDING_NOT_ALLOWED, label
 
 
 def as_registered(label: str) -> dict[str, Any]:
@@ -78,17 +78,17 @@ def as_registered(label: str) -> dict[str, Any]:
     """
 
     fassung = FASSUNGEN[label]
-    texts = (*fassung.absaetze, fassung.schalter, *fassung.bedienelemente.values())
+    texts = (*fassung.absaetze, fassung.switch, *fassung.controls.values())
 
     return {
         "text_version": label,
         "seite": fassung.seite,
-        "gilt_ab": fassung.gilt_ab.isoformat(),
+        "applies_from": fassung.applies_from.isoformat(),
         "absaetze": list(fassung.absaetze),
-        "schalter": fassung.schalter,
-        "bedienelemente": dict(fassung.bedienelemente),
+        "switch": fassung.switch,
+        "controls": dict(fassung.controls),
         "absaetze_nach_schluessel": None if fassung.absaetze_nach_schluessel is None else dict(fassung.absaetze_nach_schluessel),
-        "platzhalter": sorted({slot for text in texts for slot in re.findall(r"\{(\w+)\}", text)}),
+        "placeholder": sorted({slot for text in texts for slot in re.findall(r"\{(\w+)\}", text)}),
     }
 
 
@@ -98,14 +98,14 @@ class TestTheWordsRead:
         """Never the nearest label's words: a record would then claim words its person never read."""
 
         with pytest.raises(DocumentNotFoundError) as missed:
-            asyncio.run(get_fassung(label))
+            asyncio.run(get_wording(label))
 
         assert missed.value.error_code == Code.DOCUMENT_NOT_FOUND
 
     def test_the_slots_are_every_name_the_words_leave_open(self):
-        served = asyncio.run(get_fassung("2026-09-bestaetigungsseite-6")).fassung
+        served = asyncio.run(get_wording("2026-09-bestaetigungsseite-6")).wording
 
-        assert served.platzhalter == ["ablehnen", "datenschutz", "kontakt", "minAlter", "rolle", "saison", "schule", "vorname"]
+        assert served.placeholder == ["ablehnen", "datenschutz", "kontakt", "minAlter", "rolle", "saison", "schule", "vorname"]
 
 
 # Over HTTP, as a caller meets them: the handler cases above skip the response model's
@@ -117,13 +117,13 @@ PREFIX = f"/api/v{API_VERSION}/einwilligung"
 class TestTheReadsOverHttp:
     def test_every_label_is_answered_as_the_registry_holds_it(self):
         for label in FASSUNGEN:
-            response = CLIENT.get(f"{PREFIX}/fassungen/{label}", headers=BASE_AUTH)
+            response = CLIENT.get(f"{PREFIX}/wordings/{label}", headers=BASE_AUTH)
 
             assert response.status_code == HTTPStatus.OK, label
-            assert response.json() == {"fassung": as_registered(label)}, label
+            assert response.json() == {"wording": as_registered(label)}, label
 
     def test_a_label_the_registry_does_not_hold_is_the_not_found_body(self):
-        response = CLIENT.get(f"{PREFIX}/fassungen/2026-07", headers=BASE_AUTH)
+        response = CLIENT.get(f"{PREFIX}/wordings/2026-07", headers=BASE_AUTH)
 
         assert response.status_code == HTTPStatus.NOT_FOUND
         assert response.json()["error_code"] == Code.DOCUMENT_NOT_FOUND
@@ -133,4 +133,4 @@ class TestTheReadsOverHttp:
         response = CLIENT.get(f"{PREFIX}/seiten", headers=BASE_AUTH)
 
         assert response.status_code == HTTPStatus.OK
-        assert response.json() == {"laufende_fassungen": dict(LAUFENDE_FASSUNGEN)}
+        assert response.json() == {"running_wordings": dict(LAUFENDE_FASSUNGEN)}

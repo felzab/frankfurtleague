@@ -215,9 +215,9 @@ class TestAnLoeschungOnRequest:
             refused, geloescht = on_the_administrators_league(mongo_replica_set_url, body)
 
         assert journal_lines(caplog) == [
-            f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} loeschung "
-            f"pseudonym={akteur_pseudonym(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} "
-            f"halter={halter_of(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
+            f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_schluessel)} loeschung "
+            f"pseudonym={akteur_pseudonym(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_schluessel)} "
+            f"halter={halter_of(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_schluessel)}"
         ]
         # The premise last: one commit refused, so the line above is the rerun's alone.
         assert (refused, geloescht) == ([WRITE_CONFLICT, None], 1)
@@ -244,14 +244,14 @@ class TestAnLoeschungOnRequest:
         # The premise first, so a failure names its cause: one commit ran, its answer was lost, and the erasure landed.
         assert (commits, labelled, after) == ([MAX_TIME_EXPIRED], True, {IDENTIFIER: []})
         assert journal_lines(caplog) == [
-            f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} loeschung "
-            f"pseudonym={akteur_pseudonym(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)} "
-            f"halter={halter_of(IDENTIFIER, schluessel=REQUEST_CONFIG.sperrliste_schluessel)}"
+            f"{JOURNAL_TOKEN} {loeschung_journal_hash(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_schluessel)} loeschung "
+            f"pseudonym={akteur_pseudonym(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_schluessel)} "
+            f"halter={halter_of(IDENTIFIER, key=REQUEST_CONFIG.sperrliste_schluessel)}"
         ]
 
 
 # The pupil's own consent page, whose withdrawal is journalled.
-CONSENT_PRESS = f"{V}/spieler/konto/einwilligung"
+CONSENT_PRESS = f"{V}/spieler/account/einwilligung"
 
 
 def _as_app(url: str, app_name: str) -> str:
@@ -318,7 +318,7 @@ class TestAPersonsOwnPress:
 
         refusal, pressed = served(mongo_replica_set_url, steps)
 
-        assert refusal == (409, Code.FASSUNG_UNZULAESSIG, 0, True)
+        assert refusal == (409, Code.WORDING_NOT_ALLOWED, 0, True)
         # The control: the capture reads the line a press that lands leaves.
         assert (pressed, len(journalled(caplog))) == (200, 1)
 
@@ -341,7 +341,7 @@ async def _first_commit_unanswered(
 
 
 # The fields the three sweeps' stopping lines carry beside their code.
-STOPPING_FIELDS = ("spieler_id", "erasure_unanswered", "art", "adresswechsel_id", "unanswered", "clock", "may_stand")
+STOPPING_FIELDS = ("spieler_id", "erasure_unanswered", "art", "address_change_id", "unanswered", "clock", "may_stand")
 
 
 def _stopping_lines(caplog: pytest.LogCaptureFixture) -> list[tuple[str | None, str, dict[str, Any]]]:
@@ -373,7 +373,7 @@ class TestTheSweepsNameACommitTheyCannotRead:
 
         assert commits == [MAX_TIME_EXPIRED]
         assert _stopping_lines(caplog) == [
-            (Code.UNKNOWN_OUTCOME, "identitaet.loeschung_cut", {"spieler_id": str(pupil_numbered(1)), "erasure_unanswered": True})
+            (Code.UNKNOWN_OUTCOME, "identity.erasure_cut", {"spieler_id": str(pupil_numbered(1)), "erasure_unanswered": True})
         ]
 
     def test_the_address_change_sweep_names_the_change_whose_end_went_unanswered(
@@ -391,8 +391,8 @@ class TestTheSweepsNameACommitTheyCannotRead:
         assert _stopping_lines(caplog) == [
             (
                 Code.UNKNOWN_OUTCOME,
-                "adresswechsel.sweep_cut",
-                {"art": "lapsed", "adresswechsel_id": str(change_numbered(1)), "unanswered": "end"},
+                "address_change.sweep_cut",
+                {"art": "lapsed", "address_change_id": str(change_numbered(1)), "unanswered": "end"},
             )
         ]
 
@@ -420,8 +420,10 @@ class TestAConfirmationMintWhoseCommitAnswerIsLost:
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await losing.close()
-            standing = await confirmations.rows(database, geschlossen=None)
-            owed = await database[Collection.POSTAUSGANG].find({"bezug.id": {"$in": [row["_id"] for row in standing]}}, {"art": 1}).to_list()
+            standing = await confirmations.rows(database, closed=None)
+            owed = (
+                await database[Collection.POSTAUSGANG].find({"reference.id": {"$in": [row["_id"] for row in standing]}}, {"art": 1}).to_list()
+            )
 
             return commits.answered, lost.value, standing, owed, await confirmations.a_pass(database, client)
 
@@ -433,13 +435,13 @@ class TestAConfirmationMintWhoseCommitAnswerIsLost:
         assert commits[:2] == [None, MAX_TIME_EXPIRED]
         assert lost.has_error_label(UNKNOWN_COMMIT_RESULT)
         # Each side's fresh row and the referee's, about the moved Ansetzung, each stamped with the mails it owes beside it.
-        assert sorted((row["partei"]["art"], row["ansetzung"]["uhrzeit"], row["angefragt_am"]) for row in standing) == [
+        assert sorted((row["party"]["art"], row["ansetzung"]["uhrzeit"], row["asked_at"]) for row in standing) == [
             ("schiedsrichter", "19:00:00", confirmations.TODAY),
             ("team", "19:00:00", confirmations.TODAY),
             ("team", "19:00:00", confirmations.TODAY),
         ]
-        assert sorted(mail["art"] for mail in owed) == ["spiel_anfrage"] * 6 + ["spiel_einteilung"]
-        assert (nxt.angefragt, nxt.mails) == (0, 0)
+        assert sorted(mail["art"] for mail in owed) == ["spiel_request"] * 6 + ["spiel_einteilung"]
+        assert (nxt.asked, nxt.mails) == (0, 0)
 
 
 # The server's code for a transaction it does not hold, sent without the transient label the server adds, so nothing reruns it.

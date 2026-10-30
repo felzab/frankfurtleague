@@ -27,7 +27,7 @@ from app.api.spielbestaetigungen.services import compose_ansetzung, halter_of
 from app.core.recording import log_stamp
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN, Seite
 from app.shared.einwilligung_nachweis import NACHWEIS, WAHLEN, compose_beleg, compose_geboren
-from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAdresswechselWeg, FLKontaktEingetragenVon
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLAddressChangeWay, FLKontaktEnteredBy
 from app.shared.tokens import hash_token
 from tests.config import build_test_config
 
@@ -54,7 +54,7 @@ EINWILLIGUNG: Final[Mapping[str, Any]] = compose_geboren(
     block={
         "umfang": "kader_oeffentlich",
         "datum": "2026-01-20",
-        "bestaetigt_am": "2026-01-20",
+        "confirmed_at": "2026-01-20",
         "text_version": LAUFENDE_FASSUNGEN["bestaetigung_spieler"],
         "medien": False,
     },
@@ -66,13 +66,13 @@ EINWILLIGUNG: Final[Mapping[str, Any]] = compose_geboren(
 _RULES: Final[Mapping[str, Any]] = {
     "win_points": 3,
     "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 4,
-    "teams_per_group": 4,
+    "qualifiers_per_gruppe": 2,
+    "number_of_gruppen": 4,
+    "teams_per_gruppe": 4,
     "tiebreak_order": "tordifferenz",
     "max_kadergroesse": 18,
     "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
+    "allowed_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
 }
 
 
@@ -159,7 +159,7 @@ def spiel_document(*, spiel_id: Any, saison_id: str, spiel_nr: int, spieltag_id:
     }
 
 
-def spielbestaetigung_document(spiel: Mapping[str, Any], *, partei: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
+def spielbestaetigung_document(spiel: Mapping[str, Any], *, party: Mapping[str, Any], **fields: Any) -> dict[str, Any]:
     """An open, unanswered row as the pass mints it, its snapshot composed from `spiel` by the composer the mint calls.
 
     So its `stand` is the digest of its own values, which a hand-written one never is.
@@ -169,14 +169,14 @@ def spielbestaetigung_document(spiel: Mapping[str, Any], *, partei: Mapping[str,
         "_id": ObjectId(),
         "saison_id": spiel["saison_id"],
         "spiel_id": spiel["_id"],
-        "partei": dict(partei),
+        "party": dict(party),
         "ansetzung": compose_ansetzung(spiel),
         "frist": "2026-04-25",
-        "angefragt_am": None,
-        "erinnert_am": [],
+        "asked_at": None,
+        "reminded_at": [],
         "kontakte": dict.fromkeys(KONTAKT_ROLLEN),
         "antwort": None,
-        "geschlossen": None,
+        "closed": None,
         **fields,
     }
 
@@ -192,13 +192,13 @@ def bericht_document(**fields: Any) -> dict[str, Any]:
         "karten": [{"seite": "team2", "spieler_id": ObjectId(), "minute": "45+2", "farbe": "gelb", "grund": "foulspiel"}],
         "bemerkungen": None,
         "seiten": {"team1": None, "team2": None},
-        "eingereicht_am": am,
-        "eingereicht_von": {"art": "schiedsrichter", "schiedsrichter_id": ObjectId()},
-        "geaendert_am": am,
+        "submitted_at": am,
+        "submitted_by": {"art": "schiedsrichter", "schiedsrichter_id": ObjectId()},
+        "changed_at": am,
         "version": 1,
-        "uebernommen_am": None,
-        "uebernommen_von": None,
-        "uebernommene_version": None,
+        "adopted_at": None,
+        "adopted_by": None,
+        "adopted_version": None,
         **fields,
     }
 
@@ -224,9 +224,9 @@ def kontakt_antwort_document(rolle: str, adresse: str, *, begruendung: str | Non
     """A seat's decline as its link stores it, proposing another date; its holder the digest of `adresse`, the answer's own fold."""
 
     return {
-        "art": "abgelehnt",
+        "art": "declined",
         "am": am,
-        "von": {"art": "kontakt", "rolle": rolle, "halter": halter_of(adresse, schluessel=build_test_config().sperrliste_schluessel)},
+        "von": {"art": "kontakt", "rolle": rolle, "halter": halter_of(adresse, key=build_test_config().sperrliste_schluessel)},
         "vorschlag": {"datum": "2026-04-25", "uhrzeit": "14:00:00"},
         "begruendung": begruendung,
         **fields,
@@ -275,38 +275,38 @@ def bewerbung_document(
     status: str,
     *,
     kontakte: Mapping[str, Any],
-    eingereicht_am: str,
-    bestaetigungsfrist: str | None = None,
+    submitted_at: str,
+    confirmation_deadline: str | None = None,
     team_id: Any = None,
     schule: Mapping[str, Any] | None = None,
     link_prefix: str | None = None,
-    verschickt_am: str | None = None,
+    sent_at: str | None = None,
     **fields: Any,
 ) -> dict[str, Any]:
     """A stored application, its school an existing club by `team_id` or a new one in `schule`.
 
-    Each link is minted from `<link_prefix>-<seat>` on `verschickt_am`, by default the id and the submission day,
+    Each link is minted from `<link_prefix>-<seat>` on `sent_at`, by default the id and the submission day,
     the deadline counted from the mint.
     """
 
     prefix = str(bewerbung_id) if link_prefix is None else link_prefix
-    gemintet = verschickt_am or eingereicht_am
+    gemintet = sent_at or submitted_at
 
     return {
         "_id": bewerbung_id,
         "saison_id": saison_id,
-        "eingereicht_am": eingereicht_am,
+        "submitted_at": submitted_at,
         "status": status,
         "team_id": team_id,
         "schule": None if schule is None else dict(schule),
         "kontakte": dict(kontakte),
-        "trikot": {"vorhandener_satz": "keiner", "wunschfarbe": "rot"},
-        "kader": {"voraussichtliche_groesse": 14, "gute_spieler": 3},
+        "trikot": {"existing_satz": "keiner", "wunschfarbe": "rot"},
+        "kader": {"expected_size": 14, "good_spieler": 3},
         "stufengroesse": 96,
         "wunschgegner": None,
-        "entscheidung": None,
-        "bestaetigungsfrist": bestaetigungsfrist if bestaetigungsfrist is not None else bestaetigungsfrist_from(today=gemintet),
-        "bestaetigungen": minted_bestaetigungen(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=gemintet),
+        "decision": None,
+        "confirmation_deadline": confirmation_deadline if confirmation_deadline is not None else bestaetigungsfrist_from(today=gemintet),
+        "confirmations": minted_bestaetigungen(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=gemintet),
         **fields,
     }
 
@@ -320,17 +320,17 @@ def registrierung_document(
     vorname: str,
     nachname: str,
     token: str,
-    eingereicht_am: str,
+    submitted_at: str,
     frist: str,
     position: str | None = None,
     nummer: str | None = None,
     stufe: str | None = None,
-    bestaetigt: Mapping[str, Any] | None = None,
+    confirmed: Mapping[str, Any] | None = None,
     **fields: Any,
 ) -> dict[str, Any]:
-    """A registration as the submission leaves it and, given `bestaetigt`, as its pupil's own confirmation then does, through their composers.
+    """A registration as the submission leaves it and, given `confirmed`, as its pupil's own confirmation then does, through their composers.
 
-    `token` is the raw link its hash is minted from; `bestaetigt` the confirmation composer's keywords.
+    `token` is the raw link its hash is minted from; `confirmed` the confirmation composer's keywords.
     """
 
     document = {
@@ -338,21 +338,21 @@ def registrierung_document(
         **compose_registrierung(
             saison_id=saison_id,
             team_id=team_id,
-            einladung_id=ObjectId(),
+            invitation_id=ObjectId(),
             vorname=vorname,
             nachname=nachname,
             email=email,
             position=position,
             nummer=nummer,
             stufe=stufe,
-            bestaetigung={**compose_bestaetigung(today=eingereicht_am, frist=frist), "token_hashes": [hash_token(token)]},
-            today=eingereicht_am,
+            confirmation={**compose_bestaetigung(today=submitted_at, frist=frist), "token_hashes": [hash_token(token)]},
+            today=submitted_at,
         ),
-        "idempotenz_schluessel": str(registrierung_id),
-        "idempotenz_fingerabdruck": "f" * 64,
+        "idempotency_key": str(registrierung_id),
+        "idempotency_fingerprint": "f" * 64,
     }
-    if bestaetigt is not None:
-        document.update(compose_confirmation_update(**bestaetigt)["$set"])
+    if confirmed is not None:
+        document.update(compose_confirmation_update(**confirmed)["$set"])
 
     return {**document, **fields}
 
@@ -360,29 +360,29 @@ def registrierung_document(
 def kontaktperson_document(
     vorname: str,
     *,
-    bestaetigt_am: str | None = None,
+    confirmed_at: str | None = None,
     einwilligung: Mapping[str, Any] | None = None,
     am: str | None = None,
-    eingetragen_von: FLKontaktEingetragenVon = "bewerbung",
+    entered_by: FLKontaktEnteredBy = "bewerbung",
     **fields: Any,
 ) -> dict[str, Any]:
-    """One contact seat as its seating stores it, or, given `bestaetigt_am`, as its own person's confirmation left it.
+    """One contact seat as its seating stores it, or, given `confirmed_at`, as its own person's confirmation left it.
 
     `einwilligung` holds the record's keys a case sets itself, its label and choices among them, laid over the seat's own.
     """
 
-    seated = compose_einwilligung(text_version="v3", today="2026-03-20", eingetragen_von=eingetragen_von)
-    if bestaetigt_am is None:
+    seated = compose_einwilligung(text_version="v3", today="2026-03-20", entered_by=entered_by)
+    if confirmed_at is None:
         block = {**seated, **(einwilligung or {})}
-    elif not bestaetigt_am:
+    elif not confirmed_at:
         # A blank stamp, which only a hand edit stores and every reader takes for none: nobody answered.
-        block = {**seated, "bestaetigt_am": bestaetigt_am, **(einwilligung or {})}
+        block = {**seated, "confirmed_at": confirmed_at, **(einwilligung or {})}
     else:
         # As `app/api/bewerbungen/services.py :: compose_confirmation_update` answers the seat: both
         # choices with their evidence, judged against the seat as seated.
-        block = {**seated, "bestaetigt_am": bestaetigt_am, **(einwilligung or {})}
+        block = {**seated, "confirmed_at": confirmed_at, **(einwilligung or {})}
         if NACHWEIS not in block:
-            beleg_am = am if am is not None else bestaetigt_um(bestaetigt_am)
+            beleg_am = am if am is not None else bestaetigt_um(confirmed_at)
             block[NACHWEIS] = {
                 wahl: compose_beleg(gespeichert=seated, wahl=wahl, wert=block[wahl], am=beleg_am, text_version=block["text_version"])
                 for wahl in WAHLEN
@@ -393,17 +393,17 @@ def kontaktperson_document(
         "nachname": f"{vorname}-Mustermann",
         "email": f"{vorname.lower()}@example.com",
         "telefon": "+49 170 1234567",
-        "geburtsdatum": None if bestaetigt_am is None else "1984-05-09",
+        "geburtsdatum": None if confirmed_at is None else "1984-05-09",
         "einwilligung": block,
         **fields,
     }
 
 
-def bestaetigte_kenntnisnahme(*, text_version: str = "v1", datum: str = "2026-01-15", bestaetigt_am: str = "2026-01-16") -> dict[str, Any]:
+def bestaetigte_kenntnisnahme(*, text_version: str = "v1", datum: str = "2026-01-15", confirmed_at: str = "2026-01-16") -> dict[str, Any]:
     """A seat's record as its applicant's seating and then its own person's confirmation left it, for a seat a case spells itself."""
 
     return dict(
-        kontaktperson_document("Kenntnis", bestaetigt_am=bestaetigt_am, einwilligung={"text_version": text_version, "datum": datum})[
+        kontaktperson_document("Kenntnis", confirmed_at=confirmed_at, einwilligung={"text_version": text_version, "datum": datum})[
             "einwilligung"
         ]
     )
@@ -418,12 +418,12 @@ def ban_document(address: str, *, bis: str, **fields: Any) -> dict[str, Any]:
 
     return {
         "_id": ObjectId(),
-        "adresse_hash": adresse_hash(address, schluessel=build_test_config().sperrliste_schluessel),
-        "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
+        "adresse_hash": adresse_hash(address, key=build_test_config().sperrliste_schluessel),
+        "key_version": SPERRLISTE_SCHLUESSEL_VERSION,
         "grund": "Falsches Geburtsdatum bei der Anmeldung",
-        "erstellt_von": "admin@frankfurtleague.de",
-        "erstellt_am": "2026-03-15",
-        "gesperrt_bis_saison_id": bis,
+        "created_by": "admin@frankfurtleague.de",
+        "created_at": "2026-03-15",
+        "barred_until_saison_id": bis,
         **fields,
     }
 
@@ -435,7 +435,7 @@ def saison_spieler_document(spieler_id: Any, saison_id: str, team_id: Any, **fie
         "spieler_id": spieler_id,
         "saison_id": saison_id,
         "team_id": team_id,
-        "ist_nachnominiert": False,
+        "is_nachnominiert": False,
         "rolle": None,
         "stufe": "Q2",
         "position": "Angriff",
@@ -449,21 +449,21 @@ def saison_spieler_document(spieler_id: Any, saison_id: str, team_id: Any, **fie
 # and every label a case asserts are passed at the call.
 
 
-def eigene_einwilligung_document(*, text_version: str, bestaetigt_am: str, am: str | None = None, **fields: Any) -> dict[str, Any]:
+def eigene_einwilligung_document(*, text_version: str, confirmed_at: str, am: str | None = None, **fields: Any) -> dict[str, Any]:
     """A pupil's or a referee's consent as their own confirmation left it, publishing the name and no media.
 
-    Each choice evidenced at `am`, noon of `bestaetigt_am` unless a case names it; `fields` laid over the block.
+    Each choice evidenced at `am`, noon of `confirmed_at` unless a case names it; `fields` laid over the block.
     """
 
     geboren = compose_geboren(
         block={
             "umfang": "kader_oeffentlich",
-            "datum": bestaetigt_am,
-            "bestaetigt_am": bestaetigt_am,
+            "datum": confirmed_at,
+            "confirmed_at": confirmed_at,
             "text_version": text_version,
             "medien": False,
         },
-        am=am if am is not None else bestaetigt_um(bestaetigt_am),
+        am=am if am is not None else bestaetigt_um(confirmed_at),
     )
 
     return {**geboren, **fields}
@@ -488,15 +488,15 @@ def schiedsrichter_document(
 
 
 def kontakte_document(**seats: Any) -> dict[str, Any]:
-    """A block of three seats, each empty unless named, and no seat held twice unless `trainer_ist_zugleich` says so."""
+    """A block of three seats, each empty unless named, and no seat held twice unless `trainer_is_also` says so."""
 
-    return {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_ist_zugleich": None, **seats}
+    return {**dict.fromkeys(KONTAKT_ROLLEN), "trainer_is_also": None, **seats}
 
 
 def registrierung_bestaetigt(
     seite: Seite, *, geburtsdatum: str, today: str, am: str, umfang: str | None = None, medien: bool | None = None
 ) -> dict[str, Any]:
-    """`registrierung_document`'s `bestaetigt` for a pupil's confirmation on `seite`, under that page's running label."""
+    """`registrierung_document`'s `confirmed` for a pupil's confirmation on `seite`, under that page's running label."""
 
     return {
         "geburtsdatum": geburtsdatum,
@@ -514,8 +514,8 @@ def adresswechsel_document(
     email: str,
     token_hash: str | None,
     day: str,
-    weg: FLAdresswechselWeg = "konto",
-    genehmigung: Mapping[str, Any] | None = None,
+    way: FLAddressChangeWay = "account",
+    approval: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """A live change's record as a start inserts it at noon of `day` in Germany, its links as their hand-outs minted them.
 
@@ -525,7 +525,7 @@ def adresswechsel_document(
     started = datetime.fromisoformat(f"{day}T12:00:00").replace(tzinfo=ZoneInfo("Europe/Berlin"))
 
     return {
-        **compose_record(adresse=adresse, email=email, weg=weg, grund=None, genehmigung=genehmigung, now=started),
+        **compose_record(adresse=adresse, email=email, way=way, grund=None, approval=approval, now=started),
         "token_hashes": [] if token_hash is None else [token_hash],
-        "stopp": {"token_hashes": [hash_token(f"stop-{token_hash}")]},
+        "stop": {"token_hashes": [hash_token(f"stop-{token_hash}")]},
     }

@@ -103,7 +103,7 @@ async def get_spieltag_verwaltung(
 
     spieltag_raw = await pull_one_from_db(collection=spieltage_collection, db_filter={"_id": spieltag_id})
 
-    # Its OWN season, as the base read resolves it: `anzahl_spiele` derives from that season's rules.
+    # Its OWN season, as the base read resolves it: `count_spiele` derives from that season's rules.
     _, rules = await pull_saison_id_and_rules(saisons_collection=saisons_collection, saison_id=str(spieltag_raw["saison_id"]))
 
     return FLSpieltageSingleResponse(spieltag=FLSpieltag.model_validate(with_expected_matches(spieltag_raw, rules)))

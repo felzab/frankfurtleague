@@ -63,12 +63,12 @@ def seeded_saison(saison_id: str, status: str) -> dict[str, Any]:
     return saison_document(
         saison_id,
         status,
-        rules=rules_document(qualifiers_per_group=QUALIFIERS, number_of_groups=GROUPS, teams_per_group=TEAMS_PER_GROUP),
+        rules=rules_document(qualifiers_per_gruppe=QUALIFIERS, number_of_gruppen=GROUPS, teams_per_gruppe=TEAMS_PER_GROUP),
     )
 
 
 def entry_rows(saison_id: str) -> list[dict[str, Any]]:
-    """Every offered group filled to `teams_per_group`, which is what `spielplan_gruppen_off_rules` asks of a season about to be drawn."""
+    """Every offered group filled to `teams_per_gruppe`, which is what `spielplan_gruppen_off_rules` asks of a season about to be drawn."""
 
     return [
         saison_team_document(

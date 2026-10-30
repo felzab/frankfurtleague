@@ -20,7 +20,7 @@ from datetime import datetime
 from typing import Any, Final, Literal
 
 NACHWEIS: Final = "nachweis"
-ERTEILT_ZUVOR: Final = "erteilt_zuvor"
+ERTEILT_ZUVOR: Final = "given_before"
 
 FLEinwilligungWahl = Literal["umfang", "medien"]
 WAHLEN: Final[tuple[FLEinwilligungWahl, ...]] = ("umfang", "medien")
@@ -132,7 +132,7 @@ def compose_erneuert(*, pfad: str, gespeichert: Mapping[str, Any], erneuert: Map
 
     # The day and the label, `datum` with them, only from a confirmation no older than the stored one:
     # an older registration admitted after a newer one would date and name the record backwards.
-    neu_am, alt_am = erneuert.get("bestaetigt_am"), gespeichert.get("bestaetigt_am")
+    neu_am, alt_am = erneuert.get("confirmed_at"), gespeichert.get("confirmed_at")
     juenger = not (isinstance(alt_am, str) and alt_am) or (isinstance(neu_am, str) and neu_am >= alt_am)
     gesetzt: dict[str, Any] = (
         {f"{pfad}.{field}": value for field, value in erneuert.items() if field not in (*WAHLEN, NACHWEIS)} if juenger else {}

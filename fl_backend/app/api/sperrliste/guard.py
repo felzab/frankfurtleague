@@ -48,7 +48,7 @@ def person_actor_binder(funktion: AktorFunktion) -> Callable[..., AsyncIterator[
     ) -> Attribution[str]:
         # What the handler authorises against, so one mailbox's two spellings cannot hold two answers.
         identifier = sign_in_identifier(actor.email)
-        pseudonym = akteur_pseudonym(identifier, schluessel=config.sperrliste_schluessel)
+        pseudonym = akteur_pseudonym(identifier, key=config.sperrliste_schluessel)
 
         return Attribution(PersonActor(pseudonym=pseudonym, funktion=funktion), identifier)
 

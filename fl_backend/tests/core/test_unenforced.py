@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 from bson import ObjectId
 
-from app.api.aktionen.schemas import FLAktion, FLAktionMitStand
+from app.api.aktionen.schemas import FLActionLogEntry, FLActionLogEntryWithStand
 from app.api.saisons.admin_router import _spieltag_clashes
 from app.api.saisons.schedule import schedule_for
 from app.api.saisons.schemas import FLSaison, FLSaisonRules
@@ -121,7 +121,7 @@ def filled_bracket_slot(spiel: PayloadFactory) -> list[FLSpielJoinedInternal]:
                 team1=_joined_side(ADLER, "Adler", disqualified_from=EXIT_BEFORE_THE_FIXTURE, tore=2),
                 team2=_joined_side(BIEBER, "Bieber", tore=1),
                 ergebnis="2:1",
-                ansetzung_bestaetigt=None,
+                ansetzung_confirmed=None,
             ),
             spiel(
                 _id=MATCH_ID.format(SLOT_NR),
@@ -134,7 +134,7 @@ def filled_bracket_slot(spiel: PayloadFactory) -> list[FLSpielJoinedInternal]:
                 # and blur which slot it names.
                 team2=None,
                 ergebnis=None,
-                ansetzung_bestaetigt=None,
+                ansetzung_confirmed=None,
             ),
         ]
     )
@@ -174,7 +174,7 @@ def _resubmit(season_docs: list[dict[str, Any]], nr: int) -> FLPatchSpielDataPay
 
 
 def _rules(**overrides: Any) -> FLSaisonRules:
-    return FLSaisonRules.model_validate(rules_document(**{"max_kadergroesse": 50, "erlaubte_stufen": ["E1", "E2", "Q1", "Q2"], **overrides}))
+    return FLSaisonRules.model_validate(rules_document(**{"max_kadergroesse": 50, "allowed_stufen": ["E1", "E2", "Q1", "Q2"], **overrides}))
 
 
 def _on_create(proposed: FLSaisonRules):
@@ -234,7 +234,7 @@ class TestASharedSquadNumber:
             {"nummer": None, **live},
         ]
 
-        assert [row["nummer_doppelt"] for row in mark_shared_nummern(rows)] == [True, True, False, False, False, False, False, False]
+        assert [row["nummer_double"] for row in mark_shared_nummern(rows)] == [True, True, False, False, False, False, False, False]
 
 
 class TestABracketSlotHeldByADisqualifiedClub:
@@ -439,15 +439,15 @@ class TestNoBracketFaultIsStored:
 
 
 class TestAGroupPhaseEveryClubLeaves:
-    """That `qualifiers_per_group` is bounded from above alone, so a seeding-only group stage is legal."""
+    """That `qualifiers_per_gruppe` is bounded from above alone, so a seeding-only group stage is legal."""
 
     def test_a_group_qualifying_every_club_it_holds_is_permitted(self):
-        every_club = _rules(number_of_groups=4, teams_per_group=2, qualifiers_per_group=2)
+        every_club = _rules(number_of_gruppen=4, teams_per_gruppe=2, qualifiers_per_gruppe=2)
 
         assert _on_create(every_club) is None
 
     def test_qualifying_more_than_the_group_holds_is_what_refuses(self):
-        too_many = _rules(number_of_groups=4, teams_per_group=2, qualifiers_per_group=4)
+        too_many = _rules(number_of_gruppen=4, teams_per_gruppe=2, qualifiers_per_gruppe=4)
 
         assert _on_create(too_many) is not None
 
@@ -558,12 +558,12 @@ class TestAStoredPreImageIsNeverRevalidated:
     def test_the_stored_image_is_typed_as_data(self):
         """Two arms because a removal takes a set, and neither names a field of any collection."""
 
-        assert FLAktionMitStand.model_fields["before"].annotation == dict[str, Any] | list[dict[str, Any]] | None
+        assert FLActionLogEntryWithStand.model_fields["before"].annotation == dict[str, Any] | list[dict[str, Any]] | None
 
     def test_the_list_model_carries_no_image_at_all(self):
         """The other half of the containment: the page-sized read cannot serve what it does not declare."""
 
-        assert "before" not in FLAktion.model_fields
+        assert "before" not in FLActionLogEntry.model_fields
 
 
 class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
@@ -583,7 +583,7 @@ class TestAPhaseDatedAgainstTheOrderItIsPlayedIn:
     def test_a_knockout_phase_is_drawn_with_one_matchday(self):
         """One matchday makes no pair to order, which is what leaves the rule inert everywhere but the group phase."""
 
-        counts = {entry.phase: entry.matchdays for entry in schedule_for(_rules())}
+        counts = {entry.phase: entry.spieltage for entry in schedule_for(_rules())}
         knockout = {phase: matchdays for phase, matchdays in counts.items() if phase != "gruppenphase"}
 
         assert counts["gruppenphase"] > 1

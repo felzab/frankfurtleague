@@ -31,13 +31,13 @@ def rules_payload(
     return {
         "win_points": win,
         "draw_points": draw,
-        "qualifiers_per_group": qualifiers,
-        "number_of_groups": groups,
-        "teams_per_group": per_group,
+        "qualifiers_per_gruppe": qualifiers,
+        "number_of_gruppen": groups,
+        "teams_per_gruppe": per_group,
         "tiebreak_order": tiebreak,
         "max_kadergroesse": kader,
         "forfeit_ergebnis": {"sieger_tore": forfeit[0], "verlierer_tore": forfeit[1]},
-        "erlaubte_stufen": ["E1", "E2", "Q1", "Q2"],
+        "allowed_stufen": ["E1", "E2", "Q1", "Q2"],
     }
 
 
@@ -82,7 +82,7 @@ def judge(
 FROZEN_CASES: tuple[tuple[str, dict[str, Any]], ...] = (
     ("win_points", {"win": 2}),
     ("draw_points", {"draw": 0}),
-    ("qualifiers_per_group", {"qualifiers": 1}),
+    ("qualifiers_per_gruppe", {"qualifiers": 1}),
     ("tiebreak_order", {"tiebreak": "direkter_vergleich"}),
 )
 
@@ -438,7 +438,7 @@ class TestAStartedSeasonFreezes:
     def test_permits_narrowing_erlaubte_stufen_on_a_past_season(self):
         """It bounds what a form offers, never what a stored squad row holds."""
 
-        narrowed = FLSaisonRules.model_validate({**rules().model_dump(), "erlaubte_stufen": ["Q1"]})
+        narrowed = FLSaisonRules.model_validate({**rules().model_dump(), "allowed_stufen": ["Q1"]})
 
         assert judge(status="past", stored=rules(), proposed=narrowed) is None
 
@@ -466,11 +466,11 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
     @pytest.mark.parametrize(
         ("label", "changed"),
         [
-            ("number_of_groups", {"groups": 2, "qualifiers": 4}),
-            ("teams_per_group", {"per_group": 6}),
-            ("qualifiers_per_group", {"qualifiers": 4}),
+            ("number_of_gruppen", {"groups": 2, "qualifiers": 4}),
+            ("teams_per_gruppe", {"per_group": 6}),
+            ("qualifiers_per_gruppe", {"qualifiers": 4}),
         ],
-        ids=["number_of_groups", "teams_per_group", "qualifiers_per_group"],
+        ids=["number_of_gruppen", "teams_per_gruppe", "qualifiers_per_gruppe"],
     )
     def test_a_change_to_any_of_them_is_refused(self, label: str, changed: dict[str, Any]):
         """Each case leaves the bracket legal, so nothing but this rule can be answering."""
@@ -483,7 +483,7 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
     def test_widening_a_group_is_refused_though_no_bound_is_crossed(self):
         """The case nothing else reaches: `rules_spieltag_over_its_phase` refuses a narrowing alone.
 
-        `anzahl_spiele` is derived, so a wider group leaves every matchday short of matches nobody
+        `count_spiele` is derived, so a wider group leaves every matchday short of matches nobody
         drew.
         """
 
@@ -553,7 +553,7 @@ class TestADrawnSeasonKeepsTheShapeItWasDrawnFrom:
         assert refusal.error_code == Code.RULES_SHAPE_AFTER_SPIELPLAN
 
     def test_a_finished_season_is_reported_as_finished_first(self):
-        """Both freezes cover `qualifiers_per_group`, and `rules_saison_started` also explains why the points beside it will not move."""
+        """Both freezes cover `qualifiers_per_gruppe`, and `rules_saison_started` also explains why the points beside it will not move."""
 
         refusal = judge(status="past", stored=rules(), proposed=rules(qualifiers=1), drawn=DRAWN_FIXTURES)
 
@@ -696,7 +696,7 @@ RANGE_REFUSALS = frozenset({"greater_than_equal", "less_than_equal"})
 
 
 class TestAGroupHoldsBetweenTwoAndSixteenTeams:
-    """`teams_per_group` is bounded by the model, not by `find_rules_refusal`, so its range is pinned where it is stated.
+    """`teams_per_gruppe` is bounded by the model, not by `find_rules_refusal`, so its range is pinned where it is stated.
 
     Why each end sits where it does is `app/api/saisons/schemas.py :: FLSaisonRules`.
     """
@@ -705,14 +705,14 @@ class TestAGroupHoldsBetweenTwoAndSixteenTeams:
     def test_both_ends_of_the_range_are_accepted(self, per_group: int):
         """Inclusive at both ends, which is what makes the two refusals below the first values outside it."""
 
-        assert FLSaisonRules.model_validate(rules_payload(per_group=per_group)).teams_per_group == per_group
+        assert FLSaisonRules.model_validate(rules_payload(per_group=per_group)).teams_per_gruppe == per_group
 
     @pytest.mark.parametrize("per_group", [1, 17], ids=["one under", "one over"])
     def test_a_size_outside_the_range_is_refused(self, per_group: int, assert_rejects):
         """The refusal has to be about the RANGE: every other key of the payload is present and valid, so nothing else can answer for it."""
 
-        error = assert_rejects(FLSaisonRules, rules_payload(per_group=per_group), "teams_per_group")
+        error = assert_rejects(FLSaisonRules, rules_payload(per_group=per_group), "teams_per_gruppe")
 
-        refused_for = {entry["type"] for entry in error.errors() if entry["loc"] and entry["loc"][-1] == "teams_per_group"}
+        refused_for = {entry["type"] for entry in error.errors() if entry["loc"] and entry["loc"][-1] == "teams_per_gruppe"}
 
         assert refused_for & RANGE_REFUSALS, f"teams_per_group refused {per_group} for {sorted(refused_for)} rather than its range"

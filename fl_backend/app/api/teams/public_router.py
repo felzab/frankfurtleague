@@ -78,7 +78,7 @@ async def get_teams(
     return FLTeamsGroupedResponse(
         gruppen=build_gruppen(teams=teams, spiele=spiele, rules=saison_rules),
         # Beside the table it applies to: a separate request could draw it from another season.
-        qualifiers_per_group=saison_rules.qualifiers_per_group,
+        qualifiers_per_gruppe=saison_rules.qualifiers_per_gruppe,
     )
 
 

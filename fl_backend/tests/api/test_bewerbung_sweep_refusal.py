@@ -17,7 +17,7 @@ from app.api.bewerbungen.services import (
     vorname_of,
 )
 from app.api.bewerbungen.system_router import BLOCKS_CLEARED_PER_PASS, REMINDERS_PER_PASS
-from app.api.postausgang.schemas import FLPostausgangLage, FLPostausgangZustellStand, FLPostausgangZustellung
+from app.api.postausgang.schemas import FLOutboxDelivery, FLOutboxDeliveryStand, FLOutboxState
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.shared.schemas.bounds import BEWERBUNG_ERINNERUNG_TAGE
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -41,26 +41,26 @@ def kontakte(**overrides: Any) -> dict[str, Any]:
         "trainer": kontaktperson_document("Quillhilde"),
         "ansprechperson": kontaktperson_document("Ansgar"),
         "stellvertretung": kontaktperson_document("Stellan"),
-        "trainer_ist_zugleich": None,
+        "trainer_is_also": None,
         **overrides,
     }
 
 
-def bestaetigungen(*, verschickt_am: str = MAILED_ON_THE_MARK, **entries: Any) -> dict[str, Any]:
+def bestaetigungen(*, sent_at: str = MAILED_ON_THE_MARK, **entries: Any) -> dict[str, Any]:
     """Three live entries mailed on one day, any of them replaced by a case's own."""
 
-    return {**minted_bestaetigungen(hashes=HASHES, today=verschickt_am), **entries}
+    return {**minted_bestaetigungen(hashes=HASHES, today=sent_at), **entries}
 
 
 APPLICATION_ID = "bewerbung"
 
 
-def refusing(seat: str, *, stand: str = "unzustellbar") -> set[str]:
+def refusing(seat: str, *, stand: str = "undeliverable") -> set[str]:
     """The seats whose last mail did not arrive, the provider having reported `stand` for the last mail to `seat`."""
 
-    lage = FLPostausgangLage(
-        stand="gesendet",
-        zustellung=FLPostausgangZustellung(stand=cast(FLPostausgangZustellStand, stand), grund=None, am=datetime(2026, 3, 29, tzinfo=UTC)),
+    lage = FLOutboxState(
+        stand="sent",
+        delivery=FLOutboxDelivery(stand=cast(FLOutboxDeliveryStand, stand), grund=None, am=datetime(2026, 3, 29, tzinfo=UTC)),
     )
 
     return unerreichbare_seats(row=application(), lagen={(APPLICATION_ID, seat): lage})
@@ -69,7 +69,7 @@ def refusing(seat: str, *, stand: str = "unzustellbar") -> set[str]:
 def never_sent(seat: str) -> set[str]:
     """The same, for a mail the drain gave up on before any provider saw it."""
 
-    return unerreichbare_seats(row=application(), lagen={(APPLICATION_ID, seat): FLPostausgangLage(stand="aufgegeben", zustellung=None)})
+    return unerreichbare_seats(row=application(), lagen={(APPLICATION_ID, seat): FLOutboxState(stand="abandoned", delivery=None)})
 
 
 def application(**overrides: Any) -> dict[str, Any]:
@@ -77,14 +77,14 @@ def application(**overrides: Any) -> dict[str, Any]:
 
     return {
         "_id": APPLICATION_ID,
-        "status": "eingereicht",
+        "status": "submitted",
         "saison_id": "2026",
         "schule": {"team_name": "Zorbanax"},
         "team_id": None,
         "kontakte": kontakte(),
-        "bestaetigungsfrist": "2026-04-12",
-        "bestaetigungen": bestaetigungen(),
-        "entscheidung": None,
+        "confirmation_deadline": "2026-04-12",
+        "confirmations": bestaetigungen(),
+        "decision": None,
         **overrides,
     }
 
@@ -113,31 +113,31 @@ class TestTheReminderMark:
     """
 
     @pytest.mark.parametrize(
-        ("verschickt_am", "due"),
+        ("sent_at", "due"),
         [
             pytest.param(MAILED_A_DAY_SHORT, False, id="two days ago"),
             pytest.param(MAILED_ON_THE_MARK, True, id="three days ago, to the day"),
             pytest.param(MAILED_A_DAY_PAST, True, id="four days ago"),
         ],
     )
-    def test_each_boundary_falls_where_the_bound_says(self, verschickt_am: str, due: bool):
-        block = bestaetigungen(verschickt_am=verschickt_am)
+    def test_each_boundary_falls_where_the_bound_says(self, sent_at: str, due: bool):
+        block = bestaetigungen(sent_at=sent_at)
 
-        assert seat_reminder_is_due(kontakte=kontakte(), bestaetigungen=block, seat="trainer", today=TODAY, unerreichbar=False) == due
+        assert seat_reminder_is_due(kontakte=kontakte(), confirmations=block, seat="trainer", today=TODAY, unerreichbar=False) == due
         assert BEWERBUNG_ERINNERUNG_TAGE == 3
 
     @pytest.mark.parametrize(
         ("kontakte_block", "bookkeeping", "why"),
         [
             pytest.param(
-                kontakte(trainer=kontaktperson_document("Quillhilde", bestaetigt_am=YESTERDAY)), bestaetigungen(), "confirmed", id="confirmed"
+                kontakte(trainer=kontaktperson_document("Quillhilde", confirmed_at=YESTERDAY)), bestaetigungen(), "confirmed", id="confirmed"
             ),
             pytest.param(
-                kontakte(), bestaetigungen(trainer={**bestaetigungen()["trainer"], "abgelehnt_am": YESTERDAY}), "declined", id="declined"
+                kontakte(), bestaetigungen(trainer={**bestaetigungen()["trainer"], "declined_at": YESTERDAY}), "declined", id="declined"
             ),
             pytest.param(
                 kontakte(),
-                bestaetigungen(trainer={**bestaetigungen()["trainer"], "erinnert_am": YESTERDAY}),
+                bestaetigungen(trainer={**bestaetigungen()["trainer"], "reminded_at": YESTERDAY}),
                 "reminded once",
                 id="reminded once",
             ),
@@ -147,23 +147,23 @@ class TestTheReminderMark:
     def test_a_seat_that_has_spoken_been_reminded_or_been_emptied_is_not_reminded(self, kontakte_block: Any, bookkeeping: Any, why: str):
         """One reminder per seat: whatever the mail did after the stamp, the seat is never reminded twice."""
 
-        assert not seat_reminder_is_due(kontakte=kontakte_block, bestaetigungen=bookkeeping, seat="trainer", today=TODAY, unerreichbar=False), (
+        assert not seat_reminder_is_due(kontakte=kontakte_block, confirmations=bookkeeping, seat="trainer", today=TODAY, unerreichbar=False), (
             why
         )
 
     def test_a_re_sent_seat_reaches_its_own_mark_later(self):
-        """A re-send moves `verschickt_am`, so that seat is reminded on its own day while the others go now."""
+        """A re-send moves `sent_at`, so that seat is reminded on its own day while the others go now."""
 
-        block = bestaetigungen(stellvertretung={**bestaetigungen()["stellvertretung"], "verschickt_am": TODAY})
+        block = bestaetigungen(stellvertretung={**bestaetigungen()["stellvertretung"], "sent_at": TODAY})
 
-        assert reminder_seats(bewerbung_raw=application(bestaetigungen=block), today=TODAY, unerreichbar=()) == ["trainer", "ansprechperson"]
+        assert reminder_seats(bewerbung_raw=application(confirmations=block), today=TODAY, unerreichbar=()) == ["trainer", "ansprechperson"]
 
     @pytest.mark.parametrize(
         "stored",
         [
-            pytest.param(application(bestaetigungsfrist=YESTERDAY), id="past the deadline"),
-            pytest.param(application(status="abgelehnt"), id="declined by the triage"),
-            pytest.param(application(status="angenommen"), id="accepted"),
+            pytest.param(application(confirmation_deadline=YESTERDAY), id="past the deadline"),
+            pytest.param(application(status="declined"), id="declined by the triage"),
+            pytest.param(application(status="accepted"), id="accepted"),
         ],
     )
     def test_a_link_that_is_over_is_reminded_of_nothing(self, stored: Mapping[str, Any]):
@@ -174,7 +174,7 @@ class TestTheReminderMark:
 
     # Spelled out rather than read off the outbox's set, so a state the set loses fails here: a person who reported the
     # first mail as spam is never mailed again.
-    @pytest.mark.parametrize("stand", ["beschwerde", "unterdrueckt", "unzustellbar"])
+    @pytest.mark.parametrize("stand", ["complaint", "suppressed", "undeliverable"])
     def test_a_seat_the_provider_refuses_is_not_chased(self, stand: str):
         """The one reminder a seat gets is spent on nobody where the address is already known to reject it."""
 
@@ -189,7 +189,7 @@ class TestTheReminderMark:
             "stellvertretung",
         ]
 
-    @pytest.mark.parametrize("stand", ["zugestellt", "verzoegert"])
+    @pytest.mark.parametrize("stand", ["delivered", "delayed"])
     def test_a_seat_a_later_message_may_still_reach_is_chased(self, stand: str):
         """A delayed message still arrives, and a delivered one arrived: neither is a reason to skip the chase."""
 
@@ -198,8 +198,8 @@ class TestTheReminderMark:
     def test_a_trainer_who_is_another_seats_person_is_judged_by_that_seats_mail(self):
         """One mail went to both seats, read by the seat the Trainer mirrors."""
 
-        paired = application(kontakte=kontakte(trainer_ist_zugleich="ansprechperson"))
-        lage = FLPostausgangLage(stand="aufgegeben", zustellung=None)
+        paired = application(kontakte=kontakte(trainer_is_also="ansprechperson"))
+        lage = FLOutboxState(stand="abandoned", delivery=None)
 
         assert unerreichbare_seats(row=paired, lagen={(APPLICATION_ID, "ansprechperson"): lage}) == {"trainer", "ansprechperson"}
 
@@ -211,9 +211,7 @@ class TestOneMessagePerMailbox:
     """
 
     def test_one_person_holding_two_seats_gets_one_message_with_both(self):
-        block = kontakte(
-            trainer=kontaktperson_document("Ida"), ansprechperson=kontaktperson_document("Ida"), trainer_ist_zugleich="ansprechperson"
-        )
+        block = kontakte(trainer=kontaktperson_document("Ida"), ansprechperson=kontaktperson_document("Ida"), trainer_is_also="ansprechperson")
 
         assert group_seats_by_mailbox(kontakte=block, seats=KONTAKT_ROLLEN) == [
             ("ida@example.com", ["trainer", "ansprechperson"]),
@@ -229,7 +227,7 @@ class TestOneMessagePerMailbox:
 
 class TestTheFourteenDayClock:
     @pytest.mark.parametrize(
-        ("bestaetigungsfrist", "due"),
+        ("confirmation_deadline", "due"),
         [
             pytest.param(TOMORROW, False, id="the day before the deadline"),
             pytest.param(TODAY, False, id="the deadline's own day, when the link still answers"),
@@ -237,26 +235,28 @@ class TestTheFourteenDayClock:
             pytest.param(None, False, id="no deadline recorded"),
         ],
     )
-    def test_each_boundary_falls_where_the_bound_says(self, bestaetigungsfrist: str | None, due: bool):
-        assert deletion_is_due(bewerbung_raw=application(bestaetigungsfrist=bestaetigungsfrist), today=TODAY, unzustellbar=False) == due
+    def test_each_boundary_falls_where_the_bound_says(self, confirmation_deadline: str | None, due: bool):
+        assert deletion_is_due(bewerbung_raw=application(confirmation_deadline=confirmation_deadline), today=TODAY, undeliverable=False) == due
 
     def test_an_application_every_seat_confirmed_waits_for_the_triage_instead(self):
-        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), bestaetigt_am=YESTERDAY) for seat in KONTAKT_ROLLEN})
+        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), confirmed_at=YESTERDAY) for seat in KONTAKT_ROLLEN})
 
-        assert not deletion_is_due(bewerbung_raw=application(bestaetigungsfrist=YESTERDAY, kontakte=stamped), today=TODAY, unzustellbar=False)
+        assert not deletion_is_due(
+            bewerbung_raw=application(confirmation_deadline=YESTERDAY, kontakte=stamped), today=TODAY, undeliverable=False
+        )
 
     @pytest.mark.parametrize("emptied", ["trainer", "ansprechperson"])
     def test_an_geloescht_or_declined_seat_counts_as_outstanding(self, emptied: str):
         """The whole clock's reach: such an application can never complete, so this is the only way it leaves."""
 
-        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), bestaetigt_am=YESTERDAY) for seat in KONTAKT_ROLLEN})
+        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), confirmed_at=YESTERDAY) for seat in KONTAKT_ROLLEN})
         stamped[emptied] = None
 
-        assert deletion_is_due(bewerbung_raw=application(bestaetigungsfrist=YESTERDAY, kontakte=stamped), today=TODAY, unzustellbar=False)
+        assert deletion_is_due(bewerbung_raw=application(confirmation_deadline=YESTERDAY, kontakte=stamped), today=TODAY, undeliverable=False)
 
-    @pytest.mark.parametrize("status", ["abgelehnt", "angenommen"])
+    @pytest.mark.parametrize("status", ["declined", "accepted"])
     def test_a_decided_application_is_another_clocks(self, status: str):
-        assert not deletion_is_due(bewerbung_raw=application(status=status, bestaetigungsfrist=YESTERDAY), today=TODAY, unzustellbar=False)
+        assert not deletion_is_due(bewerbung_raw=application(status=status, confirmation_deadline=YESTERDAY), today=TODAY, undeliverable=False)
 
 
 class TestAnApplicationWhoseNoticeCannotArrive:
@@ -267,9 +267,9 @@ class TestAnApplicationWhoseNoticeCannotArrive:
     """
 
     def test_a_held_ansprechperson_holds_the_application(self):
-        assert not deletion_is_due(bewerbung_raw=application(bestaetigungsfrist=YESTERDAY), today=TODAY, unzustellbar=True)
+        assert not deletion_is_due(bewerbung_raw=application(confirmation_deadline=YESTERDAY), today=TODAY, undeliverable=True)
 
-    @pytest.mark.parametrize("stand", ["beschwerde", "unterdrueckt", "unzustellbar"])
+    @pytest.mark.parametrize("stand", ["complaint", "suppressed", "undeliverable"])
     def test_each_refusal_of_the_submitters_mail_is_one_the_router_holds_on(self, stand: str):
         assert "ansprechperson" in refusing("ansprechperson", stand=stand)
 
@@ -282,24 +282,24 @@ class TestAnApplicationWhoseNoticeCannotArrive:
 
 class TestTheOneMonthClock:
     @pytest.mark.parametrize(
-        ("getroffen_am", "due"),
+        ("made_at", "due"),
         [
             pytest.param("2026-03-02", False, id="a day short of the month"),
             pytest.param("2026-03-01", True, id="the month, to the day"),
             pytest.param("2026-02-15", True, id="past the month"),
         ],
     )
-    def test_each_boundary_falls_a_calendar_month_after_the_decision(self, getroffen_am: str, due: bool):
-        declined = application(status="abgelehnt", entscheidung={"getroffen_am": getroffen_am, "von": "admin", "grund": "kein Platz"})
+    def test_each_boundary_falls_a_calendar_month_after_the_decision(self, made_at: str, due: bool):
+        declined = application(status="declined", decision={"made_at": made_at, "von": "admin", "grund": "kein Platz"})
 
         assert decline_loeschung_is_due(bewerbung_raw=declined, today=TODAY) == due
 
-    @pytest.mark.parametrize("status", ["eingereicht", "angenommen"])
+    @pytest.mark.parametrize("status", ["submitted", "accepted"])
     def test_only_a_declined_application_is_on_this_clock(self, status: str):
-        assert not decline_loeschung_is_due(bewerbung_raw=application(status=status, entscheidung={"getroffen_am": "2020-01-01"}), today=TODAY)
+        assert not decline_loeschung_is_due(bewerbung_raw=application(status=status, decision={"made_at": "2020-01-01"}), today=TODAY)
 
     def test_a_decision_with_no_day_is_never_due(self):
-        assert not decline_loeschung_is_due(bewerbung_raw=application(status="abgelehnt", entscheidung=None), today=TODAY)
+        assert not decline_loeschung_is_due(bewerbung_raw=application(status="declined", decision=None), today=TODAY)
 
 
 class TestWhatTheNoticesNeed:

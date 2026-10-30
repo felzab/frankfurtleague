@@ -279,7 +279,7 @@ class TestEinwilligung:
 
         assert einwilligung is not None and einwilligung.umfang == "kader_oeffentlich"
 
-    @pytest.mark.parametrize("field", ["umfang", "datum", "bestaetigt_am", "text_version", "medien", "nachweis"])
+    @pytest.mark.parametrize("field", ["umfang", "datum", "confirmed_at", "text_version", "medien", "nachweis"])
     def test_requires_every_key(self, einwilligung, field, assert_rejects):
         """The keys in the validator's `required` tuple, so a model accepting one fewer would read back a row the database refuses to store."""
 
@@ -344,7 +344,7 @@ class TestTheConsentRecordAgainstTheDatabasesOwnValidator:
 
         stored = self._written(mongo_url, einwilligung(text_version="liga-2026-03", medien=True))
         parsed = FLSpielerWithMemberships.model_validate(
-            {**stored, "adresswechsel_id": None, "adresswechsel_einsehbar_verwehrt": None, "memberships": []}
+            {**stored, "address_change_id": None, "address_change_viewable_denied": None, "memberships": []}
         )
 
         assert parsed.einwilligung is not None
@@ -368,7 +368,7 @@ class TestSaisonSpielerRow:
             "spieler_id",
             "saison_id",
             "team_id",
-            "ist_nachnominiert",
+            "is_nachnominiert",
             "rolle",
             "stufe",
             "position",
@@ -447,7 +447,7 @@ class TestASquadNumberOnTheWritePath:
 
 class TestSpieltag:
     def test_accepts_a_valid_spieltag(self, spieltag):
-        assert FLSpieltag.model_validate(spieltag()).anzahl_spiele == 4
+        assert FLSpieltag.model_validate(spieltag()).count_spiele == 4
 
     def test_carries_no_name(self):
         """A stored name restates a composed fact with nothing holding the two consistent."""
@@ -457,10 +457,10 @@ class TestSpieltag:
     def test_rejects_a_negative_match_count(self, spieltag):
         """`ge=0` rather than `gt=0`: the count is derived from the season's rules, and zero is a real answer."""
         with pytest.raises(ValidationError):
-            FLSpieltag.model_validate(spieltag(anzahl_spiele=-1))
+            FLSpieltag.model_validate(spieltag(count_spiele=-1))
 
     def test_accepts_a_match_count_of_zero(self, spieltag):
-        assert FLSpieltag.model_validate(spieltag(anzahl_spiele=0)).anzahl_spiele == 0
+        assert FLSpieltag.model_validate(spieltag(count_spiele=0)).count_spiele == 0
 
     def test_carries_its_stored_position(self, spieltag):
         assert FLSpieltag.model_validate(spieltag(position=3)).position == 3
@@ -514,32 +514,32 @@ class TestSaison:
 
         assert FLSaison.model_validate(saison(rules=rules)).rules.draw_points == 0
 
-    # `erlaubte_stufen` is a subset of the league's vocabulary, never a redefinition and never empty.
+    # `allowed_stufen` is a subset of the league's vocabulary, never a redefinition and never empty.
     def test_rejects_a_stufe_the_league_does_not_have(self, saison):
         """Not `assert_rejects`: it reads the last element of the error location, and a rejected list item ends with the index."""
-        rules = {**saison()["rules"], "erlaubte_stufen": ["Q1", "10"]}
+        rules = {**saison()["rules"], "allowed_stufen": ["Q1", "10"]}
 
         with pytest.raises(ValidationError) as failure:
             FLSaison.model_validate(saison(rules=rules))
 
-        assert any("erlaubte_stufen" in error["loc"] for error in failure.value.errors())
+        assert any("allowed_stufen" in error["loc"] for error in failure.value.errors())
 
     def test_rejects_an_empty_stufen_list(self, saison, assert_rejects):
         """A season offering no level at all would make every squad entry unfillable."""
-        rules = {**saison()["rules"], "erlaubte_stufen": []}
+        rules = {**saison()["rules"], "allowed_stufen": []}
 
-        assert_rejects(FLSaison, saison(rules=rules), "erlaubte_stufen")
+        assert_rejects(FLSaison, saison(rules=rules), "allowed_stufen")
 
     def test_rejects_a_season_missing_the_stufen_list(self, saison, assert_rejects):
-        """Required with no default, for the reason `qualifiers_per_group` is: no constant in a model."""
-        rules = {key: value for key, value in saison()["rules"].items() if key != "erlaubte_stufen"}
+        """Required with no default, for the reason `qualifiers_per_gruppe` is: no constant in a model."""
+        rules = {key: value for key, value in saison()["rules"].items() if key != "allowed_stufen"}
 
-        assert_rejects(FLSaison, saison(rules=rules), "erlaubte_stufen")
+        assert_rejects(FLSaison, saison(rules=rules), "allowed_stufen")
 
     def test_rejects_a_season_advancing_nobody(self, saison):
         """A group nobody comes out of is not a group phase, so the count is `gt=0`."""
         with pytest.raises(ValidationError):
-            FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": 1, "qualifiers_per_group": 0}))
+            FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": 1, "qualifiers_per_gruppe": 0}))
 
     # No Pydantic default: a season missing the key would read as though it had one, and the bracket's
     # size would be a constant in a model.
@@ -548,9 +548,9 @@ class TestSaison:
             FLSaison.model_validate(saison(rules={"win_points": 3, "draw_points": 1}))
 
     # Required for the qualifier count's reason: an absent key must fail, not read as a bound nobody chose.
-    @pytest.mark.parametrize("field", ["number_of_groups", "teams_per_group"])
+    @pytest.mark.parametrize("field", ["number_of_gruppen", "teams_per_gruppe"])
     def test_rejects_rules_with_no_capacity(self, saison, field):
-        rules = {"win_points": 3, "draw_points": 1, "qualifiers_per_group": 2, "number_of_groups": 4, "teams_per_group": 4}
+        rules = {"win_points": 3, "draw_points": 1, "qualifiers_per_gruppe": 2, "number_of_gruppen": 4, "teams_per_gruppe": 4}
         del rules[field]
 
         with pytest.raises(ValidationError):
@@ -564,10 +564,10 @@ class TestSaison:
         """
         cap = MAX_NUMBER_OF_GROUPS
 
-        assert FLSaison.model_validate(saison(rules={**saison()["rules"], "number_of_groups": cap})).rules.number_of_groups == cap
+        assert FLSaison.model_validate(saison(rules={**saison()["rules"], "number_of_gruppen": cap})).rules.number_of_gruppen == cap
 
         with pytest.raises(ValidationError):
-            FLSaison.model_validate(saison(rules={**saison()["rules"], "number_of_groups": cap + 1}))
+            FLSaison.model_validate(saison(rules={**saison()["rules"], "number_of_gruppen": cap + 1}))
 
     @pytest.mark.parametrize("field", ["start_date", "end_date"])
     def test_rejects_a_date_that_does_not_exist(self, saison, field):

@@ -29,13 +29,13 @@ STUFEN: list[FLSpielerStufe] = ["E1", "Q1", "Q2", "Q3", "Q4"]
 RULES = FLSaisonRules(
     win_points=3,
     draw_points=1,
-    qualifiers_per_group=2,
-    number_of_groups=4,
-    teams_per_group=4,
+    qualifiers_per_gruppe=2,
+    number_of_gruppen=4,
+    teams_per_gruppe=4,
     tiebreak_order="tordifferenz",
     max_kadergroesse=18,
     forfeit_ergebnis=FLSaisonForfeitErgebnis(sieger_tore=3, verlierer_tore=0),
-    erlaubte_stufen=STUFEN,
+    allowed_stufen=STUFEN,
 )
 
 # The walk keys on the field being non-null, never on what it says, so one value serves every case.
@@ -63,7 +63,7 @@ def a_team(team: PayloadFactory, statistik: PayloadFactory) -> TeamFactory:
     """Figures are set, not computed, so a case may state a table its match list does not add up to; only head-to-head reads matches."""
 
     def make(seed: int, *, punkte: int = 0, geschossen: int = 0, kassiert: int = 0, gespielt: int = 3, **overrides: Any) -> FLTeam:
-        figures = statistik(punkte=punkte, tore_geschossen=geschossen, tore_kassiert=kassiert, anzahl_gespielte_spiele=gespielt)
+        figures = statistik(punkte=punkte, tore_geschossen=geschossen, tore_kassiert=kassiert, count_gespielte_spiele=gespielt)
 
         return FLTeam.model_validate(
             team(_id=TEAM_ID.format(seed), name=f"Team {seed}", shorthand=shorthand_of(seed), statistik=figures, **overrides)
@@ -116,7 +116,7 @@ def platz_by_team_id(rows: Sequence[FLGruppenTeam]) -> dict[str, int]:
 
     numbered: dict[str, int] = {}
     for row in rows:
-        if row.austritt_type is not None or row.statistik.anzahl_gespielte_spiele + row.anzahl_ausstehende_spiele == 0:
+        if row.austritt_type is not None or row.statistik.count_gespielte_spiele + row.count_pending_spiele == 0:
             continue
         numbered[str(row.id)] = len(numbered) + 1
 
@@ -156,7 +156,7 @@ def as_stated(row: FLTeamStatistik | None) -> dict[str, int]:
         "punkte": row.punkte,
         "geschossen": row.tore_geschossen,
         "kassiert": row.tore_kassiert,
-        "gespielt": row.anzahl_gespielte_spiele,
+        "gespielt": row.count_gespielte_spiele,
     }
 
 
@@ -494,7 +494,7 @@ class TestTheTableAndTheSeedingNumberTheSameClubs:
 
         teams = [a_team(1, punkte=0, gespielt=0), a_team(2, punkte=0, gespielt=0)]
 
-        assert [row.anzahl_ausstehende_spiele for row in table(teams, [played(1, 1, 2)])] == [1, 1]
+        assert [row.count_pending_spiele for row in table(teams, [played(1, 1, 2)])] == [1, 1]
 
     def test_a_group_before_its_first_fixture_numbers_every_club(self, a_team: TeamFactory, played: MatchFactory):
         """A league table numbers its clubs from the day it is drawn; nothing here may read `N/A`."""
@@ -551,7 +551,7 @@ class TestTheTableAndTheSeedingNumberTheSameClubs:
         rows = table(teams, across_the_groups)
         numbered = platz_by_team_id(rows)
 
-        assert [(row.name, row.anzahl_ausstehende_spiele) for row in rows] == [("Team 2", 0), ("Team 1", 1)]
+        assert [(row.name, row.count_pending_spiele) for row in rows] == [("Team 2", 0), ("Team 1", 1)]
         assert standing(teams, across_the_groups).eligible == len(numbered) == 2
 
 
