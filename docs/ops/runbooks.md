@@ -887,7 +887,7 @@ dashboard rather than here.
 **The durable answer to "what was changed, and by whom" is the action log rather than a container
 log.** Every recorded write appends a row carrying the actor, the route, the collection, the
 operation and the image of what the write replaced or removed
-([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)), read
+([`../glossary.md`](../glossary.md#aktion--action_log_entry--one-recorded-write-and-what-it-replaced-or-removed)), read
 at `/bereich/admin/aktionen`. An erasure overwrites the values it destroys inside each image and
 stamps the row, so what survives it is that the write
 happened and what it held of anybody else.
