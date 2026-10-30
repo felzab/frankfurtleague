@@ -14,7 +14,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 
 import { AdminSperreAufhebenPanel } from "../forms/AdminSperreAufhebenPanel";
 
-import type { FLSperrlisteZeile } from "@/features/sperrliste/schemas";
+import type { FLSperrlisteZeile } from "@/core/generated/client/types";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {

@@ -29,8 +29,8 @@ import { appToast } from "@/shared/utils/appToast";
 
 import { AdminSperreAnsichtList } from "../collections/AdminSperreAnsichtList";
 
+import type { FLPostSperrlistePayload } from "@/core/generated/client/types";
 import type { SperreAnsicht } from "@/features/sperrliste/actions";
-import type { FLPostSperrlistePayload } from "@/features/sperrliste/schemas";
 
 const EMPTY_DRAFT: FLPostSperrlistePayload = { email: "", grund: "" };
 
