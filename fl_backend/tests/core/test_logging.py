@@ -2,6 +2,8 @@ import json
 import logging
 import re
 import sys
+from pathlib import Path
+from typing import Final
 
 import pytest
 import uvicorn.config
@@ -18,9 +20,13 @@ PARENT = "b" * 16
 WELL_FORMED = f"00-{TRACE}-{PARENT}-01"
 
 
-def a_failure_record(message: str, **fields: object) -> logging.LogRecord:
+# One table both formatters run, `fl_frontend/src/core/logging.test.ts` holding the other half.
+LOG_ADDRESSES: Final = json.loads((Path(__file__).resolve().parents[1] / "shared" / "log_addresses.json").read_bytes().decode("utf-8"))
+
+
+def a_failure_record(message: str, *, failure: str = "refused anna.beispiel@example.org", **fields: object) -> logging.LogRecord:
     try:
-        raise ValueError("refused anna.beispiel@example.org")
+        raise ValueError(failure)
     except ValueError:
         record = fl_logger.makeRecord(fl_logger.name, logging.ERROR, __file__, 1, message, (), sys.exc_info(), extra=fields)
     return record
@@ -40,6 +46,17 @@ class TestTheProductionLine:
         line = JSONFormatter().format(a_failure_record("refused for anna.beispiel@example.org", adresse="b.c+d@schule.example.de"))
 
         assert "@" not in line, line
+
+    @pytest.mark.parametrize("row", LOG_ADDRESSES, ids=lambda row: row["case"])
+    def test_scrubs_the_shared_table_in_its_message_its_fields_and_its_error_and_stays_one_document(self, row: dict[str, str]):
+        document = json.loads(JSONFormatter().format(a_failure_record(row["text"], failure=row["text"], quoted=[{"text": row["text"]}])))
+
+        assert (document["message"], document["quoted"], document["error"]["message"]) == (
+            row["scrubbed"],
+            [{"text": row["scrubbed"]}],
+            row["scrubbed"],
+        )
+        assert document["error"]["stack"].endswith(f"ValueError: {row['scrubbed']}")
 
 
 class TestResolveTraceId:

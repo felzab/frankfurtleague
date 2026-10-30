@@ -1,6 +1,10 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { documentsWrittenByAsync } from "@/test-support/stdoutCapture.ts";
 import { MongoServerError } from "mongodb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import { logger } from "./logging.ts";
 import { runWithRequestScope } from "./requestScope.ts";
@@ -10,6 +14,15 @@ import { runWithRequestScope } from "./requestScope.ts";
 const ADDRESS = "vorstand@example.org";
 
 const TRACE = "c".repeat(32);
+
+/** One table both formatters run; `fl_backend/tests/core/test_logging.py` holds the API's half. */
+const LOG_ADDRESSES = z
+  .array(z.object({ case: z.string(), text: z.string(), scrubbed: z.string() }))
+  .parse(
+    JSON.parse(
+      readFileSync(path.resolve(import.meta.dirname, "..", "..", "..", "fl_backend", "tests", "shared", "log_addresses.json"), "utf8"),
+    ),
+  );
 
 beforeEach(() => void vi.stubEnv("NODE_ENV", "production"));
 afterEach(() => void vi.unstubAllEnvs());
@@ -27,6 +40,20 @@ describe("logger", () => {
     expect(JSON.stringify(line)).not.toContain(ADDRESS);
     expect(line).toMatchObject({ error: { name: "MongoServerError", stack: expect.stringMatching(/^MongoServerError: E11000 .*\n {4}at /) } });
   });
+
+  for (const row of LOG_ADDRESSES) {
+    it(`scrubs ${row.case} as the table records, in the message, a field and the error`, async () => {
+      const [line] = await documentsWrittenByAsync(() =>
+        Promise.resolve(logger.error(row.text, new Error(row.text), { quoted: [{ text: row.text }] })),
+      );
+
+      expect(line).toMatchObject({
+        message: row.scrubbed,
+        quoted: [{ text: row.scrubbed }],
+        error: { message: row.scrubbed, stack: expect.stringContaining(`Error: ${row.scrubbed}\n`) as unknown },
+      });
+    });
+  }
 
   // The trace is what joins a line to the edge's and the backend's for the same request.
   it("writes the request's trace inside a scope, and SYSTEM outside one", async () => {
