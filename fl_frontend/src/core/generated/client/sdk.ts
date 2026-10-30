@@ -184,7 +184,6 @@ import type {
   FLSpielbestaetigungAntwortPayload,
   FLSpielbestaetigungAntwortResponse,
   FLSpielbestaetigungEintragenPayload,
-  FLSpielbestaetigungEintragenResponse,
   FLSpielbestaetigungenListResponse,
   FLSpielbestaetigungenSelbstResponse,
   FLSpielbestaetigungSchiedsrichterAntwortPayload,
@@ -195,7 +194,7 @@ import type {
   FLSpielbestaetigungSweepMitgeteiltResponse,
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungSweepSaisonsResponse,
-  FLSpielbestaetigungVerwerfenResponse,
+  FLSpielbestaetigungWriteResponse,
   FLSpieleActionRequiredResponse,
   FLSpieleAdminListResponse,
   FLSpieleAdminSingleResponse,
@@ -4068,11 +4067,11 @@ export const getSpielbestaetigungenGetSpielbestaetigungenUrl = (params: Spielbes
 };
 
 /**
- * Every confirmation row of the season, or of its one fixture, and the day the confirmation pass last ran over it.
+ * Every confirmation row of the season, or of its one fixture.
  *
  * Newest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still
  * holding its party's question is served; `limit` cuts the others, and `vollstaendig` is false where it left the
- * oldest of them out. A season no document has answers no rows and a null day rather than 404.
+ * oldest of them out. A season no document has answers no rows rather than 404.
  * @summary A season's fixture confirmations, or one fixture's
  */
 export const spielbestaetigungenGetSpielbestaetigungen = async (
@@ -4207,12 +4206,11 @@ export const getSpielbestaetigungenGetSpielSweepSaisonsUrl = () => {
 };
 
 /**
- * Answer every `active` season's id, oldest first, and the day a confirmation pass last ran over any of them.
+ * Answer every `active` season's id, oldest first.
  *
  * `active` alone: a confirmation serves no purpose once its season is over, and a season that ended with a fixture nobody
  * entered a result for would otherwise be asked about a day long gone. System tier because this is the timer's own
- * bookkeeping, asked by the process running the pass and by no page. Null means no pass has run over these seasons. Reading
- * it writes nothing.
+ * bookkeeping, asked by the process running the pass and by no page. Reading it writes nothing.
  * @summary Every season the confirmation pass visits
  */
 export const spielbestaetigungenGetSpielSweepSaisons = async (
@@ -4285,11 +4283,10 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
  * it once the ban is lifted; each pass logs how many seats it withheld, never which.
  *
  * Each step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has
- * committed something owed a message, a later failure -- the stamp of the pass's day on this season included -- is logged
- * and the call answers what committed. A row whose write or answer fails is passed over alone, logged by id and counted in
- * `fehlgeschlagen`.
+ * committed something owed a message, a later failure is logged and the call answers what committed. A row whose write or
+ * answer fails is passed over alone, logged by id and counted in `fehlgeschlagen`.
  *
- * A season that is not `active` is passed by whole -- nothing closed, minted, reminded or stamped, every list empty -- so a
+ * A season that is not `active` is passed by whole -- nothing closed, minted or reminded, every list empty -- so a
  * mistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.
  * @summary Run one season's fixture confirmation pass
  */
@@ -4452,7 +4449,7 @@ export const spielbestaetigungenEintragenSpielbestaetigung = async (
   spielbestaetigungId: string,
   fLSpielbestaetigungEintragenPayload: FLSpielbestaetigungEintragenPayload,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielbestaetigungEintragenResponse> => {
+): Promise<FLSpielbestaetigungWriteResponse> => {
   const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
@@ -4465,7 +4462,7 @@ export const spielbestaetigungenEintragenSpielbestaetigung = async (
     }
     return headers;
   };
-  return adminKeyTransport<FLSpielbestaetigungEintragenResponse>(getSpielbestaetigungenEintragenSpielbestaetigungUrl(spielbestaetigungId), {
+  return adminKeyTransport<FLSpielbestaetigungWriteResponse>(getSpielbestaetigungenEintragenSpielbestaetigungUrl(spielbestaetigungId), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
@@ -4492,8 +4489,8 @@ export const getSpielbestaetigungenVerwerfenSpielbestaetigungUrl = (spielbestaet
 export const spielbestaetigungenVerwerfenSpielbestaetigung = async (
   spielbestaetigungId: string,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSpielbestaetigungVerwerfenResponse> => {
-  return adminKeyTransport<FLSpielbestaetigungVerwerfenResponse>(getSpielbestaetigungenVerwerfenSpielbestaetigungUrl(spielbestaetigungId), {
+): Promise<FLSpielbestaetigungWriteResponse> => {
+  return adminKeyTransport<FLSpielbestaetigungWriteResponse>(getSpielbestaetigungenVerwerfenSpielbestaetigungUrl(spielbestaetigungId), {
     ...options,
     method: "POST",
   });

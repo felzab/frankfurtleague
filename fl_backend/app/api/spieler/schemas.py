@@ -1,7 +1,8 @@
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
+from app.core.sentinels import GHOST_SPIELER_ID
 from app.shared.schemas.bounds import (
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
@@ -112,8 +113,9 @@ class FLSpielerRecord(_SpielerPerson):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
 
     # Widened on this stored shape alone, for the erased pupils' sentinel
-    # (`app/core/sentinels.py :: GHOST_SPIELER_ID`). Every served model keeps the forename required:
-    # no read serves the sentinel, so a null reaching one is that exclusion failing.
+    # (`app/core/sentinels.py :: GHOST_SPIELER_ID`), and refused on every other row below. Every served
+    # model keeps the forename required: no read serves the sentinel, so a null reaching one is that
+    # exclusion failing.
     vorname: CustomNonEmptyString | None
 
     # The day this PERSON left the league. Distinct from the squad row's own `inactive_since`: a
@@ -128,6 +130,15 @@ class FLSpielerRecord(_SpielerPerson):
     # seam joining a signed-in person to this row is an equality on the stored value, and a raw write
     # breaks it silently.
     email: str | None = None
+
+    @model_validator(mode="after")
+    def _only_the_sentinel_is_nobody(self) -> Self:
+        # Every write but the sentinel's stores all three: an admission carries its confirmed
+        # registration's name, date and record, and the administrator's edit requires the name and the
+        # date. A null on another row is a hand edit, which the read-back names.
+        if self.id != GHOST_SPIELER_ID and any(value is None for value in (self.vorname, self.geburtsdatum, self.einwilligung)):
+            raise ValueError("only the erased pupils' sentinel stores no forename, birthdate or consent record")
+        return self
 
 
 class FLSpieler(FLSpielerRecord, _SaisonSpielerWritable):
