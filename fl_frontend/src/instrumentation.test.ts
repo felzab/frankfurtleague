@@ -46,6 +46,14 @@ vi.doMock("@/core/logging.ts", () => ({
 }));
 // A production boot builds the sign-in store's indexes too, over a client this suite never configures.
 vi.doMock("@/core/authIndexes.ts", () => ({ buildAuthIndexes: () => Promise.resolve() }));
+/** Each boot's connect of the sign-in store, which never opens: the boot must not wait on it. */
+let storeConnects = 0;
+vi.doMock("@/core/db.ts", () => ({
+  connectSignInStore: () => {
+    storeConnects += 1;
+    return new Promise<void>(() => undefined);
+  },
+}));
 vi.doMock("@/features/bewerbungen/sweep.ts", () => ({ runBewerbungSweep: job("bewerbungen") }));
 vi.doMock("@/features/funktionen/sweep.ts", () => ({ runKontoSweep: job("konto") }));
 vi.doMock("@/features/saisons/sweep.ts", () => ({ runLoeschungSweep: job("loeschung") }));
@@ -118,6 +126,15 @@ it("words every server parse in the German map once the server starts, below a m
 
   expect(z.string().max(2).safeParse("abc").error?.issues[0]?.message).toBe(COPY.shared.feld.hoechstensZeichen(2));
   expect(z.string().max(2, { error: "Höchstens 2 in der Reihe" }).safeParse("abc").error?.issues[0]?.message).toBe("Höchstens 2 in der Reihe");
+});
+
+/* The driver builds no topology of its own after a failed first connect, so a store down at the boot would refuse every
+   sign-in until a restart: the boot starts the connect that retries, and serves without waiting on it. */
+it("starts the sign-in store's connect at a production boot without waiting on it", async () => {
+  storeConnects = 0;
+  await bootAndStep("production", []);
+
+  expect(storeConnects).toBe(1);
 });
 
 /* Docker's json-file driver records no image version, so this line is the one record of which build started. */

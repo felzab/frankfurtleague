@@ -28,10 +28,11 @@ export async function registerOnNode() {
   // and the league's real people.
   if (process.env.NODE_ENV === "production") armScheduler(await loadJobs(), heartbeatUrl());
 
-  // Unawaited: Next serves nothing until this hook returns, and the site serves without these
-  // indexes, where an outage of the store would otherwise hold every page.
+  // Unawaited, both: Next serves nothing until this hook returns, and the public pages serve without the sign-in
+  // store and its indexes, where an outage of the store would otherwise hold every page.
   if (process.env.NODE_ENV === "production") {
-    const { buildAuthIndexes } = await import("./core/authIndexes");
+    const [{ connectSignInStore }, { buildAuthIndexes }] = await Promise.all([import("./core/db"), import("./core/authIndexes")]);
+    void connectSignInStore();
     void buildAuthIndexes();
   }
 }
