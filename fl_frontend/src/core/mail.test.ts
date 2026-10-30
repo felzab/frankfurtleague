@@ -54,7 +54,7 @@ const KINDS_DOUBLE = {
     subjectLine: "Sperre",
     origin: origin,
     vorname: "",
-    absaetze: [[data.grund], ...(secret === null ? [] : [[secret]])],
+    paragraphs: [[data.grund], ...(secret === null ? [] : [[secret]])],
   }),
 };
 
