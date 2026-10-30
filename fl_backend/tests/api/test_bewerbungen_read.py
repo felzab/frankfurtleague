@@ -13,7 +13,8 @@ from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.router import FLBewerbungenFilters, get_bewerbungen
 from app.api.bewerbungen.schemas import FLBewerbungenFilterParams
-from app.api.bewerbungen.services import dubletten_schluessel_of
+from app.api.bewerbungen.services import dubletten_schluessel_of, mit_zustellung
+from app.api.postausgang.schemas import FLPostausgangLage
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from tests import documents
@@ -190,6 +191,9 @@ class _NothingStored:
     async def find_one(self, filter: Any, projection: Any = None, session: Any = None) -> None:
         return None
 
+    async def aggregate(self, pipeline: Any, collation: Any = None, session: Any = None) -> _Cells:
+        return _Cells([])
+
 
 def run_list(collection: _ArchiveCollection, **filters: Any) -> Any:
     """`asyncio.run`, as the rest of the suite drives an async function; no event-loop plugin is configured."""
@@ -197,6 +201,7 @@ def run_list(collection: _ArchiveCollection, **filters: Any) -> Any:
     return asyncio.run(
         get_bewerbungen(
             bewerbungen_collection=cast(AsyncCollection, collection),
+            postausgang_collection=cast(AsyncCollection, _NothingStored()),
             sperrliste=ban_list({Collection.SPERRLISTE: _NothingStored(), Collection.SAISONS: _NothingStored()}),
             filters=FLBewerbungenFilterParams.model_validate(filters),
         )
@@ -558,6 +563,7 @@ class TestTheCollisionSurvivesTheReadsCap:
 
                 return await get_bewerbungen(
                     bewerbungen_collection=collection,
+                    postausgang_collection=database[Collection.POSTAUSGANG],
                     sperrliste=ban_list(database),
                     filters=FLBewerbungenFilterParams.model_validate({}),
                 )
@@ -695,3 +701,30 @@ class TestWhatASeasonRelationMayBeSpelledAs:
             published = client.get("/openapi.json").json()["paths"]["/probe"]["get"]["parameters"]
 
         assert "saisonbezug" in [parameter["name"] for parameter in published]
+
+
+class TestEachSeatReadsItsLastMail:
+    """The join the reads serve `zustellung` by: one person is sent one mail for two seats, read by the seat it mirrors."""
+
+    def test_a_trainer_who_is_another_seats_person_reads_that_seats_mail_and_an_emptied_seat_reads_none(self):
+        gesendet = FLPostausgangLage(stand="gesendet", zustellung=None)
+        aufgegeben = FLPostausgangLage(stand="aufgegeben", zustellung=None)
+        row = {
+            "_id": "bewerbung",
+            "kontakte": {"trainer_ist_zugleich": "ansprechperson"},
+            "bestaetigungen": {
+                "trainer": {"verschickt_am": "2026-04-01"},
+                "ansprechperson": {"verschickt_am": "2026-04-01"},
+                "stellvertretung": None,
+            },
+        }
+
+        served = mit_zustellung(row, {("bewerbung", "ansprechperson"): gesendet, ("bewerbung", "trainer"): aufgegeben})
+
+        assert served["bestaetigungen"]["trainer"]["zustellung"] == served["bestaetigungen"]["ansprechperson"]["zustellung"] == gesendet
+        assert served["bestaetigungen"]["stellvertretung"] is None
+
+    def test_a_seat_nobody_was_owed_a_mail_reads_null(self):
+        row = {"_id": "bewerbung", "kontakte": {"trainer_ist_zugleich": None}, "bestaetigungen": {"trainer": {"verschickt_am": "2026-04-01"}}}
+
+        assert mit_zustellung(row, {})["bestaetigungen"]["trainer"]["zustellung"] is None
