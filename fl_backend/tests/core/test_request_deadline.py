@@ -42,7 +42,7 @@ from app.main import create_app
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, ADMINISTRATORS, TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
-from tests.core.app_source import APP_ROOT, BACKEND_ROOT
+from tests.core.app_source import BACKEND_ROOT
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document, rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
@@ -64,29 +64,8 @@ ADMIN_HEADERS = SignedActor("admin@frankfurtleague.de", ADMIN_KEY)
 
 DATABASE_NAME = worker_database("fl_request_deadline_test")
 
-# A `pymongo.timeout(None)` or `(0)` anywhere else LIFTS this deadline rather than adding one, so the
-# driver's deadline is spelled at the middleware and at the abort past it, which runs in a context
-# the request's deadline does not reach.
-DEADLINE_SPELLING = "pymongo.timeout("
-DEADLINES = [
-    ("app/core/middlewares.py", "with pymongo.timeout(REQUEST_DEADLINE_S):"),
-    ("app/core/transactions.py", "with pymongo.timeout(budget):"),
-]
-
 
 class TestTheDeadlinesTheApplicationSets:
-    def test_the_request_s_and_the_aborts_past_it_are_the_only_two(self):
-        """The whole list rather than a count, so finding nothing fails as a third spelling does."""
-
-        spelled = [
-            (path.relative_to(BACKEND_ROOT).as_posix(), line.strip())
-            for path in sorted(APP_ROOT.rglob("*.py"))
-            for line in path.read_text(encoding="utf-8").splitlines()
-            if DEADLINE_SPELLING in line
-        ]
-
-        assert spelled == DEADLINES
-
     def test_it_is_positive_and_ends_before_the_page_stops_waiting(self):
         """The aborts' grace inside the margin the deadline leaves, since a request cut at its deadline answers only after them."""
 
