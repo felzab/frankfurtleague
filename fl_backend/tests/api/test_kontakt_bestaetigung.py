@@ -22,7 +22,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.einwilligung_router import get_einwilligung_ansicht, post_einwilligung
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnsichtPayload, FLBewerbungEinwilligungAntwortPayload
+from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
 from app.api.bewerbungen.services import (
     SEAT_MIN_AGE_YEARS,
     bestaetigungsfrist_from,
@@ -44,6 +44,7 @@ from app.core.recording import log_stamp
 from app.core.security import STEP_UP_WINDOW_S, get_step_up_check
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK, SignedActor, verified_actor
 from tests.app_client import app_client
@@ -247,7 +248,7 @@ async def replace(database: AsyncDatabase) -> Any:
 
 async def ansicht(database: AsyncDatabase, token: str, *, today: str = TODAY, saison_teams: Any = None) -> Any:
     return await get_einwilligung_ansicht(
-        ansicht_data=FLBewerbungEinwilligungAnsichtPayload(token=token),
+        ansicht_data=FLTokenPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams is None else saison_teams,
         saisons_collection=database[Collection.SAISONS],

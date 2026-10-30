@@ -18,7 +18,6 @@ from app.api.registrierungen.services import (
     build_offene_filter,
     build_registrierungen_sort,
 )
-from app.api.spieler.services import build_real_spieler_filter
 from app.core.collections import Collection
 from app.core.crud import aggregate_many_from_db, erase_many_from_db, patch_many_in_db, pull_one_from_db
 from app.core.recording import build_redaction_filter, build_redaction_update
@@ -41,9 +40,8 @@ async def person_at_the_address(
 ) -> Mapping[str, Any] | None:
     """The one person `uniq_spieler_email` holds to this registration's address, matched on the folded form `spieler.email` stores."""
 
-    # Never the sentinel, whose missing address a hand edit can fill: matched, it picks the pupil's page and the date the press takes.
     return await spieler_collection.find_one(
-        build_real_spieler_filter(build_adressen_filter([sign_in_identifier(str(registrierung_raw.get("email") or ""))])),
+        build_adressen_filter([sign_in_identifier(str(registrierung_raw.get("email") or ""))]),
         projection=list(PERSON_ANSICHT_FIELDS),
         session=session,
     )
@@ -94,11 +92,9 @@ async def persons_at(
     if not adressen:
         return []
 
-    # Never the sentinel, whose missing address a hand edit can fill: matched, the admission writes the
-    # registration's person onto it.
     return await aggregate_many_from_db(
         collection=spieler_collection,
-        pipeline=[{"$match": build_real_spieler_filter(build_adressen_filter(adressen))}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
+        pipeline=[{"$match": build_adressen_filter(adressen)}, {"$project": {field: 1 for field in PERSON_FIELDS}}],
         session=session,
     )
 
