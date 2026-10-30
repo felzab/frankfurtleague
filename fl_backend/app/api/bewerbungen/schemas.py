@@ -1000,16 +1000,9 @@ class FLBewerbungSweepLoeschenResponse(BaseAPIResponse):
 
 
 class FLBewerbungSweepSaisonsResponse(BaseAPIResponse):
-    """Every season's id, for the caller to sweep one by one, and the day each retention pass last ran anywhere in this database."""
+    """Every season's id, for the caller to sweep one by one."""
 
     saison_ids: list[str]
-    # The day of the last PASS, not of a season's own visit: one pass stamps every stale season at
-    # once. Null means no pass has ever run here.
-    sweep_gelaufen_am: CustomDateString | None
-    # The registration pass's own day, answered from the read this operation already makes: the two
-    # clocks run in one process and stop separately, so a fresh date beside a stale one is what says
-    # which of them stopped.
-    registrierung_sweep_gelaufen_am: CustomDateString | None
 
 
 # --- The ZUSTELLSTAND, system tier. One endpoint records what the sender learned, the other applies

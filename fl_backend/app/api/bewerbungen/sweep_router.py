@@ -69,7 +69,7 @@ from app.core.dependencies import (
 from app.core.logging import fl_logger
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
-from app.core.transactions import Batch, drain, log_passed, refuse_a_stalled_page, run_isolated, transaction_session
+from app.core.transactions import Batch, drain, log_passed, refuse_a_stalled_page, run_isolated
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 
 # System tier and the system actor: the sweep holds no session, so `bind_actor` would refuse it,
@@ -79,14 +79,14 @@ router = APIRouter(
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
 )
 
-# Both shares at three commands a row beside the worst call's other 83
+# Both shares at three commands a row beside the worst call's other 81
 # (`tests/api/test_bewerbung_sweep_refusal.py :: test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names`):
-# 266 commands at 36 ms plus 1.38 ms take 9.94 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`, a command short.
+# 267 commands at 36 ms plus 1.38 ms take 9.98 s of `app/core/middlewares.py :: REQUEST_DEADLINE_S`.
 REMINDERS_PER_PASS: Final = 39
 
-# The largest share inside the deadline beside the reminders', which owe a deadline a block's deletion does not: 23
-# would make 269 commands, 10.06 s. A season at capacity takes more passes.
-BLOCKS_CLEARED_PER_PASS: Final = 22
+# The largest share inside the deadline beside the reminders', which owe a deadline a block's deletion does not: 24
+# would make 270 commands, 10.09 s. A season at capacity takes more passes.
+BLOCKS_CLEARED_PER_PASS: Final = 23
 
 
 async def _redact(
@@ -148,35 +148,17 @@ async def pull_the_season_after(
 @router.get("", response_model=FLBewerbungSweepSaisonsResponse, summary="Every season the sweep has to visit")
 async def get_sweep_saisons(saisons_collection: SaisonsCollection) -> FLBewerbungSweepSaisonsResponse:
     """
-    Answer every season's id, oldest first, so the caller runs the clocks one season at a time, and the day each pass last ran.
+    Answer every season's id, oldest first, so the caller runs the clocks one season at a time.
 
     System tier rather than the base one: a season taking applications is `future`, which the base tier is never served,
     and the two clocks that matter run over exactly those seasons.
-
-    Null against this database means no pass has ever run, never that the last one found nothing to do: a pass that reminds
-    nobody and deletes nothing records the day exactly as a busy one does. Reading it writes nothing.
     """
 
     seasons = await pull_many_from_db(
-        collection=saisons_collection,
-        db_filter={},
-        projection=["_id", "sweep_gelaufen_am", "registrierung_sweep_gelaufen_am"],
-        sort_by=[("_id", 1)],
-        limit=LIST_LIMIT_MAX,
+        collection=saisons_collection, db_filter={}, projection=["_id"], sort_by=[("_id", 1)], limit=LIST_LIMIT_MAX
     )
 
-    # The newest day any season carries rather than one season's: a season created since the last
-    # pass carries none, and reading that one would answer `never` for a sweep that ran yesterday.
-    def newest(field: str) -> str | None:
-        return max((str(season[field]) for season in seasons if season.get(field)), default=None)
-
-    return FLBewerbungSweepSaisonsResponse(
-        saison_ids=[str(season["_id"]) for season in seasons],
-        sweep_gelaufen_am=newest("sweep_gelaufen_am"),
-        # Answered beside the application's from the same read: the two passes stop separately, and
-        # an operator holding one date cannot tell which of them did.
-        registrierung_sweep_gelaufen_am=newest("registrierung_sweep_gelaufen_am"),
-    )
+    return FLBewerbungSweepSaisonsResponse(saison_ids=[str(season["_id"]) for season in seasons])
 
 
 @router.post(
@@ -223,7 +205,7 @@ async def sweep_saison(
     An application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,
     is passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it
     again and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks
-    passed over: a day stamped beside a sum that is not zero is a clock passing rows over, not one that ran clean.
+    passed over.
 
     404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,
     though it logs the count of withheld seats again.
@@ -237,9 +219,6 @@ async def sweep_saison(
     reports of their remarks and every card's reason; the answers' way, day and role and the reports' scorers, cards and
     result stay as the record. Each strip is its own transaction after the blocks' share: one that fails is
     logged under the season's id and counted in `fehlgeschlagen`, and the blocks clear all the same.
-
-    One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
-    answers it. So a day's first call records the day and the rest of that day's calls record nothing.
     """
 
     # The read that answers the 404 carries the status: this season's own end is a clock too, and a
@@ -258,19 +237,6 @@ async def sweep_saison(
     # Outside the reminder's transaction, whose callback may run again, as the correction reads it
     # (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
     massgebliche_saison_id = await sperrliste_saison(sperrliste)
-
-    async def stamp_the_run(session: AsyncClientSession) -> None:
-        """One fan-out over every season today has not reached, inside the pass's LAST transaction, so a stamped day is a committed call."""
-
-        await patch_many_in_db(
-            collection=saisons_collection,
-            # Every season today has not reached, so the hourly pass writes, and logs, the first of the day alone.
-            db_filter={"sweep_gelaufen_am": {"$ne": today}},
-            # The whole PASS's day, on every stale season at once: it says when the sweep last ran
-            # and never when this season was visited.
-            update={"$set": {"sweep_gelaufen_am": today}},
-            session=session,
-        )
 
     async def erase_the_undecided(session: AsyncClientSession, batch: Batch) -> tuple[int, int, int]:
         """The season's own end: erase, then redact the rows that still hold the people. Read in-session, so a retry re-judges."""
@@ -307,7 +273,7 @@ async def sweep_saison(
         return len(rows), result.deleted_count, redacted
 
     async def remind(session: AsyncClientSession, batch: Batch) -> list[FLBewerbungSweepErinnerung]:
-        """Stamp, mint, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges.
+        """Stamp, mint, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges.
 
         Counts on the batch how many mailboxes on the page a ban kept from their reminder, for the log line.
         """
@@ -390,8 +356,6 @@ async def sweep_saison(
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
-
-        await stamp_the_run(session)
 
         return [erinnerung for _, (erinnerungen, _) in taken for erinnerung in erinnerungen]
 
@@ -677,11 +641,6 @@ async def sweep_saison(
         clock="reminder",
     )
     fehlgeschlagen += len(passed)
-    # Every half that committed stamped the day; where none did, nothing is owed and it is stamped alone.
-    if not reminded:
-        async with transaction_session(db) as session:
-            await session.with_transaction(stamp_the_run)
-
     erinnerungen = [erinnerung for answered in reminded for erinnerung in answered]
 
     # After the commit, so a retried transaction writes no second line. A count and never an id: a
