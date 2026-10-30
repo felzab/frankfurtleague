@@ -444,8 +444,14 @@ export const COPY = katalog({
     gruss: (vorname: string) => (vorname === "" ? "Hallo," : `Hallo ${vorname},`),
     /** Under the button, above its link printed to copy. */
     knopfLink: "Falls der Knopf nicht geht, öffne diesen Link:",
-    /** The Art. 21 DSGVO objection, set apart from the rest as Art. 21 (4) asks, on a first contact alone. */
-    widerspruch: `Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ${KONTAKT_EMAIL} genügt.`,
+    /**
+     * The Art. 21 DSGVO objection, set apart from the rest as Art. 21 (4) asks, in the two parts around the league's
+     * address, which the shell sets as a link between them.
+     */
+    widerspruch: {
+      vor: "Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an",
+      nach: "genügt.",
+    },
     /** The mail's last line, by its kind: what a reader the mail was not meant for does. */
     nichtDu: {
       anmeldung: "Du hast keinen Code angefordert? Dann ignoriere diese E-Mail.",

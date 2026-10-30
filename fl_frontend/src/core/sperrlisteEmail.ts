@@ -1,7 +1,7 @@
 import "server-only";
 
 import { KONTAKT_EMAIL } from "./brand";
-import { BRAND_NAME, mailOrigin } from "./emailShell";
+import { BRAND_NAME, mailOrigin, WIDERSPRUCH } from "./emailShell";
 
 import type { Mail } from "./emailShell";
 import type { FLSperreDaten } from "./generated/client/types";
@@ -57,11 +57,9 @@ export function buildSperreEmail({ grund, gesperrt_bis_saison_id: gesperrtBisSai
         "Wir speichern diesen Eintrag auf Grundlage unseres berechtigten Interesses daran, eine gesperrte Adresse nicht erneut zuzulassen (Art. 6 Abs. 1 lit. f DSGVO).",
       ],
       // Art. 21 (4) asks that the right to object be brought to the reader's attention EXPLICITLY and
-      // SEPARATELY at the first communication, which this message is: its own paragraph, the last.
-      [
-        ["Du kannst dieser Speicherung nach Art. 21 DSGVO widersprechen. Schreib uns dafür an ", { adresse: KONTAKT_EMAIL }, "."],
-        "Dort beantworten wir auch Fragen zur Sperre.",
-      ],
+      // SEPARATELY at the first communication, which this message is: its own paragraph, the last, in the shell's
+      // wording for every first contact.
+      [WIDERSPRUCH, "Dort beantworten wir auch Fragen zur Sperre."],
     ],
   };
 }
