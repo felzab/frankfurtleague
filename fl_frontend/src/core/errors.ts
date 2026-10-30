@@ -159,7 +159,10 @@ export function isRecordMissing(error: unknown): boolean {
 
 /**
  * The backend answering against what this frontend was built for, such as a registry running no label
- * on a page this frontend serves. Only a deploy repairs it, so no page renders it as a failed read.
+ * on a page this frontend serves, or a sweep answering a place not past the one it was sent. Named,
+ * because a job's or a drain's failure line records an error's name alone, never its message: the name
+ * is what tells a broken contract from a crash. Only a deploy repairs it, so no page renders it as a
+ * failed read.
  */
 export class ContractBreakError extends Error {
   override name = "ContractBreakError";
