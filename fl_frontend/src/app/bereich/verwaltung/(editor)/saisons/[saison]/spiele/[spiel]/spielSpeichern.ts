@@ -12,8 +12,7 @@ import { describeMovedSpiele, spielStateKey, toStoredSide } from "@/features/spi
 
 import { KEIN_SONDEREREIGNIS, werteOf } from "./spielWerte";
 
-import type { FLPatchSpielDataPayload } from "@/core/generated/client/types";
-import type { FLSonderereignis, FLSpielAdmin } from "@/features/spiele/schemas";
+import type { FLPatchSpielDataPayload, FLSonderereignis, FLSpielJoinedAdmin } from "@/core/generated/client/types";
 import type { ActionAnswer } from "@/kit/useFormAction";
 
 const { shape } = SpielePatchSpielDataBody;
@@ -47,13 +46,13 @@ const isNichtantreten = (sonderereignis: FLSonderereignis | null) =>
   sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2";
 
 /** The stored price where the box was left alone: digits the stored figure is written in. */
-const gespeicherterPreis = (spiel: FLSpielAdmin) => spiel.ort?.mietpreis ?? null;
+const gespeicherterPreis = (spiel: FLSpielJoinedAdmin) => spiel.ort?.mietpreis ?? null;
 
 /**
  * The fixture as it stands with the editor's changes over it. Today's write replaces the whole fixture, so
  * every field the editor does not show is sent as it is stored: the sides, their sources and the referee.
  */
-function payloadOf(gespeichert: FLSpielAdmin, changes: Aenderungen): FLPatchSpielDataPayload | ActionAnswer<never> {
+function payloadOf(gespeichert: FLSpielJoinedAdmin, changes: Aenderungen): FLPatchSpielDataPayload | ActionAnswer<never> {
   const werte = werteOf(gespeichert);
   const spielort = changes.spielort === undefined ? werte.spielort : changes.spielort;
   const mietpreis = changes.mietpreis === undefined ? gespeicherterPreis(gespeichert) : changes.mietpreis;
@@ -65,7 +64,7 @@ function payloadOf(gespeichert: FLSpielAdmin, changes: Aenderungen): FLPatchSpie
   // goes with it, else the write keeps the goals as a played result. Cleared, they also meet the rule that an
   // event leaving the match unscored carries no goals.
   const awardTakenBack = isNichtantreten(gespeichert.sonderereignis) && !isNichtantreten(sonderereignis);
-  const sideOf = (stored: FLSpielAdmin["team1"]) => {
+  const sideOf = (stored: FLSpielJoinedAdmin["team1"]) => {
     const side = toStoredSide(stored);
     return side === null ? null : { ...side, tore: awardTakenBack ? null : side.tore };
   };
