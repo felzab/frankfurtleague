@@ -3,7 +3,7 @@ from typing import Annotated, Final, Literal, Self, get_args
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, computed_field, model_validator
 
-from app.api.berechtigungen.schemas import FLBerechtigungMitteilungArt, FLBerechtigungUrheber, FLBerechtigungVorenthalten, FLGrantStand
+from app.api.berechtigungen.schemas import FLBerechtigungMitteilungArt, FLBerechtigungUrheber, FLBerechtigungVorenthalten, FLGrantSnapshot
 from app.api.registrierungen.schemas import FLRegistrierungAblehnungsgrund
 from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
@@ -53,8 +53,8 @@ class FLGrantData(BaseModel):
     art: Literal["grant"]
     change: FLBerechtigungMitteilungArt
     author: FLBerechtigungUrheber
-    now: FLGrantStand | None
-    before: FLGrantStand | None
+    now: FLGrantSnapshot | None
+    before: FLGrantSnapshot | None
     # The administrator whose write made it; null where it was found in the database, or where a ban withholds them,
     # `author` telling the two apart; `app/core/recording.py :: ERASED_ACTOR_MARKER` for one erased since.
     changed_by: str | None
@@ -73,10 +73,10 @@ class FLAddressChangeLinkData(BaseModel):
     valid_until: AwareDatetime
 
 
-class FLAddressChangeHinweisData(BaseModel):
+class FLAddressChangeNoticeData(BaseModel):
     """The address on file's notice of an address change, its stop link minted at the hand-out into `stop.token_hashes`."""
 
-    art: Literal["address_change_hinweis"]
+    art: Literal["address_change_notice"]
     way: FLAddressChangeWay
     # The approval's deadline, which only the `release` way's notice states.
     valid_until: AwareDatetime
@@ -141,7 +141,7 @@ class FLSpielEinteilungData(BaseModel):
     ansetzung: FLSpielMailAnsetzung
 
 
-class FLSpielHinweisData(BaseModel):
+class FLSpielNoticeData(BaseModel):
     """A party's word that a fixture it was asked about moved or was called off: the slot it was asked about."""
 
     art: Literal["spiel_new_angesetzt", "spiel_abgesagt"]
@@ -292,13 +292,13 @@ FLOutboxData = Annotated[
     | FLSperreData
     | FLGrantData
     | FLAddressChangeLinkData
-    | FLAddressChangeHinweisData
+    | FLAddressChangeNoticeData
     | FLAddressChangeEffectiveData
     | FLAddressChangeDiscardedData
     | FLSchiedsrichterConfirmationData
     | FLSpielRequestData
     | FLSpielEinteilungData
-    | FLSpielHinweisData
+    | FLSpielNoticeData
     | FLSpielEinteilungLiftedData
     | FLSpielVorschlagDiscardedData
     | FLRegistrierungLinkData
@@ -323,7 +323,7 @@ FLOutboxArt = Literal[
     "sperre",
     "grant",
     "address_change_link",
-    "address_change_hinweis",
+    "address_change_notice",
     "address_change_effective",
     "address_change_discarded",
     "schiedsrichter_confirmation",
@@ -354,14 +354,14 @@ if set(get_args(FLOutboxArt)) != _MEMBER_ARTEN:
     raise RuntimeError("`FLOutboxArt` and the members of `FLOutboxData` name different kinds: add the kind to both.")
 
 # `open` until a hand-out's report or the deadline settles it; each other state is final.
-FLOutboxStand = Literal["open", "sent", "withheld", "barred", "dropped", "abandoned"]
+FLOutboxRowState = Literal["open", "sent", "held", "barred", "dropped", "abandoned"]
 
 # What the provider reports about a message it accepted. `sent` is the row's own state and no event's.
-type FLOutboxDeliveryStand = Literal["delivered", "delayed", "undeliverable", "suppressed", "complaint"]
+type FLOutboxDeliveryState = Literal["delivered", "delayed", "undeliverable", "suppressed", "complaint"]
 
 # The reports a reader of a seat's delivery takes as the mail not having arrived: refused by the provider's suppression
 # list, bounced for good, or marked as spam.
-UNDELIVERABLE: Final[frozenset[FLOutboxDeliveryStand]] = frozenset({"undeliverable", "suppressed", "complaint"})
+UNDELIVERABLE: Final[frozenset[FLOutboxDeliveryState]] = frozenset({"undeliverable", "suppressed", "complaint"})
 
 # Wide over the 36 characters the provider's id spells today, and a ceiling all the same: the value arrives from outside
 # and is stored.
@@ -395,15 +395,15 @@ class FLOutboxLink(BaseModel):
 
 
 class FLOutboxDelivery(BaseModel):
-    stand: FLOutboxDeliveryStand
+    state: FLOutboxDeliveryState
     grund: str | None
     am: datetime
 
 
-class FLOutboxState(BaseReadModel):
+class FLOutboxStatus(BaseReadModel):
     """What became of the last mail owed about one record and seat, as an editor reads it beside the link."""
 
-    stand: FLOutboxStand
+    state: FLOutboxRowState
     delivery: FLOutboxDelivery | None
 
     @computed_field
@@ -414,7 +414,7 @@ class FLOutboxState(BaseReadModel):
         The one judgement of it, which the backend's refusals and every page showing the seat read.
         """
 
-        return self.stand == "abandoned" or (self.delivery is not None and self.delivery.stand in UNDELIVERABLE)
+        return self.state == "abandoned" or (self.delivery is not None and self.delivery.state in UNDELIVERABLE)
 
 
 class FLOutboxRow(BaseModel):
@@ -431,7 +431,7 @@ class FLOutboxRow(BaseModel):
     # Null on a sign-in mail, which no league record holds.
     reference: FLOutboxReference | None
     link: FLOutboxLink | None
-    stand: FLOutboxStand
+    state: FLOutboxRowState
     recorded_at: datetime
     # The last moment a hand-out may send the mail; a row still open after it is given up.
     frist: datetime
@@ -471,7 +471,7 @@ class FLOutboxHandoutResponse(BaseAPIResponse):
     abandoned: int = Field(ge=0)
 
 
-FLOutboxResultArt = Literal["sent", "retry", "abandon", "withheld"]
+FLOutboxResultArt = Literal["sent", "retry", "abandon", "held"]
 
 
 class FLOutboxResultPayload(BaseModel):
@@ -505,7 +505,7 @@ class FLOutboxResultResponse(BaseAPIResponse):
     sent: int = Field(ge=0)
     repeated: int = Field(ge=0)
     abandoned: int = Field(ge=0)
-    withheld: int = Field(ge=0)
+    held: int = Field(ge=0)
     # Every distinct id this claim does not hold: unknown, settled already, or claimed since by another drain.
     ignored: int = Field(ge=0)
 
@@ -538,7 +538,7 @@ class FLOutboxEventPayload(BaseModel):
     # The row's own id, which the send carries as a tag and the provider echoes on every event, so an event arriving
     # before the send's report finds its row all the same.
     id: CustomObjectId
-    stand: FLOutboxDeliveryStand
+    state: FLOutboxDeliveryState
     grund: CustomDeliveryGrund | None
     # The provider's stamp, stored with the state; the order of states decides, never the order of stamps.
     am: AwareDatetime

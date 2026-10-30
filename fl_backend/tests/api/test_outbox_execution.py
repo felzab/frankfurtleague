@@ -18,7 +18,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.outbox.crud import state_of
 from app.api.outbox.schemas import (
     FLOutboxData,
-    FLOutboxDeliveryStand,
+    FLOutboxDeliveryState,
     FLOutboxEventPayload,
     FLOutboxHandoutResponse,
     FLOutboxLink,
@@ -221,7 +221,7 @@ class TestTheDrain:
         assert first.token is not None and second.token is not None
         assert record is not None and set(record["token_hashes"]) == {hash_token(first.token), hash_token(second.token)}
         assert ((late.sent, late.ignored), (settled.sent, settled.ignored)) == ((0, 1), (1, 0))
-        assert (row["stand"], row["message_id"]) == ("sent", f"msg-{row['_id']}")
+        assert (row["state"], row["message_id"]) == ("sent", f"msg-{row['_id']}")
         assert logged == 0
 
     def test_a_link_goes_into_every_seat_it_names_and_a_mail_whose_seat_moved_on_since_is_dropped(self, mongo_replica_set_url: str):
@@ -257,7 +257,7 @@ class TestTheDrain:
             handed_on = await claimed(database, client)
 
             dropped = [*emptied.mails, *handed_on.mails]
-            return minted, first, record, dropped, [(await stored(database, row_id))["stand"] for row_id in (empty, continued)]
+            return minted, first, record, dropped, [(await stored(database, row_id))["state"] for row_id in (empty, continued)]
 
         minted, first, record, dropped, staende = on_a_database(mongo_replica_set_url, body)
 
@@ -276,7 +276,7 @@ class TestTheDrain:
             sperre = await owe(database, client, "sperre/1")
             answer = await claimed(database, client)
 
-            return [mail.id for mail in answer.mails], sperre, (await stored(database, code))["stand"]
+            return [mail.id for mail in answer.mails], sperre, (await stored(database, code))["state"]
 
         handed, sperre, stand = on_a_database(mongo_replica_set_url, body)
 
@@ -299,7 +299,7 @@ class TestTheDrain:
         repeated, waiting, again, row_id, refused, row = on_a_database(mongo_replica_set_url, body)
 
         assert (repeated, waiting, again) == (1, [], [row_id])
-        assert (refused, row["stand"], row["grund"]) == ("rate_limit_exceeded", "sent", None)
+        assert (refused, row["state"], row["grund"]) == ("rate_limit_exceeded", "sent", None)
 
     def test_a_mail_whose_link_supersedes_drops_the_older_one_still_waiting_to_go_again(self, mongo_replica_set_url: str):
         """Handed out after the newer mail, the older one would supersede the newer link, and the newest mail opens nothing."""
@@ -316,7 +316,7 @@ class TestTheDrain:
             later = await claimed(database, client, now=NOW + REPETITION_AFTER)
             record = await database[Collection.INVITATIONS].find_one({"_id": INVITATION})
 
-            return second, later, record, (await stored(database, older))["stand"]
+            return second, later, record, (await stored(database, older))["state"]
 
         second, later, record, older_stand = on_a_database(mongo_replica_set_url, body)
 
@@ -365,7 +365,7 @@ class TestTheSignInCode:
 
         assert [mail.secret for mail in first.mails] == ["chiffrat"]
         assert (failed.repeated, failed.abandoned) == (0, 1)
-        assert (row["stand"], "secret" in row, "data" in row, utc(row["erase_at"])) == ("abandoned", False, False, valid_until)
+        assert (row["state"], "secret" in row, "data" in row, utc(row["erase_at"])) == ("abandoned", False, False, valid_until)
 
 
 class TestTheExpiry:
@@ -390,8 +390,8 @@ class TestTheDeliveryEvent:
             row_id = await owe(database, client, "sperre/1", link=True)
             answer = await claimed(database, client)
 
-            async def event(stand: FLOutboxDeliveryStand, row: ObjectId = row_id) -> bool:
-                payload = FLOutboxEventPayload(id=row, stand=stand, grund=None, am=NOW)
+            async def event(stand: FLOutboxDeliveryState, row: ObjectId = row_id) -> bool:
+                payload = FLOutboxEventPayload(id=row, state=stand, grund=None, am=NOW)
                 return (await post_event(event_data=payload, outbox_collection=database[Collection.OUTBOX])).applied
 
             # The provider's event can outrun the send's own report, which has then recorded nothing of the message.
@@ -406,4 +406,4 @@ class TestTheDeliveryEvent:
 
         assert applied == [True, False, False, False]
         assert newest is not None and newest.undeliverable
-        assert row["stand"] == "sent"
+        assert row["state"] == "sent"

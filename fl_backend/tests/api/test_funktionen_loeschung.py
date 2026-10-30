@@ -519,7 +519,7 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
             "secret": None,
             "reference": None,
             "link": None,
-            "stand": "sent",
+            "state": "sent",
             "recorded_at": NOW,
             "frist": NOW,
             "erase_at": NOW,

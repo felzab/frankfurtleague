@@ -28,7 +28,7 @@ from app.api.registrierungen.schemas import (
     FLRegistrierungAdmissionResponse,
     FLRegistrierungAdmitPayload,
     FLRegistrierungDeclinePayload,
-    FLRegistrierungRefusalResponse,
+    FLRegistrierungDeclineResponse,
 )
 from app.api.registrierungen.services import (
     compose_ablehnung_update,
@@ -352,7 +352,7 @@ async def admit(
 
 @router.post(
     f"{by_id('registrierung_id')}/decline",
-    response_model=FLRegistrierungRefusalResponse,
+    response_model=FLRegistrierungDeclineResponse,
     summary="Decline a registration",
 )
 async def decline(
@@ -366,7 +366,7 @@ async def decline(
     db: DBClient,
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
-) -> FLRegistrierungRefusalResponse:
+) -> FLRegistrierungDeclineResponse:
     """
     Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.
 
@@ -379,7 +379,7 @@ async def decline(
     (`role_not_held`).
     """
 
-    async def decline_for_the_team(session: AsyncClientSession) -> FLRegistrierungRefusalResponse:
+    async def decline_for_the_team(session: AsyncClientSession) -> FLRegistrierungDeclineResponse:
         registrierung_raw = await pull_offene_registrierung(
             registrierungen_collection=registrierungen_collection, registrierung_id=registrierung_id, session=session
         )
@@ -425,7 +425,7 @@ async def decline(
                 now=germany_now,
             )
 
-        return FLRegistrierungRefusalResponse(registrierung_id=registrierung_id, vorname=registrierung_raw["vorname"])
+        return FLRegistrierungDeclineResponse(registrierung_id=registrierung_id, vorname=registrierung_raw["vorname"])
 
     async with transaction_session(db) as session:
         return await session.with_transaction(decline_for_the_team)

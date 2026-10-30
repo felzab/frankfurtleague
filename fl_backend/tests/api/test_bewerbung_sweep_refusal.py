@@ -17,7 +17,7 @@ from app.api.bewerbungen.services import (
     vorname_of,
 )
 from app.api.bewerbungen.system_router import BLOCKS_CLEARED_PER_PASS, REMINDERS_PER_PASS
-from app.api.outbox.schemas import FLOutboxDelivery, FLOutboxDeliveryStand, FLOutboxState
+from app.api.outbox.schemas import FLOutboxDelivery, FLOutboxDeliveryState, FLOutboxStatus
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.shared.schemas.bounds import BEWERBUNG_REMINDER_DAYS
 from app.shared.schemas.literals import KONTAKT_ROLLEN
@@ -58,9 +58,9 @@ APPLICATION_ID = "bewerbung"
 def refusing(seat: str, *, stand: str = "undeliverable") -> set[str]:
     """The seats whose last mail did not arrive, the provider having reported `stand` for the last mail to `seat`."""
 
-    lage = FLOutboxState(
-        stand="sent",
-        delivery=FLOutboxDelivery(stand=cast(FLOutboxDeliveryStand, stand), grund=None, am=datetime(2026, 3, 29, tzinfo=UTC)),
+    lage = FLOutboxStatus(
+        state="sent",
+        delivery=FLOutboxDelivery(state=cast(FLOutboxDeliveryState, stand), grund=None, am=datetime(2026, 3, 29, tzinfo=UTC)),
     )
 
     return unerreichbare_seats(row=application(), lagen={(APPLICATION_ID, seat): lage})
@@ -69,7 +69,7 @@ def refusing(seat: str, *, stand: str = "undeliverable") -> set[str]:
 def never_sent(seat: str) -> set[str]:
     """The same, for a mail the drain gave up on before any provider saw it."""
 
-    return unerreichbare_seats(row=application(), lagen={(APPLICATION_ID, seat): FLOutboxState(stand="abandoned", delivery=None)})
+    return unerreichbare_seats(row=application(), lagen={(APPLICATION_ID, seat): FLOutboxStatus(state="abandoned", delivery=None)})
 
 
 def application(**overrides: Any) -> dict[str, Any]:
@@ -199,7 +199,7 @@ class TestTheReminderMark:
         """One mail went to both seats, read by the seat the Trainer mirrors."""
 
         paired = application(kontakte=kontakte(trainer_is_also="ansprechperson"))
-        lage = FLOutboxState(stand="abandoned", delivery=None)
+        lage = FLOutboxStatus(state="abandoned", delivery=None)
 
         assert unerreichbare_seats(row=paired, lagen={(APPLICATION_ID, "ansprechperson"): lage}) == {"trainer", "ansprechperson"}
 

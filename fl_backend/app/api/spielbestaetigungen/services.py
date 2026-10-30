@@ -13,9 +13,9 @@ from app.api.outbox.schemas import (
     FLOutboxLink,
     FLOutboxReference,
     FLSpielEinteilungLiftedData,
-    FLSpielHinweisData,
     FLSpielMailAnsetzung,
     FLSpielMailAppointment,
+    FLSpielNoticeData,
     FLSpielVorschlagDiscardedData,
 )
 from app.api.outbox.services import OwedMail
@@ -1044,9 +1044,9 @@ def notice_daten_of(*, grund: FLSpielbestaetigungGrund, partei_art: str, appoint
 
     empfaenger = "schiedsrichter" if partei_art == "schiedsrichter" else "team"
     if grund == "ansetzung_changed":
-        return FLSpielHinweisData(art="spiel_new_angesetzt", recipient=empfaenger, appointment=appointment)
+        return FLSpielNoticeData(art="spiel_new_angesetzt", recipient=empfaenger, appointment=appointment)
     if grund == "abgesagt":
-        return FLSpielHinweisData(art="spiel_abgesagt", recipient=empfaenger, appointment=appointment)
+        return FLSpielNoticeData(art="spiel_abgesagt", recipient=empfaenger, appointment=appointment)
     if grund == "schiedsrichter_switched":
         return FLSpielEinteilungLiftedData(art="spiel_einteilung_lifted", appointment=appointment)
     if grund == "discarded":

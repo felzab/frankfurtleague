@@ -107,6 +107,6 @@ class TestARetriedMint:
 
         zeile, live = on_the_seed_loop(body())
 
-        assert (zeile.skipped, zeile.had_link, zeile.replaced_link) == ("erzeugung_failed", None, False)
+        assert (zeile.skipped, zeile.had_link, zeile.replaced_link) == ("mint_failed", None, False)
         # The control: nothing committed, so the seeded link the first attempt read still opens.
         assert live == [SEEDED_EINLADUNG]

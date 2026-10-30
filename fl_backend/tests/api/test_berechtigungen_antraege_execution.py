@@ -221,7 +221,7 @@ async def owed(database: AsyncDatabase) -> list[tuple[Mapping[str, Any], list[st
     """Each grant notice still owed, in the order owed: its facts and every address it is owed to."""
 
     notices: dict[str, tuple[Mapping[str, Any], list[str]]] = {}
-    async for row in database[Collection.OUTBOX].find({"stand": "open", "art": "grant"}, sort=[("recorded_at", 1), ("_id", 1)]):
+    async for row in database[Collection.OUTBOX].find({"state": "open", "art": "grant"}, sort=[("recorded_at", 1), ("_id", 1)]):
         notices.setdefault(row["key"].rpartition("/")[0], (row["data"], []))[1].append(str(row["an"]))
 
     return [(daten, sorted(an)) for daten, an in notices.values()]

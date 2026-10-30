@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.adresswechsel.schemas import FLAddressChangeApprovalStand
+from app.api.adresswechsel.schemas import FLAddressChangeApprovalState
 from app.api.berechtigungen.schemas import FLUtcInstant
 from app.api.schiedsrichter.schemas import FLSchiedsrichterSelf
 from app.api.spieler.schemas import FLEinwilligung, FLSpielerContext, FLSpielerSelf
@@ -160,7 +160,7 @@ class FLAccountAddressChangeOpen(BaseModel):
     waits_on: FLAddressChangeWaitsOn
     valid_until: FLUtcInstant | None
     effective_from: FLUtcInstant | None
-    approval: FLAddressChangeApprovalStand | None
+    approval: FLAddressChangeApprovalState | None
     # Judged as the hourly pass ends one, so the page closes a lapsed step's press without a clock of its own.
     expired: bool
 

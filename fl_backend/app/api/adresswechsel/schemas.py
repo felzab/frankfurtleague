@@ -5,7 +5,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstra
 
 from app.api.adresswechsel.services import FLAdresswechselBisherigZustand, FLAdresswechselNeuZustand
 from app.api.berechtigungen.schemas import FLUtcInstant
-from app.api.outbox.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxStatus
 from app.api.sperrliste.schemas import refuse_an_address_in_the_reason
 from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, LIST_LIMIT_DEFAULT
 from app.shared.schemas.confirmation import CustomToken
@@ -152,7 +152,7 @@ class FLAddressChangeAdresseResponse(BaseAPIResponse):
     email: str | None
 
 
-class FLAddressChangeApprovalStand(BaseModel):
+class FLAddressChangeApprovalState(BaseModel):
     """The approval a change of the person's own grant waits on, as their account page reads it: never who gave it."""
 
     # `owner`: another owner approves.
@@ -280,7 +280,7 @@ class FLAddressChangeVerwaltungOpen(BaseModel):
     confirmed_at: FLUtcInstant | None
     effective_from: FLUtcInstant | None
     # What became of the new mailbox's last link mail; null where none was owed.
-    delivery: FLOutboxState | None
+    delivery: FLOutboxStatus | None
     # Judged as the hourly pass ends one, so the tool marks a lapsed change without a clock of its own.
     expired: bool
     approval: FLAddressChangeVerwaltungApproval | None

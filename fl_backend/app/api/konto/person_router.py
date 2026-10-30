@@ -16,7 +16,7 @@ from app.api.adresswechsel.crud import (
     read_the_bestand,
     start_the_change_in_session,
 )
-from app.api.adresswechsel.schemas import FLAddressChangeApprovalStand
+from app.api.adresswechsel.schemas import FLAddressChangeApprovalState
 from app.api.adresswechsel.services import (
     LIVE_TERMS,
     als_utc,
@@ -216,7 +216,7 @@ def _offen(record: Mapping[str, Any], *, now: datetime) -> FLAccountAddressChang
     if isinstance(genehmigung, Mapping):
         bis = als_utc(genehmigung.get("bis"))
         assert bis is not None
-        gestand = FLAddressChangeApprovalStand(
+        gestand = FLAddressChangeApprovalState(
             verwaltung=genehmigung["verwaltung"], approved=genehmigung.get("approved_at") is not None, bis=bis
         )
 

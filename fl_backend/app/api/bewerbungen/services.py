@@ -21,7 +21,7 @@ from app.api.outbox.schemas import (
     FLBewerbungReceivedData,
     FLOutboxLink,
     FLOutboxReference,
-    FLOutboxState,
+    FLOutboxStatus,
 )
 from app.api.outbox.services import OwedMail
 from app.api.sperrliste.services import withheld_actor
@@ -1289,7 +1289,7 @@ def compose_erinnerung_update(*, seats: Sequence[str], today: str) -> Mapping[st
 def deletion_is_due(*, bewerbung_raw: Mapping[str, Any], today: str, undeliverable: bool) -> bool:
     """Whether the fourteen-day clock takes this application: submitted, past its deadline, a seat outstanding, the notice deliverable.
 
-    `undeliverable` is `app/api/outbox/schemas.py :: FLOutboxState.undeliverable` of the last mail owed the Ansprechperson: the
+    `undeliverable` is `app/api/outbox/schemas.py :: FLOutboxStatus.undeliverable` of the last mail owed the Ansprechperson: the
     deletion notice could not reach the submitter. An EMPTY Ansprechperson slot is not this case: no mailbox is left to
     tell, and the deadline takes the application unannounced.
 
@@ -1447,8 +1447,8 @@ def bewerbung_bezug(bewerbung_id: Any, seats: Sequence[FLKontaktRolle]) -> FLOut
     return FLOutboxReference(collection=Sammlung.BEWERBUNGEN, id=bewerbung_id, seat=min(seats, key=lambda seat: seat == "trainer"))
 
 
-def lage_unzustellbar(lage: FLOutboxState | None) -> bool:
-    """`app/api/outbox/schemas.py :: FLOutboxState.undeliverable` of the last mail owed one seat, `False` where none was owed."""
+def lage_unzustellbar(lage: FLOutboxStatus | None) -> bool:
+    """`app/api/outbox/schemas.py :: FLOutboxStatus.undeliverable` of the last mail owed one seat, `False` where none was owed."""
 
     return lage is not None and lage.undeliverable
 
@@ -1724,7 +1724,7 @@ def mit_vorenthaltener_entscheidung(row: Mapping[str, Any], barred: Collection[s
     return {**row, "decision": {**entscheidung.model_dump(), "von": von, "by_barred": von is None}}
 
 
-def seat_lage(*, row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLOutboxState], seat: str) -> FLOutboxState | None:
+def seat_lage(*, row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLOutboxStatus], seat: str) -> FLOutboxStatus | None:
     """The last mail owed this seat of a stored application, `None` where none was.
 
     A Trainer who is another seat's person reads that seat's mail: one person is sent one mail for both, read by the
@@ -1738,13 +1738,13 @@ def seat_lage(*, row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], 
     return gespiegelt or lagen.get((row["_id"], seat))
 
 
-def unerreichbare_seats(*, row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLOutboxState]) -> set[str]:
+def unerreichbare_seats(*, row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLOutboxStatus]) -> set[str]:
     """The seats of a stored application whose last mail did not arrive."""
 
     return {seat for seat in KONTAKT_ROLLEN if lage_unzustellbar(seat_lage(row=row, lagen=lagen, seat=seat))}
 
 
-def mit_zustellung(row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLOutboxState]) -> dict[str, Any]:
+def mit_zustellung(row: Mapping[str, Any], lagen: Mapping[tuple[Any, str | None], FLOutboxStatus]) -> dict[str, Any]:
     """A stored application with each seat's last mail beside its bookkeeping, as every read serves it."""
 
     bestaetigungen = row.get("confirmations")

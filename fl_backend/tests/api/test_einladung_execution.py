@@ -717,7 +717,7 @@ class TestTheStateRead:
 
         assert state.invitation is not None
         assert state.invitation.delivery is not None
-        assert state.invitation.delivery.stand == "sent"
+        assert state.invitation.delivery.state == "sent"
 
 
 async def mail(database: AsyncDatabase, team_id: ObjectId, invitation_id: Any) -> Any:
@@ -1053,7 +1053,7 @@ class TestTheSeasonWidePress:
         rows, widerrufen_am, live = on_a_league(mongo_replica_set_url, body)
 
         # The failed team: a row of its own, nobody owed, and no claim that a link of its died.
-        assert rows[str(ALREADY_MAILED)] == ("erzeugung_failed", False, False)
+        assert rows[str(ALREADY_MAILED)] == ("mint_failed", False, False)
         # Its transaction aborted, so the link somebody already holds is untouched and still opens.
         assert widerrufen_am is None
         # Every other team is answered as though nothing had gone wrong, its seats owed.

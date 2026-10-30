@@ -1219,7 +1219,7 @@ async def _mail_one_team(
             team_id=team["team_id"],
             team_name=team["name"],
             recipient=[],
-            skipped="erzeugung_uncertain" if ungewiss else "erzeugung_failed",
+            skipped="mint_uncertain" if ungewiss else "mint_failed",
             # A failed commit replaced nothing; an unanswered one may have replaced the link the
             # plan found, and a team that held none must not read about one.
             replaced_link=ungewiss and ersetzt_link,

@@ -51,11 +51,11 @@ from app.api.kontakte.services import find_matching_slots, rows_seating, same_ad
 from app.api.outbox.schemas import (
     FLAddressChangeDiscardedData,
     FLAddressChangeEffectiveData,
-    FLAddressChangeHinweisData,
     FLAddressChangeLinkData,
+    FLAddressChangeNoticeData,
     FLOutboxLink,
     FLOutboxReference,
-    FLOutboxState,
+    FLOutboxStatus,
 )
 from app.api.outbox.services import SIGN_IN_ARTEN, OwedMail, enqueue_mails
 from app.api.registrierungen.services import build_loeschung_registrierung_filter, registrierung_ist_bestaetigt
@@ -359,17 +359,17 @@ def _bezug(address_change_id: ObjectId) -> FLOutboxReference:
 
 async def lage_of_the_link(
     *, outbox_collection: AsyncCollection, address_change_id: ObjectId, session: AsyncClientSession | None = None
-) -> FLOutboxState | None:
+) -> FLOutboxStatus | None:
     """What became of the new mailbox's last link mail, never the address on file's notice owed about the same change."""
 
     newest = await outbox_collection.find_one(
         {**_bezug_filter(address_change_id), "art": "address_change_link"},
-        {"stand": 1, "delivery": 1},
+        {"state": 1, "delivery": 1},
         sort=[("recorded_at", DESCENDING), ("_id", DESCENDING)],
         session=session,
     )
 
-    return None if newest is None else FLOutboxState.model_validate(newest)
+    return None if newest is None else FLOutboxStatus.model_validate(newest)
 
 
 def _bezug_filter(address_change_id: ObjectId) -> dict[str, Any]:
@@ -427,9 +427,9 @@ async def owe_the_hinweis_in_session(
         session=session,
         mails=[
             OwedMail(
-                key=f"adresswechsel/{address_change_id}/hinweis",
+                key=f"adresswechsel/{address_change_id}/notice",
                 an=adresse,
-                data=FLAddressChangeHinweisData(art="address_change_hinweis", way=way, valid_until=valid_until, vorname=vorname),
+                data=FLAddressChangeNoticeData(art="address_change_notice", way=way, valid_until=valid_until, vorname=vorname),
                 reference=_bezug(address_change_id),
                 link=FLOutboxLink(paths=["stop.token_hashes"], adressen=["adresse"], replaced=False),
             )
@@ -906,13 +906,13 @@ async def _carry_the_mail(outbox_collection: AsyncCollection, alt: str, neu: str
 
     rows = await aggregate_many_from_db(
         collection=outbox_collection,
-        pipeline=[{"$match": {"art": {"$nin": sorted(SIGN_IN_ARTEN)}, "an": same_address(alt)}}, {"$project": {"an": 1, "stand": 1}}],
+        pipeline=[{"$match": {"art": {"$nin": sorted(SIGN_IN_ARTEN)}, "an": same_address(alt)}}, {"$project": {"an": 1, "state": 1}}],
         session=session,
     )
     held = [row for row in rows if sign_in_identifier(str(row["an"])) == alt]
-    if offen := [row["_id"] for row in held if row["stand"] == "open"]:
+    if offen := [row["_id"] for row in held if row["state"] == "open"]:
         await patch_many_in_db(collection=outbox_collection, db_filter={"_id": {"$in": offen}}, update={"$set": {"an": neu}}, session=session)
-    if gesendet := [row["_id"] for row in held if row["stand"] != "open"]:
+    if gesendet := [row["_id"] for row in held if row["state"] != "open"]:
         await erase_many_from_db(collection=outbox_collection, db_filter={"_id": {"$in": gesendet}}, session=session)
 
 
