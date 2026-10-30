@@ -41,8 +41,8 @@ async function LoeschungContent(props: NextPageProps) {
   // A missing or repeated parameter is no link at all.
   if (typeof token !== "string" || token === "") return <LoeschungView start={{ zustand: "unvollstaendig" }} />;
 
-  // No return destination rides the sign-in (`.claude/rules/frontend.md`'s auth clause): the person opens
-  // the mailed link again once signed in.
+  // No return destination rides the sign-in, which carries none without an allowlist first (`docs/decisions.md`,
+  // **auth**): the person opens the mailed link again once signed in.
   const subject = await getSubjectSession();
   if (subject === null) return <LoeschungView start={{ zustand: "anmelden" }} />;
 
