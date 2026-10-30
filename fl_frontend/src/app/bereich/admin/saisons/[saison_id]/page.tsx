@@ -80,10 +80,9 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
       // `include_inactive` because an admin picker hiding a retired club that still holds a junction
       // row would make a swap the endpoint accepts look impossible.
       getAdminTeams({ saison_id: saison.id, include_inactive: true }),
-      // `playoffs` is exactly the set `swap_saison_started` counts, so the page asks the endpoint's own
-      // question rather than filtering a whole season here.
+      // The season's fixtures in the two halves the swap reads apart: the bracket's stay where they are,
+      // and the group phase's move with the clubs.
       getAdminSpiele({ saison_id: saison.id, saison_phase: "playoffs" }),
-      // The other half of the same question (`REQ-SWAP-004`), narrowed to the phase the rule asks about.
       getAdminSpiele({ saison_id: saison.id, saison_phase: "gruppenphase" }),
       // The league-wide read, for the replacement's incoming side alone: a club arriving into this
       // season is by definition in none of its reads. Skipped where `saison_past` closes the panel.
@@ -145,6 +144,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     teams: teamsRes.format === "list" ? teamsRes.teams : [],
     gruppenSpiele: gruppenSpieleRes.spiele,
     playoffSpiele: playoffSpieleRes.spiele,
+    begonnen: saison.begonnen,
   });
 
   /**

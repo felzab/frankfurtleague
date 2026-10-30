@@ -79,12 +79,11 @@ export function mapRulesRefusal(error: unknown): { error?: string; fieldErrors?:
     case "rules_forfeit_draws_a_knockout":
       return { fieldErrors: { "rules.forfeit_ergebnis.sieger_tore": FORFEIT_CANNOT_DECIDE } };
     // Neither freeze can see whether the other holds, so each names only the fields it freezes. A
-    // reload is the whole repair: the panel holds these three read-only, so only a season that
-    // turned `past` under an open page reaches this.
+    // reload is the whole repair: the panel holds these read-only, so only a season that started
+    // under an open page reaches this, a finished one having started first.
     case "rules_saison_started":
       return {
-        error:
-          "Diese Saison ist abgeschlossen, deshalb sind Punkte, Tiebreak und Qualifikanten pro Gruppe festgeschrieben. Lade die Seite neu.",
+        error: "Diese Saison hat begonnen, deshalb sind Punkte, Tiebreak und Qualifikanten pro Gruppe festgeschrieben. Lade die Seite neu.",
       };
     // A bare message, the shape `rules_saison_started` uses: the two freezes refuse the same class of edit
     // in one panel, and one answering through field paths would split that into two mechanisms.
@@ -223,7 +222,7 @@ export function mapSwapRefusal(error: unknown): string | null {
     case "saison_past":
       return "Diese Saison ist inzwischen abgeschlossen. Lade die Seite neu.";
     case "swap_saison_started":
-      return "In der KO-Runde dieser Saison wurde inzwischen gespielt. Lade die Seite neu.";
+      return "Diese Saison hat inzwischen begonnen. Lade die Seite neu.";
     case "swap_spieltag_clash":
       return "Durch den Tausch stünde ein Team zweimal an einem Spieltag. Verschiebe eines der beiden Spiele und lade die Seite neu.";
     // Lifting the record is an open path, so the sentence names all three steps.

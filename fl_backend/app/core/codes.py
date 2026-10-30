@@ -193,7 +193,7 @@ class Code(StrEnum):
     REGISTRIERUNG_PERSON_FEHLT = auto()
     # A replacement is neither an entry nor a swap: ONE junction row changes hands and the season's
     # fixtures follow it, so it carries codes of its own.
-    REPLACE_OUTGOING_HAS_A_RECORD = auto()
+    REPLACE_SAISON_STARTED = auto()
     REPLACE_INCOMING_ALREADY_ENTERED = auto()
     # Apart from `replace_incoming_already_entered`, being the payload's own fault: no season makes a club its own
     # replacement.

@@ -61,7 +61,7 @@ async function AdminTeamEditContent({
   const membership = team.memberships.find((candidate) => candidate.saison_id === selectedSaison.id) ?? null;
 
   // The first read is the group lock's, counted over the club's own fixtures as `patch_saison_team`
-  // counts them; the other two are the swap control's: `swap_saison_started`, `REQ-SWAP-004`, `swap_spieltag_clash`.
+  // counts them; the other two are the swap control's: `swap_saison_started` and `swap_spieltag_clash`.
   /* The invite's state joins the group rather than waiting behind it: nothing here depends on
      another's answer, and read after them it would add its own round trip to the page's wait. */
   const [teamSpieleRes, playoffSpieleRes, gruppenSpieleRes, einladungRes] = await Promise.all([
@@ -115,6 +115,7 @@ async function AdminTeamEditContent({
     }),
     gruppenSpiele: gruppenSpieleRes.spiele,
     playoffSpiele: playoffSpieleRes.spiele,
+    begonnen: selectedSaison.begonnen,
   });
 
   return (

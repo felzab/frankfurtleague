@@ -145,6 +145,7 @@ import type {
   FLRegistrierungSweepResponse,
   FLReplaceSaisonTeamPayload,
   FLReplaceSaisonTeamResponse,
+  FLSaisonsAdminListResponse,
   FLSaisonsListResponse,
   FLSaisonSpielerResponse,
   FLSaisonsSingleResponse,
@@ -2771,17 +2772,18 @@ export const getSaisonsGetSaisonsForAdminUrl = (params?: SaisonsGetSaisonsForAdm
 };
 
 /**
- * List every season, the `future` ones `GET /saisons` withholds included.
+ * List every season, the `future` ones `GET /saisons` withholds included, each with whether it has started.
  *
  * The admin surfaces read here because a season is created `future` and clubs are entered while it
- * still is, so an admin who cannot see one cannot run the league.
+ * still is, so an admin who cannot see one cannot run the league. `begonnen` is the start every
+ * start lock refuses on, the swap's, the replacement's and the rules freeze's.
  * @summary Every Saison for the admin surfaces
  */
 export const saisonsGetSaisonsForAdmin = async (
   params?: SaisonsGetSaisonsForAdminParams,
   options?: Parameters<typeof adminKeyTransport>[1],
-): Promise<FLSaisonsListResponse> => {
-  return adminKeyTransport<FLSaisonsListResponse>(getSaisonsGetSaisonsForAdminUrl(params), {
+): Promise<FLSaisonsAdminListResponse> => {
+  return adminKeyTransport<FLSaisonsAdminListResponse>(getSaisonsGetSaisonsForAdminUrl(params), {
     ...options,
     method: "GET",
   });

@@ -52,7 +52,6 @@ import type { TeamBanner } from "./banners";
 const PARTNER_REFUSAL_LABEL: Record<SwapPartnerRefusal, string> = {
   self: "dieses Team",
   sameGruppe: "gleiche Gruppe",
-  played: "hat schon gespielt",
   spieltagClash: "zweimal am Spieltag",
 };
 
@@ -147,20 +146,15 @@ function GruppenTauschControl({
           title="In einer abgeschlossenen Saison ist ein Gruppentausch nicht mehr möglich">
           Die Tabellen dieser Saison bleiben so, wie sie am Saisonende standen.
         </Callout>
-      ) : swap.playedKnockoutSpiele > 0 ? (
+      ) : swap.hasStarted ? (
         <Callout
           severity="info"
-          title="Nach dem Beginn der KO-Runde ist ein Gruppentausch nicht mehr möglich"
-        />
-      ) : self.gespielteGruppenSpiele > 0 ? (
-        <Callout
-          severity="info"
-          title="Wer in seiner Gruppe schon gespielt hat, bleibt in ihr"
+          title="Nach dem Beginn der Saison ist ein Gruppentausch nicht mehr möglich"
         />
       ) : !hasAPartner ? (
         <Callout
           severity="info"
-          title="Ein Gruppentausch braucht ein Team aus einer anderen Gruppe, das dort noch kein Spiel gespielt hat"
+          title="Ein Gruppentausch braucht ein Team aus einer anderen Gruppe"
         />
       ) : (
         <>

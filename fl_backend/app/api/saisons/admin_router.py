@@ -42,10 +42,10 @@ from app.api.saisons.schemas import (
     FLPostSaisonPayload,
     FLPostSaisonResponse,
     FLSaison,
-    FLSaisonListAdapter,
+    FLSaisonAdminListAdapter,
     FLSaisonRules,
+    FLSaisonsAdminListResponse,
     FLSaisonsFilterParams,
-    FLSaisonsListResponse,
     FLSaisonSpielplan,
     FLSwapGruppenPayload,
     FLSwapGruppenResponse,
@@ -223,13 +223,19 @@ async def _rewrite_gruppenphase_sides(
 
 # Two segments, because `GET /saisons/{saison_id}` is declared first and would answer a single static
 # one: a season id is a plain four-character string, so the `objectid` convertor cannot separate them.
-@router.get("/list/admin", response_model=FLSaisonsListResponse, summary="Every Saison for the admin surfaces")
-async def get_saisons_for_admin(saisons_collection: SaisonsCollection, filters: FLSaisonsFilterParams = Depends()) -> FLSaisonsListResponse:
+@router.get("/list/admin", response_model=FLSaisonsAdminListResponse, summary="Every Saison for the admin surfaces")
+async def get_saisons_for_admin(
+    saisons_collection: SaisonsCollection,
+    spiele_collection: SpieleCollection,
+    filters: FLSaisonsFilterParams = Depends(),
+    today: str = Depends(get_german_date_str),
+) -> FLSaisonsAdminListResponse:
     """
-    List every season, the `future` ones `GET /saisons` withholds included.
+    List every season, the `future` ones `GET /saisons` withholds included, each with whether it has started.
 
     The admin surfaces read here because a season is created `future` and clubs are entered while it
-    still is, so an admin who cannot see one cannot run the league.
+    still is, so an admin who cannot see one cannot run the league. `begonnen` is the start every
+    start lock refuses on, the swap's, the replacement's and the rules freeze's.
     """
 
     db_filter = build_query(filters, terms={"status"})
@@ -242,7 +248,12 @@ async def get_saisons_for_admin(saisons_collection: SaisonsCollection, filters: 
         sort_by=db_sort,
     )
 
-    return FLSaisonsListResponse(saisons=FLSaisonListAdapter.validate_python([with_schedule(raw) for raw in saisons_raw]))
+    saisons = [
+        {**with_schedule(raw), "begonnen": await has_started(spiele_collection=spiele_collection, saison_id=str(raw["_id"]), today=today)}
+        for raw in saisons_raw
+    ]
+
+    return FLSaisonsAdminListResponse(saisons=FLSaisonAdminListAdapter.validate_python(saisons))
 
 
 @router.post(

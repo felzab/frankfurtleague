@@ -182,6 +182,17 @@ class FLSaisonRecord(_SaisonStored):
 FLSaisonListAdapter = TypeAdapter(list[FLSaison])
 
 
+class FLSaisonAdmin(FLSaison):
+    """The same season for the admin surfaces, with whether it has started."""
+
+    # DERIVED per read by `app/api/saisons/crud.py :: has_started`, the predicate every start lock
+    # reads, so a control closed on it closes exactly what the endpoint refuses.
+    begonnen: bool
+
+
+FLSaisonAdminListAdapter = TypeAdapter(list[FLSaisonAdmin])
+
+
 class FLSaisonsFilterParams(BaseModel):
     # No `saison_id`: this narrows a list, where `GET /saisons/{saison_id}` names one.
     status: FLSaisonStatus | None = None
@@ -268,6 +279,11 @@ class FLSwapGruppenResponse(BaseAPIResponse):
 class FLSaisonsListResponse(BaseAPIResponse):
     format: Literal["list"] = "list"
     saisons: list[FLSaison]
+
+
+class FLSaisonsAdminListResponse(BaseAPIResponse):
+    format: Literal["list"] = "list"
+    saisons: list[FLSaisonAdmin]
 
 
 class FLSaisonsSingleResponse(BaseAPIResponse):

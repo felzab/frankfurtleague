@@ -8,6 +8,7 @@ import { runAdminRead } from "@/shared/utils/adminRead";
 
 import type {
   FLLoeschungVorschauResponse,
+  FLSaisonsAdminListResponse,
   FLSaisonsListResponse,
   FLSaisonsSingleResponse,
   SaisonsGetSaisonsParams,
@@ -27,7 +28,7 @@ export async function getSaisons(filters: SaisonsGetSaisonsParams = {}): Promise
  * only while it is still planned, so an admin surface that cannot see one cannot run the league.
  */
 // `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments.
-export const getAdminSaisons = cache(async (): Promise<FLSaisonsListResponse> => runAdminRead(() => saisonsGetSaisonsForAdmin()));
+export const getAdminSaisons = cache(async (): Promise<FLSaisonsAdminListResponse> => runAdminRead(() => saisonsGetSaisonsForAdmin()));
 
 /**
  * Whom activating `saisonId` would delete, on the statuses that activation leaves. Read afresh on every

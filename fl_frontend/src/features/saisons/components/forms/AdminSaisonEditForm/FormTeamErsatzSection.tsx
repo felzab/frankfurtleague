@@ -33,6 +33,9 @@ import type { RefusableOption } from "@/shared/components/ui/RefusableSelect";
 /** The pair's accessible name, a fixed id because the panel renders once on its page. */
 const PAIR_LABEL_ID = "teamwechsel-paar";
 
+/** The way out of a started season, named where the panel no longer offers the press (`replace_saison_started`). */
+const AUSTRITT_STATT_ERSATZ = "Trage für ein ausscheidendes Team stattdessen auf seiner eigenen Team-Seite einen Austritt ein.";
+
 /**
  * On `POST /teams/{team_id}/saisons/{saison_id}/replace`: a season's junction row, and every fixture
  * on it, change hands. **A confirmation and no undo offer** — the schedule survives, the cleared
@@ -42,11 +45,14 @@ export function FormTeamErsatzSection({
   saisonId,
   ersatz,
   isFinishedSaison,
+  hasStarted,
 }: {
   saisonId: string;
   ersatz: SaisonReplacementContext;
   /** `saison_past`: a finished season's fixtures record who played, so the panel explains instead of offering. */
   isFinishedSaison: boolean;
+  /** `replace_saison_started`: once the season is under way a club leaves it by its Austritt, never replaced. */
+  hasStarted: boolean;
 }) {
   const [outgoingId, setOutgoingId] = useState<string | null>(null);
   const [incomingId, setIncomingId] = useState<string | null>(null);
@@ -58,13 +64,11 @@ export function FormTeamErsatzSection({
   const router = useRouter();
   const { isConfirming, isPending: isReplacing, press, cancel } = twoPress;
 
-  // `replace_outgoing_has_a_record` in the form: a fixture carrying a record would be credited to the arriving
-  // club, so the row it stands on cannot be handed over.
   const outgoingOptions: RefusableOption[] = ersatz.rows.map((row) => ({
     id: row.teamId,
     name: row.name,
     meta: row.gruppe === null ? "ohne Teamdaten" : `Gruppe ${row.gruppe}`,
-    refusal: row.gespielteSpiele > 0 ? "hat schon gespielt" : null,
+    refusal: null,
   }));
 
   // The outgoing club holds a row here too, so the first arm is also what keeps one club off both
@@ -76,9 +80,8 @@ export function FormTeamErsatzSection({
     refusal: candidate.isInSaison ? "schon in dieser Saison" : candidate.isStillgelegt ? "stillgelegt" : null,
   }));
 
-  const hasPickableRow = outgoingOptions.some((option) => option.refusal === null);
   const hasPickableCandidate = incomingOptions.some((option) => option.refusal === null);
-  const isOffered = !isFinishedSaison && ersatz.rows.length > 0 && hasPickableRow && hasPickableCandidate;
+  const isOffered = !isFinishedSaison && !hasStarted && ersatz.rows.length > 0 && hasPickableCandidate;
 
   const panel = formPanel({ tone: isOffered ? "danger" : "neutral" });
 
@@ -136,19 +139,18 @@ export function FormTeamErsatzSection({
             severity="info"
             title="In einer abgeschlossenen Saison lässt sich kein Team mehr ersetzen"
           />
+        ) : hasStarted ? (
+          <Callout
+            severity="info"
+            title="Nach dem Beginn der Saison lässt sich kein Team mehr ersetzen">
+            {AUSTRITT_STATT_ERSATZ}
+          </Callout>
         ) : ersatz.rows.length === 0 ? (
           <Callout
             severity="info"
             title="Ersetzen lässt sich nur ein Team, das in dieser Saison steht">
             Nimm die Teams unter „{TEAMS_EINTRAG.label}“ in die Saison auf.
           </Callout>
-        ) : !hasPickableRow ? (
-          /* Dictated copy, whole. It states its rule and names no repair.
-             Rewriting it needs an instruction naming this sentence. */
-          <Callout
-            severity="info"
-            title="Nur Teams, die noch kein Spiel gespielt haben, können ersetzt werden"
-          />
         ) : !hasPickableCandidate ? (
           <Callout
             severity="info"

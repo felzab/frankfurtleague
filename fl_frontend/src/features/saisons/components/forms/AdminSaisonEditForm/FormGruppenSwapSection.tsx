@@ -33,7 +33,6 @@ const PAIR_LABEL_ID = "gruppentausch-paar";
 const PARTNER_REFUSAL_LABEL: Record<SwapPartnerRefusal, string> = {
   self: "schon gewählt",
   sameGruppe: "gleiche Gruppe",
-  played: "hat schon gespielt",
   spieltagClash: "zweimal am Spieltag",
 };
 
@@ -81,28 +80,13 @@ export function FormGruppenSwapSection({
   const [first, setFirst] = useState<SaisonSwapTeam | null>(null);
   const [second, setSecond] = useState<SaisonSwapTeam | null>(null);
 
-  const isClosed = swap.playedKnockoutSpiele > 0;
-
-  // A club that has played inside its group cannot leave it (`REQ-SWAP-004`), so counting it here
-  // would open the panel on a pair the endpoint 409s.
-  const swappable = swap.teams.filter((team) => team.gespielteGruppenSpiele === 0);
   const hasTwoGruppen = new Set(swap.teams.map((team) => team.gruppe)).size >= 2;
-  const hasTwoSwappableGruppen = new Set(swappable.map((team) => team.gruppe)).size >= 2;
 
   /**
-   * `REQ-SWAP-004` in the form, for EITHER picker: a club with a played Gruppenphase fixture is in a
-   * round robin it can no longer leave, whichever side of the exchange it is offered as.
+   * Built against `first`: every refusal left to a club is a property of the PAIR (`swap_spieltag_clash`
+   * among them), so no club is unpickable on its own account and the first picker offers them all.
    */
-  const unpickable = new Map<string, string>();
-  for (const team of swap.teams) {
-    if (team.gespielteGruppenSpiele > 0) unpickable.set(team.id, PARTNER_REFUSAL_LABEL.played);
-  }
-
-  /**
-   * Rebuilt against `first` rather than computed once: a Spieltag clash is a property of the PAIR
-   * (`swap_spieltag_clash`), so no club is unpickable for the second picker on its own account.
-   */
-  const unpickableForSecond = new Map(unpickable);
+  const unpickableForSecond = new Map<string, string>();
   if (first) {
     for (const team of swap.teams) {
       const refusal = findSwapPartnerRefusal(first, team);
@@ -119,7 +103,7 @@ export function FormGruppenSwapSection({
       refusal: refusals.get(team.id) ?? null,
     }));
 
-  const firstOptions = optionsFrom(unpickable);
+  const firstOptions = optionsFrom(new Map());
   const secondOptions = optionsFrom(unpickableForSecond);
 
   const handleFirstChange = (id: string) => {
@@ -206,10 +190,10 @@ export function FormGruppenSwapSection({
             title="In einer abgeschlossenen Saison ist ein Gruppentausch nicht mehr möglich">
             Die Tabellen dieser Saison bleiben so, wie sie am Saisonende standen.
           </Callout>
-        ) : isClosed ? (
+        ) : swap.hasStarted ? (
           <Callout
             severity="info"
-            title="Nach dem Beginn der KO-Runde ist ein Gruppentausch nicht mehr möglich"
+            title="Nach dem Beginn der Saison ist ein Gruppentausch nicht mehr möglich"
           />
         ) : !hasTwoGruppen ? (
           <Callout
@@ -217,11 +201,6 @@ export function FormGruppenSwapSection({
             title="Ein Gruppentausch braucht Teams in zwei verschiedenen Gruppen">
             Nimm die Teams unter „{TEAMS_EINTRAG.label}“ in die Saison auf.
           </Callout>
-        ) : !hasTwoSwappableGruppen ? (
-          <Callout
-            severity="info"
-            title="Ein Gruppentausch braucht zwei Teams, die in ihrer Gruppe noch kein Spiel gespielt haben"
-          />
         ) : (
           <>
             <p

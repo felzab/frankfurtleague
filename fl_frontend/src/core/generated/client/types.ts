@@ -130,7 +130,7 @@ export const Code = {
   registrierung_schon_aufgenommen: "registrierung_schon_aufgenommen",
   registrierung_wahlen_unpassend: "registrierung_wahlen_unpassend",
   registrierung_person_fehlt: "registrierung_person_fehlt",
-  replace_outgoing_has_a_record: "replace_outgoing_has_a_record",
+  replace_saison_started: "replace_saison_started",
   replace_incoming_already_entered: "replace_incoming_already_entered",
   replace_one_team_on_both_ends: "replace_one_team_on_both_ends",
   ergebnis_side_emptied: "ergebnis_side_emptied",
@@ -4299,6 +4299,29 @@ export interface FLReplaceSaisonTeamResponse {
 }
 
 /**
+ * The same season for the admin surfaces, with whether it has started.
+ */
+export interface FLSaisonAdmin {
+  begonnen: boolean;
+  bewerbung: FLSaisonBewerbung | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  end_date: string;
+  /**
+   * @minLength 4
+   * @maxLength 4
+   */
+  id: string;
+  registrierung: FLSaisonRegistrierung | null;
+  rules: FLSaisonRules;
+  schedule: FLSaisonPhaseSchedule[];
+  spielplan: FLSaisonSpielplan | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  start_date: string;
+  status: FLSaisonStatus;
+  version: number;
+}
+
+/**
  * A junction row, which has no read model of its own -- so it is echoed as it was written.
  */
 export interface FLSaisonSpielerResponse {
@@ -4392,6 +4415,11 @@ export interface FLSaisonTeamResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   trikot_farbe: FLTrikotFarbe | null;
+}
+
+export interface FLSaisonsAdminListResponse {
+  format: "list";
+  saisons: FLSaisonAdmin[];
 }
 
 export interface FLSaisonsListResponse {

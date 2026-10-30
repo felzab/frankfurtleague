@@ -258,7 +258,7 @@
           "registrierung_schon_aufgenommen",
           "registrierung_wahlen_unpassend",
           "registrierung_person_fehlt",
-          "replace_outgoing_has_a_record",
+          "replace_saison_started",
           "replace_incoming_already_entered",
           "replace_one_team_on_both_ends",
           "ergebnis_side_emptied",
@@ -10721,6 +10721,94 @@
         "title": "FLSaison",
         "type": "object"
       },
+      "FLSaisonAdmin": {
+        "description": "The same season for the admin surfaces, with whether it has started.",
+        "properties": {
+          "begonnen": {
+            "title": "Begonnen",
+            "type": "boolean"
+          },
+          "bewerbung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonBewerbung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "end_date": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "End Date",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 4,
+            "minLength": 4,
+            "title": "Id",
+            "type": "string"
+          },
+          "registrierung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonRegistrierung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rules": {
+            "$ref": "#/components/schemas/FLSaisonRules"
+          },
+          "schedule": {
+            "items": {
+              "$ref": "#/components/schemas/FLSaisonPhaseSchedule"
+            },
+            "title": "Schedule",
+            "type": "array"
+          },
+          "spielplan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLSaisonSpielplan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start_date": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Start Date",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FLSaisonStatus"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start_date",
+          "end_date",
+          "rules",
+          "bewerbung",
+          "registrierung",
+          "id",
+          "status",
+          "spielplan",
+          "version",
+          "schedule",
+          "begonnen"
+        ],
+        "title": "FLSaisonAdmin",
+        "type": "object"
+      },
       "FLSaisonBewerbung": {
         "description": "When the league accepts applications for this season.\n\nThe two halves that record it: the span, and the `offen` flag an administrator sets beside it.",
         "properties": {
@@ -11469,6 +11557,29 @@
           "shorthand"
         ],
         "title": "FLSaisonTeamResponse",
+        "type": "object"
+      },
+      "FLSaisonsAdminListResponse": {
+        "properties": {
+          "format": {
+            "const": "list",
+            "default": "list",
+            "title": "Format",
+            "type": "string"
+          },
+          "saisons": {
+            "items": {
+              "$ref": "#/components/schemas/FLSaisonAdmin"
+            },
+            "title": "Saisons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "format",
+          "saisons"
+        ],
+        "title": "FLSaisonsAdminListResponse",
         "type": "object"
       },
       "FLSaisonsListResponse": {
@@ -23648,7 +23759,7 @@
     },
     "/api/v0/saisons/list/admin": {
       "get": {
-        "description": "List every season, the `future` ones `GET /saisons` withholds included.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league.",
+        "description": "List every season, the `future` ones `GET /saisons` withholds included, each with whether it has started.\n\nThe admin surfaces read here because a season is created `future` and clubs are entered while it\nstill is, so an admin who cannot see one cannot run the league. `begonnen` is the start every\nstart lock refuses on, the swap's, the replacement's and the rules freeze's.",
         "operationId": "saisons_get_saisons_for_admin",
         "parameters": [
           {
@@ -23714,7 +23825,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLSaisonsListResponse"
+                  "$ref": "#/components/schemas/FLSaisonsAdminListResponse"
                 }
               }
             },

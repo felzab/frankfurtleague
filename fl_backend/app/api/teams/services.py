@@ -1614,7 +1614,7 @@ def find_replacement_refusal(
 
     if started:
         return WriteRefusal(
-            error_code=Code.REPLACE_OUTGOING_HAS_A_RECORD,
+            error_code=Code.REPLACE_SAISON_STARTED,
             status=HTTPStatus.CONFLICT,
         )
 

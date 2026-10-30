@@ -146,12 +146,6 @@ export type SaisonSwapTeam = {
   id: string;
   name: string;
   gruppe: FLGruppenNames;
-  /**
-   * `REQ-SWAP-004` counted for one club, per
-   * `fl_frontend/src/features/saisons/utils.ts :: hasTakenPlace`. Non-zero makes the club
-   * unpickable: the group phase is a round robin, so it cannot leave its group.
-   */
-  gespielteGruppenSpiele: number;
   /** Spieltag id → this club's Gruppenphase fixtures on it. A swap MOVES every one to the other club. */
   gruppenSpieleProSpieltag: Record<string, number>;
   /**
@@ -162,14 +156,12 @@ export type SaisonSwapTeam = {
   koSpieleProSpieltag: Record<string, number>;
 };
 
-/**
- * `playedKnockoutSpiele` closes the swap for good once non-zero: the bracket was seeded from these
- * groups, so any played fixture outside the Gruppenphase has already used them.
- */
+/** `hasStarted` closes the swap for good, and with it the rules a started season holds fixed. */
 export type SaisonGruppenSwapContext = {
   /** Every club entered in this season, retired ones included, ordered by name. */
   teams: SaisonSwapTeam[];
-  playedKnockoutSpiele: number;
+  /** `fl_backend/app/api/saisons/crud.py :: has_started`, the one predicate every start lock reads. */
+  hasStarted: boolean;
 };
 
 /**
@@ -185,12 +177,6 @@ export type SaisonReplacementRow = {
   gruppe: FLGruppenNames | null;
   /** Every fixture of this season standing on the row, each of which changes hands with it. */
   spiele: number;
-  /**
-   * `replace_outgoing_has_a_record` counted for this row, over `fl_frontend/src/features/saisons/utils.ts ::
-   * hasTakenPlace` — the endpoint's own predicate. Non-zero makes the row unpickable, because the
-   * record it counts would be credited to the arriving club.
-   */
-  gespielteSpiele: number;
   /** An `austritt` stands on the row. The replacement clears it rather than moving it. */
   hasAustritt: boolean;
   /** No `teams` document resolves `teamId`, so the club has no page this row could be reached from. */

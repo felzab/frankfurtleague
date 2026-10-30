@@ -120,11 +120,10 @@ export function mapReplacementRefusal(error: unknown): string | null {
     // No reload repairs a finished season, so the sentence names the seasons still open instead.
     return "Diese Saison ist abgeschlossen. Ersetzen lässt sich ein Team nur in einer laufenden oder geplanten Saison.";
   }
-  if (error.serverErrorCode === "replace_outgoing_has_a_record") {
-    // The five shapes that leave a record, and only those: an ausgefallenes or annulliertes Spiel
-    // leaves none, so naming either would send the admin looking at a fixture that is still free.
-    // The Austritt is on another page; the sentence says which.
-    return "Mindestens ein Spiel des ausscheidenden Teams trägt ein Ergebnis, Tore, ein Elfmeterschießen, einen Abbruch oder ein Nichtantreten. Trage für dieses Team stattdessen unten auf seiner eigenen Team-Seite einen Austritt ein.";
+  if (error.serverErrorCode === "replace_saison_started") {
+    // Once the season is under way a club leaves it by its Austritt, which is on another page; the
+    // sentence says which.
+    return "Diese Saison hat inzwischen begonnen. Trage für das ausscheidende Team stattdessen unten auf seiner eigenen Team-Seite einen Austritt ein.";
   }
   if (error.serverErrorCode === "replace_incoming_already_entered") {
     // PLATZ and never „spielt“ — the condition is a `saison_teams` row of ANY kind, and a withdrawn

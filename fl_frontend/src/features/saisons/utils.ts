@@ -25,9 +25,8 @@ export function searchWithoutSaisonId(searchParams: Awaited<NextPageProps["searc
 }
 
 /**
- * **Mirrors `fl_backend/app/api/teams/services.py :: has_taken_place`**, which answers
- * `swap_saison_started`, `REQ-SWAP-004`, `REQ-RULES-012` and `replace_outgoing_has_a_record`. Wider closes a control the
- * endpoint accepts, narrower offers one it refuses.
+ * **Mirrors `fl_backend/app/api/teams/services.py :: has_taken_place`**, which closes a fixture's
+ * Spielbestätigung. Wider closes a control the endpoint accepts, narrower offers one it refuses.
  */
 export function hasTakenPlace(
   spiel: Pick<FLSpiel, "ergebnis" | "sonderereignis" | "elfmeterschiessen"> & {
@@ -130,19 +129,14 @@ export function buildGruppenSwapContext({
   teams,
   gruppenSpiele,
   playoffSpiele,
+  begonnen,
 }: {
   teams: readonly { id: string; name: string; gruppe: SaisonSwapTeam["gruppe"] }[];
   gruppenSpiele: readonly FLSpiel[];
   playoffSpiele: readonly FLSpiel[];
+  /** The season's own answer on its admin read, `has_started`'s, never a date compared here. */
+  begonnen: boolean;
 }): SaisonGruppenSwapContext {
-  const gespieltePerTeam = new Map<string, number>();
-  for (const spiel of gruppenSpiele) {
-    if (!hasTakenPlace(spiel)) continue;
-    for (const seite of [spiel.team1, spiel.team2]) {
-      if (seite !== null) gespieltePerTeam.set(seite.team_id, (gespieltePerTeam.get(seite.team_id) ?? 0) + 1);
-    }
-  }
-
   const gruppenSpieltage = countSpieleProSpieltag(gruppenSpiele);
   const koSpieltage = countSpieleProSpieltag(playoffSpiele);
 
@@ -151,11 +145,10 @@ export function buildGruppenSwapContext({
       id: team.id,
       name: team.name,
       gruppe: team.gruppe,
-      gespielteGruppenSpiele: gespieltePerTeam.get(team.id) ?? 0,
       gruppenSpieleProSpieltag: gruppenSpieltage.get(team.id) ?? {},
       koSpieleProSpieltag: koSpieltage.get(team.id) ?? {},
     })),
-    playedKnockoutSpiele: playoffSpiele.filter(hasTakenPlace).length,
+    hasStarted: begonnen,
   };
 }
 
@@ -193,7 +186,7 @@ function wouldFieldAClubTwice(first: SaisonSwapTeam, second: SaisonSwapTeam): bo
 }
 
 /** Why `candidate` cannot be the other side of a swap with `fixed`. Each surface words these itself. */
-export type SwapPartnerRefusal = "self" | "sameGruppe" | "played" | "spieltagClash";
+export type SwapPartnerRefusal = "self" | "sameGruppe" | "spieltagClash";
 
 /**
  * **`find_gruppe_swap_refusal`'s per-candidate half, in its order**, so a control's reason is the
@@ -203,7 +196,6 @@ export type SwapPartnerRefusal = "self" | "sameGruppe" | "played" | "spieltagCla
 export function findSwapPartnerRefusal(fixed: SaisonSwapTeam, candidate: SaisonSwapTeam): SwapPartnerRefusal | null {
   if (candidate.id === fixed.id) return "self";
   if (candidate.gruppe === fixed.gruppe) return "sameGruppe";
-  if (candidate.gespielteGruppenSpiele > 0) return "played";
   if (wouldFieldAClubTwice(fixed, candidate)) return "spieltagClash";
 
   return null;
