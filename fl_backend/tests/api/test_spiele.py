@@ -199,7 +199,7 @@ class TestShootout:
         assert_rejects(FLSpiel, spiel(ergebnis="2:2", elfmeterschiessen=shootout), field)
 
     def test_requires_the_shootout_field_to_be_present(self, spiel):
-        """Nullable and required, as `teamN_quelle` is: a default makes `constraints.py --check` report clean while the key is missing."""
+        """Nullable and required, as `teamN_quelle` is: a default makes `app/readback.py` report clean while the key is missing."""
         incomplete = spiel()
         del incomplete["elfmeterschiessen"]
 

@@ -138,9 +138,9 @@ logger-objects = ["app.core.logging.fl_logger", "app.core.logging.journal_logger
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 # Each permitted import carries its own `noqa`, which RUF100 reports once nothing there needs it;
 # the preflight in `scripts/ops/deploy.sh` is a shell string ruff never reads.
-"app.core.config.get_config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-"os.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
-"os.getenv".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI, the journal replay and the deploy preflight."
+"app.core.config.get_config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, `app/readback.py`, the journal replay and the deploy preflight."
+"os.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, `app/readback.py`, the journal replay and the deploy preflight."
+"os.getenv".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, `app/readback.py`, the journal replay and the deploy preflight."
 # The wall clock, read in `app/core/clock.py` alone, so every rule judging "now" or "today" reads one
 # instant in one zone.
 "datetime.datetime.now".msg = "Read the clock through `app.core.clock.now`, or in a request through `get_germany_now`."
