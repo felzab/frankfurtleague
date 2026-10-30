@@ -1,6 +1,7 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
+import { FLSaisonRulesTiebreakOrder } from "@/core/generated/client/types";
 import { FLSpielerStufeSchema } from "@/features/spieler/schemas";
 // Its `options` are read at module load below, so a VALUE cycle back into this file reads the set
 // before it is initialised rather than merely tangling the graph.
@@ -55,7 +56,7 @@ const FLSaisonRulesSchema = z.object({
     .max(16, { error: "Eine Gruppe fasst höchstens 16 Teams." }),
   // Frozen once the season is `past`: the table is ordered from the rules on every read, so a later
   // change rewrites a record.
-  tiebreak_order: z.enum(["tordifferenz", "direkter_vergleich"], { error: "Bitte wähle einen Tiebreak aus." }),
+  tiebreak_order: z.enum(FLSaisonRulesTiebreakOrder, { error: "Bitte wähle einen Tiebreak aus." }),
   // Enforced at the squad write rather than here: this bounds a season, not this payload.
   max_kadergroesse: z.int({ error: "Bitte gib die maximale Kadergröße ein." }).positive({ error: "Ein Kader fasst mindestens 1 Spieler." }),
   forfeit_ergebnis: FLSaisonForfeitErgebnisSchema,

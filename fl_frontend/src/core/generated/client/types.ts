@@ -1,5 +1,3 @@
-import "server-only";
-
 export const CheckIsLiveResponseValue = {
   status: "ok",
 } as const;

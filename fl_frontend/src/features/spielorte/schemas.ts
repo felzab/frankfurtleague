@@ -2,6 +2,7 @@ import z from "zod";
 
 import { CustomObjectIdStringSchema, FLAddressPayloadSchema } from "@/shared/schemas";
 
+// Redesign: goes with its last importer.
 /** Shared by create and patch, which mirror one backend class: the patch replaces the venue wholesale. */
 const spielortPayloadFields = {
   // Trimmed before the floor counts it, as `fl_backend/app/api/spielorte/schemas.py :: _SpielortPayload`
@@ -14,6 +15,7 @@ const spielortPayloadFields = {
   address: FLAddressPayloadSchema,
 };
 
+// Redesign: goes with its last importer.
 export const FLPostSpielortPayloadSchema = z.object(spielortPayloadFields);
 export type FLPostSpielortPayload = z.infer<typeof FLPostSpielortPayloadSchema>;
 

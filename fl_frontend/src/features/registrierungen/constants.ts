@@ -1,3 +1,4 @@
+import { FLEinwilligungUmfang } from "@/core/generated/client/types";
 import { BEWERBUNG_MAX_ALTER } from "@/features/bewerbungen/constants";
 
 // Its own module: every export of a `"use client"` view becomes a client reference, which the page cannot read.
@@ -40,12 +41,8 @@ export const MEDIEN_MIN_ALTER = 18;
  */
 export const SPIELER_UMFANG_FRAGE = "Was darf von Deinem Namen auf der Website stehen?";
 
-/**
- * The two publication scopes, paired with `fl_backend/app/core/constraints.py :: _EINWILLIGUNG_UMFANG`.
- *
- * Both stand in one list: a control offering one answer and a blank reads as a default.
- */
-export const EINWILLIGUNG_UMFANG_OPTIONS = ["kader_oeffentlich", "intern"] as const;
+/** The two publication scopes, both in one list: a control offering one answer and a blank reads as a default. */
+export const EINWILLIGUNG_UMFANG_OPTIONS: readonly FLEinwilligungUmfang[] = Object.values(FLEinwilligungUmfang);
 
 // Both bounds, never the floor alone: named for the floor, a mistyped year would answer a
 // 190-year-old date with „mindestens 16“, which is a different fault.

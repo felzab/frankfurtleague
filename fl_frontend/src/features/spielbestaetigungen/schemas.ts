@@ -1,5 +1,6 @@
 import z from "zod";
 
+import { FLSpielbestaetigungAntwortArt } from "@/core/generated/client/types";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH } from "@/features/spiele/constants";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSchema, einzeiligerName } from "@/shared/schemas";
@@ -17,7 +18,7 @@ const bestaetigungToken = z
   .nonempty({ error: LINK_UNVOLLSTAENDIG })
   .max(BEWERBUNG_TOKEN_MAX_LENGTH, { error: LINK_UNVOLLSTAENDIG });
 
-const FLSpielbestaetigungAntwortArtSchema = z.enum(["zugesagt", "abgelehnt"], {
+const FLSpielbestaetigungAntwortArtSchema = z.enum(FLSpielbestaetigungAntwortArt, {
   error: "Bitte sag zu oder schlag einen anderen Termin vor.",
 });
 
