@@ -1,7 +1,7 @@
 import { KONTAKT_EMAIL } from "./brand";
-import { formatDatum, formatDatumLang, formatDatumMitWochentag, formatErgebnis, formatUhrzeit, formatZahl } from "./format";
+import { formatDatum, formatDatumLang, formatDatumWithWeekday, formatErgebnis, formatNumber, formatUhrzeit } from "./format";
 
-import type { Kalendertag, Paar, Uhrzeit } from "./format";
+import type { CalendarDay, Paar, Uhrzeit } from "./format";
 
 declare const copyMarke: unique symbol;
 
@@ -49,7 +49,7 @@ export type Verb = keyof typeof VERB;
 const infinitiv = (verb: Verb): string => `${VERB[verb].charAt(0).toLowerCase()}${VERB[verb].slice(1)}`;
 
 // One line for every failure no reason names, the same in a toast and in a status line.
-const UNERWARTET = "Etwas ist schiefgelaufen";
+const UNEXPECTED = "Etwas ist schiefgelaufen";
 
 // The mark a result decided in a shoot-out carries: under the score in a match row, after it in a fact.
 const NACH_ELFMETERSCHIESSEN = "n. E.";
@@ -59,7 +59,7 @@ export const COPY = katalog({
   shared: {
     verb: VERB,
     /** „Team anlegen“: a button whose verb needs its object. */
-    mitObjekt: (objekt: Copy, verb: Verb) => `${objekt} ${infinitiv(verb)}`,
+    mitObjekt: (object: Copy, verb: Verb) => `${object} ${infinitiv(verb)}`,
 
     /** The units a field's figure is counted in, set after the field. */
     einheit: {
@@ -69,24 +69,24 @@ export const COPY = katalog({
     /** A field's one message line: what is expected, never the field's name. */
     feld: {
       pflichtfeld: "Pflichtfeld",
-      hoechstensZeichen: (anzahl: number) => `Höchstens ${formatZahl(anzahl)} Zeichen`,
-      mindestensZeichen: (anzahl: number) => `Mindestens ${formatZahl(anzahl)} Zeichen`,
-      format: (beispiel: Copy) => `Format: ${beispiel}`,
+      hoechstensZeichen: (count: number) => `Höchstens ${formatNumber(count)} Zeichen`,
+      mindestensZeichen: (count: number) => `Mindestens ${formatNumber(count)} Zeichen`,
+      format: (example: Copy) => `Format: ${example}`,
       // A reserved domain, so no reader takes the example for the address the league expects.
       beispielAdresse: "name@example.com",
       // A digits field's example: figures alone, whatever the field counts.
       beispielZiffern: "123",
       // Redesign: the first field taking a range reads it.
-      zwischen: (von: number, bis: number) => `Zwischen ${formatZahl(von)} und ${formatZahl(bis)}`,
-      fruehestens: (tag: Kalendertag) => `Frühestens ${formatDatum(tag)}`,
-      spaetestens: (tag: Kalendertag) => `Spätestens ${formatDatum(tag)}`,
+      zwischen: (von: number, bis: number) => `Zwischen ${formatNumber(von)} und ${formatNumber(bis)}`,
+      fruehestens: (tag: CalendarDay) => `Frühestens ${formatDatum(tag)}`,
+      spaetestens: (tag: CalendarDay) => `Spätestens ${formatDatum(tag)}`,
       // A unique index's refusal: a field's message, and the words `serverCopy.ts` answers its code in.
       schonVergeben: "Schon vergeben",
     },
 
     /** The three lines every refusal no person causes knowingly from the screen falls back to. */
     fehler: {
-      unerwartet: UNERWARTET,
+      unerwartet: UNEXPECTED,
       veraltet: "Die Seite ist nicht mehr aktuell. Lade sie neu.",
       abgelaufen: "Deine Anmeldung ist abgelaufen. Melde dich neu an.",
       /** The edge refused the press for its rate before anything behind it ran; the meter refills within the minute. */
@@ -106,7 +106,7 @@ export const COPY = katalog({
       kopiert: "Kopiert",
       linkGesendet: "Link gesendet",
       abgemeldet: "Abgemeldet",
-      fehler: UNERWARTET,
+      fehler: UNEXPECTED,
     },
 
     /** The spinner's accessible name; a busy button keeps its own label. */
@@ -120,7 +120,7 @@ export const COPY = katalog({
     },
 
     /** „Passkey löschen?“: a confirmation asks with the verb its button carries. */
-    frage: (objekt: Copy, verb: Verb) => `${objekt} ${infinitiv(verb)}?`,
+    frage: (object: Copy, verb: Verb) => `${object} ${infinitiv(verb)}?`,
     zurueck: "Zurück",
     /** The name of the icon button closing a pop-up that asks nothing, such as the match pop-up. */
     schliessen: "Schließen",
@@ -128,7 +128,7 @@ export const COPY = katalog({
     /** The end states of a page a mail opens; each page names its own sentence for the done state. */
     // Session 4: the mailed pages read these.
     ende: {
-      erledigtAm: (erledigt: Copy, tag: Kalendertag) => `${erledigt} am ${formatDatumLang(tag)}.`,
+      erledigtAm: (done: Copy, tag: CalendarDay) => `${done} am ${formatDatumLang(tag)}.`,
       linkUngueltig: "Dieser Link gilt nicht mehr.",
       zurStartseite: "Zur Startseite",
       zumKonto: "Zum Konto",
@@ -209,20 +209,20 @@ export const COPY = katalog({
     /** The matchday tabs' name, and the plural an empty Spielplan names. */
     spieltage: "Spieltage",
     /** When a match is played, as its row shows it; until it is dated, what is still to settle. */
-    wann: (tag: Kalendertag | null, zeit: Uhrzeit | null) =>
-      tag === null ? "Termin offen" : zeit === null ? formatDatumMitWochentag(tag) : `${formatDatumMitWochentag(tag)} · ${formatUhrzeit(zeit)}`,
+    wann: (tag: CalendarDay | null, time: Uhrzeit | null) =>
+      tag === null ? "Termin offen" : time === null ? formatDatumWithWeekday(tag) : `${formatDatumWithWeekday(tag)} · ${formatUhrzeit(time)}`,
     /** The score, a shoot-out's goals added to each side's, with the shoot-out's mark after it. */
     ergebnis: (tore: Paar, elfmeterschiessen: Paar | null) =>
       elfmeterschiessen === null ? formatErgebnis(tore) : `${formatErgebnis(tore, elfmeterschiessen)} ${NACH_ELFMETERSCHIESSEN}`,
 
     /** A side the draw has not settled: its source short in the dashed plaque, and in full as its name. */
     quelle: {
-      gruppeKurz: (gruppe: string, platz: number) => `${gruppe}${formatZahl(platz)}`,
-      gruppe: (gruppe: string, platz: number) => `${formatZahl(platz)}. der Gruppe ${gruppe}`,
-      siegerKurz: (spiel: number) => `S${formatZahl(spiel)}`,
-      sieger: (spiel: number) => `Sieger von Spiel ${formatZahl(spiel)}`,
-      verliererKurz: (spiel: number) => `V${formatZahl(spiel)}`,
-      verlierer: (spiel: number) => `Verlierer von Spiel ${formatZahl(spiel)}`,
+      gruppeKurz: (gruppe: string, platz: number) => `${gruppe}${formatNumber(platz)}`,
+      gruppe: (gruppe: string, platz: number) => `${formatNumber(platz)}. der Gruppe ${gruppe}`,
+      siegerKurz: (spiel: number) => `S${formatNumber(spiel)}`,
+      sieger: (spiel: number) => `Sieger von Spiel ${formatNumber(spiel)}`,
+      verliererKurz: (spiel: number) => `V${formatNumber(spiel)}`,
+      verlierer: (spiel: number) => `Verlierer von Spiel ${formatNumber(spiel)}`,
       /** A side with neither a club nor a source yet. */
       offen: "Noch offen",
     },
@@ -281,12 +281,12 @@ export const COPY = katalog({
     mitUnterstuetzungVon: "Mit Unterstützung von",
     instagram: "Instagram",
     threads: "Threads",
-    copyright: (jahr: number, marke: Copy) => `© ${String(jahr)} ${marke}`,
+    copyright: (year: number, marke: Copy) => `© ${String(year)} ${marke}`,
 
     /** An editor's changes not yet saved: the status line names their count, the discard dialog asks before they go. */
     aenderungen: "Änderungen",
-    aenderungenOffen: (anzahl: number) => (anzahl === 1 ? "1 Änderung" : `${formatZahl(anzahl)} Änderungen`),
-    aenderungenVerloren: (anzahl: number) => (anzahl === 1 ? "1 Änderung geht verloren." : `${formatZahl(anzahl)} Änderungen gehen verloren.`),
+    aenderungenOffen: (count: number) => (count === 1 ? "1 Änderung" : `${formatNumber(count)} Änderungen`),
+    aenderungenVerloren: (count: number) => (count === 1 ? "1 Änderung geht verloren." : `${formatNumber(count)} Änderungen gehen verloren.`),
     /** A save refused for its fields: the fields say what, the status line says where to look. */
     felderPruefen: "Prüfe die markierten Felder.",
 
@@ -339,8 +339,8 @@ export const COPY = katalog({
       codeFalsch: "Der Code stimmt nicht oder gilt nicht mehr. Nimm den Code aus der neuesten E-Mail oder fordere einen neuen an.",
       codeAbgelaufen: "Der Code ist abgelaufen. Fordere einen neuen an.",
       codeZuOft: "Zu viele Versuche mit diesem Code. Fordere einen neuen an.",
-      adresseZuOft: (stunden: number) =>
-        `Zu viele Versuche mit dieser Adresse. Melde dich mit einem Passkey an oder versuche es in ${formatZahl(stunden)} Stunden erneut.`,
+      adresseZuOft: (hours: number) =>
+        `Zu viele Versuche mit dieser Adresse. Melde dich mit einem Passkey an oder versuche es in ${formatNumber(hours)} Stunden erneut.`,
       codeVerbraucht:
         "Die Anmeldung hat gerade nicht geklappt, und dein Code ist damit verbraucht. Fordere in ein paar Minuten einen neuen an.",
       ohneEintrag: `Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`,
@@ -391,7 +391,7 @@ export const COPY = katalog({
 
     spiel: {
       /** The editor of a match whose two teams are not both known yet, named by its number. */
-      nummer: (nummer: number) => `Spiel ${formatZahl(nummer)}`,
+      nummer: (nummer: number) => `Spiel ${formatNumber(nummer)}`,
       ansetzung: "Ansetzung",
       ergebnis: "Ergebnis",
       notiz: "Notiz",
@@ -408,7 +408,7 @@ export const COPY = katalog({
       /** Why a no-show cannot be picked while a side is open. */
       beideSeitenNoetig: "beide Seiten nötig",
       /** The save's done line where the write moved other matches too, `folgen` naming them in today's editor's words. */
-      gespeichertMitFolgen: (folgen: string) => `Gespeichert. ${folgen}`,
+      gespeichertMitFolgen: (consequences: string) => `Gespeichert. ${consequences}`,
     },
   },
 

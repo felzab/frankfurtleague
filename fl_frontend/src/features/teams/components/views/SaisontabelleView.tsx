@@ -207,9 +207,9 @@ export function SaisontabelleView({
                         {/* A flex row, not two inline nodes: a badge on the text baseline would drag
                             the number off the cell's centre. */}
                         <span className="inline-flex items-center justify-center gap-x-1">
-                          {teamData.statistik.anzahl_gespielte_spiele}
-                          {teamData.statistik.anzahl_abgesagte_spiele > 0 && (
-                            <AbgesagteSpieleHint anzahl={teamData.statistik.anzahl_abgesagte_spiele} />
+                          {teamData.statistik.count_gespielte_spiele}
+                          {teamData.statistik.count_abgesagte_spiele > 0 && (
+                            <AbgesagteSpieleHint anzahl={teamData.statistik.count_abgesagte_spiele} />
                           )}
                         </span>
                       </Table.Cell>

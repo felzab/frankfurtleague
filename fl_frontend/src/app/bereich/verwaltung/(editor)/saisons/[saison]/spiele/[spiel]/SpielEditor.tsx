@@ -125,7 +125,7 @@ export function SpielEditor({
               </FieldPair>
               <Dialog
                 title={COPY.shared.mitObjekt(ORT.objekt, "anlegen")}
-                act={{ verb: "anlegen", objekt: ORT.objekt }}
+                act={{ verb: "anlegen", object: ORT.objekt }}
                 action={spielortAnlegen}
                 open={{ isOpen: neu, onOpenChange: setNeu }}>
                 <SpielortFelder

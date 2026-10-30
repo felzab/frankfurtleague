@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { COPY } from "@/core/copy";
-import { formatDatum, formatUhrzeit, formatZeitraum } from "@/core/format";
+import { formatDatum, formatPeriod, formatUhrzeit } from "@/core/format";
 import { ROUTES } from "@/core/routes";
 import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import { getSaisons } from "@/features/saisons/queries";
@@ -14,13 +14,13 @@ import { spieltagLabels } from "@/features/spieltage/utils";
 import { buildMapsSearchUrl } from "@/shared/utils/format";
 
 import type { Copy } from "@/core/copy";
-import type { Kalendertag, Paar, Uhrzeit } from "@/core/format";
+import type { CalendarDay, Paar, Uhrzeit } from "@/core/format";
 import type { FLSaison, FLSonderereignis, FLSpielQuelle, FLSpielTeamFieldJoined } from "@/core/generated/client/types";
 import type { FLSpiel } from "@/features/spiele/types";
 import type { Fact } from "@/kit/Facts";
-import type { Seasons } from "@/kit/FrameNav";
-import type { MatchHeadProps } from "@/kit/MatchHead";
-import type { MatchRowProps, MatchSide } from "@/kit/MatchRow";
+import type { Saisons } from "@/kit/FrameNav";
+import type { SpielHeadProps } from "@/kit/SpielHead";
+import type { SpielRowProps, SpielSide } from "@/kit/SpielRow";
 
 /** The season an address names, among the seasons the public may read; any other is not found. */
 export async function readSaison(saisonId: string): Promise<{ saison: FLSaison }> {
@@ -35,7 +35,7 @@ export async function readSaison(saisonId: string): Promise<{ saison: FLSaison }
  * The season button's seasons: every public season, the newest first; `null` where the public may read none.
  * Read at request time, so the frame's prerendered shell holds none: the image's build reaches no backend.
  */
-export async function readSeasons(): Promise<Seasons | null> {
+export async function readSeasons(): Promise<Saisons | null> {
   await connection();
   const { saisons } = await getSaisons();
   const standard = selectSaison(saisons, undefined);
@@ -43,7 +43,7 @@ export async function readSeasons(): Promise<Seasons | null> {
   return {
     entries: saisons
       // The season's own strings, which its schema has already held to the stored format.
-      .map((saison) => ({ id: saison.id, span: formatZeitraum(saison.start_date as Kalendertag, saison.end_date as Kalendertag) }))
+      .map((saison) => ({ id: saison.id, span: formatPeriod(saison.start_date as CalendarDay, saison.end_date as CalendarDay) }))
       .sort((one, other) => other.id.localeCompare(one.id)),
     standard: standard.id,
   };
@@ -93,7 +93,7 @@ export async function readSpiel(saison: FLSaison, spielId: string): Promise<{ sp
 }
 
 // The fixture's own strings, which its schema has already held to the stored formats.
-const tagOf = (datum: string | null): Kalendertag | null => (datum === null ? null : (datum as Kalendertag));
+const tagOf = (datum: string | null): CalendarDay | null => (datum === null ? null : (datum as CalendarDay));
 const zeitOf = (uhrzeit: string | null): Uhrzeit | null => (uhrzeit === null ? null : (uhrzeit as Uhrzeit));
 
 /**
@@ -117,30 +117,30 @@ function quelleWords(quelle: FLSpielQuelle | null): { kurz: Copy; lang: Copy } |
 }
 
 /** One side: the club and its plaque, or, while the draw has not settled it, where it comes from. */
-function sideOf(team: FLSpielTeamFieldJoined | null, quelle: FLSpielQuelle | null): MatchSide {
+function sideOf(team: FLSpielTeamFieldJoined | null, quelle: FLSpielQuelle | null): SpielSide {
   if (team !== null) return { name: team.name, plaque: { kuerzel: team.shorthand } };
   const words = quelleWords(quelle);
   return words === null ? { name: COPY.spielplan.quelle.offen, plaque: { quelle: "" } } : { name: words.lang, plaque: { quelle: words.kurz } };
 }
 
 /** The match's two sides, the first-listed side first. */
-export function sidesOf(spiel: FLSpiel): { heim: MatchSide; gast: MatchSide } {
+export function sidesOf(spiel: FLSpiel): { heim: SpielSide; gast: SpielSide } {
   return { heim: sideOf(spiel.team1, spiel.team1_quelle), gast: sideOf(spiel.team2, spiel.team2_quelle) };
 }
 
 /** The result as the kit's rows and heads take it, and nothing until one is entered. */
-function resultOf(spiel: FLSpiel): Pick<MatchRowProps, "result"> {
+function resultOf(spiel: FLSpiel): Pick<SpielRowProps, "result"> {
   const tore = toreOf(spiel);
   if (tore === null) return {};
   return { result: { tore, ...(spiel.elfmeterschiessen === null ? {} : { elfmeterschiessen: spiel.elfmeterschiessen }) } };
 }
 
 /** A match as a row of the Spielplan, the row opening the match's page. */
-export function matchRowOf(spiel: FLSpiel): MatchRowProps & { id: string } {
+export function matchRowOf(spiel: FLSpiel): SpielRowProps & { id: string } {
   const { heim, gast } = sidesOf(spiel);
   return {
     id: spiel.id,
-    href: ROUTES.spiel.pfad(spiel.saison_id, spiel.id),
+    href: ROUTES.spiel.path(spiel.saison_id, spiel.id),
     when: COPY.spielplan.wann(tagOf(spiel.datum), zeitOf(spiel.uhrzeit)),
     home: heim,
     away: gast,
@@ -149,7 +149,7 @@ export function matchRowOf(spiel: FLSpiel): MatchRowProps & { id: string } {
 }
 
 /** The pop-up's head: the matchday over the pairing and its score. */
-export function headOf(spiel: FLSpiel, spieltag: string): MatchHeadProps {
+export function headOf(spiel: FLSpiel, spieltag: string): SpielHeadProps {
   const { heim, gast } = sidesOf(spiel);
   return { eyebrow: spieltag, home: heim, away: gast, ...resultOf(spiel) };
 }

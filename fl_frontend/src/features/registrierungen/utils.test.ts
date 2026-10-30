@@ -21,19 +21,19 @@ import {
   registrierungPayload,
 } from "./utils.ts";
 
-import type { Code, FLEinladungAnsichtResponse } from "@/core/generated/client/types.ts";
+import type { Code, FLInvitationViewResponse } from "@/core/generated/client/types.ts";
 import type { RegistrierungFormDraft } from "./types.ts";
 import type { GelesenerLink } from "./utils.ts";
 
-const ANSICHT: FLEinladungAnsichtResponse = {
+const ANSICHT: FLInvitationViewResponse = {
   team: "Lessing-Kolleg",
   schule: "Lessing-Kolleg Oberstufengymnasium",
   saison_id: "2026",
   saison_status: "future",
-  laeuft: true,
-  erlaubte_stufen: ["Q1", "Q2"],
-  kader_frei: true,
-  team_eingetragen: true,
+  running: true,
+  allowed_stufen: ["Q1", "Q2"],
+  kader_free: true,
+  team_entered: true,
   nachnominierung: false,
 };
 
@@ -54,11 +54,11 @@ const DRAFT: RegistrierungFormDraft = {
 
 describe("which state the invite puts the registration page in", () => {
   it("reads the window off the server's own verdict rather than the season's status", () => {
-    expect(einladungZustand(ANSICHT)).toBe("gueltig");
+    expect(einladungZustand(ANSICHT)).toBe("valid");
     // A `past` season with `laeuft` still true would be the two disagreeing, and the server's answer
     // is the one the write is judged by.
-    expect(einladungZustand({ ...ANSICHT, saison_status: "past" })).toBe("gueltig");
-    expect(einladungZustand({ ...ANSICHT, laeuft: false })).toBe("geschlossen");
+    expect(einladungZustand({ ...ANSICHT, saison_status: "past" })).toBe("valid");
+    expect(einladungZustand({ ...ANSICHT, running: false })).toBe("closed");
   });
 });
 
@@ -86,15 +86,15 @@ describe("what one refused submission shows", () => {
   /* First: every case below reads a code off this mapper, and a mapper answering `null` to everything
      would satisfy each of them by rendering nothing at all. */
   it("answers nothing for a status this flow never reaches", () => {
-    expect(mapRegistrierungSubmitRefusal(refused("registrierung_geschlossen", 500))).toBe(null);
+    expect(mapRegistrierungSubmitRefusal(refused("registrierung_closed", 500))).toBe(null);
     expect(mapRegistrierungSubmitRefusal(new Error("kein API-Fehler"))).toBe(null);
-    expect(mapRegistrierungSubmitRefusal(refused("bewerbung_fenster_geschlossen", 409)), "a code of another flow's is mapped here").toBe(null);
+    expect(mapRegistrierungSubmitRefusal(refused("bewerbung_window_closed", 409)), "a code of another flow's is mapped here").toBe(null);
   });
 
   /* The record missing is a season or club the link named and nothing holds now: the dead-link page,
      never the admin's „nicht gefunden“ with a reload. */
   it("answers the link's record gone as the link void", () => {
-    expect(mapRegistrierungSubmitRefusal(refused("document_not_found"))).toStrictEqual({ zustand: "ungueltig" });
+    expect(mapRegistrierungSubmitRefusal(refused("document_not_found"))).toStrictEqual({ zustand: "invalid" });
   });
 
   it("puts a body refusal naming a field on that field's box, with the team's link for a box the form lacks", () => {
@@ -107,7 +107,7 @@ describe("what one refused submission shows", () => {
   /* The page strips its token from the address bar, so a reload lands a live link on the panel
      calling it void; every refusal only a moved season or a drifted page sends reopens the link. */
   it("sends every stale-page refusal back to the team's link rather than a reload", () => {
-    for (const code of ["registrierung_geschlossen", "registrierung_stufe_nicht_erlaubt"] as const) {
+    for (const code of ["registrierung_closed", "registrierung_stufe_not_allowed"] as const) {
       expect(mapRegistrierungSubmitRefusal(refused(code)), code).toStrictEqual({ error: REGISTRIERUNG_NEU_OEFFNEN });
     }
     expect(mapRegistrierungSubmitRefusal(refused("payload_refused"))?.error).toBe(REGISTRIERUNG_NEU_OEFFNEN);
@@ -116,21 +116,21 @@ describe("what one refused submission shows", () => {
   });
 
   it("sends a dead invite to the page's own panel rather than to a field", () => {
-    expect(mapRegistrierungSubmitRefusal(refused("document_not_found"))).toStrictEqual({ zustand: "ungueltig" });
+    expect(mapRegistrierungSubmitRefusal(refused("document_not_found"))).toStrictEqual({ zustand: "invalid" });
   });
 
   it("tells a banned address nothing about a list", () => {
-    const answered = mapRegistrierungSubmitRefusal(refused("registrierung_adresse_gesperrt"));
+    const answered = mapRegistrierungSubmitRefusal(refused("registrierung_adresse_barred"));
     const sentence = answered?.fieldErrors?.email ?? "";
 
     expect(sentence, "the ban refusal reaches no control").not.toBe("");
-    for (const verboten of [/sperr/i, /gesperrt/i, /liste/i, /blockiert/i, /Verstoß/i]) {
+    for (const verboten of [/sperr/i, /barred/i, /liste/i, /blockiert/i, /Verstoß/i]) {
       expect(sentence, `the visitor is told about a list: ${sentence}`).not.toMatch(verboten);
     }
   });
 
   it("answers the window, the junction, the narrowed Stufe and the full squad as a banner, none naming a field", () => {
-    for (const code of ["registrierung_geschlossen", "registrierung_stufe_nicht_erlaubt", "registrierung_kader_voll"] as const) {
+    for (const code of ["registrierung_closed", "registrierung_stufe_not_allowed", "registrierung_kader_full"] as const) {
       const answered = mapRegistrierungSubmitRefusal(refused(code));
 
       expect(answered, `${code} is not mapped at all`).not.toBe(null);
@@ -142,7 +142,7 @@ describe("what one refused submission shows", () => {
   /* The first press stands under a repeated key, and no team can edit a pupil's registration, so the
      repair is the league's address. */
   it("sends a pupil whose repeated press changed its details to the league", () => {
-    const answered = mapRegistrierungSubmitRefusal(refused("registrierung_schluessel_abweichend"));
+    const answered = mapRegistrierungSubmitRefusal(refused("registrierung_key_differing"));
 
     const error = answered?.error ?? "";
     assert.ok(error.includes(`schreib uns an ${KONTAKT_EMAIL}`), error);
@@ -151,14 +151,9 @@ describe("what one refused submission shows", () => {
 
   // The mark the panel titles by: the registration arrived, so „nicht abgeschickt“ would be false.
   it("marks the repeated press's refusals as arrived, and no other refusal", () => {
-    expect(mapRegistrierungSubmitRefusal(refused("registrierung_schluessel_abweichend"))?.schonAngekommen).toBe(true);
-    expect(mapRegistrierungSubmitRefusal(refused("registrierung_schon_aufgenommen"))?.schonAngekommen).toBe(true);
-    for (const code of [
-      "document_not_found",
-      "registrierung_geschlossen",
-      "registrierung_kader_voll",
-      "registrierung_adresse_gesperrt",
-    ] as const) {
+    expect(mapRegistrierungSubmitRefusal(refused("registrierung_key_differing"))?.schonAngekommen).toBe(true);
+    expect(mapRegistrierungSubmitRefusal(refused("registrierung_already_admitted"))?.schonAngekommen).toBe(true);
+    for (const code of ["document_not_found", "registrierung_closed", "registrierung_kader_full", "registrierung_adresse_barred"] as const) {
       expect(mapRegistrierungSubmitRefusal(refused(code))?.schonAngekommen, code).toBe(undefined);
     }
   });
@@ -169,21 +164,21 @@ describe("what one refused submission shows", () => {
     const published = refusalCodes(
       "duplicate_key",
       "document_not_found",
-      "registrierung_geschlossen",
-      "registrierung_stufe_nicht_erlaubt",
-      "registrierung_kader_voll",
-      "registrierung_adresse_gesperrt",
-      "registrierung_schluessel_abweichend",
-      "registrierung_schon_aufgenommen",
+      "registrierung_closed",
+      "registrierung_stufe_not_allowed",
+      "registrierung_kader_full",
+      "registrierung_adresse_barred",
+      "registrierung_key_differing",
+      "registrierung_already_admitted",
     );
     const mapped: Code[] = [
       "document_not_found",
-      "registrierung_schluessel_abweichend",
-      "registrierung_schon_aufgenommen",
-      "registrierung_geschlossen",
-      "registrierung_stufe_nicht_erlaubt",
-      "registrierung_kader_voll",
-      "registrierung_adresse_gesperrt",
+      "registrierung_key_differing",
+      "registrierung_already_admitted",
+      "registrierung_closed",
+      "registrierung_stufe_not_allowed",
+      "registrierung_kader_full",
+      "registrierung_adresse_barred",
     ];
 
     for (const code of new Set([...published, ...mapped])) {
@@ -198,7 +193,7 @@ describe("what one refused submission shows", () => {
  * media floor is one no link is served today.
  */
 const floorOf = (jahre: number | null, medienJahre = 21) =>
-  readOf(jahre === null ? null : { zustand: "gueltig", ansicht: { mindestalter: jahre, medien_mindestalter: medienJahre } });
+  readOf(jahre === null ? null : { zustand: "valid", ansicht: { minimum_age: jahre, medien_minimum_age: medienJahre } });
 
 /** A link's own read answering `link`, counting how often it was asked. */
 const readOf = (link: GelesenerLink | null) => {
@@ -215,19 +210,19 @@ const readOf = (link: GelesenerLink | null) => {
 
 describe("what one refused confirmation shows", () => {
   it("answers nothing for a status this flow never reaches", async () => {
-    expect(await mapBestaetigungRefusal(refused("link_ungueltig", 500), GETIPPT, floorOf(16).lesen)).toBe(null);
+    expect(await mapBestaetigungRefusal(refused("link_invalid", 500), GETIPPT, floorOf(16).lesen)).toBe(null);
     expect(await mapBestaetigungRefusal(new Error("kein API-Fehler"), GETIPPT, floorOf(16).lesen)).toBe(null);
   });
 
   it("tells the three link states apart, each on its own panel", async () => {
-    expect(await mapBestaetigungRefusal(refused("link_ungueltig"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
-      zustand: "ungueltig",
+    expect(await mapBestaetigungRefusal(refused("link_invalid"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
+      zustand: "invalid",
     });
-    expect(await mapBestaetigungRefusal(refused("link_abgelaufen"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
-      zustand: "abgelaufen",
+    expect(await mapBestaetigungRefusal(refused("link_expired"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
+      zustand: "expired",
     });
-    expect(await mapBestaetigungRefusal(refused("bestaetigung_vorhanden"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
-      zustand: "bestaetigt",
+    expect(await mapBestaetigungRefusal(refused("confirmation_exists"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
+      zustand: "confirmed",
     });
   });
 
@@ -235,12 +230,12 @@ describe("what one refused confirmation shows", () => {
      refusal that answers nothing the page renders. */
   it("reads the view for the age refusal and the states it tells apart alone", async () => {
     const zustaende = floorOf(16);
-    await mapBestaetigungRefusal(refused("link_ungueltig"), GETIPPT, zustaende.lesen);
-    await mapBestaetigungRefusal(refused("link_gesperrt"), GETIPPT, zustaende.lesen);
+    await mapBestaetigungRefusal(refused("link_invalid"), GETIPPT, zustaende.lesen);
+    await mapBestaetigungRefusal(refused("link_barred"), GETIPPT, zustaende.lesen);
     expect(zustaende.gelesen(), "a link state spent a read on the floor").toBe(0);
 
     const alter = floorOf(16);
-    await mapBestaetigungRefusal(refused("bestaetigung_alter"), GETIPPT, alter.lesen);
+    await mapBestaetigungRefusal(refused("confirmation_age"), GETIPPT, alter.lesen);
     expect(alter.gelesen(), "the age refusal reached the reader no number of its own could answer").toBe(1);
   });
 
@@ -248,11 +243,11 @@ describe("what one refused confirmation shows", () => {
      stands, and the press's own panel where the read finds the link open or fails. */
   it("answers a lapsed or a spent link with the panel the link's view reads", async () => {
     for (const [code, link, zustand] of [
-      ["link_abgelaufen", { zustand: "bestaetigt" }, "bestaetigt"],
-      ["link_abgelaufen", { zustand: "gesperrt" }, "gesperrt"],
-      ["bestaetigung_vorhanden", { zustand: "gesperrt" }, "gesperrt"],
-      ["link_abgelaufen", null, "abgelaufen"],
-      ["bestaetigung_vorhanden", null, "bestaetigt"],
+      ["link_expired", { zustand: "confirmed" }, "confirmed"],
+      ["link_expired", { zustand: "barred" }, "barred"],
+      ["confirmation_exists", { zustand: "barred" }, "barred"],
+      ["link_expired", null, "expired"],
+      ["confirmation_exists", null, "confirmed"],
     ] as const) {
       expect(await mapBestaetigungRefusal(refused(code), GETIPPT, readOf(link).lesen), code).toStrictEqual({
         zustand: zustand,
@@ -261,11 +256,11 @@ describe("what one refused confirmation shows", () => {
   });
 
   it("states the floor the link answered rather than one of its own", async () => {
-    const answered = await mapBestaetigungRefusal(refused("bestaetigung_alter"), GETIPPT, floorOf(18).lesen);
+    const answered = await mapBestaetigungRefusal(refused("confirmation_age"), GETIPPT, floorOf(18).lesen);
 
     expect(answered?.fieldErrors?.geburtsdatum).toBe(alterAusserhalb(18));
     expect(
-      (await mapBestaetigungRefusal(refused("bestaetigung_alter"), GETIPPT, floorOf(16).lesen))?.fieldErrors?.geburtsdatum,
+      (await mapBestaetigungRefusal(refused("confirmation_age"), GETIPPT, floorOf(16).lesen))?.fieldErrors?.geburtsdatum,
       "the sentence ignores the floor the read handed it",
     ).not.toBe(answered?.fieldErrors?.geburtsdatum);
   });
@@ -273,7 +268,7 @@ describe("what one refused confirmation shows", () => {
   /* A sentence naming a floor this link was not minted under sends the person to correct a date that
      was right, so an unreadable link's refusal names none, on the field all the same. */
   it("puts the age refusal on the date naming no age where the floor could not be read", async () => {
-    expect(await mapBestaetigungRefusal(refused("bestaetigung_alter"), GETIPPT, floorOf(null).lesen)).toStrictEqual({
+    expect(await mapBestaetigungRefusal(refused("confirmation_age"), GETIPPT, floorOf(null).lesen)).toStrictEqual({
       fieldErrors: { geburtsdatum: "Mit diesem Geburtsdatum bist Du zu jung oder zu alt." },
     });
   });
@@ -281,17 +276,17 @@ describe("what one refused confirmation shows", () => {
   /* The page offers the media switch from the served age on the browser's German day, so a clock
      disagreeing with the backend's sends a yes below it, which a reopened link would offer again. */
   it("answers a media yes below the media age at the floor the link answered, switching it off, and naming none unread", async () => {
-    expect(await mapBestaetigungRefusal(refused("medien_alter"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
+    expect(await mapBestaetigungRefusal(refused("medien_age"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
       error: "Fotos, Videos und Interviews kannst Du erst ab 21 Jahren erlauben. Schalte die Erlaubnis aus und bestätige erneut.",
     });
-    expect(await mapBestaetigungRefusal(refused("medien_alter"), GETIPPT, floorOf(null).lesen)).toStrictEqual({
+    expect(await mapBestaetigungRefusal(refused("medien_age"), GETIPPT, floorOf(null).lesen)).toStrictEqual({
       error: MEDIEN_NOCH_NICHT,
     });
   });
 
   /* No page of ours sends choices its page does not ask, the label check refusing a mismatched page first. */
   it("answers choices the link's page does not ask with the mail's link", async () => {
-    expect(await mapBestaetigungRefusal(refused("registrierung_wahlen_unpassend"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
+    expect(await mapBestaetigungRefusal(refused("registrierung_choices_unsuitable"), GETIPPT, floorOf(16).lesen)).toStrictEqual({
       error: ANTWORT_NEU_OEFFNEN,
     });
   });
@@ -310,13 +305,13 @@ describe("what one refused confirmation shows", () => {
   });
 
   it("leaves the age refusal on the field, where the typed date survives it", async () => {
-    expect((await mapBestaetigungRefusal(refused("bestaetigung_alter"), GETIPPT, floorOf(16).lesen))?.zustand).toBe(undefined);
+    expect((await mapBestaetigungRefusal(refused("confirmation_age"), GETIPPT, floorOf(16).lesen))?.zustand).toBe(undefined);
   });
 
   /* The returning pupil's page has no date field, and every reopened link takes the same stored date: a
      field error there is a toast promising entries to correct that the page does not hold. */
   it("names the stored date and the league's address where the stored date was judged, reading no view", async () => {
-    const mapped = await mapBestaetigungRefusal(refused("bestaetigung_alter"), { geburtsdatum: null }, () =>
+    const mapped = await mapBestaetigungRefusal(refused("confirmation_age"), { geburtsdatum: null }, () =>
       Promise.reject(new Error("the view was read")),
     );
 
@@ -331,24 +326,24 @@ describe("what one refused confirmation shows", () => {
      confirmation raises and this mapper does not know falls through to the shared fallback. */
   it("maps every code the confirmation publishes, and no rule it does not", async () => {
     const published = refusalCodes(
-      "fassung_unzulaessig",
-      "link_ungueltig",
-      "link_abgelaufen",
-      "bestaetigung_vorhanden",
-      "bestaetigung_alter",
-      "medien_alter",
-      "link_gesperrt",
-      "registrierung_wahlen_unpassend",
+      "wording_not_allowed",
+      "link_invalid",
+      "link_expired",
+      "confirmation_exists",
+      "confirmation_age",
+      "medien_age",
+      "link_barred",
+      "registrierung_choices_unsuitable",
     );
     const mapped: Code[] = [
-      "fassung_unzulaessig",
-      "link_ungueltig",
-      "link_abgelaufen",
-      "bestaetigung_vorhanden",
-      "bestaetigung_alter",
-      "medien_alter",
-      "link_gesperrt",
-      "registrierung_wahlen_unpassend",
+      "wording_not_allowed",
+      "link_invalid",
+      "link_expired",
+      "confirmation_exists",
+      "confirmation_age",
+      "medien_age",
+      "link_barred",
+      "registrierung_choices_unsuitable",
     ];
 
     for (const code of new Set([...published, ...mapped])) {
@@ -363,10 +358,10 @@ describe("which verdict of the invite's read closes the form", () => {
   /* The order is what a reader can act on: a shut window is the season's, a missing team is the
      team's, and a full squad is the one a place falling free reopens. */
   it("answers the season's window ahead of the team and the squad", () => {
-    expect(formularZustand(ANSICHT)).toBe("gueltig");
-    expect(formularZustand({ ...ANSICHT, laeuft: false, team_eingetragen: false, kader_frei: false })).toBe("geschlossen");
-    expect(formularZustand({ ...ANSICHT, team_eingetragen: false, kader_frei: false })).toBe("team-fehlt");
-    expect(formularZustand({ ...ANSICHT, kader_frei: false })).toBe("kader-voll");
+    expect(formularZustand(ANSICHT)).toBe("valid");
+    expect(formularZustand({ ...ANSICHT, running: false, team_entered: false, kader_free: false })).toBe("closed");
+    expect(formularZustand({ ...ANSICHT, team_entered: false, kader_free: false })).toBe("team-fehlt");
+    expect(formularZustand({ ...ANSICHT, kader_free: false })).toBe("kader-voll");
   });
 });
 
@@ -375,20 +370,20 @@ describe("what a refused READ says about a link", () => {
      either publishes is a link nothing could place. */
   it("calls the link void on every refusal either read publishes", () => {
     for (const code of refusalCodes("document_not_found")) {
-      expect(mapRegistrierungAnsichtRefusal(refused(code)), code).toBe("ungueltig");
+      expect(mapRegistrierungAnsichtRefusal(refused(code)), code).toBe("invalid");
     }
-    for (const code of refusalCodes("link_ungueltig")) {
-      expect(mapRegistrierungAnsichtRefusal(refused(code)), code).toBe("ungueltig");
+    for (const code of refusalCodes("link_invalid")) {
+      expect(mapRegistrierungAnsichtRefusal(refused(code)), code).toBe("invalid");
     }
   });
 
   it("calls a token no tier will parse void rather than offering a reload", () => {
-    expect(mapRegistrierungAnsichtRefusal(refused("payload_refused"))).toBe("ungueltig");
+    expect(mapRegistrierungAnsichtRefusal(refused("payload_refused"))).toBe("invalid");
   });
 
   /* The season or club an invitation names gone is as dead a link, as the sign-up answers it. */
   it("calls the link void where the record the invitation names is gone", () => {
-    expect(mapRegistrierungAnsichtRefusal(refused("document_not_found"))).toBe("ungueltig");
+    expect(mapRegistrierungAnsichtRefusal(refused("document_not_found"))).toBe("invalid");
   });
 
   it("leaves a failed read to the page's own state", () => {
@@ -401,7 +396,7 @@ describe("what a refused READ says about a link", () => {
   it("leaves a routing refusal or an unreadable body to the page's own state, never the dead-link panel", () => {
     expect(mapRegistrierungAnsichtRefusal(refused("no_route", 404))).toBe(null);
     expect(mapRegistrierungAnsichtRefusal(refused("method_not_served", 405))).toBe(null);
-    for (const operation of ["POST /registrierungen/einladung/ansicht", "POST /registrierungen/bestaetigung/ansicht"]) {
+    for (const operation of ["POST /registrierungen/invitation/view", "POST /registrierungen/confirmation/view"]) {
       expect(mapRegistrierungAnsichtRefusal(refused("body_unreadable")), operation).toBe(null);
     }
   });
@@ -413,24 +408,24 @@ describe("what a refused decision on a registration shows a seat holder", () => 
   it("words every rule the admission publishes and leaves the spine's codes to the spine", () => {
     const own = [
       "document_not_found",
-      "registrierung_stufe_nicht_erlaubt",
-      "registrierung_adresse_gesperrt",
-      "registrierung_unbestaetigt",
-      "registrierung_person_nicht_benannt",
-      "registrierung_schon_im_kader",
-      "registrierung_person_fehlt",
+      "registrierung_stufe_not_allowed",
+      "registrierung_adresse_barred",
+      "registrierung_unconfirmed",
+      "registrierung_person_not_named",
+      "registrierung_already_in_kader",
+      "registrierung_person_missing",
       "kader_full",
     ];
 
     for (const code of refusalCodes(
       "duplicate_key",
-      "funktion_nicht_gehalten",
-      "registrierung_stufe_nicht_erlaubt",
-      "registrierung_adresse_gesperrt",
-      "registrierung_unbestaetigt",
-      "registrierung_person_nicht_benannt",
-      "registrierung_schon_im_kader",
-      "registrierung_person_fehlt",
+      "role_not_held",
+      "registrierung_stufe_not_allowed",
+      "registrierung_adresse_barred",
+      "registrierung_unconfirmed",
+      "registrierung_person_not_named",
+      "registrierung_already_in_kader",
+      "registrierung_person_missing",
       "kader_full",
     )) {
       const worded = mapAufnahmeRefusal(refused(code));
@@ -441,7 +436,7 @@ describe("what a refused decision on a registration shows a seat holder", () => 
   /* A team is never told that a pupil's address is barred: the admission's ban refusal says no more
      than that the league has to look at it. */
   it("tells a seat holder nothing about a ban", () => {
-    const sentence = mapAufnahmeRefusal(refused("registrierung_adresse_gesperrt")) ?? "";
+    const sentence = mapAufnahmeRefusal(refused("registrierung_adresse_barred")) ?? "";
 
     expect(sentence).not.toBe("");
     for (const verboten of [/sperr/i, /liste/i, /blockiert/i, /E-Mail/i]) expect(sentence, sentence).not.toMatch(verboten);
@@ -458,7 +453,7 @@ describe("what a refused decision on a registration shows a seat holder", () => 
   it("answers a row another seat decided first alike on both decisions, and leaves the decline's other codes to the spine", () => {
     expect(mapAufnahmeRefusal(refused("document_not_found"))).toBe(REGISTRIERUNG_SCHON_ENTSCHIEDEN);
     expect(mapAblehnungRefusal(refused("document_not_found"))).toBe(REGISTRIERUNG_SCHON_ENTSCHIEDEN);
-    for (const code of refusalCodes("funktion_nicht_gehalten").filter((code) => code !== "document_not_found")) {
+    for (const code of refusalCodes("role_not_held").filter((code) => code !== "document_not_found")) {
       expect(mapAblehnungRefusal(refused(code)), `${code} is worded by the slice rather than the spine`).toBe(null);
     }
   });

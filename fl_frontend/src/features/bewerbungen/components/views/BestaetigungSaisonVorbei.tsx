@@ -17,33 +17,33 @@ import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { BestaetigungAbschnitt } from "./BestaetigungPanels";
 
-import type { FLBewerbungEinwilligungAbgelehnt, FLBewerbungEinwilligungAnsichtResponse } from "@/core/generated/client/types";
+import type { FLBewerbungEinwilligungDeclined, FLBewerbungEinwilligungViewResponse } from "@/core/generated/client/types";
 import type { LinkZustand } from "@/features/bewerbungen/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
 
 type WiderspruchAntwort =
   | { success: true }
-  | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei"; ansicht?: FLBewerbungEinwilligungAnsichtResponse });
+  | (PublicEnvelope & { success: false; zustand?: LinkZustand | "saison_vorbei"; ansicht?: FLBewerbungEinwilligungViewResponse });
 
 const NICHT_GESPEICHERT = `Dein Widerspruch wurde nicht gespeichert. ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 /**
  * A season row's link once its season has ended or its team has left it: the backend takes no
- * confirmation there (`kontakt_saison_vorbei`) and still takes a Widerspruch, so the page offers that alone.
+ * confirmation there (`kontakt_saison_past`) and still takes a Widerspruch, so the page offers that alone.
  */
 export function BestaetigungSaisonVorbei({
   ansicht,
   token,
   onAbschluss,
 }: {
-  ansicht: FLBewerbungEinwilligungAnsichtResponse;
+  ansicht: FLBewerbungEinwilligungViewResponse;
   token: string;
   onAbschluss: (abschluss: BestaetigungAbschluss) => void;
 }) {
   const widerspruch = useTwoPressConfirm();
 
-  const payload: FLBewerbungEinwilligungAbgelehnt = { token: token, antwort: "abgelehnt" };
+  const payload: FLBewerbungEinwilligungDeclined = { token: token, antwort: "declined" };
 
   const sende = async (): Promise<void> => {
     const gesendet = await postPublicForm<WiderspruchAntwort>("/api/bestaetigung/kontakt", payload);
@@ -76,7 +76,7 @@ export function BestaetigungSaisonVorbei({
       {/* The one cause the view names, as the mail names it. Only a withdrawal reads apart: an ended
           season outranks it, so every other state this page opens on is an ended season. */}
       <p className={ABSATZ_CLASSES}>
-        {ansicht.zeile === "ausgetreten" ? (
+        {ansicht.row === "ausgetreten" ? (
           <>
             Das Team <Wert>{ansicht.schule}</Wert> spielt in der Saison <Wert>{ansicht.saison_id}</Wert> nicht mehr mit.
           </>

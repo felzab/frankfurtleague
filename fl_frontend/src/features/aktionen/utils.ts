@@ -1,26 +1,26 @@
-import { ZEITZONE } from "@/core/format";
+import { TIME_ZONE } from "@/core/format";
 import { GELOESCHT_ACTOR_MARKER } from "@/core/geloeschtActor";
 import { GELOESCHTE_PERSON, vonOderGesperrt } from "@/features/berechtigungen/constants";
 
 import { AKTION_COLLECTION_LABELS, AKTION_HERKUNFT_LABELS, AKTOR_FUNKTION_LABELS, AKTOR_HERKUNFT } from "./constants";
 
-import type { FLAktion, FLAktorPerson } from "@/core/generated/client/types";
+import type { FLActionLogEntry, FLActorPerson } from "@/core/generated/client/types";
 import type { AktionHerkunft } from "./constants";
 
 /**
  * Where the write behind a row came from. Read through the map and never off the actor's fields: `SYSTEM`
  * and `PUBLIC` are spellings of "nobody", and a signed-in person carries no address at all.
  */
-export function herkunftOfAktor(actor: FLAktion["actor"]): AktionHerkunft {
+export function herkunftOfAktor(actor: FLActionLogEntry["actor"]): AktionHerkunft {
   return AKTOR_HERKUNFT[actor.kind];
 }
 
 /**
  * How a signed-in person's row names them: the kind of person the write was made as and their pseudonym,
- * served cut to the start a page may show (`fl_backend/app/api/aktionen/schemas.py :: FLAktorPerson`), or the
+ * served cut to the start a page may show (`fl_backend/app/api/aktionen/schemas.py :: FLActorPerson`), or the
  * admin cards' word for one erased since.
  */
-export function personAkteurLabel(actor: FLAktorPerson): string {
+export function personAkteurLabel(actor: FLActorPerson): string {
   const wer = actor.pseudonym === GELOESCHT_ACTOR_MARKER ? GELOESCHTE_PERSON : actor.pseudonym;
 
   return `${AKTOR_FUNKTION_LABELS[actor.funktion]} · ${wer}`;
@@ -30,9 +30,9 @@ export function personAkteurLabel(actor: FLAktorPerson): string {
  * What a row's actor cell prints, through the functions the cell renders with, which the log's search
  * reads too: the stored sentinels and markers are on no screen to type.
  */
-export function aktorAnzeige(actor: FLAktion["actor"]): string {
+export function aktorAnzeige(actor: FLActionLogEntry["actor"]): string {
   if (actor.kind === "person_session") return personAkteurLabel(actor);
-  if (actor.kind === "admin_session") return vonOderGesperrt(actor.email, actor.email_gesperrt);
+  if (actor.kind === "admin_session") return vonOderGesperrt(actor.email, actor.email_barred);
 
   return AKTION_HERKUNFT_LABELS[herkunftOfAktor(actor)];
 }
@@ -48,14 +48,14 @@ export function labelForCollection(collection: string): string {
 // Europe/Berlin, as every other date in this app is rendered: the log stores UTC, and an admin reading
 // "14:23" for a write they made at 16:23 would look for it on the wrong side of midnight.
 const ZEITPUNKT_DATUM = new Intl.DateTimeFormat("de-DE", {
-  timeZone: ZEITZONE,
+  timeZone: TIME_ZONE,
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
 });
 
 const ZEITPUNKT_UHRZEIT = new Intl.DateTimeFormat("de-DE", {
-  timeZone: ZEITZONE,
+  timeZone: TIME_ZONE,
   hour: "2-digit",
   minute: "2-digit",
 });
@@ -84,7 +84,7 @@ export type AktionDatensatz =
  * A count alone still names a set, so `ohne` needs all three absent — the read model refuses no stored
  * row, and one naming nothing at all can reach the page.
  */
-export function describeAktionDatensatz(aktion: Pick<FLAktion, "document_id" | "db_filter" | "modified_count">): AktionDatensatz {
+export function describeAktionDatensatz(aktion: Pick<FLActionLogEntry, "document_id" | "db_filter" | "modified_count">): AktionDatensatz {
   if (aktion.document_id !== null) return { kind: "dokument", id: aktion.document_id };
 
   const filterPaare = Object.entries(aktion.db_filter ?? {});

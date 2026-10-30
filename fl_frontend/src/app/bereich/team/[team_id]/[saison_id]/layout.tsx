@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-import { funktionenOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/roles";
 import { getSubjectSession } from "@/core/subject";
 import { PersonSessionHold } from "@/features/funktionen/components/providers/PersonSessionHold";
 import { TeamAreaBoundary } from "@/features/funktionen/components/providers/TeamAreaBoundary";
@@ -64,7 +64,7 @@ async function seatsHere(params: TeamParams) {
   // The hold's own read, memoised per render (`fl_frontend/src/core/subject.ts :: getSubjectSession`).
   const subject = await getSubjectSession();
   if (subject === null) return null;
-  const { funktionen } = funktionenOf(subject);
+  const { roles: funktionen } = rolesOf(subject);
 
   // A seat on a `past` season is no Funktion, so its address lands here as held by nobody.
   return { funktionen: funktionen, saisonId: saison_id, seats: seatsAt(funktionen, team_id, saison_id) };

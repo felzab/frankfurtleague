@@ -50,7 +50,7 @@ export function spielFields(overrides: Partial<SpielFields> = {}): SpielFields {
     saison_phase: "gruppenphase",
     saison_id: "2026",
     notiz: null,
-    ansetzung_bestaetigt: null,
+    ansetzung_confirmed: null,
     ...overrides,
   };
 }
@@ -64,7 +64,7 @@ export function spielbestaetigungFields(overrides: Partial<FLSpielbestaetigung> 
     id: "6890a1b2c3d4e5f607182a01",
     saison_id: "2026",
     spiel_id: "6890a1b2c3d4e5f607182930",
-    partei: { art: "team", team_id: "6890a1b2c3d4e5f607182932" },
+    party: { art: "team", team_id: "6890a1b2c3d4e5f607182932" },
     ansetzung: {
       datum: "2026-08-05",
       uhrzeit: "18:00:00",
@@ -74,11 +74,11 @@ export function spielbestaetigungFields(overrides: Partial<FLSpielbestaetigung> 
       stand: "0".repeat(64),
     },
     frist: "2026-07-29",
-    angefragt_am: "2026-07-29",
-    erinnert_am: [],
-    kontakte: { trainer: { zustellung: null }, ansprechperson: { zustellung: null }, stellvertretung: null },
+    asked_at: "2026-07-29",
+    reminded_at: [],
+    kontakte: { trainer: { delivery: null }, ansprechperson: { delivery: null }, stellvertretung: null },
     antwort: null,
-    geschlossen: null,
+    closed: null,
     ...overrides,
   };
 }

@@ -9,7 +9,7 @@ import type { Route } from "next";
 import type { RailPageHead } from "./RailFrame";
 
 /** What the end says at a glance: done, a fact, a link or a page that is no more, a failure; each names its glyph. */
-export type StatusMark = "erledigt" | "info" | "warnung" | "fehler";
+export type StatusMark = "done" | "info" | "warnung" | "error";
 
 /** One end state: its mark, its one sentence, and its one way on, a label and an address per page in the catalogue. */
 export type StatusCardProps = {
@@ -27,10 +27,10 @@ const card = tv({
   variants: {
     // The mark's tint is 12 % of its hue over the card, as a chip's.
     mark: {
-      erledigt: { mark: "bg-success/12 text-success" },
+      done: { mark: "bg-success/12 text-success" },
       info: { mark: "bg-info/12 text-info" },
       warnung: { mark: "bg-warn/12 text-warn" },
-      fehler: { mark: "bg-danger/12 text-danger" },
+      error: { mark: "bg-danger/12 text-danger" },
     },
   },
 });
@@ -76,7 +76,7 @@ export function StatusPage(props: StatusCardProps & ({ frame: "classic"; title: 
   }
   return (
     <RailPage
-      area={props.area}
+      scope={props.scope}
       title={props.title}
       chip={props.chip}>
       {card}

@@ -12,15 +12,15 @@ import type { Route } from "next";
 import type { ChipProps } from "./Chip";
 
 /** One side of a match: the club's name and its plaque, or the source of a side not yet known. */
-export type MatchSide = { name: string; plaque: { kuerzel: string } | { quelle: string } };
+export type SpielSide = { name: string; plaque: { kuerzel: string } | { quelle: string } };
 
-export type MatchRowProps = {
+export type SpielRowProps = {
   /** The match's own page, which opens as the pop-up over the list. */
   href: Route;
   /** When it is played, as the formatting module writes it. */
   when: string;
-  home: MatchSide;
-  away: MatchSide;
+  home: SpielSide;
+  away: SpielSide;
   /** Absent until a result is entered, so an unplayed match never reads 0:0. */
   result?: { tore: Paar; elfmeterschiessen?: Paar };
   /** The phase, as text. */
@@ -72,7 +72,7 @@ const row = tv({
 export type Figures = { home: number; away: number; shootOut: boolean } | null;
 
 /** Each side's figure: its goals, a shoot-out's goals added, as the league reports it. */
-export function figures(result: MatchRowProps["result"]): Figures {
+export function figures(result: SpielRowProps["result"]): Figures {
   if (result === undefined) return null;
   const { tore, elfmeterschiessen } = result;
   return {
@@ -90,7 +90,7 @@ export function look(score: Figures, side: "home" | "away") {
   return { winner: own > other, goals: score.shootOut && own < other ? "lost" : "counted" } as const;
 }
 
-function Side({ side, score, part, mirrored }: { side: MatchSide; score: Figures; part: "home" | "away"; mirrored?: boolean }) {
+function Side({ side, score, part, mirrored }: { side: SpielSide; score: Figures; part: "home" | "away"; mirrored?: boolean }) {
   const style = row({ ...look(score, part), mirrored: mirrored === true });
   return (
     <span className={style.side()}>
@@ -122,7 +122,7 @@ function RowChip({ chip }: { chip?: ChipProps }) {
  * under the date line, each side with its goals at the right, „n. E.“ on the date line, and no chevron; every
  * row the same height with or without a shoot-out.
  */
-function MatchRow({ href, when, home, away, result, phase, chip }: MatchRowProps) {
+function SpielRow({ href, when, home, away, result, phase, chip }: SpielRowProps) {
   const score = figures(result);
   const shootOut = score?.shootOut === true ? COPY.shared.nachElfmeterschiessen : null;
 
@@ -208,13 +208,13 @@ function MatchRow({ href, when, home, away, result, phase, chip }: MatchRowProps
  * Matches one under another in one box with the card corners and the hairline, the rows parted by lines:
  * a matchday's matches, or the matches a read page lists.
  */
-export function MatchList({ matches }: { matches: ReadonlyArray<MatchRowProps & { id: string }> }) {
+export function SpielList({ matches }: { matches: ReadonlyArray<SpielRowProps & { id: string }> }) {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-bg">
-      {matches.map(({ id, ...match }) => (
-        <MatchRow
+      {matches.map(({ id, ...spiel }) => (
+        <SpielRow
           key={id}
-          {...match}
+          {...spiel}
         />
       ))}
     </div>

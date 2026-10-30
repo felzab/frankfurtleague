@@ -58,7 +58,7 @@ export async function absagenSpielbestaetigungAction(
 
     const begruendung = validated.data.begruendung;
     return antworten(
-      () => postSpielbestaetigungAntwort(id.data, { antwort: "abgelehnt", begruendung: begruendung }),
+      () => postSpielbestaetigungAntwort(id.data, { antwort: "declined", begruendung: begruendung }),
       "abgelehnt",
       ABSAGE_GESPEICHERT,
     );

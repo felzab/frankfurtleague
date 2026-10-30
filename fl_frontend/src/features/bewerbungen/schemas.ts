@@ -18,12 +18,12 @@ import {
   ADDRESS_STADTTEIL_MAX_LENGTH,
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
-  einzeiligerName,
   ExternalUrlSchema,
   FLAddressPayloadSchema,
   KontaktEmailSchema,
   PersonNameSchema,
   PHONE_REGEX,
+  singleLineName,
 } from "@/shared/schemas";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
@@ -40,7 +40,7 @@ import {
 } from "./constants";
 import { geburtsdatumSpanne } from "./utils";
 
-import type { FLBewerbungEinwilligungAbgelehnt, FLBewerbungEinwilligungErteilt } from "@/core/generated/client/types";
+import type { FLBewerbungEinwilligungDeclined, FLBewerbungEinwilligungGiven } from "@/core/generated/client/types";
 
 /**
  * The acceptance's input. No `saison_id`: the application names its own season, so a payload carrying
@@ -86,7 +86,7 @@ const FLBewerbungEinwilligungPayloadSchema = z.object({
     }),
   // `true` alone, never a boolean: an unticked box is an acknowledgement nobody made, and a payload
   // carrying `false` would record the absence as an answer.
-  erteilt: z.literal(true, { error: "Ohne diese Kenntnisnahme können wir die Bewerbung nicht annehmen." }),
+  given: z.literal(true, { error: "Ohne diese Kenntnisnahme können wir die Bewerbung nicht annehmen." }),
 });
 
 const KADER_ZU_GROSS = `Bitte gib höchstens ${String(BEWERBUNG_KADER_GROESSE_MAX)} Spieler an.`;
@@ -119,7 +119,7 @@ const FLBewerbungKontaktePayloadSchema = z
     stellvertretung: FLBewerbungKontaktpersonPayloadSchema,
     // Which OTHER seat the Trainer also holds, or nobody. One nullable field rather than two ticks,
     // which would let a submission claim both at once.
-    trainer_ist_zugleich: FLTrainerZugleichSchema.nullable(),
+    trainer_is_also: FLTrainerZugleichSchema.nullable(),
   })
   .superRefine(
     kontaktePersonenRegeln({
@@ -150,7 +150,7 @@ const FLBewerbungAddressPayloadSchema = FLAddressPayloadSchema.extend({
  * would refuse.
  */
 const FLBewerbungSchulePayloadSchema = z.object({
-  team_name: einzeiligerName(
+  team_name: singleLineName(
     z
       .string()
       .trim()
@@ -160,7 +160,7 @@ const FLBewerbungSchulePayloadSchema = z.object({
       }),
     "Der Teamname",
   ),
-  full_name: einzeiligerName(
+  full_name: singleLineName(
     z
       .string()
       .trim()
@@ -187,7 +187,7 @@ const FLBewerbungSchulePayloadSchema = z.object({
 
 /** What the school already owns, and the colour it would like. */
 const FLBewerbungTrikotPayloadSchema = z.object({
-  vorhandener_satz: z
+  existing_satz: z
     .string()
     .trim()
     .max(BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH, {
@@ -201,7 +201,7 @@ const FLBewerbungKaderPayloadSchema = z
   .object({
     // `z.number().int()` and never `z.int()`: that spelling answers `null` and `1.5` with one
     // `invalid_type`, so an emptied box and a typed fraction would both draw the empty box's message.
-    voraussichtliche_groesse: z
+    expected_size: z
       .number({ error: "Bitte gib an, mit wie vielen Spielern Du ungefähr rechnest." })
       .int({ error: "Ein Kader zählt keine halben Spieler." })
       .min(1, { error: "Ein Kader hat mindestens einen Spieler." })
@@ -209,17 +209,17 @@ const FLBewerbungKaderPayloadSchema = z
     // Answered rather than nullable: a blank box leaves the league guessing whether the school means
     // none or has not looked. The refusal names the level the label names, „im Verein“ alone being
     // answered from breadth of membership, not from level.
-    gute_spieler: z
+    good_spieler: z
       .number({ error: "Bitte gib an, wie viele davon im Verein mindestens Verbandsliga spielen." })
       .int({ error: "Bitte gib eine ganze Zahl an Spielern ein." })
       .nonnegative({ error: "Bitte gib eine Zahl ab 0 ein." })
       .max(BEWERBUNG_KADER_GROESSE_MAX, { error: KADER_ZU_GROSS }),
   })
   // The backend's model validator: a subset cannot outnumber the whole. Equal passes — a school may
-  // rate its whole squad. On `gute_spieler`, the box the applicant lowers.
-  .refine((kader) => kader.gute_spieler <= kader.voraussichtliche_groesse, {
+  // rate its whole squad. On `good_spieler`, the box the applicant lowers.
+  .refine((kader) => kader.good_spieler <= kader.expected_size, {
     error: "Die Anzahl der guten Spieler darf die voraussichtliche Kadergröße nicht überschreiten.",
-    path: ["gute_spieler"],
+    path: ["good_spieler"],
   });
 
 /**
@@ -245,7 +245,7 @@ export const FLPostBewerbungPayloadSchema = z
       .max(BEWERBUNG_STUFENGROESSE_MAX, { error: `Bitte gib höchstens ${String(BEWERBUNG_STUFENGROESSE_MAX)} an.` }),
     // The one OPTIONAL key on this payload, as the backend's one default: a client that has not asked
     // yet omits it. Line-bounded like `schule.team_name` and for its reason.
-    wunschgegner: einzeiligerName(
+    wunschgegner: singleLineName(
       z
         .string()
         .trim()
@@ -293,7 +293,7 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
     "antwort",
     [
       z.object({
-        antwort: z.literal("erteilt" satisfies FLBewerbungEinwilligungErteilt["antwort"]),
+        antwort: z.literal("given" satisfies FLBewerbungEinwilligungGiven["antwort"]),
         token: einwilligungToken,
         // Each stage only once the one before it passed: the empty picker is the missing date, and an age is
         // judged of a real date alone.
@@ -318,7 +318,7 @@ export const buildEinwilligungAntwortPayloadSchema = (mindestalter: number) =>
         // cite the words the confirming person read, and the two are months apart.
         text_version: LinkAntwortTextVersionSchema,
       }),
-      z.object({ antwort: z.literal("abgelehnt" satisfies FLBewerbungEinwilligungAbgelehnt["antwort"]), token: einwilligungToken }),
+      z.object({ antwort: z.literal("declined" satisfies FLBewerbungEinwilligungDeclined["antwort"]), token: einwilligungToken }),
     ],
     // No control offers another, so a value outside the pair is a drifted client rather than a mistyped
     // answer, and the repair is the reload rather than a choice.
@@ -357,8 +357,8 @@ export const FLBewerbungKontaktEmailPayloadSchema = z.object({
   rolle: FLKontaktRolleSchema,
   email: KontaktEmailSchema,
   // The address the page showed on the seat, never one read again in the action: the backend refuses a seat another
-  // person took since, which a fresh read would hand the address typed for the one who left (`bewerbung_sitz_anders_besetzt`).
-  bisherige_email: KontaktEmailSchema,
+  // person took since, which a fresh read would hand the address typed for the one who left (`bewerbung_seat_differently_seated`).
+  previous_email: KontaktEmailSchema,
 });
 
 /**

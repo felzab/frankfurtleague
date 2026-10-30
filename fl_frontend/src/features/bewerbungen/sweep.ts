@@ -19,7 +19,7 @@ type Uebergangen = { bewerbung: number; registrierung: number };
  *
  * Every reminder and notice the backend owed is the Postausgang's drain to send. Answers the rows each half passed over
  * and what the address changes did, `offen` the erasures passed over and the lapsed changes left, and the seasons'
- * failure, once both halves have run, as `fehler`; a lapsed address the half could not end rejects, for the heartbeat
+ * failure, once both halves have run, as `error`; a lapsed address the half could not end rejects, for the heartbeat
  * to name.
  */
 export async function runBewerbungSweep() {
@@ -29,16 +29,16 @@ export async function runBewerbungSweep() {
   const adressen = await sweepAdresswechsel();
 
   return {
-    zaehlung: {
-      bewerbung_fehlgeschlagen: saisons.uebergangen.bewerbung,
-      registrierung_fehlgeschlagen: saisons.uebergangen.registrierung,
-      adresswechsel_entfernt: adressen.entfernt,
-      adresswechsel_wirksam: adressen.wirksam,
-      adresswechsel_verworfen: adressen.verworfen,
-      adresswechsel_verbleibend: adressen.verbleibend,
+    count: {
+      bewerbung_failed: saisons.uebergangen.bewerbung,
+      registrierung_failed: saisons.uebergangen.registrierung,
+      address_change_removed: adressen.removed,
+      address_change_effective: adressen.effective,
+      address_change_discarded: adressen.discarded,
+      address_change_remaining: adressen.remaining,
     },
-    offen: saisons.uebergangen.bewerbung + saisons.uebergangen.registrierung + adressen.verbleibend,
-    fehler: saisons.fehler,
+    open: saisons.uebergangen.bewerbung + saisons.uebergangen.registrierung + adressen.remaining,
+    error: saisons.fehler,
   };
 }
 
@@ -56,10 +56,10 @@ async function sweepAlleSaisons(): Promise<{ uebergangen: Uebergangen; fehler?: 
     // Its own event per half: one line for both cannot say which stopped, and that is the question
     // `docs/ops/runbooks.md` section 9 sends an operator to the logs with.
     await halbe("bewerbung.sweep_failed", saisonId, fehler, async () => {
-      uebergangen.bewerbung += (await postBewerbungSweep(saisonId)).fehlgeschlagen;
+      uebergangen.bewerbung += (await postBewerbungSweep(saisonId)).failed;
     });
     await halbe("registrierung.sweep_failed", saisonId, fehler, async () => {
-      uebergangen.registrierung += (await postRegistrierungSweep(saisonId)).fehlgeschlagen;
+      uebergangen.registrierung += (await postRegistrierungSweep(saisonId)).failed;
     });
   }
 

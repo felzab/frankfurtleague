@@ -8,13 +8,13 @@ import { FLSpielbestaetigungEintragenPayloadSchema, FLSpielbestaetigungVerwerfen
 import { mapSpielbestaetigungAdminRefusal } from "./utils";
 
 import type { ActionResult } from "@/shared/types/types";
-import type { FLSpielbestaetigungEintragenPayload, FLSpielbestaetigungVerwerfenPayload } from "./schemas";
+import type { FLSpielbestaetigungEnterPayload, FLSpielbestaetigungVerwerfenPayload } from "./schemas";
 
 /**
  * A Zusage recorded on a party's behalf, after the league heard it some other way. A step-up write with no undo:
  * nothing reverses an answer. `spiele` drops because a settle can complete the pair the public card's verdict reads.
  */
-export async function eintragenSpielbestaetigungAction(rawPayload: FLSpielbestaetigungEintragenPayload): Promise<ActionResult> {
+export async function eintragenSpielbestaetigungAction(rawPayload: FLSpielbestaetigungEnterPayload): Promise<ActionResult> {
   return runAdminMutation("eintragenSpielbestaetigungAction", { stepUp: true }, async () => {
     const validated = FLSpielbestaetigungEintragenPayloadSchema.safeParse(rawPayload);
 

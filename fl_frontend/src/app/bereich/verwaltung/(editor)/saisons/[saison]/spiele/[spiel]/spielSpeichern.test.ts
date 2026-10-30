@@ -30,7 +30,7 @@ const GESPEICHERT: FLSpielJoinedAdmin = {
   saison_phase: "halbfinale",
   saison_id: "2027",
   notiz: "Flutlicht",
-  ansetzung_bestaetigt: null,
+  ansetzung_confirmed: null,
   version: 3,
 };
 
@@ -40,7 +40,7 @@ const NICHTS_BEWEGT: FLPatchSpielDataResponse = {
   released_sides: [],
   bracket_faults: [],
   version: 4,
-  bericht_uebernommen: null,
+  bericht_adopted: null,
 };
 
 /** The fixture the save reads before its write, every payload it sends, and what the write answers. */

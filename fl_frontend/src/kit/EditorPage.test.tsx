@@ -18,7 +18,7 @@ import type { EditorSave } from "./useEditor";
 type Spielort = { name: string };
 
 const NAME = COPY.seite.spielorte;
-const ZURUECK = "/bereich/verwaltung/spielorte";
+const BACK = "/bereich/verwaltung/spielorte";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/bereich/verwaltung/spielorte/ort-1",
@@ -82,7 +82,7 @@ describe("the editor template's save", () => {
 function Framed({ editor, children }: { editor: boolean; children: ReactNode }) {
   return (
     <RailFrame
-      groups={[{ entries: [{ id: "spielorte", label: NAME, href: ZURUECK, icon: "suche" }] }]}
+      groups={[{ entries: [{ id: "spielorte", label: NAME, href: BACK, icon: "suche" }] }]}
       bar={["spielorte"]}
       foot={{ kind: "anmelden", href: "/signin" }}
       columnInLayouts>
@@ -105,7 +105,7 @@ describe("the editor template's way back", () => {
     const page = document.createElement("div");
     page.innerHTML = html;
 
-    expect(within(page).getByRole("link", { name: COPY.shared.zurueck }).getAttribute("href")).toBe(ZURUECK);
+    expect(within(page).getByRole("link", { name: COPY.shared.zurueck }).getAttribute("href")).toBe(BACK);
     expect(within(page).queryByRole("button", { name: COPY.vorlage.mehr })).toBeNull();
   });
 

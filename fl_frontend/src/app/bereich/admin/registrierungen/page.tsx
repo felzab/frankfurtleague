@@ -51,7 +51,7 @@ async function Registrierungen({ searchParams }: { searchParams: NextPageProps["
     <AdminRegistrierungenView
       registrierungen={buildAdminRegistrierungRows(registrierungenRes.registrierungen, teamsRes.teams)}
       unvollstaendig={
-        registrierungenRes.vollstaendig ? null : { richtung: richtung, umkehrHref: leserichtungHrefFromRoute(params, umgekehrt(richtung)) }
+        registrierungenRes.complete ? null : { richtung: richtung, umkehrHref: leserichtungHrefFromRoute(params, umgekehrt(richtung)) }
       }
     />
   );

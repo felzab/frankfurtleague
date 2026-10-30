@@ -16,7 +16,7 @@ vi.doMock("next/cache", () => ({ cacheTag: () => void declared.push("cacheTag"),
 // real client reaches a backend no test process runs, at a base URL no test run holds.
 /** Every request the doubled client was asked for, cumulative across every pass in this file. */
 const reads = doubleApiClient(({ endpoint }) =>
-  endpoint.endsWith("/loeschung/vorschau") ? { abgeschlossene_saison_id: "2526", spieler: 4 } : { saisons: [{ id: "2526" }] },
+  endpoint.endsWith("/erasure/preview") ? { abgeschlossene_saison_id: "2526", spieler: 4 } : { saisons: [{ id: "2526" }] },
 );
 
 serveServerReact();
@@ -73,8 +73,8 @@ describe("the deletion count the season page reads", () => {
     await getLoeschungVorschau("2627");
 
     expect(reads.slice(before).map(({ endpoint, authType }) => [endpoint, authType])).toStrictEqual([
-      ["/saisons/2627/loeschung/vorschau", "admin"],
-      ["/saisons/2627/loeschung/vorschau", "admin"],
+      ["/saisons/2627/erasure/preview", "admin"],
+      ["/saisons/2627/erasure/preview", "admin"],
     ]);
     expect(declared, "the administrator's count is declared into a cache every caller shares").toStrictEqual([]);
   });

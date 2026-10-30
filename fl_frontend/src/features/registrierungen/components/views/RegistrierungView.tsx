@@ -21,7 +21,7 @@ import { textLink } from "@/shared/components/ui/textLink";
 import { formularZustand } from "../../utils";
 import { RegistrierungFormPanel } from "./RegistrierungFormPanel";
 
-import type { FLEinladungAnsichtResponse } from "@/core/generated/client/types";
+import type { FLInvitationViewResponse } from "@/core/generated/client/types";
 import type { RegistrierungStart } from "../../types";
 
 /**
@@ -30,27 +30,27 @@ import type { RegistrierungStart } from "../../types";
  * Three of them close the form rather than offering it over a refusal, which the **saisons**
  * decision in `docs/decisions.md` bans.
  */
-type Stand = "gueltig" | "kader-voll" | "team-fehlt" | "geschlossen" | "ungueltig" | "unlesbar";
+type Stand = "valid" | "kader-voll" | "team-fehlt" | "closed" | "invalid" | "unlesbar";
 
 /** One heading per state, uppercased by the page rather than typed so, as the application page does it. */
 const TITEL: Record<Stand, string> = {
-  gueltig: "Für Dein Team registrieren",
+  valid: "Für Dein Team registrieren",
   "kader-voll": "Kader voll",
   "team-fehlt": "Team nicht eingetragen",
-  geschlossen: "Registrierung geschlossen",
-  ungueltig: "Link ungültig",
+  closed: "Registrierung geschlossen",
+  invalid: "Link ungültig",
   unlesbar: LINK_UNLESBAR_TITEL,
 };
 
 /** What the page knows about the team, or `null` where it may name nobody. */
-type Geoeffnet = { stand: Stand; ansicht: FLEinladungAnsichtResponse | null };
+type Geoeffnet = { stand: Stand; ansicht: FLInvitationViewResponse | null };
 
 // Derived TOGETHER, so no state can render a heading of one kind over a team banner of another: the
 // dead-link arm is reached by a write refusing after the page opened, with the read's answer still
 // in hand.
 function standVon(start: RegistrierungStart, istTot: boolean): Geoeffnet {
-  if (istTot) return { stand: "ungueltig", ansicht: null };
-  if (start.zustand === "ungueltig" || start.zustand === "unlesbar") return { stand: start.zustand, ansicht: null };
+  if (istTot) return { stand: "invalid", ansicht: null };
+  if (start.zustand === "invalid" || start.zustand === "unlesbar") return { stand: start.zustand, ansicht: null };
 
   return { stand: formularZustand(start.ansicht), ansicht: start.ansicht };
 }
@@ -85,13 +85,13 @@ export function RegistrierungView({ start, siteKey }: { start: RegistrierungStar
 
         {/* Said before anything is typed, because it changes what the registration means rather than
             whether it is accepted: the squad's own entries closed when the first matchday began. */}
-        {stand === "gueltig" && ansicht !== null && ansicht.nachnominierung && (
+        {stand === "valid" && ansicht !== null && ansicht.nachnominierung && (
           <p className={ABSATZ_CLASSES}>
             Der erste Spieltag hat schon begonnen. Du wirst deshalb <Wert>nachnominiert</Wert>. Am Mitspielen ändert das nichts.
           </p>
         )}
 
-        {stand === "gueltig" && (
+        {stand === "valid" && (
           <p className={ABSATZ_CLASSES}>
             Was mit Deinen Angaben passiert, steht in der{" "}
             <Link
@@ -106,7 +106,7 @@ export function RegistrierungView({ start, siteKey }: { start: RegistrierungStar
 
         {/* Its own paragraph, before anything is typed: Art. 21(4) DSGVO asks the objection to reach
             a person at the first contact and apart from every other piece of information. */}
-        {stand === "gueltig" && (
+        {stand === "valid" && (
           <p className={ABSATZ_CLASSES}>
             Der Verarbeitung Deiner Angaben für den Spielbetrieb kannst Du jederzeit aus Gründen widersprechen, die sich aus Deiner besonderen
             Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an{" "}
@@ -120,7 +120,7 @@ export function RegistrierungView({ start, siteKey }: { start: RegistrierungStar
         )}
       </header>
 
-      {stand === "gueltig" && start.zustand === "gueltig" && (
+      {stand === "valid" && start.zustand === "valid" && (
         <RegistrierungFormPanel
           token={start.token}
           ansicht={start.ansicht}
@@ -156,7 +156,7 @@ export function RegistrierungView({ start, siteKey }: { start: RegistrierungStar
 
       {/* „geschlossen“ and never „ungültig“: an invite pasted after the window shut is a working link
           whose season is over, and a reader told otherwise goes away believing their team misled them. */}
-      {stand === "geschlossen" && (
+      {stand === "closed" && (
         <BestaetigungErgebnis tone="hinweis">
           <p className={ABSATZ_CLASSES}>
             Für diese Saison ist die Registrierung geschlossen. Der Link Deines Teams funktioniert, das Fenster nicht.
@@ -168,7 +168,7 @@ export function RegistrierungView({ start, siteKey }: { start: RegistrierungStar
 
       {/* No team and no school from here on: a dead link may have been forwarded, and it identifies
           nobody. */}
-      {stand === "ungueltig" && (
+      {stand === "invalid" && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">

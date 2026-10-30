@@ -89,7 +89,7 @@ export const PersonNameSchema = z
 
 // `fl_backend/app/shared/schemas/custom.py :: SINGLE_LINE_PATTERN` negated, and named rather than written into the
 // refinement below.
-const NICHT_EINZEILIG = /[\x00\n\v\f\r\u0085\u2028\u2029]/;
+const NOT_SINGLE_LINE = /[\x00\n\v\f\r\u0085\u2028\u2029]/;
 
 /**
  * A name is a name: none of them belongs in one, and refusing the class is cheaper than
@@ -98,9 +98,9 @@ const NICHT_EINZEILIG = /[\x00\n\v\f\r\u0085\u2028\u2029]/;
  */
 // One asymmetry, fail-closed: the API's `strip_whitespace` drops U+0085 where `trim()` keeps it, so a value PADDED
 // with one is taken by the API and refused here.
-export const einzeiligerName = (schema: z.ZodString, feld: string) =>
-  schema.refine((wert) => !NICHT_EINZEILIG.test(wert), {
-    error: `${feld} darf keine Zeilenumbrüche oder Steuerzeichen enthalten.`,
+export const singleLineName = (schema: z.ZodString, field: string) =>
+  schema.refine((value) => !NOT_SINGLE_LINE.test(value), {
+    error: `${field} darf keine Zeilenumbrüche oder Steuerzeichen enthalten.`,
   });
 
 /**

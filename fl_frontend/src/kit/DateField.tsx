@@ -21,14 +21,14 @@ import { calendarCell, calendarHead, fieldButton, fieldFrame, fieldRoot, menuPop
 import { Icon } from "./Icon";
 
 import type { Copy } from "@/core/copy";
-import type { Kalendertag } from "@/core/format";
+import type { CalendarDay } from "@/core/format";
 import type { CalendarDate } from "@internationalized/date";
 
-const toTag = (date: CalendarDate | null): Kalendertag | null =>
-  // `CalendarDate` writes itself as `YYYY-MM-DD`, the stored form `Kalendertag` names.
-  date === null ? null : (date.toString() as Kalendertag);
+const toTag = (date: CalendarDate | null): CalendarDay | null =>
+  // `CalendarDate` writes itself as `YYYY-MM-DD`, the stored form `CalendarDay` names.
+  date === null ? null : (date.toString() as CalendarDay);
 
-const fromTag = (tag: Kalendertag | null | undefined): CalendarDate | null | undefined =>
+const fromTag = (tag: CalendarDay | null | undefined): CalendarDate | null | undefined =>
   tag === null || tag === undefined ? tag : parseDate(tag);
 
 /** The month a date's calendar button opens, under the field. */
@@ -43,7 +43,7 @@ function MonthCalendar() {
           slot="previous"
           className={fieldButton()}>
           <Icon
-            glyph="zurueck"
+            glyph="back"
             size={16}
           />
         </AriaButton>
@@ -97,13 +97,13 @@ export function DateField({
   isRequired?: boolean;
   isDisabled?: boolean;
   name?: string;
-  value?: Kalendertag | null;
-  defaultValue?: Kalendertag | null;
-  onChange?: (tag: Kalendertag | null) => void;
+  value?: CalendarDay | null;
+  defaultValue?: CalendarDay | null;
+  onChange?: (tag: CalendarDay | null) => void;
   /** The earliest day the field takes: the calendar offers none before it, and an earlier one reads „Frühestens …“. */
-  minValue?: Kalendertag;
+  minValue?: CalendarDay;
   /** The latest day the field takes: the calendar offers none after it, and a later one reads „Spätestens …“. */
-  maxValue?: Kalendertag;
+  maxValue?: CalendarDay;
 }) {
   return (
     <DatePicker<CalendarDate>

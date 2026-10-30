@@ -10,7 +10,7 @@ import { getTeam } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { getGermanTodayStr } from "@/shared/utils/date";
-import { seasonScopedMetadata } from "@/shared/utils/metadata";
+import { saisonScopedMetadata } from "@/shared/utils/metadata";
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
 import { parseObjectIdParam } from "@/shared/utils/routeParams";
 
@@ -31,7 +31,7 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
   // Unlogged: the body makes this read uncaught, so its failure reaches the error boundary, which logs it.
   const teamRes = await getTeam(team_id, {
     saison_id: saisonId,
-    statistik_scope: "gesamt",
+    statistik_scope: "total",
   }).catch(() => null);
   const teamData = teamRes?.team;
   if (!teamData) return NOT_FOUND_METADATA;
@@ -39,7 +39,7 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
   return {
     title: teamData.name,
     description: `Teamdaten, Statistiken und Saisonspiele von ${teamData.full_name || teamData.name} in der Frankfurt League.`,
-    ...seasonScopedMetadata(`/dashboard/teams/${team_id}`, saisonId, await runningSaisonId()),
+    ...saisonScopedMetadata(`/dashboard/teams/${team_id}`, saisonId, await runningSaisonId()),
   };
 }
 
@@ -63,7 +63,7 @@ async function TeamDetailsContent(props: NextPageProps<{ team_id: string }>) {
   const [teamRes, spieleRes, isFinishedSaison] = await Promise.all([
     // "gesamt", not the default: this page shows the club's whole season, playoffs included, and is
     // the only surface that does.
-    getTeam(team_id, { saison_id: specifiedSaisonId, statistik_scope: "gesamt" }),
+    getTeam(team_id, { saison_id: specifiedSaisonId, statistik_scope: "total" }),
     getSpiele({ team_id: team_id, saison_id: specifiedSaisonId }),
     resolveIsFinishedSaison(specifiedSaisonId),
   ]);

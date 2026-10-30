@@ -9,7 +9,7 @@ import {
   saisonBestaetigungen,
 } from "./utils.ts";
 
-import type { FLBracketFault, FLSpielberichtZustand, FLSpielbestaetigung, FLSpielbestaetigungAntwort } from "@/core/generated/client/types";
+import type { FLBracketFault, FLSpielberichtState, FLSpielbestaetigung, FLSpielbestaetigungAntwort } from "@/core/generated/client/types";
 import type { FLSpiel } from "../spiele/types.ts";
 import type { FLActionUrgency } from "./utils.ts";
 
@@ -168,12 +168,11 @@ describe("categorizeActionRequired", () => {
      adopted one asks nothing, its result standing as the report proposes. */
   it("files a fixture under its report's proposal while the report reads proposed, diverging or about other teams, never once adopted or called off", () => {
     const spiel = makeSpiel({ datum: TODAY, ergebnis: "3:1" });
-    const nach = (zustand: FLSpielberichtZustand) =>
-      categorizeActionRequired([spiel], TODAY, [], saisonBestaetigungen([], []), [{ spiel_id: spiel.id, zustand }]).ergebnis_vorschlag.length;
+    const nach = (zustand: FLSpielberichtState) =>
+      categorizeActionRequired([spiel], TODAY, [], saisonBestaetigungen([], []), [{ spiel_id: spiel.id, state: zustand }]).ergebnis_vorschlag
+        .length;
 
-    expect([nach("vorgeschlagen"), nach("abweichend"), nach("teams_geaendert"), nach("uebernommen"), nach("abgesagt")]).toStrictEqual([
-      1, 1, 1, 0, 0,
-    ]);
+    expect([nach("vorgeschlagen"), nach("differing"), nach("teams_changed"), nach("adopted"), nach("abgesagt")]).toStrictEqual([1, 1, 1, 0, 0]);
   });
 
   /* The section's description is what tells a reader why a card stands here, so it names every state the section files:
@@ -214,7 +213,7 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
   const zeile = (overrides: Partial<FLSpielbestaetigung> = {}): FLSpielbestaetigung =>
     spielbestaetigungFields({ ansetzung: ANSETZUNG, ...overrides });
   const VORSCHLAG: FLSpielbestaetigungAntwort = {
-    art: "abgelehnt",
+    art: "declined",
     am: "2026-07-28",
     von: { art: "kontakt", rolle: "trainer" },
     vorschlag: { datum: "2026-08-07", uhrzeit: "17:00:00" },
@@ -236,22 +235,22 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
 
   // Strict <: the deadline's own day is still the club's to answer on.
   it("leaves a row due today out of the overdue category", () => {
-    assert.ok(!kategorien([zeile({ frist: TODAY, angefragt_am: "2026-07-27" })]).includes("bestaetigung_ueberfaellig"));
+    assert.ok(!kategorien([zeile({ frist: TODAY, asked_at: "2026-07-27" })]).includes("bestaetigung_ueberfaellig"));
   });
 
   it("files a row due on the day it was asked, or not yet asked, under bestaetigung_sofort", () => {
-    expect(kategorien([zeile({ frist: TODAY, angefragt_am: TODAY })])).toStrictEqual(["bestaetigung_sofort"]);
-    expect(kategorien([zeile({ frist: TODAY, angefragt_am: null })])).toStrictEqual(["bestaetigung_sofort"]);
+    expect(kategorien([zeile({ frist: TODAY, asked_at: TODAY })])).toStrictEqual(["bestaetigung_sofort"]);
+    expect(kategorien([zeile({ frist: TODAY, asked_at: null })])).toStrictEqual(["bestaetigung_sofort"]);
   });
 
   // Asked on an earlier day, the row had its deadline's days: a reminder's business, not the administrator's.
   it("leaves a row asked before its deadline's day out of bestaetigung_sofort", () => {
-    expect(kategorien([zeile({ frist: TODAY, angefragt_am: "2026-07-27" })])).toStrictEqual([]);
+    expect(kategorien([zeile({ frist: TODAY, asked_at: "2026-07-27" })])).toStrictEqual([]);
   });
 
   // The next hourly pass closes these, so until then they speak for nothing the fixture holds.
   it("counts no closed row and no row about an Ansetzung the fixture has left", () => {
-    const geschlossen = zeile({ antwort: VORSCHLAG, geschlossen: { am: "2026-07-29", grund: "verworfen" } });
+    const geschlossen = zeile({ antwort: VORSCHLAG, closed: { am: "2026-07-29", grund: "discarded" } });
     const verlegt = zeile({ antwort: VORSCHLAG, ansetzung: { ...ANSETZUNG, uhrzeit: "19:00:00" } });
 
     expect(kategorien([geschlossen, verlegt, zeile({ ansetzung: { ...ANSETZUNG, datum: "2026-08-04" } })])).toStrictEqual([]);
@@ -288,23 +287,23 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
   it("never files a referee's row as overdue", () => {
     const partei = { art: "schiedsrichter" as const, schiedsrichter_id: "6890a1b2c3d4e5f607182935" };
 
-    expect(kategorien([zeile({ partei, kontakte: null, frist: "2026-07-20" })])).toStrictEqual([]);
+    expect(kategorien([zeile({ party: partei, kontakte: null, frist: "2026-07-20" })])).toStrictEqual([]);
   });
 
   describe("a referee's own decline", () => {
     const partei = { art: "schiedsrichter" as const, schiedsrichter_id: "6890a1b2c3d4e5f607182935" };
     const ABGELEHNT: FLSpielbestaetigungAntwort = {
-      art: "abgelehnt",
+      art: "declined",
       am: "2026-07-28",
       von: { art: "schiedsrichter" },
       vorschlag: null,
       begruendung: null,
     };
     const abgelehnt = zeile({
-      partei,
+      party: partei,
       kontakte: null,
       antwort: ABGELEHNT,
-      geschlossen: { am: "2026-07-28", grund: "schiedsrichter_abgelehnt" },
+      closed: { am: "2026-07-28", grund: "schiedsrichter_declined" },
     });
     const OHNE = { ...ANGESETZT, schiedsrichter: null };
 
@@ -316,7 +315,7 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
     it("files it only while it is the fixture's newest referee row", () => {
       const danach = zeile({
         id: "6890a1b2c3d4e5f607182a02",
-        partei: { ...partei, schiedsrichter_id: "6890a1b2c3d4e5f607182936" },
+        party: { ...partei, schiedsrichter_id: "6890a1b2c3d4e5f607182936" },
         kontakte: null,
       });
 
@@ -337,8 +336,8 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
   // A row never mailed past its deadline is no club's silence, which is why the request is stamped after its send.
   it("notes an overdue club by the day it was asked, or as never asked", () => {
     const zeilen = [
-      zeile({ frist: "2026-07-29", angefragt_am: "2026-07-22" }),
-      zeile({ partei: { art: "team", team_id: ANSETZUNG.team2_id }, frist: "2026-07-29", angefragt_am: null }),
+      zeile({ frist: "2026-07-29", asked_at: "2026-07-22" }),
+      zeile({ party: { art: "team", team_id: ANSETZUNG.team2_id }, frist: "2026-07-29", asked_at: null }),
     ];
 
     expect(
@@ -350,12 +349,12 @@ describe("categorizeActionRequired over the fixture confirmations", () => {
   // move withdrew, on a card the current row keeps in the tab.
   it("notes no club by a row about an Ansetzung the fixture has left", () => {
     const zeilen = [
-      zeile({ frist: "2026-07-29", angefragt_am: "2026-07-22" }),
+      zeile({ frist: "2026-07-29", asked_at: "2026-07-22" }),
       zeile({
-        partei: { art: "team", team_id: ANSETZUNG.team2_id },
+        party: { art: "team", team_id: ANSETZUNG.team2_id },
         ansetzung: { ...ANSETZUNG, uhrzeit: "19:00:00" },
         frist: "2026-07-29",
-        angefragt_am: "2026-07-22",
+        asked_at: "2026-07-22",
       }),
     ];
 

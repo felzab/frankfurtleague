@@ -29,7 +29,7 @@ import { loescheKontoAction } from "../../personActions";
 import { LETZTE_INHABERIN } from "../../refusals";
 import { registrierungTitel, schiedsrichterTitel, sitzTitel, SPIELER_TITEL } from "../forms/EinwilligungForm/kontoWorte";
 
-import type { FLKontoLoeschungAnsichtResponse } from "@/core/generated/client/types";
+import type { FLAccountErasureViewResponse } from "@/core/generated/client/types";
 import type { StepUp } from "@/shared/components/ui/stepUp";
 import type { ConfirmedUntil } from "@/shared/hooks/useConfirmationWindows";
 import type { ReactNode } from "react";
@@ -39,7 +39,7 @@ import type { ReactNode } from "react";
  * completes nothing here, and is sent to sign in and open the link again.
  */
 export type LoeschungStart =
-  | { zustand: "bereit"; token: string; email: string; ansicht: FLKontoLoeschungAnsichtResponse }
+  | { zustand: "bereit"; token: string; email: string; ansicht: FLAccountErasureViewResponse }
   | { zustand: "anmelden" }
   | { zustand: "ohnePasskey" }
   | { zustand: "unvollstaendig" };
@@ -50,14 +50,14 @@ export type LoeschungStart =
  */
 export type GrantHolderStepUp = ConfirmedUntil & { readonly holderId: string };
 
-type Stand = LoeschungStart | { zustand: "geloescht" };
+type Stand = LoeschungStart | { zustand: "erased" };
 
 const TITEL: Readonly<Record<Stand["zustand"], string>> = {
   bereit: "Konto löschen",
   anmelden: "Konto löschen",
   ohnePasskey: "Konto löschen",
   unvollstaendig: "Konto löschen",
-  geloescht: "Konto gelöscht",
+  erased: "Konto gelöscht",
 };
 
 const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
@@ -70,12 +70,12 @@ const BEGRUENDUNGEN_ZEILE = "Deine Begründungen zu Spielterminen, die Du über 
 function zeilenOf({
   spieler,
   schiedsrichter,
-  sitze,
+  seats: sitze,
   bewerbungen,
   registrierungen,
-  adresswechsel,
+  address_change: adresswechsel,
   verwaltung,
-}: FLKontoLoeschungAnsichtResponse): string[] {
+}: FLAccountErasureViewResponse): string[] {
   return [
     ...spieler.map(({ vorname, nachname }) => `${SPIELER_TITEL}: ${nachname === null ? vorname : `${vorname} ${nachname}`}`),
     ...schiedsrichter.map(({ name }) => (name === null ? "Als Schiedsrichterin oder Schiedsrichter" : schiedsrichterTitel({ name: name }))),
@@ -177,7 +177,7 @@ function LoeschungInhalt({ start }: { start: LoeschungStart }) {
       }
 
       beantwortet();
-      setStand({ zustand: "geloescht" });
+      setStand({ zustand: "erased" });
     });
   };
 
@@ -209,7 +209,7 @@ function LoeschungInhalt({ start }: { start: LoeschungStart }) {
 
           {/* No press the action would refuse: the last owner reads why, in the refusal's own words, and the link
               stays unspent for when another owner is made. */}
-          {stand.ansicht.letzter_inhaber ? (
+          {stand.ansicht.last_owner ? (
             <p className={ABSATZ_CLASSES}>{LETZTE_INHABERIN}</p>
           ) : (
             <>
@@ -284,7 +284,7 @@ function LoeschungInhalt({ start }: { start: LoeschungStart }) {
         </BestaetigungErgebnis>
       )}
 
-      {stand.zustand === "geloescht" && (
+      {stand.zustand === "erased" && (
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">

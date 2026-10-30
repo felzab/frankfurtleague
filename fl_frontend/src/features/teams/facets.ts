@@ -60,7 +60,7 @@ export const TEAM_FACETS: readonly Facet<AdminTeamRow>[] = [
 
 /**
  * The group offer cut to the SELECTED season's count, which no write path lets a row stand outside
- * (`entry_gruppe_not_offered`, `rules_gruppen_in_use`, `spielplan_gruppen_off_rules`). `erlaubte_stufen` refuses no row
+ * (`entry_gruppe_not_offered`, `rules_gruppen_in_use`, `spielplan_gruppen_off_rules`). `allowed_stufen` refuses no row
  * (`docs/glossary.md :: stufe`), which is why `fl_frontend/src/features/spieler/facets.ts` offers the
  * league's whole set instead.
  */
@@ -69,7 +69,7 @@ export function buildTeamFacets(numberOfGroups: number | null): readonly Facet<A
   // offer to nothing would leave the panel a cell nobody can filter on.
   if (numberOfGroups === null) return TEAM_FACETS;
 
-  // A prefix because a season runs the first `number_of_groups` letters
+  // A prefix because a season runs the first `number_of_gruppen` letters
   // (`docs/glossary.md :: Gruppe`), and no arm for a row in hand as
   // `fl_frontend/src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx` has
   // one: a facet holds no row's value, an unoffered selection being dropped
@@ -113,7 +113,7 @@ export const KONTAKTE_FACETS: readonly Facet<AdminKontakteRow>[] = [
     options: EINGETRAGEN_VON_OPTIONS.map(({ value, label }) => ({ value, label })),
     /* Across all three seats, because the row is now the club: a club answers every herkunft one of
        its people was seated by. Seats holding nobody answer with none. */
-    read: (row) => [...new Set(row.seats.flatMap((seat) => (seat.person === null ? [] : [seat.person.einwilligung.eingetragen_von])))],
+    read: (row) => [...new Set(row.seats.flatMap((seat) => (seat.person === null ? [] : [seat.person.einwilligung.entered_by])))],
   },
 ];
 

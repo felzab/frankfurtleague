@@ -15,7 +15,7 @@ export const CODE_VALIDITY_MINUTES = 10;
  * it names the host a relay page cannot wear, read off the serving origin the code signs in on.
  */
 function nurHierSatz(site: string): readonly [Satz, Satz] {
-  return [["Gib ihn nur auf ", { stark: new URL(site).host }, " ein."], "Wir fragen Dich nie auf anderem Weg nach diesem Code."];
+  return [["Gib ihn nur auf ", { strong: new URL(site).host }, " ein."], "Wir fragen Dich nie auf anderem Weg nach diesem Code."];
 }
 
 // No button: a link that carried the code would sign in whoever opened a forwarded message, and one
@@ -25,7 +25,7 @@ export function buildCodeEmail(code: string, origin: string): Mail {
 
   return {
     art: "anmeldung",
-    betreff: "Dein Anmeldecode",
+    subjectLine: "Dein Anmeldecode",
     origin: site,
     vorname: "",
     // One sentence for both pages that send it: the sign-in page's code step and the account page's confirmation.

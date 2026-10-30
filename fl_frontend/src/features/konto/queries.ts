@@ -1,12 +1,12 @@
 import { cache } from "react";
 
-import { identitaetGetKontoLoeschungAnsicht, kontoGetAdresswechsel, kontoGetEinwilligungen } from "@/core/generated/client/sdk";
+import { accountGetAddressChange, accountGetEinwilligungen, identityGetAccountErasureView } from "@/core/generated/client/sdk";
 import { runPersonRead } from "@/shared/utils/personRead";
 
 import type {
-  FLKontoAdresswechselResponse,
-  FLKontoEinwilligungenResponse,
-  FLKontoLoeschungAnsichtResponse,
+  FLAccountAddressChangeResponse,
+  FLAccountEinwilligungenResponse,
+  FLAccountErasureViewResponse,
 } from "@/core/generated/client/types";
 
 /**
@@ -14,12 +14,14 @@ import type {
  * none: the account page is every signed-in person's.
  */
 // Never `"use cache"`, which keys on the arguments rather than the caller.
-export const getKontoEinwilligungen = cache(async (): Promise<FLKontoEinwilligungenResponse> => runPersonRead(() => kontoGetEinwilligungen()));
+export const getKontoEinwilligungen = cache(async (): Promise<FLAccountEinwilligungenResponse> =>
+  runPersonRead(() => accountGetEinwilligungen()),
+);
 
 /** Every record the signed-in person's erasure would reach, read off the backend rather than inferred here, so the list shown is the list erased. */
 // Never `"use cache"`, for `getKontoEinwilligungen`'s reason.
-export const getLoeschungAnsicht = cache(async (): Promise<FLKontoLoeschungAnsichtResponse> =>
-  runPersonRead(() => identitaetGetKontoLoeschungAnsicht()),
+export const getLoeschungAnsicht = cache(async (): Promise<FLAccountErasureViewResponse> =>
+  runPersonRead(() => identityGetAccountErasureView()),
 );
 
 /**
@@ -27,4 +29,4 @@ export const getLoeschungAnsicht = cache(async (): Promise<FLKontoLoeschungAnsic
  * new address, whole where the person typed it and masked where the league did.
  */
 // Never `"use cache"`, for `getKontoEinwilligungen`'s reason.
-export const getKontoAdresswechsel = cache(async (): Promise<FLKontoAdresswechselResponse> => runPersonRead(() => kontoGetAdresswechsel()));
+export const getKontoAdresswechsel = cache(async (): Promise<FLAccountAddressChangeResponse> => runPersonRead(() => accountGetAddressChange()));

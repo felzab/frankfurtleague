@@ -128,7 +128,7 @@ export function FormTeamPicker({
   fieldName: "team1" | "team2";
   teams: FLTeam[];
   /**
-   * The season's `rules.number_of_groups`, bounding the group offer the way the write path does
+   * The season's `rules.number_of_gruppen`, bounding the group offer the way the write path does
    * (`wiring_gruppe_not_run`). `null` — a season the context could not resolve — offers the closed set.
    */
   numberOfGroups: number | null;

@@ -53,7 +53,7 @@ export function FormSchiedsrichterSection({
     name: candidate.name ?? SCHIEDSRICHTER_OHNE_NAMEN_LABEL,
     nameIstPlatzhalter: candidate.name === null,
     // Listed rather than left out, so an unconfirmed referee reads as waiting and never as missing (`booking_unconfirmed_schiedsrichter`).
-    ...((candidate.einwilligung?.bestaetigt_am ?? null) === null ? { nichtWaehlbar: NOCH_NICHT_BESTAETIGT } : {}),
+    ...((candidate.einwilligung?.confirmed_at ?? null) === null ? { nichtWaehlbar: NOCH_NICHT_BESTAETIGT } : {}),
   }));
   // Created in the editor's dialog, so unconfirmed by construction until the referee answers their link.
   const angelegt: Angeboten[] = created.map((referee) => ({ ...referee, nichtWaehlbar: NOCH_NICHT_BESTAETIGT }));

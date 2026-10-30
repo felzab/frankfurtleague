@@ -27,15 +27,15 @@ describe("the fixture confirmation's link", () => {
      confirm through a button leading nowhere, with nothing failing. */
   it("is the button of the request the hand-out renders, its own token on the serving origin", () => {
     const daten = {
-      art: "spiel_anfrage",
+      art: "spiel_request",
       team: "Goethe-Gymnasium",
       ansetzung: { team1: "Ernst-Reuter-Schule", team2: "Goethe-Gymnasium", datum: "2026-11-20", uhrzeit: "14:30:00", ort: null },
       frist: "2026-11-10",
     } as const;
 
-    const mail = mailFor("spiel_anfrage", daten, { token: "beispiel-eins", geheim: null, origin: ORIGIN });
+    const mail = mailFor("spiel_request", daten, { token: "beispiel-eins", secret: null, origin: ORIGIN });
 
-    expect(mail?.aktion).toStrictEqual({ label: "Spieltermin bestätigen", href: spielBestaetigungsLink(ORIGIN, "beispiel-eins") });
-    expect(() => mailFor("spiel_anfrage", daten, { token: null, geheim: null, origin: ORIGIN })).toThrow(/handed out without one/);
+    expect(mail?.button).toStrictEqual({ label: "Spieltermin bestätigen", href: spielBestaetigungsLink(ORIGIN, "beispiel-eins") });
+    expect(() => mailFor("spiel_request", daten, { token: null, secret: null, origin: ORIGIN })).toThrow(/handed out without one/);
   });
 });

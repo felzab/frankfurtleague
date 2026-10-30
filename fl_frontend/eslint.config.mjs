@@ -279,8 +279,8 @@ function sendersOf(operationId) {
  */
 const BACKGROUND_PASSES = [
   {
-    operations: ["postausgang_post_ausgabe", "postausgang_post_ergebnis"],
-    wrapper: { file: "src/core/mail.ts", names: ["drainPostausgang"] },
+    operations: ["outbox_post_handout", "outbox_post_result"],
+    wrapper: { file: "src/core/mail.ts", names: ["drainOutbox"] },
     runners: ["src/instrumentation-node.ts", "src/core/afterResponse.ts"],
   },
   {
@@ -294,22 +294,22 @@ const BACKGROUND_PASSES = [
     runners: ["src/features/bewerbungen/sweep.ts"],
   },
   {
-    operations: ["adresswechsel_sweep_adresswechsel"],
+    operations: ["address_change_sweep_address_change"],
     wrapper: { file: "src/features/adresswechsel/mutations.ts", names: ["postAdresswechselSweep"] },
     runners: ["src/features/adresswechsel/sweep.ts"],
   },
   {
-    operations: ["adresswechsel_get_adresswechsel_umzuege", "adresswechsel_post_adresswechsel_umzuege_erledigt"],
+    operations: ["address_change_get_address_change_moves", "address_change_post_address_change_moves_done"],
     wrapper: { file: "src/features/adresswechsel/mutations.ts", names: ["getAdresswechselUmzuege", "postAdresswechselUmzuegeErledigt"] },
     runners: ["src/features/adresswechsel/umzug.ts"],
   },
   {
-    operations: ["identitaet_get_referenzen"],
+    operations: ["identity_get_references"],
     wrapper: { file: "src/features/funktionen/mutations.ts", names: ["postReferenzen"] },
     runners: ["src/features/funktionen/sweep.ts"],
   },
   {
-    operations: ["identitaet_sweep_loeschung"],
+    operations: ["identity_sweep_erasure"],
     wrapper: { file: "src/features/saisons/mutations.ts", names: ["postLoeschungSweep"] },
     runners: ["src/features/saisons/sweep.ts", "src/features/saisons/actions.ts"],
   },
@@ -322,7 +322,7 @@ const BACKGROUND_PASSES = [
     runners: ["src/features/spielbestaetigungen/sweep.ts"],
   },
   {
-    operations: ["berechtigungen_post_berechtigungen_abgleich"],
+    operations: ["grants_post_grants_reconciliation"],
     wrapper: { file: "src/features/berechtigungen/mutations.ts", names: ["postBerechtigungenAbgleich"] },
     runners: ["src/features/berechtigungen/abgleich.ts"],
   },
@@ -818,7 +818,7 @@ const DESIGN_BANS = [
     ["EditorPage", ["src/app/**/(editor)/**"], "An editor is a page of an `(editor)` route group, whose layout draws its way back."],
     ["EditorBar", ["src/kit/EditorPage.tsx"], "A record's one save is the editor template's `EditorBar`: place the page in `EditorPage`."],
     ["OneShot", ["src/kit/MailedPage.tsx"], "The one-shot submit is the mailed-page template's: place the page in `MailedPage`."],
-    ["KontoBox", ["src/app/bereich/**/konto/**"], "A `KontoBox` saves one section of Konto, on Konto's own pages."],
+    ["AccountBox", ["src/app/bereich/**/konto/**"], "An `AccountBox` saves one section of Konto, on Konto's own pages."],
   ].map(([name, owners, message]) => kitImport({ regex: kitModule(name), message }, PRODUCTION, { allow: owners })),
   // The danger act is one row inside the editor's last box, which the editor template alone places.
   syntaxBan(
@@ -922,7 +922,7 @@ const DESIGN_BANS = [
     PRODUCTION,
     // The five blocks carrying a name: a table row's, a card row's, a match's, a record's facts and the page
     // header's title.
-    { allow: ["src/kit/Table.tsx", "src/kit/Card.tsx", "src/kit/MatchRow.tsx", "src/kit/Facts.tsx", "src/kit/RailFrame.tsx"] },
+    { allow: ["src/kit/Table.tsx", "src/kit/Card.tsx", "src/kit/SpielRow.tsx", "src/kit/Facts.tsx", "src/kit/RailFrame.tsx"] },
   ),
   // Only a confirmation asks a question.
   syntaxBan(

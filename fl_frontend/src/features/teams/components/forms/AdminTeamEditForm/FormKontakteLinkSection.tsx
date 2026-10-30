@@ -28,7 +28,7 @@ export function FormKontakteLinkSection({
   const panel = formPanel();
 
   // Seats HELD, never the three the block always carries: an erasure leaves them empty. And entries
-  // rather than „Personen“, `trainer_ist_zugleich` seating one person twice.
+  // rather than „Personen“, `trainer_is_also` seating one person twice.
   const belegt = KONTAKT_ROLLEN.filter(({ value }) => kontakte?.[value] != null).length;
 
   // Each count is spelled rather than interpolated into one sentence: `0` and `1` need their own

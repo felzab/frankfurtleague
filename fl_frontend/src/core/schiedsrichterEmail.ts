@@ -4,8 +4,8 @@ import { BRAND_NAME, mailOrigin } from "./emailShell";
 import { formatDatum } from "./format";
 
 import type { Mail } from "./emailShell";
-import type { Kalendertag } from "./format";
-import type { FLSchiedsrichterBestaetigungDaten } from "./generated/client/types";
+import type { CalendarDay } from "./format";
+import type { FLSchiedsrichterConfirmationData } from "./generated/client/types";
 import type { MailLink } from "./mailKinds";
 
 /** A segment of its own rather than a query on a shared page, so the sitemap and `robots.ts` answer it by name. */
@@ -28,20 +28,20 @@ function schiedsrichterBestaetigungsLink(origin: string, token: string): string 
  * `origin` is the serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`; `token` is a bearer credential and
  * is never taken apart here.
  */
-export function buildSchiedsrichterBestaetigungEmail({ frist }: FLSchiedsrichterBestaetigungDaten, { origin, token }: MailLink): Mail {
+export function buildSchiedsrichterBestaetigungEmail({ frist }: FLSchiedsrichterConfirmationData, { origin, token }: MailLink): Mail {
   const site = mailOrigin(origin);
-  const fristText = formatDatum(frist as Kalendertag);
+  const fristText = formatDatum(frist as CalendarDay);
 
   return {
     art: "erstkontakt",
-    betreff: "Dein Eintrag als Schiedsrichterin oder Schiedsrichter",
+    subjectLine: "Dein Eintrag als Schiedsrichterin oder Schiedsrichter",
     origin: site,
     vorname: "",
     absaetze: [
       [
         `Die Verwaltung der ${BRAND_NAME} hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen.`,
         [
-          { stark: "Bitte bestätige, dass das stimmt" },
+          { strong: "Bitte bestätige, dass das stimmt" },
           ": Erst danach kannst Du auf der Website Ansetzungen annehmen und Spielberichte einreichen.",
         ],
       ],
@@ -49,10 +49,10 @@ export function buildSchiedsrichterBestaetigungEmail({ frist }: FLSchiedsrichter
       // publication choice was asked something the message did not say.
       [
         "Auf der Seite trägst Du Dein Geburtsdatum ein und entscheidest, was im Spielplan von Deinem Namen zu sehen ist.",
-        ["Der Link ist bis zum ", { stark: fristText }, " gültig und funktioniert nur einmal."],
+        ["Der Link ist bis zum ", { strong: fristText }, " gültig und funktioniert nur einmal."],
         "Ist er abgelaufen, schickt die Verwaltung Dir auf Wunsch einen neuen.",
       ],
     ],
-    aktion: { label: "Eintrag bestätigen", href: schiedsrichterBestaetigungsLink(site, token) },
+    button: { label: "Eintrag bestätigen", href: schiedsrichterBestaetigungsLink(site, token) },
   };
 }

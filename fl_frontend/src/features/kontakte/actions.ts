@@ -79,7 +79,7 @@ export async function patchSaisonTeamKontakteAction(
     // uncached.
 
     // Owed in the save's own transaction, one per person it newly seated.
-    const owed = saisonTeam.bestaetigungen;
+    const owed = saisonTeam.confirmations;
 
     return {
       success: true,
@@ -121,7 +121,7 @@ export async function einladeKontaktAction(rawPayload: { team_id: string; saison
 
     return {
       success: true,
-      message: `${linkSatz([mintOperation.bestaetigung])} Der vorherige Link gilt nicht mehr.`,
+      message: `${linkSatz([mintOperation.confirmation])} Der vorherige Link gilt nicht mehr.`,
     };
   });
 }

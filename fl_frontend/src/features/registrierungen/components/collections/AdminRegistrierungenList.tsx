@@ -67,12 +67,12 @@ export const AdminRegistrierungenList = memo(function AdminRegistrierungenList({
       <div className={IDENTITY_STACK_CLASSES}>
         <div className={IDENTITY_HEAD_CLASSES}>
           <span className={IDENTITY_NAME_CLASSES}>{`${registrierung.vorname} ${registrierung.nachname}`}</span>
-          <span className={labelBadge(registrierung.bestaetigt ? "success" : "warning")}>
-            {registrierung.bestaetigt ? BESTAETIGT_MARKE.ja : BESTAETIGT_MARKE.nein}
+          <span className={labelBadge(registrierung.confirmed ? "success" : "warning")}>
+            {registrierung.confirmed ? BESTAETIGT_MARKE.ja : BESTAETIGT_MARKE.nein}
           </span>
         </div>
         {/* The team's own card's line, word for word: the day the queue is read by. */}
-        <span className={IDENTITY_LINE_CLASSES}>Registriert am {formatSpielDatum(registrierung.eingereicht_am)}</span>
+        <span className={IDENTITY_LINE_CLASSES}>Registriert am {formatSpielDatum(registrierung.submitted_at)}</span>
       </div>
     </div>
   );

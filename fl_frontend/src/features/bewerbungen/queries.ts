@@ -4,11 +4,11 @@ import { isRecordMissing } from "@/core/errors";
 import {
   bewerbungenGetBewerbung,
   bewerbungenGetBewerbungen,
-  bewerbungenGetFenster,
   bewerbungenGetKuerzel,
-  bewerbungenGetOffenesFenster,
+  bewerbungenGetOpenWindow,
   bewerbungenGetSchulen,
   bewerbungenGetTrikotfarben,
+  bewerbungenGetWindow,
 } from "@/core/generated/client/sdk";
 import { runAdminRead } from "@/shared/utils/adminRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
@@ -20,11 +20,11 @@ import { mapEinwilligungAnsichtRefusal } from "./utils";
 import type {
   BewerbungenGetBewerbungenParams,
   FLBewerbungenListResponse,
-  FLBewerbungFensterResponse,
   FLBewerbungKuerzelResponse,
   FLBewerbungSchulenResponse,
   FLBewerbungSingleResponse,
   FLBewerbungTrikotFarbenResponse,
+  FLBewerbungWindowResponse,
 } from "@/core/generated/client/types";
 import type { EinwilligungAnsicht } from "./types";
 
@@ -71,9 +71,9 @@ export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBew
  * Uncached for its own reason: `laeuft` is a judgement against today, so a cached answer would go
  * on inviting applications after the window shut.
  */
-export async function getOffenesBewerbungFenster(): Promise<FLBewerbungFensterResponse | null> {
+export async function getOffenesBewerbungFenster(): Promise<FLBewerbungWindowResponse | null> {
   return runWithIncomingTrace(() =>
-    bewerbungenGetOffenesFenster().catch((error: unknown) => {
+    bewerbungenGetOpenWindow().catch((error: unknown) => {
       // 404 is "no season is taking applications", which is a state and not a failure.
       if (isRecordMissing(error)) return null;
       throw error;
@@ -87,11 +87,11 @@ export async function getOffenesBewerbungFenster(): Promise<FLBewerbungFensterRe
  */
 // `cache`, never `"use cache"`: the metadata and the body read this once between them, and a cache
 // would key on the season and go on serving `laeuft` after the window shut.
-export const getBewerbungFenster = cache(async (saisonId: string): Promise<{ fenster: FLBewerbungFensterResponse | null } | null> =>
+export const getBewerbungFenster = cache(async (saisonId: string): Promise<{ window: FLBewerbungWindowResponse | null } | null> =>
   runWithIncomingTrace(() =>
-    bewerbungenGetFenster(saisonId)
+    bewerbungenGetWindow(saisonId)
       // The answer naming no window carries the one key a window has not got.
-      .then((antwort) => ("fenster" in antwort ? { fenster: null } : { fenster: antwort }))
+      .then((antwort) => ("window" in antwort ? { window: null } : { window: antwort }))
       .catch((error: unknown) => {
         if (isRecordMissing(error)) return null;
         throw error;
@@ -123,9 +123,9 @@ export async function getEinwilligungAnsicht(token: string): Promise<Einwilligun
       // Narrowed here and never at the page, which would carry the school and the season regardless: a
       // dead link's panel names nothing of the seat. An emptied seat arrives as an unknown token.
       (ansicht): EinwilligungAnsicht => {
-        const { zustand } = ansicht;
+        const { state: zustand } = ansicht;
         // A closed season row's link still takes a Widerspruch, so it keeps its read as an open one does.
-        if (zustand !== "gueltig" && zustand !== "saison_vorbei") return { zustand: zustand, quelle: ansicht.quelle };
+        if (zustand !== "valid" && zustand !== "saison_past") return { zustand: zustand, quelle: ansicht.quelle };
 
         return { zustand: zustand, ansicht: ansicht };
       },

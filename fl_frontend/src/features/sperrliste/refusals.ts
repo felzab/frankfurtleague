@@ -34,7 +34,7 @@ export function mapSperreRefusal(error: unknown): { error?: string; fieldErrors?
   // administrators press together: one code for both.
   if (error.serverErrorCode === "duplicate_key") return schonGesperrtAmFeld();
 
-  if (error.serverErrorCode === "sperrliste_keine_saison") {
+  if (error.serverErrorCode === "sperrliste_no_saison") {
     return { error: KEINE_SAISON };
   }
 
@@ -45,11 +45,11 @@ export function mapSperreRefusal(error: unknown): { error?: string; fieldErrors?
 
 /**
  * The list read's two refusals, `null` for the rest. Each refuses a grant holder's address, the administrator's own
- * (`eigene_adresse`) or, to one holding no owner's power, any other (`verwaltung_adresse`), which the ban would refuse too:
+ * (`own_adresse`) or, to one holding no owner's power, any other (`verwaltung_adresse`), which the ban would refuse too:
  * answered in the ban's words.
  */
 export function mapAnsichtRefusal(error: unknown): { fieldErrors: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "eigene_adresse" || error.serverErrorCode === "verwaltung_adresse" ? verwaltungAmFeld() : null;
+  return error.serverErrorCode === "own_adresse" || error.serverErrorCode === "verwaltung_adresse" ? verwaltungAmFeld() : null;
 }

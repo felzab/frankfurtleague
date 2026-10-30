@@ -41,8 +41,8 @@ async function Berechtigungen() {
 
   return (
     <AdminBerechtigungenView
-      berechtigungen={berechtigungenRes.berechtigungen}
-      antraege={berechtigungenRes.antraege}
+      berechtigungen={berechtigungenRes.grants}
+      antraege={berechtigungenRes.approval_requests}
       inhaberAdresse={inhaberAdresse}
     />
   );

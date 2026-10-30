@@ -18,7 +18,7 @@ vi.doMock("next/server", async () => ({
   after: (task: () => Promise<void>) => void scheduled.push(task),
 }));
 vi.doMock("@/core/mail.ts", () => ({
-  drainPostausgang: async () => {
+  drainOutbox: async () => {
     clock += 31000;
     cut.push(boundCall(15000).aborted);
   },

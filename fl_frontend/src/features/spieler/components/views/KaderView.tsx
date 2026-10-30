@@ -2,7 +2,7 @@ import { KaderList } from "@/features/spieler/components/collections/KaderList";
 import { KADER_LEER } from "@/features/spieler/constants";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 
-import type { FLKaderZeile } from "@/core/generated/client/types";
+import type { FLKaderRow } from "@/core/generated/client/types";
 
 /** A team's squad on its seat holder's panel: every row the season holds, the ausgetragen ones read-only. */
 export function KaderView({
@@ -10,7 +10,7 @@ export function KaderView({
   kaderHref,
   registrierungenHref,
 }: {
-  kader: readonly FLKaderZeile[];
+  kader: readonly FLKaderRow[];
   kaderHref: string;
   /** The team's pending registrations, the one way a pupil reaches this squad from the seat holder's side. */
   registrierungenHref: string;

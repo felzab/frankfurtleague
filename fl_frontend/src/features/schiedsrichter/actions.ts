@@ -71,7 +71,7 @@ export async function postSchiedsrichterAction(
     return {
       success: true,
       created_id: postOperation.created_id,
-      message: linkSatz(postOperation.bestaetigung.email),
+      message: linkSatz(postOperation.confirmation.email),
     };
   });
 }
@@ -113,7 +113,7 @@ export async function patchSchiedsrichterAction(
 
     // Non-null only where the correction moved an unconfirmed referee's address: the old link was
     // posted to a mailbox nobody reads, and leaving it live is a credential in the wrong inbox.
-    const mint = postOperation.bestaetigung;
+    const mint = postOperation.confirmation;
 
     return {
       success: true,
@@ -168,7 +168,7 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
     return {
       success: true,
       // The address the write read in its own transaction, never the one above: this read is the older of the two.
-      message: `${linkSatz(mintOperation.bestaetigung.email)} Der vorherige Link gilt nicht mehr.`,
+      message: `${linkSatz(mintOperation.confirmation.email)} Der vorherige Link gilt nicht mehr.`,
     };
   });
 }
@@ -234,7 +234,7 @@ export async function reactivateSchiedsrichterAction(rawPayload: FLSchiedsrichte
 
     // Non-null where the row came back unanswered: a retired referee's save mails nothing, so
     // coming back is what asks them.
-    const mint = reactivateOperation.bestaetigung;
+    const mint = reactivateOperation.confirmation;
 
     return {
       success: true,

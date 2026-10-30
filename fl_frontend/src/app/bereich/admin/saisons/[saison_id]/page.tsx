@@ -20,7 +20,7 @@ import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { nullUnlessContractBreak } from "@/shared/utils/degradedRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
-import type { FLLoeschungVorschauResponse } from "@/core/generated/client/types";
+import type { FLErasurePreviewResponse } from "@/core/generated/client/types";
 import type { SaisonGruppenSwapContext, SaisonOffeneSpiel, SaisonRolloverContext, SaisonSpielplanContext } from "@/features/saisons/types";
 import type { NextPageProps } from "@/shared/types/types";
 
@@ -38,12 +38,12 @@ export default function AdminSaisonEditPage(props: NextPageProps<{ saison_id: st
 }
 
 /** The rollover panel's count: none without a season the activation closes, and the failed read said as such. */
-function loeschungsVorschau(gelesen: FLLoeschungVorschauResponse | "unlesbar" | null): SaisonRolloverContext["loeschung"] {
+function loeschungsVorschau(gelesen: FLErasurePreviewResponse | "unlesbar" | null): SaisonRolloverContext["loeschung"] {
   if (gelesen === null || gelesen === "unlesbar") return gelesen;
-  if (gelesen.abgeschlossene_saison_id === null) return null;
+  if (gelesen.completed_saison_id === null) return null;
 
   return {
-    abgeschlosseneSaisonId: gelesen.abgeschlossene_saison_id,
+    abgeschlosseneSaisonId: gelesen.completed_saison_id,
     spieler: gelesen.spieler,
   };
 }
@@ -87,7 +87,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
       // The league-wide read, for the replacement's incoming side alone: a club arriving into this
       // season is by definition in none of its reads. Skipped where `saison_past` closes the panel.
       saison.status === "past" ? Promise.resolve(null) : getTeamSaisons(),
-      // The reports `spielplan_berichte_eingereicht` counts, for the planned season alone: any other closes both controls already.
+      // The reports `spielplan_berichte_submitted` counts, for the planned season alone: any other closes both controls already.
       // Degraded, as an unread count closes nothing and the press meets the refusal's own sentence.
       saison.status === "future"
         ? runWithIncomingTrace(() => getSpielberichteZustaende({ saison_id: saison.id }).catch(nullUnlessContractBreak))
@@ -132,7 +132,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     schedule: saison.schedule,
     // Its `erfasst` half must keep mirroring `holds_a_recorded_fact`: too wide closes a replace
     // `spielplan_replace_outside_its_window` allows, too narrow offers one it refuses.
-    bestand: buildSpielplanBestand({ gruppenSpiele: gruppenSpieleRes.spiele, playoffSpiele: playoffSpieleRes.spiele }),
+    holdings: buildSpielplanBestand({ gruppenSpiele: gruppenSpieleRes.spiele, playoffSpiele: playoffSpieleRes.spiele }),
     eingereichteBerichte: berichteRes?.spielberichte.length ?? 0,
   };
 
@@ -144,7 +144,7 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
     teams: teamsRes.format === "list" ? teamsRes.teams : [],
     gruppenSpiele: gruppenSpieleRes.spiele,
     playoffSpiele: playoffSpieleRes.spiele,
-    begonnen: saison.begonnen,
+    begonnen: saison.begun,
   });
 
   /**

@@ -178,7 +178,7 @@ describe("focusFirstRefusal", () => {
 
   it("keeps looking when a refused field can take no focus at all", () => {
     const doc: Doc = { activeElement: null };
-    const proxy = new El("input", { type: "hidden", name: "rules.erlaubte_stufen" }, doc);
+    const proxy = new El("input", { type: "hidden", name: "rules.allowed_stufen" }, doc);
     const reachable = new El("input", { name: "name", type: "text", ...FOCUSABLE }, doc, true);
     const form = new El("form", {}, doc).add(
       new El("div", ROOT("toggle-group"), doc),
@@ -186,17 +186,17 @@ describe("focusFirstRefusal", () => {
       new El("div", ROOT("textfield"), doc).add(reachable),
     );
 
-    const shown = { "rules.erlaubte_stufen": "Wähle eine Stufe.", name: "Bitte gib einen Namen ein." };
+    const shown = { "rules.allowed_stufen": "Wähle eine Stufe.", name: "Bitte gib einen Namen ein." };
     expect(focusFirstRefusal(formOf(form), shown)).toBe(true);
     assert.ok(doc.activeElement === reachable, "an unfocusable proxy swallowed the whole walk");
   });
 
   it("still answers `true` when the only refused field can take no focus, so no toast claims it is unshown", () => {
     const doc: Doc = { activeElement: null };
-    const proxy = new El("input", { type: "hidden", name: "rules.erlaubte_stufen" }, doc);
+    const proxy = new El("input", { type: "hidden", name: "rules.allowed_stufen" }, doc);
     const form = new El("form", {}, doc).add(new El("div", ROOT("toggle-group"), doc), proxy);
 
-    expect(focusFirstRefusal(formOf(form), { "rules.erlaubte_stufen": "Wähle eine Stufe." })).toBe(true);
+    expect(focusFirstRefusal(formOf(form), { "rules.allowed_stufen": "Wähle eine Stufe." })).toBe(true);
     assert.ok(doc.activeElement === null, "focus did not land where this case expects");
   });
 

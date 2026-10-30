@@ -9,9 +9,9 @@ import { COPY } from "@/core/copy";
 import { Button } from "./Button";
 import { DateField } from "./DateField";
 
-import type { Kalendertag } from "@/core/format";
+import type { CalendarDay } from "@/core/format";
 
-function Datum({ tag }: { tag: Kalendertag }) {
+function Datum({ tag }: { tag: CalendarDay }) {
   return (
     <Form onSubmit={(event) => event.preventDefault()}>
       <DateField

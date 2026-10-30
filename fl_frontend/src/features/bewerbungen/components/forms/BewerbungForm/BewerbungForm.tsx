@@ -23,7 +23,7 @@ import { FormSchuleSection } from "./FormSchuleSection";
 import { FormTeamSection } from "./FormTeamSection";
 import { useBewerbungDraft } from "./useBewerbungDraft";
 
-import type { FLTrainerZugleich, FLTrikotFarbe } from "@/core/generated/client/types";
+import type { FLTrainerAlso, FLTrikotFarbe } from "@/core/generated/client/types";
 import type {
   BewerbungFormDraft,
   BewerbungKontakteDraft,
@@ -102,11 +102,11 @@ export function BewerbungForm({
   /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it. */
   const [schluessel, setSchluessel] = useState(() => crypto.randomUUID());
   /**
-   * The wire has no spelling for „not answered“ — `trainer_ist_zugleich: null` is the answer „Eine
+   * The wire has no spelling for „not answered“ — `trainer_is_also: null` is the answer „Eine
    * andere Person“ — so the picker's own state sits beside the draft, written by `pickTrainerWahl`
    * and by nothing else.
    */
-  const [trainerWahl, setTrainerWahl] = useState<FLTrainerZugleich | null | undefined>(undefined);
+  const [trainerWahl, setTrainerWahl] = useState<FLTrainerAlso | null | undefined>(undefined);
   /** The last blur-time answer about a Kürzel, kept WITH the value it judged (see `mergedErrors`). */
   const [kuerzelVerdikt, setKuerzelVerdikt] = useState<KuerzelVerdikt | null>(null);
   const [isKuerzelPending, setIsKuerzelPending] = useState(false);
@@ -123,14 +123,14 @@ export function BewerbungForm({
   // hook called only on the way to it would run a different number of times per render.
   useForgiveFixed({ bewerbung: bewerbungPayload(draft) });
 
-  const mirroredSeat = draft.kontakte.trainer_ist_zugleich;
+  const mirroredSeat = draft.kontakte.trainer_is_also;
 
   const validateFields = (paths: readonly string[]) =>
     validatePaths("bewerbung", bewerbungPayload(draft), bewerbungJudgedPaths(paths, mirroredSeat));
 
   /** Judged with the value the event carried, because state has not committed yet. */
   const validatePicked = (paths: readonly string[], next: BewerbungFormDraft) =>
-    validatePaths("bewerbung", bewerbungPayload(next), bewerbungJudgedPaths(paths, next.kontakte.trainer_ist_zugleich));
+    validatePaths("bewerbung", bewerbungPayload(next), bewerbungJudgedPaths(paths, next.kontakte.trainer_is_also));
 
   /**
    * The blur-time verdict stands only while the value it judged is still in the box.
@@ -139,7 +139,7 @@ export function BewerbungForm({
    * blur-time answer would drag the applicant back into the field they left.
    */
   const mergedErrors: FieldErrors =
-    kuerzelVerdikt !== null && kuerzelVerdikt.vergeben && kuerzelVerdikt.shorthand === draft.schule.shorthand
+    kuerzelVerdikt !== null && kuerzelVerdikt.taken && kuerzelVerdikt.shorthand === draft.schule.shorthand
       ? { ...fieldErrors, "schule.shorthand": KUERZEL_VERGEBEN }
       : fieldErrors;
 
@@ -152,8 +152,8 @@ export function BewerbungForm({
    * The whole of the at-most-one rule: one field holds the claim, so pointing it at a seat
    * necessarily takes it off the other. No press can put it on both.
    */
-  const pickTrainerWahl = (seat: FLTrainerZugleich | null) => {
-    const next: BewerbungFormDraft = { ...draft, kontakte: { ...draft.kontakte, trainer_ist_zugleich: seat } };
+  const pickTrainerWahl = (seat: FLTrainerAlso | null) => {
+    const next: BewerbungFormDraft = { ...draft, kontakte: { ...draft.kontakte, trainer_is_also: seat } };
 
     setTrainerWahl(seat);
     applyDraft(next);
@@ -175,9 +175,9 @@ export function BewerbungForm({
    * One press answers for all three seats: the applicant confirms once that the three people know
    * of their entry, and the wire keeps a record per seat because each person confirms their own.
    */
-  const pickEinwilligung = (erteilt: boolean) => {
+  const pickEinwilligung = (given: boolean) => {
     const kontakte = BEWERBUNG_SEATS.reduce<BewerbungKontakteDraft>(
-      (block, { value }) => ({ ...block, [value]: { ...block[value], einwilligung: { ...block[value].einwilligung, erteilt } } }),
+      (block, { value }) => ({ ...block, [value]: { ...block[value], einwilligung: { ...block[value].einwilligung, given } } }),
       draft.kontakte,
     );
     const next: BewerbungFormDraft = { ...draft, kontakte: kontakte };
@@ -214,7 +214,7 @@ export function BewerbungForm({
         setIsKuerzelPending(false);
         // A check that could not be judged refuses nothing: the submit's own `bewerbung_shorthand_taken` is
         // what stands between a taken code and a stored one, and this is a courtesy in front of it.
-        setKuerzelVerdikt(antwort.success && antwort.vergeben !== undefined ? { shorthand, vergeben: antwort.vergeben } : null);
+        setKuerzelVerdikt(antwort.success && antwort.vergeben !== undefined ? { shorthand, taken: antwort.vergeben } : null);
 
         // Said out loud only for the limit: the form goes on either way, and what it costs is that
         // the code stays unchecked until the submit judges it.
@@ -385,7 +385,7 @@ export function BewerbungForm({
 
         <FormEinwilligungSection
           fassung={fassung}
-          erteilt={draft.kontakte.ansprechperson.einwilligung.erteilt}
+          erteilt={draft.kontakte.ansprechperson.einwilligung.given}
           onErteiltPicked={pickEinwilligung}
         />
 

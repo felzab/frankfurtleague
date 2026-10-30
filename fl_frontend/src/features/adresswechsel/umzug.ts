@@ -13,12 +13,12 @@ import { getAdresswechselUmzuege, postAdresswechselUmzuegeErledigt } from "./mut
  */
 export async function runAdresswechselUmzuege(): Promise<void> {
   for (;;) {
-    const { umzuege } = await getAdresswechselUmzuege();
+    const { moves: umzuege } = await getAdresswechselUmzuege();
     if (umzuege.length === 0) return;
 
     for (const { von, nach } of umzuege) {
       // The new address holding its own account, opened since every press refused one there: it signs in to that one.
-      if ((await carryAccount(von, nach)) === "belegt") logger.warn("adresswechsel.konto_nicht_umgezogen", { grund: "belegt" });
+      if ((await carryAccount(von, nach)) === "belegt") logger.warn("address_change.account_not_moved", { grund: "occupied" });
     }
     await postAdresswechselUmzuegeErledigt({ ids: umzuege.map(({ id }) => id) });
   }

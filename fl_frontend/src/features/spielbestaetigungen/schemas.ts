@@ -3,7 +3,7 @@ import z from "zod";
 import { FLSpielbestaetigungAntwortArt } from "@/core/generated/client/types";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH } from "@/features/spiele/constants";
-import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSchema, einzeiligerName } from "@/shared/schemas";
+import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSchema, singleLineName } from "@/shared/schemas";
 
 /** The one thing a visitor's body can be wrong about that no input renders: the token their link carried. */
 const LINK_UNVOLLSTAENDIG = "Bitte öffne den Link aus Deiner E-Mail erneut.";
@@ -35,7 +35,7 @@ const begruendungText = z
   .max(SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH, {
     error: `Die Begründung darf höchstens ${String(SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH)} Zeichen lang sein.`,
   });
-const begruendung = einzeiligerName(begruendungText, "Die Begründung");
+const begruendung = singleLineName(begruendungText, "Die Begründung");
 
 // Redesign: goes with its last importer.
 /**
@@ -49,7 +49,7 @@ export const FLSpielbestaetigungAntwortPayloadSchema = z
     vorschlag: FLSpielbestaetigungTerminSchema.nullable(),
     begruendung: begruendung.nullable(),
   })
-  .refine((antwort) => antwort.antwort !== "abgelehnt" || antwort.vorschlag !== null, {
+  .refine((antwort) => antwort.antwort !== "declined" || antwort.vorschlag !== null, {
     error: "Bitte schlag einen anderen Termin vor.",
     path: ["vorschlag"],
   })
@@ -65,7 +65,7 @@ export type FLSpielbestaetigungAntwortPayload = z.infer<typeof FLSpielbestaetigu
  * reason to book somebody else, so the endpoint takes no decline without one.
  */
 export const SchiedsrichterAbsageSchema = z.object({
-  begruendung: einzeiligerName(begruendungText.nonempty({ error: "Bitte gib einen Grund für Deine Absage an." }), "Die Begründung"),
+  begruendung: singleLineName(begruendungText.nonempty({ error: "Bitte gib einen Grund für Deine Absage an." }), "Die Begründung"),
 });
 export type SchiedsrichterAbsage = z.infer<typeof SchiedsrichterAbsageSchema>;
 
@@ -78,7 +78,7 @@ export type SchiedsrichterAbsage = z.infer<typeof SchiedsrichterAbsageSchema>;
  */
 export const FLSpielbestaetigungEintragenPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
-  begruendung: einzeiligerName(
+  begruendung: singleLineName(
     z
       .string()
       .trim()
@@ -89,7 +89,7 @@ export const FLSpielbestaetigungEintragenPayloadSchema = z.object({
     "Die Begründung",
   ),
 });
-export type FLSpielbestaetigungEintragenPayload = z.infer<typeof FLSpielbestaetigungEintragenPayloadSchema>;
+export type FLSpielbestaetigungEnterPayload = z.infer<typeof FLSpielbestaetigungEintragenPayloadSchema>;
 
 // Redesign: goes with its last importer.
 export const FLSpielbestaetigungVerwerfenPayloadSchema = z.object({

@@ -75,7 +75,7 @@ export function TrikotFarbeSelect({
   const platzhalter = isRequired ? "Bitte auswählen" : "Keine Angabe";
 
   const item = listboxRow({ layout: "adorned" });
-  const optionen = offeredTrikotFarben({ vergeben, value });
+  const optionen = offeredTrikotFarben({ taken: vergeben, value });
 
   const handleChange = (key: Key | null) => {
     if (key === null) return;

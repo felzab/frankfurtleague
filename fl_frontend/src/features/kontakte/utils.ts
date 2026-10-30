@@ -6,11 +6,11 @@ import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 import type {
   FLAustritt,
   FLKontaktpersonPayload,
-  FLKontaktZeile,
+  FLKontaktRow,
   FLSaisonTeamKontaktePayload,
   FLTeamMembership,
   FLTeamWithMemberships,
-  FLTrainerZugleich,
+  FLTrainerAlso,
 } from "@/core/generated/client/types";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { KontaktpersonDraft, SaisonTeamKontakteDraft, TeamSaisonMembership } from "@/features/teams/types";
@@ -69,20 +69,20 @@ export function applySeatPresence(
  */
 export function applySharedSeat(
   value: SaisonTeamKontakteDraft,
-  seat: FLTrainerZugleich | null,
+  seat: FLTrainerAlso | null,
 ): { next: SaisonTeamKontakteDraft; revalidate: boolean } {
-  const next = { ...value, trainer_ist_zugleich: seat };
+  const next = { ...value, trainer_is_also: seat };
 
   // The seats never move here — the claim is honoured when the payload is composed. What changes is
   // WHO the Trainer reads, so a verdict standing at a trainer path judged a different person.
-  return { next: next, revalidate: seat !== value.trainer_ist_zugleich };
+  return { next: next, revalidate: seat !== value.trainer_is_also };
 }
 
 /**
  * The paths one judgement covers. While the claim stands the composed Trainer READS the named seat,
  * so judging that seat alone leaves the Trainer's verdict over a value it no longer holds.
  */
-export function mirroredJudgedPaths(paths: readonly string[], mirroredSeat: FLTrainerZugleich | null): readonly string[] {
+export function mirroredJudgedPaths(paths: readonly string[], mirroredSeat: FLTrainerAlso | null): readonly string[] {
   if (mirroredSeat === null) return paths;
 
   const copies = paths
@@ -117,7 +117,7 @@ export function renamedConfirmedSeatLabels(stored: SaisonTeamKontakteDraft | nul
     const sent = draft?.[value] ?? null;
     // Both halves: a seat nobody confirmed has no stamp for the save to take, and an unchanged one would
     // raise the confirmation over a form nobody has touched.
-    if (held === null || sent === null || held.einwilligung.bestaetigt_am === null) return false;
+    if (held === null || sent === null || held.einwilligung.confirmed_at === null) return false;
 
     // Field by field, never one joined run: „Anna Maria“ moved from the forename into the surname folds
     // to the same words, and the server compares the three apart.
@@ -139,7 +139,7 @@ export function addressOnlyConfirmedSeatLabels(
   return KONTAKT_ROLLEN.filter(({ value }) => {
     const held = stored?.[value] ?? null;
     const sent = draft?.[value] ?? null;
-    if (held === null || sent === null || held.einwilligung.bestaetigt_am === null) return false;
+    if (held === null || sent === null || held.einwilligung.confirmed_at === null) return false;
 
     const [heldAddress, ...heldName] = seatIdentity(held);
     const [sentAddress, ...sentName] = seatIdentity(sent);
@@ -158,12 +158,12 @@ export function teamPageHref(teamId: string, saisonId: string): string {
 /**
  * The state that fixes what a link minted on the row opens: once its season is over or its team has
  * left it, the backend mints a newcomer a link taking the Widerspruch alone and sends no fresh one
- * (`kontakt_zeile_ohne_saison`).
+ * (`kontakt_row_without_saison`).
  */
-export function kontaktZeile(saisonStatus: TeamSaisonMembership["saisonStatus"], austritt: FLAustritt | null): FLKontaktZeile {
-  if (saisonStatus === "past") return "saison_vorbei";
+export function kontaktZeile(saisonStatus: TeamSaisonMembership["saisonStatus"], austritt: FLAustritt | null): FLKontaktRow {
+  if (saisonStatus === "past") return "saison_past";
 
-  return austritt === null ? "offen" : "ausgetreten";
+  return austritt === null ? "open" : "ausgetreten";
 }
 
 /**
@@ -188,8 +188,8 @@ export function resolveTeamSaisonMembership(
             austritt: membership.austritt,
             trikot_farbe: membership.trikot_farbe,
             kontakte: membership.kontakte,
-            bestaetigungen: membership.bestaetigungen,
-            adresswechsel: membership.adresswechsel,
+            confirmations: membership.confirmations,
+            address_change: membership.address_change,
             kontakte_stand: membership.kontakte_stand,
           },
   };
@@ -205,7 +205,7 @@ export function kontakteEditorKey(
 ): string {
   const team = { id, name, shorthand, inactive_since };
   if (membership === null) return JSON.stringify({ team, saison, membership });
-  const { bestaetigungen: _bestaetigungen, adresswechsel: _adresswechsel, ...gesaet } = membership;
+  const { confirmations: _bestaetigungen, address_change: _adresswechsel, ...gesaet } = membership;
 
   return JSON.stringify({ team, saison, membership: gesaet });
 }
@@ -240,6 +240,6 @@ export function toKontaktePayload(kontakte: SaisonTeamKontakteDraft | null): FLS
     trainer: kontaktpersonPayload(kontakte.trainer),
     ansprechperson: kontaktpersonPayload(kontakte.ansprechperson),
     stellvertretung: kontaktpersonPayload(kontakte.stellvertretung),
-    trainer_ist_zugleich: kontakte.trainer_ist_zugleich,
+    trainer_is_also: kontakte.trainer_is_also,
   };
 }

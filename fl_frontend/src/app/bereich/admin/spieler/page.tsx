@@ -85,7 +85,7 @@ async function SpielerTable({ searchParams }: { searchParams: NextPageProps["sea
               nummer: selected.nummer ?? "",
               position: selected.position,
               stufe: selected.stufe,
-              ist_nachnominiert: selected.ist_nachnominiert,
+              ist_nachnominiert: selected.is_nachnominiert,
               rolle: selected.rolle,
               inactive_since: selected.inactive_since,
               // An unresolvable team is a squad row pointing at a deleted club: null, not a crash, so the row

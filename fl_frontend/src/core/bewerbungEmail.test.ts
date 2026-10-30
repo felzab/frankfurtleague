@@ -1,6 +1,6 @@
 import { assert, describe, expect, it } from "vitest";
 
-import type { FLBewerbungLinkDaten, FLBewerbungZusageDaten } from "./generated/client/types";
+import type { FLBewerbungLinkData, FLBewerbungZusageData } from "./generated/client/types";
 
 const { buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } = await import("./bewerbungEmail.ts");
 const { renderMail } = await import("./emailShell.ts");
@@ -8,7 +8,7 @@ const { renderMail } = await import("./emailShell.ts");
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
 
-const ZUSAGE: FLBewerbungZusageDaten = {
+const ZUSAGE: FLBewerbungZusageData = {
   art: "bewerbung_zusage",
   team: "Ernst-Reuter-Schule",
   saison_id: "2627",
@@ -18,8 +18,8 @@ const ZUSAGE: FLBewerbungZusageDaten = {
   wunschgegner: null,
 };
 
-const LINK: FLBewerbungLinkDaten = {
-  art: "bewerbung_bestaetigung",
+const LINK: FLBewerbungLinkData = {
+  art: "bewerbung_confirmation",
   saison_id: "2627",
   schule: "Ernst-Reuter-Schule",
   rollen: ["trainer"],

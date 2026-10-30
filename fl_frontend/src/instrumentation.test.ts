@@ -7,7 +7,7 @@ import { COPY } from "./core/copy.ts";
 const ran: string[] = [];
 
 /** What one job did, as the scheduler reads it. */
-type Durchlauf = { zaehlung: Record<string, number | string | null>; offen: number; fehler?: unknown };
+type Durchlauf = { count: Record<string, number | string | null>; open: number; error?: unknown };
 
 /** Each job's own answer, which a case replaces; every job resolves at once to nothing done otherwise. */
 const answers = new Map<string, () => Promise<Durchlauf | void>>();
@@ -20,7 +20,7 @@ let heartbeat: string | undefined;
 const HEARTBEAT = "https://uptime.example.invalid/api/v1/heartbeat/token";
 
 /** What every drain since the last pass settled, which a case sets and the pass takes. */
-let drains = { gesendet: 0, wiederholt: 0, aufgegeben: 0, zurueckgehalten: 0, ignoriert: 0 };
+let drains = { sent: 0, repeated: 0, abandoned: 0, withheld: 0, ignored: 0 };
 
 /** The restore's hold the boot reads, off unless a case sets it. */
 const settings = { APP_ENV: "production", APP_VERSION: "sha-1234567", RESTORE_HOLD: "off" };
@@ -61,17 +61,17 @@ vi.doMock("@/core/db.ts", () => ({
   },
 }));
 vi.doMock("@/features/bewerbungen/sweep.ts", () => ({ runBewerbungSweep: job("bewerbungen") }));
-vi.doMock("@/features/funktionen/sweep.ts", () => ({ runKontoSweep: job("konto") }));
-vi.doMock("@/features/saisons/sweep.ts", () => ({ runLoeschungSweep: job("loeschung") }));
+vi.doMock("@/features/funktionen/sweep.ts", () => ({ runKontoSweep: job("account") }));
+vi.doMock("@/features/saisons/sweep.ts", () => ({ runLoeschungSweep: job("erasure") }));
 vi.doMock("@/features/spielbestaetigungen/sweep.ts", () => ({ runSpielSweep: job("spielbestaetigungen") }));
-vi.doMock("@/features/berechtigungen/abgleich.ts", () => ({ runBerechtigungenAbgleich: job("berechtigungen") }));
+vi.doMock("@/features/berechtigungen/abgleich.ts", () => ({ runBerechtigungenAbgleich: job("grants") }));
 vi.doMock("@/core/mail.ts", () => ({
-  drainPostausgang: async () => {
-    ran.push("postausgang");
+  drainOutbox: async () => {
+    ran.push("outbox");
   },
   takeDrainCounts: () => {
     const taken = drains;
-    drains = { gesendet: 0, wiederholt: 0, aufgegeben: 0, zurueckgehalten: 0, ignoriert: 0 };
+    drains = { sent: 0, repeated: 0, abandoned: 0, withheld: 0, ignored: 0 };
     return taken;
   },
 }));
@@ -82,7 +82,7 @@ const SEKUNDE_MS = 1000;
 const MINUTE_MS = 60 * SEKUNDE_MS;
 const HOUR_MS = 60 * MINUTE_MS;
 
-const EVERY_JOB = ["bewerbungen", "konto", "loeschung", "spielbestaetigungen", "berechtigungen", "postausgang"];
+const EVERY_JOB = ["bewerbungen", "account", "erasure", "spielbestaetigungen", "grants", "outbox"];
 
 /** Lets every pending promise settle: a tick starts the pass, which finishes on the microtask queue. */
 const settle = async (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
@@ -97,7 +97,7 @@ beforeEach(() => {
   lines.length = 0;
   answers.clear();
   heartbeat = undefined;
-  drains = { gesendet: 0, wiederholt: 0, aufgegeben: 0, zurueckgehalten: 0, ignoriert: 0 };
+  drains = { sent: 0, repeated: 0, abandoned: 0, withheld: 0, ignored: 0 };
   settings.RESTORE_HOLD = "off";
   pings.length = 0;
   monitor = () => Promise.resolve(new Response(null, { status: 200 }));
@@ -182,13 +182,13 @@ describe("the one scheduler", () => {
 
   /* A job that threw is a job that stopped, and the ones behind it still owe what they owe. */
   it("runs every job behind one that threw, and names it on a line", async () => {
-    answers.set("konto", () => Promise.reject(new TypeError("the store went away")));
+    answers.set("account", () => Promise.reject(new TypeError("the store went away")));
 
     const [seen] = await bootAndStep("production", [MINUTE_MS]);
 
     expect(seen).toStrictEqual(EVERY_JOB);
     expect(lines.filter(({ level }) => level === "error")).toStrictEqual([
-      { level: "error", event: "scheduler.job_failed", fields: { job: "konto", name: "TypeError" } },
+      { level: "error", event: "scheduler.job_failed", fields: { job: "account", name: "TypeError" } },
     ]);
   });
 
@@ -219,13 +219,11 @@ describe("the pass's one line", () => {
   /* One line per pass where anything happened, every job's counts and every drain's in it, the drains a write started
      among them; a warning where the pass left anything owed, so a level above INFO still shows it. */
   it("writes one line counting every job and every drain since the last pass, a warning where one did not finish", async () => {
-    answers.set("spielbestaetigungen", () =>
-      Promise.resolve({ zaehlung: { geschlossen: 1, angefragt: 2, erinnert: 0, mails: 2, fehlgeschlagen: 0 }, offen: 0 }),
-    );
-    drains = { ...drains, gesendet: 3 };
+    answers.set("spielbestaetigungen", () => Promise.resolve({ count: { closed: 1, asked: 2, reminded: 0, mails: 2, failed: 0 }, open: 0 }));
+    drains = { ...drains, sent: 3 };
     await bootAndStep("production", [MINUTE_MS]);
 
-    answers.set("loeschung", () => Promise.resolve({ zaehlung: { spieler: 4, fehlgeschlagen: 0 }, offen: 0, fehler: new TypeError("cut") }));
+    answers.set("erasure", () => Promise.resolve({ count: { spieler: 4, failed: 0 }, open: 0, error: new TypeError("cut") }));
     answers.delete("spielbestaetigungen");
     vi.advanceTimersByTime(HOUR_MS);
     await settle();
@@ -235,18 +233,18 @@ describe("the pass's one line", () => {
         level: "info",
         event: "scheduler.pass",
         fields: {
-          spielbestaetigungen: { geschlossen: 1, angefragt: 2, erinnert: 0, mails: 2, fehlgeschlagen: 0 },
-          postausgang: { gesendet: 3, wiederholt: 0, aufgegeben: 0, zurueckgehalten: 0, ignoriert: 0 },
+          spielbestaetigungen: { closed: 1, asked: 2, reminded: 0, mails: 2, failed: 0 },
+          outbox: { sent: 3, repeated: 0, abandoned: 0, withheld: 0, ignored: 0 },
         },
       },
-      { level: "error", event: "scheduler.job_failed", fields: { job: "loeschung", name: "TypeError" } },
+      { level: "error", event: "scheduler.job_failed", fields: { job: "erasure", name: "TypeError" } },
       {
         level: "warn",
         event: "scheduler.pass",
         fields: {
-          loeschung: { spieler: 4, fehlgeschlagen: 0 },
-          postausgang: { gesendet: 0, wiederholt: 0, aufgegeben: 0, zurueckgehalten: 0, ignoriert: 0 },
-          ausfaelle: ["loeschung failed"],
+          erasure: { spieler: 4, failed: 0 },
+          outbox: { sent: 0, repeated: 0, abandoned: 0, withheld: 0, ignored: 0 },
+          ausfaelle: ["erasure failed"],
         },
       },
     ]);
@@ -260,16 +258,16 @@ describe("the heartbeat after each pass", () => {
     heartbeat = HEARTBEAT;
     await bootAndStep("production", [MINUTE_MS]);
 
-    answers.set("konto", () => Promise.reject(new TypeError("the store went away")));
-    answers.set("loeschung", () => Promise.resolve({ zaehlung: { spieler: 4, fehlgeschlagen: 3 }, offen: 3 }));
+    answers.set("account", () => Promise.reject(new TypeError("the store went away")));
+    answers.set("erasure", () => Promise.resolve({ count: { spieler: 4, failed: 3 }, open: 3 }));
     // Given up by a write's drain inside the hour, never the pass's own: the pass reports every drain's.
-    drains = { ...drains, aufgegeben: 2 };
+    drains = { ...drains, abandoned: 2 };
     vi.advanceTimersByTime(HOUR_MS);
     await settle();
 
     expect(pings).toStrictEqual([
       { url: HEARTBEAT, method: "GET", body: undefined },
-      { url: `${HEARTBEAT}/fail`, method: "POST", body: "konto failed\nloeschung left 3\npostausgang gave up 2" },
+      { url: `${HEARTBEAT}/fail`, method: "POST", body: "account failed\nerasure left 3\noutbox gave up 2" },
     ]);
   });
 

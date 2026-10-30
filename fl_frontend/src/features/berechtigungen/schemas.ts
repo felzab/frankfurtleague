@@ -32,7 +32,7 @@ export const FLPatchBerechtigungPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   verwaltung: FLVerwaltungSchema,
 });
-export type FLPatchBerechtigungPayload = z.infer<typeof FLPatchBerechtigungPayloadSchema>;
+export type FLPatchGrantPayload = z.infer<typeof FLPatchBerechtigungPayloadSchema>;
 
 /** A request's approval and its refusal or withdrawal, each naming its request by the id in the path, with no body. */
 export const FLBerechtigungAntragKeyPayloadSchema = z.object({

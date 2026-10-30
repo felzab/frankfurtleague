@@ -23,22 +23,22 @@ const VON: Readonly<Record<MailArt, MailVon>> = { anmeldung: "anmeldung", sicher
  * One run of a sentence. Every run is folded to one line and escaped by the shell alone, so a value typed
  * outside the league reaches neither version as markup or as a line of its own.
  */
-export type Lauf = string | { readonly stark: string } | { readonly adresse: string } | { readonly url: string };
+export type Run = string | { readonly strong: string } | { readonly adresse: string } | { readonly url: string };
 
 /** One sentence, a plain string or its runs. */
-export type Satz = string | readonly Lauf[];
+export type Satz = string | readonly Run[];
 
 /** One paragraph, its sentences in order. The first sentence of the first paragraph is the mail's hidden preview. */
 export type Absatz = readonly [Satz, ...Satz[]];
 
 /** One row of the facts block. A value keeps its line breaks: a stated reason is a paragraph. */
-export interface Fakt {
+export interface Fact {
   readonly label: string;
-  readonly wert: string;
+  readonly value: string;
 }
 
 /** The one button, its link printed below it. */
-interface Knopf {
+interface Button {
   readonly label: string;
   readonly href: string;
 }
@@ -47,7 +47,7 @@ interface Knopf {
 export interface Mail {
   readonly art: MailArt;
   /** The subject, topic first, which the heading repeats. */
-  readonly betreff: string;
+  readonly subjectLine: string;
   /** Already through `mailOrigin`: the footer's links and the logo stand on it. */
   readonly origin: string;
   /** `""` where the first name is unknown, and the greeting then names nobody. */
@@ -57,9 +57,9 @@ export interface Mail {
    * The one facts block: a column of rows under the title naming them, the sign-in code, or a link a reader passes
    * on, standing alone in its box.
    */
-  readonly block?: { readonly titel: string; readonly fakten: readonly Fakt[] } | { readonly code: string } | { readonly link: string };
+  readonly block?: { readonly titel: string; readonly facts: readonly Fact[] } | { readonly code: string } | { readonly link: string };
   readonly nachBlock?: readonly Absatz[];
-  readonly aktion?: Knopf;
+  readonly button?: Button;
 }
 
 /** What a mail is handed to the mailer as. */
@@ -88,15 +88,15 @@ const FOOTER_TEXT = `font-size:12px;line-height:16px;color:${TEXT_COLOR};`;
 const MUTED_TEXT = `font-size:12px;line-height:16px;color:${MUTED_COLOR};`;
 
 /** "Takt 24": every gap of the shell, in pixels. */
-const ABSTAND = {
+const GAP = {
   karte: 32,
   karteTelefon: 24,
   band: 20,
   kopfText: 16,
   absatz: 12,
   block: 24,
-  faktenTitel: 8,
-  faktenInnen: 16,
+  factsTitel: 8,
+  factsInner: 16,
   vorLinie: 32,
   nachLinie: 16,
   fusszeile: 4,
@@ -113,7 +113,7 @@ const CARD_WIDTH = 480;
  * wordmark's face reaches no mail client as a font. Both sizes as attributes, which Outlook on Windows reads where
  * it ignores the CSS, so the picture never shows at its file's width.
  */
-const LOGO = { pfad: "/mail/logo.png", breite: 181, hoehe: 32 } as const;
+const LOGO = { path: "/mail/logo.png", breite: 181, hoehe: 32 } as const;
 
 /**
  * Zeroed on every layout table: a screen reader announcing chrome as a data table is unusable, and
@@ -127,7 +127,7 @@ const TABLE_ATTRS = `role="presentation" cellpadding="0" cellspacing="0" border=
  */
 const TELEFON_STYLE = `<style>
       @media (max-width: ${CARD_WIDTH}px) {
-        .fl-pad { padding: ${ABSTAND.karteTelefon}px !important; }
+        .fl-pad { padding: ${GAP.karteTelefon}px !important; }
         .fl-knopf, .fl-knopf td { width: 100% !important; }
         .fl-knopf a { display: block !important; }
       }
@@ -139,7 +139,7 @@ function escapeHtml(value: string): string {
 }
 
 /** One line, whatever was typed: a value carrying a break would render a line the reader cannot tell from the mail's own. */
-function einzeilig(value: string): string {
+function singleLine(value: string): string {
   return value.replace(/[\r\n]+/g, " ");
 }
 
@@ -156,40 +156,40 @@ export function mailOrigin(raw: string): string {
   }
 }
 
-function laeufe(satz: Satz): readonly Lauf[] {
+function runs(satz: Satz): readonly Run[] {
   return typeof satz === "string" ? [satz] : satz;
 }
 
-function laufText(lauf: Lauf): string {
-  if (typeof lauf === "string") return einzeilig(lauf);
-  if ("stark" in lauf) return einzeilig(lauf.stark);
+function runText(run: Run): string {
+  if (typeof run === "string") return singleLine(run);
+  if ("strong" in run) return singleLine(run.strong);
 
-  return einzeilig("adresse" in lauf ? lauf.adresse : lauf.url);
+  return singleLine("adresse" in run ? run.adresse : run.url);
 }
 
 /** Underlined as well as coloured, because colour alone is not a link to a reader who cannot see it. */
 function linkHtml(href: string, label: string, extra = ""): string {
-  return `<a href="${escapeHtml(einzeilig(href))}" style="color:${BRAND_COLOR};text-decoration:underline;${extra}">${escapeHtml(einzeilig(label))}</a>`;
+  return `<a href="${escapeHtml(singleLine(href))}" style="color:${BRAND_COLOR};text-decoration:underline;${extra}">${escapeHtml(singleLine(label))}</a>`;
 }
 
-function laufHtml(lauf: Lauf): string {
-  if (typeof lauf === "string") return escapeHtml(einzeilig(lauf));
-  if ("stark" in lauf) return `<strong style="color:${HEADING_COLOR};">${escapeHtml(einzeilig(lauf.stark))}</strong>`;
-  if ("adresse" in lauf) return linkHtml(`mailto:${lauf.adresse}`, lauf.adresse);
+function runHtml(run: Run): string {
+  if (typeof run === "string") return escapeHtml(singleLine(run));
+  if ("strong" in run) return `<strong style="color:${HEADING_COLOR};">${escapeHtml(singleLine(run.strong))}</strong>`;
+  if ("adresse" in run) return linkHtml(`mailto:${run.adresse}`, run.adresse);
 
-  return linkHtml(lauf.url, lauf.url, "word-break:break-all;");
+  return linkHtml(run.url, run.url, "word-break:break-all;");
 }
 
-const satzText = (satz: Satz): string => laeufe(satz).map(laufText).join("");
+const satzText = (satz: Satz): string => runs(satz).map(runText).join("");
 const absatzText = (absatz: Absatz): string => absatz.map(satzText).join(" ");
-const absatzHtml = (absatz: Absatz): string => absatz.map((satz) => laeufe(satz).map(laufHtml).join("")).join(" ");
+const absatzHtml = (absatz: Absatz): string => absatz.map((satz) => runs(satz).map(runHtml).join("")).join(" ");
 
 /** A fact's value as lines, every line after the first indented so none of them begins where a label does. */
-const wertText = (wert: string): string => wert.replace(/\r\n|\r|\n/g, "\n  ");
-const wertHtml = (wert: string): string => escapeHtml(wert).replace(/\r\n?|\n/g, "<br />");
+const valueText = (value: string): string => value.replace(/\r\n|\r|\n/g, "\n  ");
+const valueHtml = (value: string): string => escapeHtml(value).replace(/\r\n?|\n/g, "<br />");
 
 /** The mail's hidden preview: the first sentence of its first paragraph. */
-function vorschauVon(mail: Mail): string {
+function previewBy(mail: Mail): string {
   return satzText(mail.absaetze[0][0]);
 }
 
@@ -201,15 +201,15 @@ function nichtDu(art: MailArt): string | undefined {
 }
 
 /** One block of the card and the gap under it; the last block of the card takes none. */
-type Baustein = { readonly html: string; readonly abstand: number };
+type Baustein = { readonly html: string; readonly gap: number };
 
 const p = (inner: string, grade = BODY_TEXT): string => `<p style="margin:0;${grade}">${inner}</p>`;
 
 /** The paragraphs of one group, a paragraph's gap between them and a block's gap after the last. */
-function absatzBausteine(absaetze: readonly Absatz[]): Baustein[] {
+function absatzBlocks(absaetze: readonly Absatz[]): Baustein[] {
   return absaetze.map((absatz, index) => ({
     html: p(absatzHtml(absatz)),
-    abstand: index === absaetze.length - 1 ? ABSTAND.block : ABSTAND.absatz,
+    gap: index === absaetze.length - 1 ? GAP.block : GAP.absatz,
   }));
 }
 
@@ -218,43 +218,43 @@ function blockHtml(block: NonNullable<Mail["block"]>): Baustein {
 
   if ("code" in block) {
     return {
-      html: `<table ${TABLE_ATTRS} width="100%" style="${kasten}"><tr><td align="center" style="padding:${ABSTAND.faktenInnen}px;font-family:${FONT_STACK};font-size:32px;line-height:40px;letter-spacing:6px;font-weight:700;color:${HEADING_COLOR};">${escapeHtml(einzeilig(block.code))}</td></tr></table>`,
-      abstand: ABSTAND.kopfText,
+      html: `<table ${TABLE_ATTRS} width="100%" style="${kasten}"><tr><td align="center" style="padding:${GAP.factsInner}px;font-family:${FONT_STACK};font-size:32px;line-height:40px;letter-spacing:6px;font-weight:700;color:${HEADING_COLOR};">${escapeHtml(singleLine(block.code))}</td></tr></table>`,
+      gap: GAP.kopfText,
     };
   }
 
   // The code's box at body size, the address broken anywhere: a URL set at the code's size overflows a phone.
   if ("link" in block) {
     return {
-      html: `<table ${TABLE_ATTRS} width="100%" style="${kasten}"><tr><td style="padding:${ABSTAND.faktenInnen}px;font-family:${FONT_STACK};${BODY_TEXT}">${linkHtml(block.link, block.link, "word-break:break-all;")}</td></tr></table>`,
-      abstand: ABSTAND.block,
+      html: `<table ${TABLE_ATTRS} width="100%" style="${kasten}"><tr><td style="padding:${GAP.factsInner}px;font-family:${FONT_STACK};${BODY_TEXT}">${linkHtml(block.link, block.link, "word-break:break-all;")}</td></tr></table>`,
+      gap: GAP.block,
     };
   }
 
-  const titel = `<p style="margin:0 0 ${String(ABSTAND.faktenTitel)}px;font-size:14px;line-height:20px;font-weight:700;color:${HEADING_COLOR};">${escapeHtml(einzeilig(block.titel))}</p>`;
-  const zeilen = block.fakten
+  const titel = `<p style="margin:0 0 ${String(GAP.factsTitel)}px;font-size:14px;line-height:20px;font-weight:700;color:${HEADING_COLOR};">${escapeHtml(singleLine(block.titel))}</p>`;
+  const rows = block.facts
     .map(
-      ({ label, wert }) =>
-        `<tr><td style="padding:4px 16px 4px 0;font-family:${FONT_STACK};${SMALL_TEXT}white-space:nowrap;vertical-align:top;">${escapeHtml(einzeilig(label))}</td><td style="padding:4px 0;font-family:${FONT_STACK};font-size:14px;line-height:20px;color:${HEADING_COLOR};vertical-align:top;">${wertHtml(wert)}</td></tr>`,
+      ({ label, value }) =>
+        `<tr><td style="padding:4px 16px 4px 0;font-family:${FONT_STACK};${SMALL_TEXT}white-space:nowrap;vertical-align:top;">${escapeHtml(singleLine(label))}</td><td style="padding:4px 0;font-family:${FONT_STACK};font-size:14px;line-height:20px;color:${HEADING_COLOR};vertical-align:top;">${valueHtml(value)}</td></tr>`,
     )
     .join("");
 
   return {
-    html: `${titel}<table ${TABLE_ATTRS} width="100%" style="${kasten}"><tr><td style="padding:${ABSTAND.faktenInnen - 4}px ${ABSTAND.faktenInnen}px;"><table ${TABLE_ATTRS}>${zeilen}</table></td></tr></table>`,
-    abstand: ABSTAND.block,
+    html: `${titel}<table ${TABLE_ATTRS} width="100%" style="${kasten}"><tr><td style="padding:${GAP.factsInner - 4}px ${GAP.factsInner}px;"><table ${TABLE_ATTRS}>${rows}</table></td></tr></table>`,
+    gap: GAP.block,
   };
 }
 
 /** The button, 44 px high (11 + 22 + 11) and full width on a phone, then its link printed to copy. */
-function aktionBausteine(aktion: Knopf): Baustein[] {
+function buttonBlocks(button: Button): Baustein[] {
   return [
     {
-      html: `<table ${TABLE_ATTRS} class="fl-knopf" align="center" style="margin:0 auto;"><tr><td align="center" style="background-color:${BRAND_SOLID_COLOR};border-radius:8px;"><a href="${escapeHtml(einzeilig(aktion.href))}" style="display:inline-block;padding:11px 24px;font-family:${FONT_STACK};font-size:16px;line-height:22px;font-weight:700;color:${ON_BRAND_COLOR};text-decoration:none;">${escapeHtml(einzeilig(aktion.label))}</a></td></tr></table>`,
-      abstand: ABSTAND.absatz,
+      html: `<table ${TABLE_ATTRS} class="fl-knopf" align="center" style="margin:0 auto;"><tr><td align="center" style="background-color:${BRAND_SOLID_COLOR};border-radius:8px;"><a href="${escapeHtml(singleLine(button.href))}" style="display:inline-block;padding:11px 24px;font-family:${FONT_STACK};font-size:16px;line-height:22px;font-weight:700;color:${ON_BRAND_COLOR};text-decoration:none;">${escapeHtml(singleLine(button.label))}</a></td></tr></table>`,
+      gap: GAP.absatz,
     },
     {
-      html: p(`${escapeHtml(SERVER_COPY.mail.knopfLink)}<br />${linkHtml(aktion.href, aktion.href, "word-break:break-all;")}`, SMALL_TEXT),
-      abstand: ABSTAND.block,
+      html: p(`${escapeHtml(SERVER_COPY.mail.knopfLink)}<br />${linkHtml(button.href, button.href, "word-break:break-all;")}`, SMALL_TEXT),
+      gap: GAP.block,
     },
   ];
 }
@@ -266,28 +266,28 @@ function rechtsLinks(origin: string): readonly { readonly label: string; readonl
   ];
 }
 
-const VEREIN_ZEILE = `${VEREIN_NAME} · ${VEREIN_ANSCHRIFT}`;
+const VEREIN_ROW = `${VEREIN_NAME} · ${VEREIN_ANSCHRIFT}`;
 
-function renderHtml(mail: Mail, betreff: string): string {
+function renderHtml(mail: Mail, subjectLine: string): string {
   const inhalt: Baustein[] = [
     {
-      html: `<h1 style="margin:0;font-size:24px;line-height:32px;font-weight:700;color:${HEADING_COLOR};">${escapeHtml(betreff)}</h1>`,
-      abstand: ABSTAND.kopfText,
+      html: `<h1 style="margin:0;font-size:24px;line-height:32px;font-weight:700;color:${HEADING_COLOR};">${escapeHtml(subjectLine)}</h1>`,
+      gap: GAP.kopfText,
     },
-    { html: p(escapeHtml(einzeilig(SERVER_COPY.mail.gruss(mail.vorname)))), abstand: ABSTAND.absatz },
-    ...absatzBausteine(mail.absaetze),
+    { html: p(escapeHtml(singleLine(SERVER_COPY.mail.gruss(mail.vorname)))), gap: GAP.absatz },
+    ...absatzBlocks(mail.absaetze),
     ...(mail.block === undefined ? [] : [blockHtml(mail.block)]),
-    ...absatzBausteine(mail.nachBlock ?? []),
-    ...(mail.aktion === undefined ? [] : aktionBausteine(mail.aktion)),
+    ...absatzBlocks(mail.nachBlock ?? []),
+    ...(mail.button === undefined ? [] : buttonBlocks(mail.button)),
   ];
   // The gap before the footer's rule is the rule's own, whatever the last block asked for.
-  const letzter = inhalt.length - 1;
-  const koerper = inhalt.map((baustein, index) => (index === letzter ? { ...baustein, abstand: ABSTAND.vorLinie } : baustein));
+  const last = inhalt.length - 1;
+  const koerper = inhalt.map((baustein, index) => (index === last ? { ...baustein, gap: GAP.vorLinie } : baustein));
 
-  const zeile = nichtDu(mail.art);
+  const row = nichtDu(mail.art);
   const fuss: Baustein[] = [
-    { html: `<hr style="border:none;border-top:1px solid ${RULE_COLOR};margin:0;" />`, abstand: ABSTAND.nachLinie },
-    { html: p(escapeHtml(VEREIN_ZEILE), FOOTER_TEXT), abstand: ABSTAND.fusszeile },
+    { html: `<hr style="border:none;border-top:1px solid ${RULE_COLOR};margin:0;" />`, gap: GAP.nachLinie },
+    { html: p(escapeHtml(VEREIN_ROW), FOOTER_TEXT), gap: GAP.fusszeile },
     {
       html: p(
         rechtsLinks(mail.origin)
@@ -295,16 +295,16 @@ function renderHtml(mail: Mail, betreff: string): string {
           .join(" · "),
         FOOTER_TEXT,
       ),
-      abstand: ABSTAND.fusszeile,
+      gap: GAP.fusszeile,
     },
-    ...(mail.art === "erstkontakt" ? [{ html: p(absatzHtml([WIDERSPRUCH]), MUTED_TEXT), abstand: ABSTAND.fusszeile }] : []),
+    ...(mail.art === "erstkontakt" ? [{ html: p(absatzHtml([WIDERSPRUCH]), MUTED_TEXT), gap: GAP.fusszeile }] : []),
     // Last, after the footer: it is not part of the message's content.
-    ...(zeile === undefined ? [] : [{ html: p(escapeHtml(zeile), MUTED_TEXT), abstand: 0 }]),
+    ...(row === undefined ? [] : [{ html: p(escapeHtml(row), MUTED_TEXT), gap: 0 }]),
   ];
 
-  const bausteine = [...koerper, ...fuss];
-  const zellen = bausteine.map(
-    ({ html, abstand }, index) => `<div style="margin:0 0 ${String(index === bausteine.length - 1 ? 0 : abstand)}px;">${html}</div>`,
+  const blocks = [...koerper, ...fuss];
+  const zellen = blocks.map(
+    ({ html, gap }, index) => `<div style="margin:0 0 ${String(index === blocks.length - 1 ? 0 : gap)}px;">${html}</div>`,
   );
 
   return `<!doctype html>
@@ -312,21 +312,21 @@ function renderHtml(mail: Mail, betreff: string): string {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>${escapeHtml(betreff)}</title>
+    <title>${escapeHtml(subjectLine)}</title>
     ${TELEFON_STYLE}
   </head>
   <body style="margin:0;padding:0;background-color:${SURFACE_COLOR};">
-    <div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:${SURFACE_COLOR};opacity:0;">${escapeHtml(vorschauVon(mail))}</div>
+    <div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:${SURFACE_COLOR};opacity:0;">${escapeHtml(previewBy(mail))}</div>
     <table ${TABLE_ATTRS} width="100%" style="background-color:${SURFACE_COLOR};">
       <tr>
         <td align="center" style="padding:24px 12px;font-family:${FONT_STACK};">
           <!--[if mso]><table ${TABLE_ATTRS} width="${String(CARD_WIDTH)}" align="center"><tr><td><![endif]-->
           <table ${TABLE_ATTRS} width="100%" align="center" lang="de" style="max-width:${String(CARD_WIDTH)}px;margin:0 auto;background-color:${CARD_COLOR};border-radius:12px;">
             <tr>
-              <td class="fl-pad" style="background-color:${BRAND_SOLID_COLOR};border-radius:12px 12px 0 0;padding:${String(ABSTAND.band)}px ${String(ABSTAND.karte)}px;"><img src="${escapeHtml(`${mail.origin}${LOGO.pfad}`)}" width="${String(LOGO.breite)}" height="${String(LOGO.hoehe)}" alt="${escapeHtml(BRAND_NAME)}" style="display:block;width:${String(LOGO.breite)}px;height:${String(LOGO.hoehe)}px;border:0;outline:none;text-decoration:none;" /></td>
+              <td class="fl-pad" style="background-color:${BRAND_SOLID_COLOR};border-radius:12px 12px 0 0;padding:${String(GAP.band)}px ${String(GAP.karte)}px;"><img src="${escapeHtml(`${mail.origin}${LOGO.path}`)}" width="${String(LOGO.breite)}" height="${String(LOGO.hoehe)}" alt="${escapeHtml(BRAND_NAME)}" style="display:block;width:${String(LOGO.breite)}px;height:${String(LOGO.hoehe)}px;border:0;outline:none;text-decoration:none;" /></td>
             </tr>
             <tr>
-              <td class="fl-pad" style="padding:${String(ABSTAND.karte)}px;font-family:${FONT_STACK};">
+              <td class="fl-pad" style="padding:${String(GAP.karte)}px;font-family:${FONT_STACK};">
                 ${zellen.join("\n                ")}
               </td>
             </tr>
@@ -339,38 +339,38 @@ function renderHtml(mail: Mail, betreff: string): string {
 </html>`;
 }
 
-function aktionText(aktion: Knopf): string[] {
-  return [`${einzeilig(aktion.label)}: ${einzeilig(aktion.href)}`];
+function buttonText(button: Button): string[] {
+  return [`${singleLine(button.label)}: ${singleLine(button.href)}`];
 }
 
-function renderText(mail: Mail, betreff: string): string {
+function renderText(mail: Mail, subjectLine: string): string {
   const gruppen: string[][] = [
-    [betreff],
-    [einzeilig(SERVER_COPY.mail.gruss(mail.vorname))],
+    [subjectLine],
+    [singleLine(SERVER_COPY.mail.gruss(mail.vorname))],
     ...mail.absaetze.map((absatz) => [absatzText(absatz)]),
     ...(mail.block === undefined
       ? []
       : [
           "code" in mail.block
-            ? [einzeilig(mail.block.code)]
+            ? [singleLine(mail.block.code)]
             : "link" in mail.block
-              ? [einzeilig(mail.block.link)]
-              : [einzeilig(mail.block.titel), ...mail.block.fakten.map(({ label, wert }) => `${einzeilig(label)}: ${wertText(wert)}`)],
+              ? [singleLine(mail.block.link)]
+              : [singleLine(mail.block.titel), ...mail.block.facts.map(({ label, value }) => `${singleLine(label)}: ${valueText(value)}`)],
         ]),
     ...(mail.nachBlock ?? []).map((absatz) => [absatzText(absatz)]),
-    ...(mail.aktion === undefined ? [] : [aktionText(mail.aktion)]),
-    [VEREIN_ZEILE, ...rechtsLinks(mail.origin).map(({ label, href }) => `${label}: ${href}`)],
+    ...(mail.button === undefined ? [] : [buttonText(mail.button)]),
+    [VEREIN_ROW, ...rechtsLinks(mail.origin).map(({ label, href }) => `${label}: ${href}`)],
     ...(mail.art === "erstkontakt" ? [[satzText(WIDERSPRUCH)]] : []),
   ];
-  const zeile = nichtDu(mail.art);
+  const row = nichtDu(mail.art);
 
-  return [...gruppen, ...(zeile === undefined ? [] : [[zeile]])].map((gruppe) => gruppe.join("\n")).join("\n\n");
+  return [...gruppen, ...(row === undefined ? [] : [[row]])].map((gruppe) => gruppe.join("\n")).join("\n\n");
 }
 
 /** One mail in both versions, from the same data, with the sender its kind names. */
 export function renderMail(mail: Mail): GerenderteMail {
   // One line: a break in a subject is a header injection.
-  const betreff = einzeilig(mail.betreff);
+  const subjectLine = singleLine(mail.subjectLine);
 
-  return { subject: betreff, html: renderHtml(mail, betreff), text: renderText(mail, betreff), von: VON[mail.art] };
+  return { subject: subjectLine, html: renderHtml(mail, subjectLine), text: renderText(mail, subjectLine), von: VON[mail.art] };
 }

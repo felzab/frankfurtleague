@@ -1,4 +1,4 @@
-import { ZEITZONE } from "@/core/format";
+import { TIME_ZONE } from "@/core/format";
 
 /**
  * Compared as strings, which works because `YYYY-MM-DD` sorts lexicographically. Never parse one into a `Date` to
@@ -18,7 +18,7 @@ export function sortByDate<T>({ arr, key }: { arr: T[]; key: keyof T }): T[] {
 // Europe/Berlin, matching how the backend computes "today": the server's own clock would put the two out
 // of step for an hour a day.
 const formatter = new Intl.DateTimeFormat("en-US", {
-  timeZone: ZEITZONE,
+  timeZone: TIME_ZONE,
   year: "numeric",
   month: "2-digit",
   day: "2-digit",

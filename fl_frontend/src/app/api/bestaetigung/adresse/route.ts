@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       const presse = parsed.data;
       // The sign-in store is this server's, so the backend's press cannot refuse an account at the new address: refused
       // here, in the panel its own refusals of the address open. A decline is refused nothing.
-      if (presse.antwort === "bestaetigt" && (await kontoAnNeuerAdresse({ token: presse.token }))) {
+      if (presse.antwort === "confirmed" && (await kontoAnNeuerAdresse({ token: presse.token }))) {
         return { success: false as const, zustand: "nicht_bestaetigbar" as const };
       }
 
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       try {
         if (presse.antwort === "gestoppt") {
           await postAdresswechselStopp({ token: presse.token });
-          return gedrueckt("gestoppt");
+          return gedrueckt("stopped");
         }
         antwort = await postAdresswechselAntwort(presse);
       } catch (error) {
@@ -63,12 +63,12 @@ export async function POST(request: NextRequest) {
 
       // The effect owed its account's carry in its own transaction: behind the response, and by the hourly pass where
       // this one never runs. No address reaches this handler.
-      if (antwort.wirksam) afterTheResponse(runAdresswechselUmzuege);
+      if (antwort.effective) afterTheResponse(runAdresswechselUmzuege);
 
       return gedrueckt(antwort.antwort, {
-        wirksam: antwort.wirksam,
-        wirksam_ab: antwort.wirksam_ab,
-        genehmigung_offen: antwort.genehmigung_offen,
+        effective: antwort.effective,
+        effective_from: antwort.effective_from,
+        approval_open: antwort.approval_open,
       });
     },
   });
@@ -76,10 +76,10 @@ export async function POST(request: NextRequest) {
 
 function gedrueckt(
   antwort: AdresswechselGedrueckt["antwort"],
-  stand: Pick<AdresswechselGedrueckt, "wirksam" | "wirksam_ab" | "genehmigung_offen"> = {
-    wirksam: false,
-    wirksam_ab: null,
-    genehmigung_offen: false,
+  stand: Pick<AdresswechselGedrueckt, "effective" | "effective_from" | "approval_open"> = {
+    effective: false,
+    effective_from: null,
+    approval_open: false,
   },
 ): AdresswechselGedrueckt {
   return { success: true, antwort: antwort, ...stand };

@@ -55,7 +55,7 @@ describe("the origin each press mints its invite link on", () => {
 
   it("is the one the builder is handed in the mail a hand-out sends, and never the published one", () => {
     const { text } = renderMail(
-      buildEinladungEmail({ art: "einladung", team: "Ernst-Reuter-Schule", saison_id: SAISON_ID }, { origin: ORIGIN, token: "token-mail" }),
+      buildEinladungEmail({ art: "invitation", team: "Ernst-Reuter-Schule", saison_id: SAISON_ID }, { origin: ORIGIN, token: "token-mail" }),
     );
 
     assert.ok(

@@ -1,5 +1,5 @@
 import {
-  identitaetSweepLoeschung,
+  identitySweepErasure,
   saisonsActivateSaison,
   saisonsDeleteSpielplan,
   saisonsPatchSaison,
@@ -10,9 +10,9 @@ import {
 
 import type {
   FLActivateSaisonResponse,
+  FLErasureSweepResponse,
   FLGenerateSpielplanPayload,
   FLGenerateSpielplanResponse,
-  FLLoeschungSweepResponse,
   FLPatchSaisonPayload,
   FLPostSaisonPayload,
   FLPostSaisonResponse,
@@ -91,7 +91,7 @@ export async function swapGruppen({
  * The system tier, whoever presses: the season-after rule deletes, never the administrator who activated a
  * season. No season in the call, which reads the statuses itself; `nach` is the previous call's answer.
  */
-export async function postLoeschungSweep(nach: string | null): Promise<FLLoeschungSweepResponse> {
+export async function postLoeschungSweep(nach: string | null): Promise<FLErasureSweepResponse> {
   // Left out on a pass's first call: the server takes `nach` as an id wherever it is present.
-  return identitaetSweepLoeschung(nach === null ? {} : { nach: nach });
+  return identitySweepErasure(nach === null ? {} : { nach: nach });
 }

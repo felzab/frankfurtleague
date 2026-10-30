@@ -33,22 +33,22 @@ import type { GlyphChoice } from "./ChoiceButtons";
 import type { IconName } from "./Icon";
 
 /** A page every season holds once, by its route in the table: a route whose address takes the season alone. */
-export type SeasonPage = {
-  [K in keyof typeof ROUTES]: Parameters<(typeof ROUTES)[K]["pfad"]> extends [string] ? K : never;
+export type SaisonPage = {
+  [K in keyof typeof ROUTES]: Parameters<(typeof ROUTES)[K]["path"]> extends [string] ? K : never;
 }[keyof typeof ROUTES];
 
 /**
  * One page a frame's menu leads to: its name, its glyph in the rail and in the phone bar, and its address, or
  * the season's page it is, whose address the frame fills in with the season the page works in.
  */
-type RailEntry = { id: string; label: Copy; icon: IconName } & ({ href: Route; season?: never } | { season: SeasonPage; href?: never });
+type RailEntry = { id: string; label: Copy; icon: IconName } & ({ href: Route; saison?: never } | { saison: SaisonPage; href?: never });
 
 /** Entries the rail sets together under one heading; the first group of an area may stand without one. */
 export type RailGroup = { heading?: Copy; entries: ReadonlyArray<RailEntry> };
 
 /** The seasons a person may switch between, the newest first, and the one a page whose address names none works in. */
-export type Seasons = {
-  /** Each season's id, and its span as `formatZeitraum` writes it on the server, which the rail's button shows under the name. */
+export type Saisons = {
+  /** Each season's id, and its span as `formatPeriod` writes it on the server, which the rail's button shows under the name. */
   entries: ReadonlyArray<{ id: string; span: string }>;
   standard: string;
 };
@@ -57,31 +57,31 @@ export type Seasons = {
  * A frame's seasons, read for the frame and handed down unawaited, so the frame streams before the read
  * settles; `null` where the person has no season yet.
  */
-export type FrameSeasons = {
-  seasons: Promise<Seasons | null>;
+export type FrameSaisons = {
+  saisons: Promise<Saisons | null>;
   /** The season's first page, where a switch from a page with no counterpart in the other season lands. */
-  home: SeasonPage;
+  home: SaisonPage;
   /** Where a season's page is reached while there is no season at all. */
-  withoutSeason?: Route;
+  withoutSaison?: Route;
 };
 
-const SeasonContext = createContext<(FrameSeasons & { pages: readonly SeasonPage[] }) | null>(null);
+const SaisonContext = createContext<(FrameSaisons & { pages: readonly SaisonPage[] }) | null>(null);
 
 /** Hands the frame's seasons and its season pages to its menus, which a layout's server code cannot reach. */
-export function SeasonScope({ value, children }: { value: FrameSeasons & { pages: readonly SeasonPage[] }; children: ReactNode }) {
-  return <SeasonContext value={value}>{children}</SeasonContext>;
+export function SaisonScope({ value, children }: { value: FrameSaisons & { pages: readonly SaisonPage[] }; children: ReactNode }) {
+  return <SaisonContext value={value}>{children}</SaisonContext>;
 }
 
 /** A route's dynamic segments as Next fills them in from the address. */
 type Params = ReturnType<typeof useParams>;
 
 /** The season the page works in: the one its address names, else the frame's standard; `null` where there is none. */
-export function useFrameSeason() {
-  const frame = useContext(SeasonContext);
+export function useFrameSaison() {
+  const frame = useContext(SaisonContext);
   const { saison } = useParams();
-  const seasons = frame === null ? null : use(frame.seasons);
-  if (frame === null || seasons === null) return null;
-  return { ...frame, ...seasons, active: typeof saison === "string" ? saison : seasons.standard };
+  const saisons = frame === null ? null : use(frame.saisons);
+  if (frame === null || saisons === null) return null;
+  return { ...frame, ...saisons, active: typeof saison === "string" ? saison : saisons.standard };
 }
 
 /**
@@ -99,17 +99,17 @@ export function counterpart({
   path: string;
   params: Params;
   to: string;
-  home: SeasonPage;
-  pages: readonly SeasonPage[];
+  home: SaisonPage;
+  pages: readonly SaisonPage[];
 }): Route {
   const from = params.saison;
   const segments = path.split("/");
   const at = typeof from === "string" ? segments.indexOf(from) : -1;
-  if (typeof from !== "string" || at === -1) return ROUTES[home].pfad(to);
+  if (typeof from !== "string" || at === -1) return ROUTES[home].path(to);
 
   const records = Object.entries(params).flatMap(([name, value]) => (name === "saison" || value === undefined ? [] : [value].flat()));
   if (segments.slice(at + 1).some((segment) => records.includes(segment))) {
-    const lists = pages.map((page) => ({ page, href: ROUTES[page].pfad(from) }));
+    const lists = pages.map((page) => ({ page, href: ROUTES[page].path(from) }));
     const list = lists.find(
       (each) =>
         each.href ===
@@ -118,7 +118,7 @@ export function counterpart({
           lists.map((one) => one.href),
         ),
     );
-    return ROUTES[list?.page ?? home].pfad(to);
+    return ROUTES[list?.page ?? home].path(to);
   }
 
   segments[at] = to;
@@ -128,11 +128,11 @@ export function counterpart({
 
 /** The entries with their addresses, a season's page in the season the page works in; one with no address is left out. */
 function useEntries(groups: ReadonlyArray<RailGroup>) {
-  const frame = useContext(SeasonContext);
-  const season = useFrameSeason();
+  const frame = useContext(SaisonContext);
+  const saison = useFrameSaison();
   const hrefOf = (entry: RailEntry): Route | undefined => {
-    if (entry.season === undefined) return entry.href;
-    return season === null ? frame?.withoutSeason : ROUTES[entry.season].pfad(season.active);
+    if (entry.saison === undefined) return entry.href;
+    return saison === null ? frame?.withoutSaison : ROUTES[entry.saison].path(saison.active);
   };
   return groups
     .map((group) => ({
@@ -191,12 +191,12 @@ function AccountMenu({ account, trigger, beside }: { account: Account; trigger: 
       head={account.name === undefined ? undefined : { name: account.name, detail: account.address }}
       groups={[
         [
-          { kind: "link", label: COPY.vorlage.konto, href: ROUTES.kontoAnmeldung.pfad() },
+          { kind: "link", label: COPY.vorlage.konto, href: ROUTES.accountSignIn.path() },
           { kind: "action", label: COPY.shared.verb.abmelden, onAction: () => void abmelden() },
         ],
         [
-          { kind: "link", label: ROUTES.impressum.titel, href: ROUTES.impressum.pfad() },
-          { kind: "link", label: ROUTES.datenschutz.titel, href: ROUTES.datenschutz.pfad() },
+          { kind: "link", label: ROUTES.impressum.titel, href: ROUTES.impressum.path() },
+          { kind: "link", label: ROUTES.datenschutz.titel, href: ROUTES.datenschutz.path() },
         ],
       ]}
       foot={{
@@ -368,7 +368,7 @@ export function AccountRow({ account: read }: { account: AccountRead }) {
           </span>
           <span className={railFade({ class: "text-fg-muted" })}>
             <Icon
-              glyph="mehr"
+              glyph="more"
               size={16}
             />
           </span>
@@ -449,7 +449,7 @@ function Places({ groups: given, bar, extra, account }: FrameMenu) {
                 data-kit-focus="inset"
                 className={barPlace({ current: false })}>
                 <Icon
-                  glyph="mehr"
+                  glyph="more"
                   size={18}
                 />
                 {COPY.vorlage.mehr}
@@ -540,7 +540,7 @@ export function BackControl({ href }: { href: Route }) {
   const content = (
     <>
       <Icon
-        glyph="zurueck"
+        glyph="back"
         size={18}
       />
       {COPY.shared.zurueck}
@@ -595,7 +595,7 @@ export type HeaderLink = { label: Copy; href: Route };
  * The classic header's links and „Anmelden“ on the band: in a row from 1024 px, and on a phone behind one
  * button opening them as a sheet.
  */
-export function HeaderLinks({ links, anmelden }: { links: ReadonlyArray<HeaderLink>; anmelden: Route }) {
+export function HeaderLinks({ links, signIn }: { links: ReadonlyArray<HeaderLink>; signIn: Route }) {
   const current = currentOf(
     usePathname(),
     links.map((link) => link.href),
@@ -617,7 +617,7 @@ export function HeaderLinks({ links, anmelden }: { links: ReadonlyArray<HeaderLi
         ))}
       </nav>
       <NextLink
-        href={anmelden}
+        href={signIn}
         data-kit-focus="ring"
         className={frameLink({ tone: "band", class: "ms-auto hidden lg:flex" })}>
         {COPY.shared.verb.anmelden}
@@ -638,7 +638,7 @@ export function HeaderLinks({ links, anmelden }: { links: ReadonlyArray<HeaderLi
               </AriaButton>
             }>
             <div className="grid gap-1 pt-2">
-              {[...links, { label: COPY.shared.verb.anmelden, href: anmelden }].map((link) => (
+              {[...links, { label: COPY.shared.verb.anmelden, href: signIn }].map((link) => (
                 <NextLink
                   key={link.href}
                   href={link.href}

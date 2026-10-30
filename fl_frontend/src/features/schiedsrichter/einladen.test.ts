@@ -1,6 +1,6 @@
 import { cacheCalls, doubleActionRequest } from "@/test-support/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
-import { doublePostausgang } from "@/test-support/mailDouble.ts";
+import { doubleOutbox } from "@/test-support/mailDouble.ts";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { ApiCall } from "@/test-support/apiClientDouble.ts";
@@ -9,7 +9,7 @@ import type { ApiCall } from "@/test-support/apiClientDouble.ts";
    are the doubles. The mailer's double also stills the drain behind the response, which the backend's Postausgang
    feeds: a write owing a link sends nothing itself. */
 doubleActionRequest();
-const mail = doublePostausgang();
+const mail = doubleOutbox();
 
 /** What each endpoint answers in this case, returned or, where it is an `Error`, thrown. */
 type Answer = () => unknown;
@@ -21,7 +21,7 @@ let reactivate: Answer;
 
 function answerFor({ endpoint, method }: ApiCall): unknown {
   if (method === "GET") return row();
-  if (endpoint.endsWith("/einladen")) return mint();
+  if (endpoint.endsWith("/invite")) return mint();
   if (endpoint.endsWith("/reactivate")) return reactivate();
   return method === "PATCH" ? save() : create();
 }
@@ -50,35 +50,35 @@ const stored = (email: string | null, name: string | null = "Anna Meier") => ({
   inactive_since: null,
   geburtsdatum: null,
   einwilligung: null,
-  bestaetigung: null,
+  confirmation: null,
   version: 0,
 });
 
 const withRow = (email: string | null, name?: string | null) => () => ({
   schiedsrichter: stored(email, name),
-  bestaetigung_abgelaufen: false,
-  adresswechsel_id: null,
-  adresswechsel_einsehbar_verwehrt: null,
-  zustellung: null,
+  confirmation_expired: false,
+  address_change_id: null,
+  address_change_viewable_denied: null,
+  delivery: null,
 });
 
 /** The link a write owed `email`, as each such write answers it. */
 const owed = (email: string) => ({ frist: "2026-10-05", email });
 
 /** Every re-send the case sent. */
-const mints = () => requestsOf(client.calls).filter(({ endpoint }) => endpoint.endsWith("/einladen"));
+const mints = () => requestsOf(client.calls).filter(({ endpoint }) => endpoint.endsWith("/invite"));
 
 beforeEach(() => {
   row = withRow("anna@example.de");
-  mint = () => ({ bestaetigung: owed("anna@example.de") });
-  create = () => ({ created_id: SCHIEDSRICHTER_ID, bestaetigung: owed("anna@example.de") });
+  mint = () => ({ confirmation: owed("anna@example.de") });
+  create = () => ({ created_id: SCHIEDSRICHTER_ID, confirmation: owed("anna@example.de") });
   // A DIFFERENT address from the one `ENTWURF` carries: the save writes the correction and answers it back, so a
   // sentence naming the payload's address instead would be visible here.
   save = () => ({
     fanned_out_to_spiele: 0,
-    bestaetigung: owed("korrigiert@example.de"),
+    confirmation: owed("korrigiert@example.de"),
   });
-  reactivate = () => ({ bestaetigung: owed("anna@example.de") });
+  reactivate = () => ({ confirmation: owed("anna@example.de") });
 });
 
 describe("the re-send the editor's panel presses", () => {
@@ -86,9 +86,7 @@ describe("the re-send the editor's panel presses", () => {
     const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
     expect(res.success).toBe(true);
-    expect(mints()).toStrictEqual([
-      { endpoint: `/schiedsrichter/${SCHIEDSRICHTER_ID}/bestaetigung/einladen`, method: "POST", body: undefined },
-    ]);
+    expect(mints()).toStrictEqual([{ endpoint: `/schiedsrichter/${SCHIEDSRICHTER_ID}/confirmation/invite`, method: "POST", body: undefined }]);
     expect(mail.sent).toStrictEqual([]);
   });
 
@@ -105,7 +103,7 @@ describe("the re-send the editor's panel presses", () => {
   /* The row is read before the write, so a save landing between the two moved the mailbox the link goes to; the
      answer is the only reader that saw the write's own transaction. */
   it("names the address the write answered, not the one the earlier read returned, and says the previous link is dead", async () => {
-    mint = () => ({ bestaetigung: owed("inzwischen@example.de") });
+    mint = () => ({ confirmation: owed("inzwischen@example.de") });
 
     const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
@@ -137,9 +135,9 @@ describe("the re-send the editor's panel presses", () => {
      shared sentence, which names no rule. */
   for (const [code, fragment] of [
     ["schiedsrichter_retired", /stillgelegt/],
-    ["bestaetigung_vorhanden", /schon bestätigt/],
-    ["schiedsrichter_keine_adresse", /keine verwendbare E-Mail-Adresse hinterlegt/],
-    ["schiedsrichter_adresse_gesperrt", /Sperrliste/],
+    ["confirmation_exists", /schon bestätigt/],
+    ["schiedsrichter_no_adresse", /keine verwendbare E-Mail-Adresse hinterlegt/],
+    ["schiedsrichter_adresse_barred", /Sperrliste/],
   ] as const) {
     it(`words ${code} at the panel`, async () => {
       mint = () => {
@@ -226,7 +224,7 @@ describe("what the save hands the editor about the link it owed", () => {
   it("hands over no sentence where the save owed no link", async () => {
     save = () => ({
       fanned_out_to_spiele: 0,
-      bestaetigung: null,
+      confirmation: null,
     });
 
     const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
@@ -245,7 +243,7 @@ describe("the reactivation of an unanswered referee", () => {
   });
 
   it("says only that it came back where the row came back unasked", async () => {
-    reactivate = () => ({ bestaetigung: null });
+    reactivate = () => ({ confirmation: null });
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
 
@@ -254,7 +252,7 @@ describe("the reactivation of an unanswered referee", () => {
 
   it("words the ban the return is refused on", async () => {
     reactivate = () => {
-      throw refused("schiedsrichter_adresse_gesperrt");
+      throw refused("schiedsrichter_adresse_barred");
     };
 
     const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });

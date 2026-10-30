@@ -24,11 +24,11 @@ import {
 import { bewerbungHerkunft, bewerbungTeamName, describeAufnahme } from "./utils";
 
 import type {
-  FLAblehnenBewerbungPayload,
-  FLAnnehmenBewerbungPayload,
+  FLAcceptBewerbungPayload,
   FLBewerbung,
   FLBewerbungKontaktEmailPayload,
-  FLBewerbungKontaktSitzPayload,
+  FLBewerbungKontaktSeatPayload,
+  FLDeclineBewerbungPayload,
   FLKontaktRolle,
 } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
@@ -74,7 +74,7 @@ const ENTSCHEIDUNG_GEHT_AN_ALLE = (betreff: "Zusage" | "Absage") => `Die ${betre
  * `austritt`. The control pressing this arms first.
  */
 export async function annehmenBewerbungAction(
-  rawPayload: { id: string } & FLAnnehmenBewerbungPayload,
+  rawPayload: { id: string } & FLAcceptBewerbungPayload,
 ): Promise<ActionResult<{ team_id?: string }>> {
   return runAdminMutation("annehmenBewerbungAction", { stepUp: true }, async () => {
     const validated = FLAnnehmenBewerbungPayloadSchema.safeParse(rawPayload);
@@ -112,7 +112,7 @@ export async function annehmenBewerbungAction(
 }
 
 /** Declines the application, recording who decided and the reason they gave; every person of it is owed the decline. */
-export async function ablehnenBewerbungAction(rawPayload: { id: string } & FLAblehnenBewerbungPayload): Promise<ActionResult> {
+export async function ablehnenBewerbungAction(rawPayload: { id: string } & FLDeclineBewerbungPayload): Promise<ActionResult> {
   return runAdminMutation("ablehnenBewerbungAction", { stepUp: true }, async () => {
     const validated = FLAblehnenBewerbungPayloadSchema.safeParse(rawPayload);
 
@@ -230,7 +230,7 @@ export async function kontaktEmailKorrigierenAction(
 
 /** Seats another person in an emptied seat and owes them their link in the same write. */
 export async function besetzeKontaktSitzAction(
-  rawPayload: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktSitzPayload,
+  rawPayload: { id: string; rolle: FLKontaktRolle } & FLBewerbungKontaktSeatPayload,
 ): Promise<ActionResult> {
   return runAdminMutation("besetzeKontaktSitzAction", { stepUp: true }, async () => {
     const validated = FLBewerbungKontaktSitzPayloadSchema.safeParse(rawPayload);

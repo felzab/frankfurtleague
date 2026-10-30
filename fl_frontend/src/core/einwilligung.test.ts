@@ -14,7 +14,7 @@ import {
   SPIELER_WIEDERKEHREND_ABSATZ_SCHLUESSEL,
 } from "./einwilligungSeiten.ts";
 
-import type { Code, FLEinwilligungFassung } from "./generated/client/types.ts";
+import type { Code, FLEinwilligungWording } from "./generated/client/types.ts";
 
 /** What the backend answers one call; the registry's own answer unless a case names another. */
 type Answer = (endpoint: string) => Promise<unknown>;
@@ -62,16 +62,16 @@ const SCHIEDSRICHTER = laufendeFassung("bestaetigung_schiedsrichter");
 const UMFANG = ["kader_oeffentlich", "intern"] as const;
 
 /** A page's keyed words, which every case on the two consent pages reads by name. */
-const gekeyt = (fassung: FLEinwilligungFassung) =>
+const gekeyt = (fassung: FLEinwilligungWording) =>
   gekeyteFassung(fassung, fassung === SPIELER ? SPIELER_ABSATZ_SCHLUESSEL : SCHIEDSRICHTER_ABSATZ_SCHLUESSEL, UMFANG);
 
 const failure = (statusCode: number, serverErrorCode: Code | undefined): APIBadStatusError =>
   new APIBadStatusError({
     message: "refused",
-    url: "http://backend/api/v0/einwilligung/fassungen/x",
+    url: "http://backend/api/v0/einwilligung/wordings/x",
     statusCode: statusCode,
     serverErrorCode: serverErrorCode,
-    endpoint: "/einwilligung/fassungen/x",
+    endpoint: "/einwilligung/wordings/x",
     method: "GET",
     readOnly: true,
     traceId: "0",
@@ -82,14 +82,14 @@ describe("the words read", () => {
     const fassung = await getEinwilligungFassung("2026-09-bestaetigungsseite-2");
 
     expect(fassung).toStrictEqual(fassungOf("2026-09-bestaetigungsseite-2"));
-    expect(api.calls).toStrictEqual(["/einwilligung/fassungen/2026-09-bestaetigungsseite-2"]);
+    expect(api.calls).toStrictEqual(["/einwilligung/wordings/2026-09-bestaetigungsseite-2"]);
   });
 
   // A label read off a stored record is data, so one carrying a separator must not address another path.
   it("sends a label as one path segment whatever it holds", async () => {
     await getEinwilligungFassung("2026/../seiten");
 
-    expect(api.calls).toStrictEqual(["/einwilligung/fassungen/2026%2F..%2Fseiten"]);
+    expect(api.calls).toStrictEqual(["/einwilligung/wordings/2026%2F..%2Fseiten"]);
   });
 
   /* The failure this registry exists to prevent: the running words under an old label are a record
@@ -106,7 +106,7 @@ describe("the words read", () => {
     expect(await istFassungBekannt("2026-09-bestaetigung-3")).toBe(true);
     expect(await istFassungBekannt("liga-2019-01-erfunden")).toBe(false);
     expect(await istFassungBekannt(null)).toBe(true);
-    expect(api.calls).toStrictEqual(["/einwilligung/fassungen/2026-09-bestaetigung-3", "/einwilligung/fassungen/liga-2019-01-erfunden"]);
+    expect(api.calls).toStrictEqual(["/einwilligung/wordings/2026-09-bestaetigung-3", "/einwilligung/wordings/liga-2019-01-erfunden"]);
   });
 
   it("keeps a label's words, and a label the registry does not hold, at the longest life", async () => {
@@ -155,14 +155,14 @@ describe("the running label", () => {
       ["bestaetigung_spieler_wiederkehrend", SPIELER_WIEDERKEHREND],
       ["bestaetigung_schiedsrichter", SCHIEDSRICHTER],
     ] as const) {
-      expect(await getLaufendesLabel(seite)).toBe(EINWILLIGUNG_REGISTRY.laufende_fassungen[seite]);
+      expect(await getLaufendesLabel(seite)).toBe(EINWILLIGUNG_REGISTRY.running_wordings[seite]);
       expect(await getLaufendeFassung(seite)).toStrictEqual(fassung);
     }
   });
 
   it("throws for a page the backend runs no label on, rather than stamping one of its own", async () => {
     beginRenderPass();
-    api.answerWith(() => Promise.resolve({ laufende_fassungen: { bewerbung: BEWERBUNG.text_version } }));
+    api.answerWith(() => Promise.resolve({ running_wordings: { bewerbung: BEWERBUNG.text_version } }));
 
     await expect(getLaufendesLabel("bestaetigung_kontakt")).rejects.toMatchObject({
       name: "ContractBreakError",
@@ -175,7 +175,7 @@ describe("the running label", () => {
     beginRenderPass();
     api.answerWith((endpoint) =>
       endpoint === "/einwilligung/seiten"
-        ? Promise.resolve({ laufende_fassungen: { bewerbung: "2026-01-nirgends" } })
+        ? Promise.resolve({ running_wordings: { bewerbung: "2026-01-nirgends" } })
         : Promise.resolve(einwilligungAnswer(endpoint)),
     );
 
@@ -403,7 +403,7 @@ describe("the wording the backend runs", () => {
     // for their own, so one label may not answer the other's words.
     assert.ok(alt.absaetze.join(" ").includes("Geburtsdatum speichert"), "the retired wording lost the words that identify it");
     assert.ok(!BEWERBUNG.absaetze.join(" ").includes("Geburtsdatum speichert"), "the current wording answers under the old label");
-    expect(alt.schalter, "both versions label the switch the same way").not.toBe(BEWERBUNG.schalter);
+    expect(alt.switch, "both versions label the switch the same way").not.toBe(BEWERBUNG.switch);
   });
 
   /* The form's label is stamped on a record the applicant made and on one an administrator made, and

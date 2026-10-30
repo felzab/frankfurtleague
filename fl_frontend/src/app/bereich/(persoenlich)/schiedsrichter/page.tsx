@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { funktionenOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/roles";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { logPageVerweigert } from "@/features/funktionen/verweigert";
 import { SchiedsrichterSelfView } from "@/features/schiedsrichter/components/views/SchiedsrichterSelfView";
@@ -18,7 +18,7 @@ export default async function PersoenlichSchiedsrichterPage() {
 
   // To the landing rather than a 404: the address exists, and the landing sends a person on to
   // whatever they do hold.
-  if (!funktionenOf(subject).funktionen.some((funktion) => funktion.art === "schiedsrichter")) {
+  if (!rolesOf(subject).roles.some((funktion) => funktion.art === "schiedsrichter")) {
     logPageVerweigert("/bereich/schiedsrichter", "keine_funktion");
     redirect("/bereich");
   }
@@ -33,7 +33,7 @@ export default async function PersoenlichSchiedsrichterPage() {
       // lands through the two reads beside it.
       runWithIncomingTrace(() =>
         getSchiedsrichterSpielberichte().then(
-          (gelesen): SchiedsrichterSpielberichte => ({ spiele: gelesen.spiele, fruehere: gelesen.fruehere }),
+          (gelesen): SchiedsrichterSpielberichte => ({ spiele: gelesen.spiele, earlier: gelesen.earlier }),
           (error: unknown): SchiedsrichterSpielberichte => nullUnlessContractBreak(error) ?? "unlesbar",
         ),
       ),

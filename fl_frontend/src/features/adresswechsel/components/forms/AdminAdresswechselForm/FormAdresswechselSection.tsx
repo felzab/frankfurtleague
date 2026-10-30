@@ -31,7 +31,7 @@ import { KontaktEmailSchema } from "@/shared/schemas";
 import { unansweredRead } from "@/shared/utils/actionError";
 import { focusSection } from "@/shared/utils/focusAfterWrite";
 
-import type { FLAdresswechselVerwaltungAnsichtPayload, FLAdresswechselVerwaltungBestand } from "@/core/generated/client/types";
+import type { FLAddressChangeVerwaltungHoldings, FLAddressChangeVerwaltungViewPayload } from "@/core/generated/client/types";
 import type { AdresswechselEntwurf } from "@/features/adresswechsel/components/forms/AdresswechselBeantragen";
 import type { VerwaltungAnsichtGelesen } from "@/features/adresswechsel/queries";
 
@@ -44,19 +44,19 @@ type Gelesen = VerwaltungAnsichtGelesen | { status: "reading" };
 const ZEILE_CLASSES = "fluid-xxs leading-normal font-medium text-foreground";
 
 /** Each count as a line, the singular and the plural spelled whole: a reader checks the person by these alone. */
-const ZAEHLER: readonly (readonly [keyof Omit<FLAdresswechselVerwaltungBestand, "berechtigung">, string, string])[] = [
+const ZAEHLER: readonly (readonly [keyof Omit<FLAddressChangeVerwaltungHoldings, "grant">, string, string])[] = [
   ["spieler", "Ein Eintrag als Spielerin oder Spieler", "Einträge als Spielerin oder Spieler"],
   [
     "schiedsrichter",
     "Ein bestätigter Eintrag als Schiedsrichterin oder Schiedsrichter",
     "bestätigte Einträge als Schiedsrichterin oder Schiedsrichter",
   ],
-  ["sitze", "Ein bestätigter Kontakt eines Teams", "bestätigte Kontakte von Teams"],
-  ["bewerbungssitze", "Ein bestätigter Kontakt in einer Bewerbung", "bestätigte Kontakte in Bewerbungen"],
+  ["seats", "Ein bestätigter Kontakt eines Teams", "bestätigte Kontakte von Teams"],
+  ["bewerbung_seats", "Ein bestätigter Kontakt in einer Bewerbung", "bestätigte Kontakte in Bewerbungen"],
   ["registrierungen", "Eine Registrierung", "Registrierungen"],
 ];
 
-function bestandZeilen({ berechtigung, ...anzahl }: FLAdresswechselVerwaltungBestand): string[] {
+function bestandZeilen({ grant: berechtigung, ...anzahl }: FLAddressChangeVerwaltungHoldings): string[] {
   const zeilen = ZAEHLER.filter(([feld]) => anzahl[feld] > 0).map(([feld, eins, viele]) =>
     anzahl[feld] === 1 ? eins : `${String(anzahl[feld])} ${viele}`,
   );
@@ -82,7 +82,7 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
   const letzteLesung = useRef(0);
   const panel = formPanel();
 
-  const lies = async (schluessel: FLAdresswechselVerwaltungAnsichtPayload) => {
+  const lies = async (schluessel: FLAddressChangeVerwaltungViewPayload) => {
     const lesung = ++letzteLesung.current;
     setGelesen({ status: "reading" });
 
@@ -192,11 +192,11 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
         {ansicht !== null && (
           <div className="flex w-full flex-col gap-y-1">
             <h3 className={FORM_SECTION_HEADING_CLASSES}>Was unter der Adresse steht</h3>
-            {bestandZeilen(ansicht.bestand).length === 0 ? (
+            {bestandZeilen(ansicht.holdings).length === 0 ? (
               <p className={ZEILE_CLASSES}>Unter dieser Adresse steht nichts, dessen Adresse sich hier ändern lässt.</p>
             ) : (
               <ul className={`${ZEILE_CLASSES} flex list-disc flex-col gap-y-1 pl-5`}>
-                {bestandZeilen(ansicht.bestand).map((zeile) => (
+                {bestandZeilen(ansicht.holdings).map((zeile) => (
                   <li key={zeile}>{zeile}</li>
                 ))}
               </ul>
@@ -204,20 +204,20 @@ export function FormAdresswechselSection({ anfang }: { anfang: VerwaltungAnsicht
           </div>
         )}
 
-        {ansicht !== null && ansicht.offen !== null && (
+        {ansicht !== null && ansicht.open !== null && (
           <AdresswechselWartet
-            offen={ansicht.offen}
+            offen={ansicht.open}
             onGeschrieben={nachSchreiben}
           />
         )}
 
-        {ansicht?.moeglich === true && (
+        {ansicht?.possible === true && (
           <FocusSlot name="adresse-aendern">
             {entwurf !== null ? (
               <AdresswechselBeantragen
                 adresse={ansicht.adresse}
                 entwurf={entwurf}
-                ersetztOffen={ansicht.offen !== null}
+                ersetztOffen={ansicht.open !== null}
                 fokussieren={perDruck}
                 onEntwurfChange={setEntwurf}
                 onGeschrieben={() => {

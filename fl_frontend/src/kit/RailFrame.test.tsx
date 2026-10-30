@@ -93,9 +93,9 @@ async function renderPage() {
       <RailFrame
         groups={[{ entries: [{ id: "spielorte", label: COPY.seite.spielorte, href: "/bereich/verwaltung/spielorte", icon: "suche" }] }]}
         bar={["spielorte"]}
-        foot={{ kind: "anmelden", href: ROUTES.anmeldung.pfad() }}>
+        foot={{ kind: "anmelden", href: ROUTES.signIn.path() }}>
         <RailPage
-          area="bereich"
+          scope="area"
           title={{ route: "verwaltungSpielorte" }}>
           <p>Seite</p>
         </RailPage>

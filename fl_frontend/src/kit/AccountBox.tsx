@@ -20,7 +20,7 @@ import type { ReactNode } from "react";
  * outcome stands in that line: „Gespeichert“ or what else the save moved, or a short red line with the input
  * kept; a field's message stands under the field. A „Gespeichert“ shown is cleared once the page is left.
  */
-export function KontoBox({
+export function AccountBox({
   title,
   help,
   action,

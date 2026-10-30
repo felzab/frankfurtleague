@@ -8,8 +8,8 @@ export const membershipAnswer = (overrides: Record<string, unknown> = {}) => ({
   austritt: null,
   trikot_farbe: null,
   kontakte: null,
-  bestaetigungen: null,
-  adresswechsel: null,
+  confirmations: null,
+  address_change: null,
   kontakte_stand: "",
   ...overrides,
 });

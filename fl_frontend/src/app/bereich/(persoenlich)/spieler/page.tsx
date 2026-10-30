@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { funktionenOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/roles";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { logPageVerweigert } from "@/features/funktionen/verweigert";
 import { SpielerSelfView } from "@/features/spieler/components/views/SpielerSelfView";
@@ -12,7 +12,7 @@ export default async function PersoenlichSpielerPage() {
 
   // To the landing rather than a 404, for the reason
   // `fl_frontend/src/app/bereich/(persoenlich)/schiedsrichter/page.tsx` gives.
-  if (!funktionenOf(subject).funktionen.some((funktion) => funktion.art === "spieler")) {
+  if (!rolesOf(subject).roles.some((funktion) => funktion.art === "spieler")) {
     logPageVerweigert("/bereich/spieler", "keine_funktion");
     redirect("/bereich");
   }

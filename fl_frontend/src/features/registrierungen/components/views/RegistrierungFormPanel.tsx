@@ -36,7 +36,7 @@ import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "../../constants";
 import { FLPostRegistrierungPayloadSchema } from "../../schemas";
 import { registrierungPayload } from "../../utils";
 
-import type { FLEinladungAnsichtResponse } from "@/core/generated/client/types";
+import type { FLInvitationViewResponse } from "@/core/generated/client/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { RegistrierungFormDraft } from "../../types";
 
@@ -57,7 +57,7 @@ const buildEmptyDraft = (): RegistrierungFormDraft => ({ vorname: "", nachname: 
 /**
  * The registration form the invite opens.
  *
- * The Stufe picker is built from the invite's own `erlaubte_stufen`, never the league's whole set:
+ * The Stufe picker is built from the invite's own `allowed_stufen`, never the league's whole set:
  * a select offering what the write refuses hands a pupil that refusal at the press.
  */
 export function RegistrierungFormPanel({
@@ -67,7 +67,7 @@ export function RegistrierungFormPanel({
   onLinkTot,
 }: {
   token: string;
-  ansicht: FLEinladungAnsichtResponse;
+  ansicht: FLInvitationViewResponse;
   /** The bot check's public key: Cloudflare's script loads where this form renders, and on no other state of the page. */
   siteKey: string;
   /** Raised where the write found the invite gone, which is the whole page's answer rather than this panel's. */
@@ -278,7 +278,7 @@ export function RegistrierungFormPanel({
                 name="stufe"
                 label="Stufe"
                 placeholder="Keine Angabe"
-                options={orderStufen(ansicht.erlaubte_stufen)}
+                options={orderStufen(ansicht.allowed_stufen)}
                 value={draft.stufe}
                 onChange={(stufe) => setDraft({ ...draft, stufe: stufe })}
               />

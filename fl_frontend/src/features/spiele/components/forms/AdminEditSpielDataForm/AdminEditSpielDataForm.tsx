@@ -101,7 +101,7 @@ export function AdminEditSpielDataForm({
   spielorte: FLSpielort[];
   schiedsrichter: FLSchiedsrichter[];
   saisonSpiele: FLSpiel[];
-  /** The season's `rules.number_of_groups`, bounding the Herkunft group offer; `null` offers all. */
+  /** The season's `rules.number_of_gruppen`, bounding the Herkunft group offer; `null` offers all. */
   numberOfGroups: number | null;
   isFinishedSaison: boolean;
   isActiveSaison: boolean;
@@ -542,7 +542,7 @@ export function AdminEditSpielDataForm({
               <SpielRail
                 previewSpiel={previewSpiel}
                 // The served verdict is about the stored Ansetzung, so it stands while the draft keeps that one.
-                ansetzungBestaetigt={ansetzungGeaendert(ansetzung, storedAnsetzung) ? null : spielData.ansetzung_bestaetigt}
+                ansetzungBestaetigt={ansetzungGeaendert(ansetzung, storedAnsetzung) ? null : spielData.ansetzung_confirmed}
                 today={today}
                 isFinishedSaison={isFinishedSaison}
                 banners={banners}
@@ -640,7 +640,7 @@ export function AdminEditSpielDataForm({
 
             {bestaetigungen !== undefined && (
               <SpielbestaetigungPanel
-                zeilen={bestaetigungen}
+                rows={bestaetigungen}
                 spiel={spielData}
                 parteien={{ teams: teams, schiedsrichter: schiedsrichter }}
                 // `teams` joins each club's exit from this season on every read.

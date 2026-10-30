@@ -2,8 +2,6 @@ import { FLEinwilligungUmfang } from "@/core/generated/client/types";
 import { BEWERBUNG_MAX_ALTER } from "@/features/bewerbungen/constants";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
-import type { FLEinwilligung } from "@/core/generated/client/types";
-
 // Its own module: every export of a `"use client"` view becomes a client reference.
 export const SCHIEDSRICHTER_CRUD_COPY = {
   searchLabel: "Schiedsrichter suchen",
@@ -71,7 +69,7 @@ export const SCHIEDSRICHTER_UMFANG_WERTE: readonly FLEinwilligungUmfang[] = Obje
  * What a referee agreed may be PUBLISHED. Not `@/features/spieler/constants :: EINWILLIGUNG_UMFANG_LABELS`,
  * whose „Kader“ names a squad a referee is in no row of: one stored slug, two surfaces a reader sees.
  */
-export const SCHIEDSRICHTER_UMFANG_LABELS: Record<FLEinwilligung["umfang"], string> = {
+export const SCHIEDSRICHTER_UMFANG_LABELS: Record<FLEinwilligungUmfang, string> = {
   kader_oeffentlich: "Name im Spielplan",
   intern: "Nur innerhalb der Liga",
 };
@@ -86,7 +84,7 @@ export const SCHIEDSRICHTER_KORREKTUR_HINWEIS =
 
 /**
  * The two states that close the send, worded for the administrator at the control rather than left
- * to the round trip that `schiedsrichter_retired` and `schiedsrichter_keine_adresse` answer with.
+ * to the round trip that `schiedsrichter_retired` and `schiedsrichter_no_adresse` answer with.
  */
 export const SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE = "Trage zuerst eine E-Mail-Adresse ein und speichere.";
 export const SCHIEDSRICHTER_EINLADEN_STILLGELEGT = "Reaktiviere den Eintrag, bevor Du einen Link sendest.";

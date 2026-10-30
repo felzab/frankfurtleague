@@ -292,10 +292,10 @@ describe("buildSpielplanVorschau", () => {
     // Four groups of four with two qualifying: 8 reach the bracket, so it opens at the quarter-final.
     expect(
       buildSpielplanVorschau([
-        { phase: "gruppenphase", matchdays: 3, matches_per_matchday: 8 },
-        { phase: "viertelfinale", matchdays: 1, matches_per_matchday: 4 },
-        { phase: "halbfinale", matchdays: 1, matches_per_matchday: 2 },
-        { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
+        { phase: "gruppenphase", spieltage: 3, matches_per_spieltag: 8 },
+        { phase: "viertelfinale", spieltage: 1, matches_per_spieltag: 4 },
+        { phase: "halbfinale", spieltage: 1, matches_per_spieltag: 2 },
+        { phase: "finale", spieltage: 1, matches_per_spieltag: 1 },
       ]),
     ).toStrictEqual({ spieltage: 6, spiele: 31, koRunden: ["viertelfinale", "halbfinale", "finale"] });
   });
@@ -305,8 +305,8 @@ describe("buildSpielplanVorschau", () => {
   it("sums the smallest season the rules allow", () => {
     expect(
       buildSpielplanVorschau([
-        { phase: "gruppenphase", matchdays: 1, matches_per_matchday: 1 },
-        { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
+        { phase: "gruppenphase", spieltage: 1, matches_per_spieltag: 1 },
+        { phase: "finale", spieltage: 1, matches_per_spieltag: 1 },
       ]),
     ).toStrictEqual({ spieltage: 2, spiele: 2, koRunden: ["finale"] });
   });
@@ -316,9 +316,9 @@ describe("buildSpielplanVorschau", () => {
   it("counts an odd group's bye matchday without counting a fixture for it", () => {
     expect(
       buildSpielplanVorschau([
-        { phase: "gruppenphase", matchdays: 5, matches_per_matchday: 4 },
-        { phase: "halbfinale", matchdays: 1, matches_per_matchday: 2 },
-        { phase: "finale", matchdays: 1, matches_per_matchday: 1 },
+        { phase: "gruppenphase", spieltage: 5, matches_per_spieltag: 4 },
+        { phase: "halbfinale", spieltage: 1, matches_per_spieltag: 2 },
+        { phase: "finale", spieltage: 1, matches_per_spieltag: 1 },
       ]),
     ).toStrictEqual({ spieltage: 7, spiele: 23, koRunden: ["halbfinale", "finale"] });
   });
@@ -326,7 +326,7 @@ describe("buildSpielplanVorschau", () => {
   /* `schedule_for` contributes no knockout phase where the qualifier count is not a power of two in
      range, so such a season is a group phase alone and the readout has no round to name. */
   it("names no round for a season whose qualifiers reach no bracket", () => {
-    expect(buildSpielplanVorschau([{ phase: "gruppenphase", matchdays: 3, matches_per_matchday: 4 }])).toStrictEqual({
+    expect(buildSpielplanVorschau([{ phase: "gruppenphase", spieltage: 3, matches_per_spieltag: 4 }])).toStrictEqual({
       spieltage: 3,
       spiele: 12,
       koRunden: [],

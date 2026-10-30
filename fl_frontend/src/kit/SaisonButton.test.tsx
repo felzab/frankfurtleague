@@ -10,10 +10,10 @@ import { RouterProvider } from "@heroui/react/rac";
 
 import { COPY } from "@/core/copy";
 
-import { counterpart, SeasonScope } from "./FrameNav";
-import { SeasonButton } from "./SeasonButton";
+import { counterpart, SaisonScope } from "./FrameNav";
+import { SaisonButton } from "./SaisonButton";
 
-import type { SeasonPage, Seasons } from "./FrameNav";
+import type { SaisonPage, Saisons } from "./FrameNav";
 
 // The address the page answers at, as Next's hooks read it on the client.
 const address = vi.hoisted(() => ({ path: "/", params: {} as Record<string, string> }));
@@ -23,8 +23,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),
 }));
 
-const PUBLIC: readonly SeasonPage[] = ["spielplan"];
-const VERWALTUNG: readonly SeasonPage[] = ["verwaltungUebersicht", "verwaltungSpiele", "verwaltungTeams"];
+const PUBLIC: readonly SaisonPage[] = ["spielplan"];
+const VERWALTUNG: readonly SaisonPage[] = ["verwaltungOverview", "verwaltungSpiele", "verwaltungTeams"];
 
 describe("the same page in the other season", () => {
   it("swaps the season in a season page's address", () => {
@@ -36,7 +36,7 @@ describe("the same page in the other season", () => {
         path: "/bereich/verwaltung/saisons/2027/teams",
         params: { saison: "2027" },
         to: "2026",
-        home: "verwaltungUebersicht",
+        home: "verwaltungOverview",
         pages: VERWALTUNG,
       }),
     ).toBe("/bereich/verwaltung/saisons/2026/teams");
@@ -51,20 +51,20 @@ describe("the same page in the other season", () => {
         path: "/bereich/verwaltung/saisons/2027/spiele/abc",
         params: { saison: "2027", spiel: "abc" },
         to: "2026",
-        home: "verwaltungUebersicht",
+        home: "verwaltungOverview",
         pages: VERWALTUNG,
       }),
     ).toBe("/bereich/verwaltung/saisons/2026/spiele");
   });
 
   it("lands a page whose address names no season on the season's first page", () => {
-    expect(
-      counterpart({ path: "/bereich/verwaltung/spielorte", params: {}, to: "2026", home: "verwaltungUebersicht", pages: VERWALTUNG }),
-    ).toBe("/bereich/verwaltung/saisons/2026");
+    expect(counterpart({ path: "/bereich/verwaltung/spielorte", params: {}, to: "2026", home: "verwaltungOverview", pages: VERWALTUNG })).toBe(
+      "/bereich/verwaltung/saisons/2026",
+    );
   });
 });
 
-const SEASONS: Seasons = {
+const SAISONS: Saisons = {
   entries: [
     { id: "2027", span: "01.09.2026 – 30.06.2027" },
     { id: "2026", span: "01.09.2025 – 30.06.2026" },
@@ -74,18 +74,18 @@ const SEASONS: Seasons = {
 
 /** The season button in a frame holding these seasons, its seasons settled. */
 async function renderButton(
-  seasons: Seasons | null,
+  saisons: Saisons | null,
   navigate: (href: string, options?: { replace?: boolean }) => void = () => undefined,
   placement: "rail" | "band" = "rail",
 ) {
   await act(async () => {
     render(
       <RouterProvider navigate={navigate}>
-        <SeasonScope value={{ seasons: Promise.resolve(seasons), home: "verwaltungUebersicht", pages: VERWALTUNG }}>
+        <SaisonScope value={{ saisons: Promise.resolve(saisons), home: "verwaltungOverview", pages: VERWALTUNG }}>
           <Suspense fallback={null}>
-            <SeasonButton placement={placement} />
+            <SaisonButton placement={placement} />
           </Suspense>
-        </SeasonScope>
+        </SaisonScope>
       </RouterProvider>,
     );
   });
@@ -100,7 +100,7 @@ describe("the season button", () => {
   });
 
   it("names the season the address names and offers each season's counterpart of the page shown", async () => {
-    await renderButton(SEASONS);
+    await renderButton(SAISONS);
 
     await userEvent.click(screen.getByRole("button", { name: new RegExp(COPY.shared.saisonName("2027")) }));
 
@@ -112,7 +112,7 @@ describe("the season button", () => {
 
   it("switches by replacing the page in the history, so Back skips the switch", async () => {
     const navigate = vi.fn();
-    await renderButton(SEASONS, navigate);
+    await renderButton(SAISONS, navigate);
 
     await userEvent.click(screen.getByRole("button", { name: new RegExp(COPY.shared.saisonName("2027")) }));
     await userEvent.click(screen.getByRole("menuitemradio", { name: COPY.shared.saisonName("2026") }));
@@ -123,19 +123,19 @@ describe("the season button", () => {
   it("names the frame's standard season on a page whose address names none", async () => {
     address.path = "/bereich/verwaltung/spielorte";
     address.params = {};
-    await renderButton(SEASONS);
+    await renderButton(SAISONS);
 
     expect(screen.getByRole("button", { name: new RegExp(COPY.shared.saisonName("2026")) })).toBeTruthy();
   });
 
   it("shows the season's span under its name in the rail, and the name alone on the band", async () => {
-    await renderButton(SEASONS);
+    await renderButton(SAISONS);
     expect(screen.getByRole("button", { name: new RegExp(COPY.shared.saisonName("2027")) }).textContent).toBe(
       `${COPY.shared.saisonName("2027")}01.09.2026 – 30.06.2027`,
     );
 
     cleanup();
-    await renderButton(SEASONS, () => undefined, "band");
+    await renderButton(SAISONS, () => undefined, "band");
     expect(screen.getByRole("button", { name: COPY.shared.saisonName("2027") }).textContent).toBe(COPY.shared.saisonName("2027"));
   });
 

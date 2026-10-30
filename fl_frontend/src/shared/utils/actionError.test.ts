@@ -337,7 +337,7 @@ describe("a refusal read by its code, whatever its status", () => {
     ] satisfies Code[]) {
       expect(isRefusalCode(code), code).toBe(false);
     }
-    for (const code of ["swap_not_a_swap", "link_ungueltig", "duplicate_key"] satisfies Code[]) expect(isRefusalCode(code), code).toBe(true);
+    for (const code of ["swap_not_a_swap", "link_invalid", "duplicate_key"] satisfies Code[]) expect(isRefusalCode(code), code).toBe(true);
     expect(isRefusalCode(undefined)).toBe(false);
   });
 

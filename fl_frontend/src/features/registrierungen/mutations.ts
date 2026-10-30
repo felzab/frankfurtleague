@@ -1,28 +1,28 @@
 import {
-  registrierungenAblehnen,
-  registrierungenAufnehmen,
-  registrierungenGetBestaetigungAnsicht,
+  registrierungenAdmit,
+  registrierungenDecline,
+  registrierungenGetConfirmationView,
   registrierungenPatchEinwilligung,
-  registrierungenPostBestaetigung,
-  registrierungenPostEinladungAnsicht,
+  registrierungenPostConfirmation,
+  registrierungenPostInvitationView,
   registrierungenPostRegistrierung,
   registrierungenSweepRegistrierungen,
 } from "@/core/generated/client/sdk";
 import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 
 import type {
-  FLEinladungAnsichtResponse,
-  FLKontoEinwilligungPayload,
+  FLAccountEinwilligungPayload,
+  FLInvitationViewResponse,
   FLPostRegistrierungPayload,
   FLPostRegistrierungResponse,
-  FLRegistrierungAblehnenPayload,
-  FLRegistrierungAblehnungResponse,
-  FLRegistrierungAufnahmeResponse,
-  FLRegistrierungAufnehmenPayload,
-  FLRegistrierungBestaetigungAnsichtResponse,
-  FLRegistrierungBestaetigungPayload,
-  FLRegistrierungBestaetigungResponse,
-  FLRegistrierungKontoEinwilligungResponse,
+  FLRegistrierungAccountEinwilligungResponse,
+  FLRegistrierungAdmissionResponse,
+  FLRegistrierungAdmitPayload,
+  FLRegistrierungConfirmationPayload,
+  FLRegistrierungConfirmationResponse,
+  FLRegistrierungConfirmationViewResponse,
+  FLRegistrierungDeclinePayload,
+  FLRegistrierungRefusalResponse,
   FLRegistrierungSweepResponse,
   FLTokenPayload,
 } from "@/core/generated/client/types";
@@ -31,8 +31,8 @@ import type {
  * A POST that reads. The token is the credential, and a GET would put it in a query string the
  * backend's own route template does not redact.
  */
-export async function postEinladungAnsicht(payload: FLTokenPayload): Promise<FLEinladungAnsichtResponse> {
-  return registrierungenPostEinladungAnsicht(payload, { readOnly: true });
+export async function postEinladungAnsicht(payload: FLTokenPayload): Promise<FLInvitationViewResponse> {
+  return registrierungenPostInvitationView(payload, { readOnly: true });
 }
 
 /** Records one pupil's registration and mints the confirmation token in the same transaction. */
@@ -44,29 +44,29 @@ export async function postRegistrierung(
 }
 
 /** The confirmation link's own read, a POST for `postEinladungAnsicht`'s reason. */
-export async function postBestaetigungAnsicht(payload: FLTokenPayload): Promise<FLRegistrierungBestaetigungAnsichtResponse> {
-  return registrierungenGetBestaetigungAnsicht(payload, { readOnly: true });
+export async function postBestaetigungAnsicht(payload: FLTokenPayload): Promise<FLRegistrierungConfirmationViewResponse> {
+  return registrierungenGetConfirmationView(payload, { readOnly: true });
 }
 
 /** Records the pupil's birthdate and consent and spends their token. */
-export async function postSpielerBestaetigung(payload: FLRegistrierungBestaetigungPayload): Promise<FLRegistrierungBestaetigungResponse> {
-  return registrierungenPostBestaetigung(payload);
+export async function postSpielerBestaetigung(payload: FLRegistrierungConfirmationPayload): Promise<FLRegistrierungConfirmationResponse> {
+  return registrierungenPostConfirmation(payload);
 }
 
 /** Admits one registration; the id goes in the path and the body names whom it is admitted into. */
 export async function postRegistrierungAufnehmen(
   registrierungId: string,
-  { spieler_id }: FLRegistrierungAufnehmenPayload,
-): Promise<FLRegistrierungAufnahmeResponse> {
-  return registrierungenAufnehmen(registrierungId, { spieler_id: spieler_id });
+  { spieler_id }: FLRegistrierungAdmitPayload,
+): Promise<FLRegistrierungAdmissionResponse> {
+  return registrierungenAdmit(registrierungId, { spieler_id: spieler_id });
 }
 
 /** Declines one registration under a fixed reason. */
 export async function postRegistrierungAblehnen(
   registrierungId: string,
-  { grund }: FLRegistrierungAblehnenPayload,
-): Promise<FLRegistrierungAblehnungResponse> {
-  return registrierungenAblehnen(registrierungId, { grund: grund });
+  { grund }: FLRegistrierungDeclinePayload,
+): Promise<FLRegistrierungRefusalResponse> {
+  return registrierungenDecline(registrierungId, { grund: grund });
 }
 
 /**
@@ -82,7 +82,7 @@ export async function postRegistrierungSweep(saisonId: string): Promise<FLRegist
 // judges the registration theirs and takes a withdrawal alone until the team admits it.
 export async function patchRegistrierungEinwilligung(
   registrierungId: string,
-  payload: FLKontoEinwilligungPayload,
-): Promise<FLRegistrierungKontoEinwilligungResponse> {
+  payload: FLAccountEinwilligungPayload,
+): Promise<FLRegistrierungAccountEinwilligungResponse> {
   return registrierungenPatchEinwilligung(registrierungId, payload);
 }

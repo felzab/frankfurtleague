@@ -4,7 +4,7 @@ import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { FLSpielbestaetigungGeschlossenGrund } from "@/core/generated/client/types.ts";
+import { FLSpielbestaetigungClosedGrund } from "@/core/generated/client/types.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
@@ -17,16 +17,16 @@ describe("mapAnsetzungAnsichtRefusal", () => {
   /* The read refuses an unknown token alone; a spent link answers its own `zustand` in a 200. Fail-closed,
      so a code nobody planned still renders the panel that names nothing of a fixture. */
   it("calls the link void on every refusal the read publishes, and on a rule's code nobody planned", () => {
-    for (const code of refusalCodes("link_ungueltig")) {
-      expect(mapAnsetzungAnsichtRefusal(refused(code)), code).toBe("ungueltig");
+    for (const code of refusalCodes("link_invalid")) {
+      expect(mapAnsetzungAnsichtRefusal(refused(code)), code).toBe("invalid");
     }
-    expect(mapAnsetzungAnsichtRefusal(refused("activate_saison_unfinished", 409))).toBe("ungueltig");
+    expect(mapAnsetzungAnsichtRefusal(refused("activate_saison_unfinished", 409))).toBe("invalid");
   });
 
   /* A malformed or over-long token never reaches a row, and the page has already dropped it from the
      address bar: the state inviting a reload would open the dead link anyway. */
   it("calls a token the backend will not parse void rather than offering a reload", () => {
-    expect(mapAnsetzungAnsichtRefusal(refused("payload_refused"))).toBe("ungueltig");
+    expect(mapAnsetzungAnsichtRefusal(refused("payload_refused"))).toBe("invalid");
   });
 
   /* A failed read is the page's own state: the dead-link panel on a 500 would call a live link void on
@@ -95,7 +95,7 @@ const GRUND_TO_END_ROWS: unknown = [
     anders: {
       schiedsrichter: "anderer",
     },
-    grund: "schiedsrichter_gewechselt",
+    grund: "schiedsrichter_switched",
   },
   {
     fall: "the referee's row once the slot is emptied",
@@ -105,7 +105,7 @@ const GRUND_TO_END_ROWS: unknown = [
     anders: {
       schiedsrichter: null,
     },
-    grund: "schiedsrichter_gewechselt",
+    grund: "schiedsrichter_switched",
   },
   {
     fall: "a club's row once another referee is booked",
@@ -121,7 +121,7 @@ const GRUND_TO_END_ROWS: unknown = [
     anders: {
       tore: 2,
     },
-    grund: "spiel_entschieden",
+    grund: "spiel_decided",
   },
   {
     fall: "a lone shoot-out",
@@ -132,7 +132,7 @@ const GRUND_TO_END_ROWS: unknown = [
         team2: 3,
       },
     },
-    grund: "spiel_entschieden",
+    grund: "spiel_decided",
   },
   {
     fall: "a no-show entered before the day",
@@ -149,7 +149,7 @@ const GRUND_TO_END_ROWS: unknown = [
       tage: 0,
       sonderereignis: "nichtantreten_team2",
     },
-    grund: "spiel_entschieden",
+    grund: "spiel_decided",
   },
   {
     fall: "a no-show entered before the fixture's day as it stands, the row about a day gone by",
@@ -167,7 +167,7 @@ const GRUND_TO_END_ROWS: unknown = [
     anders: {
       sonderereignis: "abgebrochen",
     },
-    grund: "spiel_entschieden",
+    grund: "spiel_decided",
   },
   {
     fall: "called off",
@@ -215,7 +215,7 @@ const GRUND_TO_END_ROWS: unknown = [
     anders: {
       datum_tage: 4,
     },
-    grund: "ansetzung_geaendert",
+    grund: "ansetzung_changed",
   },
   {
     fall: "a new kick-off",
@@ -223,7 +223,7 @@ const GRUND_TO_END_ROWS: unknown = [
     anders: {
       uhrzeit: "19:00:00",
     },
-    grund: "ansetzung_geaendert",
+    grund: "ansetzung_changed",
   },
   {
     fall: "a new ground",
@@ -231,7 +231,7 @@ const GRUND_TO_END_ROWS: unknown = [
     anders: {
       spielort: "anderer",
     },
-    grund: "ansetzung_geaendert",
+    grund: "ansetzung_changed",
   },
   {
     fall: "the second side replaced",
@@ -239,7 +239,7 @@ const GRUND_TO_END_ROWS: unknown = [
     anders: {
       team2: "anderer",
     },
-    grund: "ansetzung_geaendert",
+    grund: "ansetzung_changed",
   },
   {
     fall: "the date taken away",
@@ -247,7 +247,7 @@ const GRUND_TO_END_ROWS: unknown = [
     anders: {
       datum_tage: null,
     },
-    grund: "ansetzung_geaendert",
+    grund: "ansetzung_changed",
   },
   {
     fall: "the date taken away from a club gone before the row's day",
@@ -278,7 +278,7 @@ const GRUND_TO_END_ROWS: unknown = [
       datum_tage: 4,
       schiedsrichter: "anderer",
     },
-    grund: "schiedsrichter_gewechselt",
+    grund: "schiedsrichter_switched",
   },
   {
     fall: "a fixture on today",
@@ -294,7 +294,7 @@ const GRUND_TO_END_ROWS: unknown = [
     anders: {
       tage: -1,
     },
-    grund: "spiel_vergangen",
+    grund: "spiel_past",
   },
   {
     fall: "a row whose day went by, its fixture moved ahead",
@@ -303,12 +303,12 @@ const GRUND_TO_END_ROWS: unknown = [
       tage: -1,
       datum_tage: 3,
     },
-    grund: "ansetzung_geaendert",
+    grund: "ansetzung_changed",
   },
   {
     fall: "a discard as the fixture stands",
     zeile: {
-      verworfen: true,
+      discarded: true,
     },
     anders: {},
     grund: null,
@@ -316,7 +316,7 @@ const GRUND_TO_END_ROWS: unknown = [
   {
     fall: "a discard, the fixture moved",
     zeile: {
-      verworfen: true,
+      discarded: true,
     },
     anders: {
       datum_tage: 4,
@@ -326,7 +326,7 @@ const GRUND_TO_END_ROWS: unknown = [
   {
     fall: "a discard, the fixture's referee swapped",
     zeile: {
-      verworfen: true,
+      discarded: true,
     },
     anders: {
       schiedsrichter: "anderer",
@@ -336,7 +336,7 @@ const GRUND_TO_END_ROWS: unknown = [
   {
     fall: "a discard, the fixture called off",
     zeile: {
-      verworfen: true,
+      discarded: true,
     },
     anders: {
       sonderereignis: "ausgefallen",
@@ -346,17 +346,17 @@ const GRUND_TO_END_ROWS: unknown = [
   {
     fall: "a discard, the fixture decided",
     zeile: {
-      verworfen: true,
+      discarded: true,
     },
     anders: {
       tore: 2,
     },
-    grund: "spiel_entschieden",
+    grund: "spiel_decided",
   },
   {
     fall: "a discard, the second club gone by the day",
     zeile: {
-      verworfen: true,
+      discarded: true,
     },
     anders: {
       austritt_tage: 1,
@@ -366,23 +366,23 @@ const GRUND_TO_END_ROWS: unknown = [
   {
     fall: "a discard whose day went by",
     zeile: {
-      verworfen: true,
+      discarded: true,
     },
     anders: {
       tage: -1,
     },
-    grund: "spiel_vergangen",
+    grund: "spiel_past",
   },
   {
     fall: "a discard whose day went by, its fixture moved ahead",
     zeile: {
-      verworfen: true,
+      discarded: true,
     },
     anders: {
       tage: -1,
       datum_tage: 3,
     },
-    grund: "spiel_vergangen",
+    grund: "spiel_past",
   },
 ];
 
@@ -394,7 +394,7 @@ const GRUND_TO_END = z
   .array(
     z.strictObject({
       fall: z.string(),
-      zeile: z.strictObject({ partei: z.literal("schiedsrichter").optional(), verworfen: z.literal(true).optional() }),
+      zeile: z.strictObject({ partei: z.literal("schiedsrichter").optional(), discarded: z.literal(true).optional() }),
       anders: z.strictObject({
         tage: z.int().optional(),
         datum_tage: z.int().nullable().optional(),
@@ -407,7 +407,7 @@ const GRUND_TO_END = z
         schiedsrichter: z.literal("anderer").nullable().optional(),
         austritt_tage: z.int().optional(),
       }),
-      grund: z.enum(FLSpielbestaetigungGeschlossenGrund).nullable(),
+      grund: z.enum(FLSpielbestaetigungClosedGrund).nullable(),
     }),
   )
   .parse(GRUND_TO_END_ROWS);
@@ -443,10 +443,10 @@ describe("grundZumEnde", () => {
       };
       const row = spielbestaetigungFields({
         spiel_id: spiel.id,
-        partei:
+        party:
           zeile.partei === undefined ? { art: "team", team_id: SEITEN[0] } : { art: "schiedsrichter", schiedsrichter_id: SCHIEDSRICHTER[0] },
         ansetzung: { datum, uhrzeit: "18:00:00", spielort_id: SPIELORT, team1_id: SEITEN[0], team2_id: SEITEN[1], stand: "0".repeat(64) },
-        geschlossen: zeile.verworfen === undefined ? null : { am: HEUTE, grund: "verworfen" },
+        closed: zeile.discarded === undefined ? null : { am: HEUTE, grund: "discarded" },
       });
       const austritte = new Map(anders.austritt_tage === undefined ? [] : [[SEITEN[1], tagNach(anders.austritt_tage)]]);
 

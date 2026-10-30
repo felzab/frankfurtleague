@@ -136,7 +136,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
   const renderEingereicht = (bewerbung: AdminBewerbungRow) => (
     // `font-numeric` is what makes a fixed-format date a fixed WIDTH under a proportional
     // page face. Never truncate: a clipped year is a different date.
-    <span className="font-numeric fluid-sm text-foreground">{formatSpielDatum(bewerbung.eingereicht_am)}</span>
+    <span className="font-numeric fluid-sm text-foreground">{formatSpielDatum(bewerbung.submitted_at)}</span>
   );
 
   // The count and never a fourth `status` value: an application waits on its contacts inside

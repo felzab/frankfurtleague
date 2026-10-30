@@ -37,7 +37,7 @@ describe("what a report's mirror refuses before the backend does", () => {
     expect(fehler(bericht({ team1_tore: 2, team2_tore: 1 }, [tor, gegentor, { ...tor, spieler_id: null, minute: "90+3" }]))).toStrictEqual({});
   });
 
-  /* The form's own rule, the backend judging the wire against the stored report (`bericht_grund_fehlt`): the strip once
+  /* The form's own rule, the backend judging the wire against the stored report (`bericht_grund_missing`): the strip once
      the season after the match ends takes every reason, and a correction after it resends those cautions without one. */
   it("asks a new yellow for its reason, and neither a red nor a caution stored stripped of it", () => {
     const karte = { seite: "team1", spieler_id: SPIELER, minute: "30", farbe: "gelb", grund: null };

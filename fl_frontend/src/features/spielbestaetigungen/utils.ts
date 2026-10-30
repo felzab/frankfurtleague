@@ -9,10 +9,10 @@ import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type {
   FLSpielbestaetigung,
-  FLSpielbestaetigungAnsichtResponse,
-  FLSpielbestaetigungAntwort,
-  FLSpielbestaetigungGeschlossenGrund,
-  FLSpielbestaetigungTermin,
+  FLSpielbestaetigungAppointment,
+  FLSpielbestaetigungClosedGrund,
+  FLSpielbestaetigungViewResponse,
+  FLSpielbestaetigungVon,
 } from "@/core/generated/client/types";
 import type { SpielBannerAnsetzung } from "@/features/spiele/components/forms/AdminEditSpielDataForm/banners";
 import type { FLSpiel } from "@/features/spiele/types";
@@ -20,13 +20,13 @@ import type { FieldErrors } from "@/shared/utils/validation";
 import type { AntwortStand } from "./constants";
 
 /** Who answered, as a readout rather than a sentence: a seat's long label agrees with no one article. */
-export function beantwortetVon(von: FLSpielbestaetigungAntwort["von"]): string {
+export function beantwortetVon(von: FLSpielbestaetigungVon): string {
   if (von.art === "admin") return "Verwaltung der Liga";
   if (von.art === "schiedsrichter") return "Schiedsrichterin oder Schiedsrichter";
   return KONTAKT_ROLLEN.find((eintrag) => eintrag.value === von.rolle)?.langform ?? NICHT_HINTERLEGT;
 }
 
-export const terminText = (termin: FLSpielbestaetigungTermin): string =>
+export const terminText = (termin: FLSpielbestaetigungAppointment): string =>
   `${formatSpielDatum(termin.datum)} um ${formatUhrzeit(termin.uhrzeit)} Uhr`;
 
 /** The inputs of a fixture's stand, as a stored fixture and a draft alike carry them. */
@@ -79,25 +79,20 @@ export type BestaetigungsSpiel = {
 };
 
 // `fl_backend/app/api/spielbestaetigungen/services.py :: GRUENDE_ENDING_AN_ANSWER`: a move never ends a discard.
-const GRUENDE_ENDING_AN_ANSWER: ReadonlySet<FLSpielbestaetigungGeschlossenGrund> = new Set([
-  "austritt",
-  "spiel_entschieden",
-  "abgesagt",
-  "spiel_vergangen",
-]);
+const GRUENDE_ENDING_AN_ANSWER: ReadonlySet<FLSpielbestaetigungClosedGrund> = new Set(["austritt", "spiel_decided", "abgesagt", "spiel_past"]);
 
 /** `grund_to_close`, in its order: the first reason the pass would shut an unclosed row for. */
 function grundZumSchliessen(
   zeile: FLSpielbestaetigung,
   spiel: BestaetigungsSpiel,
   { austritte, today }: { austritte: ReadonlyMap<string, string>; today: string },
-): FLSpielbestaetigungGeschlossenGrund | null {
-  const { ansetzung, partei } = zeile;
+): FLSpielbestaetigungClosedGrund | null {
+  const { ansetzung, party: partei } = zeile;
   // On the fixture's day as it stands, or the row's where the fixture lost its date.
   const tag = spiel.datum ?? ansetzung.datum;
   // Ahead of the decision a no-show records: entered before the day, nobody is due at the ground.
   if (today < tag && (spiel.sonderereignis === "nichtantreten_team1" || spiel.sonderereignis === "nichtantreten_team2")) return "abgesagt";
-  if (hasTakenPlace(spiel)) return "spiel_entschieden";
+  if (hasTakenPlace(spiel)) return "spiel_decided";
   if (spiel.sonderereignis !== null) return "abgesagt";
 
   const ausgetreten = [ansetzung.team1_id, ansetzung.team2_id].some((teamId) => {
@@ -106,11 +101,10 @@ function grundZumSchliessen(
   });
   if (ausgetreten) return "austritt";
 
-  if (partei.art === "schiedsrichter" && spiel.schiedsrichter?.schiedsrichter_id !== partei.schiedsrichter_id)
-    return "schiedsrichter_gewechselt";
-  if (ansetzungGeaendert(zeilenAnsetzung(zeile), spielAnsetzung(spiel))) return "ansetzung_geaendert";
+  if (partei.art === "schiedsrichter" && spiel.schiedsrichter?.schiedsrichter_id !== partei.schiedsrichter_id) return "schiedsrichter_switched";
+  if (ansetzungGeaendert(zeilenAnsetzung(zeile), spielAnsetzung(spiel))) return "ansetzung_changed";
 
-  return ansetzung.datum < today ? "spiel_vergangen" : null;
+  return ansetzung.datum < today ? "spiel_past" : null;
 }
 
 /**
@@ -121,11 +115,11 @@ export function grundZumEnde(
   zeile: FLSpielbestaetigung,
   spiel: BestaetigungsSpiel,
   umstand: { austritte: ReadonlyMap<string, string>; today: string },
-): FLSpielbestaetigungGeschlossenGrund | null {
+): FLSpielbestaetigungClosedGrund | null {
   const grund = grundZumSchliessen(zeile, spiel, umstand);
-  if (zeile.geschlossen === null || (grund !== null && GRUENDE_ENDING_AN_ANSWER.has(grund))) return grund;
+  if (zeile.closed === null || (grund !== null && GRUENDE_ENDING_AN_ANSWER.has(grund))) return grund;
 
-  return zeile.ansetzung.datum < umstand.today ? "spiel_vergangen" : null;
+  return zeile.ansetzung.datum < umstand.today ? "spiel_past" : null;
 }
 
 /**
@@ -142,7 +136,7 @@ export function geltendeBestaetigungen(
   return bestaetigungen.filter(
     (zeile) =>
       zeile.spiel_id === spiel.id &&
-      (zeile.geschlossen === null || zeile.geschlossen.grund === "verworfen") &&
+      (zeile.closed === null || zeile.closed.grund === "discarded") &&
       !ansetzungGeaendert(zeilenAnsetzung(zeile), jetzt) &&
       grundZumEnde(zeile, spiel, umstand) === null,
   );
@@ -152,20 +146,17 @@ export function geltendeBestaetigungen(
 // until the match day rather than by the row's deadline, and their decline is a category of its own.
 
 export const istVorschlagOffen = (zeile: FLSpielbestaetigung): boolean =>
-  zeile.partei.art === "team" && zeile.geschlossen === null && zeile.antwort?.art === "abgelehnt" && zeile.antwort.vorschlag !== null;
+  zeile.party.art === "team" && zeile.closed === null && zeile.antwort?.art === "declined" && zeile.antwort.vorschlag !== null;
 
 export const istUeberfaellig = (zeile: FLSpielbestaetigung, today: string): boolean =>
-  zeile.partei.art === "team" && zeile.antwort === null && zeile.frist < today;
+  zeile.party.art === "team" && zeile.antwort === null && zeile.frist < today;
 
 /**
  * Due on the day it is asked: no mint day is stored, so a row due today and asked today or not yet stands for one
  * minted inside the deadline's days. The backend's queue reads the same three fields.
  */
 export const istSofortFaellig = (zeile: FLSpielbestaetigung, today: string): boolean =>
-  zeile.partei.art === "team" &&
-  zeile.antwort === null &&
-  zeile.frist === today &&
-  (zeile.angefragt_am === null || zeile.angefragt_am === today);
+  zeile.party.art === "team" && zeile.antwort === null && zeile.frist === today && (zeile.asked_at === null || zeile.asked_at === today);
 
 /**
  * The referee's own decline while the slot it emptied stays empty. Never among `geltendeBestaetigungen`: the decline
@@ -177,13 +168,13 @@ export function schiedsrichterAbsage(
   spiel: { id: string; schiedsrichter: object | null },
 ): FLSpielbestaetigung | undefined {
   if (spiel.schiedsrichter !== null) return undefined;
-  const zeile = bestaetigungen.find((kandidat) => kandidat.spiel_id === spiel.id && kandidat.partei.art === "schiedsrichter");
+  const zeile = bestaetigungen.find((kandidat) => kandidat.spiel_id === spiel.id && kandidat.party.art === "schiedsrichter");
 
-  return zeile?.geschlossen?.grund === "schiedsrichter_abgelehnt" ? zeile : undefined;
+  return zeile?.closed?.grund === "schiedsrichter_declined" ? zeile : undefined;
 }
 
 export function antwortStand(zeile: FLSpielbestaetigung, today: string): AntwortStand {
-  if (zeile.geschlossen?.grund === "verworfen") return "verworfen";
+  if (zeile.closed?.grund === "discarded") return "discarded";
   if (zeile.antwort !== null) return zeile.antwort.art;
   return istUeberfaellig(zeile, today) ? "ueberfaellig" : "offen";
 }
@@ -196,9 +187,9 @@ export function mapSpielbestaetigungAdminRefusal(error: unknown): { error: strin
   if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
-    case "ansetzung_nicht_eintragbar":
+    case "ansetzung_not_enterable":
       return { error: buildRefusal({ reason: "Diese Anfrage ist inzwischen beantwortet oder geschlossen", repair: LADE_DIE_SEITE_NEU }) };
-    case "ansetzung_nicht_verwerfbar":
+    case "ansetzung_not_discardable":
       return { error: buildRefusal({ reason: "Diese Antwort trägt keinen offenen Terminvorschlag mehr", repair: LADE_DIE_SEITE_NEU }) };
     default:
       return null;
@@ -211,17 +202,17 @@ export function mapSpielbestaetigungAdminRefusal(error: unknown): { error: strin
  */
 export type SpielbestaetigungAnsicht =
   // A member per state, never one for the pair: a union keyed on a union of literals narrows on neither.
-  | { zustand: "gueltig"; ansicht: FLSpielbestaetigungAnsichtResponse }
-  | { zustand: "vorschlag"; ansicht: FLSpielbestaetigungAnsichtResponse }
-  | { zustand: "zugesagt"; beantwortet_von: FLSpielbestaetigungAntwort["von"] }
-  | { zustand: "abgelehnt"; beantwortet_von: FLSpielbestaetigungAntwort["von"] }
+  | { zustand: "valid"; ansicht: FLSpielbestaetigungViewResponse }
+  | { zustand: "vorschlag"; ansicht: FLSpielbestaetigungViewResponse }
+  | { zustand: "zugesagt"; answered_by: FLSpielbestaetigungVon }
+  | { zustand: "declined"; answered_by: FLSpielbestaetigungVon }
   // The date the league kept, which its sentence points at: the link's mail named it already.
-  | { zustand: "verworfen"; termin: FLSpielbestaetigungTermin }
+  | { zustand: "discarded"; appointment: FLSpielbestaetigungAppointment }
   // `termin-vorbei` is the page's own: an `abgelaufen` link whose fixture's day has gone by.
-  | { zustand: "abgelaufen" | "termin-vorbei" | "ungueltig" | "abgesagt" | "gesperrt" };
+  | { zustand: "expired" | "termin-vorbei" | "invalid" | "abgesagt" | "barred" };
 
 /** Every state a link opens on once no press can spend it. */
-export type SpielbestaetigungLinkZustand = Exclude<SpielbestaetigungAnsicht["zustand"], "gueltig" | "vorschlag">;
+export type SpielbestaetigungLinkZustand = Exclude<SpielbestaetigungAnsicht["zustand"], "valid" | "vorschlag">;
 
 /** A press the backend refused, as the route answers it: a link's state, a box's message, or a sentence. */
 export type SpielbestaetigungRefusal = {
@@ -239,14 +230,14 @@ export type SpielbestaetigungRefusal = {
  * A token the backend will not parse matches no row, so the page calls the link void rather than
  * offering a reload that cannot succeed.
  */
-export function mapAnsetzungAnsichtRefusal(error: unknown): "ungueltig" | null {
+export function mapAnsetzungAnsichtRefusal(error: unknown): "invalid" | null {
   if (!isRefusal(error)) return null;
 
-  if (error.serverErrorCode === "payload_refused") return "ungueltig";
+  if (error.serverErrorCode === "payload_refused") return "invalid";
 
   // Every rule's refusal alike: a spent link answers its own `zustand` in a 200, so a refusal is a
   // token nothing could place, and a code nobody planned reads the same way.
-  return isRuleRefusal(error) ? "ungueltig" : null;
+  return isRuleRefusal(error) ? "invalid" : null;
 }
 
 /**
@@ -264,24 +255,24 @@ export function mapAnsetzungRefusal(error: unknown): SpielbestaetigungRefusal | 
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     // A token nothing stores, a voided seat's included, and a fixture moved since the link: one panel,
     // which tells a guessed link nothing about a row.
-    case "link_ungueltig":
-    case "ansetzung_geaendert":
-      return { zustand: "ungueltig" };
-    // Each covers several states the read tells apart: `ansetzung_beantwortet` both answers, where „zugesagt“ would tell a
-    // club that declined in another window it confirmed; `ansetzung_geschlossen` every closing reason, so the press shows
+    case "link_invalid":
+    case "ansetzung_changed":
+      return { zustand: "invalid" };
+    // Each covers several states the read tells apart: `ansetzung_answered` both answers, where „zugesagt“ would tell a
+    // club that declined in another window it confirmed; `ansetzung_closed` every closing reason, so the press shows
     // the panel a reload would.
-    case "ansetzung_beantwortet":
-    case "ansetzung_geschlossen":
+    case "ansetzung_answered":
+    case "ansetzung_closed":
     // Spent either way, but only the read carries whether the fixture's day has gone by, which has a panel of its own.
-    case "ansetzung_frist_vorbei":
-    case "ansetzung_entschieden":
+    case "ansetzung_frist_past":
+    case "ansetzung_decided":
       return { nachlesen: true };
     // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
-    case "link_gesperrt":
-      return { zustand: "gesperrt" };
+    case "link_barred":
+      return { zustand: "barred" };
     // The proposal's refusals spend nothing: each lands on the box that caused it, and the typed
     // proposal survives it.
-    case "ansetzung_vorschlag_vergangen":
+    case "ansetzung_vorschlag_past":
       return { fieldErrors: { "vorschlag.datum": "Dieses Datum liegt in der Vergangenheit." } };
     case "spiel_outside_spieltag":
       return { fieldErrors: { "vorschlag.datum": "Dieses Datum liegt außerhalb des Spieltags." } };
@@ -323,21 +314,21 @@ export function mapSchiedsrichterAntwortRefusal(error: unknown): { error?: strin
     case "payload_refused":
       return refusedPayloadAnswer(error, "Lade die Seite neu und antworte erneut.");
     // Ahead of the shared reader's sentence, which names a team.
-    case "funktion_nicht_gehalten":
+    case "role_not_held":
       return { error: `Du bist nicht mehr als Schiedsrichterin oder Schiedsrichter eingetragen. ${NEU_LADEN}` };
-    case "ansetzung_fremde_zeile":
+    case "ansetzung_foreign_row":
       return { error: `Für dieses Spiel bist Du nicht eingeteilt. ${NEU_LADEN}` };
-    case "ansetzung_beantwortet":
+    case "ansetzung_answered":
       // The league may have entered the Zusage for the referee, so the sentence names no one answerer.
       return { error: `Diese Einteilung ist schon beantwortet, von Dir oder von der Verwaltung. ${NEU_LADEN}` };
-    case "ansetzung_geschlossen":
+    case "ansetzung_closed":
       return { error: `Diese Einteilung ist schon abgeschlossen. ${NEU_LADEN}` };
-    case "ansetzung_entschieden":
+    case "ansetzung_decided":
       return { error: `Das Spiel ist entschieden oder abgesagt, oder ein Team spielt nicht mehr mit. ${NEU_LADEN}` };
-    case "ansetzung_geaendert":
+    case "ansetzung_changed":
       return { error: `Das Spiel hat einen neuen Termin, oder Du bist nicht mehr eingeteilt. ${NEU_LADEN}` };
     // A referee's answer keeps no deadline, so the day alone spends it.
-    case "ansetzung_frist_vorbei":
+    case "ansetzung_frist_past":
       return { error: `Das Spiel liegt schon in der Vergangenheit. ${NEU_LADEN}` };
     default:
       return null;

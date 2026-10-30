@@ -23,7 +23,7 @@ type Act = { label: Copy; onPress: () => void; isBusy?: boolean; isDisabled?: bo
 type Head = {
   titel: Copy;
   /** The view's failure, worded by the catalogue; `null` keeps the line empty, holding its place. */
-  zeile: Copy | null;
+  row: Copy | null;
 };
 
 /** The e-mail view: the address field, „Code senden“, the „oder“ divider, the passkey by its button alone. */
@@ -37,12 +37,12 @@ type AdressView = Head & {
      * The server's refusal of the address, by the field's name `email`, in the field's own line: the answer's
      * own record, one per refusal, each of which moves the focus to the field.
      */
-    fehler?: Readonly<Record<string, Copy>>;
+    error?: Readonly<Record<string, Copy>>;
   };
   /** The bot check guarding the send, standing before it as Cloudflare's example places it. */
-  pruefung: ReactNode;
-  senden: Act;
-  oder: Copy;
+  check: ReactNode;
+  send: Act;
+  or: Copy;
   passkey: Act;
 };
 
@@ -56,11 +56,11 @@ type CodeView = Head & {
   code: {
     label: Copy;
     /** Counts the code's refusals: each one empties the boxes for the next code. */
-    versuch: number;
+    attempt: number;
     isDisabled: boolean;
     onComplete: (code: string) => void;
   };
-  zurueck: Act;
+  back: Act;
 };
 
 /** A passkey view: one sentence, the address, one primary press; the offer adds „Später“ as the quiet button. */
@@ -74,17 +74,17 @@ type PasskeyView = Head & {
 };
 
 /** `/signin` for somebody signed in: who they are, the address set semibold inside the sentence, the way on, and signing out. */
-type AngemeldetView = Head & {
+type SignedInView = Head & {
   view: "angemeldet";
   /** The sentence's two parts around the address. */
   satz: { vor: Copy; nach: Copy };
   /** The account signed in: data, not catalogue text. */
   adresse: string;
-  weiter: { label: Copy; href: Route };
-  abmelden: Act;
+  continue: { label: Copy; href: Route };
+  signOut: Act;
 };
 
-export type SignInView = AdressView | CodeView | PasskeyView | AngemeldetView;
+export type SignInView = AdressView | CodeView | PasskeyView | SignedInView;
 
 const look = tv({
   slots: {
@@ -116,7 +116,7 @@ export function SignInPage(props: SignInView) {
         <Body {...props} />
         {/* The code view's refusal is the code field's own, under the boxes. */}
         <StatusLine
-          status={props.view === "code" || props.zeile === null ? null : { tone: "error", text: props.zeile }}
+          status={props.view === "code" || props.row === null ? null : { tone: "error", text: props.row }}
           placement="column"
         />
       </div>
@@ -132,7 +132,7 @@ function Body(props: SignInView) {
       return <AdressBody {...props} />;
 
     case "code": {
-      const { code, zurueck } = props;
+      const { code, back } = props;
       return (
         <>
           {/* A status: the view replaces the form a press sent, so its heading and sentence are announced. */}
@@ -146,11 +146,11 @@ function Body(props: SignInView) {
           </div>
           <CodeField
             // Remounted on each refusal, so the boxes empty and the next six digits send by themselves.
-            key={code.versuch}
+            key={code.attempt}
             label={code.label}
             name="code"
             // The code's refusal stands under the boxes it refuses, in the field's own line.
-            error={props.zeile ?? undefined}
+            error={props.row ?? undefined}
             isDisabled={code.isDisabled}
             onComplete={code.onComplete}
           />
@@ -158,7 +158,7 @@ function Body(props: SignInView) {
             {/* The step aside from the view's one act, quiet as „Später“ is. */}
             <Button
               variant="quiet"
-              {...zurueck}
+              {...back}
             />
           </div>
         </>
@@ -193,7 +193,7 @@ function Body(props: SignInView) {
     }
 
     case "angemeldet": {
-      const { weiter, abmelden } = props;
+      const { signOut } = props;
       return (
         <>
           <div className={slots.head()}>
@@ -204,14 +204,14 @@ function Body(props: SignInView) {
           </div>
           <div className={slots.acts()}>
             <Link
-              href={weiter.href}
+              href={props.continue.href}
               placement="button"
-              label={weiter.label}
+              label={props.continue.label}
             />
             {/* The step out beside the way on, quiet as „Später“ is. */}
             <Button
               variant="quiet"
-              {...abmelden}
+              {...signOut}
             />
           </div>
         </>
@@ -221,16 +221,16 @@ function Body(props: SignInView) {
 }
 
 /** The address view, whose field takes the focus on the server's refusal, as React Aria moves it on the browser's. */
-function AdressBody({ titel, adresse, pruefung, senden: { onPress: senden, ...knopf }, oder, passkey }: AdressView) {
+function AdressBody({ titel, adresse, check, send: { onPress: send, ...button }, or, passkey }: AdressView) {
   const slots = look();
   const form = useRef<HTMLFormElement>(null);
 
   // The screen reader then reads the field with its refusal, which nothing else announces.
   useEffect(() => {
-    if (adresse.fehler === undefined) return;
+    if (adresse.error === undefined) return;
     const field = form.current?.elements.namedItem("email");
     if (field instanceof HTMLInputElement) field.focus();
-  }, [adresse.fehler]);
+  }, [adresse.error]);
 
   return (
     <>
@@ -238,11 +238,11 @@ function AdressBody({ titel, adresse, pruefung, senden: { onPress: senden, ...kn
       <ClassicTitle text={titel} />
       <Form
         ref={form}
-        validationErrors={adresse.fehler}
+        validationErrors={adresse.error}
         // The send's press is the form's submit, so `Enter` in the field sends too.
         onSubmit={(event) => {
           event.preventDefault();
-          senden();
+          send();
         }}
         className={slots.form()}>
         <TextField
@@ -258,11 +258,11 @@ function AdressBody({ titel, adresse, pruefung, senden: { onPress: senden, ...kn
           value={adresse.value}
           onChange={adresse.onChange}
         />
-        {pruefung}
+        {check}
         <Button
           variant="primary"
           type="submit"
-          {...knopf}
+          {...button}
         />
       </Form>
       {/* Decoration: the passkey's button carries its own name. */}
@@ -270,7 +270,7 @@ function AdressBody({ titel, adresse, pruefung, senden: { onPress: senden, ...kn
         aria-hidden
         className={slots.divider()}>
         <span className={slots.rule()} />
-        {oder}
+        {or}
         <span className={slots.rule()} />
       </div>
       <div className={slots.acts()}>

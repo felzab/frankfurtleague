@@ -40,13 +40,13 @@ const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200
 const AKTIVIERT = { deactivated: 1 };
 
 const ERSTER_LAUF = {
-  abgeschlossene_saison_id: "2025",
+  completed_saison_id: "2025",
   spieler: 2,
   saison_spieler: 3,
   registrierungen: 0,
-  uebersprungen: 0,
-  fehlgeschlagen: 0,
-  verbleibend: 5,
+  skipped: 0,
+  failed: 0,
+  remaining: 5,
   nach: `${"d".repeat(23)}4`,
 };
 
@@ -93,7 +93,7 @@ async function untilCall(count: number): Promise<{ url: string; signal: AbortSig
 /** The press's lines about its deletion above info, the trace judged by its shape: the client mints it per call. */
 const deletionLines = () =>
   loggedLines
-    .filter(({ level, message }) => level !== "info" && message.startsWith("loeschung."))
+    .filter(({ level, message }) => level !== "info" && message.startsWith("erasure."))
     .map((line) => ({
       ...line,
       meta: { ...(line.meta as object), trace_id: /^[0-9a-f]{32}$/.test(String((line.meta as { trace_id?: unknown }).trace_id)) },
@@ -126,7 +126,7 @@ describe("an activation whose deletion call the request's deadline cuts", () => 
     advance(CALL_MS);
 
     const cut = await untilCall(3);
-    assert.ok(cut.url.endsWith(`/identitaet/loeschung/sweep?nach=${ERSTER_LAUF.nach}`));
+    assert.ok(cut.url.endsWith(`/identity/erasure/sweep?nach=${ERSTER_LAUF.nach}`));
     advance(LEFT_FOR_THE_CUT_MS - 1);
     expect(cut.signal.aborted, "the deletion call was aborted before the deadline").toBe(false);
     advance(1);
@@ -140,7 +140,7 @@ describe("an activation whose deletion call the request's deadline cuts", () => 
     expect(deletionLines()).toStrictEqual([
       {
         level: "warn",
-        message: "loeschung.umstellung_cut_short",
+        message: "erasure.activation_cut_short",
         meta: { name: "APINetworkError", trace_id: true },
       },
     ]);

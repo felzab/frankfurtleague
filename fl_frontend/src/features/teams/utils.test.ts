@@ -39,17 +39,17 @@ const GRUPPEN_TEAM: FLGruppenTeam = {
   // Every counter at zero, so no fixture here states what a played match is worth: the ladder is the
   // backend's, and a ratified decision keeps the points per result off this surface entirely.
   statistik: {
-    anzahl_gespielte_spiele: 0,
+    count_gespielte_spiele: 0,
     siege: 0,
     niederlagen: 0,
     unentschieden: 0,
     tore_geschossen: 0,
     tore_kassiert: 0,
     punkte: 0,
-    anzahl_abgesagte_spiele: 0,
+    count_abgesagte_spiele: 0,
   },
   austritt_type: null,
-  anzahl_ausstehende_spiele: 0,
+  count_pending_spiele: 0,
 };
 
 /**
@@ -60,8 +60,8 @@ const row = (seed: number, { gespielt = 3, ausstehend = 0, disqualified = false 
   ...GRUPPEN_TEAM,
   id: TEAM_ID(seed),
   austritt_type: disqualified ? "disqualifikation" : null,
-  statistik: { ...GRUPPEN_TEAM.statistik, anzahl_gespielte_spiele: gespielt },
-  anzahl_ausstehende_spiele: ausstehend,
+  statistik: { ...GRUPPEN_TEAM.statistik, count_gespielte_spiele: gespielt },
+  count_pending_spiele: ausstehend,
 });
 
 const marked = (teams: FLGruppenTeam[], qualifiersPerGroup = 2) => [...computeQualifyingTeamIds({ teams, qualifiersPerGroup })];
@@ -537,7 +537,7 @@ const kontaktperson = (vorname: string): FLKontaktperson => ({
   email: `${vorname.toLowerCase()}@beispiel.de`,
   telefon: "069 1234567",
   geburtsdatum: "1990-01-01",
-  einwilligung: kenntnisnahme({ text_version: "2025-08", datum: "2025-09-01", bestaetigt_am: "2025-09-02" }),
+  einwilligung: kenntnisnahme({ text_version: "2025-08", datum: "2025-09-01", confirmed_at: "2025-09-02" }),
 });
 
 const club = (kontakte: FLSaisonTeamKontakte | null): FLTeamWithMemberships => ({
@@ -557,8 +557,8 @@ const club = (kontakte: FLSaisonTeamKontakte | null): FLTeamWithMemberships => (
       austritt: null,
       trikot_farbe: null,
       kontakte,
-      bestaetigungen: null,
-      adresswechsel: null,
+      confirmations: null,
+      address_change: null,
       kontakte_stand: "9f2c",
       version: 0,
     },
@@ -576,7 +576,7 @@ describe("buildKontaktRows", () => {
           trainer: null,
           ansprechperson: kontaktperson("Erika"),
           stellvertretung: kontaktperson("Lena"),
-          trainer_ist_zugleich: null,
+          trainer_is_also: null,
         }),
       ],
       SAISON,
@@ -602,13 +602,13 @@ describe("buildKontaktRows", () => {
           trainer: kontaktperson("Tim"),
           ansprechperson: kontaktperson("Erika"),
           stellvertretung: kontaktperson("Lena"),
-          trainer_ist_zugleich: null,
+          trainer_is_also: null,
         }),
       ],
       SAISON,
     );
     const teilweise = buildKontaktRows(
-      [club({ trainer: null, ansprechperson: kontaktperson("Erika"), stellvertretung: null, trainer_ist_zugleich: null })],
+      [club({ trainer: null, ansprechperson: kontaktperson("Erika"), stellvertretung: null, trainer_is_also: null })],
       SAISON,
     );
 
@@ -623,7 +623,7 @@ describe("buildKontaktRows", () => {
           trainer: null,
           ansprechperson: kontaktperson("Erika"),
           stellvertretung: kontaktperson("Lena"),
-          trainer_ist_zugleich: "ansprechperson",
+          trainer_is_also: "ansprechperson",
         }),
       ],
       SAISON,
@@ -644,7 +644,7 @@ describe("buildKontaktRows", () => {
           trainer: shared,
           ansprechperson: kontaktperson("Max"),
           stellvertretung: shared,
-          trainer_ist_zugleich: "stellvertretung",
+          trainer_is_also: "stellvertretung",
         }),
       ],
       SAISON,
@@ -660,8 +660,8 @@ describe("buildKontaktRows", () => {
     const leer = { trainer: null, ansprechperson: null, stellvertretung: null } as const;
 
     expect(buildKontaktRows([club(null)], SAISON)).toStrictEqual([]);
-    expect(buildKontaktRows([club({ ...leer, trainer_ist_zugleich: null })], SAISON)).toStrictEqual([]);
-    expect(buildKontaktRows([club({ ...leer, trainer_ist_zugleich: "ansprechperson" })], SAISON)).toStrictEqual([]);
+    expect(buildKontaktRows([club({ ...leer, trainer_is_also: null })], SAISON)).toStrictEqual([]);
+    expect(buildKontaktRows([club({ ...leer, trainer_is_also: "ansprechperson" })], SAISON)).toStrictEqual([]);
   });
 });
 
@@ -669,7 +669,7 @@ describe("holdsNobody", () => {
   /* The seat-by-seat floor beside the two empty shapes: one seat held is somebody on file, whichever
      seat it is. */
   it("reads no block and a block of empty seats alike, and any one held seat as somebody", () => {
-    const leer: FLSaisonTeamKontakte = { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null };
+    const leer: FLSaisonTeamKontakte = { trainer: null, ansprechperson: null, stellvertretung: null, trainer_is_also: null };
 
     expect(holdsNobody(null)).toBe(true);
     expect(holdsNobody(leer)).toBe(true);
@@ -683,7 +683,7 @@ describe("holdsNobody", () => {
 
 describe("the club filter a link into the contacts list preselects", () => {
   const rows = buildKontaktRows(
-    [club({ trainer: kontaktperson("Tim"), ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null })],
+    [club({ trainer: kontaktperson("Tim"), ansprechperson: null, stellvertretung: null, trainer_is_also: null })],
     SAISON,
   );
 
@@ -703,9 +703,9 @@ describe("the club filter a link into the contacts list preselects", () => {
 
   /* Who seated a person is the one origin a seat keeps. */
   it("reads who seated each person, across the club's seats", () => {
-    const geseated = (eingetragen_von: FLKontaktperson["einwilligung"]["eingetragen_von"]) => ({
+    const geseated = (eingetragen_von: FLKontaktperson["einwilligung"]["entered_by"]) => ({
       ...kontaktperson("Tim"),
-      einwilligung: { ...kontaktperson("Tim").einwilligung, eingetragen_von },
+      einwilligung: { ...kontaktperson("Tim").einwilligung, entered_by: eingetragen_von },
     });
     const [row] = buildKontaktRows(
       [
@@ -713,7 +713,7 @@ describe("the club filter a link into the contacts list preselects", () => {
           trainer: geseated("bewerbung"),
           ansprechperson: geseated("liga"),
           stellvertretung: geseated("liga"),
-          trainer_ist_zugleich: null,
+          trainer_is_also: null,
         }),
       ],
       SAISON,
@@ -818,7 +818,7 @@ describe("the kit palette", () => {
 describe("which kit colours the wish picker offers", () => {
   const alle = TRIKOT_FARBE_OPTIONS.map((option) => option.value);
   const values = (vergeben: readonly (typeof alle)[number][], value: (typeof alle)[number] | null = null) =>
-    offeredTrikotFarben({ vergeben: vergeben, value: value }).map((option) => option.value);
+    offeredTrikotFarben({ taken: vergeben, value: value }).map((option) => option.value);
 
   /* First, because every case below compares against the palette: a filter that had stopped reading
      `TRIKOT_FARBE_OPTIONS` would return nothing and make each of them pass over an empty list. */

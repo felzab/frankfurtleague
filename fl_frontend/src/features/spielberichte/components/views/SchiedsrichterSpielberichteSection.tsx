@@ -12,7 +12,7 @@ import { formatSpielDatum, formatUhrzeit, nichtHinterlegt, PLACEHOLDER } from "@
 
 import { SCHIEDSRICHTER_HREF } from "./SpielberichtZustandView";
 
-import type { FLSpielberichtPersonFruehererEintrag } from "@/core/generated/client/types";
+import type { FLSpielberichtPersonEarlierEntry } from "@/core/generated/client/types";
 import type { SchiedsrichterSpielberichte } from "../../types";
 
 const LEER = "Gerade steht kein Spiel für einen Spielbericht an.";
@@ -55,20 +55,20 @@ export function SchiedsrichterSpielberichteSection({ spiele }: { spiele: Schieds
                   <SpielKarte
                     key={spiel.spiel_id}
                     spiel={spiel}
-                    gesendet={spiel.eingereicht_am !== null}
+                    gesendet={spiel.submitted_at !== null}
                   />
                 ))}
               </ul>
             )}
 
             {/* Apart from the running season's, as the fixtures section keeps its past ones: these open read-only. */}
-            {spiele.fruehere.length > 0 && (
+            {spiele.earlier.length > 0 && (
               <div className="flex w-full flex-col gap-3">
                 <h3 className={FORM_SECTION_HEADING_CLASSES}>{FRUEHERE_SAISONS}</h3>
                 <ul
                   aria-label="Spielberichte früherer Saisons"
                   className="flex w-full flex-col gap-3">
-                  {spiele.fruehere.map((spiel) => (
+                  {spiele.earlier.map((spiel) => (
                     <SpielKarte
                       key={spiel.spiel_id}
                       spiel={spiel}
@@ -86,7 +86,7 @@ export function SchiedsrichterSpielberichteSection({ spiele }: { spiele: Schieds
 }
 
 /** One fixture's card; `gesendet` null on an ended season's, whose report stands and only opens to be read. */
-function SpielKarte({ spiel, gesendet }: { spiel: FLSpielberichtPersonFruehererEintrag; gesendet: boolean | null }) {
+function SpielKarte({ spiel, gesendet }: { spiel: FLSpielberichtPersonEarlierEntry; gesendet: boolean | null }) {
   const paarung = `${spiel.team1_name ?? PLACEHOLDER.slot} gegen ${spiel.team2_name ?? PLACEHOLDER.slot}`;
   const datum = spiel.datum === null ? nichtHinterlegt("Termin") : formatSpielDatum(spiel.datum);
   const worte = gesendet === false ? "Spielbericht eintragen" : "Spielbericht ansehen";

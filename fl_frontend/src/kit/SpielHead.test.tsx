@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 
 import { COPY } from "@/core/copy";
 
-import { MatchHead } from "./MatchHead";
-import { NONE } from "./MatchRow";
+import { SpielHead } from "./SpielHead";
+import { NONE } from "./SpielRow";
 
 const PAIRING = {
   eyebrow: "1. Spieltag",
@@ -16,7 +16,7 @@ const PAIRING = {
 describe("the match head", () => {
   it("says a shoot-out under the score", () => {
     render(
-      <MatchHead
+      <SpielHead
         {...PAIRING}
         result={{ tore: { team1: 2, team2: 2 }, elfmeterschiessen: { team1: 4, team2: 3 } }}
       />,
@@ -26,7 +26,7 @@ describe("the match head", () => {
   });
 
   it("reads a dash for each side until a result is entered, under the matchday", () => {
-    render(<MatchHead {...PAIRING} />);
+    render(<SpielHead {...PAIRING} />);
 
     expect(screen.getAllByText(NONE)).toHaveLength(2);
     expect(screen.getByText("1. Spieltag")).toBeTruthy();

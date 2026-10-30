@@ -192,7 +192,7 @@ export function AdminSaisonEditForm({
   const validateFields = (paths: readonly string[]) => validatePaths("saison", buildPayload(), paths);
   // Judged with the value that arrived rather than with state, which has not committed yet.
   const validateStufen = (next: FLSpielerStufe[]) =>
-    validatePaths("saison", { ...buildPayload(), rules: { ...rules, erlaubte_stufen: next } }, ["rules.erlaubte_stufen"]);
+    validatePaths("saison", { ...buildPayload(), rules: { ...rules, allowed_stufen: next } }, ["rules.allowed_stufen"]);
 
   /**
    * **Only the way OUT is judged**: closing the window clears the dates' standing messages, where
@@ -226,11 +226,11 @@ export function AdminSaisonEditForm({
   const banners = buildSaisonBanners({
     saisonStatus: saison.status,
     isEndBeforeStart,
-    qualifiersPerGroup: rules.qualifiers_per_group,
-    teamsPerGroup: rules.teams_per_group,
+    qualifiersPerGroup: rules.qualifiers_per_gruppe,
+    teamsPerGroup: rules.teams_per_gruppe,
     isRescoringChanged: RESCORING_RULES_FIELDS.some(isRuleChanged),
     isPlacingChanged: PLACING_RULES_FIELDS.some(isRuleChanged),
-    isStufenChanged: isChanged("rules.erlaubte_stufen"),
+    isStufenChanged: isChanged("rules.allowed_stufen"),
     hasDrawnSpiele,
     outgoingSaisonId: rollover.outgoingSaisonId,
     offeneSpieleCount: rollover.offeneSpiele.length,
@@ -241,7 +241,7 @@ export function AdminSaisonEditForm({
     hasSpielplan: spielplan.spielplan !== null,
     hasDrawnSpiele,
     spieltageCount: spielplan.spieltageCount,
-    erfassteSpieleCount: spielplan.bestand.erfasst,
+    erfassteSpieleCount: spielplan.holdings.erfasst,
     eingereichteBerichteCount: spielplan.eingereichteBerichte,
   };
 
@@ -253,7 +253,7 @@ export function AdminSaisonEditForm({
       : saison.status !== "future"
         ? "closed"
         : // The undraw's own order: a recorded fact names its way back first.
-          spielplan.bestand.erfasst === 0 && spielplan.eingereichteBerichte > 0
+          spielplan.holdings.erfasst === 0 && spielplan.eingereichteBerichte > 0
           ? "berichtet"
           : "recorded";
 
@@ -364,7 +364,7 @@ export function AdminSaisonEditForm({
             onRulesChange={setRules}
             onFieldLeft={validateFields}
             onStufenChange={(next) => {
-              setRules({ ...rules, erlaubte_stufen: next });
+              setRules({ ...rules, allowed_stufen: next });
               validateStufen(next);
             }}
             isFinishedSaison={saison.status === "past"}

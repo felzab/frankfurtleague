@@ -206,7 +206,7 @@ const FULL = { A: 4, B: 4 };
 
 const shapeBlock = (shape: Partial<FLSpielplanShape> = {}, occupancy: Record<string, number> = FULL, endDate = "2026-07-31"): string | null =>
   spielplanShapeBlockedReason({
-    shape: { number_of_groups: 2, teams_per_group: 4, qualifiers_per_group: 2, ...shape },
+    shape: { number_of_gruppen: 2, teams_per_gruppe: 4, qualifiers_per_gruppe: 2, ...shape },
     occupancy,
     startDate: "2026-05-01",
     endDate,
@@ -219,8 +219,8 @@ describe("spielplanShapeBlockedReason", () => {
 
   /* The stepper's floor is the fullest group, so a count above every group is a number the box takes. */
   it("refuses a team count the groups do not hold exactly, in the words the refused press is given", () => {
-    expect(shapeBlock({ teams_per_group: 5 })).toBe(GRUPPEN_OFF_RULES);
-    expect(shapeBlock({ number_of_groups: 1 }), "a club outside the offered groups is drawn").toBe(GRUPPEN_OFF_RULES);
+    expect(shapeBlock({ teams_per_gruppe: 5 })).toBe(GRUPPEN_OFF_RULES);
+    expect(shapeBlock({ number_of_gruppen: 1 }), "a club outside the offered groups is drawn").toBe(GRUPPEN_OFF_RULES);
   });
 
   /* `rules_bracket_impossible` on the numbers the press carries, too large and shapeless alike. */
@@ -229,8 +229,8 @@ describe("spielplanShapeBlockedReason", () => {
     const sixteenGroups = Object.fromEntries([..."ABCDEFGHIJKLMNOP"].map((gruppe) => [gruppe, 2]));
 
     for (const [shape, occupancy] of [
-      [{ qualifiers_per_group: 3 }, FULL],
-      [{ number_of_groups: 16, teams_per_group: 2, qualifiers_per_group: 2 }, sixteenGroups],
+      [{ qualifiers_per_gruppe: 3 }, FULL],
+      [{ number_of_gruppen: 16, teams_per_gruppe: 2, qualifiers_per_gruppe: 2 }, sixteenGroups],
     ] as const) {
       const reason = shapeBlock(shape, occupancy);
       expect(reason ?? "", `${JSON.stringify(shape)} is offered`).toMatch(/keine KO-Runde/);
@@ -240,20 +240,20 @@ describe("spielplanShapeBlockedReason", () => {
 
   /* Four days, and two groups of four with one qualifying imply four matchdays: three rounds and a final. */
   it("weighs the span against the matchdays the sent numbers imply, counting both ends", () => {
-    expect(shapeBlock({ qualifiers_per_group: 1 }, FULL, "2026-05-04")).toBe(null);
+    expect(shapeBlock({ qualifiers_per_gruppe: 1 }, FULL, "2026-05-04")).toBe(null);
     expect(shapeBlock({}, FULL, "2026-05-04") ?? "").toMatch(/zu kurz für die Spieltage, die sich aus diesen Zahlen ergeben/);
-    expect(shapeBlock({ qualifiers_per_group: 1 }, FULL, "2026-05-03") ?? "").toMatch(/Abschnitt Zeitraum/);
+    expect(shapeBlock({ qualifiers_per_gruppe: 1 }, FULL, "2026-05-03") ?? "").toMatch(/Abschnitt Zeitraum/);
   });
 
   /* The endpoint's order: `find_spielplan_refusal`, then `find_rules_refusal`, then the span. */
   it("names the groups ahead of the bracket, and the bracket ahead of the span", () => {
-    expect(shapeBlock({ teams_per_group: 5, qualifiers_per_group: 3 }, FULL, "2026-05-01")).toBe(GRUPPEN_OFF_RULES);
-    expect(shapeBlock({ qualifiers_per_group: 3 }, FULL, "2026-05-01") ?? "").toMatch(/keine KO-Runde/);
+    expect(shapeBlock({ teams_per_gruppe: 5, qualifiers_per_gruppe: 3 }, FULL, "2026-05-01")).toBe(GRUPPEN_OFF_RULES);
+    expect(shapeBlock({ qualifiers_per_gruppe: 3 }, FULL, "2026-05-01") ?? "").toMatch(/keine KO-Runde/);
   });
 });
 
 describe("spielplanPress", () => {
-  const STORED_SHAPE: FLSpielplanShape = { number_of_groups: 2, teams_per_group: 4, qualifiers_per_group: 2 };
+  const STORED_SHAPE: FLSpielplanShape = { number_of_gruppen: 2, teams_per_gruppe: 4, qualifiers_per_gruppe: 2 };
   const press = (overrides: Partial<SpielplanControlInput>, picked: SpielplanOperation | null = null, shape = STORED_SHAPE) =>
     spielplanPress({ input: spielplanInput(overrides), picked, shape });
 
@@ -283,7 +283,7 @@ describe("spielplanPress", () => {
 
   /* The boxes are the replace's payload and nothing else's: a first draw sends the stored rules, and the undraw sends none. */
   it("judges the boxes on the replace's press alone", () => {
-    const refused: FLSpielplanShape = { ...STORED_SHAPE, teams_per_group: 5 };
+    const refused: FLSpielplanShape = { ...STORED_SHAPE, teams_per_gruppe: 5 };
 
     expect(press(DRAWN, "anlegen", refused).closedReason).toBe(GRUPPEN_OFF_RULES);
     expect(press(DRAWN, "anlegen", refused).standingReason, "a closure the next step lifts is a standing one").toBe(null);
@@ -324,7 +324,7 @@ describe("spielplanUndrawBlockedReason", () => {
     expect(erfasst).toMatch(/Zurücknehmen lässt sich der Spielplan/);
   });
 
-  /* `spielplan_berichte_eingereicht`: the endpoint refuses both writes while a report stands, so offering either would put the
+  /* `spielplan_berichte_submitted`: the endpoint refuses both writes while a report stands, so offering either would put the
      admin through the destructive dialog to a refusal. A recorded fact goes first, as it names its own way back. */
   it("closes the undraw and the replace while a submitted report stands, in the refusal's own words", () => {
     expect(undrawBlock({ ...DRAWN, eingereichteBerichteCount: 1 })).toBe(SPIELBERICHTE_HALTEN_DEN_SPIELPLAN);

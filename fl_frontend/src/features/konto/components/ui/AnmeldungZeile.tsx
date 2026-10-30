@@ -6,7 +6,7 @@ import ArrowRightFromSquare from "@gravity-ui/icons/ArrowRightFromSquare";
 
 import { Button } from "@heroui/react/button";
 
-import { ZEITZONE } from "@/core/format";
+import { TIME_ZONE } from "@/core/format";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { benannt } from "@/shared/utils/benannt";
@@ -15,13 +15,13 @@ import { focusRow, focusSlot } from "@/shared/utils/focusAfterWrite";
 import type { Anmeldung } from "../../types";
 
 // `timeZone` for the reason `fl_frontend/src/features/passkeys/components/ui/PasskeyKarteView.tsx :: DATUM` gives.
-const ZEITPUNKT = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, dateStyle: "long", timeStyle: "short" });
+const ZEITPUNKT = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, dateStyle: "long", timeStyle: "short" });
 
 const zeit = (iso: string): string => ZEITPUNKT.format(new Date(iso));
 
-const TAG = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, dateStyle: "long" });
+const TAG = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, dateStyle: "long" });
 
-const UHRZEIT = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, timeStyle: "short" });
+const UHRZEIT = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, timeStyle: "short" });
 
 /**
  * The sign-out's name for a screen reader, which meets one per row: the factor, the passkey's own name

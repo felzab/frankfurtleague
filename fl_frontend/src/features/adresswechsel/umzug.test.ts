@@ -1,10 +1,10 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { FLAdresswechselUmzuegeErledigtPayload, FLAdresswechselUmzuegeResponse } from "@/core/generated/client/types.ts";
+import type { FLAddressChangeMovesDonePayload, FLAddressChangeMovesResponse } from "@/core/generated/client/types.ts";
 
 /** The owed carries the backend lists, page after page; a case sets them. */
-let seiten: FLAdresswechselUmzuegeResponse["umzuege"][] = [];
+let seiten: FLAddressChangeMovesResponse["moves"][] = [];
 /** Every pair `carryAccount` was handed, in order. */
 const carried: [string, string][] = [];
 /** Every list of ids reported carried, in order. */
@@ -12,8 +12,8 @@ const erledigt: string[][] = [];
 
 // Replaced at the module boundary: the real client reaches a backend no test process runs.
 doubleApiClient((call) => {
-  if (call.method === "GET") return { umzuege: seiten.shift() ?? [] } satisfies FLAdresswechselUmzuegeResponse;
-  const { ids } = JSON.parse(call.body ?? "{}") as FLAdresswechselUmzuegeErledigtPayload;
+  if (call.method === "GET") return { moves: seiten.shift() ?? [] } satisfies FLAddressChangeMovesResponse;
+  const { ids } = JSON.parse(call.body ?? "{}") as FLAddressChangeMovesDonePayload;
   erledigt.push(ids);
   return { erledigt: ids.length };
 });

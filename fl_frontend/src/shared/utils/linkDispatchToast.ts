@@ -3,31 +3,31 @@ import "client-only";
 import { appToast } from "./appToast";
 
 /** How one link mail ended for the press that sent it: handed on to be mailed, or not. */
-type LinkVersand = "gesendet" | "fehlgeschlagen";
+type LinkDispatch = "sent" | "failed";
 
 /**
  * A press's title for each way its link ended. **No title here is a press's failure title**, which
  * `appToast.failure` raises at another variant.
  */
-export type VersandTitel = Readonly<Record<LinkVersand, string>>;
+export type DispatchTitel = Readonly<Record<LinkDispatch, string>>;
 
 /** A team's registration link, its own press and a season's press reaching one team alike. */
-export const REGISTRIERUNGSLINK_TITEL: VersandTitel = {
-  gesendet: "Registrierungslink gesendet",
-  fehlgeschlagen: "Registrierungslink nicht verschickt",
+export const REGISTRIERUNGSLINK_TITEL: DispatchTitel = {
+  sent: "Registrierungslink gesendet",
+  failed: "Registrierungslink nicht verschickt",
 };
 
 /**
  * An address change's toast: its link's, and with no link the request to the address on file, which is
  * then the change's one message.
  */
-export function meldeAdresswechselVersand(link: boolean, description: string): void {
+export function reportAddressChangeDispatch(link: boolean, description: string): void {
   appToast.success(link ? "Link gesendet" : "Anfrage gesendet", { description });
 }
 
 /** The toast of a write that landed and sent a link: a success only where the link went out. */
-export function meldeLinkVersand(versand: LinkVersand, titel: VersandTitel, description: string): void {
-  const raise = versand === "gesendet" ? appToast.success : appToast.warning;
+export function reportLinkDispatch(dispatch: LinkDispatch, titel: DispatchTitel, description: string): void {
+  const raise = dispatch === "sent" ? appToast.success : appToast.warning;
 
-  raise(titel[versand], { description });
+  raise(titel[dispatch], { description });
 }

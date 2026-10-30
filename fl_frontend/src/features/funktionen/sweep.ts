@@ -21,7 +21,7 @@ type Zaehlung = {
  * nothing rejects, for the heartbeat to name; the pass resolves to what it did, `offen` the accounts it could not judge
  * or delete.
  */
-export async function runKontoSweep(): Promise<{ zaehlung: Zaehlung; offen: number }> {
+export async function runKontoSweep(): Promise<{ count: Zaehlung; open: number }> {
   const konten = await listAccounts();
   const zaehlung: Zaehlung = { unreferenziert: 0, geloescht: 0, bereits_geloescht: 0, fehlgeschlagen: 0 };
 
@@ -32,11 +32,11 @@ export async function runKontoSweep(): Promise<{ zaehlung: Zaehlung; offen: numb
     let unreferenziert: readonly string[];
 
     try {
-      ({ unreferenziert } = await postReferenzen({ identifiers: batch }));
+      ({ unreferenced: unreferenziert } = await postReferenzen({ identifiers: batch }));
     } catch (error) {
       // Kept, every one: an answer that never came says nothing about any address in it.
       zaehlung.fehlgeschlagen += batch.length;
-      logKontoFailure("konto.referenzen_failed", error, batch.length);
+      logKontoFailure("account.references_failed", error, batch.length);
       continue;
     }
 
@@ -47,7 +47,7 @@ export async function runKontoSweep(): Promise<{ zaehlung: Zaehlung; offen: numb
     }
   }
 
-  return { zaehlung: zaehlung, offen: zaehlung.fehlgeschlagen };
+  return { count: zaehlung, open: zaehlung.fehlgeschlagen };
 }
 
 /** One account, deleted only where the read answers its address unreferenced again, alone. */
@@ -55,19 +55,19 @@ async function loescheKonto(adresse: string, zaehlung: Zaehlung): Promise<void> 
   try {
     // Asked again immediately before the delete rather than trusted from the batch: a record entered
     // since then keeps its account, and the race narrows to the seconds between this answer and the delete.
-    const { unreferenziert } = await postReferenzen({ identifiers: [adresse] });
+    const { unreferenced: unreferenziert } = await postReferenzen({ identifiers: [adresse] });
     if (!unreferenziert.includes(adresse)) return;
 
     if (await deleteAccountFor(adresse)) zaehlung.geloescht += 1;
     else zaehlung.bereits_geloescht += 1;
   } catch (error) {
     zaehlung.fehlgeschlagen += 1;
-    logKontoFailure("konto.delete_failed", error);
+    logKontoFailure("account.delete_failed", error);
   }
 }
 
 /** The step and the error's name, never the address: a failure on this path routinely carries it. */
-function logKontoFailure(event: "konto.referenzen_failed" | "konto.delete_failed", error: unknown, anzahl?: number): void {
+function logKontoFailure(event: "account.references_failed" | "account.delete_failed", error: unknown, anzahl?: number): void {
   logger.error(event, undefined, {
     name: error instanceof Error ? error.name : undefined,
     ...requestOf(error),

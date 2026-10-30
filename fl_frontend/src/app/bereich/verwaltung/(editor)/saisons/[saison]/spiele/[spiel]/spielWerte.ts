@@ -1,4 +1,4 @@
-import type { Kalendertag, Uhrzeit } from "@/core/format";
+import type { CalendarDay, Uhrzeit } from "@/core/format";
 import type { FLSpielJoinedAdmin } from "@/core/generated/client/types";
 
 /** The Sonderereignis select's first entry, which saves as no event. */
@@ -9,7 +9,7 @@ export const KEIN_SONDEREREIGNIS = "keines";
  * match; the Sonderereignis' choice; the note. A price is the text typed, read as a figure by the save.
  */
 export type SpielWerte = {
-  datum: Kalendertag | null;
+  datum: CalendarDay | null;
   uhrzeit: Uhrzeit | null;
   spielort: string | null;
   mietpreis: string;

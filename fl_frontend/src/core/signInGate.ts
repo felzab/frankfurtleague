@@ -4,10 +4,10 @@ import { cache } from "react";
 
 import { asSignInIdentifier } from "./emailAddress";
 import { APIBadStatusError } from "./errors";
-import { identitaetGetAnmeldung, identitaetGetSubjekt } from "./generated/client/sdk";
+import { identityGetSignIn, identityGetSubject } from "./generated/client/sdk";
 import { logger } from "./logging";
 
-import type { FLAnmeldungResponse } from "./generated/client/types";
+import type { FLSignInResponse } from "./generated/client/types";
 import type { SubjectSession } from "./subject";
 
 /** The code the backend answers a payload it refuses with: here, an address no rule of its own accepts. */
@@ -20,37 +20,37 @@ const PAYLOAD_REFUSED = "payload_refused";
  * one call: the gate, a passkey enrolment's included, reads `lookUpAnmeldung`. Throws on every backend
  * failure; `fl_frontend/src/core/subject.ts :: getSubjectSession` lets it.
  */
-export const lookUpSubjekt = cache(async (email: string): Promise<SubjectSession["subjekt"]> => {
+export const lookUpSubjekt = cache(async (email: string): Promise<SubjectSession["subject"]> => {
   // In the body and on no query parameter: a URL carrying an address reaches the edge's access
   // line, which nothing downstream un-logs.
-  const answer = await identitaetGetSubjekt({ email: email }, { readOnly: true });
+  const answer = await identityGetSubject({ email: email }, { readOnly: true });
 
   // Field by field rather than the body: the generated call types the answer and parses nothing, so the body
   // would carry into the session whatever else the backend ever answered.
   return {
-    sitze: answer.sitze,
+    seats: answer.seats,
     spieler: answer.spieler,
     schiedsrichter: answer.schiedsrichter,
-    unbestaetigt: answer.unbestaetigt,
-    gesperrt: answer.gesperrt,
+    unconfirmed: answer.unconfirmed,
+    barred: answer.barred,
     verwaltung: answer.verwaltung,
-    berechtigt_seit: answer.berechtigt_seit,
+    granted_since: answer.granted_since,
     inhaber_seit: answer.inhaber_seit,
   };
 });
 
 /** What the sign-in gate decides on for one mailbox: its two record flags, its ban and its grant. */
-export type AnmeldungRecords = FLAnmeldungResponse;
+export type AnmeldungRecords = FLSignInResponse;
 
 // React's `cache` for `lookUpSubjekt`'s reason. Its own read rather than the subject's: only a sign-in
 // pays for the two collections `konto` reads beyond the subject's three.
 /** The gate's answer for one folded mailbox. Throws on every backend failure, which `mayReceiveSignIn` closes on. */
 export const lookUpAnmeldung = cache(async (email: string): Promise<AnmeldungRecords> => {
   // In the body, for `lookUpSubjekt`'s reason.
-  const answer = await identitaetGetAnmeldung({ email: email }, { readOnly: true });
+  const answer = await identityGetSignIn({ email: email }, { readOnly: true });
 
   // Field by field, for `lookUpSubjekt`'s reason.
-  return { unbestaetigt: answer.unbestaetigt, konto: answer.konto, gesperrt: answer.gesperrt, verwaltung: answer.verwaltung };
+  return { unconfirmed: answer.unconfirmed, account: answer.account, barred: answer.barred, verwaltung: answer.verwaltung };
 });
 
 /**
@@ -91,12 +91,12 @@ export async function mayReceiveSignIn(identifier: string): Promise<SignInVerdic
 export function signInVerdictOf(anmeldung: AnmeldungRecords): Exclude<SignInVerdict, "failed"> {
   // Ahead of every record and the grant: a barred address still holding a seat, awaiting a
   // confirmation or holding a grant written in the database directly is offered nothing.
-  if (anmeldung.gesperrt) return "barred";
+  if (anmeldung.barred) return "barred";
 
   if (anmeldung.verwaltung !== null) return "admitted";
 
   // `konto` and never a Funktion: a person whose only record grants no panel still has a consent to
   // take back on the account page. A pending mailbox signs in too, to be told its confirmation is
   // outstanding.
-  return anmeldung.konto || anmeldung.unbestaetigt ? "admitted" : "holds-nothing";
+  return anmeldung.account || anmeldung.unconfirmed ? "admitted" : "holds-nothing";
 }

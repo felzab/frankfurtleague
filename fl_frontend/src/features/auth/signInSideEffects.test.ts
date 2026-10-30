@@ -8,7 +8,7 @@ import {
   overriding,
   registerAuthDoubles,
 } from "@/test-support/authDoubles.ts";
-import { answerAt, SITZ } from "@/test-support/subjectFixtures.ts";
+import { answerAt, SEAT } from "@/test-support/subjectFixtures.ts";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { TURNSTILE_FIELD } from "@/core/turnstileToken.ts";
@@ -40,18 +40,18 @@ const ACCOUNT_ONLY = "bewerberin@example.org";
 type Backend = LookupFixture | "throws";
 
 const BACKENDS: Readonly<Record<string, Backend>> = {
-  [GRANTED]: { ...HOLDS_NOTHING, verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z", konto: false },
-  [BARRED]: { ...HOLDS_NOTHING, sitze: [SITZ], gesperrt: true, konto: true },
-  [ACCOUNT_ONLY]: { ...HOLDS_NOTHING, konto: true },
+  [GRANTED]: { ...HOLDS_NOTHING, verwaltung: "administration", granted_since: "2026-01-01T00:00:00Z", account: false },
+  [BARRED]: { ...HOLDS_NOTHING, seats: [SEAT], barred: true, account: true },
+  [ACCOUNT_ONLY]: { ...HOLDS_NOTHING, account: true },
   [UNREACHED]: "throws",
-  [UNCONFIRMED]: { ...HOLDS_NOTHING, unbestaetigt: true, konto: false },
-  [SEATED]: { ...HOLDS_NOTHING, sitze: [SITZ], konto: true },
+  [UNCONFIRMED]: { ...HOLDS_NOTHING, unconfirmed: true, account: false },
+  [SEATED]: { ...HOLDS_NOTHING, seats: [SEAT], account: true },
 };
 
 /** Answers the backend read for the address its body names; an address named nowhere holds nothing. */
 function answerFromTheBackend(call: ApiCall): Promise<unknown> {
   const asked = (JSON.parse(call.body ?? "{}") as { email?: string }).email ?? "";
-  const backend = BACKENDS[asked] ?? { ...HOLDS_NOTHING, konto: false };
+  const backend = BACKENDS[asked] ?? { ...HOLDS_NOTHING, account: false };
   if (backend === "throws") return Promise.reject(new Error("the backend answered nothing"));
 
   return Promise.resolve(answerAt(call.endpoint, backend));

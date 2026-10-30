@@ -13,16 +13,16 @@ export function mapEinladenRefusal(error: unknown): string | null {
 
   switch (error.serverErrorCode) {
     // The application page's re-send words its twin refusal so (`fl_frontend/src/features/bewerbungen/refusals.ts`).
-    case "kontakt_sitz_ohne_bestaetigung":
+    case "kontakt_seat_without_confirmation":
       return buildRefusal({
         reason: "Für diese Rolle steht keine Bestätigung mehr aus",
         repair: LADE_DIE_SEITE_NEU,
       });
-    case "kontakt_sitz_gesperrt":
+    case "kontakt_seat_barred":
       return SPERRLISTE_ADRESSE_GESPERRT;
     // The editor offers no send on a row whose season is over or whose team has left it, so this
     // answers a page read before that change, which the reload shows.
-    case "kontakt_zeile_ohne_saison":
+    case "kontakt_row_without_saison":
       return buildRefusal({
         reason: "Diese Saison ist vorbei oder das Team ist ausgetreten",
         repair: "Lade die Seite neu, um den aktuellen Stand zu sehen",
@@ -42,7 +42,7 @@ export function mapKontakteRefusal(error: unknown): string | null {
   switch (error.serverErrorCode) {
     // The backend's judgement of a seat's label: an editor opened
     // before a deploy moved the form's label sends it for a person the row did not hold.
-    case "fassung_unzulaessig":
+    case "wording_not_allowed":
       return BEWERBUNG_VERALTET;
     case "kontakte_moved_under_the_save":
       return buildRefusal({
@@ -51,7 +51,7 @@ export function mapKontakteRefusal(error: unknown): string | null {
         repair: "Lade die Seite neu und trage Deine Änderung dort erneut ein",
       });
     // Not the re-send's sentence: the refusal names no seat, so „Diese E-Mail-Adresse“ would point at none.
-    case "kontakt_sitz_gesperrt":
+    case "kontakt_seat_barred":
       return buildRefusal({
         reason: "Eine neu eingetragene E-Mail-Adresse steht auf der Sperrliste",
         repair: { before: "Trage eine andere Adresse ein oder hebe die Sperre", after: "auf" },

@@ -96,10 +96,10 @@ export function FormTeamSection({
 
       <div className={panel.body()}>
         <TextField
-          name="trikot.vorhandener_satz"
-          value={trikot.vorhandener_satz}
-          onChange={(next) => onTrikotChange({ ...trikot, vorhandener_satz: next })}
-          onBlur={() => onFieldLeft(["trikot.vorhandener_satz"])}
+          name="trikot.existing_satz"
+          value={trikot.existing_satz}
+          onChange={(next) => onTrikotChange({ ...trikot, existing_satz: next })}
+          onBlur={() => onFieldLeft(["trikot.existing_satz"])}
           maxLength={BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH}>
           <Label className={FIELD_LABEL_CLASSES}>Vorhandene Trikotsätze</Label>
           <Input
@@ -131,12 +131,12 @@ export function FormTeamSection({
             {/* `minValue` is the schema's own floor rather than a second judgement: a stepper offering
                 a count the submit would send back is one that wasted the trip. */}
             <NumberField
-              name="kader.voraussichtliche_groesse"
+              name="kader.expected_size"
               minValue={1}
               maxValue={BEWERBUNG_KADER_GROESSE_MAX}
-              value={kader.voraussichtliche_groesse}
+              value={kader.expected_size}
               onChange={(next) => onKaderChange(kaderWithSquad(kader, next))}
-              onBlur={() => onFieldLeft(["kader.voraussichtliche_groesse"])}>
+              onBlur={() => onFieldLeft(["kader.expected_size"])}>
               <Label className={FIELD_LABEL_CLASSES}>Voraussichtliche Kadergröße</Label>
               <NumberField.Group className={FIELD_GROUP_CLASSES}>
                 <NumberField.DecrementButton />
@@ -147,12 +147,12 @@ export function FormTeamSection({
             </NumberField>
 
             <NumberField
-              name="kader.gute_spieler"
+              name="kader.good_spieler"
               minValue={0}
-              maxValue={strongPlayerCeiling(kader.voraussichtliche_groesse)}
-              value={kader.gute_spieler}
-              onChange={(next) => onKaderChange({ ...kader, gute_spieler: next })}
-              onBlur={() => onFieldLeft(["kader.gute_spieler"])}>
+              maxValue={strongPlayerCeiling(kader.expected_size)}
+              value={kader.good_spieler}
+              onChange={(next) => onKaderChange({ ...kader, good_spieler: next })}
+              onBlur={() => onFieldLeft(["kader.good_spieler"])}>
               {/* The league plans the groups against this, so the bar it means is named in the label:
                   „im Verein“ alone was answered from breadth of membership rather than from level. */}
               <Label className={FIELD_LABEL_CLASSES}>Davon im Verein aktiv (mind. Verbandsliga)</Label>

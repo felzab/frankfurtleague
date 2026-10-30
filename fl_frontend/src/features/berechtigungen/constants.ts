@@ -2,7 +2,7 @@ import { GELOESCHT_ACTOR_MARKER } from "@/core/geloeschtActor";
 import { OFFENE_ANTRAEGE } from "@/core/seitenNamen";
 import { benannt } from "@/shared/utils/benannt";
 
-import type { FLGenehmigungVerwehrt, FLVerwaltung } from "@/core/generated/client/types";
+import type { FLApprovalDenied, FLVerwaltung } from "@/core/generated/client/types";
 
 // Its own module: every export of a `"use client"` view becomes a client reference.
 export const BERECHTIGUNGEN_CRUD_COPY = {
@@ -83,7 +83,7 @@ export const NACH_ERNENNUNG_NEU_ANMELDEN = "Bist Du erst nach Deiner Anmeldung I
  */
 const ERNENNUNG_GENEHMIGT = "eine Ernennung eine andere Inhaberin oder ein anderer Inhaber";
 
-/** Why the revoke is closed to a session holding no owner's power, and the backend's `berechtigung_nur_inhaber` in the same words. */
+/** Why the revoke is closed to a session holding no owner's power, and the backend's `grant_only_owner` in the same words. */
 export const NUR_INHABER_ENTZIEHT = `Den Zugang entziehen können nur Inhaberinnen und Inhaber. ${NACH_ERNENNUNG_NEU_ANMELDEN}`;
 
 /** The row a control's name tells apart after its words: the address, or the grant's day where the address is withheld. */
@@ -104,7 +104,7 @@ export const ZUGANG_ENTZOGEN_MESSAGE = "Diese Adresse hat keinen Zugang zur Verw
 
 /**
  * The grant's refusal of a barred address, which also closes a barred row's promotion: the backend
- * refuses to make a barred address an owner (`berechtigung_gesperrt`).
+ * refuses to make a barred address an owner (`grant_barred`).
  */
 export const ADRESSE_GESPERRT = "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Zugang zur Verwaltung erhalten soll.";
 
@@ -125,12 +125,12 @@ export function stufeWorte({
   adresse,
   erteiltAm,
   ziel,
-  eigene,
+  own: eigene,
 }: {
   adresse: string | null;
   erteiltAm: string;
   ziel: FLVerwaltung;
-  eigene: boolean;
+  own: boolean;
 }): StufeWorte {
   const mail = "Alle mit Zugang erhalten eine E-Mail.";
   if (eigene) {
@@ -196,10 +196,10 @@ export const ERNENNUNG_BEANTRAGT_MESSAGE = `Eine andere Inhaberin oder ein ander
  * Why this administrator may not decide a request, in the backend's refusals' own words, so the closed press and
  * the refused one say it alike. The requester's own (`gestartet`) closes the approval alone: they withdraw it.
  */
-export const ANTRAG_ENTSCHEIDEN_VERWEHRT: Readonly<Record<Exclude<FLGenehmigungVerwehrt, "gestartet">, string>> = {
-  eigene: `Über einen Antrag, der Dich betrifft, entscheidet eine andere Person aus der Verwaltung, über ${ERNENNUNG_GENEHMIGT}.`,
-  inhaber: `Über eine Ernennung zur Inhaberin oder zum Inhaber entscheidet nur eine andere Inhaberin oder ein anderer Inhaber. ${NACH_ERNENNUNG_NEU_ANMELDEN}`,
-  juenger:
+export const ANTRAG_ENTSCHEIDEN_VERWEHRT: Readonly<Record<Exclude<FLApprovalDenied, "started">, string>> = {
+  own: `Über einen Antrag, der Dich betrifft, entscheidet eine andere Person aus der Verwaltung, über ${ERNENNUNG_GENEHMIGT}.`,
+  owner: `Über eine Ernennung zur Inhaberin oder zum Inhaber entscheidet nur eine andere Inhaberin oder ein anderer Inhaber. ${NACH_ERNENNUNG_NEU_ANMELDEN}`,
+  younger:
     "Entscheiden kann nur, wer schon vor dem Antrag Zugang zur Verwaltung hatte, über eine Ernennung nur, wer schon vorher Inhaberin oder Inhaber war.",
 };
 

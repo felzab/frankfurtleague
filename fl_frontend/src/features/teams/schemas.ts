@@ -1,7 +1,7 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
-import { FLAustrittType, FLGruppenNames, FLSchulform, FLTrainerZugleich, FLTrikotFarbe } from "@/core/generated/client/types";
+import { FLAustrittType, FLGruppenNames, FLSchulform, FLTrainerAlso, FLTrikotFarbe } from "@/core/generated/client/types";
 // The applications slice declares this width, a school proposing a Kürzel before any club exists to
 // hold it (`docs/glossary.md :: Kürzel`). A literal beside it is compared by nothing.
 import { KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
@@ -9,12 +9,12 @@ import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import {
   CustomDateStringSchema,
   CustomObjectIdStringSchema,
-  einzeiligerName,
   ExternalUrlSchema,
   FLAddressPayloadSchema,
   KontaktEmailSchema,
   PersonNameSchema,
   PHONE_REGEX,
+  singleLineName,
 } from "@/shared/schemas";
 
 import {
@@ -97,7 +97,7 @@ const FLKontaktpersonPayloadSchema = z.object({
  * Which OTHER seat the Trainer also holds. One nullable field rather than two flags, which would let a row claim both
  * seats at once.
  */
-export const FLTrainerZugleichSchema = z.enum(FLTrainerZugleich, {
+export const FLTrainerZugleichSchema = z.enum(FLTrainerAlso, {
   error: "Bitte wähle, wer zugleich Trainerin oder Trainer ist.",
 });
 
@@ -117,7 +117,7 @@ export const FLSaisonTeamKontaktePayloadSchema = z
     trainer: FLKontaktpersonPayloadSchema.nullable(),
     ansprechperson: FLKontaktpersonPayloadSchema.nullable(),
     stellvertretung: FLKontaktpersonPayloadSchema.nullable(),
-    trainer_ist_zugleich: FLTrainerZugleichSchema.nullable(),
+    trainer_is_also: FLTrainerZugleichSchema.nullable(),
   })
   // The application's two rules, so a refusal lands on the box rather than on a 422 naming the block.
   .superRefine(
@@ -133,7 +133,7 @@ export const FLSaisonTeamKontaktePayloadSchema = z
 /** Shared by create and patch: the patch replaces them wholesale, so both carry the same field set. */
 const teamPayloadFields = {
   // The ceilings and the single-line class are the application's, so both tiers refuse alike.
-  name: einzeiligerName(
+  name: singleLineName(
     z
       .string()
       .trim()
@@ -149,7 +149,7 @@ const teamPayloadFields = {
   description: z
     .string()
     .max(DESCRIPTION_MAX_LENGTH, { error: `Die Beschreibung darf höchstens ${String(DESCRIPTION_MAX_LENGTH)} Zeichen lang sein.` }),
-  full_name: einzeiligerName(
+  full_name: singleLineName(
     z
       .string()
       .trim()

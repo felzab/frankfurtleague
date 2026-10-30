@@ -1,11 +1,11 @@
-import type { FLSchiedsrichter, FLSchiedsrichterBestaetigungAnsichtResponse } from "@/core/generated/client/types";
+import type { FLSchiedsrichter, FLSchiedsrichterConfirmationViewResponse } from "@/core/generated/client/types";
 import type { FLPostSchiedsrichterPayload, FLSchiedsrichterPayloadDraft } from "./schemas";
 
 /** Every state the referee's link can be in but open. „ungueltig“ is this side's, for a token the read refused. */
-export type SchiedsrichterLinkZustand = "bestaetigt" | "abgelaufen" | "ungueltig" | "gesperrt";
+export type SchiedsrichterLinkZustand = "confirmed" | "expired" | "invalid" | "barred";
 
 export type SchiedsrichterAnsicht =
-  { zustand: "gueltig"; ansicht: FLSchiedsrichterBestaetigungAnsichtResponse } | { zustand: SchiedsrichterLinkZustand };
+  { zustand: "valid"; ansicht: FLSchiedsrichterConfirmationViewResponse } | { zustand: SchiedsrichterLinkZustand };
 
 // The three admin-only blocks are out: a fixture's held referee and a just-created one are each
 // composed at the call site, where a required block would be written as a null claiming the referee

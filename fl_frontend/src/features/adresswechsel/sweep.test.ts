@@ -1,19 +1,19 @@
 import { doubleApiClient } from "@/test-support/apiClientDouble.ts";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import type { FLAdresswechselSweepResponse } from "@/core/generated/client/types.ts";
+import type { FLAddressChangeSweepResponse } from "@/core/generated/client/types.ts";
 
 /** One call's answer, `nach` the place the next call starts after. */
-const antwort = (entfernt: number, verbleibend: number, nach: string | null = null): FLAdresswechselSweepResponse => ({
-  entfernt: entfernt,
-  verworfen: 0,
-  wirksam: 0,
-  verbleibend: verbleibend,
+const antwort = (entfernt: number, verbleibend: number, nach: string | null = null): FLAddressChangeSweepResponse => ({
+  removed: entfernt,
+  discarded: 0,
+  effective: 0,
+  remaining: verbleibend,
   nach: nach,
 });
 
 /** The pass's answers in turn; past the last, a place-free answer ends any loop rather than hanging it. */
-let antworten: (FLAdresswechselSweepResponse | Error)[] = [];
+let antworten: (FLAddressChangeSweepResponse | Error)[] = [];
 /** Every call in the order sent: the sweep's place, or the carry's list. */
 const calls: string[] = [];
 
@@ -21,9 +21,9 @@ const calls: string[] = [];
 const ORT = `${"d".repeat(23)}4`;
 
 doubleApiClient((call) => {
-  if (call.endpoint.endsWith("/umzuege")) {
-    calls.push("umzuege");
-    return { umzuege: [] };
+  if (call.endpoint.endsWith("/moves")) {
+    calls.push("moves");
+    return { moves: [] };
   }
   // A generated call carries its query in its endpoint.
   calls.push(new URL(call.endpoint, "http://backend").searchParams.get("nach") ?? "-");
@@ -46,7 +46,7 @@ describe("the address changes' hourly pass", () => {
 
     await sweepAdresswechsel();
 
-    expect(calls).toStrictEqual(["-", ORT, "umzuege"]);
+    expect(calls).toStrictEqual(["-", ORT, "moves"]);
   });
 
   /* Each call counts every lapsed change standing, an earlier page's failures among them, so the remainder is the last
@@ -54,7 +54,7 @@ describe("the address changes' hourly pass", () => {
   it("answers the last call's remainder, never a sum, beside the pages' summed counts", async () => {
     antworten = [antwort(2, 5, ORT), antwort(3, 1)];
 
-    expect(await sweepAdresswechsel()).toStrictEqual({ entfernt: 5, wirksam: 0, verworfen: 0, verbleibend: 1 });
+    expect(await sweepAdresswechsel()).toStrictEqual({ removed: 5, effective: 0, discarded: 0, remaining: 1 });
   });
 
   /* A place not past the one sent would hold the pass, and every clock behind it, for ever. */

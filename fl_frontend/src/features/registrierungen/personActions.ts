@@ -13,7 +13,7 @@ import { patchRegistrierungEinwilligung, postRegistrierungAblehnen, postRegistri
 import { FLRegistrierungAblehnenPayloadSchema, FLRegistrierungAufnehmenPayloadSchema } from "./schemas";
 import { mapAblehnungRefusal, mapAufnahmeRefusal } from "./utils";
 
-import type { FLEinwilligungStand, FLRegistrierungAblehnenPayload, FLRegistrierungAufnehmenPayload } from "@/core/generated/client/types";
+import type { FLEinwilligungStand, FLRegistrierungAdmitPayload, FLRegistrierungDeclinePayload } from "@/core/generated/client/types";
 import type { ActionResult } from "@/shared/types/types";
 
 /**
@@ -34,7 +34,7 @@ const AblehnenAktion = RegistrierungAdresse.extend(FLRegistrierungAblehnenPayloa
  * Admits one registration into the team's squad, into the person its address or the seat holder's
  * answer names.
  */
-export async function aufnehmenRegistrierungAction(rawPayload: RegistrierungAdresse & FLRegistrierungAufnehmenPayload): Promise<ActionResult> {
+export async function aufnehmenRegistrierungAction(rawPayload: RegistrierungAdresse & FLRegistrierungAdmitPayload): Promise<ActionResult> {
   return runPersonMutation("aufnehmenRegistrierungAction", rawPayload, async () => {
     const validated = AufnehmenAktion.safeParse(rawPayload);
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
@@ -57,7 +57,7 @@ export async function aufnehmenRegistrierungAction(rawPayload: RegistrierungAdre
  * Declines one registration under a fixed reason and tells the pupil, where their address was ever
  * verified: an unconfirmed one may be a stranger's, typed by whoever held the team's link.
  */
-export async function ablehnenRegistrierungAction(rawPayload: RegistrierungAdresse & FLRegistrierungAblehnenPayload): Promise<ActionResult> {
+export async function ablehnenRegistrierungAction(rawPayload: RegistrierungAdresse & FLRegistrierungDeclinePayload): Promise<ActionResult> {
   return runPersonMutation("ablehnenRegistrierungAction", rawPayload, async () => {
     const validated = AblehnenAktion.safeParse(rawPayload);
     if (!validated.success) return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };

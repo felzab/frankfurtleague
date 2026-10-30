@@ -1,4 +1,4 @@
-import { funktionenOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/roles";
 import { getSubjectSession } from "@/core/subject";
 import { FunktionSwitcher } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
 
@@ -12,7 +12,7 @@ export async function PersonLaneFunktionSwitcher({ ohneOrt, mitBereich }: { ohne
   // The hold's own read, memoised per render; nothing for a refused session, the page turning it away.
   const subject = await getSubjectSession();
   if (subject === null) return null;
-  const { funktionen } = funktionenOf(subject);
+  const { roles: funktionen } = rolesOf(subject);
 
   return (
     <FunktionSwitcher

@@ -1,18 +1,18 @@
 import {
   bewerbungenPatchEinwilligung,
-  teamsEinladenKontakt,
+  teamsInviteKontakt,
   teamsPatchEinwilligung,
   teamsPatchSaisonTeamKontakte,
 } from "@/core/generated/client/sdk";
 
 import type {
-  FLBewerbungKontoEinwilligungResponse,
-  FLKontaktEinladenResponse,
+  FLBewerbungAccountEinwilligungResponse,
+  FLKontaktInviteResponse,
   FLKontaktRolle,
   FLPatchSaisonTeamKontaktePayload,
   FLPatchSaisonTeamKontakteResponse,
-  FLSaisonTeamKontoEinwilligungResponse,
-  FLSitzEinwilligungPayload,
+  FLSaisonTeamAccountEinwilligungResponse,
+  FLSeatEinwilligungPayload,
 } from "@/core/generated/client/types";
 
 // Both ids go in the PATH, as every junction write spells them — a backend payload model that saw
@@ -35,8 +35,8 @@ export async function einladeKontakt({
   team_id: string;
   saison_id: string;
   rolle: FLKontaktRolle;
-}): Promise<FLKontaktEinladenResponse> {
-  return teamsEinladenKontakt(team_id, saison_id, rolle);
+}): Promise<FLKontaktInviteResponse> {
+  return teamsInviteKontakt(team_id, saison_id, rolle);
 }
 
 // A seat holder's own two choices, under the person lane's actor: the backend moves them on every seat
@@ -44,8 +44,8 @@ export async function einladeKontakt({
 export async function patchSitzEinwilligung(
   teamId: string,
   saisonId: string,
-  payload: FLSitzEinwilligungPayload,
-): Promise<FLSaisonTeamKontoEinwilligungResponse> {
+  payload: FLSeatEinwilligungPayload,
+): Promise<FLSaisonTeamAccountEinwilligungResponse> {
   return teamsPatchEinwilligung(teamId, saisonId, payload);
 }
 
@@ -53,7 +53,7 @@ export async function patchSitzEinwilligung(
 // every seat of theirs on it and takes a withdrawal alone, a grant being the confirmation page's.
 export async function patchBewerbungEinwilligung(
   bewerbungId: string,
-  payload: FLSitzEinwilligungPayload,
-): Promise<FLBewerbungKontoEinwilligungResponse> {
+  payload: FLSeatEinwilligungPayload,
+): Promise<FLBewerbungAccountEinwilligungResponse> {
   return bewerbungenPatchEinwilligung(bewerbungId, payload);
 }

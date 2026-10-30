@@ -12,19 +12,14 @@ import { loeschenAufAnfrage, readLoeschungAnsicht, recordAbmeldung } from "./mut
 import { mapAbmeldungRefusal, mapLoeschungAufAnfrageRefusal } from "./refusals";
 import { FLLoeschungAdressePayloadSchema, FLLoeschungPayloadSchema } from "./schemas";
 
-import type {
-  FLLoeschungAdressePayload,
-  FLLoeschungAnsichtResponse,
-  FLLoeschungPayload,
-  FLLoeschungResponse,
-} from "@/core/generated/client/types";
+import type { FLErasureAdressePayload, FLErasurePayload, FLErasureResponse, FLErasureViewResponse } from "@/core/generated/client/types";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
 
 /** What became of the address's sign-in account once its league records were gone. */
 export type KontoNachLoeschung = "geloescht" | "keines" | "nichtGeloescht" | "unklar";
 
 /** Whether the erasure removed or emptied anything, read off every count it answers, one added later included. */
-const loeschteEtwas = (anzahlen: FLLoeschungResponse): boolean => Object.values(anzahlen).some((anzahl) => anzahl > 0);
+const loeschteEtwas = (anzahlen: FLErasureResponse): boolean => Object.values(anzahlen).some((anzahl) => anzahl > 0);
 
 /**
  * The account's deletion, once the backend has answered. A failure leaves the records gone and the account standing,
@@ -35,7 +30,7 @@ async function kontoLoeschen(email: string): Promise<KontoNachLoeschung> {
     return (await deleteAccountFor(email)) ? "geloescht" : "keines";
   } catch (failed) {
     // The NAME alone: a failure in the sign-in store routinely carries the address.
-    logger.error("funktionen.erasure_account_not_deleted", undefined, {
+    logger.error("roles.erasure_account_not_deleted", undefined, {
       name: failed instanceof Error ? failed.name : "unknown",
     });
     // A rollback leaves the account standing; any other failure may be its commit's, landed or not.
@@ -72,8 +67,8 @@ function loeschungSatz(konto: KontoNachLoeschung, gespeichert: boolean, spiele: 
  * before anyone confirms a press the backend would turn away.
  */
 export async function readLoeschungAnsichtAction(
-  rawPayload: FLLoeschungAdressePayload,
-): Promise<QueryResult<{ ansicht: FLLoeschungAnsichtResponse }>> {
+  rawPayload: FLErasureAdressePayload,
+): Promise<QueryResult<{ ansicht: FLErasureViewResponse }>> {
   return runAdminMutation("readLoeschungAnsichtAction", async () => {
     const validated = FLLoeschungAdressePayloadSchema.safeParse(rawPayload);
 
@@ -100,7 +95,7 @@ export async function readLoeschungAnsichtAction(
  * **Permanent, with no undo**, and mailing nobody: the request it answers arrived by mail, outside this site.
  */
 export async function loeschenAufAnfrageAction(
-  rawPayload: FLLoeschungPayload,
+  rawPayload: FLErasurePayload,
 ): Promise<ActionResult<{ konto: KontoNachLoeschung; gespeichert: boolean }>> {
   return runAdminMutation("loeschenAufAnfrageAction", { stepUp: true }, async (session) => {
     const validated = FLLoeschungPayloadSchema.safeParse(rawPayload);
@@ -113,7 +108,7 @@ export async function loeschenAufAnfrageAction(
       };
     }
 
-    let loeschung: FLLoeschungResponse;
+    let loeschung: FLErasureResponse;
     try {
       // A grant holder's address is held to the enrolment's window on both servers, so a
       // grant written since the panel's read is refused here too. Read only for a session past that window.
@@ -147,7 +142,7 @@ const ANMELDUNGEN_NICHT_BEENDET = "Laufende Anmeldungen der Adresse konnten nich
  * Ends every session of an address without barring it and without a mail. A step-up
  * write: nothing brings an ended session back, and unasked, a stolen session could sign administrators out again and again.
  */
-export async function endAnmeldungenAction(rawPayload: FLLoeschungAdressePayload): Promise<ActionResult<{ konto: boolean }>> {
+export async function endAnmeldungenAction(rawPayload: FLErasureAdressePayload): Promise<ActionResult<{ konto: boolean }>> {
   return runAdminMutation("endAnmeldungenAction", { stepUp: true }, async () => {
     const validated = FLLoeschungAdressePayloadSchema.safeParse(rawPayload);
 
@@ -173,7 +168,7 @@ export async function endAnmeldungenAction(rawPayload: FLLoeschungAdressePayload
       konto = await endSessionsOfAddress(validated.data.email);
     } catch (failed) {
       // The NAME alone, as the ban's own sign-out logs it: the address must reach no line.
-      logger.error("funktionen.sessions_not_ended", undefined, {
+      logger.error("roles.sessions_not_ended", undefined, {
         name: failed instanceof Error ? failed.name : "unknown",
       });
       return { success: false, error: ANMELDUNGEN_NICHT_BEENDET };

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { mailOrigin } from "./emailShell";
-import { formatZeitpunkt } from "./format";
+import { formatInstant } from "./format";
 
 import type { Mail, Satz } from "./emailShell";
 
@@ -13,7 +13,7 @@ interface Ereignis {
 
 const HINZUGEFUEGT: Ereignis = {
   betreff: "Neuer Passkey für Dein Konto",
-  saetze: (zeit) => [["Deinem Konto wurde am ", { stark: zeit }, " ein Passkey hinzugefügt."]],
+  saetze: (zeit) => [["Deinem Konto wurde am ", { strong: zeit }, " ein Passkey hinzugefügt."]],
 };
 
 const GELOESCHT: Ereignis = {
@@ -21,7 +21,7 @@ const GELOESCHT: Ereignis = {
   // Only the devices that passkey signed in: a removal ends the sessions carrying its credential and
   // leaves every other standing (`fl_frontend/src/core/auth.ts :: removePasskey`).
   saetze: (zeit) => [
-    ["Von Deinem Konto wurde am ", { stark: zeit }, " ein Passkey gelöscht."],
+    ["Von Deinem Konto wurde am ", { strong: zeit }, " ein Passkey gelöscht."],
     "Geräte, die damit angemeldet waren, wurden abgemeldet.",
   ],
 };
@@ -34,12 +34,12 @@ function build(ereignis: Ereignis, { zeitpunkt, origin, konto }: Anlass): Mail {
 
   return {
     art: "sicherheit",
-    betreff: ereignis.betreff,
+    subjectLine: ereignis.betreff,
     origin: site,
     vorname: "",
-    absaetze: [ereignis.saetze(formatZeitpunkt(zeitpunkt))],
+    absaetze: [ereignis.saetze(formatInstant(zeitpunkt))],
     // The reader's own account page, which is the only place either event can be acted on.
-    aktion: { label: "Zu Deinem Konto", href: `${site}${konto}` },
+    button: { label: "Zu Deinem Konto", href: `${site}${konto}` },
   };
 }
 

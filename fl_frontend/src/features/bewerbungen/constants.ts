@@ -1,4 +1,4 @@
-import { rollenText } from "@/core/teamVokabular";
+import { rollenText } from "@/core/teamVocabulary";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
 import type { FLBewerbungStatus } from "@/core/generated/client/types";
@@ -27,9 +27,9 @@ type BewerbungStatusOption = {
  * here as one fact, so no two surfaces can name one state differently.
  */
 export const BEWERBUNG_STATUS_OPTIONS: readonly BewerbungStatusOption[] = [
-  { value: "eingereicht", label: "Eingereicht" },
-  { value: "angenommen", label: "Angenommen" },
-  { value: "abgelehnt", label: "Abgelehnt" },
+  { value: "submitted", label: "Eingereicht" },
+  { value: "accepted", label: "Angenommen" },
+  { value: "declined", label: "Abgelehnt" },
 ];
 
 export function bewerbungStatusLabel(status: FLBewerbungStatus): string {
@@ -42,9 +42,9 @@ export function bewerbungStatusLabel(status: FLBewerbungStatus): string {
  * seat's Widerspruch already wears.
  */
 export const BEWERBUNG_STATUS_TINT: Record<FLBewerbungStatus, PillTone> = {
-  eingereicht: "info",
-  angenommen: "success",
-  abgelehnt: "danger",
+  submitted: "info",
+  accepted: "success",
+  declined: "danger",
 };
 
 /** Which of the two things an application asks the league to enter: a school it does not hold yet, or a club it does. */
@@ -102,7 +102,7 @@ export const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
 
 /**
  * Every seat a contact person holds on one row, as the one phrase the contact page, the account page and the mails
- * name them by (`fl_frontend/src/core/teamVokabular.ts :: rollenText`); an emptied seat names nobody.
+ * name them by (`fl_frontend/src/core/teamVocabulary.ts :: rollenText`); an emptied seat names nobody.
  */
 export const rollenLangform = (rollen: readonly (KontaktRolle | null)[]): string =>
   rollenText(rollen.filter((rolle): rolle is KontaktRolle => rolle !== null));

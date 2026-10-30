@@ -12,11 +12,11 @@ import {
   zusageHindernis,
 } from "./bestaetigungStand.ts";
 
-import type { FLBewerbung, FLBewerbungBestaetigung, FLPostausgangZustellStand } from "@/core/generated/client/types.ts";
+import type { FLBewerbung, FLBewerbungConfirmation, FLOutboxDeliveryStand } from "@/core/generated/client/types.ts";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { SitzBestaetigung } from "./bestaetigungStand.ts";
 
-type Sitze = Pick<FLBewerbung, "bestaetigungen" | "kontakte" | "status">;
+type Sitze = Pick<FLBewerbung, "confirmations" | "kontakte" | "status">;
 type Person = FLBewerbung["kontakte"]["trainer"];
 
 /** A seat whose person answered on `bestaetigtAm`, or has not answered at all where that is null. */
@@ -30,7 +30,7 @@ function person(vorname: string, bestaetigtAm: string | null): Person {
     einwilligung: kenntnisnahme({
       text_version: "2026-09-bestaetigungsseite",
       datum: "2026-09-01",
-      bestaetigt_am: bestaetigtAm,
+      confirmed_at: bestaetigtAm,
     }),
   };
 }
@@ -38,18 +38,18 @@ function person(vorname: string, bestaetigtAm: string | null): Person {
 /** A club the application names, so a case about seats is not answered by the club rule ahead of them. */
 const TEAM = "Lessing-Kolleg";
 
-const OFFEN: FLBewerbungBestaetigung = {
-  verschickt_am: "2026-09-01",
-  erinnert_am: null,
-  abgelehnt_am: null,
-  zustellung: null,
+const OFFEN: FLBewerbungConfirmation = {
+  sent_at: "2026-09-01",
+  reminded_at: null,
+  declined_at: null,
+  delivery: null,
 };
-const ABGELEHNT: FLBewerbungBestaetigung = { ...OFFEN, abgelehnt_am: "2026-09-04" };
+const ABGELEHNT: FLBewerbungConfirmation = { ...OFFEN, declined_at: "2026-09-04" };
 
 /** What the last mail to a seat reached, as the provider's events leave it on its Postausgang row and the read judges it. */
-const zugestellt = (stand: FLPostausgangZustellStand, unzustellbar: boolean): FLBewerbungBestaetigung => ({
+const zugestellt = (stand: FLOutboxDeliveryStand, unzustellbar: boolean): FLBewerbungConfirmation => ({
   ...OFFEN,
-  zustellung: { stand: "gesendet", zustellung: { stand: stand, grund: null, am: "2026-09-01T10:15:00.000Z" }, unzustellbar: unzustellbar },
+  delivery: { stand: "sent", delivery: { stand: stand, grund: null, am: "2026-09-01T10:15:00.000Z" }, undeliverable: unzustellbar },
 });
 
 /** Three seats, each named by the state it is in, so a case says its own fixture. */
@@ -58,14 +58,14 @@ function seatsOf({
   stellvertretung = person("Bernd", null),
   trainer = person("Clara", null),
   zugleich = null,
-  bestaetigungen = { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: OFFEN },
-  status = "eingereicht",
+  confirmations: bestaetigungen = { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: OFFEN },
+  status = "submitted",
 }: {
   ansprechperson?: Person;
   stellvertretung?: Person;
   trainer?: Person;
   zugleich?: "ansprechperson" | "stellvertretung" | null;
-  bestaetigungen?: Sitze["bestaetigungen"];
+  confirmations?: Sitze["confirmations"];
   status?: Sitze["status"];
 } = {}): Sitze {
   return {
@@ -73,9 +73,9 @@ function seatsOf({
       ansprechperson: ansprechperson,
       stellvertretung: stellvertretung,
       trainer: trainer,
-      trainer_ist_zugleich: zugleich,
+      trainer_is_also: zugleich,
     },
-    bestaetigungen: bestaetigungen,
+    confirmations: bestaetigungen,
     status: status,
   };
 }
@@ -95,7 +95,7 @@ const seatOf = (stands: readonly SitzBestaetigung[], rolle: KontaktRolle): SitzB
    slot and the bookkeeping entry beside it are nulled in one update. */
 const GELOESCHT = seatsOf({
   ansprechperson: null,
-  bestaetigungen: { ansprechperson: null, stellvertretung: OFFEN, trainer: OFFEN },
+  confirmations: { ansprechperson: null, stellvertretung: OFFEN, trainer: OFFEN },
 });
 
 describe("a seat an erasure emptied", () => {
@@ -104,7 +104,7 @@ describe("a seat an erasure emptied", () => {
   it("is its own terminal state rather than an outstanding one", () => {
     const seat2 = seatOf(standsOf2(GELOESCHT), "ansprechperson");
 
-    expect(seat2.stand.art).toBe("geloescht");
+    expect(seat2.stand.art).toBe("erased");
     expect(seat2.satz).toBe("Keine Bestätigung mehr möglich");
     expect(seat2.name).toBe(null);
   });
@@ -114,7 +114,7 @@ describe("a seat an erasure emptied", () => {
   it("says how it came to be empty, and not merely that it is", () => {
     const declined = seatsOf({
       ansprechperson: null,
-      bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
+      confirmations: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
     });
 
     expect(seatOf(standsOf2(GELOESCHT), "ansprechperson").nameSatz).toBe("Auf eigenen Wunsch gelöscht");
@@ -140,7 +140,7 @@ describe("a seat an erasure emptied", () => {
   it("closes the Zusage harder than a Widerspruch does", () => {
     const declined = seatsOf({
       ansprechperson: null,
-      bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
+      confirmations: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
     });
 
     expect(zusageHindernis(standsOf2(GELOESCHT), TEAM)).toBe(
@@ -157,7 +157,7 @@ describe("a seat an erasure emptied", () => {
     const bothSeats = seatsOf({
       ansprechperson: null,
       stellvertretung: null,
-      bestaetigungen: { ansprechperson: null, stellvertretung: ABGELEHNT, trainer: OFFEN },
+      confirmations: { ansprechperson: null, stellvertretung: ABGELEHNT, trainer: OFFEN },
     });
 
     expect(zusageHindernis(standsOf2(bothSeats), TEAM) ?? "").toMatch(/nur noch abgelehnt/);
@@ -178,7 +178,7 @@ describe("a seat an erasure emptied", () => {
 describe("the seats another person may be put in", () => {
   const DECLINED = seatsOf({
     ansprechperson: null,
-    bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
+    confirmations: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
   });
 
   /* `seat_awaits_a_replacement` parts the two empty slots by the day the decline left in the entry
@@ -196,7 +196,7 @@ describe("the seats another person may be put in", () => {
       ansprechperson: null,
       trainer: null,
       zugleich: "ansprechperson",
-      bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: ABGELEHNT },
+      confirmations: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: ABGELEHNT },
     });
 
     expect([...sitzAngebot(standsOf2(paar))]).toStrictEqual(["trainer"]);
@@ -211,23 +211,23 @@ describe("the seats another person may be put in", () => {
       seatsOf({
         ansprechperson: null,
         zugleich: "ansprechperson",
-        bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
+        confirmations: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
       }),
       seatsOf({
         ansprechperson: null,
         zugleich: "ansprechperson",
-        bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: null },
+        confirmations: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: null },
       }),
       // The TRAINER stepped out, beside a mirror in those same two states.
       seatsOf({
         trainer: null,
         zugleich: "ansprechperson",
-        bestaetigungen: { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: ABGELEHNT },
+        confirmations: { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: ABGELEHNT },
       }),
       seatsOf({
         trainer: null,
         zugleich: "ansprechperson",
-        bestaetigungen: { ansprechperson: null, stellvertretung: OFFEN, trainer: ABGELEHNT },
+        confirmations: { ansprechperson: null, stellvertretung: OFFEN, trainer: ABGELEHNT },
       }),
     ];
 
@@ -242,7 +242,7 @@ describe("the seats another person may be put in", () => {
     const trainerGone = seatsOf({
       trainer: null,
       zugleich: "ansprechperson",
-      bestaetigungen: { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: null },
+      confirmations: { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: null },
     });
 
     expect([...linkAngebot(standsOf2(trainerGone))].sort()).toStrictEqual(["ansprechperson", "stellvertretung"]);
@@ -252,7 +252,7 @@ describe("the seats another person may be put in", () => {
 describe("what a seat's own refusal is called", () => {
   const DECLINED = seatsOf({
     ansprechperson: null,
-    bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
+    confirmations: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
   });
 
   /* „Abgelehnt am …“ beside the status „Abgelehnt“ put a seat's refusal and the league's own
@@ -275,7 +275,7 @@ describe("what a seat's own refusal is called", () => {
 describe("what the queue says of an application no answer can complete", () => {
   const DECLINED = seatsOf({
     ansprechperson: null,
-    bestaetigungen: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
+    confirmations: { ansprechperson: ABGELEHNT, stellvertretung: OFFEN, trainer: OFFEN },
   });
 
   /* „2 von 3 bestätigt“ over a row whose third seat is gone sends an administrator waiting for an
@@ -291,7 +291,7 @@ describe("what the queue says of an application no answer can complete", () => {
     const bothSeats = seatsOf({
       ansprechperson: null,
       stellvertretung: null,
-      bestaetigungen: { ansprechperson: null, stellvertretung: ABGELEHNT, trainer: OFFEN },
+      confirmations: { ansprechperson: null, stellvertretung: ABGELEHNT, trainer: OFFEN },
     });
 
     expect(endstand(standsOf2(bothSeats))).toBe("Widerspruch");
@@ -358,7 +358,7 @@ describe("the reason the Zusage is closed", () => {
       ansprechperson: person("Doreen", "2026-09-06"),
       stellvertretung: person("Bernd", "2026-09-03"),
       trainer: person("Clara", "2026-09-03"),
-      bestaetigungen: { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: OFFEN },
+      confirmations: { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: OFFEN },
     });
 
     expect(zusageHindernis(standsOf2(wiederBesetzt), TEAM)).toBe(null);
@@ -383,7 +383,7 @@ describe("the two seats one person holds", () => {
       ansprechperson: twinned,
       trainer: null,
       zugleich: "ansprechperson",
-      bestaetigungen: { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: null },
+      confirmations: { ansprechperson: OFFEN, stellvertretung: OFFEN, trainer: null },
     });
 
     expect([...linkAngebot(standsOf2(trainerGone))].sort()).toStrictEqual(["ansprechperson", "stellvertretung"]);
@@ -396,17 +396,17 @@ describe("what became of the last message to a seat", () => {
   it("stands beside the seat's own answer rather than inside it", () => {
     const confirmedAfterBounce = seatsOf({
       ansprechperson: person("Anna", "2026-09-02"),
-      bestaetigungen: { ansprechperson: zugestellt("unzustellbar", true), stellvertretung: OFFEN, trainer: OFFEN },
+      confirmations: { ansprechperson: zugestellt("undeliverable", true), stellvertretung: OFFEN, trainer: OFFEN },
     });
 
     const seat2 = seatOf(standsOf2(confirmedAfterBounce), "ansprechperson");
 
-    expect(seat2.stand.art).toBe("bestaetigt");
-    expect(seat2.zustellung?.zustellung?.stand).toBe("unzustellbar");
+    expect(seat2.stand.art).toBe("confirmed");
+    expect(seat2.delivery?.delivery?.stand).toBe("undeliverable");
   });
 
   it("is null on a seat no mail was owed", () => {
-    expect(seatOf(standsOf2(seatsOf()), "ansprechperson").zustellung).toBe(null);
+    expect(seatOf(standsOf2(seatsOf()), "ansprechperson").delivery).toBe(null);
   });
 
   /* The address is the value the correction control edits and the thing the delivery chip is about,
@@ -429,8 +429,8 @@ describe("a seat nobody answered on an application already decided", () => {
   const ENTSCHIEDEN = seatsOf({
     ansprechperson: person("Anna", "2026-09-02"),
     stellvertretung: null,
-    bestaetigungen: { ansprechperson: OFFEN, stellvertretung: ABGELEHNT, trainer: OFFEN },
-    status: "abgelehnt",
+    confirmations: { ansprechperson: OFFEN, stellvertretung: ABGELEHNT, trainer: OFFEN },
+    status: "declined",
   });
 
   /* `link_is_over` answers true for every decided application, so „Ausstehend, Link gesendet am …“
@@ -457,7 +457,7 @@ describe("a seat nobody answered on an application already decided", () => {
   /* The count is still over the seats that confirmed, and the queue's chip names only what a person
      did: a decision the league took is the row's own status badge. */
   it("counts as unconfirmed, is offered no link, and adds no chip to the queue", () => {
-    const openOnly = standsOf2(seatsOf({ status: "angenommen" }));
+    const openOnly = standsOf2(seatsOf({ status: "accepted" }));
 
     expect(openOnly.filter(istOffen).length).toBe(3);
     expect([...linkAngebot(openOnly)]).toStrictEqual([]);
@@ -466,7 +466,7 @@ describe("a seat nobody answered on an application already decided", () => {
 });
 
 describe("what the strip says of an incomplete application's deadline", () => {
-  const OFFEN_UND_FRIST = { staende: standsOf2(seatsOf()), frist: "2026-09-07", eingereicht: true } as const;
+  const OFFEN_UND_FRIST = { staende: standsOf2(seatsOf()), frist: "2026-09-07", submitted: true } as const;
 
   /* The read judges the deadline's own day as running, as the sweep does, so the sentence follows the
      read alone: a date this browser holds decides nothing. */
@@ -487,10 +487,10 @@ describe("what the strip says of an incomplete application's deadline", () => {
      it on either side of the deadline. Only the Ansprechperson's seat holds it: the notice goes there. */
   it("promises no deletion while the Ansprechperson cannot be written to", () => {
     const heldOpen = standsOf2(
-      seatsOf({ bestaetigungen: { ansprechperson: zugestellt("unterdrueckt", true), stellvertretung: OFFEN, trainer: OFFEN } }),
+      seatsOf({ confirmations: { ansprechperson: zugestellt("suppressed", true), stellvertretung: OFFEN, trainer: OFFEN } }),
     );
     const otherPerson = standsOf2(
-      seatsOf({ bestaetigungen: { ansprechperson: OFFEN, stellvertretung: zugestellt("unzustellbar", true), trainer: OFFEN } }),
+      seatsOf({ confirmations: { ansprechperson: OFFEN, stellvertretung: zugestellt("undeliverable", true), trainer: OFFEN } }),
     );
 
     expect(loeschungsSatz({ ...OFFEN_UND_FRIST, staende: heldOpen, istAbgelaufen: true })).toBe(
@@ -504,7 +504,7 @@ describe("what the strip says of an incomplete application's deadline", () => {
       loeschungsSatz({
         ...OFFEN_UND_FRIST,
         staende: standsOf2(
-          seatsOf({ bestaetigungen: { ansprechperson: zugestellt("verzoegert", false), stellvertretung: OFFEN, trainer: OFFEN } }),
+          seatsOf({ confirmations: { ansprechperson: zugestellt("delayed", false), stellvertretung: OFFEN, trainer: OFFEN } }),
         ),
         istAbgelaufen: true,
       }) ?? "",
@@ -514,7 +514,7 @@ describe("what the strip says of an incomplete application's deadline", () => {
 
   /* The sweep reads `eingereicht` alone, so a decided application is never deleted on this clock. */
   it("says nothing where the deletion clock does not reach the application", () => {
-    expect(loeschungsSatz({ ...OFFEN_UND_FRIST, eingereicht: false, istAbgelaufen: false })).toBe(null);
+    expect(loeschungsSatz({ ...OFFEN_UND_FRIST, submitted: false, istAbgelaufen: false })).toBe(null);
 
     const allSeats = standsOf2(
       seatsOf({

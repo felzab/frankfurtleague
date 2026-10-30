@@ -3,7 +3,7 @@ import { inspect } from "node:util";
 
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Code, FLPostausgangEreignisPayload } from "@/core/generated/client/types.ts";
+import type { Code, FLOutboxEventPayload } from "@/core/generated/client/types.ts";
 
 /** Its own throwaway, minted per run: this file signs the events it verifies. */
 const webhookSecret = `whsec_${randomBytes(24).toString("base64")}`;
@@ -16,10 +16,10 @@ type LoggedLine = { level: string; message: string; meta?: Record<string, unknow
 const logs: LoggedLine[] = [];
 
 /** Every event the route handed the Postausgang. */
-const forwarded: FLPostausgangEreignisPayload[] = [];
+const forwarded: FLOutboxEventPayload[] = [];
 
 /** What the backend answers a forwarded event, or throws for it; a case names another for itself. */
-let answer: () => unknown = () => ({ angewendet: true });
+let answer: () => unknown = () => ({ applied: true });
 
 vi.doMock("@/core/config.ts", () => ({ resendWebhookSecret: () => heldSecret }));
 vi.doMock("@/core/logging.ts", () => ({
@@ -32,7 +32,7 @@ vi.doMock("@/core/logging.ts", () => ({
 // `next/headers` is request-only and throws outside one, so the real scope cannot run here.
 vi.doMock("@/shared/utils/traceScope.ts", () => ({ runWithIncomingTrace: async (fn: () => unknown) => fn() }));
 vi.doMock("@/core/generated/client/sdk.ts", () => ({
-  postausgangPostEreignis: async (payload: FLPostausgangEreignisPayload) => {
+  outboxPostEvent: async (payload: FLOutboxEventPayload) => {
     forwarded.push(payload);
     return answer();
   },
@@ -59,15 +59,15 @@ function eventFor(type: string, data: Record<string, unknown> = {}): Record<stri
       created_at: MESSAGE_AT,
       to: [ADDRESS],
       subject: "Bitte bestätige Deine Angaben",
-      tags: { postausgang_id: ROW_ID },
+      tags: { outbox_id: ROW_ID },
       ...data,
     },
   };
 }
 
 /** One signed request, as the provider sends it: the signature is over the bytes in the body. */
-function signed(payload: string, { alter = 0, headers = {} }: { alter?: number; headers?: Record<string, string> } = {}) {
-  const stamp = new Date(Date.now() - alter);
+function signed(payload: string, { age = 0, headers = {} }: { age?: number; headers?: Record<string, string> } = {}) {
+  const stamp = new Date(Date.now() - age);
   const id = "msg_2xyzABC";
 
   return new NextRequest("http://localhost/api/mail/zustellung", {
@@ -88,7 +88,7 @@ async function statusFor(event: Record<string, unknown>): Promise<number> {
 }
 
 /** The state and reason the route forwarded for one event, or `undefined` where it forwarded nothing. */
-async function forwardedFor(event: Record<string, unknown>): Promise<Pick<FLPostausgangEreignisPayload, "stand" | "grund"> | undefined> {
+async function forwardedFor(event: Record<string, unknown>): Promise<Pick<FLOutboxEventPayload, "stand" | "grund"> | undefined> {
   forwarded.length = 0;
   await statusFor(event);
   const [payload] = forwarded;
@@ -108,7 +108,7 @@ const NETWORK_FAILURE = () =>
 beforeEach(() => {
   logs.length = 0;
   forwarded.length = 0;
-  answer = () => ({ angewendet: true });
+  answer = () => ({ applied: true });
 });
 
 describe("what one delivery event leaves on its Postausgang row", () => {
@@ -119,14 +119,14 @@ describe("what one delivery event leaves on its Postausgang row", () => {
       signed(
         JSON.stringify(
           eventFor("email.bounced", {
-            tags: { postausgang_id: ROW_ID, bewerbung_id: `${"a".repeat(23)}1`, rollen: "ansprechperson" },
+            tags: { outbox_id: ROW_ID, bewerbung_id: `${"a".repeat(23)}1`, rollen: "ansprechperson" },
             bounce: { type: "Permanent", subType: "Suppressed" },
           }),
         ),
       ),
     );
 
-    const expected: FLPostausgangEreignisPayload = { id: ROW_ID, stand: "unzustellbar", grund: "Suppressed", am: EVENT_AT };
+    const expected: FLOutboxEventPayload = { id: ROW_ID, stand: "undeliverable", grund: "Suppressed", am: EVENT_AT };
     expect(res.status).toBe(200);
     expect(forwarded).toStrictEqual([expected]);
   });
@@ -148,13 +148,13 @@ describe("what one delivery event leaves on its Postausgang row", () => {
     }
 
     expect(readBack).toStrictEqual([
-      { stand: "zugestellt", grund: null },
-      { stand: "unzustellbar", grund: "Suppressed" },
-      { stand: "verzoegert", grund: "MailboxFull" },
-      { stand: "unterdrueckt", grund: "OnAccountSuppressionList" },
-      { stand: "beschwerde", grund: null },
-      { stand: "verzoegert", grund: null },
-      { stand: "verzoegert", grund: "reached_daily_quota" },
+      { stand: "delivered", grund: null },
+      { stand: "undeliverable", grund: "Suppressed" },
+      { stand: "delayed", grund: "MailboxFull" },
+      { stand: "suppressed", grund: "OnAccountSuppressionList" },
+      { stand: "complaint", grund: null },
+      { stand: "delayed", grund: null },
+      { stand: "delayed", grund: "reached_daily_quota" },
     ]);
   });
 
@@ -162,11 +162,11 @@ describe("what one delivery event leaves on its Postausgang row", () => {
      the provider wrote it would be a bounce recorded nowhere. */
   it("keeps the state and drops a reason the endpoint would refuse, never the provider's prose", async () => {
     expect(await forwardedFor(eventFor("email.failed", { failed: { reason: "Q".repeat(129) } }))).toStrictEqual({
-      stand: "verzoegert",
+      stand: "delayed",
       grund: null,
     });
     expect(await forwardedFor(eventFor("email.failed", { failed: { reason: "quota\nexceeded" } }))).toStrictEqual({
-      stand: "verzoegert",
+      stand: "delayed",
       grund: null,
     });
 
@@ -249,7 +249,7 @@ describe("POST /api/mail/zustellung's signature", () => {
     }
 
     expect(forwarded).toStrictEqual([]);
-    expect(logs.map(({ message }) => message)).toStrictEqual(["mail.zustellung_unsigniert"]);
+    expect(logs.map(({ message }) => message)).toStrictEqual(["mail.delivery_unsigned"]);
   });
 
   /* The verifier's own tolerance is five minutes either way, read from the installed `standardwebhooks` module's
@@ -257,8 +257,8 @@ describe("POST /api/mail/zustellung's signature", () => {
   it("answers 400 for a signature older than the verifier's tolerance", async () => {
     const body = JSON.stringify(eventFor("email.delivered"));
 
-    expect((await POST(signed(body, { alter: 4 * 60 * 1000 }))).status, "a signature inside the tolerance was refused").toBe(200);
-    expect((await POST(signed(body, { alter: 6 * 60 * 1000 }))).status).toBe(400);
+    expect((await POST(signed(body, { age: 4 * 60 * 1000 }))).status, "a signature inside the tolerance was refused").toBe(200);
+    expect((await POST(signed(body, { age: 6 * 60 * 1000 }))).status).toBe(400);
   });
 });
 
@@ -279,7 +279,7 @@ describe("POST /api/mail/zustellung where the backend does not take the event", 
         url: "http://backend:8000",
         statusCode,
         serverErrorCode,
-        endpoint: "/postausgang/ereignis",
+        endpoint: "/outbox/event",
         method: "POST",
         readOnly: false,
         traceId: "t".repeat(32),
@@ -296,7 +296,7 @@ describe("POST /api/mail/zustellung where the backend does not take the event", 
       expect(await answered(badStatus(statusCode, code)), `${String(code)} at ${String(statusCode)} settled the event`).toBe(503);
     }
     expect(await answered(NETWORK_FAILURE())).toBe(503);
-    expect(new Set(logs.map(({ level, message }) => `${level} ${message}`))).toStrictEqual(new Set(["error mail.zustellung_ungeschrieben"]));
+    expect(new Set(logs.map(({ level, message }) => `${level} ${message}`))).toStrictEqual(new Set(["error mail.delivery_unwritten"]));
   });
 
   /* The tag block carries the row's id and the body the recipient. Asserted over the whole line, so a field added later

@@ -1,5 +1,5 @@
-import { doublePostausgang } from "@/test-support/mailDouble.ts";
-import { answerAt, deepFrozen, NO_RECORDS, SITZ } from "@/test-support/subjectFixtures.ts";
+import { doubleOutbox } from "@/test-support/mailDouble.ts";
+import { answerAt, deepFrozen, NO_RECORDS, SEAT } from "@/test-support/subjectFixtures.ts";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { ObjectId } from "mongodb";
 import { afterAll, assert, vi } from "vitest";
@@ -94,10 +94,10 @@ type AuthDoubles = {
  * builds on, and the lookup its grant is read over. Test-only, which `no-restricted-imports` in
  * `fl_frontend/eslint.config.mjs` holds it to.
  */
-export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles = {}): ReturnType<typeof doublePostausgang> {
+export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles = {}): ReturnType<typeof doubleOutbox> {
   // The mailer is always `doublePostausgang`'s, whose record this answers. A second one is refused rather
   // than layered: two mailer hooks answer by registration order, and a suite would read whichever came last.
-  if ("mail" in core) throw new Error("The mailer is doublePostausgang's: read the record registerAuthDoubles answers.");
+  if ("mail" in core) throw new Error("The mailer is doubleOutbox's: read the record registerAuthDoubles answers.");
   const modules = Object.entries({ config: configDouble(), db: DB_DOUBLE, ...core }).map(([name, double]): [string, ModuleDouble] => [
     `@/core/${name}.ts`,
     double,
@@ -113,7 +113,7 @@ export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles 
     vi.doMock(specifier, typeof double === "function" ? double : () => double);
   }
 
-  return doublePostausgang();
+  return doubleOutbox();
 }
 
 /** How long a held write or read waits for the requests racing it, in both db-tier suites. */
@@ -244,7 +244,7 @@ export const GATE_BACKEND_CONFIG = {
 export const HOLDS_NOTHING = NO_RECORDS;
 
 /** `ADMIN_EMAIL`'s answer: a grant and no league record, which is what makes it an administrator, dated before any session a case makes. */
-const GRANTED = deepFrozen({ ...HOLDS_NOTHING, verwaltung: "administration" as const, berechtigt_seit: "2026-01-01T00:00:00Z", konto: false });
+const GRANTED = deepFrozen({ ...HOLDS_NOTHING, verwaltung: "administration" as const, granted_since: "2026-01-01T00:00:00Z", account: false });
 
 /** Whether a suite's lookup answer is installed, which `registerAuthDoubles`' default must not replace. */
 let lookupAnswered = false;
@@ -277,7 +277,7 @@ function answerTheLookup(answerFor: (email: string) => LookupFixture | null): vo
  * address `granted` names, so a suite minting a person's session gets past the gate at session creation.
  */
 export function seatEveryAddress(granted: readonly string[] = [ADMIN_EMAIL]): void {
-  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : HOLDS_NOTHING), sitze: [SITZ], konto: true }));
+  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : HOLDS_NOTHING), seats: [SEAT], account: true }));
 }
 
 /**

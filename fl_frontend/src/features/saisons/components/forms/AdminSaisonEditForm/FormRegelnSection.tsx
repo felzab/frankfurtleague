@@ -54,7 +54,7 @@ const SHAPE_NOTE: Record<SpielplanWindowState, string> = {
 };
 
 /**
- * **`erlaubte_stufen` narrows what a squad form OFFERS and never what a stored row holds.** No
+ * **`allowed_stufen` narrows what a squad form OFFERS and never what a stored row holds.** No
  * validator holds `saison_spieler.stufe` against a season's list, deliberately: narrowing a season
  * must not retroactively invalidate a season already played.
  *
@@ -90,7 +90,7 @@ export function FormRegelnSection({
   /**
    * Whether the season's fixtures exist, which freezes the three they were drawn from
    * (`rules_shape_after_spielplan`). Not a later stage of the freeze above: a season is drawn long before it is
-   * over, and `qualifiers_per_group` is in both.
+   * over, and `qualifiers_per_gruppe` is in both.
    */
   isDrawnSaison: boolean;
   /**
@@ -222,46 +222,46 @@ export function FormRegelnSection({
               stepper between them takes its floor from whichever count stands beside it. */}
           <div className={FIELD_TRIO_CLASSES}>
             <SaisonCountSelect
-              name="rules.number_of_groups"
+              name="rules.number_of_gruppen"
               isDisabled={isDrawnSaison}
               ariaLabel="Gruppen"
-              label={<FieldLabel<SaisonFieldPath> path="rules.number_of_groups">Gruppen</FieldLabel>}
-              value={rules.number_of_groups}
+              label={<FieldLabel<SaisonFieldPath> path="rules.number_of_gruppen">Gruppen</FieldLabel>}
+              value={rules.number_of_gruppen}
               options={groupCountOptions({
-                groups: rules.number_of_groups,
-                qualifiers: rules.qualifiers_per_group,
+                groups: rules.number_of_gruppen,
+                qualifiers: rules.qualifiers_per_gruppe,
                 occupancy: gruppenOccupancy,
               })}
-              onChange={(number_of_groups) => onRulesChange({ ...rules, number_of_groups })}
+              onChange={(number_of_gruppen) => onRulesChange({ ...rules, number_of_gruppen: number_of_gruppen })}
             />
             <SaisonRuleNumberField
-              name="rules.teams_per_group"
+              name="rules.teams_per_gruppe"
               isReadOnly={isDrawnSaison}
-              label={<FieldLabel<SaisonFieldPath> path="rules.teams_per_group">Teams pro Gruppe</FieldLabel>}
+              label={<FieldLabel<SaisonFieldPath> path="rules.teams_per_gruppe">Teams pro Gruppe</FieldLabel>}
               minValue={teamsPerGroupFloor({
-                qualifiers: rules.qualifiers_per_group,
-                held: rules.teams_per_group,
+                qualifiers: rules.qualifiers_per_gruppe,
+                held: rules.teams_per_gruppe,
                 occupancy: gruppenOccupancy,
               })}
               maxValue={MAX_TEAMS_PER_GROUP}
-              value={rules.teams_per_group}
-              onChange={(teams_per_group) => onRulesChange({ ...rules, teams_per_group })}
-              onBlur={() => onFieldLeft(["rules.teams_per_group"])}
+              value={rules.teams_per_gruppe}
+              onChange={(teams_per_gruppe) => onRulesChange({ ...rules, teams_per_gruppe: teams_per_gruppe })}
+              onBlur={() => onFieldLeft(["rules.teams_per_gruppe"])}
             />
             {/* The one field both freezes reach: the table is scored from it and the fixtures were
                 drawn from it, so either condition alone closes it. */}
             <SaisonCountSelect
-              name="rules.qualifiers_per_group"
+              name="rules.qualifiers_per_gruppe"
               isDisabled={isScoringFrozen || isDrawnSaison}
               ariaLabel="Qualifikanten pro Gruppe"
-              label={<FieldLabel<SaisonFieldPath> path="rules.qualifiers_per_group">Qualifikanten pro Gruppe</FieldLabel>}
-              value={rules.qualifiers_per_group}
+              label={<FieldLabel<SaisonFieldPath> path="rules.qualifiers_per_gruppe">Qualifikanten pro Gruppe</FieldLabel>}
+              value={rules.qualifiers_per_gruppe}
               options={qualifierCountOptions({
-                groups: rules.number_of_groups,
-                qualifiers: rules.qualifiers_per_group,
-                teams: rules.teams_per_group,
+                groups: rules.number_of_gruppen,
+                qualifiers: rules.qualifiers_per_gruppe,
+                teams: rules.teams_per_gruppe,
               })}
-              onChange={(qualifiers_per_group) => onRulesChange({ ...rules, qualifiers_per_group })}
+              onChange={(qualifiers_per_gruppe) => onRulesChange({ ...rules, qualifiers_per_gruppe: qualifiers_per_gruppe })}
             />
           </div>
 
@@ -288,13 +288,13 @@ export function FormRegelnSection({
             onChange={(max_kadergroesse) => onRulesChange({ ...rules, max_kadergroesse })}
             onBlur={() => onFieldLeft(["rules.max_kadergroesse"])}
           />
-          <FieldLabel<SaisonFieldPath> path="rules.erlaubte_stufen">
+          <FieldLabel<SaisonFieldPath> path="rules.allowed_stufen">
             <span id={STUFEN_LABEL_ID}>Welche Stufen diese Saison spielen</span>
           </FieldLabel>
           <StufenPicker
-            name="rules.erlaubte_stufen"
+            name="rules.allowed_stufen"
             labelledBy={STUFEN_LABEL_ID}
-            value={rules.erlaubte_stufen}
+            value={rules.allowed_stufen}
             onChange={onStufenChange}
           />
         </div>

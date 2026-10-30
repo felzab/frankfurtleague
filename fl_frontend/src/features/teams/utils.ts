@@ -9,6 +9,7 @@ import type {
   FLKontaktperson,
   FLSaison,
   FLSaisonPhase,
+  FLSaisonRules,
   FLSaisonTeamKontakte,
   FLTeamMembership,
   FLTeamWithMemberships,
@@ -23,7 +24,7 @@ import type { AdminKontakteRow, AdminKontaktSeat, GruppeOffer, KontaktpersonDraf
  * Every junction row counts — a disqualified team never leaves its season. The pickers disable what
  * `POST /teams/{team_id}/saisons` would refuse (`entry_gruppe_not_offered/003`), which stays authoritative.
  */
-export const buildGruppeOffer = (saisonId: string, rules: FLSaison["rules"], memberships: readonly FLTeamMembership[][]): GruppeOffer[] => {
+export const buildGruppeOffer = (saisonId: string, rules: FLSaisonRules, memberships: readonly FLTeamMembership[][]): GruppeOffer[] => {
   const occupied = new Map<string, number>();
   for (const teamMemberships of memberships) {
     for (const membership of teamMemberships) {
@@ -31,10 +32,10 @@ export const buildGruppeOffer = (saisonId: string, rules: FLSaison["rules"], mem
     }
   }
 
-  return GRUPPEN_OPTIONS.slice(0, rules.number_of_groups).map((gruppe) => ({
+  return GRUPPEN_OPTIONS.slice(0, rules.number_of_gruppen).map((gruppe) => ({
     gruppe,
     occupied: occupied.get(gruppe) ?? 0,
-    capacity: rules.teams_per_group,
+    capacity: rules.teams_per_gruppe,
   }));
 };
 
@@ -81,7 +82,7 @@ export const describeReplacementUmfang = ({
  * One rule, so the table and the bracket cannot name different qualifiers.
  */
 const mayHoldAPlatz = (team: FLGruppenTeam): boolean =>
-  team.austritt_type === null && team.statistik.anzahl_gespielte_spiele + team.anzahl_ausstehende_spiele > 0;
+  team.austritt_type === null && team.statistik.count_gespielte_spiele + team.count_pending_spiele > 0;
 
 /**
  * "Currently" is the whole claim: this reads the table as it stands and says nothing about whether
@@ -269,10 +270,10 @@ export const buildEmptyKontaktperson = (textVersion: string): KontaktpersonDraft
     datum: "",
     // A confirmation link is the only writer of this stamp, so a seat an administrator opened here
     // has none and the blank is the truth rather than a value still to be filled in.
-    bestaetigt_am: null,
+    confirmed_at: null,
     medien: false,
     // The save that seats the person stamps who seated them; no payload carries it, so the form never guesses.
-    eingetragen_von: null,
+    entered_by: null,
     nachweis: { umfang: null, medien: null },
   },
 });
@@ -285,7 +286,7 @@ export const buildEmptyKontakte = (textVersion: string): SaisonTeamKontakteDraft
   trainer: buildEmptyKontaktperson(textVersion),
   ansprechperson: buildEmptyKontaktperson(textVersion),
   stellvertretung: buildEmptyKontaktperson(textVersion),
-  trainer_ist_zugleich: null,
+  trainer_is_also: null,
 });
 
 /**
@@ -332,7 +333,7 @@ export function buildKontaktRows(teams: readonly FLTeamWithMemberships[], saison
               },
         // The seat the block NAMES, so the badge follows the claim wherever it points rather than to
         // one hardcoded seat. Never the flag alone: two different people would then read as one.
-        istTrainerZugleich: kontakte.trainer_ist_zugleich === value && isSamePerson(kontakte.trainer, person),
+        istTrainerZugleich: kontakte.trainer_is_also === value && isSamePerson(kontakte.trainer, person),
       };
     });
 
@@ -400,10 +401,10 @@ export function toWebsiteUrl(typed: string): string | null {
  * because the empty offer is a boundary a test can exercise without rendering.
  */
 export function offeredTrikotFarben({
-  vergeben,
+  taken: vergeben,
   value,
 }: {
-  vergeben: readonly FLTrikotFarbe[];
+  taken: readonly FLTrikotFarbe[];
   /** The colour the field already holds, which survives the exclusion so a saved row still reads. */
   value: FLTrikotFarbe | null;
 }): readonly TrikotFarbeOption[] {

@@ -9,16 +9,13 @@ const LISTE = "/spielbestaetigungen/sweep";
 let listeAnswer: () => unknown;
 let passAnswer: (saisonId: string) => unknown;
 
-const pass = (
-  saisonId: string,
-  counts: Partial<Record<"geschlossen" | "angefragt" | "erinnert" | "mails" | "fehlgeschlagen", number>> = {},
-) => ({
+const pass = (saisonId: string, counts: Partial<Record<"closed" | "asked" | "reminded" | "mails" | "failed", number>> = {}) => ({
   saison_id: saisonId,
-  geschlossen: 0,
-  angefragt: 0,
-  erinnert: 0,
+  closed: 0,
+  asked: 0,
+  reminded: 0,
   mails: 0,
-  fehlgeschlagen: 0,
+  failed: 0,
   ...counts,
 });
 
@@ -41,12 +38,11 @@ describe("the fixture confirmation job", () => {
   /* The counts, summed over the seasons, are the one record of what the job did, on the scheduler's pass line; the rows
      it passed over owe no deletion, so it leaves nothing the heartbeat names. */
   it("sweeps every listed season and answers what the passes did", async () => {
-    passAnswer = (saisonId) =>
-      pass(saisonId, saisonId === "2627" ? { geschlossen: 2, angefragt: 3, mails: 7 } : { erinnert: 1, mails: 2, fehlgeschlagen: 1 });
+    passAnswer = (saisonId) => pass(saisonId, saisonId === "2627" ? { closed: 2, asked: 3, mails: 7 } : { reminded: 1, mails: 2, failed: 1 });
 
     expect(await runSpielSweep()).toStrictEqual({
-      zaehlung: { geschlossen: 2, angefragt: 3, erinnert: 1, mails: 9, fehlgeschlagen: 1 },
-      offen: 0,
+      count: { closed: 2, asked: 3, reminded: 1, mails: 9, failed: 1 },
+      open: 0,
     });
     expect(calls.map(({ endpoint }) => endpoint)).toStrictEqual([LISTE, `${LISTE}/2627`, `${LISTE}/2728`]);
   });

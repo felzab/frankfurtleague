@@ -46,7 +46,7 @@ import { benannt } from "@/shared/utils/benannt";
 import { focusAfterWrite, focusRow, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { FLSpielbestaetigung, FLSpielbestaetigungGeschlossenGrund, FLSpielbestaetigungTermin } from "@/core/generated/client/types";
+import type { FLSpielbestaetigung, FLSpielbestaetigungAppointment, FLSpielbestaetigungClosedGrund } from "@/core/generated/client/types";
 import type { BestaetigungsSpiel } from "@/features/spielbestaetigungen/utils";
 
 /** The lists a party's name is read from: a row may name a side or a referee the fixture fields no more. */
@@ -67,7 +67,7 @@ const begruendungFehler = (begruendung: string): string | null => {
 };
 
 const parteiName = (zeile: FLSpielbestaetigung, spiel: SpielStand, { teams, schiedsrichter }: Partei): string => {
-  const { partei } = zeile;
+  const { party: partei } = zeile;
   if (partei.art === "team") {
     const seite = [spiel.team1, spiel.team2].find((eintrag) => eintrag?.team_id === partei.team_id);
     return seite?.name ?? teams.find((team) => team.id === partei.team_id)?.name ?? "Team";
@@ -80,7 +80,7 @@ const parteiName = (zeile: FLSpielbestaetigung, spiel: SpielStand, { teams, schi
  * Enter in its box is held back and no control here carries a name the form's wiring reads.
  */
 export function SpielbestaetigungPanel({
-  zeilen,
+  rows: zeilen,
   spiel,
   parteien,
   austritte,
@@ -88,7 +88,7 @@ export function SpielbestaetigungPanel({
   onVorschlagUebernehmen,
 }: {
   /** `null` where the read failed: the panel says so rather than reading as a fixture nobody was asked about. */
-  zeilen: readonly FLSpielbestaetigung[] | null;
+  rows: readonly FLSpielbestaetigung[] | null;
   /** The fixture as STORED, never the draft: a row is about the Ansetzung the league holds. */
   spiel: SpielStand;
   parteien: Partei;
@@ -96,7 +96,7 @@ export function SpielbestaetigungPanel({
   austritte: ReadonlyMap<string, string>;
   today: string;
   /** Carries a proposal into the editor's draft, where the rail marks it and Speichern still decides. */
-  onVorschlagUebernehmen: (termin: FLSpielbestaetigungTermin) => void;
+  onVorschlagUebernehmen: (termin: FLSpielbestaetigungAppointment) => void;
 }) {
   const panel = formPanel();
   const umstand = { austritte, today };
@@ -132,10 +132,10 @@ export function SpielbestaetigungPanel({
             {zeilen.map((zeile) => (
               <BestaetigungZeile
                 key={zeile.id}
-                zeile={zeile}
+                row={zeile}
                 name={parteiName(zeile, spiel, parteien)}
                 istGeltend={geltend.has(zeile.id)}
-                endet={zeile.geschlossen === null ? grundZumEnde(zeile, spiel, umstand) : null}
+                endet={zeile.closed === null ? grundZumEnde(zeile, spiel, umstand) : null}
                 spiel={spiel}
                 today={today}
                 onVorschlagUebernehmen={onVorschlagUebernehmen}
@@ -149,7 +149,7 @@ export function SpielbestaetigungPanel({
 }
 
 function BestaetigungZeile({
-  zeile,
+  row: zeile,
   name,
   istGeltend,
   endet,
@@ -157,17 +157,17 @@ function BestaetigungZeile({
   today,
   onVorschlagUebernehmen,
 }: {
-  zeile: FLSpielbestaetigung;
+  row: FLSpielbestaetigung;
   name: string;
   /** Still speaking for the fixture as it stands (`geltendeBestaetigungen`): the only row a press here can mean. */
   istGeltend: boolean;
   /** Why the next pass shuts this unclosed row, `null` where it keeps it or it is closed already. */
-  endet: FLSpielbestaetigungGeschlossenGrund | null;
+  endet: FLSpielbestaetigungClosedGrund | null;
   spiel: SpielStand;
   today: string;
-  onVorschlagUebernehmen: (termin: FLSpielbestaetigungTermin) => void;
+  onVorschlagUebernehmen: (termin: FLSpielbestaetigungAppointment) => void;
 }) {
-  const { antwort, geschlossen, ansetzung } = zeile;
+  const { antwort, closed: geschlossen, ansetzung } = zeile;
   const stand = antwortStand(zeile, today);
 
   return (
@@ -185,7 +185,7 @@ function BestaetigungZeile({
       {endet !== null &&
         (ansetzung.datum !== spiel.datum || ansetzung.uhrzeit !== spiel.uhrzeit ? (
           <p className="muted-hint">Betrifft den früheren Termin {terminText({ datum: ansetzung.datum, uhrzeit: ansetzung.uhrzeit })}.</p>
-        ) : endet === "ansetzung_geaendert" ? (
+        ) : endet === "ansetzung_changed" ? (
           <p className="muted-hint">Betrifft den Termin mit dem früheren Spielort oder den früheren Teams.</p>
         ) : (
           <p className="muted-hint">Der nächste Lauf schließt diese Anfrage: {SCHLIESSGRUND_LABELS[endet]}.</p>
@@ -202,10 +202,10 @@ function BestaetigungZeile({
         {antwort?.begruendung && <Angabe label="Begründung">„{antwort.begruendung}“</Angabe>}
         {/* A club's alone: a referee answers until the fixture's day, whatever the row stores
             (`fl_backend/app/api/spielbestaetigungen/services.py :: _past_frist`). */}
-        {zeile.partei.art === "team" && <Angabe label="Frist">{formatSpielDatum(zeile.frist)}</Angabe>}
-        <Angabe label="Angefragt">{zeile.angefragt_am === null ? <Leer>Nicht verschickt</Leer> : formatSpielDatum(zeile.angefragt_am)}</Angabe>
-        {zeile.erinnert_am.length > 0 && (
-          <Angabe label="Erinnert am">{zeile.erinnert_am.map((tag) => formatSpielDatum(tag)).join(", ")}</Angabe>
+        {zeile.party.art === "team" && <Angabe label="Frist">{formatSpielDatum(zeile.frist)}</Angabe>}
+        <Angabe label="Angefragt">{zeile.asked_at === null ? <Leer>Nicht verschickt</Leer> : formatSpielDatum(zeile.asked_at)}</Angabe>
+        {zeile.reminded_at.length > 0 && (
+          <Angabe label="Erinnert am">{zeile.reminded_at.map((tag) => formatSpielDatum(tag)).join(", ")}</Angabe>
         )}
         {geschlossen !== null && (
           <Angabe label="Geschlossen">
@@ -217,7 +217,7 @@ function BestaetigungZeile({
         {KONTAKT_ROLLEN.flatMap(({ value, label }) => {
           const sitz = zeile.kontakte?.[value] ?? null;
           if (sitz === null) return [];
-          const chip = zustellungChip(sitz.zustellung);
+          const chip = zustellungChip(sitz.delivery);
           return [
             <Angabe
               key={value}
@@ -230,13 +230,13 @@ function BestaetigungZeile({
 
       {istGeltend && antwort === null && (
         <EintragenSection
-          zeile={zeile}
+          row={zeile}
           name={name}
         />
       )}
       {istGeltend && istVorschlagOffen(zeile) && antwort?.vorschlag && (
         <VorschlagSection
-          zeile={zeile}
+          row={zeile}
           name={name}
           vorschlag={antwort.vorschlag}
           onVorschlagUebernehmen={onVorschlagUebernehmen}
@@ -247,7 +247,7 @@ function BestaetigungZeile({
 }
 
 /** The settle: a Zusage on the party's behalf, with the reason the record carries. No undo, so the press is the guard. */
-function EintragenSection({ zeile, name }: { zeile: FLSpielbestaetigung; name: string }) {
+function EintragenSection({ row: zeile, name }: { row: FLSpielbestaetigung; name: string }) {
   const twoPress = useTwoPressConfirm({ stepUp: true });
   const { isConfirming, press, cancel } = twoPress;
 
@@ -355,15 +355,15 @@ function EintragenSection({ zeile, name }: { zeile: FLSpielbestaetigung; name: s
  * club's row and leaves its decline the record; that club is never asked about this Ansetzung again.
  */
 function VorschlagSection({
-  zeile,
+  row: zeile,
   name,
   vorschlag,
   onVorschlagUebernehmen,
 }: {
-  zeile: FLSpielbestaetigung;
+  row: FLSpielbestaetigung;
   name: string;
-  vorschlag: FLSpielbestaetigungTermin;
-  onVorschlagUebernehmen: (termin: FLSpielbestaetigungTermin) => void;
+  vorschlag: FLSpielbestaetigungAppointment;
+  onVorschlagUebernehmen: (termin: FLSpielbestaetigungAppointment) => void;
 }) {
   const twoPress = useTwoPressConfirm({ stepUp: true });
   const { isConfirming, press } = twoPress;

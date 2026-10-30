@@ -38,9 +38,9 @@ import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { focusAfterWrite, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { meldeLinkVersand, REGISTRIERUNGSLINK_TITEL } from "@/shared/utils/linkVersandToast";
+import { REGISTRIERUNGSLINK_TITEL, reportLinkDispatch } from "@/shared/utils/linkDispatchToast";
 
-import type { FLEinladungZeile } from "@/core/generated/client/types";
+import type { FLInvitationRow } from "@/core/generated/client/types";
 import type { FrischeEinladung } from "@/features/einladungen/components/EinladungLinkHolder";
 import type { Key } from "@heroui/react/rac";
 
@@ -80,11 +80,11 @@ export function FormEinladungSection({
 }: {
   teamId: string;
   saisonId: string;
-  /** `einladung_team_nicht_eingetragen` in the form: a link belongs to a junction row, so a club outside the season has none. */
+  /** `invitation_team_not_entered` in the form: a link belongs to a junction row, so a club outside the season has none. */
   isMember: boolean;
   /** `saison_past`: a finished season hands out no further links, and the panel explains instead of offering. */
   isFinishedSaison: boolean;
-  einladung: FLEinladungZeile | null;
+  einladung: FLInvitationRow | null;
   /** Whether the registration window is open today, which is the link's only expiry. */
   laeuft: boolean;
 }) {
@@ -177,7 +177,7 @@ export function FormEinladungSection({
           return;
         }
 
-        meldeLinkVersand("gesendet", REGISTRIERUNGSLINK_TITEL, res.message);
+        reportLinkDispatch("sent", REGISTRIERUNGSLINK_TITEL, res.message);
       }),
     );
   };
@@ -190,7 +190,7 @@ export function FormEinladungSection({
     );
   };
 
-  const zustellung = einladung?.zustellung ?? null;
+  const zustellung = einladung?.delivery ?? null;
   const versandText = zustellung === null ? <Leer>Noch nicht gesendet</Leer> : (zustellungChip(zustellung)?.label ?? "Gesendet");
 
   const restingLabel = gewaehlt === "zurueckziehen" ? "Link zurückziehen" : "Neuen Link anlegen";
@@ -248,15 +248,15 @@ export function FormEinladungSection({
               <dl className="flex w-full flex-col gap-y-1">
                 <ConfirmReadoutRow
                   label="Offener Link"
-                  value={einladung === null ? <Leer>Keiner</Leer> : `seit ${formatSpielDatum(einladung.erstellt_am)}`}
+                  value={einladung === null ? <Leer>Keiner</Leer> : `seit ${formatSpielDatum(einladung.created_at)}`}
                 />
                 {einladung !== null && (
                   <ConfirmReadoutRow
                     label="Angelegt von"
                     value={
                       <VonOderGesperrt
-                        von={einladung.erstellt_von}
-                        gesperrt={einladung.erstellt_von_gesperrt}
+                        von={einladung.created_by}
+                        gesperrt={einladung.created_by_barred}
                       />
                     }
                   />

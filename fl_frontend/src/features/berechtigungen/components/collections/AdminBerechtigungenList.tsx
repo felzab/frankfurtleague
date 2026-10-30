@@ -4,7 +4,7 @@ import { memo } from "react";
 
 import Key from "@gravity-ui/icons/Key";
 
-import { ZEITZONE } from "@/core/format";
+import { TIME_ZONE } from "@/core/format";
 import { VonOderGesperrt } from "@/features/berechtigungen/components/ui/VonOderGesperrt";
 import {
   BERECHTIGUNGEN_CRUD_COPY,
@@ -24,7 +24,7 @@ import { AdminBerechtigungEntziehenPanel } from "../forms/AdminBerechtigungEntzi
 import { AdminBerechtigungGenehmigenPanel } from "../forms/AdminBerechtigungGenehmigenPanel";
 import { AdminBerechtigungStufePanel } from "../forms/AdminBerechtigungStufePanel";
 
-import type { FLBerechtigungZeile } from "@/core/generated/client/types";
+import type { FLGrantRow } from "@/core/generated/client/types";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
@@ -36,7 +36,7 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
 
 // Europe/Berlin, as every other date in this app is rendered: a grant made after 22:00 in summer is
 // already the next day's in UTC.
-const ERTEILT_TAG = new Intl.DateTimeFormat("de-DE", { timeZone: ZEITZONE, day: "2-digit", month: "2-digit", year: "numeric" });
+const ERTEILT_TAG = new Intl.DateTimeFormat("de-DE", { timeZone: TIME_ZONE, day: "2-digit", month: "2-digit", year: "numeric" });
 
 /** The Berlin day of `erteilt_am`. */
 function erteiltTag(stamp: string): string {
@@ -47,7 +47,7 @@ function erteiltTag(stamp: string): string {
 }
 
 /** Who granted it, as every admin card names an actor, and a paste naming nobody by its origin. */
-function ErteiltVon({ erteilt_von, erteilt_von_gesperrt }: FLBerechtigungZeile) {
+function ErteiltVon({ granted_by: erteilt_von, granted_by_barred: erteilt_von_gesperrt }: FLGrantRow) {
   if (erteiltVonAnzeige(erteilt_von, erteilt_von_gesperrt) === DIREKT_IN_DER_DATENBANK) return DIREKT_IN_DER_DATENBANK;
 
   return (
@@ -71,7 +71,7 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
   inhaberAdresse,
   ueberschriftId,
 }: {
-  filteredBerechtigungen: FLBerechtigungZeile[];
+  filteredBerechtigungen: FLGrantRow[];
   emptiness: CrudEmptiness;
   /**
    * The signed-in administrator's own folded address where their grant is `owner`, else `null`: only an
@@ -106,7 +106,7 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
                 <span className={IDENTITY_NAME_CLASSES}>
                   <VonOderGesperrt
                     von={berechtigung.adresse}
-                    gesperrt={berechtigung.gesperrt}
+                    gesperrt={berechtigung.barred}
                   />
                 </span>
                 {berechtigung.verwaltung === "owner" && <span className={labelBadge("info")}>{INHABER_LABEL}</span>}
@@ -123,16 +123,16 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
             </div>
             <div className="flex min-w-0 flex-col gap-1">
               <span className={FACT_LABEL_CLASSES}>{ERTEILT_AM_LABEL}</span>
-              <p className="font-numeric fluid-sm font-medium text-foreground">{erteiltTag(berechtigung.erteilt_am)}</p>
+              <p className="font-numeric fluid-sm font-medium text-foreground">{erteiltTag(berechtigung.granted_at)}</p>
             </div>
           </div>
 
           {/* On the grant it moves, where granting and revoking already are: one place for the approval. */}
-          {berechtigung.adresswechsel !== null && (
+          {berechtigung.address_change !== null && (
             <div className="-mx-1 flex flex-col gap-3 border-t border-border/50 pt-2">
               <AdminBerechtigungGenehmigenPanel
                 adresse={berechtigung.adresse}
-                adresswechsel={berechtigung.adresswechsel}
+                adresswechsel={berechtigung.address_change}
               />
             </div>
           )}
@@ -145,7 +145,7 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
                 <AdminBerechtigungStufePanel
                   berechtigungId={berechtigung.id}
                   adresse={berechtigung.adresse}
-                  erteiltAm={erteiltTag(berechtigung.erteilt_am)}
+                  erteiltAm={erteiltTag(berechtigung.granted_at)}
                   verwaltung={berechtigung.verwaltung}
                   eigene={berechtigung.adresse === inhaberAdresse}
                 />
@@ -154,7 +154,7 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
                 <AdminBerechtigungEntziehenPanel
                   berechtigungId={berechtigung.id}
                   adresse={berechtigung.adresse}
-                  erteiltAm={erteiltTag(berechtigung.erteilt_am)}
+                  erteiltAm={erteiltTag(berechtigung.granted_at)}
                   darfEntziehen={inhaberAdresse !== null}
                 />
               )}

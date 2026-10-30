@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
 import { isRecordMissing } from "@/core/errors";
-import { funktionenOf } from "@/core/funktionen";
+import { rolesOf } from "@/core/roles";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { logPageVerweigert } from "@/features/funktionen/verweigert";
 import { kontextOf } from "@/features/spielberichte/components/forms/SpielberichtForm/spielberichtDraft";
@@ -22,7 +22,7 @@ export default async function SchiedsrichterSpielberichtPage({ params }: NextPag
   const subject = await requireSubjectSession();
 
   // To the landing rather than a 404, as the referee panel sends a person who holds no referee record.
-  if (!funktionenOf(subject).funktionen.some((funktion) => funktion.art === "schiedsrichter")) {
+  if (!rolesOf(subject).roles.some((funktion) => funktion.art === "schiedsrichter")) {
     logPageVerweigert("/bereich/schiedsrichter/spielbericht", "keine_funktion");
     redirect("/bereich");
   }
@@ -35,13 +35,13 @@ export default async function SchiedsrichterSpielberichtPage({ params }: NextPag
     // The record went between the page's own check and the backend's: the panel's own landing.
     if (isFunktionLost(error)) redirect("/bereich");
     if (isRecordMissing(error)) notFound();
-    if (isRefusal(error) && error.serverErrorCode === "bericht_nicht_geleitet")
+    if (isRefusal(error) && error.serverErrorCode === "bericht_not_officiated")
       return <SpielberichtZustandView title="Dieses Spiel leitest Du nicht mehr." />;
     throw error;
   }
 
   // After the fixture's season the referee reads the report and writes it no more (`saison_past`).
-  if (read.abgeschlossen) return <SpielberichtLesenView lesen={read} />;
+  if (read.completed) return <SpielberichtLesenView lesen={read} />;
 
   const { spiel } = read;
   // The backend's two refusals a page can foresee from the fixture it serves, stated before any press meets them.

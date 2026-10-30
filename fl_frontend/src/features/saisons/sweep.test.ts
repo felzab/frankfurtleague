@@ -4,25 +4,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /** Every line as it was written, its fields whole: what a pass reports, and the code its failure carries. */
 const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown }[] = [];
 
-const LAUF = "/identitaet/loeschung/sweep";
+const LAUF = "/identity/erasure/sweep";
 
 /** Each deletion call's answer, handed the place the call carried, null on a pass's first. */
 let laufAnswer: (nach: string | null) => unknown = () => gelaufen(0, 0);
 
 /** One call of the pupils' deletion: whom it erased, who is still due after it, and where the pass goes on. */
 const gelaufen = (spieler: number, verbleibend: number, nach: string | null = null) => ({
-  abgeschlossene_saison_id: "2526",
+  completed_saison_id: "2526",
   spieler: spieler,
   saison_spieler: spieler,
   registrierungen: 0,
-  uebersprungen: 0,
-  fehlgeschlagen: 0,
-  verbleibend: verbleibend,
+  skipped: 0,
+  failed: 0,
+  remaining: verbleibend,
   nach: nach,
 });
 
 /** The grants' claim with nothing to announce. */
-const NOTHING_CLAIMED = { beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
+const NOTHING_CLAIMED = { lease: null, beansprucht_bis: null, changes: [], recipient: [], skipped: 0 };
 
 /** Every deletion call, with the place it carried. */
 const laufCalls: { params: Record<string, string> }[] = [];
@@ -31,7 +31,7 @@ const laufCalls: { params: Record<string, string> }[] = [];
 doubleApiClient(async ({ endpoint }) => {
   // The grants' pass is armed by the same boot and answers to its own suite
   // (`fl_frontend/src/features/berechtigungen/abgleich.test.ts`): here it claims nothing and is not recorded.
-  if (endpoint.startsWith("/berechtigungen")) return NOTHING_CLAIMED;
+  if (endpoint.startsWith("/grants")) return NOTHING_CLAIMED;
   // The generated call carries its query in the endpoint.
   const sent = new URL(endpoint, "http://backend");
   expect(sent.pathname, `the pass reached a route nothing here answers: ${endpoint}`).toBe(LAUF);
@@ -63,7 +63,7 @@ const inTurn = <T>(answers: T[]) => {
 };
 
 /** The pass's own lines, the grants' pass armed beside it writing lines of its own. */
-const passLines = () => lines.filter(({ event }) => event.startsWith("loeschung."));
+const passLines = () => lines.filter(({ event }) => event.startsWith("erasure."));
 
 beforeEach(() => {
   lines.length = 0;
@@ -94,19 +94,19 @@ describe("one pass of the pupils' deletion", () => {
   /* A share's worth of failing pupils fills the front, so the call reaching them deletes nobody while a due pupil stands
      behind them: a pass ending on that call, or reading the front again, never reaches that pupil. */
   it("goes on past a call that deleted nobody to the due pupils behind it, answering the pupils it failed as left", async () => {
-    laufAnswer = vorneDann({ ...gelaufen(0, 11, ORT), fehlgeschlagen: 10 }, gelaufen(1, 10), gelaufen(0, 11));
+    laufAnswer = vorneDann({ ...gelaufen(0, 11, ORT), failed: 10 }, gelaufen(1, 10), gelaufen(0, 11));
 
     expect(await runLoeschungSweep()).toStrictEqual({
-      zaehlung: {
-        abgeschlossene_saison_id: "2526",
+      count: {
+        completed_saison_id: "2526",
         spieler: 1,
         saison_spieler: 1,
         registrierungen: 0,
-        uebersprungen: 0,
-        fehlgeschlagen: 10,
-        verbleibend: 10,
+        skipped: 0,
+        failed: 10,
+        remaining: 10,
       },
-      offen: 10,
+      open: 10,
     });
   });
 
@@ -114,14 +114,14 @@ describe("one pass of the pupils' deletion", () => {
      counts of what the calls before it erased. */
   it("answers a pass cut short with what it erased, the pupils it failed and the call's failure", async () => {
     laufAnswer = (nach) => {
-      if (nach === null) return { ...gelaufen(3, 5, ORT), fehlgeschlagen: 2 };
+      if (nach === null) return { ...gelaufen(3, 5, ORT), failed: 2 };
       throw new Error("the deletion was refused");
     };
 
     expect(await runLoeschungSweep()).toStrictEqual({
-      zaehlung: { abgeschlossene_saison_id: "2526", spieler: 3, saison_spieler: 3, registrierungen: 0, uebersprungen: 0, fehlgeschlagen: 2 },
-      offen: 2,
-      fehler: new Error("the deletion was refused"),
+      count: { completed_saison_id: "2526", spieler: 3, saison_spieler: 3, registrierungen: 0, skipped: 0, failed: 2 },
+      open: 2,
+      error: new Error("the deletion was refused"),
     });
   });
 
@@ -137,15 +137,15 @@ describe("one pass of the pupils' deletion", () => {
       const lauf = await runLoeschungSweep();
 
       expect(laufCalls.map(({ params }) => params)).toStrictEqual([{}, { nach: ORT }]);
-      expect(lauf.zaehlung).toStrictEqual({
-        abgeschlossene_saison_id: "2526",
+      expect(lauf.count).toStrictEqual({
+        completed_saison_id: "2526",
         spieler: 4,
         saison_spieler: 4,
         registrierungen: 0,
-        uebersprungen: 0,
-        fehlgeschlagen: 0,
+        skipped: 0,
+        failed: 0,
       });
-      expect(String("fehler" in lauf ? lauf.fehler : undefined)).toContain("The deletion answered a place not past the one it was sent.");
+      expect(String("error" in lauf ? lauf.error : undefined)).toContain("The deletion answered a place not past the one it was sent.");
     });
   }
 
@@ -155,16 +155,16 @@ describe("one pass of the pupils' deletion", () => {
     laufAnswer = inTurn([gelaufen(3, 1, ORT), gelaufen(1, 0)]);
 
     expect(await runLoeschungSweep()).toStrictEqual({
-      zaehlung: {
-        abgeschlossene_saison_id: "2526",
+      count: {
+        completed_saison_id: "2526",
         spieler: 4,
         saison_spieler: 4,
         registrierungen: 0,
-        uebersprungen: 0,
-        fehlgeschlagen: 0,
-        verbleibend: 0,
+        skipped: 0,
+        failed: 0,
+        remaining: 0,
       },
-      offen: 0,
+      open: 0,
     });
     expect(passLines()).toStrictEqual([]);
   });

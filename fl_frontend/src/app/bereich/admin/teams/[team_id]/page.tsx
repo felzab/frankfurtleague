@@ -69,7 +69,7 @@ async function AdminTeamEditContent({
     getAdminSpiele({ saison_id: selectedSaison.id, saison_phase: "playoffs" }),
     getAdminSpiele({ saison_id: selectedSaison.id, saison_phase: "gruppenphase" }),
     // Asked only for a club that holds the season's junction row: the endpoint answers
-    // `einladung_team_nicht_eingetragen` for one that does not, and a page cannot render a refusal it asked for.
+    // `invitation_team_not_entered` for one that does not, and a page cannot render a refusal it asked for.
     membership === null ? Promise.resolve(null) : getEinladung(teamId, selectedSaison.id),
   ]);
   // Whatever the season's status, because a `future` season is drawn before it is activated, so a
@@ -77,7 +77,7 @@ async function AdminTeamEditContent({
   const gruppeLocked = (teamSpieleRes?.spiele.length ?? 0) > 0;
 
   const einladung: TeamEinladungState | null =
-    einladungRes === null ? null : { einladung: einladungRes.einladung, laeuft: einladungRes.laeuft };
+    einladungRes === null ? null : { einladung: einladungRes.invitation, laeuft: einladungRes.running };
 
   const saison: TeamSaisonMembership = {
     saisonId: selectedSaison.id,
@@ -90,8 +90,8 @@ async function AdminTeamEditContent({
             austritt: membership.austritt,
             trikot_farbe: membership.trikot_farbe,
             kontakte: membership.kontakte,
-            bestaetigungen: membership.bestaetigungen,
-            adresswechsel: membership.adresswechsel,
+            confirmations: membership.confirmations,
+            address_change: membership.address_change,
             kontakte_stand: membership.kontakte_stand,
           },
   };
@@ -115,7 +115,7 @@ async function AdminTeamEditContent({
     }),
     gruppenSpiele: gruppenSpieleRes.spiele,
     playoffSpiele: playoffSpieleRes.spiele,
-    begonnen: selectedSaison.begonnen,
+    begonnen: selectedSaison.begun,
   });
 
   return (

@@ -22,7 +22,7 @@ export async function getMedienFragen(kontakte: FLSaisonTeamKontakte | null): Pr
   const labels = new Set(
     KONTAKT_ROLLEN.flatMap(({ value }) => {
       const einwilligung = kontakte?.[value]?.einwilligung;
-      return einwilligung === undefined || einwilligung.bestaetigt_am === null ? [] : [einwilligung.text_version];
+      return einwilligung === undefined || einwilligung.confirmed_at === null ? [] : [einwilligung.text_version];
     }),
   );
   const gelesen = await Promise.all(
@@ -32,7 +32,7 @@ export async function getMedienFragen(kontakte: FLSaisonTeamKontakte | null): Pr
   // A label the registry does not hold, or whose read failed, is left out: the readout says nobody checked.
   return Object.fromEntries(
     gelesen.flatMap(({ label, fassung }) =>
-      fassung === null || !KONTAKT_SEITEN.has(fassung.seite) ? [] : [[label, Object.hasOwn(fassung.bedienelemente, "medien")]],
+      fassung === null || !KONTAKT_SEITEN.has(fassung.seite) ? [] : [[label, Object.hasOwn(fassung.controls, "medien")]],
     ),
   );
 }

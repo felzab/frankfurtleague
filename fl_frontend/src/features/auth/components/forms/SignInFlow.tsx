@@ -88,8 +88,8 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
         titel={COPY.anmeldung.postfach}
         satz={COPY.anmeldung.codeUnterwegs}
         adresse={address}
-        code={{ label: COPY.anmeldung.code, versuch, isDisabled: pruefe, onComplete: (code) => void check(code) }}
-        zurueck={{
+        code={{ label: COPY.anmeldung.code, attempt: versuch, isDisabled: pruefe, onComplete: (code) => void check(code) }}
+        back={{
           label: COPY.anmeldung.andereAdresse,
           isDisabled: pruefe,
           onPress: () => {
@@ -97,7 +97,7 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
             setVerlassen(answer);
           },
         }}
-        zeile={codeFehler}
+        row={codeFehler}
       />
     );
   }
@@ -126,9 +126,9 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
     <SignInPage
       view="adresse"
       titel={COPY.anmeldung.titel}
-      adresse={{ label: COPY.anmeldung.adresse, value: email, onChange: setEmail, fehler: refused?.fieldErrors }}
-      pruefung={humanCheck.widget}
-      senden={{
+      adresse={{ label: COPY.anmeldung.adresse, value: email, onChange: setEmail, error: refused?.fieldErrors }}
+      check={humanCheck.widget}
+      send={{
         label: COPY.anmeldung.codeSenden,
         isBusy: send.isPending,
         onPress: () => {
@@ -139,11 +139,11 @@ export function SignInFlow({ next, siteKey }: { next: string; siteKey: string })
           send.submit(email);
         },
       }}
-      oder={COPY.anmeldung.oder}
+      or={COPY.anmeldung.oder}
       // `isBusy` is the whole of the double-press guard: a second prompt aborts the first, which would then read
       // as a refusal of a press made while it ran.
       passkey={{ label: COPY.anmeldung.mitPasskey, isBusy: passkeyLaeuft, onPress: () => void mitPasskey() }}
-      zeile={passkeyFehler ?? sendFehler}
+      row={passkeyFehler ?? sendFehler}
     />
   );
 }

@@ -23,7 +23,7 @@ import { signInStore } from "./db";
 import { asSignInIdentifier } from "./emailAddress";
 import { BRAND_NAME } from "./emailShell";
 import { RolledBackError } from "./errors";
-import { postausgangPostAnmeldung } from "./generated/client/sdk";
+import { outboxPostSignIn } from "./generated/client/sdk";
 import { KONTO_HREF } from "./kontoHref";
 import { LOESCHUNG_LINK_GUELTIG_STUNDEN } from "./loeschungEmail";
 import { logger } from "./logging";
@@ -48,7 +48,7 @@ import { madeSince, verwaltungOf } from "./verwaltung";
 import type { Passkey } from "@better-auth/passkey";
 import type { AuthContext, BetterAuthOptions, DBTransactionAdapter, GenericEndpointContext } from "better-auth";
 import type { MongoClient } from "mongodb";
-import type { FLPasskeyDaten, FLPostausgangAnmeldungPayload } from "./generated/client/types";
+import type { FLOutboxSignInPayload, FLPasskeyDataArt } from "./generated/client/types";
 import type { ActorLane, RequestActor } from "./requestScope";
 import type { Lifetime } from "./sessionLifetimes";
 import type { AnmeldungRecords } from "./signInGate";
@@ -238,7 +238,7 @@ async function enrolmentAnmeldung(email: string): Promise<AnmeldungRecords> {
  * is one a ban's ending missed or a mint raced, and a passkey would outlive both.
  */
 function enrolmentGrant(anmeldung: AnmeldungRecords): boolean {
-  if (anmeldung.gesperrt) throw APIError.fromStatus("NOT_FOUND");
+  if (anmeldung.barred) throw APIError.fromStatus("NOT_FOUND");
   return anmeldung.verwaltung !== null;
 }
 
@@ -267,7 +267,7 @@ function carriedOrRefuse(ctx: object, userId: string): AnmeldungRecords {
 }
 
 /** The records where an unread read offers nothing: `null` where the backend could not say. */
-async function subjektOrNull(email: string): Promise<SubjectSession["subjekt"] | null> {
+async function subjektOrNull(email: string): Promise<SubjectSession["subject"] | null> {
   try {
     return await lookUpSubjekt(asSignInIdentifier(email));
   } catch (failed) {
@@ -732,14 +732,14 @@ const DISABLED_PATHS: readonly string[] = [
  */
 async function oweSignInMail(
   an: string,
-  daten: FLPostausgangAnmeldungPayload["daten"],
+  daten: FLOutboxSignInPayload["data"],
   geheim?: { readonly wert: string; readonly gueltigMs: number },
 ): Promise<void> {
-  await postausgangPostAnmeldung({
+  await outboxPostSignIn({
     an: an,
-    daten: daten,
-    geheim: geheim === undefined ? null : await symmetricEncrypt({ key: authSecret(), data: geheim.wert }),
-    gueltig_bis: geheim === undefined ? null : new Date(Date.now() + geheim.gueltigMs).toISOString(),
+    data: daten,
+    secret: geheim === undefined ? null : await symmetricEncrypt({ key: authSecret(), data: geheim.wert }),
+    valid_until: geheim === undefined ? null : new Date(Date.now() + geheim.gueltigMs).toISOString(),
   });
 }
 
@@ -747,9 +747,9 @@ async function oweSignInMail(
  * A failed notice leaves the change standing: a passkey row rolled back for an unreachable backend is a lockout the
  * reader never asked for. The account page is spelled on the serving origin by the drain, never `brand.ts :: SITE_URL`.
  */
-async function notifyPasskey(art: FLPasskeyDaten["art"], email: string): Promise<void> {
+async function notifyPasskey(art: FLPasskeyDataArt, email: string): Promise<void> {
   try {
-    await oweSignInMail(email, { art: art, zeitpunkt: new Date().toISOString(), konto: KONTO_HREF });
+    await oweSignInMail(email, { art: art, instant: new Date().toISOString(), account: KONTO_HREF });
   } catch (failed) {
     // Name only, as the code's own send writes one: a failure here routinely carries the address.
     logger.error("auth.passkey_notice_failed", undefined, {
@@ -760,7 +760,7 @@ async function notifyPasskey(art: FLPasskeyDaten["art"], email: string): Promise
 
 /** Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens. */
 export async function notifyPasskeyRemoved(email: string): Promise<void> {
-  await notifyPasskey("passkey_geloescht", email);
+  await notifyPasskey("passkey_erased", email);
 }
 
 // Matched on the OPENING of the library's own message, because each of these ends in the value it
@@ -830,7 +830,7 @@ const userOptions = {
  * library swallows a throw from here, logging it.
  */
 async function sendDeletionLink({ user, token }: { user: { email: string }; token: string }): Promise<void> {
-  await oweSignInMail(user.email, { art: "konto_loeschung" }, { wert: token, gueltigMs: LOESCHUNG_LINK_GUELTIG_STUNDEN * HOUR_MS });
+  await oweSignInMail(user.email, { art: "account_erasure" }, { wert: token, gueltigMs: LOESCHUNG_LINK_GUELTIG_STUNDEN * HOUR_MS });
 }
 
 /** Named, because the library's failure line records an error's name and nothing else. */
@@ -1233,7 +1233,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
           // Awaited: the one caller a stranger reaches, `fl_frontend/src/features/auth/actions.ts :: handleSignIn`,
           // runs this whole send behind its response, and the library's own send route is closed (`DISABLED_PATHS`).
           try {
-            await oweSignInMail(email, { art: "anmeldecode" }, { wert: otp, gueltigMs: CODE_VALIDITY_SECONDS * 1000 });
+            await oweSignInMail(email, { art: "sign_in_code" }, { wert: otp, gueltigMs: CODE_VALIDITY_SECONDS * 1000 });
           } catch (failed) {
             // Name only: a failure on this path routinely carries the submitted address, and
             // `fl_frontend/src/core/logging.ts` writes its message and stack, an address alone scrubbed.
@@ -1479,7 +1479,7 @@ export const getKontoSession = cache(async (): Promise<JudgedSession | null> => 
   const subjekt = await lookUpSubjekt(asSignInIdentifier(served.user.email));
 
   // On every request, as the person guard's: a session its ban's ending missed is no session here.
-  if (subjekt.gesperrt) return null;
+  if (subjekt.barred) return null;
 
   const judged = { ...served, verwaltung: subjekt.verwaltung !== null };
   if (judged.verwaltung) return isAdminSession(served, subjekt) ? judged : null;
@@ -1646,7 +1646,7 @@ function passesButForItsGrant(served: ServedSession): boolean {
  * Whether this served session may act as an administrator — its address holding a grant it was made
  * since, inside both of the administrator's figures, and made by the passkey rather than by a mailed code alone.
  */
-export function isAdminSession(served: ServedSession, { verwaltung, berechtigt_seit }: Verwaltung): boolean {
+export function isAdminSession(served: ServedSession, { verwaltung, granted_since: berechtigt_seit }: Verwaltung): boolean {
   // A passkey enrolled before the grant still admits, on a sign-in after it: the grant is the privilege,
   // and a passkey the factor it asks, enrolled on the mailbox's own authority (`docs/ops/runbooks.md` §3).
   return verwaltung !== null && madeSince(served.session.createdAt, berechtigt_seit) && passesButForItsGrant(served);
@@ -1764,7 +1764,7 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
 
   // The ban itself, never read through the grant: every guard behind `/bereich` refuses a barred session,
   // and one left standing serves again on the ban's lift with no sign-in.
-  if (subjekt.gesperrt) return ended(read);
+  if (subjekt.barred) return ended(read);
 
   return { destination: await destinationOf(served, subjekt), served: served };
 }
@@ -1830,7 +1830,7 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
   // An unread read offers no card, for the landing's reason; a barred subject none either, its
   // enrolment being refused.
   const subjekt = await subjektOrNull(served.user.email);
-  if (subjekt === null || subjekt.gesperrt) return null;
+  if (subjekt === null || subjekt.barred) return null;
 
   const step = await passkeyStepOf(served, subjekt.verwaltung !== null);
   if (step === null) return null;

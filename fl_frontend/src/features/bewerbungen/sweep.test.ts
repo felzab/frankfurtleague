@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { APIBadStatusError, APINetworkError } from "@/core/errors.ts";
 
 /** One backend call, in the order it ran, or the address changes' half, which is its own suite's. */
-type SweepEvent = { kind: "api"; endpoint: string; method: string } | { kind: "adresswechsel" };
+type SweepEvent = { kind: "api"; endpoint: string; method: string } | { kind: "address_change" };
 
 const events: SweepEvent[] = [];
 
@@ -14,7 +14,7 @@ const lines: { level: "info" | "warn" | "error"; event: string; fields: unknown 
 let apiAnswer: (call: { endpoint: string; method: string }) => unknown = () => ({});
 
 /** What the address changes' half did, its remainder `verbleibend`. */
-const adressen = (verbleibend = 0) => ({ entfernt: 0, wirksam: 0, verworfen: 0, verbleibend: verbleibend });
+const adressen = (verbleibend = 0) => ({ removed: 0, effective: 0, discarded: 0, remaining: verbleibend });
 
 /** The address changes' half, answered here and held in `fl_frontend/src/features/adresswechsel/sweep.test.ts`. */
 let adresswechselAnswer: () => Promise<ReturnType<typeof adressen>> = () => Promise.resolve(adressen());
@@ -30,7 +30,7 @@ doubleApiClient(({ endpoint: requested, method }) => {
 
 vi.doMock("@/features/adresswechsel/sweep.ts", () => ({
   sweepAdresswechsel: () => {
-    events.push({ kind: "adresswechsel" });
+    events.push({ kind: "address_change" });
     return adresswechselAnswer();
   },
 }));
@@ -51,23 +51,23 @@ const saisonOf = (endpoint: string): string => endpoint.split("/")[3] ?? "";
 /** One season half's answer, the rows it passed over counted. */
 const bewerbungPass = (saisonId: string, fehlgeschlagen = 0) => ({
   saison_id: saisonId,
-  erinnert: 0,
-  geloescht: 0,
-  abgelehnte_geloescht: 0,
-  angenommene_geloescht: 0,
-  ohne_entscheidung_geloescht: 0,
-  kontaktbloecke_geleert: 0,
-  redigierte_aktionen: 0,
-  fehlgeschlagen: fehlgeschlagen,
+  reminded: 0,
+  erased: 0,
+  declined_erased: 0,
+  accepted_erased: 0,
+  without_decision_erased: 0,
+  kontakt_blocks_emptied: 0,
+  redacted_action_log: 0,
+  failed: fehlgeschlagen,
 });
 const registrierungPass = (saisonId: string, fehlgeschlagen = 0) => ({
   saison_id: saisonId,
-  erinnert: 0,
-  geloescht_unbestaetigt: 0,
-  geloescht_ohne_entscheidung: 0,
-  geloescht_abgelehnt: 0,
-  redigierte_aktionen: 0,
-  fehlgeschlagen: fehlgeschlagen,
+  reminded: 0,
+  erased_unconfirmed: 0,
+  erased_without_decision: 0,
+  erased_declined: 0,
+  redacted_action_log: 0,
+  failed: fehlgeschlagen,
 });
 
 /**
@@ -88,7 +88,7 @@ function seasons(
   };
 }
 
-const order = (): string[] => events.map((event) => (event.kind === "api" ? event.endpoint : "adresswechsel"));
+const order = (): string[] => events.map((event) => (event.kind === "api" ? event.endpoint : "address_change"));
 
 const failures = (): unknown[] => lines.filter(({ level }) => level === "error").map(({ event, fields }) => ({ event, fields }));
 
@@ -111,7 +111,7 @@ describe("one pass of the applications' job", () => {
       "/registrierungen/sweep/2526",
       "/bewerbungen/sweep/2627",
       "/registrierungen/sweep/2627",
-      "adresswechsel",
+      "address_change",
     ]);
   });
 
@@ -121,26 +121,26 @@ describe("one pass of the applications' job", () => {
     seasons(["2526", "2627"], {
       uebergangen: { "/bewerbungen/sweep/2526": 1, "/bewerbungen/sweep/2627": 6, "/registrierungen/sweep/2627": 8 },
     });
-    adresswechselAnswer = () => Promise.resolve({ ...adressen(2), entfernt: 5 });
+    adresswechselAnswer = () => Promise.resolve({ ...adressen(2), removed: 5 });
 
     expect(await runBewerbungSweep()).toStrictEqual({
-      zaehlung: {
-        bewerbung_fehlgeschlagen: 7,
-        registrierung_fehlgeschlagen: 8,
-        adresswechsel_entfernt: 5,
-        adresswechsel_wirksam: 0,
-        adresswechsel_verworfen: 0,
-        adresswechsel_verbleibend: 2,
+      count: {
+        bewerbung_failed: 7,
+        registrierung_failed: 8,
+        address_change_removed: 5,
+        address_change_effective: 0,
+        address_change_discarded: 0,
+        address_change_remaining: 2,
       },
-      offen: 17,
-      fehler: undefined,
+      open: 17,
+      error: undefined,
     });
   });
 
   it("leaves none where nothing was passed over", async () => {
     seasons(["2627"]);
 
-    expect((await runBewerbungSweep()).offen).toBe(0);
+    expect((await runBewerbungSweep()).open).toBe(0);
   });
 });
 
@@ -150,7 +150,7 @@ describe("a half that fails", () => {
   it("runs every other half, files a line naming the half and the season, and then fails", async () => {
     seasons(["2526", "2627"], { scheitert: ["/bewerbungen/sweep/2526", "/registrierungen/sweep/2627"] });
 
-    expect((await runBewerbungSweep()).fehler).toBeInstanceOf(AggregateError);
+    expect((await runBewerbungSweep()).error).toBeInstanceOf(AggregateError);
 
     expect(order()).toStrictEqual([
       "/bewerbungen/sweep",
@@ -158,7 +158,7 @@ describe("a half that fails", () => {
       "/registrierungen/sweep/2526",
       "/bewerbungen/sweep/2627",
       "/registrierungen/sweep/2627",
-      "adresswechsel",
+      "address_change",
     ]);
     expect(failures()).toStrictEqual([
       { event: "bewerbung.sweep_failed", fields: { name: "Error", saison_id: "2526" } },
@@ -173,9 +173,9 @@ describe("a half that fails", () => {
       throw new Error("the backend refused the season list");
     };
 
-    expect((await runBewerbungSweep()).fehler).toStrictEqual(new Error("the backend refused the season list"));
+    expect((await runBewerbungSweep()).error).toStrictEqual(new Error("the backend refused the season list"));
 
-    expect(order()).toStrictEqual(["/bewerbungen/sweep", "adresswechsel"]);
+    expect(order()).toStrictEqual(["/bewerbungen/sweep", "address_change"]);
   });
 
   it("rejects where the address half rejects, after every season was swept", async () => {
@@ -184,7 +184,7 @@ describe("a half that fails", () => {
 
     await expect(runBewerbungSweep()).rejects.toThrow("the lapsed addresses answered nothing");
 
-    expect(order()).toStrictEqual(["/bewerbungen/sweep", "/bewerbungen/sweep/2627", "/registrierungen/sweep/2627", "adresswechsel"]);
+    expect(order()).toStrictEqual(["/bewerbungen/sweep", "/bewerbungen/sweep/2627", "/registrierungen/sweep/2627", "address_change"]);
   });
 
   it("keeps the counts of the halves that answered where another throws", async () => {
@@ -192,7 +192,7 @@ describe("a half that fails", () => {
 
     const lauf = await runBewerbungSweep();
 
-    expect([lauf.zaehlung.bewerbung_fehlgeschlagen, lauf.offen, lauf.fehler instanceof AggregateError]).toStrictEqual([3, 3, true]);
+    expect([lauf.count.bewerbung_failed, lauf.open, lauf.error instanceof AggregateError]).toStrictEqual([3, 3, true]);
   });
 });
 
@@ -216,7 +216,7 @@ describe("the line a failed call files", () => {
       });
     };
 
-    expect((await runBewerbungSweep()).fehler).toBeInstanceOf(AggregateError);
+    expect((await runBewerbungSweep()).error).toBeInstanceOf(AggregateError);
 
     expect(failures()).toStrictEqual([
       {
@@ -249,7 +249,7 @@ describe("the line a failed call files", () => {
       });
     };
 
-    expect((await runBewerbungSweep()).fehler).toBeInstanceOf(AggregateError);
+    expect((await runBewerbungSweep()).error).toBeInstanceOf(AggregateError);
 
     expect(failures()).toStrictEqual([
       {

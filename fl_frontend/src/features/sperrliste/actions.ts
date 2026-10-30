@@ -11,7 +11,7 @@ import { deleteSperre, postSperre } from "./mutations";
 import { mapAnsichtRefusal, mapSperreRefusal, schonGesperrtAmFeld, verwaltungAmFeld } from "./refusals";
 import { FLPostSperrlistePayloadSchema, FLSperrlisteKeyPayloadSchema } from "./schemas";
 
-import type { FLLoeschungAnsichtResponse } from "@/core/generated/client/types";
+import type { FLErasureViewResponse } from "@/core/generated/client/types";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type { FLSperrlisteKeyPayload, SperreEntwurf } from "./schemas";
 
@@ -19,7 +19,7 @@ import type { FLSperrlisteKeyPayload, SperreEntwurf } from "./schemas";
  * Every record the address holds, as the erasure's reveal names them. No grant and no ban among them: the read answers an
  * address holding either with the ban's own refusal (`sperrliste_verwaltung`, `duplicate_key`).
  */
-export type SperreAnsicht = Omit<FLLoeschungAnsichtResponse, "verwaltung" | "gesperrt">;
+export type SperreAnsicht = Omit<FLErasureViewResponse, "verwaltung" | "barred">;
 
 /** The ban's own address rule, never the erasure's looser lookup: no list is read for an address the ban would refuse. */
 const AnsichtPayloadSchema = FLPostSperrlistePayloadSchema.pick({ email: true });
@@ -77,7 +77,7 @@ export async function readSperreAnsichtAction(rawPayload: Pick<SperreEntwurf, "e
       };
     }
 
-    let gelesen: FLLoeschungAnsichtResponse;
+    let gelesen: FLErasureViewResponse;
     try {
       gelesen = await readLoeschungAnsicht(validated.data);
     } catch (error) {
@@ -88,7 +88,7 @@ export async function readSperreAnsichtAction(rawPayload: Pick<SperreEntwurf, "e
 
     // Refused rather than listed, in the ban's own order: the ban refuses an address holding a grant or barred already,
     // so its list would be work for nothing.
-    const { verwaltung, gesperrt, ...ansicht } = gelesen;
+    const { verwaltung, barred: gesperrt, ...ansicht } = gelesen;
     if (verwaltung !== null) return refusalResult(verwaltungAmFeld());
     if (gesperrt) return refusalResult(schonGesperrtAmFeld());
 
@@ -113,7 +113,7 @@ export async function postSperreAction(rawPayload: SperreEntwurf): Promise<Actio
 
     // The refusal belongs on the box holding the value it refuses, not on the error page.
     try {
-      await postSperre({ ...validated.data, benachrichtigen: konto === true });
+      await postSperre({ ...validated.data, notify: konto === true });
     } catch (error) {
       const refusal = mapSperreRefusal(error);
       if (refusal) return refusalResult(refusal);

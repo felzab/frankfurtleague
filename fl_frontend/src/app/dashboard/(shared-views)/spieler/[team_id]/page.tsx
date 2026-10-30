@@ -9,7 +9,7 @@ import { getSpieler } from "@/features/spieler/queries";
 import { getTeam } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
-import { seasonScopedMetadata } from "@/shared/utils/metadata";
+import { saisonScopedMetadata } from "@/shared/utils/metadata";
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata";
 import { parseObjectIdParam } from "@/shared/utils/routeParams";
 
@@ -31,7 +31,7 @@ export async function generateMetadata(props: NextPageProps<{ team_id: string }>
   return {
     title: `Kader ${teamData.name}`,
     description: `Der Kader von ${teamData.name} in der Frankfurt League: alle Spielerinnen und Spieler der gewählten Saison.`,
-    ...seasonScopedMetadata(`/dashboard/spieler/${team_id}`, saisonId, await runningSaisonId()),
+    ...saisonScopedMetadata(`/dashboard/spieler/${team_id}`, saisonId, await runningSaisonId()),
   };
 }
 

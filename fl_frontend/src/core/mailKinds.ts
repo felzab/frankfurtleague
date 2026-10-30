@@ -34,36 +34,36 @@ import {
 } from "./spielEmail";
 
 import type { Mail } from "./emailShell";
-import type { FLPostausgangAusgabe } from "./generated/client/types";
+import type { FLOutboxHandout } from "./generated/client/types";
 
 /**
  * The tag every mail from the Postausgang carries, its value the row's id: the provider echoes a mail's tags on every
  * delivery event about it, so the event finds its row whether or not the send's report has landed.
  */
-export const POSTAUSGANG_TAG = "postausgang_id";
+export const OUTBOX_TAG = "outbox_id";
 
 /** One owed mail's facts: a member of the backend's discriminated union, its `art` naming the kind. */
-type PostausgangDaten = FLPostausgangAusgabe["daten"];
+type OutboxData = FLOutboxHandout["data"];
 
-type PostausgangArt = PostausgangDaten["art"];
+type OutboxArt = OutboxData["art"];
 
 /** The member whose `art` admits `A`, read per member: one member may carry two kinds, as the passkey notices do. */
-type Mitglied<D, A> = D extends { art: infer K } ? (A extends K ? D : never) : never;
+type Member<D, A> = D extends { art: infer K } ? (A extends K ? D : never) : never;
 
 /** Each kind's own member, so a builder is handed its kind's typed facts and no other's. */
-type DatenJeArt = { [A in PostausgangArt]: Mitglied<PostausgangDaten, A> };
+type DataPerArt = { [A in OutboxArt]: Member<OutboxData, A> };
 
 /** What the hand-out answers beside the facts, and where the mail's links stand. */
-interface Ausgabe {
+interface Handout {
   /** The raw link token minted for this hand-out, or null where the mail carries no link. */
   readonly token: string | null;
   /** The row's secret, opened by the drain (`fl_frontend/src/core/mail.ts :: zustellen`), or null where it holds none. */
-  readonly geheim: string | null;
+  readonly secret: string | null;
   /** The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is not production mails no production link. */
   readonly origin: string;
 }
 
-type MailBuilder<A extends PostausgangArt> = (daten: DatenJeArt[A], ausgabe: Ausgabe) => Mail;
+type MailBuilder<A extends OutboxArt> = (data: DataPerArt[A], handout: Handout) => Mail;
 
 /** What a league mail carrying no link is built with beside its facts. */
 export interface MailOrt {
@@ -76,7 +76,7 @@ export interface MailLink extends MailOrt {
 }
 
 /** The hand-out's token for a kind that always carries a link: the backend mints one for every row naming where it lives. */
-function gemintet({ token, origin }: Ausgabe): MailLink {
+function minted({ token, origin }: Handout): MailLink {
   if (token === null) throw new ContractBreakError("A mail carrying a link was handed out without one.");
 
   return { token: token, origin: origin };
@@ -87,47 +87,47 @@ function gemintet({ token, origin }: Ausgabe): MailLink {
  * the backend's kinds: the annotation refuses a kind left out and, the value being an object literal, one the union
  * does not name.
  */
-const MAIL_KINDS: { [A in PostausgangArt]: MailBuilder<A> } = {
-  anmeldecode: (_daten, { geheim, origin }) => buildCodeEmail(geheimDerArt(geheim), origin),
-  passkey_hinzugefuegt: ({ zeitpunkt, konto }, { origin }) =>
-    buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date(zeitpunkt), origin: origin, konto: konto }),
-  passkey_geloescht: ({ zeitpunkt, konto }, { origin }) =>
-    buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(zeitpunkt), origin: origin, konto: konto }),
-  konto_loeschung: (_daten, { geheim, origin }) => buildLoeschungEmail({ origin: origin, token: geheimDerArt(geheim) }),
-  schiedsrichter_bestaetigung: (daten, ausgabe) => buildSchiedsrichterBestaetigungEmail(daten, gemintet(ausgabe)),
-  spiel_anfrage: (daten, ausgabe) => buildSpielAnfrageEmail(daten, gemintet(ausgabe)),
-  spiel_erinnerung: (daten, ausgabe) => buildSpielAnfrageEmail(daten, gemintet(ausgabe)),
+const MAIL_KINDS: { [A in OutboxArt]: MailBuilder<A> } = {
+  sign_in_code: (_data, { secret, origin }) => buildCodeEmail(secretTheArt(secret), origin),
+  passkey_hinzugefuegt: ({ instant, account }, { origin }) =>
+    buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date(instant), origin: origin, konto: account }),
+  passkey_erased: ({ instant, account }, { origin }) =>
+    buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(instant), origin: origin, konto: account }),
+  account_erasure: (_data, { secret, origin }) => buildLoeschungEmail({ origin: origin, token: secretTheArt(secret) }),
+  schiedsrichter_confirmation: (data, handout) => buildSchiedsrichterBestaetigungEmail(data, minted(handout)),
+  spiel_request: (data, handout) => buildSpielAnfrageEmail(data, minted(handout)),
+  spiel_reminder: (data, handout) => buildSpielAnfrageEmail(data, minted(handout)),
   spiel_einteilung: buildSpielEinteilungEmail,
-  spiel_neu_angesetzt: buildSpielHinweisEmail,
+  spiel_new_angesetzt: buildSpielHinweisEmail,
   spiel_abgesagt: buildSpielHinweisEmail,
-  spiel_einteilung_aufgehoben: buildSpielEinteilungAufgehobenEmail,
-  spiel_vorschlag_verworfen: buildSpielVorschlagVerworfenEmail,
-  registrierung_bestaetigung: (daten, ausgabe) => buildRegistrierungBestaetigungEmail(daten, gemintet(ausgabe)),
-  registrierung_erinnerung: (daten, ausgabe) => buildRegistrierungErinnerungEmail(daten, gemintet(ausgabe)),
-  registrierung_absage: (daten, ausgabe) => buildRegistrierungAbsageEmail(daten, ausgabe),
-  einladung: (daten, ausgabe) => buildEinladungEmail(daten, gemintet(ausgabe)),
-  kontakt_bestaetigung: (daten, ausgabe) => buildKontaktBestaetigungEmail(daten, gemintet(ausgabe)),
+  spiel_einteilung_lifted: buildSpielEinteilungAufgehobenEmail,
+  spiel_vorschlag_discarded: buildSpielVorschlagVerworfenEmail,
+  registrierung_confirmation: (data, handout) => buildRegistrierungBestaetigungEmail(data, minted(handout)),
+  registrierung_reminder: (data, handout) => buildRegistrierungErinnerungEmail(data, minted(handout)),
+  registrierung_absage: (data, handout) => buildRegistrierungAbsageEmail(data, handout),
+  invitation: (data, handout) => buildEinladungEmail(data, minted(handout)),
+  kontakt_confirmation: (data, handout) => buildKontaktBestaetigungEmail(data, minted(handout)),
   sperre: buildSperreEmail,
-  berechtigung: buildBerechtigungEmail,
-  adresswechsel_link: (daten, ausgabe) => buildAdresswechselEmail(daten, gemintet(ausgabe)),
+  grant: buildBerechtigungEmail,
+  address_change_link: (data, handout) => buildAdresswechselEmail(data, minted(handout)),
   // The stop link, minted into the change's `stopp.token_hashes`.
-  adresswechsel_hinweis: (daten, ausgabe) => buildAdresswechselHinweisEmail(daten, gemintet(ausgabe)),
-  adresswechsel_wirksam: buildAdresswechselWirksamEmail,
-  adresswechsel_verworfen: buildAdresswechselNichtWirksamEmail,
-  bewerbung_eingang: (daten, ausgabe) => buildBewerbungEingangEmail(daten, gemintet(ausgabe)),
-  bewerbung_bestaetigung: (daten, ausgabe) => buildBewerbungBestaetigungEmail(daten, gemintet(ausgabe)),
-  bewerbung_erinnerung: (daten, ausgabe) => buildBewerbungErinnerungEmail(daten, gemintet(ausgabe)),
+  address_change_hinweis: (data, handout) => buildAdresswechselHinweisEmail(data, minted(handout)),
+  address_change_effective: buildAdresswechselWirksamEmail,
+  address_change_discarded: buildAdresswechselNichtWirksamEmail,
+  bewerbung_received: (data, handout) => buildBewerbungEingangEmail(data, minted(handout)),
+  bewerbung_confirmation: (data, handout) => buildBewerbungBestaetigungEmail(data, minted(handout)),
+  bewerbung_reminder: (data, handout) => buildBewerbungErinnerungEmail(data, minted(handout)),
   bewerbung_zusage: buildBewerbungZusageEmail,
   bewerbung_absage: buildBewerbungAbsageEmail,
-  bewerbung_loeschung: buildBewerbungGeloeschtEmail,
+  bewerbung_erasure: buildBewerbungGeloeschtEmail,
   bewerbung_widerspruch: buildBewerbungWiderspruchEmail,
 };
 
 /** A secret kind's secret, which its every row carries (`fl_frontend/src/core/auth.ts :: oweSignInMail`). */
-function geheimDerArt(geheim: string | null): string {
-  if (geheim === null) throw new Error("The mail's kind carries a secret, and its row holds none.");
+function secretTheArt(secret: string | null): string {
+  if (secret === null) throw new Error("The mail's kind carries a secret, and its row holds none.");
 
-  return geheim;
+  return secret;
 }
 
 /**
@@ -135,6 +135,6 @@ function geheimDerArt(geheim: string | null): string {
  * backend deployed ahead of this build can hand out a kind this map does not hold. Indexed by the kind itself, so the
  * builder found takes exactly that kind's facts (TypeScript's correlated-union pattern, microsoft/TypeScript#47109).
  */
-export function mailFor<A extends PostausgangArt>(art: A, daten: DatenJeArt[A], ausgabe: Ausgabe): Mail | undefined {
-  return Object.hasOwn(MAIL_KINDS, art) ? MAIL_KINDS[art](daten, ausgabe) : undefined;
+export function mailFor<A extends OutboxArt>(art: A, data: DataPerArt[A], handout: Handout): Mail | undefined {
+  return Object.hasOwn(MAIL_KINDS, art) ? MAIL_KINDS[art](data, handout) : undefined;
 }

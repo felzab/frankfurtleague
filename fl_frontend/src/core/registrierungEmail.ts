@@ -3,7 +3,7 @@ import "server-only";
 import { BRAND_NAME, mailOrigin } from "./emailShell";
 
 import type { Mail } from "./emailShell";
-import type { FLRegistrierungAbsageDaten, FLRegistrierungLinkDaten } from "./generated/client/types";
+import type { FLRegistrierungAbsageData, FLRegistrierungLinkData } from "./generated/client/types";
 import type { MailLink, MailOrt } from "./mailKinds";
 
 const SPIELER_BESTAETIGUNG_PATH = "/bestaetigung/spieler";
@@ -28,7 +28,7 @@ function spielerBestaetigungsLink(origin: string, token: string): string {
  * deadlines, and one would not move.
  */
 export function buildRegistrierungBestaetigungEmail(
-  { team: teamName, saison_id: saisonId, frist_tage: fristTage }: FLRegistrierungLinkDaten,
+  { team: teamName, saison_id: saisonId, frist_days: fristTage }: FLRegistrierungLinkData,
   { origin, token }: MailLink,
 ): Mail {
   // Through `mailOrigin` once, and the link minted on what it answered: a raw `AUTH_URL` with a
@@ -40,11 +40,11 @@ export function buildRegistrierungBestaetigungEmail(
     art: "erstkontakt",
     // The team is in the subject because a pupil registering for two of them gets two of these, and
     // the season alone does not tell one from the other in an inbox.
-    betreff: `Registrierung für ${teamName} bestätigen`,
+    subjectLine: `Registrierung für ${teamName} bestätigen`,
     origin: site,
     vorname: "",
     absaetze: [
-      [["Du hast Dich für ", { stark: teamName }, ` in der Saison ${saisonId} der ${BRAND_NAME} registriert.`]],
+      [["Du hast Dich für ", { strong: teamName }, ` in der Saison ${saisonId} der ${BRAND_NAME} registriert.`]],
       [
         "Über den Button unten bestätigst Du die Registrierung, trägst Dein Geburtsdatum ein und entscheidest, was mit Deinen Angaben passieren darf.",
         "Erst danach kann Dein Team Dich in den Kader aufnehmen.",
@@ -54,7 +54,7 @@ export function buildRegistrierungBestaetigungEmail(
         "Du kannst Dich dann über den Link Deines Teams neu registrieren.",
       ],
     ],
-    aktion: { label: "Registrierung bestätigen", href: spielerBestaetigungsLink(site, token) },
+    button: { label: "Registrierung bestätigen", href: spielerBestaetigungsLink(site, token) },
   };
 }
 
@@ -65,18 +65,18 @@ export function buildRegistrierungBestaetigungEmail(
  * as a fresh clock — and the row is erased on the day the first message named.
  */
 export function buildRegistrierungErinnerungEmail(
-  { team: teamName, saison_id: saisonId, frist_tage: fristTage }: FLRegistrierungLinkDaten,
+  { team: teamName, saison_id: saisonId, frist_days: fristTage }: FLRegistrierungLinkData,
   { origin, token }: MailLink,
 ): Mail {
   const site = mailOrigin(origin);
 
   return {
     art: "erstkontakt",
-    betreff: `Erinnerung: Registrierung für ${teamName} bestätigen`,
+    subjectLine: `Erinnerung: Registrierung für ${teamName} bestätigen`,
     origin: site,
     vorname: "",
     absaetze: [
-      [["Deine Registrierung für ", { stark: teamName }, ` in der Saison ${saisonId} der ${BRAND_NAME} ist noch nicht bestätigt.`]],
+      [["Deine Registrierung für ", { strong: teamName }, ` in der Saison ${saisonId} der ${BRAND_NAME} ist noch nicht bestätigt.`]],
       [
         `Die Frist von ${String(fristTage)} Tagen läuft weiter.`,
         "Diese Erinnerung verschiebt sie nicht.",
@@ -84,7 +84,7 @@ export function buildRegistrierungErinnerungEmail(
       ],
       ["Der Link aus der ersten E-Mail funktioniert weiterhin.", "Dieser hier funktioniert genauso."],
     ],
-    aktion: { label: "Registrierung bestätigen", href: spielerBestaetigungsLink(site, token) },
+    button: { label: "Registrierung bestätigen", href: spielerBestaetigungsLink(site, token) },
   };
 }
 
@@ -92,8 +92,8 @@ export function buildRegistrierungErinnerungEmail(
  * The pupil's next step after a decline, by its reason: a team saying the address is somebody else's
  * refused the address rather than the pupil, so that note sends them back with one of their own.
  */
-const ABSAGE_WEITER: Readonly<Record<NonNullable<FLRegistrierungAbsageDaten["grund"]> | "keiner", readonly [string, ...string[]]>> = {
-  andere_person: [
+const ABSAGE_WEITER: Readonly<Record<NonNullable<FLRegistrierungAbsageData["grund"]> | "keiner", readonly [string, ...string[]]>> = {
+  other_person: [
     "Unter dieser E-Mail-Adresse ist schon eine andere Person eingetragen.",
     "Registriere Dich bitte erneut über den Link Deines Teams, mit Deiner eigenen E-Mail-Adresse.",
   ],
@@ -108,22 +108,22 @@ const ABSAGE_WEITER: Readonly<Record<NonNullable<FLRegistrierungAbsageDaten["gru
  * mailbox learns that an address is taken and never by whom.
  */
 export function buildRegistrierungAbsageEmail(
-  { vorname, team: teamName, saison_id: saisonId, grund }: FLRegistrierungAbsageDaten,
+  { vorname, team: teamName, saison_id: saisonId, grund }: FLRegistrierungAbsageData,
   { origin }: MailOrt,
 ): Mail {
   const site = mailOrigin(origin);
 
   return {
     art: "mitteilung",
-    betreff: `Deine Registrierung für ${teamName}`,
+    subjectLine: `Deine Registrierung für ${teamName}`,
     origin: site,
     vorname: vorname,
     absaetze: [
-      [[{ stark: teamName }, ` hat Deine Registrierung für die Saison ${saisonId} der ${BRAND_NAME} abgelehnt.`]],
+      [[{ strong: teamName }, ` hat Deine Registrierung für die Saison ${saisonId} der ${BRAND_NAME} abgelehnt.`]],
       ABSAGE_WEITER[grund ?? "keiner"],
       ["Deine Angaben aus der Registrierung löschen wir einen Monat nach dieser Entscheidung."],
     ],
     // The league's landing: no record is left to press on.
-    aktion: { label: `Zur ${BRAND_NAME}`, href: site },
+    button: { label: `Zur ${BRAND_NAME}`, href: site },
   };
 }

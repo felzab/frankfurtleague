@@ -80,12 +80,12 @@ export function kontaktePersonenRegeln<P extends Person>({
   email: z.ZodType;
   telefon: z.ZodType;
   zugleich: z.ZodType<Exclude<Sitz, "trainer">>;
-}): (kontakte: Record<Sitz, P | null> & { trainer_ist_zugleich: unknown }, ctx: z.core.$RefinementCtx) => void {
+}): (kontakte: Record<Sitz, P | null> & { trainer_is_also: unknown }, ctx: z.core.$RefinementCtx) => void {
   return (kontakte, ctx) => {
     for (const [erste, zweite] of KONTAKT_PAARE) {
       // The declared pair IS one person and shares everything by construction. Every other pair is
       // two people the league has to be able to tell apart when one of them stops answering.
-      if (zweite === "trainer" && erste === kontakte.trainer_ist_zugleich) continue;
+      if (zweite === "trainer" && erste === kontakte.trainer_is_also) continue;
 
       const [eine, andere] = [kontakte[erste], kontakte[zweite]];
       if (eine === null || andere === null) continue;
@@ -108,7 +108,7 @@ export function kontaktePersonenRegeln<P extends Person>({
     }
 
     // Parsed rather than compared with `null`: this pass also runs beside a refused claim, which names no seat.
-    const gepaart = zugleich.safeParse(kontakte.trainer_ist_zugleich);
+    const gepaart = zugleich.safeParse(kontakte.trainer_is_also);
     const trainer = kontakte.trainer;
     const sitz = gepaart.success ? kontakte[gepaart.data] : null;
 

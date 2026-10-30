@@ -63,7 +63,7 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
     label: labels.get(spieltag.id)?.label ?? "",
     beginn: spieltag.beginn,
     ende: spieltag.ende,
-    anzahl_spiele: spieltag.anzahl_spiele,
+    anzahl_spiele: spieltag.count_spiele,
     saison_phase: spieltag.saison_phase,
     saison_id: spieltag.saison_id,
     position: spieltag.position,

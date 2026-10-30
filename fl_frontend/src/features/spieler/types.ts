@@ -1,5 +1,4 @@
-import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
-import type { EinsehbarVerwehrt } from "@/features/adresswechsel/einsehbar";
+import type { FLAddressChangeViewableDenied, FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/core/generated/client/types";
 import type { FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload } from "./schemas";
 
 /** The person half as the editor sends it: a cleared date picker submits `null`, which the schema refuses as a field error. */
@@ -53,7 +52,7 @@ export type SpielerSaisonMembership = {
   saisonId: string;
   saisonStatus: "past" | "active" | "future";
   membership: SpielerSquadFields | null;
-  /** `rules.erlaubte_stufen` — the only levels this season's picker offers, beside "Keine Angabe". */
+  /** `rules.allowed_stufen` — the only levels this season's picker offers, beside "Keine Angabe". */
   erlaubteStufen: FLSpielerStufe[];
   /**
    * The backend's verdict, never the season's status: an active season whose matchday 1 is undated or
@@ -78,7 +77,7 @@ export type AdminSpielerStored = {
   email: string;
   adresswechsel_id: string | null;
   /** Why the address tool refuses this administrator that change, as the read serves it: the editor then links nowhere. */
-  adresswechsel_einsehbar_verwehrt: EinsehbarVerwehrt | null;
+  adresswechsel_einsehbar_verwehrt: FLAddressChangeViewableDenied | null;
 };
 
 /** Where a retired squad row's return to the club it names stands; the editor and the list each word a refusal for their own reader. */

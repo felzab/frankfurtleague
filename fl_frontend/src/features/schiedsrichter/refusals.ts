@@ -36,14 +36,14 @@ export function mapRetireRefusal(error: unknown): string | null {
 export function mapReactivateRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "schiedsrichter_adresse_gesperrt" ? SPERRLISTE_ADRESSE_GESPERRT : null;
+  return error.serverErrorCode === "schiedsrichter_adresse_barred" ? SPERRLISTE_ADRESSE_GESPERRT : null;
 }
 
 /** `null` where the refusal is something else. It lands on the address box, which is the value the list refused. */
 export function mapGesperrteAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "schiedsrichter_adresse_gesperrt"
+  return error.serverErrorCode === "schiedsrichter_adresse_barred"
     ? { fieldErrors: { "kontakt.email": SPERRLISTE_ADRESSE_GESPERRT_FELD } }
     : null;
 }
@@ -60,11 +60,11 @@ export function mapEinladenRefusal(error: unknown): string | null {
         reason: "Diese Person ist stillgelegt und wird zu keinem Spiel mehr eingeteilt",
         repair: "Reaktiviere den Eintrag, bevor Du einen Link sendest",
       });
-    case "bestaetigung_vorhanden":
+    case "confirmation_exists":
       return SCHON_BESTAETIGT;
-    case "schiedsrichter_keine_adresse":
+    case "schiedsrichter_no_adresse":
       return KEINE_ADRESSE;
-    case "schiedsrichter_adresse_gesperrt":
+    case "schiedsrichter_adresse_barred":
       return SPERRLISTE_ADRESSE_GESPERRT;
     default:
       return null;
@@ -93,7 +93,7 @@ export const KEINE_ADRESSE = buildRefusal({
 export function mapBestaetigteAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "schiedsrichter_adresse_nur_per_wechsel" ? { error: BESTAETIGTE_ADRESSE } : null;
+  return error.serverErrorCode === "schiedsrichter_adresse_only_per_change" ? { error: BESTAETIGTE_ADRESSE } : null;
 }
 
 // Both causes named: on the second the administrator touched no address, so the rule alone explains a change they never made.

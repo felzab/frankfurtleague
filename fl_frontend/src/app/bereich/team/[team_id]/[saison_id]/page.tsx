@@ -16,7 +16,7 @@ export default async function TeamStartPage({ params }: NextPageProps<{ team_id:
   return (
     <TeamStartView
       seats={seats}
-      sitze={read.data.sitze}
+      sitze={read.data.seats}
     />
   );
 }

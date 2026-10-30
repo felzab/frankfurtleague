@@ -21,7 +21,7 @@ import type { HeaderLink } from "./FrameNav";
 export type FooterSponsor = { name: string; logo: string; href: string };
 
 /** The year the © line names, read once a day rather than on every request. */
-async function Jahr() {
+async function Year() {
   "use cache";
   cacheTag(SITE_CACHE_TAG);
   cacheLife("days");
@@ -41,7 +41,7 @@ const footerLink = tv({ base: "rounded-md text-sm leading-6 text-fg-muted hover:
  */
 export function ClassicFrame({
   links,
-  anmelden,
+  signIn,
   groups,
   liga,
   social,
@@ -51,7 +51,7 @@ export function ClassicFrame({
   /** The header's links, between the logo and „Anmelden“. */
   links: ReadonlyArray<HeaderLink>;
   /** Where „Anmelden“ leads. */
-  anmelden: Route;
+  signIn: Route;
   /** The footer's link groups beside the league's own, each under its heading. */
   groups: ReadonlyArray<{ heading: Copy; links: ReadonlyArray<HeaderLink> }>;
   /** The „Liga“ group's links before „Sponsoren“, which closes it. */
@@ -61,7 +61,7 @@ export function ClassicFrame({
   sponsors: ReadonlyArray<FooterSponsor>;
   children: ReactNode;
 }) {
-  const ligaLinks = [...liga, { label: COPY.seite.sponsoren, href: ROUTES.sponsoren.pfad() }];
+  const ligaLinks = [...liga, { label: COPY.seite.sponsoren, href: ROUTES.sponsoren.path() }];
   return (
     // The header's height is `tokens.css`'s, read by the header, by a page filling the first screen under it
     // (`ClassicPage`) and by the toasts.
@@ -71,7 +71,7 @@ export function ClassicFrame({
           <Brand ground="band" />
           <HeaderLinks
             links={links}
-            anmelden={anmelden}
+            signIn={signIn}
           />
         </div>
       </header>
@@ -145,7 +145,7 @@ export function ClassicFrame({
             </div>
           )}
           <p className="text-xs text-fg-muted">
-            <Jahr />
+            <Year />
           </p>
         </div>
       </footer>

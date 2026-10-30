@@ -13,7 +13,7 @@ export type Beispiele = Readonly<Record<string, Copy>>;
  * line rather than to Zod's English. It reads the raw issue an error map is handed, whose input and schema a parse's
  * finished issues no longer carry.
  */
-export function feldMeldung(issue: z.core.$ZodRawIssue, beispiele: Beispiele = {}): Copy {
+export function fieldMessage(issue: z.core.$ZodRawIssue, beispiele: Beispiele = {}): Copy {
   const { feld, fehler } = COPY.shared;
 
   // Every check meeting an empty box asks for a value, whichever check it was.
@@ -30,20 +30,20 @@ export function feldMeldung(issue: z.core.$ZodRawIssue, beispiele: Beispiele = {
   }
 
   // A value of the wrong shape is shown the shape: the field's own example, or the address example for an address.
-  const beispiel = beispiele[(issue.path ?? []).map(String).join(".")];
-  if (beispiel !== undefined) return feld.format(beispiel);
+  const example = beispiele[(issue.path ?? []).map(String).join(".")];
+  if (example !== undefined) return feld.format(example);
   if (issue.code === "invalid_format" && issue.format === "email") return feld.format(feld.beispielAdresse);
 
   return fehler.unerwartet;
 }
 
 // Redesign: goes, with its call in `instrumentation.ts`, with the last parse that passes no map of its own, the old
-// actions' and route handlers'; `core/action.ts` hands `feldMeldung` to every parse it makes.
+// actions' and route handlers'; `core/action.ts` hands `fieldMessage` to every parse it makes.
 /**
  * Makes the map the process's, below every message a schema, a check or a parse names itself, and above Zod's English
  * locale. Called once, from `fl_frontend/src/instrumentation.ts :: register`, before the server serves: Zod keeps its
  * config on `globalThis`, so every copy of Zod a server bundle holds reads it.
  */
 export function installGermanMap(): void {
-  z.config({ customError: (issue) => feldMeldung(issue) });
+  z.config({ customError: (issue) => fieldMessage(issue) });
 }

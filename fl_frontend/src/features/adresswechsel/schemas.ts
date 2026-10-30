@@ -1,14 +1,14 @@
 // Redesign: goes with its last importer.
 import z from "zod";
 
-import { FLAdresswechselAntwort } from "@/core/generated/client/types";
+import { FLAddressChangeAntwort } from "@/core/generated/client/types";
 import { BEWERBUNG_TOKEN_MAX_LENGTH } from "@/features/bewerbungen/constants";
 import { LOESCHUNG_ANLASS_MAX_LENGTH } from "@/features/funktionen/constants";
 import { ADRESSE_IM_GRUND_REGEX } from "@/features/sperrliste/schemas";
-import { CustomObjectIdStringSchema, einzeiligerName, KontaktEmailSchema } from "@/shared/schemas";
+import { CustomObjectIdStringSchema, KontaktEmailSchema, singleLineName } from "@/shared/schemas";
 
 /** The reason box, to the erasure occasion's bounds: copied into the start's log row and kept with the log. */
-export const AdresswechselGrundSchema = einzeiligerName(
+export const AdresswechselGrundSchema = singleLineName(
   z
     .string({ error: "Bitte gib einen Grund ein." })
     .trim()
@@ -34,7 +34,7 @@ const adresswechselToken = z
 /** The new mailbox's press: `bestaetigt` moves the address there, `abgelehnt` discards the change. */
 export const FLAdresswechselAntwortPayloadSchema = z.object({
   token: adresswechselToken,
-  antwort: z.enum(FLAdresswechselAntwort, { error: LINK_UNVOLLSTAENDIG }),
+  antwort: z.enum(FLAddressChangeAntwort, { error: LINK_UNVOLLSTAENDIG }),
 });
 
 /** The stop of the address on file, by the token its notice carried. */

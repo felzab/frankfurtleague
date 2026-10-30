@@ -2,7 +2,7 @@ import { doubleActionRequest } from "@/test-support/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
 import { einwilligungAnswer, laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
-import { doublePostausgang } from "@/test-support/mailDouble.ts";
+import { doubleOutbox } from "@/test-support/mailDouble.ts";
 import { membershipAnswer } from "@/test-support/membershipFixtures.ts";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -12,7 +12,7 @@ import type { ApiCall } from "@/test-support/apiClientDouble.ts";
    The mailer's double also stills the drain behind the response, which the backend's Postausgang feeds: a write owing
    a link sends nothing itself. */
 const { setFresh } = doubleActionRequest();
-const mail = doublePostausgang();
+const mail = doubleOutbox();
 
 /** The label the backend runs on the application form, off the registry it generated. */
 const FORM_LABEL = laufendeFassung("bewerbung").text_version;
@@ -28,7 +28,7 @@ let memberships: Answer;
 function answerFor({ endpoint }: ApiCall): unknown {
   if (endpoint === "/einwilligung/seiten") return einwilligungAnswer(endpoint);
   if (endpoint === "/teams/saisons") return memberships();
-  return endpoint.endsWith("/bestaetigung/einladen") ? resend() : save();
+  return endpoint.endsWith("/confirmation/invite") ? resend() : save();
 }
 
 const client = doubleApiAnswers(async (call) => {
@@ -57,20 +57,20 @@ const sitz = (vorname: string, email: string) => ({
 const gespeichert = (vorname: string, email: string) => ({
   ...sitz(vorname, email),
   geburtsdatum: null,
-  einwilligung: kenntnisnahme({ ...sitz(vorname, email).einwilligung, bestaetigt_am: null }),
+  einwilligung: kenntnisnahme({ ...sitz(vorname, email).einwilligung, confirmed_at: null }),
 });
 
 const BLOCK = {
   trainer: sitz("Clara", "clara@schule.example"),
   ansprechperson: sitz("Anna", "anna@schule.example"),
   stellvertretung: sitz("Bernd", "bernd@schule.example"),
-  trainer_ist_zugleich: null,
+  trainer_is_also: null,
 };
 const GESPEICHERT = {
   trainer: gespeichert("Clara", "clara@schule.example"),
   ansprechperson: gespeichert("Anna", "anna@schule.example"),
   stellvertretung: gespeichert("Bernd", "bernd@schule.example"),
-  trainer_ist_zugleich: null,
+  trainer_is_also: null,
 };
 const PAYLOAD = { team_id: TEAM_ID, saison_id: "2627", kontakte: BLOCK, kontakte_stand: "9f2c" };
 
@@ -79,7 +79,7 @@ const saved = (bestaetigungen: unknown[]) => ({
   saison_id: "2627",
   team_id: TEAM_ID,
   kontakte: GESPEICHERT,
-  bestaetigungen,
+  confirmations: bestaetigungen,
 });
 
 /** The club's membership read, holding `kontakte` for the season the payload names. */
@@ -103,7 +103,7 @@ const holding = (kontakte: unknown) => () => ({
 beforeEach(() => {
   setFresh(true);
   save = () => saved([]);
-  resend = () => ({ saison_id: "2627", team_id: TEAM_ID, bestaetigung: { rollen: ["stellvertretung"], email: "bernd@schule.example" } });
+  resend = () => ({ saison_id: "2627", team_id: TEAM_ID, confirmation: { rollen: ["stellvertretung"], email: "bernd@schule.example" } });
   memberships = holding(GESPEICHERT);
 });
 
@@ -132,7 +132,7 @@ describe("the contacts save", () => {
   /* The backend refuses the save whole, storing nobody: the administrator is told at the save, in
      a sentence naming no address and no seat, since the refusal names neither. */
   it("answers a save seating a barred address with the ban", async () => {
-    save = () => refused("kontakt_sitz_gesperrt");
+    save = () => refused("kontakt_seat_barred");
 
     const res = await patchSaisonTeamKontakteAction(PAYLOAD);
 
@@ -198,8 +198,8 @@ describe("the re-send beside an unconfirmed seat", () => {
     const res = await einladeKontaktAction({ team_id: TEAM_ID, saison_id: "2627", rolle: "stellvertretung" });
 
     expect(res.success && res.message).toBe("Der Bestätigungslink geht an bernd@schule.example. Der vorherige Link gilt nicht mehr.");
-    expect(requestsOf(client.calls).filter(({ endpoint }) => endpoint.endsWith("/bestaetigung/einladen"))).toStrictEqual([
-      { endpoint: `/teams/${TEAM_ID}/saisons/2627/kontakte/stellvertretung/bestaetigung/einladen`, method: "POST", body: undefined },
+    expect(requestsOf(client.calls).filter(({ endpoint }) => endpoint.endsWith("/confirmation/invite"))).toStrictEqual([
+      { endpoint: `/teams/${TEAM_ID}/saisons/2627/kontakte/stellvertretung/confirmation/invite`, method: "POST", body: undefined },
     ]);
     expect(mail.sent).toStrictEqual([]);
   });
@@ -214,10 +214,10 @@ describe("the re-send beside an unconfirmed seat", () => {
 
   for (const [code, fragment] of [
     // „Rolle“, the word every screen names a contact seat by.
-    ["kontakt_sitz_ohne_bestaetigung", /^Für diese Rolle steht keine Bestätigung mehr aus\. Lade die Seite neu\.$/],
-    ["kontakt_sitz_gesperrt", /Sperrliste/],
+    ["kontakt_seat_without_confirmation", /^Für diese Rolle steht keine Bestätigung mehr aus\. Lade die Seite neu\.$/],
+    ["kontakt_seat_barred", /Sperrliste/],
     // A reload, the one action left: the reloaded editor offers no send on such a row.
-    ["kontakt_zeile_ohne_saison", /Saison ist vorbei oder das Team ist ausgetreten\. Lade die Seite neu, um den aktuellen Stand zu sehen\./],
+    ["kontakt_row_without_saison", /Saison ist vorbei oder das Team ist ausgetreten\. Lade die Seite neu, um den aktuellen Stand zu sehen\./],
   ] as const) {
     it(`words ${code} beside the seat`, async () => {
       resend = () => refused(code);

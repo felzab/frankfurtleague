@@ -37,7 +37,7 @@ export function AdminBerechtigungStufePanel({
   eigene: boolean;
 }) {
   const ziel: FLVerwaltung = verwaltung === "owner" ? "administration" : "owner";
-  const { resting, name, armed, running, folge } = stufeWorte({ adresse, erteiltAm, ziel, eigene });
+  const { resting, name, armed, running, folge } = stufeWorte({ adresse, erteiltAm, ziel, own: eigene });
   // The enrolment's window, as the action's: the prompt asks before a press the server would refuse.
   const twoPress = useTwoPressConfirm({ stepUp: "enrolment" });
   const router = useRouter();

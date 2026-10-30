@@ -45,7 +45,7 @@ import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { focusAfterWrite, focusRow, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { nichtHinterlegt } from "@/shared/utils/format";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
-import { FASSUNG_UNLESBAR } from "@/shared/utils/refusal";
+import { WORDING_UNREADABLE } from "@/shared/utils/refusal";
 
 import { Absatz } from "./BestaetigungHinweise";
 
@@ -69,25 +69,25 @@ const ROLLEN_TINT: PillTone = "info";
  * Never `warning`, which is what the rows beneath give an outstanding SEAT: one tone for the summary
  * and the thing it summarises reads as one state (my rule, 2026-09-04).
  */
-const ZAEHLER_TINT: Record<"offen" | "vollstaendig", PillTone> = { offen: "brand", vollstaendig: "success" };
+const ZAEHLER_TINT: Record<"offen" | "complete", PillTone> = { offen: "brand", complete: "success" };
 
 const STAND_TINT: Record<SitzBestaetigung["stand"]["art"], PillTone> = {
-  bestaetigt: "success",
-  ausstehend: "warning",
-  abgelehnt: "danger",
+  confirmed: "success",
+  pending: "warning",
+  declined: "danger",
   // A decline's grade for a seat that ends the same way: neither can be confirmed, and both leave
   // the Absage as the one decision the application still takes.
-  geloescht: "danger",
+  erased: "danger",
   // The erased seat's chip, because it carries the erased seat's sentence: one sentence in two tones
   // would read as two states.
   unbeantwortet: "danger",
 };
 
 const STAND_ICON = {
-  bestaetigt: CircleCheck,
-  ausstehend: Clock,
-  abgelehnt: CircleXmark,
-  geloescht: CircleXmark,
+  confirmed: CircleCheck,
+  pending: Clock,
+  declined: CircleXmark,
+  erased: CircleXmark,
   unbeantwortet: CircleXmark,
 } as const;
 
@@ -164,10 +164,10 @@ export function BewerbungBestaetigungStrip({
   };
 
   const panel = formPanel();
-  const bestaetigt = staende.filter((sitz) => !istOffen(sitz)).length;
+  const confirmed = staende.filter((sitz) => !istOffen(sitz)).length;
   const angebot = linkAngebot(staende);
   const neubesetzbar = sitzAngebot(staende);
-  const loeschung = loeschungsSatz({ staende, frist, eingereicht: isOpen, istAbgelaufen: fristAbgelaufen });
+  const loeschung = loeschungsSatz({ staende, frist, submitted: isOpen, istAbgelaufen: fristAbgelaufen });
 
   const sendeErneut = async (rolle: KontaktRolle) => {
     // The page re-keys on the sent link's record, drawing this seat's control anew.
@@ -209,9 +209,8 @@ export function BewerbungBestaetigungStrip({
             title="Bestätigungen"
           />
           <span className="shrink-0">
-            <span
-              className={`${labelBadge(bestaetigt === staende.length ? ZAEHLER_TINT.vollstaendig : ZAEHLER_TINT.offen)} ${STRIP_CHIP_CLASSES}`}>
-              {String(bestaetigt)} von {String(staende.length)} bestätigt
+            <span className={`${labelBadge(confirmed === staende.length ? ZAEHLER_TINT.complete : ZAEHLER_TINT.offen)} ${STRIP_CHIP_CLASSES}`}>
+              {String(confirmed)} von {String(staende.length)} bestätigt
             </span>
           </span>
         </div>
@@ -296,7 +295,7 @@ function SitzZeile({
   onSchliessen: () => void;
 }) {
   const Glyph = STAND_ICON[sitz.stand.art];
-  const zustellung = zustellungChip(sitz.zustellung);
+  const zustellung = zustellungChip(sitz.delivery);
   const erneutLabel = benannt("Link erneut senden", sitz.label);
   const besetzenLabel = benannt("Neu besetzen", sitz.label);
 
@@ -363,7 +362,7 @@ function SitzZeile({
           // the administration's page, whose words the box shows, and the reason says what to do.
           <Hint
             mode="refusal"
-            reason={neubesetzung === null ? FASSUNG_UNLESBAR : null}
+            reason={neubesetzung === null ? WORDING_UNREADABLE : null}
             label={besetzenLabel}
             className="shrink-0">
             <Button
@@ -483,7 +482,7 @@ function AdresseKorrigieren({
     schemas: { korrektur: FLBewerbungKontaktEmailPayloadSchema },
   });
 
-  const payload = { id: bewerbungId, rolle: rolle, email: email, bisherige_email: gespeicherteAdresse ?? "" };
+  const payload = { id: bewerbungId, rolle: rolle, email: email, previous_email: gespeicherteAdresse ?? "" };
 
   useForgiveFixed({ korrektur: payload });
 

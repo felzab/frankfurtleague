@@ -142,7 +142,7 @@ export function RouteDialog({
             requires the close button and forbids hiding it. */}
         <div className="absolute -end-3 -top-3 z-10">
           <Button
-            icon="schliessen"
+            icon="close"
             label={COPY.shared.schliessen}
             onPress={close}
           />

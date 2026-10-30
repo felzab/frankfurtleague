@@ -34,7 +34,7 @@ function CreateDialog({ create }: { create: (formData: FormData) => Promise<Acti
   return (
     <Dialog
       title={NAME}
-      act={{ verb: "anlegen", objekt: NAME }}
+      act={{ verb: "anlegen", object: NAME }}
       action={create}
       trigger={
         <Button
@@ -275,7 +275,7 @@ describe("the kit's dialog", () => {
   });
 
   it("opened from a combo box's create entry, starts from the typed name and closes on „Zurück“", async () => {
-    render(<VenueFieldWithDialog />);
+    render(<SpielortFieldWithDialog />);
     await userEvent.type(screen.getByRole("combobox"), "Sportpark Süd");
     await userEvent.click(screen.getByRole("option", { name: COPY.verwaltung.spielort.anlegenEintrag }));
 
@@ -286,7 +286,7 @@ describe("the kit's dialog", () => {
 });
 
 /** The match editor's venue field and its create dialog, which the field's last entry opens. */
-function VenueFieldWithDialog() {
+function SpielortFieldWithDialog() {
   const [isOpen, setOpen] = useState(false);
   const [name, setName] = useState("");
   return (
@@ -304,7 +304,7 @@ function VenueFieldWithDialog() {
       />
       <Dialog
         title={NAME}
-        act={{ verb: "anlegen", objekt: NAME }}
+        act={{ verb: "anlegen", object: NAME }}
         action={async () => DONE}
         open={{ isOpen, onOpenChange: setOpen }}>
         <TextField

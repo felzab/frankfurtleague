@@ -14,20 +14,20 @@ type Zaehler = Omit<FLSpielbestaetigungSweepResponse, "saison_id">;
  * it closed within the `minutes` lifetime their cached read keeps. Answers what it did, the rows it passed over owing
  * no deletion.
  */
-export async function runSpielSweep(): Promise<{ zaehlung: Zaehler; offen: number }> {
+export async function runSpielSweep(): Promise<{ count: Zaehler; open: number }> {
   const { saison_ids: saisonIds } = await getSpielbestaetigungSweepSaisons();
 
-  const zaehler: Zaehler = { geschlossen: 0, angefragt: 0, erinnert: 0, mails: 0, fehlgeschlagen: 0 };
+  const zaehler: Zaehler = { closed: 0, asked: 0, reminded: 0, mails: 0, failed: 0 };
   // Season by season and never in parallel: one slow pass costs nothing, where a fan-out would put every season's
   // writes on the database at once.
   for (const saisonId of saisonIds) {
     const antwort = await postSpielbestaetigungSweep(saisonId);
-    zaehler.geschlossen += antwort.geschlossen;
-    zaehler.angefragt += antwort.angefragt;
-    zaehler.erinnert += antwort.erinnert;
+    zaehler.closed += antwort.closed;
+    zaehler.asked += antwort.asked;
+    zaehler.reminded += antwort.reminded;
     zaehler.mails += antwort.mails;
-    zaehler.fehlgeschlagen += antwort.fehlgeschlagen;
+    zaehler.failed += antwort.failed;
   }
 
-  return { zaehlung: zaehler, offen: 0 };
+  return { count: zaehler, open: 0 };
 }
