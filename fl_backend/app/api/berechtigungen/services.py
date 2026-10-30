@@ -13,7 +13,7 @@ from typing import Any, Final
 
 from bson import ObjectId
 
-from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungMitteilungArt, FLGrantStand, as_utc
+from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungMitteilungArt, FLGrantSnapshot, as_utc
 from app.api.sperrliste.services import withheld_actor
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
@@ -72,7 +72,7 @@ def inhaber_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None)
 
 
 def gefunden(
-    changes: Sequence[tuple[Any, FLBerechtigungAenderungArt, FLGrantStand | None, FLGrantStand | None]],
+    changes: Sequence[tuple[Any, FLBerechtigungAenderungArt, FLGrantSnapshot | None, FLGrantSnapshot | None]],
 ) -> list[Any]:
     """The grant ids a comparison found granted anew, an address changed in place among them, each of which is stamped `gefunden_am`."""
 
@@ -80,7 +80,7 @@ def gefunden(
 
 
 def ernannt(
-    changes: Sequence[tuple[Any, FLBerechtigungAenderungArt, FLGrantStand | None, FLGrantStand | None]],
+    changes: Sequence[tuple[Any, FLBerechtigungAenderungArt, FLGrantSnapshot | None, FLGrantSnapshot | None]],
 ) -> list[Any]:
     """The grant ids a comparison found promoted to `owner` in place, each of which is stamped `appointed_at`."""
 
@@ -197,13 +197,13 @@ def find_letzter_inhaber_refusal(*, remaining_owners: int) -> WriteRefusal | Non
     )
 
 
-def stand_of(row: Mapping[str, Any]) -> FLGrantStand:
-    return FLGrantStand(adresse=str(row["adresse"]), verwaltung=row["verwaltung"])
+def stand_of(row: Mapping[str, Any]) -> FLGrantSnapshot:
+    return FLGrantSnapshot(adresse=str(row["adresse"]), verwaltung=row["verwaltung"])
 
 
 def compare(
     *, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
-) -> list[tuple[Any, FLBerechtigungAenderungArt, FLGrantStand | None, FLGrantStand | None]]:
+) -> list[tuple[Any, FLBerechtigungAenderungArt, FLGrantSnapshot | None, FLGrantSnapshot | None]]:
     """Every grant whose state differs from the announced record, in id order.
 
     Keyed on the grant's id, never its address, or a revoke and a re-grant cancel out unannounced.
@@ -212,7 +212,7 @@ def compare(
     jetzt = {row["_id"]: stand_of(row) for row in grants}
     vorher = {row["_id"]: stand_of(row) for row in announced}
 
-    changes: list[tuple[Any, FLBerechtigungAenderungArt, FLGrantStand | None, FLGrantStand | None]] = []
+    changes: list[tuple[Any, FLBerechtigungAenderungArt, FLGrantSnapshot | None, FLGrantSnapshot | None]] = []
     for berechtigung_id in sorted(jetzt.keys() | vorher.keys()):
         now, before = jetzt.get(berechtigung_id), vorher.get(berechtigung_id)
         if before is None:
@@ -230,7 +230,7 @@ def compare(
     return changes
 
 
-def withheld(stand: FLGrantStand | None, barred: Collection[str]) -> FLGrantStand | None:
+def withheld(stand: FLGrantSnapshot | None, barred: Collection[str]) -> FLGrantSnapshot | None:
     """`stand` with its address removed where that address is barred."""
 
     if stand is None or stand.adresse is None or stand.adresse not in barred:
@@ -251,8 +251,8 @@ def compose_mitteilung(
     *,
     grant_id: ObjectId,
     art: FLBerechtigungMitteilungArt,
-    jetzt: FLGrantStand | None,
-    before: FLGrantStand | None,
+    jetzt: FLGrantSnapshot | None,
+    before: FLGrantSnapshot | None,
     changed_by: str | None,
     now: datetime,
     barred: Collection[str],
@@ -281,7 +281,7 @@ def compose_mitteilung(
     )
 
 
-def compose_announced(*, grant_id: ObjectId, stand: FLGrantStand, now: datetime) -> dict[str, Any]:
+def compose_announced(*, grant_id: ObjectId, stand: FLGrantSnapshot, now: datetime) -> dict[str, Any]:
     return {"_id": grant_id, "adresse": stand.adresse, "verwaltung": stand.verwaltung, "angekuendigt_am": now}
 
 

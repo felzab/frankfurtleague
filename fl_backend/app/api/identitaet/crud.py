@@ -249,7 +249,7 @@ async def find_subjekt_in_session(
     # REQUIRED: this is the lookup a transaction reaches, so no read of it can leave the session.
     session: AsyncClientSession,
 ) -> FLSubjekt:
-    """`find_subject`'s answer read inside a caller's session, one read at a time.
+    """`find_subjekt`'s answer read inside a caller's session, one read at a time.
 
     A session runs one operation at a time, which PyMongo's `AsyncClientSession` documents and never
     refuses, so the gathered reads would race unseen here.
@@ -271,7 +271,7 @@ async def funktionen_of(
     # forgetting it is a TypeError rather than a read outside its own write.
     session: AsyncClientSession,
 ) -> FLSubjekt:
-    """What a person endpoint may authorise against: `find_subject`'s answer, its seats narrowed to the seasons granting a panel.
+    """What a person endpoint may authorise against: `find_subjekt`'s answer, its seats narrowed to the seasons granting a panel.
 
     Narrowed here and not in the lookup, each caller narrowing for itself.
     """
@@ -547,7 +547,7 @@ async def loeschen_the_mails_in_session(
         collection=outbox_collection,
         pipeline=[
             {"$match": {"art": {"$ne": "account_erasure"}}},
-            {"$project": {"an": 1, "art": 1, "stand": 1, "data.now": 1, "data.before": 1, "data.changed_by": 1}},
+            {"$project": {"an": 1, "art": 1, "state": 1, "data.now": 1, "data.before": 1, "data.changed_by": 1}},
         ],
         session=session,
     )
@@ -557,7 +557,7 @@ async def loeschen_the_mails_in_session(
 
     # The person's own address the grants' step withholds; a replaced one only this chain finds.
     for row in rows:
-        if row["_id"] in ids or row["art"] != "grant" or row["stand"] != "open" or not replaced:
+        if row["_id"] in ids or row["art"] != "grant" or row["state"] != "open" or not replaced:
             continue
         daten = row.get("data") or {}
         withheld: dict[str, Any] = {}

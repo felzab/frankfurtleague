@@ -151,7 +151,7 @@ async def settle_the_notices_in_session(
                 "reference.collection": str(Collection.GRANT_APPROVAL_REQUESTS),
                 "reference.id": {"$in": list(antrag_ids)},
                 "reference.seat": None,
-                "stand": "open",
+                "state": "open",
             },
             update=final_update("dropped", now=now),
             session=session,

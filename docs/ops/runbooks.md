@@ -188,7 +188,7 @@ the machine is outside the repository. What it does tell you:
   leaves a row's links standing when it hands a seat to another person, and the confirmation finds a
   seat by its link alone (`fl_backend/app/api/bewerbungen/services.py :: build_saison_token_filter`),
   so the link the seat's earlier person still holds would confirm the new person's seat or empty it.
-  The re-send replaces the seat's link (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`).
+  The re-send replaces the seat's link (`fl_backend/app/api/teams/admin_router.py :: invite_kontakt`).
   A row whose season has ended or whose team has left it refuses the re-send: there, empty the seat in
   the contacts editor and save, then enter the person again and save, which voids the old link and
   mints the person a new one.
@@ -263,7 +263,7 @@ says before the deploy whether its build will meet a duplicate, which fails the 
 held at different options rather than moving it, so `apply_constraints` raises and
 `fl_backend/app/core/db.py :: lifespan` fails the boot — the old index still serving, which the
 refusal does not say. **A changed RETENTION bound** is moved first by a paste on the owner's
-checklist, setting the `aktionen_retention` index's `expireAfterSeconds` to the new bound, which must
+checklist, setting the `action_log_retention` index's `expireAfterSeconds` to the new bound, which must
 equal `fl_backend/app/shared/schemas/bounds.py :: ACTION_LOG_ENTRY_RETENTION_SECONDS` in the checkout about to
 deploy, or the boot raises on the difference that is left.
 
@@ -434,8 +434,8 @@ the backend container. Nothing in this repository wraps that.
 **Declining does not shrink the working set.** A decided application stays listed, the record being what the
 decision was taken against (`fl_backend/app/api/bewerbungen/admin_router.py :: get_bewerbungen`), so an operator who declines down the queue and sees the
 notice unchanged has not found a fault. Removal is not an alternative either: the collection's whole write
-surface is the two decisions (`fl_backend/app/api/bewerbungen/admin_router.py :: annehmen_bewerbung` and
-`:: ablehnen_bewerbung`) plus the public submission, so a flooded row stays.
+surface is the two decisions (`fl_backend/app/api/bewerbungen/admin_router.py :: accept_bewerbung` and
+`:: decline_bewerbung`) plus the public submission, so a flooded row stays.
 
 **Closing the window is what stops new rows**, and it is the season's own edit rather than anything here. The
 `offen` flag and the span beside it are the season editor's application section
@@ -686,7 +686,7 @@ that seat's own link, not by the person's role; a seat on a team's season row is
   is live, and the Widerspruch empties the seat and mails nobody, an administrator rather than a
   submitter having entered them (`docs/glossary.md :: Bestätigung`). A lost or lapsed link is sent
   again with „Bestätigungslink senden“ on that seat in the team's contacts editor
-  (`fl_backend/app/api/teams/admin_router.py :: einladen_kontakt`), which replaces the old link
+  (`fl_backend/app/api/teams/admin_router.py :: invite_kontakt`), which replaces the old link
   whole. It refuses an address the ban list holds (`kontakt_seat_barred`) and a row whose season has
   ended or whose team has left it (`kontakt_row_without_saison`), though a link
   such a row already holds still takes a Widerspruch. Where no live link is left, or the seat has
@@ -1160,7 +1160,7 @@ names the season**, as it takes an ended season's fixture confirmations whole: i
 theirs the season's end could not strip, the contact blocks clear all the same, and every later pass
 tries again.
 
-**A `bewerbung_fehlgeschlagen` or `registrierung_fehlgeschlagen` above zero is a clock passing rows
+**A `bewerbung_failed` or `registrierung_failed` above zero is a clock passing rows
 over, not a pass that ran clean.** A clock failing on every row still finishes its pass, so this
 count, summing the rows that half's clocks passed over across every season, is the only sign of it.
 The backend's lines then name each row, as above.
@@ -1179,7 +1179,7 @@ notice to the Postausgang: each replaced address gets its completion notice and 
 confirmed change refused at its due time or lapsed unapproved a notice naming nobody. The pass ends
 by carrying each sign-in account an effect still owes
 (`fl_frontend/src/features/adresswechsel/umzug.ts :: runAdresswechselUmzuege`). Its counts and no person
-are the pass line's `adresswechsel_` ones, `adresswechsel_verbleibend` the rows it left due. A half that threw fails the applications' job once the seasons have run, which
+are the pass line's `address_change_` ones, `address_change_remaining` the rows it left due. A half that threw fails the applications' job once the seasons have run, which
 `scheduler.job_failed` names as `bewerbungen`.
 
 **A notice the drain could not send stays owed in the Postausgang**, which retries it as it retries
@@ -1288,7 +1288,7 @@ listed rejects, which `scheduler.job_failed`
 names as `konto` and the heartbeat as `konto failed`. Every other failure inside a pass is a line of
 its own, and the next pass asks again.
 
-**A `konto.referenzen_failed` line carrying `no_owner` means the backend reads no live
+**An `account.references_failed` line carrying `no_owner` means the backend reads no live
 `owner` grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass still counts, its
 `fehlgeschlagen` every account the store listed, so a pass's line alone does not say the sweep works. Either the backend reads another database than the league's,
 which `DB_BASE_NAME` in `fl_backend/.env` names, or the `owner` grant is gone; the backend's boot warns
@@ -1687,7 +1687,7 @@ carries the address. Ask when they tried and read that window:
   person already held still stands, bar a send racing the hundredth. Only admitted addresses count,
   so a run of these is a flood over members' addresses or an evening outgrowing the figure; it lifts
   within the hour, or at once by the sweep in §17.
-- A stack that is not production mails nothing: the code's Postausgang row reads `withheld`,
+- A stack that is not production mails nothing: the code's Postausgang row reads `held`,
   and the message is in its sink. On the local stack that is `.tmp-mail/`, which
   every `./scripts/ops/local.sh` start empties of what earlier runs filed, so a code there is this
   run's.

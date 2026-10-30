@@ -1017,7 +1017,7 @@ class TestTheToolsStart:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await administrator_starts(database, client, grund=None)
             await administrator_starts(database, client, grund=GRUND)
-            rows = database[Collection.OUTBOX].find({"art": "address_change_hinweis"}, sort=[("recorded_at", 1), ("_id", 1)])
+            rows = database[Collection.OUTBOX].find({"art": "address_change_notice"}, sort=[("recorded_at", 1), ("_id", 1)])
             return [(row["data"]["way"], row["data"]["vorname"]) async for row in rows]
 
         assert on_a_person(mongo_replica_set_url, body) == [("release", "Lenore"), ("waiting_period", None)]

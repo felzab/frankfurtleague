@@ -347,11 +347,11 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("email", ASCENDING),),
         "the changes naming an address as their new one, which every erasure and its preview read",
     ),
-    # Equality on `stand` and the claim's own sort after it; the lease and the deadline are read off the open rows alone.
+    # Equality on `state` and the claim's own sort after it; the lease and the deadline are read off the open rows alone.
     SupportIndex(
         Collection.OUTBOX,
         "outbox_open",
-        (("stand", ASCENDING), ("recorded_at", ASCENDING), ("_id", ASCENDING)),
+        (("state", ASCENDING), ("recorded_at", ASCENDING), ("_id", ASCENDING)),
         "the drain's claim of the open rows, oldest first",
     ),
     SupportIndex(
@@ -409,7 +409,7 @@ TTL_INDEXES: Sequence[TTLIndex] = (
     # Zero: a lapsed request decides nothing, and every read already treats it as gone.
     TTLIndex(
         Collection.GRANT_APPROVAL_REQUESTS,
-        "grants_approval_requests_until",
+        "grant_approval_requests_until",
         "approval.bis",
         0,
         "a request nobody decided is removed once the TTL monitor next passes after it lapsed",

@@ -26,7 +26,10 @@ check is on this page.
   a visitor reads, a page address and a mailed link's address are not names and keep their words. A
   data noun stored or served under its German name (`datum`, `vorname`, `grund`, `art`) keeps it,
   and a stored field name or value already in production keeps its spelling unless a paste is owed
-  anyway. The copy catalogue's keys follow the copy they key. An English twin of a glossary noun in
+  anyway. A name the production host or a deploy holds (a secret file, an environment variable, a
+  compose service or secret, a CI secret reference, a header) follows the rule like any other, and
+  its rename is an owner step; a Docker volume keeps its name, since a renamed volume is a new empty
+  one. The copy catalogue's keys follow the copy they key. An English twin of a glossary noun in
   code takes the German noun, so one search finds every site.
 - **State a decision neutrally, with the date it was taken.** A decision no tool or comment can
   hold is one line in [the decisions record](decisions.md), written in the commit that takes it;

@@ -8,7 +8,7 @@ from pymongo import ASCENDING
 from app.api.aktionen.schemas import (
     HERKUNFT_JE_KIND,
     FLActionLogEntrySingleResponse,
-    FLActionLogEntryWithStand,
+    FLActionLogEntryWithBefore,
     FLActionLogListResponse,
     FLAktionenFilterParams,
     FLAktionenListAdapter,
@@ -182,4 +182,4 @@ async def get_action_log_entry(
     aktion_raw = await pull_one_from_db(collection=aktionen_collection, db_filter={"_id": action_log_entry_id})
     [served] = await _as_served([aktion_raw], sperrliste=sperrliste)
 
-    return FLActionLogEntrySingleResponse(action_log_entry=FLActionLogEntryWithStand(**served))
+    return FLActionLogEntrySingleResponse(action_log_entry=FLActionLogEntryWithBefore(**served))

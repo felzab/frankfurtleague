@@ -209,7 +209,7 @@ class FLGrantReconciliationResponse(BaseAPIResponse):
     changes: int = Field(ge=0)
 
 
-class FLGrantStand(BaseModel):
+class FLGrantSnapshot(BaseModel):
     """One grant's address and tier at one moment."""
 
     # Null where the address was barred when it was written or is barred now, or its holder is erased.

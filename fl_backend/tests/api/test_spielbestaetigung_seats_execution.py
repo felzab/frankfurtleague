@@ -569,7 +569,7 @@ class TestALeavingPersonsLinksLeaveTheLog:
         found: dict[str, Any] = {}
 
         async def after_an_image(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            delivered = {"message_id": "msg-1", "stand": "delivered", "grund": None, "am": "2026-04-01T09:00:00+00:00"}
+            delivered = {"message_id": "msg-1", "state": "delivered", "grund": None, "am": "2026-04-01T09:00:00+00:00"}
             await database[Collection.SPIELBESTAETIGUNGEN].update_one(
                 {"_id": ROWS["answered"]["_id"]}, {"$set": {"kontakte.trainer.delivery": delivered}}
             )

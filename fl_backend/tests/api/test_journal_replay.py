@@ -546,7 +546,7 @@ def _day_file(*entries: tuple[str, str]) -> list[str]:
     formatter = JSONFormatter()
     lines = []
     for moment, message in entries:
-        record = logging.LogRecord("frankfurtleague.loeschung", logging.INFO, "journal.py", 1, message, None, None)
+        record = logging.LogRecord("frankfurtleague.erasure", logging.INFO, "journal.py", 1, message, None, None)
         record.created = datetime.fromisoformat(moment).timestamp()
         lines.append(formatter.format(record))
     return lines

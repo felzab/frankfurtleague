@@ -164,7 +164,7 @@ async def live_unbarred_grant_since(
 
 
 # A grant's notice still to be handed out: the one shape a ban or an erasure rewrites, a sent one being past saying.
-OFFENE_MITTEILUNG: Final[Mapping[str, Any]] = {"stand": "open", "art": "grant"}
+OFFENE_MITTEILUNG: Final[Mapping[str, Any]] = {"state": "open", "art": "grant"}
 
 
 async def owe_in_session(

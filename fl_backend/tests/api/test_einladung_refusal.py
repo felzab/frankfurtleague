@@ -8,7 +8,7 @@ from app.api.einladungen.services import (
     plan_einladung_versand,
     registrierungsfenster_laeuft,
 )
-from app.api.outbox.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxStatus
 from tests.documents import kontaktperson_document
 
 CONFIRMED_ON = "2026-03-20"
@@ -32,12 +32,12 @@ def kontakte(*, trainer: Any = None, ansprechperson: Any = None, stellvertretung
 EINLADUNG: dict[str, Any] = {"saison_id": "2026", "widerrufen_am": None}
 
 
-def lage(stand: str, *, delivery: str | None = None) -> FLOutboxState:
+def lage(stand: str, *, delivery: str | None = None) -> FLOutboxStatus:
     """The last mail owed about an invite, as the outbox serves it."""
 
-    gemeldet = None if delivery is None else {"stand": delivery, "grund": None, "am": "2026-03-29T10:00:00+00:00"}
+    gemeldet = None if delivery is None else {"state": delivery, "grund": None, "am": "2026-03-29T10:00:00+00:00"}
 
-    return FLOutboxState.model_validate({"stand": stand, "delivery": gemeldet})
+    return FLOutboxStatus.model_validate({"state": stand, "delivery": gemeldet})
 
 
 class TestTheWindowALinkExpiresWith:
@@ -105,7 +105,7 @@ class TestWhetherAnythingWasEverMailed:
 
         assert einladung_ist_versendet(lage=lage(stand))
 
-    @pytest.mark.parametrize("stand", ["abandoned", "barred", "withheld", "dropped"])
+    @pytest.mark.parametrize("stand", ["abandoned", "barred", "held", "dropped"])
     def test_a_mail_that_reached_nobody_does_not(self, stand: str):
         """No message left, so the press has still reached nobody and the next press must go out."""
 

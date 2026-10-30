@@ -154,7 +154,7 @@ class FLActionLogEntry(BaseModel):
         return None if value is None or isinstance(value, list) else str(value)
 
 
-class FLActionLogEntryWithStand(FLActionLogEntry):
+class FLActionLogEntryWithBefore(FLActionLogEntry):
     """One recorded write with the document it replaced, which only the single-row read serves."""
 
     # A list is `delete_many`'s: a removal follows no write a restore could replay, so one row
@@ -231,4 +231,4 @@ class FLActionLogListResponse(BaseAPIResponse):
 
 
 class FLActionLogEntrySingleResponse(BaseAPIResponse):
-    action_log_entry: FLActionLogEntryWithStand
+    action_log_entry: FLActionLogEntryWithBefore

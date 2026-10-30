@@ -52,7 +52,7 @@ SpielberichteCollection = Annotated[AsyncCollection, Depends(collection_dependen
 
 AddressChangeCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.ADDRESS_CHANGES))]
 
-GrantsApprovalRequestsCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.GRANT_APPROVAL_REQUESTS))]
+GrantApprovalRequestsCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.GRANT_APPROVAL_REQUESTS))]
 
 OutboxCollection = Annotated[AsyncCollection, Depends(collection_dependency(Collection.OUTBOX))]
 

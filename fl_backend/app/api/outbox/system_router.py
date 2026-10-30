@@ -47,7 +47,7 @@ router = APIRouter(
 
 # Open, and no live claim holding it.
 def _free(now: datetime) -> dict[str, Any]:
-    return {"stand": "open", "$or": [{"leased_until": None}, {"leased_until": {"$lte": now}}]}
+    return {"state": "open", "$or": [{"leased_until": None}, {"leased_until": {"$lte": now}}]}
 
 
 def _link_record_filter(row: Mapping[str, Any]) -> dict[str, Any]:
@@ -208,7 +208,7 @@ async def post_result(
     """
     Settle the named mail, where the named claim still holds it, by the outcome of its send, and nothing else.
 
-    `sent` records the provider's message id; `withheld` a deployment that sends no mail; `abandon` a
+    `sent` records the provider's message id; `held` a deployment that sends no mail; `abandon` a
     refusal every send would meet, any 4xx but a 429. A failed send's `grund`, the provider's own name for the refusal,
     is recorded on the row, the send's one record of why. `retry`, for a 429, a 5xx or a send that never reached the
     provider, hands the mail back for a drain a minute from now, or gives it up where it has grown past its deadline; a
@@ -218,7 +218,7 @@ async def post_result(
     one atomic operation on one row, needing no transaction; a settled row keeps no facts and no secret.
     """
 
-    held = {"_id": result_data.id, "lease": result_data.lease, "stand": "open"}
+    held = {"_id": result_data.id, "lease": result_data.lease, "state": "open"}
 
     async def settled(update: Mapping[str, Any], narrowed: Mapping[str, Any]) -> bool:
         # Every report writes its refusal or none, so a mail sent after a failed send keeps no reason it no longer has.
@@ -283,9 +283,9 @@ async def post_event(
         collection=outbox_collection,
         db_filter={
             "_id": event_data.id,
-            "delivery.stand": {"$in": list(FOLGT_AUF[event_data.stand])},
+            "delivery.state": {"$in": list(FOLGT_AUF[event_data.state])},
         },
-        update={"$set": {"delivery": {"stand": event_data.stand, "grund": event_data.grund, "am": event_data.am}}},
+        update={"$set": {"delivery": {"state": event_data.state, "grund": event_data.grund, "am": event_data.am}}},
     )
 
     return FLOutboxEventResponse(applied=result.modified_count > 0)

@@ -9,13 +9,13 @@ from datetime import UTC, datetime
 
 from bson import ObjectId
 
-from app.api.berechtigungen.schemas import FLGrantStand
+from app.api.berechtigungen.schemas import FLGrantSnapshot
 from app.api.berechtigungen.services import compose_mitteilung
 
 GRANT = ObjectId("6890a1b2c3d4e5f607920011")
 NOW = datetime(2026, 4, 1, 10, 30, tzinfo=UTC)
 ANNA = "anna.admin@frankfurtleague.de"
-NEU = FLGrantStand(adresse="nora.neu@beispielschule.de", verwaltung="administration")
+NEU = FLGrantSnapshot(adresse="nora.neu@beispielschule.de", verwaltung="administration")
 
 
 def test_an_acting_administrator_barred_when_queued_is_stored_withheld_and_still_the_applications():

@@ -3,7 +3,7 @@ from typing import Annotated, Literal, Self
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 from pydantic_core import PydanticCustomError
 
-from app.api.outbox.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxStatus
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
 from app.shared.schemas.actor import FLVonAdmin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH
@@ -88,7 +88,7 @@ class FLSpielbestaetigungSeat(BaseReadModel):
     """
 
     # What became of the last mail owed to the seat, read off the Postausgang; null where none was, or on a write's answer.
-    delivery: FLOutboxState | None = None
+    delivery: FLOutboxStatus | None = None
 
 
 class FLSpielbestaetigungKontakte(BaseModel):

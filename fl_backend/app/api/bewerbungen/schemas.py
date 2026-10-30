@@ -3,7 +3,7 @@ from typing import Annotated, Literal, Self
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 from pydantic_core import PydanticCustomError
 
-from app.api.outbox.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxStatus
 from app.api.teams.schemas import FLSaisonTeamKontakte, FLSaisonTeamKontaktePayload, _KontaktpersonWritablePayload
 from app.shared.alter import whole_years_between
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
@@ -81,7 +81,7 @@ class FLBewerbungConfirmation(_FLBewerbungSitzStand):
 
     # What became of the last mail owed this seat, as the read joins it from the Postausgang: no seat stores it, and null
     # where none was ever owed.
-    delivery: FLOutboxState | None
+    delivery: FLOutboxStatus | None
 
 
 class FLBewerbungConfirmations(BaseModel):
@@ -416,7 +416,7 @@ class FLBewerbungKaderPayload(FLBewerbungKader):
         """
 
         if self.good_spieler > self.expected_size:
-            raise PydanticCustomError("gute_spieler_exceed_kader", "more strong players than the expected squad")
+            raise PydanticCustomError("good_spieler_exceed_kader", "more strong players than the expected squad")
 
         return self
 
@@ -687,12 +687,12 @@ class FLBewerbungSweepResponse(BaseAPIResponse):
     reminded: int
     # The fourteen-day clock's erasures, each owed its notice in its own transaction where none went out before.
     erased: int
-    declined_erased: int
-    accepted_erased: int
+    erased_declined: int
+    erased_accepted: int
     # The applications nobody decided, taken by the end of the season they applied for. Counted apart
     # from the two decided ones: folded in, a pass that erased where nobody decided would read as a
     # decision.
-    without_decision_erased: int
+    erased_without_decision: int
     kontakt_blocks_emptied: int
     redacted_action_log: int
     # One sum over every clock rather than a count a clock: the line logging each row names its clock.

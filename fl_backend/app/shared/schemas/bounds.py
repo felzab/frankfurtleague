@@ -50,9 +50,9 @@ VERTRETUNG_MIN_AGE_YEARS: Final = 18
 # How long an application's three people have to confirm their own seats before it is deleted; a
 # re-send restarts the clock. Days rather than a date, so the deadline is derived from the mint and
 # never stored twice.
-BEWERBUNG_CONFIRMATION_FRIST_DAYS: Final = 14
+BEWERBUNG_CONFIRMATION_DEADLINE_DAYS: Final = 14
 # The age at which one seat's link is due its single reminder, counted from the mint and set more
-# than a week inside `BEWERBUNG_CONFIRMATION_FRIST_DAYS`, so a person reminded still has time to answer.
+# than a week inside `BEWERBUNG_CONFIRMATION_DEADLINE_DAYS`, so a person reminded still has time to answer.
 BEWERBUNG_REMINDER_DAYS: Final = 3
 
 # The raw confirmation token as it arrives on every public consent endpoint, a referee's included:
@@ -164,7 +164,7 @@ ADDRESS_CHANGE_RETENTION_DAYS: Final = 30
 # A row stores the deadline it was given, so raising this moves no request already sent; a fixture
 # dated inside it is due the day it is asked.
 SPIEL_CONFIRMATION_FRIST_DAYS: Final = 7
-# Also the longest a confirmation link answers, as long as `BEWERBUNG_CONFIRMATION_FRIST_DAYS` and
+# Also the longest a confirmation link answers, as long as `BEWERBUNG_CONFIRMATION_DEADLINE_DAYS` and
 # `SCHIEDSRICHTER_CONFIRMATION_FRIST_DAYS` let the other adult links: the edge's error log accepts a
 # link's token because it answers nothing past such a deadline.
 SPIEL_REQUEST_LEAD_TIME_DAYS: Final = 14

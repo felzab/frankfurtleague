@@ -14,7 +14,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.bewerbungen.admin_router import FLBewerbungenFilters, get_bewerbungen
 from app.api.bewerbungen.schemas import FLBewerbungenFilterParams
 from app.api.bewerbungen.services import dubletten_schluessel_of, mit_zustellung
-from app.api.outbox.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxStatus
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from tests import documents
@@ -703,8 +703,8 @@ class TestEachSeatReadsItsLastMail:
     """The join the reads serve `delivery` by: one person is sent one mail for two seats, read by the seat it mirrors."""
 
     def test_a_trainer_who_is_another_seats_person_reads_that_seats_mail_and_an_emptied_seat_reads_none(self):
-        gesendet = FLOutboxState(stand="sent", delivery=None)
-        aufgegeben = FLOutboxState(stand="abandoned", delivery=None)
+        gesendet = FLOutboxStatus(state="sent", delivery=None)
+        aufgegeben = FLOutboxStatus(state="abandoned", delivery=None)
         row = {
             "_id": "bewerbung",
             "kontakte": {"trainer_is_also": "ansprechperson"},

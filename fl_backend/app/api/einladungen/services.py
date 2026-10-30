@@ -11,7 +11,7 @@ from typing import Any, NamedTuple
 
 from app.api.bewerbungen.services import seat_named
 from app.api.einladungen.schemas import FLInvitationDispatchGrund, FLInvitationRecipient
-from app.api.outbox.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxStatus
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.einwilligung import is_confirmed
@@ -127,7 +127,7 @@ def compose_widerruf_update(*, today: str) -> Mapping[str, Any]:
     return {"$set": {"widerrufen_am": today}}
 
 
-def einladung_ist_versendet(*, lage: FLOutboxState | None) -> bool:
+def einladung_ist_versendet(*, lage: FLOutboxStatus | None) -> bool:
     """Whether the last mail owed about this invite is still owed or went out.
 
     The row's own state and never its delivery: a message that BOUNCED went out, and that team WAS
@@ -135,7 +135,7 @@ def einladung_ist_versendet(*, lage: FLOutboxState | None) -> bool:
     held back or dropped reached nobody, so the team is mailed again.
     """
 
-    return lage is not None and lage.stand in ("open", "sent")
+    return lage is not None and lage.state in ("open", "sent")
 
 
 def _confirmed_seat(kontakte: Any, seat: str) -> Mapping[str, Any] | None:

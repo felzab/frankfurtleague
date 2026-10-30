@@ -370,7 +370,7 @@ class FLRegistrierungDeclinePayload(BaseModel):
     grund: FLRegistrierungAblehnungsgrund | None
 
 
-class FLRegistrierungRefusalResponse(BaseAPIResponse):
+class FLRegistrierungDeclineResponse(BaseAPIResponse):
     """The declined registration, and the first name the seat holder is told the decision by."""
 
     registrierung_id: CustomObjectId

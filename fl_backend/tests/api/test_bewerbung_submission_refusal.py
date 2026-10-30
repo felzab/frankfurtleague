@@ -692,7 +692,7 @@ class TestTheStrongPlayersFitInsideTheSquad:
         with pytest.raises(ValidationError) as failure:
             FLPostBewerbungPayload.model_validate(submission(kader=kader))
 
-        assert [error["type"] for error in failure.value.errors()] == ["gute_spieler_exceed_kader"]
+        assert [error["type"] for error in failure.value.errors()] == ["good_spieler_exceed_kader"]
 
 
 def stored_application(**overrides: Any) -> dict[str, Any]:

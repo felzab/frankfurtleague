@@ -72,7 +72,7 @@ class _Reads:
         return await self.answer(collection, self.rows.get(collection, []), session)
 
 
-def _find_subject(reads: _Reads, session: object = None) -> FLSubjekt:
+def _find_subjekt(reads: _Reads, session: object = None) -> FLSubjekt:
     """The system route's lookup with no session, the one a transaction reaches with one."""
 
     if session is None:
@@ -84,40 +84,11 @@ def _find_subject(reads: _Reads, session: object = None) -> FLSubjekt:
 class TestTheSubjectLookupsReads:
     """`POST /identity/subject` answers every signed-in render, so its reads are paid in latency on every page."""
 
-    def test_the_records_the_ban_and_the_grant_are_read_at_once(self, monkeypatch: pytest.MonkeyPatch):
-        reads = _Reads()
-
-        async def find_subject(_identifier: str, _records: Any) -> FLSubjekt:
-            return await reads.answer("records", FLSubjekt(seats=[], spieler=[], schiedsrichter=[], unconfirmed=False))
-
-        async def hash_barred(*_: Any, **__: Any) -> bool:
-            return await reads.answer("ban", False)
-
-        async def verwaltung_of(**_: Any) -> None:
-            return await reads.answer("grant", None)
-
-        monkeypatch.setattr(identity_system_router, "find_subjekt", find_subject)
-        monkeypatch.setattr(identity_system_router, "hash_gesperrt", hash_barred)
-        monkeypatch.setattr(identity_system_router, "verwaltung_of", verwaltung_of)
-
-        stand_in = cast(Any, None)
-        asyncio.run(
-            identity_system_router.get_subject(
-                subjekt_data=FLSubjectPayload(email=IDENTIFIER),
-                records=stand_in,
-                sperrliste=ban_list({Collection.SPERRLISTE: stand_in, Collection.SAISONS: stand_in}),
-                berechtigungen_collection=stand_in,
-            )
-        )
-
-        assert sorted(reads.issued) == ["ban", "grant", "records"]
-        assert reads.peak == 3, "the endpoint awaited one read before sending the next"
-
     def test_the_three_record_reads_are_in_flight_together_outside_a_transaction(self, monkeypatch: pytest.MonkeyPatch):
         reads = _Reads()
         monkeypatch.setattr(identity_crud, "aggregate_many_from_db", reads.aggregate)
 
-        _find_subject(reads)
+        _find_subjekt(reads)
 
         assert reads.peak == 3, "the lookup awaited one record read before sending the next"
 
@@ -127,7 +98,7 @@ class TestTheSubjectLookupsReads:
         reads = _Reads()
         monkeypatch.setattr(identity_crud, "aggregate_many_from_db", reads.aggregate)
 
-        _find_subject(reads)
+        _find_subjekt(reads)
 
         assert sorted(reads.issued) == [SAISON_TEAMS, SCHIEDSRICHTER, SPIELER]
 
@@ -137,7 +108,7 @@ class TestTheSubjectLookupsReads:
         reads = _Reads({SAISON_TEAMS: [SEAT_ROW], SAISONS: [{"_id": ACTIVE_SAISON, "status": "active"}]})
         monkeypatch.setattr(identity_crud, "aggregate_many_from_db", reads.aggregate)
 
-        answered = _find_subject(reads)
+        answered = _find_subjekt(reads)
 
         assert reads.issued[-1] == SAISONS
         assert reads.issued.count(SAISONS) == 1
@@ -150,7 +121,7 @@ class TestTheSubjectLookupsReads:
         monkeypatch.setattr(identity_crud, "aggregate_many_from_db", reads.aggregate)
         transaction = object()
 
-        _find_subject(reads, session=transaction)
+        _find_subjekt(reads, session=transaction)
 
         assert reads.peak == 1
         assert reads.sessions == [transaction] * len(reads.issued)

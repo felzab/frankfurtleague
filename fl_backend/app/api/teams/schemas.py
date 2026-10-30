@@ -18,7 +18,7 @@ from pydantic import (
 )
 from pydantic_core import PydanticCustomError
 
-from app.api.outbox.schemas import FLOutboxState
+from app.api.outbox.schemas import FLOutboxStatus
 from app.core.crud import Anchored
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
@@ -248,7 +248,7 @@ class FLSaisonTeamConfirmationView(FLSaisonTeamBestaetigung, BaseReadModel):
     expired: bool
     # What became of the last mail carrying this seat's link, off the Postausgang; null where none was ever owed.
     # Required, so a read that forgot to compose it fails rather than answering every link as one nobody was sent.
-    delivery: FLOutboxState | None
+    delivery: FLOutboxStatus | None
 
 
 class FLSaisonTeamConfirmationsView(BaseModel):

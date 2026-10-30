@@ -18,11 +18,11 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.outbox.schemas import (
     FLOutboxArt,
     FLOutboxData,
-    FLOutboxDeliveryStand,
+    FLOutboxDeliveryState,
     FLOutboxLink,
     FLOutboxReference,
     FLOutboxResultArt,
-    FLOutboxStand,
+    FLOutboxRowState,
 )
 from app.core.crud import patch_many_in_db, post_many_to_db
 
@@ -54,16 +54,16 @@ SIGN_IN_ARTEN: Final[frozenset[FLOutboxArt]] = frozenset({"sign_in_code", "passk
 UNGESPERRT: Final[frozenset[FLOutboxArt]] = frozenset({"sperre"})
 
 # The final state each reported outcome settles a row in; a send to be tried again ends there only where it may not be.
-ENDSTAND: Final[Mapping[FLOutboxResultArt, FLOutboxStand]] = {
+ENDSTAND: Final[Mapping[FLOutboxResultArt, FLOutboxRowState]] = {
     "sent": "sent",
-    "withheld": "withheld",
+    "held": "held",
     "abandon": "abandoned",
     "retry": "abandoned",
 }
 
 # Each delivery state, and the states a row may hold for an event to move it there: never back from a later one, the
 # provider sending events in any order.
-FOLGT_AUF: Final[Mapping[FLOutboxDeliveryStand, tuple[FLOutboxDeliveryStand | None, ...]]] = {
+FOLGT_AUF: Final[Mapping[FLOutboxDeliveryState, tuple[FLOutboxDeliveryState | None, ...]]] = {
     "delayed": (None,),
     "delivered": (None, "delayed"),
     "undeliverable": (None, "delayed"),
@@ -131,7 +131,7 @@ async def enqueue_mails(
     if replaced:
         await patch_many_in_db(
             collection=outbox_collection,
-            db_filter={"$or": replaced, "stand": "open", "link.replaced": True, "key": {"$nin": [mail.key for mail in new]}},
+            db_filter={"$or": replaced, "state": "open", "link.replaced": True, "key": {"$nin": [mail.key for mail in new]}},
             update=final_update("dropped", now=now),
             session=session,
         )
@@ -158,7 +158,7 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
         # Spelled field by field: the id type dumps as its hex string, which no stored id equals.
         "reference": None if reference is None else {"collection": str(reference.collection), "id": reference.id, "seat": reference.seat},
         "link": None if mail.link is None else mail.link.model_dump(),
-        "stand": "open",
+        "state": "open",
         "recorded_at": now,
         "frist": frist,
         # A secret goes with its lapse; any other row at the latest a retention after its deadline, which its final
@@ -173,14 +173,14 @@ def row_of(mail: OwedMail, *, now: datetime, secret: str | None, valid_until: da
     }
 
 
-def final_update(stand: FLOutboxStand, *, now: datetime, message_id: str | None = None) -> Mapping[str, Any]:
+def final_update(stand: FLOutboxRowState, *, now: datetime, message_id: str | None = None) -> Mapping[str, Any]:
     """A row's final state: the claim released, the data and any secret removed, deleted a retention from now.
 
     `$min`, so a sign-in row keeps its own lapse, which is sooner, and an ordinary row's retention dates from this state.
     """
 
     return {
-        "$set": {"stand": stand, "message_id": message_id, "lease": None, "leased_until": None},
+        "$set": {"state": stand, "message_id": message_id, "lease": None, "leased_until": None},
         "$unset": {"data": "", "secret": ""},
         "$min": {"erase_at": now + RETENTION},
     }
