@@ -28,7 +28,7 @@ from app.core.recording import PUBLIC_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
-from app.shared.schemas.bounds import BEWERBUNG_CONFIRMATION_FRIST_DAYS
+from app.shared.schemas.bounds import BEWERBUNG_CONFIRMATION_DEADLINE_DAYS
 from app.shared.schemas.confirmation import FLTokenPayload
 from app.shared.tokens import hash_token
 from tests.app_client import app_client
@@ -322,7 +322,7 @@ async def owed(database: AsyncDatabase) -> list[Mapping[str, Any]]:
 
 
 def frist_from_today() -> str:
-    return (date.fromisoformat(TODAY) + timedelta(days=BEWERBUNG_CONFIRMATION_FRIST_DAYS)).isoformat()
+    return (date.fromisoformat(TODAY) + timedelta(days=BEWERBUNG_CONFIRMATION_DEADLINE_DAYS)).isoformat()
 
 
 class TestWhatTheCreateOwes:

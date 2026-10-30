@@ -642,7 +642,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
 - **An undecided application one of whose contact persons has not confirmed is deleted once its
   confirmation window has run out, those three people's contact details included, and the erasure is
   announced to the Ansprechperson first where that slot still holds one**. The window is fourteen days
-  (`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_CONFIRMATION_FRIST_DAYS`) from the day the
+  (`fl_backend/app/shared/schemas/bounds.py :: BEWERBUNG_CONFIRMATION_DEADLINE_DAYS`) from the day the
   links were sent (`fl_backend/app/api/bewerbungen/services.py :: bestaetigungsfrist_from`); an
   administrator's re-send replaces a link and restarts the period for the whole application
   (`:: compose_erneut_update`), while the reminder adds a link and moves nothing

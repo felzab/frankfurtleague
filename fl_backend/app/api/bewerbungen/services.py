@@ -34,7 +34,7 @@ from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_nachweis import compose_choices
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import (
-    BEWERBUNG_CONFIRMATION_FRIST_DAYS,
+    BEWERBUNG_CONFIRMATION_DEADLINE_DAYS,
     BEWERBUNG_KONTAKT_MIN_AGE_YEARS,
     BEWERBUNG_REMINDER_DAYS,
     LIST_LIMIT_MAX,
@@ -364,7 +364,7 @@ def days_after(*, day: str, days: int) -> str:
 def bestaetigungsfrist_from(*, today: str) -> str:
     """The day the links stop working and the application is deleted, counted from the mint -- a re-send restarts it."""
 
-    return days_after(day=today, days=BEWERBUNG_CONFIRMATION_FRIST_DAYS)
+    return days_after(day=today, days=BEWERBUNG_CONFIRMATION_DEADLINE_DAYS)
 
 
 def compose_bestaetigung(*, today: str) -> dict[str, Any]:
