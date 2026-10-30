@@ -46,7 +46,7 @@ const OutboxEventSchema = z.object({
 type OutboxEvent = z.infer<typeof OutboxEventSchema>;
 
 /** The state one event leaves on the row, or `null` for an event that leaves none, `email.sent` among them. */
-function outboxStandFrom({ type, data }: OutboxEvent): Pick<FLOutboxEventPayload, "stand" | "grund"> | null {
+function outboxStateFrom({ type, data }: OutboxEvent): Pick<FLOutboxEventPayload, "stand" | "grund"> | null {
   switch (type) {
     case "email.delivered":
       return { stand: "delivered", grund: null };
@@ -79,7 +79,7 @@ function readOutboxEvent(raw: unknown): FLOutboxEventPayload | null {
   const id = read.data?.data.tags[OUTBOX_TAG];
   if (read.data === undefined || id === undefined) return null;
 
-  const stand = outboxStandFrom(read.data);
+  const stand = outboxStateFrom(read.data);
   if (stand === null) return null;
 
   const event = { id: id, am: read.data.created_at, ...stand };
