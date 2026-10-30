@@ -68,8 +68,8 @@ code it governs, or in the commit that first wrote its words, which `git log -S 
 - **cache** — Add an invalidation endpoint, or clear the site-wide cache tag outside the save spines;
   fault staleness within the `minutes` lifetime after a change no save makes
 - **csp** — Disable `react/no-danger`; add a second enforcing CSP
-- **logging** — Let nginx honour a client's traceparent; log our own lines outside the envelope; wrap a
-  library's or Next's own output into it
+- **logging** — Let nginx honour a client's traceparent; log our own lines outside the envelope; patch or
+  rewrite a library's or Next's console output into it
 - **bracket** — Store the bracket's German label; flag an override beside `quelle`
 - **bracket** — Store a bracket fault; report a merely undecided placing; wrap a card without moving
   its role
