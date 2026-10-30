@@ -122,7 +122,7 @@ CARRIER_SEEDS: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
     "einladung": {},
     "registrierung": {**compose_registrierung_bestaetigung(today=MINTED_ON, frist="2026-04-04"), "token_hashes": [SEEDED_TOKEN_HASH]},
     # The Trainer's seat, the one every case below reports on; the seat axis's own cases reach the others.
-    "kontakt": compose_kontakt_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
+    "kontakt": {**compose_kontakt_bestaetigung(today=MINTED_ON), "token_hashes": [SEEDED_TOKEN_HASH]},
     # Empty, as the start writes it, for the invitation's reason.
     "adresswechsel": {},
     "spielbestaetigung": {"token_hashes": [SEEDED_TOKEN_HASH], "zustellung": None},
@@ -469,7 +469,7 @@ class TestTheSeatAxis:
         """The re-send writes one entry to both seats, so a state written to one alone would leave the other stale."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            entry = compose_kontakt_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON)
+            entry = {**compose_kontakt_bestaetigung(today=MINTED_ON), "token_hashes": [SEEDED_TOKEN_HASH]}
             await database[Collection.SAISON_TEAMS].update_one({"_id": ZIEL_OID}, {"$set": {"bestaetigungen.stellvertretung": entry}})
             response = await accept(database, client, ziel="kontakt", rollen=["trainer", "stellvertretung"])
 
@@ -502,7 +502,7 @@ class TestTheSeatAxis:
         """Two people on one row are two records: a report naming the Trainer leaves a seat it did not name as it was."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            entry = compose_kontakt_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON)
+            entry = {**compose_kontakt_bestaetigung(today=MINTED_ON), "token_hashes": [SEEDED_TOKEN_HASH]}
             await database[Collection.SAISON_TEAMS].update_one({"_id": ZIEL_OID}, {"$set": {"bestaetigungen.stellvertretung": entry}})
             await accept(database, client, ziel="kontakt")
 

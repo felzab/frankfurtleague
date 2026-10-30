@@ -594,7 +594,8 @@ class TestTheMediaConsent:
                     "ADX",
                     kontakte=kontakte(),
                     bestaetigungen=compose_bestaetigungen_mit(
-                        stored_bestaetigungen=None, minted={"trainer": compose_kontakt_bestaetigung(token_hash=hash_token(raw), today=TODAY)}
+                        stored_bestaetigungen=None,
+                        minted={"trainer": {**compose_kontakt_bestaetigung(today=TODAY), "token_hashes": [hash_token(raw)]}},
                     ),
                 )
             )

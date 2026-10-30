@@ -37,6 +37,7 @@ from tests.documents import (
 )
 from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
+from tests.postausgang import MAIL_NOW
 from tests.whole_database import where_folded_to
 from tests.worker import worker_database
 
@@ -175,10 +176,12 @@ async def contacts_saved(database: AsyncDatabase, client: AsyncMongoClient, kont
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=client,
         actor=FRESH_ADMIN_ACTOR,
         today=TODAY,
+        germany_now=MAIL_NOW,
     )
 
 

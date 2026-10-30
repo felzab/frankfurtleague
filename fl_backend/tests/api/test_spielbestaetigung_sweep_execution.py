@@ -1054,10 +1054,12 @@ async def hand_alphas_trainer_to(database: AsyncDatabase, client: AsyncMongoClie
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=client,
         actor=FRESH_ADMIN_ACTOR,
         today=TODAY,
+        germany_now=MAIL_NOW,
     )
 
 

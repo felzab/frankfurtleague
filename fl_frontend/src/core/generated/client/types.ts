@@ -232,270 +232,12 @@ export interface FLAblehnenBewerbungPayload {
   grund: string;
 }
 
-export type FLBewerbungZustellungStand = (typeof FLBewerbungZustellungStand)[keyof typeof FLBewerbungZustellungStand];
-
-export const FLBewerbungZustellungStand = {
-  angenommen: "angenommen",
-  zugestellt: "zugestellt",
-  verzoegert: "verzoegert",
-  unzustellbar: "unzustellbar",
-  unterdrueckt: "unterdrueckt",
-  beschwerde: "beschwerde",
-} as const;
-
 /**
- * What became of the last message to one seat.
- *
- * Inside the seat's block rather than a collection of its own: an erasure empties that block, so
- * this goes with the person it is about.
+ * The declined application; its mails are owed in the same write.
  */
-export interface FLBewerbungZustellung {
-  am: string;
-  grund: string | null;
-  nachricht_id: string;
-  stand: FLBewerbungZustellungStand;
-}
-
-/**
- * One seat's confirmation bookkeeping as the triage reads it, without its link's hash.
- */
-export interface FLBewerbungBestaetigung {
-  abgelehnt_am: string | null;
-  erinnert_am: string | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  verschickt_am: string;
-  zustellung: FLBewerbungZustellung | null;
-}
-
-/**
- * The three seats' bookkeeping, each null where an erasure emptied the seat.
- */
-export interface FLBewerbungBestaetigungen {
-  ansprechperson: FLBewerbungBestaetigung | null;
-  stellvertretung: FLBewerbungBestaetigung | null;
-  trainer: FLBewerbungBestaetigung | null;
-}
-
-/**
- * A decision as every read serves it: the stored one, its administrator withheld where the ban list holds that address.
- */
-export interface FLBewerbungEntscheidungZeile {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  getroffen_am: string;
-  grund: string | null;
-  von: string | null;
-  von_gesperrt: boolean;
-}
-
-/**
- * The school's own estimate of its squad, which nothing checks afterwards.
- */
-export interface FLBewerbungKader {
-  gute_spieler: number;
-  voraussichtliche_groesse: number;
-}
-
-export type FLKontaktEingetragenVon = (typeof FLKontaktEingetragenVon)[keyof typeof FLKontaktEingetragenVon];
-
-export const FLKontaktEingetragenVon = {
-  bewerbung: "bewerbung",
-  liga: "liga",
-} as const;
-
-/**
- * When a person set one consent choice, and under which wording.
- */
-export interface FLEinwilligungBeleg {
-  am: string;
-  text_version: string;
-}
-
-/**
- * The evidence one consent choice keeps: the act that set its value, and on a withdrawal the grant it ended.
- */
-export interface FLEinwilligungNachweis {
-  am: string;
-  erteilt_zuvor: FLEinwilligungBeleg | null;
-  text_version: string;
-}
-
-/**
- * Each choice's evidence, null until its person sets it: a record no person has answered carries none.
- */
-export interface FLEinwilligungNachweise {
-  medien: FLEinwilligungNachweis | null;
-  umfang: FLEinwilligungNachweis | null;
-}
-
-export type FLKontaktKenntnisnahmeUmfang = (typeof FLKontaktKenntnisnahmeUmfang)[keyof typeof FLKontaktKenntnisnahmeUmfang];
-
-export const FLKontaktKenntnisnahmeUmfang = {
-  kontaktdaten: "kontaktdaten",
-  kontaktdaten_whatsapp: "kontaktdaten_whatsapp",
-} as const;
-
-/**
- * Which wording this person was shown, and how the record came to be held.
- *
- * Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's
- * `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely
- * (`docs/glossary.md :: Einwilligung`).
- */
-export interface FLKontaktKenntnisnahme {
-  bestaetigt_am: string | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  datum: string;
-  eingetragen_von: FLKontaktEingetragenVon;
-  medien: boolean;
-  nachweis: FLEinwilligungNachweise;
-  text_version: string;
-  umfang: FLKontaktKenntnisnahmeUmfang;
-}
-
-/**
- * One person the league reaches this team through, for one season.
- */
-export interface FLKontaktperson {
-  einwilligung: FLKontaktKenntnisnahme;
-  email: string;
-  geburtsdatum: string | null;
-  /** @minLength 1 */
-  nachname: string;
-  telefon: string;
-  /** @minLength 1 */
-  vorname: string;
-}
-
-export type FLTrainerZugleich = (typeof FLTrainerZugleich)[keyof typeof FLTrainerZugleich];
-
-export const FLTrainerZugleich = {
-  ansprechperson: "ansprechperson",
-  stellvertretung: "stellvertretung",
-} as const;
-
-/**
- * The three people a team is reached through, for ONE season.
- *
- * On the junction rather than the club: a school's staff turns over between seasons, and a
- * finished season is the record of who was reachable while it ran.
- */
-export interface FLSaisonTeamKontakte {
-  ansprechperson: FLKontaktperson | null;
-  stellvertretung: FLKontaktperson | null;
-  trainer: FLKontaktperson | null;
-  trainer_ist_zugleich: FLTrainerZugleich | null;
-}
-
-export interface FLAddress {
-  /** @pattern ^([0-9\-abcABC]+)?$ */
-  hausnummer: string;
-  /** @pattern ^[0-9]{5}$ */
-  plz: string;
-  /** @minLength 1 */
-  stadt: string;
-  stadtteil: string;
-  /** @minLength 1 */
-  strasse: string;
-}
-
-export type FLSchulform = (typeof FLSchulform)[keyof typeof FLSchulform];
-
-export const FLSchulform = {
-  gymnasium_g8: "gymnasium_g8",
-  gymnasium_g9: "gymnasium_g9",
-  gesamtschule: "gesamtschule",
-  privatschule_g8: "privatschule_g8",
-  privatschule_g9: "privatschule_g9",
-  oberstufengymnasium: "oberstufengymnasium",
-} as const;
-
-/**
- * The club a new school proposes, in the shape acceptance will create it in.
- *
- * While the application is `eingereicht`, exactly one of this and `team_id` carries a value.
- */
-export interface FLBewerbungSchule {
-  address: FLAddress;
-  /** @minLength 1 */
-  full_name: string;
-  schulform: FLSchulform | null;
-  /** @pattern ^[A-Z]{3}$ */
-  shorthand: string;
-  /** @minLength 1 */
-  team_name: string;
-  website_url: string | null;
-}
-
-export type FLBewerbungStatus = (typeof FLBewerbungStatus)[keyof typeof FLBewerbungStatus];
-
-export const FLBewerbungStatus = {
-  eingereicht: "eingereicht",
-  angenommen: "angenommen",
-  abgelehnt: "abgelehnt",
-} as const;
-
-export type FLTrikotFarbe = (typeof FLTrikotFarbe)[keyof typeof FLTrikotFarbe];
-
-export const FLTrikotFarbe = {
-  schwarz: "schwarz",
-  weiss: "weiss",
-  grau: "grau",
-  braun: "braun",
-  bordeaux: "bordeaux",
-  rot: "rot",
-  koralle: "koralle",
-  orange: "orange",
-  gold: "gold",
-  gelb: "gelb",
-  limette: "limette",
-  hellgruen: "hellgruen",
-  gruen: "gruen",
-  smaragd: "smaragd",
-  tuerkis: "tuerkis",
-  cyan: "cyan",
-  hellblau: "hellblau",
-  meerblau: "meerblau",
-  blau: "blau",
-  dunkelblau: "dunkelblau",
-  flieder: "flieder",
-  violett: "violett",
-  magenta: "magenta",
-  rosa: "rosa",
-} as const;
-
-/**
- * What kit the school already owns, and the colour it would like; never copied onto the team.
- */
-export interface FLBewerbungTrikot {
-  vorhandener_satz: string;
-  wunschfarbe: FLTrikotFarbe;
-}
-
-/**
- * One school's application to play one season, as stored, its decision as served.
- */
-export interface FLBewerbung {
-  bestaetigungen: FLBewerbungBestaetigungen;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  bestaetigungsfrist: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  eingereicht_am: string;
-  entscheidung: FLBewerbungEntscheidungZeile | null;
+export interface FLAblehnenBewerbungResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
-  kader: FLBewerbungKader;
-  kontakte: FLSaisonTeamKontakte;
-  saison_id: string;
-  schule: FLBewerbungSchule | null;
-  status: FLBewerbungStatus;
-  stufengroesse: number;
-  team_id: string | null;
-  trikot: FLBewerbungTrikot;
-  wunschgegner: string | null;
-}
-
-export interface FLAblehnenBewerbungResponse {
-  updated_document: FLBewerbung;
 }
 
 /**
@@ -660,6 +402,18 @@ export interface FLSaison {
 export interface FLActivateSaisonResponse {
   deactivated: number;
   updated_document: FLSaison;
+}
+
+export interface FLAddress {
+  /** @pattern ^([0-9\-abcABC]+)?$ */
+  hausnummer: string;
+  /** @pattern ^[0-9]{5}$ */
+  plz: string;
+  /** @minLength 1 */
+  stadt: string;
+  stadtteil: string;
+  /** @minLength 1 */
+  strasse: string;
 }
 
 export interface FLAddressPayload {
@@ -942,6 +696,30 @@ export const FLAdresswechselWartetAuf = {
   wartezeit: "wartezeit",
 } as const;
 
+export type FLBewerbungZustellungStand = (typeof FLBewerbungZustellungStand)[keyof typeof FLBewerbungZustellungStand];
+
+export const FLBewerbungZustellungStand = {
+  angenommen: "angenommen",
+  zugestellt: "zugestellt",
+  verzoegert: "verzoegert",
+  unzustellbar: "unzustellbar",
+  unterdrueckt: "unterdrueckt",
+  beschwerde: "beschwerde",
+} as const;
+
+/**
+ * What became of the last message to one seat.
+ *
+ * Inside the seat's block rather than a collection of its own: an erasure empties that block, so
+ * this goes with the person it is about.
+ */
+export interface FLBewerbungZustellung {
+  am: string;
+  grund: string | null;
+  nachricht_id: string;
+  stand: FLBewerbungZustellungStand;
+}
+
 /**
  * The address's live change whole, admin tier: the new address and the reason included, never a hash.
  */
@@ -1170,6 +948,35 @@ export const FLGruppenNames = {
   P: "P",
 } as const;
 
+export type FLTrikotFarbe = (typeof FLTrikotFarbe)[keyof typeof FLTrikotFarbe];
+
+export const FLTrikotFarbe = {
+  schwarz: "schwarz",
+  weiss: "weiss",
+  grau: "grau",
+  braun: "braun",
+  bordeaux: "bordeaux",
+  rot: "rot",
+  koralle: "koralle",
+  orange: "orange",
+  gold: "gold",
+  gelb: "gelb",
+  limette: "limette",
+  hellgruen: "hellgruen",
+  gruen: "gruen",
+  smaragd: "smaragd",
+  tuerkis: "tuerkis",
+  cyan: "cyan",
+  hellblau: "hellblau",
+  meerblau: "meerblau",
+  blau: "blau",
+  dunkelblau: "dunkelblau",
+  flieder: "flieder",
+  violett: "violett",
+  magenta: "magenta",
+  rosa: "rosa",
+} as const;
+
 /**
  * Which group the school enters, and the kit colour the league assigns it; the season is the application's own.
  */
@@ -1179,7 +986,7 @@ export interface FLAnnehmenBewerbungPayload {
 }
 
 /**
- * The application as the acceptance left it, plus what the acceptance wrote beyond it.
+ * What the acceptance wrote beyond the application: the club in the season, and where; its mails are owed in the same write.
  */
 export interface FLAnnehmenBewerbungResponse {
   created_team: boolean;
@@ -1188,7 +995,6 @@ export interface FLAnnehmenBewerbungResponse {
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
   trikot_farbe: FLTrikotFarbe | null;
-  updated_document: FLBewerbung;
 }
 
 export type FLAustrittType = (typeof FLAustrittType)[keyof typeof FLAustrittType];
@@ -1406,6 +1212,258 @@ export const FLBestaetigungZustand = {
   gesperrt: "gesperrt",
 } as const;
 
+export type FLPostausgangLageStand = (typeof FLPostausgangLageStand)[keyof typeof FLPostausgangLageStand];
+
+export const FLPostausgangLageStand = {
+  offen: "offen",
+  gesendet: "gesendet",
+  zurueckgehalten: "zurueckgehalten",
+  gesperrt: "gesperrt",
+  entfallen: "entfallen",
+  aufgegeben: "aufgegeben",
+} as const;
+
+export type FLPostausgangZustellungStand = (typeof FLPostausgangZustellungStand)[keyof typeof FLPostausgangZustellungStand];
+
+export const FLPostausgangZustellungStand = {
+  zugestellt: "zugestellt",
+  verzoegert: "verzoegert",
+  unzustellbar: "unzustellbar",
+  unterdrueckt: "unterdrueckt",
+  beschwerde: "beschwerde",
+} as const;
+
+export interface FLPostausgangZustellung {
+  am: string;
+  grund: string | null;
+  stand: FLPostausgangZustellungStand;
+}
+
+/**
+ * What became of the last mail owed about one record and seat, as an editor reads it beside the link.
+ */
+export interface FLPostausgangLage {
+  stand: FLPostausgangLageStand;
+  zustellung: FLPostausgangZustellung | null;
+}
+
+/**
+ * One seat's confirmation bookkeeping as the triage reads it, without its link's hash.
+ */
+export interface FLBewerbungBestaetigung {
+  abgelehnt_am: string | null;
+  erinnert_am: string | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  verschickt_am: string;
+  zustellung: FLPostausgangLage | null;
+}
+
+/**
+ * The three seats' bookkeeping, each null where an erasure emptied the seat.
+ */
+export interface FLBewerbungBestaetigungen {
+  ansprechperson: FLBewerbungBestaetigung | null;
+  stellvertretung: FLBewerbungBestaetigung | null;
+  trainer: FLBewerbungBestaetigung | null;
+}
+
+/**
+ * A decision as every read serves it: the stored one, its administrator withheld where the ban list holds that address.
+ */
+export interface FLBewerbungEntscheidungZeile {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  getroffen_am: string;
+  grund: string | null;
+  von: string | null;
+  von_gesperrt: boolean;
+}
+
+/**
+ * The school's own estimate of its squad, which nothing checks afterwards.
+ */
+export interface FLBewerbungKader {
+  gute_spieler: number;
+  voraussichtliche_groesse: number;
+}
+
+export type FLKontaktEingetragenVon = (typeof FLKontaktEingetragenVon)[keyof typeof FLKontaktEingetragenVon];
+
+export const FLKontaktEingetragenVon = {
+  bewerbung: "bewerbung",
+  liga: "liga",
+} as const;
+
+/**
+ * When a person set one consent choice, and under which wording.
+ */
+export interface FLEinwilligungBeleg {
+  am: string;
+  text_version: string;
+}
+
+/**
+ * The evidence one consent choice keeps: the act that set its value, and on a withdrawal the grant it ended.
+ */
+export interface FLEinwilligungNachweis {
+  am: string;
+  erteilt_zuvor: FLEinwilligungBeleg | null;
+  text_version: string;
+}
+
+/**
+ * Each choice's evidence, null until its person sets it: a record no person has answered carries none.
+ */
+export interface FLEinwilligungNachweise {
+  medien: FLEinwilligungNachweis | null;
+  umfang: FLEinwilligungNachweis | null;
+}
+
+export type FLKontaktKenntnisnahmeUmfang = (typeof FLKontaktKenntnisnahmeUmfang)[keyof typeof FLKontaktKenntnisnahmeUmfang];
+
+export const FLKontaktKenntnisnahmeUmfang = {
+  kontaktdaten: "kontaktdaten",
+  kontaktdaten_whatsapp: "kontaktdaten_whatsapp",
+} as const;
+
+/**
+ * Which wording this person was shown, and how the record came to be held.
+ *
+ * Kenntnisnahme and not Einwilligung: the published basis is Art. 6(1)(b)/(f), and the pupil's
+ * `fl_backend/app/api/spieler/schemas.py :: FLEinwilligung` holds other values entirely
+ * (`docs/glossary.md :: Einwilligung`).
+ */
+export interface FLKontaktKenntnisnahme {
+  bestaetigt_am: string | null;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  datum: string;
+  eingetragen_von: FLKontaktEingetragenVon;
+  medien: boolean;
+  nachweis: FLEinwilligungNachweise;
+  text_version: string;
+  umfang: FLKontaktKenntnisnahmeUmfang;
+}
+
+/**
+ * One person the league reaches this team through, for one season.
+ */
+export interface FLKontaktperson {
+  einwilligung: FLKontaktKenntnisnahme;
+  email: string;
+  geburtsdatum: string | null;
+  /** @minLength 1 */
+  nachname: string;
+  telefon: string;
+  /** @minLength 1 */
+  vorname: string;
+}
+
+export type FLTrainerZugleich = (typeof FLTrainerZugleich)[keyof typeof FLTrainerZugleich];
+
+export const FLTrainerZugleich = {
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
+} as const;
+
+/**
+ * The three people a team is reached through, for ONE season.
+ *
+ * On the junction rather than the club: a school's staff turns over between seasons, and a
+ * finished season is the record of who was reachable while it ran.
+ */
+export interface FLSaisonTeamKontakte {
+  ansprechperson: FLKontaktperson | null;
+  stellvertretung: FLKontaktperson | null;
+  trainer: FLKontaktperson | null;
+  trainer_ist_zugleich: FLTrainerZugleich | null;
+}
+
+export type FLSchulform = (typeof FLSchulform)[keyof typeof FLSchulform];
+
+export const FLSchulform = {
+  gymnasium_g8: "gymnasium_g8",
+  gymnasium_g9: "gymnasium_g9",
+  gesamtschule: "gesamtschule",
+  privatschule_g8: "privatschule_g8",
+  privatschule_g9: "privatschule_g9",
+  oberstufengymnasium: "oberstufengymnasium",
+} as const;
+
+/**
+ * The club a new school proposes, in the shape acceptance will create it in.
+ *
+ * While the application is `eingereicht`, exactly one of this and `team_id` carries a value.
+ */
+export interface FLBewerbungSchule {
+  address: FLAddress;
+  /** @minLength 1 */
+  full_name: string;
+  schulform: FLSchulform | null;
+  /** @pattern ^[A-Z]{3}$ */
+  shorthand: string;
+  /** @minLength 1 */
+  team_name: string;
+  website_url: string | null;
+}
+
+export type FLBewerbungStatus = (typeof FLBewerbungStatus)[keyof typeof FLBewerbungStatus];
+
+export const FLBewerbungStatus = {
+  eingereicht: "eingereicht",
+  angenommen: "angenommen",
+  abgelehnt: "abgelehnt",
+} as const;
+
+/**
+ * What kit the school already owns, and the colour it would like; never copied onto the team.
+ */
+export interface FLBewerbungTrikot {
+  vorhandener_satz: string;
+  wunschfarbe: FLTrikotFarbe;
+}
+
+/**
+ * One school's application to play one season, as stored, its decision as served.
+ */
+export interface FLBewerbung {
+  bestaetigungen: FLBewerbungBestaetigungen;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  bestaetigungsfrist: string;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  eingereicht_am: string;
+  entscheidung: FLBewerbungEntscheidungZeile | null;
+  /** @pattern ^[0-9a-fA-F]{24}$ */
+  id: string;
+  kader: FLBewerbungKader;
+  kontakte: FLSaisonTeamKontakte;
+  saison_id: string;
+  schule: FLBewerbungSchule | null;
+  status: FLBewerbungStatus;
+  stufengroesse: number;
+  team_id: string | null;
+  trikot: FLBewerbungTrikot;
+  wunschgegner: string | null;
+}
+
+export type FLKontaktRolle = (typeof FLKontaktRolle)[keyof typeof FLKontaktRolle];
+
+export const FLKontaktRolle = {
+  trainer: "trainer",
+  ansprechperson: "ansprechperson",
+  stellvertretung: "stellvertretung",
+} as const;
+
+/**
+ * A decline, to one person of the application, with the administrator's reason verbatim.
+ */
+export interface FLBewerbungAbsageDaten {
+  art: "bewerbung_absage";
+  grund: string;
+  /** @minItems 1 */
+  rollen: FLKontaktRolle[];
+  saison_id: string;
+  team: string;
+}
+
 /**
  * The school's address, with the Stadtteil required.
  */
@@ -1435,12 +1493,25 @@ export interface FLBewerbungAddressPayload {
 }
 
 /**
- * The three raw tokens the create or its replay minted, one per seat; no read serves them again.
+ * Another person's seats, as a mail names them to the submitter: a first name where one stands, and the seats.
  */
-export interface FLBewerbungBestaetigungTokens {
-  ansprechperson: string;
-  stellvertretung: string;
-  trainer: string;
+export interface FLBewerbungPerson {
+  /** @minItems 1 */
+  rollen: FLKontaktRolle[];
+  vorname: string | null;
+}
+
+/**
+ * The submitter's receipt, which carries their own link: the Ansprechperson's seats and every other person still to answer.
+ */
+export interface FLBewerbungEingangDaten {
+  art: "bewerbung_eingang";
+  ausstehend: FLBewerbungPerson[];
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  frist: string;
+  /** @minItems 1 */
+  rollen: FLKontaktRolle[];
+  saison_id: string;
 }
 
 export type FLBewerbungEinwilligungAnsichtResponseQuelle =
@@ -1461,14 +1532,6 @@ export const FLBewerbungEinwilligungAnsichtResponseZustand = {
   abgelaufen: "abgelaufen",
   saison_vorbei: "saison_vorbei",
   gesperrt: "gesperrt",
-} as const;
-
-export type FLKontaktRolle = (typeof FLKontaktRolle)[keyof typeof FLKontaktRolle];
-
-export const FLKontaktRolle = {
-  trainer: "trainer",
-  ansprechperson: "ansprechperson",
-  stellvertretung: "stellvertretung",
 } as const;
 
 export type FLKontaktZeile = (typeof FLKontaktZeile)[keyof typeof FLKontaktZeile];
@@ -1534,30 +1597,18 @@ export const FLEinwilligungErgebnis = {
 } as const;
 
 /**
- * What the answer did, and which of the application's seats are still open.
- *
- * The fields after `medien` compose the outbound messages and are for the frontend's server alone.
+ * What the answer did; a Widerspruch's notice to the submitter is owed in the same write.
  */
 export interface FLBewerbungEinwilligungAntwortResponse {
-  ansprechperson_email: string | null;
-  ansprechperson_rollen: FLKontaktRolle[];
-  ausstehend: FLKontaktRolle[];
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  bestaetigungsfrist: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  bewerbung_id: string;
   ergebnis: FLEinwilligungErgebnis;
   geburtsdatum: string | null;
   medien: boolean;
   quelle: "bewerbung";
-  rolle: FLKontaktRolle;
-  saison_id: string;
-  vorname: string;
   whatsapp: boolean;
 }
 
 /**
- * A fresh link for one seat, RAW, for the admin action to mail; the old one then opens nothing.
+ * The seat whose link was replaced and where its fresh one is owed; the old one opens nothing.
  */
 export interface FLBewerbungEinwilligungErneutResponse {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
@@ -1565,7 +1616,6 @@ export interface FLBewerbungEinwilligungErneutResponse {
   email: string;
   rolle: FLKontaktRolle;
   rollen: FLKontaktRolle[];
-  token: string;
 }
 
 /**
@@ -1628,15 +1678,13 @@ export interface FLBewerbungKontaktEmailPayload {
 }
 
 /**
- * The corrected address as stored, the fresh link it is to be mailed at, and every seat both reached.
+ * The corrected address as stored and every seat it reached; the fresh link is owed there in the same write.
  */
 export interface FLBewerbungKontaktEmailResponse {
-  abgang_email: string | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   bestaetigungsfrist: string;
   email: string;
   rollen: FLKontaktRolle[];
-  token: string;
 }
 
 /**
@@ -1668,14 +1716,13 @@ export interface FLBewerbungKontaktSitzPayload {
 }
 
 /**
- * The new person's address as stored, every seat they now hold, and the fresh link the caller mails them there.
+ * The new person's address as stored and every seat they now hold; their link is owed there in the same write.
  */
 export interface FLBewerbungKontaktSitzResponse {
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   bestaetigungsfrist: string;
   email: string;
   rollen: FLKontaktRolle[];
-  token: string;
 }
 
 /**
@@ -1717,6 +1764,39 @@ export interface FLBewerbungKontaktePayload {
 export interface FLBewerbungKuerzelResponse {
   shorthand: string;
   vergeben: boolean;
+}
+
+export type FLBewerbungLinkDatenArt = (typeof FLBewerbungLinkDatenArt)[keyof typeof FLBewerbungLinkDatenArt];
+
+export const FLBewerbungLinkDatenArt = {
+  bewerbung_bestaetigung: "bewerbung_bestaetigung",
+  bewerbung_erinnerung: "bewerbung_erinnerung",
+} as const;
+
+/**
+ * One person's confirmation link on an application: at its submission, a re-send, a correction or a reseat, or the one reminder.
+ *
+ * `rollen` are every seat the link answers, two where the Trainer holds a second; the reminder's link joins the first.
+ */
+export interface FLBewerbungLinkDaten {
+  art: FLBewerbungLinkDatenArt;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  frist: string;
+  /** @minItems 1 */
+  rollen: FLKontaktRolle[];
+  saison_id: string;
+  schule: string;
+}
+
+/**
+ * The fourteen-day deletion notice, to the submitter, naming who never confirmed; owed in the erasure's own write.
+ */
+export interface FLBewerbungLoeschungDaten {
+  art: "bewerbung_loeschung";
+  ausstehend: FLBewerbungPerson[];
+  /** @minItems 1 */
+  rollen: FLKontaktRolle[];
+  saison_id: string;
 }
 
 /**
@@ -1783,87 +1863,16 @@ export interface FLBewerbungSingleResponse {
   bewerbung: FLBewerbung;
 }
 
-export interface FLBewerbungSweepAngekuendigtResponse {
-  angekuendigt: number;
-  fehlgeschlagen: number;
-  saison_id: string;
-}
-
 /**
- * A seat the deletion notice lists as never confirmed; `vorname` is null where the slot was emptied.
- */
-export interface FLBewerbungSweepAusstehend {
-  rolle: FLKontaktRolle;
-  vorname: string | null;
-}
-
-/**
- * The candidates from one pass's deletion list that this step names. The backend re-judges each, skipping one that no longer qualifies.
- */
-export interface FLBewerbungSweepAuswahlPayload {
-  /**
-   * @maxItems 83
-   * @items.pattern ^[0-9a-fA-F]{24}$
-   */
-  bewerbung_ids: string[];
-}
-
-/**
- * One link a reminder carries, with its raw fresh token.
- */
-export interface FLBewerbungSweepSeat {
-  rollen: FLKontaktRolle[];
-  token: string;
-  vorname: string;
-}
-
-/**
- * One reminder to send: one mailbox of one application, with every seat it holds due today.
- */
-export interface FLBewerbungSweepErinnerung {
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  bestaetigungsfrist: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  bewerbung_id: string;
-  email: string;
-  saison_id: string;
-  schule: string;
-  seats: FLBewerbungSweepSeat[];
-}
-
-export interface FLBewerbungSweepLoeschenResponse {
-  fehlgeschlagen: number;
-  geloescht: number;
-  redigierte_aktionen: number;
-  saison_id: string;
-}
-
-/**
- * One application past its deadline, still standing: the notice goes out first, the erasure in a second call.
- */
-export interface FLBewerbungSweepLoeschung {
-  angekuendigt: boolean;
-  ansprechperson_email: string | null;
-  ansprechperson_rollen: FLKontaktRolle[];
-  ausstehend: FLBewerbungSweepAusstehend[];
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  bestaetigungsfrist: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  bewerbung_id: string;
-  saison_id: string;
-  schule: string;
-}
-
-/**
- * One season's pass: the reminders already stamped, the deletions still to notify, and each clock's count.
+ * One season's pass: each clock's count, every reminder and deletion notice owed in the write it belongs to.
  */
 export interface FLBewerbungSweepResponse {
   abgelehnte_geloescht: number;
   angenommene_geloescht: number;
-  erinnerungen: FLBewerbungSweepErinnerung[];
+  erinnert: number;
   fehlgeschlagen: number;
+  geloescht: number;
   kontaktbloecke_geleert: number;
-  loeschungen: FLBewerbungSweepLoeschung[];
   ohne_entscheidung_geloescht: number;
   redigierte_aktionen: number;
   saison_id: string;
@@ -1888,6 +1897,33 @@ export interface FLBewerbungTrikotPayload {
   /** @maxLength 500 */
   vorhandener_satz: string;
   wunschfarbe: FLTrikotFarbe;
+}
+
+/**
+ * A contact's Widerspruch, to the submitter, naming the person who refused: it stands as the deletion notice too.
+ */
+export interface FLBewerbungWiderspruchDaten {
+  abgelehnt: FLBewerbungPerson;
+  art: "bewerbung_widerspruch";
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  frist: string;
+  /** @minItems 1 */
+  rollen: FLKontaktRolle[];
+  saison_id: string;
+}
+
+/**
+ * An acceptance, to one person of the application, naming the seats they were entered for.
+ */
+export interface FLBewerbungZusageDaten {
+  art: "bewerbung_zusage";
+  gruppe: FLGruppenNames;
+  /** @minItems 1 */
+  rollen: FLKontaktRolle[];
+  saison_id: string;
+  team: string;
+  trikot_farbe: FLTrikotFarbe | null;
+  wunschgegner: string | null;
 }
 
 export type FLBewerbungZustellEreignis = (typeof FLBewerbungZustellEreignis)[keyof typeof FLBewerbungZustellEreignis];
@@ -2303,41 +2339,6 @@ export interface FLEinladungMintResponse {
   team_id: string;
   /** @minLength 1 */
   token: string;
-}
-
-export type FLPostausgangLageStand = (typeof FLPostausgangLageStand)[keyof typeof FLPostausgangLageStand];
-
-export const FLPostausgangLageStand = {
-  offen: "offen",
-  gesendet: "gesendet",
-  zurueckgehalten: "zurueckgehalten",
-  gesperrt: "gesperrt",
-  entfallen: "entfallen",
-  aufgegeben: "aufgegeben",
-} as const;
-
-export type FLPostausgangZustellungStand = (typeof FLPostausgangZustellungStand)[keyof typeof FLPostausgangZustellungStand];
-
-export const FLPostausgangZustellungStand = {
-  zugestellt: "zugestellt",
-  verzoegert: "verzoegert",
-  unzustellbar: "unzustellbar",
-  unterdrueckt: "unterdrueckt",
-  beschwerde: "beschwerde",
-} as const;
-
-export interface FLPostausgangZustellung {
-  am: string;
-  grund: string | null;
-  stand: FLPostausgangZustellungStand;
-}
-
-/**
- * What became of the last mail owed about one record and seat, as an editor reads it beside the link.
- */
-export interface FLPostausgangLage {
-  stand: FLPostausgangLageStand;
-  zustellung: FLPostausgangZustellung | null;
 }
 
 /**
@@ -2871,36 +2872,19 @@ export interface FLKontakt {
 }
 
 /**
- * One mailbox a write took off a seat of a season row, for the admin's notice; the server action reads it and the browser never does.
- */
-export interface FLKontaktAbgang {
-  bleibt_als: FLKontaktRolle[];
-  email: string;
-  rollen: FLKontaktRolle[];
-  schule: string;
-}
-
-/**
- * One person's fresh confirmation link, RAW, for the admin action to mail; it is answered here and in no other response, ever.
+ * One person a write owed a fresh confirmation link, which the Postausgang mails: never the link itself.
  */
 export interface FLKontaktMint {
   email: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  frist: string;
   rollen: FLKontaktRolle[];
-  schule: string;
-  token: string;
-  zeile: FLKontaktZeile;
 }
 
 /**
- * A fresh link for one seat, and its pair where the Trainer holds both; the old link then opens nothing.
+ * A fresh link owed one seat, and its pair where the Trainer holds both; the old link opens nothing from this write on.
  */
 export interface FLKontaktEinladenResponse {
   bestaetigung: FLKontaktMint;
   saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  saison_team_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
 }
@@ -2915,6 +2899,20 @@ export interface FLKontaktKenntnisnahmePayload {
    */
   text_version: string;
   umfang: "kontaktdaten";
+}
+
+/**
+ * One person an administrator seated on a team's season row, asked to confirm: no name, the address being unconfirmed.
+ */
+export interface FLKontaktLinkDaten {
+  art: "kontakt_bestaetigung";
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  frist: string;
+  /** @minItems 1 */
+  rollen: FLKontaktRolle[];
+  saison_id: string;
+  schule: string;
+  zeile: FLKontaktZeile;
 }
 
 export interface FLKontaktPayload {
@@ -3347,20 +3345,17 @@ export interface FLPatchSaisonTeamKontaktePayload {
 }
 
 /**
- * The block as STORED after the write, its row, and the links it minted.
+ * The block as STORED after the write, its row, and the people it owed a link.
  *
  * No other field off that row: the caller sent none, and echoing one would invite a client to
  * believe this endpoint owns it.
  */
 export interface FLPatchSaisonTeamKontakteResponse {
-  abgaenge: FLKontaktAbgang[];
   bestaetigungen: FLKontaktMint[];
   kontakte: FLSaisonTeamKontakte | null;
   /** The AFTER image's token: this save has moved the row past what its caller read, so an undo of it can replay against no other. */
   readonly kontakte_stand: string;
   saison_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  saison_team_id: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   team_id: string;
 }
@@ -3679,17 +3674,11 @@ export interface FLPostBewerbungPayload {
 }
 
 /**
- * What the submission wrote, without the people's details it carried.
+ * The stored application, the one a replayed key wrote first; its mails are owed in the same write.
  */
 export interface FLPostBewerbungResponse {
-  bestaetigungen: FLBewerbungBestaetigungTokens | null;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  bestaetigungsfrist: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   created_id: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  eingereicht_am: string;
-  saison_id: string;
 }
 
 /**
@@ -4034,7 +4023,14 @@ export interface FLPostausgangAusgabe {
     | FLSpielVorschlagVerworfenDaten
     | FLRegistrierungLinkDaten
     | FLRegistrierungAbsageDaten
-    | FLEinladungDaten;
+    | FLEinladungDaten
+    | FLBewerbungLinkDaten
+    | FLBewerbungEingangDaten
+    | FLBewerbungZusageDaten
+    | FLBewerbungAbsageDaten
+    | FLBewerbungLoeschungDaten
+    | FLBewerbungWiderspruchDaten
+    | FLKontaktLinkDaten;
   geheim: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
@@ -4428,7 +4424,7 @@ export interface FLSaisonTeamBestaetigungAnsicht {
   frist: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   verschickt_am: string;
-  zustellung: FLBewerbungZustellung | null;
+  zustellung: FLPostausgangLage | null;
 }
 
 export interface FLSaisonTeamBestaetigungenAnsicht {

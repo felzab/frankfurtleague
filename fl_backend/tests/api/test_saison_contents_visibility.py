@@ -380,6 +380,7 @@ class TestTheAdminTierStillReadsThePlannedSeason:
                 adresswechsel_collection=database[Collection.ADRESSWECHSEL],
                 berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
                 berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                postausgang_collection=database[Collection.POSTAUSGANG],
                 operator=ADMINISTRATORS[0],
                 auth_time=int(time.time()),
             )

@@ -235,8 +235,8 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
     *(
         SupportIndex(
             Collection.SAISON_TEAMS,
-            f"saison_teams_bestaetigungen_{seat}_token_hash",
-            ((f"bestaetigungen.{seat}.token_hash", ASCENDING),),
+            f"saison_teams_bestaetigungen_{seat}_token_hashes",
+            ((f"bestaetigungen.{seat}.token_hashes", ASCENDING),),
             "a contact seat's confirmation page, through the season row's lookup, driven by strangers",
         )
         for seat in KONTAKT_ROLLEN

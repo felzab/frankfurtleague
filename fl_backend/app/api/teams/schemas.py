@@ -17,6 +17,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.api.postausgang.schemas import FLPostausgangLage
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
@@ -54,14 +55,12 @@ from app.shared.schemas.literals import (
     FLKontaktEingetragenVon,
     FLKontaktKenntnisnahmeUmfang,
     FLKontaktRolle,
-    FLKontaktZeile,
     FLSchulform,
     FLSortOrder,
     FLTrainerZugleich,
     FLTrikotFarbe,
 )
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
-from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 # Read off the closed set rather than chosen beside it: a cap over the set size is one
 # `app/api/teams/services.py :: offered_gruppen` serves short while refusing nothing.
@@ -188,7 +187,7 @@ class FLSaisonTeamKontakte(BaseModel):
 
 
 class FLSaisonTeamBestaetigung(BaseModel):
-    """One seat's confirmation link as the season row stores it -- and NO `token_hash`, the raw document key the link's lookup alone reads."""
+    """One seat's confirmation link as the season row stores it -- and NO `token_hashes`, the raw document key the link's lookup alone reads."""
 
     verschickt_am: CustomDateString
     # STORED rather than derived from `verschickt_am` and the bound: raising the bound would otherwise
@@ -196,8 +195,6 @@ class FLSaisonTeamBestaetigung(BaseModel):
     frist: CustomDateString
     # Beside the slot rather than inside it: a Widerspruch EMPTIES the slot, and a marker in there would go with it.
     abgelehnt_am: CustomOptionalDateString
-    # Defaulted: a fresh link knows nothing yet about its message.
-    zustellung: FLBewerbungZustellung | None = None
 
 
 class FLSaisonTeamBestaetigungen(BaseModel):
@@ -209,9 +206,12 @@ class FLSaisonTeamBestaetigungen(BaseModel):
 
 
 class FLSaisonTeamBestaetigungRecord(FLSaisonTeamBestaetigung):
-    """One seat's link as the season row stores it, its hash with it."""
+    """One seat's link as the season row stores it, with the hash of the link the last hand-out of its mail minted.
 
-    token_hash: str
+    Empty from the write owing the mail until its hand-out, so the link the seat held before opens nothing from the write on.
+    """
+
+    token_hashes: list[str]
 
 
 class FLSaisonTeamBestaetigungenRecord(FLSaisonTeamBestaetigungen):
@@ -243,6 +243,9 @@ class FLSaisonTeamBestaetigungAnsicht(FLSaisonTeamBestaetigung, BaseReadModel):
     # Judged on the read by the rule the seat's press refuses on, at the server's date, so no client
     # compares `frist` to a clock of its own; a read model, since nothing stores it.
     abgelaufen: bool
+    # What became of the last mail carrying this seat's link, off the Postausgang; null where none was ever owed.
+    # Required, so a read that forgot to compose it fails rather than answering every link as one nobody was sent.
+    zustellung: FLPostausgangLage | None
 
 
 class FLSaisonTeamBestaetigungenAnsicht(BaseModel):
@@ -761,37 +764,16 @@ class FLSaisonTeamResponse(BaseAPIResponse):
 
 
 class FLKontaktMint(BaseModel):
-    """One person's fresh confirmation link, RAW, for the admin action to mail; it is answered here and in no other response, ever."""
+    """One person a write owed a fresh confirmation link, which the Postausgang mails: never the link itself."""
 
-    token: str
     # Every seat the one link answers for, two where the Trainer holds a second: one link per person.
     rollen: list[FLKontaktRolle]
-    # As this transaction stored it, never a caller's earlier read: the link has to reach the person it seats.
+    # As this transaction stored it, never a caller's earlier read: the address the mail is owed to.
     email: str
-    frist: CustomDateString
-    # What the mail names, read in the same transaction as the address: the club under its name in
-    # that season, as the link's page names it. Never the person's name, which a mail to an
-    # unconfirmed address withholds.
-    schule: str
-    # The row's state in the same transaction, so the mail asks what the link's page takes: a closed
-    # row's link takes the Widerspruch alone.
-    zeile: FLKontaktZeile
-
-
-class FLKontaktAbgang(BaseModel):
-    """One mailbox a write took off a seat of a season row, for the admin's notice; the server action reads it and the browser never does."""
-
-    rollen: list[FLKontaktRolle]
-    # As the replaced block spelled it: the notice goes where the seat's mail went.
-    email: str
-    schule: str
-    # The seats the mailbox still holds on the row, which the Trainer's pairing alone allows: told it left
-    # every seat, it would read its kept seat's links as dead.
-    bleibt_als: list[FLKontaktRolle]
 
 
 class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
-    """The block as STORED after the write, its row, and the links it minted.
+    """The block as STORED after the write, its row, and the people it owed a link.
 
     No other field off that row: the caller sent none, and echoing one would invite a client to
     believe this endpoint owns it.
@@ -799,13 +781,9 @@ class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
 
     saison_id: str
     team_id: CustomObjectId
-    # The row's own id, which the delivery record of a mailed link is filed against.
-    saison_team_id: CustomObjectId
     kontakte: FLSaisonTeamKontakte | None
     # Empty where the save seated nobody new: a seat keeping its person keeps their link.
     bestaetigungen: list[FLKontaktMint]
-    # Empty where every mailbox the row seated still holds a seat on it.
-    abgaenge: list[FLKontaktAbgang]
 
     @computed_field
     @property
@@ -816,11 +794,10 @@ class FLPatchSaisonTeamKontakteResponse(BaseAPIResponse):
 
 
 class FLKontaktEinladenResponse(BaseAPIResponse):
-    """A fresh link for one seat, and its pair where the Trainer holds both; the old link then opens nothing."""
+    """A fresh link owed one seat, and its pair where the Trainer holds both; the old link opens nothing from this write on."""
 
     saison_id: str
     team_id: CustomObjectId
-    saison_team_id: CustomObjectId
     bestaetigung: FLKontaktMint
 
 
