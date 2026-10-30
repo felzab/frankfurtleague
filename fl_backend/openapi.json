@@ -152,7 +152,6 @@
           "REQ-ADRESSWECHSEL-005",
           "REQ-ADRESSWECHSEL-006",
           "REQ-ADRESSWECHSEL-007",
-          "REQ-ADRESSWECHSEL-008",
           "REQ-ADRESSWECHSEL-009",
           "REQ-ADRESSWECHSEL-010",
           "REQ-ADRESSWECHSEL-011",
@@ -198,7 +197,6 @@
           "REQ-BERICHT-002",
           "REQ-BERICHT-003",
           "REQ-BERICHT-004",
-          "REQ-BERICHT-005",
           "REQ-BERICHT-006",
           "REQ-BERICHT-007",
           "REQ-BERICHT-008",
@@ -234,7 +232,6 @@
           "REQ-DATE-005",
           "REQ-DATE-008",
           "REQ-DATE-009",
-          "REQ-DROSSELUNG-001",
           "REQ-EINLADUNG-001",
           "REQ-EINLADUNG-002",
           "REQ-EINLADUNG-003",
@@ -259,7 +256,6 @@
           "REQ-PURGE-003",
           "REQ-PURGE-004",
           "REQ-PURGE-005",
-          "REQ-PURGE-006",
           "REQ-PURGE-007",
           "REQ-REFERENZEN-001",
           "REQ-REGISTRIERUNG-001",
@@ -322,7 +318,6 @@
           "REQ-SPERRLISTE-001",
           "REQ-SPERRLISTE-002",
           "REQ-SPERRLISTE-003",
-          "REQ-SPERRLISTE-004",
           "REQ-SPIELPLAN-001",
           "REQ-SPIELPLAN-002",
           "REQ-SPIELPLAN-003",
@@ -358,7 +353,7 @@
       },
       "FLAblehnenBewerbungPayload": {
         "additionalProperties": false,
-        "description": "Why the application was declined.\n\nIts own declaration and never shared with the acceptance's: the two are not inverses, and a\npayload reaching both would let a value typed for one arrive at the other.",
+        "description": "Why the application was declined.",
         "properties": {
           "grund": {
             "maxLength": 1000,
@@ -1996,7 +1991,7 @@
       },
       "FLAnnehmenBewerbungPayload": {
         "additionalProperties": false,
-        "description": "Which group the school enters, and the kit colour the league assigns it.\n\nNo `saison_id`: the application names its own season, so a payload carrying one could only\ndisagree with it.",
+        "description": "Which group the school enters, and the kit colour the league assigns it; the season is the application's own.",
         "properties": {
           "gruppe": {
             "$ref": "#/components/schemas/FLGruppenNames"
@@ -2705,8 +2700,62 @@
         "title": "FLBerechtigungenListResponse",
         "type": "object"
       },
+      "FLBestaetigung": {
+        "description": "One person's confirmation bookkeeping as an administrator reads it, and no token hash.\n\nThe hash is a raw document key the confirmation query alone reads, so no read serves one.",
+        "properties": {
+          "erinnert_am": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erinnert Am"
+          },
+          "frist": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist",
+            "type": "string"
+          },
+          "verschickt_am": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Verschickt Am",
+            "type": "string"
+          },
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungZustellung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "verschickt_am",
+          "erinnert_am",
+          "frist",
+          "zustellung"
+        ],
+        "title": "FLBestaetigung",
+        "type": "object"
+      },
+      "FLBestaetigungZustand": {
+        "enum": [
+          "gueltig",
+          "bestaetigt",
+          "abgelaufen",
+          "gesperrt"
+        ],
+        "type": "string"
+      },
       "FLBewerbung": {
-        "description": "One school's application to play one season, as stored, its decision as served.\n\nThe submission is never rewritten: `status`, `entscheidung` and `team_id` move through the\ntriage, and a contact seat through the two administrative repairs in\n`app/api/bewerbungen/admin_router.py`.",
+        "description": "One school's application to play one season, as stored, its decision as served.",
         "properties": {
           "bestaetigungen": {
             "$ref": "#/components/schemas/FLBewerbungBestaetigungen"
@@ -2757,13 +2806,7 @@
             ]
           },
           "status": {
-            "enum": [
-              "eingereicht",
-              "angenommen",
-              "abgelehnt"
-            ],
-            "title": "Status",
-            "type": "string"
+            "$ref": "#/components/schemas/FLBewerbungStatus"
           },
           "stufengroesse": {
             "title": "Stufengroesse",
@@ -2817,7 +2860,7 @@
       },
       "FLBewerbungAddressPayload": {
         "additionalProperties": false,
-        "description": "The school's address, with the Stadtteil REQUIRED.\n\nIts own subclass rather than a change to `FLAddressPayload`, which an admin address shares: a\nvenue can genuinely lack a district, and a Frankfurt school does not.",
+        "description": "The school's address, with the Stadtteil required.",
         "properties": {
           "hausnummer": {
             "maxLength": 16,
@@ -2860,7 +2903,7 @@
         "type": "object"
       },
       "FLBewerbungBestaetigung": {
-        "description": "One seat's confirmation bookkeeping as the triage reads it -- and NO `token_hash`.\n\nThe hash is a raw document key the confirm query alone reads; a model declaring it would serve\nit through every admin read.",
+        "description": "One seat's confirmation bookkeeping as the triage reads it, without its link's hash.",
         "properties": {
           "abgelehnt_am": {
             "anyOf": [
@@ -2911,7 +2954,7 @@
         "type": "object"
       },
       "FLBewerbungBestaetigungTokens": {
-        "description": "The three RAW tokens the create or its replay minted, one per seat.\n\nThis response and the inboxes are the only places a raw token exists: the database holds\nhashes, and no read model declares one.",
+        "description": "The three raw tokens the create or its replay minted, one per seat; no read serves them again.",
         "properties": {
           "ansprechperson": {
             "title": "Ansprechperson",
@@ -2935,7 +2978,7 @@
         "type": "object"
       },
       "FLBewerbungBestaetigungen": {
-        "description": "The three seats' bookkeeping, mirroring `kontakte`'s slots. Nullable per SEAT: an erasure empties the one naming the person.",
+        "description": "The three seats' bookkeeping, each null where an erasure emptied the seat.",
         "properties": {
           "ansprechperson": {
             "anyOf": [
@@ -2976,25 +3019,8 @@
         "title": "FLBewerbungBestaetigungen",
         "type": "object"
       },
-      "FLBewerbungEinwilligungAnsichtPayload": {
-        "additionalProperties": false,
-        "description": "A POST that reads: the token travels in a body, never in a second URL.",
-        "properties": {
-          "token": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "token"
-        ],
-        "title": "FLBewerbungEinwilligungAnsichtPayload",
-        "type": "object"
-      },
       "FLBewerbungEinwilligungAnsichtResponse": {
-        "description": "What the page renders for one seat, and no contact record (`READ-BEWERBUNG-002`).\n\nA leaked link's holder learns what its mail said: a school, a season and the roles one answer\ncovers, and nothing of the person.",
+        "description": "What the page renders for one seat, and nothing of the person.",
         "properties": {
           "laufende_fassung": {
             "title": "Laufende Fassung",
@@ -3111,12 +3137,14 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           },
           "token": {
             "maxLength": 128,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
           },
@@ -3137,7 +3165,7 @@
         "type": "object"
       },
       "FLBewerbungEinwilligungAntwortResponse": {
-        "description": "What the answer did, and which seats are still open -- the whole application's, not this person's.\n\nWidened rather than given a read: one field of an admin-tier document would be a new surface to\nwithhold the rest at.",
+        "description": "What the answer did, and which of the application's seats are still open.\n\nThe fields after `medien` compose the outbound messages and are for the frontend's server alone.",
         "properties": {
           "ansprechperson_email": {
             "anyOf": [
@@ -3175,12 +3203,7 @@
             "type": "string"
           },
           "ergebnis": {
-            "enum": [
-              "bestaetigt",
-              "abgelehnt"
-            ],
-            "title": "Ergebnis",
-            "type": "string"
+            "$ref": "#/components/schemas/FLEinwilligungErgebnis"
           },
           "geburtsdatum": {
             "anyOf": [
@@ -3277,7 +3300,7 @@
       },
       "FLBewerbungEinwilligungPayload": {
         "additionalProperties": false,
-        "description": "What the applicant agreed to, and nothing about how the record of it is composed.\n\n`umfang` and `datum` are the SERVER's: a client offered them could claim the person's own\nanswer, or backdate a record.",
+        "description": "What the applicant agreed to; the scope and the date are the server's.",
         "properties": {
           "erteilt": {
             "const": true,
@@ -3287,6 +3310,7 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           }
@@ -3343,7 +3367,7 @@
         "type": "object"
       },
       "FLBewerbungFensterResponse": {
-        "description": "One season's application window and whether that season has ended, and NOTHING else about it.\n\nA season taking applications is `future`, which the rule withholds -- so\nthe window gets its own shape rather than widening a season read.",
+        "description": "One season's application window and whether that season has ended, and nothing else about it.",
         "properties": {
           "bis": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -3384,7 +3408,7 @@
         "type": "object"
       },
       "FLBewerbungKader": {
-        "description": "The school's own estimate of its squad, on the application alone.\n\nUnbounded on read for `FLBewerbungSchule.website_url`'s reason. Nothing checks either number\nagainst a squad afterwards -- they are what the school expected, not what it fielded.",
+        "description": "The school's own estimate of its squad, which nothing checks afterwards.",
         "properties": {
           "gute_spieler": {
             "title": "Gute Spieler",
@@ -3426,7 +3450,7 @@
         "type": "object"
       },
       "FLBewerbungKeinFensterResponse": {
-        "description": "A season that records no application window: its id, and nothing else about it.\n\nThe rule is narrowed to the id resolving to a season, which is what parts\nthis answer from the 404 a mistyped id keeps.",
+        "description": "A season that records no application window: its id, and `fenster` always null.",
         "properties": {
           "fenster": {
             "title": "Fenster",
@@ -3446,7 +3470,7 @@
       },
       "FLBewerbungKontaktEmailPayload": {
         "additionalProperties": false,
-        "description": "The corrected address, and NOTHING else of the person: a bounced link is repaired, not the submission rewritten.",
+        "description": "The corrected address and the one the page showed on the seat, and nothing else of the person.",
         "properties": {
           "bisherige_email": {
             "maxLength": 254,
@@ -3513,7 +3537,7 @@
       },
       "FLBewerbungKontaktSitzPayload": {
         "additionalProperties": false,
-        "description": "The person seated where a contact person stepped out, carrying no `einwilligung` block.\n\n`FLBewerbungKontaktpersonPayload`'s is `erteilt: Literal[True]`, and this person has agreed to\nnothing: their own link is what asks them.",
+        "description": "The person seated where a contact person stepped out, who has agreed to nothing yet.",
         "properties": {
           "email": {
             "maxLength": 254,
@@ -3535,6 +3559,7 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           },
@@ -3591,7 +3616,7 @@
       },
       "FLBewerbungKontaktePayload": {
         "additionalProperties": false,
-        "description": "The three people an application is reached through, all three REQUIRED and non-null.\n\nUnlike the junction payload, whose nulls keep a row an erasure emptied editable: an application\nis the form those three filled in, and there is nothing yet to erase.",
+        "description": "The three people an application is reached through, all three required.",
         "properties": {
           "ansprechperson": {
             "$ref": "#/components/schemas/FLBewerbungKontaktpersonPayload"
@@ -3624,7 +3649,7 @@
       },
       "FLBewerbungKontaktpersonPayload": {
         "additionalProperties": false,
-        "description": "One of the three people, as a member of the public submits them.\n\nNo birthdate: each types their own on the confirmation page, so\nthe key is refused outright rather than accepted as a null.",
+        "description": "One of the three people, as a member of the public submits them, without a birthdate.",
         "properties": {
           "einwilligung": {
             "$ref": "#/components/schemas/FLBewerbungEinwilligungPayload"
@@ -3665,7 +3690,7 @@
         "type": "object"
       },
       "FLBewerbungKuerzelResponse": {
-        "description": "Whether a proposed Kürzel is already a club's.\n\nIt names no club and does not tell an active one from a retired one: the uniqueness it mirrors\nspans both, and a shape distinguishing them would publish which schools have left.",
+        "description": "Whether a proposed Kürzel is already a club's, active or retired, naming no club.",
         "properties": {
           "shorthand": {
             "title": "Shorthand",
@@ -3681,36 +3706,6 @@
           "vergeben"
         ],
         "title": "FLBewerbungKuerzelResponse",
-        "type": "object"
-      },
-      "FLBewerbungPersonEinwilligungPayload": {
-        "additionalProperties": false,
-        "description": "The season seat's payload on a pending application, where its press takes withdrawals alone.\n\nThe same shape, so one control serves both; a grant on it is refused rather than unrepresentable.",
-        "properties": {
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
-          },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Text Version",
-            "type": "string"
-          },
-          "umfang": {
-            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
-          }
-        },
-        "required": [
-          "umfang",
-          "medien",
-          "text_version",
-          "nachweis_stand"
-        ],
-        "title": "FLBewerbungPersonEinwilligungPayload",
         "type": "object"
       },
       "FLBewerbungPersonEinwilligungResponse": {
@@ -3750,7 +3745,7 @@
         "type": "object"
       },
       "FLBewerbungSchule": {
-        "description": "The club a new school proposes, in the shape acceptance will create it in.\n\nWhile the application is `eingereicht`, exactly one of this and `team_id` carries a value, held\nby the write path rather than the validator.",
+        "description": "The club a new school proposes, in the shape acceptance will create it in.\n\nWhile the application is `eingereicht`, exactly one of this and `team_id` carries a value.",
         "properties": {
           "address": {
             "$ref": "#/components/schemas/FLAddress"
@@ -3804,7 +3799,7 @@
         "type": "object"
       },
       "FLBewerbungSchuleOption": {
-        "description": "One club as the public form offers it: an autocomplete row, and nothing more.\n\nAn allow-list declared from nothing, never a narrowing of `FLTeam` (`READ-BEWERBUNG-001`): an\nanonymous visitor picks from it, and a club's address is a school's street.",
+        "description": "One club as the public form offers it: its id and its name.",
         "properties": {
           "id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -3826,7 +3821,7 @@
       },
       "FLBewerbungSchulePayload": {
         "additionalProperties": false,
-        "description": "The club a new school proposes, bounded and stripped for the write side.\n\nA subclass rather than a second declaration, as `FLKontaktpersonPayload` is: the field set is the\nstored block's, and two spellings of it would drift on every field they share.",
+        "description": "The club a new school proposes, bounded and stripped for the write.",
         "properties": {
           "address": {
             "$ref": "#/components/schemas/FLBewerbungAddressPayload"
@@ -3910,25 +3905,13 @@
         "title": "FLBewerbungSingleResponse",
         "type": "object"
       },
-      "FLBewerbungSweepAngekuendigtPayload": {
-        "additionalProperties": false,
-        "description": "Which candidates' notices the caller delivered. The backend re-judges them: an id that has stopped qualifying is skipped.",
-        "properties": {
-          "bewerbung_ids": {
-            "items": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "type": "string"
-            },
-            "maxItems": 83,
-            "title": "Bewerbung Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "bewerbung_ids"
+      "FLBewerbungStatus": {
+        "enum": [
+          "eingereicht",
+          "angenommen",
+          "abgelehnt"
         ],
-        "title": "FLBewerbungSweepAngekuendigtPayload",
-        "type": "object"
+        "type": "string"
       },
       "FLBewerbungSweepAngekuendigtResponse": {
         "properties": {
@@ -3954,7 +3937,7 @@
         "type": "object"
       },
       "FLBewerbungSweepAusstehend": {
-        "description": "A seat the deletion notice lists as never confirmed. `vorname` is null where the slot was emptied by a decline or an erasure.",
+        "description": "A seat the deletion notice lists as never confirmed; `vorname` is null where the slot was emptied.",
         "properties": {
           "rolle": {
             "$ref": "#/components/schemas/FLKontaktRolle"
@@ -3978,8 +3961,28 @@
         "title": "FLBewerbungSweepAusstehend",
         "type": "object"
       },
+      "FLBewerbungSweepAuswahlPayload": {
+        "additionalProperties": false,
+        "description": "The candidates from one pass's deletion list that this step names. The backend re-judges each, skipping one that no longer qualifies.",
+        "properties": {
+          "bewerbung_ids": {
+            "items": {
+              "pattern": "^[0-9a-fA-F]{24}$",
+              "type": "string"
+            },
+            "maxItems": 83,
+            "title": "Bewerbung Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "bewerbung_ids"
+        ],
+        "title": "FLBewerbungSweepAuswahlPayload",
+        "type": "object"
+      },
       "FLBewerbungSweepErinnerung": {
-        "description": "One reminder to send: one MAILBOX of one application, every seat it holds due today.\n\nGrouped as the first mail groups (`fl_frontend/src/features/bewerbungen/notifications.ts`), so\none person holding two seats gets one message and two people on one inbox get two.",
+        "description": "One reminder to send: one mailbox of one application, with every seat it holds due today.",
         "properties": {
           "bestaetigungsfrist": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
@@ -4022,26 +4025,6 @@
         "title": "FLBewerbungSweepErinnerung",
         "type": "object"
       },
-      "FLBewerbungSweepLoeschenPayload": {
-        "additionalProperties": false,
-        "description": "Which candidates to erase. The backend re-selects them: an id that has stopped qualifying, or that was never announced, is skipped.",
-        "properties": {
-          "bewerbung_ids": {
-            "items": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "type": "string"
-            },
-            "maxItems": 83,
-            "title": "Bewerbung Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "bewerbung_ids"
-        ],
-        "title": "FLBewerbungSweepLoeschenPayload",
-        "type": "object"
-      },
       "FLBewerbungSweepLoeschenResponse": {
         "properties": {
           "fehlgeschlagen": {
@@ -4071,7 +4054,7 @@
         "type": "object"
       },
       "FLBewerbungSweepLoeschung": {
-        "description": "One application past its deadline, still standing: the notice goes out first, the erasure follows in a second call.",
+        "description": "One application past its deadline, still standing: the notice goes out first, the erasure in a second call.",
         "properties": {
           "angekuendigt": {
             "title": "Angekuendigt",
@@ -4135,7 +4118,7 @@
         "type": "object"
       },
       "FLBewerbungSweepResponse": {
-        "description": "One season's pass: the reminders already stamped, the deletions still to notify, and the four silent clocks' counts.",
+        "description": "One season's pass: the reminders already stamped, the deletions still to notify, and each clock's count.",
         "properties": {
           "abgelehnte_geloescht": {
             "title": "Abgelehnte Geloescht",
@@ -4212,7 +4195,7 @@
         "type": "object"
       },
       "FLBewerbungSweepSeat": {
-        "description": "One LINK a reminder carries: the RAW fresh token, which exists here and in the mail alone.",
+        "description": "One link a reminder carries, with its raw fresh token.",
         "properties": {
           "rollen": {
             "items": {
@@ -4239,7 +4222,7 @@
         "type": "object"
       },
       "FLBewerbungTrikot": {
-        "description": "What kit the school already owns, and the colour it would like.\n\nNever copied onto the team: `saison_teams.trikot_farbe` is the colour an administrator ASSIGNED,\nand two schools may wish for one colour.",
+        "description": "What kit the school already owns, and the colour it would like; never copied onto the team.",
         "properties": {
           "vorhandener_satz": {
             "title": "Vorhandener Satz",
@@ -4257,7 +4240,7 @@
         "type": "object"
       },
       "FLBewerbungTrikotFarbenResponse": {
-        "description": "Which kit colours one season has already ASSIGNED. A set, and nothing about who holds one.\n\nAn allow-list declared from nothing, as `FLBewerbungSchuleOption` is (`READ-BEWERBUNG-001`): a\ncolour beside a club would publish which kit that school wears.",
+        "description": "Which kit colours one season has already assigned, naming no club.",
         "properties": {
           "saison_id": {
             "title": "Saison Id",
@@ -4463,7 +4446,7 @@
         "type": "object"
       },
       "FLBewerbungenListResponse": {
-        "description": "The queue, newest first, and whether that is the whole of it.\n\nA cut answer still marks a collision: `dubletten_schluessel` is taken over every open\napplication, so a pair the cap parted is named at both ends.",
+        "description": "The queue, newest first, and whether that is the whole of it.\n\n`dubletten_schluessel` is taken over every open application, so a pair the cap parted is named at both ends.",
         "properties": {
           "anzahl_je_saisonbezug": {
             "additionalProperties": {
@@ -4483,11 +4466,7 @@
               "type": "integer"
             },
             "propertyNames": {
-              "enum": [
-                "eingereicht",
-                "angenommen",
-                "abgelehnt"
-              ]
+              "$ref": "#/components/schemas/FLBewerbungStatus"
             },
             "title": "Anzahl Je Status",
             "type": "object"
@@ -4953,25 +4932,8 @@
         "title": "FLBracketFaultSpieltag",
         "type": "object"
       },
-      "FLEinladungAnsichtPayload": {
-        "additionalProperties": false,
-        "description": "The link a visitor presents, and nothing else: the row it opens says which team and season it is for.",
-        "properties": {
-          "token": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "token"
-        ],
-        "title": "FLEinladungAnsichtPayload",
-        "type": "object"
-      },
       "FLEinladungAnsichtResponse": {
-        "description": "What an invite's holder is told before they type anything.\n\nEach field is something the link's own message already said, or something the form is bounded\nby: a select offering more than the write accepts is a drifted client.",
+        "description": "What an invite's holder is told before they type anything, and the bounds the form is held to.",
         "properties": {
           "erlaubte_stufen": {
             "items": {
@@ -5099,7 +5061,7 @@
         "type": "object"
       },
       "FLEinladungResponse": {
-        "description": "The team's live link for one season, or nothing, beside the window deciding what it opens.\n\nDeclared here rather than in `app/api/teams/schemas.py`, whose endpoint answers it: moving it\nthere is an import cycle through `app/api/bewerbungen/schemas.py`.",
+        "description": "The team's live link for one season, or nothing, beside the window deciding what it opens.",
         "properties": {
           "einladung": {
             "anyOf": [
@@ -5136,7 +5098,7 @@
         "type": "object"
       },
       "FLEinladungVersand": {
-        "description": "The carrier a message about this invite is recorded in.\n\nA carrier rather than the record itself: `zustellung_pfad` composes a dotted path out of it, and\nthe accepted send skips a row holding no carrier at all.",
+        "description": "The carrier a message about this invite is recorded in.",
         "properties": {
           "zustellung": {
             "anyOf": [
@@ -5522,6 +5484,13 @@
         ],
         "title": "FLEinwilligungBeleg",
         "type": "object"
+      },
+      "FLEinwilligungErgebnis": {
+        "enum": [
+          "bestaetigt",
+          "abgelehnt"
+        ],
+        "type": "string"
       },
       "FLEinwilligungFassung": {
         "description": "The words one consent label names, as the person stamping it was shown them.\n\nNever changed once served: different words are a new label.",
@@ -6227,11 +6196,6 @@
             "title": "Berechtigungen Antraege",
             "type": "integer"
           },
-          "drosselung": {
-            "minimum": 0.0,
-            "title": "Drosselung",
-            "type": "integer"
-          },
           "kontakt_sitze": {
             "minimum": 0.0,
             "title": "Kontakt Sitze",
@@ -6272,8 +6236,7 @@
           "registrierungen",
           "adresswechsel",
           "berechtigungen",
-          "berechtigungen_antraege",
-          "drosselung"
+          "berechtigungen_antraege"
         ],
         "title": "FLErasureResponse",
         "type": "object"
@@ -6903,6 +6866,7 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           },
@@ -8932,7 +8896,7 @@
       },
       "FLPostBewerbungPayload": {
         "additionalProperties": false,
-        "description": "One school's application, as the public form submits it.\n\n`status`, `eingereicht_am` and `entscheidung` are on no payload: the server sets all three, so a\nclient can neither arrive already accepted nor backdate its own submission.",
+        "description": "One school's application, as the public form submits it.\n\n`status`, `eingereicht_am` and `entscheidung` are the server's.",
         "properties": {
           "kader": {
             "$ref": "#/components/schemas/FLBewerbungKaderPayload"
@@ -9004,7 +8968,7 @@
         "type": "object"
       },
       "FLPostBewerbungResponse": {
-        "description": "What the submission wrote, and nothing the submission carried.\n\nThe three people's details went one way, and a body repeating them is a copy in a browser's\ncache and in every proxy between.",
+        "description": "What the submission wrote, without the people's details it carried.",
         "properties": {
           "bestaetigungen": {
             "anyOf": [
@@ -9048,7 +9012,7 @@
       },
       "FLPostRegistrierungPayload": {
         "additionalProperties": false,
-        "description": "One pupil registering through a team's link.\n\nThe league's own fields -- the team, the season, the state, the deadline and the confirmation\nlink -- are taken off the invite and the clock, never off this body.",
+        "description": "One pupil registering through a team's link.\n\nThe team, the season, the state, the deadline and the confirmation link come from the invite and the clock, never from this body.",
         "properties": {
           "email": {
             "maxLength": 254,
@@ -9097,6 +9061,7 @@
           "token": {
             "maxLength": 128,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
           },
@@ -9121,7 +9086,7 @@
         "type": "object"
       },
       "FLPostRegistrierungResponse": {
-        "description": "The stored registration and a raw confirmation link, which no read ever answers.\n\nThe database holds its hash alone, so a lost link is re-minted by the sweep's reminder rather\nthan recovered from any read.",
+        "description": "The stored registration and its raw confirmation link, which no read ever answers again.",
         "properties": {
           "bestaetigung_token": {
             "anyOf": [
@@ -9323,6 +9288,7 @@
           "saison_id": {
             "maxLength": 4,
             "minLength": 4,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Saison Id",
             "type": "string"
           }
@@ -9657,7 +9623,7 @@
         "type": "object"
       },
       "FLRegistrierung": {
-        "description": "One pupil's registration for one team's season, as stored, its decision as served.\n\nThe submission is never rewritten: its pupil fills and withdraws `einwilligung` and fills\n`geburtsdatum`, and a decline writes `status` and `entscheidung`.",
+        "description": "One pupil's registration for one team's season, as stored, its decision as served.\n\nIts pupil fills and withdraws `einwilligung` and fills `geburtsdatum`; a decline writes `status` and `entscheidung`.",
         "properties": {
           "bestaetigt": {
             "title": "Bestaetigt",
@@ -9666,7 +9632,7 @@
           "bestaetigung": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLRegistrierungBestaetigung"
+                "$ref": "#/components/schemas/FLBestaetigung"
               },
               {
                 "type": "null"
@@ -9992,67 +9958,6 @@
         "title": "FLRegistrierungAufnehmenPayload",
         "type": "object"
       },
-      "FLRegistrierungBestaetigung": {
-        "description": "One registration's confirmation bookkeeping as an administrator reads it -- and NO `token_hash`.\n\nThe hash is a raw document key the confirmation query alone reads, as\n`app/api/bewerbungen/schemas.py :: FLBewerbungBestaetigung` keeps its own off the wire.",
-        "properties": {
-          "erinnert_am": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Erinnert Am"
-          },
-          "frist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
-            "type": "string"
-          },
-          "verschickt_am": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Verschickt Am",
-            "type": "string"
-          },
-          "zustellung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLBewerbungZustellung"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "verschickt_am",
-          "erinnert_am",
-          "frist"
-        ],
-        "title": "FLRegistrierungBestaetigung",
-        "type": "object"
-      },
-      "FLRegistrierungBestaetigungAnsichtPayload": {
-        "additionalProperties": false,
-        "description": "A POST that reads: the token travels in a body, never in a second URL.",
-        "properties": {
-          "token": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "token"
-        ],
-        "title": "FLRegistrierungBestaetigungAnsichtPayload",
-        "type": "object"
-      },
       "FLRegistrierungBestaetigungAnsichtResponse": {
         "description": "What one confirmation link opens, and no field past the ones declared here.",
         "properties": {
@@ -10088,14 +9993,7 @@
             "type": "string"
           },
           "zustand": {
-            "enum": [
-              "gueltig",
-              "bestaetigt",
-              "abgelaufen",
-              "gesperrt"
-            ],
-            "title": "Zustand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLBestaetigungZustand"
           }
         },
         "required": [
@@ -10144,29 +10042,26 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           },
           "token": {
             "maxLength": 128,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
           },
           "umfang": {
             "anyOf": [
               {
-                "enum": [
-                  "kader_oeffentlich",
-                  "intern"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLEinwilligungUmfang"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Umfang"
+            ]
           }
         },
         "required": [
@@ -10213,17 +10108,12 @@
           "umfang": {
             "anyOf": [
               {
-                "enum": [
-                  "kader_oeffentlich",
-                  "intern"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLEinwilligungUmfang"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Umfang"
+            ]
           }
         },
         "required": [
@@ -10379,41 +10269,6 @@
           "weicht_ab"
         ],
         "title": "FLRegistrierungPerson",
-        "type": "object"
-      },
-      "FLRegistrierungSelbstEinwilligungPayload": {
-        "additionalProperties": false,
-        "description": "The pupil's own two choices on one pending registration, the pupil's account control's shape: a grant is refused.",
-        "properties": {
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
-          },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Text Version",
-            "type": "string"
-          },
-          "umfang": {
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
-            ],
-            "title": "Umfang",
-            "type": "string"
-          }
-        },
-        "required": [
-          "umfang",
-          "medien",
-          "text_version",
-          "nachweis_stand"
-        ],
-        "title": "FLRegistrierungSelbstEinwilligungPayload",
         "type": "object"
       },
       "FLRegistrierungSelbstEinwilligungResponse": {
@@ -11253,15 +11108,10 @@
         "type": "object"
       },
       "FLSaisonTeamEinwilligungAntwortResponse": {
-        "description": "What an answer on a season row's link did, and nothing to compose a message from.\n\nNo application stands behind the seat, so nobody is told.",
+        "description": "What an answer on a season row's link did; nobody is told, so nothing composes a message.",
         "properties": {
           "ergebnis": {
-            "enum": [
-              "bestaetigt",
-              "abgelehnt"
-            ],
-            "title": "Ergebnis",
-            "type": "string"
+            "$ref": "#/components/schemas/FLEinwilligungErgebnis"
           },
           "geburtsdatum": {
             "anyOf": [
@@ -11420,6 +11270,7 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           },
@@ -12123,6 +11974,37 @@
         ],
         "type": "string"
       },
+      "FLSelbstEinwilligungPayload": {
+        "additionalProperties": false,
+        "description": "A pupil's, a referee's or a registration's own two choices on their record.\n\nBoth choices on every press, and no member defaulted: a default would let a page that forgot one\nreset the person's other choice.",
+        "properties": {
+          "medien": {
+            "title": "Medien",
+            "type": "boolean"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
+          },
+          "text_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Text Version",
+            "type": "string"
+          },
+          "umfang": {
+            "$ref": "#/components/schemas/FLEinwilligungUmfang"
+          }
+        },
+        "required": [
+          "umfang",
+          "medien",
+          "text_version",
+          "nachweis_stand"
+        ],
+        "title": "FLSelbstEinwilligungPayload",
+        "type": "object"
+      },
       "FLSelbstErasureAnsichtResponse": {
         "properties": {
           "adresswechsel": {
@@ -12380,6 +12262,37 @@
         "title": "FLSitzBestaetigt",
         "type": "object"
       },
+      "FLSitzEinwilligungPayload": {
+        "additionalProperties": false,
+        "description": "A seat holder's own two choices for every seat they hold on one row.\n\nBoth choices on every press: a page that sent one alone would leave the other judged by nothing.",
+        "properties": {
+          "medien": {
+            "title": "Medien",
+            "type": "boolean"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
+          },
+          "text_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Text Version",
+            "type": "string"
+          },
+          "umfang": {
+            "$ref": "#/components/schemas/FLKontaktKenntnisnahmeUmfang"
+          }
+        },
+        "required": [
+          "umfang",
+          "medien",
+          "text_version",
+          "nachweis_stand"
+        ],
+        "title": "FLSitzEinwilligungPayload",
+        "type": "object"
+      },
       "FLSitzKontext": {
         "description": "What the contact confirmation page's slots name for this seat today.",
         "properties": {
@@ -12430,6 +12343,13 @@
           "nichtantreten_team2",
           "abgebrochen",
           "annulliert"
+        ],
+        "type": "string"
+      },
+      "FLSortOrder": {
+        "enum": [
+          "asc",
+          "desc"
         ],
         "type": "string"
       },
@@ -18110,7 +18030,7 @@
     },
     "/api/v0/adresswechsel": {
       "post": {
-        "description": "Start a change of the typed address for a person who says they cannot sign in, answering its raw links once, for the caller to mail.\n\n**Nothing moves here.** Without a `grund` the change asks the address on file first: the caller mails it the request\nwith its stop link, and nothing goes to the new mailbox until that address approves on its account page. With a\n`grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the\naddress on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new\nmailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never\nthis one's: `genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).\nThe address's live change ends replaced.\n\nRefused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power\n(`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds\n(`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the\nchange moves a pupil (`-006`), a new address any entry names, confirmed or not (`-018`), a grant nobody could approve\n(`-011`), and a reason naming a person of the records the change would move (`-008`).",
+        "description": "Start a change of the typed address for a person who says they cannot sign in, answering its raw links once, for the caller to mail.\n\n**Nothing moves here.** Without a `grund` the change asks the address on file first: the caller mails it the request\nwith its stop link, and nothing goes to the new mailbox until that address approves on its account page. With a\n`grund`, recording how the administrator established who asks, the caller mails the new mailbox its link and the\naddress on file a notice with its stop link; the change then takes effect `ADRESSWECHSEL_WARTEZEIT_TAGE` after the new\nmailbox confirms. Where the address holds a grant, the change also waits on another administrator's approval, never\nthis one's: `genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`).\nThe address's live change ends replaced.\n\nRefused the administrator's own address (`REQ-PURGE-003`), a grant holder's without an owner's power\n(`REQ-PURGE-005`), the address on file typed again (`REQ-ADRESSWECHSEL-007`), a new address the ban list holds\n(`-009`), an address holding nothing a change moves (`-010`), a new address another pupil signs in on where the\nchange moves a pupil (`-006`), a new address any entry names, confirmed or not (`-018`), and a grant nobody could\napprove (`-011`).",
         "operationId": "adresswechsel_post_adresswechsel_verwaltung",
         "requestBody": {
           "content": {
@@ -19882,7 +19802,7 @@
     },
     "/api/v0/bewerbungen": {
       "get": {
-        "description": "Every application, newest first, narrowable by season and by any number of the three statuses.\n\nDecided ones stay listed: what the league turned down, and why, is the record the decision was\ntaken against. `vollstaendig` is false where more rows exist than one read serves. A decision's\nadministrator is `null` beside `entscheidung.von_gesperrt` where the ban list holds that\naddress, as no barred address is served in plain.\n\n`saisonbezug` says which side of `saison_id` this read covers — `diese_saison` for that season,\n`andere_saison` for every other one — and is ignored without a `saison_id` to stand against.\nBoth values is every season, as omitting the parameter is; `saison_id` alone is that season.\n\n`anzahl_je_status` counts every status over the seasons this request selected and never over the\nstatuses it named, and `anzahl_je_saisonbezug` counts each side of the season relation over those\nstatuses and never over the relation, so a caller narrowed to one of either still knows what\nasking for the other would fetch. Repeating a parameter and comma-joining its values are one\nrequest; omitting one is every value, and sending it empty is too.\n\n`dubletten_schluessel` names every key two or more OPEN applications share, over every season the\nrequest selected rather than over the rows served, so a colliding pair the cap parted is named at\nboth ends; a key carries its own season, so no selection can part one. A key\nis the season and the club id, or the season and the upper-cased Kürzel, parted by the word\n`team` or `kuerzel`; a caller composes a served row's own key and marks the row where the two\nmatch.",
+        "description": "Every application, newest first, narrowed by `saison_id` with `saisonbezug` and by any of the three statuses.\n\n`vollstaendig` is false where more rows exist than one read serves, and each count covers the values its facet left out.\n`dubletten_schluessel` names every key two or more open applications share: the season and the club id or upper-cased\nKürzel, joined by `team` or `kuerzel`. A barred administrator is served as `null` beside `entscheidung.von_gesperrt`.",
         "operationId": "bewerbungen_get_bewerbungen",
         "parameters": [
           {
@@ -19947,13 +19867,8 @@
             "name": "order",
             "required": false,
             "schema": {
-              "default": "desc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
+              "$ref": "#/components/schemas/FLSortOrder",
+              "default": "desc"
             }
           }
         ],
@@ -20116,7 +20031,7 @@
     },
     "/api/v0/bewerbungen/einwilligung": {
       "post": {
-        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update, each\nchoice with its evidence, and leaves who seated them as it stands; a decline empties their slot and redacts\nevery log image holding it, as an erasure does. Refuses, in this order: a token no seat holds (`REQ-BEWERBUNG-009`),\na link whose deadline has passed or whose application was decided (`REQ-BEWERBUNG-010`), a seat already answered\n(`REQ-BEWERBUNG-011`), a consent naming any label but the one the view answered as `laufende_fassung` for this link\n(`REQ-EINWILLIGUNG-001`), a consent from an address the ban list holds now, whenever the link was minted\n(`REQ-BEWERBUNG-020`), an age outside the span the seats this person holds ask for (`REQ-BEWERBUNG-012`), and a\nmedia consent from a person below `medien_mindestalter` (`REQ-EINWILLIGUNG-002`) -- the last four judged before\nanything is written, so a reloaded page or a mistyped year spends nothing. A decline\nstores no label and is taken from a barred address too: it empties the seat.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.\n\nA link on a team's season row (`quelle: saison`) is answered the same way on that row, refused in the same order but\nfor `REQ-BEWERBUNG-010`, nothing deciding a season row, and its answer carries nothing to compose a message from. Its\nown deadline passed is `REQ-KONTAKT-004`, and a consent once its season has ended or its team has left it is\n`REQ-KONTAKT-006`, a Widerspruch being taken all the same. A Widerspruch there also voids the seat's links on the\nteam's match confirmations of that season, answered and closed ones too, takes those links and their mails' delivery\nrecords out of the confirmations' log images, and takes every reason its person typed answering a match confirmation,\nfrom any seat they held, from its row and its log images, the answer standing.",
+        "description": "Record one person's consent or decline for the seat their link opens, and for a second seat they hold.\n\nA decline empties the slot. Server-to-server only: the answer carries the addresses the outbound messages are composed\nfrom. Refuses, writing nothing: `REQ-BEWERBUNG-009`, `-010`, `-011`, `-012`, `-020`, `REQ-EINWILLIGUNG-001`, `-002`, and\non a team's season row `REQ-KONTAKT-004` and `-006`.",
         "operationId": "bewerbungen_post_einwilligung",
         "requestBody": {
           "content": {
@@ -20208,13 +20123,13 @@
     },
     "/api/v0/bewerbungen/einwilligung/ansicht": {
       "post": {
-        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, and `zugleich_rolle`: the\nsecond seat the same person holds, which an answer on this link writes too, or null. Never the holder's name: the\nlink went to an address nobody has confirmed, which behind a typo is a stranger's.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take. `laufende_fassung` is the label of the page the person is shown and their\nanswer must name: the applicant's where the applicant named them in every seat the link answers, else the one for a\nperson the administration seated.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`), an open link whose seat holds nobody among them: a confirmed, declined or\nexpired link is SERVED in that state rather than refused, so a reopened link shows what became of it. The state\nis `gesperrt`, ahead of every other, wherever the ban list holds an address a consent on this link would be\nrefused for (`REQ-BEWERBUNG-020`), so the page offers a barred person nothing to press.\n\nThe same token may open a seat an administrator entered on a team's season row (`quelle: saison`): `schule` is then\nthe name the club carries that season, and the link is over once its seat's own deadline has passed. Before that, a\nseason that has ended or a team that has left it answers `saison_vorbei`: the link takes a Widerspruch and no consent.",
+        "description": "What the confirmation page renders for the seat this token opens, and nothing of the person.\n\nA POST, so the token travels in the body. A confirmed, declined or expired link is served in that state, `gesperrt`\nranking first; only a token no seat holds is refused (`REQ-BEWERBUNG-009`).",
         "operationId": "bewerbungen_get_einwilligung_ansicht",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLBewerbungEinwilligungAnsichtPayload"
+                "$ref": "#/components/schemas/FLTokenPayload"
               }
             }
           },
@@ -20583,7 +20498,7 @@
     },
     "/api/v0/bewerbungen/sweep": {
       "get": {
-        "description": "Answer every season's id, oldest first, so the caller runs the clocks one season at a time.\n\nSystem tier rather than the base one: a season taking applications is `future`, which the base tier is never served,\nand the two clocks that matter run over exactly those seasons.",
+        "description": "Every season's id, oldest first, for the caller to sweep one at a time.",
         "operationId": "bewerbungen_get_sweep_saisons",
         "responses": {
           "200": {
@@ -20650,7 +20565,7 @@
     },
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
-        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. A seat whose address the ban list holds is\nsent nothing and has nothing written: it stays due, so every pass asks the ban list for it again until its deadline, and\nreminds it once a lift comes first; each pass logs how many mailboxes it withheld, never which. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n\nOne call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline\nfirst; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transactions, so no later step\nof the same call can answer an error in their place; where the request's deadline cuts them after one has committed, the call\nanswers what committed and warns once.\n\nAn application or a season row whose write fails, the database refusing it or anything else, or one the answer cannot carry,\nis passed over alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it\nagain and one failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the six clocks\npassed over.\n\n404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,\nthough it logs the count of withheld seats again.\n\nThe accepted clock and the contact block run once a later season has ended while this one is not `active`, the moment the\nseason-after rule stops keeping this season's pupils: a running season keeps both, and a later season planned and never run\nholds neither back. A season whose id is not a four-digit year fails the whole pass rather than running the four clocks\nthat need no later season, because a pass that skipped those two quietly would leave both stopped for ever with nothing\nanywhere saying so. From that moment every pass also strips, on the rows and in their log images, the season's fixture\nconfirmation rows of every seat's link entry, each reason and a contact's holder digest, and its match\nreports of their remarks and every card's reason; the answers' way, day and role and the reports' scorers, cards and\nresult stay as the record. Each strip is its own transaction after the blocks' share: one that fails is\nlogged under the season's id and counted in `fehlgeschlagen`, and the blocks clear all the same.",
+        "description": "Run one season's six retention clocks as of today, and answer the reminders and deletion notices the caller must mail.\n\nEvery reminder answered is already stamped and committed. A deletion candidate is only listed: the caller stamps the\ndelivered notices through `/angekuendigt` and erases the announced ones through `/loeschen`. A row that cannot be written\nis passed over, counted in `fehlgeschlagen` and met again by the next pass. 404 where no season has the id.",
         "operationId": "bewerbungen_sweep_saison",
         "parameters": [
           {
@@ -20728,7 +20643,7 @@
     },
     "/api/v0/bewerbungen/sweep/{saison_id}/angekuendigt": {
       "post": {
-        "description": "Record that the deletion notice reached the applications named, so an erasure that fails afterwards mails nobody twice.\n\nAn id whose stamp fails, the database refusing it or anything else, is passed over alone, logged by id, left unstamped and\ncounted in `fehlgeschlagen`. Every later pass then lists it as unannounced, so a caller mailing those mails its notice again,\nand `/loeschen` skips it: until a stamp lands it stands until its season is `past`.\n\nThe ids are re-judged in-session: only one still submitted, past its deadline and with a seat outstanding is stamped, and one\nalready carrying a stamp keeps the day it has. An id whose Ansprechperson the mail provider refused between the pass and this\ncall is skipped, so a notice the provider never carried is not recorded as delivered. 404 where no season has the id. An empty\nlist answers zero.",
+        "description": "Stamp the named candidates whose deletion notice was delivered.\n\nAn id that no longer qualifies, or already carries a stamp, is skipped. 404 where no season has the id.",
         "operationId": "bewerbungen_angekuendigt_bewerbungen",
         "parameters": [
           {
@@ -20745,7 +20660,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLBewerbungSweepAngekuendigtPayload"
+                "$ref": "#/components/schemas/FLBewerbungSweepAuswahlPayload"
               }
             }
           },
@@ -20816,7 +20731,7 @@
     },
     "/api/v0/bewerbungen/sweep/{saison_id}/loeschen": {
       "post": {
-        "description": "Erase the applications whose deletion notice went out, and redact every log row naming them.\n\nThe ids are re-judged in-session: only one still submitted, past its deadline, with a seat outstanding, whose announcement the\nmail provider will still carry AND carrying the announcement stamp is erased, so an application confirmed and accepted between\nthe calls survives, one whose notice bounced after it was stamped is held rather than destroyed, and an id from another\nseason or one nobody was told about is skipped rather than refused. 404 where no season has the id. An empty list answers zeros.\n\nAn id whose erasure fails, the database refusing it or anything else, is passed over alone, logged by id, left standing and\ncounted in `fehlgeschlagen`.",
+        "description": "Erase the named candidates that still qualify and carry the announcement stamp, and redact every log row naming them.\n\nAny other id is skipped. 404 where no season has the id.",
         "operationId": "bewerbungen_loeschen_bewerbungen",
         "parameters": [
           {
@@ -20833,7 +20748,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLBewerbungSweepLoeschenPayload"
+                "$ref": "#/components/schemas/FLBewerbungSweepAuswahlPayload"
               }
             }
           },
@@ -21136,7 +21051,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}": {
       "get": {
-        "description": "One application in full, which is what the triage decides against; its decision's administrator is withheld as the list withholds it.\n\nAnswers whether its confirmation deadline has passed today, so the editor words the deletion without reading a day of its own.",
+        "description": "One application, its decision's administrator withheld as the list withholds it.\n\n`bestaetigungsfrist_abgelaufen` says whether its confirmation deadline has passed today.",
         "operationId": "bewerbungen_get_bewerbung_by_id",
         "parameters": [
           {
@@ -21677,7 +21592,7 @@
     },
     "/api/v0/bewerbungen/{bewerbung_id}/person/einwilligung": {
       "patch": {
-        "description": "Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.\n\nWITHDRAW-ONLY: the season seat's payload, a grant of either choice being the confirmation page's alone; the\naccount page offers it so taking a consent back is as easy as giving it was (Art. 7(3) DSGVO). One answer for\nevery seat the person holds there, each choice moving only where it differs from the application as the page\nserved it; no other seat, field or document is written, and a press moving no seat writes nothing. Nothing is\ncounted against the person's ceiling.\n\nRefuses, in this order: an application that is decided or holds no confirmed seat of the address\n(`REQ-FUNKTION-001`); a `nachweis_stand` other than the held seats' own, either choice having moved since the\npage was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-EINWILLIGUNG-004`); and a `text_version`\nnaming no version of the account page's seat control (`REQ-EINWILLIGUNG-001`). Each refusal writes nothing.",
+        "description": "Withdraw the signed-in person's WhatsApp and media consents on every seat they hold on this pending application.\n\nA grant is refused. Refuses, writing nothing: `REQ-FUNKTION-001`, `REQ-EINWILLIGUNG-003` (the choices moved since the\npage was served), `REQ-EINWILLIGUNG-004` and `REQ-EINWILLIGUNG-001`.",
         "operationId": "bewerbungen_patch_einwilligung",
         "parameters": [
           {
@@ -21695,7 +21610,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLBewerbungPersonEinwilligungPayload"
+                "$ref": "#/components/schemas/FLSitzEinwilligungPayload"
               }
             }
           },
@@ -21766,7 +21681,7 @@
     },
     "/api/v0/einwilligung/fassungen/{text_version}": {
       "get": {
-        "description": "Return the words a consent label names: its paragraphs, its switch, its other controls, its page and the day it took effect.\n\nA label's words never change, so the answer may be cached. A label the registry does not hold 404s,\nand never answers another label's words.",
+        "description": "The words a consent label names, which never change, so the answer may be cached; 404 for a label the registry lacks.",
         "operationId": "einwilligung_get_fassung",
         "parameters": [
           {
@@ -21844,7 +21759,7 @@
     },
     "/api/v0/einwilligung/seiten": {
       "get": {
-        "description": "Return, for every page that stamps a consent label, the label a new acceptance on it must name.\n\nA deploy moves it, so a reader caching it refuses its own visitors' presses until the cache expires.",
+        "description": "For every page that stamps a consent label, the label a new acceptance on it must name.\n\nA deploy moves it, so a reader caches it no longer than a request.",
         "operationId": "einwilligung_get_seiten",
         "responses": {
           "200": {
@@ -22065,7 +21980,7 @@
     },
     "/api/v0/identitaet/erasure": {
       "post": {
-        "description": "Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.\n\nADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/selbst/erasure` runs and refuses nothing about the\nperson's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.\nThree refusals are about who asks. The administrator's own address is refused (`REQ-PURGE-003`): their account page\nserves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,\nsigned in since becoming one (`REQ-PURGE-005`), judged inside the write: erasing it removes the grant, whatever grants\nremain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every\nother address is erased from a sign-in inside the step-up window. Either window missed answers `REQ-AUTH-009`. An\naddress another address's pending change would move to is refused, judged inside the write, where that address holds a\nlive grant and the administrator no owner's power (`REQ-PURGE-007`): the erasure ends the change, a discard only an\nowner makes of it. The refusal tells that administrator some change the preview withholds names the address.\n\n`anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does. No\nredaction reaches it, so it is refused 422 where it holds an address, and, inside the write ahead of the erasure's first\nstep, where it holds a name of the person's own records as a whole word or before a genitive s (`REQ-PURGE-006`): each\nname field whole and each of its words, but a particle such as `von` before a later word of its field and any single\nletter. Names compare as stored, spacing aside, and equal where their plain lower or their plain upper case is: „Weiss“\nis refused for „Weiß“, whose capitals it shares, and another spelling such as „Mueller“ for „Müller“ passes. A common\nword equal to a name is refused with it. The grant notice names this administrator as ending the\nperson's grant. An address holding nothing is answered with every count zero. The 404 and the 409 answer only a database\nchanged by hand under the request. The sign-in account is not touched here: deleting it is the caller's, once this has\nanswered.",
+        "description": "Erase every record an address holds, on a request that person made by mail, at once and as one write, and answer how many of each kind went.\n\nADMIN TIER, a step-up write. It runs the erasure `POST /identitaet/selbst/erasure` runs and refuses nothing about the\nperson's own state: a pupil in a live squad and a referee booked on a fixture still to be played are erased on one pass.\nThree refusals are about who asks. The administrator's own address is refused (`REQ-PURGE-003`): their account page\nserves it, or an owner. An address holding a live grant is refused unless the administrator holds an owner's power,\nsigned in since becoming one (`REQ-PURGE-005`), judged inside the write: erasing it removes the grant, whatever grants\nremain, so it asks what a revoke asks, an owner's power and a sign-in `ENROLMENT_WINDOW_MINUTES` old at most. Every\nother address is erased from a sign-in inside the step-up window. Either window missed answers `REQ-AUTH-009`. An\naddress another address's pending change would move to is refused, judged inside the write, where that address holds a\nlive grant and the administrator no owner's power (`REQ-PURGE-007`): the erasure ends the change, a discard only an\nowner makes of it. The refusal tells that administrator some change the preview withholds names the address.\n\n`anlass` names the request the erasure answers, and every log row the erasure files carries it; no other row does.\nNo redaction reaches it, so it is refused 422 where it holds an address. The grant notice names this administrator\nas ending the person's grant. An address holding nothing is answered with every count zero. The 404 and the 409\nanswer only a database changed by hand under the request. The sign-in account is not touched here: deleting it is\nthe caller's, once this has answered.",
         "operationId": "identitaet_erase_auf_anfrage",
         "requestBody": {
           "content": {
@@ -22142,7 +22057,7 @@
     },
     "/api/v0/identitaet/erasure/ansicht": {
       "post": {
-        "description": "Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names\nevery one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,\nand no other. Another address's pending change to this address is named by its id, the change going and that address's\nrecords standing, beside why the address tool refuses that change this administrator, or null where it opens it; a change\nof an address holding a grant is left out for an administrator without an owner's power, as the administrators page\nwithholds it, since naming it would answer whether a typed address is its new one. The address's own live change is\nnamed by its id, ending with the records it would move. Every request for a grant about the address (`betroffen`) or\nmade by it (`gestellt`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is\nleft out, though the erasure removes its row too. A squad\nrow and a referee row each carry the day it was retired, null while live, and a referee row every season holding a\nfixture still to be played that it is booked on, as `REQ-RETIRE-004` judges one. Reached and not named: the fixtures\nbooking a referee row, which move onto the ghost, and the referee's name in each of those fixtures' log images, which\ngoes; the match reports a referee row sent, which stand naming the ghost, in\ntheir log images too; the confirmations a referee row was asked for, which go, and its id\nand reason in a removed season's log images; the links its contact seats were mailed on their teams' open match\nconfirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,\nwhich goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for\nothers, which name a marker in its place; its day counts; its rows in the log; every log image of a record the\nerasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;\na dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the\naddress under another grant's id; and the address in every notice still queued, withheld. Written besides: the\nnotice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.\n`verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the\naddress, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless\nthe administrator holds an owner's power (`REQ-PURGE-005`).",
+        "description": "Answer which of this address's records `POST /identitaet/erasure` would remove or empty, by kind, name and the ids a page links each by.\n\nADMIN TIER. Takes that erasure's own payload address and reads through its own selections in one snapshot, so it names\nevery one of them, an unconfirmed seat, a retired row, a pupil's every squad row and a declined registration among them,\nand no other. Another address's pending change to this address is named by its id, the change going and that address's\nrecords standing, beside why the address tool refuses that change this administrator, or null where it opens it; a change\nof an address holding a grant is left out for an administrator without an owner's power, as the administrators page\nwithholds it, since naming it would answer whether a typed address is its new one. The address's own live change is\nnamed by its id, ending with the records it would move. Every request for a grant about the address (`betroffen`) or\nmade by it (`gestellt`) is named by its id and the tier it asks; a lapsed one is gone to every reader already and is\nleft out, though the erasure removes its row too. A squad\nrow and a referee row each carry the day it was retired, null while live, and a referee row every season holding a\nfixture still to be played that it is booked on, as `REQ-RETIRE-004` judges one. Reached and not named: the fixtures\nbooking a referee row, which move onto the ghost, and the referee's name in each of those fixtures' log images, which\ngoes; the match reports a referee row sent, which stand naming the ghost, in\ntheir log images too; the confirmations a referee row was asked for, which go, and its id\nand reason in a removed season's log images; the links its contact seats were mailed on their teams' open match\nconfirmations, which stop answering; every reason typed from the address answering a match confirmation, from any seat,\nwhich goes from its row and its log images, the answer standing; the grants, bans, invitations and decisions the address made for\nothers, which name a marker in its place; its rows in the log; every log image of a record the\nerasure removes, emptied whole whether or not it holds the address, and every other log image holding the address;\na dead spelling of its grant, which admits nobody, each grant's announced row, and an announced row holding the\naddress under another grant's id; and the address in every notice still queued, withheld. Written besides: the\nnotice that the address's grant ended, which every administrator is sent. No address and no birthdate is answered.\n`verwaltung` is the tier of the live grant the address holds, or null. `gesperrt` is whether a standing ban holds the\naddress, judged as `POST /identitaet/gesperrt` judges one; the erasure leaves a ban standing. Stores nothing.\n\nRefused as the erasure is: the administrator's own address (`REQ-PURGE-003`), an address holding a live grant unless\nthe administrator holds an owner's power (`REQ-PURGE-005`).",
         "operationId": "identitaet_get_erasure_ansicht_auf_anfrage",
         "requestBody": {
           "content": {
@@ -22296,7 +22211,7 @@
     },
     "/api/v0/identitaet/loeschung/lauf": {
       "post": {
-        "description": "Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.\n\nThe rule, read from the seasons' stored statuses at each call: a pupil is due once they hold no squad row, live or retired,\nin the latest `past` season, in any season with a greater id or in the running one, and no registration still `eingereicht`\nat their address, compared as the sign-in folds it. While no season is `past` nobody is due, and `abgeschlossene_saison_id`\nis null. A pupil holding no address is never due: nothing else erases by a name. A pupil whose stored address no request\nmatches, empty, unfolded or refused by the address rule, is passed over and named by id in a warning: a hand correction\nleft it so, and an erasure by another spelling would remove nobody.\n\nEach pupil is deleted in a transaction of their own, which first judges them again: one who has gained a squad row or a\npending registration since this call read them, the two committing before that transaction writes included, or whom another\ncall deleted first, is counted `uebersprungen` and left standing. A squad entry or a registration meeting that transaction's\nwrites waits for it to end: the entry then finds nobody, and the registration is stored for a pupil already gone.\nTwo calls at once therefore delete each pupil once. Deleted are\nthe pupil's own data alone: the pupil record, every squad row it holds and every registration at the address, a declined\none included, each with its log images, and their day counts as a pupil; every log row they wrote as a pupil keeps a\nfixed marker in their place. A contact seat, a referee record, a grant and anything else held at the same\naddress stand, and so do the log images naming them.\n\n**A pass is a run of calls, each handing the next the `nach` the last answered**, the first naming none; it ends at the call\nanswering `nach` null. A call reaches at most a fixed share of the due pupils after `nach`, in `_id` order, and the pass\nholds no state on the server. A pupil whose deletion fails, the database refusing it or anything else, is counted\n`fehlgeschlagen`, logged by id and passed, so a failing record holds back nobody behind it in the pass; it stays due, and\nthe next pass tries it again. Where the request's deadline cuts the call, it stops at that pupil, warns once, and answers\nwhat it did; the rest stay due, and the pass goes on from the next call. `verbleibend` counts the pupils due after the\ncall, those it failed or passed over among them, so it is no stopping condition. No body: the call takes no season and no\nlimit.\n\nThe 409 is published because the duplicate-key trace reaches the registry's insert of the pupils' sentinel and reads no\nhandler; this call counts that failure as any other and never answers it.",
+        "description": "Delete a bounded share of the pupils whose last squad season is over by a whole season, and answer what went and how many remain.\n\nThe rule, read from the seasons' stored statuses at each call: a pupil is due once they hold no squad row, live or retired,\nin the latest `past` season, in any season with a greater id or in the running one, and no registration still `eingereicht`\nat their address, compared as the sign-in folds it. While no season is `past` nobody is due, and `abgeschlossene_saison_id`\nis null. A pupil holding no address is never due: nothing else erases by a name. A pupil whose stored address no request\nmatches, empty, unfolded or refused by the address rule, is passed over and named by id in a warning: a hand correction\nleft it so, and an erasure by another spelling would remove nobody.\n\nEach pupil is deleted in a transaction of their own, which first judges them again: one who has gained a squad row or a\npending registration since this call read them, the two committing before that transaction writes included, or whom another\ncall deleted first, is counted `uebersprungen` and left standing. A squad entry or a registration meeting that transaction's\nwrites waits for it to end: the entry then finds nobody, and the registration is stored for a pupil already gone.\nTwo calls at once therefore delete each pupil once. Deleted are\nthe pupil's own data alone: the pupil record, every squad row it holds and every registration at the address, a declined\none included, each with its log images; every log row they wrote as a pupil keeps a\nfixed marker in their place. A contact seat, a referee record, a grant and anything else held at the same\naddress stand, and so do the log images naming them.\n\n**A pass is a run of calls, each handing the next the `nach` the last answered**, the first naming none; it ends at the call\nanswering `nach` null. A call reaches at most a fixed share of the due pupils after `nach`, in `_id` order, and the pass\nholds no state on the server. A pupil whose deletion fails, the database refusing it or anything else, is counted\n`fehlgeschlagen`, logged by id and passed, so a failing record holds back nobody behind it in the pass; it stays due, and\nthe next pass tries it again. Where the request's deadline cuts the call, it stops at that pupil, warns once, and answers\nwhat it did; the rest stay due, and the pass goes on from the next call. `verbleibend` counts the pupils due after the\ncall, those it failed or passed over among them, so it is no stopping condition. No body: the call takes no season and no\nlimit.\n\nThe 409 is published because the duplicate-key trace reaches the registry's insert of the pupils' sentinel and reads no\nhandler; this call counts that failure as any other and never answers it.",
         "operationId": "identitaet_post_loeschung_lauf",
         "parameters": [
           {
@@ -22459,7 +22374,7 @@
     },
     "/api/v0/identitaet/selbst/erasure": {
       "post": {
-        "description": "Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.\n\nPERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one\n(`REQ-PURGE-004`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest\nfrom a passkey sign-in `ENROLMENT_WINDOW_MINUTES` old at most, as a revoke asks, else `REQ-AUTH-009`. No other\nprecondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still\nto be played included. Nothing is counted against the person's day.\n\nRemoved: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record, every\nfixture it was booked on moving to the one row that holds no person and keeping its own fee, and every confirmation it\nwas asked for, answered or not; every registration at the address, pending or declined; another address's pending\nchange naming this one as its new address, every record it would move standing at its own; every grant the address\nholds, an `owner` grant and the last two among them, every administrator being told it ended; and the person's day\ncounts. Emptied: every contact seat the address holds on a team's season row and on an\napplication of any status, the row and its other seats standing, an emptied seat's links on its team's open match\nconfirmations stopping to answer. Every reason the person typed answering a match confirmation, from any seat they held,\ngoes from its row and its log images, the answer standing. Every match report the referee record sent stands, its\nremarks and entries included, naming the row that holds no person in its place, in its log images too. Every record\nthe person made as an administrator or\ndecided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's decision -- and every\nlog row they wrote name a fixed marker in their place, this erasure's own rows included. The log images of the removed\nrecords are emptied, and every other image holding the address loses it, the people beside them keeping theirs.\n\nAn address holding nothing is answered with every count zero rather than refused. The 409 answers only a database\nchanged by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by\nid, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not\ntouched here: deleting it is the caller's, once this has answered.",
+        "description": "Erase every record the signed-in address holds, at once and as one write, and answer how many of each kind went.\n\nPERSON TIER. The last live, unbarred `owner` of the administration is refused until another administrator is made one\n(`REQ-PURGE-004`), since nobody else could ever make an owner again; a person holding a live grant erases it with the rest\nfrom a passkey sign-in `ENROLMENT_WINDOW_MINUTES` old at most, as a revoke asks, else `REQ-AUTH-009`. No other\nprecondition stands in front of a person's own request, a pupil in a live squad and a referee booked on a fixture still\nto be played included. Nothing is counted against the person's day.\n\nRemoved: the pupil record and every squad row it holds, so the team reads one player fewer; the referee record,\nevery fixture it was booked on moving to the one row that holds no person and keeping its own fee, and every\nconfirmation it was asked for, answered or not; every registration at the address, pending or declined; another\naddress's pending change naming this one as its new address, every record it would move standing at its own; every\ngrant the address holds, an `owner` grant and the last two among them, every administrator being told it ended.\nEmptied: every contact seat the address holds on a team's season row and on an application of any status, the row\nand its other seats standing, an emptied seat's links on its team's open match confirmations stopping to answer.\nEvery reason the person typed answering a match confirmation, from any seat they held, goes from its row and its log\nimages, the answer standing. Every match report the referee record sent stands, its remarks and entries included,\nnaming the row that holds no person in its place, in its log images too. Every record the person made as an\nadministrator or decided as a seat holder -- a grant, a ban, an invitation, an application's or a registration's\ndecision -- and every log row they wrote name a fixed marker in their place, this erasure's own rows included. The\nlog images of the removed records are emptied, and every other image holding the address loses it, the people beside\nthem keeping theirs.\n\nAn address holding nothing is answered with every count zero rather than refused. The 409 answers only a database\nchanged by hand, a second nameless referee meeting the ghost's name index. The 404 is published for the steps' reads by\nid, which no request can meet: every id comes from the subject read in the same snapshot. The sign-in account is not\ntouched here: deleting it is the caller's, once this has answered.",
         "operationId": "identitaet_erase_selbst",
         "responses": {
           "200": {
@@ -22526,7 +22441,7 @@
     },
     "/api/v0/identitaet/selbst/erasure/ansicht": {
       "get": {
-        "description": "Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.\n\nRead through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure\nremoves or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address\nand no birthdate is answered. Another address's pending change naming this one is counted and not named, once its link\nhas reached this mailbox: its records are not this address's until it takes effect. Reached and not named: the fixtures booking\ntheir referee record, which move onto the ghost, and their name in each of those fixtures' log images, which goes; the\nconfirmations their referee record was asked for, which go, and its id and reason in a removed season's log images;\nthe match reports their referee record sent, which stand naming the ghost, in their log images too;\nthe links their contact seats were mailed on their teams' match confirmations, answered and closed ones too, which stop\nanswering, and those links and their mails' delivery records in the confirmations' log images, which go; every reason\nthey typed answering a match confirmation, from any seat they held, which goes from its row and its log images, the\nanswer standing; what the person made or decided for others, which names a marker in their place; their day counts; every\nrequest for a grant about their address or made by it, which goes; their rows in the\nlog; every log image of a record the erasure removes, emptied whole whether or not it holds the address, and every\nother log image holding the address; each grant's announced row, and an announced row holding the address under\nanother grant's id; and the address in every notice still queued, withheld. Written besides: the notice that their\ngrant ended, which every administrator is sent. `verwaltung` is the tier of the live grant the address holds, or\nnull; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.\n\n`letzter_inhaber` says whether the press would be refused `REQ-PURGE-004` as the grants stand at this read: the address\nholds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;\nthe press judges again, and its answer alone decides.",
+        "description": "Answer what `POST /identitaet/selbst/erasure` would remove for the signed-in address, by kind and by name.\n\nRead through that erasure's own selections in one snapshot, so it names every record of the person's own the erasure\nremoves or empties, an unconfirmed seat, a retired row and a declined registration among them, and no other. No address\nand no birthdate is answered. Another address's pending change naming this one is counted and not named, once its link\nhas reached this mailbox: its records are not this address's until it takes effect. Reached and not named: the fixtures booking\ntheir referee record, which move onto the ghost, and their name in each of those fixtures' log images, which goes; the\nconfirmations their referee record was asked for, which go, and its id and reason in a removed season's log images;\nthe match reports their referee record sent, which stand naming the ghost, in their log images too;\nthe links their contact seats were mailed on their teams' match confirmations, answered and closed ones too, which stop\nanswering, and those links and their mails' delivery records in the confirmations' log images, which go; every reason\nthey typed answering a match confirmation, from any seat they held, which goes from its row and its log images, the\nanswer standing; what the person made or decided for others, which names a marker in their place; every\nrequest for a grant about their address or made by it, which goes; their rows in the\nlog; every log image of a record the erasure removes, emptied whole whether or not it holds the address, and every\nother log image holding the address; each grant's announced row, and an announced row holding the address under\nanother grant's id; and the address in every notice still queued, withheld. Written besides: the notice that their\ngrant ended, which every administrator is sent. `verwaltung` is the tier of the live grant the address holds, or\nnull; a dead spelling of the address, which admits nobody, goes with the erasure unnamed.\n\n`letzter_inhaber` says whether the press would be refused `REQ-PURGE-004` as the grants stand at this read: the address\nholds the last live `owner` grant, a barred owner counting as none. Read outside the press's transaction, it is advisory;\nthe press judges again, and its answer alone decides.",
         "operationId": "identitaet_get_erasure_ansicht",
         "responses": {
           "200": {
@@ -22800,7 +22715,7 @@
         ]
       },
       "post": {
-        "description": "Start a change of the address the person signs in on, answering both raw links once, for the frontend's server to mail.\n\nThe new mailbox is mailed its link, and the address on file a notice with a stop link; **everything the address holds\nas its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. Where it holds a\ngrant, the change also waits on another administrator's approval, an owner's for an owner's grant,\n`genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`). The address's live\nchange ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.\n**Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start\nanswers alike whatever the new address holds.\n\nRefused `REQ-AUTH-009` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the\naddress holds a grant;\n`REQ-ADRESSWECHSEL-010` where the address holds nothing a change moves; `-007` where the typed address is the one\nsigned in; `-011` where nobody could approve the grant's move, the last owner making another first; and\n`REQ-DROSSELUNG-001` past the day's count of starts and approvals.",
+        "description": "Start a change of the address the person signs in on, answering both raw links once, for the frontend's server to mail.\n\nThe new mailbox is mailed its link, and the address on file a notice with a stop link; **everything the address holds\nas its person's own moves when the new mailbox confirms**, within `ADRESSWECHSEL_GUELTIG_STUNDEN`. Where it holds a\ngrant, the change also waits on another administrator's approval, an owner's for an owner's grant,\n`genehmiger_anzahl` counts who could give it, and the grants' outbox tells them (`POST /berechtigungen/abgleich`). The address's live\nchange ends replaced, an administrator's too: a sign-in at the address on file proves the mailbox is not lost.\n**Nothing about the new address is judged here** -- the ban list, another pupil, a grant it holds -- so this start\nanswers alike whatever the new address holds.\n\nRefused `REQ-AUTH-009` from a sign-in or confirmation older than `ENROLMENT_WINDOW_MINUTES`, or by code where the\naddress holds a grant;\n`REQ-ADRESSWECHSEL-010` where the address holds nothing a change moves; `-007` where the typed address is the one\nsigned in; and `-011` where nobody could approve the grant's move, the last owner making another first.",
         "operationId": "konto_post_adresswechsel",
         "requestBody": {
           "content": {
@@ -22877,7 +22792,7 @@
     },
     "/api/v0/konto/adresswechsel/freigabe": {
       "post": {
-        "description": "Approve the change `id` names, which an administrator started without a reason, minting the new mailbox's link once.\n\n**Nothing reaches the new mailbox before this press**. Nothing about the new address is\njudged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the\nchange its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.\n\nRefused `REQ-AUTH-009` as the start is; `REQ-ADRESSWECHSEL-002` where the change `id` names has ended; 404 where it\nis no change of this address awaiting its approval; `REQ-ADRESSWECHSEL-003` past the approval's deadline; and\n`REQ-DROSSELUNG-001` as the start is.",
+        "description": "Approve the change `id` names, which an administrator started without a reason, minting the new mailbox's link once.\n\n**Nothing reaches the new mailbox before this press**. Nothing about the new address is\njudged here either: the approver is owed no answer about it, and the confirmation judges it. **The press approves the\nchange its page showed alone**: an administrator's later start replaces that one, and its id then names an ended change.\n\nRefused `REQ-AUTH-009` as the start is; `REQ-ADRESSWECHSEL-002` where the change `id` names has ended; 404 where it\nis no change of this address awaiting its approval; and `REQ-ADRESSWECHSEL-003` past the approval's deadline.",
         "operationId": "konto_post_adresswechsel_freigabe",
         "requestBody": {
           "content": {
@@ -23021,7 +22936,7 @@
     },
     "/api/v0/registrierungen": {
       "get": {
-        "description": "Every pending registration, newest first, narrowable by season, by team and by status.\n\n`bestaetigt` says whether the pupil answered their own confirmation link, composed here rather\nthan left to the reader: an admission is offered on no registration lacking it.\n`vollstaendig` is false where more rows exist than one read serves. A decision's author is `null`\nbeside `entscheidung.von_gesperrt` where the ban list holds that address, as no barred address is\nserved in plain.",
+        "description": "Every pending registration, newest first, narrowed by season, team and status.\n\n`vollstaendig` is false where more rows exist than one read serves, `bestaetigt` says whether the pupil answered their own\nlink, and a barred decision's author is served as `null` beside `entscheidung.von_gesperrt`.",
         "operationId": "registrierungen_get_registrierungen",
         "parameters": [
           {
@@ -23103,13 +23018,8 @@
             "name": "order",
             "required": false,
             "schema": {
-              "default": "desc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
+              "$ref": "#/components/schemas/FLSortOrder",
+              "default": "desc"
             }
           }
         ],
@@ -23272,7 +23182,7 @@
     },
     "/api/v0/registrierungen/bestaetigung": {
       "post": {
-        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the consent record, in one update.\n\nWhich page the link opens is resolved again here, as the view resolves it. On the new pupil's page the record\ncarries the publication scope they chose, the media answer beside it, the stamp and the wording they were shown.\nOn the returning pupil's page, which asks no choice, it carries the stamp and the wording alone: the choices\nstanding on the person's own record are theirs to change on the account page, and nothing here re-grants one.\nIts body carries no birthdate: the person's stored one, read here, is judged and written, and the answer echoes\nnull rather than the stored date.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), any label but\nthe running one of the page the link opens now (`REQ-EINWILLIGUNG-001`), answers that are not the ones that page\nasks -- both choices and a birthdate on the new pupil's, none of the three on the returning pupil's\n(`REQ-REGISTRIERUNG-017`) -- a returning pupil's person holding no birthdate to take (`-019`), a link mailed to an\naddress the ban list holds now, whenever the link was minted (`REQ-REGISTRIERUNG-012`), an age below the floor\n(`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`). Every one is\njudged before anything is written, so a reloaded page or a mistyped year spends nothing and the pupil keeps the\nlink.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
+        "description": "Record a pupil's own answer for the registration their link opens, which stays pending until the team decides.\n\nRefuses, writing nothing: `REQ-REGISTRIERUNG-004`, `-005`, `-006`, `-007`, `-010`, `-012`, `-017`, `-019` and\n`REQ-EINWILLIGUNG-001`.",
         "operationId": "registrierungen_post_bestaetigung",
         "requestBody": {
           "content": {
@@ -23349,13 +23259,13 @@
     },
     "/api/v0/registrierungen/bestaetigung/ansicht": {
       "post": {
-        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the age floor the press will be judged by, the age from\nwhich the media switch is offered, and which of two pages the link opens. Never the pupil's name: the link went to\nan address nobody has confirmed, which behind a typo is a stranger's.\n\n`bestaetigung_spieler_wiederkehrend` is the returning pupil's: a stored person at the registration's folded\naddress under its folded name who confirmed their own record. That page asks no choice and no birthdate, taking\nthe person's own; nothing the person's record holds is served, the holder of a mailed link not yet being known\nto be that person. Matched on the address alone, a mailbox shared anyway would hand a sibling that person's\npage, so the name narrows the match.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
+        "description": "What the confirmation page renders for the registration this token opens, and nothing of the pupil.\n\nA POST, so the token travels in the body. A confirmed or expired link is served in that state, `gesperrt` ranking first,\nand `bestaetigung_spieler_wiederkehrend` opens the returning pupil's page; only a token no registration holds is refused\n(`REQ-REGISTRIERUNG-004`).",
         "operationId": "registrierungen_get_bestaetigung_ansicht",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLRegistrierungBestaetigungAnsichtPayload"
+                "$ref": "#/components/schemas/FLTokenPayload"
               }
             }
           },
@@ -23432,7 +23342,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLEinladungAnsichtPayload"
+                "$ref": "#/components/schemas/FLTokenPayload"
               }
             }
           },
@@ -23542,13 +23452,8 @@
             "name": "order",
             "required": false,
             "schema": {
-              "default": "desc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "title": "Order",
-              "type": "string"
+              "$ref": "#/components/schemas/FLSortOrder",
+              "default": "desc"
             }
           }
         ],
@@ -23617,7 +23522,7 @@
     },
     "/api/v0/registrierungen/selbst/{registrierung_id}/einwilligung": {
       "patch": {
-        "description": "Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.\n\nWITHDRAW-ONLY until the admission: a grant is the team's admission's to make possible, after which the pupil's own\nrecord takes it on the account page; this one is offered so taking a consent back is as easy as giving it was\n(Art. 7(3) DSGVO). Writes those two on this one registration, and nothing else: the confirmation day, the day given\nand the wording the pupil confirmed stand. A PATCH moving neither choice writes nothing, and nothing is counted\nagainst the person's ceiling. The admission carries a withdrawal made here onto the person, as it carries every\nchoice the registration set later than the person's own.\n\nRefuses, in this order: an id that is no pending registration of this address, confirmed by its pupil and carrying\ntheir choices (`REQ-FUNKTION-001`); a `nachweis_stand` other than the registration's own, either choice having\nmoved since the page was served (`REQ-EINWILLIGUNG-003`); a grant of either choice (`REQ-EINWILLIGUNG-004`); and a\n`text_version` naming no version of the account page's pupil control (`REQ-EINWILLIGUNG-001`). Each refusal writes\nnothing.",
+        "description": "Withdraw the publication scope or the media consent the signed-in pupil gave on their own pending registration.\n\nA grant is refused, and a PATCH moving neither writes nothing. Refuses, writing nothing: `REQ-FUNKTION-001`,\n`REQ-EINWILLIGUNG-003` (the choices moved since the page was served), `REQ-EINWILLIGUNG-004` and `REQ-EINWILLIGUNG-001`.",
         "operationId": "registrierungen_patch_einwilligung",
         "parameters": [
           {
@@ -23635,7 +23540,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLRegistrierungSelbstEinwilligungPayload"
+                "$ref": "#/components/schemas/FLSelbstEinwilligungPayload"
               }
             }
           },
@@ -23784,7 +23689,7 @@
     },
     "/api/v0/registrierungen/{registrierung_id}/ablehnen": {
       "post": {
-        "description": "Decline one pending registration, confirmed or not: its state and the decision are written, and nothing else.\n\nThe decision records the declining seat holder's address and a reason from a closed set, never free text:\n`andere_person` where the team answered that the registration is not the person its address belongs to. The\nrow stays until the retention sweep erases it a month later. The answer carries the address the pupil's link\nwent to, for the decline mail and nothing else, and whether that address was ever confirmed.\n\nRefuses, in this order, a press past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), no pending\nregistration with this id (404) and no seat on its team's season (`REQ-FUNKTION-001`).",
+        "description": "Decline one pending registration, confirmed or not: its state and the decision are written, and nothing else.\n\nThe decision records the declining seat holder's address and a reason from a closed set, never free text:\n`andere_person` where the team answered that the registration is not the person its address belongs to. The\nrow stays until the retention sweep erases it a month later. The answer carries the address the pupil's link\nwent to, for the decline mail and nothing else, and whether that address was ever confirmed.\n\nRefuses, in this order, no pending registration with this id (404) and no seat on its team's season\n(`REQ-FUNKTION-001`).",
         "operationId": "registrierungen_ablehnen",
         "parameters": [
           {
@@ -23873,7 +23778,7 @@
     },
     "/api/v0/registrierungen/{registrierung_id}/aufnehmen": {
       "post": {
-        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name and, where the new pupil's page\nasked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page\nleaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's\nname or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such\nperson, `spieler_id` is null for a new one. A retired person comes back. A pending address change of theirs\nstands, asked over the address this admission proves again.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived\ntoday; this person's retired row of this season is rewritten rather than a second one written, whichever team\nit was on. The registration is deleted and its values redacted from the log in the same transaction, so a second\npress meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.\n\nRefuses, in this order: a press past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), no pending\nregistration with this id (404), no seat on its team's season (`REQ-FUNKTION-001`), a registration the pupil has\nnot confirmed (`REQ-REGISTRIERUNG-013`), an address the ban list holds (`REQ-REGISTRIERUNG-009`, worded to the team\nas neutrally as to the pupil), a Stufe the season does not offer (`REQ-REGISTRIERUNG-003`), a registration\nconfirmed on the returning pupil's page whose address holds no stored person (`REQ-REGISTRIERUNG-018`: it carries\nno choice, so it admits nobody, and the pupil registers again), a `spieler_id` that is not the person this\nregistration may be admitted into (`REQ-REGISTRIERUNG-014`), a person already playing in a squad this season\n(`REQ-REGISTRIERUNG-015`) and a full squad (`REQ-SQUAD-003`). Nothing is written on any of them.",
+        "description": "Admit one confirmed registration: the person it resolves to, or a new one, joins the team's squad, and the registration is erased.\n\nThe person survives the season, so the admission first looks for them: the stored person holding the\nregistration's address IS that person, and is updated with the registration's name and, where the new pupil's page\nasked them, its birthdate and its freshly confirmed consent record: one confirmed on the returning pupil's page\nleaves the person's own birthdate standing, as an administrator may have corrected it since. Where that person's\nname or birthdate differs, `spieler_id` must name them (the team said it is the same person). With no such\nperson, `spieler_id` is null for a new one. A retired person comes back. A pending address change of theirs\nstands, asked over the address this admission proves again.\n\nThe squad row takes the registration's number, position and Stufe, no role, and a Nachnominierung marker derived\ntoday; this person's retired row of this season is rewritten rather than a second one written, whichever team\nit was on. The registration is deleted and its values redacted from the log in the same transaction, so a second\npress meets no row. Its submission key moves onto the squad row, so the submission replayed later stores nothing.\n\nRefuses, in this order: no pending registration with this id (404), no seat on its team's season\n(`REQ-FUNKTION-001`), a registration the pupil has not confirmed (`REQ-REGISTRIERUNG-013`), an address the ban list\nholds (`REQ-REGISTRIERUNG-009`, worded to the team as neutrally as to the pupil), a Stufe the season does not offer\n(`REQ-REGISTRIERUNG-003`), a registration confirmed on the returning pupil's page whose address holds no stored\nperson (`REQ-REGISTRIERUNG-018`: it carries no choice, so it admits nobody, and the pupil registers again), a\n`spieler_id` that is not the person this registration may be admitted into (`REQ-REGISTRIERUNG-014`), a person\nalready playing in a squad this season (`REQ-REGISTRIERUNG-015`) and a full squad (`REQ-SQUAD-003`). Nothing is\nwritten on any of them.",
         "operationId": "registrierungen_aufnehmen",
         "parameters": [
           {
@@ -24432,7 +24337,7 @@
         ]
       },
       "patch": {
-        "description": "Update a season's dates and rules. `status` is on no payload.\n\nEditing the points moves every league table on the NEXT READ, standings being derived. What a\nfinished or drawn season has fixed is refused, as is a rule narrowed below what it holds.",
+        "description": "Update a season's dates and rules. `status` is on no payload.\n\nEditing the points moves every league table on the NEXT READ, standings being derived. What a\nstarted or drawn season has fixed is refused, as is a rule narrowed below what it holds.",
         "operationId": "saisons_patch_saison",
         "parameters": [
           {
@@ -25534,7 +25439,7 @@
     },
     "/api/v0/schiedsrichter/selbst/{schiedsrichter_id}/einwilligung": {
       "patch": {
-        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`nachweis.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\npublic fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that\nlist's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to\n`kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address (`REQ-FUNKTION-001`); a\n`nachweis_stand` other than the record's own, either choice having moved since the page was served\n(`REQ-EINWILLIGUNG-003`); a grant on a retired record (`REQ-EINWILLIGUNG-004`); a `text_version` naming no version of\nthe account page's referee control, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`);\n`medien` moving to `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing\n(`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), which\ncounts grants alone, so a withdrawal is never refused for it. Each refusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.",
+        "description": "Set the two choices of one of the signed-in referee's own consent records: the publication scope and the media consent.\n\nWrites those two on this one referee row, each moved choice with its evidence (`nachweis.<choice>`), and nothing\nelse: the confirmation day, the day given and the wording they confirmed stand, and no fixture is written. The\npublic fixture list reads the scope off this row, so a withdrawal takes the name off every fixture page at that\nlist's next read. A PATCH moving neither choice writes nothing. A GRANT (`umfang` to\n`kader_oeffentlich` or `medien` to `true`) is taken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an id that is no confirmed referee record of this address (`REQ-FUNKTION-001`); a\n`nachweis_stand` other than the record's own, either choice having moved since the page was served\n(`REQ-EINWILLIGUNG-003`); a grant on a retired record (`REQ-EINWILLIGUNG-004`); a `text_version` naming no version of\nthe account page's referee control, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`);\n`medien` moving to `true` where the stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing\n(`REQ-EINWILLIGUNG-002`). Each refusal writes nothing.\n\n**The caller drops the cached fixture list after a successful answer**, which reads this row; nothing here can.",
         "operationId": "schiedsrichter_patch_einwilligung",
         "parameters": [
           {
@@ -26089,7 +25994,7 @@
         ]
       },
       "post": {
-        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is\nrunning, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and\nwhere the address is an administrator's (`REQ-SPERRLISTE-003`). The ban covers the\nfifth season after the one running now — the last one it covers is answered as\n`gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still queued\nfor the address loses the address in the same transaction.\n\n`grund` is served, mailed to the address and kept past that person's erasure, so it is refused 422 where it holds a\nname of the address's own records, as `POST /identitaet/erasure/ansicht` names each (`REQ-SPERRLISTE-004`). It is\nmatched as that erasure's `anlass` is: as stored, spacing aside, and equal where the plain lower or the plain upper case\nis, so „Weiss“ is refused for „Weiß“ and another spelling such as „Mueller“ for „Müller“ passes.",
+        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is\nrunning, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and\nwhere the address is an administrator's (`REQ-SPERRLISTE-003`). The ban covers the\nfifth season after the one running now — the last one it covers is answered as\n`gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still queued\nfor the address loses the address in the same transaction.\n\n`grund` is served, mailed to the address and kept past that person's erasure.",
         "operationId": "sperrliste_post_sperrliste_eintrag",
         "requestBody": {
           "content": {
@@ -26397,7 +26302,7 @@
     },
     "/api/v0/spielberichte/{spiel_id}": {
       "patch": {
-        "description": "Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.\n\nEvery write changing it raises its `version`, so a report adopted before reads `abweichend` until it is adopted\nagain, and a write changing nothing writes nothing. Who first wrote the report stays recorded; a report an\nadministrator writes first records an administrator, naming nobody.\n\n`bericht_stand` is the `version` of the report the page was served, null where none stood, as on the referee's\nwrite.\n\nRefuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); a `bericht_stand`\nother than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day is\nstill to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out proposed on a\ngroup-phase fixture (`REQ-BERICHT-009`); a pupil newly named on a side outside that side's live squad of the season\n(`REQ-BERICHT-003`); a yellow or second yellow card naming no reason, unless the stored report holds that card, by\nside, pupil and colour, stripped of its reason at the end of the season after the match (`REQ-BERICHT-008`); and remarks naming a seat\nholder of either club, the booked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Each but\n`REQ-BERICHT-006` is asked again outside the transaction just before answering; a write of the report landing\nmid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two pages\nopened on no report: the later is refused.",
+        "description": "Write the whole report of one fixture as an administrator, replacing what stood, as the referee's own write does.\n\nEvery write changing it raises its `version`, so a report adopted before reads `abweichend` until it is adopted\nagain, and a write changing nothing writes nothing. Who first wrote the report stays recorded; a report an\nadministrator writes first records an administrator, naming nobody.\n\n`bericht_stand` is the `version` of the report the page was served, null where none stood, as on the referee's\nwrite.\n\nRefuses, in this order, each writing nothing: a fixture that does not exist (`DB-COMMON-001`); a `bericht_stand`\nother than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day is\nstill to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out proposed on a\ngroup-phase fixture (`REQ-BERICHT-009`); a pupil newly named on a side outside that side's live squad of the season\n(`REQ-BERICHT-003`); and a yellow or second yellow card naming no reason, unless the stored report holds that card,\nby side, pupil and colour, stripped of its reason at the end of the season after the match (`REQ-BERICHT-008`). Each\nbut `REQ-BERICHT-006` is asked again outside the transaction just before answering; a write of the report landing\nmid-press conflicts with this one, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two pages\nopened on no report: the later is refused.",
         "operationId": "spielberichte_patch_spielbericht",
         "parameters": [
           {
@@ -26654,7 +26559,7 @@
         ]
       },
       "put": {
-        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every\nwrite changing it raises its `version`, so a report the administrator adopted reads `abweichend` again until it\nis adopted anew, and a write changing nothing writes nothing. Every write stamps the clubs the fixture fields now,\nso a report a knockout correction re-fielded a side under reads `teams_geaendert` until it is written again. Writes\nno fixture: the result is the administrator's to save.\n\n`bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on\nanother version would replace a report its sender never saw.\n\nRefuses, in this order, each writing nothing: a write past the person's ceiling for the German day\n(`REQ-DROSSELUNG-001`); an address holding no confirmed, live referee record (`REQ-FUNKTION-001`); a fixture that\ndoes not exist (`DB-COMMON-001`); one booked to none of its records (`REQ-BERICHT-002`); one whose season has\nended, whose report its referee only reads (`REQ-BERICHT-007`); a `bericht_stand` other than the version standing\nnow, or than none where none stands (`REQ-BERICHT-006`); one undated or whose day is still to come\n(`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out proposed on a group-phase fixture\n(`REQ-BERICHT-009`); a pupil the write newly names on a side outside that side's live squad of the season, a pupil\nthe report already named on that side staying while the side fields the club it did (`REQ-BERICHT-003`); a yellow\nor second yellow card naming no reason (`REQ-BERICHT-008`); and remarks naming a seat holder of either club, the\nbooked referee or a pupil of either squad (`REQ-BERICHT-005`), last. Every refusal but the ceiling's and\n`REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's records included, so\na write landing on what was judged before that second asking refuses the report rather than letting it stand, and\none landing after it stands beside the report; a write of the report itself landing mid-press conflicts with this\none, whose retry meets `REQ-BERICHT-006`. Two first writes at once are two forms opened on no report: the later is\nrefused.",
+        "description": "Write the whole report of one fixture as its booked referee, replacing what stood.\n\nThe proposed result, the scorers, the cards and the remarks. The first write creates it and answers 201; every\nwrite changing it raises its `version`, so a report the administrator adopted reads `abweichend` again until it\nis adopted anew, and a write changing nothing writes nothing. Every write stamps the clubs the fixture fields now,\nso a report a knockout correction re-fielded a side under reads `teams_geaendert` until it is written again. Writes\nno fixture: the result is the administrator's to save.\n\n`bericht_stand` is the `version` of the report the form was served, null where none stood: a write composed on\nanother version would replace a report its sender never saw.\n\nRefuses, in this order, each writing nothing: an address holding no confirmed, live referee record\n(`REQ-FUNKTION-001`); a fixture that does not exist (`DB-COMMON-001`); one booked to none of its records\n(`REQ-BERICHT-002`); one whose season has ended, whose report its referee only reads (`REQ-BERICHT-007`); a\n`bericht_stand` other than the version standing now, or than none where none stands (`REQ-BERICHT-006`); one undated\nor whose day is still to come (`REQ-BERICHT-001`); one called off or struck out (`REQ-BERICHT-004`); a shoot-out\nproposed on a group-phase fixture (`REQ-BERICHT-009`); a pupil the write newly names on a side outside that side's\nlive squad of the season, a pupil the report already named on that side staying while the side fields the club it\ndid (`REQ-BERICHT-003`); and a yellow or second yellow card naming no reason (`REQ-BERICHT-008`). Every refusal but\n`REQ-BERICHT-006` is asked again outside the transaction just before answering, the referee's records included, so a\nwrite landing on what was judged before that second asking refuses the report rather than letting it stand, and one\nlanding after it stands beside the report; a write of the report itself landing mid-press conflicts with this one,\nwhose retry meets `REQ-BERICHT-006`. Two first writes at once are two forms opened on no report: the later is\nrefused.",
         "operationId": "spielberichte_put_spielbericht_bericht",
         "parameters": [
           {
@@ -27400,7 +27305,7 @@
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/antwort": {
       "post": {
-        "description": "Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.\n\nThe first answer binds, as a club's does. A decline also takes the referee off the fixture, writing its referee\nnull and nothing else of it -- no other fixture is resolved again and no club is told -- and closes the row, so\nbooking the same referee again asks them afresh. The reason is stored as typed, for the administrator, and goes at\nthe season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture\ncarries.\n\nRefuses, in this order: an answer past the person's ceiling for the German day (`REQ-DROSSELUNG-001`); an address\nholding no live, confirmed referee record (`REQ-FUNKTION-001`); an id naming no row of an `active` season, or a row\nnaming none of those records (`REQ-ANSETZUNG-015`, one answer for both); a row already answered, by them or by the\nleague for them (`REQ-ANSETZUNG-002`); one closed unanswered (`REQ-ANSETZUNG-009`); a fixture decided, called off\nor left by a club (`REQ-ANSETZUNG-005`), then one whose date, time, ground or sides moved since the row, or which\nbooks another referee or none (`REQ-ANSETZUNG-004`); and a fixture whose day has gone by (`REQ-ANSETZUNG-003`). An\nacceptance is judged again outside the transaction just before answering, so a move or a reassignment landing\nmid-answer refuses it rather than letting it stand.\n\n**The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name\non the public fixture, and a decline takes it off.",
+        "description": "Record the signed-in referee's answer about one fixture they are booked on: they accept it, or decline it giving a reason.\n\nThe first answer binds, as a club's does. A decline also takes the referee off the fixture, writing its referee\nnull and nothing else of it -- no other fixture is resolved again and no club is told -- and closes the row, so\nbooking the same referee again asks them afresh. The reason is stored as typed, for the administrator, and goes at\nthe season's end. Answering is open until the fixture's day, whatever deadline a club's row of the same fixture\ncarries.\n\nRefuses, in this order: an address holding no live, confirmed referee record (`REQ-FUNKTION-001`); an id naming no\nrow of an `active` season, or a row naming none of those records (`REQ-ANSETZUNG-015`, one answer for both); a row\nalready answered, by them or by the league for them (`REQ-ANSETZUNG-002`); one closed unanswered\n(`REQ-ANSETZUNG-009`); a fixture decided, called off or left by a club (`REQ-ANSETZUNG-005`), then one whose date,\ntime, ground or sides moved since the row, or which books another referee or none (`REQ-ANSETZUNG-004`); and a\nfixture whose day has gone by (`REQ-ANSETZUNG-003`). An acceptance is judged again outside the transaction just\nbefore answering, so a move or a reassignment landing mid-answer refuses it rather than letting it stand.\n\n**The caller drops the cached fixture list after a successful answer**: an acceptance can put the referee's name\non the public fixture, and a decline takes it off.",
         "operationId": "spielbestaetigungen_post_schiedsrichter_antwort",
         "parameters": [
           {
@@ -28623,7 +28528,7 @@
     },
     "/api/v0/spieler/kader/{team_id}/{saison_id}/{spieler_id}": {
       "delete": {
-        "description": "Take a player out of this team's squad for the season, as any contact seat of the team may. SOFT: the row stays.\n\nStamps the row's `inactive_since`; the person stays in the league, and only an administrator\nbrings the row back. 404 where this team holds no live row for the player in this season,\nanother team's pupil and an ausgetragen row alike. Refused `REQ-DROSSELUNG-001` past the person's ceiling for the\nGerman day, ahead of the 404, and `REQ-FUNKTION-001` without a seat.",
+        "description": "Take a player out of this team's squad for the season, as any contact seat of the team may. SOFT: the row stays.\n\nStamps the row's `inactive_since`; the person stays in the league, and only an administrator\nbrings the row back. 404 where this team holds no live row for the player in this season,\nanother team's pupil and an ausgetragen row alike. Refused `REQ-FUNKTION-001` without a seat.",
         "operationId": "spieler_delete_kader_zeile",
         "parameters": [
           {
@@ -28719,7 +28624,7 @@
         ]
       },
       "patch": {
-        "description": "Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.\n\nThe team and the Nachnominierung flag stay the stored row's. 404 where this team holds no live\nrow for the player in this season: another team's pupil and an ausgetragen row answer alike, and\nnothing is written. Refused `REQ-DROSSELUNG-001` past the person's ceiling for the German day, ahead of the 404 and\nevery rule, `REQ-FUNKTION-001` without a seat, `REQ-SQUAD-005` for a `stufe` the\nseason's `erlaubte_stufen` does not offer unless the row already holds it, and `REQ-SQUAD-004`\nfor a `rolle` another live row of the squad holds. A shared `nummer` is permitted.",
+        "description": "Replace a live squad row's `nummer`, `position`, `stufe` and `rolle`, as any contact seat of its team may.\n\nThe team and the Nachnominierung flag stay the stored row's. 404 where this team holds no live\nrow for the player in this season: another team's pupil and an ausgetragen row answer alike, and\nnothing is written. Refused `REQ-FUNKTION-001` without a seat, `REQ-SQUAD-005` for a `stufe` the\nseason's `erlaubte_stufen` does not offer unless the row already holds it, and `REQ-SQUAD-004`\nfor a `rolle` another live row of the squad holds. A shared `nummer` is permitted.",
         "operationId": "spieler_patch_kader_zeile",
         "parameters": [
           {
@@ -29039,7 +28944,7 @@
     },
     "/api/v0/spieler/selbst/einwilligung": {
       "patch": {
-        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`nachweis.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is\ntaken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record (`REQ-FUNKTION-001`); a `nachweis_stand`\nother than the record's own, either choice having moved since the page was served (`REQ-EINWILLIGUNG-003`); a\ngrant on a retired record (`REQ-EINWILLIGUNG-004`); a `text_version` naming no version of the account page's pupil\ncontrol, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`); `medien` moving to `true` where\nthe stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`); and a\ngrant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`), which counts grants alone, so a\nwithdrawal is never refused for it. Each refusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
+        "description": "Set the two choices of the signed-in address's own pupil consent record: the publication scope and the media consent.\n\nWrites those two on this one record, each moved choice with its evidence (`nachweis.<choice>`), and nothing else:\nthe confirmation day, the day given and the wording they confirmed stand, and no other document is written. A\nPATCH moving neither choice writes nothing. A GRANT (`umfang` to `kader_oeffentlich` or `medien` to `true`) is\ntaken on a live record alone; a withdrawal on a retired one too.\n\nRefuses, in this order: an address holding no confirmed pupil record (`REQ-FUNKTION-001`); a `nachweis_stand`\nother than the record's own, either choice having moved since the page was served (`REQ-EINWILLIGUNG-003`); a\ngrant on a retired record (`REQ-EINWILLIGUNG-004`); a `text_version` naming no version of the account page's pupil\ncontrol, or a grant naming any but the page's running one (`REQ-EINWILLIGUNG-001`); `medien` moving to `true` where\nthe stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is missing (`REQ-EINWILLIGUNG-002`). Each\nrefusal writes nothing.\n\n**The caller drops the cached squad lists after a successful answer**: the publication scope decides whether a\nname is served, and nothing here can.",
         "operationId": "spieler_patch_einwilligung",
         "requestBody": {
           "content": {
@@ -32487,7 +32392,7 @@
     },
     "/api/v0/teams/{team_id}/saisons/{saison_id}/person/einwilligung": {
       "patch": {
-        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nOne answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it\ndiffers from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No\nother slot of the row and no other row is written, each choice moving with its own evidence and leaving the\nother standing; a press moving no seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `medien`\nto `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the\nperson confirmed a seat on, a past season's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat (`REQ-FUNKTION-001`); a\n`nachweis_stand` other than the held seats' own, either choice having moved since the page was served\n(`REQ-EINWILLIGUNG-003`); a grant where the row grants no panel (`REQ-EINWILLIGUNG-004`); a `text_version` naming no\nversion of the account page's seat control, or a grant naming any but its running one (`REQ-EINWILLIGUNG-001`);\n`medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is\nmissing (`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`),\nwhich counts grants alone, so a withdrawal is never refused for it. Each refusal writes nothing.",
+        "description": "Set the signed-in person's two consents on every seat they hold on this team's season row: WhatsApp and media.\n\nOne answer for all of them: a person holding two of the row's slots answers once, each choice moving only where it\ndiffers from the row as the page served it, so seats answered apart keep their answers to a choice not changed. No\nother slot of the row and no other row is written, each choice moving with its own evidence and leaving the\nother standing; a press moving no seat writes nothing. A GRANT (`umfang` to `kontaktdaten_whatsapp` or `medien`\nto `true`) is taken on a row of an `active` or `future` season its team has not left; a withdrawal on any row the\nperson confirmed a seat on, a past season's included.\n\nRefuses, in this order: a row on which the address holds no confirmed seat (`REQ-FUNKTION-001`); a\n`nachweis_stand` other than the held seats' own, either choice having moved since the page was served\n(`REQ-EINWILLIGUNG-003`); a grant where the row grants no panel (`REQ-EINWILLIGUNG-004`); a `text_version` naming no\nversion of the account page's seat control, or a grant naming any but its running one (`REQ-EINWILLIGUNG-001`);\n`medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is\nmissing (`REQ-EINWILLIGUNG-002`). Each refusal writes nothing.",
         "operationId": "teams_patch_einwilligung",
         "parameters": [
           {

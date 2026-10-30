@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 
-import { patchSchiedsrichterAction, undoAdminSchiedsrichterEditAction } from "@/features/schiedsrichter/actions";
+import { patchSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { saveMayMint } from "@/features/schiedsrichter/linkMint";
 import { FLPatchSchiedsrichterPayloadSchema, hatAdresse } from "@/features/schiedsrichter/schemas";
 import { deriveSchiedsrichterDraftStatus } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
@@ -21,10 +20,9 @@ import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useStepUp } from "@/shared/hooks/useStepUp";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
+import { appToast } from "@/shared/utils/appToast";
 import { fieldStatus } from "@/shared/utils/draftStatus";
 import { versandWarnt } from "@/shared/utils/linkVersand";
-import { buildRefusal } from "@/shared/utils/refusal";
-import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSchiedsrichterBanners } from "./banners";
 import { FormBestaetigungSection } from "./FormBestaetigungSection";
@@ -43,24 +41,6 @@ import type { FLEinwilligung } from "@/features/spieler/schemas";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FLKontakt } from "@/shared/schemas";
-
-/**
- * The undo's refusal for a row this save gave its first name. `PersonNameSchema` refuses an empty
- * one, so the pre-save state is no legal write and the replay is judged here rather than dispatched.
- */
-const OHNE_GESPEICHERTEN_NAMEN = buildRefusal({
-  reason: "Vor dem Speichern war zu diesem Eintrag kein Name hinterlegt, und ohne Namen lässt er sich nicht zurückschreiben",
-  repair: "Öffne den Eintrag erneut, wenn der Name falsch ist",
-});
-
-/**
- * The same refusal for a row whose address this save replaced when it was none a payload takes: no
- * address at all, which may not be written back.
- */
-const OHNE_GESPEICHERTE_ADRESSE = buildRefusal({
-  reason: "Vor dem Speichern war zu diesem Eintrag keine E-Mail-Adresse hinterlegt, und ohne sie lässt er sich nicht zurückschreiben",
-  repair: "Öffne den Eintrag erneut, wenn die neue Adresse falsch ist",
-});
 
 type AdminSchiedsrichterEditFormProps = {
   /** `name` is nullable because a hand-write can leave a row without one; the erasure's rows never reach here. */
@@ -94,7 +74,6 @@ type AdminSchiedsrichterEditFormProps = {
  * row, so no partial failure is reachable. Its drafts start from the props, the view's key remounting it after a save.
  */
 export function AdminSchiedsrichterEditForm({ schiedsrichter, istFassungBekannt, isRetired, pageHeader }: AdminSchiedsrichterEditFormProps) {
-  const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
   const stepUp = useStepUp();
@@ -114,7 +93,7 @@ export function AdminSchiedsrichterEditForm({ schiedsrichter, istFassungBekannt,
         }
       : null;
 
-  // Over the STORED address: none is somewhere no link can go and no undo may write back.
+  // Over the STORED address: none is somewhere no link can go.
   const gespeicherteAdresseGilt = hatAdresse(schiedsrichter.kontakt.email);
 
   const [hasSaved, setHasSaved] = useState(false);
@@ -128,10 +107,6 @@ export function AdminSchiedsrichterEditForm({ schiedsrichter, istFassungBekannt,
   // The wire carries `id` in the path, so no refusal can name it and no input renders it.
 
   type SchiedsrichterPatchDraft = FLSchiedsrichterPayloadDraft<FLPatchSchiedsrichterPayload>;
-
-  // The STORED record replayed as it stood, which the payload type cannot hold: a restore no schema
-  // admits is refused at the offer below rather than sent.
-  type SchiedsrichterUndoBody = Omit<FLPatchSchiedsrichterPayload, "name" | "kontakt"> & { name: string | null; kontakt: FLKontakt };
 
   const buildPayload = (): SchiedsrichterPatchDraft => ({
     id: schiedsrichter.id,
@@ -200,15 +175,6 @@ export function AdminSchiedsrichterEditForm({ schiedsrichter, istFassungBekannt,
     // A save minting the referee a new link is a step-up write.
     stepUp.confirmThen(saveMayMint(schiedsrichter, kontakt.email), () =>
       startSaving(async () => {
-        // Read before the write: the props still hold the pre-save values, and the toast that replays
-        // them outlives this component.
-        const undoPayload: SchiedsrichterUndoBody = {
-          id: schiedsrichter.id,
-          name: schiedsrichter.name,
-          schule: schiedsrichter.schule,
-          kontakt: schiedsrichter.kontakt,
-          default_payment: schiedsrichter.default_payment,
-        };
         // The rename earns a sentence because it rewrites the name inside every match naming them.
         const renameTouched = isChanged("name");
 
@@ -232,23 +198,14 @@ export function AdminSchiedsrichterEditForm({ schiedsrichter, istFassungBekannt,
             .filter((satz) => satz !== undefined)
             .join(" ");
 
-          offerUndo({
-            undo: () => undoAdminSchiedsrichterEditAction(undoPayload),
-            message: gespeichertesSatz === "" ? undefined : gespeichertesSatz,
-            // A save that mailed nothing is clean; one whose link did not go out is graded a warning, the
-            // referee having no working link and nobody else being told.
-            warn: versandWarnt(res.versand),
-            fallback: "Die Schiedsrichterdaten wurden aktualisiert.",
-            // Judged here and not left to the undo action: the shared spine can only answer a body the
-            // schema refuses with a reload nothing would change.
-            unrestorable: schiedsrichter.name === null ? OHNE_GESPEICHERTEN_NAMEN : gespeicherteAdresseGilt ? null : OHNE_GESPEICHERTE_ADRESSE,
-            // Moving the address back over what this save stored mints as the save did, so the press asks first.
-            stepUp: saveMayMint({ ...schiedsrichter, kontakt: payload.kontakt }, undoPayload.kontakt.email) ? stepUp.page : undefined,
-            router,
+          // A save that mailed nothing is clean; one whose link did not go out is graded a warning, the
+          // referee having no working link and nobody else being told.
+          const warn = versandWarnt(res.versand);
+          const raise = warn ? appToast.warning : appToast.success;
+          raise(warn ? "Mit Folgen gespeichert" : "Änderung gespeichert", {
+            description: gespeichertesSatz === "" ? "Die Schiedsrichterdaten wurden aktualisiert." : gespeichertesSatz,
           });
 
-          // After the undo payload is built: leaving with typed values still in state lets a save-then-undo
-          // reopen on values the referee does not hold.
           resetDraftToStored();
           leavePage();
         });

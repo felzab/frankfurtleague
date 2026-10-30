@@ -156,19 +156,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
     E-Mail-Adresse, die gesperrt ist“ names no route, so it covers all four, and the ban's own mail
     tells a person whose address holds an account that the sign-in is barred.
 
-  **Two more refusals are taken by the code alone, and the notice names both with the way through
-  each leaves** (`DatenschutzView.tsx :: Zwei weitere Grenzen setzt die Website`):
-  - Cloudflare's bot check on the sign-in code request, the application form and the pupil's
-    registration form, which refuses a submission carrying no token or one Cloudflare judged against, before
-    anything is written or mailed, and asks the person to confirm they are human
-    (`fl_frontend/src/core/turnstile.ts :: turnstileRefusal`), a check Cloudflare cannot answer
-    letting the submission through;
-  - the daily write ceiling, which refuses a signed-in person's counted writes past the bound of
-    their kind of person until German midnight (`REQ-DROSSELUNG-001`)
-    and never refuses a withdrawal.
+  **One more refusal is taken by the code alone, and the notice names it with the way through it
+  leaves** (`DatenschutzView.tsx`, section 12): Cloudflare's bot check on the sign-in code request,
+  the application form and the pupil's registration form, which refuses a submission carrying no
+  token or one Cloudflare judged against, before anything is written or mailed, and asks the person
+  to confirm they are human (`fl_frontend/src/core/turnstile.ts :: turnstileRefusal`), a check
+  Cloudflare cannot answer letting the submission through.
 
-  The notice offers a person's review of both on request by mail, as the ruling above has it for
-  every refusal the code takes alone; whether that ruling reaches these two is not yet confirmed.
+  The notice offers a person's review of it on request by mail, as the ruling above has it for
+  every refusal the code takes alone; whether that ruling reaches this one is not yet confirmed.
 
   What the review can change is bounded by the rule each refusal applies: a person reads the case
   and answers, a mistyped date is corrected through the same link, an administrator can lift a ban
@@ -541,34 +537,6 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   marker in its place from their erasure on, the rows that erasure itself writes included. Rows written under an earlier address of theirs, confirmed and
   since changed, keep that address's pseudonym, which the erasure cannot recompute from the address it
   is asked for; they leave the log with its twelve months.
-- **A signed-in person's writes are counted per day under the same pseudonym, and their erasure
-  removes the counts.** The daily write ceiling
-  (`docs/glossary.md :: Drosselung`) keeps one row per kind of person the write was made as, pseudonym and German day, holding a number and no
-  address, so that one stolen or misused seat cannot write without bound; the TTL index removes it
-  at that day's German midnight, plus the monitor's lag, and the person's erasure removes every
-  count of theirs its own read finds, whatever its day; one a request racing the erasure writes after
-  that read goes with the TTL index. **The ceiling's first refusal of a day also leaves one line in
-  the application log**, naming the kind of person and the pseudonym's prefix the action-log page shows,
-  never an address (`fl_backend/app/core/drosselung.py :: get_drossel`). That line is kept as every application-log line is, by size while
-  the container runs and for thirty days in the copy each deploy takes
-  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)), and no erasure reaches it. Until
-  the person's erasure an administrator can match the prefix to their rows on the log page; after it
-  those rows name the marker, and the prefix matches nothing there.
-- **An erasure itself writes the address's anchor, which the database removes at its next expiry
-  pass.** The anchor (`docs/glossary.md :: Adressanker`) holds a keyed hash of the
-  folded address under a label of its own, a counter and the instant of its last write, and no
-  address. Every transaction an address enters the records through writes it, a signed-in person's
-  own write writes theirs, and the address's erasure writes it too, which is what makes a record
-  committed for the address while the erasure runs go with it rather than outlive it. Like the pseudonym it is pseudonymised personal data, this
-  controller holding the key that recomputes it from the address. The TTL index removes it at the
-  monitor's first pass after its last write (`fl_backend/app/core/constraints.py :: TTL_INDEXES`):
-  MongoDB runs that pass every 60 seconds and a busy server may run it later still — mirrored from
-  <https://www.mongodb.com/docs/manual/core/index-ttl/>, which moves without us; read 2026-10-16. A
-  pass in progress also waits while a transaction holds an expired anchor, at most for the server's
-  transaction lifetime — measured on MongoDB 8.3 on 2026-10-16. The
-  erasure leaves it to that index, its own write being what holds a late writer off. The published
-  notice tabulates it, that pass's period in words (`DatenschutzView.tsx :: FRISTEN`). Ruled
-  2026-10-16.
 - **Backups outlive an erasure by the snapshot window, the mail provider's copies and Cloudflare's
   record of mail to the league by their own periods, and the person is told each.** The hosting
   keeps snapshots for about eight days, taken daily — a figure mirrored from the provider's own
@@ -591,10 +559,8 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   document to delete nor a shell of nulls left where one stood, which is why it survives a request
   that reaches everything else. **The row is pseudonymised personal
   data rather than none** — this controller holds the key that re-identifies it — and the person
-  barred is in it past their own erasure. The free-text reason refuses a name the address's own
-  records hold, by the erasure's own rule below, so it may still
-  name them in any form that rule lists as passing, or outright where no record of the address
-  names them. The
+  barred is in it past their own erasure. The free-text reason is checked for no name, so it may
+  name them, and stands with the row. The
   administrator who entered it stands in `erstellt_von` in plain until their own erasure gives the
   row a marker naming nobody. The basis for keeping either is what
   [section 11](#11-open-and-owed-a-decision) asks the Datenschutzexperte to confirm.
@@ -608,7 +574,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
 - **A club's answer about a fixture names its answerer by role, and what that person typed goes with
   their erasure.** A seat's answer stores the role and a keyed digest of its holder's folded address
   (`antwort.von.halter`, `fl_backend/app/api/spielbestaetigungen/services.py :: halter_of`), and never
-  the address or a name. The digest is pseudonymised personal data, as the anchor is, this controller
+  the address or a name. The digest is pseudonymised personal data, this controller
   holding the key that recomputes it, and it is what lets the person's erasure, and their Widerspruch
   on a season row, find every reason they typed from any seat they held and null it with the digest,
   on the rows and in the log's images, another holder's staying;
@@ -638,11 +604,9 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   no names, nothing enforces it, and the published notice says a name may stand in the reason
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-19, the unchecked text 2026-10-20. A match
   report's remarks (`spielberichte.bericht.bemerkungen`), the referee's or an administrator's who
-  wrote or corrected the report, are refused, when written, every name either
-  club's three seats, the booked referee and either squad's pupils of the season hold, matched as the
-  request below is (`fl_backend/app/api/spielberichte/services.py :: find_name_in_bemerkungen_refusal`);
-  a name written otherwise, or a person outside the fixture, stays in them until the end of the season
-  after the match, when the remarks go ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)).
+  wrote or corrected the report, are checked for no name, and a name written in them stays until the
+  end of the season after the match, when the remarks go
+  ([section 6](#6-retention-is-bounded-where-a-bound-was-chosen)).
   The league's administrators and the referee booked on the fixture when they open it read them, so a
   referee booked after the report reads what an earlier referee or an administrator wrote
   (`fl_backend/app/api/spielberichte/services.py :: find_nicht_geleitet_refusal`).
@@ -653,19 +617,8 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   until the remarks go. The request an
   administrator's erasure answers
   (`aktionen.anlass`) stands on every log row that erasure files, for the log's twelve months. It is refused where it holds an address
-  (`fl_backend/app/api/identitaet/schemas.py :: refuse_an_address_in_the_anlass`) or a name of the
-  person's own records standing in it as a whole word or words, equal in plain lower case or in
-  plain capitals: „MÜLLER“ is refused for „Müller“, „Weiss“ and
-  „WEISS“ for „Weiß“ and „Yildiz“ for „Yıldız“, whose capitals they share. A name it still carries
-  past the erasure is one of these:
-  - written otherwise in both cases: a nickname, a misspelling, an umlaut spelled out or its marks
-    left off, such as „Mueller“ or „Muller“ for „Müller“, or a dotted and a dotless I, such as
-    „Ilkay“ for „İlkay“;
-  - joined into a longer word, such as „Müllerfamilie“, or of two letters before a genitive s;
-  - a single letter;
-  - a particle that a later word of its field follows, such as „Le“ in a referee's „Le Thi Mai“;
-  - one the person's records hold nowhere today, such as a surname an edit replaced: the refusal
-    reads the records and never their images in the log.
+  (`fl_backend/app/api/identitaet/schemas.py :: refuse_an_address_in_the_anlass`) and checked for no
+  name, so a name the administrator types into it stands for those twelve months.
 - **A retired row is never removed because of its age.** A referee who stopped, a club that left
   and a past season all keep their rows, and a player who left a squad keeps theirs until the
   season after their last squad season has ended; a person's row goes only by an erasure, for a
@@ -947,7 +900,7 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   hashes of an address alone; a change is discarded by an administrator, by a later change of the
   same address, by its address on file holding nothing left to move, or by the hourly pass refusing
   it at its due time (`fl_backend/app/core/journal.py :: DATENSAETZE`). An erasure's
-  line holds three, the journal's own, the pseudonym the action log and the day counts key that
+  line holds three, the journal's own, the pseudonym the action log keys that
   person on, and the digest their fixture answers carry, so a restore holding the address nowhere
   still finds those rows and the reasons those answers hold; a choice's line holds the journal's one, beside the record that act changed and its
   moment, a withdrawal's text version and the withholding values it set, and the seats a Widerspruch

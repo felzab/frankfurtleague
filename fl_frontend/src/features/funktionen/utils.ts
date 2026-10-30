@@ -1,4 +1,4 @@
-import { joinUnd } from "@/core/joinUnd";
+import { formatAufzaehlung } from "@/core/format";
 import { EINSAETZE_TITEL, VERWALTUNG_TITEL } from "@/core/seitenNamen";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
@@ -51,7 +51,7 @@ export function zeilenOf(ziel: FunktionZiel): { titel: string; detail: string } 
       const gehalten = new Set(ziel.funktionen.flatMap((funktion) => (funktion.art === "kontakt" ? [funktion.rolle] : [])));
       // In `KONTAKT_ROLLEN`'s order rather than the lookup's, so one person's roles read alike on every visit.
       const rollen = KONTAKT_ROLLEN.filter((rolle) => gehalten.has(rolle.value)).map((rolle) => rolle.label);
-      return { titel: erste.team_name, detail: `Saison ${erste.saison_id} · ${joinUnd(rollen)}` };
+      return { titel: erste.team_name, detail: `Saison ${erste.saison_id} · ${formatAufzaehlung(rollen)}` };
     }
     case "spieler":
       return { titel: "Spieler", detail: "Dein Kadereintrag" };

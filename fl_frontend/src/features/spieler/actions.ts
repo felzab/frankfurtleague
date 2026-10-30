@@ -1,9 +1,6 @@
 "use server";
 
-import z from "zod";
-
 import { runAdminMutation } from "@/shared/utils/adminMutation";
-import { partlyRestored, refusedReplay, restored, runAdminUndo, UNDO_UNREADABLE } from "@/shared/utils/adminUndo";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { RETIREMENT_KEEPS_SQUAD_ROWS } from "./constants";
@@ -16,7 +13,7 @@ import {
   reactivateSaisonSpieler,
   reactivateSpieler,
 } from "./mutations";
-import { mapAlreadyInSaisonRefusal, mapSquadRefusal, SQUAD_REPLAY_REFUSALS } from "./refusals";
+import { mapAlreadyInSaisonRefusal, mapSquadRefusal } from "./refusals";
 import {
   FLDeleteSpielerPayloadSchema,
   FLPatchSaisonSpielerPayloadSchema,
@@ -27,7 +24,6 @@ import {
 } from "./schemas";
 
 import type { ActionResult } from "@/shared/types/types";
-import type { UndoOutcome } from "@/shared/utils/adminUndo";
 import type {
   FLDeleteSpielerPayload,
   FLReactivateSpielerPayload,
@@ -202,43 +198,5 @@ export async function reactivateSaisonSpielerAction(
       saison_spieler: reactivateOperation,
       message: "Nummer, Rolle, Position und Stufe sind wiederhergestellt.",
     };
-  });
-}
-
-const SpielerUndoSchema = z
-  .object({
-    person: FLPatchSpielerPayloadSchema.optional(),
-    saison: FLPatchSaisonSpielerPayloadSchema.optional(),
-  })
-  .refine((body) => body.person !== undefined || body.saison !== undefined, {
-    error: "Nothing to restore",
-  });
-
-/** What closes a refusal where the person half went back first, which the change standing would deny. */
-const PERSON_HALF_RESTORED = "Nur die Personendaten wurden zurückgesetzt.";
-
-/** The squad half after the person half went back, as a refusal names it. */
-const SQUAD_HALF = { unworded: "Der Kadereintrag lässt sich so nicht mehr zurücksetzen.", restored: PERSON_HALF_RESTORED };
-
-export async function undoAdminSpielerEditAction(rawPayload: z.input<typeof SpielerUndoSchema>): Promise<UndoOutcome> {
-  return runAdminUndo("undoAdminSpielerEditAction", async () => {
-    const validated = SpielerUndoSchema.safeParse(rawPayload);
-    if (!validated.success) return { success: false, error: UNDO_UNREADABLE };
-    const { person, saison } = validated.data;
-
-    if (person !== undefined) {
-      // No replay catch: the register declares no refusal against the season-independent person row.
-      await patchSpieler(person);
-    }
-
-    if (saison !== undefined) {
-      try {
-        await patchSaisonSpieler(saison);
-      } catch (error) {
-        return person === undefined ? refusedReplay(error, SQUAD_REPLAY_REFUSALS) : partlyRestored(error, SQUAD_REPLAY_REFUSALS, SQUAD_HALF);
-      }
-    }
-
-    return restored();
   });
 }

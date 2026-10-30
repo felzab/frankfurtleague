@@ -97,7 +97,7 @@ class JournalLine:
     wahlen: Mapping[FLEinwilligungWahl, Any] = field(default_factory=lambda: MappingProxyType({}))
     # The slots a Widerspruch emptied.
     sitze: tuple[str, ...] = ()
-    # An erasure's person as the action log and the day counts key them (`app/core/security.py :: akteur_pseudonym`): the
+    # An erasure's person as the action log keys them (`app/core/security.py :: akteur_pseudonym`): the
     # one way a replay finds those rows where the restored database holds the address nowhere. Absent on an older line.
     pseudonym: str | None = None
     # An erasure's person as their fixture answers stored them (`app/api/spielbestaetigungen/services.py :: halter_of`), for

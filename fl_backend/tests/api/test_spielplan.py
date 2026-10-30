@@ -20,10 +20,8 @@ from app.api.saisons.schedule import (
 )
 from app.api.saisons.schemas import FLSaisonForfeitErgebnis, FLSaisonRules
 from app.api.saisons.services import (
-    DRAW_TWINS,
     DRAWN_HOLDING_ITS_SIDES,
     RECORDED_FACT_FIELDS,
-    SHAPE_ONLY_CODES,
     as_the_draw_answers,
     find_rules_refusal,
     find_spielplan_refusal,
@@ -1127,9 +1125,6 @@ RECORDED_EDITS: Mapping[str, RecordedEdit] = {
         ko={"team2_quelle": None},
     ),
     "ergebnis": RecordedEdit(why="a result", gruppe={"ergebnis": "2:1"}),
-    # Beside a result rather than behind it: `apply_payload_to_spiel` keeps a shoot-out only where it
-    # stores a result too, so one standing alone came by the hand edit route the goals above did.
-    "elfmeterschiessen": RecordedEdit(why="a shoot-out standing without a result", gruppe={"elfmeterschiessen": {"team1": 4, "team2": 3}}),
     # The value awarding NOTHING on purpose: `has_taken_place` reads it as untouched, so reaching for
     # that narrower question instead of this window is the mistake this entry is here to fail.
     "sonderereignis": RecordedEdit(why="a cancellation, which awards nothing and is still a record", gruppe={"sonderereignis": "ausgefallen"}),
@@ -1304,54 +1299,23 @@ def shared(code: Code) -> WriteRefusal:
     return WriteRefusal(error_code=code, status=HTTPStatus.UNPROCESSABLE_CONTENT)
 
 
-def on_the_draw(code: Code, *, shape_stated: bool) -> tuple[Code, HTTPStatus] | None:
-    answered = as_the_draw_answers(shared(code), shape_stated=shape_stated)
+def on_the_draw(code: Code) -> tuple[Code, HTTPStatus] | None:
+    answered = as_the_draw_answers(shared(code))
 
     return None if answered is None else (answered.error_code, answered.status)
 
 
 class TestTheDrawAnswersStoredValuesUnderItsTwins:
-    """A refusal reading a stored value is a conflict with state on the draw, so it answers 409 under a code of its own."""
+    """A rule a stated shape breaks against a STORED value is a conflict with the season, so it answers 409 under a code of its own."""
 
-    def test_a_draw_stating_no_shape_answers_every_shared_code_under_its_twin(self):
-        """No shape overlays anything, so every rule the draw asks judges the season's stored rules or dates."""
+    def test_the_forfeit_and_the_span_answer_under_their_twins(self):
+        """A shape's qualifiers can make a bracket the stored level forfeit cannot decide; its matchdays can outgrow the stored span."""
 
-        assert on_the_draw(Code.RULES_BRACKET_IMPOSSIBLE, shape_stated=False) == (Code.RULES_BRACKET_IMPOSSIBLE_AS_STORED, HTTPStatus.CONFLICT)
-        assert on_the_draw(Code.RULES_QUALIFIERS_ABOVE_GROUP, shape_stated=False) == (
-            Code.RULES_QUALIFIERS_ABOVE_GROUP_AS_STORED,
-            HTTPStatus.CONFLICT,
-        )
-        assert on_the_draw(Code.RULES_DRAW_OUTVALUES_WIN, shape_stated=False) == (Code.RULES_DRAW_OUTVALUES_WIN_AS_STORED, HTTPStatus.CONFLICT)
-        assert on_the_draw(Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT, shape_stated=False) == (
-            Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED,
-            HTTPStatus.CONFLICT,
-        )
-        assert on_the_draw(Code.RULES_FIXTURES_OVER_ONE_READ, shape_stated=False) == (
-            Code.RULES_FIXTURES_OVER_ONE_READ_AS_STORED,
-            HTTPStatus.CONFLICT,
-        )
-        assert on_the_draw(Code.SAISON_SPAN_BELOW_SCHEDULE, shape_stated=False) == (
-            Code.SAISON_SPAN_BELOW_SCHEDULE_AS_STORED,
-            HTTPStatus.CONFLICT,
-        )
+        assert on_the_draw(Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT) == (Code.RULES_FORFEIT_DRAWS_A_KNOCKOUT_AS_STORED, HTTPStatus.CONFLICT)
+        assert on_the_draw(Code.SAISON_SPAN_BELOW_SCHEDULE) == (Code.SAISON_SPAN_BELOW_SCHEDULE_AS_STORED, HTTPStatus.CONFLICT)
 
-    @pytest.mark.parametrize("code", sorted(SHAPE_ONLY_CODES))
-    def test_a_stated_shape_keeps_the_shared_code_of_a_rule_reading_the_shape_alone(self, code: Code):
+    def test_a_rule_reading_the_shape_alone_keeps_the_shared_code(self):
         """The payload's own three numbers are all such a rule reads, so it is the payload the draw refuses."""
 
-        assert on_the_draw(code, shape_stated=True) == (code, HTTPStatus.UNPROCESSABLE_CONTENT)
-
-    @pytest.mark.parametrize("code", sorted(set(DRAW_TWINS) - SHAPE_ONLY_CODES))
-    def test_a_stated_shape_still_twins_a_rule_reading_a_stored_value(self, code: Code):
-        """The points, the forfeit award and the dates are no part of a shape, so they are the season's stored ones."""
-
-        assert on_the_draw(code, shape_stated=True) == (DRAW_TWINS[code], HTTPStatus.CONFLICT)
-
-    def test_a_code_the_draw_shares_with_nothing_is_left_alone(self):
-        assert on_the_draw(Code.SPIELPLAN_ALREADY_DRAWN, shape_stated=False) == (Code.SPIELPLAN_ALREADY_DRAWN, HTTPStatus.UNPROCESSABLE_CONTENT)
-        assert as_the_draw_answers(None, shape_stated=False) is None
-
-    def test_the_twin_keeps_the_shared_checks_detail(self):
-        answered = as_the_draw_answers(shared(Code.RULES_DRAW_OUTVALUES_WIN), shape_stated=True)
-
-        assert answered is not None
+        assert on_the_draw(Code.RULES_BRACKET_IMPOSSIBLE) == (Code.RULES_BRACKET_IMPOSSIBLE, HTTPStatus.UNPROCESSABLE_CONTENT)
+        assert as_the_draw_answers(None) is None

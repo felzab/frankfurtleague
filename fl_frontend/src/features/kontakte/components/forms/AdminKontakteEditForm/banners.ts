@@ -79,8 +79,7 @@ export function buildKontakteBanners({
       severity: "warning",
       raisedBy: "change",
       // „endgültig“ is the half the admin would otherwise get wrong: nothing writes a junction seat's
-      // `bestaetigt_am` but an acceptance, and the undo replays the old name against the new stored one,
-      // so it comes back unconfirmed too.
+      // `bestaetigt_am` but an acceptance, so entering the old name again leaves the seat unconfirmed too.
       title: "Ein neuer Name oder eine neue E-Mail-Adresse kostet die Bestätigung endgültig",
       body: `Betroffen: ${renamedConfirmedSeatLabels.join(", ")}.`,
       inline: "kontakte-block",

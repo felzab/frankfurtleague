@@ -31,10 +31,7 @@ export type FLAdresswechselBisherigZustand = z.infer<typeof FLAdresswechselBishe
 export const FLAdresswechselEndeArtSchema = z.enum(["wirksam", "abgelehnt", "gestoppt", "abgelaufen", "ersetzt", "verworfen"]);
 export type FLAdresswechselEndeArt = z.infer<typeof FLAdresswechselEndeArtSchema>;
 
-/**
- * Mirrors `CustomAdresswechselGrund`, the erasure occasion's bounds: copied into the start's log row and
- * kept with the log, so the backend refuses a name of the person in it (`REQ-ADRESSWECHSEL-008`).
- */
+/** Mirrors `CustomAdresswechselGrund`, the erasure occasion's bounds: copied into the start's log row and kept with the log. */
 export const AdresswechselGrundSchema = einzeiligerName(
   z
     .string({ error: "Bitte gib einen Grund ein." })

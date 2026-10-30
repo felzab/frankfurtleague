@@ -2,7 +2,7 @@ import "server-only";
 
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { renderMail } from "@/core/emailShell";
-import { joinUnd } from "@/core/joinUnd";
+import { formatAufzaehlung } from "@/core/format";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
@@ -91,7 +91,7 @@ export type BewerbungBetreff = "Zusage" | "Absage";
 export function rollenText(rollen: readonly BewerbungRolle[]): string {
   // `BEWERBUNG_SEATS`' order rather than the argument's: a person holding two seats then reads one
   // phrase whichever answer or record the roles were collected from.
-  return joinUnd(BEWERBUNG_SEATS.filter((seat) => rollen.includes(seat.value)).map((seat) => seat.label));
+  return formatAufzaehlung(BEWERBUNG_SEATS.filter((seat) => rollen.includes(seat.value)).map((seat) => seat.label));
 }
 
 /**

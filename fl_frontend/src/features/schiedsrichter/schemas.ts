@@ -49,7 +49,7 @@ export type FLPatchSchiedsrichterPayload = z.infer<typeof FLPatchSchiedsrichterP
 
 /**
  * Whether a row holds an address rather than none: a surface reading the bare value files an emptied
- * one as reached, and an undo would write it back.
+ * one as reached.
  */
 export const hatAdresse = (email: string | null): email is string => email !== null && email.trim() !== "";
 

@@ -73,8 +73,7 @@ NOT_AN_ADMINISTRATOR = "schueler@example.com"
 UNREACHED_DATABASE = Code.NO_DATABASE_CLIENT
 
 
-# The mounted operations, keyed as Starlette spells them, and the methods that record nothing:
-# `tests/api/test_drosselung.py` sweeps the person writes off these.
+# The mounted operations, keyed as Starlette spells them, and the methods that record nothing.
 ROUTES_BY_OPERATION = {(route.path, method): route for route in api_routes(application()) for method in (route.methods or ())}
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 

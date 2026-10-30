@@ -6,9 +6,8 @@ helper raises `DocumentNotFoundError` on a miss and never returns `None`, and a 
 helper returns the empty result and never raises for absence.
 
 Every write here but an anchor appends to the action log (`app/core/recording.py`), which is what makes the
-log complete by construction: a WRITE reaches the driver in this module alone, beside two that record
-no domain fact: the log's own row, which `app/core/recording.py :: record_write` inserts, and a
-person's count for the day, which `app/core/drosselung.py :: get_drossel` raises. Reads are a different matter --
+log complete by construction: a WRITE reaches the driver in this module alone, beside the log's own row,
+which `app/core/recording.py :: record_write` inserts and which records no domain fact. Reads are a different matter --
 several routers call `aggregate`, `count_documents`, `distinct`, `find` and `find_one` directly --
 and a write shaped like one of those would escape the log.
 """
@@ -216,36 +215,6 @@ async def anchor_in_db(
     _sending_a_write()
     # `$inc`, never a `$set` of a constant, which rewrites nothing the second time and joins no write set.
     await collection.update_many(filter=db_filter, update={"$inc": {ANCHOR_FIELD: 1}}, session=session)
-
-
-# When an anchor written by id was last written, the one field its collection's TTL index reads
-# (`app/core/constraints.py :: TTL_INDEXES`).
-ANCHOR_WRITTEN_AT: Final = "geschrieben_am"
-
-
-async def anchor_by_id_in_db(
-    *,
-    collection: AsyncCollection,
-    ids: Sequence[str],
-    # REQUIRED, for `anchor_in_db`'s reason.
-    session: AsyncClientSession,
-) -> None:
-    """Write the document of each id, creating any not yet written, so a rival writing one conflicts.
-
-    Logs no row, for `anchor_in_db`'s reason.
-    """
-
-    _sending_a_write()
-    # An upsert, as a document nobody has written joins no write set; two transactions upserting one meet as a
-    # write conflict, never a duplicate key. One command an id: `bulk_write` can remove, which
-    # `tests/core/test_unenforced.py` refuses.
-    for anchor_id in ids:
-        await collection.update_one(
-            filter={"_id": anchor_id},
-            update={"$inc": {ANCHOR_FIELD: 1}, "$currentDate": {ANCHOR_WRITTEN_AT: True}},
-            upsert=True,
-            session=session,
-        )
 
 
 async def post_one_to_db(

@@ -39,25 +39,23 @@ from app.api.identitaet.crud import find_anmeldung, find_subjekt, unreferenced_o
 from app.api.identitaet.schemas import FLErasureAnsichtPayload, FLErasurePayload
 from app.api.identitaet.wiederherstellung import Read, Window, plan_replay, replay_line
 from app.api.registrierungen.einwilligung_router import get_bestaetigung_ansicht
-from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPayload
 from app.api.registrierungen.services import compose_ablehnung_update, erinnerung_is_due
 from app.api.schiedsrichter.router import get_schiedsrichter_by_id
 from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.admin_router import get_spieler_memberships
 from app.api.spieler.services import build_spieler_memberships_pipeline
 from app.api.teams.admin_router import get_team_memberships
-from app.core.adressanker import adressanker_id
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import ANCHOR_FIELD, patch_one_in_db
-from app.core.drosselung import build_counts_filter
+from app.core.crud import patch_one_in_db
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.journal import JOURNAL_TOKEN, JournalLine, parse_line
 from app.core.recording import SYSTEM_ACTOR, Actor, PersonActor, actor_var, log_stamp
 from app.core.security import akteur_pseudonym, loeschung_journal_hash
 from app.core.transactions import transaction_session
 from app.main import create_app
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import ADRESSWECHSEL_NACHLAUF_TAGE
 from tests import documents
 from tests.app_client import app_client
@@ -1047,11 +1045,6 @@ class TestTheToolsStart:
 
     def test_an_address_holding_nothing_is_refused(self, mongo_replica_set_url: str):
         assert self.refused_start(mongo_replica_set_url, adresse="nobody@schule.example") == (Code.ADRESSWECHSEL_NICHTS, 0)
-
-    def test_a_reason_naming_the_person_is_refused(self, mongo_replica_set_url: str):
-        """The log keeps the reason a year beside the start."""
-
-        assert self.refused_start(mongo_replica_set_url, grund="Lenore rief an") == (Code.ADRESSWECHSEL_NAME_IM_GRUND, 0)
 
     def test_the_administrator_s_own_address_is_refused(self, mongo_replica_set_url: str):
         assert self.refused_start(mongo_replica_set_url, adresse=ADMIN) == (Code.EIGENE_ADRESSE, 0)
@@ -2276,7 +2269,7 @@ class TestWhatTheEffectLeavesTheErasure:
         """An unanswered registration moves too, or its admission makes a second person; its link stayed in the replaced mailbox."""
 
         def ansicht(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            payload = FLRegistrierungBestaetigungAnsichtPayload(token=UNCONFIRMED_REG_LINK)
+            payload = FLTokenPayload(token=UNCONFIRMED_REG_LINK)
             return call(get_bestaetigung_ansicht, database, client, ansicht_data=payload, today=TODAY)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -2410,32 +2403,6 @@ class TestWhatTheEffectLeavesTheErasure:
         assert von == NEW_EMAIL
         assert images[EMAIL] == 0 and images[NEW_EMAIL] >= 1
 
-    def test_the_day_s_counts_follow_the_pseudonym(self, mongo_replica_set_url: str):
-        """Keyed by the address's pseudonym; left behind, every effect would hand the person a fresh day of starts."""
-
-        alt, neu = akteur_pseudonym(EMAIL, schluessel=KEY), akteur_pseudonym(NEW_EMAIL, schluessel=KEY)
-        far_off = NOW + timedelta(days=2)
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            counts = database[Collection.DROSSELUNG]
-            # Two kinds under the replaced address, and one the new address already holds, which the carry adds to.
-            await counts.insert_many(
-                [
-                    {"_id": f"adresswechsel:{alt}:{TODAY}", "n": 3, "ablauf": far_off},
-                    {"_id": f"kontakt:{alt}:{TODAY}", "n": 2, "ablauf": far_off},
-                    {"_id": f"adresswechsel:{neu}:{TODAY}", "n": 1, "ablauf": far_off},
-                ]
-            )
-            await confirmed_and_moved(database, client)
-            return {
-                address: sorted([(row["_id"].split(":")[0], row["n"]) async for row in counts.find(build_counts_filter(pseudonym))])
-                for address, pseudonym in ((EMAIL, alt), (NEW_EMAIL, neu))
-            }
-
-        counts = on_a_person(mongo_replica_set_url, body)
-
-        assert counts == {EMAIL: [], NEW_EMAIL: [("adresswechsel", 4), ("kontakt", 2)]}
-
     def test_an_earlier_effect_s_queued_notice_follows_the_person(self, mongo_replica_set_url: str):
         """Its account goes where the person is now, and an erasure of the new address finds the row."""
 
@@ -2446,21 +2413,6 @@ class TestWhatTheEffectLeavesTheErasure:
             return [(notice["bisherige_email"], notice["email"]) for notice in await owed(database)]
 
         assert on_a_person(mongo_replica_set_url, body) == [(FOREIGN_EMAIL, NEW_EMAIL), (EMAIL, NEW_EMAIL)]
-
-    def test_it_anchors_the_address_it_replaces(self, mongo_replica_set_url: str):
-        """A registration submitted there while the effect runs meets it on the anchor, so the retry moves it rather than leaving it."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            minted = await start(database, client)
-            anchor = {"_id": adressanker_id(EMAIL, schluessel=KEY)}
-            before = await database[Collection.ADRESSANKER].find_one(anchor)
-            await answer(database, client, minted.token)
-            after = await database[Collection.ADRESSANKER].find_one(anchor)
-            return (before or {}).get(ANCHOR_FIELD, 0), (after or {}).get(ANCHOR_FIELD, 0)
-
-        before, after = on_a_person(mongo_replica_set_url, body)
-
-        assert after == before + 1
 
 
 class TestTheErasure:

@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { AdminRegistrierungenView } from "@/features/registrierungen/components/views/AdminRegistrierungenView";
 import { REGISTRIERUNGEN_CRUD_COPY } from "@/features/registrierungen/constants";
@@ -42,7 +41,6 @@ export default function AdminRegistrierungenPage(props: NextPageProps) {
 
 /** Every season's pending registrations, so the header's season selector narrows nothing here. */
 async function Registrierungen({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
-  await connection();
   const params = (await searchParams) ?? {};
   const richtung = parseLeserichtung(params);
 

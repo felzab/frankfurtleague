@@ -110,13 +110,12 @@ def bracket_seeding(*, number_of_groups: int, qualifiers_per_group: int) -> tupl
 
     placing_at = _seed_at_slot(qualifiers_per_group)
     # `max`, or the draw repeats one pair and leaves another out. A divisor that also fits scores the
-    # same and ships a different row, which is what `tests/bracket_reference.py :: BRACKET_SEEDING` fixes.
+    # same and ships a different row, so the seeding is this one and no other.
     shift_of = max(number_of_groups, qualifiers_per_group)
 
     # One qualifier of every group per block of `number_of_groups` slots, the latest a bracket can
-    # push two qualifiers of one group into meeting. Pairing
-    # partnered groups alone fixes who meets
-    # and not where (`tests/api/test_spielplan.py :: TestTheConstructionBeatsTheObviousRuntimeRule`).
+    # push two qualifiers of one group into meeting. Pairing partnered groups alone fixes who meets
+    # and not where.
     return tuple((offered[(slot % number_of_groups) ^ (slot // shift_of)], placing_at[slot % qualifiers_per_group]) for slot in range(field))
 
 
@@ -141,8 +140,8 @@ def _squads(rules: FLSaisonRules, entered: Sequence[EnteredTeam]) -> dict[FLGrup
 def _side(team: EnteredTeam) -> dict[str, Any]:
     """One side of a group fixture, composed through the model every read validates against.
 
-    `keep_oid` holds `team_id` as an ObjectId: dumped to its string, the `spiele` validator refuses
-    the whole document.
+    `keep_oid` holds `team_id` as an ObjectId: dumped to its string, every filter naming the club by
+    its id would miss the fixture.
     """
 
     return FLSpielTeamField(team_id=team.team_id, tore=None, name=team.name, shorthand=team.shorthand).model_dump(context={"keep_oid": True})
@@ -174,15 +173,14 @@ def _spiel(
     team1_quelle: dict[str, Any] | None = None,
     team2_quelle: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """One fixture carrying every key `app/core/constraints.py :: COLLECTION_VALIDATORS` requires.
+    """One fixture carrying every key `app/api/spiele/schemas.py :: FLSpiel` requires.
 
     Nothing is scheduled and nothing has happened, so the rest is null: a date, a venue and a
     referee are the admin's, and a drawn season states none of them.
     """
 
     return {
-        # Real ObjectIds, never their strings: both id fields are declared `objectId`, so a
-        # `mode="json"` dump of this document fails the validator on four fields at once.
+        # Real ObjectIds, never their strings, which no filter or join on these ids would match.
         "_id": ObjectId(),
         "team1": team1,
         "team2": team2,
