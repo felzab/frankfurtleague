@@ -1298,8 +1298,9 @@ docker compose logs --since 2h frontend | grep konto.sweep_
 ```
 
 **No `konto.sweep_completed` line in two hours means no pass completed, or the line went
-unwritten.** A `konto.sweep_failed` line says the sign-in store could not be listed. Every failure
-inside a pass is a line of its own, and the next pass asks again.
+unwritten.** A pass whose sign-in store could not be listed rejects, which `scheduler.job_failed`
+names as `konto` and the heartbeat as `konto failed`. Every other failure inside a pass is a line of
+its own, and the next pass asks again.
 
 **A `konto.referenzen_failed` line carrying `REQ-REFERENZEN-001` means the backend reads no live
 `owner` grant**, so it refuses every batch and the sweep deletes nothing, every pass alike. Such a pass still writes its
