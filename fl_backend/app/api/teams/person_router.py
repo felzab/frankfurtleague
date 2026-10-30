@@ -34,7 +34,6 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
-from app.core.drosselung import Drossel
 from app.core.journal import Journal
 from app.core.recording import log_stamp
 from app.core.security import PERSON_ACTOR_BINDERS, KontaktIdentifier, loeschung_journal_hash, verify_access_admin
@@ -109,7 +108,6 @@ async def patch_einwilligung(
     saison_teams_collection: SaisonTeamsCollection,
     records: SubjektLookup,
     db: DBClient,
-    drossel: Drossel,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
@@ -129,8 +127,7 @@ async def patch_einwilligung(
     (`REQ-EINWILLIGUNG-003`); a grant where the row grants no panel (`REQ-EINWILLIGUNG-004`); a `text_version` naming no
     version of the account page's seat control, or a grant naming any but its running one (`REQ-EINWILLIGUNG-001`);
     `medien` moving to `true` where a held seat's stored birthdate does not reach `MEDIEN_MIN_AGE_YEARS` today or is
-    missing (`REQ-EINWILLIGUNG-002`); and a grant past the person's ceiling for the German day (`REQ-DROSSELUNG-001`),
-    which counts grants alone, so a withdrawal is never refused for it. Each refusal writes nothing.
+    missing (`REQ-EINWILLIGUNG-002`). Each refusal writes nothing.
     """
 
     gedrueckt: dict[FLEinwilligungWahl, object] = {"umfang": einwilligung_data.umfang, "medien": einwilligung_data.medien}
@@ -164,7 +161,6 @@ async def patch_einwilligung(
             text_version=einwilligung_data.text_version,
             seite=KONTO_SEITE_KONTAKT,
             darf_erteilen=darf_erteilen,
-            drossel=drossel,
             today=today,
         )
 

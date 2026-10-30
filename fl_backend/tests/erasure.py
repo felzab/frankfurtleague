@@ -18,16 +18,14 @@ _CONFIG = build_test_config()
 
 
 def erasure_collections(database: AsyncDatabase | Mapping[Collection, Any], **replaced: Any) -> dict[str, Any]:
-    """Every collection the registry's steps reach, and the address's anchor, keyed as the routes take them, any replaced by name.
+    """Every collection the registry's steps reach, keyed as the routes take them, any replaced by name.
 
     Read off `app/api/identitaet/crud.py :: ERASURE_STEPS`: a step reaching a collection no route takes, or the reverse,
     fails the call.
     """
 
     handles = {f"{collection}_collection": database[collection] for step in ERASURE_STEPS for collection in sorted(step.reaches)}
-    anchor = {f"{Collection.ADRESSANKER}_collection": database[Collection.ADRESSANKER]}
-
-    return {**handles, **anchor, **replaced}
+    return {**handles, **replaced}
 
 
 async def erased(

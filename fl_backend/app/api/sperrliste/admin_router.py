@@ -7,9 +7,6 @@ from pymongo.results import InsertOneResult
 
 from app.api.berechtigungen.crud import pull_the_list_to_judge, withhold_in_the_outbox
 from app.api.berechtigungen.services import lebendige
-from app.api.identitaet.crud import resolve_subject
-from app.api.identitaet.lookup import SubjektLookup
-from app.api.identitaet.services import eigene_namen, find_name_im_grund_refusal
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import read_sperrliste_page
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
@@ -121,7 +118,6 @@ async def post_sperrliste_eintrag(
     saisons_collection: SaisonsCollection,
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
-    records: SubjektLookup,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     sperrliste: SperrlisteLookup,
@@ -138,13 +134,11 @@ async def post_sperrliste_eintrag(
     `gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still queued
     for the address loses the address in the same transaction.
 
-    `grund` is served, mailed to the address and kept past that person's erasure, so it is refused 422 where it holds a
-    name of the address's own records, as `POST /identitaet/erasure/ansicht` names each (`REQ-SPERRLISTE-004`). It is
-    matched as that erasure's `anlass` is: as stored, spacing aside, and equal where the plain lower or the plain upper case
-    is, so „Weiss“ is refused for „Weiß“ and another spelling such as „Mueller“ for „Müller“ passes.
+    `grund` is served, mailed to the address and kept past that person's erasure.
     """
 
     gehasht = sperrliste.hash_of(str(sperrliste_data.email))
+    identifier = sign_in_identifier(str(sperrliste_data.email))
 
     async def judge_and_ban(session: AsyncClientSession) -> tuple[InsertOneResult, str]:
         """Ask the grants, read the season, ask the list, then write. Each takes this transaction's session, so a retry re-runs all four."""
@@ -164,29 +158,6 @@ async def post_sperrliste_eintrag(
 
         gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_sperrliste_refusal(gesperrt=gesperrt))
-
-        # Through the reveal's own selections, so the names refused are those the ban form listed, and in this
-        # transaction, as the erasure judges its request.
-        identifier = sign_in_identifier(str(sperrliste_data.email))
-        subject = await resolve_subject(
-            identifier,
-            saison_teams_collection=records.saison_teams_collection,
-            bewerbungen_collection=records.bewerbungen_collection,
-            schiedsrichter_collection=records.schiedsrichter_collection,
-            spieler_collection=records.spieler_collection,
-            registrierungen_collection=records.registrierungen_collection,
-            schluessel=config.sperrliste_schluessel,
-            session=session,
-        )
-        names = eigene_namen(
-            identifier,
-            saison_team_rows=subject.saison_teams,
-            bewerbung_rows=subject.bewerbungen,
-            referee_rows=subject.schiedsrichter,
-            pupil_rows=subject.spieler,
-            registrierung_rows=subject.registrierungen,
-        )
-        refuse(find_name_im_grund_refusal(grund=sperrliste_data.grund, names=names))
 
         document: dict[str, Any] = {
             "adresse_hash": gehasht,

@@ -63,7 +63,7 @@ stored document back through it after a migration paste.
 are keyword-only and accept a session, which is what lets a read inside a transaction see that
 transaction's own writes. A request making more than one write makes them in one transaction, so
 a refusal anywhere takes everything already written back with it. Every helper write except an
-anchor (`fl_backend/app/core/crud.py :: anchor_in_db` and `:: anchor_by_id_in_db`), which changes
+anchor (`fl_backend/app/core/crud.py :: anchor_in_db`), which changes
 nothing a reader sees, records what it replaced or removed on the action log (`Aktion`,
 `fl_backend/app/core/recording.py`), attributed to the actor its router bound.
 

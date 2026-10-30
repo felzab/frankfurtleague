@@ -39,16 +39,13 @@ from app.api.bewerbungen.services import (
     recorded_window,
     saison_nimmt_bewerbungen_an,
     season_has_ended,
-    seat_adressen,
 )
 from app.api.einwilligung.services import find_fassung_refusal
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, hashes_gesperrt, sperrliste_saison
 from app.api.teams.schemas import KONTAKT_ROLLEN
-from app.core.adressanker import anchor_the_addresses
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
-    AdressankerCollection,
     BewerbungenCollection,
     DBClient,
     SaisonsCollection,
@@ -329,7 +326,6 @@ async def post_bewerbung(
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
     sperrliste: SperrlisteLookup,
-    adressanker_collection: AdressankerCollection,
     db: DBClient,
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
     # visitor's own press is then refused as a changed replay.
@@ -465,13 +461,6 @@ async def post_bewerbung(
                 # Left off a keyless press rather than stored null, which the validator's string type refuses.
                 **({} if schluessel is None else {"idempotenz_schluessel": schluessel, "idempotenz_fingerabdruck": fingerabdruck}),
             },
-            session=session,
-        )
-        # The addresses entering here, which an erasure of one running now never read.
-        await anchor_the_addresses(
-            seat_adressen(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), seats=KONTAKT_ROLLEN),
-            adressanker_collection=adressanker_collection,
-            schluessel=sperrliste.schluessel,
             session=session,
         )
 

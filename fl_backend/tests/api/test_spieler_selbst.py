@@ -194,7 +194,7 @@ def _app() -> FastAPI:
 
 @pytest.fixture(scope="module", autouse=True)
 def _built_before_any_case() -> None:
-    """Never inside a case, for the reason `tests/api/test_drosselung_execution.py :: _built_before_any_case` gives."""
+    """Never inside a case: a build re-runs the logging `dictConfig`, which strips the handler `caplog` reads that case's records from."""
 
     _app()
 

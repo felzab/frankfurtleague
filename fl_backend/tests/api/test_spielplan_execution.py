@@ -1099,7 +1099,6 @@ async def an_admin_first_report(
             spiele_collection=database[Collection.SPIELE],
             saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
             saison_spieler_collection=database[Collection.SAISON_SPIELER],
-            saison_teams_collection=database[Collection.SAISON_TEAMS],
             spieler_collection=database[Collection.SPIELER],
             spielberichte_collection=database[Collection.SPIELBERICHTE],
             db=client,

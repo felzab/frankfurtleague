@@ -33,8 +33,8 @@ two tool configurations sit at the top of this folder instead, in none of the fi
 production database to fill the local one — it copies out and never writes back. `--seed` reaches
 production only when there is no copy on disk yet. `export_journal.sh` reads the production
 backend's logs and writes host files beside them, never a database. `replay_journal.sh` reads the
-restored production database, and with `--apply` writes the person records, log rows and day counts its
-lines name.
+restored production database, and with `--apply` writes the person records and log rows its lines
+name.
 Everything else leaves production alone.
 
 `--fresh` is still destructive locally: it removes the volumes, the copy under `.local-db`, the

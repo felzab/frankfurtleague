@@ -163,45 +163,6 @@ async def live_unbarred_grant_since(
     return berechtigt_seit(*grant)
 
 
-async def live_unbarred_grant_in(
-    identifier: str,
-    *,
-    berechtigungen_collection: AsyncCollection,
-    sperrliste: BanList,
-    session: AsyncClientSession,
-) -> tuple[ObjectId, datetime] | None:
-    """`live_unbarred_grant_since`'s question asked in a transaction's session, with the row that answered it for the anchor.
-
-    `None` where that question answers `None`, a row admitting nobody included.
-    """
-
-    # One after the other: a session carries one operation at a time.
-    grant = await _grant_and_its_record_in(berechtigungen_collection=berechtigungen_collection, adresse=identifier, fields=[], session=session)
-    barred = await adressen_gesperrt(sperrliste, [identifier], session=session)
-    if grant is None or lebendige_adresse(grant[0]) is None or barred:
-        return None
-
-    seit = berechtigt_seit(*grant)
-
-    return None if seit is None else (grant[0]["_id"], seit)
-
-
-async def anchor_the_actors_grant(
-    *,
-    berechtigungen_collection: AsyncCollection,
-    berechtigung_id: ObjectId,
-    # REQUIRED, as every anchor's session is: committed on its own it closes nothing.
-    session: AsyncClientSession,
-) -> None:
-    """Write the acting administrator's own grant row, so a revoke committing after the judgement's read conflicts with this transaction."""
-
-    await anchor_in_db(
-        collection=berechtigungen_collection,
-        db_filter={"_id": berechtigung_id},
-        session=session,
-    )
-
-
 async def withhold_in_the_outbox(*, berechtigungen_postausgang_collection: AsyncCollection, adresse: str, session: AsyncClientSession) -> None:
     """Every queued row naming this folded address, as a grant's address or as its actor, withheld in place.
 
