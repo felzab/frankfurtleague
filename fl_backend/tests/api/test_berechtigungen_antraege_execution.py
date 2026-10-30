@@ -618,26 +618,31 @@ class TestWhoMayDecide:
 
 
 class TestARequestOutlivesNoRequester:
-    """A revoke, a demotion or a ban of the requester leaves their request approved by nobody."""
+    """A revoke, a demotion or a ban of the requester leaves their request approved by nobody, and a revoke or a demotion asks nobody."""
 
     def test_a_revoked_requesters_grant_is_approved_by_nobody(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             antrag_id = await asked_for(database, client)
             await revoke(database, client, ANNA_ID)
             (served,) = (await listed(database, client)).antraege
-            return served.steht, await outcome(approve(database, client, antrag_id, als=BERND)), NEU in await tiers(database)
+            return (
+                served.steht,
+                await asked(database),
+                await outcome(approve(database, client, antrag_id, als=BERND)),
+                NEU in await tiers(database),
+            )
 
         grants = [*THREE, grant_document(CARLA_ID, CARLA, "administration")]
-        assert on_a_league(mongo_replica_set_url, body, grants=grants) == (False, Code.BERECHTIGUNG_ANTRAG_VERFALLEN, False)
+        assert on_a_league(mongo_replica_set_url, body, grants=grants) == (False, [], Code.BERECHTIGUNG_ANTRAG_VERFALLEN, False)
 
     def test_a_demoted_owners_promotion_is_approved_by_nobody(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await tier(database, client, BERND_ID)
             (antrag,) = await antraege(database)
             await tier(database, client, OWNER_ID, "administration", als=ANNA)
-            return await outcome(approve(database, client, antrag["_id"], als=ANNA)), (await tiers(database))[BERND]
+            return await asked(database), await outcome(approve(database, client, antrag["_id"], als=ANNA)), (await tiers(database))[BERND]
 
-        assert on_a_league(mongo_replica_set_url, body, grants=TWO_OWNERS) == (Code.BERECHTIGUNG_ANTRAG_VERFALLEN, "administration")
+        assert on_a_league(mongo_replica_set_url, body, grants=TWO_OWNERS) == ([], Code.BERECHTIGUNG_ANTRAG_VERFALLEN, "administration")
 
     def test_a_barred_requesters_grant_is_approved_by_nobody(self, mongo_replica_set_url: str):
         """Barred in the database, the one way a grant holder's address reaches the list."""

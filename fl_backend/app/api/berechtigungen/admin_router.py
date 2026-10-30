@@ -19,6 +19,7 @@ from app.api.berechtigungen.antraege import (
     pull_the_antrag,
     read_the_antraege,
     remove_the_antrag_in_session,
+    settle_the_requesters_notices_in_session,
 )
 from app.api.berechtigungen.crud import (
     grant_in_session,
@@ -424,6 +425,7 @@ async def delete_berechtigung(
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     postausgang_collection: PostausgangCollection,
+    berechtigungen_antraege_collection: BerechtigungenAntraegeCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     entzogen_von: str = Depends(get_actor_email),
@@ -471,6 +473,14 @@ async def delete_berechtigung(
             berechtigungen_collection=berechtigungen_collection,
             berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
             postausgang_collection=postausgang_collection,
+            now=now,
+            session=session,
+        )
+        await settle_the_requesters_notices_in_session(
+            berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+            postausgang_collection=postausgang_collection,
+            gestartet_von=str(grant["adresse"]),
+            verwaltung=None,
             now=now,
             session=session,
         )
@@ -596,6 +606,15 @@ async def patch_berechtigung(
             now=now,
             session=session,
         )
+        if verwaltung != OWNER:
+            await settle_the_requesters_notices_in_session(
+                berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+                postausgang_collection=postausgang_collection,
+                gestartet_von=str(grant["adresse"]),
+                verwaltung=OWNER,
+                now=now,
+                session=session,
+            )
 
         return False
 

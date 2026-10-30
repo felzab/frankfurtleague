@@ -229,6 +229,7 @@ async def revoke(
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             postausgang_collection=database[Collection.POSTAUSGANG],
+            berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
             sperrliste=ban_list(database),
             db=client,
             entzogen_von=als,
@@ -586,6 +587,7 @@ class TestTheNoticeMovesWithItsChange:
                         AsyncCollection, Aborting(database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT], "delete_many")
                     ),
                     postausgang_collection=database[Collection.POSTAUSGANG],
+                    berechtigungen_antraege_collection=database[Collection.BERECHTIGUNGEN_ANTRAEGE],
                     sperrliste=ban_list(database),
                     db=client,
                     entzogen_von=OWNER,
