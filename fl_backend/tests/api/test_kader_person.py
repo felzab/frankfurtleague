@@ -21,11 +21,11 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.spieler.person_router import patch_kader_zeile
 from app.api.spieler.schemas import FLPatchKaderZeilePayload
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY

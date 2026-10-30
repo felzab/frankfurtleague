@@ -12,17 +12,12 @@ from typing import Any, Final
 
 from bson import ObjectId
 
-from app.api.berechtigungen.schemas import (
-    FLBerechtigungAenderungArt,
-    FLBerechtigungPostausgangArt,
-    FLBerechtigungStand,
-    FLGenehmigungVerwehrt,
-    as_utc,
-)
+from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungPostausgangArt, FLBerechtigungStand, as_utc
 from app.api.sperrliste.services import withheld_actor
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import is_stored_identifier, sign_in_identifier
+from app.shared.schemas.literals import FLGenehmigungVerwehrt
 
 # An `owner` grant counts among the two, being a row no route can remove: a floor one `owner` alone
 # met would leave nobody to act while that one person is unreachable.

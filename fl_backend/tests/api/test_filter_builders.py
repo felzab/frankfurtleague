@@ -2,10 +2,11 @@ from typing import get_args
 
 from bson import ObjectId
 
-from app.api.spiele.schemas import SONDEREREIGNIS_RECORDING_AN_ABSENCE, FLSonderereignis, FLSpieleFilterParams
+from app.api.spiele.schemas import SONDEREREIGNIS_RECORDING_AN_ABSENCE, FLSpieleFilterParams
 from app.api.spiele.services import build_spiele_filter
 from app.api.spieltage.schemas import FLSpieltag, FLSpieltageFilterParams
 from app.api.spieltage.services import build_spieltage_filter, build_spieltage_sort, order_spieltage
+from app.shared.schemas.literals import FLSonderereignis
 
 TODAY = "2026-07-31"
 
@@ -24,7 +25,7 @@ class TestSpieleFilter:
 
         compiled = build_spiele_filter(filters=FLSpieleFilterParams.model_validate({"spiel_status": "abgesagt"}), today=TODAY)
 
-        assert "abgebrochen" in get_args(FLSonderereignis)
+        assert "abgebrochen" in get_args(FLSonderereignis.__value__)
         assert "abgebrochen" not in compiled["sonderereignis"]["$in"]
 
     def test_passes_saison_id_through_under_its_own_name(self):

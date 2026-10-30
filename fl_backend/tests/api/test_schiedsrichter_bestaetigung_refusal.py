@@ -28,12 +28,12 @@ from app.api.schiedsrichter.services import (
     vorname_of,
     zustand_of,
 )
-from app.api.spieler.schemas import FLEinwilligung
 from app.api.zustellung.services import ZIEL_PFADE
 from app.core.collections import Collection
 from app.shared.schemas.bounds import (
     BEWERBUNG_TOKEN_MAX_LENGTH,
 )
+from app.shared.schemas.literals import FLEinwilligungUmfang
 
 TODAY = "2026-04-01"
 # The confirmation's instant on `TODAY`, as `app/core/recording.py :: log_stamp` spells one.
@@ -239,7 +239,7 @@ class TestTheScopeIsOneSetOfValues:
     def test_the_payloads_literal_and_the_stored_records_agree_exactly(self):
         """A second spelling widened alone takes a scope mongod refuses, and the consent press 500s under a green suite."""
 
-        assert get_args(FLSchiedsrichterUmfang) == get_args(FLEinwilligung.model_fields["umfang"].annotation)
+        assert get_args(FLSchiedsrichterUmfang) == get_args(FLEinwilligungUmfang.__value__)
 
     def test_both_wire_shapes_take_that_one_spelling(self):
         assert FLSchiedsrichterBestaetigungPayload.model_fields["umfang"].annotation is FLSchiedsrichterUmfang

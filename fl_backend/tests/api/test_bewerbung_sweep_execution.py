@@ -42,7 +42,6 @@ from app.api.bewerbungen.sweep_router import (
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
 from app.api.saisons.admin_router import activate_saison
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -52,6 +51,7 @@ from app.core.logging import FL_LOGGER_NAME, JSONFormatter
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.core.transactions import StalledPage
 from app.main import create_app
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
 from tests.api import test_bewerbung_sweep_refusal as budget
 from tests.app_client import app_client

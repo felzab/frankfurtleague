@@ -16,7 +16,7 @@ from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.berechtigungen.schemas import FLBerechtigungAntragEndeArt, FLBerechtigungStand, FLGenehmigungVerwehrt, as_utc
+from app.api.berechtigungen.schemas import FLBerechtigungAntragEndeArt, FLBerechtigungStand, as_utc
 from app.api.berechtigungen.services import compose_postausgang, haelt_seit
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.core.codes import Code
@@ -26,6 +26,7 @@ from app.core.exceptions import DocumentNotFoundError, WriteRefusal
 from app.core.journal import JournalLine
 from app.core.security import loeschung_journal_hash
 from app.shared.schemas.bounds import GENEHMIGUNG_TAGE
+from app.shared.schemas.literals import FLGenehmigungVerwehrt
 
 # The outbox kinds telling a requester how their request ended, each mailed to them alone.
 ANTRAG_ENDEN: Final = frozenset(get_args(FLBerechtigungAntragEndeArt))

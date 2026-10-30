@@ -18,7 +18,6 @@ from app.api.identitaet.schemas import FLSubjektSitz
 from app.api.identitaet.services import eigene_sitze, holds_a_seat, ist_eigene_registrierung
 from app.api.kontakte.services import rows_seating
 from app.api.registrierungen.services import build_eigene_registrierung_filter, traegt_wahlen
-from app.api.teams.schemas import KONTAKT_ROLLEN
 from app.core.codes import Code
 from app.core.collections import Collection as DbCollection
 from app.core.exceptions import WriteRefusal
@@ -26,6 +25,7 @@ from app.core.journal import JournalLine
 from app.shared.einwilligung import Seite
 from app.shared.einwilligung_nachweis import WAHLEN, FLEinwilligungWahl, compose_wahlen, ist_erteilt, nachweis_stand_of
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE, SCHIEDSRICHTER_MIN_AGE_YEARS
+from app.shared.schemas.literals import KONTAKT_ROLLEN
 
 # The registry pages (`app/shared/einwilligung.py :: LAUFENDE_FASSUNGEN`) whose labels each control stamps.
 KONTO_SEITE_SPIELER: Final[Seite] = "konto_spieler"

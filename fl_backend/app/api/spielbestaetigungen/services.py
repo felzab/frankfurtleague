@@ -26,7 +26,6 @@ from app.api.spiele.schemas import (
     FLSpielSchiedsrichterFieldPayload,
     FLSpielTeamFieldPayload,
 )
-from app.api.teams.schemas import KONTAKT_ROLLEN, FLKontaktRolle
 from app.api.teams.services import has_taken_place, seats_changing_holder
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -39,6 +38,7 @@ from app.shared.schemas.bounds import (
     SPIEL_ERINNERUNG_TAGE_ERSTE,
     SPIEL_ERINNERUNG_TAGE_ZWEITE,
 )
+from app.shared.schemas.literals import KONTAKT_ROLLEN, FLKontaktRolle
 from app.shared.sub_keys import derive_sub_key
 
 # Each stored `ansetzung` key and its fixture path: the ONE list the digest, the snapshot and the public
