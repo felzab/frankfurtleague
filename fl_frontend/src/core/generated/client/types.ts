@@ -3854,11 +3854,111 @@ export interface FLSchiedsrichterBestaetigungDaten {
 }
 
 /**
+ * A fixture as a mail asking about it states it, its ground among the rest.
+ */
+export interface FLSpielMailAnsetzung {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  datum: string;
+  ort: string | null;
+  team1: string;
+  team2: string;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
+  uhrzeit: string;
+}
+
+export type FLSpielAnfrageDatenArt = (typeof FLSpielAnfrageDatenArt)[keyof typeof FLSpielAnfrageDatenArt];
+
+export const FLSpielAnfrageDatenArt = {
+  spiel_anfrage: "spiel_anfrage",
+  spiel_erinnerung: "spiel_erinnerung",
+} as const;
+
+/**
+ * A club's request to confirm a fixture, or the reminder of it, each carrying a link of its own.
+ */
+export interface FLSpielAnfrageDaten {
+  ansetzung: FLSpielMailAnsetzung;
+  art: FLSpielAnfrageDatenArt;
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  frist: string;
+  team: string;
+}
+
+/**
+ * A referee's word that they are booked onto a fixture, which they answer on their own panel.
+ */
+export interface FLSpielEinteilungDaten {
+  ansetzung: FLSpielMailAnsetzung;
+  art: "spiel_einteilung";
+}
+
+export type FLSpielHinweisDatenArt = (typeof FLSpielHinweisDatenArt)[keyof typeof FLSpielHinweisDatenArt];
+
+export const FLSpielHinweisDatenArt = {
+  spiel_neu_angesetzt: "spiel_neu_angesetzt",
+  spiel_abgesagt: "spiel_abgesagt",
+} as const;
+
+export type FLSpielHinweisDatenEmpfaenger = (typeof FLSpielHinweisDatenEmpfaenger)[keyof typeof FLSpielHinweisDatenEmpfaenger];
+
+export const FLSpielHinweisDatenEmpfaenger = {
+  team: "team",
+  schiedsrichter: "schiedsrichter",
+} as const;
+
+/**
+ * A fixture's slot as a mail names it: its two sides in the fixture's order, its day and its hour.
+ */
+export interface FLSpielMailTermin {
+  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
+  datum: string;
+  team1: string;
+  team2: string;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$ */
+  uhrzeit: string;
+}
+
+/**
+ * A party's word that a fixture it was asked about moved or was called off: the slot it was asked about.
+ */
+export interface FLSpielHinweisDaten {
+  art: FLSpielHinweisDatenArt;
+  empfaenger: FLSpielHinweisDatenEmpfaenger;
+  termin: FLSpielMailTermin;
+}
+
+/**
+ * A referee's word that they were taken off a fixture after being told of it: the slot they were told of.
+ */
+export interface FLSpielEinteilungAufgehobenDaten {
+  art: "spiel_einteilung_aufgehoben";
+  termin: FLSpielMailTermin;
+}
+
+/**
+ * A club's word that the league kept the date it declined and proposed another for: the slot that stands.
+ */
+export interface FLSpielVorschlagVerworfenDaten {
+  art: "spiel_vorschlag_verworfen";
+  termin: FLSpielMailTermin;
+}
+
+/**
  * One owed mail a claim hands out, server to server alone: it names its recipient and may carry a live link or secret.
  */
 export interface FLPostausgangAusgabe {
   an: string;
-  daten: FLAnmeldecodeDaten | FLPasskeyDaten | FLKontoLoeschungDaten | FLSperreDaten | FLSchiedsrichterBestaetigungDaten;
+  daten:
+    | FLAnmeldecodeDaten
+    | FLPasskeyDaten
+    | FLKontoLoeschungDaten
+    | FLSperreDaten
+    | FLSchiedsrichterBestaetigungDaten
+    | FLSpielAnfrageDaten
+    | FLSpielEinteilungDaten
+    | FLSpielHinweisDaten
+    | FLSpielEinteilungAufgehobenDaten
+    | FLSpielVorschlagVerworfenDaten;
   geheim: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
@@ -5126,13 +5226,13 @@ export interface FLSpielbestaetigungGeschlossen {
 }
 
 /**
- * One seat's link bookkeeping as an administrator reads it -- and NO `token_hashes`.
+ * One seat's link as an administrator reads it -- and NO `token_hashes`, nor the address it was owed to.
  *
  * The hashes are raw document keys the token filter alone reads; a model declaring them would serve
  * every live link's hash through the admin read.
  */
 export interface FLSpielbestaetigungSitz {
-  zustellung: FLBewerbungZustellung | null;
+  zustellung: FLPostausgangLage | null;
 }
 
 /**
@@ -5157,7 +5257,7 @@ export interface FLSpielbestaetigungParteiSchiedsrichter {
 }
 
 /**
- * One party's confirmation of one Ansetzung, as stored and as an administrator reads it.
+ * One party's confirmation of one Ansetzung, as an administrator reads it.
  *
  * The close reaches an answered row too, so an agreement a move overtook records why it stopped
  * applying (`app/api/spielbestaetigungen/services.py :: build_closable_filter`).
@@ -5313,204 +5413,15 @@ export interface FLSpielbestaetigungSelbst {
 }
 
 /**
- * One LINK and its mailbox; the RAW token exists here and in the mail alone.
- *
- * Per link: one person on two seats gets one button naming both roles, two people on one inbox two.
- */
-export interface FLSpielbestaetigungSweepLink {
-  address: string;
-  rollen: FLKontaktRolle[];
-  token: string;
-}
-
-/**
- * One team row's request or reminder: the fixture, the stored deadline, and every link due a message.
- */
-export interface FLSpielbestaetigungSweepAnfrage {
-  ansetzung: FLSpielbestaetigungAnsichtAnsetzung;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  frist: string;
-  links: FLSpielbestaetigungSweepLink[];
-  seite: FLSpielSeite;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spielbestaetigung_id: string;
-}
-
-/**
- * Which rows' first messages went. Stamped whether or not answered or closed since: the stamp records the send.
- */
-export interface FLSpielbestaetigungSweepAngefragtPayload {
-  /**
-   * @maxItems 83
-   * @items.pattern ^[0-9a-fA-F]{24}$
-   */
-  spielbestaetigung_ids: string[];
-}
-
-export interface FLSpielbestaetigungSweepAngefragtResponse {
-  angefragt: number;
-  fehlgeschlagen: number;
-  saison_id: string;
-}
-
-export type FLSpielbestaetigungSweepAufgegebenPartei =
-  (typeof FLSpielbestaetigungSweepAufgegebenPartei)[keyof typeof FLSpielbestaetigungSweepAufgegebenPartei];
-
-export const FLSpielbestaetigungSweepAufgegebenPartei = {
-  team: "team",
-  schiedsrichter: "schiedsrichter",
-} as const;
-
-/**
- * A notice given up unsent, for the administrator to tell by hand: the fixture and the party's kind, never a person.
- */
-export interface FLSpielbestaetigungSweepAufgegeben {
-  partei: FLSpielbestaetigungSweepAufgegebenPartei;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spielbestaetigung_id: string;
-}
-
-/**
- * A referee row just minted, or one no stamp records as told: the referee is told to the panel, with no token.
- */
-export interface FLSpielbestaetigungSweepEinteilung {
-  address: string;
-  ansetzung: FLSpielbestaetigungAnsichtAnsetzung;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spielbestaetigung_id: string;
-}
-
-/**
- * A mailbox told something without a link.
- */
-export interface FLSpielbestaetigungSweepEmpfaenger {
-  address: string;
-  rollen: FLKontaktRolle[];
-}
-
-/**
- * Which rows' notices went, or were given up: each stops being owed, so no later pass answers it again.
- */
-export interface FLSpielbestaetigungSweepMitgeteiltPayload {
-  /**
-   * @maxItems 25
-   * @items.pattern ^[0-9a-fA-F]{24}$
-   */
-  spielbestaetigung_ids: string[];
-}
-
-export interface FLSpielbestaetigungSweepMitgeteiltResponse {
-  mitgeteilt: number;
-  saison_id: string;
-}
-
-/**
- * A team row a move closed, so a link in its mailboxes is known void before the fresh request arrives.
- */
-export interface FLSpielbestaetigungSweepNeueAnsetzung {
-  alt: FLSpielbestaetigungTermin;
-  empfaenger: FLSpielbestaetigungSweepEmpfaenger[];
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spielbestaetigung_id: string;
-  team1_name: string;
-  team2_name: string;
-}
-
-/**
- * A referee row closed because its referee was taken off the fixture after their Einteilung went out: the slot they were told of.
- */
-export interface FLSpielbestaetigungSweepSchiedsrichterGewechselt {
-  address: string;
-  alt: FLSpielbestaetigungTermin;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spielbestaetigung_id: string;
-  team1_name: string;
-  team2_name: string;
-}
-
-/**
- * The same for a referee row: one address, no seat, the delivery lane recording no seat.
- */
-export interface FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung {
-  address: string;
-  alt: FLSpielbestaetigungTermin;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spielbestaetigung_id: string;
-  team1_name: string;
-  team2_name: string;
-}
-
-/**
- * The same for a referee row whose Einteilung went out: one address, no seat.
- */
-export interface FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt {
-  address: string;
-  alt: FLSpielbestaetigungTermin;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spielbestaetigung_id: string;
-  team1_name: string;
-  team2_name: string;
-}
-
-/**
- * A team row closed because its fixture was called off after its request went out: the slot it was asked about.
- */
-export interface FLSpielbestaetigungSweepSpielAbgesagt {
-  alt: FLSpielbestaetigungTermin;
-  empfaenger: FLSpielbestaetigungSweepEmpfaenger[];
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spielbestaetigung_id: string;
-  team1_name: string;
-  team2_name: string;
-}
-
-/**
- * A club's decline whose proposed date the administrator discarded: the slot it was asked about, which stands.
- */
-export interface FLSpielbestaetigungSweepVorschlagVerworfen {
-  alt: FLSpielbestaetigungTermin;
-  empfaenger: FLSpielbestaetigungSweepEmpfaenger[];
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spiel_id: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  spielbestaetigung_id: string;
-  team1_name: string;
-  team2_name: string;
-}
-
-/**
- * One season's pass: the requests still to stamp, the reminders already stamped, and the notices still to stamp.
+ * One season's pass, counted: what it closed, the rows it asked or reminded, and the mails it owed the Postausgang.
  */
 export interface FLSpielbestaetigungSweepResponse {
-  anfragen: FLSpielbestaetigungSweepAnfrage[];
-  einteilungen: FLSpielbestaetigungSweepEinteilung[];
-  erinnerungen: FLSpielbestaetigungSweepAnfrage[];
+  angefragt: number;
+  erinnert: number;
   fehlgeschlagen: number;
   geschlossen: number;
-  mitteilungen_aufgegeben: FLSpielbestaetigungSweepAufgegeben[];
-  neue_ansetzungen: FLSpielbestaetigungSweepNeueAnsetzung[];
+  mails: number;
   saison_id: string;
-  schiedsrichter_gewechselt: FLSpielbestaetigungSweepSchiedsrichterGewechselt[];
-  schiedsrichter_neue_ansetzungen: FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung[];
-  schiedsrichter_spiel_abgesagt: FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt[];
-  spiel_abgesagt: FLSpielbestaetigungSweepSpielAbgesagt[];
-  vorschlag_verworfen: FLSpielbestaetigungSweepVorschlagVerworfen[];
 }
 
 /**

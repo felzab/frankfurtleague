@@ -182,10 +182,6 @@ import type {
   FLSpielbestaetigungenSelbstResponse,
   FLSpielbestaetigungSchiedsrichterAntwortPayload,
   FLSpielbestaetigungSchiedsrichterAntwortResponse,
-  FLSpielbestaetigungSweepAngefragtPayload,
-  FLSpielbestaetigungSweepAngefragtResponse,
-  FLSpielbestaetigungSweepMitgeteiltPayload,
-  FLSpielbestaetigungSweepMitgeteiltResponse,
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungSweepSaisonsResponse,
   FLSpielbestaetigungWriteResponse,
@@ -3896,7 +3892,8 @@ export const getSpielbestaetigungenGetSpielbestaetigungenUrl = (params: Spielbes
  *
  * Newest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still
  * holding its party's question is served; `limit` cuts the others, and `vollstaendig` is false where it left the
- * oldest of them out. A season no document has answers no rows rather than 404.
+ * oldest of them out. Each seat holding a link names what became of the last mail owed to it. A season no document
+ * has answers no rows rather than 404.
  * @summary A season's fixture confirmations, or one fixture's
  */
 export const spielbestaetigungenGetSpielbestaetigungen = async (
@@ -4052,7 +4049,9 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
 };
 
 /**
- * Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what the caller must mail.
+ * Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what it did, counted.
+ *
+ * Each mail is owed through the Postausgang in the transaction that writes its row.
  *
  * The close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club
  * to an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of
@@ -4061,21 +4060,11 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
  * that closes an agreement beside it, and once the day it was about has passed: the public fixture then stops
  * counting it as that club's agreement.
  *
- * A closing owes its party a notice where the party's first request or Einteilung went out, about a day today or later:
- * for a move, the slot it left or the one the fixture holds now; for a referee taken off the fixture -- ahead of a move
- * it shares a close with, and never for the referee's own decline, which closed its row as it was given -- and for a
- * call-off, the slot the row was about. The closed row holds the
- * notice, and the notice step answers a share of those the season's rows hold, each built off the fixture and the
- * mailboxes or address as they stand: a team's move in `neue_ansetzungen`, a referee's in
- * `schiedsrichter_neue_ansetzungen`, a referee taken off in `schiedsrichter_gewechselt`, a call-off in `spiel_abgesagt`
- * and `schiedsrichter_spiel_abgesagt`, and the notice an administrator's discard holds, that the date stands, in
- * `vorschlag_verworfen`. A notice is answered on every pass until the caller stamps it through
- * `/mitgeteilt`; one answered as often as `app/api/spielbestaetigungen/services.py :: MITTEILUNG_VERSUCHE_HOECHSTENS`
- * allows, or about no day still to come, is given up: answered in `mitteilungen_aufgegeben` by its row, its fixture
- * and its party's kind, never a person, for the administrator to tell by hand, and answered so on every pass until
- * `/mitgeteilt` stamps it too, so a lost answer loses no give-up. One with nobody left to tell, or whose closing the
- * fixture has since undone -- reinstated, its referee booked again, back at the row's slot -- is dropped unanswered,
- * the mint asking its party afresh.
+ * A closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,
+ * about a day today or later: for a move, the slot it left or the one the fixture holds now; for a referee taken off
+ * the fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row
+ * as it was given -- and for a call-off, the slot the row was about. A club is told at every address its season row's
+ * seats hold now, a referee at the address their record holds; a party nobody is left to tell is told nothing.
  *
  * The mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and
  * ground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for
@@ -4083,36 +4072,27 @@ export const getSpielbestaetigungenSweepSpielbestaetigungenUrl = (saisonId: stri
  * decline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased
  * referee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period
  * (`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed.
- * Each seat holding an address gets one link, a person holding two seats one link naming both, and the raw tokens are
- * answered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so a request that never went
- * out shows as never asked. An open row's occupied seat holding no link -- its holder replaced,
- * newly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows are answered in
- * `einteilungen`, with the referee's address and no token. A fixture holding rows about an Ansetzung it has left is asked
- * once the close has shut them and each one's notice that its links are void is answered, in this answer or an earlier
- * one, so that notice goes out first.
+ * Each seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the
+ * mail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's
+ * occupied seat holding no link -- its holder replaced, newly seated, or a ban since lifted -- is owed one too. A
+ * fixture holding an unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing
+ * its notice first.
  *
- * The reminder mints a fresh link per seat on each team row whose deadline lies a reminder's count of days away
- * (`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), appended beside the
- * links already mailed so every one of them answers until the deadline, and stamps the day BEFORE answering: a failed send
- * costs one reminder, never a daily repeat. It passes over each seat whose last mail the provider refused, and reminds no
- * row this pass inserted nor one whose request was stamped today; where this pass's mint gave one of a row's seats a fresh
- * link, that request is the seat's message of the day and the row's other seats are reminded beside it.
+ * The reminder owes a fresh link per person on each team row whose deadline lies a reminder's count of days away
+ * (`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), minted beside the
+ * links already mailed so every one of them answers until the deadline, and stamps the day. It passes over each seat
+ * whose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where
+ * this pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's
+ * other seats are reminded beside it.
  *
- * A row whose first request was never stamped as sent, inserted on an earlier pass, is asked again on every pass until a
- * stamp lands or it stops taking an answer, a team row after its deadline and a referee row after the fixture's day: a
- * team row in `anfragen`, with a fresh link per seat appended the same way and each
- * refused seat passed over; a referee row in `einteilungen`, unless the provider refused the last mail recorded to the
- * referee's address. A row with nobody left to ask is not asked and stays unstamped, so it shows as never asked.
+ * A seat whose address the ban list holds is owed nothing and has nothing written, so it stays due and a later pass asks
+ * it once the ban is lifted.
  *
- * A seat whose address the ban list holds is minted nothing and has nothing written, so it stays due and a later pass mints
- * it once the ban is lifted; each pass logs how many seats it withheld, never which.
+ * Each step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id
+ * and counted in `fehlgeschlagen`; any other failure is raised, every step committed before it standing with its mails.
  *
- * Each step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has
- * committed something owed a message, a later failure is logged and the call answers what committed. A row whose write or
- * answer fails is passed over alone, logged by id and counted in `fehlgeschlagen`.
- *
- * A season that is not `active` is passed by whole -- nothing closed, minted or reminded, every list empty -- so a
- * mistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.
+ * A season that is not `active` is passed by whole -- nothing closed, minted or reminded -- so a mistyped call, or one for
+ * a season ended since the listing, mails nobody. 404 where no season has the id.
  * @summary Run one season's fixture confirmation pass
  */
 export const spielbestaetigungenSweepSpielbestaetigungen = async (
@@ -4122,82 +4102,6 @@ export const spielbestaetigungenSweepSpielbestaetigungen = async (
   return systemKeyTransport<FLSpielbestaetigungSweepResponse>(getSpielbestaetigungenSweepSpielbestaetigungenUrl(saisonId), {
     ...options,
     method: "POST",
-  });
-};
-
-export const getSpielbestaetigungenAngefragtSpielbestaetigungenUrl = (saisonId: string) => {
-  return `/api/v0/spielbestaetigungen/sweep/${saisonId}/angefragt`;
-};
-
-/**
- * Record that the first message about the rows named went out, team and referee rows alike.
- *
- * Every named row of this season not yet stamped is stamped today, answered or closed since or not: the stamp says the
- * request was mailed, which a row closed for a move needs before its parties are told the date changed. A row already
- * stamped keeps the day it has, and an id of another season is skipped. A row whose stamp fails is passed over alone,
- * logged by id, left unstamped and counted in `fehlgeschlagen`. 404 where no season has the id. An empty list answers zero.
- * @summary Stamp the confirmations whose first message went out
- */
-export const spielbestaetigungenAngefragtSpielbestaetigungen = async (
-  saisonId: string,
-  fLSpielbestaetigungSweepAngefragtPayload: FLSpielbestaetigungSweepAngefragtPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLSpielbestaetigungSweepAngefragtResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return systemKeyTransport<FLSpielbestaetigungSweepAngefragtResponse>(getSpielbestaetigungenAngefragtSpielbestaetigungenUrl(saisonId), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielbestaetigungSweepAngefragtPayload),
-  });
-};
-
-export const getSpielbestaetigungenMitgeteiltSpielbestaetigungenUrl = (saisonId: string) => {
-  return `/api/v0/spielbestaetigungen/sweep/${saisonId}/mitgeteilt`;
-};
-
-/**
- * Record that the notices about the rows named went out, or were given up and logged, so no later pass answers them again.
- *
- * Every named row of this season still holding its notice stops holding it. A row holding none -- stamped already,
- * dropped, or never owing one -- and an id of another season are left alone and not counted. No claim is checked:
- * one process runs the pass, so no second pass can hold the rows named. One
- * transaction, recorded under the system actor. 404 where no season has the id. An empty list answers zero.
- * @summary Stamp the confirmations whose notice went out
- */
-export const spielbestaetigungenMitgeteiltSpielbestaetigungen = async (
-  saisonId: string,
-  fLSpielbestaetigungSweepMitgeteiltPayload: FLSpielbestaetigungSweepMitgeteiltPayload,
-  options?: Parameters<typeof systemKeyTransport>[1],
-): Promise<FLSpielbestaetigungSweepMitgeteiltResponse> => {
-  const getHeaders = (h?: NonNullable<RequestInit["headers"]>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]));
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-  return systemKeyTransport<FLSpielbestaetigungSweepMitgeteiltResponse>(getSpielbestaetigungenMitgeteiltSpielbestaetigungenUrl(saisonId), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...getHeaders(options?.headers) },
-    body: JSON.stringify(fLSpielbestaetigungSweepMitgeteiltPayload),
   });
 };
 
@@ -4304,10 +4208,11 @@ export const getSpielbestaetigungenVerwerfenSpielbestaetigungUrl = (spielbestaet
  * IRREVERSIBLE: the decline stays as the club gave it, and the row is closed `verworfen`, which is that club's one
  * answer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture
  * counts it as the club's agreement, the league having kept the date, until a pass closes it again as it closes an
- * agreement beside it. Where its day is still to come, the row holds the club a notice that the date stands, which
- * the confirmation pass mails. Refused for any other row -- open, agreed, declined without a proposal, a referee's, closed, or
- * about an Ansetzung the fixture has left, the fixture moving while this request runs included (`REQ-ANSETZUNG-014`):
- * the confirmation pass closes that row and tells its club of the move.
+ * agreement beside it. Where its day is still to come, the club is owed a notice that the date stands, at every
+ * address its season row's seats hold now, in the same transaction. Refused for any other row -- open, agreed,
+ * declined without a proposal, a referee's, closed, or about an Ansetzung the fixture has left, the fixture moving
+ * while this request runs included (`REQ-ANSETZUNG-014`): the confirmation pass closes that row and tells its club of
+ * the move.
  * @summary Discard a club's proposed date
  */
 export const spielbestaetigungenVerwerfenSpielbestaetigung = async (

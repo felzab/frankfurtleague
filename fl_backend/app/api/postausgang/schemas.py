@@ -5,7 +5,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstrai
 
 from app.api.teams.schemas import FLKontaktRolle
 from app.core.collections import Collection
-from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString
+from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomDateString, CustomObjectId, CustomStrippedNonEmptyString, CustomTimeString
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse, BaseReadModel
 
@@ -53,8 +53,74 @@ class FLSchiedsrichterBestaetigungDaten(BaseModel):
     frist: CustomDateString
 
 
+class FLSpielMailTermin(BaseModel):
+    """A fixture's slot as a mail names it: its two sides in the fixture's order, its day and its hour."""
+
+    team1: str
+    team2: str
+    datum: CustomDateString
+    uhrzeit: CustomTimeString
+
+
+class FLSpielMailAnsetzung(FLSpielMailTermin):
+    """A fixture as a mail asking about it states it, its ground among the rest."""
+
+    # The ground's name; null where nobody assigned one.
+    ort: str | None
+
+
+class FLSpielAnfrageDaten(BaseModel):
+    """A club's request to confirm a fixture, or the reminder of it, each carrying a link of its own."""
+
+    art: Literal["spiel_anfrage", "spiel_erinnerung"]
+    # The reader's own club, one of the two sides.
+    team: str
+    ansetzung: FLSpielMailAnsetzung
+    # The row's stored deadline, which a reminder repeats.
+    frist: CustomDateString
+
+
+class FLSpielEinteilungDaten(BaseModel):
+    """A referee's word that they are booked onto a fixture, which they answer on their own panel."""
+
+    art: Literal["spiel_einteilung"]
+    ansetzung: FLSpielMailAnsetzung
+
+
+class FLSpielHinweisDaten(BaseModel):
+    """A party's word that a fixture it was asked about moved or was called off: the slot it was asked about."""
+
+    art: Literal["spiel_neu_angesetzt", "spiel_abgesagt"]
+    # A club was asked by a link, a referee was booked; each is told what of theirs no longer stands.
+    empfaenger: Literal["team", "schiedsrichter"]
+    termin: FLSpielMailTermin
+
+
+class FLSpielEinteilungAufgehobenDaten(BaseModel):
+    """A referee's word that they were taken off a fixture after being told of it: the slot they were told of."""
+
+    art: Literal["spiel_einteilung_aufgehoben"]
+    termin: FLSpielMailTermin
+
+
+class FLSpielVorschlagVerworfenDaten(BaseModel):
+    """A club's word that the league kept the date it declined and proposed another for: the slot that stands."""
+
+    art: Literal["spiel_vorschlag_verworfen"]
+    termin: FLSpielMailTermin
+
+
 FLPostausgangDaten = Annotated[
-    FLAnmeldecodeDaten | FLPasskeyDaten | FLKontoLoeschungDaten | FLSperreDaten | FLSchiedsrichterBestaetigungDaten,
+    FLAnmeldecodeDaten
+    | FLPasskeyDaten
+    | FLKontoLoeschungDaten
+    | FLSperreDaten
+    | FLSchiedsrichterBestaetigungDaten
+    | FLSpielAnfrageDaten
+    | FLSpielEinteilungDaten
+    | FLSpielHinweisDaten
+    | FLSpielEinteilungAufgehobenDaten
+    | FLSpielVorschlagVerworfenDaten,
     Field(discriminator="art"),
 ]
 
@@ -66,6 +132,13 @@ FLPostausgangArt = Literal[
     "konto_loeschung",
     "sperre",
     "schiedsrichter_bestaetigung",
+    "spiel_anfrage",
+    "spiel_erinnerung",
+    "spiel_einteilung",
+    "spiel_neu_angesetzt",
+    "spiel_abgesagt",
+    "spiel_einteilung_aufgehoben",
+    "spiel_vorschlag_verworfen",
 ]
 
 _MEMBER_ARTEN = {art for member in get_args(get_args(FLPostausgangDaten)[0]) for art in get_args(member.model_fields["art"].annotation)}

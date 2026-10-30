@@ -10,7 +10,6 @@ from app.api.bewerbungen.services import days_after
 from app.api.registrierungen.services import build_erinnerung_filter
 from app.api.registrierungen.services import compose_bestaetigung as compose_registrierung_bestaetigung
 from app.api.schiedsrichter.services import compose_bestaetigung
-from app.api.spielbestaetigungen.services import compose_seat_entry
 from app.api.teams.services import compose_kontakt_bestaetigung
 from app.api.zustellung.router import abgewiesen_zustellung, angenommen_zustellung, post_zustellung
 from app.api.zustellung.schemas import (
@@ -129,7 +128,7 @@ CARRIER_SEEDS: Mapping[FLZustellungZiel, Mapping[str, Any]] = {
     "kontakt": compose_kontakt_bestaetigung(token_hash=SEEDED_TOKEN_HASH, today=MINTED_ON),
     # Empty, as the start writes it, for the invitation's reason.
     "adresswechsel": {},
-    "spielbestaetigung": compose_seat_entry(token_hash=SEEDED_TOKEN_HASH),
+    "spielbestaetigung": {"token_hashes": [SEEDED_TOKEN_HASH], "zustellung": None},
 }
 
 # The seats each kind's report names: the Trainer's for a seat kind, none for every other.
@@ -541,12 +540,12 @@ class TestTheSeatAxis:
             **ZIEL_FIXTURES["spielbestaetigung"],
             "_id": OTHER_ROW_OID,
             "partei": {"art": "team", "team_id": ObjectId("6890a1b2c3d4e5f607970004")},
-            "kontakte": {"trainer": compose_seat_entry(token_hash=SEEDED_TOKEN_HASH), "ansprechperson": None, "stellvertretung": None},
+            "kontakte": {"trainer": {"token_hashes": [SEEDED_TOKEN_HASH], "zustellung": None}, "ansprechperson": None, "stellvertretung": None},
         }
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             collection = database[Collection.SPIELBESTAETIGUNGEN]
-            stellvertretung = compose_seat_entry(token_hash=SEEDED_TOKEN_HASH)
+            stellvertretung = {"token_hashes": [SEEDED_TOKEN_HASH], "zustellung": None}
             await collection.update_one({"_id": ZIEL_OID}, {"$set": {"kontakte.stellvertretung": stellvertretung}})
             await collection.insert_one(other_row)
             await accept(database, client, ziel="spielbestaetigung", rollen=["trainer"])

@@ -9618,7 +9618,14 @@
                 "passkey_geloescht": "#/components/schemas/FLPasskeyDaten",
                 "passkey_hinzugefuegt": "#/components/schemas/FLPasskeyDaten",
                 "schiedsrichter_bestaetigung": "#/components/schemas/FLSchiedsrichterBestaetigungDaten",
-                "sperre": "#/components/schemas/FLSperreDaten"
+                "sperre": "#/components/schemas/FLSperreDaten",
+                "spiel_abgesagt": "#/components/schemas/FLSpielHinweisDaten",
+                "spiel_anfrage": "#/components/schemas/FLSpielAnfrageDaten",
+                "spiel_einteilung": "#/components/schemas/FLSpielEinteilungDaten",
+                "spiel_einteilung_aufgehoben": "#/components/schemas/FLSpielEinteilungAufgehobenDaten",
+                "spiel_erinnerung": "#/components/schemas/FLSpielAnfrageDaten",
+                "spiel_neu_angesetzt": "#/components/schemas/FLSpielHinweisDaten",
+                "spiel_vorschlag_verworfen": "#/components/schemas/FLSpielVorschlagVerworfenDaten"
               },
               "propertyName": "art"
             },
@@ -9637,6 +9644,21 @@
               },
               {
                 "$ref": "#/components/schemas/FLSchiedsrichterBestaetigungDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielAnfrageDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielEinteilungDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielHinweisDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielEinteilungAufgehobenDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLSpielVorschlagVerworfenDaten"
               }
             ],
             "title": "Daten"
@@ -12875,6 +12897,77 @@
         "title": "FLSpielAdvancement",
         "type": "object"
       },
+      "FLSpielAnfrageDaten": {
+        "description": "A club's request to confirm a fixture, or the reminder of it, each carrying a link of its own.",
+        "properties": {
+          "ansetzung": {
+            "$ref": "#/components/schemas/FLSpielMailAnsetzung"
+          },
+          "art": {
+            "enum": [
+              "spiel_anfrage",
+              "spiel_erinnerung"
+            ],
+            "title": "Art",
+            "type": "string"
+          },
+          "frist": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist",
+            "type": "string"
+          },
+          "team": {
+            "title": "Team",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art",
+          "team",
+          "ansetzung",
+          "frist"
+        ],
+        "title": "FLSpielAnfrageDaten",
+        "type": "object"
+      },
+      "FLSpielEinteilungAufgehobenDaten": {
+        "description": "A referee's word that they were taken off a fixture after being told of it: the slot they were told of.",
+        "properties": {
+          "art": {
+            "const": "spiel_einteilung_aufgehoben",
+            "title": "Art",
+            "type": "string"
+          },
+          "termin": {
+            "$ref": "#/components/schemas/FLSpielMailTermin"
+          }
+        },
+        "required": [
+          "art",
+          "termin"
+        ],
+        "title": "FLSpielEinteilungAufgehobenDaten",
+        "type": "object"
+      },
+      "FLSpielEinteilungDaten": {
+        "description": "A referee's word that they are booked onto a fixture, which they answer on their own panel.",
+        "properties": {
+          "ansetzung": {
+            "$ref": "#/components/schemas/FLSpielMailAnsetzung"
+          },
+          "art": {
+            "const": "spiel_einteilung",
+            "title": "Art",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art",
+          "ansetzung"
+        ],
+        "title": "FLSpielEinteilungDaten",
+        "type": "object"
+      },
       "FLSpielElfmeterschiessen": {
         "description": "The penalty shoot-out that settled a level knockout fixture: the side with more goals in it won.",
         "properties": {
@@ -12894,6 +12987,37 @@
           "team2"
         ],
         "title": "FLSpielElfmeterschiessen",
+        "type": "object"
+      },
+      "FLSpielHinweisDaten": {
+        "description": "A party's word that a fixture it was asked about moved or was called off: the slot it was asked about.",
+        "properties": {
+          "art": {
+            "enum": [
+              "spiel_neu_angesetzt",
+              "spiel_abgesagt"
+            ],
+            "title": "Art",
+            "type": "string"
+          },
+          "empfaenger": {
+            "enum": [
+              "team",
+              "schiedsrichter"
+            ],
+            "title": "Empfaenger",
+            "type": "string"
+          },
+          "termin": {
+            "$ref": "#/components/schemas/FLSpielMailTermin"
+          }
+        },
+        "required": [
+          "art",
+          "empfaenger",
+          "termin"
+        ],
+        "title": "FLSpielHinweisDaten",
         "type": "object"
       },
       "FLSpielJoined": {
@@ -13278,6 +13402,80 @@
           "version"
         ],
         "title": "FLSpielJoinedAdmin",
+        "type": "object"
+      },
+      "FLSpielMailAnsetzung": {
+        "description": "A fixture as a mail asking about it states it, its ground among the rest.",
+        "properties": {
+          "datum": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum",
+            "type": "string"
+          },
+          "ort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ort"
+          },
+          "team1": {
+            "title": "Team1",
+            "type": "string"
+          },
+          "team2": {
+            "title": "Team2",
+            "type": "string"
+          },
+          "uhrzeit": {
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
+            "title": "Uhrzeit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "team1",
+          "team2",
+          "datum",
+          "uhrzeit",
+          "ort"
+        ],
+        "title": "FLSpielMailAnsetzung",
+        "type": "object"
+      },
+      "FLSpielMailTermin": {
+        "description": "A fixture's slot as a mail names it: its two sides in the fixture's order, its day and its hour.",
+        "properties": {
+          "datum": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Datum",
+            "type": "string"
+          },
+          "team1": {
+            "title": "Team1",
+            "type": "string"
+          },
+          "team2": {
+            "title": "Team2",
+            "type": "string"
+          },
+          "uhrzeit": {
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
+            "title": "Uhrzeit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "team1",
+          "team2",
+          "datum",
+          "uhrzeit"
+        ],
+        "title": "FLSpielMailTermin",
         "type": "object"
       },
       "FLSpielOrtField": {
@@ -13678,6 +13876,25 @@
           "tore"
         ],
         "title": "FLSpielTeamFieldPayload",
+        "type": "object"
+      },
+      "FLSpielVorschlagVerworfenDaten": {
+        "description": "A club's word that the league kept the date it declined and proposed another for: the slot that stands.",
+        "properties": {
+          "art": {
+            "const": "spiel_vorschlag_verworfen",
+            "title": "Art",
+            "type": "string"
+          },
+          "termin": {
+            "$ref": "#/components/schemas/FLSpielMailTermin"
+          }
+        },
+        "required": [
+          "art",
+          "termin"
+        ],
+        "title": "FLSpielVorschlagVerworfenDaten",
         "type": "object"
       },
       "FLSpielberichtAdminResponse": {
@@ -14647,7 +14864,7 @@
         "type": "object"
       },
       "FLSpielbestaetigung": {
-        "description": "One party's confirmation of one Ansetzung, as stored and as an administrator reads it.\n\nThe close reaches an answered row too, so an agreement a move overtook records why it stopped\napplying (`app/api/spielbestaetigungen/services.py :: build_closable_filter`).",
+        "description": "One party's confirmation of one Ansetzung, as an administrator reads it.\n\nThe close reaches an answered row too, so an agreement a move overtook records why it stopped\napplying (`app/api/spielbestaetigungen/services.py :: build_closable_filter`).",
         "properties": {
           "angefragt_am": {
             "anyOf": [
@@ -14749,9 +14966,9 @@
           "frist",
           "angefragt_am",
           "erinnert_am",
-          "kontakte",
           "antwort",
-          "geschlossen"
+          "geschlossen",
+          "kontakte"
         ],
         "title": "FLSpielbestaetigung",
         "type": "object"
@@ -15284,12 +15501,12 @@
         "type": "object"
       },
       "FLSpielbestaetigungSitz": {
-        "description": "One seat's link bookkeeping as an administrator reads it -- and NO `token_hashes`.\n\nThe hashes are raw document keys the token filter alone reads; a model declaring them would serve\nevery live link's hash through the admin read.",
+        "description": "One seat's link as an administrator reads it -- and NO `token_hashes`, nor the address it was owed to.\n\nThe hashes are raw document keys the token filter alone reads; a model declaring them would serve\nevery live link's hash through the admin read.",
         "properties": {
           "zustellung": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLBewerbungZustellung"
+                "$ref": "#/components/schemas/FLPostausgangLage"
               },
               {
                 "type": "null"
@@ -15303,305 +15520,16 @@
         "title": "FLSpielbestaetigungSitz",
         "type": "object"
       },
-      "FLSpielbestaetigungSweepAnfrage": {
-        "description": "One team row's request or reminder: the fixture, the stored deadline, and every link due a message.",
-        "properties": {
-          "ansetzung": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungAnsichtAnsetzung"
-          },
-          "frist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
-            "type": "string"
-          },
-          "links": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigungSweepLink"
-            },
-            "title": "Links",
-            "type": "array"
-          },
-          "seite": {
-            "$ref": "#/components/schemas/FLSpielSeite"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spielbestaetigung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spielbestaetigung Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spielbestaetigung_id",
-          "spiel_id",
-          "seite",
-          "ansetzung",
-          "frist",
-          "links"
-        ],
-        "title": "FLSpielbestaetigungSweepAnfrage",
-        "type": "object"
-      },
-      "FLSpielbestaetigungSweepAngefragtPayload": {
-        "additionalProperties": false,
-        "description": "Which rows' first messages went. Stamped whether or not answered or closed since: the stamp records the send.",
-        "properties": {
-          "spielbestaetigung_ids": {
-            "items": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "type": "string"
-            },
-            "maxItems": 83,
-            "title": "Spielbestaetigung Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "spielbestaetigung_ids"
-        ],
-        "title": "FLSpielbestaetigungSweepAngefragtPayload",
-        "type": "object"
-      },
-      "FLSpielbestaetigungSweepAngefragtResponse": {
+      "FLSpielbestaetigungSweepResponse": {
+        "description": "One season's pass, counted: what it closed, the rows it asked or reminded, and the mails it owed the Postausgang.",
         "properties": {
           "angefragt": {
             "title": "Angefragt",
             "type": "integer"
           },
-          "fehlgeschlagen": {
-            "title": "Fehlgeschlagen",
+          "erinnert": {
+            "title": "Erinnert",
             "type": "integer"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "angefragt",
-          "fehlgeschlagen"
-        ],
-        "title": "FLSpielbestaetigungSweepAngefragtResponse",
-        "type": "object"
-      },
-      "FLSpielbestaetigungSweepAufgegeben": {
-        "description": "A notice given up unsent, for the administrator to tell by hand: the fixture and the party's kind, never a person.",
-        "properties": {
-          "partei": {
-            "enum": [
-              "team",
-              "schiedsrichter"
-            ],
-            "title": "Partei",
-            "type": "string"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spielbestaetigung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spielbestaetigung Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spielbestaetigung_id",
-          "spiel_id",
-          "partei"
-        ],
-        "title": "FLSpielbestaetigungSweepAufgegeben",
-        "type": "object"
-      },
-      "FLSpielbestaetigungSweepEinteilung": {
-        "description": "A referee row just minted, or one no stamp records as told: the referee is told to the panel, with no token.",
-        "properties": {
-          "address": {
-            "title": "Address",
-            "type": "string"
-          },
-          "ansetzung": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungAnsichtAnsetzung"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spielbestaetigung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spielbestaetigung Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spielbestaetigung_id",
-          "spiel_id",
-          "ansetzung",
-          "address"
-        ],
-        "title": "FLSpielbestaetigungSweepEinteilung",
-        "type": "object"
-      },
-      "FLSpielbestaetigungSweepEmpfaenger": {
-        "description": "A mailbox told something without a link.",
-        "properties": {
-          "address": {
-            "title": "Address",
-            "type": "string"
-          },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "title": "Rollen",
-            "type": "array"
-          }
-        },
-        "required": [
-          "address",
-          "rollen"
-        ],
-        "title": "FLSpielbestaetigungSweepEmpfaenger",
-        "type": "object"
-      },
-      "FLSpielbestaetigungSweepLink": {
-        "description": "One LINK and its mailbox; the RAW token exists here and in the mail alone.\n\nPer link: one person on two seats gets one button naming both roles, two people on one inbox two.",
-        "properties": {
-          "address": {
-            "title": "Address",
-            "type": "string"
-          },
-          "rollen": {
-            "items": {
-              "$ref": "#/components/schemas/FLKontaktRolle"
-            },
-            "title": "Rollen",
-            "type": "array"
-          },
-          "token": {
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "address",
-          "rollen",
-          "token"
-        ],
-        "title": "FLSpielbestaetigungSweepLink",
-        "type": "object"
-      },
-      "FLSpielbestaetigungSweepMitgeteiltPayload": {
-        "additionalProperties": false,
-        "description": "Which rows' notices went, or were given up: each stops being owed, so no later pass answers it again.",
-        "properties": {
-          "spielbestaetigung_ids": {
-            "items": {
-              "pattern": "^[0-9a-fA-F]{24}$",
-              "type": "string"
-            },
-            "maxItems": 25,
-            "title": "Spielbestaetigung Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "spielbestaetigung_ids"
-        ],
-        "title": "FLSpielbestaetigungSweepMitgeteiltPayload",
-        "type": "object"
-      },
-      "FLSpielbestaetigungSweepMitgeteiltResponse": {
-        "properties": {
-          "mitgeteilt": {
-            "title": "Mitgeteilt",
-            "type": "integer"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "saison_id",
-          "mitgeteilt"
-        ],
-        "title": "FLSpielbestaetigungSweepMitgeteiltResponse",
-        "type": "object"
-      },
-      "FLSpielbestaetigungSweepNeueAnsetzung": {
-        "description": "A team row a move closed, so a link in its mailboxes is known void before the fresh request arrives.",
-        "properties": {
-          "alt": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungTermin"
-          },
-          "empfaenger": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigungSweepEmpfaenger"
-            },
-            "title": "Empfaenger",
-            "type": "array"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spielbestaetigung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spielbestaetigung Id",
-            "type": "string"
-          },
-          "team1_name": {
-            "title": "Team1 Name",
-            "type": "string"
-          },
-          "team2_name": {
-            "title": "Team2 Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spielbestaetigung_id",
-          "spiel_id",
-          "team1_name",
-          "team2_name",
-          "alt",
-          "empfaenger"
-        ],
-        "title": "FLSpielbestaetigungSweepNeueAnsetzung",
-        "type": "object"
-      },
-      "FLSpielbestaetigungSweepResponse": {
-        "description": "One season's pass: the requests still to stamp, the reminders already stamped, and the notices still to stamp.",
-        "properties": {
-          "anfragen": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigungSweepAnfrage"
-            },
-            "title": "Anfragen",
-            "type": "array"
-          },
-          "einteilungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigungSweepEinteilung"
-            },
-            "title": "Einteilungen",
-            "type": "array"
-          },
-          "erinnerungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigungSweepAnfrage"
-            },
-            "title": "Erinnerungen",
-            "type": "array"
           },
           "fehlgeschlagen": {
             "title": "Fehlgeschlagen",
@@ -15611,74 +15539,22 @@
             "title": "Geschlossen",
             "type": "integer"
           },
-          "mitteilungen_aufgegeben": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigungSweepAufgegeben"
-            },
-            "title": "Mitteilungen Aufgegeben",
-            "type": "array"
-          },
-          "neue_ansetzungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigungSweepNeueAnsetzung"
-            },
-            "title": "Neue Ansetzungen",
-            "type": "array"
+          "mails": {
+            "title": "Mails",
+            "type": "integer"
           },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
-          },
-          "schiedsrichter_gewechselt": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigungSweepSchiedsrichterGewechselt"
-            },
-            "title": "Schiedsrichter Gewechselt",
-            "type": "array"
-          },
-          "schiedsrichter_neue_ansetzungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung"
-            },
-            "title": "Schiedsrichter Neue Ansetzungen",
-            "type": "array"
-          },
-          "schiedsrichter_spiel_abgesagt": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt"
-            },
-            "title": "Schiedsrichter Spiel Abgesagt",
-            "type": "array"
-          },
-          "spiel_abgesagt": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigungSweepSpielAbgesagt"
-            },
-            "title": "Spiel Abgesagt",
-            "type": "array"
-          },
-          "vorschlag_verworfen": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigungSweepVorschlagVerworfen"
-            },
-            "title": "Vorschlag Verworfen",
-            "type": "array"
           }
         },
         "required": [
           "saison_id",
-          "anfragen",
-          "erinnerungen",
-          "einteilungen",
-          "neue_ansetzungen",
-          "schiedsrichter_neue_ansetzungen",
-          "schiedsrichter_gewechselt",
-          "spiel_abgesagt",
-          "schiedsrichter_spiel_abgesagt",
-          "vorschlag_verworfen",
           "geschlossen",
-          "fehlgeschlagen",
-          "mitteilungen_aufgegeben"
+          "angefragt",
+          "erinnert",
+          "mails",
+          "fehlgeschlagen"
         ],
         "title": "FLSpielbestaetigungSweepResponse",
         "type": "object"
@@ -15698,212 +15574,6 @@
           "saison_ids"
         ],
         "title": "FLSpielbestaetigungSweepSaisonsResponse",
-        "type": "object"
-      },
-      "FLSpielbestaetigungSweepSchiedsrichterGewechselt": {
-        "description": "A referee row closed because its referee was taken off the fixture after their Einteilung went out: the slot they were told of.",
-        "properties": {
-          "address": {
-            "title": "Address",
-            "type": "string"
-          },
-          "alt": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungTermin"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spielbestaetigung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spielbestaetigung Id",
-            "type": "string"
-          },
-          "team1_name": {
-            "title": "Team1 Name",
-            "type": "string"
-          },
-          "team2_name": {
-            "title": "Team2 Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spielbestaetigung_id",
-          "spiel_id",
-          "team1_name",
-          "team2_name",
-          "alt",
-          "address"
-        ],
-        "title": "FLSpielbestaetigungSweepSchiedsrichterGewechselt",
-        "type": "object"
-      },
-      "FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung": {
-        "description": "The same for a referee row: one address, no seat, the delivery lane recording no seat.",
-        "properties": {
-          "address": {
-            "title": "Address",
-            "type": "string"
-          },
-          "alt": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungTermin"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spielbestaetigung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spielbestaetigung Id",
-            "type": "string"
-          },
-          "team1_name": {
-            "title": "Team1 Name",
-            "type": "string"
-          },
-          "team2_name": {
-            "title": "Team2 Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spielbestaetigung_id",
-          "spiel_id",
-          "team1_name",
-          "team2_name",
-          "alt",
-          "address"
-        ],
-        "title": "FLSpielbestaetigungSweepSchiedsrichterNeueAnsetzung",
-        "type": "object"
-      },
-      "FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt": {
-        "description": "The same for a referee row whose Einteilung went out: one address, no seat.",
-        "properties": {
-          "address": {
-            "title": "Address",
-            "type": "string"
-          },
-          "alt": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungTermin"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spielbestaetigung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spielbestaetigung Id",
-            "type": "string"
-          },
-          "team1_name": {
-            "title": "Team1 Name",
-            "type": "string"
-          },
-          "team2_name": {
-            "title": "Team2 Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spielbestaetigung_id",
-          "spiel_id",
-          "team1_name",
-          "team2_name",
-          "alt",
-          "address"
-        ],
-        "title": "FLSpielbestaetigungSweepSchiedsrichterSpielAbgesagt",
-        "type": "object"
-      },
-      "FLSpielbestaetigungSweepSpielAbgesagt": {
-        "description": "A team row closed because its fixture was called off after its request went out: the slot it was asked about.",
-        "properties": {
-          "alt": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungTermin"
-          },
-          "empfaenger": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigungSweepEmpfaenger"
-            },
-            "title": "Empfaenger",
-            "type": "array"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spielbestaetigung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spielbestaetigung Id",
-            "type": "string"
-          },
-          "team1_name": {
-            "title": "Team1 Name",
-            "type": "string"
-          },
-          "team2_name": {
-            "title": "Team2 Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spielbestaetigung_id",
-          "spiel_id",
-          "team1_name",
-          "team2_name",
-          "alt",
-          "empfaenger"
-        ],
-        "title": "FLSpielbestaetigungSweepSpielAbgesagt",
-        "type": "object"
-      },
-      "FLSpielbestaetigungSweepVorschlagVerworfen": {
-        "description": "A club's decline whose proposed date the administrator discarded: the slot it was asked about, which stands.",
-        "properties": {
-          "alt": {
-            "$ref": "#/components/schemas/FLSpielbestaetigungTermin"
-          },
-          "empfaenger": {
-            "items": {
-              "$ref": "#/components/schemas/FLSpielbestaetigungSweepEmpfaenger"
-            },
-            "title": "Empfaenger",
-            "type": "array"
-          },
-          "spiel_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spiel Id",
-            "type": "string"
-          },
-          "spielbestaetigung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Spielbestaetigung Id",
-            "type": "string"
-          },
-          "team1_name": {
-            "title": "Team1 Name",
-            "type": "string"
-          },
-          "team2_name": {
-            "title": "Team2 Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "spielbestaetigung_id",
-          "spiel_id",
-          "team1_name",
-          "team2_name",
-          "alt",
-          "empfaenger"
-        ],
-        "title": "FLSpielbestaetigungSweepVorschlagVerworfen",
         "type": "object"
       },
       "FLSpielbestaetigungTermin": {
@@ -27119,7 +26789,7 @@
     },
     "/api/v0/spielbestaetigungen": {
       "get": {
-        "description": "Every confirmation row of the season, or of its one fixture.\n\nNewest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still\nholding its party's question is served; `limit` cuts the others, and `vollstaendig` is false where it left the\noldest of them out. A season no document has answers no rows rather than 404.",
+        "description": "Every confirmation row of the season, or of its one fixture.\n\nNewest first, closed rows included. No seat's link hashes and no answer's holder digest are served. Every row still\nholding its party's question is served; `limit` cuts the others, and `vollstaendig` is false where it left the\noldest of them out. Each seat holding a link names what became of the last mail owed to it. A season no document\nhas answers no rows rather than 404.",
         "operationId": "spielbestaetigungen_get_spielbestaetigungen",
         "parameters": [
           {
@@ -27512,7 +27182,7 @@
     },
     "/api/v0/spielbestaetigungen/sweep/{saison_id}": {
       "post": {
-        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_vergangen`, so nobody is asked about a past date. A\nclub's decline closed `verworfen` is closed again for each of those but a move and a referee change, in the pass\nthat closes an agreement beside it, and once the day it was about has passed: the public fixture then stops\ncounting it as that club's agreement.\n\nA closing owes its party a notice where the party's first request or Einteilung went out, about a day today or later:\nfor a move, the slot it left or the one the fixture holds now; for a referee taken off the fixture -- ahead of a move\nit shares a close with, and never for the referee's own decline, which closed its row as it was given -- and for a\ncall-off, the slot the row was about. The closed row holds the\nnotice, and the notice step answers a share of those the season's rows hold, each built off the fixture and the\nmailboxes or address as they stand: a team's move in `neue_ansetzungen`, a referee's in\n`schiedsrichter_neue_ansetzungen`, a referee taken off in `schiedsrichter_gewechselt`, a call-off in `spiel_abgesagt`\nand `schiedsrichter_spiel_abgesagt`, and the notice an administrator's discard holds, that the date stands, in\n`vorschlag_verworfen`. A notice is answered on every pass until the caller stamps it through\n`/mitgeteilt`; one answered as often as `app/api/spielbestaetigungen/services.py :: MITTEILUNG_VERSUCHE_HOECHSTENS`\nallows, or about no day still to come, is given up: answered in `mitteilungen_aufgegeben` by its row, its fixture\nand its party's kind, never a person, for the administrator to tell by hand, and answered so on every pass until\n`/mitgeteilt` stamps it too, so a lost answer loses no give-up. One with nobody left to tell, or whose closing the\nfixture has since undone -- reinstated, its referee booked again, back at the row's slot -- is dropped unanswered,\nthe mint asking its party afresh.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `verworfen`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed.\nEach seat holding an address gets one link, a person holding two seats one link naming both, and the raw tokens are\nanswered in `anfragen` UNSTAMPED: the caller stamps what it mailed through `/angefragt`, so a request that never went\nout shows as never asked. An open row's occupied seat holding no link -- its holder replaced,\nnewly seated, or a ban since lifted -- is minted one too and answered the same way. Referee rows are answered in\n`einteilungen`, with the referee's address and no token. A fixture holding rows about an Ansetzung it has left is asked\nonce the close has shut them and each one's notice that its links are void is answered, in this answer or an earlier\none, so that notice goes out first.\n\nThe reminder mints a fresh link per seat on each team row whose deadline lies a reminder's count of days away\n(`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), appended beside the\nlinks already mailed so every one of them answers until the deadline, and stamps the day BEFORE answering: a failed send\ncosts one reminder, never a daily repeat. It passes over each seat whose last mail the provider refused, and reminds no\nrow this pass inserted nor one whose request was stamped today; where this pass's mint gave one of a row's seats a fresh\nlink, that request is the seat's message of the day and the row's other seats are reminded beside it.\n\nA row whose first request was never stamped as sent, inserted on an earlier pass, is asked again on every pass until a\nstamp lands or it stops taking an answer, a team row after its deadline and a referee row after the fixture's day: a\nteam row in `anfragen`, with a fresh link per seat appended the same way and each\nrefused seat passed over; a referee row in `einteilungen`, unless the provider refused the last mail recorded to the\nreferee's address. A row with nobody left to ask is not asked and stays unstamped, so it shows as never asked.\n\nA seat whose address the ban list holds is minted nothing and has nothing written, so it stays due and a later pass mints\nit once the ban is lifted; each pass logs how many seats it withheld, never which.\n\nEach step takes a bounded share and leaves the rest due. Everything answered was committed, and once a step has\ncommitted something owed a message, a later failure is logged and the call answers what committed. A row whose write or\nanswer fails is passed over alone, logged by id and counted in `fehlgeschlagen`.\n\nA season that is not `active` is passed by whole -- nothing closed, minted or reminded, every list empty -- so a\nmistyped call, or one for a season ended since the listing, mails nobody. 404 where no season has the id.",
+        "description": "Close, mint and remind one season's fixture confirmations, as of today in Europe/Berlin, and answer what it did, counted.\n\nEach mail is owed through the Postausgang in the transaction that writes its row.\n\nThe close shuts every row not yet closed, answered or not, whose fixture moved, was decided, was called off, lost a club\nto an `austritt` dated on or before its day, or -- a referee's row -- names another referee or none; failing all of\nthose, a row whose fixture's day is before today closes `spiel_vergangen`, so nobody is asked about a past date. A\nclub's decline closed `verworfen` is closed again for each of those but a move and a referee change, in the pass\nthat closes an agreement beside it, and once the day it was about has passed: the public fixture then stops\ncounting it as that club's agreement.\n\nA closing owes its party a notice in its own transaction where the party's first request or Einteilung was owed,\nabout a day today or later: for a move, the slot it left or the one the fixture holds now; for a referee taken off\nthe fixture -- ahead of a move it shares a close with, and never for the referee's own decline, which closed its row\nas it was given -- and for a call-off, the slot the row was about. A club is told at every address its season row's\nseats hold now, a referee at the address their record holds; a party nobody is left to tell is told nothing.\n\nThe mint asks about every fixture dated strictly after today and at most the answer window ahead that has its time and\nground, both sides, no result and no `sonderereignis`, and that the close would not shut: one row per side and one for\nits booked referee, unless a row about that party and that Ansetzung is still unclosed, or was closed `verworfen`: a\ndecline the administrator discarded is the party's one answer to that Ansetzung. A fixture booked onto the erased\nreferee's ghost gets no referee row, the ghost holding no address. The deadline falls the notice period\n(`app/shared/schemas/bounds.py :: SPIEL_BESTAETIGUNG_FRIST_TAGE`) before the fixture, or today where that has passed.\nEach seat holding an address is owed one link, a person holding two seats one link naming both, each minted when the\nmail is handed out, and the row is stamped as asked; a referee row is owed its Einteilung, with no link. An open row's\noccupied seat holding no link -- its holder replaced, newly seated, or a ban since lifted -- is owed one too. A\nfixture holding an unclosed row about an Ansetzung it has left is asked once the close has shut it, the close owing\nits notice first.\n\nThe reminder owes a fresh link per person on each team row whose deadline lies a reminder's count of days away\n(`app/shared/schemas/bounds.py :: SPIEL_ERINNERUNG_TAGE_ERSTE`, `:: SPIEL_ERINNERUNG_TAGE_ZWEITE`), minted beside the\nlinks already mailed so every one of them answers until the deadline, and stamps the day. It passes over each seat\nwhose last mail did not arrive, and reminds no row this pass inserted nor one whose request was owed today; where\nthis pass's mint owed one of a row's seats a fresh link, that request is the seat's message of the day and the row's\nother seats are reminded beside it.\n\nA seat whose address the ban list holds is owed nothing and has nothing written, so it stays due and a later pass asks\nit once the ban is lifted.\n\nEach step takes a bounded share and leaves the rest due. A row whose write fails is passed over alone, logged by id\nand counted in `fehlgeschlagen`; any other failure is raised, every step committed before it standing with its mails.\n\nA season that is not `active` is passed by whole -- nothing closed, minted or reminded -- so a mistyped call, or one for\na season ended since the listing, mails nobody. 404 where no season has the id.",
         "operationId": "spielbestaetigungen_sweep_spielbestaetigungen",
         "parameters": [
           {
@@ -27583,182 +27253,6 @@
           }
         ],
         "summary": "Run one season's fixture confirmation pass",
-        "tags": [
-          "spielbestaetigungen"
-        ]
-      }
-    },
-    "/api/v0/spielbestaetigungen/sweep/{saison_id}/angefragt": {
-      "post": {
-        "description": "Record that the first message about the rows named went out, team and referee rows alike.\n\nEvery named row of this season not yet stamped is stamped today, answered or closed since or not: the stamp says the\nrequest was mailed, which a row closed for a move needs before its parties are told the date changed. A row already\nstamped keeps the day it has, and an id of another season is skipped. A row whose stamp fails is passed over alone,\nlogged by id, left unstamped and counted in `fehlgeschlagen`. 404 where no season has the id. An empty list answers zero.",
-        "operationId": "spielbestaetigungen_angefragt_spielbestaetigungen",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLSpielbestaetigungSweepAngefragtPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungSweepAngefragtResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "SystemKey": []
-          }
-        ],
-        "summary": "Stamp the confirmations whose first message went out",
-        "tags": [
-          "spielbestaetigungen"
-        ]
-      }
-    },
-    "/api/v0/spielbestaetigungen/sweep/{saison_id}/mitgeteilt": {
-      "post": {
-        "description": "Record that the notices about the rows named went out, or were given up and logged, so no later pass answers them again.\n\nEvery named row of this season still holding its notice stops holding it. A row holding none -- stamped already,\ndropped, or never owing one -- and an id of another season are left alone and not counted. No claim is checked:\none process runs the pass, so no second pass can hold the rows named. One\ntransaction, recorded under the system actor. 404 where no season has the id. An empty list answers zero.",
-        "operationId": "spielbestaetigungen_mitgeteilt_spielbestaetigungen",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "saison_id",
-            "required": true,
-            "schema": {
-              "title": "Saison Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FLSpielbestaetigungSweepMitgeteiltPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FLSpielbestaetigungSweepMitgeteiltResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "$ref": "#/components/responses/400",
-            "description": "Bad Request"
-          },
-          "401": {
-            "$ref": "#/components/responses/401",
-            "description": "Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/403",
-            "description": "Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/404",
-            "description": "Not Found"
-          },
-          "409": {
-            "$ref": "#/components/responses/409",
-            "description": "Conflict"
-          },
-          "410": {
-            "$ref": "#/components/responses/410",
-            "description": "Gone"
-          },
-          "422": {
-            "$ref": "#/components/responses/422",
-            "description": "Unprocessable Content"
-          },
-          "429": {
-            "$ref": "#/components/responses/429",
-            "description": "Too Many Requests"
-          },
-          "500": {
-            "$ref": "#/components/responses/500",
-            "description": "Internal Server Error"
-          },
-          "503": {
-            "$ref": "#/components/responses/503",
-            "description": "Service Unavailable"
-          }
-        },
-        "security": [
-          {
-            "SystemKey": []
-          }
-        ],
-        "summary": "Stamp the confirmations whose notice went out",
         "tags": [
           "spielbestaetigungen"
         ]
@@ -27944,7 +27438,7 @@
     },
     "/api/v0/spielbestaetigungen/{spielbestaetigung_id}/verwerfen": {
       "post": {
-        "description": "Close a club's open decline that proposes another date, so the proposal stops asking the administrator to act.\n\nIRREVERSIBLE: the decline stays as the club gave it, and the row is closed `verworfen`, which is that club's one\nanswer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture\ncounts it as the club's agreement, the league having kept the date, until a pass closes it again as it closes an\nagreement beside it. Where its day is still to come, the row holds the club a notice that the date stands, which\nthe confirmation pass mails. Refused for any other row -- open, agreed, declined without a proposal, a referee's, closed, or\nabout an Ansetzung the fixture has left, the fixture moving while this request runs included (`REQ-ANSETZUNG-014`):\nthe confirmation pass closes that row and tells its club of the move.",
+        "description": "Close a club's open decline that proposes another date, so the proposal stops asking the administrator to act.\n\nIRREVERSIBLE: the decline stays as the club gave it, and the row is closed `verworfen`, which is that club's one\nanswer to this Ansetzung: the confirmation pass never asks it about this Ansetzung again, and the public fixture\ncounts it as the club's agreement, the league having kept the date, until a pass closes it again as it closes an\nagreement beside it. Where its day is still to come, the club is owed a notice that the date stands, at every\naddress its season row's seats hold now, in the same transaction. Refused for any other row -- open, agreed,\ndeclined without a proposal, a referee's, closed, or about an Ansetzung the fixture has left, the fixture moving\nwhile this request runs included (`REQ-ANSETZUNG-014`): the confirmation pass closes that row and tells its club of\nthe move.",
         "operationId": "spielbestaetigungen_verwerfen_spielbestaetigung",
         "parameters": [
           {
