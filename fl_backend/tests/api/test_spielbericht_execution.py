@@ -1,5 +1,5 @@
 """
-API · a fixture's report written, read and judged against the shipped validators and indexes
+API · a fixture's report written, read and judged against the shipped indexes
 
 The report writes its own document alone: never the fixture, whose result the administrator saves.
 """

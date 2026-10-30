@@ -302,6 +302,7 @@ async def put_spielbericht_bericht(
             payload=payload,
             von=FLSpielberichtVonSchiedsrichter(art="schiedsrichter", schiedsrichter_id=lage.spiel["schiedsrichter"]["schiedsrichter_id"]),
             now=now,
+            version=bericht_data.version,
             session=session,
         )
         if gespeichert is None:
