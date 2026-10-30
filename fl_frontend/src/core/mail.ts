@@ -26,14 +26,14 @@ const MAIL_ENDPOINT = "https://api.resend.com/emails";
 // Two senders: sign-in codes and security notices from one address, everything else from the
 // other, the mail's kind choosing (`fl_frontend/src/core/emailShell.ts :: MailSender`). Each address
 // needs its own routing rule and its sender alignment at the provider.
-const ABSENDER: Readonly<Record<MailSender, string>> = {
+const SENDER_ADDRESSES: Readonly<Record<MailSender, string>> = {
   anmeldung: "anmeldung@frankfurtleague.de",
   liga: "liga@frankfurtleague.de",
 };
 
 /** Every sender under the league's name, which needs no quoting: it holds no comma, quote or angle bracket. */
 function senderRow(sender: MailSender): string {
-  return `${COPY.marke.name} <${ABSENDER[sender]}>`;
+  return `${COPY.marke.name} <${SENDER_ADDRESSES[sender]}>`;
 }
 
 /** Every reply reaches the league's mailbox, whichever address sent the mail. */

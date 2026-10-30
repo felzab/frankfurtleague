@@ -14,7 +14,7 @@ export const BRAND_NAME: string = COPY.marke.name;
  */
 type MailArt = "anmeldung" | "sicherheit" | "erstkontakt" | "mitteilung";
 
-/** The two sending addresses (`fl_frontend/src/core/mail.ts :: ABSENDER`). */
+/** The two sending addresses (`fl_frontend/src/core/mail.ts :: SENDER_ADDRESSES`). */
 export type MailSender = "anmeldung" | "liga";
 
 const SENDER: Readonly<Record<MailArt, MailSender>> = {
