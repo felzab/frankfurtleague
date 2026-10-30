@@ -1,6 +1,6 @@
 import asyncio
 import functools
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterator, Mapping
 from typing import Any
 
 import pymongo
@@ -19,7 +19,6 @@ from tests.app_client import app_client
 from tests.config import (
     ADMIN_AUTH,
     ADMIN_KEY,
-    ADMINISTRATORS,
     BASE_AUTH,
     UNANSWERED_DEADLINE_S,
     UNANSWERED_URI,
@@ -155,10 +154,9 @@ def answered(
     headers: Mapping[str, str],
     *,
     database_name: str = CORPUS_DATABASE,
-    admitting: Iterable[str] | None = None,
 ) -> Response:
     async def _answered() -> Response:
-        async with app_client(uri, app=_served(database_name), admitting=admitting) as http:
+        async with app_client(uri, app=_served(database_name)) as http:
             with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
                 return await http.get(path, headers=dict(headers))
 
@@ -227,9 +225,8 @@ def test_the_base_key_no_longer_reaches_a_venue_or_a_referee(path: str):
 def test_the_admin_key_clears_the_guard_and_reaches_the_database(path: str):
     """The control: without it, a refusal from a route that stopped existing would read as the guard's."""
 
-    # The actor check answered from the set, so the 500 is the handler's own read: against the
-    # unreachable grants, the check's read would answer it before the handler ran.
-    response = answered(UNANSWERED_URI, path, ADMIN_AUTH, admitting=ADMINISTRATORS)
+    # The 500 is the actor check's grant read, which runs only once the admin key has cleared.
+    response = answered(UNANSWERED_URI, path, ADMIN_AUTH)
 
     assert response.status_code == 500
     assert response.json()["error_code"] == UNREACHED_DATABASE

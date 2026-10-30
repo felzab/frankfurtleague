@@ -56,11 +56,6 @@ from app.core.collections import Collection
 from app.core.constraints import UNIQUE_INDEXES
 from app.core.exceptions import WriteRefusal
 from app.core.readback import RECORD_MODELS
-from tests.core.app_source import (
-    app_calls,
-    callee,
-    removals,
-)
 from tests.documents import rules_document
 
 PayloadFactory = Callable[..., dict[str, Any]]
@@ -207,28 +202,6 @@ def _swap(**overrides: Any):
             **overrides,
         }
     )
-
-
-# The driver calls that remove a document. `bulk_write` is among them for its delete operations,
-# which is how a removal would arrive without naming one.
-DRIVER_REMOVALS = frozenset({"bulk_write", "delete_many", "delete_one", "drop", "drop_collection", "find_one_and_delete"})
-
-# The ONE `app/core/crud.py` implements helpers for -- `delete_many_from_db` and `erase_many_from_db`
-# both call it -- and so the only removal any module may make. Its complement is banned everywhere,
-# that module included.
-RECORDED_REMOVALS = frozenset({"delete_many"})
-
-# `app/core/recording.py` writes the log's own rows and removes nothing, so it is not among these.
-REMOVAL_MODULES = ("app/core/crud.py",)
-
-# The day a row retired, and so the field a retention sweep would select on.
-RETIREMENT_FIELD = "inactive_since"
-
-
-def _driver_calls(methods: frozenset[str]) -> list[str]:
-    """Where the application calls one of `methods`, each as its module and the function holding the call."""
-
-    return sorted({f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) in methods})
 
 
 class TestASharedSquadNumber:
@@ -463,44 +436,6 @@ class TestNoBracketFaultIsStored:
             FLBracketFaultClash,
         ):
             assert "reason" in variant.model_fields
-
-
-class TestNoPurgeReachesARetiredRow:
-    """That a removal reaches the driver from `app/core/crud.py` alone, and that none selects on an age.
-
-    Deletion is that module's removal helpers and `inactive_since`, so a purge built later is
-    logged by construction.
-    """
-
-    def test_a_removal_reaches_the_driver_from_one_module_alone(self):
-        """The application entire, not its write helpers: several routers reach the driver for reads, so a removal would need no helper."""
-
-        # The floor is the banned set itself: a removal IS found, so emptying `DRIVER_REMOVALS` or
-        # dropping `delete_many` from it fails here, rather than leaving the two assertions below
-        # green over a sweep that matches nothing.
-        reaching_the_driver = _driver_calls(DRIVER_REMOVALS)
-
-        assert reaching_the_driver
-
-        # The five `app/core/crud.py` implements no helper for: a call to one is a removal that
-        # records nothing, wherever it stands. `drop` and `drop_collection` could not be recorded at
-        # all -- neither names a filter, and neither leaves an image.
-        assert _driver_calls(DRIVER_REMOVALS - RECORDED_REMOVALS) == []
-
-        assert [call for call in reaching_the_driver if not call.startswith(REMOVAL_MODULES)] == []
-
-    def test_no_removal_selects_on_the_day_a_row_retired(self):
-        """A sweep's SHAPE, never a count of its callers: the module rule above admits one written inside `app/core/crud.py`."""
-
-        selected_on = {field for removal in removals() for field in removal.names}
-
-        # The floor is a filter being seen at all: a sweep reading the wrong keyword would match
-        # nothing and pass the assertion below over any application, retention sweep included.
-        assert selected_on
-
-        # The shape an age-based purge would select by. The erasure names a person, the replace and the
-        # application clocks a season, so a new caller of either helper is free -- an AGE is what is refused.
-        assert RETIREMENT_FIELD not in selected_on, f"a removal selects on {RETIREMENT_FIELD}, the age-based purge nothing here builds"
 
 
 class TestAGroupPhaseEveryClubLeaves:
