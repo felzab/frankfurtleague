@@ -218,8 +218,8 @@ except Exception as unexpected:
     raise SystemExit(4)
 '
 
-# One mount, one user and one filter for either package's reader: the two judge different things and
-# each says so itself, but a second copy of this is how one arm's mount drifts from the other's.
+# The backend's reader, mounted read-only into a throwaway container as the caller's own user, its
+# output through the credential filter.
 read_env_names() {
   # Off, so a trace never prints what the container said before `redact_uri_credentials` reads it.
   local -
