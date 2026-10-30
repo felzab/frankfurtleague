@@ -140,7 +140,9 @@ class FLPostausgangLink(BaseModel):
     pfade: list[Annotated[str, StringConstraints(pattern=r"^([a-z_]+\.)*token_hashes$")]] = Field(min_length=1)
     # The dotted paths holding the recipient's address on the record. The link is minted only while each still holds the
     # row's `an`: a seat emptied, handed on or re-addressed since the mail was owed mints nothing, and the mail is dropped.
-    adressen: list[Annotated[str, StringConstraints(pattern=r"^[a-z_]+(\.[a-z_]+)*$")]] = Field(min_length=1)
+    # Empty where the record holds no address to judge: a team's registration link, which is the team's and no person's
+    # credential, its recipients standing on another record.
+    adressen: list[Annotated[str, StringConstraints(pattern=r"^[a-z_]+(\.[a-z_]+)*$")]]
     # Set where the fresh link supersedes every link the arrays held; clear where the earlier ones stay valid beside it.
     ersetzt: bool
 
