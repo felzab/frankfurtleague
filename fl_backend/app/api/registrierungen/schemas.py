@@ -103,10 +103,9 @@ class FLRegistrierung(_RegistrierungStored):
 
 
 class FLRegistrierungBestaetigungRecord(FLBestaetigung):
-    """One registration's bookkeeping as `registrierungen` stores it: its link's hash, and the one a reminder replaced."""
+    """One registration's bookkeeping as `registrierungen` stores it: the hash of every link it was mailed, each live."""
 
-    token_hash: str
-    token_hash_zuvor: str | None = None
+    token_hashes: list[str]
 
 
 class FLRegistrierungRecord(_RegistrierungStored):
@@ -163,20 +162,9 @@ class FLPostRegistrierungPayload(BaseModel):
 
 
 class FLPostRegistrierungResponse(BaseAPIResponse):
-    """The stored registration and its raw confirmation link, which no read ever answers again."""
+    """The stored registration, the one a replayed key wrote first; its confirmation mail is owed in the same write."""
 
     registrierung_id: CustomObjectId
-    # Null on a replay whose row needs no fresh link, and
-    # the caller then mails nothing.
-    bestaetigung_token: CustomNonEmptyString | None
-    frist: CustomDateString
-    # Both off the invite the token opened, so the confirmation mail addresses the pupil by their
-    # team and season without taking either from a body anyone holding the link could type.
-    team: CustomNonEmptyString
-    saison_id: str
-    # The confirmation mail's recipient, for the frontend server alone and never the browser: a replayed key answers the
-    # stored address, which an address change may have moved since the replayer typed theirs.
-    email: CustomNonEmptyString
 
 
 class FLRegistrierungenFilterParams(BaseModel):
@@ -274,51 +262,15 @@ class FLRegistrierungSelbstEinwilligungResponse(BaseAPIResponse):
     nachweis_stand: FLEinwilligungStand
 
 
-# --- The retention SWEEP, system tier. The backend decides and erases, the frontend mails: what
-# leaves here is what one note needs and nothing a pupil's record holds beyond it.
-
-
-class FLRegistrierungSweepErinnerung(BaseModel):
-    """One reminder to send: a pupil whose link has reached its reminder age and who has not answered it.
-
-    The token is the RAW fresh one.
-    """
-
-    registrierung_id: CustomObjectId
-    saison_id: str
-    # Empty where the team row is gone, as the application sweep's `schule` is: a message naming no
-    # team is worth more than a pass that stops.
-    team: str
-    # No first name: this address is unconfirmed, after a typo a stranger's, and the message to it
-    # greets nobody by name.
-    email: CustomNonEmptyString
-    # No deadline: the message names the window in days from the mirrored bound rather than a date,
-    # so a chase cannot state a day the stored one has moved away from.
-    token: CustomNonEmptyString
-
-
-class FLRegistrierungSweepBenachrichtigung(BaseModel):
-    """One pupil whose confirmed registration was erased at its season's end, and who is told after the fact.
-
-    No token and no deadline: the row is gone, and this message asks for nothing.
-    """
-
-    registrierung_id: CustomObjectId
-    saison_id: str
-    team: str
-    vorname: CustomNonEmptyString
-    email: CustomNonEmptyString
+# --- The retention SWEEP, system tier. The backend decides, erases and owes each reminder in the
+# Postausgang; nothing a pupil's record holds leaves here.
 
 
 class FLRegistrierungSweepResponse(BaseAPIResponse):
-    """One season's pass: the reminders already stamped, the erasures already made, and the one note each of them owes."""
+    """One season's pass: the reminders owed and the erasures made, each committed."""
 
     saison_id: str
-    erinnerungen: list[FLRegistrierungSweepErinnerung]
-    # Counted apart from the erasures below and never derived from them: an unconfirmed row is told
-    # neither before nor after, so a caller mailing every erasure would write to an address the
-    # league never confirmed.
-    benachrichtigt: list[FLRegistrierungSweepBenachrichtigung]
+    erinnert: int
     geloescht_unbestaetigt: int
     geloescht_ohne_entscheidung: int
     geloescht_abgelehnt: int
@@ -419,17 +371,7 @@ class FLRegistrierungAblehnenPayload(BaseModel):
 
 
 class FLRegistrierungAblehnungResponse(BaseAPIResponse):
-    """What the decline mail needs, answered to the frontend's server and never further."""
+    """The declined registration, and the first name the seat holder is told the decision by."""
 
     registrierung_id: CustomObjectId
-    team_id: CustomObjectId
-    saison_id: str
-    # The junction row's name, which the mail addresses the pupil by.
-    team: CustomNonEmptyString
     vorname: CustomNonEmptyString
-    # The address the confirmation link was sent to: the one recipient this decline has.
-    email: CustomNonEmptyString
-    # Whether that address was ever proven. An unproven one is anybody's typing, and a mail to it
-    # tells a stranger about a team's decision.
-    bestaetigt: bool
-    grund: FLRegistrierungAblehnungsgrund | None

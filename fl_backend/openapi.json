@@ -9113,52 +9113,16 @@
         "type": "object"
       },
       "FLPostRegistrierungResponse": {
-        "description": "The stored registration and its raw confirmation link, which no read ever answers again.",
+        "description": "The stored registration, the one a replayed key wrote first; its confirmation mail is owed in the same write.",
         "properties": {
-          "bestaetigung_token": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bestaetigung Token"
-          },
-          "email": {
-            "minLength": 1,
-            "title": "Email",
-            "type": "string"
-          },
-          "frist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
-            "type": "string"
-          },
           "registrierung_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
             "title": "Registrierung Id",
             "type": "string"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team": {
-            "minLength": 1,
-            "title": "Team",
-            "type": "string"
           }
         },
         "required": [
-          "registrierung_id",
-          "bestaetigung_token",
-          "frist",
-          "team",
-          "saison_id",
-          "email"
+          "registrierung_id"
         ],
         "title": "FLPostRegistrierungResponse",
         "type": "object"
@@ -9617,6 +9581,9 @@
                 "konto_loeschung": "#/components/schemas/FLKontoLoeschungDaten",
                 "passkey_geloescht": "#/components/schemas/FLPasskeyDaten",
                 "passkey_hinzugefuegt": "#/components/schemas/FLPasskeyDaten",
+                "registrierung_absage": "#/components/schemas/FLRegistrierungAbsageDaten",
+                "registrierung_bestaetigung": "#/components/schemas/FLRegistrierungLinkDaten",
+                "registrierung_erinnerung": "#/components/schemas/FLRegistrierungLinkDaten",
                 "sperre": "#/components/schemas/FLSperreDaten"
               },
               "propertyName": "art"
@@ -9633,6 +9600,12 @@
               },
               {
                 "$ref": "#/components/schemas/FLSperreDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLRegistrierungLinkDaten"
+              },
+              {
+                "$ref": "#/components/schemas/FLRegistrierungAbsageDaten"
               }
             ],
             "title": "Daten"
@@ -10165,15 +10138,32 @@
         "type": "object"
       },
       "FLRegistrierungAblehnungResponse": {
-        "description": "What the decline mail needs, answered to the frontend's server and never further.",
+        "description": "The declined registration, and the first name the seat holder is told the decision by.",
         "properties": {
-          "bestaetigt": {
-            "title": "Bestaetigt",
-            "type": "boolean"
+          "registrierung_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Registrierung Id",
+            "type": "string"
           },
-          "email": {
+          "vorname": {
             "minLength": 1,
-            "title": "Email",
+            "title": "Vorname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "registrierung_id",
+          "vorname"
+        ],
+        "title": "FLRegistrierungAblehnungResponse",
+        "type": "object"
+      },
+      "FLRegistrierungAbsageDaten": {
+        "description": "A team's decline, to a pupil whose address was confirmed.",
+        "properties": {
+          "art": {
+            "const": "registrierung_absage",
+            "title": "Art",
             "type": "string"
           },
           "grund": {
@@ -10188,42 +10178,27 @@
             ],
             "title": "Grund"
           },
-          "registrierung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Registrierung Id",
-            "type": "string"
-          },
           "saison_id": {
             "title": "Saison Id",
             "type": "string"
           },
           "team": {
-            "minLength": 1,
             "title": "Team",
             "type": "string"
           },
-          "team_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Team Id",
-            "type": "string"
-          },
           "vorname": {
-            "minLength": 1,
             "title": "Vorname",
             "type": "string"
           }
         },
         "required": [
-          "registrierung_id",
-          "team_id",
-          "saison_id",
-          "team",
+          "art",
           "vorname",
-          "email",
-          "bestaetigt",
+          "team",
+          "saison_id",
           "grund"
         ],
-        "title": "FLRegistrierungAblehnungResponse",
+        "title": "FLRegistrierungAbsageDaten",
         "type": "object"
       },
       "FLRegistrierungAufnahmeResponse": {
@@ -10604,6 +10579,40 @@
         "title": "FLRegistrierungEntscheidungZeile",
         "type": "object"
       },
+      "FLRegistrierungLinkDaten": {
+        "description": "A pupil's confirmation link, first or as the one reminder, which joins the first link rather than replacing it.",
+        "properties": {
+          "art": {
+            "enum": [
+              "registrierung_bestaetigung",
+              "registrierung_erinnerung"
+            ],
+            "title": "Art",
+            "type": "string"
+          },
+          "frist_tage": {
+            "minimum": 1.0,
+            "title": "Frist Tage",
+            "type": "integer"
+          },
+          "saison_id": {
+            "title": "Saison Id",
+            "type": "string"
+          },
+          "team": {
+            "title": "Team",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art",
+          "team",
+          "saison_id",
+          "frist_tage"
+        ],
+        "title": "FLRegistrierungLinkDaten",
+        "type": "object"
+      },
       "FLRegistrierungPerson": {
         "description": "The stored person a confirmed registration's address resolves to, named so the team can be asked whether it is the same one.",
         "properties": {
@@ -10672,96 +10681,12 @@
         ],
         "type": "string"
       },
-      "FLRegistrierungSweepBenachrichtigung": {
-        "description": "One pupil whose confirmed registration was erased at its season's end, and who is told after the fact.\n\nNo token and no deadline: the row is gone, and this message asks for nothing.",
-        "properties": {
-          "email": {
-            "minLength": 1,
-            "title": "Email",
-            "type": "string"
-          },
-          "registrierung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Registrierung Id",
-            "type": "string"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team": {
-            "title": "Team",
-            "type": "string"
-          },
-          "vorname": {
-            "minLength": 1,
-            "title": "Vorname",
-            "type": "string"
-          }
-        },
-        "required": [
-          "registrierung_id",
-          "saison_id",
-          "team",
-          "vorname",
-          "email"
-        ],
-        "title": "FLRegistrierungSweepBenachrichtigung",
-        "type": "object"
-      },
-      "FLRegistrierungSweepErinnerung": {
-        "description": "One reminder to send: a pupil whose link has reached its reminder age and who has not answered it.\n\nThe token is the RAW fresh one.",
-        "properties": {
-          "email": {
-            "minLength": 1,
-            "title": "Email",
-            "type": "string"
-          },
-          "registrierung_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Registrierung Id",
-            "type": "string"
-          },
-          "saison_id": {
-            "title": "Saison Id",
-            "type": "string"
-          },
-          "team": {
-            "title": "Team",
-            "type": "string"
-          },
-          "token": {
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "registrierung_id",
-          "saison_id",
-          "team",
-          "email",
-          "token"
-        ],
-        "title": "FLRegistrierungSweepErinnerung",
-        "type": "object"
-      },
       "FLRegistrierungSweepResponse": {
-        "description": "One season's pass: the reminders already stamped, the erasures already made, and the one note each of them owes.",
+        "description": "One season's pass: the reminders owed and the erasures made, each committed.",
         "properties": {
-          "benachrichtigt": {
-            "items": {
-              "$ref": "#/components/schemas/FLRegistrierungSweepBenachrichtigung"
-            },
-            "title": "Benachrichtigt",
-            "type": "array"
-          },
-          "erinnerungen": {
-            "items": {
-              "$ref": "#/components/schemas/FLRegistrierungSweepErinnerung"
-            },
-            "title": "Erinnerungen",
-            "type": "array"
+          "erinnert": {
+            "title": "Erinnert",
+            "type": "integer"
           },
           "fehlgeschlagen": {
             "title": "Fehlgeschlagen",
@@ -10790,8 +10715,7 @@
         },
         "required": [
           "saison_id",
-          "erinnerungen",
-          "benachrichtigt",
+          "erinnert",
           "geloescht_unbestaetigt",
           "geloescht_ohne_entscheidung",
           "geloescht_abgelehnt",
@@ -23445,7 +23369,7 @@
         ]
       },
       "post": {
-        "description": "Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The raw confirmation\ntoken is answered for the caller to mail and stored only as a hash; this response is the one\nplace outside the recipient's inbox it ever exists.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds and stores none: a fresh link where no message is known to have reached the\ninbox and nothing is confirmed, none otherwise. The same key over other details is refused\n(`REQ-REGISTRIERUNG-011`), and so is a key whose stored address, the one the answer mails, has been\nbanned since (`REQ-REGISTRIERUNG-009`), before any link is minted. A key whose registration the team has since\nadmitted is refused too (`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.",
+        "description": "Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The mail is owed in\nthe Postausgang in the same transaction, its link minted when it is handed out; no token is answered.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds, stores none and owes no second mail. The same key over other details is refused\n(`REQ-REGISTRIERUNG-011`). A key whose registration the team has since admitted is refused too\n(`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.",
         "operationId": "registrierungen_post_registrierung",
         "parameters": [
           {
@@ -23970,7 +23894,7 @@
     },
     "/api/v0/registrierungen/sweep/{saison_id}": {
       "post": {
-        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nA declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over. The confirmed ones\namong them are listed in `benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is\ntold neither before nor after, its address never having been confirmed. A call whose erasure names somebody to tell answers once\nthat erasure has committed, so the rest of the season's registrations wait for the next call; the two clocks below do not run\nfor a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age, earliest deadline first: a fresh link is minted and\n`erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and the link already\nin that inbox stays valid beside the fresh one. One call reminds a bounded share of the registrations due; the rest stay due and\nthe calls after it remind them. A registration whose last message the mail provider refused is not chased at all, and one whose\naddress the ban list holds is sent nothing and has nothing written: it stays due, so every pass asks the ban list for it again\nuntil its deadline, and reminds it once a lift comes first; each pass logs how many it withheld, never which. Every removal\nnames this season alone, is made inside a transaction and takes its log rows with it.\n\nWhatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transactions, so no later step of the same\ncall can answer an error in their place; where the request's deadline cuts them after one has committed, the call answers what\ncommitted and warns once.\n\nA registration whose write fails, the database refusing it or anything else, or one the answer cannot carry, is passed over\nalone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it again and one\nfailing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.\n\n404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes\nnothing, though it logs the count of withheld registrations again.",
+        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin.\n\nA declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the two clocks\nbelow do not run for a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age, earliest deadline first: `erinnert_am` is stamped and the\nreminder owed in the Postausgang in one transaction, its link joining the one already in that inbox. One call reminds a bounded\nshare of the registrations due; the rest stay due and the calls after it remind them. Every removal names this season alone, is\nmade inside a transaction and takes its log rows with it.\n\nA registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of\nits clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and\nnobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.\n\n404 where no season has the id. Idempotent per day: a run after every due reminder is owed writes nothing.",
         "operationId": "registrierungen_sweep_registrierungen",
         "parameters": [
           {
@@ -24048,7 +23972,7 @@
     },
     "/api/v0/registrierungen/{registrierung_id}/ablehnen": {
       "post": {
-        "description": "Decline one pending registration, confirmed or not: its state and the decision are written, and nothing else.\n\nThe decision records the declining seat holder's address and a reason from a closed set, never free text:\n`andere_person` where the team answered that the registration is not the person its address belongs to. The\nrow stays until the retention sweep erases it a month later. The answer carries the address the pupil's link\nwent to, for the decline mail and nothing else, and whether that address was ever confirmed.\n\nRefuses, in this order, no pending registration with this id (404) and no seat on its team's season\n(`REQ-FUNKTION-001`).",
+        "description": "Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.\n\nThe decision records the declining seat holder's address and a reason from a closed set, never free text:\n`andere_person` where the team answered that the registration is not the person its address belongs to. The\nrow stays until the retention sweep erases it a month later. The note is owed in the same transaction, and only\nwhere the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.\n\nRefuses, in this order, no pending registration with this id (404) and no seat on its team's season\n(`REQ-FUNKTION-001`).",
         "operationId": "registrierungen_ablehnen",
         "parameters": [
           {

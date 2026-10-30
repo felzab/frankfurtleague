@@ -222,21 +222,12 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("token_hash", ASCENDING),),
         "the invite page's lookup, driven by strangers",
     ),
-    # Two indexes for one `$or`: "all the clauses in the $or expression must be supported by
-    # indexes. Otherwise, MongoDB performs a collection scan." Mirrored from
-    # https://www.mongodb.com/docs/manual/reference/operator/query/or/, which moves without us;
-    # read 2026-09-21.
+    # Multikey, the row keeping every link it was mailed.
     SupportIndex(
         Collection.REGISTRIERUNGEN,
-        "registrierungen_bestaetigung_token_hash",
-        (("bestaetigung.token_hash", ASCENDING),),
+        "registrierungen_bestaetigung_token_hashes",
+        (("bestaetigung.token_hashes", ASCENDING),),
         "the confirmation page's lookup, driven by strangers",
-    ),
-    SupportIndex(
-        Collection.REGISTRIERUNGEN,
-        "registrierungen_bestaetigung_token_hash_zuvor",
-        (("bestaetigung.token_hash_zuvor", ASCENDING),),
-        "the same lookup through the link a reminder replaced, which stays live beside the fresh one",
     ),
     # One per clause of each `$or`, for the registration's pair's reason: a contact seat's link is
     # looked up on whichever seat holds it, an application's on either of its two hashes.

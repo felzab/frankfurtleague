@@ -3676,19 +3676,11 @@ export interface FLPostRegistrierungPayload {
 }
 
 /**
- * The stored registration and its raw confirmation link, which no read ever answers again.
+ * The stored registration, the one a replayed key wrote first; its confirmation mail is owed in the same write.
  */
 export interface FLPostRegistrierungResponse {
-  bestaetigung_token: string | null;
-  /** @minLength 1 */
-  email: string;
-  /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
-  frist: string;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   registrierung_id: string;
-  saison_id: string;
-  /** @minLength 1 */
-  team: string;
 }
 
 export interface FLPostSaisonPayload {
@@ -3848,12 +3840,41 @@ export interface FLSperreDaten {
   grund: string;
 }
 
+export type FLRegistrierungLinkDatenArt = (typeof FLRegistrierungLinkDatenArt)[keyof typeof FLRegistrierungLinkDatenArt];
+
+export const FLRegistrierungLinkDatenArt = {
+  registrierung_bestaetigung: "registrierung_bestaetigung",
+  registrierung_erinnerung: "registrierung_erinnerung",
+} as const;
+
+/**
+ * A pupil's confirmation link, first or as the one reminder, which joins the first link rather than replacing it.
+ */
+export interface FLRegistrierungLinkDaten {
+  art: FLRegistrierungLinkDatenArt;
+  /** @minimum 1 */
+  frist_tage: number;
+  saison_id: string;
+  team: string;
+}
+
+/**
+ * A team's decline, to a pupil whose address was confirmed.
+ */
+export interface FLRegistrierungAbsageDaten {
+  art: "registrierung_absage";
+  grund: "andere_person" | null;
+  saison_id: string;
+  team: string;
+  vorname: string;
+}
+
 /**
  * One owed mail a claim hands out, server to server alone: it names its recipient and may carry a live link or secret.
  */
 export interface FLPostausgangAusgabe {
   an: string;
-  daten: FLAnmeldecodeDaten | FLPasskeyDaten | FLKontoLoeschungDaten | FLSperreDaten;
+  daten: FLAnmeldecodeDaten | FLPasskeyDaten | FLKontoLoeschungDaten | FLSperreDaten | FLRegistrierungLinkDaten | FLRegistrierungAbsageDaten;
   geheim: string | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   id: string;
@@ -4048,20 +4069,11 @@ export interface FLRegistrierungAblehnenPayload {
 }
 
 /**
- * What the decline mail needs, answered to the frontend's server and never further.
+ * The declined registration, and the first name the seat holder is told the decision by.
  */
 export interface FLRegistrierungAblehnungResponse {
-  bestaetigt: boolean;
-  /** @minLength 1 */
-  email: string;
-  grund: "andere_person" | null;
   /** @pattern ^[0-9a-fA-F]{24}$ */
   registrierung_id: string;
-  saison_id: string;
-  /** @minLength 1 */
-  team: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  team_id: string;
   /** @minLength 1 */
   vorname: string;
 }
@@ -4160,43 +4172,10 @@ export interface FLRegistrierungSelbstEinwilligungResponse {
 }
 
 /**
- * One pupil whose confirmed registration was erased at its season's end, and who is told after the fact.
- *
- * No token and no deadline: the row is gone, and this message asks for nothing.
- */
-export interface FLRegistrierungSweepBenachrichtigung {
-  /** @minLength 1 */
-  email: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  registrierung_id: string;
-  saison_id: string;
-  team: string;
-  /** @minLength 1 */
-  vorname: string;
-}
-
-/**
- * One reminder to send: a pupil whose link has reached its reminder age and who has not answered it.
- *
- * The token is the RAW fresh one.
- */
-export interface FLRegistrierungSweepErinnerung {
-  /** @minLength 1 */
-  email: string;
-  /** @pattern ^[0-9a-fA-F]{24}$ */
-  registrierung_id: string;
-  saison_id: string;
-  team: string;
-  /** @minLength 1 */
-  token: string;
-}
-
-/**
- * One season's pass: the reminders already stamped, the erasures already made, and the one note each of them owes.
+ * One season's pass: the reminders owed and the erasures made, each committed.
  */
 export interface FLRegistrierungSweepResponse {
-  benachrichtigt: FLRegistrierungSweepBenachrichtigung[];
-  erinnerungen: FLRegistrierungSweepErinnerung[];
+  erinnert: number;
   fehlgeschlagen: number;
   geloescht_abgelehnt: number;
   geloescht_ohne_entscheidung: number;

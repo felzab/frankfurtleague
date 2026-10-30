@@ -1536,19 +1536,16 @@ export const RegistrierungenGetRegistrierungenQueryParams = zod.object({
 });
 
 /**
- * Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.
+ * Store one pupil's registration for the team and season the link belongs to, and owe its confirmation mail.
  *
  * Everything the league decides -- the team, the season, `status`, `eingereicht_am` and the
- * deadline -- is taken off the invite and the clock and never off the payload. The raw confirmation
- * token is answered for the caller to mail and stored only as a hash; this response is the one
- * place outside the recipient's inbox it ever exists.
+ * deadline -- is taken off the invite and the clock and never off the payload. The mail is owed in
+ * the Postausgang in the same transaction, its link minted when it is handed out; no token is answered.
  *
  * An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
- * registration it holds and stores none: a fresh link where no message is known to have reached the
- * inbox and nothing is confirmed, none otherwise. The same key over other details is refused
- * (`REQ-REGISTRIERUNG-011`), and so is a key whose stored address, the one the answer mails, has been
- * banned since (`REQ-REGISTRIERUNG-009`), before any link is minted. A key whose registration the team has since
- * admitted is refused too (`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.
+ * registration it holds, stores none and owes no second mail. The same key over other details is refused
+ * (`REQ-REGISTRIERUNG-011`). A key whose registration the team has since admitted is refused too
+ * (`REQ-REGISTRIERUNG-016`) and stores nothing: the pupil is in the squad.
  * @summary Register through a team's link
  */
 export const registrierungenPostRegistrierungBodyEmailMax = 254;
@@ -1720,34 +1717,23 @@ export const RegistrierungenPatchEinwilligungBody = zod
   );
 
 /**
- * Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.
+ * Run the four registration retention clocks over one season, as of today in Europe/Berlin.
  *
  * A declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a
- * decision is erased whatever the pupil answered, because no admission can be taken for a season that is over. The confirmed ones
- * among them are listed in `benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is
- * told neither before nor after, its address never having been confirmed. A call whose erasure names somebody to tell answers once
- * that erasure has committed, so the rest of the season's registrations wait for the next call; the two clocks below do not run
- * for a `past` season, whose own end takes every row they read.
+ * decision is erased whatever the pupil answered, because no admission can be taken for a season that is over; the two clocks
+ * below do not run for a `past` season, whose own end takes every row they read.
  *
  * Otherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having
- * named that day. Then one reminder per registration at its reminder age, earliest deadline first: a fresh link is minted and
- * `erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and the link already
- * in that inbox stays valid beside the fresh one. One call reminds a bounded share of the registrations due; the rest stay due and
- * the calls after it remind them. A registration whose last message the mail provider refused is not chased at all, and one whose
- * address the ban list holds is sent nothing and has nothing written: it stays due, so every pass asks the ban list for it again
- * until its deadline, and reminds it once a lift comes first; each pass logs how many it withheld, never which. Every removal
- * names this season alone, is made inside a transaction and takes its log rows with it.
+ * named that day. Then one reminder per registration at its reminder age, earliest deadline first: `erinnert_am` is stamped and the
+ * reminder owed in the Postausgang in one transaction, its link joining the one already in that inbox. One call reminds a bounded
+ * share of the registrations due; the rest stay due and the calls after it remind them. Every removal names this season alone, is
+ * made inside a transaction and takes its log rows with it.
  *
- * Whatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transactions, so no later step of the same
- * call can answer an error in their place; where the request's deadline cuts them after one has committed, the call answers what
- * committed and warns once.
+ * A registration whose write fails, the database refusing it or anything else, is passed over alone and logged by id: the rest of
+ * its clock's page or share goes, and it stays due, so the next pass meets it again and one failing record holds back no clock and
+ * nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.
  *
- * A registration whose write fails, the database refusing it or anything else, or one the answer cannot carry, is passed over
- * alone and logged by id: the rest of its clock's page or share goes, and it stays due, so the next pass meets it again and one
- * failing record holds back no clock and nobody behind it. `fehlgeschlagen` sums the rows each of the four clocks passed over.
- *
- * 404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes
- * nothing, though it logs the count of withheld registrations again.
+ * 404 where no season has the id. Idempotent per day: a run after every due reminder is owed writes nothing.
  * @summary Run one season's registration retention clocks
  */
 export const RegistrierungenSweepRegistrierungenParams = zod.object({
@@ -1755,12 +1741,12 @@ export const RegistrierungenSweepRegistrierungenParams = zod.object({
 });
 
 /**
- * Decline one pending registration, confirmed or not: its state and the decision are written, and nothing else.
+ * Decline one pending registration, confirmed or not: its state and the decision are written, and the pupil's note owed.
  *
  * The decision records the declining seat holder's address and a reason from a closed set, never free text:
  * `andere_person` where the team answered that the registration is not the person its address belongs to. The
- * row stays until the retention sweep erases it a month later. The answer carries the address the pupil's link
- * went to, for the decline mail and nothing else, and whether that address was ever confirmed.
+ * row stays until the retention sweep erases it a month later. The note is owed in the same transaction, and only
+ * where the pupil confirmed their address: an unconfirmed one may be a stranger's, typed by whoever held the link.
  *
  * Refuses, in this order, no pending registration with this id (404) and no seat on its team's season
  * (`REQ-FUNKTION-001`).

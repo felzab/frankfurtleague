@@ -3,6 +3,7 @@ from typing import Annotated, Literal, Self, get_args
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from app.api.registrierungen.schemas import FLRegistrierungAblehnungsgrund
 from app.api.teams.schemas import FLKontaktRolle
 from app.core.collections import Collection
 from app.shared.schemas.custom import SINGLE_LINE_PATTERN, CustomObjectId, CustomStrippedNonEmptyString
@@ -45,10 +46,46 @@ class FLSperreDaten(BaseModel):
     gesperrt_bis_saison_id: str
 
 
-FLPostausgangDaten = Annotated[FLAnmeldecodeDaten | FLPasskeyDaten | FLKontoLoeschungDaten | FLSperreDaten, Field(discriminator="art")]
+# --- The season's and the applications' mails.
+
+
+class FLRegistrierungLinkDaten(BaseModel):
+    """A pupil's confirmation link, first or as the one reminder, which joins the first link rather than replacing it."""
+
+    art: Literal["registrierung_bestaetigung", "registrierung_erinnerung"]
+    # The junction row's name, else the club's: what the pupil registered for.
+    team: str
+    saison_id: str
+    # The window in days, never a date: the reminder states that the window has not moved.
+    frist_tage: int = Field(ge=1)
+
+
+class FLRegistrierungAbsageDaten(BaseModel):
+    """A team's decline, to a pupil whose address was confirmed."""
+
+    art: Literal["registrierung_absage"]
+    vorname: str
+    team: str
+    saison_id: str
+    grund: FLRegistrierungAblehnungsgrund | None
+
+
+FLPostausgangDaten = Annotated[
+    FLAnmeldecodeDaten | FLPasskeyDaten | FLKontoLoeschungDaten | FLSperreDaten | FLRegistrierungLinkDaten | FLRegistrierungAbsageDaten,
+    Field(discriminator="art"),
+]
 
 # Every member's `art`, spelled again as one closed set for the row's own field, which outlives its data.
-FLPostausgangArt = Literal["anmeldecode", "passkey_hinzugefuegt", "passkey_geloescht", "konto_loeschung", "sperre"]
+FLPostausgangArt = Literal[
+    "anmeldecode",
+    "passkey_hinzugefuegt",
+    "passkey_geloescht",
+    "konto_loeschung",
+    "sperre",
+    "registrierung_bestaetigung",
+    "registrierung_erinnerung",
+    "registrierung_absage",
+]
 
 _MEMBER_ARTEN = {art for member in get_args(get_args(FLPostausgangDaten)[0]) for art in get_args(member.model_fields["art"].annotation)}
 if set(get_args(FLPostausgangArt)) != _MEMBER_ARTEN:

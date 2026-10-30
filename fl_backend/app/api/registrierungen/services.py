@@ -9,14 +9,7 @@ from collections.abc import Collection, Iterable, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final
 
-from app.api.bewerbungen.services import (
-    ZUSTELLUNG_ABGEWIESEN,
-    days_after,
-    latest_decision_due,
-    one_month_after,
-    season_has_ended,
-    zustellung_unerreicht_term,
-)
+from app.api.bewerbungen.services import ZUSTELLUNG_ABGEWIESEN, days_after, latest_decision_due, one_month_after, season_has_ended
 
 # The window predicate is the invite slice's, and `saison_nimmt_registrierungen_an` below answers
 # every `laeuft` a link is shown with and this flow's refusal, so a link and the write it opens
@@ -187,14 +180,14 @@ def compose_registrierung(
     }
 
 
-def compose_bestaetigung(*, token_hash: str, today: str, frist: str) -> dict[str, Any]:
-    """The confirmation bookkeeping the mint writes: a live hash, mailed today, nobody reminded yet.
+def compose_bestaetigung(*, today: str, frist: str) -> dict[str, Any]:
+    """The confirmation bookkeeping the submission writes: owed today, nobody reminded, no link until the hand-out mints one.
 
     `frist` is stored rather than derived from `verschickt_am` and the bound, so raising the bound
     never moves the deadline of a link already in somebody's inbox.
     """
 
-    return {"token_hash": token_hash, "verschickt_am": today, "erinnert_am": None, "frist": frist}
+    return {"token_hashes": [], "verschickt_am": today, "erinnert_am": None, "frist": frist}
 
 
 # --- The SUBMISSION KEY, as the application's submission keeps it
@@ -217,39 +210,6 @@ def find_abweichender_fingerabdruck_refusal(*, gespeichert: Any, fingerabdruck: 
     )
 
 
-def build_wiederholung_filter(*, registrierung_raw: Mapping[str, Any], today: str) -> Mapping[str, Any] | None:
-    """The state a replay hands a fresh link in, as its update's filter; `None` where the row holds no live hash.
-
-    Unconfirmed, unreminded and not on record as reached by a mail.
-    """
-
-    block = registrierung_raw.get("bestaetigung")
-    token_hash = block.get("token_hash") if isinstance(block, Mapping) else None
-    if not isinstance(token_hash, str):
-        return None
-
-    return {
-        "_id": registrierung_raw["_id"],
-        "status": SUBMITTED,
-        "einwilligung.bestaetigt_am": None,
-        # The deadline's own day still takes a link, as `link_is_over` reads it.
-        "bestaetigung.frist": {"$gte": today},
-        "bestaetigung.erinnert_am": None,
-        **zustellung_unerreicht_term(pfad="bestaetigung.zustellung"),
-    }
-
-
-def compose_wiederholung_update(*, token_hash: str, bestaetigung: Any) -> Mapping[str, Any]:
-    """The replaced hash is kept live rather than voided: a mail that went out unrecorded still holds it.
-
-    Neither `erinnert_am` nor `frist` moves, a replay being neither a reminder nor a re-send.
-    """
-
-    block = bestaetigung if isinstance(bestaetigung, Mapping) else {}
-
-    return {"$set": {"bestaetigung.token_hash": token_hash, "bestaetigung.token_hash_zuvor": block.get("token_hash")}}
-
-
 def registrierung_ist_bestaetigt(*, einwilligung: Any) -> bool:
     """Whether the pupil answered their own link, which is what makes a row admissible.
 
@@ -260,14 +220,9 @@ def registrierung_ist_bestaetigt(*, einwilligung: Any) -> bool:
     return is_confirmed(einwilligung)
 
 
-# A reminder's fresh hash and the first mail's, both live, as an application's pair is: a pupil still
-# looking at the first message is not punished by the chase.
-TOKEN_HASH_FIELDS = ("token_hash", "token_hash_zuvor")
-
 # The admin read's projection, an EXCLUSION for the reason `app/api/bewerbungen/services.py ::
 # WITHOUT_TOKEN_HASHES` is one: an inclusion list would restate every field a registration holds.
-# Derived from the pair above, so a third hash field cannot reach a read.
-WITHOUT_TOKEN_HASHES: Mapping[str, int] = {f"bestaetigung.{field}": 0 for field in TOKEN_HASH_FIELDS}
+WITHOUT_TOKEN_HASHES: Mapping[str, int] = {"bestaetigung.token_hashes": 0}
 
 
 def build_registrierungen_sort(*, sort_by: str, order: str) -> list[tuple[str, int]]:
@@ -292,13 +247,13 @@ SEITE_WIEDERKEHREND: Final[FLRegistrierungSeite] = "bestaetigung_spieler_wiederk
 
 
 def build_bestaetigung_filter(*, token_hash: str) -> Mapping[str, Any]:
-    """Both hash fields, so a reminded pupil's two live links each still open the row.
+    """Every link the row was mailed, so a reminded pupil's first link still opens it beside the reminder's.
 
     No status term: a link reopened on a decided registration shows its own state rather than
     reading as a token nothing knows.
     """
 
-    return {"$or": [{f"bestaetigung.{field}": token_hash} for field in TOKEN_HASH_FIELDS]}
+    return {"bestaetigung.token_hashes": token_hash}
 
 
 # An INCLUSION, so the rest of a registration -- the surname, the shirt number, the position and the
@@ -614,11 +569,7 @@ def build_unconfirmed_filter(*, saison_id: str, today: str) -> Mapping[str, Any]
 
 
 def build_erinnerung_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
-    """Every unchased row at its mark whose last message was not refused.
-
-    `$nin` matches a row carrying no delivery state, which is every fresh mint: the term narrows to
-    the refused rather than to the reported.
-    """
+    """Every unchased row at its mark, as `erinnerung_is_due` judges it."""
 
     return {
         "saison_id": saison_id,
@@ -629,7 +580,6 @@ def build_erinnerung_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
         # The mark counted backwards from today, which is the same comparison the predicate makes
         # forwards from the send.
         "bestaetigung.verschickt_am": {"$lte": days_after(day=today, days=-REGISTRIERUNG_ERINNERUNG_TAGE)},
-        "bestaetigung.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
     }
 
 
@@ -644,11 +594,7 @@ def build_decline_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
 
 
 def link_is_unreachable(*, bestaetigung: Any) -> bool:
-    """Whether the provider refused the last message this link went out in.
-
-    A registration gets ONE chase, and spending it on an address known to reject it spends it on
-    nobody; registering again is what writes a fresh row.
-    """
+    """Whether the provider refused the last message a confirmation block's link went out in, as its own `zustellung` records it."""
 
     zustellung = bestaetigung.get("zustellung") if isinstance(bestaetigung, Mapping) else None
 
@@ -658,8 +604,8 @@ def link_is_unreachable(*, bestaetigung: Any) -> bool:
 def erinnerung_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bool:
     """Whether this registration's one reminder is owed today.
 
-    Submitted, unconfirmed, never reminded, inside its deadline and reachable. A row past its
-    `frist` is chased by nothing: a link minted on the way out is one nobody can spend.
+    Submitted, unconfirmed, never reminded and inside its deadline. A row past its `frist` is chased
+    by nothing: a link minted on the way out is one nobody can spend.
     """
 
     if registrierung_raw.get("status") != SUBMITTED:
@@ -674,9 +620,6 @@ def erinnerung_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bo
 
     verschickt_am, frist = bestaetigung.get("verschickt_am"), bestaetigung.get("frist")
     if not isinstance(verschickt_am, str) or not isinstance(frist, str) or frist < today:
-        return False
-
-    if link_is_unreachable(bestaetigung=bestaetigung):
         return False
 
     return days_after(day=verschickt_am, days=REGISTRIERUNG_ERINNERUNG_TAGE) <= today
@@ -722,21 +665,10 @@ def decline_erasure_is_due(*, registrierung_raw: Mapping[str, Any], today: str) 
     return isinstance(getroffen_am, str) and one_month_after(day=getroffen_am) <= today
 
 
-def compose_erinnerung_update(*, token_hash: str, bestaetigung: Any, today: str) -> Mapping[str, Any]:
-    """The reminder's ONE `$set`: the stamp and the fresh hash, the first kept live beside it.
+def compose_erinnerung_update(*, today: str) -> Mapping[str, Any]:
+    """The reminder's stamp. `verschickt_am` and `frist` stay: a reminder is not a re-send, and its link joins the first one."""
 
-    `verschickt_am` and `frist` stay: a reminder is not a re-send.
-    """
-
-    block = bestaetigung if isinstance(bestaetigung, Mapping) else {}
-
-    return {
-        "$set": {
-            "bestaetigung.token_hash": token_hash,
-            "bestaetigung.token_hash_zuvor": block.get("token_hash"),
-            "bestaetigung.erinnert_am": today,
-        }
-    }
+    return {"$set": {"bestaetigung.erinnert_am": today}}
 
 
 # --- The TEAM's decision: the pending read, the admission and the decline a seat holder makes.
