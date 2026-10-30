@@ -108,8 +108,7 @@ def operation_id(route: APIRoute) -> str:
 # A 422 alone carries `fields` (`app/core/exception_handlers.py :: error_response`'s callers), so it
 # alone answers with the refused payload's body.
 FAILURE_BODIES = {status: FLRefusedPayloadBody if status is HTTPStatus.UNPROCESSABLE_CONTENT else FLFailureBody for status in FAILURE_STATUSES}
-# The statuses whose every refusal names when to come back: the throttle's and the unavailable database's.
-RETRY_AFTER_STATUSES = frozenset({HTTPStatus.TOO_MANY_REQUESTS, HTTPStatus.SERVICE_UNAVAILABLE})
+# The unavailable database's 503 is the one failure naming when to come back.
 RETRY_AFTER_HEADER = {"Retry-After": {"description": "Seconds to wait before asking again", "schema": {"type": "integer"}}}
 SCHEMA_REF = "#/components/schemas/{model}"
 
@@ -119,7 +118,7 @@ def failure_response(status: HTTPStatus) -> dict[str, Any]:
         "description": status.phrase,
         "content": {"application/json": {"schema": {"$ref": SCHEMA_REF.format(model=FAILURE_BODIES[status].__name__)}}},
     }
-    if status in RETRY_AFTER_STATUSES:
+    if status is HTTPStatus.SERVICE_UNAVAILABLE:
         response["headers"] = RETRY_AFTER_HEADER
 
     return response
