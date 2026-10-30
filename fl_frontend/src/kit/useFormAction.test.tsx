@@ -6,12 +6,12 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { COPY } from "@/core/copy";
-import { EDGE_REFUSAL_BODY } from "@/shared/utils/actionError";
 
+import { EDGE_REFUSAL_BODY } from "./edgeRefusal";
 import { answering, statusOf, useFormAction } from "./useFormAction";
 
+import type { ActionAnswer } from "@/core/action";
 import type { ReactNode } from "react";
-import type { ActionAnswer } from "./useFormAction";
 
 // The hook reads the page again through Next's router, which no test mounts.
 vi.mock("next/navigation", async (original) => ({ ...(await original<object>()), useRouter: () => ({ refresh: () => {} }) }));

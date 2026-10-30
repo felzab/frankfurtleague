@@ -69,6 +69,9 @@ function termin({ datumText, uhrzeitText, ortText }: SpielAnsetzungText): readon
   ];
 }
 
+/** The title over the slot's two rows. */
+const TERMIN_TITEL = "Termin und Ort";
+
 /** An earlier slot inside a sentence, in the emphasis grade. */
 const alterTermin = (datum: string, uhrzeit: string): Lauf => ({ stark: `${datumText(datum)} um ${uhrzeitText(uhrzeit)} Uhr` });
 
@@ -97,7 +100,7 @@ export function buildSpielAnfrageEmail({ art, team, ansetzung: facts, frist }: F
         [{ stark: `Bitte bestätige den Termin für ${team} oder schlag einen anderen vor.` }],
       ],
     ],
-    block: { fakten: termin(ansetzung) },
+    block: { titel: TERMIN_TITEL, fakten: termin(ansetzung) },
     // The deadline, the first-press rule and what silence costs. Any of the team's seats answers, the first
     // press binding, so a reader told nothing of it takes a colleague's answer for a dead link.
     nachBlock: [
@@ -137,7 +140,7 @@ export function buildSpielEinteilungEmail({ ansetzung: facts }: FLSpielEinteilun
         ],
       ],
     ],
-    block: { fakten: termin(ansetzung) },
+    block: { titel: TERMIN_TITEL, fakten: termin(ansetzung) },
     // The area by its name on screen, read from its constant.
     nachBlock: [[`Nach der Anmeldung findest Du das Spiel auf der Website unter „${DEIN_BEREICH_TITEL}“.`, "Dort sagst Du zu oder ab."]],
     // The heading the button opens on, read from its constant.

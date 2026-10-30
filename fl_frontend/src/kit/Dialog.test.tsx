@@ -16,9 +16,9 @@ import { Link } from "./Link";
 import { TextField } from "./TextField";
 import { useEditor } from "./useEditor";
 
+import type { ActionAnswer } from "@/core/action";
 import type * as Navigation from "next/navigation";
 import type { EditorSave } from "./useEditor";
-import type { ActionAnswer } from "./useFormAction";
 
 // The route dialog's way back, which jsdom's history, one entry long, sends to the page beneath.
 const router = vi.hoisted(() => ({ back: vi.fn(), push: vi.fn(), refresh: vi.fn() }));
@@ -56,10 +56,10 @@ function EditorHoldingDialog({
   save,
   create,
 }: {
-  save: (change: EditorSave<Spielort>) => Promise<ActionAnswer<string>>;
+  save: (change: EditorSave<Spielort>) => Promise<ActionAnswer<number>>;
   create: (formData: FormData) => Promise<ActionAnswer>;
 }) {
-  const editor = useEditor({ id: "ort-1", fingerprint: "f1", values: { name: "Riedberg" } }, save);
+  const editor = useEditor({ id: "ort-1", version: 1, values: { name: "Riedberg" } }, save);
   return (
     <EditorPage
       title={{ record: "Riedberg" }}
@@ -172,7 +172,7 @@ describe("the kit's dialog", () => {
   });
 
   it("opened inside an editor's section, runs its own act and never the editor's save", async () => {
-    const save = vi.fn(async (): Promise<ActionAnswer<string>> => ({ ok: true, value: "f2" }));
+    const save = vi.fn(async (): Promise<ActionAnswer<number>> => ({ ok: true, value: 2 }));
     const create = vi.fn(async (_formData: FormData): Promise<ActionAnswer> => DONE);
     render(
       <EditorHoldingDialog

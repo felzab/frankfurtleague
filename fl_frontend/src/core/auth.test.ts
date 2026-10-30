@@ -2544,9 +2544,9 @@ describe("what the code costs an address holding nothing", () => {
 
     const message = sent.at(-1);
     assert.ok(message);
-    const satz = `Gib ihn nur auf ${ORIGIN.host} ein. Wir fragen Dich nie auf anderem Weg nach diesem Code.`;
-    assert.ok(message.text.includes(satz), "the text branch names another place, or none");
-    assert.ok(message.html.includes(satz), "the markup branch names another place, or none");
+    assert.ok(message.text.includes(`Gib ihn nur auf ${ORIGIN.host} ein.`), "the text branch names another place, or none");
+    // The markup sets the host in bold, so the sentence runs on around its tag.
+    assert.ok(message.html.includes(`>${ORIGIN.host}</strong> ein.`), "the markup branch names another place, or none");
   });
 
   it("states that same figure in the rendered message, which is the copy a reader acts on", () => {

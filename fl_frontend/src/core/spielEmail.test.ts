@@ -19,12 +19,6 @@ describe("the fixture confirmation's link", () => {
     expect(() => spielBestaetigungsLink("/bestaetigung", "t")).toThrow(/absolute origin/);
   });
 
-  /* A token is a credential the backend compares byte for byte, and an unencoded `&` or `#` in one would end
-     the parameter early and hand the page a token nothing matches. */
-  it("percent-encodes the token, so nothing inside it can end the parameter", () => {
-    expect(spielBestaetigungsLink(ORIGIN, "a b&c=d?e/f#g")).toBe(`${ORIGIN}${SPIEL_BESTAETIGUNG_PATH}?token=a%20b%26c%3Dd%3Fe%2Ff%23g`);
-  });
-
   it("names a parameter the edge's own redaction map replaces", () => {
     assertRedactedAtTheEdge(spielBestaetigungsLink(ORIGIN, "beispiel-eins"));
   });

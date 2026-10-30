@@ -1,5 +1,5 @@
 import { existsSync, globSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import css from "@eslint/css";
@@ -228,6 +228,14 @@ const NEXT_PRIVATE_CONTEXTS = {
  * The published origin, for what a crawler reads: a message built on it sends a reader of any other
  * stack to production.
  */
+/** `katalog` brands a whole tree as `Copy`; only the server's own catalogue calls it besides `copy.ts` itself. */
+const CATALOGUE_BRAND = {
+  regex: moduleNamed("copy"),
+  importNames: ["katalog"],
+  message:
+    "katalog brands a whole tree as Copy: fl_frontend/src/core/serverCopy.ts, the server's own catalogue, calls it, and nothing else may. Take the entry from COPY or SERVER_COPY, or add one there.",
+};
+
 const SITE_ORIGIN = {
   regex: moduleNamed("brand"),
   importNames: ["SITE_URL"],
@@ -265,78 +273,77 @@ function sendersOf(operationId) {
 }
 
 /**
- * Each pass by its operation ids: the module wrapping their senders, the wrapper's exports, and the modules running
- * it. The drain is `core/mail.ts`'s, run by the scheduler and by `drainSoon`; the activation press runs the pupils'
+ * Each pass by its operation ids: the module wrapping their senders, which the wrapper's ban names by its file name,
+ * the wrapper's exports, and the modules running it. The drain is `core/mail.ts`'s, run by the scheduler and by `drainSoon`; the activation press runs the pupils'
  * deletion beside its job.
  */
 const BACKGROUND_PASSES = [
   {
     operations: ["postausgang_post_ausgabe", "postausgang_post_ergebnis"],
-    wrapper: { file: "src/core/mail.ts", regex: moduleNamed("mail"), names: ["drainPostausgang"] },
+    wrapper: { file: "src/core/mail.ts", names: ["drainPostausgang"] },
     runners: ["src/instrumentation-node.ts", "src/core/afterResponse.ts"],
   },
   {
     operations: ["bewerbungen_get_sweep_saisons", "bewerbungen_sweep_saison"],
-    wrapper: {
-      file: "src/features/bewerbungen/mutations.ts",
-      regex: moduleNamed("mutations"),
-      names: ["getBewerbungSweepSaisons", "postBewerbungSweep"],
-    },
+    wrapper: { file: "src/features/bewerbungen/mutations.ts", names: ["getBewerbungSweepSaisons", "postBewerbungSweep"] },
     runners: ["src/features/bewerbungen/sweep.ts"],
   },
   {
     operations: ["registrierungen_sweep_registrierungen"],
-    wrapper: { file: "src/features/registrierungen/mutations.ts", regex: moduleNamed("mutations"), names: ["postRegistrierungSweep"] },
+    wrapper: { file: "src/features/registrierungen/mutations.ts", names: ["postRegistrierungSweep"] },
     runners: ["src/features/bewerbungen/sweep.ts"],
   },
   {
     operations: ["adresswechsel_sweep_adresswechsel"],
-    wrapper: { file: "src/features/adresswechsel/mutations.ts", regex: moduleNamed("mutations"), names: ["postAdresswechselSweep"] },
+    wrapper: { file: "src/features/adresswechsel/mutations.ts", names: ["postAdresswechselSweep"] },
     runners: ["src/features/adresswechsel/sweep.ts"],
   },
   {
     operations: ["adresswechsel_get_adresswechsel_umzuege", "adresswechsel_post_adresswechsel_umzuege_erledigt"],
-    wrapper: {
-      file: "src/features/adresswechsel/mutations.ts",
-      regex: moduleNamed("mutations"),
-      names: ["getAdresswechselUmzuege", "postAdresswechselUmzuegeErledigt"],
-    },
+    wrapper: { file: "src/features/adresswechsel/mutations.ts", names: ["getAdresswechselUmzuege", "postAdresswechselUmzuegeErledigt"] },
     runners: ["src/features/adresswechsel/umzug.ts"],
   },
   {
     operations: ["identitaet_get_referenzen"],
-    wrapper: { file: "src/features/funktionen/mutations.ts", regex: moduleNamed("mutations"), names: ["postReferenzen"] },
+    wrapper: { file: "src/features/funktionen/mutations.ts", names: ["postReferenzen"] },
     runners: ["src/features/funktionen/sweep.ts"],
   },
   {
     operations: ["identitaet_sweep_loeschung"],
-    wrapper: { file: "src/features/saisons/mutations.ts", regex: moduleNamed("mutations"), names: ["postLoeschungSweep"] },
+    wrapper: { file: "src/features/saisons/mutations.ts", names: ["postLoeschungSweep"] },
     runners: ["src/features/saisons/sweep.ts", "src/features/saisons/actions.ts"],
   },
   {
     operations: ["spielbestaetigungen_get_sweep_saisons", "spielbestaetigungen_sweep_spielbestaetigungen"],
     wrapper: {
       file: "src/features/spielbestaetigungen/mutations.ts",
-      regex: moduleNamed("mutations"),
       names: ["getSpielbestaetigungSweepSaisons", "postSpielbestaetigungSweep"],
     },
     runners: ["src/features/spielbestaetigungen/sweep.ts"],
   },
   {
     operations: ["berechtigungen_post_berechtigungen_abgleich"],
-    wrapper: { file: "src/features/berechtigungen/mutations.ts", regex: moduleNamed("mutations"), names: ["postBerechtigungenAbgleich"] },
+    wrapper: { file: "src/features/berechtigungen/mutations.ts", names: ["postBerechtigungenAbgleich"] },
     runners: ["src/features/berechtigungen/abgleich.ts"],
   },
 ];
 
-// A sender renamed in the contract would drop out of its ban in silence, as a renamed file would.
-const GENERATED_SENDERS = readFileSync(fileURLToPath(new URL(GENERATED_SDK_PATH, import.meta.url)), "utf8");
-const UNSENT = BACKGROUND_PASSES.flatMap(({ operations }) => operations.flatMap(sendersOf)).filter(
-  (name) => !GENERATED_SENDERS.includes(`export const ${name} =`),
-);
-if (UNSENT.length > 0) {
+// A sender renamed in the contract, or a wrapper's export renamed, would drop out of its ban in silence, as a renamed
+// file would.
+const sourceOf = (path) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
+const GENERATED_SENDERS = sourceOf(GENERATED_SDK_PATH);
+const UNEXPORTED = BACKGROUND_PASSES.flatMap(({ operations, wrapper }) => {
+  const wrapped = sourceOf(wrapper.file);
+  return [
+    ...operations.flatMap(sendersOf).filter((name) => !GENERATED_SENDERS.includes(`export const ${name} =`)),
+    ...wrapper.names
+      .filter((name) => !new RegExp(String.raw`^export (?:async function|function|const) ${name}\b`, "m").test(wrapped))
+      .map((name) => `${wrapper.file} :: ${name}`),
+  ];
+});
+if (UNEXPORTED.length > 0) {
   throw new Error(
-    `eslint.config.mjs bans generated senders the contract no longer exports: ${UNSENT.join(", ")}. Name each pass's operations anew.`,
+    `eslint.config.mjs bans exports that no longer exist: ${UNEXPORTED.join(", ")}. Name each pass's operations and its wrapper's exports anew.`,
   );
 }
 
@@ -348,7 +355,11 @@ const BACKGROUND_PASS_BANS = BACKGROUND_PASSES.flatMap(({ operations, wrapper, r
     importBan({ regex: GENERATED_SDK, importNames: senders, message: reached(senders, [wrapper.file, ...runners]) }, PRODUCTION, {
       allow: [wrapper.file, ...runners],
     }),
-    importBan({ regex: wrapper.regex, importNames: wrapper.names, message: reached(wrapper.names, runners) }, PRODUCTION, { allow: runners }),
+    importBan(
+      { regex: moduleNamed(basename(wrapper.file, ".ts")), importNames: wrapper.names, message: reached(wrapper.names, runners) },
+      PRODUCTION,
+      { allow: runners },
+    ),
   ];
 });
 
@@ -361,25 +372,25 @@ const IMPORT_BANS = [
   // What a crawler reads, which stands on the published origin.
   importBan(SITE_ORIGIN, PRODUCTION, { allow: ["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts"] }),
   importBan(LOCALE_PROVIDER, PRODUCTION, { allow: ["src/core/providers/RootProviders.tsx"] }),
-  // The two session guards import the actor's signing module statically; the boot loads it by `import()`.
   importBan(NEXT_AFTER, PRODUCTION, { allow: ["src/core/afterResponse.ts"] }),
   ...Object.values(SECRET_READERS).map(({ owners, ...entry }) => importBan(entry, PRODUCTION, { allow: owners })),
-  // `no-restricted-imports` reads import and export declarations alone, so an `import()` would hand out every
-  // secret reader past the bans above. The boot alone loads the settings by `import()`: their validation throws
-  // while the module loads, and the boot turns that rejection into its refusal.
-  ban(
-    "no-restricted-syntax",
-    syntax(
-      `ImportExpression[source.value=/${CONFIG_MODULE}/]`,
-      "Import fl_frontend/src/core/config.ts statically: lint holds each secret reader to its one owner through the static import alone.",
-    ),
-    PRODUCTION,
-    { allow: ["src/instrumentation-node.ts"] },
-  ),
   importBan(AUTH_INSTANCE, PRODUCTION, { allow: ["src/app/api/auth/[...all]/route.ts"] }),
   importBan(SIGN_IN_STORE, PRODUCTION, { allow: ["src/core/auth.ts", "src/core/authIndexes.ts"] }),
   importBan(OWN_ACCOUNT_DELETION, PRODUCTION, { allow: ["src/features/konto/personActions.ts"] }),
+  importBan(CATALOGUE_BRAND, EVERY, { allow: ["src/core/serverCopy.ts"] }),
   ...BACKGROUND_PASS_BANS,
+  // `no-restricted-imports` reads import and export declarations alone, so an `import()` would pass every ban above.
+  // The two files spared are the runtime split, Next's documented shape, and the boot, which turns the settings'
+  // failed validation into its refusal.
+  ban(
+    "no-restricted-syntax",
+    syntax(
+      "ImportExpression",
+      "Import a module statically: the import bans read import and export declarations alone, so an `import()` passes every one of them.",
+    ),
+    PRODUCTION,
+    { allow: ["src/instrumentation.ts", "src/instrumentation-node.ts"] },
+  ),
 ];
 
 // ---------------------------------------------------------------------------------------------------
@@ -588,7 +599,7 @@ const SOURCE_BANS = [
     // reached by a write whose answer was lost.
     syntax(
       `:matches(ImportDeclaration[source.value="next/cache"] > ImportSpecifier[imported.name="updateTag"], ${readsOff('"updateTag"')})`,
-      "The save spines, fl_frontend/src/core/action.ts and the old fl_frontend/src/shared/utils/adminMutation.ts, clear the site's cache tag after every write that may stand, a lost answer included: an action clears nothing itself.",
+      "The save spines, fl_frontend/src/core/action.ts on its administrator's and person's lanes and the old fl_frontend/src/shared/utils/adminMutation.ts, clear the site's cache tag after every write that may stand, a lost answer included: an action clears nothing itself.",
     ),
     SOURCE,
     { allow: ["src/shared/utils/adminMutation.ts", "src/core/action.ts"] },
@@ -603,10 +614,12 @@ const SOURCE_BANS = [
     { allow: ["src/shared/utils/publicRoute.ts"] },
   ),
   syntaxBan(
-    // Per function, where its lifetime stands beside it; a module-wide directive caches every export unseen.
+    // Per function, where its tag and its lifetime stand beside it; a module-wide directive caches every export
+    // unseen. The lifetime is set in every scope, as Next's `use cache` reference asks ("Set an explicit cache
+    // lifetime with `cacheLife` in every `use cache` scope"): without it the scope takes the `default` profile.
     syntax(
-      ':matches(Program > ExpressionStatement[directive=/^use cache/], :function:not(:has(CallExpression[callee.name="cacheTag"][arguments.0.name="SITE_CACHE_TAG"])) > BlockStatement > ExpressionStatement[directive=/^use cache/])',
-      'Open each cached function with `"use cache"` and tag it with `cacheTag(SITE_CACHE_TAG)` from fl_frontend/src/core/siteCache.ts: an untagged entry outlives every save.',
+      ':matches(Program > ExpressionStatement[directive=/^use cache/], :function:not(:has(CallExpression[callee.name="cacheTag"][arguments.0.name="SITE_CACHE_TAG"]):has(CallExpression[callee.name="cacheLife"])) > BlockStatement > ExpressionStatement[directive=/^use cache/])',
+      'Open each cached function with `"use cache"`, tag it with `cacheTag(SITE_CACHE_TAG)` from fl_frontend/src/core/siteCache.ts and set its lifetime with `cacheLife`: an untagged entry outlives every save, and one with no lifetime keeps Next\'s `default` profile, longer than `"minutes"`.',
     ),
     SOURCE,
   ),
@@ -1029,7 +1042,7 @@ const DESIGN_BANS = [
       "The catalogue writes none of these: three periods, „!“, a dash, a semicolon, „Bitte“, „erfolgreich“, „leider“, „wirklich“, „und mehr“, „z. B.“, „Mannschaft“, „noch einmal“, „Sie“ or a capitalised „Du“ inside a sentence.",
     ),
     EVERY,
-    { only: ["src/core/copy.ts"] },
+    { only: ["src/core/copy.ts", "src/core/serverCopy.ts"] },
   ),
 
   // Dates, numbers and the time.

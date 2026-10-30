@@ -4,16 +4,16 @@ import { refresh } from "next/cache";
 import { APIBadStatusError } from "@/core/errors";
 import { funktionenOf, isSeatAt } from "@/core/funktionen";
 import { getSubjectSession } from "@/core/subject";
+import { logVerweigert } from "@/core/verweigert";
 
 import { ANMELDUNG_ABGELAUFEN, SITZ_WEG } from "./actionError";
 import { logActionFailure } from "./actionFailure";
 import { runGuardedMutation, stepUpRequired } from "./adminMutation";
-import { logVerweigert } from "./verweigert";
 
 import type { Funktion } from "@/core/funktionen";
 import type { SubjectSession } from "@/core/subject";
+import type { Verweigerung } from "@/core/verweigert";
 import type { ActionFailure } from "@/shared/types/types";
-import type { Verweigerung } from "./verweigert";
 
 /** The team and season a person's write claims a seat on, as the action's own argument carries them. */
 export type SeatClaim = { readonly team_id: string; readonly saison_id: string };

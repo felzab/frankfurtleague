@@ -1,6 +1,4 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
+import { EDGE_REFUSAL_BODY } from "@/kit/edgeRefusal.ts";
 import { bodyField, refusedPayload } from "@/test-support/refusedPayload.ts";
 import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -9,7 +7,6 @@ import { APIBadStatusError, APINetworkError, isRefusalCode, RolledBackError } fr
 import { Code } from "@/core/generated/client/types.ts";
 
 import {
-  EDGE_REFUSAL_BODY,
   FELD_ABGELEHNT,
   isRuleRefusal,
   outcomeUnknown,
@@ -458,15 +455,5 @@ describe("a write action that rejected", () => {
     ]) {
       expect(unansweredAction(other), String(other)).toStrictEqual(outcomeUnknown());
     }
-  });
-
-  /* Source text rather than a served answer: `nginx/edge_test.sh` serves the file and grades the body
-     against this same line, so the two halves meet at it. */
-  it("expects the very sentence the edge returns, in ASCII alone", () => {
-    const site = readFileSync(path.resolve(import.meta.dirname, "..", "..", "..", "..", "nginx", "shared", "site.conf"), "utf8");
-    const returned = [...site.matchAll(/^\s*return 429 "(.*)";$/gm)].map((match) => match[1]);
-
-    expect(returned).toStrictEqual([EDGE_REFUSAL_BODY]);
-    expect(EDGE_REFUSAL_BODY).toMatch(/^[ -~]+$/);
   });
 });

@@ -117,6 +117,7 @@ export function buildBewerbungZusageEmail(
     ],
     // No row for the decision or the season: the heading states both.
     block: {
+      titel: `In der Saison ${saison_id}`,
       fakten: [
         { label: "Team", wert: team },
         { label: "Gruppe", wert: gruppe },
@@ -148,6 +149,7 @@ export function buildBewerbungAbsageEmail({ team, saison_id, rollen, grund }: FL
       ["Die Entscheidung betrifft diese Bewerbung, nicht die Schule und nicht die Menschen dahinter."],
     ],
     block: {
+      titel: "Die Absage",
       fakten: [
         { label: "Team", wert: team },
         { label: "Saison", wert: saison_id },
@@ -190,6 +192,7 @@ export function buildBewerbungBestaetigungEmail({ saison_id, schule, rollen, fri
       ],
     ],
     block: {
+      titel: "Dein Eintrag",
       fakten: [
         // Named here and in no mail to the submitter: a contact who never heard of the application
         // has nothing else to tell whose it is, and cannot answer a link they cannot place.
@@ -224,6 +227,7 @@ export function buildBewerbungErinnerungEmail({ saison_id, schule, rollen, frist
       ],
     ],
     block: {
+      titel: "Dein Eintrag",
       fakten: [
         { label: "Schule", wert: schule },
         { label: "Saison", wert: saison_id },
@@ -274,6 +278,7 @@ export function buildBewerbungEingangEmail(
     // The other contacts by first name and role, and no school: a mistyped submitter address then
     // hands a stranger two first names and two roles with nothing to attach them to.
     block: {
+      titel: "Stand der Bewerbung",
       fakten: [
         { label: "Status", wert: "Eingegangen, Bestätigungen offen" },
         { label: "Saison", wert: saison_id },
@@ -309,6 +314,7 @@ export function buildBewerbungGeloeschtEmail({ saison_id, rollen, ausstehend }: 
       ],
     ],
     block: {
+      titel: "Stand der Bewerbung",
       fakten: [
         { label: "Status", wert: "Wird gelöscht, nicht vollständig geworden" },
         { label: "Saison", wert: saison_id },
@@ -346,6 +352,7 @@ export function buildBewerbungWiderspruchEmail(
       ],
     ],
     block: {
+      titel: "Stand der Bewerbung",
       fakten: [
         { label: "Status", wert: "Nicht vollständig, eine Bestätigung fehlt" },
         { label: "Saison", wert: saison_id },

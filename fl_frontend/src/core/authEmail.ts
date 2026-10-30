@@ -2,7 +2,7 @@ import "server-only";
 
 import { mailOrigin } from "./emailShell";
 
-import type { Mail } from "./emailShell";
+import type { Mail, Satz } from "./emailShell";
 
 /**
  * The one figure: `fl_frontend/src/core/auth.ts` expires the code on it and this message states it.
@@ -14,8 +14,8 @@ export const CODE_VALIDITY_MINUTES = 10;
  * The phishing warning: a code typed into anything but this site's own form is the one way it leaks, so
  * it names the host a relay page cannot wear, read off the serving origin the code signs in on.
  */
-function nurHierSatz(site: string): readonly [string, string] {
-  return [`Gib ihn nur auf ${new URL(site).host} ein.`, "Wir fragen Dich nie auf anderem Weg nach diesem Code."];
+function nurHierSatz(site: string): readonly [Satz, Satz] {
+  return [["Gib ihn nur auf ", { stark: new URL(site).host }, " ein."], "Wir fragen Dich nie auf anderem Weg nach diesem Code."];
 }
 
 // No button: a link that carried the code would sign in whoever opened a forwarded message, and one

@@ -2,7 +2,6 @@ import { KONTAKT_EMAIL } from "./brand";
 import { formatDatum, formatDatumLang, formatDatumMitWochentag, formatErgebnis, formatUhrzeit, formatZahl } from "./format";
 
 import type { Kalendertag, Paar, Uhrzeit } from "./format";
-import type { Code } from "./generated/client/types";
 
 declare const copyMarke: unique symbol;
 
@@ -18,8 +17,11 @@ type Katalog<T> = T extends string
     ? (...args: A) => Copy
     : { readonly [K in keyof T]: Katalog<T[K]> };
 
-// The only assertion to `Copy`: the whole tree is branded at once, so no entry can be left plain.
-const katalog = <const T>(baum: T): Katalog<T> => baum as Katalog<T>;
+/**
+ * The only assertion to `Copy`: the whole tree is branded at once, so no entry can be left plain. Exported for the
+ * server's own catalogue, `serverCopy.ts`, alone.
+ */
+export const katalog = <const T>(baum: T): Katalog<T> => baum as Katalog<T>;
 
 // Each label is the verb's infinitive capitalised, so `mitObjekt` lower-cases its first letter alone.
 const VERB = {
@@ -48,9 +50,6 @@ const infinitiv = (verb: Verb): string => `${VERB[verb].charAt(0).toLowerCase()}
 
 // One line for every failure no reason names, the same in a toast and in a status line.
 const UNERWARTET = "Etwas ist schiefgelaufen";
-
-// A unique index's refusal: a field's message, and the words its code is answered in.
-const SCHON_VERGEBEN = "Schon vergeben";
 
 // The mark a result decided in a shoot-out carries: under the score in a match row, after it in a fact.
 const NACH_ELFMETERSCHIESSEN = "n. E.";
@@ -81,7 +80,8 @@ export const COPY = katalog({
       zwischen: (von: number, bis: number) => `Zwischen ${formatZahl(von)} und ${formatZahl(bis)}`,
       fruehestens: (tag: Kalendertag) => `Frühestens ${formatDatum(tag)}`,
       spaetestens: (tag: Kalendertag) => `Spätestens ${formatDatum(tag)}`,
-      schonVergeben: SCHON_VERGEBEN,
+      // A unique index's refusal: a field's message, and the words `serverCopy.ts` answers its code in.
+      schonVergeben: "Schon vergeben",
     },
 
     /** The three lines every refusal no person causes knowingly from the screen falls back to. */
@@ -96,32 +96,6 @@ export const COPY = katalog({
       /** The backend left the grant unread: nothing ran, and a sign-in would meet the same outage. */
       zugangUngeprueft: "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen. Versuch es erneut.",
     },
-
-    /**
-     * A refusal's own words, by the backend's code, for a code a person causes knowingly from a screen; every other
-     * code answers one of the shared failure lines above. A form places a code on the field it names, where the
-     * words are a field's phrase; anywhere else they are the status line's reason and its repair.
-     */
-    ablehnung: {
-      duplicate_key: SCHON_VERGEBEN,
-      spiel_outside_spieltag: "Außerhalb des Spieltags",
-      state_ergebnis_on_a_non_event: "Nur ohne eingetragene Tore",
-      state_nichtantreten_without_two_sides: "Nur mit beiden Teams",
-      booking_unknown_resource:
-        "Spielort oder Schiedsrichter ist stillgelegt oder gelöscht und kann keinem Spiel neu zugeteilt werden, auch keinem, dessen Absage oder Ergebnis du gerade entfernst. Wähle einen anderen, oder reaktiviere den Eintrag, falls er nur stillgelegt ist.",
-      booking_unconfirmed_schiedsrichter:
-        "Diese Schiedsrichterin oder dieser Schiedsrichter hat den eigenen Eintrag noch nicht bestätigt. Teile jemand anderen ein, oder warte auf die Bestätigung.",
-      spiel_double_booked:
-        "Spielort oder Schiedsrichter ist zu dieser Zeit schon für ein anderes Spiel eingeteilt. Wähle eine Uhrzeit mit mindestens vier Stunden Abstand, oder teile das Spiel anders ein.",
-      ergebnis_side_emptied:
-        "Dieses Spiel hat ein Ergebnis, deshalb lässt sich das Team nicht entfernen. Wähle ein anderes Team, oder lösche zuerst die Tore.",
-      spieltag_occupied: "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel. Wähle ein anderes Team oder einen anderen Tag.",
-      spieltag_occupied_by_the_resolution:
-        "Mit dieser Änderung würde der KO-Baum ein Team in zwei Spielen desselben Spieltags aufstellen. Gib einer der beiden Seiten eine andere Herkunft, oder nimm ein von Hand gesetztes Team aus einem der beiden Spiele.",
-      eligibility_disqualified:
-        "Dieses Team ist aus der Saison ausgeschieden und darf ab seinem Austritt nicht mehr aufgestellt sein. Wähle einen Tag vor dem Austritt oder ein anderes Team.",
-      eligibility_team_not_in_saison: "Dieses Team nimmt nicht an dieser Saison teil. Wähle ein Team dieser Saison.",
-    } satisfies Partial<Record<Code, string>>,
 
     /** Beside the save button once the record is stored. */
     gespeichert: "Gespeichert",
@@ -435,22 +409,6 @@ export const COPY = katalog({
       beideSeitenNoetig: "beide Seiten nötig",
       /** The save's done line where the write moved other matches too, `folgen` naming them in today's editor's words. */
       gespeichertMitFolgen: (folgen: string) => `Gespeichert. ${folgen}`,
-    },
-  },
-
-  /** The mail shell's own lines; each mail's sentences are its template's until its area's session rewrites them. */
-  mail: {
-    /** The one greeting: the first name where it is known. */
-    gruss: (vorname: string) => (vorname === "" ? "Hallo," : `Hallo ${vorname},`),
-    /** Under the button, above its link printed to copy. */
-    knopfLink: "Falls der Knopf nicht geht, öffne diesen Link:",
-    /** The Art. 21 DSGVO objection, set apart from the rest as Art. 21 (4) asks, on a first contact alone. */
-    widerspruch: `Du kannst der Verarbeitung deiner Angaben jederzeit widersprechen, aus Gründen, die sich aus deiner besonderen Situation ergeben (Art. 21 DSGVO). Eine formlose E-Mail an ${KONTAKT_EMAIL} genügt.`,
-    /** The mail's last line, by its kind: what a reader the mail was not meant for does. */
-    nichtDu: {
-      anmeldung: "Du hast keinen Code angefordert? Dann ignoriere diese E-Mail.",
-      sicherheit: "Warst du das nicht? Dann antworte sofort auf diese E-Mail.",
-      erstkontakt: "Du weißt nichts davon? Dann antworte auf diese E-Mail, und wir löschen deine Angaben.",
     },
   },
 

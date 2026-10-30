@@ -10,9 +10,9 @@ import { HelpPopover } from "./HelpPopover";
 import { SectionTitle } from "./Section";
 import { statusOf, useFormAction } from "./useFormAction";
 
+import type { ActionAnswer } from "@/core/action";
 import type { Copy } from "@/core/copy";
 import type { ReactNode } from "react";
-import type { ActionAnswer } from "./useFormAction";
 
 /**
  * One section of a Konto page that saves on its own: a box exactly as tall as its content, its 16-px title,
