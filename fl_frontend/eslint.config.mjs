@@ -357,7 +357,7 @@ if (UNSENT.length > 0) {
 
 const BACKGROUND_PASS_BANS = BACKGROUND_PASSES.flatMap(({ operations, wrapper, runners }) => {
   const reached = (names, owners) =>
-    `${names.join(", ")} ${names.length === 1 ? "runs" : "run"} a background pass: fl_frontend/${owners.join(" and fl_frontend/")} import${names.length === 1 && owners.length === 1 ? "s it" : " them"}, and a *.test.ts(x) file may; nothing else may.`;
+    `${names.join(", ")} ${names.length === 1 ? "runs" : "run"} a background pass: fl_frontend/${owners.join(", fl_frontend/")} ${owners.length === 1 ? "imports" : "import"} ${names.length === 1 ? "it" : "them"}, and a *.test.ts(x) file may; nothing else may.`;
   const senders = operations.flatMap(sendersOf);
   return [
     importBan({ regex: GENERATED_SDK, importNames: senders, message: reached(senders, [wrapper.file, ...runners]) }, PRODUCTION, {
