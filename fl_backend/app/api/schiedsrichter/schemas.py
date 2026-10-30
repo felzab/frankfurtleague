@@ -2,6 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
+from app.api.postausgang.schemas import FLPostausgangLage
 from app.api.spieler.schemas import FLEinwilligung
 from app.shared.schemas.bestaetigung import CustomToken, FLBestaetigung
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
@@ -50,16 +51,11 @@ class FLPatchSchiedsrichterPayload(_SchiedsrichterPayload):
 
 
 class FLSchiedsrichterMint(BaseModel):
-    """A freshly minted link, answered ONCE and stored nowhere.
+    """The confirmation link a write owed the referee, which the Postausgang mints and mails: never the link itself."""
 
-    The raw token exists here and in the recipient's inbox; the database holds its hash. Admin-tier
-    whole — every mint answering it is on `app/api/schiedsrichter/admin_router.py`.
-    """
-
-    token: str
     frist: CustomDateString
-    # The address this link was minted FOR, read in the mint's own transaction. A caller mailing the
-    # address it read BEFORE the mint sends the credential to a mailbox a rival save has replaced.
+    # The address the mail is owed to, read in the write's own transaction, so the answer names the mailbox the link
+    # goes to rather than one a rival save has replaced.
     email: CustomNonEmptyString
 
 
@@ -85,9 +81,10 @@ class FLSchiedsrichter(_SchiedsrichterWritable, BaseReadModel):
 
 
 class FLSchiedsrichterBestaetigungRecord(FLBestaetigung):
-    """One referee's confirmation bookkeeping as `schiedsrichter` stores it, its link's hash with it."""
+    """One referee's confirmation bookkeeping as `schiedsrichter` stores it, its links' hashes with it."""
 
-    token_hash: str
+    # Empty until the hand-out mints the link the write owed; each hand-out's link replaces the one before it.
+    token_hashes: list[str]
 
 
 class FLSchiedsrichterRecord(FLSchiedsrichter):
@@ -196,6 +193,8 @@ class FLSchiedsrichterSingleResponse(BaseAPIResponse):
     adresswechsel_id: CustomObjectId | None
     # Why the address tool refuses that change this administrator; null where it opens it or none stands.
     adresswechsel_einsehbar_verwehrt: FLAdresswechselEinsehbarVerwehrt | None
+    # What became of the last confirmation mail the referee was owed; null where none was.
+    zustellung: FLPostausgangLage | None
 
 
 class FLSchiedsrichterSelbst(BaseReadModel):

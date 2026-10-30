@@ -116,14 +116,14 @@ describe("one pass of the pupils' deletion", () => {
     ]);
   });
 
-  /* A pass cut short knows no remainder, so its failures alone make the line a warning beside its own error. */
+  /* A pass cut short knows no remainder, so its failures alone make the line a warning, and the job rejects after it. */
   it("warns where the pass is cut short after a call that failed pupils", async () => {
     laufAnswer = (nach) => {
       if (nach === null) return { ...gelaufen(3, 5, ORT), fehlgeschlagen: 2 };
       throw new Error("the deletion was refused");
     };
 
-    await runLoeschungSweep();
+    await expect(runLoeschungSweep()).rejects.toThrow("the deletion was refused");
 
     expect(passLines()).toStrictEqual([
       {
@@ -138,7 +138,6 @@ describe("one pass of the pupils' deletion", () => {
           fehlgeschlagen: 2,
         },
       },
-      { level: "error", event: "loeschung.sweep_failed", fields: { name: "Error" } },
     ]);
   });
 
@@ -148,10 +147,10 @@ describe("one pass of the pupils' deletion", () => {
     ["the same place", ORT],
     ["a place before it", `${"e".repeat(23)}4`],
   ] as const) {
-    it(`stops where a call answers ${wie}, the deletions counted and its own line filed`, async () => {
+    it(`stops where a call answers ${wie}, the deletions counted and the job rejecting`, async () => {
       laufAnswer = inTurn([gelaufen(3, 5, ORT), gelaufen(1, 4, ort), gelaufen(0, 0)]);
 
-      await runLoeschungSweep();
+      await expect(runLoeschungSweep()).rejects.toThrow("The deletion answered a place not past the one it was sent.");
 
       expect(laufCalls.map(({ params }) => params)).toStrictEqual([{}, { nach: ORT }]);
       expect(passLines()).toStrictEqual([
@@ -160,7 +159,6 @@ describe("one pass of the pupils' deletion", () => {
           event: "loeschung.sweep_pass",
           fields: { abgeschlossene_saison_id: "2526", spieler: 4, saison_spieler: 4, registrierungen: 0, uebersprungen: 0, fehlgeschlagen: 0 },
         },
-        { level: "error", event: "loeschung.sweep_failed", fields: { name: "ContractBreakError" } },
       ]);
     });
   }

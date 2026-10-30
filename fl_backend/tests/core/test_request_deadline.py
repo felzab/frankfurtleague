@@ -293,11 +293,10 @@ def _seeded_link(team_id: ObjectId) -> dict[str, Any]:
         "_id": ObjectId(),
         "saison_id": SAISON_ID,
         "team_id": team_id,
-        "token_hash": hash_token(f"seeded-{team_id}"),
+        "token_hashes": [hash_token(f"seeded-{team_id}")],
         "erstellt_am": "2026-03-15",
         "erstellt_von": "admin@frankfurtleague.de",
         "widerrufen_am": None,
-        "versand": {},
     }
 
 

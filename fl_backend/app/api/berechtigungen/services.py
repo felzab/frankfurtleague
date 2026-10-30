@@ -1,23 +1,24 @@
 """
-API · the grants' refusals, the one reading of a stored row, and the outbox's rows, apart from the handles they are asked of
+API · the grants' refusals, the one reading of a stored row, and the facts of their notices, apart from the handles they are asked of
 
 Each refusal takes what its caller read inside its own transaction, so a retry after a conflict
 judges the list afresh.
 """
 
 from collections.abc import Collection, Mapping, Sequence, Set
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime
 from http import HTTPStatus
 from typing import Any, Final
 
 from bson import ObjectId
 
-from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungPostausgangArt, FLBerechtigungStand, as_utc
+from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungMitteilungArt, FLBerechtigungStand, as_utc
 from app.api.sperrliste.services import withheld_actor
 from app.core.codes import Code
 from app.core.exceptions import WriteRefusal
 from app.core.security import signed_in_since
-from app.shared.folding import is_stored_identifier, sign_in_identifier
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.literals import FLGenehmigungVerwehrt
 
 # An `owner` grant counts among the two, being a row no route can remove: a floor one `owner` alone
@@ -25,25 +26,6 @@ from app.shared.schemas.literals import FLGenehmigungVerwehrt
 MINDESTZAHL: Final = 2
 
 OWNER: Final = "owner"
-
-# How long a pass holds the rows it claimed. Longer than a pass mails for, so a second pass never
-# takes rows the first is still sending; short enough that a pass that died is replaced within two.
-BEANSPRUCHUNG_DAUER: Final = timedelta(minutes=10)
-
-# The claims that hand a notice out before the next gives it up: at the lease above, four hours
-# of passes none of which stamped it. Counted on the row, so a restart resets nothing.
-VERSUCHE_HOECHSTENS: Final = 24
-
-
-def lebendige_adresse(row: Mapping[str, Any]) -> str | None:
-    """The address a stored grant admits, or `None` for a dead row, which every reader skips.
-
-    Every reader takes this one reading: two readers disagreeing is one mailbox holding two rows.
-    """
-
-    adresse = row.get("adresse")
-
-    return adresse if is_stored_identifier(adresse) else None
 
 
 def berechtigt_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | None) -> datetime | None:
@@ -54,7 +36,7 @@ def berechtigt_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | No
 
     seit = as_utc(row.get("gefunden_am") or row["erteilt_am"])
     if angekuendigt is None:
-        # Seen before and its record gone since: made live from a dead spelling, repointed past the pass
+        # Seen before and its record gone since: repointed past the pass
         # that erased its record, or put back whole. Every date it carries, its id's included, is from
         # before that edit.
         if row.get("gesehen_am") is not None:
@@ -107,21 +89,14 @@ def ernannt(
     ]
 
 
-def lebendige(grants: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
-    return [grant for grant in grants if lebendige_adresse(grant) is not None]
-
-
 def verwaltung_des(adresse: str, grants: Sequence[Mapping[str, Any]]) -> str | None:
     """The tier this folded address holds among the live grants, or `None`."""
 
-    return next((str(grant["verwaltung"]) for grant in lebendige(grants) if grant["adresse"] == adresse), None)
+    return next((str(grant["verwaltung"]) for grant in grants if grant["adresse"] == adresse), None)
 
 
 def find_vorhanden_refusal(*, adresse: str, grants: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
-    """`REQ-BERECHTIGUNG-001`: a live grant already holds the address, of either tier.
-
-    A dead spelling of it admits nobody and blocks nothing, so the grant is made beside it.
-    """
+    """`REQ-BERECHTIGUNG-001`: a grant already holds the address, of either tier."""
 
     if verwaltung_des(adresse, grants) is None:
         return None
@@ -138,7 +113,7 @@ def holds_an_owners_power(*, akteur: str, auth_time: int, grants: Sequence[Mappi
     One judgement for every refusal keyed on an owner's power, so no two of them can part on who holds it.
     """
 
-    row = next((grant for grant in lebendige(grants) if grant["adresse"] == akteur), None)
+    row = next((grant for grant in grants if grant["adresse"] == akteur), None)
     record = None if row is None else next((entry for entry in announced if entry["_id"] == row["_id"]), None)
     seit = None if row is None else inhaber_seit(row, record)
 
@@ -193,7 +168,7 @@ def find_inhaber_refusal(*, grant: Mapping[str, Any]) -> WriteRefusal | None:
 def find_mindestzahl_refusal(*, remaining: int) -> WriteRefusal | None:
     """`REQ-BERECHTIGUNG-004`: a revoke leaves at least `MINDESTZAHL` live, unbarred grants, any `owner` grant among them.
 
-    Counted over the grants that admit somebody: a dead or barred row counted would let the floor
+    Counted over the unbarred grants: a barred row counted would let the floor
     hold while one person alone could still act.
     """
 
@@ -209,7 +184,7 @@ def find_mindestzahl_refusal(*, remaining: int) -> WriteRefusal | None:
 def find_letzter_inhaber_refusal(*, remaining_owners: int) -> WriteRefusal | None:
     """`REQ-BERECHTIGUNG-007`: a demotion leaves at least one live, unbarred `owner`.
 
-    Counted as the floor of two is: a dead or barred `owner` row admits nobody, so it could demote
+    Counted as the floor of two is: a barred `owner` row admits nobody, so it could demote
     nobody back and grant nothing.
     """
 
@@ -229,12 +204,12 @@ def stand_of(row: Mapping[str, Any]) -> FLBerechtigungStand:
 def compare(
     *, grants: Sequence[Mapping[str, Any]], announced: Sequence[Mapping[str, Any]]
 ) -> list[tuple[Any, FLBerechtigungAenderungArt, FLBerechtigungStand | None, FLBerechtigungStand | None]]:
-    """Every live grant whose state differs from the announced record, in id order; a dead row reads as no grant.
+    """Every grant whose state differs from the announced record, in id order.
 
     Keyed on the grant's id, never its address, or a revoke and a re-grant cancel out unannounced.
     """
 
-    jetzt = {row["_id"]: stand_of(row) for row in lebendige(grants)}
+    jetzt = {row["_id"]: stand_of(row) for row in grants}
     vorher = {row["_id"]: stand_of(row) for row in announced}
 
     changes: list[tuple[Any, FLBerechtigungAenderungArt, FLBerechtigungStand | None, FLBerechtigungStand | None]] = []
@@ -264,39 +239,46 @@ def withheld(stand: FLBerechtigungStand | None, gesperrt: Collection[str]) -> FL
     return stand.model_copy(update={"adresse": None})
 
 
-def compose_postausgang(
+@dataclass(frozen=True)
+class Mitteilung:
+    """One notice a grants write owes: the grant or request it is keyed by, and its facts (`FLBerechtigungDaten`)."""
+
+    berechtigung_id: ObjectId
+    daten: dict[str, Any]
+
+
+def compose_mitteilung(
     *,
     berechtigung_id: ObjectId,
-    art: FLBerechtigungPostausgangArt,
+    art: FLBerechtigungMitteilungArt,
     jetzt: FLBerechtigungStand | None,
     vorher: FLBerechtigungStand | None,
     geaendert_von: str | None,
     now: datetime,
     gesperrt: Collection[str],
-) -> dict[str, Any]:
-    """One outbox row, every barred address in it withheld as it is written; `geaendert_von` null is a change found in the database.
+) -> Mitteilung:
+    """One notice, every barred address in it withheld as it is written; `geaendert_von` null is a change found in the database.
 
-    The actor stored folded, the spelling a later ban matches pending rows by.
+    The actor stored folded, the spelling a later ban or erasure matches queued notices by.
     """
 
-    rows = (withheld(jetzt, gesperrt), withheld(vorher, gesperrt))
+    stands = (withheld(jetzt, gesperrt), withheld(vorher, gesperrt))
     actor = None if geaendert_von is None else sign_in_identifier(geaendert_von)
 
-    return {
-        "berechtigung_id": berechtigung_id,
-        "art": art,
-        "urheber": "datenbank" if geaendert_von is None else "anwendung",
-        "jetzt": None if rows[0] is None else rows[0].model_dump(),
-        "vorher": None if rows[1] is None else rows[1].model_dump(),
-        "geaendert_von": withheld_actor(actor, gesperrt),
-        "geaendert_am": None if geaendert_von is None else now,
-        # The grant's address alone: a null actor on an application's change already says it is barred.
-        "vorenthalten": "gesperrt" if any(stand is not None and stand.adresse is None for stand in rows) else None,
-        "erfasst_am": now,
-        "beansprucht_bis": None,
-        "beanspruchung": None,
-        "versuche": 0,
-    }
+    return Mitteilung(
+        berechtigung_id=berechtigung_id,
+        daten={
+            "art": "berechtigung",
+            "aenderung": art,
+            "urheber": "datenbank" if geaendert_von is None else "anwendung",
+            "jetzt": None if stands[0] is None else stands[0].model_dump(),
+            "vorher": None if stands[1] is None else stands[1].model_dump(),
+            "geaendert_von": withheld_actor(actor, gesperrt),
+            "geaendert_am": None if geaendert_von is None else now,
+            # The grant's address alone: a null actor on an application's change already says it is barred.
+            "vorenthalten": "gesperrt" if any(stand is not None and stand.adresse is None for stand in stands) else None,
+        },
+    )
 
 
 def compose_announced(*, berechtigung_id: ObjectId, stand: FLBerechtigungStand, now: datetime) -> dict[str, Any]:
@@ -336,7 +318,7 @@ def haelt_seit(
     A grant made after a request approves nothing of it, or one person could grant a second mailbox and approve with it.
     """
 
-    row = next((grant for grant in lebendige(grants) if grant["adresse"] == adresse), None)
+    row = next((grant for grant in grants if grant["adresse"] == adresse), None)
     if row is None:
         return False
     record = next((entry for entry in announced if entry["_id"] == row["_id"]), None)
@@ -362,7 +344,7 @@ def genehmiger_of(
 
     return [
         str(row["adresse"])
-        for row in lebendige(grants)
+        for row in grants
         if row["adresse"] not in ausgenommen
         and row["adresse"] not in gesperrt
         and haelt_seit(str(row["adresse"]), verwaltung=verwaltung, vor=vor, grants=grants, announced=announced)

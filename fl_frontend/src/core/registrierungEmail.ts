@@ -3,6 +3,8 @@ import "server-only";
 import { BRAND_NAME, mailOrigin } from "./emailShell";
 
 import type { Mail } from "./emailShell";
+import type { FLRegistrierungAbsageDaten, FLRegistrierungLinkDaten } from "./generated/client/types";
+import type { MailLink, MailOrt } from "./mailKinds";
 
 const SPIELER_BESTAETIGUNG_PATH = "/bestaetigung/spieler";
 
@@ -19,43 +21,16 @@ function spielerBestaetigungsLink(origin: string, token: string): string {
 }
 
 /**
- * What the two link messages are addressed with. No name, unlike the decline, which reaches a confirmed
- * address alone: this one has proved nothing, and after a typo its stranger is owed no pupil's name.
- */
-export interface RegistrierungLinkEmailData {
-  readonly teamName: string;
-  readonly saisonId: string;
-  /** The serving origin, RAW: the builder normalises it once. */
-  readonly origin: string;
-  /** A bearer credential, spelled into the link here and never taken apart. */
-  readonly token: string;
-  // Handed in rather than read here: `fl_frontend/eslint.config.mjs :: LAYER_BOUNDARY` keeps `core`
-  // out of a feature slice, and the mirrored constant lives in one.
-  readonly fristTage: number;
-}
-
-/**
- * Why a team declined, as the decline stores it: the backend's fixed choice, never free text. Spelled
- * here because `core` may not import the slice's mirror, which is passed in and so checked against this.
- */
-type RegistrierungAbsageGrund = "andere_person" | null;
-
-/** What the decline note is addressed with. It carries no confirmation link, only the league's landing: the decision is the team's and stands. */
-export interface RegistrierungAbsageEmailData {
-  readonly vorname: string;
-  readonly teamName: string;
-  readonly saisonId: string;
-  readonly origin: string;
-  readonly grund: RegistrierungAbsageGrund;
-}
-
-/**
- * The link a submission mints, named for the deadline the sweep deletes on.
+ * The link a submission mints, named for the deadline the sweep deletes on. No name, unlike the decline, which reaches a
+ * confirmed address alone: this one has proved nothing, and after a typo its stranger is owed no pupil's name.
  *
- * **The number is the mirrored constant's, never a word here**: the mail and the page would
- * otherwise state two deadlines, and one would not move.
+ * **The number is the backend's bound, never a word here**: the mail and the page would otherwise state two
+ * deadlines, and one would not move.
  */
-export function buildRegistrierungBestaetigungEmail({ teamName, saisonId, origin, token, fristTage }: RegistrierungLinkEmailData): Mail {
+export function buildRegistrierungBestaetigungEmail(
+  { team: teamName, saison_id: saisonId, frist_tage: fristTage }: FLRegistrierungLinkDaten,
+  { origin, token }: MailLink,
+): Mail {
   // Through `mailOrigin` once, and the link minted on what it answered: a raw `AUTH_URL` with a
   // trailing slash would otherwise put `//bestaetigung/spieler` in every registering pupil's mail,
   // which the edge's noindex prefix does not match.
@@ -89,7 +64,10 @@ export function buildRegistrierungBestaetigungEmail({ teamName, saisonId, origin
  * It says that the deadline has not moved, because a reminder that merely repeats the request reads
  * as a fresh clock — and the row is erased on the day the first message named.
  */
-export function buildRegistrierungErinnerungEmail({ teamName, saisonId, origin, token, fristTage }: RegistrierungLinkEmailData): Mail {
+export function buildRegistrierungErinnerungEmail(
+  { team: teamName, saison_id: saisonId, frist_tage: fristTage }: FLRegistrierungLinkDaten,
+  { origin, token }: MailLink,
+): Mail {
   const site = mailOrigin(origin);
 
   return {
@@ -114,7 +92,7 @@ export function buildRegistrierungErinnerungEmail({ teamName, saisonId, origin, 
  * The pupil's next step after a decline, by its reason: a team saying the address is somebody else's
  * refused the address rather than the pupil, so that note sends them back with one of their own.
  */
-const ABSAGE_WEITER: Readonly<Record<NonNullable<RegistrierungAbsageGrund> | "keiner", readonly [string, ...string[]]>> = {
+const ABSAGE_WEITER: Readonly<Record<NonNullable<FLRegistrierungAbsageDaten["grund"]> | "keiner", readonly [string, ...string[]]>> = {
   andere_person: [
     "Unter dieser E-Mail-Adresse ist schon eine andere Person eingetragen.",
     "Registriere Dich bitte erneut über den Link Deines Teams, mit Deiner eigenen E-Mail-Adresse.",
@@ -123,12 +101,16 @@ const ABSAGE_WEITER: Readonly<Record<NonNullable<RegistrierungAbsageGrund> | "ke
 };
 
 /**
- * The one note after a team declines a registration.
+ * The one note after a team declines a registration. It carries no confirmation link, only the league's landing: the
+ * decision is the team's and stands.
  *
  * **It names no other person**: the reason it states is the stored choice, so whoever holds the
  * mailbox learns that an address is taken and never by whom.
  */
-export function buildRegistrierungAbsageEmail({ vorname, teamName, saisonId, origin, grund }: RegistrierungAbsageEmailData): Mail {
+export function buildRegistrierungAbsageEmail(
+  { vorname, team: teamName, saison_id: saisonId, grund }: FLRegistrierungAbsageDaten,
+  { origin }: MailOrt,
+): Mail {
   const site = mailOrigin(origin);
 
   return {

@@ -155,7 +155,7 @@ async def _seed(database: AsyncDatabase) -> None:
             "bestaetigungen": {
                 "trainer": None,
                 "ansprechperson": None,
-                "stellvertretung": compose_kontakt_bestaetigung(token_hash=hash_token(ROW_LINK), today=TODAY),
+                "stellvertretung": {**compose_kontakt_bestaetigung(today=TODAY), "token_hashes": [hash_token(ROW_LINK)]},
             },
         }
     )
@@ -625,7 +625,7 @@ ONE_DAY = Window(since=datetime(2126, 10, 3, 9, 0, tzinfo=UTC), until=datetime(2
 # What the restored site sends again on a day after the restore: a new link for the declined seat, a new change to the declined address.
 SENT_AGAIN: dict[str, Callable[[str], dict[str, Any]]] = {
     "a Widerspruch on a season row": lambda day: {
-        "bestaetigungen.stellvertretung": compose_kontakt_bestaetigung(token_hash=hash_token("a-new-link"), today=day)
+        "bestaetigungen.stellvertretung": {**compose_kontakt_bestaetigung(today=day), "token_hashes": [hash_token("a-new-link")]}
     },
     "a referee's declined address": lambda day: {"token_hash": hash_token("asked-again"), "verschickt_am": day},
 }

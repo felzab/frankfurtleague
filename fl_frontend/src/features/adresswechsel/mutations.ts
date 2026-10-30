@@ -3,13 +3,13 @@ import {
   adresswechselEinladenAdresswechsel,
   adresswechselGetAdresswechselAdresse,
   adresswechselGetAdresswechselAnsicht,
+  adresswechselGetAdresswechselUmzuege,
   adresswechselGetAdresswechselVerwaltungAnsicht,
   adresswechselPostAdresswechselAntwort,
   adresswechselPostAdresswechselGenehmigung,
-  adresswechselPostAdresswechselPostausgang,
   adresswechselPostAdresswechselStopp,
+  adresswechselPostAdresswechselUmzuegeErledigt,
   adresswechselPostAdresswechselVerwaltung,
-  adresswechselPostAdresswechselZugestellt,
   adresswechselSweepAdresswechsel,
 } from "@/core/generated/client/sdk";
 
@@ -21,15 +21,15 @@ import type {
   FLAdresswechselAntwortResponse,
   FLAdresswechselGenehmigungResponse,
   FLAdresswechselIdResponse,
-  FLAdresswechselPostausgangResponse,
   FLAdresswechselStoppResponse,
   FLAdresswechselSweepResponse,
+  FLAdresswechselUmzuegeErledigtPayload,
+  FLAdresswechselUmzuegeErledigtResponse,
+  FLAdresswechselUmzuegeResponse,
   FLAdresswechselVerwaltungAnsichtPayload,
   FLAdresswechselVerwaltungAnsichtResponse,
   FLAdresswechselVerwaltungMintResponse,
   FLAdresswechselVerwaltungPayload,
-  FLAdresswechselZugestelltPayload,
-  FLAdresswechselZugestelltResponse,
   FLTokenPayload,
 } from "@/core/generated/client/types";
 import type { FLAdresswechselEinladenPayload, FLAdresswechselGenehmigungPayload, FLAdresswechselVerwerfenPayload } from "./schemas";
@@ -58,14 +58,16 @@ export async function postAdresswechselSweep(nach: string | null): Promise<FLAdr
   return adresswechselSweepAdresswechsel(nach === null ? {} : { nach: nach });
 }
 
-/** Claims the notices the ends still owe, for this server alone: the answer names addresses. */
-export async function postAdresswechselPostausgang(): Promise<FLAdresswechselPostausgangResponse> {
-  return adresswechselPostAdresswechselPostausgang();
+/** The sign-in accounts the effects still owe to carry, for this server alone: the answer names addresses. */
+export async function getAdresswechselUmzuege(): Promise<FLAdresswechselUmzuegeResponse> {
+  return adresswechselGetAdresswechselUmzuege({ readOnly: true });
 }
 
-/** Removes the notices a claim delivered, under that claim alone. */
-export async function postAdresswechselZugestellt(payload: FLAdresswechselZugestelltPayload): Promise<FLAdresswechselZugestelltResponse> {
-  return adresswechselPostAdresswechselZugestellt(payload);
+/** Takes the carries done off their changes. */
+export async function postAdresswechselUmzuegeErledigt(
+  payload: FLAdresswechselUmzuegeErledigtPayload,
+): Promise<FLAdresswechselUmzuegeErledigtResponse> {
+  return adresswechselPostAdresswechselUmzuegeErledigt(payload);
 }
 
 /**

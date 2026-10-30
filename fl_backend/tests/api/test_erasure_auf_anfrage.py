@@ -32,7 +32,7 @@ from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import ANCHOR_FIELD, patch_one_in_db
-from app.core.db import DEAD_GRANT, collection_dependency
+from app.core.db import collection_dependency
 from app.core.journal import JOURNAL_TOKEN
 from app.core.recording import Actor
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -106,9 +106,7 @@ ANLASS = "Mail vom 30.03.2026, Betreff: Bitte löscht alle meine Daten"
 SENTINEL_ADDRESS = "von.hand@example.com"
 
 # A grant typed in the person's capitals, which admits nobody and goes with their erasure.
-DEAD_GRANT_OID = ObjectId("6890a1b2c3d4e5f607e00001")
 # Another such row, of an address nobody erases: no request matches it, so it stands.
-HAND_TYPED_GRANT_OID = ObjectId("6890a1b2c3d4e5f607e00002")
 
 # What the erasure counts and its reveal names nothing of, as the reveal's description says: the fixtures moved onto the
 # ghost.
@@ -611,7 +609,6 @@ class TestTheReveal:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
-            await a_grant(database, DEAD_GRANT_OID, TYPED, "administration")
             await their_requests_open(database)
             ansicht = (await posted(mongo_replica_set_url, ANSICHT_PATH, ansicht_of(), by=OWNER)).json()
 
@@ -629,8 +626,8 @@ class TestTheReveal:
         }
 
         assert named == {key: erased[key] for key in named}
-        # The live grant is named by its tier, and a dead spelling beside it goes unnamed: two removed, one named.
-        assert (ansicht["verwaltung"], erased["berechtigungen"]) == ("administration", 2)
+        # The grant is named by its tier and removed.
+        assert (ansicht["verwaltung"], erased["berechtigungen"]) == ("administration", 1)
         # Every count is compared above or one the reveal names nothing of: a count added to the answer fails here until placed.
         assert {*named, "berechtigungen", *COUNTED_AND_NOT_NAMED} == set(FLErasure.model_fields)
         # The premise: an address holding nothing would agree on zeros.
@@ -772,38 +769,32 @@ class PupilsReadMeetingARival(InterleavedCollection):
 
 
 # Where a grant's creation names its address besides the grant: its announced row and its notice.
-THE_GRANTS_OWN_ROWS = frozenset({Collection.BERECHTIGUNGEN_ANGEKUENDIGT, Collection.BERECHTIGUNGEN_POSTAUSGANG})
+THE_GRANTS_OWN_ROWS = frozenset({Collection.BERECHTIGUNGEN_ANGEKUENDIGT, Collection.POSTAUSGANG})
 
 
 @pytest.mark.db
 class TestAnotherAdministratorsAddress:
-    def test_an_owner_ends_their_grant_and_the_list_left_is_named_once_it_commits(
-        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
-    ):
-        """No route keeps the list sound against an erasure, so the boot's warning names what is left: here a row typed by hand.
-
-        Only an owner presses here (`REQ-PURGE-005`), so the list this route leaves still holds one.
-        """
+    def test_an_owner_ends_another_administrators_grant_and_its_notice_names_them(self, mongo_replica_set_url: str):
+        """Only an owner presses here (`REQ-PURGE-005`)."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await a_grant(database, HAND_TYPED_GRANT_OID, "Von.Hand@Example.com", "administration")
             response = await posted(mongo_replica_set_url, PATH, erasure_of(ANOTHER_ADMINISTRATOR), by=OWNER)
-            notices = (
-                await database[Collection.BERECHTIGUNGEN_POSTAUSGANG]
-                .find({"berechtigung_id": GRANT_ID_OF[ANOTHER_ADMINISTRATOR]})
-                .to_list(None)
-            )
+            # One row per administrator a notice is owed to: the owner's copy, which every notice has.
+            notices = [
+                row["daten"]
+                async for row in database[Collection.POSTAUSGANG].find(
+                    {"schluessel": {"$regex": f"^berechtigung/{GRANT_ID_OF[ANOTHER_ADMINISTRATOR]}/"}, "an": OWNER}, sort=[("_id", 1)]
+                )
+            ]
 
             return response, await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": ANOTHER_ADMINISTRATOR}), notices
 
-        with caplog.at_level(logging.WARNING):
-            response, left, notices = on_a_league(mongo_replica_set_url, body)
+        response, left, notices = on_a_league(mongo_replica_set_url, body)
 
         assert (response.status_code, response.json()["berechtigungen"], left) == (200, 1, 0)
         # The end's notice names who ended the grant: the pressing owner, on the person's request. A pasted grant nobody
         # announced is announced first, by the database.
-        assert [(notice["art"], notice["geaendert_von"]) for notice in notices] == [("erteilt", None), ("entzogen", OWNER)]
-        assert [getattr(record, "error_code", None) for record in caplog.records].count(DEAD_GRANT.error_code) == 1
+        assert [(notice["aenderung"], notice["geaendert_von"]) for notice in notices] == [("erteilt", None), ("entzogen", OWNER)]
 
 
 @pytest.mark.db

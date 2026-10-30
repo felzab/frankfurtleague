@@ -219,9 +219,9 @@ export const FLKontaktPayloadSchema = z.object({
 /**
  * Redesign: goes with its last importers, the hand-written delivery payloads in
  * `fl_frontend/src/features/bewerbungen/schemas.ts` and `fl_frontend/src/features/zustellung/schemas.ts`.
- * `FLBewerbungZustellungStand`, which every kind of link records. **Orthogonal to `Stand`**, which is what the PERSON did: a seat can have confirmed from an address an
+ * `FLBewerbungZustellEreignis`, the states a delivery event reports. **Orthogonal to `Stand`**, which is what the PERSON did: a seat can have confirmed from an address an
  * earlier link bounced at, and folding the two would lose it.
  */
-export const FLBewerbungZustellstandSchema = z.enum(["angenommen", "zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"], {
+export const FLBewerbungZustellstandSchema = z.enum(["zugestellt", "verzoegert", "unzustellbar", "unterdrueckt", "beschwerde"], {
   error: "Diesen Zustellstand gibt es nicht.",
-}) satisfies z.ZodType<wire.FLBewerbungZustellungStand>;
+}) satisfies z.ZodType<wire.FLBewerbungZustellEreignis>;

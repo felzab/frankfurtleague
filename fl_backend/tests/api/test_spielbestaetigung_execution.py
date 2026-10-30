@@ -56,6 +56,7 @@ from tests.erasure import erased
 from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.payloads import spiel_patch_body
 from tests.plans import plans_of_sent_reads
+from tests.postausgang import MAIL_NOW
 from tests.records import record_collections
 from tests.worker import worker_database
 
@@ -98,6 +99,10 @@ _HALTER_KEY = hmac.new(build_test_config().sperrliste_schluessel.get_secret_valu
 KLARA = hmac.new(_HALTER_KEY, b"klara@example.com", hashlib.sha256).hexdigest()
 
 
+def address(team_id: ObjectId, seat: str) -> str:
+    return f"{PEOPLE[team_id][seat][0].lower()}@example.com"
+
+
 def token(team_id: ObjectId, seat: str, nth: int = 0) -> str:
     return f"{NAMES[team_id][0].lower()}-{seat}-{nth}"
 
@@ -128,7 +133,7 @@ def junction(team_id: ObjectId) -> dict[str, Any]:
     name, shorthand = NAMES[team_id]
     kontakte = documents.kontakte_document(
         **{
-            seat: documents.kontaktperson_document(vorname, nachname=nachname, email=f"{vorname.lower()}@example.com")
+            seat: documents.kontaktperson_document(vorname, nachname=nachname, email=address(team_id, seat))
             for seat, (vorname, nachname) in PEOPLE[team_id].items()
         }
     )
@@ -147,7 +152,7 @@ def confirmation(row_id: ObjectId, team_id: ObjectId, *, hashes: Mapping[str, li
         _id=row_id,
         frist=FRIST,
         angefragt_am=TODAY,
-        kontakte={seat: {"token_hashes": held[seat]} if seat in held else None for seat in KONTAKT_ROLLEN},
+        kontakte={seat: {"token_hashes": held[seat], "email": address(team_id, seat)} if seat in held else None for seat in KONTAKT_ROLLEN},
         **fields,
     )
 
@@ -986,8 +991,11 @@ async def verwerfen(
         spielbestaetigung_id=row_id,
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
         spiele_collection=database[Collection.SPIELE],
+        saison_teams_collection=database[Collection.SAISON_TEAMS],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         db=client,
         today=TODAY,
+        now=MAIL_NOW,
     )
 
 
@@ -996,6 +1004,7 @@ async def lesen(
 ) -> FLSpielbestaetigungenListResponse:
     return await get_spielbestaetigungen(
         spielbestaetigungen_collection=either(database, Collection.SPIELBESTAETIGUNGEN, spielbestaetigungen),
+        postausgang_collection=database[Collection.POSTAUSGANG],
         filters=FLSpielbestaetigungenFilterParams(saison_id=SAISON_ID, spiel_id=spiel_id, limit=limit),
     )
 
@@ -1055,14 +1064,18 @@ class TestTheDiscard:
             await ablehnen(database, client, token(TEAM1, "trainer"), PROPOSAL, begruendung=REASON)
             declined = (await row_now(database, ROW1))["antwort"]
             served = await verwerfen(database, client, ROW1)
+            owed = await database[Collection.POSTAUSGANG].find({}, {"an": 1, "art": 1, "bezug": 1, "_id": 0}).to_list()
 
-            return declined, served, await row_now(database, ROW1)
+            return declined, served, await row_now(database, ROW1), owed
 
-        declined, served, row = on_a_fixture(mongo_replica_set_url, body)
+        declined, served, row, owed = on_a_fixture(mongo_replica_set_url, body)
 
-        # Holding the club its notice that the date stands, the fixture's day being to come.
-        assert (row["antwort"], row["geschlossen"]) == (declined, {"am": TODAY, "grund": "verworfen", "mitteilung": {"versuche": 0}})
+        assert (row["antwort"], row["geschlossen"]) == (declined, {"am": TODAY, "grund": "verworfen"})
         assert served.updated_document.geschlossen is not None and served.updated_document.geschlossen.grund == "verworfen"
+        # Owed the club in the discard's own transaction, the fixture's day being to come: every address its seats hold.
+        assert sorted((mail["an"], mail["art"], mail["bezug"]["sitz"]) for mail in owed) == sorted(
+            (address(TEAM1, seat), "spiel_vorschlag_verworfen", seat) for seat in KONTAKT_ROLLEN
+        )
 
     def test_the_clubs_link_then_reads_the_leagues_decision(self, mongo_replica_set_url: str):
         """Read as its decline alone, the link would still say the league is to decide, and the club might stay away."""
@@ -1138,8 +1151,8 @@ class TestTheDiscard:
         assert on_a_fixture(mongo_replica_set_url, body) == (Code.ANSETZUNG_NICHT_VERWERFBAR, None, 1)
 
 
-# What the administrator's read resolves of a row: every stored path but a seat's hashes and the answer's holder.
-ADMIN_READ_WITHHOLDS = ("token_hashes", "halter")
+# What the administrator's read resolves of a row: every stored path but a seat's hashes and address and the answer's holder.
+ADMIN_READ_WITHHOLDS = ("token_hashes", "email", "halter")
 NEIGHBOURS_ROW = ObjectId("6890a1b2c3d4e5f607d50053")
 LAST_SEASONS_ROW = ObjectId("6890a1b2c3d4e5f607d50054")
 

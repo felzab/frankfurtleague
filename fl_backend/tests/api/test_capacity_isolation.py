@@ -30,6 +30,7 @@ from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import kontaktperson_document
 from tests.isolation import COMMITTED, MISCOUNTED_JUDGEMENTS, InterleavedCollection, Rival, outcome_of
+from tests.postausgang import MAIL_NOW
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -451,9 +452,11 @@ class TestAnAcceptanceLandingMidEntryIsJudgedAgain:
                     teams_collection=database[Collection.TEAMS],
                     saison_teams_collection=database[Collection.SAISON_TEAMS],
                     saisons_collection=saisons,
+                    postausgang_collection=database[Collection.POSTAUSGANG],
                     db=client,
                     today=ACCEPTED_ON,
                     von=ACCEPTED_BY,
+                    germany_now=MAIL_NOW,
                 )
 
             async def the_rival_enters_the_group() -> None:

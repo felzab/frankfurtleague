@@ -88,44 +88,39 @@ def compose_record(
     adresse: str,
     email: str,
     weg: FLAdresswechselWeg,
-    token_hash: str | None,
-    stopp_hash: str,
     grund: str | None,
     genehmigung: Mapping[str, Any] | None,
     now: datetime,
 ) -> dict[str, Any]:
     """The WHOLE record a start inserts, never reused, so a journal line's id names one change.
 
-    `token_hash` and `versand` are null while the address on file is asked first: nothing reaches the new mailbox before
-    its approval.
+    Both links' arrays empty: each mail's hand-out mints its link into them (`app/api/postausgang/router.py :: post_ausgabe`).
     """
 
     return {
         "adresse": adresse,
         "email": email,
         "weg": weg,
-        "token_hash": token_hash,
-        "stopp_hash": stopp_hash,
+        "token_hashes": [],
+        "stopp": {"token_hashes": []},
         "verschickt_am": _german_day(now),
         "gueltig_bis": gueltig_bis_ab(now),
         "freigegeben_am": None,
         "grund": grund,
         "bestaetigt_am": None,
         "wirksam_ab": None,
-        # Empty once a link to the new mailbox is minted, the carrier its delivery state is written into.
-        "versand": None if token_hash is None else {},
         "genehmigung": None if genehmigung is None else dict(genehmigung),
         "beendet": None,
     }
 
 
-def compose_link_update(*, token_hash: str, now: datetime, freigabe: bool) -> dict[str, Any]:
-    """A fresh link to the new mailbox, for the approval of the address on file or a re-send; the stop hash stays.
+def compose_link_update(*, now: datetime, freigabe: bool) -> dict[str, Any]:
+    """A fresh deadline for the new mailbox's link, for the approval of the address on file or a re-send; the stop link stays.
 
-    The delivery state goes: it described the message the replaced link went out in.
+    The link itself is minted as its mail is handed out, replacing the one before (`owe_the_link_in_session`).
     """
 
-    gesetzt: dict[str, Any] = {"token_hash": token_hash, "gueltig_bis": gueltig_bis_ab(now), "verschickt_am": _german_day(now), "versand": {}}
+    gesetzt: dict[str, Any] = {"gueltig_bis": gueltig_bis_ab(now), "verschickt_am": _german_day(now)}
     if freigabe:
         gesetzt["freigegeben_am"] = now.astimezone(UTC)
 
@@ -149,41 +144,13 @@ def compose_genehmigt_update(*, akteur: str, now: datetime) -> dict[str, Any]:
     return {"$set": {"genehmigung.genehmigt_am": now.astimezone(UTC), "genehmigung.genehmigt_von": akteur}}
 
 
-def compose_postausgang(
-    *,
-    art: Literal["wirksam", "verworfen"],
-    email: str,
-    now: datetime,
-    bisherige_email: str | None,
-    vorname: str | None,
-    weg: str | None,
-) -> dict[str, Any]:
-    """One notice an end owes, queued in the end's own transaction: its answer alone carried it, and a lost answer lost it.
-
-    Unclaimed until a pass claims it (`app/api/berechtigungen/services.py :: BEANSPRUCHUNG_DAUER`'s lease).
-    """
-
-    return {
-        "art": art,
-        "bisherige_email": bisherige_email,
-        "email": email,
-        "vorname": vorname,
-        "weg": weg,
-        "erfasst_am": now.astimezone(UTC),
-        "beansprucht_bis": None,
-        "beanspruchung": None,
-        "versuche": 0,
-    }
-
-
 def build_owed_carry_filter(adressen: list[str]) -> dict[str, Any]:
-    """The owed effects' notices whose drain still carries a sign-in account off one of these folded addresses.
+    """The ended changes still owing to carry a sign-in account off one of these folded addresses.
 
-    The frontend's `fl_frontend/src/features/adresswechsel/notifications.ts :: adresswechselWirksam` carries on these
-    terms; no index serves them, the outbox holding only notices not yet delivered.
+    No index serves it: a carry is owed from an effect until the frontend reports it done, seconds as a rule.
     """
 
-    return {"art": "wirksam", "bisherige_email": {"$in": adressen}, "weg": {"$ne": "wartezeit"}}
+    return {"umzug.von": {"$in": adressen}}
 
 
 def compose_genehmigung_widerrufen_update() -> dict[str, Any]:
@@ -193,7 +160,7 @@ def compose_genehmigung_widerrufen_update() -> dict[str, Any]:
 
 
 def compose_end_update(*, art: FLAdresswechselEndeArt, now: datetime) -> dict[str, Any]:
-    """An ended change's tombstone: its addresses, its reason, its delivery carrier and its approval go; its hashes stay.
+    """An ended change's tombstone: its addresses, its reason and its approval go; its hashes stay.
 
     The hashes let each link answer how the change ended until the TTL removes the record.
     """
@@ -203,7 +170,6 @@ def compose_end_update(*, art: FLAdresswechselEndeArt, now: datetime) -> dict[st
             "adresse": None,
             "email": None,
             "grund": None,
-            "versand": None,
             "genehmigung": None,
             "beendet": {"art": art, "am": now.astimezone(UTC)},
         }
@@ -248,19 +214,19 @@ def build_awaiting_genehmigung_filter(adressen: list[str], *, now: datetime) -> 
 def build_awaiting_approval_terms() -> dict[str, Any]:
     """A change an administrator started without a reason, its address on file not yet asked to approve it in vain."""
 
-    return {"weg": "freigabe", "token_hash": None, "bestaetigt_am": None}
+    return {"weg": "freigabe", "freigegeben_am": None, "bestaetigt_am": None}
 
 
 def build_resendable_terms() -> dict[str, Any]:
     """A change waiting on the new mailbox: one awaiting the address on file's approval, or confirmed, has no link to re-send."""
 
-    return {"token_hash": {"$type": "string"}, "bestaetigt_am": None}
+    return {"$nor": [{"weg": "freigabe", "freigegeben_am": None}], "bestaetigt_am": None}
 
 
 def build_open_link_terms(token_hash: str) -> dict[str, Any]:
     """The new mailbox's link while the change waits on it: confirmed once, it takes no second answer."""
 
-    return {"token_hash": token_hash, "bestaetigt_am": None}
+    return {"token_hashes": token_hash, "bestaetigt_am": None}
 
 
 def build_lapsed_terms(now: datetime) -> dict[str, Any]:
@@ -342,7 +308,7 @@ def wartet_auf(record: Mapping[str, Any]) -> FLAdresswechselWartetAuf:
         # A confirmed change with no waiting time stands only while its grant's approval is owed.
         return "wartezeit" if record.get("wirksam_ab") is not None else "genehmigung"
 
-    if record.get("weg") == "freigabe" and record.get("token_hash") is None:
+    if record.get("weg") == "freigabe" and record.get("freigegeben_am") is None:
         return "freigabe"
 
     return "neue_adresse"

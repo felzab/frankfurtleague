@@ -1,4 +1,4 @@
-import { formatAufzaehlung } from "@/core/format";
+import { rollenText } from "@/core/teamVokabular";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
 import type { FLBewerbungStatus } from "@/core/generated/client/types";
@@ -101,12 +101,11 @@ export const BEWERBUNG_MAX_ALTER = 120;
 export const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
 
 /**
- * Every seat a contact person holds on one row, as the one phrase the contact page and the account page
- * name them by, in the table's order and joined as
- * `fl_frontend/src/features/bewerbungen/notifications.ts :: rollenText` joins them.
+ * Every seat a contact person holds on one row, as the one phrase the contact page, the account page and the mails
+ * name them by (`fl_frontend/src/core/teamVokabular.ts :: rollenText`); an emptied seat names nobody.
  */
 export const rollenLangform = (rollen: readonly (KontaktRolle | null)[]): string =>
-  formatAufzaehlung(KONTAKT_ROLLEN.filter((eintrag) => rollen.includes(eintrag.value)).map((eintrag) => eintrag.langform));
+  rollenText(rollen.filter((rolle): rolle is KontaktRolle => rolle !== null));
 
 /**
  * The floor the Ansprechperson and the Stellvertretung clear, mirrored from

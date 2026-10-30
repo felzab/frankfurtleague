@@ -1,9 +1,7 @@
 import {
-  spielbestaetigungenAngefragtSpielbestaetigungen,
   spielbestaetigungenEintragenSpielbestaetigung,
   spielbestaetigungenGetSpielbestaetigungAnsicht,
   spielbestaetigungenGetSpielSweepSaisons,
-  spielbestaetigungenMitgeteiltSpielbestaetigungen,
   spielbestaetigungenPostSchiedsrichterAntwort,
   spielbestaetigungenPostSpielbestaetigung,
   spielbestaetigungenSweepSpielbestaetigungen,
@@ -16,10 +14,6 @@ import type {
   FLSpielbestaetigungAntwortResponse,
   FLSpielbestaetigungSchiedsrichterAntwortPayload,
   FLSpielbestaetigungSchiedsrichterAntwortResponse,
-  FLSpielbestaetigungSweepAngefragtPayload,
-  FLSpielbestaetigungSweepAngefragtResponse,
-  FLSpielbestaetigungSweepMitgeteiltPayload,
-  FLSpielbestaetigungSweepMitgeteiltResponse,
   FLSpielbestaetigungSweepResponse,
   FLSpielbestaetigungSweepSaisonsResponse,
   FLSpielbestaetigungWriteResponse,
@@ -57,28 +51,9 @@ export async function getSpielbestaetigungSweepSaisons(): Promise<FLSpielbestaet
   return spielbestaetigungenGetSpielSweepSaisons();
 }
 
-/** One season's pass: rows closed, minted and reminded, the reminders already stamped and the requests not. */
+/** One season's pass: rows closed, asked and reminded, each mail it owed left in the Postausgang for the drain. */
 export async function postSpielbestaetigungSweep(saisonId: string): Promise<FLSpielbestaetigungSweepResponse> {
   return spielbestaetigungenSweepSpielbestaetigungen(saisonId);
-}
-
-/**
- * Stamps the rows whose first messages went, after they went: a row a failed send leaves unstamped reads as never
- * asked rather than as a silence.
- */
-export async function postSpielbestaetigungSweepAngefragt(
-  saisonId: string,
-  payload: FLSpielbestaetigungSweepAngefragtPayload,
-): Promise<FLSpielbestaetigungSweepAngefragtResponse> {
-  return spielbestaetigungenAngefragtSpielbestaetigungen(saisonId, payload);
-}
-
-/** Stamps the rows whose notices went, after they went: a notice no stamp names is answered again by the next pass. */
-export async function postSpielbestaetigungSweepMitgeteilt(
-  saisonId: string,
-  payload: FLSpielbestaetigungSweepMitgeteiltPayload,
-): Promise<FLSpielbestaetigungSweepMitgeteiltResponse> {
-  return spielbestaetigungenMitgeteiltSpielbestaetigungen(saisonId, payload);
 }
 
 export async function eintragenSpielbestaetigung({

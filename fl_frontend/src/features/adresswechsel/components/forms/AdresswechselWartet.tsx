@@ -99,8 +99,8 @@ export function AdresswechselWartet({ offen, onGeschrieben }: { offen: FLAdressw
 
     landing.landed();
     onGeschrieben();
-    // Graded as the start's press grades its link: the earlier link is dead whichever way this one went.
-    meldeAdresswechselVersand(res, res.message);
+    // Graded as the start's press grades its link: the mail leaves behind the answer, and the earlier link dies with it.
+    meldeAdresswechselVersand({ versand: "gesendet" }, res.message);
   };
 
   const verwirf = () => {

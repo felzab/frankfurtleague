@@ -4,13 +4,13 @@ import pytest
 from bson import ObjectId
 
 from app.api.bewerbungen.services import days_after
-from app.api.spielbestaetigungen.schemas import ANFRAGEN_LISTED_PER_PASS
 from app.api.spielbestaetigungen.services import (
     anfrage_is_due,
     compose_ansetzung,
     compose_erinnerung_update,
     frist_of,
     grund_to_close,
+    seats_link,
 )
 from app.api.spielbestaetigungen.sweep_router import CLOSES_PER_PASS, MINTS_PER_PASS, REMINDERS_PER_PASS
 from app.core.middlewares import REQUEST_DEADLINE_S
@@ -96,17 +96,14 @@ class TestWhyARowCloses:
         assert grund_to_close(row=answered, spiel=spiel(), austritte={}, today=AFTER_THE_DAY) == "spiel_vergangen"
 
 
-def test_a_reminder_appends_its_hash_and_drops_none():
-    """Every link a seat was mailed answers until the deadline: a `$set` would kill the request's at the first reminder.
+def test_a_reminder_keeps_every_link_the_seat_was_mailed():
+    """Every link a seat was mailed answers until the deadline: a replacing link would kill the request's at the first reminder."""
 
-    A cap would retire it once a request asked again and both reminders went.
-    """
-
-    assert compose_erinnerung_update(hashes={"trainer": "h"}, today=TODAY, erinnert=True) == {
-        "$push": {"kontakte.trainer.token_hashes": "h", "erinnert_am": TODAY}
+    assert seats_link(["trainer"]).ersetzt is False
+    assert compose_erinnerung_update(emails={"trainer": "t@example.com"}, today=TODAY, erinnert=True) == {
+        "$set": {"kontakte.trainer.email": "t@example.com"},
+        "$push": {"erinnert_am": TODAY},
     }
-    # A request asked again marks no reminder.
-    assert compose_erinnerung_update(hashes={"trainer": "h"}, today=TODAY, erinnert=False) == {"$push": {"kontakte.trainer.token_hashes": "h"}}
 
 
 # Three commands a row -- the update, its read-back, its log row -- pinned on the wire by
@@ -117,24 +114,22 @@ ROUND_TRIPS_A_ROW = 3
 
 # Each worst call's commands beside its rows, counted on the wire by
 # `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py :: TestTheWorstCallSendsTheCommandsItsBudgetCounts`.
-SWEEP_OTHER_COMMANDS = 34
-ANGEFRAGT_OTHER_COMMANDS = 3
+SWEEP_OTHER_COMMANDS = 32
 
 # A `getMore` apiece for the reads taking a season's rows rather than a share's, once those outrun the driver's first
 # batch, pinned on the wire by
 # `fl_backend/tests/api/test_spielbestaetigung_sweep_execution.py :: TestEverySeasonSizedReadSendsOneGetMore`.
-SWEEP_GET_MORES = 14
+SWEEP_GET_MORES = 12
 
 
-# Each call's per-command cost, the widest of its whole passes at a full share timed locally: the sweep's thirty
-# closes and reminders on 2026-10-21, `/angefragt`'s fifteen on 2026-10-20.
+# The call's per-command cost, the widest of its whole passes at a full share timed locally: thirty closes and
+# reminders on 2026-10-21.
 @pytest.mark.parametrize(
     ("rows", "other_commands", "per_command_s", "round_trip_s"),
     [
         pytest.param(
             CLOSES_PER_PASS + MINTS_PER_PASS + REMINDERS_PER_PASS, SWEEP_OTHER_COMMANDS + SWEEP_GET_MORES, 0.00154, 0.037, id="the sweep"
         ),
-        pytest.param(ANFRAGEN_LISTED_PER_PASS, ANGEFRAGT_OTHER_COMMANDS, 0.00132, 0.038, id="/angefragt"),
     ],
 )
 def test_a_full_share_finishes_inside_the_deadline_at_the_round_trip_its_comment_names(

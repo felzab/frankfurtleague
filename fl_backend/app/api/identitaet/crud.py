@@ -73,7 +73,7 @@ from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_many_in_db, refuse
+from app.core.crud import aggregate_many_from_db, anchor_in_db, erase_many_from_db, patch_many_in_db, refuse
 from app.core.db import warn_about_the_grants
 from app.core.journal import JournalLine, lost_its_answer
 from app.core.logging import fl_logger, journal_logger
@@ -493,6 +493,91 @@ async def erase_pupil_actor_in_session(
     )
 
 
+async def _replaced_addresses(
+    identifier: str, *, adresswechsel_collection: AsyncCollection, schluessel: SecretStr, session: AsyncClientSession
+) -> tuple[set[str], list[Any]]:
+    """The hashes of every address this one replaced, through the chain of effects that moved the person here, and those effects.
+
+    The journal's own keyed hash (`app/core/security.py :: loeschung_journal_hash`), so no address is kept to find them by.
+    """
+
+    replaced: set[str] = set()
+    effects: list[Any] = []
+    sought = {loeschung_journal_hash(identifier, schluessel=schluessel)}
+    while sought:
+        found = await aggregate_many_from_db(
+            collection=adresswechsel_collection,
+            pipeline=[{"$match": {"umgezogen.person_hash": {"$in": sorted(sought)}}}, {"$project": {"umgezogen": 1}}],
+            session=session,
+        )
+        effects += [row["_id"] for row in found]
+        sought = {str(row["umgezogen"]["zuvor"]) for row in found} - replaced
+        replaced |= sought
+
+    return replaced, effects
+
+
+async def erase_the_mails_in_session(
+    *,
+    postausgang_collection: AsyncCollection,
+    adresswechsel_collection: AsyncCollection,
+    identifier: str,
+    schluessel: SecretStr,
+    session: AsyncClientSession,
+) -> int:
+    """Every mail to this folded address or one it replaced removed, and a replaced address withheld in every grant notice owed.
+
+    Owed or settled, every kind but the sign-in library's deletion link, which asks the erasure. A settled row's
+    retention bounds a row nobody erases; no reader serves an erased person's delivery history. No index serves the
+    read, the collection holding a month of mail. Matched on the sign-in fold, a recipient being stored as its mail was
+    owed.
+    """
+
+    replaced, effects = await _replaced_addresses(
+        identifier, adresswechsel_collection=adresswechsel_collection, schluessel=schluessel, session=session
+    )
+
+    def theirs(value: Any) -> bool:
+        if not isinstance(value, str):
+            return False
+        folded = sign_in_identifier(value)
+        return folded == identifier or loeschung_journal_hash(folded, schluessel=schluessel) in replaced
+
+    rows = await aggregate_many_from_db(
+        collection=postausgang_collection,
+        pipeline=[
+            {"$match": {"art": {"$ne": "konto_loeschung"}}},
+            {"$project": {"an": 1, "art": 1, "stand": 1, "daten.jetzt": 1, "daten.vorher": 1, "daten.geaendert_von": 1}},
+        ],
+        session=session,
+    )
+    ids = [row["_id"] for row in rows if theirs(row["an"])]
+    if ids:
+        await erase_many_from_db(collection=postausgang_collection, db_filter={"_id": {"$in": ids}}, session=session)
+
+    # The person's own address the grants' step withholds; a replaced one only this chain finds.
+    for row in rows:
+        if row["_id"] in ids or row["art"] != "berechtigung" or row["stand"] != "offen" or not replaced:
+            continue
+        daten = row.get("daten") or {}
+        withheld: dict[str, Any] = {}
+        for site in ("jetzt", "vorher"):
+            if theirs((daten.get(site) or {}).get("adresse")):
+                withheld |= {f"daten.{site}.adresse": None, "daten.vorenthalten": "geloescht"}
+        if theirs(daten.get("geaendert_von")):
+            withheld["daten.geaendert_von"] = ERASED_ACTOR_MARKER
+        if withheld:
+            await patch_many_in_db(collection=postausgang_collection, db_filter={"_id": row["_id"]}, update={"$set": withheld}, session=session)
+
+    # The chain served its one reader: nothing links the erased person's addresses past this erasure.
+    if effects:
+        await patch_many_in_db(
+            collection=adresswechsel_collection, db_filter={"_id": {"$in": effects}}, update={"$unset": {"umgezogen": ""}}, session=session
+        )
+
+    return len(ids)
+
+
 @dataclass(frozen=True)
 class ErasureStep:
     """One member of the erasure: the collections it writes, whose records they are, and the function `erase_everything` calls by name."""
@@ -515,7 +600,7 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
     ),
     # No kind's alone: a change belongs to the address, whatever it holds, and another address's to that one.
     ErasureStep(
-        reaches=frozenset({Collection.ADRESSWECHSEL, Collection.ADRESSWECHSEL_POSTAUSGANG, Collection.AKTIONEN}),
+        reaches=frozenset({Collection.ADRESSWECHSEL, Collection.POSTAUSGANG, Collection.AKTIONEN}),
         personengruppe=None,
         run=end_the_address_changes_in_session,
     ),
@@ -547,7 +632,9 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
         reaches=frozenset({Collection.ADRESSWECHSEL, Collection.AKTIONEN}), personengruppe="spieler", run=end_an_emptied_change_in_session
     ),
     # No kind's alone: a request is about an address, whatever it holds, or made by an administrator.
-    ErasureStep(reaches=frozenset({Collection.BERECHTIGUNGEN_ANTRAEGE}), personengruppe=None, run=erase_antraege_in_session),
+    ErasureStep(
+        reaches=frozenset({Collection.BERECHTIGUNGEN_ANTRAEGE, Collection.POSTAUSGANG}), personengruppe=None, run=erase_antraege_in_session
+    ),
     # No kind's alone: it changes records the person made as an administrator and as a seat holder, so
     # the pupil scope must never run it.
     ErasureStep(
@@ -555,7 +642,7 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
             {
                 Collection.BERECHTIGUNGEN,
                 Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
-                Collection.BERECHTIGUNGEN_POSTAUSGANG,
+                Collection.POSTAUSGANG,
                 Collection.BEWERBUNGEN,
                 Collection.REGISTRIERUNGEN,
                 Collection.SPERRLISTE,
@@ -565,6 +652,9 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
         personengruppe=None,
         run=erase_grants_and_authorship_in_session,
     ),
+    # No kind's alone: a mail to the address is owed it whatever it holds. After the grants' step, which owes this
+    # erasure's notices to the administrators who remain.
+    ErasureStep(reaches=frozenset({Collection.POSTAUSGANG, Collection.ADRESSWECHSEL}), personengruppe=None, run=erase_the_mails_in_session),
     ErasureStep(reaches=frozenset({Collection.AKTIONEN}), personengruppe=None, run=unattribute_in_session),
     # The pupil's share of the one above, finding nothing after it in the full scope: in the pupil scope a seat's or a
     # referee row's rows are that standing record's, and stay.
@@ -601,11 +691,10 @@ async def erase_everything(
     aktionen_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    berechtigungen_postausgang_collection: AsyncCollection,
+    postausgang_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
     adresswechsel_collection: AsyncCollection,
-    adresswechsel_postausgang_collection: AsyncCollection,
     berechtigungen_antraege_collection: AsyncCollection,
     sperrliste: BanList,
     # Whom the grant notice names as ending the person's grant: the person on their own request, the
@@ -664,7 +753,7 @@ async def erase_everything(
     if _runs(end_the_address_changes_in_session, scope):
         adresswechsel = await end_the_address_changes_in_session(
             adresswechsel_collection=adresswechsel_collection,
-            adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
+            postausgang_collection=postausgang_collection,
             aktionen_collection=aktionen_collection,
             identifier=identifier,
             rows=subject.adresswechsel,
@@ -751,7 +840,11 @@ async def erase_everything(
     berechtigungen_antraege = 0
     if _runs(erase_antraege_in_session, scope):
         berechtigungen_antraege = await erase_antraege_in_session(
-            berechtigungen_antraege_collection=berechtigungen_antraege_collection, identifier=identifier, session=session
+            berechtigungen_antraege_collection=berechtigungen_antraege_collection,
+            postausgang_collection=postausgang_collection,
+            identifier=identifier,
+            now=now,
+            session=session,
         )
 
     berechtigungen = 0
@@ -760,7 +853,7 @@ async def erase_everything(
             await erase_grants_and_authorship_in_session(
                 berechtigungen_collection=berechtigungen_collection,
                 berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-                berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+                postausgang_collection=postausgang_collection,
                 bewerbungen_collection=bewerbungen_collection,
                 registrierungen_collection=registrierungen_collection,
                 einladungen_collection=einladungen_collection,
@@ -772,6 +865,15 @@ async def erase_everything(
                 session=session,
             )
         ).removed_berechtigungen
+
+    if _runs(erase_the_mails_in_session, scope):
+        await erase_the_mails_in_session(
+            postausgang_collection=postausgang_collection,
+            adresswechsel_collection=adresswechsel_collection,
+            identifier=identifier,
+            schluessel=schluessel,
+            session=session,
+        )
 
     if _runs(unattribute_in_session, scope):
         await unattribute_in_session(
@@ -858,7 +960,7 @@ async def unreferenced_of(
     records: RecordCollections,
     *,
     berechtigungen_collection: AsyncCollection,
-    adresswechsel_postausgang_collection: AsyncCollection,
+    adresswechsel_collection: AsyncCollection,
 ) -> list[str]:
     """Which of these addresses no record references.
 
@@ -884,8 +986,8 @@ async def unreferenced_of(
         # the database is in effect for nobody until the comparison sees it, and its account outlasts that.
         read_berechtigungen(berechtigungen_collection=berechtigungen_collection),
         aggregate_many_from_db(
-            collection=adresswechsel_postausgang_collection,
-            pipeline=[{"$match": build_owed_carry_filter(folded)}, {"$project": {"bisherige_email": 1}}],
+            collection=adresswechsel_collection,
+            pipeline=[{"$match": build_owed_carry_filter(folded)}, {"$project": {"umzug.von": 1}}],
         ),
     )
 
@@ -977,11 +1079,10 @@ async def erase_if_still_due(
     aktionen_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
-    berechtigungen_postausgang_collection: AsyncCollection,
+    postausgang_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
     adresswechsel_collection: AsyncCollection,
-    adresswechsel_postausgang_collection: AsyncCollection,
     berechtigungen_antraege_collection: AsyncCollection,
     sperrliste: BanList,
     schluessel: SecretStr,
@@ -1044,11 +1145,10 @@ async def erase_if_still_due(
         aktionen_collection=aktionen_collection,
         berechtigungen_collection=berechtigungen_collection,
         berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
-        berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+        postausgang_collection=postausgang_collection,
         einladungen_collection=einladungen_collection,
         sperrliste_collection=sperrliste_collection,
         adresswechsel_collection=adresswechsel_collection,
-        adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
         berechtigungen_antraege_collection=berechtigungen_antraege_collection,
         sperrliste=sperrliste,
         # Read by the grants step alone, which this scope never runs.

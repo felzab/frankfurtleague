@@ -180,18 +180,11 @@ class FLKontoAdresswechselPayload(BaseModel):
 
 
 class FLKontoAdresswechselMintResponse(BaseAPIResponse):
-    """The person's start, answered ONCE to the frontend's server, which mails both links and answers the browser neither."""
+    """The person's start, its two mails owed in the Postausgang: no link is answered."""
 
     id: CustomObjectId
-    token: str
-    stopp_token: str
     gueltig_bis: FLUtcInstant
     email: str
-    bisherige_email: str
-    vorname: str
-    # How many could approve the grant's move, 0 where none moves; never who: the grants' outbox reads them at its claim,
-    # and the caller only branches on a wait.
-    genehmiger_anzahl: int = Field(ge=0)
 
 
 class FLKontoAdresswechselFreigabePayload(BaseModel):
@@ -203,10 +196,9 @@ class FLKontoAdresswechselFreigabePayload(BaseModel):
 
 
 class FLKontoAdresswechselFreigabeResponse(BaseAPIResponse):
-    """The approval, answered ONCE to the frontend's server, which mails the new mailbox its link."""
+    """The approval, the new mailbox's link owed in the Postausgang."""
 
     id: CustomObjectId
-    token: str
     gueltig_bis: FLUtcInstant
     email: str
 

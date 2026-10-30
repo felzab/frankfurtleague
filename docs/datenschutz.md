@@ -433,18 +433,18 @@ Every ruling below is the sign-up flow as it stands for the next season.
   found by what it holds alone stays matched on the address. Ruled 2026-10-15.
 - **An administrator's address is stored as their grant, in plain, and so is the address of
   whoever granted it.** `berechtigungen` holds the grant and `berechtigungen_angekuendigt` what the
-  other administrators were told of it, and every administrator is served both addresses. The outbox
-  `berechtigungen_postausgang` holds a changed or requested grant's address, and the acting
-  administrator's, or a refused or ended request's address and its requester's, until a pass has mailed it, and no barred or erased address at all: a ban withholds it in every row
-  still queued, and so does an erasure. Each change is
-  mailed to every holder and to the address it names, carrying that address and the administrator who
-  made it; a barred address it names by its state alone, and an erased person's not at all. A request goes only to whoever could approve it. Its refusal, or its end by a change of the address it is for, goes
-  to its requester alone while they still administer, naming the address and tier they asked for and
-  nobody who refused it; a withdrawal tells nobody. A revoke removes the grant and its announced row
+  other administrators were told of it, and every administrator is served both addresses. Each
+  change is owed in the Postausgang, one row for every holder and for the address it names, carrying
+  that address and the administrator who made it until it is sent, and no barred or erased address at
+  all: a ban withholds it in every notice still owed, and so does an erasure, which also deletes every
+  row owed or sent to the erased address; a barred address it names by its state alone, and an erased
+  person's not at all. A request goes only to whoever could approve it, and its decision settles the
+  notice still unsent; a refusal, a withdrawal and an end by a change of the address tell nobody. A
+  revoke removes the grant and its announced row
   at once; the log keeps the removed grant's image, the address in
   it, for its twelve months, as it keeps every administrator's write, until that person's erasure
-  takes the address out of it, and no image of an announced or
-  outbox row the revoke or a pass removes. An erasure removes every
+  takes the address out of it, and no image of an announced row
+  the revoke or a pass removes. An erasure removes every
   grant the address holds and its announced row with no image, an `owner` grant included, and queues
   the notice that it ended; otherwise the revoke is the
   route, and an `owner` grant is made an administrator's first. **A restore from a snapshot undoes a revoke made after it**: the
@@ -753,12 +753,13 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   naming nobody, saying the change did not take effect and the league can help; the address on file
   is mailed nothing. The published notice states the ending and the thirty days
   (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-10-06, its timing re-ruled 2026-10-15 and
-  2026-10-20. **The notice an end owes waits in `adresswechsel_postausgang` only until it is sent
-  or given up**: an effect's row holds the replaced address, the new one and, where the address on
-  file asked for or approved the change, the first name, a refusal's the new address alone. Each is
-  written in the end's own transaction, so a lost answer loses no notice, and removed with no image
-  in the log once delivered or after the hand-outs
-  `fl_backend/app/api/berechtigungen/services.py :: VERSUCHE_HOECHSTENS` allows; an erasure of either address removes it.
+  2026-10-20. **The notice an end owes is owed in the Postausgang in the end's own transaction**, so a
+  lost answer loses no notice: an effect's to the replaced address, greeting the first name where the
+  address on file asked for or approved the change, a refusal's to the new address alone. Its row
+  keeps no facts once it is sent or given up, and its recipient thirty days longer; an erasure of
+  either address deletes it. An effect that carries the account owes the carry on the ended change
+  itself, which keeps the two addresses until the carry is done, and the keyed check values of both
+  addresses, so an erasure of the new address finds the mail the replaced one still holds.
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
   the person it bars is told so at the moment it is entered where the address holds an account; an
   address holding none is mailed nothing**. Ruled 2026-09-27.
@@ -778,16 +779,16 @@ GENEHMIGUNG_TAGE`), when the database deletes it.
   Ruled 2026-09-27.
 - **A grant of access to the Verwaltung is kept until it is revoked, and the notice of a change to one
   only until it is sent.** A revoke removes the grant and the announced record of it in one
-  transaction (`fl_backend/app/api/berechtigungen/admin_router.py :: delete_berechtigung`), and the
-  pass that mails a change removes its outbox row once it is sent or given up
-  (`fl_backend/app/api/berechtigungen/sweep_router.py :: post_berechtigungen_angekuendigt`). The announced record and the outbox row leave no image in the log, while a revoked grant keeps its own under the log's twelve
+  transaction (`fl_backend/app/api/berechtigungen/admin_router.py :: delete_berechtigung`), and each
+  notice's Postausgang row keeps no facts once it is sent or given up and is deleted thirty days
+  later. The announced record leaves no image in the log, and the Postausgang none at all, while a revoked grant keeps its own under the log's twelve
   months. The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-28.
 - **A sign-in account and its passkeys are kept until no league record or grant holds their
   address, and then deleted within the hour, with no message.** A record holds it as a contact seat
   of any season or of a pending application, as a pupil or referee row, confirmed or not and live or
   retired, or as a pending registration its pupil confirmed; an
-  address an address change replaced is held until the notice carrying its account to the new
-  address is delivered, so the sweep never deletes the account the person is moving. What
+  address an address change replaced is held until the carry of its account to the new address,
+  owed on the ended change, is done, so the sweep never deletes the account the person is moving. What
   else still names the address holds nothing: the log's images, an administrator's authorship, an
   unconfirmed or decided registration, a decided application, a pending address change and a
   pending request for a grant. The

@@ -1,14 +1,13 @@
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, Header
 from pydantic import UUID4
-from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.schemas import (
-    FLBewerbungBestaetigungTokens,
     FLBewerbungFensterResponse,
     FLBewerbungKeinFensterResponse,
     FLBewerbungKuerzelResponse,
@@ -23,10 +22,8 @@ from app.api.bewerbungen.services import (
     assigned_trikot_farben,
     bestaetigungsfrist_from,
     build_schluessel_filter,
-    build_wiederholung_filter,
     compose_bestaetigungen,
     compose_kontakte,
-    compose_wiederholung_update,
     find_abweichender_fingerabdruck_refusal,
     find_already_entered_refusal,
     find_gesperrt_refusal,
@@ -34,22 +31,25 @@ from app.api.bewerbungen.services import (
     find_shorthand_refusal,
     find_submission_subject_refusal,
     find_window_refusal,
-    mint_token,
+    owed_at_submission,
     payload_fingerabdruck,
     saison_nimmt_bewerbungen_an,
     season_has_ended,
 )
 from app.api.einwilligung.services import find_fassung_refusal
+from app.api.postausgang.services import enqueue_mails
 from app.api.sperrliste.lookup import BanList, SperrlisteLookup, hashes_gesperrt, sperrliste_saison
 from app.core.config import API_VERSION
-from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
+from app.core.crud import post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
+    PostausgangCollection,
     SaisonsCollection,
     SaisonTeamsCollection,
     TeamsCollection,
     get_german_date_str,
+    get_germany_now,
 )
 from app.core.exceptions import DocumentNotFoundError
 from app.core.security import bind_public_actor, verify_access_base
@@ -72,15 +72,8 @@ router = APIRouter(
 # triage's (`app/api/bewerbungen/admin_router.py`).
 SUBMITTED = "eingereicht"
 
-# What a replay reads of the application its key found: what the answer echoes and the hashes the
-# filter compares, and nothing about a person.
-WIEDERHOLUNG_PROJECTION = [
-    "saison_id",
-    "eingereicht_am",
-    "bestaetigungsfrist",
-    "idempotenz_fingerabdruck",
-    *(f"bestaetigungen.{seat}.token_hash" for seat in KONTAKT_ROLLEN),
-]
+# What a replay reads of the application its key found: the digest it is compared by, and nothing about a person.
+WIEDERHOLUNG_PROJECTION = ["idempotenz_fingerabdruck"]
 
 # What a season read takes on this tier: the window, and the status judging it, served only as
 # whether it ended. The rule withholds a `future` season, as one taking
@@ -253,55 +246,12 @@ async def _any_gesperrt(
     return bool(await hashes_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session))
 
 
-async def _answer_as_the_first(
-    *,
-    bewerbungen_collection: AsyncCollection,
-    sperrliste: BanList,
-    stored: Mapping[str, Any],
-    fingerabdruck: str,
-    gehasht: Sequence[str],
-    massgebliche_saison_id: str | None,
-    today: str,
-    session: AsyncClientSession,
-) -> FLPostBewerbungResponse:
-    """The answer a stored key gets: the application it already holds, never a second one."""
+def _answer_as_the_first(*, stored: Mapping[str, Any], fingerabdruck: str) -> FLPostBewerbungResponse:
+    """The answer a stored key gets: the application it already holds, whose mails its first press owed, never a second one."""
 
     refuse(find_abweichender_fingerabdruck_refusal(gespeichert=stored.get("idempotenz_fingerabdruck"), fingerabdruck=fingerabdruck))
 
-    # Before the mint below, as the first press asks it before its own, or a ban entered since is
-    # answered with fresh links. The fingerprint just matched, so `gehasht` keys the stored addresses.
-    gesperrt = await _any_gesperrt(sperrliste=sperrliste, gehasht=gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
-    refuse(find_gesperrt_refusal(gesperrt=gesperrt))
-
-    tokens: FLBewerbungBestaetigungTokens | None = None
-    db_filter = build_wiederholung_filter(bewerbung_raw=stored, today=today)
-
-    if db_filter is not None:
-        minted = {seat: mint_token() for seat in KONTAKT_ROLLEN}
-        try:
-            await patch_one_in_db(
-                collection=bewerbungen_collection,
-                db_filter=db_filter,
-                update=compose_wiederholung_update(
-                    hashes={seat: token_hash for seat, (_, token_hash) in minted.items()}, bestaetigungen=stored.get("bestaetigungen")
-                ),
-                session=session,
-                # `AFTER` would add a re-read nothing here uses.
-                return_document=ReturnDocument.BEFORE,
-            )
-            tokens = FLBewerbungBestaetigungTokens(**{seat: raw for seat, (raw, _) in minted.items()})
-        except DocumentNotFoundError:
-            # The filter is the judgement: an application whose state holds its links back matches
-            # nothing, and this answer hands none.
-            tokens = None
-
-    return FLPostBewerbungResponse(
-        created_id=stored["_id"],
-        saison_id=str(stored["saison_id"]),
-        eingereicht_am=stored["eingereicht_am"],
-        bestaetigungen=tokens,
-        bestaetigungsfrist=stored["bestaetigungsfrist"],
-    )
+    return FLPostBewerbungResponse(created_id=stored["_id"])
 
 
 @router.post(
@@ -316,6 +266,7 @@ async def post_bewerbung(
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
+    postausgang_collection: PostausgangCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
@@ -323,21 +274,22 @@ async def post_bewerbung(
     # Optional, so a page loaded before the form sent one still submits, unprotected.
     idempotency_key: Annotated[UUID4 | None, Header()] = None,
     today: str = Depends(get_german_date_str),
+    germany_now: datetime = Depends(get_germany_now),
 ) -> FLPostBewerbungResponse:
     """
-    Store one school's application to play one season as submitted, and mint one confirmation link per contact person.
+    Store one school's application to play one season as submitted, and owe each contact person their confirmation mail.
 
     Everything the league decides -- `status`, `eingereicht_am`, `entscheidung` and each consent's
-    scope, source and date -- is written here and never taken off the payload. The three raw tokens are answered
-    for the caller to mail and stored only as hashes; the response is the one place outside the recipients' inboxes
-    they ever exist.
+    scope, source and date -- is written here and never taken off the payload. One mail per person is owed in the
+    same transaction, a person holding two seats being sent one link for both: the Ansprechperson the receipt naming
+    who is still to answer, every other person their link. Each link is minted when its mail is handed out; no token
+    is answered.
 
     An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
-    application it holds and stores none: fresh links where no message to any seat is known to have
-    reached its inbox, none otherwise. The same key over other details is refused (`REQ-BEWERBUNG-015`).
+    application it holds, stores none and owes nothing again. The same key over other details is refused
+    (`REQ-BEWERBUNG-015`).
 
-    An address the ban list holds, on any seat, is refused (`REQ-BEWERBUNG-018`) on a first press and on a
-    replay alike, before any link is minted.
+    An address the ban list holds, on any seat, is refused (`REQ-BEWERBUNG-018`) on a first press.
 
     A seat naming a consent wording other than the one the form now shows is refused (`REQ-EINWILLIGUNG-001`),
     and only once the key has been looked up: a stored key is answered whatever wording it names.
@@ -365,16 +317,7 @@ async def post_bewerbung(
             else await bewerbungen_collection.find_one(build_schluessel_filter(schluessel=schluessel), WIEDERHOLUNG_PROJECTION, session=session)
         )
         if stored is not None:
-            return await _answer_as_the_first(
-                bewerbungen_collection=bewerbungen_collection,
-                sperrliste=sperrliste,
-                stored=stored,
-                fingerabdruck=fingerabdruck,
-                gehasht=gehasht,
-                massgebliche_saison_id=massgebliche_saison_id,
-                today=today,
-                session=session,
-            )
+            return _answer_as_the_first(stored=stored, fingerabdruck=fingerabdruck)
 
         # After the lookup and never ahead of it: a retry across a deploy that moved the label resends
         # the first press's words, and refusing it here would have its reload store a second application.
@@ -407,7 +350,7 @@ async def post_bewerbung(
         else:
             # `find_one`, not `pull_one_from_db`: a club the picker never offered is refused with
             # `REQ-BEWERBUNG-006` rather than answering the 404 a miss would raise.
-            team_raw = await teams_collection.find_one({"_id": bewerbung_data.team_id}, {"inactive_since": 1}, session=session)
+            team_raw = await teams_collection.find_one({"_id": bewerbung_data.team_id}, {"inactive_since": 1, "name": 1}, session=session)
             refuse(find_picked_club_refusal(team_raw=team_raw))
 
             entered = await saison_teams_collection.count_documents(
@@ -420,10 +363,11 @@ async def post_bewerbung(
         gesperrt = await _any_gesperrt(sperrliste=sperrliste, gehasht=gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
-        # Minted here rather than in the document literal below, so the raw half reaches the response
-        # and the hashed half the database, and the two never sit in one structure.
-        tokens = {seat: mint_token() for seat in KONTAKT_ROLLEN}
         bestaetigungsfrist = bestaetigungsfrist_from(today=today)
+        # The school as the mails name it: proposed, or the picked club as the league holds it, never as the body spells it.
+        schule_text = schule.team_name if schule is not None else str((team_raw or {}).get("name") or "")
+
+        stored_kontakte = compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today)
 
         # Every refusal is behind us, so the write follows with nothing left to judge. The uniqueness the
         # checks narrow is held at acceptance.
@@ -437,7 +381,7 @@ async def post_bewerbung(
                 # one is a document the read-back refuses rather than a stored null.
                 "team_id": bewerbung_data.team_id,
                 "schule": None if schule is None else schule.model_dump(mode="json"),
-                "kontakte": compose_kontakte(kontakte=bewerbung_data.kontakte.model_dump(mode="json"), today=today),
+                "kontakte": stored_kontakte,
                 "trikot": bewerbung_data.trikot.model_dump(mode="json"),
                 "kader": bewerbung_data.kader.model_dump(mode="json"),
                 # Written explicitly, as `team_id` is: the record model requires the key.
@@ -446,21 +390,28 @@ async def post_bewerbung(
                 "wunschgegner": bewerbung_data.wunschgegner,
                 # Null until the triage decides, which is what `status == "eingereicht"` claims.
                 "entscheidung": None,
-                # The deadline and the three hashes, so the sweep and the links have something to judge.
+                # The deadline and each seat's bookkeeping, so the sweep and the links have something to judge.
                 "bestaetigungsfrist": bestaetigungsfrist,
-                "bestaetigungen": compose_bestaetigungen(hashes={seat: token_hash for seat, (_, token_hash) in tokens.items()}, today=today),
+                "bestaetigungen": compose_bestaetigungen(today=today),
                 **({} if schluessel is None else {"idempotenz_schluessel": schluessel, "idempotenz_fingerabdruck": fingerabdruck}),
             },
             session=session,
         )
 
-        return FLPostBewerbungResponse(
-            created_id=created.inserted_id,
-            saison_id=bewerbung_data.saison_id,
-            eingereicht_am=today,
-            bestaetigungen=FLBewerbungBestaetigungTokens(**{seat: raw for seat, (raw, _) in tokens.items()}),
-            bestaetigungsfrist=bestaetigungsfrist,
+        await enqueue_mails(
+            postausgang_collection=postausgang_collection,
+            session=session,
+            mails=owed_at_submission(
+                bewerbung_id=created.inserted_id,
+                kontakte=stored_kontakte,
+                saison_id=bewerbung_data.saison_id,
+                schule=schule_text,
+                frist=bestaetigungsfrist,
+            ),
+            now=germany_now,
         )
+
+        return FLPostBewerbungResponse(created_id=created.inserted_id)
 
     # The key lookup is the transaction's first read: a first press committed before this snapshot is
     # found, and one committed after it makes the insert a write conflict `with_transaction` retries.

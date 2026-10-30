@@ -15,7 +15,7 @@ import { useStepUp } from "@/shared/hooks/useStepUp";
 import { LINK_ERNEUT_OHNE_ANTWORT, LINK_UNKLAR } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { benannt } from "@/shared/utils/benannt";
-import { BESTAETIGUNGSLINK_TITEL, meldeLinkVersand } from "@/shared/utils/linkVersandToast";
+import { BESTAETIGUNGSLINK_TITEL } from "@/shared/utils/linkVersandToast";
 import { pressLinkWrite } from "@/shared/utils/linkWrite";
 
 import type { FLKontaktRolle } from "@/core/generated/client/types";
@@ -62,8 +62,8 @@ export function FormKontaktEinladen({
       return;
     }
 
-    // Graded as the editor's save grades its links: the seat's earlier link is dead whichever way this one went.
-    meldeLinkVersand(res.versand, BESTAETIGUNGSLINK_TITEL, res.message);
+    // The link is owed and on its way; the seat's delivery line says what became of it once the page reads it again.
+    appToast.success(BESTAETIGUNGSLINK_TITEL.gesendet, { description: res.message });
   };
 
   return (

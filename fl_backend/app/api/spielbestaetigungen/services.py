@@ -7,7 +7,18 @@ from typing import Any, Final, NamedTuple, cast
 
 from pydantic import SecretStr
 
-from app.api.bewerbungen.services import days_after, seat_named
+from app.api.bewerbungen.services import days_after, group_seats_by_mailbox, seat_named
+from app.api.postausgang.schemas import (
+    FLPostausgangBezug,
+    FLPostausgangDaten,
+    FLPostausgangLink,
+    FLSpielEinteilungAufgehobenDaten,
+    FLSpielHinweisDaten,
+    FLSpielMailAnsetzung,
+    FLSpielMailTermin,
+    FLSpielVorschlagVerworfenDaten,
+)
+from app.api.postausgang.services import OwedMail
 from app.api.spielbestaetigungen.schemas import (
     FLSpielbestaetigungAnsichtAnsetzung,
     FLSpielbestaetigungAntwortArt,
@@ -502,9 +513,12 @@ def compose_antwort_update(
 # says the same again; a party's answer committing between the two conflicts with the write, whose retry refuses.
 
 
-# Exactly what the season-wide read serves: every stored field but the hashes and the holder, kept off
-# the wire from the driver up.
-ADMIN_FIELDS: Mapping[str, int] = {**{f"kontakte.{seat}.token_hashes": 0 for seat in KONTAKT_ROLLEN}, "antwort.von.halter": 0}
+# Exactly what the season-wide read serves: every stored field but the hashes, the address a seat was owed at and the
+# holder, kept off the wire from the driver up.
+ADMIN_FIELDS: Mapping[str, int] = {
+    **{f"kontakte.{seat}.{key}": 0 for seat in KONTAKT_ROLLEN for key in ("token_hashes", "email")},
+    "antwort.von.halter": 0,
+}
 
 
 def eintragen_refusal() -> WriteRefusal:
@@ -672,13 +686,14 @@ def eigene_begruendung_of(spielbestaetigung_raw: Mapping[str, Any]) -> str | Non
 # --- The pass: what its mint and its reminder write.
 
 
-def compose_seat_entry(*, token_hash: str) -> dict[str, Any]:
+def compose_seat_entry(*, email: str) -> dict[str, Any]:
     """One seat's entry as every mint writes it, on a fresh row and on a seat minted afresh on an open one.
 
-    No delivery state: no report has yet named the message this link goes out in.
+    No hash until the hand-out mints the link the mint owes. The address the link is owed to, against which the hand-out
+    judges whether the seat still names the mail's recipient (`app/api/postausgang/router.py :: _link_record_filter`).
     """
 
-    return {"token_hashes": [token_hash], "zustellung": None}
+    return {"token_hashes": [], "email": email}
 
 
 def frist_of(*, datum: str, today: str) -> str:
@@ -730,25 +745,6 @@ def build_held_filter(*, saison_id: str, spiel_ids: Sequence[Any]) -> dict[str, 
     """These fixtures' rows holding their party's question about their Ansetzung."""
 
     return {"saison_id": saison_id, "spiel_id": {"$in": list(spiel_ids)}, **build_holding_filter()}
-
-
-def build_void_notice_held_filter(*, saison_id: str, spiel_ids: Sequence[Any]) -> dict[str, Any]:
-    """These fixtures' rows a move closed whose notice is still held: their party not yet told their link is void."""
-
-    return {
-        "saison_id": saison_id,
-        "spiel_id": {"$in": list(spiel_ids)},
-        "geschlossen.grund": "ansetzung_geaendert",
-        "geschlossen.mitteilung": {"$ne": None},
-    }
-
-
-def void_notice_held(row: Mapping[str, Any]) -> bool:
-    """`build_void_notice_held_filter` judged of a row read: a move's closing whose notice no `/mitgeteilt` has stamped."""
-
-    geschlossen = row.get("geschlossen") or {}
-
-    return geschlossen.get("grund") == "ansetzung_geaendert" and geschlossen.get("mitteilung") is not None
 
 
 def _side_id(spiel: Mapping[str, Any], side: str) -> Any:
@@ -873,10 +869,14 @@ def compose_spielbestaetigung(
     saison_id: str,
     spiel: Mapping[str, Any],
     partei: Mapping[str, Any],
-    hashes: Mapping[str, str],
+    emails: Mapping[str, str],
     today: str,
+    angefragt: bool,
 ) -> dict[str, Any]:
-    """A row as the mint writes it, about the fixture's Ansetzung as it stands. A seat `hashes` leaves out holds no link."""
+    """A row as the mint writes it, about the fixture's Ansetzung as it stands. A seat `emails` leaves out holds no link.
+
+    Stamped `angefragt` where the mint owes the row's party a mail in its own transaction: the stamp records the mail owed.
+    """
 
     return {
         "_id": row_id,
@@ -885,13 +885,13 @@ def compose_spielbestaetigung(
         "partei": dict(partei),
         "ansetzung": compose_ansetzung(spiel),
         "frist": frist_of(datum=spiel["datum"], today=today),
-        "angefragt_am": None,
+        "angefragt_am": today if angefragt else None,
         "erinnert_am": [],
         # A referee answers signed in rather than by a link.
         "kontakte": (
             None
             if partei["art"] == "schiedsrichter"
-            else {seat: compose_seat_entry(token_hash=hashes[seat]) if seat in hashes else None for seat in KONTAKT_ROLLEN}
+            else {seat: compose_seat_entry(email=emails[seat]) if seat in emails else None for seat in KONTAKT_ROLLEN}
         ),
         "antwort": None,
         "geschlossen": None,
@@ -932,60 +932,55 @@ def erinnerung_tage(*, today: str) -> list[str]:
 
 
 def build_erinnerung_filter(*, saison_id: str, today: str, inserted: Sequence[Any]) -> dict[str, Any]:
-    """The season's open rows owed a message: a team row's reminder due today, or an unstamped request still answerable.
+    """The season's open team rows whose reminder is due today: their request owed on an earlier day, nobody reminded today.
 
-    Never a row this pass inserted, nor reminded on its request's day.
+    Never a row this pass inserted.
     """
 
     return {
         "saison_id": saison_id,
         **build_answerable_filter(),
         "_id": {"$nin": list(inserted)},
-        "$or": [
-            {"angefragt_am": None, "partei.art": "team", "frist": {"$gte": today}},
-            {"angefragt_am": None, "partei.art": "schiedsrichter", "ansetzung.datum": {"$gte": today}},
-            {
-                "partei.art": "team",
-                "frist": {"$in": erinnerung_tage(today=today)},
-                "erinnert_am": {"$ne": today},
-                "angefragt_am": {"$ne": today},
-            },
-        ],
+        "partei.art": "team",
+        "frist": {"$in": erinnerung_tage(today=today)},
+        "erinnert_am": {"$ne": today},
+        "angefragt_am": {"$nin": [None, today]},
     }
 
 
-def compose_erinnerung_update(*, hashes: Mapping[str, str], today: str, erinnert: bool) -> dict[str, Any]:
-    """Each seat's fresh hash appended beside the ones already mailed, and with `erinnert` the day a reminder went.
+def compose_erinnerung_update(*, emails: Mapping[str, str], today: str, erinnert: bool) -> dict[str, Any]:
+    """Each reminded seat's address, which its fresh link is minted against, and with `erinnert` the day a reminder went.
 
-    Never capped: a request asked again while its stamp is lost mailed a link too.
+    The links already mailed stay: the hand-out appends each fresh one beside them.
     """
 
-    pushed: dict[str, Any] = {f"kontakte.{seat}.token_hashes": token_hash for seat, token_hash in hashes.items()}
+    update: dict[str, Any] = {}
+    if emails:
+        update["$set"] = {f"kontakte.{seat}.email": email for seat, email in emails.items()}
+    if erinnert:
+        update["$push"] = {"erinnert_am": today}
 
-    return {"$push": {**pushed, "erinnert_am": today} if erinnert else pushed}
-
-
-def compose_seats_update(*, hashes: Mapping[str, str]) -> dict[str, Any]:
-    """Each seat minted afresh on an open row: a seat a write voided, a seat newly occupied, a seat a ban kept until its lift."""
-
-    return {"$set": {f"kontakte.{seat}": compose_seat_entry(token_hash=token_hash) for seat, token_hash in hashes.items()}}
+    return update
 
 
-def compose_closing_update(*, grund: FLSpielbestaetigungGrund, today: str, mitteilung: bool = False) -> dict[str, Any]:
-    """The closing, holding the notice it owes its party where `mitteilung`."""
+def compose_seats_update(*, emails: Mapping[str, str], today: str, angefragt: bool) -> dict[str, Any]:
+    """Each seat minted afresh on an open row: a seat a write voided, a seat newly occupied, a seat a ban kept until its lift.
 
-    geschlossen: dict[str, Any] = {"am": today, "grund": grund}
-    if mitteilung:
-        geschlossen["mitteilung"] = {"versuche": 0}
+    Stamped `angefragt` where the row's request was never owed before: this mint owes its first mail.
+    """
 
-    return {"$set": {"geschlossen": geschlossen}}
+    written: dict[str, Any] = {f"kontakte.{seat}": compose_seat_entry(email=email) for seat, email in emails.items()}
+    if angefragt:
+        written["angefragt_am"] = today
+
+    return {"$set": written}
 
 
-# --- The NOTICES a close owes, each held on its closed row until a pass that answered it is told it went.
+def compose_closing_update(*, grund: FLSpielbestaetigungGrund, today: str) -> dict[str, Any]:
+    return {"$set": {"geschlossen": {"am": today, "grund": grund}}}
 
-# The passes that hand a notice out before the next gives it up, the grants' outbox's figure
-# (`app/api/berechtigungen/services.py :: VERSUCHE_HOECHSTENS`): at the hourly pass, a day of answers none stamped.
-MITTEILUNG_VERSUCHE_HOECHSTENS: Final = 24
+
+# --- The NOTICES a closing owes, owed through the Postausgang in the closing's own transaction.
 
 
 GRUENDE_OWING_A_NOTICE: Final = frozenset({"ansetzung_geaendert", "schiedsrichter_gewechselt", "abgesagt"})
@@ -1007,7 +1002,7 @@ def _notice_to_come(*, row: Mapping[str, Any], grund: Any, spiel: Mapping[str, A
 def notice_owed(*, row: Mapping[str, Any], grund: FLSpielbestaetigungGrund, spiel: Mapping[str, Any], today: str) -> bool:
     """Whether closing this row for `grund` owes its party a notice.
 
-    Only once mailed and about a day to come: owed and given up at once, it would send the administrator to tell by hand.
+    Only once its request was owed, and about a day to come.
     """
 
     return (
@@ -1026,44 +1021,72 @@ def verwerfen_owes_a_notice(*, row: Mapping[str, Any], today: str) -> bool:
     return _notice_to_come(row=row, grund="verworfen", spiel={}, today=today)
 
 
-def notice_holds(*, row: Mapping[str, Any], spiel: Mapping[str, Any]) -> bool:
-    """Whether the closing a held notice announces still holds of the fixture as it stands.
+def spiel_mail_termin_of(*, spielbestaetigung_raw: Mapping[str, Any], namen: tuple[str, str]) -> FLSpielMailTermin:
+    """The slot a row was about, as a notice about it states it, the clubs named as `vereinsnamen_of` names them."""
 
-    A fixture reinstated, rebooking the row's referee or back at its slot is asked afresh, which the notice would contradict.
-    """
+    ansetzung = spielbestaetigung_raw["ansetzung"]
 
-    grund = row["geschlossen"]["grund"]
-    if grund == "abgesagt":
-        # A no-show stands past its day, deciding the fixture, and still voids what its parties were asked.
-        return (
-            spiel.get("sonderereignis") in SONDEREREIGNIS_CALLING_OFF_BEFORE_ITS_DAY
-            or entscheidung_of(spiel=spiel, austritte=[], tag=None) == "abgesagt"
-        )
-
-    if grund == "schiedsrichter_gewechselt":
-        return _referee_id(spiel) != row["partei"].get("schiedsrichter_id")
-
-    # The date the discard kept: moved since, the club is asked about the new one instead.
-    if grund == "verworfen":
-        return ansetzung_stand_of(spiel) == row["ansetzung"]["stand"]
-
-    return ansetzung_stand_of(spiel) != row["ansetzung"]["stand"]
+    return FLSpielMailTermin(team1=namen[0], team2=namen[1], datum=ansetzung["datum"], uhrzeit=ansetzung["uhrzeit"])
 
 
-def build_mitteilung_filter(*, saison_id: str) -> dict[str, Any]:
-    """The season's closed rows still owing a notice; every other row holds no mark, or a null one."""
+def spiel_mail_ansetzung_of(ansicht: FLSpielbestaetigungAnsichtAnsetzung) -> FLSpielMailAnsetzung:
+    """The fixture a request or an Einteilung asks about, as its mail states it."""
 
-    return {"saison_id": saison_id, "geschlossen.mitteilung": {"$ne": None}}
-
-
-def mitteilung_spent(*, row: Mapping[str, Any], spiel: Mapping[str, Any], today: str) -> bool:
-    """Whether a pass gives a held notice up: handed out the cap's number of times, or about no day still to come."""
-
-    geschlossen = row["geschlossen"]
-
-    return int(geschlossen["mitteilung"]["versuche"]) >= MITTEILUNG_VERSUCHE_HOECHSTENS or not _notice_to_come(
-        row=row, grund=geschlossen["grund"], spiel=spiel, today=today
+    return FLSpielMailAnsetzung(
+        team1=ansicht.team1_name,
+        team2=ansicht.team2_name,
+        datum=ansicht.datum,
+        uhrzeit=ansicht.uhrzeit,
+        ort=None if ansicht.spielort is None else ansicht.spielort.name,
     )
+
+
+def notice_daten_of(*, grund: FLSpielbestaetigungGrund, partei_art: str, termin: FLSpielMailTermin) -> FLPostausgangDaten:
+    """The notice a closing for `grund`, or a discard, owes a party of `partei_art`."""
+
+    empfaenger = "schiedsrichter" if partei_art == "schiedsrichter" else "team"
+    if grund == "ansetzung_geaendert":
+        return FLSpielHinweisDaten(art="spiel_neu_angesetzt", empfaenger=empfaenger, termin=termin)
+    if grund == "abgesagt":
+        return FLSpielHinweisDaten(art="spiel_abgesagt", empfaenger=empfaenger, termin=termin)
+    if grund == "schiedsrichter_gewechselt":
+        return FLSpielEinteilungAufgehobenDaten(art="spiel_einteilung_aufgehoben", termin=termin)
+    if grund == "verworfen":
+        return FLSpielVorschlagVerworfenDaten(art="spiel_vorschlag_verworfen", termin=termin)
+
+    raise ValueError(f"a closing for {grund} owes no notice")
+
+
+def bezug_of(*, spielbestaetigung_id: Any, sitz: FLKontaktRolle | None) -> FLPostausgangBezug:
+    """The row and seat a fixture mail is about, by which a later reminder reads whether the seat's mail arrived."""
+
+    return FLPostausgangBezug(sammlung=Collection.SPIELBESTAETIGUNGEN, id=spielbestaetigung_id, sitz=sitz)
+
+
+def seats_link(seats: Sequence[FLKontaktRolle]) -> FLPostausgangLink:
+    """The link one person's seats share: minted into each seat's array while each still names the mail's address."""
+
+    return FLPostausgangLink(
+        pfade=[f"kontakte.{seat}.token_hashes" for seat in seats],
+        adressen=[f"kontakte.{seat}.email" for seat in seats],
+        ersetzt=False,
+    )
+
+
+def team_notices(*, spielbestaetigung_raw: Mapping[str, Any], kontakte: Any, daten: FLPostausgangDaten, anlass: str) -> list[OwedMail]:
+    """A team row's notice, one mail per address its club's season row holds now, keyed by the row, the occasion and the seat."""
+
+    row_id = spielbestaetigung_raw["_id"]
+
+    return [
+        OwedMail(
+            schluessel=f"spielbestaetigung/{row_id}/{anlass}/{rollen[0]}",
+            an=address,
+            daten=daten,
+            bezug=bezug_of(spielbestaetigung_id=row_id, sitz=rollen[0]),
+        )
+        for address, rollen in group_seats_by_mailbox(kontakte=kontakte, seats=KONTAKT_ROLLEN)
+    ]
 
 
 # --- A seat write's void: its team's rows' entries, answered and closed ones too, of every seat whose holder the write moves.

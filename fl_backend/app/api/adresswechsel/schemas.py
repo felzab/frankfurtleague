@@ -5,6 +5,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstra
 
 from app.api.adresswechsel.services import FLAdresswechselBisherigZustand, FLAdresswechselNeuZustand
 from app.api.berechtigungen.schemas import FLUtcInstant
+from app.api.postausgang.schemas import FLPostausgangLage
 from app.api.sperrliste.schemas import refuse_an_address_in_the_reason
 from app.shared.schemas.bestaetigung import CustomToken
 from app.shared.schemas.bounds import ERASURE_ANLASS_MAX_LENGTH, LIST_LIMIT_DEFAULT
@@ -13,12 +14,10 @@ from app.shared.schemas.custom import (
     CustomDateString,
     CustomNonEmptyString,
     CustomObjectId,
-    CustomStrippedNonEmptyString,
 )
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.literals import FLAdresswechselEndeArt, FLAdresswechselWartetAuf, FLAdresswechselWeg, FLVerwaltung
 from app.shared.schemas.responses import BaseAPIResponse
-from app.shared.schemas.zustellung import FLBewerbungZustellung
 
 type FLAdresswechselAntwort = Literal["bestaetigt", "abgelehnt"]
 
@@ -53,10 +52,18 @@ class FLAdresswechselBeendet(BaseModel):
     am: datetime
 
 
-class FLAdresswechselVersand(BaseModel):
-    """The delivery carrier of the new mailbox's link (`app/api/zustellung/services.py :: ZIEL_PFADE`)."""
+class FLAdresswechselUmgezogen(BaseModel):
+    """The effect's two addresses as the erasure journal hashes them: the new one, and the one it replaced."""
 
-    zustellung: FLBewerbungZustellung | None = None
+    person_hash: str
+    zuvor: str
+
+
+class FLAdresswechselUmzug(BaseModel):
+    """The sign-in account an effect still owes to carry, from the replaced address to the new one, both folded."""
+
+    von: str
+    nach: str
 
 
 class FLAdresswechsel(BaseModel):
@@ -73,79 +80,53 @@ class FLAdresswechsel(BaseModel):
     grund: str | None
     bestaetigt_am: datetime | None
     wirksam_ab: datetime | None
-    versand: FLAdresswechselVersand | None
     genehmigung: FLAdresswechselGenehmigung | None
     beendet: FLAdresswechselBeendet | None
+    # Set by an effect that carries the account, which the ended record keeps until the carry is done; absent otherwise.
+    umzug: FLAdresswechselUmzug | None = Field(default=None)
+    # Set by every effect, until the erasure of the new address takes it.
+    umgezogen: FLAdresswechselUmgezogen | None = Field(default=None)
+
+
+class FLAdresswechselStopp(BaseModel):
+    """The address on file's stop link."""
+
+    token_hashes: list[str]
 
 
 class FLAdresswechselRecord(FLAdresswechsel):
-    """One change as `adresswechsel` stores it, its two links' hashes with it."""
+    """One change as `adresswechsel` stores it, its two links' hashes with it, each minted as its mail is handed out."""
 
-    # Null on the `freigabe` way, which mails the new mailbox no link.
-    token_hash: str | None
-    stopp_hash: str
-
-
-# What an end owes after its commit: an effect's completion notice and account carry, or a refused due change's notice.
-FLAdresswechselPostausgangArt = Literal["wirksam", "verworfen"]
+    # Empty until the new mailbox's link is handed out, and on the `freigabe` way until the address on file approves.
+    token_hashes: list[str]
+    stopp: FLAdresswechselStopp
 
 
-class FLAdresswechselPostausgang(BaseModel):
-    """One owed notice as `adresswechsel_postausgang` stores it."""
-
-    id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
-    art: FLAdresswechselPostausgangArt
-    bisherige_email: str | None
-    email: str
-    vorname: str | None
-    weg: FLAdresswechselWeg | None
-    erfasst_am: datetime
-    beansprucht_bis: datetime | None
-    beanspruchung: str | None
-    # How many claims have handed the row out; each claim raises it in its own transaction.
-    versuche: int = Field(ge=0)
+class FLAdresswechselOffenerUmzug(BaseModel):
+    # The ended change that owes it.
+    id: CustomObjectId
+    von: str
+    nach: str
 
 
-class FLAdresswechselPostausgangZeile(BaseModel):
-    """One owed notice a pass claimed, server to server alone: no browser receives an address of it.
+class FLAdresswechselUmzuegeResponse(BaseAPIResponse):
+    """The sign-in accounts the effects still owe to carry, server to server alone: each names two addresses.
 
-    `wirksam`: whom the completion notice greets, and the sign-in account to carry. `verworfen`: the new address alone,
-    never told why.
+    A page at a time; a full page means more wait.
     """
 
-    id: CustomObjectId
-    art: FLAdresswechselPostausgangArt
-    bisherige_email: str | None
-    # The new address as stored, which the sign-in account is carried to.
-    email: str
-    # Null on the lost-mailbox way and on a refusal: that mailbox may be a stranger's, and the new one is greeted by nobody.
-    vorname: str | None
-    # A change that waited carries no sign-in account: whatever its old mailbox's holder enrolled meanwhile would follow.
-    weg: FLAdresswechselWeg | None
-    # Past the last hand-out: the caller mails nothing, logs it by its id, and stamps it.
-    aufgegeben: bool
+    umzuege: list[FLAdresswechselOffenerUmzug]
 
 
-class FLAdresswechselPostausgangResponse(BaseAPIResponse):
-    """The owed notices one claim holds, oldest first; `beanspruchung` and `beansprucht_bis` null exactly where it holds none."""
-
-    beanspruchung: str | None
-    beansprucht_bis: FLUtcInstant | None
-    mitteilungen: list[FLAdresswechselPostausgangZeile]
-
-
-class FLAdresswechselZugestelltPayload(BaseModel):
+class FLAdresswechselUmzuegeErledigtPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    beanspruchung: CustomStrippedNonEmptyString
-    # A repeated id is counted once rather than refused: a pass retrying its own stamp is not wrong.
     ids: list[CustomObjectId] = Field(min_length=1, max_length=LIST_LIMIT_DEFAULT)
 
 
-class FLAdresswechselZugestelltResponse(BaseAPIResponse):
-    zugestellt: int = Field(ge=0)
-    # Every distinct id this claim does not hold: unknown, stamped already, or claimed since by another pass.
-    ignoriert: int = Field(ge=0)
+class FLAdresswechselUmzuegeErledigtResponse(BaseAPIResponse):
+    # The carries this call took off their changes; an id owing none is not counted.
+    erledigt: int = Field(ge=0)
 
 
 class FLAdresswechselAdressePayload(BaseModel):
@@ -238,7 +219,7 @@ class FLAdresswechselAntwortResponse(BaseAPIResponse):
     wirksam_ab: FLUtcInstant | None
     # Set where the change now waits on another administrator's approval of its grant's move.
     genehmigung_offen: bool
-    # Set where the change took effect: its notice is queued (`FLAdresswechselPostausgangZeile`), never answered here.
+    # Set where the change took effect: its notice is owed in the Postausgang and its account's carry on the record.
     wirksam: bool
 
 
@@ -300,7 +281,8 @@ class FLAdresswechselVerwaltungOffen(BaseModel):
     freigegeben_am: FLUtcInstant | None
     bestaetigt_am: FLUtcInstant | None
     wirksam_ab: FLUtcInstant | None
-    zustellung: FLBewerbungZustellung | None
+    # What became of the new mailbox's last link mail; null where none was owed.
+    zustellung: FLPostausgangLage | None
     # Judged as the hourly pass ends one, so the tool marks a lapsed change without a clock of its own.
     abgelaufen: bool
     genehmigung: FLAdresswechselVerwaltungGenehmigung | None
@@ -326,22 +308,12 @@ class FLAdresswechselVerwaltungPayload(BaseModel):
 
 
 class FLAdresswechselVerwaltungMintResponse(BaseAPIResponse):
-    """A started or re-sent change's raw links, answered ONCE and stored nowhere, admin-tier whole."""
+    """A started or re-sent change, whose mails are owed in the Postausgang: no link is answered."""
 
     id: CustomObjectId
     weg: FLAdresswechselWeg
-    # Null on a change asking the address on file first: nothing goes to the new mailbox before its approval.
-    token: str | None
-    # Null on a re-send: the stop link already in the address on file's mailbox keeps working.
-    stopp_token: str | None
     gueltig_bis: FLUtcInstant
     email: CustomNonEmptyString
-    bisherige_email: str
-    # Null on the lost-mailbox way: the address on file may have passed to a stranger, so its notice greets nobody.
-    vorname: str | None
-    # How many could approve the grant's move, 0 where none moves; never who: the grants' outbox reads them at its claim,
-    # and the caller only branches on a wait.
-    genehmiger_anzahl: int = Field(ge=0)
 
 
 class FLAdresswechselIdResponse(BaseAPIResponse):

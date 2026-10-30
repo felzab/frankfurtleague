@@ -283,16 +283,11 @@ const BACKGROUND_PASSES = [
     runners: ["src/instrumentation-node.ts", "src/core/afterResponse.ts"],
   },
   {
-    operations: [
-      "bewerbungen_get_sweep_saisons",
-      "bewerbungen_sweep_saison",
-      "bewerbungen_angekuendigt_bewerbungen",
-      "bewerbungen_loeschen_bewerbungen",
-    ],
+    operations: ["bewerbungen_get_sweep_saisons", "bewerbungen_sweep_saison"],
     wrapper: {
       file: "src/features/bewerbungen/mutations.ts",
       regex: moduleNamed("mutations"),
-      names: ["getBewerbungSweepSaisons", "postBewerbungSweep", "postBewerbungSweepAngekuendigt", "postBewerbungSweepLoeschen"],
+      names: ["getBewerbungSweepSaisons", "postBewerbungSweep"],
     },
     runners: ["src/features/bewerbungen/sweep.ts"],
   },
@@ -304,7 +299,16 @@ const BACKGROUND_PASSES = [
   {
     operations: ["adresswechsel_sweep_adresswechsel"],
     wrapper: { file: "src/features/adresswechsel/mutations.ts", regex: moduleNamed("mutations"), names: ["postAdresswechselSweep"] },
-    runners: ["src/features/bewerbungen/sweep.ts"],
+    runners: ["src/features/adresswechsel/sweep.ts"],
+  },
+  {
+    operations: ["adresswechsel_get_adresswechsel_umzuege", "adresswechsel_post_adresswechsel_umzuege_erledigt"],
+    wrapper: {
+      file: "src/features/adresswechsel/mutations.ts",
+      regex: moduleNamed("mutations"),
+      names: ["getAdresswechselUmzuege", "postAdresswechselUmzuegeErledigt"],
+    },
+    runners: ["src/features/adresswechsel/umzug.ts"],
   },
   {
     operations: ["identitaet_get_referenzen"],
@@ -317,31 +321,17 @@ const BACKGROUND_PASSES = [
     runners: ["src/features/saisons/sweep.ts", "src/features/saisons/actions.ts"],
   },
   {
-    operations: [
-      "spielbestaetigungen_get_spiel_sweep_saisons",
-      "spielbestaetigungen_sweep_spielbestaetigungen",
-      "spielbestaetigungen_angefragt_spielbestaetigungen",
-      "spielbestaetigungen_mitgeteilt_spielbestaetigungen",
-    ],
+    operations: ["spielbestaetigungen_get_spiel_sweep_saisons", "spielbestaetigungen_sweep_spielbestaetigungen"],
     wrapper: {
       file: "src/features/spielbestaetigungen/mutations.ts",
       regex: moduleNamed("mutations"),
-      names: [
-        "getSpielbestaetigungSweepSaisons",
-        "postSpielbestaetigungSweep",
-        "postSpielbestaetigungSweepAngefragt",
-        "postSpielbestaetigungSweepMitgeteilt",
-      ],
+      names: ["getSpielbestaetigungSweepSaisons", "postSpielbestaetigungSweep"],
     },
     runners: ["src/features/spielbestaetigungen/sweep.ts"],
   },
   {
-    operations: ["berechtigungen_post_berechtigungen_abgleich", "berechtigungen_post_berechtigungen_angekuendigt"],
-    wrapper: {
-      file: "src/features/berechtigungen/mutations.ts",
-      regex: moduleNamed("mutations"),
-      names: ["postBerechtigungenAbgleich", "postBerechtigungenAngekuendigt"],
-    },
+    operations: ["berechtigungen_post_berechtigungen_abgleich"],
+    wrapper: { file: "src/features/berechtigungen/mutations.ts", regex: moduleNamed("mutations"), names: ["postBerechtigungenAbgleich"] },
     runners: ["src/features/berechtigungen/abgleich.ts"],
   },
 ];

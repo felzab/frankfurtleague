@@ -26,7 +26,6 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.adresswechsel.crud import end_an_emptied_change_in_session
-from app.api.adresswechsel.services import compose_postausgang
 from app.api.berechtigungen.antraege import compose_antrag
 from app.api.bewerbungen.services import hash_token
 from app.api.einladungen.services import compose_einladung, compose_widerruf_update
@@ -265,7 +264,8 @@ async def edited(database: AsyncDatabase, collection: Collection, document_id: A
 # The reports a referee sent, one of theirs an undraw of an earlier season took, and another referee's.
 THEIR_REPORT_OID = ObjectId("6890a1b2c3d4e5f607b000b1")
 OTHER_REPORT_OID = ObjectId("6890a1b2c3d4e5f607b000b2")
-OWED_NOTICE_OID = ObjectId("6890a1b2c3d4e5f607b000d1")
+OWED_CARRY_OID = ObjectId("6890a1b2c3d4e5f607b000d1")
+SENT_NOTICE_OID = ObjectId("6890a1b2c3d4e5f607b000d2")
 # The request for a grant of their address, and the one they asked for another's.
 ANTRAG_FOR_THEM_OID = ObjectId("6890a1b2c3d4e5f607b000e1")
 ANTRAG_BY_THEM_OID = ObjectId("6890a1b2c3d4e5f607b000e2")
@@ -494,19 +494,41 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
         (OTHER_REFEREE_CHANGE_OID, "kraus.bernd@example.com", IDENTIFIER, "their-new-address", "2126-03-28"),
         (MOVING_PUPIL_CHANGE_OID, "gwendolyn@example.com", IDENTIFIER, "her-new-address", "2126-03-29"),
     )
-    # A notice still owed to them from an earlier change of theirs, which the pass has not delivered yet.
+    # An account's carry still owed to them by an earlier change of theirs, ended, its record keeping the two addresses.
     # A fixed id: the log keeps the erasure's filter by id, which two runs of this seed must spell alike.
-    await database[Collection.ADRESSWECHSEL_POSTAUSGANG].insert_one(
+    await database[Collection.ADRESSWECHSEL].insert_one(
         {
-            "_id": OWED_NOTICE_OID,
-            **compose_postausgang(
-                art="wirksam",
-                bisherige_email="vorher.zorbanax@example.org",
-                email=IDENTIFIER,
-                vorname="Zorbanax",
-                weg="konto",
-                now=NOW,
-            ),
+            "_id": OWED_CARRY_OID,
+            **documents.adresswechsel_document(adresse="vorher.zorbanax@example.org", email=IDENTIFIER, token_hash=None, day="2126-03-01"),
+            "adresse": None,
+            "email": None,
+            "beendet": {"art": "wirksam", "am": NOW},
+            "umzug": {"von": "vorher.zorbanax@example.org", "nach": IDENTIFIER},
+            "umgezogen": {
+                "person_hash": loeschung_journal_hash(IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel),
+                "zuvor": loeschung_journal_hash("vorher.zorbanax@example.org", schluessel=CONFIG.sperrliste_schluessel),
+            },
+        }
+    )
+    # The completion notice that change sent its replaced address, which the erasure finds through the change's hashes.
+    await database[Collection.POSTAUSGANG].insert_one(
+        {
+            "_id": SENT_NOTICE_OID,
+            "schluessel": f"adresswechsel/{OWED_CARRY_OID}/wirksam",
+            "art": "adresswechsel_wirksam",
+            "an": "vorher.zorbanax@example.org",
+            "geheim": None,
+            "bezug": None,
+            "link": None,
+            "stand": "gesendet",
+            "erfasst_am": NOW,
+            "frist": NOW,
+            "loeschen_am": NOW,
+            "beanspruchung": None,
+            "beansprucht_bis": None,
+            "versuche": 1,
+            "nachricht_id": None,
+            "zustellung": None,
         }
     )
 
@@ -630,7 +652,7 @@ async def what_elsewhere_holds(database: AsyncDatabase) -> dict[str, int]:
         ),
         "grant": await database[Collection.BERECHTIGUNGEN].count_documents({"_id": ELSEWHERE_GRANT_OID, "adresse": ELSEWHERE}),
         "announced": await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].count_documents({"_id": ELSEWHERE_GRANT_OID, "adresse": ELSEWHERE}),
-        "notices": await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].count_documents({"berechtigung_id": ELSEWHERE_GRANT_OID}),
+        "notices": await database[Collection.POSTAUSGANG].count_documents({"schluessel": {"$regex": f"^berechtigung/{ELSEWHERE_GRANT_OID}/"}}),
         "referee_change": await changes.count_documents({"_id": REFEREE_MOVING_ELSEWHERE_CHANGE_OID, "email": ELSEWHERE}),
         "pupil_change": await changes.count_documents({"_id": PUPIL_MOVING_ELSEWHERE_CHANGE_OID, "email": ELSEWHERE}),
         "log_actor": await database[Collection.AKTIONEN].count_documents({"collection": str(Collection.SPIELE), "actor.email": ELSEWHERE}),
@@ -684,7 +706,7 @@ async def records_they_made_holding_no_grant(database: AsyncDatabase) -> None:
         {
             "_id": INVITED_BY_THEM_OID,
             **compose_einladung(
-                saison_id=SAISON_ID, team_id=HOME_TEAM_OID, token_hash="hash-of-their-invite", erstellt_von=IDENTIFIER, today=TODAY
+                saison_id=SAISON_ID, team_id=HOME_TEAM_OID, token_hashes=["hash-of-their-invite"], erstellt_von=IDENTIFIER, today=TODAY
             ),
         }
     )

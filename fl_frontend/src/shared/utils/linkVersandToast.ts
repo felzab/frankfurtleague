@@ -24,7 +24,7 @@ export const REGISTRIERUNGSLINK_TITEL: VersandTitel = {
   abgelegt: "Registrierungslink zurückgehalten",
 };
 
-export const LINK_TITEL: VersandTitel = {
+const LINK_TITEL: VersandTitel = {
   gesendet: "Link gesendet",
   fehlgeschlagen: "Link nicht verschickt",
   abgelegt: "Link zurückgehalten",

@@ -1,0 +1,49 @@
+import { describe, expect, it } from "vitest";
+
+import type { FLKontaktLinkDaten } from "./generated/client/types.ts";
+
+const { mailFor } = await import("./mailKinds.ts");
+const { renderMail } = await import("./emailShell.ts");
+const { kontaktBestaetigungsLink } = await import("./kontaktLink.ts");
+
+const ORIGIN = "http://localhost:3000";
+
+/** One person's link as a contacts save owes it, on an open row unless `zeile` names a closed one. */
+const daten = (zeile: FLKontaktLinkDaten["zeile"] = "offen", rollen: FLKontaktLinkDaten["rollen"] = ["ansprechperson"]) =>
+  ({ art: "kontakt_bestaetigung", saison_id: "2627", schule: "Lessing-Kolleg", rollen, frist: "2026-10-17", zeile }) as const;
+
+const rendered = (facts: ReturnType<typeof daten>) => {
+  const mail = mailFor("kontakt_bestaetigung", facts, { token: "beispiel-eins", geheim: null, origin: ORIGIN });
+  if (mail === undefined) throw new Error("the kind has no builder");
+
+  return { mail, text: renderMail(mail).text };
+};
+
+describe("a season row's contact link", () => {
+  it("asks a person seated on an open row to confirm, through its own token on the serving origin", () => {
+    const { mail, text } = rendered(daten());
+
+    expect(text).toMatch(/Bitte bestätige, dass das stimmt:/);
+    expect(mail.aktion).toStrictEqual({ label: "Eintrag bestätigen", href: kontaktBestaetigungsLink(ORIGIN, "beispiel-eins") });
+  });
+
+  /* A closed row's link takes the Widerspruch alone, so its mail asks no confirmation the page would then refuse. */
+  for (const [zeile, grund] of [
+    ["saison_vorbei", /Die Saison ist vorbei/],
+    ["ausgetreten", /Das Team spielt in dieser Saison nicht mehr mit/],
+  ] as const) {
+    it(`asks a person seated on a row that is ${zeile} for the Widerspruch alone`, () => {
+      const { mail, text } = rendered(daten(zeile));
+
+      expect(text).toMatch(grund);
+      expect(text).not.toMatch(/Bitte bestätige/);
+      expect(mail.aktion).toStrictEqual({ label: "Zum Eintrag", href: kontaktBestaetigungsLink(ORIGIN, "beispiel-eins") });
+    });
+  }
+
+  it("names every seat the one person holds, in the seats' own order", () => {
+    expect(rendered(daten("offen", ["trainer", "ansprechperson"])).mail.betreff).toMatch(
+      /^Du bist als Ansprechperson und Trainerin oder Trainer für Lessing-Kolleg eingetragen$/,
+    );
+  });
+});

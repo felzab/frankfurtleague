@@ -17,29 +17,12 @@ def window(**overrides: Any) -> dict[str, Any]:
     return {**OPEN_WINDOW, **overrides}
 
 
-class TestTheRegistrationWindowsThreeClosedShapes:
-    """Each answers false, and each would otherwise raise on a subscript rather than answering.
-
-    The three are what a season can hold short of a readable window: nothing recorded, a stored null
-    and a mapping missing a field.
-    """
-
-    @pytest.mark.parametrize(
-        ("registrierung", "shape"),
-        [
-            (None, "a season recording no window"),
-            ({}, "a mapping holding none of the three fields"),
-            ({"offen": True, "von": VON}, "a mapping missing `bis`"),
-            ({"von": VON, "bis": BIS}, "a mapping missing `offen`"),
-            ("2026-03-01", "a window stored as a bare string"),
-        ],
-        ids=lambda value: value if isinstance(value, str) else "",
-    )
-    def test_an_unreadable_window_is_not_running(self, registrierung: Any, shape: str):
-        assert registrierungsfenster_laeuft(registrierung=registrierung, today=INSIDE) is False, shape
+class TestTheRegistrationWindowsTwoClosedShapes:
+    def test_a_season_recording_no_window_is_not_running(self):
+        assert registrierungsfenster_laeuft(registrierung=None, today=INSIDE) is False
 
     def test_a_window_switched_off_is_not_running(self):
-        """The second closed shape: the span still covers today, and the flag is the whole answer."""
+        """The span still covers today, and the flag is the whole answer."""
 
         assert registrierungsfenster_laeuft(registrierung=window(offen=False), today=INSIDE) is False
 

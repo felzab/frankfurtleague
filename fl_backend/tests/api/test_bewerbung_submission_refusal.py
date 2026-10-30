@@ -21,7 +21,6 @@ from app.api.bewerbungen.schemas import (
 from app.api.bewerbungen.services import (
     assigned_trikot_farben,
     bestaetigungsfrist_from,
-    compose_bestaetigungen,
     compose_einwilligung,
     compose_kontakte,
 )
@@ -38,7 +37,7 @@ from app.shared.schemas.bounds import (
     TEAM_WEBSITE_URL_MAX_LENGTH,
 )
 from app.shared.schemas.literals import KONTAKT_ROLLEN, FLTrikotFarbe
-from tests.documents import ADDRESS, kontaktperson_document
+from tests.documents import ADDRESS, kontaktperson_document, minted_bestaetigungen
 
 # Fixed rather than generated, so a failure names the same club every run. Its own hex range, as
 # every other module in this suite carves one.
@@ -719,7 +718,11 @@ def stored_application(**overrides: Any) -> dict[str, Any]:
         "wunschgegner": None,
         "entscheidung": None,
         "bestaetigungsfrist": bestaetigungsfrist_from(today=TODAY),
-        "bestaetigungen": compose_bestaetigungen(hashes={seat: f"hash-{seat}" for seat in KONTAKT_ROLLEN}, today=TODAY),
+        # As a read serves each seat: its bookkeeping, and the delivery the read joins beside it.
+        "bestaetigungen": {
+            seat: {**entry, "zustellung": None}
+            for seat, entry in minted_bestaetigungen(hashes={seat: f"hash-{seat}" for seat in KONTAKT_ROLLEN}, today=TODAY).items()
+        },
         **overrides,
     }
 

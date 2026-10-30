@@ -19,7 +19,7 @@ from pymongo import AsyncMongoClient, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
-from app.api.spielbestaetigungen.services import halter_of, seite_of
+from app.api.spielbestaetigungen.services import halter_of
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.db import NO_OWNER
@@ -398,73 +398,48 @@ class TestTheSweepsNameACommitTheyCannotRead:
 
 
 @pytest.mark.db
-class TestTheConfirmationPassNamesAMintItCannotRead:
-    """The driver's own lost answer, a `WTimeoutError` whose label the driver adds and the server's reply never carries.
+class TestAConfirmationMintWhoseCommitAnswerIsLost:
+    """The driver's own lost answer, a `WTimeoutError` whose label the driver adds and the server's reply never carries."""
 
-    The sweep sheet's stand-in carries it in the reply, so a judge reading the reply rather than `has_error_label` passes there alone.
-    """
+    def test_the_pass_raises_and_the_mints_rows_stand_with_the_mails_they_owe(self, mongo_replica_set_url: str):
+        """The rows and their mails commit in one transaction, so none stands unmailed and the next pass owes them nothing more.
 
-    def test_the_mints_rows_stand_unmailed_the_line_names_them_and_the_next_pass_asks_them(
-        self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture
-    ):
-        """The notices were answered first, so the pass answers them rather than raising.
-
-        Its rows hold links nobody was mailed, so the next pass asks each again, a fresh link a seat beside the first.
+        Raised rather than answered: the job rejects, and the heartbeat reports the pass a failure.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await confirmations.sweep(database, client)
-            await confirmations.angefragt(database, client, [row["_id"] for row in await confirmations.rows(database)])
             await database[Collection.SPIELE].update_one({"_id": confirmations.SPIEL}, {"$set": {"uhrzeit": "19:00:00"}})
             commits = _Commits()
             losing = AsyncMongoClient(mongo_replica_set_url, serverMonitoringMode="poll", appname=LOST_COMMIT_APP, event_listeners=[commits])
-            # The close's and the notice step's commits pass; the mint's, the next one this client sends, lands and loses
-            # its answer.
-            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"skip": 2}, data=UNANSWERED)
+            # The close's commit passes; the mint's, the next one this client sends, lands and loses its answer.
+            await client.admin.command("configureFailPoint", FAIL_POINT, mode={"skip": 1}, data=UNANSWERED)
             try:
-                answer = await confirmations.sweep(losing[database.name], losing)
+                with pytest.raises(PyMongoError) as lost:
+                    await confirmations.a_pass(losing[database.name], losing)
             finally:
                 await client.admin.command("configureFailPoint", FAIL_POINT, mode="off")
                 await losing.close()
             standing = await confirmations.rows(database, geschlossen=None)
+            owed = await database[Collection.POSTAUSGANG].find({"bezug.id": {"$in": [row["_id"] for row in standing]}}, {"art": 1}).to_list()
 
-            return (
-                commits.answered,
-                answer,
-                standing,
-                await confirmations.sweep(database, client),
-                await confirmations.rows(database, geschlossen=None),
-            )
+            return commits.answered, lost.value, standing, owed, await confirmations.a_pass(database, client)
 
-        with caplog.at_level(logging.WARNING):
-            commits, answer, standing, nxt, asked = confirmations.on_a_league(
-                mongo_replica_set_url, body, spiele=[confirmations.fixture(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
-            )
-
-        # The premise first: the close and the notice step committed, and the mint's commit landed with its answer lost.
-        assert commits == [None, None, MAX_TIME_EXPIRED]
-        assert (len(answer.neue_ansetzungen), len(answer.schiedsrichter_neue_ansetzungen)) == (2, 1)
-        assert (answer.anfragen, answer.einteilungen) == ([], [])
-        # Each side's fresh row and the referee's, about the moved Ansetzung, none recorded as sent.
-        assert sorted((row["partei"]["art"], row["ansetzung"]["uhrzeit"], row["angefragt_am"]) for row in standing) == [
-            ("schiedsrichter", "19:00:00", None),
-            ("team", "19:00:00", None),
-            ("team", "19:00:00", None),
-        ]
-        assert _stopping_lines(caplog) == [
-            (
-                Code.UNKNOWN_OUTCOME,
-                "spielbestaetigungen.clock_commit_unanswered",
-                {"clock": "mint", "may_stand": f"the rows minted for fixture(s) {confirmations.SPIEL}"},
-            )
-        ]
-        assert sorted((anfrage.spielbestaetigung_id, anfrage.seite) for anfrage in nxt.anfragen) == sorted(
-            (row["_id"], seite_of(row)) for row in standing if row["partei"]["art"] == "team"
+        commits, lost, standing, owed, nxt = confirmations.on_a_league(
+            mongo_replica_set_url, body, spiele=[confirmations.fixture(confirmations.SPIEL, 1, confirmations.NEXT_WEEK)]
         )
-        assert [einteilung.spielbestaetigung_id for einteilung in nxt.einteilungen] == [
-            row["_id"] for row in standing if row["partei"]["art"] == "schiedsrichter"
+
+        # The premise first: the close committed, and the mint's commit landed with its answer lost.
+        assert commits[:2] == [None, MAX_TIME_EXPIRED]
+        assert lost.has_error_label(UNKNOWN_COMMIT_RESULT)
+        # Each side's fresh row and the referee's, about the moved Ansetzung, each stamped with the mails it owes beside it.
+        assert sorted((row["partei"]["art"], row["ansetzung"]["uhrzeit"], row["angefragt_am"]) for row in standing) == [
+            ("schiedsrichter", "19:00:00", confirmations.TODAY),
+            ("team", "19:00:00", confirmations.TODAY),
+            ("team", "19:00:00", confirmations.TODAY),
         ]
-        assert {len(entry["token_hashes"]) for row in asked if row["kontakte"] is not None for entry in row["kontakte"].values()} == {2}
+        assert sorted(mail["art"] for mail in owed) == ["spiel_anfrage"] * 6 + ["spiel_einteilung"]
+        assert (nxt.angefragt, nxt.mails) == (0, 0)
 
 
 # The server's code for a transaction it does not hold, sent without the transient label the server adds, so nothing reruns it.

@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
-from pymongo import ASCENDING, ReturnDocument
+from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import mint_token
@@ -32,9 +32,8 @@ from app.api.postausgang.services import (
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.crud import patch_many_in_db, patch_one_in_db, pull_many_from_db
+from app.core.crud import patch_many_in_db, pull_many_from_db
 from app.core.dependencies import DB, DBClient, PostausgangCollection, get_germany_now
-from app.core.exceptions import DocumentNotFoundError
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import transaction_session
 
@@ -48,6 +47,31 @@ router = APIRouter(
 # Open, and no live claim holding it.
 def _frei(now: datetime) -> dict[str, Any]:
     return {"stand": "offen", "$or": [{"beansprucht_bis": None}, {"beansprucht_bis": {"$lte": now}}]}
+
+
+def _link_record_filter(row: Mapping[str, Any]) -> dict[str, Any]:
+    """The record a mail's link is minted on, while it still holds the mail's address at every path the link names.
+
+    A seat emptied, handed on or re-addressed since the mail was owed matches nothing, and neither does a record gone,
+    so the mail is dropped rather than minting a live link for an address the record no longer names. Each array's
+    parent an object, as a write through a null one is refused, which would abort the whole claim.
+    """
+
+    link = row["link"]
+    parents = {pfad.rpartition(".")[0] for pfad in link["pfade"]} - {""}
+
+    return {
+        "_id": row["bezug"]["id"],
+        **{adresse: row["an"] for adresse in link["adressen"]},
+        **{parent: {"$type": "object"} for parent in sorted(parents)},
+    }
+
+
+def _link_update(link: Mapping[str, Any], token_hash: str) -> dict[str, Any]:
+    if link["ersetzt"]:
+        return {"$set": {pfad: [token_hash] for pfad in link["pfade"]}}
+
+    return {"$addToSet": {pfad: token_hash for pfad in link["pfade"]}}
 
 
 @router.post("/ausgabe", response_model=FLPostausgangAusgabeResponse, summary="Claim the mails owed now and hand them out")
@@ -64,9 +88,10 @@ async def post_ausgabe(
     The sign-in library's mails come first, each tried once, then the rest, each oldest first. A mail past its deadline
     is given up rather than handed out, and counted in `aufgegeben`. A mail to an address a standing ban holds is stopped
     as `gesperrt`, the ban's own notice alone excepted. A mail carrying a link has it minted here, its hash written to
-    the record the mail is about and the raw token answered once, in `token`; a record gone since stops the mail as
-    `entfallen`. A second call inside the lease is answered none of these rows. The caller sends each under the
-    idempotency key its `versuch` names and reports every outcome, with `beanspruchung`, to `POST /postausgang/ergebnis`;
+    the record the mail is about and the raw token answered once, in `token`; a record gone since, or one no longer
+    holding the mail's address where its link names it, stops the mail as `entfallen`. A second call inside the lease is
+    answered none of these rows. The caller sends each under the idempotency key its `versuch` names and reports every
+    outcome, with `beanspruchung`, to `POST /postausgang/ergebnis`;
     where the lease lapses first, the next call hands the row out again with a fresh link and number, every earlier link
     staying valid unless the mail's link supersedes them. Server to server alone: the answer names addresses, live links
     and secrets.
@@ -107,16 +132,14 @@ async def post_ausgabe(
             if row["_id"] in gesperrt or row["link"] is None:
                 continue
             raw, token_hash = mint_token()
-            pfad = row["link"]["pfad"]
-            try:
-                await patch_one_in_db(
-                    collection=db[Collection(row["bezug"]["sammlung"])],
-                    db_filter={"_id": row["bezug"]["id"]},
-                    update={"$set": {pfad: [token_hash]}} if row["link"]["ersetzt"] else {"$addToSet": {pfad: token_hash}},
-                    session=session,
-                    return_document=ReturnDocument.BEFORE,
-                )
-            except DocumentNotFoundError:
+            # Written as an anchor is, past the version and the action log: a hash changes nothing a reader sees, and
+            # raising the version would refuse the next save of an editor read before the drain.
+            minted = await db[Collection(row["bezug"]["sammlung"])].update_one(
+                filter=_link_record_filter(row),
+                update=_link_update(row["link"], token_hash),
+                session=session,
+            )
+            if minted.matched_count == 0:
                 entfallen.append(row["_id"])
                 continue
             tokens[row["_id"]] = raw

@@ -19,7 +19,7 @@ from pymongo import MongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.core.collections import Collection
-from app.core.db import DEAD_GRANT, NO_GRANT, NO_OWNER, lifespan, warn_about_the_grants
+from app.core.db import NO_GRANT, NO_OWNER, lifespan, warn_about_the_grants
 from app.core.logging import FL_LOGGER_NAME
 from tests.config import build_test_config
 from tests.worker import worker_database
@@ -50,13 +50,6 @@ def warned(rows: Sequence[Mapping[str, Any]], caplog: pytest.LogCaptureFixture) 
 
 OWNER = {"adresse": "inhaberin@frankfurtleague.de", "verwaltung": "owner"}
 ADMINISTRATOR = {"adresse": "anna@frankfurtleague.de", "verwaltung": "administration"}
-# What the Playground stores where the paste was typed in capitals: nothing refuses it, and no
-# folded header ever equals it.
-UNFOLDED = {"adresse": "Bernd.Admin@Frankfurtleague.de", "verwaltung": "administration"}
-# The three other dead shapes: folded to itself, which the unfolded check alone would pass.
-EMPTY = {"adresse": "", "verwaltung": "administration"}
-MISSING = {"verwaltung": "administration"}
-UNICODE_LOCAL_PART = {"adresse": "jürgen@frankfurtleague.de", "verwaltung": "administration"}
 
 
 def test_a_list_holding_an_owner_and_live_addresses_says_nothing(caplog):
@@ -73,26 +66,6 @@ def test_no_grant_at_all_is_named_and_nothing_else_is(caplog):
 
 def test_a_list_with_no_owner_is_named(caplog):
     assert warned([ADMINISTRATOR], caplog) == [(NO_OWNER.error_code, NO_OWNER.sentence)]
-
-
-def test_every_dead_shape_is_counted_and_no_address_reaches_the_line(caplog):
-    """A count and never the address: the container log outlives the grant it would describe."""
-
-    lines = warned([OWNER, UNFOLDED, EMPTY, MISSING, UNICODE_LOCAL_PART], caplog)
-
-    assert lines == [(DEAD_GRANT.error_code, DEAD_GRANT.sentence.format(count=4))]
-    assert "bernd" not in lines[0][1].lower() and "jürgen" not in lines[0][1].lower()
-
-
-def test_an_unfolded_owner_row_is_no_owner(caplog):
-    """A dead row admits nobody, so a list whose only owner row is dead has no owner."""
-
-    dead_owner = {**UNFOLDED, "verwaltung": "owner"}
-
-    assert warned([dead_owner, ADMINISTRATOR], caplog) == [
-        (DEAD_GRANT.error_code, DEAD_GRANT.sentence.format(count=1)),
-        (NO_OWNER.error_code, NO_OWNER.sentence),
-    ]
 
 
 def booted_over(grants: Sequence[Mapping[str, Any]], mongo_url: str, caplog: pytest.LogCaptureFixture) -> set[str]:
@@ -121,7 +94,7 @@ def booted_over(grants: Sequence[Mapping[str, Any]], mongo_url: str, caplog: pyt
 
     codes = {getattr(record, "error_code", "") for record in caplog.records}
 
-    return codes & {NO_GRANT.error_code, NO_OWNER.error_code, DEAD_GRANT.error_code}
+    return codes & {NO_GRANT.error_code, NO_OWNER.error_code}
 
 
 @pytest.mark.db

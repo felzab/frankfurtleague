@@ -11,11 +11,10 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.adresswechsel.services import compose_postausgang
 from app.api.aktionen.admin_router import FACET_TALLY
 from app.api.aktionen.services import build_aktionen_sort
 from app.api.berechtigungen.antraege import compose_antrag
-from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter, compose_bestaetigungen, hash_token
+from app.api.bewerbungen.services import build_bewerbungen_sort, build_schluessel_filter, hash_token
 from app.api.identitaet.crud import erase_pupil_actor_in_session, unattribute_in_session
 from app.api.spielberichte.crud import pull_bericht_lage
 from app.api.spieler.person_router import _read_the_squad
@@ -32,6 +31,7 @@ from tests.documents import (
     adresswechsel_document,
     bericht_document,
     kontaktperson_document,
+    minted_bestaetigungen,
     spiel_document,
     spielbericht_document,
     spielbestaetigung_document,
@@ -221,7 +221,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "wunschgegner": None,
             "entscheidung": None,
             "bestaetigungsfrist": "2026-02-15",
-            "bestaetigungen": compose_bestaetigungen(
+            "bestaetigungen": minted_bestaetigungen(
                 hashes={seat: hash_token(seat) for seat in ("trainer", "ansprechperson", "stellvertretung")}, today="2026-02-01"
             ),
         },
@@ -254,16 +254,15 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "gesperrt_bis_saison_id": "2031",
         },
         # `widerrufen_am` is null rather than absent because `uniq_einladung_live` reaches the rows
-        # holding null, and `versand` is the empty carrier the mint writes.
+        # holding null.
         "einladungen": {
             "_id": EINLADUNG_OID,
             "saison_id": SAISON_ID,
             "team_id": TEAM_OID,
-            "token_hash": "b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819200",
+            "token_hashes": ["b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70819200"],
             "erstellt_am": "2026-03-15",
             "erstellt_von": "admin@example.invalid",
             "widerrufen_am": None,
-            "versand": {},
         },
         # Every key the submission writes, `geburtsdatum`, `einwilligung` and `entscheidung`
         # included: each is a stored null rather than an absent key, which is what `required` means.
@@ -283,7 +282,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "geburtsdatum": None,
             "einwilligung": None,
             "bestaetigung": {
-                "token_hash": "c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80919200",
+                "token_hashes": ["c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80919200"],
                 "verschickt_am": "2026-03-16",
                 "erinnert_am": None,
                 "frist": "2026-03-23",
@@ -303,22 +302,6 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "adresse": "inhaberin@example.invalid",
             "verwaltung": "owner",
             "angekuendigt_am": datetime(2026, 1, 1, 0, 5, tzinfo=UTC),
-        },
-        # A removal a pass holds claimed: the one shape carrying every nullable key both ways.
-        "berechtigungen_postausgang": {
-            "_id": BERECHTIGUNG_OID,
-            "berechtigung_id": TEAM_OID,
-            "art": "entzogen",
-            "urheber": "anwendung",
-            "jetzt": None,
-            "vorher": {"adresse": None, "verwaltung": "administration"},
-            "geaendert_von": "inhaberin@example.invalid",
-            "geaendert_am": datetime(2026, 1, 1, tzinfo=UTC),
-            "vorenthalten": "gesperrt",
-            "erfasst_am": datetime(2026, 1, 1, tzinfo=UTC),
-            "beansprucht_bis": datetime(2026, 1, 1, 0, 10, tzinfo=UTC),
-            "beanspruchung": "a-claim",
-            "versuche": 1,
         },
         # An open team row as the pass mints it: one seat holding the link the request went out with,
         # one sharing it as a mirrored pair does, one empty.
@@ -344,25 +327,12 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             },
         ),
         "spielberichte": spielbericht_document({"_id": SPIEL_OID, "saison_id": SAISON_ID}),
-        # A live change as the start stores it: its instants are dates, which every read takes.
+        # A live change as the start stores it, its instants dates, which every read takes; and the carry an earlier
+        # effect of the address left owed on it, which the record keeps beside its live fields as the model reads them.
         "adresswechsel": {
             "_id": ADRESSWECHSEL_OID,
             **adresswechsel_document(adresse="alt@example.invalid", email="neu@example.invalid", token_hash="a" * 64, day="2026-03-16"),
-        },
-        # An effect's notice a pass holds claimed on the lost-mailbox way, greeting nobody: every nullable key both ways.
-        "adresswechsel_postausgang": {
-            "_id": ADRESSWECHSEL_OID,
-            **compose_postausgang(
-                art="wirksam",
-                email="neu@example.invalid",
-                now=datetime(2026, 3, 16, tzinfo=UTC),
-                bisherige_email="alt@example.invalid",
-                vorname=None,
-                weg="wartezeit",
-            ),
-            "beansprucht_bis": datetime(2026, 3, 16, 0, 10, tzinfo=UTC),
-            "beanspruchung": "a-claim",
-            "versuche": 1,
+            "umzug": {"von": "vorher@example.invalid", "nach": "alt@example.invalid"},
         },
         # A promotion asked, so `berechtigung_id` is an id rather than the null a grant's request holds.
         "berechtigungen_antraege": {

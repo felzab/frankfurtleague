@@ -1,5 +1,3 @@
-import type { FLAdresswechselWeg } from "@/core/generated/client/types";
-
 /**
  * How one link mail ended. `zurueckgehalten` is a deployment that mails nothing filing it
  * (`fl_frontend/src/core/mail.ts :: MailWithheldError`), `gesperrt` the ban list keeping it from the
@@ -37,16 +35,6 @@ export function versandWarnt(versand: LinkVersand | undefined): boolean {
 export type HinweisVersand = LinkVersand | "ungewiss";
 
 /**
- * How an address change's two messages ended, each `null` where the mint answered no token for it: no
- * link before an approval, no notice on a re-send.
- */
-export type AdresswechselVersand = {
-  weg: FLAdresswechselWeg;
-  link: LinkVersand | null;
-  hinweis: HinweisVersand | null;
-};
-
-/**
  * Whether an address change's notice to the stored address failed or may have, which its sentence asks the
  * administrator to make good by hand: one held back, or none stored, asks nothing.
  */
@@ -54,16 +42,4 @@ export function hinweisFehlt(hinweis: HinweisVersand | null | undefined): boolea
   if (hinweis === "ungewiss") return true;
 
   return hinweis !== null && hinweis !== undefined && versandGrad(hinweis) === "fehlgeschlagen";
-}
-
-/** A failed link outranks one held back, so a write sending several reports the one its administrator must act on. */
-const RANG: Readonly<Record<VersandGrad, number>> = { gesendet: 0, abgelegt: 1, fehlgeschlagen: 2 };
-
-/** The worst-graded of several links one write sent, `undefined` where it sent none. */
-export function schlechtesterVersand(versendet: readonly LinkVersand[]): LinkVersand | undefined {
-  return versendet.reduce<LinkVersand | undefined>(
-    (schlechtester, versand) =>
-      schlechtester === undefined || RANG[versandGrad(versand)] > RANG[versandGrad(schlechtester)] ? versand : schlechtester,
-    undefined,
-  );
 }

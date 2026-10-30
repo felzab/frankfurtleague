@@ -12,7 +12,7 @@ import {
   zusageHindernis,
 } from "./bestaetigungStand.ts";
 
-import type { FLBewerbung, FLBewerbungBestaetigung, FLBewerbungZustellungStand } from "@/core/generated/client/types.ts";
+import type { FLBewerbung, FLBewerbungBestaetigung, FLPostausgangZustellungStand } from "@/core/generated/client/types.ts";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { SitzBestaetigung } from "./bestaetigungStand.ts";
 
@@ -46,10 +46,10 @@ const OFFEN: FLBewerbungBestaetigung = {
 };
 const ABGELEHNT: FLBewerbungBestaetigung = { ...OFFEN, abgelehnt_am: "2026-09-04" };
 
-/** What the last message to a seat reached, as the provider's events leave it. */
-const zugestellt = (stand: FLBewerbungZustellungStand): FLBewerbungBestaetigung => ({
+/** What the last mail to a seat reached, as the provider's events leave it on its Postausgang row. */
+const zugestellt = (stand: FLPostausgangZustellungStand): FLBewerbungBestaetigung => ({
   ...OFFEN,
-  zustellung: { nachricht_id: "56761188-7520-42d8-8898-ff6fc54ce618", stand: stand, grund: null, am: "2026-09-01T10:15:00.000Z" },
+  zustellung: { stand: "gesendet", zustellung: { stand: stand, grund: null, am: "2026-09-01T10:15:00.000Z" } },
 });
 
 /** Three seats, each named by the state it is in, so a case says its own fixture. */
@@ -402,10 +402,10 @@ describe("what became of the last message to a seat", () => {
     const seat2 = seatOf(standsOf2(confirmedAfterBounce), "ansprechperson");
 
     expect(seat2.stand.art).toBe("bestaetigt");
-    expect(seat2.zustellung?.stand).toBe("unzustellbar");
+    expect(seat2.zustellung?.zustellung?.stand).toBe("unzustellbar");
   });
 
-  it("is null on a seat no message has been accepted for", () => {
+  it("is null on a seat no mail was owed", () => {
     expect(seatOf(standsOf2(seatsOf()), "ansprechperson").zustellung).toBe(null);
   });
 

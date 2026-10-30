@@ -199,65 +199,56 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("saison_id", ASCENDING), ("status", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING)),
         "one season's queue narrowed to one status, which is what a triage tab reads",
     ),
-    # PLAIN rather than sparse or partial: `SupportIndex` spells no partial form, and the lookup is an equality on a hex
-    # digest, which the null key a hash-less row adds cannot match. A tombstone keeps its hashes, so each link answers how
-    # its change ended.
+    # Multikey, each array's every hash a key, so a lookup's equality on one finds its change. A tombstone keeps its
+    # hashes, so each link answers how its change ended.
     SupportIndex(
         Collection.ADRESSWECHSEL,
-        "adresswechsel_token_hash",
-        (("token_hash", ASCENDING),),
+        "adresswechsel_token_hashes",
+        (("token_hashes", ASCENDING),),
         "the address page's lookup, driven by strangers",
     ),
     SupportIndex(
         Collection.ADRESSWECHSEL,
-        "adresswechsel_stopp_hash",
-        (("stopp_hash", ASCENDING),),
+        "adresswechsel_stopp_token_hashes",
+        (("stopp.token_hashes", ASCENDING),),
         "the address page's stop lookup, driven by strangers",
     ),
-    # Not a unique one, though a hash collides with nothing: a revoked row keeps its hash, so the
-    # key holds as many rows as the team has been reissued links.
+    # Not a unique one, though a hash collides with nothing: a revoked row keeps its hashes, so the
+    # key holds as many rows as the team has been reissued links. Multikey, a row keeping the copied
+    # link and every mailed one.
     SupportIndex(
         Collection.EINLADUNGEN,
-        "einladungen_token_hash",
-        (("token_hash", ASCENDING),),
+        "einladungen_token_hashes",
+        (("token_hashes", ASCENDING),),
         "the invite page's lookup, driven by strangers",
     ),
-    # Two indexes for one `$or`: "all the clauses in the $or expression must be supported by
-    # indexes. Otherwise, MongoDB performs a collection scan." Mirrored from
-    # https://www.mongodb.com/docs/manual/reference/operator/query/or/, which moves without us;
-    # read 2026-09-21.
+    # Multikey, the row keeping every link it was mailed.
     SupportIndex(
         Collection.REGISTRIERUNGEN,
-        "registrierungen_bestaetigung_token_hash",
-        (("bestaetigung.token_hash", ASCENDING),),
+        "registrierungen_bestaetigung_token_hashes",
+        (("bestaetigung.token_hashes", ASCENDING),),
         "the confirmation page's lookup, driven by strangers",
     ),
-    SupportIndex(
-        Collection.REGISTRIERUNGEN,
-        "registrierungen_bestaetigung_token_hash_zuvor",
-        (("bestaetigung.token_hash_zuvor", ASCENDING),),
-        "the same lookup through the link a reminder replaced, which stays live beside the fresh one",
-    ),
     # One per clause of each `$or`, for the registration's pair's reason: a contact seat's link is
-    # looked up on whichever seat holds it, an application's on either of its two hashes.
+    # looked up on whichever seat holds it, on a season row or on an application.
     *(
         SupportIndex(
             Collection.SAISON_TEAMS,
-            f"saison_teams_bestaetigungen_{seat}_token_hash",
-            ((f"bestaetigungen.{seat}.token_hash", ASCENDING),),
+            f"saison_teams_bestaetigungen_{seat}_token_hashes",
+            ((f"bestaetigungen.{seat}.token_hashes", ASCENDING),),
             "a contact seat's confirmation page, through the season row's lookup, driven by strangers",
         )
         for seat in KONTAKT_ROLLEN
     ),
+    # Multikey, each seat keeping every link it was mailed until a re-send voids them.
     *(
         SupportIndex(
             Collection.BEWERBUNGEN,
-            f"bewerbungen_bestaetigungen_{seat}_{field}",
-            ((f"bestaetigungen.{seat}.{field}", ASCENDING),),
+            f"bewerbungen_bestaetigungen_{seat}_token_hashes",
+            ((f"bestaetigungen.{seat}.token_hashes", ASCENDING),),
             "a contact seat's confirmation page, through the application's lookup, driven by strangers",
         )
         for seat in KONTAKT_ROLLEN
-        for field in ("token_hash", "token_hash_zuvor")
     ),
     # `status` sits after the sort keys, the read being free to omit it: an index serves a sort
     # "only when the query includes equality conditions on all prefix keys that precede the sort
@@ -268,6 +259,13 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         "registrierungen_saison_id_team_id_queue",
         (("saison_id", ASCENDING), ("team_id", ASCENDING), ("eingereicht_am", DESCENDING), ("_id", DESCENDING), ("status", ASCENDING)),
         "one team's pending registrations for one season, newest first, narrowed by status or not",
+    ),
+    # Multikey, the array holding the one link the last hand-out minted.
+    SupportIndex(
+        Collection.SCHIEDSRICHTER,
+        "schiedsrichter_bestaetigung_token_hashes",
+        (("bestaetigung.token_hashes", ASCENDING),),
+        "a referee's confirmation page, driven by strangers",
     ),
     SupportIndex(
         Collection.SPIELBESTAETIGUNGEN,

@@ -106,12 +106,8 @@ PUBLIC_WRITES = [
 # and no person, so the admin guard would have nothing to check and `bind_actor` would refuse.
 SYSTEM_WRITES = [
     ("/api/v0/bewerbungen/sweep/{saison_id}", "post"),
-    ("/api/v0/bewerbungen/sweep/{saison_id}/angekuendigt", "post"),
-    ("/api/v0/bewerbungen/sweep/{saison_id}/loeschen", "post"),
     ("/api/v0/registrierungen/sweep/{saison_id}", "post"),
     ("/api/v0/spielbestaetigungen/sweep/{saison_id}", "post"),
-    ("/api/v0/spielbestaetigungen/sweep/{saison_id}/angefragt", "post"),
-    ("/api/v0/spielbestaetigungen/sweep/{saison_id}/mitgeteilt", "post"),
     ("/api/v0/bewerbungen/zustellung", "post"),
     ("/api/v0/bewerbungen/zustellung/angenommen", "post"),
     ("/api/v0/zustellung", "post"),
@@ -124,22 +120,20 @@ SYSTEM_WRITES = [
     ("/api/v0/identitaet/anmeldung", "post"),
     ("/api/v0/identitaet/gesperrt", "post"),
     ("/api/v0/identitaet/referenzen", "post"),
-    # The grants' reconciliation, one call reading and one stamping: the frontend's timer holds no
-    # session, and a change made in the database directly has no administrator to attribute it to.
+    # The grants' comparison: the hourly pass holds no session, and a change made in the database directly has no
+    # administrator to attribute it to.
     ("/api/v0/berechtigungen/abgleich", "post"),
-    ("/api/v0/berechtigungen/abgleich/angekuendigt", "post"),
     # The season-after rule and the lapsed address's clock, whichever caller runs them: a timer holds
     # no session, and an activation's press deletes nobody in the administrator's name.
     ("/api/v0/identitaet/loeschung/lauf", "post"),
     ("/api/v0/adresswechsel/sweep", "post"),
-    # The address change's owed notices, claimed and stamped by the frontend's pass as the grants' are.
-    ("/api/v0/adresswechsel/sweep/postausgang", "post"),
+    # The sign-in accounts the address changes still owe to carry, reported carried by the frontend, which holds the store.
+    ("/api/v0/adresswechsel/sweep/umzuege/erledigt", "post"),
     # The Postausgang's drain, the sign-in library's mails and the provider's events: none holds a session.
     ("/api/v0/postausgang/ausgabe", "post"),
     ("/api/v0/postausgang/ergebnis", "post"),
     ("/api/v0/postausgang/anmeldung", "post"),
     ("/api/v0/postausgang/ereignis", "post"),
-    ("/api/v0/adresswechsel/sweep/postausgang/zugestellt", "post"),
     # A POST storing nothing, exempt for the identity reads' reason: the frontend's server asks a live change's new address.
     ("/api/v0/adresswechsel/sweep/adresse", "post"),
 ]
@@ -384,6 +378,8 @@ SYSTEM_READS = [
     # The confirmation pass's own bookkeeping, asked by the timer running it and by no page: the
     # seasons it lists are `active`, which the base tier serves, so the rule is not its reason.
     ("/api/v0/spielbestaetigungen/sweep", "get"),
+    # Read by the frontend's server alone: each owed carry names two addresses.
+    ("/api/v0/adresswechsel/sweep/umzuege", "get"),
 ]
 
 

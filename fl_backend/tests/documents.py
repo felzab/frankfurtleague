@@ -262,6 +262,12 @@ def neue_schule_document(team_name: str, shorthand: str, **fields: Any) -> dict[
     }
 
 
+def minted_bestaetigungen(*, hashes: Mapping[str, str], today: str) -> dict[str, Any]:
+    """An application's three seats as the hand-out of each seat's mail left them: one live link each, mailed `today`."""
+
+    return {seat: {**entry, "token_hashes": [hashes[seat]]} for seat, entry in compose_bestaetigungen(today=today).items()}
+
+
 def bewerbung_document(
     bewerbung_id: Any,
     saison_id: str,
@@ -299,7 +305,7 @@ def bewerbung_document(
         "wunschgegner": None,
         "entscheidung": None,
         "bestaetigungsfrist": bestaetigungsfrist if bestaetigungsfrist is not None else bestaetigungsfrist_from(today=gemintet),
-        "bestaetigungen": compose_bestaetigungen(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=gemintet),
+        "bestaetigungen": minted_bestaetigungen(hashes={seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_ROLLEN}, today=gemintet),
         **fields,
     }
 
@@ -338,7 +344,7 @@ def registrierung_document(
             position=position,
             nummer=nummer,
             stufe=stufe,
-            bestaetigung=compose_bestaetigung(token_hash=hash_token(token), today=eingereicht_am, frist=frist),
+            bestaetigung={**compose_bestaetigung(today=eingereicht_am, frist=frist), "token_hashes": [hash_token(token)]},
             today=eingereicht_am,
         ),
         "idempotenz_schluessel": str(registrierung_id),
@@ -510,17 +516,15 @@ def adresswechsel_document(
     weg: FLAdresswechselWeg = "konto",
     genehmigung: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """A live change's record as a start inserts it at noon of `day` in Germany, its stop link a hash nobody holds."""
+    """A live change's record as a start inserts it at noon of `day` in Germany, its links as their hand-outs minted them.
+
+    `token_hash` the new mailbox's, none where its link is not yet owed; the stop link a hash nobody holds.
+    """
 
     started = datetime.fromisoformat(f"{day}T12:00:00").replace(tzinfo=ZoneInfo("Europe/Berlin"))
 
-    return compose_record(
-        adresse=adresse,
-        email=email,
-        weg=weg,
-        token_hash=token_hash,
-        stopp_hash=hash_token(f"stop-{token_hash}"),
-        grund=None,
-        genehmigung=genehmigung,
-        now=started,
-    )
+    return {
+        **compose_record(adresse=adresse, email=email, weg=weg, grund=None, genehmigung=genehmigung, now=started),
+        "token_hashes": [] if token_hash is None else [token_hash],
+        "stopp": {"token_hashes": [hash_token(f"stop-{token_hash}")]},
+    }

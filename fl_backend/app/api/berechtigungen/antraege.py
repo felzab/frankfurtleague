@@ -8,7 +8,7 @@ removed or a restore has put back.
 from collections.abc import Mapping, Sequence, Set
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from typing import Any, Final, Literal, get_args
+from typing import Any, Literal
 
 from bson import ObjectId
 from pydantic import SecretStr
@@ -16,20 +16,17 @@ from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.berechtigungen.schemas import FLBerechtigungAntragEndeArt, FLBerechtigungStand, as_utc
-from app.api.berechtigungen.services import compose_postausgang, haelt_seit
-from app.api.sperrliste.lookup import BanList, adressen_gesperrt
+from app.api.berechtigungen.schemas import as_utc
+from app.api.berechtigungen.services import haelt_seit
+from app.api.postausgang.services import final_update
 from app.core.codes import Code
 from app.core.collections import Collection
-from app.core.crud import aggregate_many_from_db, delete_many_from_db, erase_many_from_db, post_many_to_db, refuse
+from app.core.crud import aggregate_many_from_db, delete_many_from_db, erase_many_from_db, patch_many_in_db, refuse
 from app.core.exceptions import DocumentNotFoundError, WriteRefusal
 from app.core.journal import JournalLine
 from app.core.security import loeschung_journal_hash
 from app.shared.schemas.bounds import GENEHMIGUNG_TAGE
 from app.shared.schemas.literals import FLGenehmigungVerwehrt
-
-# The outbox kinds telling a requester how their request ended, each mailed to them alone.
-ANTRAG_ENDEN: Final = frozenset(get_args(FLBerechtigungAntragEndeArt))
 
 
 def compose_antrag(*, adresse: str, verwaltung: str, berechtigung_id: ObjectId | None, gestartet_von: str, now: datetime) -> dict[str, Any]:
@@ -137,66 +134,46 @@ async def clear_the_address_in_session(
         )
 
 
+async def settle_the_notices_in_session(
+    *, postausgang_collection: AsyncCollection, antrag_ids: Sequence[ObjectId], now: datetime, session: AsyncClientSession
+) -> None:
+    """A decided or erased request's notices still unsent, settled as gone: nothing is left to approve.
+
+    One a drain holds already is sent all the same, its claim settling it.
+    """
+
+    if antrag_ids:
+        await patch_many_in_db(
+            collection=postausgang_collection,
+            db_filter={
+                "bezug.sammlung": str(Collection.BERECHTIGUNGEN_ANTRAEGE),
+                "bezug.id": {"$in": list(antrag_ids)},
+                "bezug.sitz": None,
+                "stand": "offen",
+            },
+            update=final_update("entfallen", now=now),
+            session=session,
+        )
+
+
 async def remove_the_antrag_in_session(
     *,
     berechtigungen_antraege_collection: AsyncCollection,
-    berechtigungen_postausgang_collection: AsyncCollection,
+    postausgang_collection: AsyncCollection,
     antrag_id: ObjectId,
+    now: datetime,
     session: AsyncClientSession,
 ) -> None:
     """Remove a decided request, its image kept: who asked, for what and when stays on the log beside the grant it made."""
 
     await delete_many_from_db(collection=berechtigungen_antraege_collection, db_filter={"_id": antrag_id}, session=session)
-    # Its queued notice goes too, imageless as the outbox's bookkeeping is, and by the id
-    # alone, as an erasure's filter is: only that notice holds the request's id. Claimed already, it is still sent.
-    await erase_many_from_db(collection=berechtigungen_postausgang_collection, db_filter={"berechtigung_id": antrag_id}, session=session)
-
-
-async def queue_the_ending_in_session(
-    antraege: Sequence[Mapping[str, Any]],
-    *,
-    art: FLBerechtigungAntragEndeArt,
-    sperrliste: BanList,
-    berechtigungen_postausgang_collection: AsyncCollection,
-    now: datetime,
-    session: AsyncClientSession,
-) -> None:
-    """Tell each requester how their request ended, after the removal that takes its own notices.
-
-    The requester stands in `geaendert_von`, where an erasure, a ban and an address change reach any actor; none names the
-    decider.
-    """
-
-    if not antraege:
-        return
-    beteiligt = {str(antrag["adresse"]) for antrag in antraege} | {str(antrag["genehmigung"]["gestartet_von"]) for antrag in antraege}
-    barred = await adressen_gesperrt(sperrliste, beteiligt, session=session)
-    await post_many_to_db(
-        collection=berechtigungen_postausgang_collection,
-        documents=[
-            compose_postausgang(
-                berechtigung_id=antrag["_id"],
-                art=art,
-                # The address and tier it asked for, as its own notice named them to its approvers.
-                jetzt=FLBerechtigungStand.model_validate(
-                    {"adresse": str(antrag["adresse"]), "verwaltung": antrag["genehmigung"]["verwaltung"]}
-                ),
-                vorher=None,
-                geaendert_von=str(antrag["genehmigung"]["gestartet_von"]),
-                now=now,
-                gesperrt=barred,
-            )
-            for antrag in antraege
-        ],
-        session=session,
-    )
+    await settle_the_notices_in_session(postausgang_collection=postausgang_collection, antrag_ids=[antrag_id], now=now, session=session)
 
 
 async def end_the_antraege_about_in_session(
     *,
     berechtigungen_antraege_collection: AsyncCollection,
-    berechtigungen_postausgang_collection: AsyncCollection,
-    sperrliste: BanList,
+    postausgang_collection: AsyncCollection,
     adresse: str,
     now: datetime,
     session: AsyncClientSession,
@@ -214,25 +191,22 @@ async def end_the_antraege_about_in_session(
     for row in rows:
         await remove_the_antrag_in_session(
             berechtigungen_antraege_collection=berechtigungen_antraege_collection,
-            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            postausgang_collection=postausgang_collection,
             antrag_id=row["_id"],
+            now=now,
             session=session,
         )
-    # One still open tells its requester; a lapsed one ended at its lapse, and nobody hears of it again.
-    await queue_the_ending_in_session(
-        [row for row in rows if ist_offen(row, now=now)],
-        art="antrag_beendet",
-        sperrliste=sperrliste,
-        berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
-        now=now,
-        session=session,
-    )
 
     return rows
 
 
 async def erase_antraege_in_session(
-    *, berechtigungen_antraege_collection: AsyncCollection, identifier: str, session: AsyncClientSession
+    *,
+    berechtigungen_antraege_collection: AsyncCollection,
+    postausgang_collection: AsyncCollection,
+    identifier: str,
+    now: datetime,
+    session: AsyncClientSession,
 ) -> int:
     """Every request about this folded address or made by it, lapsed or not, removed by id and imageless.
 
@@ -247,6 +221,9 @@ async def erase_antraege_in_session(
     if rows:
         await erase_many_from_db(
             collection=berechtigungen_antraege_collection, db_filter={"_id": {"$in": [row["_id"] for row in rows]}}, session=session
+        )
+        await settle_the_notices_in_session(
+            postausgang_collection=postausgang_collection, antrag_ids=[row["_id"] for row in rows], now=now, session=session
         )
 
     return len(rows)

@@ -42,6 +42,7 @@ from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.bans import ban_list
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.postausgang import MAIL_NOW
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -189,7 +190,7 @@ def on_a_league(url: str, body: Write, *, saison_status: str = "active") -> Any:
                             "ADX",
                             kontakte=STORED,
                             bestaetigungen={
-                                seat: compose_kontakt_bestaetigung(token_hash=hash_token(row_link(seat)), today=TODAY)
+                                seat: {**compose_kontakt_bestaetigung(today=TODAY), "token_hashes": [hash_token(row_link(seat))]}
                                 for seat in KONTAKT_ROLLEN
                             },
                         ),
@@ -249,10 +250,12 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Mapp
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=client,
         actor=FRESH_ADMIN_ACTOR,
         today=TODAY,
+        germany_now=MAIL_NOW,
     )
 
 
@@ -321,7 +324,7 @@ async def clear_the_blocks(database: AsyncDatabase, client: AsyncMongoClient) ->
         aktionen_collection=database[Collection.AKTIONEN],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         spielberichte_collection=database[Collection.SPIELBERICHTE],
-        sperrliste=ban_list(database),
+        postausgang_collection=database[Collection.POSTAUSGANG],
         db=client,
         today=TODAY,
         germany_now=NOW,
@@ -347,6 +350,7 @@ async def contradict(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         saisons_collection=database[Collection.SAISONS],
         aktionen_collection=database[Collection.AKTIONEN],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
+        postausgang_collection=database[Collection.POSTAUSGANG],
         sperrliste=ban_list(database),
         db=client,
         config=CONFIG,

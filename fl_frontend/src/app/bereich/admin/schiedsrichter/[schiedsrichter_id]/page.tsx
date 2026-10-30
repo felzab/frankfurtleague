@@ -32,7 +32,7 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
   if (schiedsrichterRes === null) {
     notFound();
   }
-  const { schiedsrichter, bestaetigung_abgelaufen, adresswechsel_id, adresswechsel_einsehbar_verwehrt } = schiedsrichterRes;
+  const { schiedsrichter, bestaetigung_abgelaufen, adresswechsel_id, adresswechsel_einsehbar_verwehrt, zustellung } = schiedsrichterRes;
 
   // Resolved through the words read rather than a copy here: the registry is the backend's.
   // `null` where the registry's read failed or broke its contract, so the editor stands and says the
@@ -55,6 +55,7 @@ async function AdminSchiedsrichterEditContent({ params }: { params: NextPageProp
         adresswechsel_id: adresswechsel_id,
         adresswechsel_einsehbar_verwehrt: adresswechsel_einsehbar_verwehrt,
         abgelaufen: { bestaetigung: bestaetigung_abgelaufen },
+        zustellung: zustellung,
       }}
       istFassungBekannt={fassungBekannt}
       inactiveSince={schiedsrichter.inactive_since}

@@ -6,7 +6,7 @@ import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/a
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN, FASSUNG_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
-import { alterAusserhalb, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "./constants";
+import { alterAusserhalb } from "./constants";
 
 import type {
   FLEinladungAnsichtResponse,
@@ -125,21 +125,6 @@ export function mapRegistrierungSubmitRefusal(
     default:
       return null;
   }
-}
-
-/**
- * What a pupil is told where the provider refused their confirmation mail outright.
- *
- * It names a second attempt because the write refuses nothing on the strength of a pending row:
- * registering again mints a fresh link.
- */
-const MAIL_ABGEWIESEN =
-  "An diese Adresse konnten wir keine E-Mail schicken. Prüfe sie und registriere Dich über denselben Link erneut. " +
-  `Der Eintrag von eben löscht sich nach ${String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen von selbst.`;
-
-/** The refused send as the form shows it. */
-export function abgewiesenerVersand(): { error?: string; fieldErrors?: FieldErrors } {
-  return { fieldErrors: { email: MAIL_ABGEWIESEN } };
 }
 
 /** `alterAusserhalb` where the link's view serves no floor to name: both bounds, never a number of its own. */

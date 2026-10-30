@@ -12,7 +12,7 @@ from typing import Any, Final, Literal, get_args
 
 from bson import ObjectId
 
-from app.api.berechtigungen.services import OWNER, holds_an_owners_power, lebendige, verwaltung_des
+from app.api.berechtigungen.services import OWNER, holds_an_owners_power, verwaltung_des
 from app.api.bewerbungen.services import build_eigene_bewerbung_filter
 from app.api.identitaet.schemas import FLErasureAnsicht, FLSelbstErasureAnsicht, FLSubjekt, FLSubjektSitz
 from app.api.kontakte.services import rows_seating
@@ -687,8 +687,8 @@ def referenced_addresses(
         # own fold: the set holds every address a record names, so a row read for another mailbox adds its own.
         *(row.get("email") for row in registrierung_rows if ist_eigene_registrierung(row, folded(row.get("email")) or "")),
         *(row.get("adresse") for row in grant_rows),
-        # An effect's notice owing its account's carry: swept before its drain, the account and its passkeys are gone.
-        *(row.get("bisherige_email") for row in carry_rows),
+        # An effect owing its account's carry: swept before it is carried, the account and its passkeys are gone.
+        *(row["umzug"]["von"] for row in carry_rows),
     )
 
     return frozenset(address for address in map(folded, stored) if address is not None)
@@ -703,7 +703,7 @@ def unreferenced(identifiers: Iterable[str], *, referenced: Collection[str]) -> 
 def find_kein_inhaber_refusal(grant_rows: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
     """`REQ-REFERENZEN-001`: no live grant is an `owner`'s, live as every reader of a grant reads one."""
 
-    if any(grant.get("verwaltung") == OWNER for grant in lebendige(grant_rows)):
+    if any(grant.get("verwaltung") == OWNER for grant in grant_rows):
         return None
 
     return WriteRefusal(

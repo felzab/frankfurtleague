@@ -58,8 +58,8 @@ export interface Mail {
   /** `""` where the first name is unknown, and the greeting then names nobody. */
   readonly vorname: string;
   readonly absaetze: readonly [Absatz, ...Absatz[]];
-  /** The one facts block, a column of rows or the sign-in code. */
-  readonly block?: { readonly fakten: readonly Fakt[] } | { readonly code: string };
+  /** The one facts block: a column of rows, the sign-in code, or a link a reader passes on, standing alone in its box. */
+  readonly block?: { readonly fakten: readonly Fakt[] } | { readonly code: string } | { readonly link: string };
   readonly nachBlock?: readonly Absatz[];
   readonly aktion?: Knopf | { readonly links: readonly BenannterLink[] };
 }
@@ -222,6 +222,14 @@ function blockHtml(block: NonNullable<Mail["block"]>): Baustein {
     };
   }
 
+  // The code's box at body size, the address broken anywhere: a URL set at the code's size overflows a phone.
+  if ("link" in block) {
+    return {
+      html: `<table ${TABLE_ATTRS} width="100%" style="${kasten}"><tr><td style="padding:${ABSTAND.faktenInnen}px;font-family:${FONT_STACK};${BODY_TEXT}">${linkHtml(block.link, block.link, "word-break:break-all;")}</td></tr></table>`,
+      abstand: ABSTAND.block,
+    };
+  }
+
   const zeilen = block.fakten
     .map(
       ({ label, wert }) =>
@@ -354,7 +362,9 @@ function renderText(mail: Mail, betreff: string): string {
       : [
           "code" in mail.block
             ? [einzeilig(mail.block.code)]
-            : mail.block.fakten.map(({ label, wert }) => `${einzeilig(label)}: ${wertText(wert)}`),
+            : "link" in mail.block
+              ? [einzeilig(mail.block.link)]
+              : mail.block.fakten.map(({ label, wert }) => `${einzeilig(label)}: ${wertText(wert)}`),
         ]),
     ...(mail.nachBlock ?? []).map((absatz) => [absatzText(absatz)]),
     ...(mail.aktion === undefined ? [] : [aktionText(mail.aktion)]),

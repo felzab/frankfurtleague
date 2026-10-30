@@ -1,4 +1,4 @@
-import { cacheCalls, doubleActionRequest, doubleActions } from "@/test-support/actionDoubles.ts";
+import { doubleActionRequest, doubleActions } from "@/test-support/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/test-support/apiClientDouble.ts";
 import { laufendeFassung } from "@/test-support/einwilligungRegistry.ts";
 import { kenntnisnahme } from "@/test-support/kenntnisnahme.ts";
@@ -7,9 +7,7 @@ import { answerShown, assertEachAnswered, DUPLICATE_KEY, refusalCodes, refused }
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { APINetworkError } from "@/core/errors.ts";
-import { kontaktBestaetigungsLink } from "@/core/kontaktLink.ts";
-import { outcomeUnknown, toActionErrorResult } from "@/shared/utils/actionError.ts";
-import { formatSpielDatum } from "@/shared/utils/format.ts";
+import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
@@ -19,7 +17,6 @@ import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRef
 import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
 
 import type { Code, FLBewerbung } from "@/core/generated/client/types.ts";
-import type { ApiCall } from "@/test-support/apiClientDouble.ts";
 import type { TeamSaisonMembership } from "../teams/types.ts";
 
 const BEWERBUNG_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
@@ -60,23 +57,19 @@ const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: ORIGIN } };
 const LOGGER_DOUBLE = { logger: { debug: record, info: record, warn: record, error: record } };
 
 /* The real actions and their mutations, called: the request they run in, the application three of
-   them read first, the club list, the backend client and the mailer are the doubles. */
+   them read first, the club list and the backend client are the doubles. Each write owes its mails in the backend's
+   own transaction, and the drain after the response is no case of this suite's. */
 doubleActionRequest();
-const { sent: mailed, answerWith: answerMailWith } = doubleSendMail();
+// Its drain made a no-op: the mails each write owes leave after a response this suite never sends.
+doubleSendMail();
 // After the request's own doubles, whose silent logger this one stands in front of: the stream is
 // where a token must never reach.
 vi.doMock("@/core/config.ts", () => CONFIG_DOUBLE);
 vi.doMock("@/core/logging.ts", () => LOGGER_DOUBLE);
-/** Whether `call` is the delivery report a sent message files, after the write the case is about. */
-const reportsDelivery = ({ endpoint }: ApiCall): boolean => endpoint.startsWith("/bewerbungen/zustellung");
-/** The report's answer as the endpoint sends it: every seat the message named, applied. */
-const deliveryApplied = ({ body }: ApiCall) => ({ angewendet: (JSON.parse(body ?? "{}") as { rollen: string[] }).rollen });
-
-const client = doubleApiAnswers((call) => Promise.resolve(reportsDelivery(call) ? deliveryApplied(call) : {}));
+const client = doubleApiAnswers(() => Promise.resolve({}));
 const writes = client.calls;
-/** Answers the write a case presses with `next`, the delivery report after it as the endpoint does. */
-const answerWith = (next: () => Promise<unknown>): void =>
-  client.answerWith((call) => (reportsDelivery(call) ? Promise.resolve(deliveryApplied(call)) : next()));
+/** Answers the write a case presses with `next`. */
+const answerWith = (next: () => Promise<unknown>): void => client.answerWith(() => next());
 /** The label the backend runs on the application form, off the registry it generated. */
 const FORM_LABEL = laufendeFassung("bewerbung").text_version;
 // The running label's read answered at its module, so the writes below are the client's whole record:
@@ -98,9 +91,6 @@ const {
   einwilligungErneutSendenAction,
   kontaktEmailKorrigierenAction,
 } = await import("./actions.ts");
-/* After the doubles, as the actions are: a static import would load the real mail module first. */
-const { rollenText } = await import("./notifications.ts");
-const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 
 const ANNEHMEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/annehmen";
 const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/ablehnen";
@@ -289,7 +279,7 @@ const DECISIONS = [
       trikot_farbe: null,
       created_team: true,
       team_id: GEWAEHLT.bewerbung.team_id,
-      updated_document: document,
+      id: (document as { id: string }).id,
     }),
     press: () => annehmenBewerbungAction(ANNAHME),
   },
@@ -297,7 +287,7 @@ const DECISIONS = [
     where: "the decline",
     betreff: "Absage",
     operation: ABLEHNEN_OPERATION,
-    landed: (document: object) => ({ updated_document: document }),
+    landed: (document: object) => ({ id: (document as { id: string }).id }),
     press: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, grund: "Die Liga ist voll." }),
   },
 ] as const;
@@ -323,12 +313,6 @@ const SITZ_PATH = `/bewerbungen/${BEWERBUNG_ID}/kontakte/ansprechperson`;
 /** The application read as the page drew it, with the deadline a seat's link stood under before any repair. */
 const VOR_DER_REPARATUR = { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: "2026-09-01" } };
 
-/** The correction's and the reseat's sentence where their link did not go out, which the strip shows as it stands. */
-const KORREKTUR_OHNE_LINK =
-  "Die Adresse ist korrigiert, aber die E-Mail mit dem neuen Link ging nicht raus, und der alte Link gilt nicht mehr. Schicke den Link erneut.";
-const BESETZUNG_OHNE_LINK =
-  "Die Person steht jetzt in der Bewerbung, aber die E-Mail mit ihrem Bestätigungslink ging nicht raus. Schicke den Link erneut.";
-
 /** The re-send's answer to each state it cannot compose a message from. */
 async function unsendableAnswers(): Promise<Record<"weg" | "leer" | "ohneAdresse" | "ohneTeam", string>> {
   const pressOn = async (gelesen: unknown): Promise<string> => {
@@ -344,9 +328,8 @@ async function unsendableAnswers(): Promise<Record<"weg" | "leer" | "ohneAdresse
   };
 }
 
-/** What the re-send's write answers where it lands, minting `token-neu` for the seat and mailbox it matched. */
+/** What the re-send's write answers where it lands, for the seat and the mailbox it matched. */
 const erneutGeschrieben = (overrides: object = {}) => ({
-  token: "token-neu",
   rolle: "ansprechperson",
   email: PERSON.email,
   rollen: ["ansprechperson"],
@@ -358,16 +341,13 @@ const erneutGeschrieben = (overrides: object = {}) => ({
 const korrigiert = () => ({
   email: KORREKTUR.email,
   rollen: ["ansprechperson"],
-  token: "token-korrektur",
   bestaetigungsfrist: "2026-09-18",
-  abgang_email: null,
 });
 
 /** What the reseat's write answers where it lands, for the seats it filled and the address as it stored it. */
 const besetzt = (rollen: readonly string[] = ["ansprechperson"]) => ({
   email: SITZ.email,
   rollen: rollen,
-  token: "token-sitz",
   bestaetigungsfrist: "2026-09-18",
 });
 
@@ -388,113 +368,43 @@ describe("the application's writes", () => {
     answerWith(() => Promise.resolve(besetzt()));
     await besetzeKontaktSitzAction(SITZ);
 
-    // A delivery report's `am` is the moment the provider took the message, so it is held to its form alone.
-    const sent = requestsOf(writes).map((request) => {
-      if (request.body === undefined) return request;
-      const { am, ...body } = request.body as { am?: unknown };
-      if (am !== undefined) expect(String(am), "a delivery report dated in another form").toMatch(/^\d{4}-\d\d-\d\dT[\d:.]+Z$/);
-      return { ...request, body };
-    });
     const bewerbung = `/bewerbungen/${BEWERBUNG_ID}`;
-    // Filed under the id the provider gave the message: the two decisions' messages are the first two.
-    const report = (nachricht: number) => ({
-      endpoint: "/bewerbungen/zustellung/angenommen",
-      method: "POST",
-      body: { bewerbung_id: BEWERBUNG_ID, nachricht_id: `msg-${String(nachricht)}`, rollen: ["ansprechperson"] },
-    });
     const { id: _id, rolle: _rolle, ...person } = SITZ;
-    expect(sent).toStrictEqual([
+    // The writes alone: each owes its mails in the backend's own transaction, so no report of a send follows one.
+    expect(requestsOf(writes)).toStrictEqual([
       { endpoint: `${bewerbung}/annehmen`, method: "POST", body: { gruppe: ANNAHME.gruppe, trikot_farbe: ANNAHME.trikot_farbe } },
       { endpoint: `${bewerbung}/ablehnen`, method: "POST", body: { grund: "Die Liga ist voll." } },
       { endpoint: `${bewerbung}/einwilligung/ansprechperson/erneut`, method: "POST", body: undefined },
-      report(3),
       // The address the page showed rides beside the corrected one: the backend judges the seat's holder by it.
       {
         endpoint: `${bewerbung}/kontakte/ansprechperson/email`,
         method: "POST",
         body: { email: KORREKTUR.email, bisherige_email: PERSON.email },
       },
-      report(4),
       { endpoint: `${bewerbung}/kontakte/ansprechperson`, method: "POST", body: person },
-      report(5),
     ]);
   });
 });
 
-describe("the message that follows a decision", () => {
-  /* `core` may not read the colour sheet, so the action renders the label and the hex. */
-  it("hands the acceptance mail the assigned colour's name and hex", async () => {
-    const [acceptance] = DECISIONS;
-    answerWith(() => Promise.resolve({ ...acceptance.landed(ENTSCHIEDEN), saison_id: "2027", trikot_farbe: "hellgruen" }));
+describe("what a decision says of its mails", () => {
+  /* The decision is committed with its mails owed in the same write, so the answer states it as taken and names who
+     the mail goes to, never whether it arrived. */
+  it("reports the decision as taken, its mail owed every contact person", async () => {
+    for (const { where, betreff, landed, press } of DECISIONS) {
+      answerWith(() => Promise.resolve(landed(ENTSCHIEDEN)));
 
-    expect((await annehmenBewerbungAction({ ...ANNAHME, trikot_farbe: "hellgruen" })).success, "the acceptance never landed").toBe(true);
-    const [mail] = mailed;
-    assert.ok(mail?.text.includes("Trikotfarbe: Hellgrün (#75db06)"), "the mail lost the colour's name or its hex");
+      const result = await press();
+
+      expect(result.success, `${where} did not land`).toBe(true);
+      assert.ok(answerOf(result).endsWith(`Die ${betreff} geht an jede Kontaktperson.`), `${where} names no mail: ${answerOf(result)}`);
+    }
   });
 
-  /* After the write in both, and the write is what the report is about: a message sent first would
-     tell a school it was accepted over a request the backend went on to refuse. */
-  it("mails nothing where the API write is refused", async () => {
+  it("owes nothing where the API write is refused", async () => {
     for (const { where, press } of DECISIONS) {
       answerWith(() => Promise.reject(refused("REQ-BEWERBUNG-001")));
 
-      const result = await press();
-
-      expect(result.success, `${where} was not refused, so the mail below is judged on nothing`).toBe(false);
-      expect(mailed, `${where} told the school of a decision the backend refused`).toStrictEqual([]);
-    }
-  });
-
-  /* The decision is committed and no endpoint takes it back, so nothing after the send may report a
-     failure — the addresses that were not reached travel in the success message instead. */
-  it("reports the decision as taken whatever the mail did", async () => {
-    answerMailWith(() => "refused");
-
-    for (const { where, betreff, landed, press } of DECISIONS) {
-      answerWith(() => Promise.resolve(landed(ENTSCHIEDEN)));
-
-      const result = await press();
-
-      expect(result.success, `${where} fails the whole decision over a message it could not send`).toBe(true);
-      expect(answerOf(result), `${where} drops the delivery report`).toMatch(
-        new RegExp(`Die ${betreff} konnte an niemanden verschickt werden`),
-      );
-    }
-  });
-
-  /* A send broken off unanswered may have arrived: answered as the request's doubt, the decision would read as perhaps
-     unsaved and the sentence naming whom to tell by hand would go. */
-  it("reports the decision as taken where a send broke off unanswered, naming the address in doubt", async () => {
-    answerMailWith(() => "lost");
-
-    for (const { where, betreff, landed, press } of DECISIONS) {
-      answerWith(() => Promise.resolve(landed(ENTSCHIEDEN)));
-
-      const result = await press();
-
-      expect(result.success, `${where} answered a committed decision as of unknown outcome`).toBe(true);
-      assert.ok(
-        answerOf(result).endsWith(` Ob die ${betreff} bei ${PERSON.email} ankam, ist unklar. Melde Dich selbst bei ihnen.`),
-        `${where} drops the address in doubt`,
-      );
-    }
-  });
-
-  /* Told the ban is why, by count: an address in the report is one the administrator is asked to
-     write to by hand, which would name a barred person. */
-  it("reports a decision the ban list kept from every address as taken, naming nobody", async () => {
-    answerMailWith(() => "barred");
-
-    for (const { where, betreff, landed, press } of DECISIONS) {
-      answerWith(() => Promise.resolve(landed(ENTSCHIEDEN)));
-
-      const result = await press();
-
-      expect(result.success, `${where} fails the whole decision over a ban`).toBe(true);
-      expect(answerOf(result)).toMatch(
-        new RegExp(`Die ${betreff} ging an niemanden raus, weil jede Adresse der Bewerbung auf der Sperrliste steht`),
-      );
-      assert.ok(!answerOf(result).includes("@"), `${where} named an address`);
+      expect((await press()).success, `${where} reports a refused decision as taken`).toBe(false);
     }
   });
 });
@@ -722,26 +632,7 @@ describe("the pills the queue's card wears", () => {
   });
 });
 
-describe("a message that cannot be sent", () => {
-  /* Thrown out of a decision, a read AFTER its write turns one that stands into a reported failure,
-     and the retry it invites is refused as already taken (`REQ-BEWERBUNG-001`). Thrown BEFORE the
-     re-send's mint, the same read has cost nothing. */
-  it("reports a decision whose club read failed as taken, and tells the administrator to write to the contacts", async () => {
-    clubsWith(() => Promise.reject(new Error("the club list answered nothing")));
-
-    for (const { where, betreff, landed, press } of DECISIONS) {
-      // A picked club, whose name only the club list answers.
-      answerWith(() => Promise.resolve(landed({ ...ENTSCHIEDEN, schule: null, team_id: GEWAEHLT.bewerbung.team_id })));
-
-      const result = await press();
-
-      expect(result.success, `${where} reports a committed decision as one that did not happen`).toBe(true);
-      expect(answerOf(result), `${where} leaves the administrator no remedy for the message nobody received`).toMatch(
-        new RegExp(`Die ${betreff} konnte nicht verschickt werden\\. Melde Dich selbst bei den Kontaktpersonen der Bewerbung\\.`),
-      );
-    }
-  });
-
+describe("a repair whose link's mail cannot be composed", () => {
   it("lets the club read that precedes a mint throw, before any link is spent", async () => {
     readWith(() => Promise.resolve(GEWAEHLT));
     clubsWith(() => Promise.reject(new Error("the club list answered nothing")));
@@ -786,51 +677,21 @@ describe("the re-sent confirmation link", () => {
     });
   });
 
-  /* A link built on the published origin sends a reader of the local stack into production. */
-  it("mints the re-sent link on the configured origin", async () => {
-    mailed.length = 0;
-    const frist = "2026-09-18";
-    readWith(() => Promise.resolve({ bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: frist } }));
-    answerWith(() =>
-      Promise.resolve({
-        token: "token-neu",
-        rolle: "ansprechperson",
-        email: PERSON.email,
-        rollen: ["ansprechperson"],
-        bestaetigungsfrist: frist,
-      }),
-    );
-
-    const result = await einwilligungErneutSendenAction({ id: BEWERBUNG_ID, rolle: "ansprechperson" });
-
-    expect(result.success, "the re-send mailed nothing, so the origin below is judged on nothing").toBe(true);
-    assert.ok(
-      mailed.some(({ text }) => text.includes(`${ORIGIN}/bestaetigung/kontakt?token=token-neu`)),
-      "the re-sent link is minted on an origin this run was not configured with",
-    );
-  });
-
-  /* The token is minted and the deadline moved by the time the message is composed, so the deadline it
-     states is the write's own answer rather than the page's copy, read before the write. */
-  it("mails nothing where the write is refused, and states the deadline the write set", async () => {
-    answerWith(() => Promise.reject(refused("REQ-BEWERBUNG-001")));
-
-    expect((await einwilligungErneutSendenAction(ERNEUT)).success, "the re-send was not refused, so nothing is judged").toBe(false);
-    expect(mailed.length, "the re-send mailed a link the backend refused to mint").toBe(0);
-
-    // Each press that mints a link, its write answering a deadline the page's read does not hold.
+  /* The write answers the address it owed the link at, and only the write knows it: a correction landing between the
+     page's read and the press moves the mailbox, and the API stores the fold of what was typed. */
+  it("names the address each repair's write answered, never the read's nor the typed one", async () => {
     for (const [where, press, answer, to] of [
-      ["the re-send", () => einwilligungErneutSendenAction(ERNEUT), erneutGeschrieben(), PERSON.email],
-      ["the correction", () => kontaktEmailKorrigierenAction(KORREKTUR), korrigiert(), KORREKTUR.email],
-      ["the reseat", () => besetzeKontaktSitzAction(SITZ), besetzt(), SITZ.email],
+      ["the re-send", () => einwilligungErneutSendenAction(ERNEUT), erneutGeschrieben({ email: "anna.neu@example.de" }), "anna.neu@example.de"],
+      ["the correction", () => kontaktEmailKorrigierenAction({ ...KORREKTUR, email: "Anna.Neu@Example.de" }), korrigiert(), KORREKTUR.email],
+      ["the reseat", () => besetzeKontaktSitzAction({ ...SITZ, email: "Berta@Example.de" }), besetzt(), SITZ.email],
     ] as const) {
       readWith(() => Promise.resolve(VOR_DER_REPARATUR));
       answerWith(() => Promise.resolve(answer));
 
-      expect((await press()).success, `${where} did not land, so its deadline is judged on nothing`).toBe(true);
-      const text = mailed.findLast((mail) => mail.to === to)?.text ?? "";
-      assert.ok(text.includes(formatSpielDatum("2026-09-18")), `${where}'s message states no deadline the write set`);
-      assert.ok(!text.includes(formatSpielDatum("2026-09-01")), `${where}'s message states the deadline the page held`);
+      const result = await press();
+
+      expect(result.success, `${where} did not land`).toBe(true);
+      expect(answerOf(result), `${where} names another address`).toBe(`Der neue Link geht an ${to}.`);
     }
   });
 
@@ -858,150 +719,17 @@ describe("the re-sent confirmation link", () => {
         .trim();
 
     const unsendable = Object.values(await unsendableAnswers());
-    answerMailWith(() => "refused");
     readWith(() => Promise.resolve(VOR_DER_REPARATUR));
     answerWith(() => Promise.resolve(erneutGeschrieben()));
-    const unsent = answerOf(await einwilligungErneutSendenAction(ERNEUT));
+    const landed = answerOf(await einwilligungErneutSendenAction(ERNEUT));
 
-    const saetze = [...unsendable, unsent].map(comparable);
+    const saetze = [...unsendable, landed].map(comparable);
 
     assert.ok(
       saetze.every((satz) => satz !== ""),
       `a re-send answered with no sentence at all: ${saetze.join(" | ")}`,
     );
     expect(new Set(saetze).size, "two of the re-send's answers say the same thing").toBe(saetze.length);
-  });
-
-  /* The mint stands, so the press landed: a link that never went out is reported as failed, never as
-     sent, and the sentence says what the press cost while the seat's previous link is spent. */
-  it("reports a message that did not go out as a failed send, naming what the press cost", async () => {
-    answerMailWith(() => "refused");
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
-
-    const result = await einwilligungErneutSendenAction(ERNEUT);
-
-    expect(result.success && result.versand, "a refused send is still reported as a link on its way").toBe("fehlgeschlagen");
-    expect(answerOf(result), "the report does not say the previous link is spent").toMatch(/Der alte Link gilt nicht mehr/);
-    expect(answerOf(result), "the report names no way out").toMatch(/Versuche es erneut/);
-  });
-
-  /* A link whose connection broke off may have reached the provider: the re-send's own reading is a
-     link on its way, and only the request's mark keeps the press from reporting one. */
-  it("answers a re-send whose message broke off in transit as of unknown outcome", async () => {
-    answerMailWith(() => "lost");
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
-
-    expect(await einwilligungErneutSendenAction(ERNEUT)).toStrictEqual(outcomeUnknown());
-  });
-
-  /* Outside production every send is withheld, and a failure there offers a retry no repeat of the
-     press can reach. */
-  it("answers a message this deployment withheld as the deployment's, not as a failure", async () => {
-    answerMailWith(() => "withheld");
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
-
-    const result = await einwilligungErneutSendenAction(ERNEUT);
-
-    expect(result).toStrictEqual({ success: true, message: ZURUECKGEHALTEN, versand: "zurueckgehalten" });
-  });
-
-  /* A retry meets the same ban, so a failure would offer one no repeat can reach; and the answer
-     names no address. */
-  it("answers a link the ban list kept from its address as no failure, naming nobody", async () => {
-    answerMailWith(() => "barred");
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
-
-    const result = await einwilligungErneutSendenAction(ERNEUT);
-
-    expect(result).toStrictEqual({
-      success: true,
-      message: "Der neue Link ging nicht raus, weil die Adresse auf der Sperrliste steht.",
-      versand: "gesperrt",
-    });
-  });
-
-  /* A message that did not go leaves the mint standing: the seat's old link is spent and its deadline
-     moved, which the page shows. */
-  it("refreshes the page after a re-send whose message did not go", async () => {
-    answerMailWith(() => "refused");
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben()));
-
-    const result = await einwilligungErneutSendenAction(ERNEUT);
-
-    expect(result.success && result.versand, "the message went, so the refresh below is judged on nothing").toBe("fehlgeschlagen");
-    expect(cacheCalls.filter(({ name }) => name === "refresh").length, "the page keeps a link the mint has already spent").toBe(1);
-  });
-
-  /* A correction landing between the page's read and this write moves the mailbox, and only the
-     write's own image knows it: the read would mail the address the correction replaced. */
-  it("mails the address and the seats the write itself answered", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben({ email: "anna.neu@example.de", rollen: ["trainer", "ansprechperson"] })));
-
-    await einwilligungErneutSendenAction(ERNEUT);
-
-    expect(
-      mailed.map(({ to }) => to),
-      "the re-send mails the address its own read held",
-    ).toStrictEqual(["anna.neu@example.de"]);
-    assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the re-send names seats its own read paired");
-  });
-
-  /* The API stores the fold of what was typed, and the message goes where its delivery events are
-     matched back: the address the write answers, never the one in the box. */
-  it("mails a corrected and a seated person at the address the write stored, never as typed", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-
-    answerWith(() => Promise.resolve(korrigiert()));
-    await kontaktEmailKorrigierenAction({ ...KORREKTUR, email: "Anna.Neu@Example.de" });
-    answerWith(() => Promise.resolve(besetzt()));
-    await besetzeKontaktSitzAction({ ...SITZ, email: "Berta@Example.de" });
-
-    expect(mailed.map(({ to }) => to)).toStrictEqual([KORREKTUR.email, SITZ.email]);
-  });
-
-  /* The one thing on this path that must not reach a second reader. A toast, a log line or a returned
-     sentence carrying it hands the seat's credential to whoever can see the screen or the stream. */
-  it("spells the minted token into the link and into nothing else", async () => {
-    const token = "token-geheim";
-    const results: unknown[] = [];
-
-    // Every path a minted token is in scope on that answers or logs: a landed send, and each repair's refused one.
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(erneutGeschrieben({ token })));
-    results.push(await einwilligungErneutSendenAction(ERNEUT));
-    assert.ok(
-      mailed.some(({ text }) => text.includes(kontaktBestaetigungsLink(ORIGIN, token))),
-      "the landed send mailed no link, so the token is judged on nothing",
-    );
-
-    answerMailWith(() => "refused");
-    results.push(await einwilligungErneutSendenAction(ERNEUT));
-
-    for (const [press, answer] of [
-      [() => kontaktEmailKorrigierenAction(KORREKTUR), { token, email: KORREKTUR.email, rollen: ["ansprechperson"], abgang_email: null }],
-      [() => besetzeKontaktSitzAction(SITZ), { token, email: SITZ.email, rollen: ["ansprechperson"] }],
-    ] as const) {
-      writes.length = 0;
-      answerWith(() => Promise.resolve({ ...answer, bestaetigungsfrist: "2026-09-18" }));
-      results.push(await press());
-    }
-
-    // The module logs on these paths, so a stream that recorded nothing is this case broken rather
-    // than a clean module.
-    assert.ok(logged.length > 0, "no logger call was recorded at all, so nothing below was judged");
-
-    const spelled = (value: unknown): string =>
-      JSON.stringify(value, (_key, inner: unknown) =>
-        inner instanceof Error ? `${inner.name}: ${inner.message} ${inner.stack ?? ""}` : inner,
-      );
-    for (const args of logged) assert.ok(!spelled(args).includes(token), `a log line names the token: ${spelled(args)}`);
-    for (const result of results) assert.ok(!spelled(result).includes(token), `an answer names the token: ${spelled(result)}`);
   });
 });
 
@@ -1016,46 +744,6 @@ describe("the corrected contact address", () => {
       act: () => kontaktEmailKorrigierenAction(KORREKTUR),
       mapped: mapKontaktEmailRefusal,
     });
-  });
-
-  /* The read that carries the person's first name was taken BEFORE the write, so it still holds the
-     address the correction replaced. Mailing that one sends the new link to the bounced mailbox. */
-  it("mails the address the write stored, never the one the read still holds", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(korrigiert()));
-
-    await kontaktEmailKorrigierenAction(KORREKTUR);
-
-    expect(
-      mailed.map(({ to }) => to),
-      "the correction composes its message against the address the application held before the write",
-    ).toStrictEqual([KORREKTUR.email]);
-  });
-
-  /* The address IS corrected whatever the message did, so a failure arm here would tell the
-     administrator to try a correction that has already happened. */
-  it("reports a corrected address whose message did not go as a correction that stands", async () => {
-    answerMailWith(() => "refused");
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(korrigiert()));
-
-    const result = await kontaktEmailKorrigierenAction(KORREKTUR);
-
-    expect(result.success, "a refused send reports the correction as one that did not happen").toBe(true);
-    expect(result.success ? result.versand : undefined, "a refused send reports a link on its way").toBe("fehlgeschlagen");
-    // Its own words, sending the administrator to the re-send: a second correction over the moved row is refused.
-    expect(answerOf(result), "the report is not the correction's own").toBe(KORREKTUR_OHNE_LINK);
-  });
-
-  /* One press writes every seat the person holds, and only the write knows which: a pairing read before it can have
-     moved since, and the message then names a set the link does not answer for. */
-  it("names the seats the write itself answered rather than the pairing its read held", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve({ ...korrigiert(), rollen: ["trainer", "ansprechperson"] }));
-
-    await kontaktEmailKorrigierenAction(KORREKTUR);
-
-    assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the correction names the seats its read paired");
   });
 });
 
@@ -1111,56 +799,4 @@ describe("the person seated where one stepped out", () => {
 
     expect(writes, "the reseat seated a person behind a message nobody could compose").toStrictEqual([]);
   });
-
-  /* A pair recomputed from the page's read mirrors `paired_seat`, which drops a seat missing either half — and every
-     seat this write fills was emptied, so a message composed from it would name one seat of a pair. */
-  it("names the seats the write itself answered rather than recomputing the pair", async () => {
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(besetzt(["trainer", "ansprechperson"])));
-
-    await besetzeKontaktSitzAction(SITZ);
-
-    assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the reseat recomputes a pair the emptied slots hide");
-  });
-
-  /* The person IS seated whatever the message did, so a failure arm here would tell the
-     administrator to seat somebody who is already in the application. */
-  it("reports a filled seat whose message did not go as a seat that stands", async () => {
-    answerMailWith(() => "refused");
-    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-    answerWith(() => Promise.resolve(besetzt()));
-
-    const result = await besetzeKontaktSitzAction(SITZ);
-
-    expect(result.success, "a refused send reports the seat as one that was never filled").toBe(true);
-    expect(result.success ? result.versand : undefined, "a refused send reports a link on its way").toBe("fehlgeschlagen");
-    // Its own words, sending the administrator to the re-send: a second reseat over the filled seat is refused.
-    expect(answerOf(result), "a refused send is reported as something other than the reseat's own").toBe(BESETZUNG_OHNE_LINK);
-  });
-});
-
-/* The three repairs share one send, and a failure line naming another press sends whoever reads the
-   stream to the wrong action. */
-describe("the failure lines of the three repairs' shared send", () => {
-  const REPAIRS = [
-    { operation: "einwilligungErneutSendenAction", press: () => einwilligungErneutSendenAction(ERNEUT), wrote: erneutGeschrieben },
-    { operation: "kontaktEmailKorrigierenAction", press: () => kontaktEmailKorrigierenAction(KORREKTUR), wrote: korrigiert },
-    { operation: "besetzeKontaktSitzAction", press: () => besetzeKontaktSitzAction(SITZ), wrote: besetzt },
-  ] as const;
-
-  /** The operation each `bewerbung.mail_failed` line of the case names. */
-  const failedUnder = (): unknown[] =>
-    logged.filter(([line]) => line === "bewerbung.mail_failed").map(([, , fields]) => (fields as { operation?: unknown }).operation);
-
-  for (const { operation, press, wrote } of REPAIRS) {
-    it(`names ${operation} where its message was refused`, async () => {
-      answerMailWith(() => "refused");
-      readWith(() => Promise.resolve(VOR_DER_REPARATUR));
-      answerWith(() => Promise.resolve(wrote()));
-
-      await press();
-
-      expect(failedUnder(), "the refused send logs under another press").toStrictEqual([operation]);
-    });
-  }
 });
