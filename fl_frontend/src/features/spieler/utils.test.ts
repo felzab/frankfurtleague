@@ -18,6 +18,7 @@ const MEMBERSHIP: FLSpielerMembership = {
   ist_nachnominiert: false,
   rolle: null,
   inactive_since: null,
+  version: 0,
 };
 
 /** Complete at construction, typed as the generated read: a drifted field fails where the fixture is built. */
@@ -32,6 +33,7 @@ const SPIELER: FLSpielerWithMemberships = {
   adresswechsel_id: null,
   adresswechsel_einsehbar_verwehrt: null,
   memberships: [MEMBERSHIP],
+  version: 0,
 };
 
 function person(

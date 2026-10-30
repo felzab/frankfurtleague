@@ -59,6 +59,8 @@ export function AdminCreateSpielortForm({ onClose, onCreated }: { onClose: () =>
           default_mietpreis: parsed.default_mietpreis,
           // Just created, so current — and `null` is what current means.
           inactive_since: null,
+          // The version the insert stamps, which a save opened on this record carries.
+          version: 0,
         });
 
         return res;

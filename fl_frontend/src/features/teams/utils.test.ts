@@ -560,8 +560,10 @@ const club = (kontakte: FLSaisonTeamKontakte | null): FLTeamWithMemberships => (
       bestaetigungen: null,
       adresswechsel: null,
       kontakte_stand: "9f2c",
+      version: 0,
     },
   ],
+  version: 0,
 });
 
 describe("buildKontaktRows", () => {

@@ -354,6 +354,7 @@ describe("resolveTeamSaisonMembership", () => {
     bestaetigungen: null,
     adresswechsel: null,
     kontakte_stand: TOKEN,
+    version: 0,
   });
 
   /* The header names the SELECTED season and a save writes onto that season's row. Falling back to
