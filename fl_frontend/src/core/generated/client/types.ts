@@ -320,7 +320,7 @@ export interface FLEinwilligungBeleg {
  */
 export interface FLEinwilligungNachweis {
   am: string;
-  erteilt_zuvor?: FLEinwilligungBeleg | null;
+  erteilt_zuvor: FLEinwilligungBeleg | null;
   text_version: string;
 }
 
@@ -328,8 +328,8 @@ export interface FLEinwilligungNachweis {
  * Each choice's evidence, null until its person sets it: a record no person has answered carries none.
  */
 export interface FLEinwilligungNachweise {
-  medien?: FLEinwilligungNachweis | null;
-  umfang?: FLEinwilligungNachweis | null;
+  medien: FLEinwilligungNachweis | null;
+  umfang: FLEinwilligungNachweis | null;
 }
 
 export type FLKontaktKenntnisnahmeUmfang = (typeof FLKontaktKenntnisnahmeUmfang)[keyof typeof FLKontaktKenntnisnahmeUmfang];
@@ -352,7 +352,7 @@ export interface FLKontaktKenntnisnahme {
   datum: string;
   eingetragen_von: FLKontaktEingetragenVon;
   medien: boolean;
-  nachweis?: FLEinwilligungNachweise;
+  nachweis: FLEinwilligungNachweise;
   text_version: string;
   umfang: FLKontaktKenntnisnahmeUmfang;
 }
@@ -663,7 +663,7 @@ export interface FLSaison {
   registrierung: FLSaisonRegistrierung | null;
   rules: FLSaisonRules;
   schedule: FLSaisonPhaseSchedule[];
-  spielplan?: FLSaisonSpielplan | null;
+  spielplan: FLSaisonSpielplan | null;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   start_date: string;
   status: FLSaisonStatus;
@@ -2775,21 +2775,21 @@ export interface FLGesperrtResponse {
 
 export interface FLTeamStatistik {
   /** @minimum 0 */
-  anzahl_abgesagte_spiele?: number;
+  anzahl_abgesagte_spiele: number;
   /** @minimum 0 */
-  anzahl_gespielte_spiele?: number;
+  anzahl_gespielte_spiele: number;
   /** @minimum 0 */
-  niederlagen?: number;
+  niederlagen: number;
   /** @minimum 0 */
-  punkte?: number;
+  punkte: number;
   /** @minimum 0 */
-  siege?: number;
+  siege: number;
   /** @minimum 0 */
-  tore_geschossen?: number;
+  tore_geschossen: number;
   /** @minimum 0 */
-  tore_kassiert?: number;
+  tore_kassiert: number;
   /** @minimum 0 */
-  unentschieden?: number;
+  unentschieden: number;
 }
 
 /**
@@ -4224,7 +4224,7 @@ export interface FLSaisonTeamBestaetigungAnsicht {
   frist: string;
   /** @pattern ^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$ */
   verschickt_am: string;
-  zustellung?: FLBewerbungZustellung | null;
+  zustellung: FLBewerbungZustellung | null;
 }
 
 export interface FLSaisonTeamBestaetigungenAnsicht {
@@ -5876,7 +5876,7 @@ export interface FLTeam {
 export interface FLTeamMembership {
   adresswechsel: FLSaisonTeamAdresswechsel | null;
   austritt: FLAustritt | null;
-  bestaetigungen?: FLSaisonTeamBestaetigungenAnsicht | null;
+  bestaetigungen: FLSaisonTeamBestaetigungenAnsicht | null;
   gruppe: FLGruppenNames;
   kontakte: FLSaisonTeamKontakte | null;
   /** The token a save against this contact block has to echo back. */

@@ -106,7 +106,6 @@ class TestTheShapesAreSeasonsThatCanExist:
 
         assert (
             find_rules_refusal(
-                saison_status="future",
                 stored=None,
                 proposed=rules(groups=groups, teams=teams, qualifiers=qualifiers),
                 occupancy_by_gruppe={},
