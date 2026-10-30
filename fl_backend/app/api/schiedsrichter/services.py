@@ -3,7 +3,6 @@ from http import HTTPStatus
 from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after
-from app.api.schiedsrichter.schemas import FLSchiedsrichterBestaetigungZustand
 from app.api.spiele.schemas import unplayed_filter
 from app.core.codes import Code
 from app.core.collections import Collection
@@ -20,6 +19,7 @@ from app.shared.schemas.bounds import (
     SCHIEDSRICHTER_MIN_AGE_YEARS,
 )
 from app.shared.schemas.kontakt import FLKontakt
+from app.shared.schemas.literals import FLBestaetigungZustand
 
 
 def build_ghost_schiedsrichter() -> dict[str, Any]:
@@ -248,7 +248,7 @@ def frist_of(bestaetigung: Any) -> Any:
     return bestaetigung.get("frist") if isinstance(bestaetigung, Mapping) else None
 
 
-def zustand_of(*, einwilligung: Any, bestaetigung: Any, today: str, gesperrt: bool) -> FLSchiedsrichterBestaetigungZustand:
+def zustand_of(*, einwilligung: Any, bestaetigung: Any, today: str, gesperrt: bool) -> FLBestaetigungZustand:
     """What a reopened link shows: the ban first, then a stamp over the deadline.
 
     A person who answered on the last valid day is shown that they did.

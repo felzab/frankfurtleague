@@ -3,7 +3,9 @@ from typing import Annotated, Final, Literal, Self
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 
 from app.api.spiele.schemas import FLSpielOrtFieldPublic
-from app.shared.schemas.bounds import BEWERBUNG_TOKEN_MAX_LENGTH, LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH
+from app.shared.schemas.aktor import FLVonAdmin
+from app.shared.schemas.bestaetigung import CustomToken
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX, SPIELBESTAETIGUNG_BEGRUENDUNG_MAX_LENGTH
 from app.shared.schemas.custom import (
     SINGLE_LINE_PATTERN,
     CustomDateString,
@@ -13,7 +15,7 @@ from app.shared.schemas.custom import (
     CustomTimeString,
     parse_empty_string_to_none,
 )
-from app.shared.schemas.literals import FLKontaktRolle
+from app.shared.schemas.literals import FLKontaktRolle, FLSpielSeite
 from app.shared.schemas.responses import BaseAPIResponse
 
 # One delivery shape at every home `app/api/zustellung/services.py :: ZIEL_PFADE` names, as the
@@ -42,11 +44,6 @@ FLSpielbestaetigungGrund = Literal[
 FLSpielbestaetigungZustand = Literal[
     "gueltig", "vorschlag", "zugesagt", "abgelehnt", "verworfen", "abgelaufen", "ungueltig", "abgesagt", "gesperrt"
 ]
-
-FLSpielbestaetigungSeite = Literal["team1", "team2"]
-
-# `BEWERBUNG_TOKEN_MAX_LENGTH` and not a bound of its own: one `mint_token` spells every link.
-CustomSpielbestaetigungToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TOKEN_MAX_LENGTH)]
 
 # Single-line because the triage card renders it as one, and a stored break would forge a second line
 # beside it. Stripped before the floor counts, so spaces alone are no reason.
@@ -117,18 +114,12 @@ class FLSpielbestaetigungVonKontakt(BaseModel):
     rolle: FLKontaktRolle
 
 
-class FLSpielbestaetigungVonAdmin(BaseModel):
-    """An administrator's settlement, naming nobody: the row is the league's record of how a date was agreed, not of who typed it."""
-
-    art: Literal["admin"]
-
-
 class FLSpielbestaetigungVonSchiedsrichter(BaseModel):
     art: Literal["schiedsrichter"]
 
 
 FLSpielbestaetigungVon = Annotated[
-    FLSpielbestaetigungVonKontakt | FLSpielbestaetigungVonAdmin | FLSpielbestaetigungVonSchiedsrichter,
+    FLSpielbestaetigungVonKontakt | FLVonAdmin | FLSpielbestaetigungVonSchiedsrichter,
     Field(discriminator="art"),
 ]
 
@@ -193,7 +184,7 @@ class FLSpielbestaetigungVonKontaktRecord(FLSpielbestaetigungVonKontakt):
 
 class FLSpielbestaetigungAntwortRecord(FLSpielbestaetigungAntwort):
     von: Annotated[
-        FLSpielbestaetigungVonKontaktRecord | FLSpielbestaetigungVonAdmin | FLSpielbestaetigungVonSchiedsrichter,
+        FLSpielbestaetigungVonKontaktRecord | FLVonAdmin | FLSpielbestaetigungVonSchiedsrichter,
         Field(discriminator="art"),
     ]
 
@@ -258,14 +249,6 @@ class FLSpielbestaetigungWriteResponse(BaseAPIResponse):
 # (`READ-ANSETZUNG-001`).
 
 
-class FLSpielbestaetigungAnsichtPayload(BaseModel):
-    """A POST that reads: the token travels in a body, never in a second URL."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    token: CustomSpielbestaetigungToken
-
-
 class FLSpielbestaetigungAnsichtAnsetzung(BaseModel):
     """The clubs, the day, the hour and the ground a page or a message states.
 
@@ -283,7 +266,7 @@ class FLSpielbestaetigungAnsichtResponse(BaseAPIResponse):
     """What one link's page renders, filled in every state; the frontend narrows a spent one to its `zustand`."""
 
     zustand: FLSpielbestaetigungZustand
-    seite: FLSpielbestaetigungSeite
+    seite: FLSpielSeite
     ansetzung: FLSpielbestaetigungAnsichtAnsetzung
     frist: CustomDateString
     # The OTHER club's proposal, on `vorschlag` alone and null otherwise: its date and hour alone, never
@@ -302,7 +285,7 @@ class FLSpielbestaetigungAntwortPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    token: CustomSpielbestaetigungToken
+    token: CustomToken
     antwort: FLSpielbestaetigungAntwortArt
     # Both required as KEYS and null where unused: an omitted key would read as a client that forgot it.
     vorschlag: FLSpielbestaetigungVorschlagPayload | None
@@ -414,7 +397,7 @@ class FLSpielbestaetigungSweepAnfrage(BaseModel):
 
     spielbestaetigung_id: CustomObjectId
     spiel_id: CustomObjectId
-    seite: FLSpielbestaetigungSeite
+    seite: FLSpielSeite
     ansetzung: FLSpielbestaetigungAnsichtAnsetzung
     frist: CustomDateString
     links: list[FLSpielbestaetigungSweepLink]

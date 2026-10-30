@@ -23,7 +23,6 @@ from app.api.schiedsrichter.router import get_schiedsrichter
 from app.api.schiedsrichter.schemas import (
     FLPatchSchiedsrichterPayload,
     FLPostSchiedsrichterPayload,
-    FLSchiedsrichterBestaetigungAnsichtPayload,
     FLSchiedsrichterBestaetigungPayload,
     FLSchiedsrichterFilterParams,
 )
@@ -40,6 +39,7 @@ from app.core.collections import Collection
 from app.core.exceptions import APIError, DocumentNotFoundError
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.einwilligung import FASSUNGEN, LAUFENDE_FASSUNGEN
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
@@ -200,7 +200,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str) 
 
 async def ansicht(database: AsyncDatabase, token: str, *, today: str = TODAY) -> Any:
     return await get_bestaetigung_ansicht(
-        ansicht_data=FLSchiedsrichterBestaetigungAnsichtPayload(token=token),
+        ansicht_data=FLTokenPayload(token=token),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         sperrliste=ban_list(database),
         today=today,

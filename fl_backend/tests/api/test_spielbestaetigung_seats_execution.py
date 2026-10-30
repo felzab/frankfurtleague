@@ -25,7 +25,6 @@ from app.api.identitaet.services import build_erasure_seat_pipeline
 from app.api.identitaet.wiederherstellung import Read, Window, replay_line
 from app.api.kontakte.crud import erase_kontaktperson_in_session
 from app.api.spielbestaetigungen.router import get_spielbestaetigung_ansicht
-from app.api.spielbestaetigungen.schemas import FLSpielbestaetigungAnsichtPayload
 from app.api.teams.admin_router import patch_saison_team_kontakte, replace_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamKontaktePayload, FLReplaceSaisonTeamPayload, kontakte_stand_of
 from app.api.teams.services import compose_kontakt_bestaetigung
@@ -36,6 +35,7 @@ from app.core.journal import JournalLine
 from app.core.security import loeschung_journal_hash
 from app.core.transactions import transaction_session
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
+from app.shared.schemas.bestaetigung import FLTokenPayload
 from app.shared.schemas.literals import KONTAKT_ROLLEN
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
@@ -218,7 +218,7 @@ async def links_answering(database: AsyncDatabase) -> dict[str, set[str]]:
         for seat in KONTAKT_ROLLEN:
             try:
                 await get_spielbestaetigung_ansicht(
-                    ansicht_data=FLSpielbestaetigungAnsichtPayload(token=link(row, seat)),
+                    ansicht_data=FLTokenPayload(token=link(row, seat)),
                     spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
                     spiele_collection=database[Collection.SPIELE],
                     saison_teams_collection=database[Collection.SAISON_TEAMS],

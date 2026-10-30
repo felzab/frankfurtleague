@@ -1,7 +1,7 @@
 import functools
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
-from typing import Any, get_args
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -11,15 +11,12 @@ from httpx2 import AsyncClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.konto.services import KONTO_SEITE_SPIELER
-from app.api.schiedsrichter.schemas import FLSchiedsrichterSelbstEinwilligungPayload
-from app.api.spieler.schemas import FLSpielerSelbstEinwilligungPayload
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.main import create_app
 from app.shared.einwilligung import LAUFENDE_FASSUNGEN
 from app.shared.einwilligung_nachweis import NACHWEIS, nachweis_stand_of
-from app.shared.schemas.literals import FLEinwilligungUmfang
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY
@@ -234,24 +231,6 @@ def _press(email: str, payload: dict[str, Any], *, before: Callable[[AsyncDataba
         return response, stored, await _records(database), await database[Collection.SPIELE].find({}).to_list()
 
     return steps
-
-
-def test_the_payload_offers_the_scopes_the_record_stores():
-    """Two spellings of one set: a scope the payload offered and the record refused would 500 at the write."""
-
-    payload_scopes = get_args(FLSpielerSelbstEinwilligungPayload.model_fields["umfang"].annotation)
-    record_scopes = get_args(FLEinwilligungUmfang.__value__)
-
-    assert payload_scopes == record_scopes
-
-
-def test_the_pupil_and_the_referee_send_one_shape():
-    """What keeps the two endpoints from drifting: the account page's one control posts both."""
-
-    pupil = FLSpielerSelbstEinwilligungPayload.model_json_schema()
-    referee = FLSchiedsrichterSelbstEinwilligungPayload.model_json_schema()
-
-    assert (pupil["properties"], pupil["required"]) == (referee["properties"], referee["required"])
 
 
 @pytest.mark.db

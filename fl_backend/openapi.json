@@ -2753,6 +2753,59 @@
         "title": "FLBerechtigungenListResponse",
         "type": "object"
       },
+      "FLBestaetigung": {
+        "description": "One person's confirmation bookkeeping as an administrator reads it, and no token hash.\n\nThe hash is a raw document key the confirmation query alone reads, so no read serves one.",
+        "properties": {
+          "erinnert_am": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erinnert Am"
+          },
+          "frist": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Frist",
+            "type": "string"
+          },
+          "verschickt_am": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
+            "title": "Verschickt Am",
+            "type": "string"
+          },
+          "zustellung": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBewerbungZustellung"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "verschickt_am",
+          "erinnert_am",
+          "frist"
+        ],
+        "title": "FLBestaetigung",
+        "type": "object"
+      },
+      "FLBestaetigungZustand": {
+        "enum": [
+          "gueltig",
+          "bestaetigt",
+          "abgelaufen",
+          "gesperrt"
+        ],
+        "type": "string"
+      },
       "FLBewerbung": {
         "description": "One school's application to play one season, as stored, its decision as served.\n\nThe submission is never rewritten: `status`, `entscheidung` and `team_id` move through the\ntriage, and a contact seat through the two administrative repairs in\n`app/api/bewerbungen/admin_router.py`.",
         "properties": {
@@ -5027,6 +5080,21 @@
         "title": "FLBracketFaultSpieltag",
         "type": "object"
       },
+      "FLCreatedResponse": {
+        "description": "The id a create minted, which the caller reads the new record by.",
+        "properties": {
+          "created_id": {
+            "pattern": "^[0-9a-fA-F]{24}$",
+            "title": "Created Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "created_id"
+        ],
+        "title": "FLCreatedResponse",
+        "type": "object"
+      },
       "FLEinladungAnsichtPayload": {
         "additionalProperties": false,
         "description": "The link a visitor presents, and nothing else: the row it opens says which team and season it is for.",
@@ -6653,17 +6721,12 @@
           "rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "kapitaen",
-                  "co_kapitaen"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Rolle"
+            ]
           },
           "spieler_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -6759,17 +6822,12 @@
           "rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "kapitaen",
-                  "co_kapitaen"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Rolle"
+            ]
           },
           "spieler_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -8163,17 +8221,12 @@
           "rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "kapitaen",
-                  "co_kapitaen"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Rolle"
+            ]
           },
           "stufe": {
             "anyOf": [
@@ -8283,17 +8336,12 @@
           "rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "kapitaen",
-                  "co_kapitaen"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Rolle"
+            ]
           },
           "stufe": {
             "anyOf": [
@@ -9336,17 +9384,12 @@
           "rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "kapitaen",
-                  "co_kapitaen"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Rolle"
+            ]
           },
           "saison_id": {
             "maxLength": 4,
@@ -9527,20 +9570,6 @@
           "default_mietpreis"
         ],
         "title": "FLPostSpielortPayload",
-        "type": "object"
-      },
-      "FLPostSpielortResponse": {
-        "properties": {
-          "created_id": {
-            "pattern": "^[0-9a-fA-F]{24}$",
-            "title": "Created Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "created_id"
-        ],
-        "title": "FLPostSpielortResponse",
         "type": "object"
       },
       "FLPostTeamPayload": {
@@ -11049,17 +11078,12 @@
           "rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "kapitaen",
-                  "co_kapitaen"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Rolle"
+            ]
           },
           "saison_id": {
             "title": "Saison Id",
@@ -11659,7 +11683,7 @@
           "bestaetigung": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLSchiedsrichterBestaetigung"
+                "$ref": "#/components/schemas/FLBestaetigung"
               },
               {
                 "type": "null"
@@ -11748,66 +11772,6 @@
         "title": "FLSchiedsrichter",
         "type": "object"
       },
-      "FLSchiedsrichterBestaetigung": {
-        "description": "One referee's confirmation bookkeeping as the editor reads it -- and NO `token_hash`.\n\nThe hash is a raw document key the confirm query alone reads, as\n`app/api/bewerbungen/schemas.py :: FLBewerbungBestaetigung` keeps its own off the wire.",
-        "properties": {
-          "erinnert_am": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Erinnert Am"
-          },
-          "frist": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Frist",
-            "type": "string"
-          },
-          "verschickt_am": {
-            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-            "title": "Verschickt Am",
-            "type": "string"
-          },
-          "zustellung": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FLBewerbungZustellung"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "verschickt_am",
-          "erinnert_am",
-          "frist"
-        ],
-        "title": "FLSchiedsrichterBestaetigung",
-        "type": "object"
-      },
-      "FLSchiedsrichterBestaetigungAnsichtPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "token": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "token"
-        ],
-        "title": "FLSchiedsrichterBestaetigungAnsichtPayload",
-        "type": "object"
-      },
       "FLSchiedsrichterBestaetigungAnsichtResponse": {
         "description": "What one confirmation link opens, and nothing a leaked one should not learn (`READ-REFEREE-002`).\n\nNever a name, the school, the contact details, the fee, the birthdate or the id.",
         "properties": {
@@ -11826,14 +11790,7 @@
             "type": "integer"
           },
           "zustand": {
-            "enum": [
-              "gueltig",
-              "bestaetigt",
-              "abgelaufen",
-              "gesperrt"
-            ],
-            "title": "Zustand",
-            "type": "string"
+            "$ref": "#/components/schemas/FLBestaetigungZustand"
           }
         },
         "required": [
@@ -11860,22 +11817,19 @@
           "text_version": {
             "maxLength": 64,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Text Version",
             "type": "string"
           },
           "token": {
             "maxLength": 128,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
           },
           "umfang": {
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLEinwilligungUmfang"
           }
         },
         "required": [
@@ -11901,12 +11855,7 @@
             "type": "boolean"
           },
           "umfang": {
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
-            ],
-            "title": "Umfang",
-            "type": "string"
+            "$ref": "#/components/schemas/FLEinwilligungUmfang"
           }
         },
         "required": [
@@ -12050,40 +11999,6 @@
         "title": "FLSchiedsrichterSelbst",
         "type": "object"
       },
-      "FLSchiedsrichterSelbstEinwilligungPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
-          },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Text Version",
-            "type": "string"
-          },
-          "umfang": {
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
-            ],
-            "title": "Umfang",
-            "type": "string"
-          }
-        },
-        "required": [
-          "umfang",
-          "medien",
-          "text_version",
-          "nachweis_stand"
-        ],
-        "title": "FLSchiedsrichterSelbstEinwilligungPayload",
-        "type": "object"
-      },
       "FLSchiedsrichterSelbstEinwilligungResponse": {
         "description": "The record as it stands after the write, everything the person did not move unchanged.",
         "properties": {
@@ -12188,6 +12103,37 @@
           "oberstufengymnasium"
         ],
         "type": "string"
+      },
+      "FLSelbstEinwilligungPayload": {
+        "additionalProperties": false,
+        "description": "A pupil's, a referee's or a registration's own two choices on their record.\n\nBoth choices on every press, and no member defaulted: a default would let a page that forgot one\nreset the person's other choice.",
+        "properties": {
+          "medien": {
+            "title": "Medien",
+            "type": "boolean"
+          },
+          "nachweis_stand": {
+            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
+          },
+          "text_version": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Text Version",
+            "type": "string"
+          },
+          "umfang": {
+            "$ref": "#/components/schemas/FLEinwilligungUmfang"
+          }
+        },
+        "required": [
+          "umfang",
+          "medien",
+          "text_version",
+          "nachweis_stand"
+        ],
+        "title": "FLSelbstEinwilligungPayload",
+        "type": "object"
       },
       "FLSelbstErasureAnsichtResponse": {
         "properties": {
@@ -13392,6 +13338,13 @@
         ],
         "title": "FLSpielSchiedsrichterFieldPublic",
         "type": "object"
+      },
+      "FLSpielSeite": {
+        "enum": [
+          "team1",
+          "team2"
+        ],
+        "type": "string"
       },
       "FLSpielTeamFieldJoined": {
         "description": "One side as a BASE-TIER read serves it, produced only by `build_spiele_pipeline`.\n\nNarrower than the junction row: every public surface listing a fixture carries this side, and\nonly a club's own page renders the free text a withdrawal names.",
@@ -14702,23 +14655,6 @@
         "title": "FLSpielbestaetigungAnsichtAnsetzung",
         "type": "object"
       },
-      "FLSpielbestaetigungAnsichtPayload": {
-        "additionalProperties": false,
-        "description": "A POST that reads: the token travels in a body, never in a second URL.",
-        "properties": {
-          "token": {
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "token"
-        ],
-        "title": "FLSpielbestaetigungAnsichtPayload",
-        "type": "object"
-      },
       "FLSpielbestaetigungAnsichtResponse": {
         "description": "What one link's page renders, filled in every state; the frontend narrows a spent one to its `zustand`.",
         "properties": {
@@ -14730,7 +14666,7 @@
               {
                 "discriminator": {
                   "mapping": {
-                    "admin": "#/components/schemas/FLSpielbestaetigungVonAdmin",
+                    "admin": "#/components/schemas/FLVonAdmin",
                     "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
                     "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
                   },
@@ -14741,7 +14677,7 @@
                     "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
                   },
                   {
-                    "$ref": "#/components/schemas/FLSpielbestaetigungVonAdmin"
+                    "$ref": "#/components/schemas/FLVonAdmin"
                   },
                   {
                     "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
@@ -14760,12 +14696,7 @@
             "type": "string"
           },
           "seite": {
-            "enum": [
-              "team1",
-              "team2"
-            ],
-            "title": "Seite",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielSeite"
           },
           "vorschlag": {
             "anyOf": [
@@ -14830,7 +14761,7 @@
           "von": {
             "discriminator": {
               "mapping": {
-                "admin": "#/components/schemas/FLSpielbestaetigungVonAdmin",
+                "admin": "#/components/schemas/FLVonAdmin",
                 "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
                 "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
               },
@@ -14841,7 +14772,7 @@
                 "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
               },
               {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVonAdmin"
+                "$ref": "#/components/schemas/FLVonAdmin"
               },
               {
                 "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
@@ -14901,6 +14832,7 @@
           "token": {
             "maxLength": 128,
             "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
             "title": "Token",
             "type": "string"
           },
@@ -14930,7 +14862,7 @@
           "beantwortet_von": {
             "discriminator": {
               "mapping": {
-                "admin": "#/components/schemas/FLSpielbestaetigungVonAdmin",
+                "admin": "#/components/schemas/FLVonAdmin",
                 "kontakt": "#/components/schemas/FLSpielbestaetigungVonKontakt",
                 "schiedsrichter": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
               },
@@ -14941,7 +14873,7 @@
                 "$ref": "#/components/schemas/FLSpielbestaetigungVonKontakt"
               },
               {
-                "$ref": "#/components/schemas/FLSpielbestaetigungVonAdmin"
+                "$ref": "#/components/schemas/FLVonAdmin"
               },
               {
                 "$ref": "#/components/schemas/FLSpielbestaetigungVonSchiedsrichter"
@@ -15250,12 +15182,7 @@
             "type": "array"
           },
           "seite": {
-            "enum": [
-              "team1",
-              "team2"
-            ],
-            "title": "Seite",
-            "type": "string"
+            "$ref": "#/components/schemas/FLSpielSeite"
           },
           "spiel_id": {
             "pattern": "^[0-9a-fA-F]{24}$",
@@ -15860,21 +15787,6 @@
         "title": "FLSpielbestaetigungTermin",
         "type": "object"
       },
-      "FLSpielbestaetigungVonAdmin": {
-        "description": "An administrator's settlement, naming nobody: the row is the league's record of how a date was agreed, not of who typed it.",
-        "properties": {
-          "art": {
-            "const": "admin",
-            "title": "Art",
-            "type": "string"
-          }
-        },
-        "required": [
-          "art"
-        ],
-        "title": "FLSpielbestaetigungVonAdmin",
-        "type": "object"
-      },
       "FLSpielbestaetigungVonKontakt": {
         "description": "The seat whose link was pressed, never the person: two seats one person holds share a link, and the first seat in order is recorded.",
         "properties": {
@@ -16266,17 +16178,12 @@
           "rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "kapitaen",
-                  "co_kapitaen"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Rolle"
+            ]
           },
           "saison_id": {
             "title": "Saison Id",
@@ -16409,6 +16316,13 @@
         "title": "FLSpielerPublic",
         "type": "object"
       },
+      "FLSpielerRolle": {
+        "enum": [
+          "kapitaen",
+          "co_kapitaen"
+        ],
+        "type": "string"
+      },
       "FLSpielerSelbst": {
         "description": "One pupil record's stored data as its own person reads it: the whole surname and the birthdate, never masked.\n\nIts consent is the account page's, whose entry extends this (`app/api/konto/schemas.py :: FLKontoSpielerEinwilligung`).",
         "properties": {
@@ -16454,40 +16368,6 @@
           "kader"
         ],
         "title": "FLSpielerSelbst",
-        "type": "object"
-      },
-      "FLSpielerSelbstEinwilligungPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "medien": {
-            "title": "Medien",
-            "type": "boolean"
-          },
-          "nachweis_stand": {
-            "$ref": "#/components/schemas/FLEinwilligungStandPayload"
-          },
-          "text_version": {
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Text Version",
-            "type": "string"
-          },
-          "umfang": {
-            "enum": [
-              "kader_oeffentlich",
-              "intern"
-            ],
-            "title": "Umfang",
-            "type": "string"
-          }
-        },
-        "required": [
-          "umfang",
-          "medien",
-          "text_version",
-          "nachweis_stand"
-        ],
-        "title": "FLSpielerSelbstEinwilligungPayload",
         "type": "object"
       },
       "FLSpielerSelbstEinwilligungResponse": {
@@ -16556,17 +16436,12 @@
           "rolle": {
             "anyOf": [
               {
-                "enum": [
-                  "kapitaen",
-                  "co_kapitaen"
-                ],
-                "type": "string"
+                "$ref": "#/components/schemas/FLSpielerRolle"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Rolle"
+            ]
           },
           "saison_id": {
             "title": "Saison Id",
@@ -17766,6 +17641,24 @@
         "title": "FLTeamsSingleResponse",
         "type": "object"
       },
+      "FLTokenPayload": {
+        "additionalProperties": false,
+        "description": "The token of the link a person opened, in the body: a token in a URL reaches the edge's access line.",
+        "properties": {
+          "token": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[^\\x00\\n\\v\\f\\r\\u0085\\u2028\\u2029]*$",
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "FLTokenPayload",
+        "type": "object"
+      },
       "FLTrainerZugleich": {
         "enum": [
           "ansprechperson",
@@ -17841,6 +17734,21 @@
           "administration"
         ],
         "type": "string"
+      },
+      "FLVonAdmin": {
+        "description": "An administrator's act, naming nobody: the record keeps how a thing was settled, not who typed it.",
+        "properties": {
+          "art": {
+            "const": "admin",
+            "title": "Art",
+            "type": "string"
+          }
+        },
+        "required": [
+          "art"
+        ],
+        "title": "FLVonAdmin",
+        "type": "object"
       },
       "FLZustellungAbgewiesenPayload": {
         "additionalProperties": false,
@@ -25404,7 +25312,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLSchiedsrichterBestaetigungAnsichtPayload"
+                "$ref": "#/components/schemas/FLTokenPayload"
               }
             }
           },
@@ -25560,7 +25468,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLSchiedsrichterSelbstEinwilligungPayload"
+                "$ref": "#/components/schemas/FLSelbstEinwilligungPayload"
               }
             }
           },
@@ -26949,7 +26857,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLSpielbestaetigungAnsichtPayload"
+                "$ref": "#/components/schemas/FLTokenPayload"
               }
             }
           },
@@ -29053,7 +28961,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FLSpielerSelbstEinwilligungPayload"
+                "$ref": "#/components/schemas/FLSelbstEinwilligungPayload"
               }
             }
           },
@@ -29938,7 +29846,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FLPostSpielortResponse"
+                  "$ref": "#/components/schemas/FLCreatedResponse"
                 }
               }
             },

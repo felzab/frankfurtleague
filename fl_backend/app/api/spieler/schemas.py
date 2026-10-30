@@ -12,7 +12,13 @@ from app.shared.schemas.bounds import (
 from app.shared.schemas.custom import CustomDateString, CustomNonEmptyString, CustomObjectId, CustomOptionalDateString
 from app.shared.schemas.einwilligung import FLEinwilligungNachweise, FLEinwilligungStand, FLEinwilligungStandPayload
 from app.shared.schemas.kontakt import CustomKontaktName
-from app.shared.schemas.literals import FLAdresswechselEinsehbarVerwehrt, FLEinwilligungUmfang, FLSpielerPosition, FLSpielerStufe
+from app.shared.schemas.literals import (
+    FLAdresswechselEinsehbarVerwehrt,
+    FLEinwilligungUmfang,
+    FLSortOrder,
+    FLSpielerPosition,
+    FLSpielerStufe,
+)
 from app.shared.schemas.responses import BaseAPIResponse
 
 # `[0-9]`, never `\d`: Python's `\d` matches Unicode decimal digits where the frontend mirror's
@@ -26,7 +32,7 @@ FLSpielerSortOptions = Literal["vorname", "nummer", "position"]
 
 # Slugs rather than the German `position` and `stufe` store: a role also has a label and a badge
 # Kuerzel, and a stored German word would be a third spelling for those two to drift from.
-FLSpielerRolle = Literal["kapitaen", "co_kapitaen"]
+type FLSpielerRolle = Literal["kapitaen", "co_kapitaen"]
 
 
 class FLEinwilligung(BaseModel):
@@ -191,7 +197,7 @@ class FLSpielerFilterParams(BaseModel):
 
     limit: int = Field(default=LIST_LIMIT_DEFAULT, ge=1, le=LIST_LIMIT_MAX)
     sort_by: FLSpielerSortOptions = Field(default="position")
-    order: Literal["asc", "desc"] = Field(default="asc")
+    order: FLSortOrder = Field(default="asc")
 
 
 class FLPatchSpielerPayload(BaseModel):
@@ -451,10 +457,6 @@ class SelbstEinwilligungPayload(BaseModel):
     text_version: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH)]
     # The record's `nachweis_stand` as the page was served it.
     nachweis_stand: FLEinwilligungStandPayload
-
-
-class FLSpielerSelbstEinwilligungPayload(SelbstEinwilligungPayload):
-    pass
 
 
 class FLSpielerSelbstEinwilligungResponse(BaseAPIResponse):
