@@ -58,8 +58,8 @@ def verify_api_key(select_key: KeySelector, error_code: Code, *, scheme_name: st
     return dependency
 
 
-# Module-level objects, so a router declares the same callable every time and a test can compare
-# guards by identity (`fl_backend/tests/api/test_admin_guard.py`).
+# Module-level objects, so every router declares the same callable: FastAPI caches a dependency per
+# request by its callable, and runs a guard declared twice once.
 verify_access_base = verify_api_key(lambda config: config.internal_api_key_base, error_code=Code.WRONG_BASE_KEY, scheme_name="BaseKey")
 verify_access_system = verify_api_key(lambda config: config.internal_api_key_system, error_code=Code.WRONG_SYSTEM_KEY, scheme_name="SystemKey")
 verify_access_admin = verify_api_key(lambda config: config.internal_api_key_admin, error_code=Code.WRONG_ADMIN_KEY, scheme_name="AdminKey")
@@ -362,8 +362,8 @@ def _the_application() -> Attribution[None]:
     return Attribution(SYSTEM_ACTOR, None)
 
 
-# Module-level objects, as the three key guards are, so a router declares the same callable every
-# time and a test compares binders by identity.
+# Module-level objects, as the three key guards are, so a handler declaring its router's binder is
+# answered from the run the router started.
 bind_actor = actor_binder(attribute_the_administrator)
 bind_public_actor = actor_binder(_the_public)
 bind_system_actor = actor_binder(_the_application)

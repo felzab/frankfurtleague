@@ -258,7 +258,7 @@ class Code(StrEnum):
     SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT = "REQ-SCHIEDSRICHTER-009"
     SCHIEDSRICHTER_ADRESSE_NUR_PER_WECHSEL = "REQ-SCHIEDSRICHTER-011"
     # One code over two readers: each slice words it for its own, an administrator being told plainly
-    # what a visitor is told neutrally (`.claude/rules/cross-surface.md`).
+    # what a visitor is told neutrally.
     SPERRLISTE_ADRESSE_GESPERRT = "REQ-SPERRLISTE-001"
     SPERRLISTE_KEINE_SAISON = "REQ-SPERRLISTE-002"
     SPERRLISTE_VERWALTUNG = "REQ-SPERRLISTE-003"

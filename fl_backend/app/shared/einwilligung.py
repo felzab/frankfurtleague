@@ -19,8 +19,8 @@ def is_confirmed(einwilligung: Any) -> bool:
     # `bestaetigt_am` alone: the one key a seat's `Kenntnisnahme` and a person's `Einwilligung` share.
     stamp = einwilligung.get("bestaetigt_am") if isinstance(einwilligung, Mapping) else None
 
-    # Only a non-empty string confirms: the validator types the stamp as a string or null, so `""` is
-    # storable by a hand edit, and the public name read already withholds on it.
+    # Only a non-empty string confirms: nothing refuses a hand edit storing `""`, and
+    # the public name read already withholds on it.
     return isinstance(stamp, str) and stamp != ""
 
 
@@ -62,7 +62,7 @@ class Fassung:
     seite: Seite
     # The German day the label's words go live: the deploy first serving them, set before its pull request merges.
     gilt_ab: date
-    # The order the label freezes, and the order `tests/shared/test_einwilligung.py` digests.
+    # The order the label freezes, and the order `fassung_digest` joins.
     absaetze: tuple[str, ...]
     schalter: str
     # Every OTHER control the page decides a stored field with, keyed by the value it writes: a label
