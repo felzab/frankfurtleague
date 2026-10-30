@@ -16,8 +16,6 @@ from app.core.exceptions import APIError
 from app.core.logging import fl_logger, trace_id_var
 from app.core.middlewares import record_error_code
 
-NO_DATA_TEXT = "//- No Data -//"
-
 # RFC 9110 §9.2.1: the methods whose semantics are read-only.
 SAFE_METHODS: Final = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 
@@ -173,65 +171,18 @@ async def db_exception_handler(request: Request, exc: PyMongoError):
     unknown = exc.has_error_label("UnknownTransactionCommitResult") or (exc.timeout and request.method not in SAFE_METHODS)
     error_code = Code.UNKNOWN_OUTCOME if unknown else Code.DATABASE_FAILED
 
-    # Never `str(exc)`, which quotes the document the server refused -- `consideredValue` under a
-    # validator, the whole `op` under a bulk write -- and a traceback renders it a second time.
+    # Never `str(exc)`, which quotes the document the server refused -- the whole `op` and its
+    # duplicate key under a bulk write -- and a traceback renders it a second time.
     fl_logger.error(
         "http.database_timeout" if exc.timeout else "http.database_failed",
         extra={
             "error_code": error_code,
             "exception": type(exc).__name__,
             "server_code": getattr(exc, "code", None),
-            "refused": refused_properties_of(exc),
         },
     )
 
     return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, error_code)
-
-
-# Walked by NAME and never over every key: a refused value sits under `consideredValue` and can
-# itself be an array of documents, which a walk over every key would descend into. An unlisted key
-# costs a field name in the line, never a value.
-_REFUSAL_BRANCHES = ("schemaRulesNotSatisfied", "propertiesNotSatisfied", "details")
-
-
-def refused_properties_of(exc: PyMongoError) -> list[dict[str, str]]:
-    """Which property a document validator refused, which keyword refused it and why.
-
-    Never `consideredValue`: `rejected_fields_of` withholds one for the same reason, and the
-    validators cover every field of every collection, a person's names included.
-    """
-
-    details: Mapping[str, Any] = getattr(exc, "details", None) or {}
-    # A bulk write reports one entry per refused document; every other write reports at the top.
-    refusals = details.get("writeErrors") or [details]
-
-    return [entry for refusal in refusals for entry in _refused_under((refusal.get("errInfo") or {}).get("details") or {}, path="")]
-
-
-def _refused_under(rule: Any, *, path: str) -> list[dict[str, str]]:
-    """Every property refused under `rule`, keyed by its dotted path.
-
-    Total over whatever the driver hands it: a handler that raises while handling leaves the caller
-    with no answer, and only the server decides a refusal report's shape.
-    """
-
-    if not isinstance(rule, Mapping):
-        return []
-
-    name = rule.get("propertyName")
-    here = _dotted(path, name) if name else path
-    entries = [
-        {"loc": _dotted(here, missing), "type": "required", "msg": "property is missing"} for missing in rule.get("missingProperties", ())
-    ]
-
-    if "reason" in rule:
-        entries.append({"loc": here or NO_DATA_TEXT, "type": str(rule.get("operatorName", "")), "msg": str(rule["reason"])})
-
-    return entries + [entry for branch in _REFUSAL_BRANCHES for child in rule.get(branch, ()) for entry in _refused_under(child, path=here)]
-
-
-def _dotted(path: str, name: Any) -> str:
-    return f"{path}.{name}" if path else str(name)
 
 
 async def global_catch_all_exception_handler(request: Request, exc: Exception):
