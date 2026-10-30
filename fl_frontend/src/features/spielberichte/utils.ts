@@ -1,3 +1,4 @@
+import { ZEITZONE } from "@/core/format";
 import { kaderName, NUMMER_NICHT_HINTERLEGT, SPIELER_ANONYM_LABEL } from "@/features/spieler/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_DIE_SEITE_NEU } from "@/shared/utils/refusal";
@@ -96,7 +97,7 @@ export function spielerLabel(spieler: FLSpielberichtSpieler): string {
 // Europe/Berlin, as every other date in this app is rendered, and to the minute: a correction made the same day as
 // the adoption is exactly what the administrator needs to tell apart.
 const BERLIN_ZEITPUNKT = new Intl.DateTimeFormat("de-DE", {
-  timeZone: "Europe/Berlin",
+  timeZone: ZEITZONE,
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
@@ -122,11 +123,7 @@ export function berichtSperre(spiel: Pick<FLSpielberichtSpiel, "datum" | "sonder
 /** Who reads the sentence: the booked referee on their panel, or an administrator correcting the report. */
 export type SpielberichtLeser = "schiedsrichter" | "admin";
 
-/** The remarks' name refusal lands on the box, the one control that can repair it. */
 export const BEMERKUNGEN_PATH = "bericht.bemerkungen";
-
-// The box's hint already asks for a shirt number, so the message names the fault alone.
-const NAME_IN_BEMERKUNGEN = "In den Bemerkungen steht ein Name.";
 
 // The form offers no shoot-out on a group fixture, so this arrives only from a request no page composed.
 const ELFMETER_IN_DER_GRUPPE = buildRefusal({ reason: "Ein Spiel der Gruppenphase hat kein Elfmeterschießen", repair: LADE_DIE_SEITE_NEU });
@@ -192,8 +189,6 @@ const SAETZE: Record<SpielberichtLeser, Readonly<Record<string, string>>> = {
 /** A report write's refusal in its reader's words, `null` for a code neither write answers. */
 export function mapSpielberichtRefusal(error: unknown, leser: SpielberichtLeser): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error) || error.serverErrorCode === undefined) return null;
-
-  if (error.serverErrorCode === "REQ-BERICHT-005") return { fieldErrors: { [BEMERKUNGEN_PATH]: NAME_IN_BEMERKUNGEN } };
 
   const saetze = SAETZE[leser];
   // Own keys alone, so a code spelling an inherited member never reads as worded.

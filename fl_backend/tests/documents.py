@@ -130,7 +130,7 @@ def saison_team_document(saison_id: str, team_id: Any, name: str, shorthand: str
 
 
 def spiel_document(*, spiel_id: Any, saison_id: str, spiel_nr: int, spieltag_id: Any, **fields: Any) -> dict[str, Any]:
-    """Every nullable key written null rather than omitted: the validator requires each but `notiz`, which `FLSpiel` defaults.
+    """Every nullable key written null rather than omitted, as a save writes them, `notiz` among them, which `FLSpiel` defaults.
 
     `spiel_nr` has no default: `uniq_saison_id_spiel_nr` refuses a second fixture reusing one.
     """
@@ -153,6 +153,7 @@ def spiel_document(*, spiel_id: Any, saison_id: str, spiel_nr: int, spieltag_id:
         "elfmeterschiessen": None,
         "sonderereignis": None,
         "notiz": None,
+        "version": 0,
         **fields,
     }
 
@@ -213,6 +214,7 @@ def spielbericht_document(spiel: Mapping[str, Any], **fields: Any) -> dict[str, 
         "saison_id": spiel["saison_id"],
         "spiel_id": spiel["_id"],
         "bericht": bericht_document(seiten=spielbericht_seiten(spiel)),
+        "version": 0,
         **fields,
     }
 

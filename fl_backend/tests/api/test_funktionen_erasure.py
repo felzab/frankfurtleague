@@ -198,15 +198,7 @@ THEIR_RECORDS = (PUPIL_OID, THEIR_SQUAD_ROW_OID, REFEREE_OID, PENDING_OID, DECLI
 REFEREE_NAME = f"{VORNAME} {NACHNAME}"
 PAYMENT = 25
 
-# A day count of each age the TTL monitor may not have reached, under a bound far off so the monitor
-# itself never takes one during a case.
-COUNT_IDS = (
-    f"kontakt:{PSEUDONYM}:{TODAY}",
-    f"spieler:{PSEUDONYM}:{YESTERDAY}",
-    f"schiedsrichter:{PSEUDONYM}:2126-03-02",
-    f"adresswechsel:{PSEUDONYM}:{TODAY}",
-)
-OTHER_COUNT_ID = f"kontakt:{OTHER_PSEUDONYM}:{TODAY}"
+# A bound far off, so the TTL monitor never takes a request for a grant during a case.
 FAR_OFF = datetime(2099, 1, 1, tzinfo=UTC)
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -474,9 +466,6 @@ async def a_person_holding_everything(database: AsyncDatabase) -> None:
                 **compose_ablehnung_update(von="quillhilde@example.com", grund=None, today="2126-03-28")["$set"],
             ),
         ]
-    )
-    await database[Collection.DROSSELUNG].insert_many(
-        [{"_id": count_id, "n": 3, "ablauf": FAR_OFF} for count_id in (*COUNT_IDS, OTHER_COUNT_ID)]
     )
     await records_they_made_holding_no_grant(database)
     # A grant asked for their address and one they asked for another's, neither decided: a request outlives neither person.
@@ -861,7 +850,6 @@ class TestNothingOfTheirsIsLeftAnywhere:
             "berechtigungen": 0,
             # The request about their address and the one they asked.
             "berechtigungen_antraege": 2,
-            "drosselung": 4,
         }
 
 
@@ -984,16 +972,6 @@ class TestWhatStandsBesideThem:
 
         assert reports == [(THEIR_REPORT_OID, GHOST_SCHIEDSRICHTER_ID, THEIR_REMARKS), (OTHER_REPORT_OID, OTHER_REFEREE_OID, THEIR_REMARKS)]
         assert images == sorted([GHOST_SCHIEDSRICHTER_ID, GHOST_SCHIEDSRICHTER_ID, OTHER_REFEREE_OID], key=str)
-
-    def test_only_their_day_counts_go(self, mongo_replica_set_url: str):
-        """Every day of theirs, the one the TTL monitor may not have reached included, and another person's count of today stands."""
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await erased_over_http(mongo_replica_set_url)
-
-            return [row["_id"] async for row in database[Collection.DROSSELUNG].find()]
-
-        assert on_a_league(mongo_replica_set_url, body) == [OTHER_COUNT_ID]
 
     def test_a_mailbox_sharing_their_local_part_keeps_every_record(self, mongo_replica_set_url: str):
         """Read before as well, so a seed that stopped writing a record fails rather than agreeing with the erasure on a zero."""
@@ -1129,7 +1107,6 @@ class TestOneTransaction:
                         Collection.SAISON_SPIELER,
                         Collection.SCHIEDSRICHTER,
                         Collection.REGISTRIERUNGEN,
-                        Collection.DROSSELUNG,
                     )
                 },
                 (
@@ -1146,7 +1123,7 @@ class TestOneTransaction:
 
         # On the code, so this cannot pass because something else failed before any write.
         assert code == DOCUMENT_VALIDATION_FAILED
-        assert counts == {"berechtigungen": 2, "spieler": 5, "saison_spieler": 2, "schiedsrichter": 4, "registrierungen": 4, "drosselung": 5}
+        assert counts == {"berechtigungen": 2, "spieler": 5, "saison_spieler": 2, "schiedsrichter": 4, "registrierungen": 4}
         assert (seat, pending, their_rows, stamped, on_the_ghost) == (IDENTIFIER, IDENTIFIER, 2, 0, 0)
         # And no journal line nor floor warning: an erasure rolled back is no erasure a replay may repeat.
         assert not [record for record in caplog.records if record.getMessage().startswith(JOURNAL_TOKEN)]
@@ -1266,7 +1243,7 @@ class TestTheScope:
     """The season-after rule's deletion takes a pupil's data alone, every other kind at the address standing."""
 
     def test_the_pupil_scope_takes_what_the_address_holds_as_a_pupil_and_nothing_else(self, mongo_replica_set_url: str):
-        """The person wrote a log row and holds a day count as a pupil and as a seat holder: the seat's stand with the seat."""
+        """The person wrote a log row as a pupil and as a seat holder: the seat's stands with the seat."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await a_grant(database, THEIR_GRANT_OID, IDENTIFIER, "administration")
@@ -1287,14 +1264,12 @@ class TestTheScope:
                         async for row in database[Collection.AKTIONEN].find({"actor.kind": "person_session"})
                     ]
                 ),
-                sorted([row["_id"] async for row in database[Collection.DROSSELUNG].find()]),
             )
 
-        *rest, as_a_person, counts = on_a_league(mongo_replica_set_url, body)
+        *rest, as_a_person = on_a_league(mongo_replica_set_url, body)
 
         assert rest == [0, 0, IDENTIFIER, 1, True, 1, 1, True]
         assert as_a_person == [("kontakt", PSEUDONYM), ("spieler", ERASED_ACTOR_MARKER)]
-        assert counts == sorted(count_id for count_id in (*COUNT_IDS, OTHER_COUNT_ID) if not count_id.startswith("spieler:"))
 
 
 # The registry's steps by the code each runs, so a write can be put down to the step it was made in.

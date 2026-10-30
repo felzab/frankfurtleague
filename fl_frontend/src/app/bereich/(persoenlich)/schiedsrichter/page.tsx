@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { connection } from "next/server";
 
 import { frontend_config } from "@/core/config";
 import { funktionenOf } from "@/core/funktionen";
@@ -16,7 +15,6 @@ import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 import type { SchiedsrichterSpielberichte } from "@/features/spielberichte/types";
 
 export default async function PersoenlichSchiedsrichterPage() {
-  await connection();
   const subject = await requireSubjectSession();
 
   // To the landing rather than a 404: the address exists, and the landing sends a person on to

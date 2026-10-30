@@ -6,9 +6,8 @@ helper raises `DocumentNotFoundError` on a miss and never returns `None`, and a 
 helper returns the empty result and never raises for absence.
 
 Every write here but an anchor appends to the action log (`app/core/recording.py`), which is what makes the
-log complete by construction: a WRITE reaches the driver in this module alone, beside two that record
-no domain fact: the log's own row, which `app/core/recording.py :: record_write` inserts, and a
-person's count for the day, which `app/core/drosselung.py :: get_drossel` raises. Reads are a different matter --
+log complete by construction: a WRITE reaches the driver in this module alone, beside the log's own row,
+which `app/core/recording.py :: record_write` inserts and which records no domain fact. Reads are a different matter --
 several routers call `aggregate`, `count_documents`, `distinct`, `find` and `find_one` directly --
 and a write shaped like one of those would escape the log.
 """
@@ -17,6 +16,7 @@ import re
 from collections.abc import Mapping, Sequence, Set
 from contextvars import ContextVar
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import Any, Final
 
 import bson
@@ -27,7 +27,9 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import BulkWriteError, DuplicateKeyError
 from pymongo.results import DeleteResult, InsertManyResult, InsertOneResult, UpdateResult
 
-from app.core.exceptions import DocumentNotFoundError, WriteRefusal
+from app.core.codes import Code
+from app.core.collections import EDITED_COLLECTIONS
+from app.core.exceptions import APIError, DocumentNotFoundError, WriteRefusal
 from app.core.recording import record_write
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -108,6 +110,35 @@ async def pull_many_from_db(
     return await cursor.limit(limit).to_list(length=limit)
 
 
+# Every document of an `EDITED_COLLECTIONS` member carries this count of its writes: 0 when created, raised by every
+# update through the two patch helpers below, and never by an anchor, which changes nothing a reader sees. A save
+# names the count its form was read at as this key of its `$set`, and matches only while the count stands there:
+# MongoDB's documented pattern, "include the expected current value in the update filter" (the manual's
+# write-operations atomicity page), Mongoose's `optimisticConcurrency`.
+VERSION_FIELD: Final = "version"
+
+
+def _versioned(collection: AsyncCollection, update: Mapping[str, Any], *, checks: bool) -> tuple[Mapping[str, Any], int | None]:
+    """`update` raising the version, and the version its `$set` named, which `checks` alone may carry."""
+
+    fields = dict(update.get("$set", {}))
+    expected = fields.pop(VERSION_FIELD, None)
+    if expected is not None and not checks:
+        raise ValueError(f"a fan-out over {collection.name} checks no {VERSION_FIELD}")
+    if collection.name not in EDITED_COLLECTIONS:
+        if VERSION_FIELD in update.get("$set", {}):
+            raise ValueError(f"{collection.name} is in no EDITED_COLLECTIONS, so a write to it carries no {VERSION_FIELD}")
+        return update, None
+
+    raised: dict[str, Any] = {**update, "$inc": {**update.get("$inc", {}), VERSION_FIELD: 1}}
+    # Dropped rather than sent empty, which the server refuses: a save may change nothing but the count.
+    raised.pop("$set", None)
+    if fields:
+        raised["$set"] = fields
+
+    return raised, expected
+
+
 async def patch_one_in_db(
     *,
     collection: AsyncCollection,
@@ -119,15 +150,21 @@ async def patch_one_in_db(
     """`return_document` has no default, so every caller weighs the two images.
 
     `BEFORE` answers the state the write just replaced. `AFTER` re-reads the document, which a patch
-    inside a transaction reads anyway and one outside it pays a round trip for.
+    inside a transaction reads anyway and one outside it pays a round trip for. A `$set` naming
+    `VERSION_FIELD` is refused `DB-COMMON-003` once another write has raised the count.
     """
+
+    update, expected = _versioned(collection, update, checks=True)
+    if expected is not None:
+        db_filter = {**db_filter, VERSION_FIELD: expected}
 
     _sending_a_write()
     # `BEFORE` whatever the caller asked for: `find_one_and_update` yields one image, and only the
     # update's own is taken with the write.
     before = await collection.find_one_and_update(filter=db_filter, update=update, session=session, return_document=ReturnDocument.BEFORE)
     if before is None:
-        raise DocumentNotFoundError()
+        # A removed document reads as a changed one, as no second read tells the two apart.
+        raise DocumentNotFoundError() if expected is None else APIError(HTTPStatus.CONFLICT, Code.VERSION_STALE)
     replaced_id = before["_id"]
 
     async def read_back() -> Mapping[str, Any]:
@@ -159,10 +196,25 @@ async def patch_one_in_db(
 def _as_stored(document: Mapping[str, Any], collection: AsyncCollection) -> bytes:
     """The document's BSON, encoded as the collection decoded it, so two images differ wherever a field's type or order does.
 
-    Python's own equality takes 1, 1.0 and True for one value and a sub-document's keys in any order.
+    Python's own equality takes 1, 1.0 and True for one value and a sub-document's keys in any order. The
+    version is left out, so a save that raised it alone changed nothing the log records.
     """
 
-    return bson.encode(document, codec_options=collection.codec_options)
+    return bson.encode({key: value for key, value in document.items() if key != VERSION_FIELD}, codec_options=collection.codec_options)
+
+
+def _changed_by(db_filter: Mapping[str, Any], update: Mapping[str, Any]) -> Mapping[str, Any]:
+    """`db_filter` narrowed to the documents `update` changes, where a `$set` of plain paths alone says which.
+
+    Without it the version's own `$inc` would change every document matched, and a fan-out repeated
+    would count, log and raise each again. Any other update keeps the filter it was given.
+    """
+
+    fields = update.get("$set")
+    if set(update) != {"$set"} or not fields or any("$" in path for path in fields):
+        return db_filter
+
+    return {"$and": [db_filter, {"$or": [{path: {"$ne": value}} for path, value in fields.items()]}]}
 
 
 async def patch_many_in_db(
@@ -174,8 +226,13 @@ async def patch_many_in_db(
 ) -> UpdateResult:
     """The driver's result, unwrapped: `modified_count` is reported on the wire, so nothing here may swallow it.
 
-    One log row with the filter and the count, never pre-images.
+    One log row with the filter and the count, never pre-images. On an edited collection a
+    document the update would leave as it stands is not matched, so its version stays.
     """
+
+    if collection.name in EDITED_COLLECTIONS:
+        db_filter = _changed_by(db_filter, update)
+    update, _ = _versioned(collection, update, checks=False)
 
     _sending_a_write()
     result = await collection.update_many(filter=db_filter, update=update, session=session)
@@ -218,36 +275,6 @@ async def anchor_in_db(
     await collection.update_many(filter=db_filter, update={"$inc": {ANCHOR_FIELD: 1}}, session=session)
 
 
-# When an anchor written by id was last written, the one field its collection's TTL index reads
-# (`app/core/constraints.py :: TTL_INDEXES`).
-ANCHOR_WRITTEN_AT: Final = "geschrieben_am"
-
-
-async def anchor_by_id_in_db(
-    *,
-    collection: AsyncCollection,
-    ids: Sequence[str],
-    # REQUIRED, for `anchor_in_db`'s reason.
-    session: AsyncClientSession,
-) -> None:
-    """Write the document of each id, creating any not yet written, so a rival writing one conflicts.
-
-    Logs no row, for `anchor_in_db`'s reason.
-    """
-
-    _sending_a_write()
-    # An upsert, as a document nobody has written joins no write set; two transactions upserting one meet as a
-    # write conflict, never a duplicate key. One command an id: `bulk_write` can remove, which
-    # `tests/core/test_unenforced.py` refuses.
-    for anchor_id in ids:
-        await collection.update_one(
-            filter={"_id": anchor_id},
-            update={"$inc": {ANCHOR_FIELD: 1}, "$currentDate": {ANCHOR_WRITTEN_AT: True}},
-            upsert=True,
-            session=session,
-        )
-
-
 async def post_one_to_db(
     *,
     collection: AsyncCollection,
@@ -255,6 +282,8 @@ async def post_one_to_db(
     session: AsyncClientSession | None = None,
 ) -> InsertOneResult:
     """The driver's result, unwrapped: every create answers with `inserted_id` and `acknowledged`."""
+
+    document = _created(collection, document)
 
     _sending_a_write()
     result = await collection.insert_one(document=document, session=session)
@@ -278,6 +307,8 @@ async def post_many_to_db(
     and a row per document would bury it.
     """
 
+    documents = [_created(collection, document) for document in documents]
+
     _sending_a_write()
     try:
         result = await collection.insert_many(documents=documents, session=session)
@@ -299,6 +330,12 @@ async def post_many_to_db(
     await record_write(collection=collection, operation="insert_many", modified_count=len(result.inserted_ids), session=session)
 
     return result
+
+
+def _created(collection: AsyncCollection, document: Mapping[str, Any]) -> Mapping[str, Any]:
+    """`document` with its version at 0 where its collection is edited, so its first read serves one."""
+
+    return {**document, VERSION_FIELD: 0} if collection.name in EDITED_COLLECTIONS else document
 
 
 # The server's code for a unique index's refusal: the driver exports no name for it and compares the number itself.

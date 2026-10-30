@@ -136,7 +136,7 @@ def on_a_league(
     """A transaction cannot create a collection, so every one a body writes in is built by the seed."""
 
     async def _run() -> Any:
-        # The SHIPPED validators and unique indexes, and every collection -- including the one the
+        # The shipped unique indexes, and every collection -- including the one the
         # action log appends to inside each transaction below.
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await database[Collection.SAISONS].insert_many(saisons)

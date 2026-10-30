@@ -1,5 +1,3 @@
-import { connection } from "next/server";
-
 import { getAdminSession } from "@/core/auth";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { funktionenOf } from "@/core/funktionen";
@@ -14,8 +12,6 @@ import { funktionOrteOf } from "../../utils";
  * `getSubjectSession`, the person lane's read, which reads the sign-in again and sets a second actor.
  */
 export async function AdminFunktionSwitcher() {
-  // Its own, whatever is mounted above: the builder stage reaches no sign-in store.
-  await connection();
   // The hold's own read, memoised per render; nothing for a refused session, the page turning it away.
   const served = await getAdminSession();
   if (served === null) return null;

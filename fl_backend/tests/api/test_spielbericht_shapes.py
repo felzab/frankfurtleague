@@ -14,14 +14,12 @@ from app.api.spielberichte.schemas import (
 )
 from app.api.spielberichte.services import (
     BerichtLage,
-    bericht_namen,
     bericht_zustand_of,
     compose_ansicht,
     compose_bericht_update,
     compose_neuer_bericht,
     find_abgesagt_refusal,
     find_grund_fehlt_refusal,
-    find_name_in_bemerkungen_refusal,
     find_nicht_geleitet_refusal,
     find_nicht_gespielt_refusal,
     find_nicht_im_kader_refusal,
@@ -91,12 +89,6 @@ def lage(*, saison_status: str = "active", **spiel_fields: Any) -> BerichtLage:
                 "inactive_since": "2027-04-01",
             },
             {"spieler_id": LIVE2, "team_id": TEAM2, "vorname": "Mia", "nachname": "Westphal", "nummer": "9", "inactive_since": None},
-        ],
-        vereine=[
-            {
-                "team_id": TEAM1,
-                "kontakte": {"trainer": {"vorname": "Ida", "nachname": "Albers"}, "ansprechperson": None, "stellvertretung": None},
-            }
         ],
     )
 
@@ -250,23 +242,6 @@ class TestANewlyNamedPupilIsInTheSquad:
         neu = neu_genannt(FLSpielberichtBerichtPayload.model_validate(payload(0, 1, [tor("team2", ObjectId())])), None, spiel())
 
         assert refused_with(Code.BERICHT_NICHT_IM_KADER, find_nicht_im_kader_refusal(lage=lage(), neu=neu))
-
-
-class TestTheRemarksNameNobody:
-    @pytest.mark.parametrize(
-        "bemerkungen",
-        ["Ida Albers hat protestiert.", "Gruber pfiff zu früh ab.", "Krauses Foul war hart.", "Brettschneider kam als Zuschauer."],
-        ids=["a seat holder", "the referee", "a pupil", "an ausgetragen pupil"],
-    )
-    def test_a_name_of_the_fixture_s_people_is_refused_at_the_box(self, bemerkungen: str):
-        refusal = find_name_in_bemerkungen_refusal(bemerkungen=bemerkungen, names=bericht_namen(lage()))
-
-        assert refused_with(Code.BERICHT_NAME_IN_BEMERKUNGEN, refusal)
-        assert refusal is not None and refusal.fields == (("bericht", "bemerkungen"),)
-
-    @pytest.mark.parametrize("bemerkungen", [None, "Die Nummer 7 der Gäste sah nach dem Abpfiff Gelb."])
-    def test_remarks_naming_nobody_stand(self, bemerkungen: str | None):
-        assert find_name_in_bemerkungen_refusal(bemerkungen=bemerkungen, names=bericht_namen(lage())) is None
 
 
 # The clubs `spiel` fields, as the report's last write found them.

@@ -1,8 +1,6 @@
 import { NACH_ERNENNUNG_NEU_ANMELDEN } from "@/features/berechtigungen/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 
-import type { FieldErrors } from "@/shared/utils/validation";
-
 /** An administrator's own address: their records go through the account page, or through an owner (`REQ-PURGE-005`). */
 const EIGENE_ADRESSE_LOESCHEN =
   "Deine eigene Adresse löschst Du nicht hier. Lösche Dein Konto auf Deiner Kontoseite, oder lass Deine Adresse von einer Inhaberin oder einem Inhaber der Verwaltung löschen.";
@@ -36,23 +34,11 @@ const LOESCHEN_WORTE: Readonly<Record<string, string>> = {
   "REQ-PURGE-007": VERDECKTER_ADRESSWECHSEL,
 };
 
-const mapLoeschenRefusal = mapper(LOESCHEN_WORTE);
-
 /**
- * Said on the box, one sentence about the value: its hint and placeholder say what it may hold.
- * The refusal names no word and takes a common word equal to a name.
+ * The erasure's and its reveal's refusals, which judge the same address the same way; `null` for the rest, the
+ * `DB-COMMON` pair among them, which the shared reader words.
  */
-const NAME_IM_ANLASS = "Der Anlass enthält ein Wort, das einem Namen der Person gleicht.";
-
-/**
- * The erasure's and its reveal's refusals, which judge the same address the same way, and the erasure's of its Anlass;
- * `null` for the rest, the `DB-COMMON` pair among them, which the shared reader words.
- */
-export function mapErasureRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (isRefusal(error) && error.serverErrorCode === "REQ-PURGE-006") return { fieldErrors: { anlass: NAME_IM_ANLASS } };
-
-  return mapLoeschenRefusal(error);
-}
+export const mapErasureRefusal = mapper(LOESCHEN_WORTE);
 
 /**
  * Whether a failed reveal answered one of the erasure's own refusals, which the panel says alone: a reveal the rule

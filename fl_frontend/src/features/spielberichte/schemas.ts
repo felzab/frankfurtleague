@@ -161,7 +161,7 @@ const berichtPayload = <TTor extends z.ZodType<string | null>, TKarten extends z
       }
     });
 
-/** The referee's PUT and the administrator's PATCH take this one body, so `REQ-BERICHT-005` names one path on both. */
+/** The referee's PUT and the administrator's PATCH take this one body, so a refusal names one path on both. */
 export const FLSpielberichtPayloadSchema = z.object({
   // A null scorer is a goal nobody was named for, never an erased pupil, whose entry keeps their id.
   bericht: berichtPayload({ torschuetze: CustomObjectIdStringSchema.nullable(), karten: kartenListe(karte(CustomObjectIdStringSchema)) }),

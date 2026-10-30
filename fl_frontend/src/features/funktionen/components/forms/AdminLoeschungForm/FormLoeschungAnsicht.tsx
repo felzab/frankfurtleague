@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { joinUnd } from "@/core/joinUnd";
+import { formatAufzaehlung } from "@/core/format";
 import { HANDLUNGSBEDARF_EINTRAG } from "@/features/admin/constants";
 import { EINSEHBAR_VERWEHRT } from "@/features/adresswechsel/einsehbar";
 import { ANTRAG_WAS } from "@/features/berechtigungen/constants";
@@ -56,7 +56,7 @@ function zeilenOf(
       );
       const person = `Spielerin oder Spieler: ${nameOf(vorname, nachname)}`;
 
-      return { text: kaderTeile.length === 0 ? person : `${person}, ${joinUnd(kaderTeile)}` };
+      return { text: kaderTeile.length === 0 ? person : `${person}, ${formatAufzaehlung(kaderTeile)}` };
     }),
     ...schiedsrichter.map(({ name }) => ({
       text: name === null ? "Schiedsrichterin oder Schiedsrichter ohne Namen" : `Schiedsrichterin oder Schiedsrichter: ${name}`,

@@ -11,7 +11,6 @@ import { Code } from "@/core/generated/client/types.ts";
 import {
   EDGE_REFUSAL_BODY,
   FELD_ABGELEHNT,
-  HEUTE_GENUG_GEAENDERT,
   isRuleRefusal,
   outcomeUnknown,
   refusedDraftAnswer,
@@ -43,18 +42,6 @@ describe("toActionErrorResult", () => {
       const result = toActionErrorResult(new APIBadStatusError({ ...sent, message: "bad", statusCode: 403, serverErrorCode: "REQ-AUTH-006" }));
 
       expect(result, sent.method).toStrictEqual({ success: false, error: ZUGANG_WEG });
-    }
-  });
-
-  /* Raised before the write on every person's route, so nothing was written; a retry meets the same count
-     until German midnight, which is why the server error's retry is never offered. */
-  it("tells a person at their day's ceiling to come back tomorrow, at any status the code arrives at", () => {
-    for (const statusCode of [429, 409]) {
-      const result = toActionErrorResult(
-        new APIBadStatusError({ ...write, message: "bad", statusCode, serverErrorCode: "REQ-DROSSELUNG-001" }),
-      );
-
-      expect(result, String(statusCode)).toStrictEqual({ success: false, error: HEUTE_GENUG_GEAENDERT });
     }
   });
 
@@ -334,16 +321,7 @@ describe("a refusal read by its code, whatever its status", () => {
   /* By the class alone: each protocol class keeps any code the backend adds to it, and only a rule's
      code or the unique index's is ever a refusal a mapper words. */
   it("classifies a code by its class, whatever it is numbered", () => {
-    for (const code of [
-      "REQ-AUTH-005",
-      "REQ-VAL-001",
-      "REQ-VAL-002",
-      "REQ-ROUTE-001",
-      "REQ-DROSSELUNG-001",
-      "DB-COMMON-001",
-      "DB-CONN-001",
-      "SRV-FAIL-001",
-    ]) {
+    for (const code of ["REQ-AUTH-005", "REQ-VAL-001", "REQ-VAL-002", "REQ-ROUTE-001", "DB-COMMON-001", "DB-CONN-001", "SRV-FAIL-001"]) {
       expect(isRefusalCode(code), code).toBe(false);
     }
     for (const code of ["REQ-SWAP-007", "REQ-BEWERBUNG-009", "REQ-UNCLAIMED-000", "DB-COMMON-002"])

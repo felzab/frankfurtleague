@@ -154,6 +154,8 @@ class FLSpielbericht(BaseModel):
     saison_id: str
     spiel_id: CustomObjectId
     bericht: FLSpielberichtBericht | None
+    # 0 until a write raises it, as the create stamps it.
+    version: int = 0
 
 
 # --- The WRITES: the referee's PUT and the administrator's PATCH take one body, so a refusal naming
@@ -217,6 +219,8 @@ class FLSpielberichtPayload(BaseModel):
     # with no default, as `kontakte_stand` is: an omitted one would judge nothing
     # (`app/api/spielberichte/services.py :: find_bericht_stand_refusal`).
     bericht_stand: int | None
+    # The document's `version` the form was served; absent, the save is checked against nothing.
+    version: int | None = None
 
 
 # --- The READS. The referee's form and the administrator's panel read one shape: the fixture, both live
@@ -267,6 +271,9 @@ class _SpielberichtAnsicht(BaseAPIResponse):
     bericht: FLSpielberichtBericht | None
     # The sides fielding another club than the report's last write found there, which reads `teams_geaendert`.
     seiten_geaendert: list[FLSpielberichtSeite]
+    # The document's count of writes, null where none is stored: a save sending it back is refused once another write
+    # has raised it. Not `bericht.version`, the report's own, which only its content's writes raise.
+    version: int | None
 
 
 class FLSpielberichtSchiedsrichterResponse(_SpielberichtAnsicht):

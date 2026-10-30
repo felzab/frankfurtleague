@@ -152,7 +152,6 @@ class FLErasure(BaseModel):
     berechtigungen: int = Field(ge=0)
     # Every request about the address or made by it, a lapsed one among them.
     berechtigungen_antraege: int = Field(ge=0)
-    drosselung: int = Field(ge=0)
 
 
 class FLErasureResponse(FLErasure, BaseAPIResponse):

@@ -718,7 +718,8 @@ def _outcome_of(spiel_nr: int, ausgang: str, walk: _BracketWalk) -> FLSpielTeamF
     if an_occupant_changed:
         return None
 
-    if spiel.ergebnis is None or team1 is None or team2 is None or team1.tore is None or team2.tore is None:
+    # The goals are the result: a save composes `ergebnis` from them, so the two agree.
+    if team1 is None or team2 is None or team1.tore is None or team2.tore is None:
         return None
 
     if team1.tore == team2.tore:

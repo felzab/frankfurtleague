@@ -213,8 +213,8 @@ def refuse_a_saison_year_outside_the_league(value: str) -> str:
 
 class FLPostSaisonPayload(_SaisonPayload):
     # CHOSEN, not generated: `saisons._id` is the string every `saison_id` references, so this is
-    # the one create payload carrying an id -- and stripped first, a width counting CHARACTERS
-    # otherwise creating a season keyed on spaces.
+    # the one create payload carrying an id. No strip: the digits refuse a padded id rather than repair
+    # it, and constraints set after a validator would leave the pattern out of the published schema.
 
     # `[0-9]` and never `\d`, which pydantic's Rust engine reads as `\p{Nd}`: an Arabic-Indic or
     # fullwidth year parses as a number, sorts nowhere near its neighbours and can never be retyped.
@@ -223,7 +223,7 @@ class FLPostSaisonPayload(_SaisonPayload):
     # declared length the moment that constant moves, every mirror having followed it.
     id: Annotated[
         str,
-        StringConstraints(strip_whitespace=True, min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH, pattern=r"^[0-9]+$"),
+        StringConstraints(min_length=SAISON_ID_LENGTH, max_length=SAISON_ID_LENGTH, pattern=r"^[0-9]+$"),
         AfterValidator(refuse_a_saison_year_outside_the_league),
     ]
 

@@ -1317,7 +1317,7 @@ class ConfirmationsRunningARivalBeforeTheFirstFanOut(InterleavedCollection):
 class TestAnAnswerAndItsWritersErasureCross:
     """The answer writes its row and the erasure voids the writer's entry on it, so one retries.
 
-    Neither anchors the address: a holder digest stored under an erasure's snapshot would stand until the season's end.
+    Without that conflict a holder digest stored under an erasure's snapshot would stand until the season's end.
     """
 
     def test_an_erasure_landing_inside_the_answer_leaves_the_link_dead_and_nothing_stored(self, mongo_replica_set_url: str):

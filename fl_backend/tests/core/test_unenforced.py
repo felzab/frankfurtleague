@@ -221,10 +221,6 @@ RECORDED_REMOVALS = frozenset({"delete_many"})
 # `app/core/recording.py` writes the log's own rows and removes nothing, so it is not among these.
 REMOVAL_MODULES = ("app/core/crud.py",)
 
-# A day count is operational state and no domain row, written and removed outside the log by design;
-# its id names the person's pseudonym, so a logged filter would keep what the erasure removes.
-UNLOGGED_REMOVALS = frozenset({"app/core/drosselung.py :: erase_counts_in_session", "app/core/drosselung.py :: carry_counts_in_session"})
-
 # The day a row retired, and so the field a retention sweep would select on.
 RETIREMENT_FIELD = "inactive_since"
 
@@ -491,7 +487,7 @@ class TestNoPurgeReachesARetiredRow:
         # all -- neither names a filter, and neither leaves an image.
         assert _driver_calls(DRIVER_REMOVALS - RECORDED_REMOVALS) == []
 
-        assert [call for call in reaching_the_driver if not call.startswith(REMOVAL_MODULES) and call not in UNLOGGED_REMOVALS] == []
+        assert [call for call in reaching_the_driver if not call.startswith(REMOVAL_MODULES)] == []
 
     def test_no_removal_selects_on_the_day_a_row_retired(self):
         """A sweep's SHAPE, never a count of its callers: the module rule above admits one written inside `app/core/crud.py`."""

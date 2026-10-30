@@ -508,6 +508,9 @@ class FLPatchSpielDataPayload(BaseModel):
     # (`app/api/spiele/services.py :: find_referee_stand_refusal`).
     schiedsrichter_stand: CustomObjectId | None
 
+    # The `version` the editor was served; absent, as the old form sends it, the save is checked against nothing.
+    version: int | None = None
+
     @model_validator(mode="before")
     @classmethod
     def empty_strings_to_none(cls, data: Any) -> Any:
@@ -516,8 +519,9 @@ class FLPatchSpielDataPayload(BaseModel):
         return data
 
 
-# What the wholesale save writes: the payload's fields, its precondition apart.
-SPIEL_PATCH_WRITTEN_FIELDS: Final = frozenset(FLPatchSpielDataPayload.model_fields) - {"schiedsrichter_stand"}
+# What the wholesale save writes: the payload's fields, its two preconditions apart. `version` reaches the write from the
+# payload alone: the composed fixture carries the stored one, against which every save would pass.
+SPIEL_PATCH_WRITTEN_FIELDS: Final = frozenset(FLPatchSpielDataPayload.model_fields) - {"schiedsrichter_stand", "version"}
 
 
 # The stored and the served shapes both extend THIS rather than one extending the other: they differ
@@ -566,6 +570,8 @@ class FLSpiel(FLSpielCommon):
 
     ort: FLSpielOrtField | None
     schiedsrichter: FLSpielSchiedsrichterField | None
+    # 0 until a write raises it, as the create stamps it: a fixture composed before its insert, such as a draw's, has none yet.
+    version: int = 0
 
 
 def _withheld_unless_agreed(block: Any) -> Any:
@@ -608,10 +614,14 @@ class FLSpielJoined(FLSpielCommon):
 # A second model rather than a projection per caller: a response whose shape follows the credential
 # is one no generated type can express.
 class FLSpielJoinedAdmin(FLSpielJoined):
-    """The same fixture for the admin reads: the referee as booked, whole name and payment, and the venue's rent."""
+    """The same fixture for the admin reads: the referee as booked, whole name and payment, and the venue's rent.
+
+    `version` counts the fixture's writes; a save sending it back is refused once another write has raised it.
+    """
 
     ort: FLSpielOrtField | None
     schiedsrichter: FLSpielSchiedsrichterField | None
+    version: int = 0
 
 
 class FLSpielJoinedInternal(FLSpielJoinedAdmin):
@@ -697,8 +707,14 @@ class FLSpielReleasedSide(_VoidedResult):
 
 
 class FLPatchSpielDataResponse(BaseAPIResponse):
-    """Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it."""
+    """Every fixture the save moved beyond its own edit, each with the result it destroyed, and the bracket's faults after it.
+
+    `version` is the fixture's own after the save, the one its next save sends; `bericht_uebernommen` says whether the
+    adoption `uebernimmt_bericht` asked for was stamped, null where none was asked or on a `dry_run`.
+    """
 
     advanced_to: list[FLSpielAdvancement] = Field(default_factory=list)
     released_sides: list[FLSpielReleasedSide] = Field(default_factory=list)
     bracket_faults: list[FLBracketFault] = Field(default_factory=list)
+    version: int
+    bericht_uebernommen: bool | None

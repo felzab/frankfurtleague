@@ -726,6 +726,19 @@ STRIPPED_WRITE_FIELDS = [
     "saison_team.austritt.grund",
 ]
 
+# The fixed-width ids, whose ceiling is counted on arrival, and every `CustomKontaktName`, whose pattern
+# is: a padded value is refused rather than stored stripped.
+PADDING_REFUSED_FIELDS = [
+    "saison.id",
+    "saison_team.saison_id",
+    "saison_spieler.saison_id",
+    "kontaktperson.nachname",
+    "kontaktperson.vorname",
+    "schiedsrichter.name",
+    "spieler_patch.nachname",
+    "spieler_patch.vorname",
+]
+
 # A run of spaces at every width up to the widest floor the table carries. An exact-width field is
 # refused at any OTHER width by its ceiling, so one probe would pass it for a reason of its own.
 WHITESPACE_RUNS = [" " * width for width in range(1, SAISON_ID_LENGTH + 1)]
@@ -824,12 +837,20 @@ class TestTheWritePathStripsBeforeItCountsCharacters:
 
         assert _stored(model.model_validate(body), path) == _sent(body, path)
 
-    @pytest.mark.parametrize("label", STRIPPED_WRITE_FIELDS)
+    @pytest.mark.parametrize("label", [label for label in STRIPPED_WRITE_FIELDS if label not in PADDING_REFUSED_FIELDS])
     def test_a_padded_value_is_stored_stripped(self, cases, label):
         model, body, path = cases[label]
         original = _sent(body, path)
 
         assert _stored(model.model_validate(_with(body, path, f"  {original}  ")), path) == original
+
+    @pytest.mark.parametrize("label", PADDING_REFUSED_FIELDS)
+    def test_a_padded_value_is_refused(self, cases, label, assert_rejects):
+        """The published schema is what the backend accepts, so a value its ceiling or pattern refuses padded is never repaired."""
+
+        model, body, path = cases[label]
+
+        assert_rejects(model, _with(body, path, f" {_sent(body, path)} "), path[-1])
 
     @pytest.mark.parametrize("blank", WHITESPACE_RUNS, ids=[str(len(run)) for run in WHITESPACE_RUNS])
     @pytest.mark.parametrize("label", STRIPPED_WRITE_FIELDS)

@@ -39,7 +39,6 @@ from app.api.schiedsrichter.services import (
     save_moves_the_link,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, hash_gesperrt, sperrliste_saison
-from app.core.adressanker import anchor_the_addresses
 from app.core.config import API_VERSION
 from app.core.crud import (
     insert_live,
@@ -51,7 +50,6 @@ from app.core.crud import (
     set_inactive_since,
 )
 from app.core.dependencies import (
-    AdressankerCollection,
     DBClient,
     SchiedsrichterCollection,
     SpieleCollection,
@@ -86,7 +84,6 @@ async def post_schiedsrichter(
     schiedsrichter_data: Annotated[FLPostSchiedsrichterPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
     sperrliste: SperrlisteLookup,
-    adressanker_collection: AdressankerCollection,
     db: DBClient,
     today: str = Depends(get_german_date_str),
 ) -> FLPostSchiedsrichterResponse:
@@ -115,9 +112,6 @@ async def post_schiedsrichter(
         # hash alone, as the correction and the re-send ask it (`REQ-SCHIEDSRICHTER-007`).
         gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_gesperrt_refusal(gesperrt=gesperrt))
-
-        # The address entering here, which an erasure of it running now never read.
-        await anchor_the_addresses([email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session)
 
         return await insert_live(
             collection=schiedsrichter_collection,
@@ -152,7 +146,6 @@ async def patch_schiedsrichter(
     schiedsrichter_collection: SchiedsrichterCollection,
     spiele_collection: SpieleCollection,
     sperrliste: SperrlisteLookup,
-    adressanker_collection: AdressankerCollection,
     db: DBClient,
     refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     today: str = Depends(get_german_date_str),
@@ -218,8 +211,6 @@ async def patch_schiedsrichter(
             return_document=ReturnDocument.AFTER,
         )
         updated_document = FLSchiedsrichter(**updated_document_raw)
-        # The address entering here, which an erasure of it running now never read.
-        await anchor_the_addresses([email], adressanker_collection=adressanker_collection, schluessel=sperrliste.schluessel, session=session)
 
         fan_out = await patch_many_in_db(
             collection=spiele_collection,

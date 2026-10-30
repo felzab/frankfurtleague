@@ -40,6 +40,7 @@ from app.api.spielberichte.services import (
 )
 from app.core.crud import (
     GERMAN_COLLATION,
+    VERSION_FIELD,
     aggregate_many_from_db,
     anchor_in_db,
     patch_many_in_db,
@@ -50,14 +51,6 @@ from app.core.crud import (
 )
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.custom import CustomObjectId
-from app.shared.schemas.literals import KONTAKT_ROLLEN
-
-# The seat holders' two names alone: what the remarks are judged against.
-VEREIN_FIELDS: Mapping[str, int] = {
-    "_id": 0,
-    "team_id": 1,
-    **{f"kontakte.{seat}.{part}": 1 for seat in KONTAKT_ROLLEN for part in ("vorname", "nachname")},
-}
 
 
 async def pull_bericht_lage(
@@ -65,11 +58,10 @@ async def pull_bericht_lage(
     spiele_collection: AsyncCollection,
     saisons_collection: AsyncCollection,
     saison_spieler_collection: AsyncCollection,
-    saison_teams_collection: AsyncCollection,
     spiel_id: ObjectId,
     session: AsyncClientSession | None,
 ) -> BerichtLage:
-    """The fixture, its season's status, both clubs' squads and season rows, under `session`.
+    """The fixture, its season's status and both clubs' squads, under `session`.
 
     `DB-COMMON-001` for a fixture that does not exist.
     """
@@ -84,16 +76,10 @@ async def pull_bericht_lage(
         collation=GERMAN_COLLATION,
         session=session,
     )
-    vereine = await pull_many_from_db(
-        collection=saison_teams_collection,
-        db_filter={"saison_id": saison_id, "team_id": {"$in": team_ids}},
-        projection=dict(VEREIN_FIELDS),
-        session=session,
-    )
 
     saison = await saisons_collection.find_one({"_id": saison_id}, projection={"_id": 0, "status": 1}, session=session)
 
-    return BerichtLage(spiel=spiel, kader=kader, vereine=vereine, saison_status=None if saison is None else saison.get("status"))
+    return BerichtLage(spiel=spiel, kader=kader, saison_status=None if saison is None else saison.get("status"))
 
 
 async def pull_beendete_saison_ids(*, saisons_collection: AsyncCollection, session: AsyncClientSession | None) -> list[str]:
@@ -170,6 +156,9 @@ async def write_bericht(
     payload: FLSpielberichtBerichtPayload,
     von: FLSpielberichtVon,
     now: datetime,
+    # REQUIRED with no default: the `version` the form was served, or None for a write naming none, so no caller
+    # leaves the check out unasked.
+    version: int | None,
     session: AsyncClientSession,
 ) -> Mapping[str, Any]:
     """The block written whole: created by its first writer, set on a document holding none, or replaced.
@@ -206,7 +195,7 @@ async def write_bericht(
     return await patch_one_in_db(
         collection=spielberichte_collection,
         db_filter={"_id": gespeichert["_id"]},
-        update=update,
+        update={**update, "$set": {**update["$set"], VERSION_FIELD: version}},
         session=session,
         return_document=ReturnDocument.AFTER,
     )
@@ -316,13 +305,13 @@ async def stamp_the_adoption(
     now: datetime,
     # REQUIRED: the fixture save's own, so a save that does not commit takes its stamp back with it.
     session: AsyncClientSession,
-) -> None:
-    """Stamp the report adopted at `version`, matching it only while it still stands there.
+) -> bool:
+    """Stamp the report adopted at `version`, matching it only while it still stands there, and say whether it did.
 
     A fan-out rather than `patch_one_in_db`, whose miss would raise and take the fixture's save with it.
     """
 
-    await patch_many_in_db(
+    stamped = await patch_many_in_db(
         collection=spielberichte_collection,
         db_filter={"spiel_id": spiel_id, "bericht.version": version, **{f"bericht.seiten.{seite}": seiten[seite] for seite in SEITEN}},
         update={
@@ -334,3 +323,5 @@ async def stamp_the_adoption(
         },
         session=session,
     )
+
+    return stamped.matched_count > 0

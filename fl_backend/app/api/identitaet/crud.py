@@ -71,13 +71,11 @@ from app.api.spielbestaetigungen.crud import erase_referee_confirmations_in_sess
 from app.api.spielbestaetigungen.services import halter_of
 from app.api.spieler.crud import ensure_ghost_spieler, erase_person_in_session
 from app.api.spieler.services import build_spieler_filter
-from app.core.adressanker import anchor_the_addresses
 from app.core.codes import Code
 from app.core.collections import Collection
 from app.core.concurrency import gather_cancelling
 from app.core.crud import aggregate_many_from_db, anchor_in_db, patch_many_in_db, refuse
 from app.core.db import warn_about_the_grants
-from app.core.drosselung import erase_counts_in_session
 from app.core.journal import JournalLine, lost_its_answer
 from app.core.logging import fl_logger, journal_logger
 from app.core.recording import ERASED_ACTOR_MARKER, SYSTEM_ACTOR_EMAIL
@@ -353,7 +351,7 @@ class Subject:
     """
 
     identifier: str
-    # The log's and the write counts' key for this person (`app/core/security.py :: akteur_pseudonym`).
+    # The log's key for this person (`app/core/security.py :: akteur_pseudonym`).
     pseudonym: str
     # Each `None` where no step of the scope uses it, never an empty list: its property raises, so a step
     # given a scope without its read fails rather than erasing nothing and answering zero.
@@ -482,22 +480,17 @@ async def unattribute_pseudonym_in_session(*, aktionen_collection: AsyncCollecti
 async def erase_pupil_actor_in_session(
     *,
     aktionen_collection: AsyncCollection,
-    drosselung_collection: AsyncCollection,
     pseudonym: str,
-    # REQUIRED: outside the erasure's transaction, a pupil it rolls back would still lose their counts and authorship.
+    # REQUIRED: outside the erasure's transaction, a pupil it rolls back would still lose their authorship.
     session: AsyncClientSession,
-) -> int:
-    """Put the marker where the person stood as a pupil in the log, and remove their counts as one, answering how many counts went."""
+) -> None:
+    """Put the marker where the person stood as a pupil in the log."""
 
     await patch_many_in_db(
         collection=aktionen_collection,
         db_filter={"actor.pseudonym": pseudonym, "actor.funktion": "spieler"},
         update={"$set": {"actor.pseudonym": ERASED_ACTOR_MARKER}},
         session=session,
-    )
-
-    return await erase_counts_in_session(
-        drosselung_collection=drosselung_collection, pseudonym=pseudonym, funktionen=("spieler",), session=session
     )
 
 
@@ -573,11 +566,10 @@ ERASURE_STEPS: Final[tuple[ErasureStep, ...]] = (
         personengruppe=None,
         run=erase_grants_and_authorship_in_session,
     ),
-    ErasureStep(reaches=frozenset({Collection.DROSSELUNG}), personengruppe=None, run=erase_counts_in_session),
     ErasureStep(reaches=frozenset({Collection.AKTIONEN}), personengruppe=None, run=unattribute_in_session),
-    # The pupil's share of the two above, finding nothing after them in the full scope: in the pupil scope a seat's or a
-    # referee row's counts and rows are that standing record's, and stay.
-    ErasureStep(reaches=frozenset({Collection.AKTIONEN, Collection.DROSSELUNG}), personengruppe="spieler", run=erase_pupil_actor_in_session),
+    # The pupil's share of the one above, finding nothing after it in the full scope: in the pupil scope a seat's or a
+    # referee row's rows are that standing record's, and stay.
+    ErasureStep(reaches=frozenset({Collection.AKTIONEN}), personengruppe="spieler", run=erase_pupil_actor_in_session),
     # LAST: images filed before the erasure hold the address, and the seat clearing files more. No kind's
     # alone: in the pupil scope it would take a standing referee's or administrator's address out of their own images.
     ErasureStep(reaches=frozenset({Collection.AKTIONEN}), personengruppe=None, run=redact_address_in_images),
@@ -607,14 +599,12 @@ async def erase_everything(
     spielbestaetigungen_collection: AsyncCollection,
     spielberichte_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
-    drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
     berechtigungen_postausgang_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
-    adressanker_collection: AsyncCollection,
     adresswechsel_collection: AsyncCollection,
     adresswechsel_postausgang_collection: AsyncCollection,
     berechtigungen_antraege_collection: AsyncCollection,
@@ -634,10 +624,6 @@ async def erase_everything(
     The subject is read HERE, so a retry after a conflict re-reads it. The caller runs its transaction inside an
     `ErasureJournal`, which journals once it commits.
     """
-
-    # The first of the erasure's own writes: a writer that committed for this address since the snapshot opened sends
-    # this attempt round before any step writes, and one writing later retries until this one ends.
-    await anchor_the_addresses([identifier], adressanker_collection=adressanker_collection, schluessel=schluessel, session=session)
 
     subject = await resolve_subject(
         identifier,
@@ -788,19 +774,13 @@ async def erase_everything(
             )
         ).removed_berechtigungen
 
-    drosselung = 0
-    if _runs(erase_counts_in_session, scope):
-        drosselung = await erase_counts_in_session(drosselung_collection=drosselung_collection, pseudonym=subject.pseudonym, session=session)
-
     if _runs(unattribute_in_session, scope):
         await unattribute_in_session(
             aktionen_collection=aktionen_collection, identifier=identifier, pseudonym=subject.pseudonym, session=session
         )
 
     if _runs(erase_pupil_actor_in_session, scope):
-        drosselung += await erase_pupil_actor_in_session(
-            aktionen_collection=aktionen_collection, drosselung_collection=drosselung_collection, pseudonym=subject.pseudonym, session=session
-        )
+        await erase_pupil_actor_in_session(aktionen_collection=aktionen_collection, pseudonym=subject.pseudonym, session=session)
 
     if _runs(redact_address_in_images, scope):
         await redact_address_in_images(aktionen_collection=aktionen_collection, identifier=identifier, stamp=stamp, session=session)
@@ -815,7 +795,6 @@ async def erase_everything(
         adresswechsel=adresswechsel,
         berechtigungen=berechtigungen,
         berechtigungen_antraege=berechtigungen_antraege,
-        drosselung=drosselung,
     )
 
 
@@ -996,14 +975,12 @@ async def erase_if_still_due(
     spielbestaetigungen_collection: AsyncCollection,
     spielberichte_collection: AsyncCollection,
     registrierungen_collection: AsyncCollection,
-    drosselung_collection: AsyncCollection,
     aktionen_collection: AsyncCollection,
     berechtigungen_collection: AsyncCollection,
     berechtigungen_angekuendigt_collection: AsyncCollection,
     berechtigungen_postausgang_collection: AsyncCollection,
     einladungen_collection: AsyncCollection,
     sperrliste_collection: AsyncCollection,
-    adressanker_collection: AsyncCollection,
     adresswechsel_collection: AsyncCollection,
     adresswechsel_postausgang_collection: AsyncCollection,
     berechtigungen_antraege_collection: AsyncCollection,
@@ -1066,14 +1043,12 @@ async def erase_if_still_due(
         spielbestaetigungen_collection=spielbestaetigungen_collection,
         spielberichte_collection=spielberichte_collection,
         registrierungen_collection=registrierungen_collection,
-        drosselung_collection=drosselung_collection,
         aktionen_collection=aktionen_collection,
         berechtigungen_collection=berechtigungen_collection,
         berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection,
         berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
         einladungen_collection=einladungen_collection,
         sperrliste_collection=sperrliste_collection,
-        adressanker_collection=adressanker_collection,
         adresswechsel_collection=adresswechsel_collection,
         adresswechsel_postausgang_collection=adresswechsel_postausgang_collection,
         berechtigungen_antraege_collection=berechtigungen_antraege_collection,

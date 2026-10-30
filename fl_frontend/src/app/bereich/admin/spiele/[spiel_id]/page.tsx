@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { frontend_config } from "@/core/config";
 import { AdminContextWrapper } from "@/features/admin/components/providers/AdminContextWrapper";
@@ -35,7 +34,6 @@ export default function AdminSpielEditPage(props: NextPageProps<{ spiel_id: stri
 }
 
 async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel_id: string }>["params"] }) {
-  await connection();
   const spielId = await resolveSpielId(params);
 
   const [spielRes, berichtRes] = await Promise.all([
@@ -56,7 +54,7 @@ async function AdminSpielEditContent({ params }: { params: NextPageProps<{ spiel
     notFound();
   }
 
-  // Behind `connection()` with the fixture's, so a prefetch carries neither. Degraded rather than awaited whole: the
+  // Behind the trace's wait for a request, as the fixture's read is, so a prefetch carries neither. Degraded rather than awaited whole: the
   // editor is how a fixture is repaired, and stands when its confirmations cannot be read.
   const bestaetigungenRes = await runWithIncomingTrace(() =>
     getSpielbestaetigungen({ saison_id: spielRes.spiel.saison_id, spiel_id: spielRes.spiel.id }).catch(nullAfterLoggingUnexplained),

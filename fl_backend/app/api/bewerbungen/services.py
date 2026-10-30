@@ -20,7 +20,7 @@ from app.api.teams.schemas import FLPostTeamPayload
 from app.core.codes import Code
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
-from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
+from app.shared.einwilligung import is_confirmed
 from app.shared.einwilligung_nachweis import compose_wahlen
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import (
@@ -319,7 +319,7 @@ def build_wiederholung_filter(*, bewerbung_raw: Mapping[str, Any], today: str) -
 
         terms[f"bestaetigungen.{seat}.erinnert_am"] = None
         terms[f"bestaetigungen.{seat}.abgelehnt_am"] = None
-        terms[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = UNCONFIRMED_STAMP
+        terms[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = None
         unerreicht.append(zustellung_unerreicht_term(pfad=f"bestaetigungen.{seat}.zustellung"))
 
     # The deadline's own day still takes a link, as `link_is_over` reads it.
@@ -1069,7 +1069,7 @@ def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[s
     for seat in seats:
         unanswered[f"bestaetigungen.{seat}"] = {"$type": "object"}
         unanswered[f"bestaetigungen.{seat}.abgelehnt_am"] = None
-        unanswered[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = UNCONFIRMED_STAMP
+        unanswered[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = None
 
     return {"_id": bewerbung_id, "status": "eingereicht", **unanswered}
 
@@ -1522,7 +1522,7 @@ def _seat_reminder_term(*, seat: str, today: str) -> Mapping[str, Any]:
         f"bestaetigungen.{seat}.erinnert_am": None,
         f"bestaetigungen.{seat}.abgelehnt_am": None,
         f"bestaetigungen.{seat}.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
-        f"kontakte.{seat}.einwilligung.bestaetigt_am": UNCONFIRMED_STAMP,
+        f"kontakte.{seat}.einwilligung.bestaetigt_am": None,
     }
 
 
@@ -1550,7 +1550,7 @@ def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
         "status": "eingereicht",
         "bestaetigungsfrist": {"$lt": today},
         "bestaetigungen.ansprechperson.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
-        "$or": [{f"kontakte.{seat}.einwilligung.bestaetigt_am": UNCONFIRMED_STAMP} for seat in KONTAKT_ROLLEN],
+        "$or": [{f"kontakte.{seat}.einwilligung.bestaetigt_am": None} for seat in KONTAKT_ROLLEN],
     }
 
 

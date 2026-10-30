@@ -250,7 +250,6 @@ async def save(database: AsyncDatabase, client: AsyncMongoClient, kontakte: Mapp
         saisons_collection=database[Collection.SAISONS],
         spielbestaetigungen_collection=database[Collection.SPIELBESTAETIGUNGEN],
         sperrliste=ban_list(database),
-        adressanker_collection=database[Collection.ADRESSANKER],
         db=client,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
         today=TODAY,

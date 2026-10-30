@@ -1,5 +1,3 @@
-import { connection } from "next/server";
-
 import { readAsSeatHolder, requireTeamSeats } from "@/features/funktionen/resolvers";
 import { teamHref } from "@/features/funktionen/teamSeats";
 import { KaderView } from "@/features/spieler/components/views/KaderView";
@@ -9,7 +7,6 @@ import type { NextPageProps } from "@/shared/types/types";
 
 /** A team's squad as its seat holder reads it, every seat alike. */
 export default async function KaderPage({ params }: NextPageProps<{ team_id: string; saison_id: string }>) {
-  await connection();
   const seats = await requireTeamSeats(params);
   if (seats === null) return null;
 

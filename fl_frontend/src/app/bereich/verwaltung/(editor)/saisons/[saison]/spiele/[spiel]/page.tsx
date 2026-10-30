@@ -1,6 +1,5 @@
 import { cache, Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { COPY } from "@/core/copy";
 import { FLSonderereignis } from "@/core/generated/client/types";
@@ -63,7 +62,6 @@ export default function SpielEditorPage({ params }: Props) {
 }
 
 async function Editor({ params }: Pick<Props, "params">) {
-  await connection();
   const { saison, spiel } = await params;
   // Retired venues included, so a match booked at one still names it.
   const [gelesen, { spielorte }] = await Promise.all([lesen(spiel), getSpielorte({ include_inactive: true })]);

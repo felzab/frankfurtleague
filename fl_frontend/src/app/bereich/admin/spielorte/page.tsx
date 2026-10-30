@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
 import { AdminCreateSpielortModal } from "@/features/spielorte/components/modals/AdminCreateSpielortModal";
 import { AdminSpielorteView } from "@/features/spielorte/components/views/AdminSpielorteView";
@@ -29,7 +28,6 @@ export default function AdminSpielortePage() {
 }
 
 async function SpielorteTable() {
-  await connection();
   // Retired included: this list's row is the only link into a retired venue's editor, so without the
   // flag nothing reaches one.
   const spielorteRes = await getSpielorte({ include_inactive: true });

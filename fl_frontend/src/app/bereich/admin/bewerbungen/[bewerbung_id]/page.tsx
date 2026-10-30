@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 
 import { getLaufendeFassung, getLaufendesLabel } from "@/core/einwilligung";
 import { gekeyteFassung, KONTAKT_ABSATZ_SCHLUESSEL, KONTAKT_BEDIEN_SCHLUESSEL } from "@/core/einwilligungSeiten";
@@ -35,7 +34,6 @@ export default function AdminBewerbungPage(props: NextPageProps<{ bewerbung_id: 
  * the club into THAT season, whose rules bound the groups the picker may offer.
  */
 async function AdminBewerbungContent({ params }: { params: NextPageProps<{ bewerbung_id: string }>["params"] }) {
-  await connection();
   const bewerbungId = await resolveBewerbungId(params);
 
   // `null` is "no such application"; everything else throws.
